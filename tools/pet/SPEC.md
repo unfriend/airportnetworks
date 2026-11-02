@@ -144,6 +144,9 @@ muscle, bone with marrow, belly outline for subcutaneous fat, aorta arch):
   transparent in one CanvasTexture (a 4 x 4 grid), for sprites or instanced quads (tint them in the shader). Cache it:
   calling it twice returns the same object.
 Until the real icons arrive, a stub draws a circle with the organ's initials; the API stays the same.
+Since v107 the icons are only the panes' pictures (explore's Organs pane: its organ chips, the picked organ's heading
+and its partners' chips, in HTML and on the headset's canvas): no set draws them (the scenes show the organs' 3D
+models, `ORGAN3D`), and the atlas is unused.
 
 ## The sets
 
@@ -237,8 +240,8 @@ and match them), so the engine shows `body` and `organs` together, one over the 
   L1 and L5 (a band), the aorta from its arch down to where it splits.
 - **Uptake** (`organs_suv` 0..1): each organ's value (`suv`, relative to the aorta) as a glowing bar in a column of
   bars beside the body (to its right, x > 0.35), sorted like the organs from head to toe, length by value, in the
-  organ's colour, each with a thin leader line to its organ and its icon (`PET_ICONS`); the aorta's bar is the unit
-  (a dashed line through all bars at 1).
+  organ's colour, each with a thin leader line to its organ and its organ's small 3D model at its foot (`ORGAN3D`,
+  until v107 its icon); the aorta's bar is the unit (a dashed line through all bars at 1).
 - `organs_focus` 0..14 (organ index + 1, 0 none): that organ glows and its bar, node and links brighten; the rest dim.
 - `organs_lesion` 0..1: a tumour hot spot in the right lung (a white-hot blob with a halo) and a ring marker round it.
 - **The cohort matrix** (`organs_rows` 0..1): the bars collapse into one row of 11 cells (the organs of `f2`), the
@@ -246,11 +249,12 @@ and match them), so the engine shows `body` and `organs` together, one over the 
   658 people x 11 organs beside the body (or in front of it, lying like a table). Label "658 scans × 11 organs".
 - **Partial correlation explainer** (`organs_pair` 0..4: `synth.pairs` index + 1, 0 none; `organs_partial` 0..1): a
   square scatter plot panel (glowing dots, the 658 stand-in people; axes labelled with the two organs' names and
-  icons): x = organ a, y = organ b (`xy` raw values) with a fitted line; as `organs_partial` goes to 1 the dots glide
+  small 3D models): x = organ a, y = organ b (`xy` raw values) with a fitted line; as `organs_partial` goes to 1 the dots glide
   to their residual positions (what the other organs do not explain) and the line turns to the partial correlation;
   a label "r = 0.44" becomes "partial r = 0.40 (paper: 0.42)".
-- **The network** (`organs_net` 0..1): the organs' nodes (discs with the organ's icon, ring in its colour, size by
-  strength) rise out of the organs onto a 3D arrangement around and in front of the body (readable from the front,
+- **The network** (`organs_net` 0..1): the organs' nodes (since v107 each its organ's 3D model, `ORGAN3D`, as in the
+  vision row: lit, in its colour, turning slowly, with a soft glow, size by strength; until v107 discs with the
+  organ's icon) rise out of the organs onto a 3D arrangement around and in front of the body (readable from the front,
   good in stereo: for example a shallow dome in front of the torso, each node near the height of its organ), thin
   tethers back to the organs; links as glowing bands or tubes (blue positive, red negative, width and brightness by
   |w|), drawn on organ by organ as `organs_net` rises. Organs absent from the current network fade out.
@@ -258,7 +262,7 @@ and match them), so the engine shows `body` and `organs` together, one over the 
   while the other's shrink, node sizes follow): 0 `full`, 1 `FDG_healthy`, 2 `A_low`, 3 `A_high`, 4 `B_low`,
   5 `B_high`, 6 `C_low`, 7 `C_mid`, 8 `C_high`, 9 `HK2`, 10 `GLUT`. A network that is missing or has no edges yet
   shows its nodes only. Hubs (only the network's `hubs`: those the paper colours; never computed ones, which differ: the paper draws no hub in
-  the network of all scans) glow orange-yellow and pulse slowly.
+  the network of all scans) take on orange-yellow, glow and pulse slowly.
 - **Density and disorder** (`organs_measures` 0..1): the current network's printed density and disorder as a tag under
   its title ("density 12 % · disorder 0.17"). The strength distribution beside the network (bars and an exponential
   fit) was taken out on 29 October 2026 (the owner: no chart beside the body, in the story or in explore).

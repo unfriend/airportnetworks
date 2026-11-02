@@ -18,12 +18,20 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
     the colon, as tubes), the aorta (arch to the split into the iliac arteries), the marrow (L1 to L5 as drums at the
     body set's vertebrae 20 to 24) and the fat (a band 5 to 17 mm under the skin from just above L1 to just below
     L5). The fat band glows at half strength and the marrow at 0.55, so they do not drown the others.
+- **The organs in 3D** (since v107, the owner, 2 November 2026: "use the 3d organs from tissue and time instead of the
+  icons in the network"; no flat glyphs anywhere in the scene, the organs' names as labels): every place the scene
+  marks an organ (a node, a bar's foot, a column's head, the panel's axes) shows its 3D model from the microanatomy
+  story (`ORGAN3D`, `tools/micro/sets/organs.js`: the vision row's models and mapping, the marrow a bone of its own,
+  `PET_ORGAN3D` here), lit, taking on its organ's colour (the marrow keeps its bone's own colours more) and turning
+  slowly about its own axis, each in its own phase. The panes' pictures (explore's Organs pane: its chips and the
+  picked organ's heading, HTML and canvas) still draw `PET_ICONS`; the set no longer uses its atlas.
 - **Uptake**: 14 neon bars to the body's right (x 0.40 to about 1.1), head to toe, with the aorta (the unit) last and
-  set apart. Each bar has its icon disc and a leader line to its organ (paired organs: the left one, nearer the bars).
+  set apart. Each bar has its organ's small model at its foot and a leader line to its organ (paired organs: the left
+  one, nearer the bars).
   A dashed line marks 1 (÷ aorta), and there is an axis with ticks at 0 to 4. Six bars carry a name with the value
   ("Brain · 4.4×"), never two neighbours.
-- **The cohort slab**: the 11 bars of `f2` shrink into one person's row of cells, and their icons fly to head the
-  columns. Then 657 more rows (`synth.rows`) stack behind it, front to back. The result is a glowing table of 658 x 11
+- **The cohort slab**: the 11 bars of `f2` shrink into one person's row of cells, and their organs' models fly to head
+  the columns. Then 657 more rows (`synth.rows`) stack behind it, front to back. The result is a glowing table of 658 x 11
   cells (height and hot-iron colour by value) at chest height to the body's right (x 0.47 to 1.13, z 0.17 back to
   -0.9).
 - **Partial correlation**: a square dark-glass panel stands above the slab's front edge. The 658 stand-in people fly
@@ -37,13 +45,14 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
     Figure 2A whose plain correlation is largest while its partial correlation is about 0. With today's data that is
     **intestine and liver: r = 0.29, partial r = 0.00** (labelled "(paper: no link)"). It shows what a partial
     correlation is for: a link that only passes through other organs vanishes.
-- **The network**: each organ's node (a dark disc with its icon and a ring in its colour) rises out of its organ,
-  tethered, onto a shallow dome in front of the body (z about 0.35 to 0.46). Each node sits near its organ's height
+- **The network**: each organ's node, its 3D model (about 14 to 23 cm across, by its strength), rises out of its organ,
+  tethered, growing to its size as it goes, onto a shallow dome in front of the body (z about 0.35 to 0.46), with a
+  soft glow in its colour behind it (as round the vision row's organs). Each node sits near its organ's height
   and is placed so that a label to its right has room. Every possible pair has an arcing tube. Its width, brightness
   and sign (blue `#4c7cff` positive, red `#ff4d4d` negative) come from the current network, and it draws on organ by
-  organ (from the organ nearer the head). Hubs fill orange-yellow `#ffb020` with a slowly pulsing halo. Organs the
-  network does not have fade out, and isolated ones stay without links. The node discs and halos are camera-facing
-  quads sized in local units, so they keep growing as you lean in (point sprites stop at 160 px).
+  organ (from the organ nearer the head). A hub's model takes on orange-yellow `#ffb020` and glows, with a slowly
+  pulsing halo. Organs the network does not have fade out, and isolated ones stay without links. The halos are
+  camera-facing quads sized in local units, so they keep growing as you lean in (point sprites stop at 160 px).
 - **Density and disorder**: a tag under the network's title, at its left ("density 8 % · disorder 0.30"), as
   printed. There is no chart of the strengths: the one that stood to the right of the network (ranked bars and an
   exponential fit) was taken out on 29 October 2026 (the owner: "remove that from the story and the interactive
@@ -57,7 +66,7 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
 | --- | --- | --- |
 | `organs_a` | 1 | fade (engine) |
 | `organs_seg` | 1 | the sweep. At 0 no shells, at 1 all of them (the resting look). The plane shows between 0 and 1 (in by 0.04, out from 0.9). Key it to 0 before the organs chapter, then 0 -> 1 over about 11 to 14 s. |
-| `organs_suv` | 0 | the uptake bars grow head to toe (0.03 apart, each over 0.36), with icons, leaders, the unit line and labels. Key 0 -> 1 over about 4 to 6 s. |
+| `organs_suv` | 0 | the uptake bars grow head to toe (0.03 apart, each over 0.36), with the organs' models, leaders, the unit line and labels. Key 0 -> 1 over about 4 to 6 s. |
 | `organs_focus` | 0 | organ index + 1 in `PET_DATA.organs` order (brain 1 ... aorta 14), 0 for none. That organ's shell (shown even before the sweep reaches it), bar, node and links brighten, and the rest dim. A fractional value crossfades between neighbours, so **jump it** (or key it back to 0 between organs). |
 | `organs_lesion` | 0 | the tumour hot spot and its rings. Key 0 -> 1 late in the body chapter, and back to 0 before the sweep. |
 | `organs_rows` | 0 | 0-0.28: the f2 bars become one row (the others fade). 0.2-0.32: the slab's first row. 0.36-0.92: the other 657 rows stack. Key 0 -> 1 over about 10 s. Without `organs_suv` the row simply appears. |
@@ -97,7 +106,7 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
 ## Anchors
 
 - Every organ id (all 14): a function. It sits on the organ (`PET_DATA.organs[i].pos`) while `organs_net` is 0 and
-  follows the node as it rises (at the node's right edge, so labels clear the disc). The aorta has no node and stays
+  follows the node as it rises (at its model's right edge, so labels clear it). The aorta has no node and stays
   on the organ.
 - `bar_<id>` (14): the tip of that organ's bar.
 - `seg_<id>` (14): where the sweep names the organ: on it, but never below the plane while the plane moves (nothing
@@ -152,17 +161,21 @@ needs about twice the distance.
 
 ## Explore API: `set.api()`
 
-- `pick(raycaster)` -> an organ id or null. It tries the network's nodes first (once `organs_net` > 0.4), then the
-  bars, then the shells (rough ellipsoids per organ; the fat band only when nothing else is hit; organs not yet
-  swept are skipped). The quads of the nodes and halos ignore three.js raycasts.
+- `pick(raycaster)` -> an organ id or null. It tries the network's nodes first (once `organs_net` > 0.4: a ball of
+  1.1 times the model's radius), then the bars, then the shells (rough ellipsoids per organ; the fat band only when
+  nothing else is hit; organs not yet swept are skipped). The models' meshes (placed in their shader) and the halos
+  ignore three.js raycasts.
 - `netIds`: the 11 ids above (index = `organs_which`). `extraNetIds`: `vena`, `dose_standard`, `dose_ultralow`,
   `dose_virtual` (indices 11 to 14), for the Networks tab's robustness rows.
 - `pairs`: the explainer's pairs (index + 1 = `organs_pair`): `{ a, b, r, pr, paper, indirect }`, `paper` null where
   Figure 2A has no link, `indirect` true for the one found here.
 - `setFocus(id or null)`: like `organs_focus`, eased over about 0.3 s (used when the param is 0).
-- `stats()` -> `{ built, jobMs, verts, tris, per, yr }` (the shell job; `yr` each shell's height range).
+- `stats()` -> `{ built, jobMs, verts, tris, per, yr, nodeTris, smallTris }` (the shell job; `yr` each shell's height
+  range; the two meshes of organ models).
 - Also on the set: `idle()` (the engine calls it while the set is hidden; see Performance) and `finish()` (build the
-  shells now: the harness, tests, sweeps).
+  shells now: the harness, tests, sweeps). Before the set: `SETS.organs.prep(ms)`, the load's (`buildSet` asks until
+  it says true): the models it needs, built a slice at a time (the vision row's prep has built them by then), and
+  their lighter copies (`ORGAN3D.lite`, 1 to 6 ms each), two or three steps of about 25 ms.
 
 ## For the narrator and panel
 
@@ -198,13 +211,16 @@ Sources: Geist et al., Med 6, 100881 (2025): Figure 2A (printed matrices), Figur
     run over (a tube organ or the final upload: up to about 8 ms on a quiet machine).
   - Visible but unbuilt (explore opened straight on it): `update` runs 5 ms slices (11 to 16 frames, at most about
     10 ms each), and the shells fade in over 0.5 s once done.
-- Worst case, everything on (slab, panel, rising network, bars, lesion): 11 draw calls (the chart took 3), about
-  147k triangles (the slab is 87k: 7,238 instanced boxes), 719 points, 105 line segments. With the ghost body, 52k
-  more points.
+- The organs' models: the nodes 24,840 triangles (the full models, one draw call), the small ones 10,654 (their
+  lighter copies: 14 at the bars and two per pair at the panel's axes, one draw call; 6,219 for the bars alone); each
+  mesh is not drawn while none of its models shows (in the network view only the nodes'). They replaced 38 icon quads.
+- Worst case, everything on (slab, panel, rising network, bars, lesion): 12 draw calls (the chart took 3), about
+  183k triangles (the slab is 87k: 7,238 instanced boxes; the organs' models 35k), 719 points, 105 line segments. The
+  network alone: the shells 58.7k, the links 20.6k and the nodes 24.8k. With the ghost body, 52k more points.
 - `update` takes about 0.05-0.1 ms, the 122 label rules 0.012 ms. Nothing is allocated per frame: colours are written
   straight into the arrays, the plane's section uses scratch arrays, attribute lists are kept.
-- No buffer is rebuilt per frame. Per frame the set updates 78 link uniforms (vec4), 14 instance matrices, 38 icon
-  quads, 14 halo quads, 42 moving line segments, the static lines' alphas (105 segments) and the scan plane's six
+- No buffer is rebuilt per frame. Per frame the set updates 78 link uniforms (vec4), 14 instance matrices, 38 organ
+  models' uniforms (place and size, alpha, glow, turn and tint; the nodes' colour), 14 halo quads, 42 moving line segments, the static lines' alphas (105 segments) and the scan plane's six
   section ellipses.
 - `update` is pure: after any other history, the same params give the same buffers, uniforms, anchors and labels
   (checked in 7 cases, including crossfades and the pair glide). The only state: the shell job (and its fade-in),
@@ -227,9 +243,10 @@ Sources: Geist et al., Med 6, 100881 (2025): Figure 2A (printed matrices), Figur
 - Networks on show: up to three with weights (`organs_prev` by `1 - organs_mix`, and `organs_which`'s two neighbours
   by `organs_mix`); every blended value (link weights, presence, strengths, hubs) is their
   weighted sum. A node's name shows while the networks that name it hold more than half the weight.
-- Icons (bar icons, column heads, nodes, panel axes) and the halos are instanced camera-facing quads
-  (one draw call each) from `PET_ICONS.atlas` (normal blending, drawn last, so the discs cover the links as in the
-  paper). The atlas is a uniform, not `.map`, so disposing this set leaves the shared texture alone.
+- The organs' models: `ORGAN3D.merged` (the built models' arrays copied, not built again) into two geometries, with
+  `ORGAN3D.shader(n, { tints: true })` (`uP` place and size, `uQ` alpha, glow, turn and how far the model takes its
+  tint, `uT` the tint) as in the vision row; normal blending, drawn after the links and halos (`renderOrder` 7), so a
+  model covers its links' ends. The halos are instanced camera-facing quads (one draw call).
 - Hubs: only `nets[i].hubs` (those the paper colours); `computed.hubs` is never used.
 - What the data lacked or this set does not use:
   - No printed disorder for the FDG, HK2 and GLUT networks (Table 3 gives density only).
@@ -238,6 +255,7 @@ Sources: Geist et al., Med 6, 100881 (2025): Figure 2A (printed matrices), Figur
     in words.
   - The body set has no glow of its own for the gluteus, the subcutaneous fat or the adrenal glands; those shells are
     placed anatomically inside its outline.
-- Untested: a real headset (comfort, the node quads up close, the shells' darkening over the body in stereo) and the
+- Untested: a real headset (comfort, the node models and halos up close, the shells' darkening over the body in
+  stereo) and the
   narrow phone framing of the network with labels. In the abdomen up to four sweep names show at once on one row
   (lungs and aorta too); the engine nudges overlapping labels apart.

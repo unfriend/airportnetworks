@@ -1986,6 +1986,12 @@ contract.
   before the scanner's set (`SETS.scan.prep`, a slice a step); prognosis is three glass tubes filling with the story's
   cyan light and medication five amber capsule pills rising from a small base (no more neon orange, red and yellow).
   Rebuild the PET story after changing `tools/micro/sets/organs.js` (and the microanatomy and tissue topology stories).
+- The paper's networks the same way (v107; the owner, 2 November 2026: "the network scene not yet, also should all be
+  the same in explore mode"; no flat glyphs, the organs' names as labels): in the `organs` set, story and explore alike,
+  every node is its organ's 3D model (the vision row's models, lit, in its colour, turning slowly, a soft glow behind;
+  a hub's takes on orange-yellow), and the bars' feet, the slab's column heads and the panel's axes show small lighter
+  copies (`ORGAN3D.lite`, made in `SETS.organs.prep`); about 35k triangles in two draw calls. `PET_ICONS` only draws
+  the panes' pictures now (explore's Organs pane, HTML and the headset's canvas).
 
 - The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
   header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
