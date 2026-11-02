@@ -348,7 +348,7 @@ void main() {
   if (vA < 0.0005) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `varying vec3 vC; varying float vA, vR;
-void main() { gl_FragColor = vec4(vC, vA * (0.25 + 0.75 * vR * vR)); }`,
+void main() { gl_FragColor = vec4(vC, 0.5 * vA * (0.25 + 0.75 * vR * vR)); }`,   // (half: 71 stacked fills made a white haze over the links)
   });
   set.mats.push(fillMat);
   const fills = new THREE.Mesh(fillGeo, fillMat); fills.frustumCulled = false; fills.renderOrder = 0;
@@ -370,7 +370,7 @@ void main() {
   vC = col; vS = q.w; vA = (1.0 - 0.4 * uWalk) * clamp(q.x, 0.0, 1.4) * L0.y * uA * mix(L3.z, 1.0, max(q.w, m.y)) * (1.0 + 0.5 * q.w * uSeeds * pulse);
   vec4 mv = modelViewMatrix * vec4(xz.x, L0.x, xz.y, 1.0);
   gl_Position = projectionMatrix * mv;
-  float sz = 0.0125 * (0.75 + 0.4 * min(q.x, 1.0)) * (1.0 + 0.45 * q.w + q.w * uSeeds * (0.35 + 0.3 * pulse)) * (1.0 + 0.6 * m.y);
+  float sz = 0.0105 * (0.75 + 0.4 * min(q.x, 1.0)) * (1.0 + 0.6 * q.w + q.w * uSeeds * (0.35 + 0.3 * pulse)) * (1.0 + 0.6 * m.y);
   gl_PointSize = pointPx(sz, mv);
   if (vA < 0.006) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -378,9 +378,11 @@ void main() {
 void main() {
   vec2 c = gl_PointCoord - 0.5; float d = length(c);
   if (d > 0.5) discard;
-  float core = smoothstep(0.5, 0.2, d), glow = pow(1.0 - d * 2.0, 1.6);
-  float a = max(core * 0.8, glow * 0.6);
-  vec3 col = mix(vC, vec3(1.0), smoothstep(0.24, 0.0, d) * (0.25 + 0.65 * vS));
+  // (a small soft glow only: thousands of points add up, and a wide glow buried the links in a white haze; the genes
+  // picked out keep more of it; the owner, 2 November 2026: "keep some glow but not that much")
+  float core = smoothstep(0.42, 0.18, d), glow = pow(1.0 - d * 2.0, 2.6);
+  float a = max(core * 0.75, glow * mix(0.2, 0.55, vS));
+  vec3 col = mix(vC, vec3(1.0), smoothstep(0.2, 0.0, d) * (0.1 + 0.75 * vS));
   gl_FragColor = vec4(col, vA * a);
 }`,
   });
@@ -459,7 +461,7 @@ vec4 ribbon(vec3 a, vec3 b, float end, float side, float w, float wMin, float wM
   // across the ribbon: full in the middle, soft at the edges
   const RIBBON_FRAG = `varying vec3 vC; varying float vA, vS;
 void main() { float a = vA * (1.0 - abs(vS * vS * vS)); if (a < 0.0015) discard; gl_FragColor = vec4(vC, a); }`;
-  const LK = { ctx: 0.11, busy: 0.8, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.6, within: 0.5, betw: 0.42, gene: 0.5,
+  const LK = { ctx: 0.08, busy: 0.8, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.6, within: 0.5, betw: 0.42, gene: 0.5,
     wCtx: 0.0062, wHi: 0.0105, wMin: 1.1, wMaxC: 2.2, wMaxH: 3.6 };
   const lnMat = new THREE.ShaderMaterial({
     uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
