@@ -422,6 +422,96 @@ body.xr #labels, body.xr #tip { display: none; }
   /* one group of view controls fits in one row: the pane comes down to the bar (no empty strip) */
   body.exploring:has(#viewctl > .grp:only-child) #panel { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); height: calc(46% + 46px); }
 }
+/* focus mode (HOST.focus: phones and tablets by default, Focus view on the Stories screen elsewhere): the 3D on its own, a
+   slim bar at the top (the story's title, Stories, Shared, More) and one at the foot (play, the chapter arrows and the
+   chapter's name, a thin timeline along its top edge, Next at a slideshow stop, Sound, Text; in explore mode the view
+   controls and Controls), the narration's words in a strip just above the foot bar and a chapter's title as it starts.
+   Text brings the story's panel back as it is; Controls pulls explore's panes up in a drawer. The Stories screen is as
+   ever. The scene's safe area is the page less the two bars (--fc-top, --fc-bot) */
+:root { --fc-top: calc(48px + env(safe-area-inset-top, 0px)); --fc-bot: calc(56px + env(safe-area-inset-bottom, 0px)); }
+.fc, #fcMenu, #subs, #chtitle { display: none; }
+body.focus:not(.picking) #top {
+  height: var(--fc-top); gap: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px));
+  background: linear-gradient(rgba(3, 8, 16, 0.62), rgba(3, 8, 16, 0.3) 70%, rgba(3, 8, 16, 0));
+}
+body.focus:not(.picking) .brand { font-size: 14px; }
+body.focus:not(.picking) .brand span { display: none; }
+body.focus:not(.picking) #top .btn { padding: 6px 11px; font-size: 13px; }
+body.focus:not(.picking) #btnShared:not(.on) { display: inline-block; }
+body.focus:not(.picking) #top :is(#btnSound, #btnInstall, #btnAR, #btnVR) { display: none; }
+@media (max-width: 699px) { body.focus:not(.picking) #top #btnMode { display: none; } }
+body.focus:not(.picking) #top #fcMore { display: grid; place-items: center; width: 36px; height: 32px; padding: 0; }
+#fcMore svg { width: 16px; height: 16px; fill: var(--ink); }
+body.focus:not(.picking) #fcMenu:not([hidden]) {
+  display: flex; flex-direction: column; gap: 2px; position: absolute; top: calc(100% - 6px); right: max(10px, env(safe-area-inset-right, 0px));
+  min-width: 13rem; padding: 6px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+#fcMenu button { text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 6px; font-size: 15px; color: var(--ink); }
+#fcMenu button:hover, #fcMenu button:focus-visible { background: var(--chip); }
+#fcMenu .sep { height: 1px; margin: 4px 6px; background: var(--line); }
+body.focus:not(.picking) #bar {
+  height: var(--fc-bot); gap: 4px; padding: 0 max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px));
+  background: rgba(3, 8, 16, 0.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+body.focus:not(.picking) #play { order: 1; width: 40px; height: 40px; }
+body.focus:not(.picking) #fcPrev { order: 2; }
+body.focus:not(.picking) #fcNext { order: 3; }
+body.focus:not(.picking) #fcName, body.focus:not(.picking) #btnNextBar { order: 4; margin-right: auto; }
+body.focus:not(.picking) #clock { order: 5; font-size: 12px; margin: 0 4px; }
+body.focus:not(.picking) #viewctl { order: 2; }
+body.focus:not(.picking) #fcSound { order: 6; }
+body.focus:not(.picking) #fcText, body.focus:not(.picking) #fcCtl { order: 7; }
+body.focus:not(.picking) .fc.ico { display: grid; place-items: center; flex: none; width: 38px; height: 40px; padding: 0; border: 0; border-radius: 6px; background: none; }
+body.focus:not(.picking) .fc.ico[hidden] { display: none; }
+.fc.ico svg { width: 16px; height: 16px; fill: #e7eef8; }
+#fcSound svg .w, #fcSound svg .x { fill: none; stroke: #e7eef8; stroke-width: 1.5; stroke-linecap: round; }
+#fcSound[data-s="off"] svg .w, #fcSound:not([data-s="off"]) svg .x { display: none; }
+#fcSound[data-s="wait"] svg .w { opacity: 0.35; }
+body.focus:not(.picking) #fcName {
+  display: block; flex: 1; min-width: 0; padding: 0 4px 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; font-weight: 700; color: #f2f6fc;
+}
+body.focus:not(.picking) #bar:has(#btnNextBar:not([hidden])) #fcName { display: none; }
+body.focus:not(.picking):not(.exploring) #btnNextBar:not([hidden]) { display: block; padding: 7px 16px; font-size: 14px; }
+body.focus:not(.picking) #track { position: absolute; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); top: -9px; height: 18px; flex: none; }
+body.focus:not(.picking) #track .rail, body.focus:not(.picking) #track .done { top: 8px; }
+body.focus:not(.picking) #track .tick { top: 5px; height: 9px; }
+body.focus:not(.picking) #track .knob { top: 4px; width: 11px; height: 11px; margin-left: -5px; }
+body.focus:not(.picking) #track .name { display: none; }
+@media (max-width: 599px) { body.focus:not(.picking) #clock { display: none; } }
+body.focus:not(.picking) #fcText, body.focus:not(.picking) #fcCtl { display: block; flex: none; padding: 7px 12px; font-size: 13px; }
+body.focus:not(.picking) #fcText[aria-pressed="true"], body.focus:not(.picking) #fcCtl[aria-pressed="true"] { background: #46d9ff; border-color: transparent; color: #04131c; font-weight: 700; }
+body.focus:not(.picking).exploring :is(#fcPrev, #fcName, #fcNext, #fcText), body.focus:not(.picking):not(.exploring) #fcCtl { display: none; }
+body.focus:not(.picking).exploring #viewctl { flex: 1; min-width: 0; flex-wrap: nowrap; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+body.focus:not(.picking).exploring #viewctl .grp { flex: none; }
+/* the panel: none while the 3D is on its own; Text open, as ever between the slim bars (a phone's bottom sheet, a wide
+   screen's side panel); explore's drawer, pulled up from the foot bar, at most 60 % of the height */
+body.focus:not(.picking):not(.exploring):not(.fc-text) #panel, body.focus:not(.picking).exploring:not(.fc-drawer) #panel { display: none; }
+body.focus:not(.picking) #top ~ #panel { top: calc(var(--fc-top) + 8px); bottom: calc(var(--fc-bot) + 8px); }
+body.focus #slides #btnNext { display: none; }
+body.focus.fc-drawer:not(.picking).exploring #top ~ #panel { top: auto; height: auto; max-height: 60%; padding-top: 0; }
+body.focus.fc-drawer:not(.picking).exploring #fcHandle { display: block; width: 100%; height: 26px; margin: 0 0 6px; padding: 0; border: 0; background: none; }
+#fcHandle i { display: block; width: 44px; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--faint); }
+@media (max-width: 899px) {
+  body.focus:not(.picking) #top ~ #panel { top: auto; bottom: var(--fc-bot); }
+  body.focus.fc-drawer:not(.picking).exploring #top ~ #panel { bottom: var(--fc-bot); height: auto; max-height: 60%; }
+}
+/* the subtitles (the headsets' captions: at most two lines, smaller type before a third) and a chapter's title */
+body.focus:not(.picking) #subs { display: block; position: fixed; z-index: 3; left: 0; right: 0; bottom: calc(var(--fc-bot) + 10px); padding: 0 10px; text-align: center; pointer-events: none; opacity: 0; }
+#subs > div {
+  display: inline-block; max-width: min(46rem, 100%); padding: 5px 14px 6px; border-radius: 12px; background: rgba(8, 15, 28, 0.74);
+  color: #fff; font-size: clamp(18px, 1.6vmin + 14px, 28px); line-height: 1.32; text-wrap: balance; overflow-wrap: break-word;
+}
+#subs > div:empty { display: none; }
+body.focus:not(.picking) #chtitle {
+  display: block; position: fixed; z-index: 3; left: 0; right: 0; top: calc(var(--fc-top) + 16px); padding: 0 16px; text-align: center; pointer-events: none; opacity: 0;
+  color: #fff; font-weight: 700; font-size: clamp(22px, 2.2vmin + 14px, 36px); line-height: 1.15; text-wrap: balance;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8), 0 0 3px rgba(0, 0, 0, 0.7);
+}
+#chtitle::after { content: ''; display: block; width: 40px; height: 3px; margin: 10px auto 0; border-radius: 2px; background: #46d9ff; }
+/* neither over the story's text, explore mode (its drawer) or a headset session: gone at once, not faded */
+body.focus:not(.picking):is(.fc-text, .exploring, .xr) :is(#subs, #chtitle) { display: none; }
+body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(var(--fc-top) + 8px); }
 @media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading { transition: none; } }
 </style>
 </head>
@@ -440,8 +530,11 @@ body.xr #labels, body.xr #tip { display: none; }
   <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the network floats in your room">Enter AR</button>
   <button class="btn primary" id="btnVR" type="button" hidden title="View in your VR headset">Enter VR</button>
   <button class="btn" id="btnMode" type="button">Explore now</button>
+  <button class="btn fc" id="fcMore" type="button" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="fcMenu" title="More"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.6"/><circle cx="8" cy="8" r="1.6"/><circle cx="13" cy="8" r="1.6"/></svg></button>
+  <div id="fcMenu" hidden></div>
 </header>
 <aside id="panel">
+  <button class="fc" id="fcHandle" type="button" aria-label="Close the controls" title="Close the controls"><i></i></button>
   <div id="story" aria-live="polite"></div>
   <div id="slides" hidden><button class="btn primary" id="btnNext" type="button" hidden>Next</button><button class="btn" id="btnSlides" type="button" aria-pressed="false" title="Stop at the end of each chapter of this story until you press Next">Slideshow: off</button></div>
   <div id="explore"></div>
@@ -452,7 +545,16 @@ body.xr #labels, body.xr #tip { display: none; }
   <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="232" aria-valuenow="0"></div>
   <div id="clock">0:00 / 3:51</div>
   <div id="viewctl"></div>
+  <button class="fc ico" id="fcPrev" type="button" aria-label="Previous chapter" title="Previous chapter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h2v11H3zM13.5 2.5v11L5.5 8z"/></svg></button>
+  <span class="fc" id="fcName"></span>
+  <button class="fc ico" id="fcNext" type="button" aria-label="Next chapter" title="Next chapter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2.5h2v11h-2zM2.5 2.5v11l8-5.5z"/></svg></button>
+  <button class="fc ico" id="fcSound" type="button" hidden aria-label="Sound on" title="Sound on"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5h3L8.5 2v12l-4-3.5h-3z"/><path class="w" d="M10.6 5.2a3.6 3.6 0 0 1 0 5.6M12.4 3.3a6.2 6.2 0 0 1 0 9.4"/><path class="x" d="M10.5 5.5l4 5M14.5 5.5l-4 5"/></svg></button>
+  <button class="btn fc" id="fcText" type="button" aria-pressed="false" aria-controls="panel" title="The story's text">Text</button>
+  <button class="btn fc" id="fcCtl" type="button" aria-pressed="false" aria-controls="panel" title="Explore's controls">Controls</button>
 </footer>
+<!-- focus mode: the narration's words over the 3D, and a chapter's title as it starts (HOST.focus) -->
+<div id="subs" aria-hidden="true"><div></div></div>
+<div id="chtitle" aria-hidden="true"></div>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
     <h1 id="pickTitle">Networks, in sixteen stories</h1>
@@ -462,6 +564,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <button class="rep" type="button" data-repeat="all" aria-pressed="false">Repeat all</button>
       <button class="rep" type="button" data-repeat="one" aria-pressed="false">Repeat one</button>
       <button class="rep" type="button" id="btnSlidesAll" aria-pressed="false" title="Every story stops at the end of each chapter until you press Next">Slideshow</button>
+      <button class="rep" type="button" id="btnFocus" aria-pressed="false" title="Only the 3D, with slim bars and subtitles: Text brings the story's panel back (on by default on phones and tablets)">Focus view</button>
       <span class="hint"></span>
       <button class="rep" type="button" id="btnSndCheck" aria-expanded="false" aria-controls="sndcheck">Sound check</button>
       <button class="rep" type="button" id="btnSharedPick" data-open-shared aria-expanded="false" aria-controls="shared">Shared</button>
@@ -1267,7 +1370,7 @@ HOST.xr = (function () {
 // shared room (shared.js) listen to it
 (function () {
   let s = null;
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
@@ -1968,6 +2071,210 @@ HOST.panels = (function () {
     sig: key => get(key),
   };
 })();
+// ------------------------------------------------------------------ focus mode --
+// Focus mode on a page (the owner, 2 November 2026: "on a mobile device, phone as well as the ipad it needs less of the
+// ui, maybe just a small bar and subtitles so the main focus is on the 3d models"): the story's 3D on its own between a
+// slim bar at the top (the story's title, Stories, Shared and More: the mode button, AR, VR and Install where the bar has
+// no room for them, and Focus view) and one at the foot (play, the chapter arrows with the chapter's name, a thin
+// timeline along its top edge, Next at a slideshow stop, Sound, Text), the narration's words in a strip just above the
+// foot bar (the headsets' own captions: shared.js, HOST.collab.caption) and each chapter's title for about 3 s as it
+// starts (played into or jumped to). Text brings the story's panel back as it is (a phone's bottom sheet, a wide screen's
+// side panel); in explore mode the view controls stay in the foot bar and Controls pulls the panes up in a drawer (at
+// most 60 % of the height), closed whenever explore mode starts. On by default on phones and tablets (a coarse pointer
+// and a screen whose smaller side is at most 1100 px; never in a headset's browser, whose page is for Enter VR), off on
+// desktops; this device's own (pageFocus in localStorage), never a shared room's; Focus view on the Stories screen and in
+// More, #focus=on|off in a link. body.focus while it is on (whatever is open), fc-text and fc-drawer while those are open.
+// HOST.focus() is true while the page shows the 3D on its own: focus mode on, no headset session, a story on show (not
+// the Stories screen) and neither Text nor the drawer open. Stories frame their scene by it in resize() (the safe area:
+// the page less the top bar, 48 px, and the foot bar, 56 px, with the safe-area insets; the subtitles over its foot); the
+// shell sends a resize event whenever it changes.
+HOST.focus = (function () {
+  const KEY = 'pageFocus', el = id => document.getElementById(id), body = document.body;
+  const F = { on: false, text: false, drawer: false, val: null, mode: '', cur: null, ch: null, chK: '', pick: true, title: 0, ta: -1, snd: null, t: 0,
+    sub: { shown: '', id: '', a: 0, o: '' } };
+  try { F.on = !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent) && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 1100; } catch (e) { /* no media queries */ }
+  try { const v = localStorage.getItem(KEY); if (v === 'on' || v === 'off') F.on = v === 'on'; } catch (e) { /* storage blocked */ }
+  const exploring = () => body.classList.contains('exploring');
+  const inXR = () => !!HOST.session || !!(HOST.renderer && HOST.renderer.xr && HOST.renderer.xr.isPresenting);
+  const value = () => F.on && !inXR() && !!HOST.curKey && !HOST.picking && !(exploring() ? F.drawer : F.text);
+  const app = () => { const c = HOST.cur && HOST.cur.collab; return (c && c.APP) || null; };
+  const built = () => { try { return !!(HOST.cur && HOST.cur.collab.scene()) && el('loading').classList.contains('gone'); } catch (e) { return false; } };
+  const pressed = (b, on) => { const v = on ? 'true' : 'false'; if (b && b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); };
+  // the story's chapters (its CH: key, name, and na and nb on the clock; the pass story's names in the device's language)
+  function chapters() {
+    if (F.cur !== HOST.cur) { F.cur = HOST.cur; F.ch = null; try { const c = HOST.cur && HOST.cur.peek('CH'); if (Array.isArray(c) && c.length) F.ch = c; } catch (e) { /* none */ } }
+    return F.ch;
+  }
+  const chAt = (ch, t) => { let i = 0; for (let k = 1; k < ch.length; k++) if (t >= ch[k].na) i = k; return i; };
+  // the chapter arrows, as on the headset's foot panel: back to this chapter's start (the one before within 2 s of it),
+  // on to the next one's (or the end)
+  function chapter(dir) {
+    const A = app(), ch = chapters();
+    if (!A || !ch || A.mode !== 'story') return;
+    const t = +A.t || 0, i = chAt(ch, t);
+    let end = Infinity;
+    try { end = +HOST.cur.peek('T_END'); } catch (e) { /* none */ }
+    if (dir < 0) A.seek(t > ch[i].na + 2 || i === 0 ? ch[i].na : ch[i - 1].na);
+    else A.seek(i < ch.length - 1 ? ch[i + 1].na : Math.max(ch[i].na, end - 0.01));
+  }
+  function check() {
+    // explore mode begun (or the story again, or another story): Text and the drawer closed, the 3D on its own
+    const m = (exploring() ? 'x:' : 's:') + (HOST.curKey || '');
+    if (m !== F.mode) { F.mode = m; F.text = F.drawer = false; }
+    body.classList.toggle('focus', F.on);
+    body.classList.toggle('fc-text', F.on && F.text);
+    body.classList.toggle('fc-drawer', F.on && F.drawer);
+    pressed(el('fcText'), F.text); pressed(el('fcCtl'), F.drawer); pressed(el('btnFocus'), F.on);
+    if (!F.on || HOST.picking) menu(false);
+    const v = value();
+    // no subtitles and no chapter title over the story's text, explore mode or the Stories screen: gone at once
+    if (!v || exploring()) {
+      if (F.sub.shown) { F.sub.a = 0; caption('', ''); F.sub.o = '0'; el('subs').style.opacity = '0'; }
+      if (F.title) { F.title = 0; F.ta = 0; el('chtitle').style.opacity = '0'; }
+    }
+    if (v !== F.val) { const was = F.val; F.val = v; if (was !== null) window.dispatchEvent(new Event('resize')); }
+  }
+  function set(on) {
+    F.on = !!on;
+    try { localStorage.setItem(KEY, F.on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
+    F.text = F.drawer = false; F.title = 0; F.chK = ''; F.pick = true;
+    caption('', ''); F.sub.a = 0;
+    check();
+  }
+  function text(open) {
+    F.text = !!open && F.on && !exploring();
+    check();
+    if (F.text) requestAnimationFrame(reveal);
+  }
+  function drawer(open) { F.drawer = !!open && F.on && exploring(); check(); }
+  // Text opened mid-chapter: the latest line shown in sight, as the stories keep it on a short panel
+  function reveal() {
+    const p = el('panel'), on = p.querySelector('#story .ch.on');
+    if (!F.text || !on) return;
+    let last = null;
+    for (const e of on.querySelectorAll('[data-at]')) if (e.style.visibility === 'visible') last = e;
+    if (!last) { p.scrollTop = 0; return; }
+    const over = last.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(p).paddingBottom) || 0));
+    if (over > 0) p.scrollTop += over;
+  }
+  // More: what the top bar has no room for now (the mode button stays there on a wide screen), then Focus view
+  function menu(open) {
+    const m = el('fcMenu'), b = el('fcMore');
+    if (!open) { if (!m.hidden) { m.hidden = true; b.setAttribute('aria-expanded', 'false'); } return; }
+    m.textContent = '';
+    const add = (label, data) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; Object.assign(x.dataset, data); m.appendChild(x); return x; };
+    const left = ['btnMode', 'btnAR', 'btnVR', 'btnInstall'].map(el).filter(x => x && !x.hidden && getComputedStyle(x).display === 'none');
+    for (const x of left) add(x.textContent, { for: x.id });
+    if (left.length) m.appendChild(Object.assign(document.createElement('div'), { className: 'sep' }));
+    add('Focus view: on', { fc: 'off' }).setAttribute('aria-pressed', 'true');
+    m.hidden = false; b.setAttribute('aria-expanded', 'true');
+  }
+  function close() {
+    if (!el('fcMenu').hidden) { menu(false); return true; }
+    if (F.text) { text(false); return true; }
+    if (F.drawer) { drawer(false); return true; }
+    return false;
+  }
+  // the foot bar's Sound, as the top bar's button (HOST.audio) says it
+  function sound() {
+    const b = el('btnSound'), s = b.hidden ? '' : b.textContent, p = b.getAttribute('aria-pressed') || 'false', k = s + '|' + p + '|' + b.title;
+    if (k === F.snd) return;
+    F.snd = k;
+    const f = el('fcSound');
+    f.hidden = !s; f.dataset.s = s === 'Sound on' ? 'on' : s === 'Sound off' ? 'off' : 'wait';
+    f.setAttribute('aria-label', s || 'Sound'); f.title = b.title || s; f.setAttribute('aria-pressed', p);
+  }
+  // the subtitles: the caption in the strip, at most two lines (its type smaller, down to about three quarters, before a
+  // third)
+  function lines(b) {
+    const r = document.createRange(), tops = new Set();
+    r.selectNodeContents(b);
+    for (const x of r.getClientRects()) if (x.width > 0) tops.add(Math.round(x.top));
+    return tops.size;
+  }
+  function fit() {
+    const b = el('subs').firstElementChild;
+    b.style.fontSize = '';
+    if (!b.textContent) return;
+    const base = parseFloat(getComputedStyle(b).fontSize) || 20, min = Math.max(14, Math.round(base * 0.72));
+    for (let px = Math.round(base); lines(b) > 2 && px > min;) { px -= 1; b.style.fontSize = px + 'px'; }
+  }
+  function caption(s, id) { const S = F.sub; S.shown = s; S.id = id; const b = el('subs').firstElementChild; if (b.textContent !== s) { b.textContent = s; fit(); } }
+  // a chapter's title (its heading on the panel, else its name as the timeline shows it)
+  function title(c) {
+    const sec = document.querySelector('#story .ch[data-ch="' + CSS.escape(String(c.key)) + '"]'), h = sec && sec.querySelector('h1, h2');
+    const s = ((h && h.textContent) || c.name || '').replace(/\s+/g, ' ').trim();
+    if (!s) return;
+    el('chtitle').textContent = s; F.title = performance.now();
+  }
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = F.t ? Math.min(0.1, Math.max(0, (now - F.t) / 1000)) : 0;
+    F.t = now;
+    check();
+    if (!F.on) return;
+    sound();
+    const A = app(), picking = HOST.picking, story = !!A && A.mode === 'story' && built();
+    const ch = story ? chapters() : null, i = ch ? chAt(ch, +A.t || 0) : -1, on = !!ch && value() && !document.hidden;
+    if (ch) { const n = el('fcName'), name = String(ch[i].name || ''); if (n.textContent !== name) n.textContent = name; }
+    // a chapter's title as it starts: played into, jumped to, or a story begun from the Stories screen
+    const k = ch ? HOST.curKey + ':' + ch[i].key : '';
+    if (k !== F.chK) { F.chK = k; if (on) title(ch[i]); } else if (F.pick && !picking && on && A.t - ch[i].na < 1.5) title(ch[i]);
+    F.pick = picking;
+    let ta = 0;
+    if (F.title && on) {
+      const a = (now - F.title) / 1000;
+      ta = a < 0.35 ? a / 0.35 : a < 2.6 ? 1 : Math.max(0, 1 - (a - 2.6) / 0.6);
+      if (a > 3.2) F.title = 0;
+    } else F.title = 0;
+    if (ta !== F.ta) { F.ta = ta; el('chtitle').style.opacity = (ta * ta * (3 - 2 * ta)).toFixed(3); }
+    // the subtitles, faded between captions as in a headset (a live number changing in the one on show: redrawn in place);
+    // gone at once when Text or explore mode opens, or the page leaves the story
+    const S = F.sub;
+    let want = '', id = '';
+    if (on && HOST.collab && HOST.collab.caption) { const c = HOST.collab.caption(); want = c.text || ''; id = c.id || ''; }
+    if (!on && S.shown) { S.a = 0; caption('', ''); }
+    if (want && want !== S.shown && id === S.id) caption(want, id);
+    if (want !== S.shown) { S.a = Math.max(0, S.a - dt / 0.15); if (S.a === 0) caption(want, id); } else if (want) S.a = Math.min(1, S.a + dt / 0.2);
+    const o = S.shown ? (S.a * S.a * (3 - 2 * S.a)).toFixed(3) : '0';
+    if (o !== S.o) { S.o = o; el('subs').style.opacity = o; }
+  }
+  // the bars' buttons (added before any story runs: no story's listeners, so never taken away with one)
+  el('fcPrev').addEventListener('click', () => chapter(-1));
+  el('fcNext').addEventListener('click', () => chapter(1));
+  el('fcSound').addEventListener('click', () => el('btnSound').click());
+  el('fcText').addEventListener('click', () => text(!F.text));
+  el('fcCtl').addEventListener('click', () => drawer(!F.drawer));
+  el('fcHandle').addEventListener('click', () => drawer(false));
+  el('fcMore').addEventListener('click', () => menu(el('fcMenu').hidden));
+  el('fcMenu').addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    menu(false);
+    if (b.dataset.fc === 'off') { b.setAttribute('aria-pressed', 'false'); set(false); return; }
+    const o = el(b.dataset.for);
+    if (o) o.click();
+  });
+  document.addEventListener('pointerdown', ev => { if (!el('fcMenu').hidden && !(ev.target.closest && ev.target.closest('#fcMenu, #fcMore'))) menu(false); }, true);
+  addEventListener('resize', () => { if (F.sub.shown) fit(); });
+  // the stories start and leave explore mode, the Stories screen opens and closes, a headset session begins and ends: all
+  // change the body's classes (explore mode left and begun again in one go is begun again: its drawer closed)
+  new MutationObserver(rs => {
+    const ex = /(^|\s)exploring(\s|$)/;
+    if (rs.some(r => ex.test(r.oldValue || '') !== exploring())) F.mode = '';
+    check();
+  }).observe(body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+  check();
+  requestAnimationFrame(frame);
+  const focus = () => value();
+  return Object.assign(focus, {
+    on: () => F.on, set, check, close, chapter,
+    text(open) { if (open !== undefined) text(open); return F.text; },
+    drawer(open) { if (open !== undefined) drawer(open); return F.drawer; },
+    // for tests: what shows now (the caption in the strip, the chapter's title while it shows)
+    state: () => ({ on: F.on, text: F.text, drawer: F.drawer, value: value(), sub: F.sub.shown, subA: F.sub.a, title: F.title ? el('chtitle').textContent : '' }),
+  });
+})();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on
 // the last picture) and the story should just stop, false that it opens explore mode as usual
 HOST.ended = function () {
@@ -2426,6 +2733,7 @@ HOST.cards = function () {
     const r = ev.target.closest('[data-repeat]');
     if (r) { HOST.toggleRepeat(r.dataset.repeat); return; }
     if (ev.target.closest('#btnSlidesAll')) { HOST.slides.setGlobal(!HOST.slides.global()); return; }
+    if (ev.target.closest('#btnFocus')) { HOST.focus.set(!HOST.focus.on()); return; }
     if (ev.target.closest('#btnSndCheck')) { HOST.soundCheck(document.getElementById('sndcheck').hidden); return; }
     const sc = ev.target.closest('[data-snd]');
     if (sc) {
@@ -2456,7 +2764,8 @@ HOST.cards = function () {
   });
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
-    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else HOST.closePicker();
+    // (in focus mode, More, the story's text or explore's drawer close first)
+    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (HOST.picking || !HOST.focus.close()) HOST.closePicker();
   });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
@@ -2469,6 +2778,7 @@ HOST.cards = function () {
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('voice')) HOST.xr.setVoice(hp.get('voice') !== 'off');
+  if (hp.has('focus')) HOST.focus.set(hp.get('focus') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
