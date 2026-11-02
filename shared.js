@@ -3663,12 +3663,20 @@
     }
     S.tex.needsUpdate = true;
   }
+  // the caption on show now for the story on show (its hook read, split and timed as above): [text, id], both '' when there
+  // is none. The one source of the captions: the headsets' strip (drawSubs) and the page's in focus mode (index.html,
+  // through HOST.collab.caption) show the same words at the same moment
+  function captionNow(t) {
+    let c = null;
+    if (HOST.cur && typeof HOST.cur.caption === 'function') { try { c = HOST.cur.caption(); } catch (e) { c = null; } }
+    if (c && c.els && c.narrT) { try { return subNow(c, t); } catch (e) { /* none */ } }
+    SUB.res[0] = SUB.res[1] = '';
+    return SUB.res;
+  }
   function drawSubs(dt) {
     const S = OV.sub, on = !!(HOST.xr && HOST.xr.subs && HOST.xr.subs()) && HD.ok && !away(), t = performance.now();
-    let c = null;
-    if (on && HOST.cur && typeof HOST.cur.caption === 'function') { try { c = HOST.cur.caption(); } catch (e) { c = null; } }
     let want = '', id = '';
-    if (c && c.els && c.narrT) { try { const r = subNow(c, t); want = r[0]; id = r[1]; } catch (e) { want = id = ''; } }
+    if (on) { const r = captionNow(t); want = r[0]; id = r[1]; }
     S.want = want; S.wantId = id;
     // fading between captions (a live number changing in the one on show redraws it in place)
     if (want && want !== SUB.shown && id === SUB.shownId) { subDraw(want); SUB.shown = want; }
@@ -5608,6 +5616,9 @@
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
+    // the caption on show now ({ text, id }: '' none), the headsets' subtitles' words: the page's subtitles in focus mode
+    // (HOST.focus in index.html) show these
+    caption: () => { const r = captionNow(performance.now()); return { text: r[0], id: r[1] }; },
     // a station's icon on its own (tools/icons.html, after HOST.lowpoly()): { g, lean, spin, mesh, see, halo, model: its
     // miniature's key ('' the fallback) }, posed with pose(yaw, lean, t in s)
     icon: key => { const I = makeIcon(key); I.pose = (yaw, lean, t) => poseIcon(I, yaw, lean, t); return I; },
