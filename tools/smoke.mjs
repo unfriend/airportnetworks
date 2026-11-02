@@ -1663,6 +1663,13 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
     if (miss.length) errors.push('the All stories hook lines are missing in ' + miss.join(', '));
   });
+  // focus mode's framing line (v106): every story frames its scene for the whole page while HOST.focus() is true
+  await step('every story keeps the focus mode framing lines', async () => {
+    const lines = ['GL.bare = !!(HOST.focus && HOST.focus());', 'if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);'];
+    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+      [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
+    if (miss.length) errors.push('the focus mode framing lines are missing in ' + miss.join(', '));
+  });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
   // and explore panel neither drawn nor pointable) or hidden (neither; A or X still plays), in story and explore mode;
   // each story its own (the design room too), kept across a reload, set by a link for the story it opens; cards hidden
