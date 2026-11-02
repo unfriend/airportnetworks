@@ -1109,8 +1109,9 @@ void main() {
       cur.nodeS[i] = 0.088 + 0.06 * Math.sqrt(Math.min(1, str / 3));
       if (hub * pres > 0.5 && str > bs) { bs = str; best = i; }
       hp[3 * i] = p[0]; hp[3 * i + 1] = p[1]; hp[3 * i + 2] = p[2] - 0.004;
-      // the node's model rises out of its organ and grows to its size; its radius for the label beside it and the pick
-      cur.nodeR[i] = NODE_R * cur.nodeS[i] * (0.4 + 0.6 * smooth(u));
+      // the node's model rises out of its organ and grows to its size (a focused one a quarter more); its radius for the
+      // label beside it and the pick
+      cur.nodeR[i] = NODE_R * cur.nodeS[i] * (0.4 + 0.6 * smooth(u)) * (1 + 0.25 * fw);
       const pul = 0.8 + 0.2 * Math.sin(t * 1.6 + i), hb = hub > fw;
       hs[i] = cur.nodeS[i] * (1.9 + 0.35 * pul * hub);
       hc[3 * i] = hb ? HUBC[0] : COL[i][0]; hc[3 * i + 1] = hb ? HUBC[1] : COL[i][1]; hc[3 * i + 2] = hb ? HUBC[2] : COL[i][2];
@@ -1137,7 +1138,7 @@ void main() {
       sP[i].set(x, y, z, SMALL_R * s * (1 + 0.3 * fw)); sQ[i].set(a, 0.15 + 0.3 * fw, turn, TINT[i]);
       // a node: hubs take on the paper's orange-yellow and glow, a focused one grows and brightens
       const p = cur.node[i], hk = cur.hubW[i] * prog(net, 0.5, 0.8), h = 0.7 * hk;
-      nP[i].set(p[0], p[1], p[2], cur.nodeR[i] * (1 + 0.25 * fw));
+      nP[i].set(p[0], p[1], p[2], cur.nodeR[i]);
       nQ[i].set(cur.nodeA[i], 0.22 + 0.4 * hk + 0.25 * fw, turn, lerp(TINT[i], 0.85, hk));
       nT[i].setRGB(lerp(COL[i][0], HUBC[0], h), lerp(COL[i][1], HUBC[1], h), lerp(COL[i][2], HUBC[2], h));
       nOn = Math.max(nOn, cur.nodeA[i]); sOn = Math.max(sOn, a);
