@@ -1773,6 +1773,184 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   });
   await sp.close();
 }
+// Focus mode (HOST.focus): on by default on a phone and an iPad (touch), the 3D on its own between two slim bars (nothing
+// overlapping, also on a 360 px phone), the subtitles the shell's own captions changing with the clock, a chapter's title
+// as it starts, the chapter arrows, Next at a slideshow stop, Text opening the panel (HOST.focus() false, a resize sent)
+// and closing it, explore's drawer closed by default then open and closed, nothing on the Stories screen; #focus=off
+// giving the layout as ever, and a desktop page off and unchanged
+{
+  const ready = () => HOST.cur && HOST.cur.collab.scene() && document.getElementById('loading').classList.contains('gone');
+  const watch = p => {
+    p.on('pageerror', e => errors.push(e.stack || e.message));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+  };
+  // the bars' parts on show: none overlapping another, all inside the page
+  const bars = p => p.evaluate(() => {
+    const out = [], vw = innerWidth;
+    for (const id of ['top', 'bar']) {
+      const rs = [...document.getElementById(id).children].filter(e => e.id !== 'track' && e.id !== 'fcMenu' && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0)
+        .map(e => [e.id || e.className, e.getBoundingClientRect()]);
+      for (const [n, r] of rs) if (r.left < -0.5 || r.right > vw + 0.5) out.push(`${n} outside the page (${Math.round(r.left)} to ${Math.round(r.right)} of ${vw})`);
+      for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+        const [a, A] = rs[i], [b, B] = rs[j];
+        if (A.left < B.right - 0.5 && B.left < A.right - 0.5 && A.top < B.bottom - 0.5 && B.top < A.bottom - 0.5) out.push(`${a} overlaps ${b}`);
+      }
+    }
+    return out;
+  });
+  for (const [dev, opts] of [['phone', { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }], ['iPad', { viewport: { width: 1180, height: 820 }, hasTouch: true }]]) {
+    const ctx = await browser.newContext(opts), fp = await ctx.newPage();
+    watch(fp);
+    const ev = (f, a) => fp.evaluate(f, a);
+    await step(`focus mode on a ${dev}: on by default, the panel hidden, two slim bars, nothing overlapping`, async () => {
+      await fp.goto(base + 'index.html#airports&t=1');
+      await fp.waitForFunction(ready, null, { timeout: 60000 });
+      const r = await ev(() => {
+        const vis = id => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0; };
+        return { focus: HOST.focus(), on: HOST.focus.on(), body: document.body.classList.contains('focus'), panel: vis('panel'),
+          top: document.getElementById('top').getBoundingClientRect().height, bar: document.getElementById('bar').getBoundingClientRect().height,
+          shown: ['play', 'fcPrev', 'fcNext', 'fcName', 'fcText', 'track', 'btnOther', 'btnShared', 'fcMore'].filter(vis),
+          gone: ['fcCtl', 'btnSound', 'btnVR', 'btnAR', 'btnInstall'].filter(vis) };
+      });
+      if (!r.focus || !r.on || !r.body || r.panel) errors.push(`${dev}: focus mode not on by default (${JSON.stringify(r)})`);
+      if (Math.abs(r.top - 48) > 1 || Math.abs(r.bar - 56) > 1) errors.push(`${dev}: the bars are ${r.top} and ${r.bar} px high, not 48 and 56`);
+      if (r.shown.length !== 9 || r.gone.length) errors.push(`${dev}: the bars show ${r.shown.join(', ')}; and ${r.gone.join(', ') || 'nothing'} that should not show`);
+      for (const b of await bars(fp)) errors.push(`${dev}: ${b}`);
+      if (dev === 'phone') {
+        await fp.setViewportSize({ width: 360, height: 740 }); await fp.waitForTimeout(300);
+        for (const b of await bars(fp)) errors.push(`a 360 px phone: ${b}`);
+        await ev(() => document.getElementById('fcMore').click()); await fp.waitForTimeout(200);
+        const m = await ev(() => [...document.querySelectorAll('#fcMenu button')].map(b => b.textContent));
+        if (!m.includes('Explore now') || !m.includes('Focus view: on')) errors.push(`a 360 px phone: More holds ${m.join(', ')}`);
+        await ev(() => document.getElementById('fcMore').click());
+        await fp.setViewportSize(opts.viewport); await fp.waitForTimeout(300);
+      }
+    });
+    await step(`focus mode on a ${dev}: the subtitles are the shell's captions and change with the clock; a chapter's title as it starts`, async () => {
+      // the line on show in the strip, once faded in (a frame or two in software)
+      const strip = () => fp.waitForFunction(() => {
+        const s = document.querySelector('#subs > div'), c = HOST.collab.caption().text;
+        return c && s.textContent === c && +getComputedStyle(document.getElementById('subs')).opacity > 0.9;
+      }, null, { timeout: 20000 }).then(() => true, () => false);
+      const at = await ev(() => {
+        const A = HOST.cur.collab.APP, h = HOST.cur.peek('CH').find(c => c.key === 'hubs');
+        A.playing = false; A.seek(h.na + 2.5);
+        const first = HOST.collab.caption().text;
+        for (let d = 3; d < 20; d += 0.5) { A.seek(h.na + d); const c = HOST.collab.caption().text; if (c && c !== first) { A.seek(h.na + 2.5); return { first, second: c, t2: h.na + d }; } }
+        return { first, second: '', t2: 0 };
+      });
+      if (!at.first || !at.second) errors.push(`${dev}: no two captions in the Hubs chapter (${JSON.stringify(at)})`);
+      // (the title shows for about 3 s: looked for first, as frames come slowly in software)
+      await fp.waitForFunction(() => HOST.focus.state().title === document.querySelector('#story .ch[data-ch="hubs"] h2').textContent, null, { timeout: 10000 }).catch(() => {});
+      const t = await ev(() => ({ title: HOST.focus.state().title, h2: document.querySelector('#story .ch[data-ch="hubs"] h2').textContent, o: +getComputedStyle(document.getElementById('chtitle')).opacity }));
+      if (!t.title || t.title !== t.h2) errors.push(`${dev}: no chapter title as Hubs starts (${JSON.stringify(t)})`);
+      if (!await strip()) errors.push(`${dev}: the strip does not show the caption (${await ev(() => document.querySelector('#subs > div').textContent)} / ${JSON.stringify(await ev(() => HOST.collab.caption()))})`);
+      const lines = await ev(() => { const r = document.createRange(); r.selectNodeContents(document.querySelector('#subs > div')); return new Set([...r.getClientRects()].filter(x => x.width > 0).map(x => Math.round(x.top))).size; });
+      if (lines > 2) errors.push(`${dev}: the caption takes ${lines} lines`);
+      await ev(t2 => HOST.cur.collab.APP.seek(t2), at.t2);
+      if (!await strip() || await ev(() => document.querySelector('#subs > div').textContent) !== at.second) errors.push(`${dev}: the strip did not change with the clock (${await ev(() => document.querySelector('#subs > div').textContent)})`);
+      // playing: still the caption on show
+      await ev(() => { HOST.cur.collab.APP.playing = true; });
+      await fp.waitForTimeout(2500);
+      if (!await strip()) errors.push(`${dev}: while playing the strip is not the caption on show`);
+      await ev(() => { HOST.cur.collab.APP.playing = false; });
+      // the chapter arrows (as the headset's): on to the next chapter's start, back to this one's, then the one before
+      const arrows = await ev(() => {
+        const A = HOST.cur.collab.APP, ch = HOST.cur.peek('CH'), i = ch.findIndex(c => c.key === 'hubs');
+        A.seek(ch[i].na + 5); document.getElementById('fcPrev').click(); const back = A.t === ch[i].na;
+        document.getElementById('fcPrev').click(); const before = A.t === ch[i - 1].na;
+        document.getElementById('fcNext').click(); document.getElementById('fcNext').click(); const on = A.t === ch[i + 1].na;
+        return { back, before, on, name: document.getElementById('fcName').textContent };
+      });
+      const want = await ev(() => { const ch = HOST.cur.peek('CH'); return ch[ch.findIndex(c => c.key === 'hubs') + 1].name; });
+      await fp.waitForFunction(w => document.getElementById('fcName').textContent === w, want, { timeout: 10000 }).catch(() => {});
+      const name = await ev(() => document.getElementById('fcName').textContent);
+      if (!arrows.back || !arrows.before || !arrows.on || name !== want) errors.push(`${dev}: the chapter arrows (${JSON.stringify(arrows)}, the bar says ${name}, not ${want})`);
+    });
+    await step(`focus mode on a ${dev}: Next in the bar at a slideshow stop`, async () => {
+      await ev(() => { HOST.slides.set('airports', true); const A = HOST.cur.collab.APP; A.seek(HOST.cur.peek('slideStop(2)') - 0.05); A.playing = true; });
+      const stopped = await fp.waitForFunction(() => !HOST.cur.peek('APP.playing') && HOST.cur.peek('SLIDE.at') >= 0, null, { timeout: 30000 }).then(() => true, () => false);
+      await fp.waitForTimeout(300);
+      const r = await ev(() => ({ next: !!document.getElementById('btnNextBar').offsetParent, name: getComputedStyle(document.getElementById('fcName')).display }));
+      if (!stopped || !r.next || r.name !== 'none') errors.push(`${dev}: at a slideshow stop (${stopped}) Next is not in the bar in the chapter name's place (${JSON.stringify(r)})`);
+      await ev(() => document.getElementById('btnNextBar').click());
+      if (!await fp.waitForFunction(() => HOST.cur.peek('APP.playing'), null, { timeout: 10000 }).then(() => true, () => false)) errors.push(`${dev}: Next in the bar did not go on`);
+      await ev(() => { HOST.cur.collab.APP.playing = false; HOST.slides.set('airports', false); });
+    });
+    await step(`focus mode on a ${dev}: Text opens the story's panel (a resize sent) and closes it`, async () => {
+      await ev(() => { window.__fcResize = 0; addEventListener('resize', () => window.__fcResize++); });
+      await fp.click('#fcText');
+      await fp.waitForTimeout(300);
+      const o = await ev(() => {
+        const p = document.getElementById('panel'), r = p.getBoundingClientRect();
+        return { focus: HOST.focus(), resize: window.__fcResize, pressed: document.getElementById('fcText').getAttribute('aria-pressed'), shown: getComputedStyle(p).display !== 'none' && r.height > 100,
+          left: r.left, w: r.width, bottom: r.bottom, barTop: document.getElementById('bar').getBoundingClientRect().top, subs: getComputedStyle(document.getElementById('subs')).display, title: getComputedStyle(document.getElementById('chtitle')).display };
+      });
+      if (o.focus || o.resize < 1 || o.pressed !== 'true' || !o.shown || o.subs !== 'none' || o.title !== 'none') errors.push(`${dev}: Text did not open the panel alone (${JSON.stringify(o)})`);
+      if (dev === 'iPad' && !(o.left < 40 && o.w < 0.5 * 1180)) errors.push(`${dev}: the panel is not the side panel (${JSON.stringify(o)})`);
+      if (dev === 'phone' && !(o.w > 380 && o.bottom <= o.barTop + 1)) errors.push(`${dev}: the panel is not the bottom sheet over the bar (${JSON.stringify(o)})`);
+      await fp.click('#fcText');
+      await fp.waitForTimeout(300);
+      const c = await ev(() => ({ focus: HOST.focus(), resize: window.__fcResize, panel: getComputedStyle(document.getElementById('panel')).display }));
+      if (!c.focus || c.resize < 2 || c.panel !== 'none') errors.push(`${dev}: Text did not close the panel (${JSON.stringify(c)})`);
+    });
+    await step(`focus mode on a ${dev}: explore's drawer closed by default, opened and closed; no subtitles there`, async () => {
+      await ev(() => HOST.cur.collab.APP.enterExplore());
+      await fp.waitForTimeout(500);
+      const s = await ev(() => ({ focus: HOST.focus(), drawer: HOST.focus.drawer(), panel: getComputedStyle(document.getElementById('panel')).display, subs: getComputedStyle(document.getElementById('subs')).display, sub: HOST.focus.state().sub,
+        ctl: !!document.getElementById('fcCtl').offsetParent, text: !!document.getElementById('fcText').offsetParent, play: !!document.getElementById('play').offsetParent }));
+      if (!s.focus || s.drawer || s.panel !== 'none' || s.subs !== 'none' || s.sub || !s.ctl || s.text || s.play) errors.push(`${dev}: explore mode does not start with the drawer closed and the 3D on its own (${JSON.stringify(s)})`);
+      const n = await ev(() => window.__fcResize);
+      await fp.click('#fcCtl');
+      await fp.waitForTimeout(400);
+      const o = await ev(() => { const p = document.getElementById('panel'), r = p.getBoundingClientRect(); return { focus: HOST.focus(), drawer: HOST.focus.drawer(), resize: window.__fcResize, h: r.height, bottom: r.bottom, barTop: document.getElementById('bar').getBoundingClientRect().top, H: innerHeight, tabs: !!p.querySelector('#explore .tabs, #explore [role="tablist"], #explore button') }; });
+      if (o.focus || !o.drawer || o.resize <= n || !(o.h > 80 && o.h <= 0.6 * o.H + 1) || o.bottom > o.barTop + 1 || !o.tabs) errors.push(`${dev}: Controls did not pull the drawer up (${JSON.stringify(o)})`);
+      await fp.click('#fcHandle');
+      await fp.waitForTimeout(300);
+      const c = await ev(() => ({ focus: HOST.focus(), drawer: HOST.focus.drawer(), panel: getComputedStyle(document.getElementById('panel')).display }));
+      if (!c.focus || c.drawer || c.panel !== 'none') errors.push(`${dev}: the handle did not close the drawer (${JSON.stringify(c)})`);
+      // opened again, then explore mode left and begun again: closed again
+      await fp.click('#fcCtl');
+      await ev(() => { HOST.cur.collab.APP.enterStory(0); HOST.cur.collab.APP.enterExplore(); });
+      await fp.waitForTimeout(300);
+      if (await ev(() => HOST.focus.drawer() || !HOST.focus())) errors.push(`${dev}: explore mode begun again with the drawer open`);
+      await ev(() => HOST.cur.collab.APP.enterStory(0));
+    });
+    await step(`focus mode on a ${dev}: nothing of it on the Stories screen`, async () => {
+      await ev(() => HOST.openPicker());
+      await fp.waitForTimeout(400);
+      const s = await ev(() => ({ focus: HOST.focus(), subs: getComputedStyle(document.getElementById('subs')).display, title: getComputedStyle(document.getElementById('chtitle')).display, more: getComputedStyle(document.getElementById('fcMore')).display, top: document.getElementById('top').getBoundingClientRect().height, btn: document.getElementById('btnFocus').getAttribute('aria-pressed') }));
+      if (s.focus || s.subs !== 'none' || s.title !== 'none' || s.more !== 'none' || Math.abs(s.top - 58) > 1 || s.btn !== 'true') errors.push(`${dev}: the Stories screen is not as ever (${JSON.stringify(s)})`);
+      await ev(() => HOST.closePicker());
+    });
+    if (dev === 'phone') await step('focus mode: #focus=off gives the layout as ever, and Focus view on the Stories screen brings it back', async () => {
+      await fp.goto(base + 'index.html#airports&t=20&focus=off');
+      await fp.waitForFunction(ready, null, { timeout: 60000 });
+      await fp.waitForTimeout(300);
+      const s = await ev(() => ({ on: HOST.focus.on(), focus: HOST.focus(), body: document.body.classList.contains('focus'), panel: getComputedStyle(document.getElementById('panel')).display,
+        h: document.getElementById('panel').getBoundingClientRect().height, fc: [...document.querySelectorAll('.fc, #subs, #chtitle')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id), kept: localStorage.getItem('pageFocus') }));
+      if (s.on || s.focus || s.body || s.panel === 'none' || s.h < 100 || s.fc.length || s.kept !== 'off') errors.push(`#focus=off: ${JSON.stringify(s)}`);
+      await ev(() => HOST.openPicker()); await fp.click('#btnFocus'); await ev(() => HOST.closePicker());
+      await fp.waitForTimeout(300);
+      if (!await ev(() => HOST.focus() && localStorage.getItem('pageFocus') === 'on')) errors.push('Focus view on the Stories screen did not turn focus mode on');
+    });
+    await ctx.close();
+  }
+  await step('focus mode: a desktop page is off and as ever', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 } }), dp = await ctx.newPage();
+    watch(dp);
+    await dp.goto(base + 'index.html#airports&t=20');
+    await dp.waitForFunction(ready, null, { timeout: 60000 });
+    await dp.waitForTimeout(300);
+    const s = await dp.evaluate(() => {
+      const r = id => document.getElementById(id).getBoundingClientRect();
+      return { on: HOST.focus.on(), focus: HOST.focus(), body: document.body.classList.contains('focus'), top: r('top').height, panel: [r('panel').left, r('panel').top, r('panel').width > 300],
+        fc: [...document.querySelectorAll('.fc, #subs, #chtitle')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id), names: [...document.querySelectorAll('#track .name')].filter(e => getComputedStyle(e).display !== 'none').length };
+    });
+    if (s.on || s.focus || s.body || Math.abs(s.top - 58) > 1 || s.panel[0] !== 22 || s.panel[1] !== 66 || !s.panel[2] || s.fc.length || s.names < 5) errors.push(`a desktop page: ${JSON.stringify(s)}`);
+    await ctx.close();
+  });
+}
 await step('old links forward to the app', async () => {
   await page.goto(base + 'spatial.html#t=20');
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });
