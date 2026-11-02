@@ -1742,6 +1742,9 @@ HOST.teardown = function () {
 HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key); };
 // place: a place to put back once the story is built (a swap, a reload: HOST.live)
 HOST.start = async function (key, keepHash, place) {
+  // at an All stories circle in a shared room a person's story is the circle's pick, for everyone there: the room then
+  // switches this device too (shared.js)
+  if (this.collab && this.collab.allPick && this.collab.allPick(key)) return;
   // a story still loading: in a shared room the last story asked for meanwhile follows (the room's switches
   // must not get lost); outside a room the request is dropped as before
   if (this.busy) { if (this.collab && this.collab.joined) this.queued = key; return; }
@@ -2296,7 +2299,7 @@ HOST.live = (function () {
     if (t - L.checkAt > 60000 && document.visibilityState !== 'hidden') check('minute');
     // a shared room's station whose story this device does not know yet (its card says so: shared.js's meta)
     const C = HOST.collab, st = C && C.code && C.stations ? C.stations() : [];
-    for (const s of st) if (!known(s.story)) missing(s.story);
+    for (const s of st) if (!(s.kind && s.story === s.kind) && !known(s.story)) missing(s.story);   // (All stories' cards and the lobby are the shell's own)
     const go = document.getElementById('xrgo');
     if (go && !go.hidden && HOST.session) go.hidden = true;
   }
@@ -2436,6 +2439,7 @@ HOST.cards = function () {
     }
     const c = ev.target.closest('[data-story]');
     if (!c) return;
+    if (HOST.collab && HOST.collab.allPick && HOST.collab.allPick(c.dataset.story)) return;   // (following an All stories circle: its pick)
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
   });
   // the sound effects' volume: as it moves, and a click at the new volume once let go

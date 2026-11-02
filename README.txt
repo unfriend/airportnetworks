@@ -107,8 +107,24 @@ at a model shows its card), and your own ring is hidden (Show all rings in the
 menu shows every ring); walk out of a circle and you stay in its story until you
 walk into another. Pointing at a card and pulling the trigger
 does not take you there: walk into its circle. A headset in a room never shows
-the Stories screen (leave the room in the menu and it comes back); in a room
-with no stations yet the menu opens by itself, with Arrange all.
+the Stories screen (leave the room in the menu and it comes back), except at an
+All stories circle; in a room with no stations yet the menu opens by itself,
+with Arrange all.
+All stories and Back to the lobby (two circles of the app's own): the first
+headset in a room (in AR, or in VR in the same room) puts an All stories circle
+1.2 m in front of itself, facing away, once per room (a room started on a laptop
+gets one when the first headset comes; removed, it does not come back). Step
+into it and you see the Stories screen, as on your own; the story you pick plays
+there for everyone in that circle, from its start, and the Stories button on its
+panel takes everyone there back to the cards. Its switch (the menu's Circles tab
+at that circle, or its row in the Shared dialog) is Own stories at first: With
+the room's circles, a story picked there joins the room's circle of that story,
+the same moment for the people at both. Walk into a Back to the lobby circle
+(added from Add, like any circle) and your story ends: the room shows as at the
+start, every circle with its card and model, until you walk into another circle.
+Arrange all leaves both kinds where they are; screens follow an All stories
+circle like any other (its Stories screen while it shows its cards, and its row
+in the Shared dialog has a story picker), and the lobby has no Follow.
 People in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two

@@ -237,7 +237,7 @@ function xrRecenter() {
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
-const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '');
+const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
 // station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
 // plays); a shell without it: shown
@@ -247,6 +247,11 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
+// one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
+// circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
+const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());
+const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());
 // the line on show, for the shell's subtitles in a headset (HOST.xr.subs, drawn by shared.js): the chapter on show's cues
 // (ST.items: els with at and out), the story time now, the chapter's end and narrT (to the clock's time); null in
 // explore mode, on the Stories screen and away from a station
@@ -623,7 +628,10 @@ function xrBegin(frame, dt) {
     const roomOnly = xrRoomOnly();
     if (XR.inRoom && !roomOnly) xrFreshStart();
     XR.inRoom = roomOnly;
-    if (XR.stories && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
+    // (at an All stories circle its cards are the Stories screen, opened as the panel's Stories button opens it, and they
+    // close once a story is picked there or the headset walks into another circle)
+    if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }
+    if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -638,7 +646,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) xrPoint(c, dt);
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
-  if (xrAway()) { APP.playing = false; SLIDE.tail = null; }
+  if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {

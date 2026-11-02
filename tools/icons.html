@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Station icons</title>
 <!-- The stations' icons (shared.js, "station icons": each story's miniature from lowpoly.js, its entry's icon in
-     stories/list.js) in a grid, lit as in a headset, on the app's dark background: every story's, then the design room's.
+     stories/list.js) in a grid, lit as in a headset, on the app's dark background: every story's, then the design room's,
+     then the shell's own circles' (All stories and Back to the lobby: HOST.collab.kinds(), keys all and lobby).
      Served next to the app: http://127.0.0.1:8123/tools/icons.html
        ?keys=airports,pet,qubits   only these (any key without a miniature shows the fallback)
        &cols=3                     columns (default: 5)
@@ -45,7 +46,9 @@
   if (!W) { document.getElementById('note').textContent = 'The app did not load (or its shell has no station icons).'; return; }
   // (the miniatures first: an icon made before lowpoly.js is here is the fallback)
   try { if (W.lowpoly) await W.lowpoly(); } catch (e) { document.getElementById('note').textContent = 'lowpoly.js did not load: the icons are the fallback.'; }
-  const T = frame.contentWindow.THREE, list = W.list.concat(frame.contentWindow.STORY_EXTRA || []);
+  // (the shell's own kinds of circle last, where the shell has them: their keys name their look as a story's does)
+  const kinds = W.collab.kinds ? Object.values(W.collab.kinds()) : [];
+  const T = frame.contentWindow.THREE, list = W.list.concat(frame.contentWindow.STORY_EXTRA || [], kinds);
   let keys = q.get('keys') ? q.get('keys').split(',').map(s => s.trim()).filter(Boolean) : list.map(m => m.key);
   if (q.has('fallback')) keys = keys.concat('sixteenth');
   const turns = Math.max(1, +q.get('turns') || 1), shown = keys.flatMap(k => Array.from({ length: turns }, (_, j) => [k, j * 12 / turns]));

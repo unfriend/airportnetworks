@@ -123,8 +123,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   engine parts adapted from the muscle story's, build script, set harness; it uses
   `tools/lbi/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
 - `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
-  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`
-  and the tour's body set); see its `README.md` and `SPEC.md`.
+  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`,
+  the tour's body set and the microanatomy story's 3D organs); see its `README.md` and `SPEC.md`.
 - `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
   parts adapted from the PET story's, build script, set harness; it uses `tools/lbi/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
@@ -161,8 +161,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
-  under 1,200 triangles, `tris` exact; 45 props and, last, the design room's own
-  `design.table`, only its station icon), their harnesses (`harness-a.html`,
+  under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table`,
+  only its station icon, and, last, `all.stories` and `all.lobby`, the icons of the shell's two
+  circles, All stories and Back to the lobby, not props either), their harnesses (`harness-a.html`,
   `harness-b.html`) and `build.mjs` (writes `lowpoly.js`; `--check`).
 
 ## How the shell and stories fit together
@@ -789,7 +790,67 @@ under the same code) (FORMAT networks-10; networks-11 when the eighth story came
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
 layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
 explore view became `{ v, story }`, for motion smoothing, networks-27 when the two sound switches, `sfx` and `voice`,
-and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/shared-space-plan.md`.
+and the cards' setting, `cards`, joined `look` in v100, networks-28 when the shell's own two kinds of circle came in v104:
+an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, x, z, yaw }` and a lobby circle
+`{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`: the first headset's All stories
+circle placed), below). The plan is `docs/shared-space-plan.md`.
+
+- All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
+  like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
+  in front of the player ... one should also be able to place it in a shared space and then decide if it is in sync with
+  the stories there or if it can run its own stories"; "a 'back to the lobby' circle where the headsets go back to the
+  lobby"). Two kinds of circle that are the shell's own, not stories: never in `stories/list.js`, never started
+  (`HOST.start('all')` would refuse); `KINDS` in `shared.js` gives their look wherever a station's is taken (cards, rings,
+  icons, the dialog and its map, the menu's lists, people and Follow lines): All stories (`'all'`, kicker *Every
+  story*, a pale cyan-white `#cfeeff`, icon `all.stories`) and Back to the lobby (`'lobby'`, kicker *The lobby*, a soft
+  green `#9fe5bf` (the design room has the gold), icon `all.lobby`); a key `lowpoly.js` does not have yet shows the glowing fallback. `lookKey(s)` is a
+  station's kind, else its story; `runs(s)` the story it runs ('' for an All stories circle's cards and the lobby);
+  `stTitle(s)` "All stories" (": <the story picked>"), "Back to the lobby" or the story's title.
+  - The first headset adds one (`allFirst`, from the shell's tick): a headset in the room with the others (AR, or VR
+    answered "in this room"; never one elsewhere), aligned, in its session, the circles not locked, in a room that has
+    never had one put there by itself (`allp`, written in the same batch, so once per room: a removed one does not come
+    back), the conditions holding 1.5 s (a room refilled after a relay restart comes back empty first), once per page
+    and room: an All stories circle 1.2 m ahead of its head along the floor (just outside the 1.1 m walk-in: one step and
+    you are in it), facing away from it (its cards float ahead, as on the Stories screen), Own stories. A room started on
+    a page gets none until a headset comes; one started in a headset gets it at once. Tests turn it off
+    (`HOST.collab.autoAll(false)`; the pretend headsets in `tools/collab.mjs` do unless asked).
+  - Walked into (as any circle), it is the headset's live station. Showing its cards (`HOST.room.cards()`), the story
+    loaded hosts the single-player Stories screen there (the stories open it while `cards()` is true, below; the
+    shell's `place()` puts their rig at the circle's spot, so the cards float ahead of it), the scene hidden, the story
+    paused, nothing synced (no story there: `synced` is false, nothing goes out), not away (`away()` is false, so the
+    cards are pointable). `HOST.room.allHere()` is true while the live station is an All stories circle, cards or a story;
+    `HOST.room.allBack()` sends it back to its cards, for everyone there.
+  - Picking (`allPick`, which `HOST.start` and the page's Stories screen ask first; `allPickAt(id, key)`): at an All
+    stories circle a person's story (a card on the headset, the page's Stories screen while following it, the dialog's
+    picker) never leaves the station: it is the circle's pick, written for everyone there, `st.<id>` with that story
+    and, on its own keys, `st.<id>.play` `{ mode: 'story', t: 0, playing: true, at }` in the same batch (the relay drops
+    the circle's other keys first: the epoch rule), so every headset and page at the circle switches to it from its
+    start, playing, as a station given another story does. The story panel's Stories button there (and *Back to all
+    stories* in the menu's Circles tab, and *Choosing a story* in the dialog's picker) writes `story: 'all'` again: its
+    keys go. Repeat does not run at a station (a story's end opens explore mode there, as at any circle).
+  - The switch (`sync`; *Own stories*, the default, or *With the room's circles*; `setAllSync`): the menu's Circles tab at
+    that circle (a row under the two locks, beside *Back to all stories*) and the circle's row in the page's dialog;
+    never refused by either lock. With it on and a circle of the picked story in the room (not an All stories one; the
+    first by id), the All stories circle joins that circle's session (`sessOf(s)`, `sesSt()`: the station whose keys hold
+    the clock, explore state, view, scene place, panel, panels and lock (`st.<other>.*`) and its effects (`e.<other>`);
+    `liveSt()` stays the circle you stand in, for the rig, the sound zone, the cards, the people drawn and your
+    presence's `st`), so people at both circles see the same moment and what one changes the other sees; the panel and
+    scene are placed relative to each circle's own spot. A pick in sync mode writes only the circle's story (never the
+    other circle's clock); with no such circle it runs on its own keys. Turned off with a story running in a linked
+    session, its own clock and explore state are seeded from where that session is, so the story goes on. When the live
+    station's story or session changes with the story already loaded, the room's clock and state apply at once
+    (`C.liveSig`).
+  - Back to the lobby: walking into it ends the headset's live station (no story: away, the story hidden, paused and
+    silent, nothing of it goes out), and the room shows as before any circle (every ring, card and icon, everyone
+    drawn); it is never a live station itself, its own ring, card and icon stay, and walking into a story circle after
+    enters it as usual. No automatic lobby circle (the owner: "no automatic placement for now").
+  - Pages: a page following an All stories circle shows its Stories screen while the cards show (`pageCards`; a pick
+    there is the circle's) and follows the story picked as any station (in sync mode, the linked session). The dialog's
+    row of an All stories circle has a picker (*Choosing a story* or a story) and its switch; the lobby's row has no
+    Follow, Panels or Lock (only Remove), and a click on its dot follows nothing.
+  - Add (the dialog's picker and the headset's *Add here* page) offers *All stories* and *Back to the lobby* after the
+    design room; moving, turning, removing, the circles lock and the map work on them as on any circle (a move keeps
+    `kind` and `sync`: `stVal`). Arrange all leaves both where they are.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -1023,14 +1084,17 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 17 m x 4 m of floor from 1.2 m in front of you. It leaves the design room's table where it is (not a
-  story). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
+  story), and the All stories and lobby circles too (never moved, made or removed by it). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
 - Station icons (`makeIcon`, `iconDef`, `miniDef`, placed by `iconStep` in `shared.js`; 29 October 2026, the owner's
   go; made from the miniatures the same day, the design room's part 2): over each station's ring, its middle 2.1 m
   above the floor (over the heads of people in the circle and above the card's top edge at 1.6 m, so from across the
   room it covers neither), its story's main miniature: the `icon` of its entry in `stories/list.js` (a key of
   `LOWPOLY_MODELS`: the tour's interactome, the PET scanner, the airports' globe; the design room's own `design.table`,
-  a small round table with props on plates in the stories' colours, which is only its icon, not a prop on the table),
-  from `lowpoly.js`, loaded once through `HOST.lowpoly()` the first time an icon wants one. Its parts are merged into
+  a small round table with props on plates in the stories' colours, which is only its icon, not a prop on the table;
+  and the shell's two circles' own, `all.stories`, the Stories screen in miniature (sixteen cards in the stories' colours
+  in two rows on an arc under its header, lit from within), and `all.lobby`, an open doorway with light in it, stepping
+  stones up to it and a curved arrow turning back over it (the icons of All stories and Back to the lobby, `KINDS` in
+  `shared.js`; not props either: story `all`, which the design room's build skips)), from `lowpoly.js`, loaded once through `HOST.lowpoly()` the first time an icon wants one. Its parts are merged into
   one mesh (one draw call; its see-through parts, glass and haze, in a second, drawn after without writing depth),
   centred and sized as the first hand-made models were (its box in a ball of 0.6 units, its longest side at most 0.9:
   a globe about 0.2 m across, `ICON.size` 0.3 m a unit), with a soft additive glow behind it in the story's colour
@@ -1049,8 +1113,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   first time a station of it shows, at most one a frame (a room's first view would build every one at once), and
   kept; until then, while `lowpoly.js` loads (or if it cannot), and for a key whose entry names no miniature, a glowing
   dodecahedron with a ring in its colour stands there: a seventeenth story needs only its `icon`. 600 to 1,200
-  triangles each. `tools/icons.html` (served next to the app) renders them all, every story's and then the design
-  room's, in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
+  triangles each. `tools/icons.html` (served next to the app) renders them all, every story's, then the design
+  room's and the shell's two circles' (`HOST.collab.kinds()`, keys `all` and `lobby`), in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
   from the app in a hidden frame through `HOST.lowpoly()` and `HOST.collab.icon(key)` (its `model` says which
   miniature, '' the fallback). How they read from across a real room is untested on a headset.
 - The design room in a room (the design room's part 2, 29 October 2026): not one of the stories, so never part of
@@ -1162,7 +1226,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     note beside it.
   - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
-    Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; *Show all
+    Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
+    stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all
     rings* and *On this network*), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
     possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
@@ -1229,7 +1294,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   grip is (a notice; the menu's Recenter greyed). The life-size stories' own places (the pass story's `sea`) stay.
 - In a shared room a headset never shows the Stories screen (neither its
   header nor the story cards) and the story panel has no Stories button (each
-  station keeps its story; another story is another station): one open closes
+  station keeps its story; another story is another station), except at an All stories circle (above: its cards are
+  the Stories screen, and its story panel's Stories button goes back to them for everyone there): one open closes
   at once when a room is started or joined (from the page, the headset's menu
   or a `#s=` link; `xrBegin`), entering VR or AR from the start screen in a
   room does not open it (`xrEnterScene`), nor does a new wearer
@@ -1513,6 +1579,20 @@ reference, `tools/flock/engine/`):
   (away from any station: in no circle yet this session, the story hidden and
   paused; walked out of its circle a headset keeps its station, so it is not
   away); a shell without `HOST.room.away` gives the old behaviour.
+- The All stories circle's lines (v104), after `xrAway`:
+  `const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());` and
+  `const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());`; `xrSig` ends with
+  `+ (xrAllHere() ? 'A' : '')` (the panel redraws with its Stories button); in `xrBegin`, before the room's line that
+  closes the Stories screen, `if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }`
+  and that line becomes `if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();`
+  (the cards close once a story is picked there or the headset walks into another circle); after the controllers
+  `if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }`; the landing card's region
+  `fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key))` and the Stories pane's
+  `if (here && !xrCards()) XR.stories = false; else HOST.go(k);` (the story on show's card picks it there, through
+  `HOST.start` and `allPick`); the header's *Back to the story* and the pane's *Back* not drawn while `xrCards()`; and in
+  `drawMain`, after the room's Stories line,
+  `else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);`. The smoke test checks
+  the lines are in all sixteen stories and the design room.
 - Recenter, next to `xrRecenter` (the panel's Recenter and Place again buttons, and `recenter: xrRecenterAsk,` in the
   returned object after `caption`, for the menu):
   `function xrRecenterAsk() { if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter(); if (HOST.anchor.on) HOST.anchor.again(); XR.needRecenter = true; return true; }`
@@ -1842,6 +1922,14 @@ PET sees and the vision row, its stages joined by flowing light; `organs`, segme
 explainer and the paper's networks, drawn in the body set's frame; `liver`, an organ as a network of patches, in
 explore mode only; each with a manifest) and engine parts adapted from the endotype story's. `tools/pet/SPEC.md` is the
 contract.
+
+- The vision row (the opening, since v104, the owner's wish: "way more 3d", "better colors"): its network is the 14
+  organs as the microanatomy story's 3D models (`ORGAN3D`, `tools/micro/sets/organs.js`, included by the build; the bone
+  marrow a model of its own there, `marrow`, kept out of that story's 29), lit, each taking on its colour and turning
+  slowly, spread in depth and joined by glowing tubes with light running along them, the models built in the load
+  before the scanner's set (`SETS.scan.prep`, a slice a step); prognosis is three glass tubes filling with the story's
+  cyan light and medication five amber capsule pills rising from a small base (no more neon orange, red and yellow).
+  Rebuild the PET story after changing `tools/micro/sets/organs.js` (and the microanatomy and tissue topology stories).
 
 - The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
   header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
@@ -2373,7 +2461,8 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   miniatures both keep theirs; no effects; `view()` null. In a room it is a station like a story's, placed from the
   headset's menu (*Design room here*) or the page's Shared dialog, never by Arrange all ("Shared rooms": "The design
   room in a room"); outside a room the menu's *Design room* opens it. Its station's icon is its own miniature,
-  `design.table` (skipped by `tools/design/build.mjs`: not a prop on the table).
+  `design.table` (skipped by `tools/design/build.mjs`, as are the shell's circles' icons, `all.stories` and `all.lobby`:
+  not props on the table).
 
 ## Conventions
 
@@ -2426,7 +2515,7 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing
   `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
   `stories/flock.js`, `tools/robots/` and `stories/robots.js`, and `tools/pet/` and `stories/pet.js` (and after
-  changing `tools/lbi/sets/body.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
+  changing `tools/lbi/sets/body.js` or `tools/micro/sets/organs.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
   changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `tools/ovary/` and
   `stories/ovary.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
   `node tools/ovary/data/gen_data.mjs` after changing its readings), and `tools/qubits/` and
@@ -2625,7 +2714,19 @@ Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
 circles are locked), a room joined by its code from a pretend headset's menu (`codeRound`; `--code` runs only it, a
 minute: *Join with a code*, the keypad, Join greyed until three letters, a fourth refused, Delete; in the room *Another
-room*, its own code greyed, a code with no room saying so), the design room (the Shared dialog's picker listing it after
+room*, its own code greyed, a code with no room saying so), the All stories and lobby circles (`allRound`, after the
+code round in the main run; `--all` runs only it, a room of its own, a few minutes: no All stories circle while only a
+page is in the room; a pretend headset (`autoAll: true` in its `installXR`; the others leave it off) adding one 1.2 m in
+front of its head, facing away, once, `allp` written, and removed it not coming back; the dialog's Add listing All
+stories and Back to the lobby after the design room; walked into, the Stories screen (its cards, no Back) with the scene
+hidden and nothing written to the circle's keys, and a page following it on its Stories screen; a landing card pressed
+picking that story for everyone there, from its start and playing on the headset and the page; the story panel's
+Stories button back to the cards, the keys gone; the menu's switch row turning sync on, and with a circle of that story
+in the room the headset joining its session: explore state and clock both ways with a page following that circle, its
+presence still the All stories circle's; the dialog's toggle turning it off, its own keys seeded and the story going on;
+the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
+headset's story with every ring, icon and card showing, then a story circle entered as usual; Arrange all leaving both
+kinds where they are), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches

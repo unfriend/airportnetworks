@@ -1640,7 +1640,7 @@ function xrRecenter() {
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
-const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '');
+const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
 // station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
 // plays); a shell without it: shown
@@ -1650,6 +1650,11 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
+// one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
+// circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
+const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());
+const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());
 // the line on show, for the shell's subtitles in a headset (HOST.xr.subs, drawn by shared.js): the chapter on show's cues
 // (ST.items: els with at and out), the story time now, the chapter's end and narrT (to the clock's time); null in
 // explore mode, on the Stories screen and away from a station
@@ -1968,7 +1973,10 @@ function xrBegin(frame, dt) {
     const roomOnly = xrRoomOnly();
     if (XR.inRoom && !roomOnly) xrFreshStart();
     XR.inRoom = roomOnly;
-    if (XR.stories && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
+    // (at an All stories circle its cards are the Stories screen, opened as the panel's Stories button opens it, and they
+    // close once a story is picked there or the headset walks into another circle)
+    if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }
+    if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -1983,7 +1991,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) xrPoint(c, dt);
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
-  if (xrAway()) { APP.playing = false; SLIDE.tail = null; }
+  if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -2406,7 +2414,7 @@ function drawLandHead(ctx, P) {
   // anchored, Recenter becomes Place again: everything in front of you, then anchored there
   if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
   else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
-  if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
+  if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
   vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
@@ -2442,7 +2450,7 @@ function drawLandCard(ctx, P, s) {
   ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, s.len, P.w - 96), 48, P.h - 196);
   const label = here && XR.inStory ? 'Resume' : 'Start';
   vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
-  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here ? xrLandingClose() : HOST.go(s.key)) });
+  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });
 }
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
@@ -2451,7 +2459,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
   const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
     const here = k === XR_HERE;
-    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
+    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     let yw = 0;   // the kicker stops short of 'You are here' beside it
     if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; yw = ctx.measureText('You are here').width + 20; }
     fitTitle(ctx, kick.toUpperCase(), x + 26, y + 22, W - 52 - yw, 21, 26, col, 700, 17);
@@ -2459,7 +2467,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
     textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
-  vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
+  if (!xrCards()) vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
 }
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
@@ -2471,6 +2479,7 @@ function drawMain(ctx, P) {
   // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
   // its circle)
   if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
   fitTitle(ctx, 'Flock', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);

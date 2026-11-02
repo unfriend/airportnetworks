@@ -13,11 +13,13 @@ canvas { display: block; }
 <script>const SETS = {};</script>
 <script src="sets/data.js"></script>
 <script src="sets/icons.js"></script>
+<script src="../micro/sets/organs.js"></script>
 <script src="../lbi/sets/body.js"></script>
 <script>
 // Test harness for one set of the PET story (serve the repository root, open /tools/pet/harness.html):
 // harness.html?set=atp&p=atp_build:1,atp_turns:0.5&t=3&cam=30,15,3.6,0,0,0&anim=1
-// the tour's body set (tools/lbi/sets/body.js) and the organ icons (sets/icons.js) are always loaded: set=body shows it alone
+// the tour's body set (tools/lbi/sets/body.js), the organ icons (sets/icons.js) and the microanatomy story's 3D organs
+// (../micro/sets/organs.js, for the scanner's vision row) are always loaded: set=body shows the body alone
 const Q = new URLSearchParams(location.search);
 const FILE = Q.get('set');
 if (FILE !== 'body') document.write(`<script src="sets/${FILE}.js?v=${Date.now()}"><\/script>`);

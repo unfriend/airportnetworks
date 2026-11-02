@@ -6,6 +6,16 @@ liver, lung, minor salivary gland, muscle, nerve, ovary, pancreas, pituitary, pr
 stomach, testis, thyroid, uterus, vagina). They replace the PET story's icons (`tools/pet/sets/icons.js`, which the PET
 story keeps); an organ's model is found by its name (`idOf`), the only link between the data and the models.
 
+Since v104 the PET story uses them too, in its opening's vision row (the network of organs; see
+`tools/pet/sets/scan.md`), with one more model of its own: **the bone marrow** (`marrow`, in `extra`, not in `ids`):
+a short piece of a long bone (the knee end whole, two knuckles capped with bluish-white cartilage) cut through at the
+other end, where the red marrow, laced with pale spongy bone, shows inside a ring of hard bone, sunk a little into the
+cut (a smooth, shallow dish: a cup with walls thinner than the grid tore the surface); built along the bone's axis
+(`BONE`, `inBone`) and leant 0.6 rad to the right and 0.75 towards you so the cut shows; 34 cells along its longest
+side, about 2,800 triangles. Being extra keeps the microanatomy and tissue topology stories as they were: their `ids`,
+queue (`step`), `ready()` and pictures are the 29 (their models byte for byte the same), and nothing builds the marrow
+unless asked for by name.
+
 ## How they are built
 
 - Each organ is a signed distance field of a few primitives (spheres, ellipsoids turned in place, round cones, tubes
@@ -43,17 +53,19 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
 | Name | What |
 | --- | --- |
 | `ids` | the 29 model ids |
+| `extra` | models beyond the 29, built only when asked for by name: `['marrow']` (the PET story's) |
 | `idOf(name)` | the model for an organ of `MICRO_DATA.organs` (or a GTEx organ name), else null |
 | `geo(id)` | `{ pos, nrm, col, idx, view }` (built now if not yet) |
 | `has(id)`, `ready()`, `built()` | built yet? all built? how many |
 | `mesh(id)` | the model if built, else null (and it is wanted next) |
 | `want(id)` | build this organ (model and picture) next |
 | `step(ms)` | build ahead for at most ms milliseconds; true once models and pictures are done |
+| `build(list, ms)` | build only the models of a list (another story's, the marrow among them), without the queue or pictures, for at most ms milliseconds; true once all are built (the PET story's load asks it 25 ms at a time) |
 | `version()` | goes up as each model and picture is done (the panes redraw on it) |
 | `driven` | set by the engine: it steps the queue itself every frame (the sets then do not) |
 | `lite(id)` | a lighter copy of the model, for where it is small on screen: its vertices merged on a grid twice as coarse as it was built on (vertex clustering; collapsed triangles dropped), about a quarter of the triangles (11,600 for all 29), made on first use from the built model |
 | `merged(ids, { lite })` | one geometry of several models (duplicates allowed; `lite`: the lighter copies): `{ pos, nrm, col, slot, idx, tris }`; `aSlot` is the index in the list |
-| `shader(n)` | GLSL for a lit material over a merged geometry: `uP[n]` place and size, `uQ[n]` alpha, glow, turn about y, and how far the model takes the colour `uTint` |
+| `shader(n, o)` | GLSL for a lit material over a merged geometry: `uP[n]` place and size, `uQ[n]` alpha, glow, turn about y, and how far the model takes the colour `uTint`; `o.tints`: a colour per model instead (`uT[n]`, the PET story's network); without it the same GLSL as before |
 | `canvas(id, px)`, `url(id, px)` | the picture, as a canvas or a data URL (cached; drawn now if need be) |
 | `pic(id)`, `picUrl(id)` | the 64 px picture (canvas, data URL) if the queue has drawn it, else null or '' (never draws) |
 
@@ -72,9 +84,13 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
   picture goes into the chips waiting for it as it comes (`fillOrganPics`, nothing drawn again all at once), and the
   headset's panels redraw on `GL.orgV` (the queue's version, at most twice a second while it runs).
 
+- The PET story's vision row: its 14 organs (the marrow among them) as the network's nodes, each taking half of its
+  `PET_DATA` colour (`shader(14, { tints: true })`), turning slowly; built in the story's load before the scanner's set
+  (`build`).
+
 ## Harness
 
-`harness.html?set=organs` shows all 29 in a grid (`organs_spin:1` turns them, `organs_tint:1` takes the level colour,
+`harness.html?set=organs` shows all 29 in a grid, and the marrow (`extra`) after them (`organs_spin:1` turns them, `organs_tint:1` takes the level colour,
 `organs_pics:1` lays the pictures over the page on a light and a dark ground, `organs_lite:1` shows the lighter
 copies instead). `SETS.organs` is only the harness's
 gallery: the story builds it into `stories/micro.js` but never makes it.

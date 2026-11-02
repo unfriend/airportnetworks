@@ -3,10 +3,11 @@
 // blended softly, as the muscle story's heart is) polygonised by surface nets on a small grid. They stand in for the
 // PET story's flat line icons: as real meshes in the scenes (the network's organ ring), and as small pictures in the
 // HTML chips and the headset's canvas panels (each model drawn once onto a 2D canvas, lazily, by a tiny painter's
-// renderer, so no WebGL context or render target is needed, also inside a headset session).
-// ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), lite(id) (a lighter copy, for small on screen),
-// merged(ids, opts) (one BufferGeometry, aSlot per model; opts.lite: the lighter copies), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
-// models and pictures ahead between frames, one organ after another), want(id) (that one next), mesh(id), pic(id) and
+// renderer, so no WebGL context or render target is needed, also inside a headset session). The PET story's vision row
+// uses them too (its network of organs), with one more model of its own, the bone marrow (in extra, not in ids).
+// ORGAN3D: ids, extra (models beyond the 29: the marrow), idOf(name), geo(id) (the mesh, built on first use), lite(id) (a lighter copy, for small on screen),
+// merged(ids, opts) (one BufferGeometry, aSlot per model; opts.lite: the lighter copies), shader(n, o) (a lit material's GLSL with per-model place and look; o.tints: a colour per model), canvas(id, px), url(id), step(ms) (build
+// models and pictures ahead between frames, one organ after another), build(list, ms) (only those models, a slice at a time), want(id) (that one next), mesh(id), pic(id) and
 // picUrl(id) (without waiting: null until built), version(), ready(). Manifest: organs.md. SETS.organs is the
 // harness's gallery (not part of the story).
 const ORGAN3D = (() => {
@@ -75,6 +76,13 @@ const ORGAN3D = (() => {
   const smax = (a, b, k) => -smin(-a, -b, k);
   const mirror = f => (x, y, z) => f(Math.abs(x), y, z);
   const scaleZ = (f, k) => (x, y, z) => f(x, y, z * k) / Math.max(1, k);
+  // the bone marrow's frame (its bone built along y, then leant: its top to the right by 0.6 rad, then towards you by
+  // 0.75): a point of the model's frame in the bone's, and a field written in the bone's frame read in the model's
+  const BONE = (() => {
+    const ca = Math.cos(0.6), sa = Math.sin(0.6), cb = Math.cos(0.75), sb = Math.sin(0.75);
+    return (x, y, z) => { const y1 = y * cb + z * sb, z1 = -y * sb + z * cb; return [x * ca - y1 * sa, x * sa + y1 * ca, z1]; };
+  })();
+  const inBone = f => (x, y, z) => { const p = BONE(x, y, z); return f(p[0], p[1], p[2]); };
 
   // ------------------------------------------------------------ the organs
   // Each: parts [distance, colour, blend], optional cut (subtracted, with its blend), disp (a small displacement:
@@ -181,6 +189,23 @@ const ORGAN3D = (() => {
     vagina: { parts: [[scaleZ(cone([0, 0.62, 0], [0, -0.86, 0], 0.3, 0.36), 1.3), '#e39aa5', 0.1], [sph(0, 0.72, 0, 0.3), '#e5a2ad', 0.1]],
       cut: [[(x, y, z) => y + 0.95, 0.02], [(x, y, z) => Math.max(hyp(x, z * 1.8) - 0.16, y + 0.7), 0.04]],
       disp: (x, y, z) => 0.014 * Math.sin(34 * y), paint: (x, y, z, c, part) => (part === 1 && y > 0.85 && hyp(x, z) < 0.08 ? hex('#c9737f') : c), view: [-20, 22] },
+    // (extra: not one of MICRO_DATA's organs, so not in ids, the queue or the gallery's count: built only when asked for)
+    // the bone marrow, for the PET story's network: a short piece of a long bone (its knee end whole, two knuckles
+    // capped with cartilage), cut through at the other end, where the red marrow shows inside a ring of hard bone,
+    // sunk a little; built along the bone's axis (BONE: the room's frame into the bone's), then leant to show the cut
+    marrow: { extra: true, parts: [[inBone(cone([0, -0.25, 0], [0, 0.2, 0], 0.17, 0.13)), '#e6d9bf'], [inBone(cone([0, 0.2, 0], [0, 0.74, 0], 0.13, 0.17)), '#e6d9bf', 0.12],
+      [inBone(ell(-0.16, -0.46, 0.04, 0.17, 0.16, 0.2)), '#ecdfc6', 0.12], [inBone(ell(0.16, -0.46, 0.04, 0.17, 0.16, 0.2)), '#ecdfc6', 0.12]],
+      cut: [[inBone((x, y, z) => 0.62 - y), 0.04]],
+      // (the marrow sunk a little into the cut: a shallow dish, smooth, so no wall thinner than the grid)
+      disp: inBone((x, y, z) => (y > 0.42 ? 0.045 * Math.max(0, 1 - (x * x + z * z) / 0.011) * clamp((y - 0.42) / 0.16, 0, 1) : 0)),
+      paint: (x, y, z, c) => {
+        const [bx, by, bz] = BONE(x, y, z), r = hyp(bx, bz);
+        // the marrow: red, with the pale lace of spongy bone through it; the cut ring and the cartilage paler than the shaft
+        if (by > 0.48 && r < 0.104) return Math.sin(52 * bx + 5 * Math.sin(31 * bz)) * Math.sin(49 * bz + 4 * Math.sin(29 * bx)) > 0.45 ? hex('#e7b49c') : hex(r < 0.07 ? '#a5212f' : '#c22f3e');
+        if (by > 0.575) return hex('#f6eedc');
+        if (by < -0.52) return hex('#e9eef0');
+        return c;
+      }, view: [-15, 10], res: 34 },
   };
   // MICRO_DATA's organs by name -> model
   const BYNAME = { 'adipose': 'adipose', 'adrenal gland': 'adrenal', 'artery': 'artery', 'bladder': 'bladder', 'brain': 'brain', 'breast': 'breast', 'cervix': 'cervix',
@@ -188,9 +213,9 @@ const ORGAN3D = (() => {
     'minor salivary gland': 'salivary', 'muscle': 'muscle', 'nerve': 'nerve', 'ovary': 'ovary', 'pancreas': 'pancreas', 'pituitary': 'pituitary',
     'prostate': 'prostate', 'skin': 'skin', 'small intestine': 'smallint', 'spleen': 'spleen', 'stomach': 'stomach', 'testis': 'testis', 'thyroid': 'thyroid',
     'uterus': 'uterus', 'vagina': 'vagina' };
-  const ids = Object.keys(ORG);
+  const ids = Object.keys(ORG).filter(id => !ORG[id].extra), extra = Object.keys(ORG).filter(id => ORG[id].extra);
   const idOf = name => BYNAME[String(name || '').trim().toLowerCase()] || null;
-  for (const id of ids) { const o = ORG[id]; o.parts = o.parts.map(p => ({ f: p[0], c: hex(p[1]), k: p[2] || 0.06 })); o.cut = (o.cut || []).map(c => ({ f: c[0], k: c[1] })); }
+  for (const id in ORG) { const o = ORG[id]; o.parts = o.parts.map(p => ({ f: p[0], c: hex(p[1]), k: p[2] || 0.06 })); o.cut = (o.cut || []).map(c => ({ f: c[0], k: c[1] })); }
 
   // the field, and the colour where a point lies (the nearest part's, blended softly near seams)
   const dv = new Float64Array(24);
@@ -317,6 +342,13 @@ const ORGAN3D = (() => {
     }
     return !QUEUE.length;
   }
+  // another story's own list (the PET story's network, the marrow among them): those not built yet, in slices of at most
+  // ms milliseconds, without the queue or the pictures; true once all are
+  function build(list, ms) {
+    const until = performance.now() + ms;
+    for (const id of list) if (ORG[id] && !MESH[id]) { if (!run(id, until)) return false; ver++; }
+    return true;
+  }
   const ready = () => ids.every(id => MESH[id]);
   const built = () => ids.filter(id => MESH[id]).length;
 
@@ -371,11 +403,13 @@ const ORGAN3D = (() => {
   }
   // GLSL for a lit material over a merged geometry: uP[n] place (xyz) and size (w), uQ[n] alpha (x), glow (y), turn (z,
   // radians about y), and how far the model takes its level colour uTint (w). Light from over the viewer's left shoulder.
-  function shader(n) {
+  // o.tints: a colour per model instead (uT[n], the PET story's network: each organ in its own colour)
+  function shader(n, o = {}) {
+    const tint = o.tints ? 'uT[s]' : 'uTint';
     return {
       vertex: `
 attribute vec3 aCol; attribute float aSlot;
-uniform vec4 uP[${n}], uQ[${n}]; uniform vec3 uTint;
+uniform vec4 uP[${n}], uQ[${n}]; uniform vec3 ${o.tints ? `uT[${n}]` : 'uTint'};
 varying vec3 vC, vN, vV; varying float vA, vG;
 void main() {
   int s = int(aSlot + 0.5);
@@ -385,7 +419,7 @@ void main() {
   vec3 nr = vec3(normal.x * c + normal.z * sn, normal.y, -normal.x * sn + normal.z * c);
   vec4 mv = modelViewMatrix * vec4(P.xyz + p * P.w, 1.0);
   vN = normalize(normalMatrix * nr); vV = -mv.xyz;
-  vC = mix(aCol, uTint * (0.55 + 0.45 * dot(aCol, vec3(0.33))), Q.w); vA = Q.x; vG = Q.y;
+  vC = mix(aCol, ${tint} * (0.55 + 0.45 * dot(aCol, vec3(0.33))), Q.w); vA = Q.x; vG = Q.y;
   gl_Position = projectionMatrix * mv;
   if (Q.x < 0.004 || P.w < 1e-4) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -465,7 +499,7 @@ void main() {
   const mesh = id => (MESH[id] || (want(id), null));
   // version(): goes up as each model and picture is done (the panes redraw on it); driven: the engine steps the queue
   // itself every frame (the sets then leave it alone; in the harness they step it)
-  return { ids, idOf, geo, lite, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
+  return { ids, extra, idOf, geo, lite, merged, shader, canvas, url, pic, picUrl, mesh, want, step, build, ready, built, has: id => !!MESH[id], version: () => ver,
     driven: false, names: BYNAME };
 })();
 
@@ -473,7 +507,7 @@ void main() {
 SETS.organs = function (K) {
   const { THREE } = K;
   const set = K.newSet('organs');
-  const ids = ORGAN3D.ids, n = ids.length, M = ORGAN3D.merged(ids), g = new THREE.BufferGeometry();
+  const ids = ORGAN3D.ids.concat(ORGAN3D.extra), n = ids.length, M = ORGAN3D.merged(ids), g = new THREE.BufferGeometry();   // (the 29, then the marrow)
   g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
   g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); g.setIndex(new THREE.BufferAttribute(M.idx, 1));
   const uP = ids.map((id, i) => new THREE.Vector4(((i % 6) - 2.5) * 0.36, (2 - Math.floor(i / 6)) * 0.36, 0, 0.15)), uQ = ids.map(() => new THREE.Vector4(1, 0, 0, 0));

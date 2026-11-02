@@ -1859,10 +1859,11 @@ void main() {
 // blended softly, as the muscle story's heart is) polygonised by surface nets on a small grid. They stand in for the
 // PET story's flat line icons: as real meshes in the scenes (the network's organ ring), and as small pictures in the
 // HTML chips and the headset's canvas panels (each model drawn once onto a 2D canvas, lazily, by a tiny painter's
-// renderer, so no WebGL context or render target is needed, also inside a headset session).
-// ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), lite(id) (a lighter copy, for small on screen),
-// merged(ids, opts) (one BufferGeometry, aSlot per model; opts.lite: the lighter copies), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
-// models and pictures ahead between frames, one organ after another), want(id) (that one next), mesh(id), pic(id) and
+// renderer, so no WebGL context or render target is needed, also inside a headset session). The PET story's vision row
+// uses them too (its network of organs), with one more model of its own, the bone marrow (in extra, not in ids).
+// ORGAN3D: ids, extra (models beyond the 29: the marrow), idOf(name), geo(id) (the mesh, built on first use), lite(id) (a lighter copy, for small on screen),
+// merged(ids, opts) (one BufferGeometry, aSlot per model; opts.lite: the lighter copies), shader(n, o) (a lit material's GLSL with per-model place and look; o.tints: a colour per model), canvas(id, px), url(id), step(ms) (build
+// models and pictures ahead between frames, one organ after another), build(list, ms) (only those models, a slice at a time), want(id) (that one next), mesh(id), pic(id) and
 // picUrl(id) (without waiting: null until built), version(), ready(). Manifest: organs.md. SETS.organs is the
 // harness's gallery (not part of the story).
 const ORGAN3D = (() => {
@@ -1931,6 +1932,13 @@ const ORGAN3D = (() => {
   const smax = (a, b, k) => -smin(-a, -b, k);
   const mirror = f => (x, y, z) => f(Math.abs(x), y, z);
   const scaleZ = (f, k) => (x, y, z) => f(x, y, z * k) / Math.max(1, k);
+  // the bone marrow's frame (its bone built along y, then leant: its top to the right by 0.6 rad, then towards you by
+  // 0.75): a point of the model's frame in the bone's, and a field written in the bone's frame read in the model's
+  const BONE = (() => {
+    const ca = Math.cos(0.6), sa = Math.sin(0.6), cb = Math.cos(0.75), sb = Math.sin(0.75);
+    return (x, y, z) => { const y1 = y * cb + z * sb, z1 = -y * sb + z * cb; return [x * ca - y1 * sa, x * sa + y1 * ca, z1]; };
+  })();
+  const inBone = f => (x, y, z) => { const p = BONE(x, y, z); return f(p[0], p[1], p[2]); };
 
   // ------------------------------------------------------------ the organs
   // Each: parts [distance, colour, blend], optional cut (subtracted, with its blend), disp (a small displacement:
@@ -2037,6 +2045,23 @@ const ORGAN3D = (() => {
     vagina: { parts: [[scaleZ(cone([0, 0.62, 0], [0, -0.86, 0], 0.3, 0.36), 1.3), '#e39aa5', 0.1], [sph(0, 0.72, 0, 0.3), '#e5a2ad', 0.1]],
       cut: [[(x, y, z) => y + 0.95, 0.02], [(x, y, z) => Math.max(hyp(x, z * 1.8) - 0.16, y + 0.7), 0.04]],
       disp: (x, y, z) => 0.014 * Math.sin(34 * y), paint: (x, y, z, c, part) => (part === 1 && y > 0.85 && hyp(x, z) < 0.08 ? hex('#c9737f') : c), view: [-20, 22] },
+    // (extra: not one of MICRO_DATA's organs, so not in ids, the queue or the gallery's count: built only when asked for)
+    // the bone marrow, for the PET story's network: a short piece of a long bone (its knee end whole, two knuckles
+    // capped with cartilage), cut through at the other end, where the red marrow shows inside a ring of hard bone,
+    // sunk a little; built along the bone's axis (BONE: the room's frame into the bone's), then leant to show the cut
+    marrow: { extra: true, parts: [[inBone(cone([0, -0.25, 0], [0, 0.2, 0], 0.17, 0.13)), '#e6d9bf'], [inBone(cone([0, 0.2, 0], [0, 0.74, 0], 0.13, 0.17)), '#e6d9bf', 0.12],
+      [inBone(ell(-0.16, -0.46, 0.04, 0.17, 0.16, 0.2)), '#ecdfc6', 0.12], [inBone(ell(0.16, -0.46, 0.04, 0.17, 0.16, 0.2)), '#ecdfc6', 0.12]],
+      cut: [[inBone((x, y, z) => 0.62 - y), 0.04]],
+      // (the marrow sunk a little into the cut: a shallow dish, smooth, so no wall thinner than the grid)
+      disp: inBone((x, y, z) => (y > 0.42 ? 0.045 * Math.max(0, 1 - (x * x + z * z) / 0.011) * clamp((y - 0.42) / 0.16, 0, 1) : 0)),
+      paint: (x, y, z, c) => {
+        const [bx, by, bz] = BONE(x, y, z), r = hyp(bx, bz);
+        // the marrow: red, with the pale lace of spongy bone through it; the cut ring and the cartilage paler than the shaft
+        if (by > 0.48 && r < 0.104) return Math.sin(52 * bx + 5 * Math.sin(31 * bz)) * Math.sin(49 * bz + 4 * Math.sin(29 * bx)) > 0.45 ? hex('#e7b49c') : hex(r < 0.07 ? '#a5212f' : '#c22f3e');
+        if (by > 0.575) return hex('#f6eedc');
+        if (by < -0.52) return hex('#e9eef0');
+        return c;
+      }, view: [-15, 10], res: 34 },
   };
   // MICRO_DATA's organs by name -> model
   const BYNAME = { 'adipose': 'adipose', 'adrenal gland': 'adrenal', 'artery': 'artery', 'bladder': 'bladder', 'brain': 'brain', 'breast': 'breast', 'cervix': 'cervix',
@@ -2044,9 +2069,9 @@ const ORGAN3D = (() => {
     'minor salivary gland': 'salivary', 'muscle': 'muscle', 'nerve': 'nerve', 'ovary': 'ovary', 'pancreas': 'pancreas', 'pituitary': 'pituitary',
     'prostate': 'prostate', 'skin': 'skin', 'small intestine': 'smallint', 'spleen': 'spleen', 'stomach': 'stomach', 'testis': 'testis', 'thyroid': 'thyroid',
     'uterus': 'uterus', 'vagina': 'vagina' };
-  const ids = Object.keys(ORG);
+  const ids = Object.keys(ORG).filter(id => !ORG[id].extra), extra = Object.keys(ORG).filter(id => ORG[id].extra);
   const idOf = name => BYNAME[String(name || '').trim().toLowerCase()] || null;
-  for (const id of ids) { const o = ORG[id]; o.parts = o.parts.map(p => ({ f: p[0], c: hex(p[1]), k: p[2] || 0.06 })); o.cut = (o.cut || []).map(c => ({ f: c[0], k: c[1] })); }
+  for (const id in ORG) { const o = ORG[id]; o.parts = o.parts.map(p => ({ f: p[0], c: hex(p[1]), k: p[2] || 0.06 })); o.cut = (o.cut || []).map(c => ({ f: c[0], k: c[1] })); }
 
   // the field, and the colour where a point lies (the nearest part's, blended softly near seams)
   const dv = new Float64Array(24);
@@ -2173,6 +2198,13 @@ const ORGAN3D = (() => {
     }
     return !QUEUE.length;
   }
+  // another story's own list (the PET story's network, the marrow among them): those not built yet, in slices of at most
+  // ms milliseconds, without the queue or the pictures; true once all are
+  function build(list, ms) {
+    const until = performance.now() + ms;
+    for (const id of list) if (ORG[id] && !MESH[id]) { if (!run(id, until)) return false; ver++; }
+    return true;
+  }
   const ready = () => ids.every(id => MESH[id]);
   const built = () => ids.filter(id => MESH[id]).length;
 
@@ -2227,11 +2259,13 @@ const ORGAN3D = (() => {
   }
   // GLSL for a lit material over a merged geometry: uP[n] place (xyz) and size (w), uQ[n] alpha (x), glow (y), turn (z,
   // radians about y), and how far the model takes its level colour uTint (w). Light from over the viewer's left shoulder.
-  function shader(n) {
+  // o.tints: a colour per model instead (uT[n], the PET story's network: each organ in its own colour)
+  function shader(n, o = {}) {
+    const tint = o.tints ? 'uT[s]' : 'uTint';
     return {
       vertex: `
 attribute vec3 aCol; attribute float aSlot;
-uniform vec4 uP[${n}], uQ[${n}]; uniform vec3 uTint;
+uniform vec4 uP[${n}], uQ[${n}]; uniform vec3 ${o.tints ? `uT[${n}]` : 'uTint'};
 varying vec3 vC, vN, vV; varying float vA, vG;
 void main() {
   int s = int(aSlot + 0.5);
@@ -2241,7 +2275,7 @@ void main() {
   vec3 nr = vec3(normal.x * c + normal.z * sn, normal.y, -normal.x * sn + normal.z * c);
   vec4 mv = modelViewMatrix * vec4(P.xyz + p * P.w, 1.0);
   vN = normalize(normalMatrix * nr); vV = -mv.xyz;
-  vC = mix(aCol, uTint * (0.55 + 0.45 * dot(aCol, vec3(0.33))), Q.w); vA = Q.x; vG = Q.y;
+  vC = mix(aCol, ${tint} * (0.55 + 0.45 * dot(aCol, vec3(0.33))), Q.w); vA = Q.x; vG = Q.y;
   gl_Position = projectionMatrix * mv;
   if (Q.x < 0.004 || P.w < 1e-4) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -2321,7 +2355,7 @@ void main() {
   const mesh = id => (MESH[id] || (want(id), null));
   // version(): goes up as each model and picture is done (the panes redraw on it); driven: the engine steps the queue
   // itself every frame (the sets then leave it alone; in the harness they step it)
-  return { ids, idOf, geo, lite, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
+  return { ids, extra, idOf, geo, lite, merged, shader, canvas, url, pic, picUrl, mesh, want, step, build, ready, built, has: id => !!MESH[id], version: () => ver,
     driven: false, names: BYNAME };
 })();
 
@@ -2329,7 +2363,7 @@ void main() {
 SETS.organs = function (K) {
   const { THREE } = K;
   const set = K.newSet('organs');
-  const ids = ORGAN3D.ids, n = ids.length, M = ORGAN3D.merged(ids), g = new THREE.BufferGeometry();
+  const ids = ORGAN3D.ids.concat(ORGAN3D.extra), n = ids.length, M = ORGAN3D.merged(ids), g = new THREE.BufferGeometry();   // (the 29, then the marrow)
   g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
   g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); g.setIndex(new THREE.BufferAttribute(M.idx, 1));
   const uP = ids.map((id, i) => new THREE.Vector4(((i % 6) - 2.5) * 0.36, (2 - Math.floor(i / 6)) * 0.36, 0, 0.15)), uQ = ids.map(() => new THREE.Vector4(1, 0, 0, 0));
@@ -6303,7 +6337,7 @@ function xrRecenter() {
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
-const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '');
+const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
 // station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
 // plays); a shell without it: shown
@@ -6313,6 +6347,11 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
+// one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
+// circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
+const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());
+const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());
 // the line on show, for the shell's subtitles in a headset (HOST.xr.subs, drawn by shared.js): the chapter on show's cues
 // (ST.items: els with at and out), the story time now, the chapter's end and narrT (to the clock's time); null in
 // explore mode, on the Stories screen and away from a station
@@ -6690,7 +6729,10 @@ function xrBegin(frame, dt) {
     const roomOnly = xrRoomOnly();
     if (XR.inRoom && !roomOnly) xrFreshStart();
     XR.inRoom = roomOnly;
-    if (XR.stories && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
+    // (at an All stories circle its cards are the Stories screen, opened as the panel's Stories button opens it, and they
+    // close once a story is picked there or the headset walks into another circle)
+    if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }
+    if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -6705,7 +6747,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) xrPoint(c, dt);
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
-  if (xrAway()) { APP.playing = false; SLIDE.tail = null; }
+  if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -7144,7 +7186,7 @@ function drawLandHead(ctx, P) {
   // anchored, Recenter becomes Place again: everything in front of you, then anchored there
   if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
   else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
-  if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
+  if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
   vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
@@ -7180,7 +7222,7 @@ function drawLandCard(ctx, P, s) {
   ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, s.len, P.w - 96), 48, P.h - 196);
   const label = here && XR.inStory ? 'Resume' : 'Start';
   vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
-  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here ? xrLandingClose() : HOST.go(s.key)) });
+  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });
 }
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
@@ -7189,7 +7231,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
   const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
     const here = k === XR_HERE;
-    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
+    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     let yw = 0;   // the kicker stops short of 'You are here' beside it
     if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; yw = ctx.measureText('You are here').width + 20; }
     fitTitle(ctx, kick.toUpperCase(), x + 26, y + 22, W - 52 - yw, 21, 26, col, 700, 17);
@@ -7197,7 +7239,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
     textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
-  vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
+  if (!xrCards()) vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
 }
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
@@ -7209,6 +7251,7 @@ function drawMain(ctx, P) {
   // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
   // its circle)
   if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
   fitTitle(ctx, 'The shape of tissue', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);

@@ -51,12 +51,42 @@ back, as in a real whole-body scan.
 patient rises off the couch and stands up as the glowing body (the same instance, its shell turned into a warm
 orange fill and a bright orange rim, as on the slide; the image's hot organs show above it); to its right, linked by
 flowing light (between each two stages a glowing arc of soft points, cyan to light blue, with two pulses running along
-it left to right, each a bright head with a fading tail, timed from the clock so a seek shows them in place): a neon network of organs (brain, lungs, heart, liver
-and kidneys from `PET_ICONS`, drawn glowing in each organ's colour with a soft fill; 12 small nodes, nine other
-organs once each in their colours and three neutral white; links in their nodes' colours), then three glowing
-prognosis bars (orange 80 %, red 40 %, yellow 90 % of their frames, no text) above a framed medication chart (five
-neon orange bars rising from an axis). Every element fades in left to right. At 1 the row spans x -3.1 (the couch's
-end) to +2.91, y -0.76 to 0.84, centred on the origin's height.
+it left to right, each a bright head with a fading tail, timed from the clock so a seek shows them in place): a network
+of 3D organs, then three glass tubes of prognosis above a medication chart of pills. Every element fades in left to
+right. At 1 the row spans x -3.1 (the couch's end) to about +3.0, y -0.76 to 0.84, centred on the origin's height.
+
+Since v104 (the owner, 2 November 2026: "the network and the prognosis need way more 3d, use the 3d organs from tissue
+and time instead of the icons in the network, make the prognosis and medication 3d and use better colors"; colours:
+the story's own cyan and amber, no more neon orange, red and yellow):
+
+- **The network** (`netG`, its middle at x 0.68): the 14 organs of `PET_DATA` as the microanatomy story's 3D models
+  (`ORGAN3D`, `tools/micro/sets/organs.js`, which the build puts before the sets: brain, lungs, heart, liver, kidneys ->
+  `kidney`, thyroid, muscle, adrenal, spleen, pancreas, intestine -> `smallint`, fat -> `adipose`, aorta -> `artery`, and
+  the bone marrow -> `marrow`, a model made for this row: a short piece of a long bone cut through, the red marrow
+  showing inside a ring of hard bone). `SCAN_NET` (outside the set) lists each with its place and size: the five big
+  ones 0.145 to 0.19 m across their bounding sphere's radius, the nine others 0.085 to 0.11, spread in depth over
+  about 0.7 m (z -0.34 to 0.34), not a flat sheet. Lit as the microanatomy story's organ ring is (`ORGAN3D.shader` with a
+  colour per model, `{ tints: true }`): each takes half of its `PET_DATA` colour (the marrow 0.18, so its red shows),
+  turns slowly about its own vertical (0.3 rad/s, each in its own phase) and grows from 0.7 of its size as it fades in;
+  a soft glow in its colour behind it. The three nodes that are not organs stay glowing white points. The links (each
+  node's three nearest, 3D, as before) are glowing tubes (7.5 mm in radius, 6 sides), each
+  in its two nodes' colours, from just inside one organ to just inside the other, with a pulse of light running along
+  each now and then (its own pace and way, a sharp front and a soft tail, the tube swelling under it; from the clock,
+  so a seek shows them in place). The whole network sways about its vertical by up to 0.32 rad (period 30 s) so its
+  depth shows on a screen too.
+- **Prognosis** (`progG`, at x 2.36, turned 0.32 rad about the vertical, the other way to the scanner, so its depth
+  shows): three clear glass tubes (capsules 1.2 m long, 6.4 cm across their radius) at y 0.64, 0.42 and 0.2, filling
+  from the left with the scanner's cyan light (`#46d9ff`) to 80, 40 and 90 % as each fades in (a brighter front with a
+  soft glow point, a slow shimmer along it; the glass takes on the cyan where the light is inside), on satin end caps
+  joined by two slim posts.
+- **Medication**: five capsule pills (amber `#ffb43b` bodies, pale caps a little wider over their tops; heights
+  0.1 + 0.6 x 0.42, 0.78, 0.3, 0.55, 0.68 m) rising out of a small base of dark glass with a cyan edge (1.08 x 0.36 m,
+  its top at y -0.7), one after another as medication fades in.
+- Lit like the organs (a light over your left shoulder, in view space: the same in a headset). `aE.x` groups the
+  prognosis and medication for the left-to-right fade (1-3 the tubes, 4 medication), as the neon panels did.
+- The organs' models are built before the set (`SETS.scan.prep(ms)`, which the engine's `buildSet` asks a slice of
+  25 ms at a time until all 14 are built: about 0.3 to 0.6 s in all, in some 20 steps of the load), so the row, on
+  show from the story's first second, never waits for them; the harness builds them at once (`ORGAN3D.geo`).
 
 Frame: 1 unit = 1 m. Origin = the centre of the bore; its axis is z; the couch comes out towards +z; the floor is at
 y = -1.05 (exported as `set.floorY`). Gantry 2.02 wide, 2.1 tall (1.05 above the bore's centre, its plinth on the
@@ -79,7 +109,7 @@ the reflection write no depth.
 | `scan_events` | 0 | 0 none; from about 0.03 the **featured** event (one every 2 s: slow, comets, a beam for its line; the labels follow it); above 0.08 the others join, their share growing with the square of the rest ((e - 0.08) / 0.92)^2: about 1.4 a second at 0.3, 6 at 0.6, 25 at 1 |
 | `scan_lines` | 0 | how many lines of the web stay: 0 none, 1 the newest 3,000 (15 s of the stream); rising, it uncovers older lines, so the web grows. Keep `scan_events` on while it rises |
 | `scan_image` | 0 | 0-0.6 the couch carries the patient on through the ring (`scan_pass` to 1) and the counts light up behind it (grainy); the lines and events fade (gone by about 0.55); 0.5-0.95 the smooth image glows up; 0.62-0.95 the grains give way to it; the tumour shows from 0.45 |
-| `scan_vision` | 0 | the vision row: 0-0.45 the scanner moves left; 0.08-0.5 the body rises and stands; the flowing light between the stages from 0.12, 0.36, 0.62; network 0.44-0.68; prognosis bars 0.7-0.94; medication 0.8-1 |
+| `scan_vision` | 0 | the vision row: 0-0.45 the scanner moves left; 0.08-0.5 the body rises and stands; the flowing light between the stages from 0.12, 0.36, 0.62; network 0.44-0.68 (links and glows from 0.44, the organs from 0.48); prognosis tubes 0.7-0.86, 0.74-0.9, 0.78-0.94 (each filling as it comes); medication 0.8-1 (the pills rising one after another) |
 | `scan_floor` | 1 | **added**: the floor and its reflection; set 0 in passthrough AR |
 | `scan_rise` | 0 | **added**: the hand-over to the body set. 0-0.25 the scanner goes (housing, ring, couch, floor and reflection, events, lines, the shell and the count grains; the image stays where it lies); 0.25-0.75 the patient stands up to `riseTo` (pitching up from lying as it turns, shoulders level; scale to `riseTo.s`); 0.75-1 its glow cools down the hot-iron scale to dark (the tumour's grains first), as the body set is at `body_pet` 0. Linear in each stage: the story eases each stage and moves its camera in step. Explore plays the same stages when the Scanner and the Body or Organs are picked in turn (`HAND` in `engine/e4_explore.js`), and backwards to the Scanner |
 
@@ -111,8 +141,8 @@ gantry's top right, for "PET/CT scanner"), `couch` (the table's side near its fo
 its label sits above the photons' paths; 10 cm above the bore's centre when none), `lor` (8 cm below the left-hand
 end of the latest featured line of response that is drawn, so its label sits under the line, which rises to the
 right; [-0.36, -0.2, 0] when none), `floor` (under the bore), `vision_scan`, `vision_body`, `vision_net`,
-`vision_prog`, `vision_med` (above or at the top left of each row element, for labels). All but the `vision_*` points
-are functions.
+`vision_prog`, `vision_med` (above or at the top left of each row element, for labels; the last two worked out once
+from the prognosis group's turn). All but the `vision_*` points are functions.
 
 ## Labels
 

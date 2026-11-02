@@ -195,12 +195,14 @@ Params:
 - `scan_vision` 0..1: **the vision row** of the slide: the scanner moves to the left and shrinks a little, and to its
   right appear, linked by flowing light (a glowing arc between each two, pulses running along it left to right; the
   slide's chevron arrows looked heavy in 3D): a standing glowing PET
-  body (a second body instance, or the same one stood up), a **neon network of organs** (brain, lungs, heart, liver,
-  kidneys from `PET_ICONS` drawn neon: glowing coloured outlines with filled translucent shapes, linked by glowing
-  lines with coloured nodes, as on the slide), and on the right **prognosis** (three glowing horizontal bars of
-  different lengths, orange, red and yellow, no text) above **medication** (a glowing orange bar chart in a frame).
+  body (a second body instance, or the same one stood up), a **network of 3D organs** (since v104, the owner's
+  wish: the 14 organs as the microanatomy story's 3D models, `ORGAN3D`, and a bone of its own for the marrow, lit, each
+  taking on its colour and turning slowly, spread in depth, joined by glowing tubes with light running along them;
+  three more nodes as glowing points; until v104 neon icons from `PET_ICONS`), and on the right **prognosis** (three
+  glass tubes filling with the story's cyan light to different levels, no text) above **medication** (amber capsule
+  pills rising from a small base: a bar chart in 3D; until v104 neon orange, red and yellow bars and a flat chart).
   At 1 the row is complete, about 6 units wide, centred on the origin's height; the engine's title card goes over it.
-  Every element fades in left to right.
+  Every element fades in left to right. Details in `sets/scan.md`.
 Anchors: `centre` (the bore's centre), `bore`, `ring` (top of the detector ring), `couch`, `patient` (the chest),
 `head`, `tumour`, `event` (a function: the latest event's point), `vision_scan`, `vision_body`, `vision_net`,
 `vision_prog`, `vision_med` (the row's elements), `floor` (the floor under the bore).

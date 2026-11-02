@@ -1646,6 +1646,17 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sp.evaluate(() => HOST.xr.setSubs(false));
     if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
   });
+  // the All stories circle's hook lines (v104): the same in all sixteen stories and the design room (its cards as the
+  // Stories screen, a card picking for the circle, the story panel's Stories button back to its cards)
+  await step('every story keeps the All stories hook lines', async () => {
+    const lines = ['const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());', 'const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());',
+      'if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }',
+      'if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();',
+      "else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);", 'fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });'];
+    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+      [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
+    if (miss.length) errors.push('the All stories hook lines are missing in ' + miss.join(', '));
+  });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
   // and explore panel neither drawn nor pointable) or hidden (neither; A or X still plays), in story and explore mode;
   // each story its own (the design room too), kept across a reload, set by a link for the story it opens; cards hidden

@@ -13,7 +13,8 @@ node tools/design/build.mjs --check  # exits 1 if stories/design.js is out of da
 and bump `VERSION` in `sw.js`. Rebuild after changing `props.json` or the miniatures' names (`tools/lowpoly/`): the
 cards are made from both at build time. The models themselves load at run time from `lowpoly.js`
 (`node tools/lowpoly/build.mjs`, `HOST.lowpoly()` in `index.html`). The design room's own miniature, `design.table`, is
-only its station icon in a shared room (the build skips it: not a prop on the table). In a room the headset menu's
+only its station icon in a shared room (the build skips it: not a prop on the table), and so are the shell's two
+circles' miniatures, `all.stories` and `all.lobby` (story `all`, skipped too). In a room the headset menu's
 *Design room here* (or Add a station on the page) puts the table at a circle, never Arrange all (`shared.js`; AGENTS.md
 "Shared rooms", "The design room in a room").
 

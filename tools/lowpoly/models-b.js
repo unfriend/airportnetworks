@@ -1,7 +1,9 @@
 // Low-poly miniatures of the stories' sets, batch b: the aging ovary, qubits, mutation, tissue topology, soil, pass, flock
 // and robot gang stories' sets and the three hand-written stories' scenes (airports, proteins, spatial). They stand on the
 // design room's table, and a story's main one (its entry's icon in stories/list.js) is its station icon above the ring;
-// the last, the design room's own table (design.table), is only that design room's icon, not a prop on the table.
+// the design room's own table (design.table) is only that design room's icon, not a prop on the table, and so are the
+// last two, all.stories and all.lobby, the icons of the shell's own circles (All stories, Back to the lobby: shared.js's
+// KINDS), not of a story.
 // Each entry of LOWPOLY_MODELS['<story>.<set>'] is { story, set, name, shows, build(THREE) -> THREE.Group, tris }:
 // the group is centred on x and z, stands on y = 0 and fits a 1 x 1 x 1 box (the caller scales it). Built from simple
 // shapes coloured per face (vertex colours), merged into one mesh per material (at most six), in the props' own
@@ -814,5 +816,56 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       M.add('glow', g.oct(0.032), COLS[k % N], p);
       M.add('glow', g.rod(C0, p, 0.006, 3), '#c4d3f0');
     }
+  });
+
+  // ================================================================== the shell's own circles (their station icons, not props)
+  // shared.js's two kinds of circle that are not stories (KINDS: their entries name these as their icons); story 'all'
+  // is no story, so the design room's table leaves them out (tools/design/build.mjs)
+  def('all.stories', 'All stories', 'The All stories circle: the Stories screen in miniature, sixteen cards in two rows on an arc, one in each story\'s colour, under its header, on a small stand.', 620, (M, g) => {
+    // the stories' colours (stories/list.js) round the colour wheel, so the cards read as every story
+    const COLS = ['#ff5c5c', '#ff7a59', '#ffb43b', '#ffe066', '#b0a83c', '#c3e85a', '#3ee08f', '#5fe0c8', '#46d9ff', '#4d8dff', '#9db4ff', '#7d74ff', '#c08cff', '#ff5fd2', '#ff9ec4', '#ff6f91'];
+    plinth(M, 0.3, 0.05);
+    M.add('glow', g.tor(0.3, 0.012, 3, 20), '#cfeeff', [0, 0.05, 0], [PI / 2, 0, 0]);   // a pale rim
+    M.add('gloss', g.cyl(0.03, 0.05, 0.21, 8, true), NAVY, [0, 0.155, 0]);                // the post
+    // the arc, deep enough to keep its curve from the side as the icon turns: its middle R behind C, its ends forward;
+    // cards CW x CH in two rows of eight, the lower row's foot at Y0, each turned to C (as the Stories screen's to you)
+    const R = 0.42, SPAN = 2.5, CW = 0.115, CH = 0.15, GAP = 0.018, Y0 = 0.27, C = [0, 0, 0.27];
+    const on = (phi, y) => [C[0] + R * Math.sin(phi), y, C[2] - R * Math.cos(phi)];
+    for (let row = 0; row < 2; row++) for (let i = 0; i < 8; i++) {
+      const phi = (i - 3.5) / 7 * (SPAN - CW / R), y = Y0 + CH / 2 + (1 - row) * (CH + GAP);
+      M.frame(on(phi, y), [0, -phi, 0]);
+      M.add('glow', g.box(CW, CH, 0.01), COLS[row * 8 + i]);   // lit from within, as the screen's cards (and brighter in the icon)
+      M.add('flat', g.plane(CW - 0.024, 0.022), '#f4f8ff', [0, CH / 2 - 0.026, 0.0055]);    // its title
+      M.add('flat', g.plane(CW - 0.03, 0.028), '#1a2a44', [0, -CH / 2 + 0.03, 0.0055]);    // and its Start button
+      M.frame();
+    }
+    // the header over the cards (a band of light, as the screen's title), a rail under them and the arm to the post
+    const top = Y0 + 2 * CH + GAP;
+    M.add('glow', g.cyl(R, R, 0.045, 20, true, PI - SPAN / 2, SPAN), '#e8f4ff', [C[0], top + 0.04, C[2]]);
+    const rail = []; for (let k = 0; k <= 8; k++) rail.push(on((k / 8 - 0.5) * SPAN, Y0 - 0.012));
+    M.add('gloss', g.tube(rail, 0.012, 16, 4), NAVY);
+    M.add('gloss', g.rod([0, 0.25, 0], on(0, Y0 - 0.012), 0.016, 6), NAVY);
+  });
+
+  def('all.lobby', 'Back to the lobby', 'The Back to the lobby circle: an open doorway on a round floor plate, warm light in it, stepping stones up to it and a curved arrow turning back over it: the way back to the start.', 760, (M, g) => {
+    const GOLD = '#f0d58c', LIGHT = '#fff3d0';
+    M.add('gloss', g.cyl(0.5, 0.52, 0.05, 20), NAVY, [0, 0.025, 0]);                    // the floor plate
+    M.add('glow', g.tor(0.5, 0.014, 3, 24), GOLD, [0, 0.05, 0], [PI / 2, 0, 0]);        // its gold rim
+    // the doorway: two posts, a round arch, a step, and the light of the lobby filling it
+    const DW = 0.34, DH = 0.42, P = 0.07, F = 0.05, Z = -0.08, AR = DW / 2 + P / 2;
+    for (const s of [-1, 1]) M.add('gloss', g.box(P, DH, 0.1), '#e9eef6', [s * AR, F + DH / 2, Z]);
+    M.add('gloss', g.tor(AR, P / 2, 4, 10, PI), '#e9eef6', [0, F + DH, Z], [0, 0, 0], [1, 1, 1.43]);
+    M.add('gloss', g.box(DW + 2 * P + 0.04, 0.025, 0.18), '#c9d3e2', [0, F + 0.0125, Z]);
+    M.add('glow', g.plane(DW, DH), LIGHT, [0, F + DH / 2, Z]);
+    M.add('glow', g.disc(DW / 2, 10, 0, PI), LIGHT, [0, F + DH, Z]);
+    // stepping stones up to it: walk in
+    for (const [x, z] of [[0.05, 0.38], [-0.04, 0.25], [0.02, 0.12]]) M.add('gloss', g.cyl(0.05, 0.055, 0.014, 8), '#c9d3e2', [x, F + 0.007, z], 0, [1.25, 1, 1]);
+    // the arrow, a turn back (as an undo sign): from behind the door on the right, up over the arch and down in front of
+    // it on the left, so it keeps its curve from the side too
+    const R = 0.37, Y0 = F + DH, th0 = -0.15, th1 = PI + 0.42, at = th => [R * Math.cos(th), Y0 + R * Math.sin(th), Z - 0.22 * Math.cos(th)];
+    const pts = []; for (let k = 0; k <= 8; k++) pts.push(at(th0 + (th1 - th0) * k / 8));
+    M.add('glow', g.tube(pts, 0.024, 24, 6), GOLD);
+    const e = at(th1), d = (() => { const p = at(th1 - 0.05), v = [e[0] - p[0], e[1] - p[1], e[2] - p[2]], n = Math.hypot(...v); return v.map(x => x / n); })();
+    M.add('glow', g.cone(0.08, 0.16, 8), GOLD, add3(e, d, 0.06), [Math.acos(d[1]), Math.atan2(d[0], d[2]), 0, 'YXZ']);
   });
 })();

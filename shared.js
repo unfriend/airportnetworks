@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-27';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-28';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -70,7 +70,22 @@
   // a story's entry in the list (HOST.meta: also a page that is not one of the stories, as the design room); one this
   // device does not know yet (a newer copy of the app put it in the room) gets a stand-in whose card says this device
   // needs an update (HOST.unknown; HOST.live offers the update)
-  const meta = key => (HOST.meta ? HOST.meta(key) : HOST.list.find(s => s.key === key)) || (HOST.unknown ? HOST.unknown(key) : undefined);
+  const meta = key => KINDS[key] || (HOST.meta ? HOST.meta(key) : HOST.list.find(s => s.key === key)) || (HOST.unknown ? HOST.unknown(key) : undefined);
+  // Two kinds of circle that are the shell's own, not stories (v104; the owner, 2 November 2026: "a circle with all stories
+  // that looks exactly like the single player story menu", and "a 'back to the lobby' circle where the headsets go back to
+  // the lobby"). All stories: st.<id> = { story: 'all' (its cards show) or the story picked there, kind: 'all', sync, x, z,
+  // yaw }; Back to the lobby: { story: 'lobby', kind: 'lobby', x, z, yaw }. Never in stories/list.js and never started:
+  // their key names their look (title, colour, icon) wherever a station's is taken
+  const KINDS = {
+    all: { key: 'all', kind: 'all', kick: 'Every story', title: 'All stories', col: '#cfeeff', icon: 'all.stories', desc: 'Every story, chosen here by whoever stands in the circle' },
+    lobby: { key: 'lobby', kind: 'lobby', kick: 'The lobby', title: 'Back to the lobby', col: '#9fe5bf', icon: 'all.lobby', desc: 'Walk in to leave your story and see every circle again' },
+  };
+  const ALL = 'all', LOBBY_ST = 'lobby';
+  const lookKey = s => s.kind || s.story;   // (a station's look: its kind's, else its story's)
+  // the story a station runs ('' none: an All stories circle showing its cards, the lobby)
+  const runs = s => (s && !(s.kind && s.story === s.kind) ? s.story : '');
+  // a station's title in lines and lists: "All stories" (with the story picked there), "Back to the lobby", a story's
+  const stTitle = s => (s.kind === ALL ? 'All stories' + (runs(s) ? ': ' + meta(s.story).title : '') : meta(lookKey(s)).title);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mmss = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];   // a yaw's forward on the floor (x, z): yaw 0 faces -z
@@ -119,6 +134,9 @@
     who: '', whoName: '', whoSt: '', whoGone: 0, whoLeft: '',
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
     cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0,
+    // the All stories circles: the live station's story and session as last applied, a page showing its Stories screen for
+    // one, and the first headset's circle (autoAll: tests turn it off; allpFor: the room it was tried in, allpAt: since when)
+    liveSig: '', cardsOpen: false, autoAll: true, allpFor: '', allpAt: 0,
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
@@ -273,7 +291,8 @@
     if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
-      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '' });
+      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0 });
+    C.cardsOpen = false;   // (the page's Stories screen an All stories circle opened stays: in no room it is the landing page)
     C.pres.clear();
     R.left();
     HOST.audio.zone(null);
@@ -505,7 +524,7 @@
       if (v === null) C.keys.delete(k); else C.keys.set(k, { v, seq: m.seq, by: m.by });
       const p = C.pending.get(k);
       if (me && p) {   // our acknowledgement: the room now has our value (an explore state's new base)
-        if (p.cid === m.cid && J(p.v) === J(v)) { C.pending.delete(k); const L = liveSt(); if (L && k === kX(L.id)) C.xb = { id: L.id, v }; }
+        if (p.cid === m.cid && J(p.v) === J(v)) { C.pending.delete(k); const L = sesSt(); if (L && k === kX(L.id)) C.xb = { id: L.id, v }; }
         continue;
       }
       // our own later write is on its way: it wins everywhere. Not for an explore state: that merges (stateApply),
@@ -538,7 +557,7 @@
   function roomChanged(keys, local, plain) {
     const all = !keys, has = re => all || keys.some(k => re.test(k));
     if (has(/^st\.[\w-]+$/)) stationsChanged();
-    const L = liveSt();
+    const L = sesSt();
     if (!local && L && C.ready && L.story === HOST.curKey) {
       // (not while our own clock write waits for its turn: it follows, and wins as an unacknowledged write would)
       if ((all || keys.includes(kPlay(L.id))) && !C.clockT) clockApply(true);
@@ -1457,7 +1476,7 @@
       if (P.head && Number.isFinite(v.ts)) bufPush(P.buf || (P.buf = { s: [], seed: false }), v.ts, { head: P.head, hands: P.hands }, true); else P.buf = null;
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k.startsWith('e.')) {
-      const L = liveSt(), v = m.v || {};
+      const L = sesSt(), v = m.v || {};   // (the station's session: an All stories circle in sync mode shares its effects)
       if (!v.q) log('effect in', { st: m.k.slice(2), type: v.type, by: m.by });
       if (L && m.k === 'e.' + L.id && C.ready && L.story === HOST.curKey && C.hook && C.hook.effect) {
         try { C.hook.effect(v.type, v.data, m.by); } catch (e) { log('effect failed', { e: e.message }); }   // (by: who sent it, as the relay says)
@@ -1467,7 +1486,7 @@
   // a one-shot effect the story caused here (a falcon sent, crumbs spilled): the others at the station play it too.
   // quiet: one sent often (where the flock is, twice a second), kept out of the log on both sides
   function effect(type, data, quiet) {
-    const L = liveSt();
+    const L = sesSt();
     if (!L || L.story !== HOST.curKey || !C.code) return false;
     if (!quiet) log('effect out', { st: L.id, type });
     return fx('e.' + L.id, Object.assign({ type, data: data === undefined ? null : data }, quiet ? { q: 1 } : {}));
@@ -1479,9 +1498,13 @@
     for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
       const m = ST_RE.exec(k), v = m && val(k);
       if (!v || typeof v !== 'object' || !meta(v.story)) continue;
-      out.push({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 });
+      // (the shell's own kinds: the lobby shows only itself; an All stories circle its cards or a story of the list)
+      const kd = v.kind === LOBBY_ST || v.story === LOBBY_ST ? LOBBY_ST : v.kind === ALL || v.story === ALL ? ALL : '';
+      if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) continue;
+      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true } : {}));
     }
-    const order = s => { const i = HOST.list.findIndex(x => x.key === s.story); return i < 0 ? HOST.list.length : i; };   // (the design room's after the stories)
+    // (the design room's after the stories, then the All stories circles and the lobby)
+    const order = s => { if (s.kind) return HOST.list.length + (s.kind === ALL ? 1 : 2); const i = HOST.list.findIndex(x => x.key === s.story); return i < 0 ? HOST.list.length : i; };
     out.sort((a, b) => order(a) - order(b) || a.id.localeCompare(b.id));
     C.st = out; C.stById = new Map(out.map(s => [s.id, s]));
     // a station that is missing for a moment (a relay restart: the room comes back empty, then refilled) stays
@@ -1490,10 +1513,37 @@
     // someone gave the live station another story: it changes here too
     const L = liveSt();
     if (L && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id)) goTo(L);
+    // the live station's story or its session changed with the story already here (an All stories circle given the story
+    // on show, or its switch turned): the room's clock and state apply at once, as on arriving
+    const S = sesSt(), ls = L ? [L.id, L.story, S.id].join('|') : '';
+    if (ls !== C.liveSig) {
+      C.liveSig = ls;
+      pageCards();
+      if (synced(S) && C.ready) { clockApply(true); stateApply(); PL.id = ''; VW.id = ''; }
+    }
+  }
+  // The session a station runs (whose keys hold its clock, explore state, view, scene place, panel, panels and lock, and
+  // its effects): the station's own, or for an All stories circle with its switch on (sync: "With the room's circles"),
+  // the room's circle of the story picked there (not another All stories circle; the first by id), so the people at both
+  // circles see the same moment and what one changes the others see. The people at the All stories circle still stand
+  // at its own spot (their rig, the sound zone, their presence's station)
+  function sessOf(s) {
+    if (!s || s.kind !== ALL || !s.sync || !runs(s)) return s;
+    const O = C.st.find(o => !o.kind && o.story === s.story);   // (C.st: by the list's order, then by id)
+    return O ? Object.assign({}, s, { id: O.id, at: s.id }) : s;
+  }
+  const sesSt = () => sessOf(liveSt());
+  // a page following an All stories circle: its Stories screen while the circle shows its cards (a pick there is the
+  // circle's), closed again once a story is picked
+  function pageCards() {
+    if (HOST.session) { C.cardsOpen = false; return; }
+    const L = liveSt(), on = !!(L && C.follow === L.id && L.kind === ALL && !runs(L));
+    if (on && !C.cardsOpen) { C.cardsOpen = true; log('cards', { st: L.id }); HOST.openPicker(); }
+    else if (!on && C.cardsOpen) { C.cardsOpen = false; HOST.closePicker(); }
   }
   // the room asks for a story here (HOST.go): remembered, so HOST.start can tell it from a person's own choice
   function goTo(s) {
-    if (HOST.curKey === s.story) return;
+    if (!runs(s) || HOST.curKey === s.story) return;   // (an All stories circle's cards and the lobby run nothing)
     log('switch', { st: s.id, story: s.story });
     C.going.set(s.story, C.goAt = performance.now());
     HOST.go(s.story);
@@ -1507,7 +1557,7 @@
     const L = liveSt();
     if (!asked && L && L.story !== key && (C.mine === L.id || C.follow === L.id || C.live === L.id)) {
       log('own story', { story: key, st: L.id });
-      C.follow = ''; C.mine = ''; C.live = ''; C.picked = false;
+      C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.liveSig = ''; C.cardsOpen = false;
       changed();
     }
     // (following a person not yet at a station: a story picked by hand stops it too)
@@ -1520,6 +1570,15 @@
     const s = C.stById.get(id);
     if (!s) return;
     const fol = how === 'follow' || how === 'person';
+    // Back to the lobby: walking into it ends the headset's station (no story: away, the room as before any circle);
+    // never a station of its own, so nothing follows it
+    if (s.kind === LOBBY_ST) {
+      if (how !== 'walk') return;
+      log('lobby', { st: id, was: C.live });
+      C.mine = ''; C.live = ''; C.picked = false; VW.id = '';
+      changed();
+      return;
+    }
     if (how !== 'person') { C.whoLeft = ''; if (C.who) whoStop(how === 'follow' ? 'a station followed by hand' : how); }
     C.mine = id; C.live = id; C.picked = how === 'pick';
     VW.id = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
@@ -1527,11 +1586,55 @@
     log('station', { st: id, story: s.story, how });
     // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
     if (fol) HOST.closePicker();
-    if (HOST.curKey !== s.story) goTo(s);
+    C.liveSig = [s.id, s.story, sesSt().id].join('|');
+    pageCards();
+    if (runs(s) && HOST.curKey !== s.story) goTo(s);
     else if (C.ready) { clockApply(true); stateApply(); PL.id = ''; }
     changed();
   }
-  function unfollow() { log('unfollow', { st: C.follow, who: C.who }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.who = ''; C.whoLeft = ''; changed(); }
+  // A story picked at an All stories circle (its cards, on a headset there or on a page following it; the page's dialog):
+  // the circle's pick, for everyone there. Its story, and with its own keys (Own stories, or no circle of that story in
+  // the room) its clock from the start, playing, in the same batch (the relay drops the circle's other keys as its story
+  // changes), so every headset and page there switches to it from its start, as a story starts in single player. In sync
+  // mode with a circle of that story, only its story: it joins that circle's session (never restarts its clock). 'all':
+  // back to its cards
+  function allPickAt(id, key) {
+    const s = C.stById.get(id), cur = s && val('st.' + id);
+    if (!C.code || !s || s.kind !== ALL || !cur || (key !== ALL && !HOST.list.some(m => m.key === key))) return false;
+    const v = Object.assign({}, bare(cur), { story: key, kind: ALL, sync: s.sync === true }), next = Object.assign({}, s, { story: key });
+    delete v.ts; delete v.h;
+    const pairs = [['st.' + id, v]];
+    if (key !== ALL && sessOf(next).id === id) pairs.push([kPlay(id), { mode: 'story', t: 0, playing: true, at: Math.round(now()) }]);
+    log('all stories', { st: id, story: key, sync: v.sync });
+    publish(pairs, true);
+    changed();
+    return true;
+  }
+  // HOST.start asks first: a person's story at an All stories circle (a card, the page's Stories screen) is its pick; a
+  // story the room asked for (goTo), the one it runs already, or no such circle here: false, and HOST.start goes on
+  function allPick(key) {
+    const L = liveSt();
+    if (!L || L.kind !== ALL || L.story === key || C.going.has(key) || (C.mine !== L.id && C.follow !== L.id) || !HOST.list.some(m => m.key === key)) return false;
+    return allPickAt(L.id, key);
+  }
+  // the switch (Own stories, or With the room's circles): never refused by either lock. Turned off with a story running in
+  // a linked session, the circle's own clock and explore state start where that session is, so the story goes on
+  function setAllSync(id, on) {
+    const s = C.stById.get(id), cur = s && val('st.' + id);
+    if (!C.code || !s || s.kind !== ALL || !cur) return false;
+    const v = Object.assign({}, bare(cur), { sync: !!on }), pairs = [['st.' + id, v]], O = sessOf(s);
+    delete v.ts; delete v.h;
+    if (!on && O.id !== id) {
+      const P = playOf(O), x = val(kX(O.id));
+      if (P) pairs.push([kPlay(id), { mode: P.mode, t: r3(expected(P)), playing: !!P.playing, at: P.playing ? Math.round(now()) : 0 }]);
+      if (x !== undefined && x !== null) pairs.push([kX(id), x]);
+    }
+    log('all stories sync', { st: id, on: !!on });
+    publish(pairs, true);
+    changed();
+    return true;
+  }
+  function unfollow() { log('unfollow', { st: C.follow, who: C.who }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.who = ''; C.whoLeft = ''; C.liveSig = ''; pageCards(); changed(); }
   // follow a person (a page only; the owner, 29 October 2026: a laptop for people who do not want to wear a headset follows
   // along): this page follows whichever station that person's headset runs, as their presence says (st: the circle they
   // walked into last, which stays theirs out of every circle), switching as they walk into the next circle (their
@@ -1571,7 +1674,7 @@
   // the dialog's line: "Following Ann (at The flock)"; out of every circle, where they were last
   function whoLine() {
     const m = member(C.who), name = (m && m.name) || C.whoName || 'Someone', at = C.stById.get(C.whoSt), L = C.stById.get(C.follow);
-    return 'Following ' + name + (at ? ` (at ${meta(at.story).title})` : L ? ` (last at ${meta(L.story).title}; in no circle now)` : ' (not at a station yet)') +
+    return 'Following ' + name + (at ? ` (at ${stTitle(at)})` : L ? ` (last at ${stTitle(L)}; in no circle now)` : ' (not at a station yet)') +
       (m ? '' : ': not in the room just now');
   }
   // the stories' station: its spot (x, z), facing yaw; the content floats 1.4 m ahead
@@ -1686,14 +1789,16 @@
   function sendStation(final, t) {
     const s = C.stById.get(MV.id), P = MV.pose;
     if (!s || !P) return;
-    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v), moved = k !== MV.sent;
-    if (final ? !MV.sent && k === J({ story: s.story, x: r3(s.x), z: r3(s.z), yaw: r3(s.yaw) }) : !moved && !MV.moved) return;
+    const v = stVal(s, P), k = J(v), moved = k !== MV.sent;
+    if (final ? !MV.sent && k === J(stVal(s, s)) : !moved && !MV.moved) return;
     MV.moved = !final && moved; MV.sent = k; MV.at = t || performance.now();
     v.ts = Math.round(now());
     if (!final) v.h = 1;
     publish([['st.' + MV.id, v]], true);
     if (final) log('station moved', { st: MV.id, x: v.x, z: v.z, yaw: v.yaw });
   }
+  // a station's value at a pose: its story and, for the shell's own kinds, its kind (and an All stories circle's switch)
+  const stVal = (s, P) => Object.assign({ story: s.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: !!s.sync } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room: no chapters) at
   // its table, in explore mode
   const startClock = story => ({ mode: !story || HOST.list.some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
@@ -1783,7 +1888,7 @@
   // everyone at its circle, as any move from the room does; in explore mode the view goes back to where the story itself
   // put it here (VW.home) and goes out as a view after a flight does. Refused while its story is locked, as the grip is
   function recenterStation() {
-    const L = liveSt();
+    const L = sesSt();
     if (!L || !placing()) return false;
     if (stLocked(L)) { notice('This story is locked', 'Unlock it in the menu, under Circles (Story locked: unlock), to recenter it.', 3500); return false; }
     BUF.delete(kPlace(L.id)); BUF.delete(kPanel(L.id));
@@ -1794,8 +1899,8 @@
     return true;
   }
   // for HOST.panels: at a station of this story (a headset in its circle, a page following it), the station's; else null
-  const panelsAt = key => { const L = liveSt(); return C.code && L && L.story === key ? stPanels(L) : null; };   // (kept while a link moves or reconnects)
-  const setPanels = (key, v) => !!panelsAt(key) && setStPanels(C.live, v);
+  const panelsAt = key => { const L = sesSt(); return C.code && L && L.story === key ? stPanels(L) : null; };   // (kept while a link moves or reconnects)
+  const setPanels = (key, v) => !!panelsAt(key) && setStPanels(sesSt().id, v);
   // Arrange all: every story in two rows in front of you (half, rounded up, in front), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
   // already has a station keeps it (moved, its state kept)
@@ -1806,14 +1911,15 @@
     HOST.list.forEach((m, i) => {
       const row = i < front ? 0 : 1, k = row ? n - front : front, j = row ? i - front : i;
       const side = (j - (k - 1) / 2) * ROW.gap, ahead = ROW.ahead + row * ROW.back;
-      const old = C.st.find(s => s.story === m.key && !used.has(s.id)), id = old ? old.id : rid(5);
+      const old = C.st.find(s => s.story === m.key && !s.kind && !used.has(s.id)), id = old ? old.id : rid(5);
       used.add(id);
       pairs.push(['st.' + id, { story: m.key, x: r3(b.x + ahead * fx + side * rx), z: r3(b.z + ahead * fz + side * rz), yaw: r3(b.yaw) }]);
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
-    // (a second station of a story goes; one of a story this device does not know, or of a page that is not a story, such
-    // as the design room's table, stays where it is: never part of Arrange all)
-    for (const s of C.st) if (!used.has(s.id) && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
+    // (a second station of a story goes; one of a story this device does not know, of a page that is not a story, such
+    // as the design room's table, and the shell's own kinds, All stories and Back to the lobby, stay where they are:
+    // never part of Arrange all)
+    for (const s of C.st) if (!used.has(s.id) && !s.kind && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
     log('arrange', { stations: n });
     publish(pairs);
     // a soft thunk at each new spot, one after another along the rows (on a screen from left to right)
@@ -1824,14 +1930,17 @@
   }
   // what Add offers (the page's picker, the headset's Add page): every story, then the pages that are not stories (the
   // design room's table), which only Add and the menu's Design room button place, never Arrange all
-  const addable = () => HOST.list.concat((self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)));
-  const addName = m => (HOST.list.includes(m) ? m.title : m.kick || m.title);
-  // Add a station here: one story at your feet, facing where you face
+  // (and then the shell's own kinds: All stories and Back to the lobby)
+  const addable = () => HOST.list.concat((self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)), [KINDS.all, KINDS.lobby]);
+  const addName = m => (HOST.list.includes(m) || m.kind ? m.title : m.kick || m.title);
+  // Add a station here: one story at your feet, facing where you face (or an All stories circle, showing its cards, Own
+  // stories; or a lobby circle)
   function add(story, b) {
+    const kd = KINDS[story];
     if (!meta(story) || meta(story).unknown || refused('add')) return '';
     b = b || base();
     const id = rid(5);
-    publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(story)]]);
+    publish(kd ? [['st.' + id, stVal({ story, kind: story, sync: false }, b)]] : [['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(story)]]);
     sfx('place', roomAt(b.x, 0.05, b.z));
     return id;
   }
@@ -1839,7 +1948,7 @@
     const s = C.stById.get(id);
     if (!s || refused('move')) return;
     b = b || base();
-    publish([['st.' + id, { story: s.story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }]]);
+    publish([['st.' + id, stVal(s, b)]]);
     sfx('place', roomAt(b.x, 0.05, b.z));
   }
   function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
@@ -1869,7 +1978,7 @@
     C.ready = true;
     wrap(C.hook.APP);
     hang(sc);
-    const L = liveSt();
+    const L = sesSt();
     log('attach', { story: HOST.curKey, st: L ? L.id : '' });
     if (L && L.story === HOST.curKey) { clockApply(true); stateApply(); PL.id = ''; }
   }
@@ -1901,11 +2010,11 @@
   // Not while applying the room's clock, and not for what a headset does by itself when it starts or wakes.
   // At most one write every 100 ms (a drag along the timeline), the last one always sent a moment later.
   function clockPublish() {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L) || C.guard || C.hush) return;
     const t = performance.now();
     if (t - C.clockAt < 100) {
-      if (!C.clockT) C.clockT = setTimeout(() => { C.clockT = 0; const M = liveSt(); if (M && M.id === L.id) clockPublish(); }, 100 - (t - C.clockAt));
+      if (!C.clockT) C.clockT = setTimeout(() => { C.clockT = 0; const M = sesSt(); if (M && M.id === L.id) clockPublish(); }, 100 - (t - C.clockAt));
       return;
     }
     C.clockAt = t;
@@ -1915,7 +2024,7 @@
   // play pressed on a story that is paused here only (the Stories screen, a headset taken off) while its
   // station plays: join the station's clock instead of starting it again from here
   function catchUp() {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L)) return false;
     const P = playOf(L), A = C.hook.APP;
     if (!P || !P.playing || P.mode !== 'story' || A.mode !== 'story' || A.playing) return false;
@@ -1927,7 +2036,7 @@
   // remote: a new value from the room (applied in full); else the five-times-a-second check, which leaves a
   // pause made here alone (the Stories screen, the page's start screen) but stops a story that plays by itself
   function clockApply(remote) {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L)) return;
     const P = playOf(L), A = C.hook.APP;
     if (!P) return;
@@ -1959,7 +2068,7 @@
   // Otherwise (a station chosen, a story attached, a mode change) the room's value is shown as it is.
   const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
   function stateApply(remote) {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L) || !C.hook.apply) return;
     const k = kX(L.id), e = C.keys.get(k), v = remote ? (e ? e.v : undefined) : val(k);
     if (v === undefined || v === null) return;
@@ -1981,7 +2090,7 @@
     log('state', { st: L.id });
   }
   function statePoll() {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L) || !C.hook.state) return;
     let s;
     try { s = C.hook.state(); } catch (e) { return; }
@@ -2106,7 +2215,7 @@
   }
 
   function placeSync(dt, t) {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.panel) { PL.id = ''; return; }
     let p = null;
     try { p = HOST.cur.xrPose(); } catch (e) { /* not in a headset */ }
@@ -2187,7 +2296,7 @@
   // or a flight of its own landed, never one glided to from the room (glide) or turned by hand)
   const VW = { id: '', seen: '', at: 0, moving: false, gap: true, here: '', none: true, glide: '', home: null };
   function viewSync(t) {
-    const L = liveSt();
+    const L = sesSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.view || !C.hook.setView) { VW.id = ''; return; }
     const k = kView(L.id), room = viewOf(val(k), L);
     const set = (v, at) => { if (!at) VW.glide = J(v); guarded(() => { try { C.hook.setView(v, at); } catch (e) { log('view failed', { e: e.message }); } }); };
@@ -2248,10 +2357,10 @@
       if (clock() - C.heard > 40000) { log('silent socket'); drop('silent'); }
     }
     whoStep(t);   // (a person followed: their station first)
-    const L = liveSt();
-    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); }   // (the view: every frame, viewSync)
+    const L = liveSt(), S = sesSt();
+    if (synced(S) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); }   // (the view: every frame, viewSync)
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
-    else if (L && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
+    else if (L && runs(L) && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);
     // a desktop says which station it follows, now and then (headsets say it with their presence)
     if (!HOST.session && t - C.deskAt > 2000) { C.deskAt = t; fx('p.' + C.id, { st: C.follow || '' }); }
@@ -2607,7 +2716,7 @@
   function ringFor(s) {
     let o = OV.rings.get(s.id);
     if (!o) {
-      const col = new THREE.Color(meta(s.story).col), g = new THREE.Group();
+      const col = new THREE.Color(meta(lookKey(s)).col), g = new THREE.Group();
       const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false });
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.52, 48), mat);
       ring.rotation.x = -Math.PI / 2; ring.position.y = RING.y;
@@ -2621,13 +2730,13 @@
       ball.position.y = ICON.y; ball.userData.shell = ring.userData.shell;
       g.add(ball);
       // its icon turns in its own phase (not in step with the others)
-      o = { g, ring, tip, ball, mat, story: s.story, icon: makeIcon(s.story, [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI), true) };
+      o = { g, ring, tip, ball, mat, story: lookKey(s), icon: makeIcon(lookKey(s), [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI), true) };
       g.add(o.icon.g);
       OV.rings.set(s.id, o); OV.room.add(g);
     }
-    if (o.story !== s.story) {
-      o.mat.color.set(meta(s.story).col); o.story = s.story;
-      const I = makeIcon(s.story, o.icon.ph, true);
+    if (o.story !== lookKey(s)) {   // (an All stories circle keeps its own look whatever story it shows)
+      o.mat.color.set(meta(lookKey(s)).col); o.story = lookKey(s);
+      const I = makeIcon(o.story, o.icon.ph, true);
       I.k = o.icon.k; o.g.remove(o.icon.g); o.g.add(I.g); o.icon = I;
     }
     const S = shown(s), held = MV.id === s.id;
@@ -2665,7 +2774,9 @@
     return o;
   }
   function stationLine(s) {
-    const P = playOf(s);
+    if (s.kind === LOBBY_ST) return 'Walk in: back to every circle';
+    if (s.kind === ALL && !runs(s)) return 'Choosing a story';
+    const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
     if (P.mode === 'explore') return 'Exploring';
     const t = expected(P);
@@ -2678,7 +2789,7 @@
     return out;
   }
   function drawCard(o, s) {
-    const m = meta(s.story), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk].join('|');
+    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk, s.sync].join('|');
     if (sig === o.sig) return;
     o.sig = sig;
     const ctx = o.ctx, W = o.w, H = o.h;
@@ -2690,11 +2801,13 @@
     let tp = 54;   // a long title smaller (down to 44 px, on the same baseline: B612's is 0.8 of its size down), else cut short
     for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(m.title).width <= W - 64) break; }
     ctx.fillStyle = INK; ctx.fillText(fit(ctx, m.title, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
-    ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(stationLine(s), 32, 150);
+    // (an All stories circle: the story picked there, and whether it runs with the room's circle of it)
+    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s) : stationLine(s);
+    ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(fit(ctx, line, W - 64), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
     const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
-      ['Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
+      [s.kind === LOBBY_ST ? 'Walk in to leave your story.' : s.kind === ALL ? 'Walk in to choose a story.' : 'Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
     tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
   }
@@ -2824,11 +2937,12 @@
       o.g.remove(o.icon.g);   // (its model and glow are the story's, kept for the next station of it)
       o.g.parent.remove(o.g); o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); }); o.mat.dispose(); OV.rings.delete(id);
     }
-    for (const [id, o] of OV.cards) if (!ids.has(id) || (id === C.live && C.stById.get(id).story === HOST.curKey)) {
+    const yours = s => s.id === C.live && (s.story === HOST.curKey || cards());   // (your live station: its story, or an All stories circle's cards, in front of you)
+    for (const [id, o] of OV.cards) if (!ids.has(id) || yours(C.stById.get(id))) {
       o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); OV.cards.delete(id);
     }
     for (const s of C.st) {
-      const r = ringFor(s), live = s.id === C.live && s.story === HOST.curKey, hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
+      const r = ringFor(s), live = yours(s), hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
       // its ring: always before any circle, with Show all rings and while carried; in a circle another station's only
       // near its spot, your own never
       const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0, own = !!L && s.id === L.id;
@@ -2956,8 +3070,8 @@
   }
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
-      C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
+      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '',
       PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '']);
@@ -2968,7 +3082,7 @@
   // station or with no story on show
   function recenterRow() {
     const cur = HOST.cur, own = !!(cur && typeof cur.recenter === 'function');
-    if (placing()) return { label: 'Recenter', fn: stLocked(liveSt()) ? null : () => (own ? cur.recenter() : recenterStation()) };
+    if (placing()) return { label: 'Recenter', fn: stLocked(sesSt()) ? null : () => (own ? cur.recenter() : recenterStation()) };
     if (!HOST.session || !own || away()) return { label: 'Recenter', fn: null };
     return { label: HOST.anchor && HOST.anchor.on ? 'Place again' : 'Recenter', fn: () => cur.recenter() };
   }
@@ -3255,7 +3369,7 @@
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
-      ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk into a circle to see its story' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
+      ctx.fillText(fit(ctx, mine ? 'Yours: ' + stTitle(mine) : C.st.length ? 'Walk into a circle to see its story' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
       const lk = circlesLocked();
       button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
       button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; });
@@ -3266,10 +3380,17 @@
       // the two locks side by side: the circles (for the whole room) and this story's scene and panels (at a station: for
       // everyone at its circle; never locked with the circles); then every ring at any distance, yours too (this headset's
       // own), and whether the room shows on this network (not locked with the circles)
-      const L = liveSt(), sl = !!L && stLocked(L), ns = nearShown() && !C.local, ra = ringsAll();
+      const A = liveSt(), L = A && runs(A) ? sesSt() : null, sl = !!L && stLocked(L), ns = nearShown() && !C.local, ra = ringsAll();
       button(S, 'lock', x, y, bw, 56, lk ? 'Circles locked: unlock' : 'Lock circles', () => setLock(!lk), { px: 22, on: lk });
       button(S, 'stlock', x + bw + 16, y, bw, 56, sl ? 'Story locked: unlock' : 'Lock this story', L ? () => setStLock(L.id, !sl) : null, { px: 22, on: sl });
       y += 72;
+      // at an All stories circle: its switch (Own stories, or With the room's circles: the room's circle of the story
+      // picked here shares its moment; never refused by either lock) and back to its cards, for everyone at the circle
+      if (A && A.kind === ALL) {
+        button(S, 'allsync', x, y, bw, 56, A.sync ? 'With the room\'s circles' : 'Own stories', () => setAllSync(A.id, !A.sync), { px: 21, on: !!A.sync });
+        button(S, 'allback', x + bw + 16, y, bw, 56, 'Back to all stories', runs(A) ? () => allPickAt(A.id, ALL) : null, { px: 21 });
+        y += 72;
+      }
       button(S, 'rings', x, y, bw, 56, ra ? 'Show all rings: on' : 'Show all rings: off', () => setRingsAll(!ra), { px: 21, on: ra });
       button(S, 'near', x + bw + 16, y, bw, 56, ns ? 'On this network: shown' : 'On this network: hidden', C.local ? null : () => setNear(!nearShown()), { px: 21, on: ns });
       y += 72; line();
@@ -3289,7 +3410,7 @@
           ctx.fillText(fit(ctx, (m.name || 'Someone') + (m.id === C.id ? ' (you)' : ''), 250), x + 36, y);
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
-          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + meta(s.story).title : ''), w - 300), x + 300, y + 2);
+          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -3707,6 +3828,7 @@
       _v.set(0, 0, -1).applyQuaternion(HD.q).transformDirection(R.mi);
       R.hyaw = Math.atan2(-_v.x, -_v.z); R.headOK = true;
       zoneStep(t);
+      allFirst(t);
       presenceOut(t);
     }
     soundZone();
@@ -3744,6 +3866,26 @@
       choose(cand, 'walk');
       sfx('enter');   // (a gentle swell all round you)
     }
+  }
+  // The first headset in a room adds an All stories circle right in front of itself (the owner, 2 November 2026: "the
+  // default for new shared rooms in ar and vr, placed directly in front of the player"; "rooms started on a laptop do not
+  // need it but the first headset should add it"): a headset in the room with the others (AR, or VR answered "in this
+  // room"), aligned, in its session, the circles not locked, in a room that has never had one put there by itself (key
+  // allp: { by, at }, written in the same batch, so it happens once per room and a removed one does not come back). Its
+  // spot 1.2 m ahead of your head along the floor (just outside its 1.1 m: one step forward and you are in it), facing
+  // away from you (its cards then float ahead, as on the Stories screen), Own stories. The conditions must hold for a moment (a room refilled after a relay restart comes
+  // back empty first), and a page tries it once per room
+  const AUTO = { ahead: 1.2, hold: 1500 };
+  function allFirst(t) {
+    const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && val('allp') === undefined && C.allpFor !== C.code;
+    if (!ok) { C.allpAt = 0; return; }
+    if (!C.allpAt) { C.allpAt = t; return; }
+    if (t - C.allpAt < AUTO.hold) return;
+    C.allpFor = C.code; C.allpAt = 0;
+    const b = base(), [fx, fz] = fwd(b.yaw), id = rid(5), x = r3(b.x + AUTO.ahead * fx), z = r3(b.z + AUTO.ahead * fz);
+    publish([['st.' + id, { story: ALL, kind: ALL, sync: false, x, z, yaw: r3(b.yaw) }], ['allp', { by: C.id, at: Math.round(now()) }]]);
+    log('all stories added', { st: id, x, z });
+    sfx('place', roomAt(x, 0.05, z));
   }
   function presenceOut(t) {
     if (t - C.presAt < 66) return;   // 15 a second
@@ -4946,7 +5088,7 @@
     if (!C.code || !R.session) return null;
     if (f) update(f);
     const L = liveSt();
-    if (!R.aligned || !L || L.story !== HOST.curKey) return null;
+    if (!R.aligned || !L || (L.story !== HOST.curKey && !cards())) return null;   // (an All stories circle's cards stand at its spot too)
     const S = shown(L);
     _v.set(S.x, EYE, S.z).applyMatrix4(R.m);
     return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + S.yaw, room: true };
@@ -4955,7 +5097,14 @@
   // a headset in a shared room away from a station (in no circle yet since the session began, its story not yet loaded,
   // or the room not yet aligned): a story only runs at its station, so the stories hide theirs and pause it, and only the
   // shell's things show. A headset that walked into a circle stays at that station wherever it walks after
-  const away = () => !!(C.code && R.session) && !placing();
+  const away = () => !!(C.code && R.session) && !placing() && !cards();
+  // an All stories circle (allHere: the headset's live station is one, its cards or a story picked there; cards: showing
+  // its cards): the story on show hosts the single-player Stories screen there (the stories open it while cards() is
+  // true, and a card picks for everyone at the circle: allPick), with the scene hidden and nothing synced
+  const allHere = () => { const L = liveSt(); return !!(C.code && R.session && L && L.kind === ALL); };
+  const cards = () => { const L = liveSt(); return !!(allHere() && R.aligned && !runs(L)); };
+  // back to its cards, for everyone at the circle (the story panel's Stories button there)
+  const allBack = () => { const L = liveSt(); return !!(L && L.kind === ALL && runs(L) && allPickAt(L.id, ALL)); };
   // the station's panel and scene as the room has them, in its story's rig (the station's spot at eye height)
   function panelPose(L) {
     const v = L ? roomPanel(L) : panelHome(), q = L ? roomPlace(L) : PLACE0;
@@ -4965,7 +5114,7 @@
   function adopt(key) {
     const L = liveSt();
     if (!C.code || !R.session || !R.aligned || !L || L.story !== key) return null;
-    const P = panelPose(L);
+    const P = panelPose(sessOf(L));   // (an All stories circle in sync mode: the linked circle's panel and scene, from its own spot)
     return { rp: new THREE.Vector3(L.x, EYE, L.z).applyMatrix4(R.m), rq: new THREE.Quaternion().setFromAxisAngle(_Y, R.yaw + L.yaw),
       off: new THREE.Vector3().fromArray(P.off), s: P.s, pp: new THREE.Vector3().fromArray(P.pp), pr: P.pr,
       rot: new THREE.Quaternion().fromArray(P.q || Q1), pq: P.pq ? new THREE.Quaternion().fromArray(P.pq) : new THREE.Quaternion().setFromAxisAngle(_Y, P.pr) };
@@ -4984,7 +5133,7 @@
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
-    if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; }
+    if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; C.liveSig = ''; C.cardsOpen = false; }
     whoStop('headset');   // (a headset walks: following a person is for pages)
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
@@ -5025,18 +5174,18 @@
     // a headset in a shared room: the stories show no Stories screen and no Stories button then (a story is reached by
     // walking into its station's circle), and away from a station (away: no circle walked into yet) they hide their story
     // and pause it
-    inRoom: () => !!(C.code && R.session), away,
+    inRoom: () => !!(C.code && R.session), away, cards, allHere, allBack,
     // in a shared room the grip moves a scene or a panel only at the headset's station, and not while its story is
     // locked (Lock this story; the circles lock never locks them): what it moves goes out to the room, so everybody sees
     // it alike (placeSync)
-    gripLocked: () => !placing() || stLocked(liveSt()),
+    gripLocked: () => !placing() || stLocked(sesSt()),
     // Recenter at the headset's station (the story panel's button and the menu's): its scene and panel back where the
     // story puts them, for everyone at its circle; refused while its story is locked (says so). False when not at one
     recenter: () => recenterStation(),
     get gripHint() {
       // (the flock and the robots are life size: only their panel moves)
       const m = meta(HOST.curKey) || {};
-      return 'Trigger (or pinch): use buttons. A or X: play and pause. ' + (!placing() ? 'Grip on a station\'s ring or card: move the station.' : stLocked(liveSt()) ?
+      return 'Trigger (or pinch): use buttons. A or X: play and pause. ' + (!placing() ? 'Grip on a station\'s ring or card: move the station.' : stLocked(sesSt()) ?
         'This story is locked: unlock it in the menu to move things.' : m.life ? 'Grip: move this panel for everyone.' : 'Grip: move the scene or this panel for everyone; both grips resize the scene.');
     },
     get moving() { return MV.id; },
@@ -5045,7 +5194,7 @@
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel and scene, for a story's xrRecenter while placed (off, s, pp, pr in its rig; q the scene's
     // turn and pq the panel's rotation, [x, y, z, w] or null: none)
-    saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
+    saved: () => { const P = panelPose(sesSt()); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },
     left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
@@ -5092,7 +5241,7 @@
       else if (act === 'open') join(arg, true);
       else if (act === 'code') join($('#shCode').value);
       else if (act === 'leave') leave(false, true);
-      else if (act === 'follow') { choose(arg, 'follow'); dialog(false); HOST.closePicker(); }
+      else if (act === 'follow') { choose(arg, 'follow'); dialog(false); if (!C.cardsOpen) HOST.closePicker(); }   // (an All stories circle's cards: its Stories screen stays)
       else if (act === 'unfollow') unfollow();
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
@@ -5102,8 +5251,9 @@
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
       else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
       else if (act === 'voice') HOST.xr.setVoice(!HOST.xr.voice());
-      else if (act === 'panels') { const v = stPanels(C.stById.get(arg)); setStPanels(arg, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles)
-      else if (act === 'stlock') setStLock(arg, !stLocked(C.stById.get(arg)));   // (a story's lock: neither is the circles')
+      else if (act === 'panels') { const S = sessOf(C.stById.get(arg)), v = stPanels(S); if (S) setStPanels(S.id, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles; an All stories circle's: its session's)
+      else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
+      else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
       else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
@@ -5111,6 +5261,8 @@
       renderDialog();
     });
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
+    // an All stories circle's story, picked in its row (Choosing a story: back to its cards), for everyone there
+    DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-sh-pick]'); if (q && q.value) { allPickAt(q.dataset.shPick, q.value); renderDialog(); } });
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
     $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
@@ -5207,15 +5359,20 @@
       if (rf) rf.hidden = !C.relay && !peerOn();
     } else {
       const L = C.stById.get(C.follow);
-      $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(meta(L.story).title) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
+      $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(stTitle(L)) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
-        const m = meta(s.story), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you'), pm = stPanels(s), sl = stLocked(s);
+        // (the lobby: no Follow, no panels, no lock; an All stories circle: its story picked here, back to its cards, and
+        // its switch; its panels and lock are its session's)
+        const m = Object.assign({}, meta(lookKey(s)), { title: stTitle(s) }), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you'), ss = sessOf(s), pm = stPanels(ss), sl = stLocked(ss), lob = s.kind === LOBBY_ST;
+        const all = s.kind !== ALL ? '' : `<select class="pk" data-sh-pick="${s.id}" aria-label="The story at this All stories circle"><option value="all"${runs(s) ? '' : ' selected'}>Choosing a story</option>${
+          HOST.list.map(k => `<option value="${esc(k.key)}"${k.key === s.story ? ' selected' : ''}>${esc(k.title)}</option>`).join('')}</select>
+          <button class="btn al${s.sync ? ' on' : ''}" type="button" data-sh="allsync:${s.id}" aria-pressed="${!!s.sync}" title="Own stories: this circle runs its own. With the room's circles: a story picked here joins the room's circle of that story, at the same moment">${s.sync ? 'With the room\'s circles' : 'Own stories'}</button>`;
         return `<li class="${on ? 'on' : ''}"><i style="background:${m.col}"></i><b>${esc(m.title)}</b><span>${esc(stationLine(s))}${who.length ? ' · ' + esc(who.join(', ')) : ''}</span>
-          ${on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}
-          <button class="btn pn" type="button" data-sh="panels:${s.id}" aria-pressed="${pm === 'shown'}" title="What the headsets at this circle show of its story's panels: shown, controls only (the foot bar) or hidden. Press for the next" aria-label="Panels at the ${esc(m.title)} station: ${PANELS_SAY[pm]}. Press for ${PANELS_SAY[PANELS[(PANELS.indexOf(pm) + 1) % 3]]}">Panels: ${PANELS_SAY[pm]}</button>
-          <button class="btn lk${sl ? ' on' : ''}" type="button" data-sh="stlock:${s.id}" aria-pressed="${sl}" title="Locked: nobody at this circle can move, turn or resize its scene or move its panel (the circle itself is the circles lock's)" aria-label="${sl ? 'The ' + esc(m.title) + ' story is locked: press to unlock it' : 'Lock the ' + esc(m.title) + ' story'}">${sl ? 'Story locked' : 'Lock story'}</button>
+          ${lob ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}${all}
+          ${lob ? '' : `<button class="btn pn" type="button" data-sh="panels:${s.id}" aria-pressed="${pm === 'shown'}" title="What the headsets at this circle show of its story's panels: shown, controls only (the foot bar) or hidden. Press for the next" aria-label="Panels at the ${esc(m.title)} station: ${PANELS_SAY[pm]}. Press for ${PANELS_SAY[PANELS[(PANELS.indexOf(pm) + 1) % 3]]}">Panels: ${PANELS_SAY[pm]}</button>
+          <button class="btn lk${sl ? ' on' : ''}" type="button" data-sh="stlock:${s.id}" aria-pressed="${sl}" title="Locked: nobody at this circle can move, turn or resize its scene or move its panel (the circle itself is the circles lock's)" aria-label="${sl ? 'The ' + esc(m.title) + ' story is locked: press to unlock it' : 'Lock the ' + esc(m.title) + ' story'}">${sl ? 'Story locked' : 'Lock story'}</button>`}
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = circlesLocked(), lb = $('[data-sh="lock"]');
@@ -5240,7 +5397,7 @@
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
     }
@@ -5282,7 +5439,7 @@
     const boxes = st.map(s => [X(s.x) - 8, Y(s.z) - 8, 16, 16]), free = b => b[0] >= 2 && b[0] + b[2] <= W - 2 && b[1] >= 2 && b[1] + b[3] <= H - 2 &&
       !boxes.some(o => b[0] < o[0] + o[2] && o[0] < b[0] + b[2] && b[1] < o[1] + o[3] && o[1] < b[1] + b[3]);
     for (const s of st) {
-      const m = meta(s.story), [qx, qz] = content(s), on = s.id === C.follow;
+      const m = Object.assign({}, meta(lookKey(s)), { title: stTitle(s) }), [qx, qz] = content(s), on = s.id === C.follow;
       ctx.strokeStyle = m.col; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(X(s.x), Y(s.z)); ctx.lineTo(X(qx), Y(qz)); ctx.stroke();
       ctx.globalAlpha = 1; ctx.fillStyle = m.col; ctx.fillRect(X(qx) - 4, Y(qz) - 4, 8, 8);
@@ -5321,7 +5478,7 @@
   function mapSend(D, final) {
     const s = C.stById.get(D.id), P = D.pose, t = performance.now();
     if (!s || !P || (!final && t - D.at < 100) || circlesLocked()) return;   // (locked meanwhile: it stays as last sent)
-    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v);
+    const v = stVal(s, P), k = J(v);
     if (k === D.sent) return;
     D.sent = k; D.at = t;
     publish([['st.' + D.id, v]]);
@@ -5424,6 +5581,10 @@
     icon: key => { const I = makeIcon(key); I.pose = (yaw, lean, t) => poseIcon(I, yaw, lean, t); return I; },
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel
     starting,
+    // All stories circles: HOST.start asks allPick first (a person's story there is the circle's pick, for everyone at it);
+    // any one's story picked by its id ('all': back to its cards), its switch; the shell's own kinds (their look); the
+    // first headset's circle (tests turn it off: autoAll(false))
+    allPick: key => allPick(key), allPickAt, setAllSync, session: () => sesSt(), kinds: () => KINDS, autoAll: on => { if (on !== undefined) C.autoAll = !!on; return C.autoAll; },
     debug(on) { DEBUG = !!on; put('collabDebug', on ? '1' : null); },
     // links: #s=XYZ joins room XYZ (&relay=wss://host:port when the relay is elsewhere; &peer=host[:port][/path] another
     // introduction server for peer to peer, &peer=off none); #net=<word> pretends a network (tests, no relay); #debug logs to

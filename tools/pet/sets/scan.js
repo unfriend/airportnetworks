@@ -3,6 +3,15 @@
 // forming from the counts, and the vision row of the slide (scanner -> glowing body -> network of organs -> prognosis
 // and medication). 1 unit = 1 m; the origin is the centre of the bore, its axis is z, the couch comes out towards +z
 // and the floor is at y = -1.05.
+// the vision row's network (outside the set: the load builds its models before the set, SETS.scan.prep): [PET organ,
+// ORGAN3D model, place from the network's middle (m), radius (m)], the five big organs first, spread in depth; and the
+// three nodes that are not organs
+const SCAN_NET = [['brain', 'brain', [0.04, 0.47, -0.08], 0.19], ['lungs', 'lungs', [-0.02, 0.08, 0.2], 0.18], ['heart', 'heart', [-0.37, -0.2, -0.12], 0.155],
+  ['liver', 'liver', [0.38, -0.17, 0.16], 0.165], ['kidneys', 'kidney', [0.02, -0.56, -0.16], 0.145],
+  ['thyroid', 'thyroid', [-0.42, 0.42, 0.22], 0.09], ['muscle', 'muscle', [-0.62, 0.1, -0.16], 0.1], ['adrenal', 'adrenal', [-0.2, 0.25, -0.32], 0.085],
+  ['spleen', 'spleen', [0.32, 0.3, -0.28], 0.1], ['pancreas', 'pancreas', [0.58, 0.08, 0.06], 0.1], ['intestine', 'smallint', [0.6, -0.46, -0.12], 0.11],
+  ['fat', 'adipose', [-0.54, -0.52, 0.2], 0.1], ['marrow', 'marrow', [0.32, -0.66, 0.3], 0.11], ['aorta', 'artery', [-0.14, -0.36, 0.34], 0.1]];
+const SCAN_DOTS = [[-0.22, 0.66, 0.12], [0.44, 0.6, 0.16], [-0.68, -0.22, -0.34]];
 SETS.scan = function (K) {
   const { THREE, clamp, lerp, smooth, prog, rng, v3 } = K;
   const set = K.newSet('scan');
@@ -793,7 +802,8 @@ void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + v
 
   // ------------------------------------------------------------------ the vision row --
   // the scanner moves to the left; to its right, linked by flowing light: the glowing body standing (the same
-  // body, risen from the couch), a neon network of organs, and prognosis (three bars) above medication (a bar chart)
+  // body, risen from the couch), a network of 3D organs, and prognosis (three glass tubes filling with light) above
+  // medication (pills rising from a base)
   const visG = new THREE.Group();
   set.group.add(visG);
   const VX = { body: -0.62, net: 0.68, prog: 2.36 }, CHEV = [-1.15, -0.06, 1.46];
@@ -821,51 +831,28 @@ void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + v
   vC = mix(vC, vec3(0.92, 0.98, 1.0), p * 0.75);
   gl_PointSize *= 1.0 + 1.4 * p * edge;` }));
   flow.renderOrder = 8; flow.frustumCulled = false; visG.add(flow);
-  // the neon organs (icons from PET_ICONS, drawn glowing in each organ's colour on one canvas)
-  const NET_ORG = [['brain', '#a78bfa', [0.06, 0.47, 0.04], 0.36], ['lungs', '#60a5fa', [0.0, 0.08, -0.05], 0.36], ['heart', '#f43f5e', [-0.37, -0.22, 0.1], 0.3],
-    ['liver', '#f97316', [0.37, -0.2, 0.08], 0.31], ['kidneys', '#fb7185', [0.02, -0.56, 0.0], 0.27]];
-  // the other organs once each, and three more nodes in a neutral white (as on the slide, more than the organs drawn)
-  const NET_NODE = [['thyroid', [-0.43, 0.43, -0.1]], ['muscle', [-0.6, 0.12, 0.12]], ['adrenal', [-0.2, 0.26, 0.18]], ['spleen', [0.3, 0.3, -0.12]],
-    ['pancreas', [0.58, 0.1, 0.1]], ['intestine', [0.6, -0.46, -0.06]], ['fat', [-0.52, -0.52, -0.12]], ['marrow', [0.32, -0.66, 0.12]], ['aorta', [-0.13, -0.36, -0.15]],
-    [null, [-0.22, 0.64, 0.0]], [null, [0.42, 0.6, 0.06]], [null, [-0.66, -0.2, -0.05]]];
-  let iconTex = null;
-  {
-    const S = 256, cv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-    if (cv) {
-      cv.width = 4 * S; cv.height = 2 * S;   // four icons to a row (a power of two: no resizing on WebGL1)
-      const ctx = cv.getContext('2d');
-      NET_ORG.forEach(([id, f], k) => {
-        const col = (D && (D.organs.find(o => o.id === id) || {}).col) || f, cx = (k % 4 + 0.5) * S, cy = ((k >> 2) + 0.5) * S;
-        if (typeof PET_ICONS !== 'undefined') {
-          ctx.globalAlpha = 0.22; PET_ICONS.draw(ctx, id, cx, cy, S * 0.8, { color: col, width: S * 0.09 });
-          ctx.globalAlpha = 1; PET_ICONS.draw(ctx, id, cx, cy, S * 0.8, { color: col, width: S * 0.03, glow: true });
-          ctx.globalAlpha = 0.8; PET_ICONS.draw(ctx, id, cx, cy, S * 0.8, { color: '#ffffff', width: S * 0.008 });
-        } else { ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(cx, cy, S * 0.35, 0, TAU); ctx.stroke(); }
-      });
-      ctx.globalAlpha = 1;
-      iconTex = new THREE.CanvasTexture(cv);
-      iconTex.anisotropy = 4;
-    }
+  // the network: the organs as the microanatomy story's 3D models (ORGAN3D, and a bone of its own for the marrow), lit,
+  // each taking on its colour and turning slowly, spread in depth (the network stands in the room, and sways a little
+  // so that its depth shows); three more nodes glow as points (as on the slide, more than the organs drawn); the links
+  // are glowing tubes, each in its two nodes' colours, with light running along them now and then
+  const netC = [VX.net, 0.02, 0], netG = new THREE.Group();
+  netG.position.set(netC[0], netC[1], netC[2]);
+  visG.add(netG);
+  const O3 = typeof ORGAN3D !== 'undefined' ? ORGAN3D : null;
+  const NODES = [...SCAN_NET.map(([id, m, p, r]) => ({ p, r, c: ocol(id, '#99aaaa'), big: true })), ...SCAN_DOTS.map(p => ({ p, r: 0.02, c: [0.84, 0.88, 0.95], big: false }))];
+  const oP = SCAN_NET.map(() => new THREE.Vector4()), oQ = SCAN_NET.map(() => new THREE.Vector4()), oT = NODES.slice(0, SCAN_NET.length).map(n => new THREE.Color(...n.c));
+  if (O3) {
+    const M = O3.merged(SCAN_NET.map(q => q[1])), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1));
+    g.setIndex(new THREE.BufferAttribute(M.idx, 1));
+    const sh = O3.shader(SCAN_NET.length, { tints: true });
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ }, uT: { value: oT } },
+      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
+    set.mats.push(m);
+    const om = new THREE.Mesh(g, m);
+    om.renderOrder = 9; om.frustumCulled = false; netG.add(om);
   }
-  const iconU = { uMap: { value: iconTex }, uF: { value: 0 } };
-  const iconMat = new THREE.ShaderMaterial({
-    uniforms: Object.assign({ uA: set.uA }, iconU), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform sampler2D uMap; uniform float uA, uF; varying vec2 vUv; void main() { vec4 c = texture2D(uMap, vUv); gl_FragColor = vec4(c.rgb * c.a * 1.35 * uA * uF, 1.0); }',
-  });
-  set.mats.push(iconMat);
-  const netC = [VX.net, 0.02, 0];
-  {
-    const quads = NET_ORG.map(([id, f, p, s], k) => {
-      const g = new THREE.PlaneGeometry(s, s), uv = g.attributes.uv.array;
-      for (let v = 0; v < uv.length; v += 2) { uv[v] = (k % 4 + uv[v]) / 4; uv[v + 1] = 1 - ((k >> 2) + 1 - uv[v + 1]) / 2; }
-      return g.translate(netC[0] + p[0], netC[1] + p[1], p[2]);
-    });
-    const icons = new THREE.Mesh(K.merge(quads), iconMat);
-    icons.renderOrder = 9; icons.frustumCulled = false; visG.add(icons);
-  }
-  // the network's nodes (the other organs, small coloured discs) and glowing links (each in its two nodes' colours)
-  const NODES = [...NET_ORG.map(([id, f, p]) => ({ p: v3.add(netC, p), c: ocol(id, f), big: true })), ...NET_NODE.map(([id, p]) => ({ p: v3.add(netC, p), c: id ? ocol(id, '#99aaaa') : [0.84, 0.88, 0.95], big: false }))];
   const LINKS = [];
   {
     const seen = new Set();
@@ -874,98 +861,246 @@ void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + v
       for (const [, j] of near) { const key = Math.min(i, j) + ',' + Math.max(i, j); if (!seen.has(key)) { seen.add(key); LINKS.push([i, j]); } }
     });
   }
-  const nlG = K.linesGeo(LINKS.length), nnG = K.pointsGeo(NODES.length * 2);
-  LINKS.forEach(([i, j], k) => {
-    const a = NODES[i], b = NODES[j], u = v3.norm(v3.sub(b.p, a.p)), ra = a.big ? 0.1 : 0.02, rb = b.big ? 0.1 : 0.02;
-    nlG.attributes.position.array.set([...v3.add(a.p, v3.mul(u, ra)), ...v3.sub(b.p, v3.mul(u, rb))], 6 * k);
-    nlG.attributes.aCol.array.set([...a.c, ...b.c], 6 * k);
-    nlG.attributes.aA.array.set([0.75, 0.75], 2 * k);
-  });
+  // a soft glow in its colour round each organ, and the three nodes (a glow and a bright core each)
+  const nnG = K.pointsGeo(SCAN_NET.length + 2 * SCAN_DOTS.length);
   NODES.forEach((n, k) => {
     const A = nnG.attributes;
-    A.position.array.set(n.p, 6 * k); A.position.array.set(n.p, 6 * k + 3);
-    A.aCol.array.set(n.c, 6 * k); A.aCol.array.set(v3.lerp(n.c, [1, 1, 1], 0.55), 6 * k + 3);
-    A.aSize.array[2 * k] = n.big ? 0.0 : 0.075; A.aSize.array[2 * k + 1] = n.big ? 0.0 : 0.032;
-    A.aA.array[2 * k] = 0.55; A.aA.array[2 * k + 1] = 1;
+    if (n.big) { A.position.array.set(n.p, 3 * k); A.aCol.array.set(n.c, 3 * k); A.aSize.array[k] = 3.2 * n.r; A.aA.array[k] = 0.16; return; }
+    const o = SCAN_NET.length + 2 * (k - SCAN_NET.length);
+    A.position.array.set(n.p, 3 * o); A.position.array.set(n.p, 3 * o + 3);
+    A.aCol.array.set(n.c, 3 * o); A.aCol.array.set(v3.lerp(n.c, [1, 1, 1], 0.55), 3 * o + 3);
+    A.aSize.array[o] = 0.075; A.aSize.array[o + 1] = 0.032; A.aA.array[o] = 0.55; A.aA.array[o + 1] = 1;
   });
   const netU = { uF: { value: 0 } };
-  const netL = new THREE.LineSegments(nlG, K.lines(set, { uniforms: netU, head: 'uniform float uF;', vertex: 'vA *= uF;' }));
   const netN = new THREE.Points(nnG, K.points(set, { uniforms: netU, head: 'uniform float uF;', vertex: 'vA *= uF;' }));
-  netL.renderOrder = 8; netN.renderOrder = 9; netL.frustumCulled = netN.frustumCulled = false;
-  visG.add(netL, netN);
-  // prognosis and medication: neon rectangles drawn from their distance fields (frames, filled bars, a panel, bars
-  // rising from an axis); aE groups them for the left-to-right fade (1-3 the prognosis bars, 4 medication)
-  const neonU = { uG: { value: new THREE.Vector4() } };
-  const neonMat = new THREE.ShaderMaterial({
-    uniforms: Object.assign({ uA: set.uA }, neonU), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: `attribute vec2 aQ, aH; attribute vec4 aR; attribute vec3 aC0, aC1; attribute float aE;
-uniform vec4 uG; uniform float uA;
-varying vec2 vQ, vH; varying vec4 vR; varying vec3 vC0, vC1; varying float vF;
+  netN.renderOrder = 8; netN.frustumCulled = false; netG.add(netN);
+  // the links as tubes: TS rings of TR points along each, from just inside one organ to just inside the other
+  const linkU = { uF: { value: 0 }, uFlow: { value: 0 } };
+  {
+    const TS = 18, TR = 6, nv = LINKS.length * (TS + 1) * TR, at = new Float32Array(nv * 3), nr = new Float32Array(nv * 3), tt = new Float32Array(nv), kk = new Float32Array(nv);
+    const ca = new Float32Array(nv * 3), cb = new Float32Array(nv * 3), idx = [];
+    LINKS.forEach(([i, j], k) => {
+      const A = NODES[i], B = NODES[j], u = v3.norm(v3.sub(B.p, A.p)), a = v3.add(A.p, v3.mul(u, A.r * 0.7)), b = v3.sub(B.p, v3.mul(u, B.r * 0.7));
+      let n1 = v3.cross(u, [0, 1, 0]);
+      n1 = v3.norm(v3.len(n1) < 1e-3 ? [1, 0, 0] : n1);
+      const n2 = v3.cross(u, n1), v0 = k * (TS + 1) * TR;
+      for (let s = 0; s <= TS; s++) for (let q = 0; q < TR; q++) {
+        const v = v0 + s * TR + q, th = q / TR * TAU;
+        at.set(v3.lerp(a, b, s / TS), 3 * v); nr.set(v3.add(v3.mul(n1, Math.cos(th)), v3.mul(n2, Math.sin(th))), 3 * v);
+        tt[v] = s / TS; kk[v] = k; ca.set(A.c, 3 * v); cb.set(B.c, 3 * v);
+      }
+      for (let s = 0; s < TS; s++) for (let q = 0; q < TR; q++) {
+        const p0 = v0 + s * TR + q, p1 = v0 + s * TR + (q + 1) % TR;
+        idx.push(p0, p1, p0 + TR, p1, p1 + TR, p0 + TR);
+      }
+    });
+    const g = new THREE.BufferGeometry(), put = (key, a, n) => g.setAttribute(key, new THREE.BufferAttribute(a, n));
+    put('position', at, 3); put('aNr', nr, 3); put('aT', tt, 1); put('aK', kk, 1); put('aCA', ca, 3); put('aCB', cb, 3);
+    g.setIndex(idx);
+    const m = new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uA: set.uA }, linkU), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute vec3 aNr, aCA, aCB; attribute float aT, aK;
+uniform float uFlow;
+varying vec3 vC, vN, vV; varying float vP, vE;
 void main() {
-  vQ = aQ; vH = aH; vR = aR; vC0 = aC0; vC1 = aC1;
-  vF = dot(vec4(equal(vec4(aE), vec4(1.0, 2.0, 3.0, 4.0))), uG);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // a pulse of light runs along each link now and then, each at its own pace and either way (a sharp front, a soft tail)
+  float s = mod(aK, 2.0) < 0.5 ? aT : 1.0 - aT, hd = fract(uFlow * (0.16 + 0.12 * fract(aK * 0.618)) + aK * 0.37) * 1.7 - 0.35, d = hd - s;
+  vP = d >= 0.0 ? exp(-d * 6.0) : exp(d * 45.0);
+  vE = smoothstep(0.0, 0.06, aT) * smoothstep(1.0, 0.94, aT);
+  vC = mix(aCA, aCB, smoothstep(0.15, 0.85, aT));
+  vec4 mv = modelViewMatrix * vec4(position + aNr * 0.0075 * (1.0 + 0.8 * vP * vE), 1.0);
+  vN = normalize(normalMatrix * aNr); vV = -mv.xyz;
+  gl_Position = projectionMatrix * mv;
 }`,
-    fragmentShader: `uniform float uA; varying vec2 vQ, vH; varying vec4 vR; varying vec3 vC0, vC1; varying float vF;
-float sdB(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
+      fragmentShader: `uniform float uA, uF; varying vec3 vC, vN, vV; varying float vP, vE;
 void main() {
-  float mode = vR.y, r = vR.x, w = vR.w, g = clamp((vF - vR.z) / max(1.0 - vR.z, 0.01), 0.0, 1.0);
-  vec3 col = vec3(0.0);
-  if (mode < 0.5) {
-    float d = sdB(vQ, vH, r), ad = abs(d);
-    col = mix(vC0, vec3(1.0), 0.45) * exp(-ad * ad / (w * w)) + vC0 * 0.28 * exp(-ad / (w * 5.0)) + vC1 * 0.1 * smoothstep(0.004, -0.004, d);
-    g = smoothstep(0.0, 0.4, g);
-  } else if (mode < 1.5) {
-    float f = g, x0 = -vH.x, x1 = -vH.x + 2.0 * vH.x * vR.w * f;
-    vec2 hb = vec2(max((x1 - x0) * 0.5, 0.0005), vH.y);
-    float d = sdB(vQ - vec2((x0 + x1) * 0.5, 0.0), hb, min(r, hb.x)), s = clamp((vQ.x - x0) / max(x1 - x0, 0.001), 0.0, 1.0);
-    vec3 cc = mix(vC0, vC1, s);
-    col = cc * (smoothstep(0.003, -0.003, d) * (0.55 + 0.75 * s * s) + 0.5 * exp(-max(d, 0.0) / 0.018)) * step(0.001, f);
-    g = smoothstep(0.0, 0.25, g);
-  } else if (mode < 2.5) {
-    float d = sdB(vQ, vH, r);
-    col = vC0 * (smoothstep(0.004, -0.004, d) * 0.07 + exp(-d * d / (w * w)) * 0.35);
-    g = smoothstep(0.0, 0.5, g);
-  } else {
-    float hh = max(vH.y * g, 0.0005), d = sdB(vQ - vec2(0.0, -vH.y + hh), vec2(vH.x, hh), min(r, hh)), ad = abs(d);
-    col = (mix(vC0, vec3(1.0), 0.3) * exp(-ad * ad / (w * w)) + vC0 * (0.3 * exp(-ad / (w * 5.0)) + 0.1 * smoothstep(0.003, -0.003, d))) * step(0.002, g);
-    g = smoothstep(0.0, 0.2, g);
+  float c = abs(dot(normalize(vN), normalize(vV))), p = vP * vE;
+  vec3 col = vC * (0.25 + 0.75 * c) * (0.6 + 1.5 * p) + vec3(0.92, 0.98, 1.0) * p * c * c * 0.9;
+  gl_FragColor = vec4(col * uA * uF * (0.3 + 0.7 * vE), 1.0);
+}`,
+    });
+    set.mats.push(m);
+    const links = new THREE.Mesh(g, m);
+    links.renderOrder = 8; links.frustumCulled = false; netG.add(links);
   }
-  gl_FragColor = vec4(col * g * uA, 1.0);
+
+  // prognosis and medication (goals, as on the slide: no data): three glass tubes filling with the scanner's cyan light
+  // to their levels, and five amber pills rising out of a small base, a bar chart in 3D. Turned a little, the other way
+  // to the scanner, so they show their depth. Lit as the organs are (a light over your left shoulder); aE.x groups them
+  // for the left-to-right fade (1-3 the tubes, 4 medication)
+  const progG = new THREE.Group();
+  progG.position.set(VX.prog, 0, 0); progG.rotation.y = 0.32; progG.updateMatrix();
+  visG.add(progG);
+  const CYAN = K.rgb('#46d9ff'), AMBER = K.rgb('#ffb43b');
+  const PB = [[0.64, 0.8], [0.42, 0.4], [0.2, 0.9]], MED = [0.42, 0.78, 0.3, 0.55, 0.68], BASE = -0.7;   // [y, level]; heights; the base's top
+  // one geometry: position, normal, color, aM (gloss, glow, how far it rises, its delay), aE (element, along the tube,
+  // its level, -)
+  function Geo() {
+    const P = [], N = [], C = [], M = [], E = [], I = [];
+    return {
+      add(p, n, c, m, e) { P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); C.push(c[0], c[1], c[2]); M.push(m[0], m[1], m[2], m[3]); E.push(e[0], e[1], e[2], e[3]); return P.length / 3 - 1; },
+      tri(a, b, c) { I.push(a, b, c); },
+      mesh(mat, order) {
+        const g = new THREE.BufferGeometry(), put = (k, a, s) => g.setAttribute(k, new THREE.BufferAttribute(new Float32Array(a), s));
+        put('position', P, 3); put('normal', N, 3); put('color', C, 3); put('aM', M, 4); put('aE', E, 4);
+        g.setIndex(I); g.computeBoundingSphere();
+        const o = new THREE.Mesh(g, mat);
+        o.renderOrder = order; o.frustumCulled = false; progG.add(o);
+        return o;
+      },
+    };
+  }
+  // a solid of revolution about y from a profile [[r, y], ...] (normals from the profile), placed by at(p) and atN(n);
+  // look(q, i) gives a profile point's [colour, aM, aE]
+  function revolve(G, prof, segs, at, atN, look) {
+    const np = prof.length, base = [];
+    const pn = prof.map((q, i) => { const a = prof[Math.max(i - 1, 0)], b = prof[Math.min(i + 1, np - 1)], dr = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dr, dy) || 1; return [dy / l, -dr / l]; });
+    for (let s = 0; s <= segs; s++) {
+      const th = s / segs * TAU, c = Math.cos(th), sn = Math.sin(th);
+      base.push(prof.map((q, i) => { const [col, m, e] = look(q, i); return G.add(at([q[0] * c, q[1], q[0] * sn]), atN([pn[i][0] * c, pn[i][1], pn[i][0] * sn]), col, m, e); }));
+    }
+    for (let s = 0; s < segs; s++) for (let i = 0; i < np - 1; i++) {
+      const a = base[s][i], b = base[s + 1][i];
+      G.tri(a, a + 1, b); G.tri(b, a + 1, b + 1);
+    }
+  }
+  // a capsule's profile: radius R from y0 to y1 (round ends), k steps a quarter circle
+  const capsule = (R, y0, y1, k = 7) => {
+    const q = [];
+    for (let i = 0; i <= k; i++) { const f = -PI / 2 + i / k * PI / 2; q.push([R * Math.cos(f), y0 + R + R * Math.sin(f)]); }
+    for (let i = 0; i <= k; i++) { const f = i / k * PI / 2; q.push([R * Math.cos(f), y1 - R + R * Math.sin(f)]); }
+    return q;
+  };
+  // a tube lies along x (the profile's y): (x, y, z) -> (y, ty - x, z)
+  const alongX = ty => [p => [p[1], ty - p[0], p[2]], n => [n[1], -n[0], n[2]]];
+  const up = (tx, ty, tz) => [p => [p[0] + tx, p[1] + ty, p[2] + tz], n => n];
+  const progU = { uG: { value: new THREE.Vector4() }, uFlow: { value: 0 }, uBase: { value: BASE }, uC: { value: new THREE.Color(...CYAN) } };
+  const progHead = `attribute vec3 color; attribute vec4 aM, aE;
+uniform vec4 uG;
+varying vec3 vC, vN, vV; varying vec4 vM, vE; varying float vF, vY;
+float el(float e) { return dot(vec4(equal(vec4(e), vec4(1.0, 2.0, 3.0, 4.0))), uG); }`;
+  // the solid parts (the tubes' end caps and stand, the base, the pills): a pill rises out of the base (aM.z how far,
+  // aM.w its delay); the base and the stand fade in
+  const solidM = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uA: set.uA }, progU), transparent: true, side: THREE.DoubleSide,
+    vertexShader: progHead + `
+void main() {
+  float g = el(aE.x), r = clamp((g - aM.w) / max(1.0 - aM.w, 0.01), 0.0, 1.0);
+  r = r * r * (3.0 - 2.0 * r);
+  vec3 p = position;
+  p.y -= (1.0 - r) * aM.z;
+  vY = p.y; vF = aM.z > 0.0 ? step(0.001, r) : smoothstep(0.0, 0.4, g);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = color; vM = aM; vE = aE;
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: `uniform float uA, uBase; varying vec3 vC, vN, vV; varying vec4 vM, vE; varying float vF, vY;
+void main() {
+  if (vM.z > 0.0 && vY < uBase) discard;   // (a pill still inside the base)
+  float a = vF * uA;
+  if (a < 0.01) discard;
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  if (dot(n, v) < 0.0) n = -n;
+  float df = max(dot(n, l), 0.0), hemi = 0.5 + 0.5 * n.y, fr = pow(1.0 - max(dot(n, v), 0.0), 2.4);
+  float sp = pow(max(dot(reflect(-l, n), v), 0.0), mix(14.0, 80.0, vM.x));
+  vec3 col = vC * (0.24 + 0.22 * hemi + 0.66 * df) + vec3(sp) * (0.15 + 0.75 * vM.x) + mix(vC, vec3(1.0), 0.55) * fr * (0.2 + 0.45 * vM.x) + vC * vM.y;
+  gl_FragColor = vec4(col, a);
 }`,
   });
-  set.mats.push(neonMat);
+  // the light inside each tube, up to its level (aE.y: along the tube, aE.z: the level): brightest at its front
+  const lightM = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uA: set.uA }, progU), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: progHead + `
+uniform float uFlow; varying float vX;
+void main() {
+  float g = el(aE.x);
+  vF = -0.55 + 1.1 * aE.z * smoothstep(0.0, 1.0, g); vY = smoothstep(0.0, 0.08, g); vX = aE.y;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = color;
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: `uniform float uA, uFlow; varying vec3 vC, vN, vV; varying float vF, vY, vX;
+void main() {
+  if (vX > vF || vY < 0.004) discard;
+  float c = abs(dot(normalize(vN), normalize(vV))), front = exp(-(vF - vX) / 0.035);
+  float sh = 0.85 + 0.15 * sin(vX * 26.0 - uFlow * 2.6);   // a slow shimmer along the light
+  vec3 col = vC * (0.3 + 0.8 * c) * sh + vec3(0.85, 0.97, 1.0) * (0.3 * c * c + 1.1 * front * c);
+  gl_FragColor = vec4(col * uA * vY * (gl_FrontFacing ? 1.0 : 0.45), 1.0);
+}`,
+  });
+  // the tubes' glass: clear, its edges and a highlight bright, tinted where the light is inside
+  const glassM = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uA: set.uA }, progU), transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: progHead + `
+varying float vX;
+void main() {
+  float g = el(aE.x);
+  vF = -0.55 + 1.1 * aE.z * smoothstep(0.0, 1.0, g); vY = smoothstep(0.0, 0.4, g); vX = aE.y;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz;
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: `uniform float uA; uniform vec3 uC; varying vec3 vN, vV; varying float vF, vY, vX;
+void main() {
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  if (dot(n, v) < 0.0) n = -n;
+  float fr = pow(1.0 - abs(dot(n, v)), 2.2), sp = pow(max(dot(reflect(-l, n), v), 0.0), 70.0), lit = smoothstep(vF + 0.02, vF - 0.05, vX);
+  vec3 col = mix(vec3(0.78, 0.86, 0.96), uC, 0.55 * lit) * (0.5 + 0.6 * fr) + vec3(sp);
+  float a = (0.05 + 0.5 * fr + 0.06 * lit + 0.85 * sp) * (gl_FrontFacing ? 1.0 : 0.5);
+  gl_FragColor = vec4(col, a * uA * vY);
+}`,
+  });
+  set.mats.push(solidM, lightM, glassM);
   {
-    const R = [];   // [cx, cy, hx, hy, radius, mode, delay or fraction, width, c0, c1, element]
-    const PB = [[0.64, 0.8, '#ff6a1a', '#ffc27a', 1], [0.42, 0.4, '#e0103c', '#ff3a50', 2], [0.2, 0.9, '#ffb000', '#fff08a', 3]];
-    for (const [y, f, c0, c1, e] of PB) {
-      R.push([VX.prog, y, 0.55, 0.068, 0.066, 0, 0.0, 0.006, [0.92, 0.94, 1.0], [0.1, 0.11, 0.14], e]);
-      R.push([VX.prog, y, 0.53, 0.05, 0.05, 1, 0.0, f, K.rgb(c0), K.rgb(c1), e]);
+    const S = Geo(), L = Geo(), G = Geo(), STEEL = K.rgb('#d7dee8'), GLASS = [1, 1, 1];
+    PB.forEach(([y, f], k) => {
+      const e = k + 1, [at, atN] = alongX(y);
+      revolve(G, capsule(0.064, -0.6, 0.6), 28, at, atN, q => [GLASS, [0, 0, 0, 0], [e, q[1], f, 0]]);
+      revolve(L, capsule(0.046, -0.55, 0.55), 20, at, atN, q => [v3.lerp(CYAN, [0.75, 0.95, 1.0], clamp((q[1] + 0.55) / 1.1, 0, 1) * 0.35), [0, 0, 0, 0], [e, q[1], f, 0]]);
+      // satin caps on the tube's ends, joined to the stand
+      for (const sx of [-1, 1]) {
+        const prof = [[0, 0.58], [0.06, 0.58], [0.069, 0.591], [0.071, 0.612], [0.067, 0.636], [0.048, 0.65], [0, 0.651]].map(([r, h]) => [r, sx * h]);
+        revolve(S, sx < 0 ? prof.reverse() : prof, 24, at, atN, () => [STEEL, [0.75, 0.04, 0, 0], [e, 0, 0, 0]]);   // (a profile runs upwards)
+      }
+    });
+    // the stand: a slim post at each end, just beyond the caps, with a round foot and top
+    for (const sx of [-0.664, 0.664]) {
+      const [at, atN] = up(sx, 0, 0);
+      revolve(S, [[0, 0.07], [0.022, 0.075], [0.014, 0.1], [0.014, 0.76], [0.024, 0.78], [0.02, 0.8], [0, 0.805]], 16, at, atN, () => [STEEL, [0.75, 0.04, 0, 0], [1, 0, 0, 0]]);
     }
-    const my = -0.41, mh = 0.35, ORANGE = K.rgb('#ff7a1a');
-    R.push([VX.prog, my, 0.56, mh, 0.03, 2, 0.0, 0.008, [0.32, 0.36, 0.5], [0, 0, 0], 4]);
-    R.push([VX.prog - 0.46, my, 0.004, mh - 0.06, 0.004, 0, 0.0, 0.0045, [1.0, 0.86, 0.7], [0, 0, 0], 4]);
-    R.push([VX.prog + 0.02, my - mh + 0.06, 0.48, 0.004, 0.004, 0, 0.0, 0.0045, [1.0, 0.86, 0.7], [0, 0, 0], 4]);
-    [0.42, 0.78, 0.3, 0.55, 0.68].forEach((hgt, k) => {
-      const h2 = (2 * mh - 0.16) * hgt / 2, x = VX.prog - 0.31 + k * 0.16;
-      R.push([x, my - mh + 0.075 + h2, 0.045, h2, 0.008, 3, 0.15 + 0.12 * k, 0.005, ORANGE, [0, 0, 0], 4]);
+    // medication: a small base of dark glass, cyan at its edge, and the pills standing on it
+    {
+      const sh = new THREE.Shape(), w = 1.08, d = 0.36, r = 0.08, x0 = -w / 2, y0 = -d / 2;
+      sh.moveTo(x0 + r, y0); sh.lineTo(x0 + w - r, y0); sh.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r); sh.lineTo(x0 + w, y0 + d - r);
+      sh.quadraticCurveTo(x0 + w, y0 + d, x0 + w - r, y0 + d); sh.lineTo(x0 + r, y0 + d); sh.quadraticCurveTo(x0, y0 + d, x0, y0 + d - r);
+      sh.lineTo(x0, y0 + r); sh.quadraticCurveTo(x0, y0, x0 + r, y0);
+      const eg = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 6 });
+      const ep = eg.attributes.position.array, en = eg.attributes.normal.array, nE = ep.length / 3, BCOL = K.rgb('#1b2a44');
+      // (shape's x, y, z -> x, up, back: lying flat, its top at BASE)
+      const v0 = S.add([0, 0, 0], [0, 1, 0], BCOL, [0, 0, 0, 0], [4, 0, 0, 0]);
+      for (let v = 0; v < nE; v++) {
+        const top = ep[3 * v + 2] > 0.035, edge = Math.abs(en[3 * v + 2]) < 0.6;
+        S.add([ep[3 * v], BASE - 0.042 + ep[3 * v + 2], -ep[3 * v + 1]], [en[3 * v], en[3 * v + 2], -en[3 * v + 1]], edge ? v3.lerp(BCOL, CYAN, 0.55) : BCOL,
+          [0.9, edge ? 0.35 : top ? 0.02 : 0, 0, 0], [4, 0, 0, 0]);
+      }
+      for (let v = 0; v < nE; v += 3) S.tri(v0 + 1 + v, v0 + 1 + v + 1, v0 + 1 + v + 2);
+      eg.dispose();
+    }
+    MED.forEach((hgt, k) => {
+      const H = 0.1 + 0.6 * hgt, R = 0.056, cut = H - 0.15, [at, atN] = up(-0.36 + 0.18 * k, BASE, 0), del = 0.15 + 0.12 * k;
+      // (a two-part capsule: an amber body, a pale cap a little wider over its top)
+      const prof = capsule(R, 0, H).map(([r, y]) => [y > cut ? r * 1.045 : r, y]);
+      const i = prof.findIndex(q => q[1] > cut);
+      prof.splice(i, 0, [R, cut], [R * 1.045, cut]);
+      revolve(S, prof, 24, at, atN, q => (q[1] > cut || (q[1] === cut && q[0] > R) ? [K.rgb('#fff1d6'), [0.85, 0.06, H + 0.02, del], [4, 0, 0, 0]] : [AMBER, [0.8, 0.22, H + 0.02, del], [4, 0, 0, 0]]));
     });
-    const n = R.length, PAD = 0.07, pos = new Float32Array(n * 12), aQ = new Float32Array(n * 8), aH = new Float32Array(n * 8), aR = new Float32Array(n * 16);
-    const c0 = new Float32Array(n * 12), c1 = new Float32Array(n * 12), aE = new Float32Array(n * 4), idx = [];
-    R.forEach(([cx, cy, hx, hy, rad, mode, del, wf, C0, C1, e], k) => {
-      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy], v) => {
-        const qx = sx * (hx + PAD), qy = sy * (hy + PAD), o = k * 4 + v;
-        pos.set([cx + qx, cy + qy, 0.02 * mode], 3 * o); aQ.set([qx, qy], 2 * o); aH.set([hx, hy], 2 * o);
-        aR.set(mode === 1 ? [rad, mode, 0, wf] : [rad, mode, del, wf], 4 * o); c0.set(C0, 3 * o); c1.set(C1, 3 * o); aE[o] = e;
-      });
-      idx.push(k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3);
-    });
-    const g = new THREE.BufferGeometry(), at = (key, a, s) => g.setAttribute(key, new THREE.BufferAttribute(a, s));
-    at('position', pos, 3); at('aQ', aQ, 2); at('aH', aH, 2); at('aR', aR, 4); at('aC0', c0, 3); at('aC1', c1, 3); at('aE', aE, 1);
-    g.setIndex(idx);
-    const neon = new THREE.Mesh(g, neonMat);
-    neon.renderOrder = 9; neon.frustumCulled = false; visG.add(neon);
+    S.mesh(solidM, 8); L.mesh(lightM, 9); G.mesh(glassM, 10);
   }
+  // a soft glow at the front of each tube's light
+  const menG = K.pointsGeo(PB.length);
+  PB.forEach(([y], k) => { menG.attributes.aCol.array.set(v3.lerp(CYAN, [1, 1, 1], 0.3), 3 * k); menG.attributes.aSize.array[k] = 0.2; });
+  const men = new THREE.Points(menG, K.points(set));
+  men.renderOrder = 11; men.frustumCulled = false; progG.add(men);
 
   // ------------------------------------------------------------------ update --
   const mS = new THREE.Matrix4(), mL = new THREE.Matrix4(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
@@ -1151,8 +1286,19 @@ void main() {
     SU.uE.value.set(e(0.12), e(0.36), e(0.62), 0);
     flowU.uGap.value.set(e(0.12), e(0.36), e(0.62)); flowU.uFlow.value = t;
     visG.visible = vision > 0.003;
-    netU.uF.value = e(0.44); iconU.uF.value = e(0.48);
-    neonU.uG.value.set(prog(vision, 0.7, 0.86), prog(vision, 0.74, 0.9), prog(vision, 0.78, 0.94), prog(vision, 0.8, 1.0));
+    if (!visG.visible) return;
+    // the network sways a little about its middle (its depth shows); each organ turns on its own, and grows in as it fades in
+    const of = e(0.48);
+    netU.uF.value = linkU.uF.value = e(0.44); linkU.uFlow.value = t;
+    netG.rotation.y = 0.32 * Math.sin(t * 0.21);
+    SCAN_NET.forEach(([id, m, p, r], k) => { oP[k].set(p[0], p[1], p[2], r * (0.7 + 0.3 * of)); oQ[k].set(of, 0.22, t * 0.3 + k * 1.7, id === 'marrow' ? 0.18 : 0.5); });
+    const G = progU.uG.value.set(prog(vision, 0.7, 0.86), prog(vision, 0.74, 0.9), prog(vision, 0.78, 0.94), prog(vision, 0.8, 1.0));
+    progU.uFlow.value = t;
+    [G.x, G.y, G.z].forEach((g, k) => {
+      menG.attributes.position.array.set([-0.55 + 1.1 * PB[k][1] * smooth(g), PB[k][0], 0], 3 * k);
+      menG.attributes.aA.array[k] = 0.5 * smooth(prog(g, 0, 0.08));
+    });
+    menG.attributes.position.needsUpdate = menG.attributes.aA.needsUpdate = true;
   }
   const FXL_AT = { position: 3, aCol: 3, aA: 1 }, FXP_AT = { position: 3, aCol: 3, aSize: 1, aA: 1 }, BEAM_AT = { position: 3, aB: 3, aA: 1 };
   // upload only the part of a packed buffer that is drawn
@@ -1167,7 +1313,7 @@ void main() {
     couch: () => sp([0.27, TOP - 0.03, tableZ + 1.95]), patient: () => pp([0, 0.32, 0.1]), head: () => pp([0, 0.76, 0.08]),
     tumour: () => pp(TUMOUR), event: () => (featured.on ? sp(featured.p) : sp([0, 0.1, 0])), lor: () => (featured.on ? sp(featured.lor) : sp([-0.36, -0.2, 0])),
     floor: () => sp([0, FLOOR, 0]), vision_scan: () => sp([-0.2, 1.12, 0.2]), vision_body: [VX.body - 0.15, 0.84, 0], vision_net: [VX.net - 0.3, 0.84, 0],
-    vision_prog: [VX.prog - 0.55, 0.8, 0], vision_med: [VX.prog - 0.55, 0.0, 0],
+    vision_prog: xp(progG.matrix, [-0.7, 0.86, 0]), vision_med: xp(progG.matrix, [-0.56, -0.02, 0]),
   };
   const rowA = (S, k) => prog(S.scan_vision || 0, k, k + 0.15);
   const notRow = S => 1 - prog(S.scan_vision || 0, 0, 0.2);
@@ -1218,3 +1364,6 @@ void main() {
     api() { return { floorY: FLOOR, event: () => (featured.on ? anchors.event() : null), live }; },
   });
 };
+// the organs' models the set needs (ORGAN3D's), built first in slices of ms milliseconds: the load asks (buildSet) until
+// it says they are all built, so the vision row, on show from the story's first second, never waits for them
+SETS.scan.prep = ms => typeof ORGAN3D === 'undefined' || ORGAN3D.build(SCAN_NET.map(q => q[1]), ms);

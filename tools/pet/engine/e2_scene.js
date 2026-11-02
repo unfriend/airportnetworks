@@ -32,8 +32,10 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
 function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
   const s = SETS[k](K);
   GL.sets[k] = s;
   GL.world.add(s.group);

@@ -215,7 +215,7 @@ function drawLandHead(ctx, P) {
   // anchored, Recenter becomes Place again: everything in front of you, then anchored there
   if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
   else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
-  if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
+  if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
   vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
@@ -251,7 +251,7 @@ function drawLandCard(ctx, P, s) {
   ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, s.len, P.w - 96), 48, P.h - 196);
   const label = here && XR.inStory ? 'Resume' : 'Start';
   vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
-  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here ? xrLandingClose() : HOST.go(s.key)) });
+  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });
 }
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
@@ -260,7 +260,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
   const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
     const here = k === XR_HERE;
-    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
+    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     let yw = 0;   // the kicker stops short of 'You are here' beside it
     if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; yw = ctx.measureText('You are here').width + 20; }
     fitTitle(ctx, kick.toUpperCase(), x + 26, y + 22, W - 52 - yw, 21, 26, col, 700, 17);
@@ -268,7 +268,7 @@ function drawStoriesPane(ctx, P, x, y, W) {
     textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
-  vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
+  if (!xrCards()) vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
 }
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
@@ -280,6 +280,7 @@ function drawMain(ctx, P) {
   // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
   // its circle)
   if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
   fitTitle(ctx, 'The shape of tissue', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
