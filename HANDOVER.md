@@ -43,6 +43,17 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v105 (2 November 2026; FORMAT networks-28 and shell 104 as v104, so running pages swap the
+  ovary story in without a reload), tested headlessly only: the owner's visual notes on the aging ovary.** (1) The
+  donors' histogram, "hard to see" (a wall of thin slides seen edge on), is now twenty towers of slides lying flat on the
+  floor in a wide arc, age 20 on the left to 70 on the right, seen from a little above, with a band and decade marks on
+  the floor and the ages as labels. (2) Two models in one place flickered in the headsets ("z fighting"): the section, the
+  ovary and the slides all stand at the origin, and two see-through models there swap their drawing order as the head
+  moves. Now one goes out before the next comes in at Donors to Section, Methods to Age and Age to Next (out over 1.2 s,
+  in from 1.0 s), explore's scene switch waits the same way (never both above 12 %, measured), and the older section of
+  the pair comes in from the right and behind instead of across the younger one. Putting the flat parts inside the 3D
+  ovary was discussed and dropped (the owner). Tests: smoke 149 good (all); the update test from v104 good. Untested on
+  a headset: how the arc reads in the room, and whether the flicker is gone.
 - **Released as networks-v104 (2 November 2026; FORMAT networks-28, so v103 and older devices cannot share its rooms),
   tested headlessly only:** the owner's notes of 2 November (the bullet below). Reviewed once (Sonnet reviewers, two
   skeptics per finding): moving an All stories circle at the moment someone picked a story there could undo the pick,
