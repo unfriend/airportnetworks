@@ -302,8 +302,10 @@ function buildStory() {
   a = C.donors.a; b = C.donors.b;
   hide('organ', a, a + 1.5);
   ramp('organ_parts', a + 1.5, a + 1.6, 1, 0);
-  show('charts', a + 0.5, a + 2.5);
-  ramp('charts_slides', a + 1, a + 10, 0, 1);
+  // (the slides fly in while the ovary fades, from 1.5 s before the chapter: the owner, 2 November 2026, "the donors
+  // should fade in earlier, else the space is empty")
+  show('charts', a - 1.5, a + 0.5);
+  ramp('charts_slides', a - 1.5, a + 8.5, 0, 1);
   cam(a + 1, 'charts', 'fan', -8);
   cam(a + 11, 'charts', 'fan', 6, 'spin');
   ramp('charts_hist', a + 13, a + 23, 0, 1);
