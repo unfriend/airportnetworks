@@ -3186,7 +3186,10 @@ try {
   await grabStep('raise', 10);
   await grabStep('twist', 30);
   const g5 = await grabStep('let go');
-  const kM2 = Math.exp(2 * deg(10)), wantM = [g1.hand[0] + vM1[0] * kM2, g1.hand[1] + vM1[2] * kM2, Math.atan2(Math.sin(sM0.yaw + deg(20) - deg(30)), Math.cos(sM0.yaw + deg(20) - deg(30)))];
+  // (raised 10 degrees it goes exp(2 x 0.17) further, but never beyond 12 m from the hand, as carryStation has it: with
+  // the stories' order since v107 the station carried stands about 10 m from the headset's own)
+  const dM0 = Math.hypot(vM1[0], vM1[2]), kM2 = Math.min(12, Math.max(Math.min(0.3, dM0), dM0 * Math.exp(2 * deg(10)))) / dM0;
+  const wantM = [g1.hand[0] + vM1[0] * kM2, g1.hand[1] + vM1[2] * kM2, Math.atan2(Math.sin(sM0.yaw + deg(20) - deg(30)), Math.cos(sM0.yaw + deg(20) - deg(30)))];
   const putA = await until(A, ([id, w]) => { const s = HOST.collab.station(id); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.01 && Math.abs(Math.sin(s.yaw - w[2])) < 0.01; }, [SM.id, wantM], 3000);
   check('headset: the grip on a station\'s card picks it up (its story does not move), pointing swings it round, and the others see it move',
     g0.hov === SM.id && g1.moving === SM.id && !(await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].grab'))) && !!g2.st && Math.hypot(g2.st.x - wM1[0], g2.st.z - wM1[1]) < 0.01 && seenA,
