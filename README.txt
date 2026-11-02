@@ -72,6 +72,14 @@ playing for an exhibition: Repeat all plays the stories one after another
 without end, Repeat one plays the story you pick again and again. Press the lit
 button to turn it off. It is remembered on the device; a link ending in
 #airports&repeat=all (or repeat=one) sets it.
+Focus view (phones and tablets): the story's 3D fills the screen, with a slim
+bar at the foot (play, the chapter arrows and its name, the timeline, sound and
+Text), the narration's words as subtitles just above it and each chapter's title
+for a moment as it starts. Text brings the story's full panel back; in explore
+mode Controls pulls the tools up from the bar. It is on by default on phones and
+tablets and off on computers; switch it with Focus view on the Stories screen or
+in the ... menu at the top. It is remembered on the device; #focus=on (or
+#focus=off) in a link sets it.
 Slideshow: a story stops at the end of each chapter, with all its text shown,
 until you press Next (or Play, or A or X in a headset). The narration finishes
 the chapter's last words before it waits. Next is at the foot of the story

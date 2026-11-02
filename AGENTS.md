@@ -400,6 +400,39 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     end 0.75 s before the chapter does, so a slideshow stop shows its last
     caption. The pass story's captions are in the device's language (its
     panel is). How they read and follow on a headset is untested.
+- Focus mode (`HOST.focus` in `index.html`, v106; the owner, 2 November 2026: "on a mobile device, phone as well as
+  the ipad it needs less of the ui, maybe just a small bar and subtitles so the main focus is on the 3d models"; on by
+  default there with a Text button to bring the panel back, each chapter's title shown briefly, explore's controls in a
+  pull-up drawer). A story's 3D on its own on a page: on by default where `matchMedia('(pointer: coarse)')` matches and
+  the screen's smaller side is at most 1100 px (phones and iPads), never in a headset's browser (Quest, Pico, Wolvic:
+  Enter VR stays in view), off on desktops; this device's own setting (`pageFocus` in `localStorage`), never a room's;
+  *Focus view* on the Stories screen (beside Slideshow) and in the top bar's More menu (⋯), `#focus=on|off` in a link.
+  `HOST.focus()` is true while it is on, no headset session runs (`HOST.session` or the renderer presenting), a story is
+  on show (not the Stories screen) and neither Text nor the drawer is open; whenever that value changes the shell sends a
+  window `resize`, and every story frames its scene for the whole page from it (`GL.bare` in `resize()`, "Inside a
+  story"). Body classes: `focus` while the setting is on, `fc-text` with Text open, `fc-drawer` with the drawer open; all
+  its rules are scoped to `body.focus:not(.picking)`. `HOST.focus.on()`, `set(on)`, `text(open)`, `drawer(open)`,
+  `close()` (Escape: More, then Text, then the drawer), `chapter(±1)`, `check()` and `state()` (tests).
+  - The top bar (48 px plus the safe area, `--fc-top`): the story's short title, Stories, Shared and More (what has no
+    room: the mode button under 700 px, AR, VR, Install, Focus view). The foot bar (56 px plus the safe area,
+    `--fc-bot`): Play, the chapter arrows (as the headset's foot panel's: back to this chapter's start, or the one before
+    within 2 s of it; on to the next), the chapter's name (Next in its place at a slideshow stop), a thin timeline along
+    its top edge, the clock from 600 px up, Sound (as the top bar's) and Text, which opens the story's panel as it is (the
+    bottom sheet under 900 px, the side panel above) and closes it.
+  - Subtitles on the page: the narration's words in a strip just above the foot bar (white on a dark rounded band, at
+    most two lines, `clamp(18px, 1.6vmin + 14px, 28px)`, smaller down to about 72 % when a caption needs a third line),
+    fading between captions, only in story mode with Text closed (Text, explore mode, the Stories screen and a headset
+    session hide it at once). They are the headsets' own captions: one function in `shared.js` (`captionNow`) reads the
+    story's caption hook, splits and times it for both, `drawSubs` draws the headset's strip from it as before and
+    `HOST.collab.caption()` gives the page `{ text, id }`.
+  - Chapter titles: a chapter's heading (its `h1` or `h2` on the panel, else its timeline name) in the upper middle for
+    about 3 s when the chapter is played into or jumped to, or a story starts from the Stories screen.
+  - Explore mode: the view controls stay in the foot bar as one row that scrolls sideways, and Controls pulls the panes
+    up in a drawer (at most 60 % of the height; full width under 900 px, in the side panel's place above; a handle), closed
+    whenever explore mode begins; while it is open `HOST.focus()` is false, so the scene frames as with the panel.
+  - Nothing changes on desktops with it off, in headsets, or in `collab.state()` (no `FORMAT` change). Untested on real
+    phones and iPads (Safari's safe areas and URL bar, `:has()`, how readable the strip is over every scene): only in
+    headless Chromium with touch emulated.
 - Panels per story (`HOST.panels` in `index.html`; the owner, 29 October 2026:
   "i would want that for every story as an independent per story toggle maybe
   inside the clock menu"): `'shown'` (as ever), `'controls'` (only the foot bar,
@@ -2630,6 +2663,11 @@ shell knows, places that resolve, times within the story; a paused scrub across
 cues playing none; a stretch played asking for exactly the cues it crosses; one
 explore action's sound, `SFX_PICK`; a pretend headset's press on a story panel
 button clicking; at a slideshow stop no cue past it until Next, then the next),
+focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, and an iPad, 1180 x 820, with touch:
+`HOST.focus()` true, the panel hidden, the slim bars, the subtitle strip's text the shell's caption for the line on show
+and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening
+the panel and closing it with a resize each time, explore's drawer closed by default, then open and closed; `#focus=off`
+giving today's layout; a desktop page unchanged; and the framing lines in all sixteen stories and the design room),
 and fails on console errors:
 
 ```sh
