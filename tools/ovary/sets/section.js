@@ -704,13 +704,14 @@ void main() {
     if (!built) step(4);
     const age = clamp(S.section_age, 20, 70), pair = smooth(clamp(S.section_pair, 0, 1));
     ageNow = age; SA.age.value = age;
-    // the pair: A shrinks to the left, B comes in on the right (both at 0.58 of A's size)
+    // the pair: A shrinks to the left, B comes in on the right (both at 0.58 of A's size), from further right and behind
+    // A, so the two never lie in one plane while B fades (two see-through slabs there flickered in a headset)
     const sc = 1 - 0.42 * pair;
     // the lift: the slab tips back like a tabletop (and sinks a little, so the hubs above it stay in view)
     const lift = smooth(clamp(S.section_lift || 0, 0, 1)), kinds = clamp(S.section_kinds || 0, 0, 1);
     kindsNow = kinds;
     gA.position.set(-0.6 * pair, -0.5 * lift, -0.05 * lift); gA.scale.setScalar(sc); gA.rotation.x = -TIP * lift;
-    gB.position.set(0.62 * pair + 0.5 * (1 - pair), 0, 0); gB.scale.setScalar(0.58);
+    gB.position.set(0.62 * pair + 1.3 * (1 - pair), 0, -0.45 * (1 - pair)); gB.scale.setScalar(0.58);
     gB.visible = pair > 0.01;
     for (const m of [SB.slabMat, SB.objMat, SB.fadeMat, SB.rimMat]) m.uniforms.uFade.value = (m === SB.fadeMat ? 0.75 : 1) * prog(pair, 0, 0.6);
     SB.maskMat.uniforms.uGrow.value = prog(pair, 0.5, 1);

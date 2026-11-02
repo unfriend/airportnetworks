@@ -1,5 +1,7 @@
 // The donors in 3D (the aging ovary story): 255 glass slides (drawn) that gather into a fan and then stack up into the
-// donors' age histogram (one slide per donor, the poster's 20 bars). The story's one graph, and it goes by in passing:
+// donors' age histogram (one slide per donor, the poster's 20 bars): twenty towers of slides lying flat on the floor, in
+// a wide arc in front of you, age 20 on the left to 70 on the right, seen from a little above (the owner, 2 November
+// 2026: the flat histogram, a wall of slides seen edge on, was "hard to see"). The story's one graph, and it goes by in passing:
 // the trends, the comparisons and the scores are told on the ovary and the section instead (the owner's rule against 2D
 // graphs). The donors' ages are OVARY_DATA.cohort.age (whole years filling the poster's bars).
 SETS.charts = function (K) {
@@ -7,26 +9,13 @@ SETS.charts = function (K) {
   const L = OVARY_LOOK, D = OVARY_DATA;
   L.init(K);
   const set = K.newSet('charts');
-  const ink = '#e7eef8', muted = '#95a6bd', FONT = 'Inter, "Segoe UI", Arial, sans-serif';
-  // a canvas texture drawn once (text and gridlines that belong to a chart)
-  function canvasTex(w, h, draw) {
-    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-    const ctx = cv.getContext('2d'); draw(ctx, w, h);
-    const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; t.minFilter = THREE.LinearMipmapLinearFilter;
-    return t;
-  }
-  // a plane showing a texture; its opacity is the set's fade times its own (set in update)
-  function plate(tex, w, h) {
-    const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
-    const me = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
-    me.renderOrder = 1;
-    return me;
-  }
-  const fadeTo = (me, a) => { me.material.opacity = a * set.uA.value; me.visible = a > 0.003; };
 
   // ------------------------------------------------------------- the slides and the histogram
-  const H = D.hist, NBAR = H.counts.length, HX0 = -0.95, HW = 1.9, HY0 = -0.42, DY = 0.026;
-  const ageX = a => HX0 + (a - 20) / 50 * HW;
+  // the floor (HY0) and the arc: its centre on your side (ARC_Z), so the middle tower stands furthest away and the ends
+  // come round towards you; a bar's angle from age 20 (left) to 70 (right); slides PITCH apart up a tower
+  const H = D.hist, NBAR = H.counts.length, HY0 = -0.42, PITCH = 0.02, ARC_R = 1.5, ARC_Z = 1.1, ARC_TH = 46 * Math.PI / 180;
+  const ageAng = a => (-1 + 2 * (a - 20) / 50) * ARC_TH;
+  const onArc = (th, r, y) => [r * Math.sin(th), y, ARC_Z - r * Math.cos(th)];
   // each donor's slide: its bar (by its age) and its place in the bar's stack
   const AGES = D.cohort.age, N = AGES.length;
   const barOf = a => clamp(Math.floor((a - H.from) / H.width), 0, NBAR - 1);
@@ -34,14 +23,14 @@ SETS.charts = function (K) {
   const order = AGES.map((a, i) => i).sort((i, j) => AGES[i] - AGES[j] || i - j);
   const SLOT = new Array(N);
   { let k = 0, n = 0; for (const i of order) { while (n >= H.counts[k]) { k++; n = 0; } SLOT[i] = [k, n++]; } }
-  const SL = 0.085, SWD = 0.028, STH = 0.0042;
+  const SL = 0.085, SWD = 0.028, STH = 0.008;
   const slideAttrs = (() => {
     const aF = new Float32Array(N * 4), aHh = new Float32Array(N * 4), R = K.rng(17);
     order.forEach((i, r) => {
       const ring = r % 3, k = Math.floor(r / 3), nk = Math.ceil(N / 3), th = (-75 + 150 * (k + 0.5) / nk) * Math.PI / 180;
       aF.set([th, 0.52 + 0.17 * ring, -0.06 * ring, R()], 4 * i);
       const [b, n] = SLOT[i];
-      aHh.set([HX0 + (H.from + H.width * (b + 0.5) - 20) / 50 * HW, HY0 + (n + 0.5) * DY, R(), AGES[i]], 4 * i);
+      aHh.set([ageAng(H.from + H.width * (b + 0.5)), HY0 + (n + 0.5) * PITCH, R(), AGES[i]], 4 * i);
     });
     return { aF: new THREE.InstancedBufferAttribute(aF, 4), aH: new THREE.InstancedBufferAttribute(aHh, 4) };
   })();
@@ -49,14 +38,16 @@ SETS.charts = function (K) {
 uniform float uIn, uHist; attribute vec4 aF, aH;
 mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0); }
 mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c); }
-// the slide's pose: in the fan (standing, along its radius) or in the histogram (lying in its bar's stack)
+mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
+// the slide's pose: in the fan (standing, along its radius) or in the histogram (lying flat in its bar's tower on the
+// arc, its long side along the arc; aH.x the bar's angle, aH.y its height in the tower)
 vec3 slidePos(vec3 p, out mat3 R, out float al) {
   float sIn = smoothstep(0.0, 1.0, clamp((uIn * 1.6 - aF.w * 0.6), 0.0, 1.0));
   float sH = smoothstep(0.0, 1.0, clamp((uHist * 1.5 - (aH.w - 20.0) / 50.0 * 0.5), 0.0, 1.0));
   vec3 fan = vec3(0.0, -0.62, 0.0) + vec3(-sin(aF.x), cos(aF.x), 0.0) * aF.y + vec3(0.0, 0.0, aF.z);
   fan += vec3(0.0, -0.7, 0.5) * (1.0 - sIn);
-  vec3 hist = vec3(aH.x, aH.y, 0.0);
-  R = rotZ(mix(aF.x + 1.5708, 0.0, sH)) * rotX(mix(0.0, -1.5708, sH));
+  vec3 hist = vec3(${ARC_R.toFixed(3)} * sin(aH.x), aH.y, ${ARC_Z.toFixed(3)} - ${ARC_R.toFixed(3)} * cos(aH.x));
+  R = rotY(-aH.x * sH) * rotZ(mix(aF.x + 1.5708, 0.0, sH)) * rotX(mix(0.0, -1.5708, sH));
   al = sIn;
   return mix(fan, hist, sH) + vec3(0.0, sin(sH * 3.14159) * 0.22, sin(sH * 3.14159) * 0.25) + R * p;
 }`;
@@ -98,36 +89,34 @@ ${frag}
   const slides = new THREE.Group();
   slides.add(glass, tissue, label);
   glass.renderOrder = 2;
-  // the histogram's backdrop: gridlines and ticks (age along the bottom, donors up the side)
-  const HB = new THREE.Group();
-  // (the plate reaches 0.22 left of the bars for the counts, 0.06 right of them)
-  const HPW = HW + 0.28, HPX = HX0 - 0.22;
-  const histTex = canvasTex(1024, 512, (c, w, h) => {
-    const x = a => (ageX(a) - HPX) / HPW * w, y = n => h - ((HY0 + n * DY) - (HY0 - 0.08)) / 0.8 * h;
-    c.strokeStyle = 'rgba(149,166,189,0.28)'; c.lineWidth = 2; c.fillStyle = muted; c.font = `28px ${FONT}`; c.textAlign = 'right'; c.textBaseline = 'middle';
-    for (const n of [0, 5, 10, 15, 20, 25]) { c.beginPath(); c.moveTo(x(20), y(n)); c.lineTo(x(70), y(n)); c.stroke(); c.fillText(String(n), x(20) - 10, y(n)); }
-    c.textAlign = 'center'; c.textBaseline = 'top';
-    for (const a of [20, 30, 40, 50, 60, 70]) { c.fillText(String(a), x(a), y(0) + 10); }
-    c.fillStyle = ink; c.font = `600 26px ${FONT}`; c.fillText('Age (years)', x(45), y(0) + 46);
-    c.save(); c.translate(x(20) - 70, y(12.5)); c.rotate(-Math.PI / 2); c.fillText('Donors', 0, 0); c.restore();
-  });
-  const histPlate = plate(histTex, HPW, 0.8);
-  histPlate.position.set(HPX + HPW / 2, HY0 - 0.08 + 0.4, -0.06);
-  HB.add(histPlate);
-
+  // the floor under the towers: a faint band along the arc, and a mark at every decade in front of it (the ages are the
+  // set's labels, so they read in every labels mode)
+  const HB = new THREE.Group(), DEC = [20, 30, 40, 50, 60, 70];
+  const floorMat = () => new THREE.MeshBasicMaterial({ color: 0x9fc4e6, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const band = new THREE.Mesh(new THREE.RingGeometry(ARC_R - 0.07, ARC_R + 0.07, 96, 1, Math.PI / 2 - ARC_TH - 0.04, 2 * ARC_TH + 0.08), floorMat());
+  band.rotation.x = -Math.PI / 2; band.position.set(0, HY0 - 0.004, ARC_Z);   // (the ring's angles from +x, turned onto the floor about its centre)
+  band.userData.op = 0.16;
+  HB.add(band);
+  for (const a of DEC) {
+    const th = ageAng(a), tick = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.002, 0.07), floorMat());
+    tick.position.set(...onArc(th, ARC_R - 0.12, HY0 - 0.002)); tick.rotation.y = -th; tick.userData.op = 0.55;
+    HB.add(tick);
+  }
   set.group.add(slides, HB);
 
   // ------------------------------------------------------------- anchors
+  const tallest = Math.max(...H.counts);
   const anchors = {
-    hist: [0, HY0 + 0.75, 0], histTop: [ageX(H.from + H.width * 18.5), HY0 + 25 * DY + 0.05, 0], fan: [0, 0.38, 0.05], slides: [0, -0.1, 0.1],
+    hist: [0, HY0 + 0.75, 0], histTop: onArc(0, ARC_R, HY0 + tallest * PITCH + 0.12), fan: [0, 0.38, 0.05], slides: [0, -0.1, 0.1],
   };
+  for (const a of DEC) anchors['age' + a] = onArc(ageAng(a), ARC_R - 0.22, HY0 + 0.01);
 
   // ------------------------------------------------------------- update
   function update(S) {
     const sl = clamp(S.charts_slides, 0, 1), hs = clamp(S.charts_hist, 0, 1);
     for (const me of [glass, tissue, label]) { me.material.uniforms.uIn.value = sl; me.material.uniforms.uHist.value = hs; }
     slides.visible = sl > 0.001;
-    fadeTo(histPlate, prog(hs, 0.4, 1) * sl);
+    for (const me of HB.children) { me.material.opacity = me.userData.op * prog(hs, 0.4, 1) * sl * set.uA.value; me.visible = me.material.opacity > 0.002; }
   }
 
   return Object.assign(set, {
@@ -136,8 +125,9 @@ ${frag}
     anchors,
     labels: [
       { text: [`${D.facts.donors} donors`, `GTEx, aged ${D.facts.ages[0]} to ${D.facts.ages[1]}`], at: 'histTop', cls: 'cyn', alpha: S => prog(S.charts_hist, 0.7, 1) * S.charts_slides },
+      ...DEC.map(a => ({ text: [a === 20 ? 'Age 20' : String(a), ''], at: 'age' + a, cls: '', alpha: S => prog(S.charts_hist, 0.7, 1) * S.charts_slides })),
     ],
-    cam: { default: [0, 6, 3.2, -0.05, -0.1, 0], hist: [0, 6, 3.2, -0.05, -0.1, 0], fan: [0, 14, 3.0, 0, -0.15, 0] },
+    cam: { default: [0, 6, 3.2, -0.05, -0.1, 0], hist: [0, 22, 3.9, 0, -0.18, 0.0], fan: [0, 14, 3.0, 0, -0.15, 0] },
     // (not a scene of explore mode: no controls)
     controls: [],
   });

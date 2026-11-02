@@ -1999,7 +1999,9 @@ follicles, scars and vessels follow the poster's trend lines with age; `section`
 four kinds and cysts, a younger and an older one, the tiles, UNI2 features, a grove of decision trees that votes, the
 predictions, SegFormer's masks and the illustrative neighbor network, which tips back off the section and gathers into
 five hubs by kind joined by bands (`section_lift`, `section_kinds`); `charts`, only the slides stacking into the age
-histogram, the one graph, in passing; each with a manifest) and engine parts adapted from the microanatomy story's.
+histogram, the one graph, in passing: since v105 twenty towers of slides lying on the floor in a wide arc, age 20 on the
+left to 70 on the right, seen from a little above (the owner: the flat one was "hard to see"); each with a manifest) and
+engine parts adapted from the microanatomy story's.
 `tools/ovary/SPEC.md` is the contract.
 
 - The data: `tools/ovary/data/gen_data.mjs` writes `tools/ovary/sets/data.js` from the poster's numbers (typed in
@@ -2015,6 +2017,12 @@ histogram, the one graph, in passing; each with a manifest) and engine parts ada
   poster's next step, drawn as an illustration and labelled so throughout. The slides, sections and the ovary are
   drawn, never GTEx images or the poster's pictures.
 - `body` and `organ` share one frame (the ovary sits in the body's pelvis before it grows out of it).
+- One model out before the next comes in (v105; the owner, 2 November 2026: "two 3d models exactly overlapping which
+  leads to z fighting inside the headsets"): the section, the ovary and the donors' slides all stand at the origin, and
+  two see-through models in one place flicker in a headset as their drawing order flips with the head. At each change
+  of model in the story (Donors to Section, Methods to Age, Age to Next) the old one fades out over 1.2 s and the new one
+  in from 1.0 s; explore's `exploreStep` holds a set's fade-in while any set going out is still above 0.12; and the
+  older section of the pair comes in from the right and behind (`section_pair`), never across the younger one.
 - Labels whose text is a function (the ovary's age and count tags, `organ_counts`) are read again while they show
   (`labelText`, as in the qubits story).
 - Explore: Objects (pick a kind: its numbers as text, picked out on the section and in the ovary; pointing at an object

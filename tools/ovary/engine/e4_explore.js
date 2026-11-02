@@ -67,7 +67,10 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  // a set coming in waits until the one going out is nearly gone: the ovary and the section stand in one place, and two
+  // see-through models there flicker in a headset as their drawing order flips with the head
+  const going = Object.keys(DEF).some(n => n.endsWith('_a') && tg[n] === 0 && XS[n] > 0.12);
+  for (const n in DEF) if (!(going && n.endsWith('_a') && tg[n] > XS[n])) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it or a set asks for stillness
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;

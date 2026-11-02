@@ -19,7 +19,8 @@ drawn: no GTEx image is used.
   - **cysts** (2): thin-walled pale cavities (constant with age; nothing on the poster says how they change).
   Counts follow the poster's lines with `section_age` (`OVARY_TREND.level`; follicles gone by about 59).
 - **Section B**: an older ovary (drawn at 66; its own shape, longer and more ragged), large scars (24 slots of 0.12 to
-  0.27), no follicles left, beside A in the pair. Scale bars as on the poster: 1.58 mm (A) and 791 µm (B), each about an
+  0.27), no follicles left, beside A in the pair. It comes in from further right and 0.45 behind A, and leaves the
+  same way, so the two never lie in one plane while it fades (two see-through slabs there flickered in a headset). Scale bars as on the poster: 1.58 mm (A) and 791 µm (B), each about an
   eighth of its section's width (the older section is smaller in life).
 - **Picked out** (`section_<kind>`): the kind takes the poster's color (vessel gray-blue, macrophage sage green, corpus
   albicans magenta, follicle deep indigo; lifted for the dark scene) with a translucent overlay and a bright rim, as the
