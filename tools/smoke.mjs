@@ -1887,7 +1887,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await step(`focus mode on a ${dev}: Text opens the story's panel (a resize sent) and closes it`, async () => {
       await ev(() => { window.__fcResize = 0; addEventListener('resize', () => window.__fcResize++); });
       await fp.click('#fcText');
-      await fp.waitForTimeout(300);
+      await fp.waitForFunction(() => !HOST.focus() && window.__fcResize >= 1, null, { timeout: 8000 }).catch(() => {});   // (what it measures, not a fixed time: a slow page)
       const o = await ev(() => {
         const p = document.getElementById('panel'), r = p.getBoundingClientRect();
         return { focus: HOST.focus(), resize: window.__fcResize, pressed: document.getElementById('fcText').getAttribute('aria-pressed'), shown: getComputedStyle(p).display !== 'none' && r.height > 100,
@@ -1897,35 +1897,37 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       if (dev === 'iPad' && !(o.left < 40 && o.w < 0.5 * 1180)) errors.push(`${dev}: the panel is not the side panel (${JSON.stringify(o)})`);
       if (dev === 'phone' && !(o.w > 380 && o.bottom <= o.barTop + 1)) errors.push(`${dev}: the panel is not the bottom sheet over the bar (${JSON.stringify(o)})`);
       await fp.click('#fcText');
-      await fp.waitForTimeout(300);
+      await fp.waitForFunction(() => HOST.focus() && window.__fcResize >= 2, null, { timeout: 8000 }).catch(() => {});
       const c = await ev(() => ({ focus: HOST.focus(), resize: window.__fcResize, panel: getComputedStyle(document.getElementById('panel')).display }));
       if (!c.focus || c.resize < 2 || c.panel !== 'none') errors.push(`${dev}: Text did not close the panel (${JSON.stringify(c)})`);
     });
     await step(`focus mode on a ${dev}: explore's drawer closed by default, opened and closed; no subtitles there`, async () => {
       await ev(() => HOST.cur.collab.APP.enterExplore());
-      await fp.waitForTimeout(500);
+      await fp.waitForFunction(() => !!document.getElementById('fcCtl').offsetParent && HOST.focus(), null, { timeout: 8000 }).catch(() => {});
       const s = await ev(() => ({ focus: HOST.focus(), drawer: HOST.focus.drawer(), panel: getComputedStyle(document.getElementById('panel')).display, subs: getComputedStyle(document.getElementById('subs')).display, sub: HOST.focus.state().sub,
         ctl: !!document.getElementById('fcCtl').offsetParent, text: !!document.getElementById('fcText').offsetParent, play: !!document.getElementById('play').offsetParent }));
       if (!s.focus || s.drawer || s.panel !== 'none' || s.subs !== 'none' || s.sub || !s.ctl || s.text || s.play) errors.push(`${dev}: explore mode does not start with the drawer closed and the 3D on its own (${JSON.stringify(s)})`);
       const n = await ev(() => window.__fcResize);
       await fp.click('#fcCtl');
-      await fp.waitForTimeout(400);
+      await fp.waitForFunction(n => HOST.focus.drawer() && !HOST.focus() && window.__fcResize > n, n, { timeout: 8000 }).catch(() => {});
+      await fp.waitForTimeout(300);   // (the drawer's slide up)
       const o = await ev(() => { const p = document.getElementById('panel'), r = p.getBoundingClientRect(); return { focus: HOST.focus(), drawer: HOST.focus.drawer(), resize: window.__fcResize, h: r.height, bottom: r.bottom, barTop: document.getElementById('bar').getBoundingClientRect().top, H: innerHeight, tabs: !!p.querySelector('#explore .tabs, #explore [role="tablist"], #explore button') }; });
       if (o.focus || !o.drawer || o.resize <= n || !(o.h > 80 && o.h <= 0.6 * o.H + 1) || o.bottom > o.barTop + 1 || !o.tabs) errors.push(`${dev}: Controls did not pull the drawer up (${JSON.stringify(o)})`);
       await fp.click('#fcHandle');
-      await fp.waitForTimeout(300);
+      await fp.waitForFunction(() => HOST.focus() && !HOST.focus.drawer(), null, { timeout: 8000 }).catch(() => {});
       const c = await ev(() => ({ focus: HOST.focus(), drawer: HOST.focus.drawer(), panel: getComputedStyle(document.getElementById('panel')).display }));
       if (!c.focus || c.drawer || c.panel !== 'none') errors.push(`${dev}: the handle did not close the drawer (${JSON.stringify(c)})`);
       // opened again, then explore mode left and begun again: closed again
       await fp.click('#fcCtl');
       await ev(() => { HOST.cur.collab.APP.enterStory(0); HOST.cur.collab.APP.enterExplore(); });
-      await fp.waitForTimeout(300);
+      await fp.waitForFunction(() => HOST.focus() && !HOST.focus.drawer(), null, { timeout: 8000 }).catch(() => {});
       if (await ev(() => HOST.focus.drawer() || !HOST.focus())) errors.push(`${dev}: explore mode begun again with the drawer open`);
       await ev(() => HOST.cur.collab.APP.enterStory(0));
     });
     await step(`focus mode on a ${dev}: nothing of it on the Stories screen`, async () => {
       await ev(() => HOST.openPicker());
-      await fp.waitForTimeout(400);
+      await fp.waitForFunction(() => !HOST.focus(), null, { timeout: 8000 }).catch(() => {});
+      await fp.waitForTimeout(200);
       const s = await ev(() => ({ focus: HOST.focus(), subs: getComputedStyle(document.getElementById('subs')).display, title: getComputedStyle(document.getElementById('chtitle')).display, more: getComputedStyle(document.getElementById('fcMore')).display, top: document.getElementById('top').getBoundingClientRect().height, btn: document.getElementById('btnFocus').getAttribute('aria-pressed') }));
       if (s.focus || s.subs !== 'none' || s.title !== 'none' || s.more !== 'none' || Math.abs(s.top - 58) > 1 || s.btn !== 'true') errors.push(`${dev}: the Stories screen is not as ever (${JSON.stringify(s)})`);
       await ev(() => HOST.closePicker());
@@ -1938,7 +1940,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
         h: document.getElementById('panel').getBoundingClientRect().height, fc: [...document.querySelectorAll('.fc, #subs, #chtitle')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id), kept: localStorage.getItem('pageFocus') }));
       if (s.on || s.focus || s.body || s.panel === 'none' || s.h < 100 || s.fc.length || s.kept !== 'off') errors.push(`#focus=off: ${JSON.stringify(s)}`);
       await ev(() => HOST.openPicker()); await fp.click('#btnFocus'); await ev(() => HOST.closePicker());
-      await fp.waitForTimeout(300);
+      await fp.waitForFunction(() => HOST.focus(), null, { timeout: 8000 }).catch(() => {});
       if (!await ev(() => HOST.focus() && localStorage.getItem('pageFocus') === 'on')) errors.push('Focus view on the Stories screen did not turn focus mode on');
     });
     await ctx.close();

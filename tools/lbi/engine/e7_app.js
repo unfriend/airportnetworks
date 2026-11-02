@@ -187,7 +187,7 @@ const APP = {
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
-    orbit.cur = v; orbit.to = null;
+    orbit.cur = v; orbit.to = null; X.side = null;   // (a view the side shift's step does not own: sideStep leaves it)
     X.scene = best; X.t0 = performance.now();
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
@@ -367,7 +367,7 @@ function initEnd() {
     APP.enterExplore();
     // #lbi&explore&scene=atp&view=complex (any control of the scene by its key), or &q=TP53, &route=TP53,BRCA1
     if (hp.get('scene')) openScene(hp.get('scene'), false);
-    orbit.cur = view(X.scene, 'default'); orbit.to = null;
+    orbit.cur = view(X.scene, 'default'); orbit.to = null; X.side = null;
     // controls after the default view, so a control's own view wins
     const s = GL.sets[X.scene];
     for (const c of s.controls || []) if (hp.get(c.key)) setCtl(X.scene, c.key, hp.get(c.key));

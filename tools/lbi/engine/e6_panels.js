@@ -634,7 +634,7 @@ function drawFoot(ctx, P) {
   ctx.fillText('Zoom', 330, 58);
   vButton(ctx, P, 'z-', 404, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
   vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
-  vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
+  vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => { X.side = null; flyTo(view(X.scene, 'default')); }, { px: 22 });
 }
 
 

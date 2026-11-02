@@ -548,7 +548,7 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
   <button class="fc ico" id="fcPrev" type="button" aria-label="Previous chapter" title="Previous chapter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h2v11H3zM13.5 2.5v11L5.5 8z"/></svg></button>
   <span class="fc" id="fcName"></span>
   <button class="fc ico" id="fcNext" type="button" aria-label="Next chapter" title="Next chapter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2.5h2v11h-2zM2.5 2.5v11l8-5.5z"/></svg></button>
-  <button class="fc ico" id="fcSound" type="button" hidden aria-label="Sound on" title="Sound on"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5h3L8.5 2v12l-4-3.5h-3z"/><path class="w" d="M10.6 5.2a3.6 3.6 0 0 1 0 5.6M12.4 3.3a6.2 6.2 0 0 1 0 9.4"/><path class="x" d="M10.5 5.5l4 5M14.5 5.5l-4 5"/></svg></button>
+  <button class="fc ico" id="fcSound" type="button" data-sfx="none" hidden aria-label="Sound on" title="Sound on"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5h3L8.5 2v12l-4-3.5h-3z"/><path class="w" d="M10.6 5.2a3.6 3.6 0 0 1 0 5.6M12.4 3.3a6.2 6.2 0 0 1 0 9.4"/><path class="x" d="M10.5 5.5l4 5M14.5 5.5l-4 5"/></svg></button>
   <button class="btn fc" id="fcText" type="button" aria-pressed="false" aria-controls="panel" title="The story's text">Text</button>
   <button class="btn fc" id="fcCtl" type="button" aria-pressed="false" aria-controls="panel" title="Explore's controls">Controls</button>
 </footer>
@@ -650,7 +650,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 104, id: '019da3bfe87310b9', format: 'networks-28' },
+  shell: { n: 106, id: 'f91ca6dcdf8a92a9', format: 'networks-28' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2217,9 +2217,10 @@ HOST.focus = (function () {
     const A = app(), picking = HOST.picking, story = !!A && A.mode === 'story' && built();
     const ch = story ? chapters() : null, i = ch ? chAt(ch, +A.t || 0) : -1, on = !!ch && value() && !document.hidden;
     if (ch) { const n = el('fcName'), name = String(ch[i].name || ''); if (n.textContent !== name) n.textContent = name; }
-    // a chapter's title as it starts: played into, jumped to, or a story begun from the Stories screen
+    // a chapter's title as it starts: played into, jumped to, or a story begun from the Stories screen (kept while the
+    // story is out of view or swapped in place, so the same chapter after a live update or explore mode shows none)
     const k = ch ? HOST.curKey + ':' + ch[i].key : '';
-    if (k !== F.chK) { F.chK = k; if (on) title(ch[i]); } else if (F.pick && !picking && on && A.t - ch[i].na < 1.5) title(ch[i]);
+    if (ch && k !== F.chK) { F.chK = k; if (on) title(ch[i]); } else if (F.pick && !picking && on && A.t - ch[i].na < 1.5) title(ch[i]);
     F.pick = picking;
     let ta = 0;
     if (F.title && on) {
