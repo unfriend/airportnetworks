@@ -1652,7 +1652,9 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const lines = ['const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());', 'const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());',
       'if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }',
       'if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();',
-      "else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);", 'fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });'];
+      "else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);", 'fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });',
+      'if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }', "() => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }",
+      "if (!xrCards()) vButton(ctx, P, 'story:close', ", "if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', "];
     const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
       [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
     if (miss.length) errors.push('the All stories hook lines are missing in ' + miss.join(', '));

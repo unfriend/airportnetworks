@@ -112,7 +112,7 @@
   repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.
   `stories/pet.js` likewise from `tools/pet/` (`node tools/pet/build.mjs`; data from the paper's tables and the
   figures' readings in `tools/pet/data/figures.json` via `node tools/pet/data/gen_data.mjs`); it includes
-  `tools/lbi/sets/body.js`, so rebuild it after changing that. No patient data in it (the authors' VR viewer holds a
+  `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js` (its opening network's 3D organs), so rebuild it after changing those. No patient data in it (the authors' VR viewer holds a
   patient's scan: never use its data).
   `stories/micro.js` likewise from `tools/micro/` (`node tools/micro/build.mjs`; data from Iva Buljan's GraphML, kept out of
   the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's

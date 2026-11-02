@@ -809,9 +809,10 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   - The first headset adds one (`allFirst`, from the shell's tick): a headset in the room with the others (AR, or VR
     answered "in this room"; never one elsewhere), aligned, in its session, the circles not locked, in a room that has
     never had one put there by itself (`allp`, written in the same batch, so once per room: a removed one does not come
-    back), the conditions holding 1.5 s (a room refilled after a relay restart comes back empty first), once per page
+    back) and that has none (one added by hand on a page is enough), the conditions holding 1.5 s (a room refilled after a relay restart comes back empty first), once per page
     and room: an All stories circle 1.2 m ahead of its head along the floor (just outside the 1.1 m walk-in: one step and
-    you are in it), facing away from it (its cards float ahead, as on the Stories screen), Own stories. A room started on
+    you are in it), facing away from it (its cards float ahead, as on the Stories screen), Own stories, always under one
+    id (`all01`), so two headsets that place it at the same moment place one circle (the last writer's). A room started on
     a page gets none until a headset comes; one started in a headset gets it at once. Tests turn it off
     (`HOST.collab.autoAll(false)`; the pretend headsets in `tools/collab.mjs` do unless asked).
   - Walked into (as any circle), it is the headset's live station. Showing its cards (`HOST.room.cards()`), the story
@@ -837,7 +838,11 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     presence's `st`), so people at both circles see the same moment and what one changes the other sees; the panel and
     scene are placed relative to each circle's own spot. A pick in sync mode writes only the circle's story (never the
     other circle's clock); with no such circle it runs on its own keys. Turned off with a story running in a linked
-    session, its own clock and explore state are seeded from where that session is, so the story goes on. When the live
+    session, its own keys are seeded from where that session is (its clock, explore state, scene place, panel, view,
+    panels and lock; own ones that session does not have go), so the story goes on and nothing jumps. A linked circle
+    that goes (removed, or given another story) leaves the circle on its own keys: the people at it write its clock and
+    explore state from where the story is with them, so they stay together. Moving an All stories circle (the grip, the
+    map) writes its story and switch as the room has them at that moment (`stVal`), never an older pick back. When the live
     station's story or session changes with the story already loaded, the room's clock and state apply at once
     (`C.liveSig`).
   - Back to the lobby: walking into it ends the headset's live station (no story: away, the story hidden, paused and

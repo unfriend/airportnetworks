@@ -1693,7 +1693,7 @@ async function allRound() {
   const AL = (await kinds(A)).find(s => s.kind === 'all');
   // (moved where the first one stood, from the page: a move keeps its kind)
   await A.evaluate(([id, x, z, yaw]) => HOST.collab.publish([['st.' + id, { story: 'all', kind: 'all', sync: false, x, z, yaw }]]), [AL.id, r3(want[0]), r3(want[1]), r3(HEAD.yaw)]);
-  await until(H, id => HOST.collab.station(id) && Math.abs(HOST.collab.station(id).z - 0) < 2, AL.id, 5000);
+  await until(H, ([id, x, z]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.01 && Math.abs(s.z - z) < 0.01; }, [AL.id, r3(want[0]), r3(want[1])], 5000);   // (the move itself arrived)
   const ALs = await H.evaluate(id => HOST.collab.station(id), AL.id);
   // walked into: its cards, the single-player Stories screen, the scene hidden, nothing synced
   await H.evaluate(h => window.__xr.head(h), headAt(ALs, ROOM[3] + ALs.yaw));
@@ -1765,16 +1765,39 @@ async function allRound() {
   const pres = await A.evaluate(id => (HOST.collab.people().get(id) || {}).st, await H.evaluate(() => HOST.collab.id));
   check('all: with the switch on and a circle of that story in the room, the headset at the All stories circle joins its session: explore state and clock both ways, its presence still the All stories circle\'s',
     joined && !own0.length && got1 && got2 && got3 && pres === AL.id, JSON.stringify({ joined, own0, got1, got2, got3, pres, AL: AL.id, sp: SPid }));
-  // off again, from the page's dialog: its own keys (seeded where the session was), the story going on
+  // (the linked circle's scene moved, for the switch turned off below: it stays where it is, not back where the story puts it)
+  await A.evaluate(([id, k]) => HOST.collab.publish([['st.' + id + '.place', { x: 0.2, y: 0, z: 0, s: 1, story: k }]]), [SPid, PK]);
+  await until(H, id => { const v = HOST.collab.val('st.' + id + '.place'); return !!v && v.x === 0.2; }, SPid, 5000);
+  // off again, from the page's dialog: its own keys (seeded where the session was: its clock, state and the scene's place),
+  // the story going on
   await A.evaluate(() => HOST.collab.dialog(true));
   await sleep(300);
   await A.click(`[data-sh="allsync:${AL.id}"]`);
   run = live();
   const ownAgain = await until(H, id => { const S = HOST.collab.session(); return !!S && S.id === id; }, AL.id, 5000);
   await run;
-  const own1 = await keysOf(A, AL.id), hm = await clockOf(H);
-  check('all: the dialog\'s toggle turns the switch off: its own keys again, the story going on there', ownAgain && own1.includes('st.' + AL.id + '.play') && hm[0] === 'story' && !(await A.evaluate(id => HOST.collab.station(id).sync, AL.id)),
-    JSON.stringify({ ownAgain, own1, hm }));
+  const own1 = await keysOf(A, AL.id), hm = await clockOf(H), pl1 = await A.evaluate(id => HOST.collab.val('st.' + id + '.place'), AL.id);
+  check('all: the dialog\'s toggle turns the switch off: its own keys again (the clock, the state and the scene\'s place carried over), the story going on there',
+    ownAgain && own1.includes('st.' + AL.id + '.play') && !!pl1 && pl1.x === 0.2 && hm[0] === 'story' && !(await A.evaluate(id => HOST.collab.station(id).sync, AL.id)),
+    JSON.stringify({ ownAgain, own1, pl1, hm }));
+  // on again, then the linked circle given another story: the All stories circle goes on alone from where the story is
+  // (its own clock written by the people at it), not left without a clock
+  await A.click(`[data-sh="allsync:${AL.id}"]`);
+  run = live();
+  const rejoined = await until(H, sp => { const S = HOST.collab.session(); return !!S && S.id === sp; }, SPid, 6000);
+  await run;
+  await peek(H, 'APP.enterStory(32)');
+  await sleep(500);
+  const spv = await A.evaluate(id => HOST.collab.val('st.' + id), SPid);
+  await A.evaluate(([id, v, k]) => HOST.collab.publish([['st.' + id, Object.assign({}, v, { story: k })]]), [SPid, spv, OTHER_STORY]);
+  run = live();
+  const alone = await until(A, id => { const v = HOST.collab.val('st.' + id + '.play'); return !!v && v.mode === 'story' && v.t > 30; }, AL.id, 8000);
+  await run;
+  const hm2 = await clockOf(H), ses2 = await H.evaluate(() => (HOST.collab.session() || {}).id);
+  check('all: with the linked circle given another story, the All stories circle goes on alone where its story was (its own clock written), still the same story',
+    rejoined && alone && ses2 === AL.id && hm2[0] === 'story' && hm2[2] > 30, JSON.stringify({ rejoined, alone, ses2, hm2 }));
+  await A.click(`[data-sh="allsync:${AL.id}"]`);   // (and its switch off again)
+  await until(A, id => HOST.collab.station(id).sync === false, AL.id, 3000);
   // the dialog's picker: back to its cards (Choosing a story), for everyone there
   await A.selectOption(`[data-sh-pick="${AL.id}"]`, 'all');
   run = live();

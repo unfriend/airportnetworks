@@ -1517,7 +1517,17 @@
     // on show, or its switch turned): the room's clock and state apply at once, as on arriving
     const S = sesSt(), ls = L ? [L.id, L.story, S.id].join('|') : '';
     if (ls !== C.liveSig) {
+      const was = C.liveSig.split('|');
       C.liveSig = ls;
+      // (an All stories circle whose linked circle went, was removed or given another story: its own keys go on from where
+      // the story is here, so the people at it stay together; each of them may write it, the same values)
+      if (L && L.kind === ALL && S.id === L.id && was[0] === L.id && was[1] === L.story && was[2] && was[2] !== L.id && !playOf(L) &&
+        C.ready && C.hook && C.hook.APP && HOST.curKey === L.story && (C.mine === L.id || C.follow === L.id)) {
+        const A = C.hook.APP, playing = A.mode === 'story' && !!A.playing, pairs = [[kPlay(L.id), { mode: A.mode, t: r3(A.t), playing, at: playing ? Math.round(now()) : 0 }]];
+        try { const x = C.hook.state ? C.hook.state() : null; if (x !== undefined && x !== null) pairs.push([kX(L.id), x]); } catch (e) { /* story not ready */ }
+        publish(pairs, true);
+        log('all stories alone again', { st: L.id, was: was[2] });
+      }
       pageCards();
       if (synced(S) && C.ready) { clockApply(true); stateApply(); PL.id = ''; VW.id = ''; }
     }
@@ -1584,8 +1594,9 @@
     VW.id = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
     if (fol) C.follow = id;
     log('station', { st: id, story: s.story, how });
-    // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
-    if (fol) HOST.closePicker();
+    // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still); an All
+    // stories circle's cards open it again just below (pageCards: not taken for open already)
+    if (fol) { HOST.closePicker(); C.cardsOpen = false; }
     C.liveSig = [s.id, s.story, sesSt().id].join('|');
     pageCards();
     if (runs(s) && HOST.curKey !== s.story) goTo(s);
@@ -1614,7 +1625,9 @@
   // story the room asked for (goTo), the one it runs already, or no such circle here: false, and HOST.start goes on
   function allPick(key) {
     const L = liveSt();
-    if (!L || L.kind !== ALL || L.story === key || C.going.has(key) || (C.mine !== L.id && C.follow !== L.id) || !HOST.list.some(m => m.key === key)) return false;
+    // (the room only ever asks for the circle's own story, so L.story === key covers its switches: an older request that
+    // never ran, C.going, must not turn a person's pick into this device's alone)
+    if (!L || L.kind !== ALL || L.story === key || (C.mine !== L.id && C.follow !== L.id) || !HOST.list.some(m => m.key === key)) return false;
     return allPickAt(L.id, key);
   }
   // the switch (Own stories, or With the room's circles): never refused by either lock. Turned off with a story running in
@@ -1628,13 +1641,25 @@
       const P = playOf(O), x = val(kX(O.id));
       if (P) pairs.push([kPlay(id), { mode: P.mode, t: r3(expected(P)), playing: !!P.playing, at: P.playing ? Math.round(now()) : 0 }]);
       if (x !== undefined && x !== null) pairs.push([kX(id), x]);
+      // (and where its scene, panel and view are, its panels and its lock, so nothing jumps as it goes on alone; what the
+      // other circle does not have, the circle's own earlier values, goes)
+      for (const k of [kPlace, kPanel, kView, kUi]) {
+        const w = val(k(O.id)), own = val(k(id));
+        if (w !== undefined && w !== null && typeof w === 'object') { const c = Object.assign({}, w, 'story' in w ? { story: s.story } : {}); delete c.ts; delete c.h; pairs.push([k(id), c]); }
+        else if (own !== undefined && own !== null) pairs.push([k(id), null]);
+      }
     }
     log('all stories sync', { st: id, on: !!on });
     publish(pairs, true);
     changed();
     return true;
   }
-  function unfollow() { log('unfollow', { st: C.follow, who: C.who }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.who = ''; C.whoLeft = ''; C.liveSig = ''; pageCards(); changed(); }
+  function unfollow() {
+    log('unfollow', { st: C.follow, who: C.who });
+    C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.who = ''; C.whoLeft = ''; C.liveSig = '';
+    if (HOST.cur) pageCards(); else C.cardsOpen = false;   // (no story here yet: the Stories screen stays open, as before)
+    changed();
+  }
   // follow a person (a page only; the owner, 29 October 2026: a laptop for people who do not want to wear a headset follows
   // along): this page follows whichever station that person's headset runs, as their presence says (st: the circle they
   // walked into last, which stays theirs out of every circle), switching as they walk into the next circle (their
@@ -1797,8 +1822,13 @@
     publish([['st.' + MV.id, v]], true);
     if (final) log('station moved', { st: MV.id, x: v.x, z: v.z, yaw: v.yaw });
   }
-  // a station's value at a pose: its story and, for the shell's own kinds, its kind (and an All stories circle's switch)
-  const stVal = (s, P) => Object.assign({ story: s.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: !!s.sync } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
+  // a station's value at a pose: its story and, for the shell's own kinds, its kind (and an All stories circle's switch),
+  // as the room has them now (a circle carried while someone picks a story there must not write the old pick back: the
+  // relay would take it as another story and drop the pick's clock)
+  const stVal = (s, P) => {
+    const cur = s && s.id ? val('st.' + s.id) : null, b = cur && typeof cur === 'object' && typeof cur.story === 'string' ? cur : s;
+    return Object.assign({ story: b.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: b.sync === true } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
+  };
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room: no chapters) at
   // its table, in explore mode
   const startClock = story => ({ mode: !story || HOST.list.some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
@@ -3877,12 +3907,14 @@
   // back empty first), and a page tries it once per room
   const AUTO = { ahead: 1.2, hold: 1500 };
   function allFirst(t) {
-    const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && val('allp') === undefined && C.allpFor !== C.code;
+    const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && val('allp') === undefined && C.allpFor !== C.code &&
+      !C.st.some(s => s.kind === ALL);   // (one placed by hand already: none more)
     if (!ok) { C.allpAt = 0; return; }
     if (!C.allpAt) { C.allpAt = t; return; }
     if (t - C.allpAt < AUTO.hold) return;
     C.allpFor = C.code; C.allpAt = 0;
-    const b = base(), [fx, fz] = fwd(b.yaw), id = rid(5), x = r3(b.x + AUTO.ahead * fx), z = r3(b.z + AUTO.ahead * fz);
+    // (one id for the room's first, so two headsets that place it at the same moment place one circle: the last writer's)
+    const b = base(), [fx, fz] = fwd(b.yaw), id = 'all01', x = r3(b.x + AUTO.ahead * fx), z = r3(b.z + AUTO.ahead * fz);
     publish([['st.' + id, { story: ALL, kind: ALL, sync: false, x, z, yaw: r3(b.yaw) }], ['allp', { by: C.id, at: Math.round(now()) }]]);
     log('all stories added', { st: id, x, z });
     sfx('place', roomAt(x, 0.05, z));
