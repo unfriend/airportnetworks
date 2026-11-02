@@ -317,7 +317,7 @@ function buildStory() {
   // headset as their drawing order flips with the head; the owner, 2 November 2026)
   hide('charts', a, a + 1.2);
   jump('charts_slides', a + 2.2, 1, 0); jump('charts_hist', a + 2.2, 1, 0);
-  show('section', a + 1.0, a + 2.5);
+  show('section', a + 1.2, a + 2.6);
   cam(a + 1, 'section', 'default', -10);
   cam(a + 5.5, 'section', 'default', 4, 'spin');
   const pick = (k, t0, t1) => { ramp('section_' + k, t0, t0 + 1, 0, 1); ramp('section_' + k, t1, t1 + 1, 1, 0); };
@@ -358,7 +358,7 @@ function buildStory() {
   hide('section', a, a + 1.2);
   jump('section_mask', a + 2.2, 1, 0);
   jump('organ_body', a, 1, 0); jump('organ_agelab', a, 0, 1); jump('organ_age', a, 25, 20);
-  show('organ', a + 1.0, a + 2.6);
+  show('organ', a + 1.2, a + 2.7);
   ramp('organ_counts', a + 3, a + 5, 0, 1);
   ramp('organ_age', a + 5, a + 37, 20, 70);
   cam(a + 1, 'organ', 'default', -8);
@@ -371,7 +371,7 @@ function buildStory() {
   hide('organ', a, a + 1.2);
   jump('organ_counts', a + 2.2, 1, 0); jump('organ_agelab', a + 2.2, 1, 0);
   jump('section_age', a, 26, 25);
-  show('section', a + 1.0, a + 2.5);
+  show('section', a + 1.2, a + 2.6);
   ramp('section_net', a + 2, a + 9, 0, 1);
   ramp('section_lift', a + 10, a + 14, 0, 1);
   ramp('section_kinds', a + 14.5, a + 19, 0, 1);
