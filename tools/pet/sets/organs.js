@@ -5,6 +5,12 @@
 // bars collapse into one person's row and 658 rows stack into a slab; 658 stand-in people show what a partial
 // correlation is; the organs' nodes rise onto a shallow dome in front of the body and the paper's networks draw on
 // (blue positive, red negative, hubs orange-yellow), each with its density and disorder as a tag under its title.
+// Every organ the scene marks (a node, a bar's foot, a column's head, the panel's axes) is its 3D model from the
+// microanatomy story (ORGAN3D, as in the scanner's vision row; the marrow a bone of its own), never a flat icon.
+
+// Each organ's ORGAN3D model (the vision row's too: SCAN_NET in sets/scan.js)
+const PET_ORGAN3D = { brain: 'brain', thyroid: 'thyroid', lungs: 'lungs', heart: 'heart', liver: 'liver', spleen: 'spleen', pancreas: 'pancreas',
+  kidneys: 'kidney', adrenal: 'adrenal', intestine: 'smallint', muscle: 'muscle', marrow: 'marrow', fat: 'adipose', aorta: 'artery' };
 SETS.organs = function (K) {
   const { THREE, smooth, clamp, lerp, prog, v3 } = K;
   const set = K.newSet('organs');
@@ -885,50 +891,37 @@ void main() {
   marker.position.set(LES[0], LES[1], LES[2]); marker.renderOrder = 5;
   set.group.add(marker);
 
-  // ---------------------------------------------------------------- icons: bars, column heads, nodes, axes
-  // one quad each: a dark disc, a ring in the organ's colour and its line icon (hubs: filled orange-yellow)
-  const IB = 0, IN0 = NO, IX = 2 * NO, NI = 2 * NO + 2 * Math.max(1, NPR);
-  const icoGeo = quadGeo(NI, [['aUV', 4, 0], ['aHub', 1, 0]]);
-  const ATL = PET_ICONS.atlas(THREE, 128);
-  {
-    const uv = icoGeo.attributes.aUV.array, col = icoGeo.attributes.aCol.array;
-    const put = (k, oi) => { uv.set(ATL.uv(ORG[oi].id), 4 * k); col.set(COL[oi], 3 * k); };
-    for (let i = 0; i < NO; i++) { put(IB + i, i); put(IN0 + i, i); }
-    PAIRS.forEach((p, k) => { put(IX + 2 * k, OI[p.a] || 0); put(IX + 2 * k + 1, OI[p.b] || 0); });
+  // ---------------------------------------------------------------- the organs in 3D: nodes, bars' feet, column heads, axes
+  // Each organ as its 3D model (ORGAN3D, the vision row's models: lit, taking on the organ's colour, turning slowly),
+  // merged into two meshes of one draw call each, every model placed, sized, turned and tinted by its slot's uniforms:
+  // the network's nodes (the full models: large, and close up in a headset; hubs take on the paper's orange-yellow and
+  // glow) and the small ones (their lighter copies): each bar's organ at its foot, flying to head the slab's columns,
+  // and the partial-correlation panel's two organs per pair at its axes. No flat icons (the owner, 2 November 2026).
+  const O3 = typeof ORGAN3D !== 'undefined' ? ORGAN3D : null;
+  const NODE_R = 0.78, SMALL_R = 0.6;   // a model's radius per unit of its size (a node's nodeS, the width its disc had)
+  const IX = NO;   // the small ones' slots: the bars' organs (in organ order), then each pair's a and b
+  const TINT = ORG.map(o => (o.id === 'marrow' ? 0.18 : 0.5));   // (as in the vision row: the bone keeps its own colours)
+  function organMesh(oi, lite, order) {
+    const n = oi.length, U = { P: oi.map(() => new THREE.Vector4()), Q: oi.map(() => new THREE.Vector4()), T: oi.map(i => new THREE.Color(...COL[i])), tris: 0 };
+    if (!O3 || !n) return U;
+    const M = O3.merged(oi.map(i => PET_ORGAN3D[ORG[i].id]), { lite }), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1));
+    g.setIndex(new THREE.BufferAttribute(M.idx, 1));
+    const sh = O3.shader(n, { tints: true });
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: U.P }, uQ: { value: U.Q }, uT: { value: U.T } },
+      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
+    set.mats.push(m);
+    const o = new THREE.Mesh(g, m);
+    o.renderOrder = order; o.frustumCulled = false;
+    o.raycast = () => {};   // (one geometry for all, placed in the shader: pick() knows where each is)
+    set.group.add(o);
+    U.tris = M.tris; U.mesh = o;
+    return U;
   }
-  const icoMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uMap: { value: ATL.texture }, uHub: { value: new THREE.Color(...HUBC) } },
-    transparent: true, depthWrite: false,
-    vertexShader: `
-attribute vec3 aP, aCol; attribute float aSize, aA, aHub; attribute vec4 aUV;
-uniform float uA;
-varying vec3 vC; varying float vA, vHub; varying vec4 vUV; varying vec2 vPC;
-void main() {
-  vC = aCol; vA = aA * uA; vHub = aHub; vUV = aUV;${QUAD_VS}
-}`,
-    fragmentShader: `
-uniform sampler2D uMap; uniform vec3 uHub;
-varying vec3 vC; varying float vA, vHub; varying vec4 vUV; varying vec2 vPC;
-void main() {
-  float d = length(vPC - 0.5) * 2.0;
-  if (d > 1.0) discard;
-  vec2 q = (vPC - 0.5) / 0.68 + 0.5;
-  float ic = 0.0;
-  if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) ic = texture2D(uMap, vec2(mix(vUV.x, vUV.z, q.x), mix(vUV.w, vUV.y, q.y))).a;
-  float ring = smoothstep(0.74, 0.8, d) - smoothstep(0.93, 1.0, d);
-  float disc = 1.0 - smoothstep(0.94, 1.0, d);
-  vec3 fill = mix(vec3(0.025, 0.045, 0.085), uHub, vHub);
-  vec3 ink = mix(mix(vec3(0.95, 0.97, 1.0), vC, 0.3), vec3(0.16, 0.08, 0.0), vHub);
-  vec3 col = mix(mix(fill, ink, ic), mix(vC, vec3(1.0, 0.86, 0.5), vHub * 0.7), ring);
-  gl_FragColor = vec4(col, max(disc * 0.92, max(ic, ring)) * vA);
-}`,
-  });
-  set.mats.push(icoMat);
-  const icons = new THREE.Mesh(icoGeo, icoMat);
-  icons.frustumCulled = false; icons.renderOrder = 7;
-  icons.raycast = () => {};
-  set.group.add(icons);
-  const ICO_ATTRS = QUAD_ATTRS.concat(['aHub']).map(k => icoGeo.attributes[k]), HALO_ATTRS = QUAD_ATTRS.map(k => haloGeo.attributes[k]);
+  const NODES3 = organMesh(ORG.map((o, i) => i), false, 7);
+  const SMALL3 = organMesh(ORG.map((o, i) => i).concat(...PAIRS.map(p => [OI[p.a] || 0, OI[p.b] || 0])), true, 7);
+  const HALO_ATTRS = QUAD_ATTRS.map(k => haloGeo.attributes[k]);
 
   // ---------------------------------------------------------------- lines: static (unit, panel, slab) and moving (leaders, tethers)
   // static lines carry a group per vertex (aT) whose alpha is set per frame
@@ -982,7 +975,7 @@ void main() {
 
   // ---------------------------------------------------------------- update
   const cur = { net: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
-    node: ORG.map(() => [0, 0, 0]), nodeA: new Float32Array(NO), nodeS: new Float32Array(NO), hubW: new Float32Array(NO), labW: new Float32Array(NO),
+    node: ORG.map(() => [0, 0, 0]), nodeA: new Float32Array(NO), nodeS: new Float32Array(NO), nodeR: new Float32Array(NO), hubW: new Float32Array(NO), labW: new Float32Array(NO),
     pres: new Float32Array(NO), str: new Float32Array(NO), barLen: new Float32Array(NO), barA: new Float32Array(NO),
     pairW: new Float32Array(Math.max(1, NPR)), fitEnd: [0, 0, 0], hub: -1,
     segA: new Float32Array(NO) };
@@ -1116,38 +1109,47 @@ void main() {
       cur.nodeS[i] = 0.088 + 0.06 * Math.sqrt(Math.min(1, str / 3));
       if (hub * pres > 0.5 && str > bs) { bs = str; best = i; }
       hp[3 * i] = p[0]; hp[3 * i + 1] = p[1]; hp[3 * i + 2] = p[2] - 0.004;
+      // the node's model rises out of its organ and grows to its size; its radius for the label beside it and the pick
+      cur.nodeR[i] = NODE_R * cur.nodeS[i] * (0.4 + 0.6 * smooth(u));
       const pul = 0.8 + 0.2 * Math.sin(t * 1.6 + i), hb = hub > fw;
       hs[i] = cur.nodeS[i] * (1.9 + 0.35 * pul * hub);
       hc[3 * i] = hb ? HUBC[0] : COL[i][0]; hc[3 * i + 1] = hb ? HUBC[1] : COL[i][1]; hc[3 * i + 2] = hb ? HUBC[2] : COL[i][2];
-      ha[i] = cur.nodeA[i] * Math.max(hub * 0.75 * pul, fw * 0.6) * prog(net, 0.3, 0.6);
+      // a soft glow in its colour round every node (as round the vision row's organs); a hub's pulses, a focused one's brighter
+      ha[i] = cur.nodeA[i] * Math.max(0.3, hub * 0.75 * pul, fw * 0.6) * prog(net, 0.3, 0.6);
     }
     cur.hub = best;
     for (const at of HALO_ATTRS) at.needsUpdate = true;
     halo.visible = net > 0.3;
 
-    // icons: bar icons (moving to head the slab's columns), node discs, the panel's axes
-    const ia = icoGeo.attributes, ip = ia.aP.array, iA = ia.aA.array, is = ia.aSize.array, ih = ia.aHub.array;
+    // the organs in 3D: each bar's organ at its foot (flying to head the slab's columns), the nodes, the panel's axes;
+    // each turns slowly about its own axis, in its own phase (as in the vision row)
+    const sP = SMALL3.P, sQ = SMALL3.Q, nP = NODES3.P, nQ = NODES3.Q, nT = NODES3.T;
     const headA = prog(rows, 0.2, 0.35) * netOut * (1 - 0.5 * pairIn);
+    let nOn = 0, sOn = 0;   // (a mesh with nothing on show is not drawn at all)
     for (let i = 0; i < NO; i++) {
-      const r = BRANK[i], c = F2COL[i], fw = cur.fw[i], foc = 1 - 0.6 * dim * (1 - fw);
+      const r = BRANK[i], c = F2COL[i], fw = cur.fw[i], foc = 1 - 0.6 * dim * (1 - fw), turn = t * 0.3 + i * 1.7;
       const ai = prog(suv, 0.03 * r, 0.03 * r + 0.12) * netOut * foc;
       let x = BAR.x0, y = barY(r), z = BAR.z + 0.002, a = ai * (c >= 0 ? 1 : 1 - coll), s = 0.066;
       if (c >= 0) {
         x = lerp(x, cellX(c), coll); y = lerp(y, MAT.y + 0.075, coll); z = lerp(z, MAT.z0 + 0.03, coll); s = lerp(s, 0.054, coll);
         a = lerp(a, headA * foc, coll);
       }
-      ip[3 * i] = x; ip[3 * i + 1] = y; ip[3 * i + 2] = z; iA[i] = a; is[i] = s * (1 + 0.3 * fw); ih[i] = 0;
-      const k = IN0 + i, p = cur.node[i];
-      ip[3 * k] = p[0]; ip[3 * k + 1] = p[1]; ip[3 * k + 2] = p[2]; iA[k] = cur.nodeA[i]; is[k] = cur.nodeS[i] * (1 + 0.25 * fw);
-      ih[k] = cur.hubW[i] * prog(net, 0.5, 0.8);
+      sP[i].set(x, y, z, SMALL_R * s * (1 + 0.3 * fw)); sQ[i].set(a, 0.15 + 0.3 * fw, turn, TINT[i]);
+      // a node: hubs take on the paper's orange-yellow and glow, a focused one grows and brightens
+      const p = cur.node[i], hk = cur.hubW[i] * prog(net, 0.5, 0.8), h = 0.7 * hk;
+      nP[i].set(p[0], p[1], p[2], cur.nodeR[i] * (1 + 0.25 * fw));
+      nQ[i].set(cur.nodeA[i], 0.22 + 0.4 * hk + 0.25 * fw, turn, lerp(TINT[i], 0.85, hk));
+      nT[i].setRGB(lerp(COL[i][0], HUBC[0], h), lerp(COL[i][1], HUBC[1], h), lerp(COL[i][2], HUBC[2], h));
+      nOn = Math.max(nOn, cur.nodeA[i]); sOn = Math.max(sOn, a);
     }
     for (let k = 0; k < NPR; k++) {
-      const a = IX + 2 * k, b = a + 1, al = pw[k] * prog(pairIn, 0.4, 0.9) * netOut;
-      ip[3 * a] = SCP.x0 + SCP.s + 0.045; ip[3 * a + 1] = SCP.y0; ip[3 * a + 2] = SCP.z + 0.01;
-      ip[3 * b] = SCP.x0; ip[3 * b + 1] = SCP.y0 + SCP.s + 0.045; ip[3 * b + 2] = SCP.z + 0.01;
-      iA[a] = iA[b] = al; is[a] = is[b] = 0.052;
+      const a = IX + 2 * k, b = a + 1, al = pw[k] * prog(pairIn, 0.4, 0.9) * netOut, turn = t * 0.3 + k * 1.7;
+      sP[a].set(SCP.x0 + SCP.s + 0.05, SCP.y0, SCP.z + 0.03, SMALL_R * 0.056); sQ[a].set(al, 0.15, turn, TINT[OI[PAIRS[k].a] || 0]);
+      sP[b].set(SCP.x0, SCP.y0 + SCP.s + 0.05, SCP.z + 0.03, SMALL_R * 0.056); sQ[b].set(al, 0.15, turn + 1, TINT[OI[PAIRS[k].b] || 0]);
+      sOn = Math.max(sOn, al);
     }
-    for (const at of ICO_ATTRS) at.needsUpdate = true;
+    if (NODES3.mesh) NODES3.mesh.visible = nOn > 0.004;
+    if (SMALL3.mesh) SMALL3.mesh.visible = sOn > 0.004;
 
     // lines
     const sa = slGeo.attributes.aA.array, ga = SLG;
@@ -1204,7 +1206,7 @@ void main() {
   // (its home point is the body's middle, where the marrow is too)
   const SEGAT = { fat: [0.135, 0.0] };
   ORG.forEach((og, i) => {
-    anchors[og.id] = own(o => { nodeAt(i, cur.net, o); if (NPOS[i]) o[0] += 0.5 * cur.nodeS[i] * lift(i, cur.net); return o; });
+    anchors[og.id] = own(o => { nodeAt(i, cur.net, o); if (NPOS[i]) o[0] += 0.95 * cur.nodeR[i] * lift(i, cur.net); return o; });
     anchors['bar_' + og.id] = own(o => set3(o, BAR.xb + Math.max(cur.barLen[i], 0.01) + 0.012, barY(BRANK[i]) + 0.004, BAR.z));
     const at = SEGAT[og.id];
     anchors['seg_' + og.id] = own(o => set3(o, at ? at[0] : HOME[i][0], Math.abs(cur.plane) < 9 ? Math.max(HOME[i][1], cur.plane + 0.012) : HOME[i][1],
@@ -1328,7 +1330,7 @@ void main() {
         const p = cur.node[i], x = p[0] - o.x, y = p[1] - o.y, z = p[2] - o.z, al = x * d.x + y * d.y + z * d.z;
         if (al <= 0) continue;
         const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - al * al));
-        if (off < cur.nodeS[i] * 0.65 && al < bd) { bd = al; best = ORG[i].id; }
+        if (off < cur.nodeR[i] * 1.1 && al < bd) { bd = al; best = ORG[i].id; }
       }
       if (best) return best;
     }
@@ -1360,7 +1362,8 @@ void main() {
     pairs: PAIRS.map(p => ({ a: p.a, b: p.b, r: p.r, pr: p.pr, paper: typeof p.paper === 'number' ? p.paper : null, indirect: !!p.indirect })),
     pick,
     setFocus: id => { apiFocus = id && OI[id] !== undefined ? OI[id] + 1 : 0; },
-    stats: () => ({ built: !job, jobMs: Math.round(jobMs), verts: NV, tris: NI3 / 3, per: PER, yr: YR.map(r => r.map(y => Math.round(y * 1000) / 1000)) }),
+    stats: () => ({ built: !job, jobMs: Math.round(jobMs), verts: NV, tris: NI3 / 3, per: PER, yr: YR.map(r => r.map(y => Math.round(y * 1000) / 1000)),
+      nodeTris: NODES3.tris, smallTris: SMALL3.tris }),
   };
   return Object.assign(set, {
     params: { organs_a: 1, organs_seg: 1, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_scatter: 1,
@@ -1369,4 +1372,14 @@ void main() {
     idle: () => jobStep(4),            // while the set is hidden, the shells go on building
     finish: () => jobStep(Infinity),   // for screenshots and tests: build them now
   });
+};
+// the organs' models the set needs, built first in slices of ms milliseconds (the load asks, buildSet, until true; the
+// vision row's prep has built them by then), and their lighter copies for the small ones (one lite() is 1 to 6 ms)
+const PET_LITE = new Set();
+SETS.organs.prep = ms => {
+  if (typeof ORGAN3D === 'undefined') return true;
+  const until = performance.now() + ms, ids = Object.values(PET_ORGAN3D);
+  if (!ORGAN3D.build(ids, ms)) return false;
+  for (const id of ids) if (!PET_LITE.has(id)) { ORGAN3D.lite(id); PET_LITE.add(id); if (performance.now() > until) return false; }
+  return true;
 };

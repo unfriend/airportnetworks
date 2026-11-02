@@ -87,6 +87,9 @@ unless asked for by name.
 - The PET story's vision row: its 14 organs (the marrow among them) as the network's nodes, each taking half of its
   `PET_DATA` colour (`shader(14, { tints: true })`), turning slowly; built in the story's load before the scanner's set
   (`build`).
+- The PET story's `organs` set (since v107): the same 14 as the paper's networks' nodes (`merged`, full models; a hub's
+  tinted orange-yellow), and as `lite` copies at the uptake bars' feet, the slab's column heads and the scatter panel's
+  axes; the lighter copies made in its load (`SETS.organs.prep`).
 
 ## Harness
 

@@ -60,6 +60,11 @@ neon, as in the organ network of the vision slide (a coloured blur, a translucen
 
 ## Using them
 
+Where the story uses them (since v107): only as the panes' pictures, explore's Organs pane (its organ chips, the picked
+organ's heading and its partners' chips; HTML pictures drawn once, `iconUrl` in `engine/e4_explore.js`, and the
+headset's canvas, `engine/e6_panels.js`). The scenes show each organ's 3D model (`ORGAN3D`) instead: no set draws an
+icon or uses the atlas (the owner, 2 November 2026: no flat glyphs in the scene, the organs' names as labels).
+
 - In a set's own canvas (labels, node discs, the scatter axes, panels): `PET_ICONS.draw(ctx, id, x, y, 48,
   { color: organ.col })`; for the vision row's neon network `{ color: organ.col, glow: true }` on a dark or transparent
   canvas (leave about 20 % of `size` around an icon for the glow).
