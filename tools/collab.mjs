@@ -1705,6 +1705,7 @@ async function allRound() {
   const quiet = await keysOf(A, AL.id);
   check('all: walked into, the All stories circle shows the Stories screen (its cards, no Back), the scene hidden, nothing synced', c1.mine === AL.id && c1.cards && c1.here && !c1.away && c1.stories && !c1.world && c1.land && !c1.back && !quiet.length,
     JSON.stringify({ c1, quiet }));
+  if (shots) { fs.mkdirSync(shots, { recursive: true }); await headView(H, path.join(shots, 'all-1-cards.png'), ALs.yaw, -0.08, [1280, 800]); }   // (its cards, as a headset in it sees them)
   // a page following it shows its Stories screen
   await B.evaluate(id => HOST.collab.follow(id), AL.id);
   check('all: a page following the circle shows its Stories screen while its cards show', await until(B, () => HOST.picking, null, 3000));
@@ -1725,6 +1726,7 @@ async function allRound() {
   check('all: a card pressed at the circle picks its story for everyone there: the station\'s story its key, from its start, playing, on the headset and the page following',
     press && !!play0 && play0.mode === 'story' && play0.t === 0 && play0.playing === true && switched && okB && hc[0] === 'story' && hc[1] && hc[2] < since + 2 && bc[0] === 'story' && bc[1] && Math.abs(bc[2] - hc[2]) < 3 &&
     !hs.stories && hs.world && hs.placing && !hs.cards && !(await B.evaluate(() => HOST.picking)), JSON.stringify({ press, play0, switched, okB, hc, bc, since, hs }));
+  if (shots) await headView(H, path.join(shots, 'all-2-picked.png'), ALs.yaw, -0.2, [1280, 800]);   // (the story picked there, playing)
   // the story panel's Stories button: back to the cards, for everyone there (the circle's keys gone)
   await frames(H, 300);
   await redraw();
@@ -1821,6 +1823,7 @@ async function allRound() {
   const lob = await H.evaluate(([lb]) => { window.__xr.step(); HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'); const O = HOST.collab.overlay(), st = HOST.collab.stations();
     return { mine: HOST.collab.mine(), away: HOST.room.away(), cards: HOST.room.cards(), world: HOST.cur.peek('GL.world.visible'), stories: HOST.cur.peek('XR.stories'), playing: HOST.cur.peek('APP.playing'),
       rings: st.every(s => { const o = O.rings.get(s.id); return !!o && o.ring.visible && o.icon.g.visible; }), cardsOn: st.filter(s => s.id !== lb).every(s => { const c = O.cards.get(s.id); return !!c && c.mesh.visible; }) }; }, [LBid]);
+  if (shots) await headView(H, path.join(shots, 'all-3-lobby.png'), Math.atan2(-(ALs.x - LB.x), -(ALs.z - LB.z)), 0.02, [1280, 800]);   // (from the lobby: every circle again)
   check('all: walking into the lobby ends the headset\'s story (away: hidden, paused) and every ring, icon and card shows; the page lists it without Follow',
     noFollow && lob.mine === '' && lob.away && !lob.cards && !lob.world && !lob.stories && !lob.playing && lob.rings && lob.cardsOn, JSON.stringify({ noFollow, lob }));
   const SPs = await A.evaluate(id => HOST.collab.station(id), SPid);
