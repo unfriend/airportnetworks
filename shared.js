@@ -3171,7 +3171,7 @@
     } else if (k === 1) {
       para('The first headset enters AR and, within about 10 s, becomes the room\'s origin: Room ready. Its All stories circle appears.');
       para('Then the others, one by one: each waits until it says Lined up (through the shared space, or from its tape marks) before the next enters AR.');
-      para('Not lined up after 20 s: the page for that opens by itself. Elsewhere in VR: nothing to do here.', MUTED, 21);
+      para('Not lined up 20 s after entering with another headset here: the page for that opens by itself. Elsewhere in VR: nothing to do here.', MUTED, 21);
       if (lineUp().k === 'no') { button(S, 'guide:fix', x, y, bw, 58, 'What to do', () => { PNL.gs = 3; }, { px: 23, color: '#ffb43b' }); y += 74; }
     } else if (k === 2) {
       para('Lined up is what the app believes, so check it. A quick look: everyone\'s name tag floats just above their real head.');
@@ -3997,7 +3997,7 @@
       zoneStep(t);
       allFirst(t);
       presenceOut(t);
-    } else if (C.code && R.session && !R.aligned) statusOut(t);   // (not lined up yet: the pages' list still hears how it goes)
+    } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
     if (C.code && R.session) guideStep(t);
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
@@ -4076,7 +4076,7 @@
   function statusOut(t) {
     if (t - C.presAt < 1000) return;
     C.presAt = t;
-    fx('p.' + C.id, { st: C.mine || '', bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: '', lu: luOut(), ts: Math.round(now()) });
+    fx('p.' + C.id, { st: C.mine || '', bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
   const ZN = { p: [0, 0, 0], head: [0, 0, 0], f: [0, 0, 0], u: [0, 0, 0] }, _u = new THREE.Vector3();
@@ -5235,7 +5235,7 @@
   // how long after entering AR a headset not lined up gets the guide's last page; arm: the next trigger takes the spot;
   // mine: this headset's last check ({ p in room coordinates, at in relay time, n, with: whom it paired with }); theirs: the
   // others' last ones (used: paired with one of mine); res: the last pairing ({ d m, by, at }) until the next check or frame
-  const CK = { ok: 0.1, red: 0.25, win: 20000, late: 20000, arm: false, mine: null, theirs: new Map(), res: null, n: 0 };
+  const CK = { ok: 0.1, red: 0.25, win: 20000, late: 20000, keep: 300000, armFor: 30000, arm: false, armAt: 0, mine: null, theirs: new Map(), res: null, n: 0 };
   const tipMode = () => !!(R.calib || CK.arm);   // (the trigger takes the controller's tip: a mark, or the spot)
   // the room's frame came from a headset with another Quest Browser version (two versions never shared one space)
   const otherVersion = () => { const P = R.sharedId ? val(kFrame(R.sharedId)) : null, W = validFrame(P) && P.by !== C.id ? C.pres.get(P.by) : null; return !!(BROWSER && W && W.bv && W.bv !== BROWSER); };
@@ -5256,12 +5256,14 @@
     else if (R.aligned && R.frame && (R.src === 'shared' || R.src === 'adopted')) {
       h = R.src === 'shared' ? 'origin' : 'shared';
       w = R.notJoined ? 'other' : split ? 'split' : R.src === 'adopted' && R.noScan ? 'scan' : R.src === 'adopted' && otherVersion() ? 'version' : '';
+    } else if (R.state === 'restoring' && !late) {   // its own tape marks still being found: lining up
     } else {   // not lined up yet: a reason known now, else after 20 s
       w = !R.sharedAlign ? 'off' : R.sharedNo ? 'space' : R.notJoined ? 'other' : split ? 'split' : '';
       if (!w && (late || R.state === 'calibrate')) w = R.noScan ? 'scan' : versionNote() ? 'version' : othersElsewhere() ? 'other' : late ? 'time' : 'none';
     }
     if (h) k = w ? 'no' : 'ok'; else if (w) k = 'no';
     // a check is the better word: within the limits lined up (whatever was doubted), beyond them not
+    if (CK.res && (performance.now() - CK.res.t > CK.keep || /^(split|other|marks|version|scan)$/.test(w))) CK.res = null;
     const r = h && CK.res;
     if (r) { o.c = Math.round(r.d * 100); if (r.d > CK.red) { k = 'no'; w = 'check'; } else { k = 'ok'; w = ''; } }
     o.k = k; o.h = h; o.w = w;
@@ -5302,10 +5304,10 @@
     on = !!on;
     if (on && !canCheck()) return;
     if (on === CK.arm) return;
-    CK.arm = on;
+    CK.arm = on; CK.armAt = on ? performance.now() : 0;
     log('check', { arm: on });
     if (on) notice('Touch the spot', 'Put the bright ring at your controller\'s tip on the spot (the cross at mark A, or the other person\'s tip), hold still and pull the trigger.', 0);
-    else NOTE.until = 0;
+    else checkNoteOff();
     changed();
   }
   function checkTake(i) {
@@ -5340,11 +5342,11 @@
     if (!best) return false;
     const [by, T] = best, d = Math.hypot(M.p[0] - T.p[0], M.p[1] - T.p[1], M.p[2] - T.p[2]), cm = Math.round(d * 100);
     T.used = true; M.with.add(by);
-    CK.res = { d, by, at: Math.max(M.at, T.at) };
+    CK.res = { d, by, at: Math.max(M.at, T.at), t: performance.now() };
     log('check result', { with: by, d: r3(d) });
     if (d <= CK.ok) notice(`Lined up: ${cm} cm`, `Where your room and ${whoName(by)}'s put the spot.`, 6000);
     else if (d <= CK.red) notice(`${cm} cm out`, 'Fine for walking about; calibrate on the tape for close work.', 9000);
-    else { notice(`${cm} cm out: not lined up`, 'The menu shows what to do: Re-align, then check again; or calibrate on the tape.', 9000); if (guideOn() && !R.calib) guideOpen(3, 'check'); }
+    else { notice(`${cm} cm out: not lined up`, 'The menu shows what to do: Re-align, then check again; or calibrate on the tape.', 9000); if (guideOn() && !R.calib) { GD.due = 3; GD.why = 'check'; } }
     changed();
     return true;
   }
@@ -5371,32 +5373,37 @@
     }
     return { s: '', text: '', col: MUTED };
   }
-  const checkReset = () => { CK.arm = false; CK.mine = null; CK.res = null; CK.theirs.clear(); };
+  // the Touch the spot notice off (only while it is the one on show: it stands until then)
+  const checkNoteOff = () => { if (NOTE.title === 'Touch the spot') NOTE.until = 0; };
+  const checkReset = () => { if (CK.arm) checkNoteOff(); CK.arm = false; CK.armAt = 0; CK.mine = null; CK.res = null; CK.theirs.clear(); };
   // When the guide opens by itself: the first time this headset is in a room with another headset there (AR, or VR in the
   // same room; within 10 s of entering), once per device (roomGuide); on its last page when it is not lined up 20 s after
   // entering (once a session), and after a red check (checkPair). Never for a headset alone or one elsewhere, never while
   // calibrating or checking, never over the once-per-room question (it waits for the answer), and not while the menu is
   // in use for something else (it waits). Tests that do not look at it turn the first two off (auto: autoGuide(false))
-  const GD = { s: null, code: '', from: 0, due: 0, late: false, seen: get('roomGuide') === '1', auto: true };
+  const GD = { s: null, code: '', from: 0, due: 0, why: '', late: false, seen: get('roomGuide') === '1', auto: true };
   const guideOn = () => !!(HOST.session && C.code && !C.local && here() && !askHere());
   const othersIn = () => C.members.some(m => m.id !== C.id && (m.kind === 'ar' || m.kind === 'vr') && m.here !== false);
   function guideStep(t) {
-    if (GD.s !== R.session || GD.code !== C.code) Object.assign(GD, { s: R.session, code: C.code, from: 0, due: 0, late: false });
-    if (CK.arm && !canCheck()) checkArm(false);
+    if (GD.s !== R.session || GD.code !== C.code) Object.assign(GD, { s: R.session, code: C.code, from: 0, due: 0, why: '', late: false });
+    // an armed check stops by itself (it takes the trigger everywhere but the menu): once it cannot be made, when the menu
+    // closes, after CK.armFor; the others' old checks go
+    if (CK.arm && (!canCheck() || !PNL.open || t - CK.armAt > CK.armFor)) checkArm(false);
+    for (const [by, T] of CK.theirs) if (t - T.t > 3 * CK.win) CK.theirs.delete(by);
     if (!guideOn() || !C.welcomed) { if (!here()) GD.due = 0; return; }
     if (!GD.from) GD.from = t;   // (entering AR in this room, or answering "In this room" in VR)
     const others = othersIn();
     if (!GD.seen && !GD.due && others && t - GD.from < 10000) GD.due = 1;   // the first time: at Line up
     if (!GD.late && others && t - GD.from > CK.late) { GD.late = true; if (lineUp().k !== 'ok') GD.due = 3; }   // not lined up 20 s in
     if (!GD.due || !GD.auto || tipMode() || !OV.root || !OV.root.visible || (PNL.open && !PNL.self && PNL.page !== 'guide' && t - PNL.used < 5000)) return;
-    const k = GD.due;
-    GD.due = 0;
-    guideOpen(k, k === 3 ? 'late' : 'first');
+    const k = GD.due, why = GD.why || (k === 3 ? 'late' : 'first');
+    GD.due = 0; GD.why = '';
+    guideOpen(k, why);
   }
   function guideOpen(k, why) {
     if (!PNL.open) menuOpen(true, why === 'hand' || why === 'api' ? 'api' : 'guide');
     PNL.tab = 'circles'; PNL.page = 'guide'; PNL.code = ''; PNL.gs = Math.max(0, Math.min(GUIDE_T.length - 1, k | 0));
-    if (!GD.seen) { GD.seen = true; put('roomGuide', '1'); }
+    if (!GD.seen && (why === 'first' || why === 'hand')) { GD.seen = true; put('roomGuide', '1'); }
     log('guide', { step: PNL.gs, why });
     if (OV.panel) OV.panel.sig = '';
   }

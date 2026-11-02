@@ -1063,10 +1063,12 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     elsewhere, not a room on this device: `guideOn`).
   - It opens by itself (`guideStep`, from the shell's tick; `guideOpen`): at *Line up* the first time this headset is in
     a room with another headset there (in AR, or in VR answered *In this room*; within 10 s of entering), once per device
-    (`roomGuide` in `localStorage`, set by any opening); at *Not lined up?* when it is not lined up 20 s after entering
-    with another headset there (once a session; `CK.late`), and after a red check. Never for a headset alone or one
-    elsewhere, never while calibrating or checking, never over the once-per-room question (it waits for the answer), and
-    not while the menu is in use for something else (it waits). Opened by itself it stays open until used (`PNL.self`).
+    (`roomGuide` in `localStorage`, set when that page showed or the guide was opened by hand, not by a late or red
+    check's page); at *Not lined up?* when it is not lined up 20 s after entering with another headset there (once a
+    session; `CK.late`), and after a red check (`GD.due`, as the others: it waits its turn). Never for a headset alone or
+    one elsewhere, never while calibrating or checking, never over the once-per-room question (it waits for the answer),
+    and not while the menu is in use for something else (it waits). Opened by itself it stays open until used
+    (`PNL.self`). Tests that do not look at it turn its opening by itself off (`HOST.collab.autoGuide(false)`).
   - Touch the spot (`CK`): *Check here* (the guide's check page, and the Debug tab beside Re-align) arms it; the next
     trigger off the menu takes the controller's tip where it was held still (`steady`, the point a calibration mark
     takes; the bright rings show, as while calibrating, `tipMode()`) in room coordinates with the relay's time, and sends
@@ -1076,11 +1078,15 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     cm amber (*14 cm out: fine for walking about; calibrate on the tape for close work*), over 25 cm red (*60 cm out: not
     lined up*, which opens *Not lined up?*); a notice says it too. Alone: *Waiting for someone else to press Check here
     (20 s)*, then *Nobody else pressed Check here within 20 s*; someone else's check waiting: *Anna pressed Check here:
-    touch the same spot and press it too*. The result (`CK.res`) stands until the next check, Re-align, a calibration or
-    a frame that moves (another source, or 5 cm or 2 degrees: `setFrame`), and `lineUp()` takes it as the better word
-    (green or amber: lined up; red: not).
+    touch the same spot and press it too*. The result (`CK.res`) stands until the next check, Re-align, a calibration, a
+    frame that moves (another source, or 5 cm or 2 degrees: `setFrame`), five minutes (`CK.keep`) or a reason found
+    since (the space split, another space, marks lost, another version, no scan), and `lineUp()` takes it as the better
+    word (green or amber: lined up; red: not). An armed check takes the trigger everywhere but the menu, so it stops by
+    itself after 30 s (`CK.armFor`), when the menu closes or once it cannot be made (its notice going with it). While a
+    headset's own tape marks are still being found it is *Lining up* (not *no shared space*) until it is late.
   - Presence carries `lu` (`{ k, h, w, c }`: `'ok'`, `'wait'`, `'no'`, `'away'` or `'alone'`, how, why, the check in
-    cm), and a headset in a room that is not lined up yet sends a presence without a head once a second (`statusOut`),
+    cm), and a headset in a room that is not lined up yet, or has lost its head pose, sends a presence without a head once
+    a second (`statusOut`, with `al` as the full presence has it),
     so the pages hear it (older pages keep it as they keep a page's; nothing new is stored, no `FORMAT` change). The
     page's Shared dialog has *Setting up a room* under the room's line: each headset in the room and how it lines up
     (`guideList`, `luLine`: *Anna: lined up (shared space, checked 4 cm)*, *room ready (the room's origin)*, *not lined up

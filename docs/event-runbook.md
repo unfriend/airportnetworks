@@ -117,9 +117,9 @@ local network found each other this way, and then shared a peer-to-peer room; he
    the others, one by one, each waiting for its own *Lined up* before the next enters AR: it says *Lining up with the
    room...*, then within 10 to 20 s *Lined up through the shared space*, *Lined up from your tape marks* (it found last
    time's calibration), or *Not lined up yet* with why (no shared space, not in the others' shared space, no room scan,
-   another Quest Browser version, or nothing after 20 s); then the guide's last page, *Not lined up?*, opens by itself
-   (step 8). The first time a headset comes into a room with another headset there, the guide opens by itself (once per
-   headset). In VR, answer *Are you in the same room as the others?* with **In this room** (the menu opens by itself
+   another Quest Browser version, or nothing after 20 s); then, with another headset in the room, the guide's last page,
+   *Not lined up?*, opens by itself (step 8). The first time a headset comes into a room with another headset there
+   (within its first 10 s there), the guide opens by itself (once per headset). In VR, answer *Are you in the same room as the others?* with **In this room** (the menu opens by itself
    for it); **Somewhere else** skips all this. The first headset in the room (aligned, in the room with the others) puts an **All stories**
    circle 1.2 m in front of itself, facing away, once per room: one step forward and the Stories screen shows there, as
    on a headset on its own, and the story picked plays for everyone in that circle (its panel's **Stories** button takes
@@ -145,8 +145,8 @@ local network found each other this way, and then shared a peer-to-peer room; he
    not lined up*, and the guide's last page opens). Alone it says *Waiting for someone else to press Check here (20
    s)*. The laptop's list shows each headset's last check. The result stands until the next check or until the headset
    lines up afresh.
-8. **Not lined up?** (the guide's last page, which opens by itself 20 s after entering AR without lining up, or after a
-   red check): (1) **Re-align** (one press: the shared space is asked for again and the room's frame taken again), then
+8. **Not lined up?** (the guide's last page, which opens by itself 20 s after entering AR without lining up while another
+   headset is in the room, or after a red check): (1) **Re-align** (one press: the shared space is asked for again and the room's frame taken again), then
    check again. (2) **Calibrate** on the tape, on every headset, one after another: the bright ring at the controller's
    tip on mark A, hold still, pull the trigger; then mark B. It never depends on the shared space, nothing overrides it,
    and the headset finds it again next time; check again. *Your marks are ... than the room's* or *Marks at different

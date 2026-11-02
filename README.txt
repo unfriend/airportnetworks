@@ -149,7 +149,7 @@ rooms put that spot: up to 10 cm green, up to 25 cm amber (fine for walking
 about), more red (not lined up), which opens the guide's page on what to do:
 Re-align, calibrate on the tape, or a fresh shared space. The guide opens by
 itself the first time a headset is in a room with another headset there, and
-when it is not lined up 20 s after entering AR.
+when it is not lined up 20 s after entering AR with another headset there.
 When they do not line up, people in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two

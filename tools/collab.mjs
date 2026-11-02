@@ -2198,6 +2198,7 @@ async function guideRound() {
   check('guide: a headset not lined up (no shared space) gets the guide\'s last page by itself once it is late, saying why',
     late && n2.status.k === 'no' && n2.status.w === 'space' && /no shared space/.test(n2.status.text), JSON.stringify(n2));
   await menuPic(H2, 'guide-11-no-space.png');
+  await H2.evaluate(() => HOST.collab.guideTimes({ late: 20000 }));   // (back to the default: the next phase must not open late)
   // and back in the shared space, lined up: the guide does not open by itself again
   await H2.evaluate(() => window.__xr.end());
   await xr(H2, [0.6, 1.6, 0.4, 0.3]);
