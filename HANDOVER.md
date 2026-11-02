@@ -43,6 +43,21 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released in v104 (2 November 2026), tested headlessly only: the owner's notes of 2 November.** (1) The aging ovary's
+  donor slides fly in from 1.5 s before their chapter, while the ovary fades, so the space is never empty. (2) An *All
+  stories* circle: standing in it shows the single-player Stories screen; a card picked there plays that story for
+  everyone at the circle (from its start), and its panel's Stories button takes everyone back to the cards. Its switch:
+  *Own stories* (the default: its own clock and state) or *With the room's circles* (it joins the room's circle of the
+  picked story, the same moment, state and view at both). The first headset in a room adds one 1.2 m in front of itself
+  (just outside the walk-in radius: one step forward), once per room; rooms started on a laptop get it when the first
+  headset comes; Arrange all leaves it, Add offers it. (3) A *Back to the lobby* circle: walking into it ends your story
+  and the room shows as before any circle; placed by hand only (Add, Add here). (4) The PET opening scene in 3D (the
+  microanatomy story's organs and a new bone marrow model in the network, prognosis as glass tubes, medication as
+  pills, the story's cyan and amber). Icons for the two circles (a miniature Stories screen; a doorway with a turn-back
+  arrow, soft green, the design room keeping the gold). `FORMAT` networks-28: v103 devices cannot share these rooms.
+  Untested on a headset: the cards at the circle and where they float, a pick reaching several headsets, the switch
+  across two circles, the lobby, the first headset's circle, the new icons from across a room, and the PET row's 3D
+  organs (about 22,000 more triangles) on a Quest.
 - **Released as networks-v103 (1 November 2026; FORMAT networks-27 as v100 to v102, so they all share rooms), tested
   headlessly only:** the owner's notes after testing v102 (the bullet below). Reviewed once (seven Sonnet reviewers, two
   skeptics per finding): picking an organ or a network from PET's Scanner waited out the whole hand-over with the organs
@@ -469,7 +484,7 @@ Before handing over (or making anything more public), someone has to decide thes
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
    - **station icons**: built, and since the design room's part 2 made from the miniatures (see "Where things
-     stand"). **For the owner:** approve the contact sheet of all seventeen, the sixteen stories' and the design room's (open `tools/icons.html` next to the app;
+     stand"). **For the owner:** approve the contact sheet of all nineteen, the sixteen stories', the design room's and, since v104, the All stories and Back to the lobby circles' (open `tools/icons.html` next to the app;
      `&turns=4` shows each from four sides) or say which miniature should stand for a story (its `icon` in
      `stories/list.js`). How they read from across a real room is untested on a headset;
    - **live updates and hot reload**: built (see "Where things stand"; AGENTS.md "Hot reload and live updates";
@@ -493,7 +508,9 @@ Before handing over (or making anything more public), someone has to decide thes
    the owner's text changes, and the intro is 2 s shorter (6:13 in all). Still open from the owner's notes:
    - The text from the Network chapter on (about 3:52 then) "does not match the poster" (owner, 28 October; set aside
      for now). The poster's PDF is needed in the session to rewrite it.
-   - The network and the prognosis need far more 3D.
+   - The network and the prognosis need far more 3D: done in v104 for the opening scene (the vision row: the microanatomy
+     story's 3D organs and a bone marrow model in the network, prognosis as glass tubes, medication as pills, in the
+     story's cyan and amber); the Network chapter's own network on the body is unchanged.
    - The story is a bit dry: less statistics, more story (the 29 October fixes took a few numbers out).
 
    **Compared with the poster (29 October).** Two independent comparisons of the story with the poster "Shaping a New
