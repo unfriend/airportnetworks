@@ -8929,15 +8929,20 @@ function applyCamera(v) {
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 function resize() {
+  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
   const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
   GL.wide = wide;
-  if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
+  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
+  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
+  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
+  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
@@ -9174,12 +9179,13 @@ function buildStory() {
 
   // ------------------------------------------------------------ timeline keys
   const wp = [];
-  // a camera waypoint at time t: a set's named view, turned by spin degrees, optionally nudged
-  const cam = (t, k, name, spin, ease, nudge) => {
+  // a camera waypoint at time t: a set's named view, turned by spin degrees, optionally nudged; side: the target's
+  // shift clear of the side panel (along its x), which storyCam takes only while there is one (not on a phone or in focus mode)
+  const cam = (t, k, name, spin, ease, nudge, side) => {
     const v = view(k, name);
     v[0] += spin || 0;
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
-    wp.push([t, ...v, ease, k]);
+    wp.push([t, ...v, ease, k, side || 0, 0]);
   };
   let a, b;
   // Intro: the interactome grows, pathways light up one after another
@@ -9290,8 +9296,8 @@ function buildStory() {
   cam(a + 5, 'int', 'iei', -15);
   cam(a + 20, 'int', 'iei', 25, 'spin');
   // the diagram is wide: a little further back, and on wide screens shifted clear of the side panel
-  cam(a + 21.5, 'sankey', 'default', -12, null, [0, 0, 1.0, GL.wide ? -0.45 : 0]);
-  cam(b - 1.5, 'sankey', 'default', 12, 'spin', [0, 0, 1.0, GL.wide ? -0.45 : 0]);
+  cam(a + 21.5, 'sankey', 'default', -12, null, [0, 0, 1.0], -0.45);
+  cam(b - 1.5, 'sankey', 'default', 12, 'spin', [0, 0, 1.0], -0.45);
   // Treatments and diagnosis: drugs dock on clusters, a signal spreads from the patient's genes
   a = C.treat.a; b = C.treat.b;
   ramp('int_a', a - 1, a + 1, 0, 1);
@@ -9342,8 +9348,8 @@ function buildStory() {
   ramp('tissue_mark', a + 16, a + 19, 0, 1);
   ramp('tissue_embed', a + 22, a + 26.5, 0, 1);
   // the section is long: further back, and on wide screens shifted clear of the side panel
-  cam(a + 1, 'tissue', 'section', -10, null, [0, 0, 0.8, GL.wide ? -0.2 : 0]);
-  cam(a + 5, 'tissue', 'section', 10, 'spin', [0, 0, 0.8, GL.wide ? -0.2 : 0]);
+  cam(a + 1, 'tissue', 'section', -10, null, [0, 0, 0.8], -0.2);
+  cam(a + 5, 'tissue', 'section', 10, 'spin', [0, 0, 0.8], -0.2);
   cam(a + 10, 'tissue', 'zoom');
   cam(a + 16, 'tissue', 'zoom', 8, 'spin');
   cam(a + 19, 'tissue', 'mark');
@@ -9435,15 +9441,17 @@ function buildStory() {
   label('tissue', 'submucosa', '<b>Loose tissue</b>with vessels', C.tissue.a + 2.6, C.tissue.a + 9, 'mag');
   label('tissue', 'muscle', '<b>Muscle</b>', C.tissue.a + 3.2, C.tissue.a + 9, 'mag');
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, the side panel's shift x, z]; 'spin' segments turn at a
+// steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
 // never swings the camera round. The set keeps that turn while it is on show (setYaw).
 function buildCamera(wp) {
   wp.sort((x, y) => x[0] - y[0]);
   const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6];
+    const r = deg * D2R, x = w[4], z = w[6], sx = w[9], sz = w[10];
     w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
+    w[9] = sx * Math.cos(r) + sz * Math.sin(r); w[10] = -sx * Math.sin(r) + sz * Math.cos(r);
   };
   ST.yaw = [];
   let cur = null, prevAz = null;
@@ -9462,7 +9470,7 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7]];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9], w[10]];
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
@@ -9483,17 +9491,18 @@ function spinEase(t, D) {
   if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
   return v * (t - r / 2);
 }
+// (the side panel's shift, wp[8] and wp[9], only while there is a side panel: on a wide screen, not in focus mode)
 function storyCam(t) {
-  const wp = ST.wp;
-  if (t <= wp[0][0]) return wp[0].slice(1, 7);
+  const wp = ST.wp, u = GL.wide && !GL.bare ? 1 : 0, at = p => [p[1], p[2], p[3], p[4] + u * p[8], p[5], p[6] + u * p[9]];
+  if (t <= wp[0][0]) return at(wp[0]);
   for (let i = 1; i < wp.length; i++) {
     if (t <= wp[i][0]) {
       const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1;
       return [p[1] + (q[1] - p[1]) * x, p[2] + (q[2] - p[2]) * x, Math.exp(Math.log(p[3]) + (Math.log(q[3]) - Math.log(p[3])) * x),
-        p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x];
+        p[4] + u * p[8] + (q[4] + u * q[8] - (p[4] + u * p[8])) * x, p[5] + (q[5] - p[5]) * x, p[6] + u * p[9] + (q[6] + u * q[9] - (p[6] + u * p[9])) * x];
     }
   }
-  return wp[wp.length - 1].slice(1, 7);
+  return at(wp[wp.length - 1]);
 }
 
 // ---------------------------------------------------------------- labels --
@@ -9693,11 +9702,21 @@ function openScene(k, fly = true) {
   if (fly && !same) flyTo(exploreView(k, 'default'));
   renderScenes();
 }
-// a view for explore mode: wide scenes stand clear of the side panel on wide screens
+// a view for explore mode: wide scenes stand clear of the side panel on wide screens (X.side: that view's shift and
+// whether it was taken; sideStep takes it out or puts it back as focus mode hides or shows the panel)
 function exploreView(k, name) {
-  const v = view(k, name);
-  if (GL.wide && (k === 'sankey' || (k === 'tissue' && (name === 'default' || name === 'section')))) { v[2] += k === 'sankey' ? 1.0 : 0.8; v[3] += k === 'sankey' ? -0.45 : -0.2; }
+  const v = view(k, name), n = k === 'sankey' ? [1.0, -0.45] : k === 'tissue' && (name === 'default' || name === 'section') ? [0.8, -0.2] : null;
+  X.side = n && { k, n, on: GL.wide && !GL.bare };
+  if (X.side && X.side.on) { v[2] += n[0]; v[3] += n[1]; }
   return v;
+}
+function sideStep() {
+  const s = X.side, on = GL.wide && !GL.bare;
+  if (!s || s.on === on) return;
+  if (s.k !== X.scene) { X.side = null; return; }
+  const v = (orbit.to || orbit.cur).slice(), d = on ? 1 : -1;
+  v[2] = Math.max(0.3, v[2] + d * s.n[0]); v[3] += d * s.n[1]; s.on = on;
+  flyTo(v);
 }
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : null;
@@ -11640,6 +11659,7 @@ function frame(now, xrFrame) {
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
+    if (!xr) sideStep();   // (focus mode on or off: a wide view's shift clear of the side panel out or back)
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else applyCamera(orbit.cur);
   }

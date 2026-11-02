@@ -1809,6 +1809,24 @@ narration heard from out of the circle, the locks and the People toggle in use.
   it, then (on the big cards, whose description moves down) two lines split
   where they are most even, else an ellipsis; the shell's station cards
   (`drawCard` in `shared.js`) shrink theirs the same way.
+- The screen's framing (`resize()`, `applyCamera`): on a wide screen the camera
+  aims past the side panel (`setViewOffset(w, h, -0.14 * w, ...)`, with each
+  story's own shifts: FIT's target shift, the tour's `side`), on a narrow one
+  above the bottom sheet (`0.21 * h`), and `GL.fit` stands the scene back to
+  fit. In focus mode (v106, the shell's `HOST.focus()`: the 3D alone on a phone
+  or tablet) `resize()` reads `GL.bare = !!(HOST.focus && HOST.focus());`
+  first (the same line in all sixteen and the design room; the shell sends a
+  `resize` when it changes) and then frames the scene for the whole page: no
+  sideways offset, its middle at 0.45 of the height
+  (`setViewOffset(w, h, 0, 0.05 * h, w, h)`), and `GL.fit` for the page between
+  a 48 px top bar and 126 px of bar and subtitles (a scene reaching about 0.95
+  of the half height at fit 1, and 1 to the sides; the robots' room 1.05 and
+  1.2, the cell map's cell 1.3 wide). Every shift clear of the side panel goes
+  back as on a phone (`GL.wide && !GL.bare`: `u` in `applyCamera`, the tour's
+  `storyCam` and `sideStep` for its explore views), NARROW still stands wide
+  views back on an upright screen, and what framed the strip above the bottom
+  sheet is off (LOW, the flock's and the school's lift, the robots' low
+  framing). Focus off, every framing is as before.
 
 ## The tour (`stories/lbi.js`) is built from sets
 

@@ -914,15 +914,20 @@ function applyCamera(v) {
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 function resize() {
+  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
   const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
   GL.wide = wide;
-  if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
+  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
+  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
+  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
+  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
@@ -960,7 +965,7 @@ function followView(v, dt, keep) {
   // the dead zone: about half the way to the edge of the picture (narrow on a phone held upright)
   const hw = Math.atan(Math.tan(GL.camera.fov * D2R / 2) * GL.camera.aspect) / D2R;
   // below the picture's middle the side panel covers a narrow screen: there the flock is held a little higher
-  track(FOL, 'az', 'wa', az, clamp(hw * 0.45, 6, 22), 2.5, 50, dt); track(FOL, 'el', 'we', el + (GL.wide ? 0 : 5), 6, 2.5, 30, dt);
+  track(FOL, 'az', 'wa', az, clamp(hw * 0.45, 6, 22), 2.5, 50, dt); track(FOL, 'el', 'we', el + (GL.wide || GL.bare ? 0 : 5), 6, 2.5, 30, dt);
   FOL.tx += (c[0] - FOL.tx) * k; FOL.ty += (c[1] - 3 - FOL.ty) * k; FOL.tz += (c[2] - FOL.tz) * k;
   // FOL.az winds on as the flock circles: blend from the turn nearest the view's own, or the camera whirls
   const fa = FOL.az + 360 * Math.round((v[0] - FOL.az) / 360);
