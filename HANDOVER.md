@@ -43,6 +43,28 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v106 (2 November 2026; FORMAT networks-28 as v104 and v105, shell 106: running pages ask to
+  reload), tested headlessly only: focus mode for phones and tablets** (the owner: "on a mobile device, phone as well
+  as the ipad it needs less of the ui, maybe just a small bar and subtitles so the main focus is on the 3d models"; on
+  by default there with a Text button for the panel, each chapter's title shown briefly, explore's tools in a pull-up
+  drawer). The story's 3D fills the screen between a 48 px top bar (title, Stories, Shared, More) and a 56 px foot bar
+  (play, the chapter arrows and name, a thin timeline, Next at a slideshow stop, Sound, Text; in explore the view
+  switches and Controls), with the narration's words as subtitles just above it (the headsets' own captions, one
+  function in `shared.js` for both) and a chapter's title in the upper middle for about 3 s as it starts. On where the
+  pointer is coarse and the screen's smaller side is at most 1100 px (never in a headset's browser), off on desktops;
+  *Focus view* on the Stories screen and in More, `#focus=on|off`. Every story frames its scene for the whole page
+  then (`GL.bare`, the same lines in all sixteen and the design room); with it off nothing moved (48 of 48 before and
+  after shots pixel-identical). Built by two builders in parallel (the shell; every story's framing), reviewed once
+  (four Sonnet reviewers, a skeptic for each finding): nothing high or medium; fixed from the lows: one click from the
+  bar's Sound, no chapter title again after a live update, the tour's explore side shift cleared where a view is set
+  directly, the focus tests wait for what they measure. Tests: smoke 164 good (all, the new focus checks and the
+  framing lines in all seventeen too); audio 53 good; relay 243 good; the update test from v105 good; live 21 good;
+  shared rooms: the full run 423 good and 11 failed, all in parts that pass alone on a loaded machine (the ten-headset
+  round 17 of 17, the All stories round 16 of 16, peer to peer 18 of 18 when run on their own). Known framing limits
+  (one view at a time would need its own framing): wide scenes on an upright phone are cut at the sides (soil's field,
+  some close views), a phone held sideways leaves about 216 px for the scene, and on a sideways iPad the PET body's feet
+  and soil's field reach under the foot bar. Untested on real phones and iPads (Safari's safe areas and URL bar, how
+  readable the subtitles are over every scene).
 - **Released as networks-v105 (2 November 2026; FORMAT networks-28 and shell 104 as v104, so running pages swap the
   ovary story in without a reload), tested headlessly only: the owner's visual notes on the aging ovary.** (1) The
   donors' histogram, "hard to see" (a wall of thin slides seen edge on), is now twenty towers of slides lying flat on the
