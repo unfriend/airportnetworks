@@ -2318,10 +2318,10 @@ function sightBlocked(v, g, off) {
   }
   return false;
 }
-// on a narrow screen the picture is a strip above the panel: low down, the camera stands a little further back and
-// higher, so the strip shows the gang and the room round it rather than a patch of rug
-const lowEl = (v, g) => v[1] + (GL.wide ? 0 : 5 * g);
-const lowDist = (v, g) => v[2] * (1 + ((GL.fit || 1) - 1) * (1 - g)) * (GL.wide ? 1 : 1 + 0.35 * g);   // the fit frames the room; low down there is nothing to frame
+// on a narrow screen the picture is a strip above the panel (not in focus mode): low down, the camera stands a little
+// further back and higher, so the strip shows the gang and the room round it rather than a patch of rug
+const lowEl = (v, g) => v[1] + (GL.wide || GL.bare ? 0 : 5 * g);
+const lowDist = (v, g) => v[2] * (1 + ((GL.fit || 1) - 1) * (1 - g)) * (GL.wide || GL.bare ? 1 : 1 + 0.35 * g);   // the fit frames the room; low down there is nothing to frame
 function orbitPose(v, g, dt) {
   if (g > 0.3) {
     if (youGap(v, g, CAMV.off) < 0.5 || sightBlocked(v, g, CAMV.off)) {
@@ -2380,17 +2380,22 @@ function applyView(v, g, eyes, dt) {
   GL.sets.robots.avatar(!(eyes && CAMV.e > 0.55));   // your own body is out of the way in your eyes
 }
 function resize() {
+  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
   const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
   GL.wide = wide;
-  if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
+  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
+  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   // on a narrow screen the panel covers the lower part: the room is framed in the strip above it
   const strip = Math.max(0.12, (0.56 * h - 122) / h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1 / strip, 1.2 / (w / h));
+  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
+  // middle at 0.45 h; at fit 1 the room reaches about 1.05 of the screen's half height up and down, 1.2 to the sides)
+  if (GL.bare) GL.fit = Math.max(1, 1.05 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), 1.2 * h / w);
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)

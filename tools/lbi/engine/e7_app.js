@@ -248,6 +248,7 @@ function frame(now, xrFrame) {
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
+    if (!xr) sideStep();   // (focus mode on or off: a wide view's shift clear of the side panel out or back)
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else applyCamera(orbit.cur);
   }

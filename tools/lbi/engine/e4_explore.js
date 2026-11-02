@@ -47,11 +47,21 @@ function openScene(k, fly = true) {
   if (fly && !same) flyTo(exploreView(k, 'default'));
   renderScenes();
 }
-// a view for explore mode: wide scenes stand clear of the side panel on wide screens
+// a view for explore mode: wide scenes stand clear of the side panel on wide screens (X.side: that view's shift and
+// whether it was taken; sideStep takes it out or puts it back as focus mode hides or shows the panel)
 function exploreView(k, name) {
-  const v = view(k, name);
-  if (GL.wide && (k === 'sankey' || (k === 'tissue' && (name === 'default' || name === 'section')))) { v[2] += k === 'sankey' ? 1.0 : 0.8; v[3] += k === 'sankey' ? -0.45 : -0.2; }
+  const v = view(k, name), n = k === 'sankey' ? [1.0, -0.45] : k === 'tissue' && (name === 'default' || name === 'section') ? [0.8, -0.2] : null;
+  X.side = n && { k, n, on: GL.wide && !GL.bare };
+  if (X.side && X.side.on) { v[2] += n[0]; v[3] += n[1]; }
   return v;
+}
+function sideStep() {
+  const s = X.side, on = GL.wide && !GL.bare;
+  if (!s || s.on === on) return;
+  if (s.k !== X.scene) { X.side = null; return; }
+  const v = (orbit.to || orbit.cur).slice(), d = on ? 1 : -1;
+  v[2] = Math.max(0.3, v[2] + d * s.n[0]); v[3] += d * s.n[1]; s.on = on;
+  flyTo(v);
 }
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : null;

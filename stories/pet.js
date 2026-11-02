@@ -5157,10 +5157,10 @@ function viewDir(v, out) {
 // on a screen narrower than square (a phone held upright) a wide view stands further back: GL.nf is the view's own
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
-const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+const narrowK = () => ((GL.wide && !GL.bare) || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
 // (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  const u = GL.wide ? 0 : 1;
+  const u = GL.wide && !GL.bare ? 0 : 1;
   viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
@@ -5182,18 +5182,23 @@ function keepCamera(S, t) {
   }
 }
 function resize() {
+  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
   const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
   GL.wide = wide; GL.aspect = w / h;
-  if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
+  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
+  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
   // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
   const strip = Math.max(0.12, (0.56 * h - 122) / h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
+  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
+  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
+  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)

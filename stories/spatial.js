@@ -1672,15 +1672,20 @@ function applyCamera(p) {
   GL.camera.position.copy(C); GL.camera.up.copy(up); GL.camera.lookAt(T);
 }
 function resize() {
+  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
   const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
   GL.wide = wide;
-  if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
+  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
+  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
+  // middle at 0.45 h; at fit 1 the cell reaches about 0.95 of the screen's half height up and down, 1.3 to the sides)
+  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), 1.3 * h / w);
   camera.updateProjectionMatrix();
 }
 
