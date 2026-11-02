@@ -2732,7 +2732,8 @@ presence still the All stories circle's; the dialog's toggle turning it off, its
 story going on; on again and the linked circle given another story, the circle going on alone where its story was (its own
 clock written); the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
 headset's story with every ring, icon and card showing, then a story circle entered as usual; Arrange all leaving both
-kinds where they are), the design room (the Shared dialog's picker listing it after
+kinds where they are; with `--shots` its pictures: `all-1-cards.png`, the cards from inside the circle, `all-2-picked.png`,
+a story picked there, and `all-3-lobby.png`, the All stories circle seen from the lobby), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches

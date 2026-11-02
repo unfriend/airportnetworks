@@ -43,6 +43,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v104 (2 November 2026; FORMAT networks-28, so v103 and older devices cannot share its rooms),
+  tested headlessly only:** the owner's notes of 2 November (the bullet below). Reviewed once (Sonnet reviewers, two
+  skeptics per finding): moving an All stories circle at the moment someone picked a story there could undo the pick,
+  and a pick made while a story loaded on a slow device could stay on that device; both fixed, with the low findings
+  (a linked circle that goes leaves the All stories circle going on alone where its story was; the switch turned off
+  carries the scene's place, the panel and the lock over; one first-headset circle even when two headsets arrive
+  together). Tests: smoke 148 good, and the robot gang's dock check now and then (also in v103: the quirk below);
+  audio 53 good; relay 243 good; the update test from v103 good; live 21 good; shared rooms: the full run 432 good and
+  2 failed, both timing on a machine drawing about a frame a second (a pointed icon's card faded after 6.4 s instead of
+  about 2, and a silent peer-to-peer host replaced after 41 s, as in v102 and v103), with the parts alone all good: the
+  ten-headset round 17, peer to peer 18, rooms on this network 19, the All stories round 16. Three test faults were
+  mended on the way (the All stories round lost its story under `--quick` and judged "from its start" by a fixed 25 s;
+  the robots' dock got 40 s). An earlier full run had stopped in the headset part (a frame not yet taken after 400 ms,
+  then the pretend headset's story without its controllers); a debug run of the same part passed both, and the second
+  full run did too. Its pictures: the cards inside the All stories circle, a story picked there and the circle from the
+  lobby (`--all --shots`).
 - **Released in v104 (2 November 2026), tested headlessly only: the owner's notes of 2 November.** (1) The aging ovary's
   donor slides fly in from 1.5 s before their chapter, while the ovary fades, so the space is never empty. (2) An *All
   stories* circle: standing in it shows the single-player Stories screen; a card picked there plays that story for
