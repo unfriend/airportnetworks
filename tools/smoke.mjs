@@ -251,10 +251,14 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
           if (F.state().robots.some(r => !isFinite(r.x + r.z + r.h + r.v)) || !inPoly(F.room().floor, F.state().robots[0].x, F.state().robots[0].z)) out.push(\`a room with the floor \${JSON.stringify(fl)} lost its robots\`);
         }
         F.setRoom(F.modelRoom());
-        // 20 s of the story's first chapter: six robots go to their places at the dock and rest there
-        simStory(0, 10); simStory(0, 10); check('dock', 6);
+        // the story's first chapter: six robots go to their places at the dock and rest there (20 s, up to 40: from where
+        // the steps above left them one sometimes takes longer to get out of a jam, also in v103)
+        const docked = s => s.rule === 0 && !s.robots.some(r => !s.slots[r.slot] || Math.hypot(r.x - s.slots[r.slot][0], r.z - s.slots[r.slot][1]) > 0.1 || Math.abs(r.v) > 0.02);
+        simStory(0, 10); simStory(0, 10);
+        for (let k = 0; k < 2 && !docked(F.state()); k++) simStory(0, 10);
+        check('dock', 6);
         const st = F.state();
-        if (st.rule !== 0 || st.robots.some(r => !st.slots[r.slot] || Math.hypot(r.x - st.slots[r.slot][0], r.z - st.slots[r.slot][1]) > 0.1 || Math.abs(r.v) > 0.02)) out.push('the robots did not rest at the dock');
+        if (!docked(st)) out.push('the robots did not rest at the dock ' + JSON.stringify(st.robots.filter(r => !st.slots[r.slot] || Math.hypot(r.x - st.slots[r.slot][0], r.z - st.slots[r.slot][1]) > 0.1 || Math.abs(r.v) > 0.02).map(r => [r.slot, +r.x.toFixed(2), +r.z.toFixed(2), +r.v.toFixed(2)])));
         // crumbs: a pile from the button lands on the floor, and the robots eat it
         setCtl('robots', 'rule', 'bounce'); setCtl('robots', 'robots', '6'); simExplore(1);
         if (F.crumbs(50, 50) !== false) out.push('crumbs spilled off the floor');

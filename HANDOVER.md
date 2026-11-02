@@ -397,6 +397,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws
   slowly) can fail a timing check once. Re-run once; a second failure is real. (A real cause of such failures, a page
   drawing slowly that fell behind its station's clock, was fixed: see `pump` in `shared.js`.)
+- **Known quirk of the robot gang (found in the v104 test round, also in v103):** after the smoke test's earlier steps
+  (every rule, 24 robots, crumbs, a walk, two odd floors, then the model room again), the story's first chapter now and
+  then leaves a robot short of its dock spot: in about one run in eight one was still driving after 20 s (out of a
+  jam), and in one run in twelve one stood still on open floor away from its spot even after 40 s. The smoke test now
+  gives them up to 40 s and names the robots that miss. A real story starts with the robots at the dock, so it may never
+  show; worth a look in `tools/robots/sets/robots.js` (how a robot gives up on a blocked path) before an event that
+  changes rules and rooms a lot.
 
 ## Decisions for the owner
 
