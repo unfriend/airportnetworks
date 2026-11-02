@@ -1,43 +1,43 @@
 Networks, in sixteen stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
-  2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
-  3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
-  4. A glimpse into the future of network medicine: a 3D tour of the Ludwig
+  2. A glimpse into the future of network medicine: a 3D tour of the Ludwig
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
-  5. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
+  3. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
-  6. Endotypes: one rare disease of the junction between nerve and muscle, 35
+  4. Endotypes: one rare disease of the junction between nerve and muscle, 35
      genes and 12 hidden mechanisms, after the EndotypY poster by Chloé Bûcheron
      and colleagues  (stories/endo.js)
-  7. One scan, one system: a PET scanner, the body's organs and the network of
+  5. One scan, one system: a PET scanner, the body's organs and the network of
      their metabolism from 658 scans, after Barbara K Geist and colleagues
      (stories/pet.js)
-  8. Tissue and time: the small working units organs are built from, in 24,945
+  6. Tissue and time: the small working units organs are built from, in 24,945
      slides, and how they change with age, after Iva Buljan and colleagues
      (stories/micro.js)
-  9. The aging ovary: what 255 ovaries show about aging, from the reserve of
+  7. The aging ovary: what 255 ovaries show about aging, from the reserve of
      follicles to two deep-learning methods and the trends with age, after the
      poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro
      (stories/ovary.js)
-  10. Three qubits: how a gene network is shrunk to fit on a tiny quantum
+  8. Three qubits: how a gene network is shrunk to fit on a tiny quantum
      computer, and broken into building blocks it runs well, after Joel
      Hancock's method and figures  (stories/qubits.js)
-  11. The mutation machine: how DNA changes letter by letter along a family
+  9. The mutation machine: how DNA changes letter by letter along a family
      tree, and how a rule for those changes becomes a quantum circuit, one
      machine per branch; after the poster by Enes Berk Sakalli and Arndt von
      Haeseler  (stories/mutation.js)
-  12. The shape of tissue: where cells sit in slides of liver, read at every
+  10. The shape of tissue: where cells sit in slides of liver, read at every
      scale at once (persistent homology), and which scales tell cirrhosis from
      healthy tissue, down to every cell; after the poster by Simon Schindler,
      André Rendeiro and Jörg Menche, on their data  (stories/topo.js)
-  13. Holding on to nitrogen: a wheat, its soil and the microbes in between;
+  11. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
+     a school of fish to the world's flights to a cell; for everyone, in
+     English and German  (stories/pass.js)
+  12. Holding on to nitrogen: a wheat, its soil and the microbes in between;
      a wheat that slows the soil's microbes stays greener and leaks less
      nitrate in a field trial in Japan, while the crowd of microbes follows the
      fertiliser far more than the wheat; after the slides and field trial of
      Marina Montserrat Díez, Christa Schleper and colleagues  (stories/soil.js)
-  14. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
-     a school of fish to the world's flights to a cell; for everyone, in
-     English and German  (stories/pass.js)
+  13. Network medicine, told with the proteins in a cell  (stories/proteins.js)
+  14. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
   15. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
