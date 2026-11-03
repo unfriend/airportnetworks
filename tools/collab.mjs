@@ -1656,7 +1656,7 @@ async function codeRound() {
 // ---- the room's arc and the All stories and Back to the lobby circles (v104, v109; --all runs only this, rooms of its
 // own, several minutes). A page on a story starts a room: the room's arc (an All stories circle at the room's origin, its
 // only station) is made, and the page follows it and shows its Stories screen without Follow, as a page joining does;
-// the first headset moves it 1.2 m in front of itself, facing away, and is at it without walking in (its cards there,
+// the first headset moves it to where it stands, facing its way, and is at it without walking in (its cards there,
 // the scene hidden, nothing of it drawn, the rig at its spot, its presence there); a card pressed there picks that story
 // for everyone (from its start, playing), and the story panel's Stories button goes back to the cards; the grip on its
 // cards carries it for everyone (held writes, then where it was let go), the room map moves it (the headset's cards
@@ -1705,13 +1705,13 @@ async function allRound() {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-  const want = [HEAD.x - 1.2 * Math.sin(HEAD.yaw), HEAD.z - 1.2 * Math.cos(HEAD.yaw)], at = (w, s) => !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06;
+  const want = [HEAD.x, HEAD.z], at = (w, s) => !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06;
   // (aligned first: through the shared space a busy machine may take a while; then the 1.5 s the headset waits)
   const t0 = Date.now(), aligned = await stepUntil(() => HOST.room.aligned, null, 30000), tAl = Date.now() - t0;
   const moved = aligned && await stepUntil(w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 15000);
   await until(A, w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 5000);
   const a1 = await arcOf(A), p1 = await A.evaluate(() => HOST.collab.val('allp'));
-  check('arc: the first headset in the room moves the page\'s arc 1.2 m in front of its head, facing away (allp its own now), still the arc', moved && at(want, a1) && a1.arc === true && angle(a1.yaw, HEAD.yaw) < 0.05 &&
+  check('arc: the first headset in the room moves the page\'s arc to where it stands, facing its way (its cards ahead, as on the single-player Stories screen) (allp its own now), still the arc', moved && at(want, a1) && a1.arc === true && angle(a1.yaw, HEAD.yaw) < 0.05 &&
     !!p1 && p1.by === hId && !p1.pg, JSON.stringify({ a1, p1, want, aligned, tAl, moved, ms: Date.now() - t0, pendA: await A.evaluate(() => [...HOST.collab.internals().pending.keys()]),
       onH: await H.evaluate(() => [HOST.collab.arc(), HOST.collab.val('allp')]), log: await H.evaluate(() => window.__collabLog.filter(e => /all stories|arc|station|align|frame/.test(e.ev)).slice(-8).map(e => e.ev)),
       why: await H.evaluate(() => { const C = HOST.collab.internals(), R = HOST.room.internals(); return { auto: C.autoAll, allpFor: C.allpFor, code: C.code, allpAt: C.allpAt, welcomed: C.welcomed, session: !!R.session, aligned: R.aligned, headOK: R.headOK,
@@ -1978,12 +1978,12 @@ async function allRound() {
   await W3.open; await sleep(400);
   W3.set(await H.evaluate(() => HOST.room.frameKey('U1')), frameFor(ROOM, 'U1', W3.id, Date.now() - 60000));
   await sleep(400);
-  const H3 = { x: 0.6, z: 0.4, yaw: -0.3 }, want3 = [H3.x - 1.2 * Math.sin(H3.yaw), H3.z - 1.2 * Math.cos(H3.yaw)];
+  const H3 = { x: 0.6, z: 0.4, yaw: -0.3 }, want3 = [H3.x, H3.z];
   await H.evaluate(h => window.__xr.head(h), headAt(H3, ROOM[3] + H3.yaw));
   await H.evaluate(c => HOST.collab.join(c), c3);
   const first = await stepUntil(([w, id]) => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06 && HOST.collab.mine() === id && HOST.room.cards(); }, [want3, AID], 25000);
   const v3 = (await roomInfo(c3)).keys;
-  check('arc: a headset first in a room makes the room\'s arc 1.2 m in front of its head, facing away (allp its own), and is at it at once', first && !!v3['st.' + AID] && v3['st.' + AID].v.arc === true &&
+  check('arc: a headset first in a room makes the room\'s arc where it stands, facing its way (allp its own), and is at it at once', first && !!v3['st.' + AID] && v3['st.' + AID].v.arc === true &&
     angle(v3['st.' + AID].v.yaw, H3.yaw) < 0.05 && !!v3.allp && v3.allp.v.by === hId, JSON.stringify({ first, st: v3['st.' + AID] && v3['st.' + AID].v, allp: v3.allp && v3.allp.v, src: await H.evaluate(() => [HOST.room.aligned, HOST.room.src, HOST.collab.code]) }));
   W3.close();
   // a room kept from before v109 (its first All stories circle, all01 without arc, its only station): the arc once joined,

@@ -932,8 +932,10 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
     and room: an All stories circle 1.2 m ahead of its head along the floor (just outside the 1.1 m walk-in: one step and
     you are in it), facing away from it (its cards float ahead, as on the Stories screen), Own stories, always under one
     id (`all01`), so two headsets that place it at the same moment place one circle (the last writer's). Since v109 it is
-    the room's arc (`arc: true`, below) when the room has no other circle, else an ordinary circle (`arc: false`); and a
-    room a page started already has the page's arc, which the first headset moves 1.2 m in front of itself instead, as
+    the room's arc (`arc: true`, below) when the room has no other circle, standing where the headset stands (not 1.2 m
+    ahead: its cards then float about 1.25 m in front of it, as on the single-player Stories screen), else an ordinary
+    circle 1.2 m ahead (`arc: false`); and a room a page started already has the page's arc, which the first headset
+    moves to where it stands instead, as
     long as it stands where the page put it (`allp` with `pg`; `allp` is then rewritten as the headset's). Tests turn
     both off (`HOST.collab.autoAll(false)`, or `localStorage` `collabAutoAll` = `off` before the page loads: every
     device in `tools/collab.mjs` starts so, and its pretend headsets keep it off, unless the All stories round asks).

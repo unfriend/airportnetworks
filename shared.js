@@ -4101,7 +4101,10 @@
     if (!C.allpAt) { C.allpAt = t; return; }
     if (t - C.allpAt < AUTO.hold) return;
     C.allpFor = C.code; C.allpAt = 0;
-    const b = base(), [fx, fz] = fwd(b.yaw), id = ARC.id, x = r3(b.x + AUTO.ahead * fx), z = r3(b.z + AUTO.ahead * fz), arc = pg || !C.st.length;
+    // (the room's arc stands where this headset stands, so its cards float as close as on the single-player Stories screen,
+    // about 1.25 m ahead; a circle 1.2 m ahead, one step from you)
+    const arc = pg || !C.st.length, ahead = arc ? 0 : AUTO.ahead;
+    const b = base(), [fx, fz] = fwd(b.yaw), id = ARC.id, x = r3(b.x + ahead * fx), z = r3(b.z + ahead * fz);
     const allp = ['allp', { by: C.id, at: Math.round(now()) }];
     if (pg) publish([['st.' + id, stVal(A, { x, z, yaw: b.yaw })], allp]);
     // (one id for the room's first, so two headsets that place it at the same moment place one circle: the last writer's)
