@@ -91,11 +91,15 @@
   const mmss = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];   // a yaw's forward on the floor (x, z): yaw 0 faces -z
 
+  // the relay's password: whether one is wanted, and the one being tried (below, "the relay's password"; here, as the log
+  // reads it)
+  const AUTH = { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 };
   // ------------------------------------------------------------------ log --
   const LOG = window.__collabLog = [];
   LOG.n = 0;   // entries are numbered (the relay's copy goes on from the last one sent)
   let DEBUG = get('collabDebug') === '1';
   function log(ev, data) {
+    data = data ? secretless(data) : data;   // (never a relay's password: this log goes to the relay with a headset's)
     LOG.push(Object.assign({ t: Math.round(performance.now()), n: ++LOG.n, ev }, data || {}));
     if (LOG.length > 1000) LOG.splice(0, LOG.length - 1000);
     if (DEBUG) console.log('[shared]', ev, data || '');
@@ -171,6 +175,118 @@
   const FRESH_TEXT = 'Moved to a fresh shared space. Start AR on one headset first and wait for "Room ready", then the others, one by one.';
   const liveSt = () => (C.live ? C.stById.get(C.live) || null : null);
 
+  // ------------------------------------------------------- the relay's password --
+  // A relay may want a password (relay/server.mjs: COLLAB_TOKEN or --token, as asdf10k-collab-backend's; the owner, 3
+  // November 2026: "one word ... that i can use and enter on each client if i want it to be able to use the relay, no other
+  // way to use it"). Each device enters it once (the page's Shared dialog, or the headset menu's Relay password): kept
+  // here per relay origin (localStorage relayTokens = { origin: password }), never in a room's keys, a link, the address or
+  // a log. It goes with every call to that relay: Authorization: Bearer on its API, ?token= on its socket and /api/watch,
+  // PeerJS's key on its introduction server. A relay that wants one (401, a socket closed 4401) is not unreachable: the
+  // room meant for it never goes peer to peer or onto this device instead, nothing is joined by itself, and while it waits
+  // the relay is asked at most once a minute (authWait) until a password is given. Accepted once a call with it succeeds.
+  // AUTH.state: '' (none wanted), 'need', 'wrong' (the one tried is not it), 'stale' (the one kept here is no longer it),
+  // 'checking', 'limit' (too many wrong ones from this network), 'away' (the relay did not answer the check)
+  const originOf = u => { try { return new URL(u).origin; } catch (e) { return ''; } };
+  const tokens = () => { try { const o = JSON.parse(get('relayTokens') || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
+  function tokenKeep(o, t) { const all = tokens(); if (t) all[o] = t; else delete all[o]; put('relayTokens', Object.keys(all).length ? JSON.stringify(all) : ''); }
+  // the password for a relay's address ('' none): the one being tried, else the one kept for its origin
+  const tokenFor = base => { const o = originOf(base); if (!o) return ''; if (AUTH.tryT && AUTH.tryAt === o) return AUTH.tryT; const t = tokens()[o]; return typeof t === 'string' ? t : ''; };
+  // the relay at base wants a password this device has not got (the dialog and the menu ask for it)
+  const authAsk = () => !!AUTH.state && !!AUTH.at;
+  // ... and has said so within the last minute: not asked again meanwhile (each answer would only say it again)
+  const authWait = base => !!AUTH.state && AUTH.state !== 'checking' && AUTH.at === originOf(base) && performance.now() - AUTH.t401 < 60000;
+  const AUTH_TEXT = 'This relay needs its password.';
+  // what a relay answered (status: an HTTP status, 401 also for a socket closed 4401; sent: the password sent, '' none)
+  function authSaw(base, status, sent, j) {
+    const o = originOf(base);
+    if (!o) return;
+    if (status === 401) {
+      const now = tokenFor(base);
+      if (now && sent !== now) return;   // (an answer to a call sent before the password it has now)
+      const was = AUTH.at === o ? AUTH.state : '';
+      let st = 'need';
+      if (sent && AUTH.tryT === sent && AUTH.tryAt === o) { st = 'wrong'; AUTH.tryT = ''; }
+      else if (sent && tokens()[o] === sent) { tokenKeep(o, ''); st = 'stale'; }   // (the relay's password changed: entered again)
+      else if (was === 'wrong' || was === 'stale' || was === 'limit') st = was;
+      Object.assign(AUTH, { at: o, base: was ? AUTH.base || base : base, state: st, t401: performance.now() });
+      if (st !== was) { log('relay password', { state: st }); changed(); }
+      return;
+    }
+    if (AUTH.at !== o) return;
+    if (status === 429 && j && /failed attempts/.test(j.error || '')) {
+      if (AUTH.tryT === sent) AUTH.tryT = '';
+      Object.assign(AUTH, { state: 'limit', t401: performance.now() });
+      log('relay password', { state: 'limit' }); changed(); return;
+    }
+    if (status < 200 || status >= 300) return;
+    const t = sent && AUTH.tryT === sent && AUTH.tryAt === o ? sent : '';
+    if (t) tokenKeep(o, t);   // (accepted: kept for this relay)
+    Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });
+    log('relay password', { state: t ? 'accepted' : 'not needed' });
+    if (PNL.page === 'pass') { PNL.page = 'main'; PNL.pass = ''; }
+    const f = document.getElementById('shPass');
+    if (f) f.value = '';
+    if (t && HOST.live && HOST.live.watch) HOST.live.watch();   // (a relay that watches the app's files: followed now)
+    setTimeout(authResume, 0);
+    changed();
+  }
+  // a password typed in (the dialog's Use, the menu's keypad): tried on the relay that asked; kept once it is accepted
+  function authTry(t) {
+    t = String(t || '').trim();
+    if (!t || !AUTH.at || AUTH.state === 'checking') return false;
+    const base = AUTH.base || AUTH.at, ab = new AbortController(), to = setTimeout(() => ab.abort(), 8000);
+    Object.assign(AUTH, { tryT: t, tryAt: AUTH.at, state: 'checking' });
+    log('relay password', { state: 'checking' });
+    changed();
+    fetch(base.replace(/\/+$/, '') + '/api/ping', { cache: 'no-store', headers: { Authorization: 'Bearer ' + t }, signal: ab.signal }).finally(() => clearTimeout(to))
+      .then(async r => { let j = null; try { j = await r.json(); } catch (e) { /* not JSON */ } authSaw(base, r.status, t, j); if (AUTH.state === 'checking') { AUTH.state = 'away'; AUTH.tryT = ''; changed(); } },
+        () => { if (AUTH.tryT === t) { Object.assign(AUTH, { tryT: '', state: 'away' }); changed(); } });
+    return true;
+  }
+  // Forget the password (the dialog's relay part): this device asks for it again
+  function authForget() {
+    const o = originOf(C.relay) || AUTH.at;
+    if (!o) return false;
+    tokenKeep(o, '');
+    Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });
+    log('relay password', { state: 'forgotten' });
+    if (!C.code && C.relay) { listRooms(); nearFind('forget'); }
+    changed();
+    return true;
+  }
+  // accepted: what waited for it goes on (the room's socket, a room to start, rooms joined again by itself, the lists)
+  function authResume() {
+    if (C.code && C.want && !C.ws && C.status === 'auth') { C.tries = 0; connect(); }
+    else if (C.code && C.local) probe(performance.now(), true);
+    if (C.wantCreate && !C.code) { C.wantCreate = false; create(); return; }
+    C.wantCreate = false;
+    if (!C.code) { netAgain('password'); if (C.listing.dialog || C.listing.menu) { listRooms(); nearFind('password'); } }
+    changed();
+  }
+  // what is said about it (the dialog and the menu)
+  const authLine = () => ({ need: 'Whoever runs the relay has it. This device keeps it for this relay, so it is entered once.',
+    wrong: 'That is not this relay\'s password.', stale: 'The password this device kept is no longer this relay\'s: enter the new one.',
+    limit: 'Too many wrong passwords from this network: wait a minute, then try again.', checking: 'Checking...',
+    away: 'The relay did not answer: try again in a moment.' }[AUTH.state] || '');
+  // never a password in a log line (the passwords known here, ?token= and key= in a URL, a Bearer header)
+  function secretless(data) {
+    const known = Object.values(tokens()).concat(AUTH.tryT).filter(t => typeof t === 'string' && t.length >= 3);
+    const one = v => {
+      if (typeof v !== 'string') return v;
+      v = v.replace(/([?&](?:token|key)=)[^&#\s"']*/gi, '$1***').replace(/(Bearer\s+)\S+/gi, '$1***');
+      for (const t of known) if (v.includes(t)) v = v.split(t).join('***');
+      return v;
+    };
+    if (typeof data !== 'object' || Array.isArray(data)) return data;
+    let out = null;
+    for (const k in data) {
+      const v = data[k];
+      if (typeof v === 'string') { const w = one(v); if (w !== v) (out = out || Object.assign({}, data))[k] = w; }
+      else if (v && typeof v === 'object' && !Array.isArray(v)) for (const k2 in v) if (typeof v[k2] === 'string' && one(v[k2]) !== v[k2]) { out = out || Object.assign({}, data); out[k] = Object.assign({}, v, { [k2]: one(v[k2]) }); }
+    }
+    return out || data;
+  }
+
   // the relay's address: http(s)://host[:port][/path]; typed as wss://..., https://... or host:port
   function norm(s) {
     s = String(s || '').trim();
@@ -183,7 +299,8 @@
     if (why === 'link') C.linked = !!s;
     if (s === C.relay) return;
     C.relay = s; C.rooms = null; C.roomsErr = '';
-    Object.assign(C, { net: '', netSrc: '', netState: '', near: null, nearErr: '' });   // (the network as this relay sees it: asked again)
+    Object.assign(C, { net: '', netSrc: '', netState: '', near: null, nearErr: '' });
+    if (AUTH.at && AUTH.at !== originOf(s)) Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });   // (another relay: asked afresh)   // (the network as this relay sees it: asked again)
     if (why !== 'served') put('collabRelay', s);
     log('relay', { relay: s, why });
     if (C.local && C.code && s) setTimeout(() => probe(performance.now(), true), 0);   // a room on this device: to this relay?
@@ -194,10 +311,15 @@
   // does the relay serve this page? Asked once, and only when the shared space is used
   function detect() {
     if (C.detecting) return C.detecting;
-    C.detecting = fetch(appRoot() + 'api/ping', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
+    // (a relay that wants a password answers 401 with its own words: it serves the page, and asks for it)
+    const base = appRoot(), t = tokenFor(base);
+    C.detecting = fetch(base + 'api/ping', { cache: 'no-store', headers: t ? { Authorization: 'Bearer ' + t } : {} })
+      .then(async r => { const j = await r.json().catch(() => null); return r.ok ? j : r.status === 401 && j && j.error === 'missing or wrong token' ? { proto: PROTO, auth: true } : null; })
+      .catch(() => null).then(j => {
       C.served = !!(j && j.proto);
-      if (C.served && !C.linked) setRelay(appRoot(), 'served');
-      log('served', { served: C.served });
+      if (C.served && !C.linked) setRelay(base, 'served');
+      if (j) authSaw(base, j.auth ? 401 : 200, t);
+      log('served', { served: C.served, password: !!(j && j.auth) });
       changed();
       return C.served;
     });
@@ -206,12 +328,15 @@
   const mixed = () => (location.protocol === 'https:' && /^http:/.test(C.relay) && !/^http:\/\/(localhost|127\.)/.test(C.relay)
     ? ' This page is on https, so the relay must be too (wss://).' : '');
   async function api(path, body, ms) {
+    const base = C.relay;
+    if (authWait(base)) return { ok: false, status: 401, j: null, held: true };   // (it wants a password not given yet)
     // (an address nobody answers at can take half a minute to fail: given up after 8 s)
-    const ab = new AbortController(), to = setTimeout(() => ab.abort(), ms || 8000);
-    const r = await fetch(C.relay + '/api/' + path, body === undefined ? { cache: 'no-store', signal: ab.signal } :
-      { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ab.signal }).finally(() => clearTimeout(to));
+    const ab = new AbortController(), to = setTimeout(() => ab.abort(), ms || 8000), t = tokenFor(base), auth = t ? { Authorization: 'Bearer ' + t } : {};
+    const r = await fetch(base + '/api/' + path, body === undefined ? { cache: 'no-store', headers: auth, signal: ab.signal } :
+      { method: 'POST', cache: 'no-store', headers: Object.assign({ 'Content-Type': 'application/json' }, auth), body: JSON.stringify(body), signal: ab.signal }).finally(() => clearTimeout(to));
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }
+    authSaw(base, r.status, t, j);
     return { ok: r.ok, status: r.status, j };
   }
   const host = () => C.relay.replace(/^https?:\/\//, '');
@@ -222,7 +347,7 @@
     C.roomsAt = performance.now();
     return api('rooms').then(r => {
       C.rooms = r.ok && Array.isArray(r.j) ? r.j.slice().sort((a, b) => (b.members > 0) - (a.members > 0)) : [];
-      C.roomsErr = r.ok ? '' : 'The relay at ' + host() + ' answered ' + r.status + '.';
+      C.roomsErr = r.ok ? '' : r.status === 401 ? AUTH_TEXT : 'The relay at ' + host() + ' answered ' + r.status + '.';
       changed(); return C.rooms;
     }, () => { C.rooms = []; C.roomsErr = unreachable(); changed(); return null; });
   }
@@ -232,6 +357,7 @@
     r.stations ? `${r.stations} station${r.stations === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
   // no room on this network to show: why
   function nearNone() {
+    if (C.relay && authAsk()) return AUTH_TEXT;
     if (C.nearErr) return C.nearErr;
     if (!C.relay && !peerOn()) return 'No relay is known and peer to peer is off, so no rooms are found on this network.';
     if (C.netState === 'none') return C.relay ? 'The relay did not say which network this is, so no rooms are listed here and none is joined again by itself.' :
@@ -252,6 +378,7 @@
     let r = null;
     try { r = await api('rooms', { app: 'networks', version: FORMAT }, 5000); } catch (e) { log('create failed', { e: e.message }); C.creating = false; join(freeCode(), 'new'); return; }
     C.creating = false; C.note = '';
+    if (r.status === 401) { C.wantCreate = true; log('create: the relay wants its password'); changed(); return; }   // (started once it is given)
     if (!r.ok || !r.j || !r.j.code) { C.note = 'Could not start a room: the relay answered ' + r.status + '.'; changed(); return; }
     log('created', { code: r.j.code });
     C.made = r.j.code;   // (this page made it: it gives the room its id, rid)
@@ -314,10 +441,15 @@
     if (C.via === 'local') ws = new LocalSocket(new Hub(C.code, locLoad(C.code)), C.id, true);
     else if (C.via === 'peer') {
       // (a page that has the room takes it over with its copy, should it get the id)
+      if (peerBase() && authWait(peerBase())) { C.status = 'auth'; changed(); return; }   // (its introduction server wants a password)
+      C.peerTok = peerBase() ? tokenFor(peerBase()) : '';
       ws = new PeerSocket(C.code, { id: C.id, create: C.peerNew, wait: C.peerWait, retake: C.peerRetake, take: C.welcomed ? takeCopy : null });
       C.peerWait = C.peerRetake = 0;
     } else {
-      try { ws = new WebSocket(C.relay.replace(/^http/, 'ws') + '/api/ws?room=' + C.code + '&id=' + C.id + '&proto=' + PROTO); } catch (e) {
+      // a relay that wants a password: the room waits for it (never peer to peer or on this device: it is the relay's)
+      if (authWait(C.relay)) { C.status = 'auth'; changed(); return; }
+      const t = C.wsTok = tokenFor(C.relay);
+      try { ws = new WebSocket(C.relay.replace(/^http/, 'ws') + '/api/ws?room=' + C.code + '&id=' + C.id + '&proto=' + PROTO + (t ? '&token=' + encodeURIComponent(t) : '')); } catch (e) {
         log('socket failed', { e: e.message });
         if (!C.welcomed) { fallback('socket failed'); return; }
         C.note = 'Could not reach the relay.' + mixed(); later(); return;
@@ -364,6 +496,16 @@
     log('close', { code, reason, via: C.via });
     if (!C.want) { C.status = 'off'; changed(); return; }
     C.status = 'connecting';
+    // the relay (or its introduction server) wants its password: asked for, and the room waits (no peer to peer, no room on
+    // this device: it is the relay's), until it is given (authResume)
+    if (code === 4401) {
+      clearTimeout(C.openTimer);
+      const peer = C.via === 'peer';
+      authSaw(peer ? peerBase() : C.relay, 401, peer ? C.peerTok : C.wsTok);
+      C.status = 'auth';
+      if (!HOST.session && !C.welcomed) dialog(true);
+      changed(); return;
+    }
     // no such room: after a relay restart (this page was in it) bring it back; on a first join (a mistyped code,
     // an old link) say so and stop, rather than making an empty room of that name
     if (code === 4004) {
@@ -381,11 +523,12 @@
       C.note = code === 4000 ? 'The relay refused this room code.' : 'This room runs another version of the app. Reload the page on every device, then join again.';
       changed(); return;
     }
-    // a public relay's limits (relay --public: too many unknown codes or new rooms from this network in a minute, too many
-    // sockets from it): the relay again a little later, never peer to peer (the room would split in two)
-    if (code === 4029 && C.via === 'relay') {
+    // a relay's limits (4429, as asdf10k-collab-backend's; 4029 from a relay of v109: --public): too many wrong passwords,
+    // unknown codes or new rooms from this network in a minute, too many sockets from it: the relay again a little later,
+    // never peer to peer (the room would split in two)
+    if ((code === 4029 || code === 4429) && C.via === 'relay') {
       C.note = reason === 'busy' ? 'Too many devices on this network are connected to the relay: trying again in a moment.' :
-        'The relay is holding this network back for a minute (too many room codes tried): trying again in a moment.';
+        'The relay is holding this network back for a minute (too many wrong passwords or room codes tried): trying again in a moment.';
       log('relay limit', { reason });
       changed(); later(); return;
     }
@@ -475,6 +618,8 @@
   const rank = k => (ST_RE.test(k) ? 0 : /\.play$/.test(k) ? 1 : /\.x$/.test(k) ? 2 : /\.panel$/.test(k) ? 3 : 4);
   // the whole room, first on every socket (a reconnect refetches everything): the room's values win
   function welcome(m) {
+    if (C.via === 'relay' && C.wsTok) authSaw(C.relay, 200, C.wsTok);
+    else if (C.via === 'peer' && C.peerTok) authSaw(peerBase(), 200, C.peerTok);
     C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0; C.peerNew = false; C.lastRole = '';
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
@@ -882,11 +1027,15 @@
     const secure = m[1] ? /s$/.test(m[1]) : location.protocol === 'https:', port = m[3] ? +m[3] : secure ? 443 : 80, path = m[4] || '/peerjs';
     return { name: m[2] + (m[3] ? ':' + m[3] : '') + path, opts: { host: m[2], port, path, secure } };
   }
-  const peerOpts = () => Object.assign({}, peerServer().opts, { config: { iceServers: ICE }, debug: 0 });
+  // the introduction server's origin ('' PeerJS's public one): a relay's own, at /peerjs, takes the relay's password as
+  // PeerJS's key (its default, peerjs, is refused while the relay has one)
+  const peerBase = () => { const o = peerServer().opts; return o.host ? (o.secure ? 'https://' : 'http://') + o.host + ':' + o.port : ''; };
+  const peerKey = () => (peerBase() && tokenFor(peerBase())) || '';
+  const peerOpts = () => Object.assign({}, peerServer().opts, peerKey() ? { key: peerKey() } : {}, { config: { iceServers: ICE }, debug: 0 });
   // does the introduction server answer? (a room on this device asks before it goes peer to peer again)
   function peerUp() {
     const o = Object.assign({ host: '0.peerjs.com', port: 443, path: '/', secure: true }, peerServer().opts), ab = new AbortController(), to = setTimeout(() => ab.abort(), 5000);
-    const url = (o.secure ? 'https://' : 'http://') + o.host + ':' + o.port + o.path.replace(/\/?$/, '/') + 'peerjs/id?ts=' + Date.now();
+    const url = (o.secure ? 'https://' : 'http://') + o.host + ':' + o.port + o.path.replace(/\/?$/, '/') + encodeURIComponent(peerKey() || 'peerjs') + '/id?ts=' + Date.now();
     return fetch(url, { cache: 'no-store', signal: ab.signal }).then(r => r.ok, () => false).finally(() => clearTimeout(to));
   }
   // PeerJS, loaded the first time a room goes peer to peer. Its links must outlive every story: the shell removes the
@@ -960,6 +1109,7 @@
       if (!this.mine(p)) return;
       const t = (e && e.type) || 'error';
       log('peer error', { type: t, role: this.role, open: this.readyState === 1 });
+      if (t === 'invalid-key') return this.fail(4401, 'password');   // (an introduction server that wants the relay's password)
       if (t === 'unavailable-id') {
         if (this.role === 'host') return this.fail(4010, 'superseded');   // (its id lapsed while the server was away, and someone took it)
         if (this.o.create) return this.fail(4009, 'taken');
@@ -1138,6 +1288,7 @@
   // true when the relay answered (and the room went there, or stays here: another version of the app there)
   async function relayBack(code) {
     const p = await api('ping').catch(() => null);
+    if (p && p.status === 401) return true;   // (it answered, and wants its password: this room goes there once it is given)
     if (!p || !p.ok || !p.j || !p.j.proto) return false;
     const r = await api('rooms/' + code);
     if (r.ok && r.j && r.j.version && r.j.version !== FORMAT) {   // another version of the app there: asked again in 2 minutes
@@ -1252,6 +1403,7 @@
         const r = await api('ping', undefined, 5000).catch(() => null);
         C.unlisted = !!(r && r.ok && r.j && r.j.unlisted);   // (a public relay lists no rooms: joined by code, link or network)
         if (r && r.ok) return r.j && NET_RE.test(r.j.net || '') ? [r.j.net, 'relay'] : ['', ''];   // (an older relay does not say)
+        if (r && r.status === 401) return ['', ''];   // (it wants its password: asked again once it is given, authResume)
       }
       C.unlisted = false;
       if (C.pretend) return [await netHash('pretend:' + C.pretend), 'pretend'];
@@ -1318,6 +1470,7 @@
     api('rooms/' + r.code, undefined, 5000).then(x => {
       // (a public relay holding this network back: the room's id cannot be checked, so not joined now: again in a minute)
       if (x.status === 429) { C.rejoining = false; log('rejoin: relay busy', { code: r.code }); setTimeout(() => rejoin('again'), 60000); return; }
+      if (x.status === 401) { C.rejoining = false; log('rejoin: the relay wants its password', { code: r.code }); return; }   // (again once it is given: authResume)
       const there = x.ok && x.j && x.j.keys && x.j.keys.rid ? x.j.keys.rid.v : '';
       if (there && there !== r.rid) { C.rejoining = false; notMine(r.code); return; }
       go();
@@ -1355,7 +1508,7 @@
       api('near', undefined, 6000).then(r => {
         C.nearBusy = false;
         if (C.code) return;
-        if (!r.ok || !r.j || !Array.isArray(r.j.rooms)) { C.near = []; C.nearErr = r.status === 404 ? 'This relay does not list rooms by network (an older relay).' : 'The relay answered ' + r.status + '.'; changed(); return; }
+        if (!r.ok || !r.j || !Array.isArray(r.j.rooms)) { C.near = []; C.nearErr = r.status === 404 ? 'This relay does not list rooms by network (an older relay).' : r.status === 401 ? AUTH_TEXT : 'The relay answered ' + r.status + '.'; changed(); return; }
         const list = r.j.rooms.filter(o => o && /^[A-Z]{3}$/.test(o.code) && (!o.version || o.version === FORMAT))
           .map(o => ({ code: o.code, name: String(o.name || '').slice(0, 32), members: +o.members || 0, stations: +o.stations || 0 }));
         const net = NET_RE.test(r.j.net || '') ? r.j.net : '';
@@ -3073,7 +3226,7 @@
   // the menu carried by the grip (MG): the controller it follows, how far along its ray it was taken, and where the
   // menu's top edge was from that point
   const MG = { src: null, i: -1, dist: 0, off: new THREE.Vector3(), at: 0 };
-  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0, self: false, gs: 0 };   // (code: the letters typed on its keypad page; gs: the room setup guide's page)
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', pass: '', tab: tab0(), used: 0, self: false, gs: 0 };   // (code: the letters typed on its keypad page; pass: the relay's password typed on its own; gs: the room setup guide's page)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   function menuOpen(on, why) {
     on = !!on;
@@ -3083,7 +3236,7 @@
       const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.pos.d).applyQuaternion(HD.q).add(HD.p) : null;
       sfx(on ? 'open' : 'close', at);
     }
-    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
+    PNL.open = on; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
     if (!on && MG.src) menuPut();   // (closed while carried)
     PNL.self = on && /^(question|empty|guide)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
     if (PNL.self) PNL.tab = 'circles';
@@ -3091,7 +3244,7 @@
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
   // the tabs, and the one it opens on: the one used last (kept on this headset)
-  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; put('xrMenuTab', t); }
+  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; put('xrMenuTab', t); }
   // where a press on the open menu sounds from (a headset; null on a screen)
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // how the menu opens, for the notices, and how it closes, for its header
@@ -3141,7 +3294,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, AUTH.state, AUTH.at, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -3183,6 +3336,36 @@
     button(S, 'code:join', x + bw + 16, y, bw, 60, ok ? 'Join ' + code : 'Join', ok ? () => { PNL.page = 'main'; PNL.code = ''; log('code', { code }); join(code); } : null, { primary: ok });
     y += 76;
     button(S, 'code:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.code = ''; }, { px: 23 });
+    return y + 58 + 24;
+  }
+  // the relay's password (relay --token, COLLAB_TOKEN; the owner, 3 November 2026), in place of the rest of the Circles tab
+  // as the code's page: what is typed so far, a keypad of the 26 lower-case letters and the ten digits (headsets cannot
+  // type, and the password is case-sensitive: whoever runs the relay picks a lower-case word with digits), Delete, Use
+  // (greyed while nothing is typed) and Back; a refusal is said here. Kept on this headset once the relay accepts it
+  function passPage(S, x, y, w) {
+    const ctx = S.ctx, t = PNL.pass || '', bw = (w - 16) / 2, checking = AUTH.state === 'checking';
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText('The relay\'s password', x, y); y += 42;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED;
+    y += wrapText(ctx, 'Lower-case letters and digits, as whoever runs the relay gave it. This headset keeps it for ' + (AUTH.at.replace(/^https?:\/\//, '') || 'this relay') + ', so it is entered once.', x, y, w, 28, 3) + 14;
+    rr(ctx, x, y, w, 80, 12); ctx.fillStyle = 'rgba(70,217,255,0.12)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = CYAN; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    if (t) { ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, t, w - 40), x + 20, y + 42); }
+    else { ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText('Type it below', x + 20, y + 42); }
+    ctx.textBaseline = 'top';
+    y += 96;
+    const note = AUTH.state === 'need' ? '' : authLine();
+    if (note) { ctx.font = FONT(23, 700); ctx.fillStyle = checking ? MUTED : '#ffb43b'; y += wrapText(ctx, note, x, y, w, 30, 2) + 10; }
+    const keys = 'abcdefghijklmnopqrstuvwxyz0123456789', kw = (w - 80) / 9, kh = 64;   // nine keys to a row
+    for (let i = 0; i < keys.length; i++) {
+      const ch = keys[i];
+      button(S, 'pk:' + ch, x + (i % 9) * (kw + 10), y + Math.floor(i / 9) * (kh + 10), kw, kh, ch, t.length < 64 ? () => { PNL.pass = (PNL.pass || '') + ch; } : null, { px: 30 });
+    }
+    y += 4 * (kh + 10) + 8;
+    const ok = !!t && !checking;
+    button(S, 'pass:del', x, y, bw, 60, 'Delete', t ? () => { PNL.pass = t.slice(0, -1); } : null);
+    button(S, 'pass:use', x + bw + 16, y, bw, 60, checking ? 'Checking...' : 'Use', ok ? () => authTry(t) : null, { primary: ok });
+    y += 76;
+    button(S, 'pass:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.pass = ''; }, { px: 23 });
     return y + 58 + 24;
   }
   // the room setup guide (the owner, 2 November 2026: a group starts a shared room from zero and knows whether the headsets
@@ -3534,6 +3717,8 @@
     }
     // Circles: a room's code typed in (a keypad: headsets cannot type), in place of the rest of the tab
     if (PNL.page === 'code') { finish(codePage(S, x, y, w)); return; }
+    // the relay's password likewise (while the relay wants one)
+    if (PNL.page === 'pass') { if (authAsk()) { finish(passPage(S, x, y, w)); return; } PNL.page = 'main'; PNL.pass = ''; }
     // the room setup guide's pages, likewise (only for a headset in the room with the others: else the tab as ever)
     if (PNL.page === 'guide') { if (guideOn()) { finish(guidePage(S, x, y, w)); return; } PNL.page = 'main'; }
     // the shared room: its code, how many are in it, the connection
@@ -3545,6 +3730,14 @@
     // (how this headset lines up: here, or in the Room setup row below for a headset in the room with the others)
     ctx.fillText(fit(ctx, C.code ? connLine() + (R.status() && !guideOn() ? ' · ' + R.status() : '') : C.relay ? 'Join others in a room' : 'Place the stories in your room', w), x, y); y += 42;
     if (C.note) { ctx.font = FONT(23); ctx.fillStyle = '#ffb43b'; y += wrapText(ctx, C.note, x, y, w, 31, 3) + 10; }
+    // the relay wants its password (no room starts or is joined there without it): its keypad page. A headset that has it
+    // already (typed on its 2D page before VR) never sees this
+    if (authAsk()) {
+      ctx.font = FONT(23); ctx.fillStyle = AUTH.state === 'need' || AUTH.state === 'checking' ? INK : '#ffb43b';
+      y += wrapText(ctx, AUTH_TEXT + ' ' + (AUTH.state === 'need' ? 'Enter it once on this headset.' : authLine()), x, y, w, 31, 2) + 10;
+      button(S, 'pass', x, y, w, 62, 'Relay password', () => { PNL.page = 'pass'; PNL.pass = ''; }, { primary: true, px: 25 });
+      y += 78;
+    }
     if (!C.code) {
       // rooms on this network first (and the room used last, when it is not joined by itself here: Start again), then the
       // relay's other open rooms and the rooms kept here (six rows at most in all, so a note above them still leaves room
@@ -3733,11 +3926,11 @@
   function connLine() {
     if (C.local) return 'on this device';
     if (C.via === 'peer') {   // (peer to peer: who hosts it)
-      if (C.status !== 'open') return C.status === 'refused' ? 'peer to peer · refused' : C.takeover ? 'peer to peer · the host has gone: taking over' : 'peer to peer · connecting...';
+      if (C.status !== 'open') return C.status === 'refused' ? 'peer to peer · refused' : C.status === 'auth' ? 'peer to peer · waiting for the password' : C.takeover ? 'peer to peer · the host has gone: taking over' : 'peer to peer · connecting...';
       const h = C.members.find(m => m.host);
       return 'peer to peer · ' + (hosting() ? 'hosted here' : h ? 'hosted by ' + (h.name || 'someone') : 'connected');
     }
-    return { open: 'connected', connecting: 'connecting...', refused: 'refused', off: 'not connected' }[C.status] || C.status;
+    return { open: 'connected', connecting: 'connecting...', refused: 'refused', off: 'not connected', auth: 'waiting for the relay\'s password' }[C.status] || C.status;
   }
   // a room on this device: why (shown in the dialog and the headset's menu)
   const whyLocal = () => (C.peer === 'off' && !C.relay ? 'peer to peer is off and no relay is known' : C.peerFail ? 'neither a relay nor the peer-to-peer introduction server answered' : 'no relay was reached');
@@ -5782,7 +5975,7 @@
     const last = entries[entries.length - 1].n;
     UP.busy = true;
     api('log', { room: C.code, id: C.id, name: C.name, kind: kind(), entries }).then(r => {
-      if (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 429) || r.status === 507) UP.n = last;   // sent, or never will be
+      if (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 429 && r.status !== 401) || r.status === 507) UP.n = last;   // sent, or never will be
       if (r.status === 404 || r.status === 405 || r.status === 507) { UP.off = true; log('log upload off', { status: r.status }); }
     }, () => { /* the relay is away: next time */ }).then(() => { UP.busy = false; });
   }
@@ -5935,6 +6128,8 @@
       const [act, arg] = b.dataset.sh.split(':');
       if (act === 'close') dialog(false);
       else if (act === 'relay') typed($('#shRelay').value);
+      else if (act === 'pass') { const f = $('#shPass'); if (f && f.value.trim()) authTry(f.value); }
+      else if (act === 'forget') authForget();
       else if (act === 'relay2') { const v = $('#shRelay2') && $('#shRelay2').value; if (v) { setRelay(v, 'typed'); probe(performance.now(), true); } }
       else if (act === 'refresh') { listRooms(); nearFind('refresh'); }
       else if (act === 'start') create();
@@ -5968,6 +6163,7 @@
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
     $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
+    $('#shPass').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) authTry(ev.target.value); });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
     DLG.map.style.touchAction = 'none';
@@ -6043,7 +6239,19 @@
         peerOn() ? `No relay known: a room you start runs peer to peer. The devices talk to each other directly; ${peerServer().name} only introduces them. Start the room on a laptop or desktop page that stays awake, and send the others its link. Or enter a relay's address.` :
           'Shared rooms need a relay: a small server on your network that keeps a room in step. Enter its address. Without one (peer to peer is off), a room works on this device alone.');
     st.classList.toggle('warn', !!C.note);
-    $('.sh-relay').hidden = !!C.served && !C.note;
+    // the relay's password: asked for while the relay wants one (in a room too: it waits for it); Forget the password in the
+    // relay's part while this device keeps one for it
+    const pw = $('.sh-pass'), kept = !!(C.relay && tokens()[originOf(C.relay)]);
+    if (pw) {
+      pw.hidden = !authAsk();
+      const pn = $('.sh-passnote'), bad = /^(wrong|stale|limit|away)$/.test(AUTH.state);
+      if (pn) { pn.textContent = authLine(); pn.classList.toggle('warn', bad); }
+      const pb = $('[data-sh="pass"]');
+      if (pb) pb.disabled = AUTH.state === 'checking';
+    }
+    $('.sh-relay').hidden = !!C.served && !C.note && !kept;
+    const fg = $('[data-sh="forget"]');
+    if (fg) fg.hidden = !kept;
     if (!joined) {
       // rooms on this network (and the room used last, when it is not joined by itself here), then the relay's other open
       // rooms, then the rooms kept here
@@ -6291,6 +6499,9 @@
     get net() { return C.net; }, nearby: () => C.near, findNear: () => nearFind('api'), get nearOn() { return nearShown(); }, setNear: on => setNear(on),
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
+    // the relay's password: whether one is wanted ({ state, at, kept: one kept here for this relay }), one tried, forgotten
+    auth: () => ({ state: AUTH.state, at: AUTH.at, kept: !!(C.relay && tokens()[originOf(C.relay)]), waiting: C.status === 'auth', create: !!C.wantCreate }),
+    authTry: t => authTry(t), authForget: () => authForget(),
     notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     // the room setup guide: what it shows ({ open, step, status: how this headset lines up, check: what the check says,

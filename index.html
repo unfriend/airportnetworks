@@ -350,6 +350,9 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #95a6bd; }
 #shared .sh-status { margin: 6px 0 0; color: #a9b8cc; font-size: 14px; }
 #shared .sh-status.warn { color: #ffb43b; }
+#shared .sh-pass { border: 1px solid rgba(255, 180, 59, 0.45); border-radius: 8px; padding: 2px 12px 8px; margin: 6px 0 10px; }
+#shared .sh-pass h3 { color: #ffb43b; }
+#shared .sh-passnote.warn { color: #ffb43b; font-weight: 600; }
 #shared .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 #shared .row.mt { margin-top: 10px; }
 #shared input, #shared select { background: rgba(4, 9, 18, 0.9); color: #e7eef8; border: 1px solid rgba(140, 170, 210, 0.35); border-radius: 6px;
@@ -663,12 +666,18 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
   <div class="box">
     <header><h2 id="shTitle">Shared space</h2><button class="btn" type="button" data-sh="close">Close</button></header>
     <p class="sh-status" aria-live="polite"></p>
+    <div class="sh-pass" hidden>
+      <h3>This relay needs its password</h3>
+      <div class="row"><input id="shPass" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="The relay's password"><button class="btn primary" type="button" data-sh="pass">Use</button></div>
+      <p class="hint sh-passnote" aria-live="polite"></p>
+    </div>
     <div class="sh-out">
       <p class="hint">In a room, several headsets and screens see the same stories in step. Each story stands at a station, a spot in the room: walk up to one in a headset, or follow one on a screen. Start the room here, and this dialog shows the steps for lining the headsets up and how each one lines up.</p>
       <div class="sh-relay">
         <h3>Relay</h3>
         <div class="row"><input id="shRelay" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address"><button class="btn" type="button" data-sh="relay">Use</button></div>
         <p class="hint">Whoever runs the relay has its address. A page that comes from the relay finds it by itself.</p>
+        <div class="row"><button class="btn" type="button" data-sh="forget" hidden title="This device asks for the relay's password again">Forget the password</button></div>
       </div>
       <h3>Rooms on this network</h3>
       <ul class="sh-near"></ul>
@@ -2846,13 +2855,16 @@ HOST.live = (function () {
     return true;
   }
 
-  // ---- while developing: the relay's --watch
+  // ---- while developing: the relay's --watch (a relay with a password: the one this device keeps for it, shared.js's
+  // relayTokens, as Bearer and, for the stream, ?token=; none kept yet: asked again once it is entered)
+  const relayToken = u => { try { const o = JSON.parse(localStorage.getItem('relayTokens') || '{}'), t = o && o[new URL(u).origin]; return typeof t === 'string' ? t : ''; } catch (e) { return ''; } };
   function watch() {
     if (L.watch || typeof EventSource === 'undefined' || location.protocol === 'file:') return;
-    fetch(root() + 'api/ping', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
+    const tok = relayToken(root());
+    fetch(root() + 'api/ping', { cache: 'no-store', headers: tok ? { Authorization: 'Bearer ' + tok } : {} }).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
       if (!j || !j.watch || L.watch) return;
       L.watching = true;
-      const es = L.watch = new EventSource(root() + 'api/watch');
+      const es = L.watch = new EventSource(root() + 'api/watch' + (tok ? '?token=' + encodeURIComponent(tok) : ''));
       quietly(() => { for (const t of ['hello', 'story', 'list', 'shell', 'build']) es.addEventListener(t, ev => heard(t, ev)); });
     });
   }
@@ -2957,7 +2969,7 @@ HOST.live = (function () {
         }, 250);
       }
     },
-    check, reread, missing, note, reload, later,
+    check, reread, missing, note, reload, later, watch,
     ask: (kind, key) => ask(kind, key, true),
     // may this story start? (one never loaded here that needs a newer shell is asked about first)
     allowed(key) {

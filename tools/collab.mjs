@@ -61,6 +61,11 @@
 // apart, one alone; the first headset's calibration on two spots setting the room, the second straight to Check, checks
 // on their own at spot A and B, green and red, Calibrate from Line up; the laptop's Setting up a room; with --shots its
 // pictures);
+// --token only the relay's password (tokenRound, not in the main run: a relay of its own with COLLAB_TOKEN; a page
+// without it sees the dialog's field and nothing starts or is joined peer to peer; a wrong one refused; the right one
+// starts the room and is kept; a second page joins by the link, which has no password; a pretend headset uses the menu's
+// keypad page and joins; the password in no log, address, room key or relay line; Forget the password; with --shots
+// token-*.png);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -78,6 +83,7 @@ import { connect as tcpConnect } from 'net';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 const STORIES = {
   airports: {
@@ -279,6 +285,7 @@ const SMOOTH_ONLY = argv.includes('--smooth');   // (only others' moves drawn sm
 const CODE_ONLY = argv.includes('--code');   // (only a room joined by its code from a headset's menu: codeRound)
 const ALL_ONLY = argv.includes('--all');   // (only the All stories and Back to the lobby circles: allRound, in a room of its own)
 const GUIDE_ONLY = argv.includes('--guide');   // (only the room setup guide and Touch the spot: guideRound, in a room of its own)
+const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: tokenRound, a relay of its own with COLLAB_TOKEN; not in the main run)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -2495,6 +2502,133 @@ async function guideRound() {
   for (const p of [A, H1, H2]) await p.context().close();
 }
 
+// ---- the relay's password (--token runs only this part; a relay of its own with COLLAB_TOKEN, a minute or two). A page
+// without it sees the dialog's field, and nothing starts or is joined peer to peer or on the device meanwhile; a wrong one
+// is refused with its note; the right one starts the room on the relay and is kept for the relay's origin; a page that has
+// it joins by the link, which carries none; a pretend headset without it gets the menu's Relay password row and its keypad
+// page (letters and digits, Delete, Use greyed while empty, a wrong one refused) and joins; the password is in no log, no
+// address, no room key and none of the relay's lines or files; Forget the password asks for it again
+async function tokenRound() {
+  const PASS = 'networks' + Math.floor(1000 + Math.random() * 9000) + 'future';   // (made here: no password is kept in the repository)
+  const logs = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-pass-'));
+  const T = { proc: null, port: 0, out: '' };
+  T.proc = spawn(process.execPath, ['relay/server.mjs', '--port', '0', '--host', '127.0.0.1', '--static', '.', '--logs', logs], { cwd: root, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: PASS } });
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('the relay with a password did not start: ' + T.out)), 10000);
+    T.proc.stdout.on('data', d => { T.out += d; const m = /listening on http:\/\/[^:]+:(\d+)/.exec(T.out); if (m && !T.port) { T.port = +m[1]; clearTimeout(t); res(); } });
+    T.proc.stderr.on('data', d => { T.out += d; });
+  });
+  const tb = `http://127.0.0.1:${T.port}/`, origin = `http://127.0.0.1:${T.port}`, pages = [];
+  const topen = async (hash, o = {}) => {
+    const ctx = await browser.newContext({ viewport: o.size || { width: 900, height: 700 } });
+    if (o.token) await ctx.addInitScript(([k, t]) => { try { localStorage.setItem('relayTokens', JSON.stringify({ [k]: t })); } catch (e) { /* storage blocked */ } }, [origin, o.token]);
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    page.on('console', m => { if (m.type() === 'error' && !/404|401|Failed to load resource|WebSocket connection/.test(m.text())) errors.push(m.text()); });
+    await page.goto(tb + 'index.html' + hash, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(page);
+    return page;
+  };
+  const auth = p => p.evaluate(() => HOST.collab.auth());
+  const kept = p => p.evaluate(o => { try { return (JSON.parse(localStorage.getItem('relayTokens') || '{}') || {})[o] || ''; } catch (e) { return ''; } }, origin);
+  const peerish = p => p.evaluate(() => window.__collabLog.filter(e => /^(peer to peer|local room|hosting)/.test(e.ev)).map(e => e.ev));
+  const shot = async (page, file) => { if (shots) { fs.mkdirSync(shots, { recursive: true }); await page.screenshot({ path: path.join(shots, file) }); } };
+  try {
+    // a page without the password: the relay serves it, and the dialog asks for its password; nothing starts meanwhile
+    const A = await topen('#stories');
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.dialog(true); });
+    const need = await until(A, () => HOST.collab.auth().state === 'need', null, 10000);
+    const field = await until(A, () => { const d = document.querySelector('#shared .sh-pass'); return !!d && !d.hidden && getComputedStyle(d).display !== 'none' && /needs its password/.test(d.textContent); }, null, 5000);
+    await A.evaluate(() => HOST.collab.create());
+    await sleep(2500);
+    const a0 = await A.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, a: HOST.collab.auth(), relay: HOST.collab.relay }));
+    await A.evaluate(() => HOST.collab.join('QQJ'));
+    await sleep(2500);
+    const j0 = await A.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, status: HOST.collab.status, local: HOST.collab.local }));
+    await A.evaluate(() => HOST.collab.leave());
+    const p0 = await peerish(A);
+    await shot(A, 'token-1-field.png');
+    check('password: a page without the relay\'s password sees the dialog\'s field (This relay needs its password); Start a room waits for it, a join by code waits for it on the relay, nothing peer to peer or on this device',
+      need && field && !a0.code && a0.a.create && a0.relay === origin && j0.code === 'QQJ' && j0.via === 'relay' && j0.status === 'auth' && !j0.local && !p0.length,
+      JSON.stringify({ need, field, a0, j0, p0, a: await auth(A) }));
+    // a wrong one: refused, said so, nothing kept
+    await A.fill('#shPass', 'wrong' + PASS.slice(5, 9));
+    await A.click('[data-sh="pass"]');
+    const wrong = await until(A, () => HOST.collab.auth().state === 'wrong' && /not this relay's password/.test(document.querySelector('#shared .sh-passnote').textContent), null, 8000);
+    await shot(A, 'token-2-wrong.png');
+    check('password: a wrong one is refused with "That is not this relay\'s password", and nothing is kept', wrong && !(await kept(A)) && !(await A.evaluate(() => HOST.collab.code)),
+      JSON.stringify({ wrong, a: await auth(A), note: await A.evaluate(() => document.querySelector('#shared .sh-passnote').textContent) }));
+    // the right one: the room waiting to start starts on the relay; the password kept for the relay's origin
+    await A.fill('#shPass', PASS);
+    await A.press('#shPass', 'Enter');
+    const opened = await until(A, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
+    const rc = await A.evaluate(() => HOST.collab.code), aDone = await auth(A), aKept = await kept(A);
+    const hidden = await A.evaluate(() => document.querySelector('#shared .sh-pass').hidden);
+    check('password: the right one is accepted, kept under the relay\'s origin (relayTokens), the field goes, and the room that waited starts on the relay',
+      opened && aKept === PASS && !aDone.state && aDone.kept && hidden, JSON.stringify({ opened, rc, aDone, kept: aKept === PASS, hidden, st: await A.evaluate(() => [HOST.collab.status, HOST.collab.via]) }));
+    // a second device that has it joins by the link, which carries no password
+    const link = await A.evaluate(() => location.href.replace(/#.*$/, '') + HOST.collab.hash());
+    const B = await topen(link.slice(link.indexOf('#')), { token: PASS });
+    const bIn = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.via === 'relay', rc, 20000);
+    check('password: a second page that has it joins by the room\'s link; the link and the address carry no password', bIn && !link.includes(PASS) && link.includes('s=' + rc) &&
+      !(await B.evaluate(() => location.href)).includes(PASS) && !(await A.evaluate(() => location.href)).includes(PASS), JSON.stringify({ bIn, link: link.replace(PASS, '<the password>') }));
+    // a pretend headset without it: the menu's Relay password row, its keypad page, a wrong one refused, then the right one
+    const H = await topen('#airports', { size: { width: 320, height: 200 } });
+    await ready(H, 'airports');
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await H.evaluate(async () => { window.__xr.begin(); await HOST.collab.detect(); HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); });
+    await frames(H, 300);
+    const tap = id => H.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
+      for (let k = 0; k < 2; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } return ok; }, id);
+    const has = id => H.evaluate(id => { const r = HOST.collab.menuFind(id); return r ? !!r.fn : null; }, id);
+    const hNeed = await until(H, () => HOST.collab.auth().state === 'need', null, 10000);
+    const row = await has('pass'), page = await tap('pass'), use0 = await has('pass:use'), keys = await H.evaluate(() => HOST.collab.menuIds().filter(i => /^pk:/.test(i)).map(i => i.slice(3)).join(''));
+    if (shots) { const u = await H.evaluate(() => HOST.collab.overlay().panel.ctx.canvas.toDataURL('image/png')); fs.writeFileSync(path.join(shots, 'token-3-keypad.png'), Buffer.from(u.split(',')[1], 'base64')); }
+    let typed = true;
+    for (const ch of 'nope1') typed = (await tap('pk:' + ch)) && typed;
+    const use1 = await has('pass:use');
+    await tap('pass:use');
+    const hWrong = await until(H, () => HOST.collab.auth().state === 'wrong', null, 8000);
+    await frames(H, 200);
+    const stillPage = await has('pass:del');
+    for (let k = 0; k < 5; k++) await tap('pass:del');
+    const emptied = await has('pass:use');
+    for (const ch of PASS + 'z') typed = (await tap('pk:' + ch)) && typed;
+    const del = await tap('pass:del');
+    await tap('pass:use');
+    const hOk = await until(H, () => !HOST.collab.auth().state && HOST.collab.auth().kept, null, 10000);
+    await frames(H, 200);
+    const rowGone = await has('pass');
+    await H.evaluate(c => HOST.collab.join(c), rc);
+    const hIn = await until(H, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.via === 'relay', rc, 20000);
+    check('password: a pretend headset without it gets the menu\'s Relay password row; its keypad page (26 letters and 10 digits, Use greyed while empty, Delete) refuses a wrong one and takes the right one; the row goes and it joins the room',
+      hNeed && row === true && page && use0 === null && keys === 'abcdefghijklmnopqrstuvwxyz0123456789' && typed && use1 === true && hWrong && stillPage === true && emptied === null && del && hOk && rowGone === null && hIn && (await kept(H)) === PASS,
+      JSON.stringify({ hNeed, row, page, use0, keys, typed, use1, hWrong, stillPage, emptied, del, hOk, rowGone, hIn, a: await auth(H) }));
+    // nowhere else: the pages' logs and addresses, the room's keys, the relay's lines and its log files
+    await frames(H, 11000);   // (a headset in a room sends its log to the relay every 10 s)
+    const inLog = [];
+    for (const p of [A, B, H]) if (await p.evaluate(t => JSON.stringify(window.__collabLog).includes(t) || location.href.includes(t) || JSON.stringify([...HOST.collab.internals().keys]).includes(t), PASS)) inLog.push(pages.indexOf(p));
+    const room = await (await fetch(tb + 'api/rooms/' + rc, { headers: { Authorization: 'Bearer ' + PASS } })).text();
+    const files = fs.readdirSync(logs).map(f => fs.readFileSync(path.join(logs, f), 'utf8')).join('\n');
+    check('password: in no page\'s log (window.__collabLog), address or room key, not in the room the relay keeps, nor in the relay\'s lines or its log files',
+      !inLog.length && room.includes(rc) && !room.includes(PASS) && !T.out.includes(PASS) && files.length > 0 && !files.includes(PASS) && /A password is needed/.test(T.out),
+      JSON.stringify({ inLog, room: room.length, out: T.out.includes(PASS), files: files.length, inFiles: files.includes(PASS) }));
+    // Forget the password (the dialog's relay part): asked for again
+    await A.evaluate(() => { HOST.collab.leave(); HOST.collab.dialog(true); });
+    const fb = await until(A, () => { const b = document.querySelector('[data-sh="forget"]'); return !!b && !b.hidden && !b.closest('[hidden]'); }, null, 5000);
+    await A.click('[data-sh="forget"]');
+    const forgot = await until(A, () => HOST.collab.auth().state === 'need' && !document.querySelector('#shared .sh-pass').hidden, null, 10000);
+    check('password: Forget the password in the dialog\'s relay part takes it off this device, and the field asks for it again', fb && forgot && !(await kept(A)),
+      JSON.stringify({ fb, forgot, a: await auth(A) }));
+    await H.evaluate(() => window.__xr.end()).catch(() => {});
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await new Promise(r => { T.proc.once('exit', r); T.proc.kill(); });
+    fs.rmSync(logs, { recursive: true, force: true });
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -2508,6 +2642,7 @@ try {
   if (CODE_ONLY) { await codeRound(); break main; }
   if (ALL_ONLY) { await allRound(); break main; }
   if (GUIDE_ONLY) { await guideRound(); break main; }
+  if (TOKEN_ONLY) { await tokenRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -4856,8 +4991,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

@@ -171,7 +171,13 @@ function stop(quiet) {
   if (S.peer) { try { S.peer.destroy(); } catch (e) { /* gone */ } S.peer = null; }
   if (!quiet) { S.role = ''; S.server = 'stopped'; $('#stop').disabled = true; render(); }
 }
-const peerOpts = () => ({ ...SERVER.opts, config: { iceServers: ICE }, debug: 0 });   // (this page says what goes wrong itself)
+// a relay's introduction server that wants the relay's password: the one the app keeps for it on this device (localStorage
+// relayTokens, by origin: enter it once in the app's Shared dialog at the same address), as PeerJS's key
+const KEY = (() => {
+  if (!SERVER.opts.host) return '';
+  try { const o = JSON.parse(localStorage.getItem('relayTokens') || '{}'), t = o && o[new URL((SERVER.opts.secure ? 'https://' : 'http://') + SERVER.opts.host + ':' + SERVER.opts.port).origin]; return typeof t === 'string' ? t : ''; } catch (e) { return ''; }
+})();
+const peerOpts = () => ({ ...SERVER.opts, ...(KEY ? { key: KEY } : {}), config: { iceServers: ICE }, debug: 0 });   // (this page says what goes wrong itself)
 
 // the first device with a room code takes its id and becomes the host; anyone after finds the id taken and links to it
 function host() {
@@ -217,6 +223,7 @@ function peerError(e) {
     'socket-closed': 'The introduction server closed the connection.',
     'peer-unavailable': 'The host is not there (it may just have left).',
     'unavailable-id': 'That room code is in use.',
+    'invalid-key': `The introduction server (${SERVER.name}) wants the relay's password: enter it once in the app's Shared dialog at that address, then reload this page.`,
     webrtc: 'WebRTC error: ' + (e && e.message),
   }[t] || `${t || 'error'}: ${e && e.message}`;
   log(say, 'bad');
