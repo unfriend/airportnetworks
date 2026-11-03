@@ -186,8 +186,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   story's code may keep it (`XR_STORIES`). Nothing in a story writes the number
   of stories in: the title and Stories screen say it in words up to twenty
   (`HOST.count()`; the headsets' `drawLandHead` the same), and the headset
-  Stories screen spaces its cards from the number (`xrLandingCards`, built
-  again when `HOST.listRev` moves on). A story the list does not have (a shared
+  Stories screen lays its cards out in two rows from the number
+  (`xrLandingCards`, built again when `HOST.listRev` moves on). A story the list does not have (a shared
   room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`.
 - `HOST.start(key)` loads `stories/<key>.js` if needed (`HOST.load`: fetched as
   text, its fingerprint noted in `HOST.fp`, run as a script; a file that
@@ -229,7 +229,19 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   (`HOST.landingVR` / `HOST.picking`) shows the headset Stories screen
   (`XR.stories`, built by `xrLandingSetup`). Entering VR/AR from inside a
   story resumes that story. In a shared room a headset never shows the
-  Stories screen (see "Shared rooms").
+  Stories screen (see "Shared rooms"), except at an All stories circle.
+  - The headset Stories screen (v109; the same lines in all sixteen stories and the design room, on `XR.landGroup` in
+    `GL.rig`): a header (`XR.land[0]`, `drawLandHead`, 1.02 m wide) with only the title (*Networks, in sixteen
+    stories*), its hint (or where an anchored place stands, `HOST.anchor.status()`) and *Back to the story* (while
+    `XR.inStory` and not at an All stories circle's cards); the sound, Sound check, Anchor, Exit, Recenter or Place
+    again and Repeat are the headset's menu's, not on it. Under it one card per story (`XR.land[1..]`, in
+    `HOST.list`'s order, 0.36 m x 0.461 m, the whole card a button: here and not at an All stories circle's cards back
+    into the story, else `HOST.go(key)`) in two rows on one arc, as the All stories circle's icon has them: the first
+    half of the list (rounded up) in the upper row, the rest under it, a shorter row centred, each card turned to you.
+    In a row neighbours stand 0.381 m apart and the outer ones at most 62 degrees to the side, never nearer than
+    1.25 m (sixteen: eight a row, 0.306 rad apart at 1.25 m). Heights over your eyes (`XR_LAND`): the header's middle
+    0.475 m, the rows' middles 0.13 m and -0.38 m (0.05 m apart, the upper row's top 0.03 m under the header), so it
+    reaches from 0.56 m above your eyes to 0.61 m below, the header 1.22 m ahead.
 - The address mirrors the state (`HOST.setUrl`): `#stories` while the Stories
   screen shows (page or headset), `#<key>` in a story. A `#<key>` link opens
   that story directly; no hash or `#stories` lands on the Stories screen.
@@ -569,10 +581,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `sync` plays nothing and `speaking()` is false while it is off, so the story
     runs on its own clock and the effects do not duck; the mute (the Sound
     button) stays this device's quick mute of everything.
-  - Sound check (`#soundcheck`, a button on the Stories screen; in the headset
-    a panel that takes the place of the story cards, `drawSoundCheck`, and a
-    page of the headset's menu, the shell's `soundPage`, so it is there in a
-    shared room too) shows `HOST.audio.report()`, plays a beep through each
+  - Sound check (`#soundcheck`, a button on the page's Stories screen; in the
+    headset a page of its menu, the shell's `soundPage`, in or out of a shared
+    room; since v109 no longer a panel of the headset Stories screen) shows `HOST.audio.report()`, plays a beep through each
     engine and lets the user pick an engine (`soundEngine` in `localStorage`).
     Ask a user with sound problems on a device for those lines.
   - Listeners the shell adds while a story runs (a new context, the headset
@@ -1375,7 +1386,7 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     menu, never the story's panel (`xrGrab` ignores `h.menu`). Over them the story's title in its colour; with no story
     on show a line instead (in a room away from every station: walk into a circle; else pick one). The story gives
     its panels through the `panels` hook (below).
-  - **Settings**: Exit (ends the session: the story panels have no Exit), *Recenter* and *Anchor: on/off* side by side
+  - **Settings**: Exit (ends the session: neither the story panels nor the headset Stories screen have one), *Recenter* and *Anchor: on/off* side by side
     (Recenter, the owner, 30 October 2026: the story's own, `HOST.cur.recenter`, as the story panel's
     button: you in front of it again, *Place again* while anchored; at a station the station's scene and panel back
     where the story puts them, for everyone at its circle, greyed while its story is locked; greyed away from every
@@ -1773,8 +1784,8 @@ reference, `tools/flock/engine/`):
   `drawMain`, after the room's Stories line,
   `else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);`. The smoke test checks
   the lines are in all sixteen stories and the design room.
-- Recenter, next to `xrRecenter` (the panel's Recenter and Place again buttons, and `recenter: xrRecenterAsk,` in the
-  returned object after `caption`, for the menu):
+- Recenter, next to `xrRecenter` (the story panel's Recenter button, and `recenter: xrRecenterAsk,` in the returned
+  object after `caption`, for the menu's Recenter and Place again):
   `function xrRecenterAsk() { if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter(); if (HOST.anchor.on) HOST.anchor.again(); XR.needRecenter = true; return true; }`
   (at a station the station's scene and panel go back where the story puts them, for everyone at its circle; else you
   in front of it again; a shell without `HOST.room.recenter` gives the old behaviour).
@@ -2779,7 +2790,9 @@ with its card as `props.json` has it, a pretend headset's grip, its shared state
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
 Next going on), exercises explore
-mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil and pass stories every explore tool too,
+mode and the headset panels (the headset Stories screen too: its header only the title, the hint and Back to the story,
+its cards in two rows, the first half of the list on top, each row level, centred and in the list's order, under the
+header and within about 0.65 m of the eyes; for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil and pass stories every explore tool too,
 for the tissue topology story the panes' numbers against its data (the patch's counts at the poster's snapshots, the
 held-out test, a window's share of the gap, the two groups, cell v's score), for the soil story the panes' numbers
 against its data (nitrate on day 24, day 70's chlorophyll read off the slides, the network's links at three thresholds,

@@ -153,36 +153,37 @@ const XR_HERE = 'micro';
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
-// floating in an arc in front of you while the story itself is hidden.
+// in two rows on an arc in front of you while the story itself is hidden.
+// Its heights over your eyes (the rig): the header's middle, and the middles of the cards' two rows (0.461 m tall,
+// 0.05 m apart, the upper one's top 0.03 m under the header), so it reaches from 0.56 m above your eyes to 0.61 m below
+const XR_LAND = { head: 0.475, rows: [0.13, -0.38] };
 function xrLandingSetup() {
   XR.land = [];
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
-  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted + HOST.anchor.status() + HOST.list.length);
-  head.mesh.position.set(0, 0.36, -1.22);
+  // the header: the title, a hint and Back to the story (the sound, Sound check, Anchor, Exit, Recenter and Repeat are
+  // in the shell's menu, which a stick's click opens)
+  const head = makePanel(1400, 236, 1.02, drawLandHead, () => 'h' + XR.inStory + xrCards() + HOST.anchor.status() + HOST.list.length);
+  head.mesh.position.set(0, XR_LAND.head, -1.22);
   XR.landGroup.add(head.mesh); XR.land.push(head); XR.panels.push(head);
   xrLandingCards();
-  // Sound check (opened from the header), in the place of the story cards
-  XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => (XR.snd.mesh.visible ? 'snd' + Math.floor(performance.now() / 500) : 'off'));
-  XR.snd.mesh.position.set(0, -0.17, -1.2);
-  XR.landGroup.add(XR.snd.mesh); XR.panels.push(XR.snd);
-  XR.panelMeshes = XR.panels.map(P => P.mesh);
 }
-// One card per story, 0.36 m wide, on an arc for any number of stories: neighbours 0.381 m apart and the outer ones at
-// most 62° to the side (fifteen: 0.155 rad apart at 2.46 m), never nearer than 1.25 m (a few stories stand closer
-// together in angle). Built again when the shell's list of stories changes while the app runs (HOST.listRev: a story
-// added in a release gets its card)
+// One card per story, 0.36 m wide, in two rows on one arc, as the All stories circle's icon has them: the first half of
+// the stories (rounded up) in the upper row, in the list's order, the rest under them, a shorter row centred. In a row
+// neighbours stand 0.381 m apart and the outer ones at most 62° to the side (eight: 0.306 rad apart at 1.25 m), never
+// nearer than 1.25 m (a few stories stand closer together in angle). Built again when the shell's list of stories
+// changes while the app runs (HOST.listRev: a story added in a release gets its card)
 function xrLandingCards() {
   for (const P of XR.land.splice(1)) {
     XR.landGroup.remove(P.mesh); XR.panels.splice(XR.panels.indexOf(P), 1);
     P.tex.dispose(); P.mesh.geometry.dispose(); P.mesh.material.dispose();
   }
-  const n = HOST.list.length, d = Math.max(1.25, n > 1 ? 0.1905 / Math.sin(1.085 / (n - 1)) : 0), step = 2 * Math.asin(0.1905 / d);
+  const n = HOST.list.length, per = Math.ceil(n / 2), d = Math.max(1.25, per > 1 ? 0.1905 / Math.sin(1.085 / (per - 1)) : 0), step = 2 * Math.asin(0.1905 / d);
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
-    const a = (k - (n - 1) / 2) * step;
+    const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
-    P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
+    P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
   });
@@ -203,41 +204,8 @@ function drawLandHead(ctx, P) {
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
-  // the sound, before a story starts: its state (press to start it, or to turn the narration off and on) and Sound check
-  const sl = audioLabel() || (HOST.audio.muted ? 'Sound off' : 'Sound');
-  vButton(ctx, P, 'land:sound', 48, 212, 300, 64, sl, () => audioToggle(), { on: sl === 'Sound on', px: 25 });
-  vButton(ctx, P, 'land:check', 362, 212, 250, 64, 'Sound check', () => { XR.soundCheck = !XR.soundCheck; }, { on: !!XR.soundCheck, px: 25 });
-  // Anchor: keep the scenes and panels at this spot in the room, for every story (pressing it lit turns it off)
-  vButton(ctx, P, 'land:anchor', 626, 212, 200, 64, 'Anchor', () => HOST.anchor.set(!HOST.anchor.on), { on: HOST.anchor.on, px: 25 });
-  let x = P.w - 44;
-  const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
-  hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
-  // anchored, Recenter becomes Place again: everything in front of you, then anchored there
-  if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
-  else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
+  // (the sound, Sound check, Anchor, Exit, Recenter or Place again, and Repeat are the shell's menu's, for every story)
   if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
-  // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
-  vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
-  vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
-}
-// Sound check in the headset: test beeps through each engine, the engine choice, and what is going on
-function drawSoundCheck(ctx, P) {
-  const x = 48, W = P.w - 96;
-  ctx.font = vfont(46, 700); ctx.fillStyle = VC.ink; ctx.fillText('Sound check', x, 36);
-  vButton(ctx, P, 'snd:close', P.w - 44 - 160, 30, 160, 60, 'Close', () => { XR.soundCheck = false; }, { px: 25 });
-  let y = 100 + textBlock(ctx, 'No narration? Press both beeps. If you hear only one, choose that way to play.', x, 100, W, 27, 37, VC.muted, 400, 2) + 14;
-  const bw = (W - 16) / 2, cw = (W - 48) / 4, p = HOST.audio.pref;
-  vButton(ctx, P, 'snd:beepW', x, y, bw, 70, 'Beep through Web Audio', () => HOST.audio.beep('webaudio'), { px: 26 });
-  vButton(ctx, P, 'snd:beepM', x + bw + 16, y, bw, 70, 'Beep through an audio element', () => HOST.audio.beep('media'), { px: 26 });
-  y += 86;
-  [['auto', 'Automatic'], ['webaudio', 'Web Audio'], ['media', 'Audio element']].forEach(([k, l], i) =>
-    vButton(ctx, P, 'snd:' + k, x + i * (cw + 16), y, cw, 62, l, () => HOST.audio.setEngine(k), { on: p === k, px: 24 }));
-  vButton(ctx, P, 'snd:reset', x + 3 * (cw + 16), y, cw, 62, 'Reset', () => HOST.audio.reset(), { px: 24 });
-  y += 84;
-  for (const line of HOST.audio.report()) {
-    if (y > P.h - 44) break;
-    y += textBlock(ctx, line, x, y, W, 22, 30, VC.muted, 400, 2) + 4;
-  }
 }
 function drawLandCard(ctx, P, s) {
   const here = s.key === XR_HERE, id = 'card', hov = P.hover === id;
@@ -289,7 +257,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it. A or X: play and pause.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it. A or X: play and pause.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 

@@ -423,10 +423,8 @@ function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
-    if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the arc
-    // Sound check takes the place of the story cards while it is open
-    for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
-    XR.snd.mesh.visible = land && !!XR.soundCheck;
+    if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
+    for (const P of XR.land) P.mesh.visible = land;
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and A or X still plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
@@ -542,7 +540,7 @@ function xrFreshStart() {
   // one a new wearer walks up to a station: no Stories screen in a room)
   if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
-  XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
+  XR.stories = true; XR.inStory = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
 }
@@ -580,8 +578,6 @@ function xrEnded() {
   GL.stars.visible = false;   // the sky has no stars yet
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
-  if (XR.snd) XR.snd.mesh.visible = false;
-  XR.soundCheck = false;
   // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
   // there): back to the Stories screen on the page
   if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }

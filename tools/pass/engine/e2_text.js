@@ -206,8 +206,8 @@ const STR = {
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel verschieben und drehen. A oder X: Abspielen und Anhalten.'],
   'xr.hint.fish.room': ['Trigger (or pinch): use buttons. Grip: in the sea move the school, on this panel move the panel, for everyone here. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben, an der Tafel die Tafel, für alle hier. A oder X: Abspielen und Anhalten.'],
-  'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
+  'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again in the menu.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Menü.'],
   'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
   'tip.city': ['{0} · {1} routes', '{0} · {1} Flugrouten'],
 };
