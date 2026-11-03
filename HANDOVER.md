@@ -553,16 +553,21 @@ Before handing over (or making anything more public), someone has to decide thes
 5. **The live site**: GitHub Pages publishes `main` at the owner's custom domain, https://stories.lbi-netmed.com/ (the
    `CNAME` file on main, 2 November 2026); https://unfriend.github.io/airportnetworks/ now redirects there (301). A new
    address starts empty in every browser and headset: install the app again there, and calibrate the headsets again. Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
-   - **The relay on a public server** (the owner's Coolify, considered on 29 October 2026; `relay/Dockerfile` is ready
-     for it: Dockerfile location `/relay/Dockerfile`, port 8787, a domain with HTTPS). It works wherever web pages do
-     (eduroam, hotspots), serves the app too, and peer to peer stays the fallback when it is down. **It has no login:**
-     anyone with its address can list the open rooms with the names of the people in them, read and change any room by
-     its 3-letter code, see names and positions, start rooms (at most 2,000) and use its introduction server. Rates,
-     sizes and room expiry are capped; no patient data passes through it; its alignment logs stay off unless `--logs`.
-     Two options were offered and set aside for now (owner: "no pins for now, I'll host this privately or think about
-     it"): an optional PIN for the relay (set in Coolify; asked once per page, a number pad in the headset's menu, or
-     carried by the room link) and a room list without names; either would cover the peer-to-peer rooms too. Once it is
-     up, its address can become the app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
+   - **The relay on a public server** (the owner's Coolify, considered on 29 October 2026; the step-by-step guide is
+     [relay/README.md](relay/README.md), "Public hosting on Coolify": a DNS name such as `rooms.lbi-netmed.com`,
+     Dockerfile location `/relay/Dockerfile`, port 8787, the domain with HTTPS, `RELAY_ARGS="--proxy 1 --public"` in its
+     environment, 512 MB, auto deploy from `main`). It works wherever web pages do (eduroam, hotspots), serves the app
+     too, and peer to peer stays the fallback when it is down. **`--public`** (3 November 2026; a laptop at an event
+     runs as before) lets only the app's pages (`https://stories.lbi-netmed.com` and the relay's own) open a socket or
+     use the API and the introduction server, lists no open rooms and names nobody in any answer or log line (*Rooms on
+     this network* still lists a room to the devices on its network, without names), slows guessing codes to 30
+     unknown codes a minute per address, caps new rooms (10 a minute), sockets (64) per address and every room's data
+     together (64 MB), and keeps logs only with a token from Coolify's environment (`RELAY_LOG_TOKEN`; the app sends none
+     yet). **It still has no login:** a room's 3-letter code is all it takes to read and change it and to see the names
+     and positions in it. The PIN (set in Coolify; asked once per page, a number pad in the headset's menu, or carried by
+     the room link) stays set aside (owner: "no pins for now, I'll host this privately or think about it"). Not yet
+     deployed: what only Coolify can show is listed at the end of the guide. Once it is up, its address can become the
+     app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;

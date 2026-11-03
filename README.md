@@ -118,7 +118,7 @@ same Wi-Fi as the headsets and serves the app itself:
 own and prints the address to open on each headset (accept the certificate
 warning once). The Wi-Fi must let devices reach each other (use your own router
 or a phone hotspot, not eduroam). `relay/README.md` has the step-by-step guide
-and the alternatives (`adb reverse`, later public hosting). Everything else
+and the alternatives (`adb reverse`, a public server on Coolify with `--public`). Everything else
 stays on GitHub Pages; a copy there can join a relay elsewhere with
 `&relay=wss://host:port` in the room link.
 

@@ -7,3 +7,19 @@ ikerdata
 docs
 relay/.lan
 relay/logs
+# a working copy's own: agents' worktrees, and anything with a secret in it (a relay's log token belongs in Coolify's
+# environment, never in a file here); inputs that must never be committed, should one lie about (.gitignore)
+.claude
+.env
+.env.*
+*.pem
+*.graphml
+*.h5ad
+*.pkl
+*.pickle
+*.xlsx
+Network_VR*
+*.nii
+*.nii.gz
+*.dcm
+*.nrrd

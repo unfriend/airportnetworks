@@ -1644,6 +1644,16 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   on the same Wi-Fi as the headsets and serves the app itself
   (`node relay/server.mjs --lan`, see `relay/README.md`); GitHub Pages serves
   everything else, and a copy there can join a relay elsewhere with `&relay=`.
+  On a public server (the owner's Coolify) it runs with `--public` (3 November
+  2026; `RELAY_ARGS="--proxy 1 --public"` in its environment; `relay/README.md`,
+  "Public hosting on Coolify"): only the app's pages and its own may open a
+  socket or use the API (`--origin`), no list of open rooms and no member's name
+  in any answer or log line (`GET /api/rooms` is `[]`, `/api/ping` says
+  `unlisted: true`), per address at most 30 lookups of unknown codes a minute
+  (then any code is refused: 429, or on a socket `error` `limit`, close 4029),
+  10 new rooms a minute and 64 sockets (`busy`, 4029), every room together 64 MB,
+  and logs only with a token (`X-Log-Token`; the app sends none). Off unless
+  asked: a laptop at an event runs as before.
 - The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
   `enterStory` to publish the clock, polls `collab.state()` five times a second
   and publishes it when its value changed; a value from the room goes through
@@ -2850,7 +2860,9 @@ rule, `fx`, timeouts, bad frames, static serving, `--logs`, the introduction
 server at `/peerjs`, rooms on this network: `/api/near` by the asker's network, a private address by its /24, IPv6 by its
 /64, `--proxy` and `X-Forwarded-For` ignored without it, `--proxy 2` taking the second address from the right (the first
 when there is only one) and `--proxy` alone the last, an empty room still listed on its members' networks, `near`
-off, and no address in any answer or log line, nor a network's id in the log; no browser, seconds; `node tools/peer.mjs` links two pages of
+off, and no address in any answer or log line, nor a network's id in the log; `--public` and each of its rules: origins
+allowed and refused, no room list or names, unknown codes, sockets and new rooms capped per address, the log token,
+`--store`, and nothing of it without `--public`; no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,

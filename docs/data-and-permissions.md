@@ -183,7 +183,11 @@ not name an address; but anyone who knows an address can work out its id, so it 
   only the ids, in memory, with the rooms (gone when a room expires or the relay restarts); no answer holds an address (a
   device is told only its own id), and no log line holds an address or an id (a slot's id shows with `******` in the
   log). Behind a reverse proxy it reads the
-  address from `X-Forwarded-For` only when started with `--proxy`.
+  address from `X-Forwarded-For` only when started with `--proxy`. With `--public` (a relay on the internet, the
+  owner's Coolify) its limits per address (lookups of room codes, new rooms, sockets) key each address by a hash made
+  with a key drawn afresh at every start, in memory only, forgotten two minutes after the address's last use; and no
+  answer and no log line names a member (no list of open rooms; *Rooms on this network* gives a code, people and
+  stations, no name). The people in a room still see each other's names, as its people list must.
 - **Without a relay** the page asks Cloudflare's STUN server for its public address (as in a peer-to-peer room
   above), hashes it at once and forgets it. It asks only when the Shared dialog or the headset's menu lists rooms,
   when a room is joined, or when the app opens with a room used in the last week.

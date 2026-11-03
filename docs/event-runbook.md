@@ -267,7 +267,8 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - whether the link to the relay keeps running inside a headset session;
 - rooms on this network on real networks: the STUN server's address on a home router, a mobile hotspot, eduroam or a
   conference Wi-Fi (devices behind one address should see each other's rooms; IPv6-only networks and VPNs untried), a
-  relay behind Coolify with `--proxy`, a headset rejoining by itself after a restart or the next morning (and its
+  relay behind Coolify with `--proxy` and `--public` (relay/README.md, "Public hosting on Coolify": its last paragraph
+  lists what only a deployment can show), a headset rejoining by itself after a restart or the next morning (and its
   calibration found by its anchors), a headset that ends up hosting handing over to the first laptop page;
 - peer to peer: rooms with headsets and phones (so far two laptops: they found each other on a local network with the
   test page `p2p/` and were in one peer-to-peer room, the owner, 29 October 2026), links that keep running inside VR and

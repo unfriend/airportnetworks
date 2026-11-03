@@ -8,12 +8,15 @@ can serve the app as well (`--static .`), so the page and the relay share one ad
 server for devices that link to each other directly (peer to peer, PeerJS's protocol at `/peerjs`; see
 [Introduction server for peer to peer](#introduction-server-for-peer-to-peer-peerjs)).
 
-**Where it runs.** For now on a machine (a laptop will do) on the **same Wi-Fi as the headsets**, not on the
-internet. It serves the app too, so every headset and desktop opens one address on that machine. GitHub Pages
-serves static files only, so it cannot run the relay; the app keeps working there for everyone else, and only
-shared rooms need the relay. Public hosting (Coolify) stays possible later: see the end of this file.
+**Where it runs.** On a machine (a laptop will do) on the **same Wi-Fi as the headsets**, or on a public server
+(the owner's Coolify) with `--public`. It serves the app too, so every headset and desktop opens one address on that
+machine. GitHub Pages serves static files only, so it cannot run the relay; the app keeps working there for everyone
+else, and only shared rooms need the relay. Public hosting: [Public hosting on Coolify](#public-hosting-on-coolify).
 
-**No accounts, no passwords: the room code is the secret.** Rooms live in memory: a restart empties them.
+**No accounts, no passwords: the room code is the secret.** Rooms live in memory: a restart empties them. On a
+laptop at an event the relay trusts everyone who can reach it; on the internet `--public` narrows that down (only the
+app's pages, no list of rooms or names, limits per address), but a room's code (three letters) is still all it takes
+to join it.
 
 **Running a session with headsets:** the checklist is [docs/event-runbook.md](../docs/event-runbook.md); this file
 is the reference for the relay itself.
@@ -21,7 +24,7 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public]
 ```
 
 | flag | default | meaning |
@@ -40,6 +43,27 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
 
+For a public server ([Public hosting on Coolify](#public-hosting-on-coolify)). Each is off unless given; `--public`
+turns on all of them, with the defaults in the second column (a value given on its own wins):
+
+| flag | with `--public` | meaning |
+| --- | --- | --- |
+| `--public` | | all of the below, and `--logs` only with a log token; no addresses to open on a LAN in the start lines |
+| `--origin <list>` | `https://stories.lbi-netmed.com` | only pages from these origins (comma separated, the flag may be repeated; a scheme, a host and an optional port, no path) and the relay's own pages may open a socket (`/api/ws`, `/peerjs`) or use the API and the introduction server over HTTP. The relay's own pages: an `Origin` whose host is the one the request was sent to (`Host`, or with `--proxy` also `X-Forwarded-Host`). Another origin: 403, before any socket. CORS names the allowed origin (`Vary: Origin`) instead of `*`. A request with no `Origin` (the relay's own page asking with GET, the health check, curl) is answered; a socket with none is refused unless `--allow-no-origin` |
+| `--allow-no-origin` | off | with an origin rule: also sockets that send no `Origin` (not a browser: tools, scripts) |
+| `--unlisted` | on | no list of open rooms (`GET /api/rooms` answers `[]`), no member's name in any answer (`/api/near`: code, people, stations, version; `/api/rooms/<code>`: people as a count) or log line; `/api/ping` says `unlisted: true`. A room's own members still see each other's names (its people list) |
+| `--guesses <n>` | 30 | per address, at most `n` lookups a minute of room codes that do not exist (a burst of `2n`): a socket for an unknown room, `GET /api/rooms/<code>` answered 404, `POST /api/rooms` with a code that is taken (409). Past that, every lookup of a code from that address is refused, a known one too (or the answers would say which codes exist), until the budget fills again: 429 with `Retry-After`, or on a socket `error` `limit` and close 4029. A member coming back (its id still in the room) is let in |
+| `--creates <n>` | 10 | per address, at most `n` new rooms a minute (a burst of `2n`), then 429 |
+| `--sockets <n>` | 64 | per address, at most `n` open sockets, rooms and the introduction server together (`error` `busy`, or PeerJS's `ERROR`, close 4029) |
+| `--store <MB>` | 64 | every room together holds at most this many MB of keys and values (as JSON; each room still at most 4 MB): a write past it is refused (`the relay is full`) |
+| `--log-token <t>` | (needed with `--logs`) | `POST /api/log` keeps a log only with the header `X-Log-Token: <t>` (none: 404, as when logs are off, so a page stops sending; a wrong one: 403). At least 16 characters. Better than on the command line: the environment variable `RELAY_LOG_TOKEN` (Coolify's environment; never in the repository) |
+
+"Per address" is the device's address as rooms on this network take it: with `--proxy`, the one the outermost proxy
+saw; IPv6 by its /64; kept only in memory as a keyed hash (a new key at every start), never logged. Every device
+behind one router shares it (ten headsets and the laptops at an event): the defaults leave them room, a relay restart
+included (each page looks its room up, finds it gone and brings it back: about three lookups of an unknown code a
+device).
+
 It prints `relay listening on http://<host>:<port>` when it starts and, when it serves the app on every address
 (`--host 0.0.0.0`), what to open: over HTTPS the `https://<address>:<port>/` for the headsets; over plain HTTP
 the address for desktops only and how to reach it from a headset (`--lan`, or `adb reverse` and
@@ -48,7 +72,10 @@ join, a hello, every stored write (`XYZ set #12 by k7f2: st.a1.play`, deletions 
 with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room; and for the introduction
 server an id joining, coming back, refused, leaving or timing out and an id that never came (ids only, `peer join
 <id>`; a slot of rooms on this network shows with `******` in place of its network's id). No line names a client's
-address or its network's id. It stops cleanly on SIGTERM (telling every member, close code 1001).
+address or its network's id. With `--public` (or its parts) the start lines also say what it allows, refusals are
+counted (`sockets refused: origin not allowed (3)`, one line per kind every few seconds, never an address) and no line
+names a member (no names on the hello lines), and the lines with addresses to open on a LAN are left out. It stops
+cleanly on SIGTERM (telling every member, close code 1001).
 
 Headsets need a secure context for WebXR (`https://`, or `http://localhost`), and a page on `https://` can only
 open `wss://` sockets. `--lan` takes care of both on a local network: it makes a certificate of its own for
@@ -227,51 +254,148 @@ nothing else changes). The app on GitHub Pages cannot use a relay with a self-si
 connection fails without asking): open the app from the relay instead. `--cert` and `--key` take a real
 certificate if you have one.
 
-## Later: public hosting (Coolify)
+## Public hosting on Coolify
 
-1. A name for it: with your DNS provider, point a record at the Coolify server (an `A` record
-   `networks.example.org` -> the server's public IP address) and wait until it resolves; the certificate in
-   step 5 needs it.
-2. In Coolify, **New resource** > this Git repository (and branch).
-3. Build pack **Dockerfile**; base directory `/`, Dockerfile location `/relay/Dockerfile`.
-4. Ports exposed: **8787**.
-5. Give it that **domain** (`https://networks.example.org`); Coolify's proxy gets a certificate for it and
-   passes WebSocket upgrades through without further settings (the relay's pings every 20 s keep an idle socket
-   open through any proxy timeout above that).
-6. Set the start command to `node relay/server.mjs --port 8787 --static . --proxy 1`, or `--proxy 2` when a CDN
-   such as Cloudflare stands in front of Coolify's proxy. Why: *Rooms on this network* needs each device's own
-   address, and behind proxies the relay sees only the nearest one's. Each proxy adds the address it was reached
-   from to `X-Forwarded-For`, so the device's own is the `n`-th from the right, `n` being the number of proxies:
-   with Cloudflare in front the last one is a Cloudflare server's, and with `--proxy 1` every device would seem to
-   be on one of Cloudflare's networks. The Dockerfile itself leaves `--proxy` off, since only the deployment knows
-   how many proxies there are, and an image run where clients reach it directly must ignore the header (a client
-   could write any address there). With a CDN in front, let only the CDN reach the server: a device that reached
-   Coolify's proxy directly could name its own network.
-7. Deploy. Check `https://networks.example.org/api/ping` (the image's health check uses it too): with `--proxy` its
-   `net` differs between two devices on different networks.
+The relay can run on the owner's Coolify server as well as on a laptop at an event: then shared rooms work wherever
+web pages do (eduroam, a hotspot, at home), and the copy of the app on GitHub Pages (`https://stories.lbi-netmed.com/`)
+can use it. Peer to peer stays the fallback when it is down. On the internet anyone can reach it, so it runs with
+`--public` (below: what that changes and why). Nothing here changes how it runs on a laptop.
 
-Then open `https://networks.example.org/` on every headset and desktop: the relay serves the app, and the
-app's shared-room client talks to the relay on the same origin (`wss://networks.example.org/api/ws`). The image
-(`node:22-alpine`, about 8 MB of app) holds the app files and the relay only; `.dockerignore` leaves out
-`tools/`, `ikerdata/`, `docs/` and the git history (and the relay serves only the app's files in any case). A
-redeploy restarts the relay and empties its rooms.
-Or keep the app on GitHub Pages and give it the relay's address once (it remembers it), or by a link:
-`https://<user>.github.io/<repo>/#s=XYZ&relay=wss://networks.example.org` (the API sends CORS headers and answers
-Private Network Access preflights for this; the app versions must match).
+**Before you start:** a DNS name for it (here `rooms.lbi-netmed.com`; any subdomain will do), Coolify on a server
+with a public address and its proxy (Traefik or Caddy) running, and access to this repository from Coolify.
+
+1. **DNS.** With the domain's DNS provider, add an `A` record `rooms` (`rooms.lbi-netmed.com`) pointing at the Coolify
+   server's public IPv4 address (and an `AAAA` record for its IPv6 address, if it has one). Wait until it resolves
+   (`dig +short rooms.lbi-netmed.com` shows the address): the certificate in step 5 needs it. A CDN or proxy in front
+   (Cloudflare's orange cloud) is not needed; if you use one, read step 6's note.
+2. **New resource.** In Coolify: your project > **+ New** > **Public Repository** (the repository is public: paste
+   `https://github.com/unfriend/airportnetworks`), or **Private Repository (with GitHub App)** if it has moved or
+   become private. Branch **`main`** (the branch GitHub Pages publishes, so the relay serves the same app and speaks the
+   same room format).
+3. **Build.** Build pack **Dockerfile**. Base directory `/`, Dockerfile location **`/relay/Dockerfile`**. (The image
+   holds the app's files and the relay only; `.dockerignore` leaves out the tools, the authors' data, the docs and the
+   git history.)
+4. **Port.** *Ports Exposes*: **`8787`**. No port mapping: Coolify's proxy reaches the container itself.
+5. **Domain.** *Domains*: **`https://rooms.lbi-netmed.com`** (with `https://`: Coolify's proxy then gets a Let's
+   Encrypt certificate for it and sends `http://` there). WebSocket upgrades pass through without further settings;
+   the relay pings every socket every 20 s, which keeps an idle one open through any proxy timeout above that.
+6. **Options.** Under *Environment Variables* add **`RELAY_ARGS`** = **`--proxy 1 --public`** (a runtime variable;
+   it need not be available at build time). The relay adds these to the image's command, so the start command stays
+   as the Dockerfile has it. If your Coolify offers a *Start Command* for this resource, the same thing written out is
+   `node relay/server.mjs --port 8787 --static . --proxy 1 --public`; use one or the other, not both.
+   - `--proxy 1`: Coolify's proxy stands in front, so the relay takes each device's address from the last entry of
+     `X-Forwarded-For` (rooms on this network, and the limits per address). With a CDN such as Cloudflare in front of
+     Coolify's proxy, `--proxy 2`, and let only the CDN reach the server (a device that reached Coolify's proxy
+     directly could name its own network). Without `--proxy` every device looks like the proxy: one network, and one
+     budget of lookups and sockets for everyone (the start lines warn).
+   - `--public`: see below. If the app is also served from another address that should use this relay, add it:
+     `--proxy 1 --public --origin https://stories.lbi-netmed.com,https://other.example` (the list replaces the
+     default, so name the app's own address too). The relay's own pages (`https://rooms.lbi-netmed.com/`) are always
+     allowed.
+   - Logs stay off (they are off unless asked for), and that is right for now: the app sends no log token, so a
+     public relay could not take a headset's alignment log anyway. To turn them on later (for a test that needs two
+     headsets' numbers): a second variable **`RELAY_LOG_TOKEN`** = a long random string (`openssl rand -hex 24`; at least
+     16 characters; only in Coolify, never in the repository), `--logs <dir>` added to `RELAY_ARGS` with `<dir>` on a
+     *Persistent Storage* volume the user `node` may write to (a redeploy deletes the container's own files), and
+     `shared.js` sending the token as `X-Log-Token`. The relay refuses to start with `--public --logs` and no token.
+7. **Limits.** Under *Resource Limits*: memory **512 MB** (`512m`; swap the same), CPUs 1 is plenty. Node sizes its
+   heap to the container's limit; the rooms hold at most 64 MB of data together (`--store`), so a limit stops a flood
+   of large rooms from taking the server down with it. **Restart policy**: Coolify's containers restart unless stopped (its
+   default); keep it, so a relay that ran out of memory comes back by itself (a restart empties the rooms; the
+   pages in them bring them back within seconds).
+8. **Health check.** The image has its own (`GET http://127.0.0.1:8787/api/ping` every 30 s; a `/api/ping` with no
+   `Origin` is answered with `--public` too). Leave Coolify's *Healthcheck* tab off, or point it at path `/api/ping`,
+   port `8787`.
+9. **Deploy, and keep it in step.** Press **Deploy** and watch the logs. The start lines should read
+   ```
+   relay listening on http://0.0.0.0:8787, serving /app (protocol 1)
+   Introduction server for peer to peer (PeerJS) at /peerjs, key peerjs (--no-peer turns it off)
+   Behind a reverse proxy: a client's address is the last one in X-Forwarded-For (rooms on this network)
+   Only pages from https://stories.lbi-netmed.com and the relay's own may open a socket or read the API (...)
+   No list of open rooms and no names in any answer: a room is joined by its code, a link or on its network
+   Per address at most 30 lookups of unknown room codes a minute (a burst of 60), 10 new rooms a minute (...), 64 open sockets
+   All rooms together hold at most 64 MB
+   ```
+   Then turn on **Auto Deploy** in the resource's settings (with a public repository Coolify needs a webhook: copy
+   the GitHub webhook address and secret from the resource's *Webhooks* page into the repository's *Settings* >
+   *Webhooks*, content type `application/json`, push events; with the GitHub App it needs nothing more). Every push to `main` then rebuilds the relay, so it
+   serves the same app as GitHub Pages and accepts its rooms (a room refuses another `FORMAT`). Each deploy restarts
+   the relay: open rooms empty and come back from the pages within seconds; avoid pushing during an event.
+10. **Test it.**
+    - `curl -s https://rooms.lbi-netmed.com/api/ping` answers `{"now":...,"proto":1,"net":"...","unlisted":true}`;
+      run it from two different networks (a phone on mobile data): `net` differs, so `--proxy` is right.
+    - `curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://evil.example' https://rooms.lbi-netmed.com/api/ping`
+      prints `403`; with `-H 'Origin: https://stories.lbi-netmed.com'` it prints `200` and the answer carries
+      `Access-Control-Allow-Origin: https://stories.lbi-netmed.com` (`curl -si ...`).
+    - `curl -s https://rooms.lbi-netmed.com/api/rooms` prints `[]`, even while a room is open.
+    - The app on GitHub Pages with the relay: open `https://stories.lbi-netmed.com/#stories&relay=wss://rooms.lbi-netmed.com`
+      on a laptop (the page remembers the relay; the Shared dialog's relay field takes the same address). **Shared** >
+      **Start a room**: its status says it is on the relay. On a second device on the same Wi-Fi the room shows under
+      *Rooms on this network* (with its people as a count, no name); on a device elsewhere join it by its code or by
+      the room's link (`https://stories.lbi-netmed.com/#s=XYZ&relay=wss://rooms.lbi-netmed.com`).
+    - The relay's own copy of the app: `https://rooms.lbi-netmed.com/` (the same app, from the relay; a headset can use
+      it as at an event, with a real certificate this time).
+    - In a headset: the same link in Quest Browser, then Enter VR or AR, and two headsets in one room.
+
+Once it is up, the app's default relay can be set to this address (in `shared.js`), so the GitHub Pages copy uses it
+with no setup: the integrator does that, not this file. Pages that saved another relay keep theirs.
+
+**What `--public` changes, and why** (each flag on its own in [Running it](#running-it)):
+
+- **Only the app's pages may connect** (`--origin`, by default `https://stories.lbi-netmed.com`, plus the relay's own
+  pages). Without it any web page anywhere could use the relay from its visitors' browsers: open rooms, fill them,
+  use the introduction server. A browser always says which page a socket or a cross-origin request comes from, and a
+  page cannot lie about it; a socket with no `Origin` (not a browser) is refused too, unless `--allow-no-origin`. This
+  keeps other web pages off, not determined people: a script can send any header it likes, which is what the limits
+  below are for. CORS answers name the allowed origin instead of `*`.
+- **No list of rooms, no names** (`--unlisted`). On a laptop the Shared dialog lists every open room with its people's
+  names, which is handy at an event and wrong on the internet. With `--public`, `GET /api/rooms` answers an empty list
+  (the dialog then shows no open rooms, without an error), *Rooms on this network* still lists a room to the devices on
+  its network (a code, how many people and stations, no name), and joining by code or by link works as before. No
+  answer and no log line names a member (the log's hello lines give the member's random id); the people in a room
+  still see each other's names, as the room's people list must.
+- **Guessing codes is slow** (`--guesses 30`). A code has three letters, 17,576 in all. Each address may look up 30
+  codes that do not exist a minute (a burst of 60); past that it gets no answer about any code for a while, so finding
+  a room by trying codes takes hours from one address, not seconds. A relay restart at an event (every page looks its
+  room up, finds it gone and brings it back: about three lookups a device) fits in the burst for some twenty devices
+  behind one router. **The code is still all it takes to join**: anyone who has it (the link, a look at a screen) is
+  in, and a determined person with many addresses is slowed down, not stopped. A PIN (set in Coolify, asked once per
+  page) would be the next step; the owner set it aside for now (HANDOVER.md).
+- **Limits per address** (`--creates 10`, `--sockets 64`) and **for everything** (`--store 64`, besides the 2,000
+  rooms, 4 MB a room and the message rates every relay has): so that one address cannot use up the relay for everyone.
+- **Logs only with a token** (`--log-token`, `RELAY_LOG_TOKEN`): logs are files written on the server by anyone who
+  can reach `/api/log`, and they carry names.
+
+**Untested until it runs on Coolify** (everything above was tested on one machine: `node relay/test.mjs`, the image
+built and run with `--proxy 1 --public`, the app in Chromium from the relay and from an allowed and a refused origin):
+the certificate and `wss://` through Coolify's proxy, the proxy's `X-Forwarded-For` (that `net` differs between
+networks and the limits fall per device's address, not the proxy's), whether the proxy passes `Host` or
+`X-Forwarded-Host` so the relay's own pages are recognised (if not, they get 403: add `--origin
+https://rooms.lbi-netmed.com`), auto deploy, the memory limit in practice, and headsets in a room over the internet
+(eduroam and hotspots may block or slow WebSockets).
+
+A redeploy restarts the relay and empties its rooms. The image (`node:22-alpine`, about 8 MB of app) runs as the
+user `node`; `docker build -f relay/Dockerfile -t networks-relay .` and `docker run -p 8787:8787 networks-relay` run it
+locally as on a laptop (no `--public`), and `docker run -p 8787:8787 -e RELAY_ARGS='--public' networks-relay` as on the
+server.
 
 ## HTTP API
 
-All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204).
+All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
+origin rule (`--origin`, `--public`): `Access-Control-Allow-Origin` is the asking page's origin when it is allowed
+(`Vary: Origin`), and a request from any other origin gets 403 `{ error: 'origin not allowed' }` (its preflight too);
+a request with no `Origin` is answered (the relay's own page, the health check, curl). Preflights allow the headers
+`Content-Type` and `X-Log-Token`.
 
 | request | answer |
 | --- | --- |
-| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true` |
-| `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address |
+| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here) |
+| `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
-| `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms |
-| `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in) |
-| `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging), or 404 |
-| `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs` |
+| `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
+| `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
+| `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
+| `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
@@ -369,10 +493,14 @@ log counts them).
 | `version` | the hello's `version` differs from the room's (a room made without one takes the first) | closed, 4006 |
 | `replaced` | the same client id connected again; the new socket stays | closed, 4008 |
 | `timeout` | silent for `--timeout` seconds | closed, 4009 |
+| `limit` | `--guesses`: this address looked up too many unknown room codes in the last minute (the room asked for may exist) | closed, 4029: try again in a minute |
+| `busy` | `--sockets`: this address has too many sockets open | closed, 4029: try again when one has closed |
 
 Broken WebSocket frames close the socket with the RFC 6455 codes: 1002 (unmasked frame, reserved bits,
 bad control frame or continuation, unknown opcode), 1003 (binary message), 1007 (not UTF-8), 1009 (a
-message over 1 MB, refused as soon as its header says so). 1001: the relay is stopping.
+message over 1 MB, refused as soon as its header says so). 1001: the relay is stopping. With an origin rule
+(`--origin`, `--public`), a socket from a page of another origin, or with no `Origin` at all unless
+`--allow-no-origin`, gets HTTP 403 instead of the upgrade.
 
 **Liveness.** The relay pings every member over WebSocket every 20 s; any frame counts as life, so a browser's
 automatic pong keeps an idle member in. A member silent for 40 s is dropped (`timeout`). A room is deleted
@@ -405,6 +533,11 @@ given; `http://` or `https://` in front says how to reach it, else as the page i
 uses. The relay serves that page too: `https://<address>:8787/p2p/#room=ABCD&peer=<address>:8787` with `--lan`. A page
 on `https://` (GitHub Pages) can only use an introduction server on `https://` whose certificate it trusts: `--lan`'s
 self-signed one is refused there without asking, as for rooms (open the page from the relay instead).
+
+With `--public` (or `--origin`, `--sockets`) the same rules hold here as for rooms: only the app's pages and the
+relay's own (403 for other origins, and for a socket with no `Origin` unless `--allow-no-origin`), and an address's
+sockets here count with its room sockets (past `--sockets`: `ERROR` *too many connections from your network*, closed
+4029). It stays on: peer to peer is the fallback when the relay is away.
 
 **Protocol** (what PeerJS 1.5.5's client expects; ids, not rooms; nothing stored). HTTP, with CORS and preflights as
 the API (other keys or paths 404, other methods 405):
@@ -447,13 +580,13 @@ through a relay on the internet is on that network peer to peer too. One id stan
   had (the last 8), unless the room's key `near` is `{ on: false }` (*Show on this network: off*).
 - Privacy: no address is kept or logged, only these ids, in memory, with the rooms (gone when the room expires or the
   relay restarts), and the log names neither. No answer contains an address. (`GET /api/rooms` lists every room
-  whatever its network, as before: the network list is a convenience, not a lock; a room's code is all it takes to
-  join.)
+  whatever its network, as before, except with `--unlisted` (`--public`), which also leaves the first member's name
+  out of `/api/near`: the network list is a convenience, not a lock; a room's code is all it takes to join.)
 - Behind a reverse proxy the relay sees only the proxy's address: start it with `--proxy`, and it takes the last
   address in `X-Forwarded-For` (the one the proxy added; anything before it came from the client). Behind two (a CDN
   such as Cloudflare in front of Coolify's proxy) start it with `--proxy 2`: it takes the second from the right, the
   one the CDN added (the first when the header has only one). Without `--proxy` the header is ignored. The Dockerfile
-  does not turn it on: Coolify's start command does (step 6 of [public hosting](#later-public-hosting-coolify)).
+  does not turn it on: Coolify's `RELAY_ARGS` does (step 6 of [public hosting](#public-hosting-on-coolify)).
 
 ## Testing
 
@@ -478,7 +611,20 @@ a private address by its /24 and IPv6 by its /64, `near` off and on, a member fr
 the header ignored without `--proxy`, no address in any answer or log line and no network's id in the log); and `--watch`
 (ping, the event stream's `hello` with the right fingerprints, `story`, `list` and `shell` as files change, nothing for
 a file written unchanged, `--build` running a story's build when its source changes and reporting a failed one, not
-for `shots/`). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+for `shots/`); and a public server: without `--public` every origin, sockets with no `Origin`, a hundred unknown codes
+in a row and the room list with names as before; with it, the app's origin allowed and others refused (the API, its
+preflights, sockets before the upgrade, the introduction server's ids and sockets; CORS echoed with `Vary: Origin`), a
+request with no `Origin` answered (Node's `fetch` and the Dockerfile's own health check) but a socket with none refused
+unless `--allow-no-origin`, the relay's own origin by `Host` or `X-Forwarded-Host`, its pages served to anyone, the start
+lines (no LAN addresses), options from `RELAY_ARGS`, `--origin` alone (a list, repeated; bad values refused at the
+start; no other rule with it), no room list and no name in any answer (`/api/rooms/<code>`, `/api/near`) or log line
+while the room's own members still see names, unknown codes capped per address (`GET` 404s, sockets for unknown rooms
+and taken codes from one budget; past it a known code refused too, with `Retry-After` or `limit` and 4029; a member
+coming back let in; another address, an IPv6 address in another /64 and the address `--proxy` takes not held up; one
+budget for everyone without `--proxy`), sockets per address (rooms and `/peerjs` together) and new rooms per address
+capped, the log token (refused at the start without one or with a short one; from `RELAY_LOG_TOKEN` or `--log-token`;
+none 404, wrong 403, never in the log) and `--store`. It exits 1 on a failure. The shared-room client in the app has
+its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks
