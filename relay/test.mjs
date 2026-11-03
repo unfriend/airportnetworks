@@ -1172,13 +1172,19 @@ try {
     ok((await first(hp)).type === 'ERROR' && (await hp.closedIn(2000))?.code === 4429, 'and the introduction server: ERROR, 4429');
     ok((await get('/api/ping', { headers: bearer() })).status === 200 && (await get('/api/health', { ip: X })).status === 200 && (await get('/index.html', { ip: X })).status === 200,
       'another address is not held back; /api/health and the app\'s files stay open for this one');
-    // unknown room codes count too (a socket's and a lookup's), with the right password
+    // unknown room codes asked with the right password do not count (after a relay restart every kept room is unknown, and
+    // the devices behind an event's router share one address): 15 lookups and 15 sockets, then a known room still answers
     const Y = ip();
     s = [];
-    for (const x of unknownCodes(10)) s.push((await get('/api/rooms/' + x, { ip: Y, headers: bearer() })).status);
-    for (const x of unknownCodes(20).slice(10)) { const u = wsAt(T, `/api/ws?room=${x}&id=pw6&token=${PASS}`, { 'X-Forwarded-For': Y }); s.push((await first(u)).code); }
-    ok(s.slice(0, 10).every(x => x === 404) && s.slice(10).every(x => x === 'room') && (await get('/api/rooms/' + code, { ip: Y, headers: bearer() })).status === 429,
-      'unknown room codes (10 lookups, 10 sockets) count: then 429');
+    for (const x of unknownCodes(15)) s.push((await get('/api/rooms/' + x, { ip: Y, headers: bearer() })).status);
+    for (const x of unknownCodes(30).slice(15)) { const u = wsAt(T, `/api/ws?room=${x}&id=pw6&token=${PASS}`, { 'X-Forwarded-For': Y }); s.push((await first(u)).code); }
+    ok(s.slice(0, 15).every(x => x === 404) && s.slice(15).every(x => x === 'room') && (await get('/api/rooms/' + code, { ip: Y, headers: bearer() })).status === 200,
+      'unknown room codes asked with the password (15 lookups, 15 sockets) are not counted: a known room still answers');
+    // PeerJS's default key (a page with no password yet sends it) is refused but not counted, as none at all
+    const K = ip();
+    s = [];
+    for (let i = 0; i < 25; i++) { const u = wsAt(T, peerQuery('pwdef' + i, 'tokd' + i, 'peerjs'), { 'X-Forwarded-For': K }); s.push((await u.closedIn(2000))?.code); }
+    ok(s.every(x => x === 4401) && (await get('/api/ping', { ip: K, headers: bearer() })).status === 200, "PeerJS's default key is not counted: 25 times 4401, then the right password works");
     a.ws.close();
     await sleep(400);
     const files = fs.readdirSync(dir).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');

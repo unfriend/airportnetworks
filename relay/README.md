@@ -117,13 +117,16 @@ asdf10k-collab-backend](#compared-with-asdf10k-collab-backend) lists what matche
 - **Refused:** HTTP 401 `{"error":"missing or wrong token"}`. A room's socket gets the protocol's
   `{ t: 'error', code: 'token', text: 'missing or wrong token' }`, then close 4401, before anything of a room (no welcome,
   member, key or name); the introduction server's gets `INVALID-KEY`, then 4401.
-- **Failed attempts** (a wrong password, an unknown room code) are counted per address, as `--guesses` counts them
+- **Failed attempts** (a wrong password) are counted per address, as `--guesses` counts unknown room codes
   (with `--proxy` the one the outermost proxy saw; IPv6 by its /64; a keyed hash in memory, never logged), in a fixed
   window of a minute: after 20, everything from that address but `/api/health` and the app's files gets 429
   `{"error":"too many failed attempts, wait a minute"}` (`Retry-After: 60`), a socket `error` `limit` and close 4429
   (PeerJS's `ERROR`), for the rest of the minute, the right password too (or the limit would tell a guesser when it
-  guessed right). A request with no password at all is refused but **not counted**: guessing needs a password sent, and
-  the app's own pages ask before they know one (every device behind an event's router shares one address).
+  guessed right). A request with no password at all (or PeerJS's default key `peerjs`, which a page without one sends) is
+  refused but **not counted**: guessing needs a password sent, and the app's own pages ask before they know one (every
+  device behind an event's router shares one address). Nor is an unknown room code asked with the right password: the
+  password is the gate, and after a relay restart every kept room is unknown for a moment, so ten headsets bringing their
+  rooms back would lock their own address out (`--guesses` still limits unknown codes under `--public`).
 - **Never logged:** the start line says a password is needed, never which; a URL in an error line loses `?token=`, `key=`
   and the key in `/peerjs/<key>/`; the headsets' logs never hold it (the app strips it).
 - **In the app** (AGENTS.md, "Shared rooms"): each device enters it once, on a page in the Shared dialog (*This relay
@@ -567,7 +570,7 @@ log counts them).
 | `replaced` | the same client id connected again; the new socket stays | closed, 4008 |
 | `timeout` | silent for `--timeout` seconds | closed, 4009 |
 | `token` | the relay has a password and the socket brought none, or a wrong one (`&token=`) | closed, 4401, before anything of a room |
-| `limit` | `--guesses`: this address looked up too many unknown room codes in the last minute (the room asked for may exist); with a password, also 20 failed attempts in the last minute (a wrong password, an unknown room code) | closed, 4429: try again in a minute |
+| `limit` | `--guesses`: this address looked up too many unknown room codes in the last minute (the room asked for may exist); with a password, also 20 wrong passwords in the last minute | closed, 4429: try again in a minute |
 | `busy` | `--sockets`: this address has too many sockets open | closed, 4429: try again when one has closed |
 
 (4429 and 4401 are asdf10k-collab-backend's codes; until v109 the limits closed with 4029, which the app still takes.)
@@ -681,8 +684,10 @@ does not yet:
   `?token=`. Compared as there (`tokenMatches`): equal-length buffers with `timingSafeEqual`, false when none is given.
 - A missing or wrong token: HTTP 401 `{"error":"missing or wrong token"}`; a socket gets the protocol's error message,
   then close 4401. Too many failures: 429 `{"error":"too many failed attempts, wait a minute"}`, close 4429.
-- Its `FailureLimiter`: 20 failed attempts (a wrong token, an unknown room code) per client address in a fixed window of
-  a minute, swept every minute, checked before the token.
+- Its `FailureLimiter`: 20 failed attempts per client address in a fixed window of a minute, swept every minute, checked
+  before the token. Ours counts only a wrong token (its counts an unknown room code too, and a missing token): our pages
+  ask before they know the token and bring their kept rooms back after a restart, from one address behind an event's
+  router (`--guesses` limits unknown codes under `--public`).
 - `GET /api/health` answers `{ ok, protocol, rooms }`, `rooms` a count. CORS allows the `Authorization` header.
 
 **Not the same (yet)**
@@ -752,7 +757,7 @@ wrong one (Bearer or `?token=`, case counting) 401 with its body, both ways of b
 nothing else, one with it welcome, the introduction server refusing PeerJS's default key (4401) and taking the password
 as key (in the socket and the id's path), `/api/watch` with `?token=`, the Dockerfile's health check, 20 wrong ones from
 an address then 429 (the right one too), 4429 on its socket and `/peerjs`, another address untouched, none at all not
-counted, unknown room codes counted, and the password in no log line or file. It exits 1 on a failure. The shared-room client in the app has
+counted (nor PeerJS's default key, nor an unknown room code asked with the password), and the password in no log line or file. It exits 1 on a failure. The shared-room client in the app has
 its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the

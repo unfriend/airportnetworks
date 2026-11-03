@@ -282,7 +282,7 @@ function upgrade(req, socket, head) {
   if (fid && blocked(fid)) { tally('sockets refused: too many failed attempts from one address'); return no('limit', 'ERROR', FAIL_TEXT, 4429); }
   const given = fid && url.searchParams.get(peer ? 'key' : 'token');
   if (fid && !tokenMatches(given)) {
-    if (given) failed(fid);
+    if (given && given !== PEER_KEY) failed(fid);   // (PeerJS's default key: no password yet, as none at all)
     tally('sockets refused: missing or wrong token');
     return peer ? no('token', 'INVALID-KEY', 'Invalid key provided', 4401) : no('token', 'ERROR', TOKEN_TEXT, 4401);
   }
@@ -327,7 +327,7 @@ function join(ws, q, net, who, fid) {
   // guessing codes: past its lookups of unknown codes an address gets no answer about any code (a known one included,
   // or the answer would say which exist) until a minute's worth has passed; a member coming back (its id in the room) is let in
   if (!(room && room.members.has(id)) && !canGuess(who)) return fatal('limit', GUESS_TEXT, 4429, 'sockets refused: too many unknown room codes from one address');
-  if (!room) { guessed(who); if (fid) failed(fid); return fatal('room', `no room ${code}`, 4004); }
+  if (!room) { guessed(who); return fatal('room', `no room ${code}`, 4004); }   // (with a password: not a failed attempt, see authOk)
   let m = room.members.get(id);
   if (m) {   // the same page again (a reconnect while its old socket hangs on): the new socket wins
     const old = m.ws;
@@ -648,7 +648,10 @@ function authOk(req, res, given) {
   const id = failId(req);
   if (blocked(id)) { tally('requests refused: too many failed attempts from one address'); json(res, 429, { error: FAIL_TEXT }, { 'Retry-After': '60' }); return false; }
   if (tokenMatches(given)) return true;
-  if (given) failed(id);
+  // (a wrong password counts; none at all, or PeerJS's default key, does not: pages ask before they know it, and every
+  // device behind an event's router shares one address. An unknown room code asked with the password does not either:
+  // the password is the gate, and after a relay restart every kept room is unknown for a moment)
+  if (given && given !== PEER_KEY) failed(id);
   tally('requests refused: missing or wrong token');
   json(res, 401, { error: TOKEN_TEXT });
   return false;
@@ -727,7 +730,7 @@ function api(req, res, url) {
     const who = LIM.guesses ? clientOf(req) : null;
     if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
     const r = rooms.get(room[1].toUpperCase());
-    if (!r) { guessed(who); if (TOKEN) failed(failId(req)); return json(res, 404, { error: 'no such room' }); }
+    if (!r) { guessed(who); return json(res, 404, { error: 'no such room' }); }
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: UNLISTED ? r.members.size : people(r), keys: keysOut(r) });
   }
   if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || p === '/api/health' || room) return json(res, 405, { error: 'method not allowed' });

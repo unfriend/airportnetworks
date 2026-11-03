@@ -314,12 +314,15 @@
     // (a relay that wants a password answers 401 with its own words: it serves the page, and asks for it)
     const base = appRoot(), t = tokenFor(base);
     C.detecting = fetch(base + 'api/ping', { cache: 'no-store', headers: t ? { Authorization: 'Bearer ' + t } : {} })
-      .then(async r => { const j = await r.json().catch(() => null); return r.ok ? j : r.status === 401 && j && j.error === 'missing or wrong token' ? { proto: PROTO, auth: true } : null; })
+      // (and one holding this address back for a minute, 429 with its own JSON: still the relay that serves the page, so a
+      // room started here waits for it rather than going peer to peer, which would split it)
+      .then(async r => { const j = await r.json().catch(() => null); return r.ok ? j : r.status === 401 && j && j.error === 'missing or wrong token' ? { proto: PROTO, auth: true } :
+        r.status === 429 && j && typeof j.error === 'string' ? { proto: PROTO, limited: true } : null; })
       .catch(() => null).then(j => {
       C.served = !!(j && j.proto);
       if (C.served && !C.linked) setRelay(base, 'served');
-      if (j) authSaw(base, j.auth ? 401 : 200, t);
-      log('served', { served: C.served, password: !!(j && j.auth) });
+      if (j && !j.limited) authSaw(base, j.auth ? 401 : 200, t);
+      log('served', { served: C.served, password: !!(j && j.auth), limited: !!(j && j.limited) });
       changed();
       return C.served;
     });
@@ -526,7 +529,7 @@
     // a relay's limits (4429, as asdf10k-collab-backend's; 4029 from a relay of v109: --public): too many wrong passwords,
     // unknown codes or new rooms from this network in a minute, too many sockets from it: the relay again a little later,
     // never peer to peer (the room would split in two)
-    if ((code === 4029 || code === 4429) && C.via === 'relay') {
+    if ((code === 4029 || code === 4429) && (C.via === 'relay' || C.via === 'peer')) {
       C.note = reason === 'busy' ? 'Too many devices on this network are connected to the relay: trying again in a moment.' :
         'The relay is holding this network back for a minute (too many wrong passwords or room codes tried): trying again in a moment.';
       log('relay limit', { reason });
@@ -1110,6 +1113,8 @@
       const t = (e && e.type) || 'error';
       log('peer error', { type: t, role: this.role, open: this.readyState === 1 });
       if (t === 'invalid-key') return this.fail(4401, 'password');   // (an introduction server that wants the relay's password)
+      // (the relay's introduction server holding this address back for a minute: its limit, as on the relay's own socket)
+      if (t === 'server-error' && /too many failed attempts/.test((e && e.message) || '')) return this.fail(4429, 'limit');
       if (t === 'unavailable-id') {
         if (this.role === 'host') return this.fail(4010, 'superseded');   // (its id lapsed while the server was away, and someone took it)
         if (this.o.create) return this.fail(4009, 'taken');
