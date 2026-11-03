@@ -728,7 +728,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 108, id: '894056c7020e2efb', format: 'networks-28' },
+  shell: { n: 109, id: 'b2901db4da8c438b', format: 'networks-29' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2269,7 +2269,8 @@ HOST.focus = (function () {
     m.hidden = false; b.setAttribute('aria-expanded', 'true');
   }
   function close() {
-    if (!el('fcMenu').hidden) { menu(false); return true; }
+    // (only while it shows: a rotation that gave the bar room again hides it by its CSS, and back must not stop at it)
+    if (!el('fcMenu').hidden) { const seen = getComputedStyle(el('fcMenu')).display !== 'none'; menu(false); if (seen) return true; }
     if (HOST.picking) return false;   // (the story's text and explore's drawer are not on show there)
     if (F.text) { text(false); return true; }
     if (F.drawer) { drawer(false); return true; }

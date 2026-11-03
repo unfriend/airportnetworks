@@ -296,7 +296,7 @@
     if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
-      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0 });
+      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0, arcOff: '' });   // (arcOff: the arc left by hand, for this visit only)
     C.cardsOpen = false;   // (the page's Stories screen an All stories circle opened stays: in no room it is the landing page)
     C.pres.clear();
     R.left();
@@ -1250,9 +1250,10 @@
     return (C.netBusy = (async () => {
       if (relay) {
         const r = await api('ping', undefined, 5000).catch(() => null);
-        if (r && r.ok) C.unlisted = !!(r.j && r.j.unlisted);   // (a public relay lists no rooms: joined by code, link or network)
+        C.unlisted = !!(r && r.ok && r.j && r.j.unlisted);   // (a public relay lists no rooms: joined by code, link or network)
         if (r && r.ok) return r.j && NET_RE.test(r.j.net || '') ? [r.j.net, 'relay'] : ['', ''];   // (an older relay does not say)
       }
+      C.unlisted = false;
       if (C.pretend) return [await netHash('pretend:' + C.pretend), 'pretend'];
       if (!peerOn()) return ['', ''];
       return [await netHash(netName(await stunAddr(6000))), 'stun'];
@@ -4155,14 +4156,16 @@
   // away from you (its cards then float ahead, as on the Stories screen), Own stories. The conditions must hold for a moment (a room refilled after a relay restart comes
   // back empty first), and a page tries it once per room. Since v109 it is the room's arc when the room has no other circle
   // (below), and a page's arc still where the page put it (allp with pg: never moved since) is moved in front of it instead
+  // (also after this headset placed it, when a page's arc written at the same moment came after: the page writes its once)
   const AUTO = { ahead: 1.2, hold: 1500 };
   function allFirst(t) {
     const P = val('allp'), A = arcSt(), pg = !!(P && P.pg && A && A.id === ARC.id && !A.x && !A.z && !A.yaw);
-    const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && C.allpFor !== C.code &&
+    const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && (C.allpFor !== C.code || (pg && P.by !== C.id)) &&
       (P === undefined ? !C.st.some(s => s.kind === ALL) : pg) &&   // (one placed by hand already: none more)
-      // (not while the startup flow asks this headset, the room's first, to calibrate on two spots: that calibration moves
-      // the room's origin to spot A, and an arc placed before it would end up elsewhere in the real room; Skip places it)
-      !(guideShown() && (R.calib || lineCase() === 'first'));
+      // (not while the startup flow asks this headset, the room's first, to calibrate on two spots, nor while it is about
+      // to open and ask so: that calibration moves the room's origin to spot A, and an arc placed before it would end up
+      // elsewhere in the real room; Skip places it)
+      !((guideShown() || (GD.auto && !GD.fl && guideOn())) && (R.calib || lineCase() === 'first'));
     if (!ok) {
       if (C.allpAt) log('all stories not yet', { aligned: R.aligned, head: R.headOK, here: here(), locked: circlesLocked(), allp: !!P, pg, arc: !!A });   // (it waited, and something changed)
       C.allpAt = 0; return;
@@ -4518,7 +4521,7 @@
     R.frame = { o: [fr.o[0], Number.isFinite(fr.o[1]) ? fr.o[1] : 0, fr.o[2]], x };
     // a check (Touch the spot) stands for the frame it was made in: another source, or one moved by 5 cm or 2 degrees, needs a new one
     // (and the session's check that stood with it, GD.ok: the guide's flow asks again when the room gets its spots)
-    if (CK.res || CK.mine || GD.ok) { const [d, a] = old ? apart(old, R.frame) : [1, 0]; if (src !== was || d > 0.05 || a > 0.035 || Math.abs(old.o[1] - R.frame.o[1]) > 0.05) { CK.res = null; CK.mine = null; GD.ok = null; log('check cleared', { src }); } }
+    if (CK.res || CK.mine || GD.ok || GD.red) { const [d, a] = old ? apart(old, R.frame) : [1, 0]; if (src !== was || d > 0.05 || a > 0.035 || Math.abs(old.o[1] - R.frame.o[1]) > 0.05) { CK.res = null; CK.mine = null; GD.ok = null; GD.red = null; log('check cleared', { src }); } }
     R.src = src;
     setState(src);
     log('frame', { src, o: R.frame.o.map(r3), x: x.map(r3) });
@@ -5228,7 +5231,7 @@
     R.saved = null; storeSaved();
     Object.assign(R, { frame: null, src: '', aligned: false, anchorBusy: false, anchorTried: false, wantAnchors: null, calib: null, noticed: '', recAt: 0,
       mgen: R.mgen + 1, mk: null, cmp: null, tries: 0, retryAt: 0, retryFrom: 0, reenter: false, afterSleep: false });
-    CK.res = null; CK.mine = null; GD.ok = null;   // (a check stands for the frame it was made in)
+    CK.res = null; CK.mine = null; GD.ok = null; GD.red = null;   // (a check stands for the frame it was made in)
     const t = performance.now(); R.sharedAsked = t; if (R.sharedId) R.sharedAt = t;
     setState('waiting');
     notice('Calibration forgotten', 'This headset lines up again: from the frame the room holds for its shared space, else it asks you to calibrate.', 6000);
@@ -5245,7 +5248,7 @@
     log('realign', { src: R.src, state: R.state, wakeHold: !!R.wakeHold, notJoined: R.notJoined, own: R.sharedOwn, id: R.sharedId });
     if (R.calib) cancel();
     Object.assign(R, { again: t, againRel: now(), wakeHold: 0, hS: null, aloneAt: 0, notJoined: false, firstHere: null, cmp: null, recAt: 0, prev: null, noticed: '', woke: 0 });
-    CK.res = null; CK.mine = null; GD.ok = null;   // (the room setup guide: Re-align, then check again)
+    CK.res = null; CK.mine = null; GD.ok = null; GD.red = null;   // (the room setup guide: Re-align, then check again)
     if (R.sharedId) fx('q.frame', { id: R.sharedId });   // whoever wrote the room's frame writes it into the space again
     if (!here()) { R.again = 0; R.frame = null; R.src = ''; R.aligned = false; notice('Re-aligned', 'The stations stand round you again, as they stand in the room.', 5000); changed(); return; }
     reshared('realign');
