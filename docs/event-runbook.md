@@ -92,9 +92,10 @@ local network found each other this way, and then shared a peer-to-peer room; he
   phone's hotspot. If you can, reserve the laptop's address: Quest Browser keeps calibrations, Anchor places and the
   accepted certificate per address.
 - [ ] From a headset, `https://<address>:8787/api/ping` answers `{"now":...}`.
-- [ ] Two tape crosses on the floor, A and B, about 2 m apart in the middle of the play area (50 cm at least), with an
-  arrow from A to B, left down all day. They are the spot for checking that the headsets line up, and the marks for
-  calibrating when they do not.
+- [ ] Two fixed spots, A and B, about 2 m apart in the middle of the play area (1 m at least): two corners of a table
+  that stays put, or two tape crosses on the floor with an arrow from A to B, left all day (and for the next session).
+  Every headset calibrates on them as it starts and checks on them; the first headset's calibration makes them the
+  room's. Label them A and B: a headset that touches them the other way round stands the room the other way round.
 - [ ] Floor for **Arrange all**: sixteen stations in two rows, eight and eight behind them, about 17 m by 4 m starting 1.2 m in front of you.
   Less room: place a few with **Add here** (headset) or **Add a station** (page).
 
@@ -110,19 +111,32 @@ local network found each other this way, and then shared a peer-to-peer room; he
    peer (steps 1 and 2 skipped: every device opens the live copy): start the room on the laptop page; the others find
    it under **Rooms on this network** (or open its link, or **Join by code** on a page). From then on each device
    rejoins the room by itself when the app opens again (a restart, the next morning): nothing to press.
-4. **Line up, one headset at a time.** The steps are in every headset (the menu, **Circles**, **Room setup**: four
-   pages, with **Back**, **Next** and **Close** and a live status line) and on the laptop (the Shared dialog's
-   *Setting up a room*, with how each headset lines up: *Anna: lined up (shared space, checked 4 cm)*, *Ben: not lined
-   up (no room scan)*). **Enter AR** on one headset: within about 10 s it becomes the room's origin (*Room ready*). Then
-   the others, one by one, each waiting for its own *Lined up* before the next enters AR: it says *Lining up with the
-   room...*, then within 10 to 20 s *Lined up through the shared space*, *Lined up from your tape marks* (it found last
-   time's calibration), or *Not lined up yet* with why (no shared space, not in the others' shared space, no room scan,
-   another Quest Browser version, or nothing after 20 s); then, with another headset in the room, the guide's last page,
-   *Not lined up?*, opens by itself (step 8). The first time a headset comes into a room with another headset there
-   (within its first 10 s there), the guide opens by itself (once per headset). In VR, answer *Are you in the same room as the others?* with **In this room** (the menu opens by itself
-   for it); **Somewhere else** skips all this. A room starts as a shared Stories screen (since v109): the page that
+4. **Line up, one headset at a time: it is part of every headset's start.** Each time a headset enters AR in the room
+   (in VR: after answering *Are you in the same room as the others?* with **In this room**; **Somewhere else** skips all
+   this), its menu opens by itself at **Room setup**, *Line up*, with a live status line (*Lining up with the room...*,
+   *Lined up from the room's spots (shared space)*, *Lined up from the room's spots, found again*, *Room
+   ready*, or *Not lined up yet* with why: no shared space, not in the others' shared space, no room scan, another
+   Quest Browser version, or nothing after 20 s). It says what to do:
+   - **The first headset** (no spots in the room yet): *Pick two fixed spots at least 1 m apart*: press **Calibrate**,
+     hold the bright ring at the controller's tip still on spot A and pull the trigger, then on spot B. That sets the
+     room for everyone, today and next time.
+   - **The others**, one by one: if the room has its spots and the headset is not lined up by them, *Calibrate on them*
+     (spot A, then spot B). A headset already lined up by them (its own calibration found again, or through the shared
+     space from someone who calibrated) goes straight to **Check**.
+   - **Check** (every headset, once a session): press **Check at A**, hold the ring still on spot A itself (not on the
+     orange cross: it hides while you check) and pull the trigger. Green (up to 10 cm) or amber (10 to 25 cm): *Lined
+     up*, and the menu closes. Red (over 25 cm): back to *Line up* with why; calibrate on the spots and check again.
+     **Check at B** works too. One or two presses for a headset already lined up.
+   - **Skip for now** closes it for this session; it comes back only after a red check, when the headset is still not
+     lined up 20 s after entering with another headset there (at *Not lined up?*, step 8), or once when the room gets
+     its spots later. **Room setup** under **Circles** opens it by hand (four pages: *Before you start*, *Line up*,
+     *Check that you line up*, *Not lined up?*).
+   On the laptop the Shared dialog's *Setting up a room* lists each headset: *Anna: lined up (the room's spots, checked
+   3 cm at spot A)*, *Ben: lined up (shared space, not checked yet)*, *Cleo: not lined up (no room scan)*, and *3 of 3
+   headsets in the room lined up, 1 checked*.
+   A room starts as a shared Stories screen (since v109): the page that
    starts it (or the first headset, in a room started in a headset) makes the room's arc of story cards, and the first
-   headset in the room (aligned, in the room with the others) puts it 1.2 m in front of itself, facing away. Every
+   headset in the room (aligned, in the room with the others) puts it where it stands, the cards in front of it as on a headset on its own (in a room whose first headset calibrates on the spots, once that is done). Every
    headset in the room is at it without walking anywhere, and every page shows it as its Stories screen: the story
    picked there plays for everyone (the story panel's **Stories** button takes everyone back to the cards). Anyone can
    move it: point at the cards and hold the grip (point to swing, raise or lower to push or pull, twist to turn), or drag
@@ -136,30 +150,32 @@ local network found each other this way, and then shared a peer-to-peer room; he
    it: the room shows as at the start.
 5. In each headset's menu press **Sound check** and both beeps (in a room there is no Stories screen but the room's arc
    or an All stories circle; a room with no stations at all opens the menu by itself).
-6. **Arrange all** on a headset: two rows in front of you (from a page: round mark A). To move a station, point at its
+6. **Arrange all** on a headset: two rows in front of you (from a page: round spot A). To move a station, point at its
    ring or card and hold the grip: point to swing, raise or lower to push or pull, twist to turn. On the page, drag its
    dot (move) or square (turn). The design room's table is not one of the stories: to have it, stand where it should
    go, facing the way it should face, and press **Design room here** in the menu (or choose **Design room** under
    **Add a station** on the page); Arrange all leaves it where it is, and the All stories and lobby circles too. Over each ring its story's small model turns
    (the design room's: a little table), so circles can be told apart from across the room.
-7. **Check that they line up** (*Lined up* is only what the app believes). A quick look: before anyone walks into a
+7. **Check again when in doubt** (*Lined up* is only what the app believes). A quick look: before anyone walks into a
    circle everyone's name tag shows, and it should float just above the real person's head (others' rays should start
-   at their real controllers). Then **Touch the spot**, two headsets at a time: on each, **Check here** (the guide's
-   third page, or the menu's **Debug** tab beside **Re-align**), then hold the bright ring at the controller's tip still
-   on the cross at mark A and pull the trigger: one person after the other, or the two tips touching, within 20 s of
-   each other. Both headsets show how far apart their rooms put that spot: up to 10 cm green (*Lined up: 4 cm*), 10 to
-   25 cm amber (*14 cm out: fine for walking about; calibrate on the tape for close work*), over 25 cm red (*60 cm out:
-   not lined up*, and the guide's last page opens). Alone it says *Waiting for someone else to press Check here (20
-   s)*. The laptop's list shows each headset's last check. The result stands until the next check or until the headset
-   lines up afresh.
+   at their real controllers). **Check at A** (step 4) checks one headset against the spots. **Touch the spot** checks
+   two headsets against each other (the only check while the room has no spots, and the one that catches two headsets
+   that calibrated on the spots the other way round): on each, **Check here** (the guide's third page, or the menu's
+   **Debug** tab beside **Re-align**), then hold the bright ring at the controller's tip still on spot A and pull the
+   trigger: one person after the other, or the two tips touching, within 20 s of each other. Both headsets show how far
+   apart their rooms put that spot: up to 10 cm green (*Lined up: 4 cm*), 10 to 25 cm amber (*14 cm out: fine for
+   walking about; calibrate on the spots for close work*), over 25 cm red (*60 cm out: not lined up*, and the guide
+   opens again). Alone it says *Waiting for someone else to press Check here (20 s)*. The laptop's list shows each
+   headset's last check. The result stands until the next check or until the headset lines up afresh.
 8. **Not lined up?** (the guide's last page, which opens by itself 20 s after entering AR without lining up while another
-   headset is in the room, or after a red check): (1) **Re-align** (one press: the shared space is asked for again and the room's frame taken again), then
-   check again. (2) **Calibrate** on the tape, on every headset, one after another: the bright ring at the controller's
-   tip on mark A, hold still, pull the trigger; then mark B. It never depends on the shared space, nothing overrides it,
-   and the headset finds it again next time; check again. *Your marks are ... than the room's* or *Marks at different
-   heights*: calibrate again. *Your floor is ... than the room's (allowed for)*: fix that floor in the boundary
-   settings later. The **orange crosses** (shown 30 s after lining up, and while the menu is open) should sit on the
-   tape. (3) Still out: check that each headset has scanned this room and runs the same Quest Browser version; then
+   headset is in the room and the startup flow was skipped, or after a red check with someone while the room has no
+   spots): (1) **Re-align** (one press: the shared space is asked for again and the room's frame taken again), then
+   check again. (2) **Calibrate** on the two spots, on every headset, one after another: the bright ring at the
+   controller's tip on spot A, hold still, pull the trigger; then spot B. It never depends on the shared space, nothing
+   overrides it, and the headset finds it again next time; check again. *Your marks are ... than the room's* or *Spots
+   at different heights*: calibrate again. *Your floor is ... than the room's (allowed for)*: fix that floor in the
+   boundary settings later. The **orange crosses** (shown 30 s after lining up, and while the menu is open, but not
+   while you calibrate or check) should sit on the spots. (3) Still out: check that each headset has scanned this room and runs the same Quest Browser version; then
    **Fresh shared space** (twice): every page moves to a new address, everyone leaves AR, one headset enters first and
    the others after *Room ready*.
 9. Two locks. **Lock circles** (in the menu, or on the page): nobody can move, add or remove a circle until someone
@@ -213,10 +229,10 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 
 | Symptom | Try, in this order |
 | --- | --- |
-| Headsets not lined up | **Touch the spot** (**Room setup**, **Check here**) says how far. Then the guide's last page: **Re-align** on the headset that is off, then check again; **Calibrate** on the tape; look at the orange crosses (menu open). *Not in the others' shared space* or *Shared space not usable*: calibrate on the tape, or press **Fresh shared space** twice (every page moves to `/s/1/` and the like, headsets leave AR; start one, wait for *Room ready*, then the others; rooms and calibrations stay). Last resort: relay/README.md, "Starting the shared space afresh". |
-| *Quest Browser ... here, ... on ...* | Versions differ: update both; meanwhile calibrate on the tape. |
-| *No shared space (check the WebXR flag ...)*, *No room scan here*, *Shared space switched off here* | Section 1's settings and Space Setup; **Shared space: off** switches it on. Or calibrate on the tape. |
-| Off after standby | Crosses show 30 s (*Check the marks*). *Leave AR and enter it again*: do so. Through the shared space: wait 20 s, then **Re-align**. Still off: **Calibrate**. |
+| Headsets not lined up | **Check at A** (**Room setup**, *Check*) says how far one headset is from the spots, **Touch the spot** (**Check here**) how far two are apart. **Calibrate** on the two spots and check again; or the guide's last page: **Re-align** on the headset that is off, then check again; look at the orange crosses (menu open). *Not in the others' shared space* or *Shared space not usable*: calibrate on the spots, or press **Fresh shared space** twice (every page moves to `/s/1/` and the like, headsets leave AR; start one, wait for *Room ready*, then the others; rooms and calibrations stay). Last resort: relay/README.md, "Starting the shared space afresh". |
+| *Quest Browser ... here, ... on ...* | Versions differ: update both; meanwhile calibrate on the spots. |
+| *No shared space (check the WebXR flag ...)*, *No room scan here*, *Shared space switched off here* | Section 1's settings and Space Setup; **Shared space: off** switches it on. Or calibrate on the spots. |
+| Off after standby | Crosses show 30 s (*Check the spots*). *Leave AR and enter it again*: do so. Through the shared space: wait 20 s, then **Re-align**. Still off: **Calibrate**. |
 | Calibrate after every restart, or *Anchors not saved (the store is full)* | Clear Quest Browser's cookies and site data on that headset, then calibrate. |
 | No sound | Only **Airports** and **The future** have a narration. **Play sound**, or **Sound off** to turn it back on; the headset's volume; stand within 1.5 m of the station's spot. **Sound check**: press both beeps; hearing one, choose it (**Web Audio** or **Audio element**); **Reset** unmutes and goes back to **Automatic**. Photograph its lines for the developer. |
 | Stuck on its loading line, or *Could not load the ... story* | Check the relay window and `/api/ping`, then reload (headset: **Exit**, reload, enter AR again; the room link rejoins). Pages from the relay have no offline copy. |
@@ -267,9 +283,12 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - panels per station (**Panels: controls only** or **hidden** in the menu or the Shared dialog): whether a circle
   reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;
-- the room setup guide (v107): whether it opens at the right moments (the first time with another headset there, not
-  lined up 20 s in, a red check), how its pages read, and **Touch the spot** on real headsets: how near two tips held on
-  the same cross come out when the headsets do line up (the green limit is 10 cm), and the laptop's list during a setup;
+- the room setup guide and its startup flow (v107, v109): whether it opens at the right moments (as every headset
+  enters a room, at Check when it is lined up by the spots already; after a red check; not lined up 20 s in), whether it
+  feels light for a headset already lined up (Check at A, the trigger, done), how its pages read, how accurately a
+  controller's tip finds a table corner or a tape cross (Check at A on a headset that is lined up: a few cm?), and
+  **Touch the spot** on real headsets: how near two tips held on the same spot come out when the headsets do line up
+  (the green limit is 10 cm), and the laptop's list during a setup;
 - comfort and frame rate with other people drawn;
 - whether the link to the relay keeps running inside a headset session;
 - rooms on this network on real networks: the STUN server's address on a home router, a mobile hotspot, eduroam or a
@@ -292,6 +311,6 @@ their site data cleared). Note the time and headset for every step.
 | One headset in standby 5 minutes | still lined up? which notices? |
 | **Re-align** on a headset that is off | back in place? |
 | Leave AR and enter again on one | *Not in the others' shared space*? |
-| Restart Quest Browser, enter AR | *Lined up from your tape marks*? crosses on the tape? |
+| Restart Quest Browser, enter AR | *Lined up from the room's spots, found again*? crosses on the spots? **Check at A** green? |
 | A recentre (long press on the Meta button) | room still on the tape? |
 | Next morning, same headsets and address | lined up? crosses on the tape? |
