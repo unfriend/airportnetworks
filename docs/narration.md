@@ -737,10 +737,10 @@ File: `audio/narration-qubits.mp3` (synthetic voice). Chapters: 0:00 Pairs, 0:58
 - **4:43** Building blocks
 - **4:45** Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.
 - **4:52** I: do nothing, the same loop on every corner
-- **4:56** X₀, X₁, X₂flip one digit, hopping along the cube’s edges in one direction
-- **5:06** Z₂a sign set by one digit, with solid red loops of plus 1 and dashed blue loops of minus 1
-- **5:13** Z₂X₁hops with signs
-- **5:17** X₂X₁, Y₂Y₁flip two digits at once, along face diagonals, and Y adds signs
+- **4:56** X₀, X₁, X₂: flip one digit, hopping along the cube’s edges in one direction
+- **5:06** Z₂: a sign set by one digit, with solid red loops of plus 1 and dashed blue loops of minus 1
+- **5:13** Z₂X₁: hops with signs
+- **5:17** X₂X₁, Y₂Y₁: flip two digits at once, along face diagonals, and Y adds signs
 - **5:24** Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.
 - **5:30** Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is 0.07, down from 1.
 - **5:41** A Pauli string puts one Pauli matrix on each qubit. I does nothing, X flips the bit, Z gives plus 1 on 0 and minus 1 on 1, and Y flips with a sign. Subscripts are qubits, and q2 is the first cut. Any 8 by 8 table is one weighted sum of the 64 strings. Here the largest weights are I 0.55, X₀ 0.17, X₁ 0.11, X₂ 0.08, X₁X₀ 0.04, and so on.
@@ -1124,7 +1124,7 @@ DE: Medizin
 - **6:16** Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.
 - **6:25** Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.
 - **6:30** Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.
-- **6:35** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen. Erzählt von synthetischen Stimmen (Kokoro; auf Deutsch Piper mit der Stimme Thorsten).
+- **6:35** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen. Gesprochen von synthetischen Stimmen (Kokoro; auf Deutsch Piper mit der Stimme Thorsten).
 
 ## Soil microbes: Holding on to nitrogen (`#soil`)
 

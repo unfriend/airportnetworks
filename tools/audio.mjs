@@ -249,6 +249,9 @@ for (const [fault, what, ms] of [['decode', 'Web Audio cannot decode the file', 
   page = await open(base, fault);
   await step(what, async () => {
     await until('file found', p => p.story === 'airports' && p.state === 'ok');
+    // (decoded first, or failed to: else the <audio> element playing while Web Audio decodes, as in 4, passes for the
+    // fallback, and a moment later Web Audio takes over; on a loaded machine the decode outlasted the click)
+    await until('decoded, or failed to', p => p.decode === 'ok' || p.decode === 'failed', ms);
     await page.click('#picker .card[data-story="airports"]');
     await playing(what + ' -> fallback', 'media', ms);
     const p = await probe();

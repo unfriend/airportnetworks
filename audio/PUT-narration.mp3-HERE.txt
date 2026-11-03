@@ -184,8 +184,10 @@ synthetic one. A synthetic voice for a new story: see tools/voice/README.md
    above (pairs of [time in the recording, story time]); for the built
    stories, rebuild with node tools/<story>/build.mjs. A recorded story's
    table follows the recording: tools/pace.mjs leaves it alone from then on.
-4. Bump VERSION in sw.js. sw.js lists the narration files it caches in AUDIO
-   (all sixteen names are there already, and the pass story's German one).
+4. Bump VERSION in sw.js. A device keeps a narration once a story has played
+   it there; sw.js lists the narration files in AUDIO (all sixteen names are
+   there already, and the pass story's German one) so that a new release
+   checks the ones a device holds and fetches those that changed.
 5. Serve the folder and run node tools/smoke.mjs and node tools/audio.mjs
    (both take the address, e.g. http://127.0.0.1:8123/). Whether it is heard
    in a headset can only be checked there (Sound check on the Stories screen).

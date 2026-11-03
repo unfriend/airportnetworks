@@ -21,8 +21,12 @@ async function narrFetch(n, a) {
     const r = await fetch(new Request(a, { cache: 'no-store', headers: h }));
     if (r.status === 304) { if (!own) await n.put(a, old); }
     else if (r.ok) await n.put(a, r);
-    else if (r.status === 404) await n.delete(a);   // (a narration taken away)
-  } catch (e) { /* offline: the copy held stays */ }
+    else await n.delete(a);   // (taken away, or the server could not say: played from the network next time)
+  } catch (e) {
+    // (it could not be asked, or its new copy broke off: a copy that may be out of step with the new story's timing is
+    // dropped, and the next play fetches it; installing happens online, so this is a hiccup, not being offline)
+    await n.delete(a).catch(() => {});
+  }
 }
 // the audio element (the fallback sound engine) asks for byte ranges; answer them from the
 // cached file, read once per file while this worker runs
@@ -99,7 +103,8 @@ self.addEventListener('fetch', e => {
     const key = './audio/' + narr[1], range = req.headers.has('range');
     e.respondWith(caches.match(key).then(hit => {
       if (hit) return range ? rangeResponse(req, hit, narr[1]) : hit.clone();
-      return fetch(req).then(res => {
+      // (past the browser's own cache, which a host may let keep an older copy for minutes after a release)
+      return fetch(range ? req : new Request(req, { cache: 'no-cache' })).then(res => {
         if (!range && res.status === 200 && res.type === 'basic') { const copy = res.clone(); e.waitUntil(caches.open(NARR).then(n => n.put(key, copy)).catch(() => {})); }
         return res;
       });

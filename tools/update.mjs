@@ -108,7 +108,14 @@ if (fresh) {
   let has = false;
   for (let i = 0; i < 20 && !has; i++) { await wait(250); has = (await held() || []).includes(fresh); }
   report('narrations: one played for the first time is kept for next time', has, JSON.stringify({ fresh, held: await held() }));
-}
+} else console.log('note the older version has every narration this one has: the first play\'s copy is not checked here');
+// a narration re-recorded since the older version: the device's copy is the new one (the 200 of the conditional request)
+const size = async f => page.evaluate(async f => { const r = await (await caches.open('networks-narration')).match('./audio/' + f); return r ? (await r.arrayBuffer()).byteLength : -1; }, f);
+const changed = oldHeld.find(f => newAll.includes(f) && !fs.readFileSync(path.join(oldDir, 'audio', f)).equals(fs.readFileSync(path.join(newDir, 'audio', f))));
+const unchanged = oldHeld.find(f => newAll.includes(f) && f !== changed && fs.readFileSync(path.join(oldDir, 'audio', f)).equals(fs.readFileSync(path.join(newDir, 'audio', f))));
+if (changed) report('narrations: one re-recorded since is held in its new form', await size(changed) === fs.statSync(path.join(newDir, 'audio', changed)).size, JSON.stringify({ changed, held: await size(changed), new: fs.statSync(path.join(newDir, 'audio', changed)).size }));
+else console.log('note no narration the older version held was re-recorded since: the refreshed copy is not checked here');
+if (unchanged) report('narrations: one unchanged is kept as it was', await size(unchanged) === fs.statSync(path.join(newDir, 'audio', unchanged)).size, JSON.stringify({ unchanged, held: await size(unchanged) }));
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();

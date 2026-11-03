@@ -3712,7 +3712,7 @@
         if (!x.trim()) { s += ' '; continue; }
         // a bold name into its text: a colon (a bold that starts with a number, not a numbered step's '1 · Copy': a
         // space); a number into its small caption: a space; the items of one list: a comma
-        if (lp && lp !== p && /^(B|STRONG)$/.test(lp.tagName) && /^[A-Za-z0-9(]/.test(x) && /[A-Za-z0-9)]$/.test(s)) s += /^\s*\d/.test(lp.textContent) && !/·/.test(lp.textContent) ? ' ' : ': ';
+        if (lp && lp !== p && /^(B|STRONG)$/.test(lp.tagName) && /^[\p{L}\p{N}(]/u.test(x) && /[\p{L}\p{N})%]$/u.test(s)) s += /^\s*\d/.test(lp.textContent) && !/·/.test(lp.textContent) ? ' ' : ': ';
         else if (lp && lp !== p && p.closest('li') && lp.closest('li') && p.closest('li') !== lp.closest('li') && !/[,.;:!?]\s*$/.test(s)) s += ', ';
         else if (lp && lp !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(x) && /[\p{L}\p{N})%]$/u.test(s)) s += ' ';
         s += x; lp = p;

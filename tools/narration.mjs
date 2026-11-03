@@ -45,7 +45,7 @@ for (const s of list) {
         // with a number, '<b>23</b>chromosomes', not a numbered step's '1 · Copy': a space); a number straight into
         // its small caption a space; the items of one list a comma
         if (last && last.cue === cue) {
-          const b = last.p !== p && /^(B|STRONG)$/.test(last.p.tagName) && /^[A-Za-z0-9(]/.test(txt) && /[A-Za-z0-9)]$/.test(last.text);
+          const b = last.p !== p && /^(B|STRONG)$/.test(last.p.tagName) && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
           const li = !b && last.p !== p && !!p.closest('li') && !!last.p.closest('li') && p.closest('li') !== last.p.closest('li') && !/[,.;:!?]\s*$/.test(last.text);
           const cap = !b && !li && last.p !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
           last.text += (b ? (/^\s*\d/.test(last.p.textContent) && !/·/.test(last.p.textContent) ? ' ' : ': ') : li ? ', ' : cap ? ' ' : '') + txt;
