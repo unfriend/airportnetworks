@@ -3773,9 +3773,16 @@ try {
   await H.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.ctrl(0, null); });
   await frames(H, 100);
   await H.evaluate(() => HOST.room.calibrate());
-  await touch(markA);
-  const stA = await H.evaluate(() => HOST.room.state);
-  const dbl = await H.evaluate(p => { window.__xr.ctrl(0, p, [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step(); return HOST.room.state; }, markB);
+  // mark A, and at once (in the same moment of the page, so no slow frame between puts it past the 0.6 s) a second pull
+  await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), markA); await frames(H, 650);
+  const [stA, dbl] = await H.evaluate(p => {
+    const X = window.__xr;
+    HOST.cur.peek('XR.ctrls[0].wantPress = true');
+    for (let k = 0; k < 20 && HOST.room.state !== 'mark-b'; k++) X.step();
+    const a = HOST.room.state;
+    X.ctrl(0, p, [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); X.step();
+    return [a, HOST.room.state];
+  }, markB);
   check('calibration: a second pull right after a mark (a double pull) is ignored', dbl === 'mark-b' &&
     await H.evaluate(() => window.__collabLog.some(e => e.ev === 'mark ignored')), dbl);
   await touch([markA[0] + 0.1, markA[1], markA[2] + 0.05]);
