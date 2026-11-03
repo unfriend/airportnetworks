@@ -108,7 +108,19 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   `relay/README.md`. The app on a public relay says that it lists no rooms, waits when a limit refuses it (never falls to
   peer to peer, which would split a room) and waits a minute when a rejoin is held back. Not deployed yet; once it is,
   its address can become the app's default relay. Built by hand (1 to 3) and by six builders in parallel (5 to 9, and 4
-  with the menu), integrated by hand, reviewed once (REVIEW). Tests: RESULTS. Untested on devices: how the voices
+  with the menu), integrated by hand, reviewed once (five Sonnet reviewers, one per area, two skeptics for each finding: one medium,
+  the arc waiting for the first calibration, refuted as intended; six lows fixed: a page's arc written as a headset
+  placed it is moved again, the arc waits while the startup flow is about to ask the first headset to calibrate, the arc
+  left by hand for this visit only, a red check goes with its frame, a public relay's word on rooms from the relay asked
+  last, back passes More's menu when it no longer shows; two more Sonnet checks of those fixes found nothing). Tests:
+  smoke 169 good; audio 59 good; relay 333 good; the update test from v107 good; live 21 good (its pages now start with
+  the sound on: on the story's own clock a playing chapter did not reach its end in software rendering); every story's
+  sound cues good; shared rooms: the full run 457 good and 11 failing, each explained and passing on its own (peer to
+  peer 18 of 18: the run overlapped a builder's browser test; the room's arc 27 of 27 once two checks expected the arc
+  where the headset stands, not 1.2 m ahead; the ten-headset round 17 of 17 once the pretend headset updates the story's
+  panels before pointing: the Stories screen's two rows at 1.25 m stood in the ray as last shown, which a real headset
+  hides every frame; a double pinch with no frame stepped between), then the quick run 323 good with two timing checks
+  (the menu closing by itself unused, now given up to 5 s; a host replaced in 41 s, which passed on its own). Untested on devices: how the voices
   sound; the Stories screen's two rows and the menu's new rows on a headset; the room's arc dragged in a real room and
   how close its cards stand; the startup flow's timing and how accurately a tip finds a table corner; Android's and
   iPad's full screen, the iPhone tip, AR on a phone, Safari's gestures and back; the relay on Coolify.

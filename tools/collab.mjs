@@ -3602,7 +3602,8 @@ try {
     const idle0 = HOST.collab.menuIdle(), away0 = () => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; };
     HOST.collab.menuIdle(600); away0(); await steps(2);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
-    await wait(1100); out.idleClosed = !HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'menu').pop() || {}).by === 'idle';
+    await wait(1100); for (let k = 0; k < 40 && HOST.collab.menu; k++) await wait(100);   // (a slow page draws a frame a second: given time, as below)
+    out.idleClosed = !HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'menu').pop() || {}).by === 'idle';
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     const c0 = HOST.cur.peek('XR.ctrls')[0], ro = headNow().add(new V(0.1, -0.2, 0));
     c0.src = c0.src || right; c0.g.visible = true;
