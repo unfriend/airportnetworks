@@ -291,9 +291,12 @@ saved settings and headset calibrations do not carry over from one address to an
   [data-and-permissions.md](data-and-permissions.md) for what they see), or joins a relay somewhere else
   (`&relay=wss://...` in the room link). Both must have the same `FORMAT`. It cannot use a relay, or a relay's
   introduction server (`&peer=`), with a self-signed certificate.
-- **Public hosting** with Docker or Coolify: see [relay/README.md](../relay/README.md) ("Later: public hosting
-  (Coolify)"). Locally: `docker build -f relay/Dockerfile -t networks-relay .`, then
-  `docker run -p 8787:8787 networks-relay`.
+- **Public hosting** with Docker or Coolify: see [relay/README.md](../relay/README.md) ("Public hosting on
+  Coolify": a step-by-step guide). On the internet the relay runs with `--public` (only the app's pages may connect,
+  no list of open rooms and no names, limits per address, logs only with a token), set in Coolify's environment as
+  `RELAY_ARGS="--proxy 1 --public"`. Locally: `docker build -f relay/Dockerfile -t networks-relay .`, then
+  `docker run -p 8787:8787 networks-relay` (as on a laptop), or with `-e RELAY_ARGS=--public` (as on the server).
+  After touching the relay, run `node relay/test.mjs`.
   **TO FILL (owner):** whether a public relay will run, and where, at which address and run by whom.
 
 ## 6. Rolling back

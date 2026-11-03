@@ -55,15 +55,18 @@ On a public server (each is off unless given, and --public turns on all of them 
   --sockets <n>    per address, at most n open sockets (rooms and the introduction server together)
   --store <MB>     all rooms' keys and values together at most this many MB (as JSON); a write past it is refused
   --log-token <t>  POST /api/log needs the header X-Log-Token: <t> (or set RELAY_LOG_TOKEN in the environment rather
-                   than putting it in the command; --public with --logs needs one)`;
-for (let i = 2; i < process.argv.length; i++) {
-  const name = process.argv[i].replace(/^--/, '');
-  if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
-  if (name === 'watch') { const v = process.argv[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
-  if (name === 'proxy') { const v = process.argv[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
-  if (name === 'origin') { const v = process.argv[++i]; if (v === undefined) { console.log(HELP); process.exit(1); } OPT.origin.push(...v.split(',')); continue; }
+                   than putting it in the command; --public with --logs needs one)
+The environment variable RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public").`;
+// the options: the command's, then RELAY_ARGS's (the environment's: Coolify sets it, so its start command needs no change)
+const ARGV = [...process.argv.slice(2), ...String(process.env.RELAY_ARGS || '').trim().split(/\s+/).filter(Boolean)];
+for (let i = 0; i < ARGV.length; i++) {
+  const name = ARGV[i].replace(/^--/, '');
+  if (name === 'help' || !(name in OPT) || name === ARGV[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
+  if (name === 'watch') { const v = ARGV[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
+  if (name === 'proxy') { const v = ARGV[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
+  if (name === 'origin') { const v = ARGV[++i]; if (v === undefined) { console.log(HELP); process.exit(1); } OPT.origin.push(...v.split(',')); continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
-  const v = process.argv[++i];
+  const v = ARGV[++i];
   OPT[name] = typeof OPT[name] === 'number' ? Number(v) : v;
   if (v === undefined || (typeof OPT[name] === 'number' && !(OPT[name] >= 0))) { console.log(HELP); process.exit(1); }
 }

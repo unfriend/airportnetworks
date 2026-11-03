@@ -2,7 +2,8 @@
 # Build from the repository root (Coolify: Dockerfile location /relay/Dockerfile, port 8787):
 #   docker build -f relay/Dockerfile -t networks-relay .
 #   docker run -p 8787:8787 networks-relay
-# On a public server, Coolify's start command adds --proxy 1 --public (relay/README.md, "Public hosting on Coolify").
+# On a public server Coolify adds --proxy 1 --public: the environment variable RELAY_ARGS="--proxy 1 --public" (or the
+# same at the end of its start command); see relay/README.md, "Public hosting on Coolify".
 FROM node:22-alpine
 WORKDIR /app
 # the app and the relay; .dockerignore leaves out the tools, their data and the git history

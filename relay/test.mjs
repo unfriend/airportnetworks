@@ -22,7 +22,7 @@ const is = (t, more = () => true) => m => m.t === t && more(m);
 // ---- the relay
 const procs = [];
 async function start(args, env) {
-  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_LOG_TOKEN: '', ...env } });
+  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_LOG_TOKEN: '', RELAY_ARGS: '', ...env } });
   procs.push(p);
   p.out = '';
   p.port = await new Promise((res, rej) => {
@@ -793,7 +793,7 @@ try {
   const APP = 'https://stories.lbi-netmed.com', EVIL = 'https://evil.example';
   const unknownCodes = n => { const out = []; for (let i = 0; out.length < n; i++) { const c = 'Q' + String.fromCharCode(65 + Math.floor(i / 26) % 26) + String.fromCharCode(65 + i % 26); out.push(c); } return out; };
   const exits = args => new Promise(r => {   // a relay that refuses to start: its exit code and what it said
-    const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, RELAY_LOG_TOKEN: '' } });
+    const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, RELAY_LOG_TOKEN: '', RELAY_ARGS: '' } });
     let out = ''; p.stdout.on('data', d => { out += d; }); p.stderr.on('data', d => { out += d; });
     const t = setTimeout(() => p.kill(), 3000);
     p.on('exit', c => { clearTimeout(t); r({ code: c, out }); });
@@ -904,6 +904,11 @@ try {
     ok(/All rooms together/.test(H.out) && !/Desktops on the same network|For headsets|On this machine/.test(H.out) && /No --proxy: behind a reverse proxy/.test(H.out),
       'on every address: no addresses to open on a LAN (a container\'s are no one\'s), and a word that --proxy is missing');
     H.kill();
+    const E = await start(['--quiet'], { RELAY_ARGS: ' --public  --proxy 1 --guesses 7 ' });
+    for (const end = Date.now() + 2000; !/All rooms together/.test(E.out) && Date.now() < end;) await sleep(20);
+    ok(/Per address at most 7 lookups/.test(E.out) && /Behind a reverse proxy/.test(E.out) && (await req('GET', '/api/ping', { at: E.port })).json().unlisted === true,
+      'RELAY_ARGS (the environment, as Coolify sets it) adds options after the command\'s own');
+    E.kill();
     // --allow-no-origin, and --origin on its own
     const N = await start(['--public', '--allow-no-origin', '--quiet']);
     w = await raw('/api/ws?room=ABC&id=n1', { at: N.port });
