@@ -2657,6 +2657,7 @@ try {
 
   // ------------------------------------------------- a pretend headset --
   const H = await open('#s=' + code);
+  let hLoads = 0; H.on('load', () => hLoads++);   // (a reload of the pretend headset's page would end its session: counted for the failures' notes)
   await st7(H);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id);
@@ -2790,9 +2791,15 @@ try {
   // a second of the nap, by the other page's measure of the relay's clock it could still be before this headset fell
   // asleep, two pages' measures differing by about a second on a machine drawing in software)
   await sleep(3000);
-  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), Object.assign(f, { p: Math.round(HOST.collab.now()) })]]), frameIn(NEWS, ROOM2, 'U1', aId, 'shared'));
+  const rewrote = await A.evaluate(f => { const v = Object.assign(f, { p: Math.round(HOST.collab.now()) }); return { sent: HOST.collab.publish([[HOST.room.frameKey('U1'), v]]), p: v.p, open: HOST.collab.status }; }, frameIn(NEWS, ROOM2, 'U1', aId, 'shared'));
   await frames(H, 400);
-  const fw2 = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice(), hold: !!HOST.room.internals().wakeHold })), [fo2, fx2] = inFloor(F8, ROOM2);
+  const fw2 = await H.evaluate(() => {
+    const R = HOST.room.internals(), P = HOST.collab.val(HOST.room.frameKey('U1')) || {}, t = performance.now();
+    return { src: HOST.room.src, o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice(), hold: !!R.wakeHold,
+      why: { p: P.p, by: P.by === HOST.collab.id ? 'me' : P.by, slept: R.sleptRel, still: Math.round(t - R.stillSince), own: R.sharedOwn, blind: R.blind,
+        now: Math.round(HOST.collab.now()), log: window.__collabLog.slice(-12).filter(e => /wake|frame/.test(e.ev)).map(e => e.ev + (e.fresh !== undefined ? ' fresh ' + e.fresh : '')) } };
+  }), [fo2, fx2] = inFloor(F8, ROOM2);
+  fw2.wrote = rewrote; fw2.loads = hLoads;
   check('and follows the room\'s frame once its writer has written it into the space again', fw2.src === 'adopted' && !fw2.hold && near([fw2.o[0], fw2.o[2]], [fo2[0], fo2[2]], 2e-3) &&
     near(fw2.x, fx2, 2e-3), JSON.stringify(Object.assign(fw2, { want: [fo2, fx2] })));
   // the room's frame written by this headset itself, after a night in a space made again: written into the new space
