@@ -68,6 +68,10 @@ await new Promise(r => pages.listen(8126, '127.0.0.1', r));
 
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-prof-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined, args: ARGS, viewport: { width: 1100, height: 700 } });
+// the sound on, as on a device that turned it on (since v109 it starts off: the story then runs on its own clock, which in
+// software rendering crawls, and a playing chapter would not reach its end within the checks' time)
+const soundOn = () => { try { if (localStorage.getItem('narrationMuted3') === null) localStorage.setItem('narrationMuted3', '0'); } catch (e) { /* no storage */ } };
+await ctx.addInitScript(soundOn);
 const page = ctx.pages()[0] || await ctx.newPage();
 const errors = [];
 const watchErrors = (p, tag) => {
@@ -222,6 +226,7 @@ relay.stdout.on('data', d => { relayOut += d; }); relay.stderr.on('data', d => {
 for (let i = 0; i < 50 && !/listening/.test(relayOut); i++) await wait(100);
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ARGS });
 const dev = await browser.newPage({ viewport: { width: 1100, height: 700 } });
+await dev.addInitScript(soundOn);
 watchErrors(dev, 'dev');
 try {
   await dev.goto('http://127.0.0.1:8127/#airports');
