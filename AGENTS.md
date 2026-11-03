@@ -69,8 +69,14 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   checked with the server each time (`cache: 'no-cache'`), so the page and its
   story files are always the same version; the cache is the offline copy (and
   the answer when the network takes more than 4 s). The narration MP3s are
-  served from the cache (with byte ranges). Installing fetches straight from
-  the server (`cache: 'reload'`).
+  served from the cache (with byte ranges), a cache of their own that outlives
+  the releases (`networks-narration`, v108): a narration goes in when a story
+  first plays it on this device, never all sixteen at once (about 57 MB; ten
+  headsets at their first visit would pull 570 MB over one router while people
+  are already in a room), so offline a device has the narrations it has
+  played. A new worker asks the server only about those it holds, with their
+  ETag, and fetches only the ones that changed. Installing fetches straight
+  from the server (`cache: 'reload'`).
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports,
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.

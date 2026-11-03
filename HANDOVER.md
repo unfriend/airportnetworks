@@ -57,9 +57,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   `data-say` for a line said otherwise or not at all: the proteins' chart, the live counters). The stories got longer or
   shorter with their voices (the soil story is now the longest, 11:03); the flock's first swoop round you moved to
   its last chapter in the recording (95 s of flight). Each story's credits say the narration is a synthetic voice.
-  (3) The narrations keep a cache of their own in the service worker (`networks-narration`), so a release no longer
-  fetches all 57 MB again on every device: a new worker asks the server about each file with its copy's ETag and
-  fetches only those that changed. Built by hand and by one builder (the German narration); the text pass reviewed
+  (3) The narrations keep a cache of their own in the service worker (`networks-narration`), filled as a device first
+  plays each story, never all at once: a new worker asks the server only about the narrations it holds, with their
+  ETag, and fetches only those that changed (until v107 every release fetched all of them again, on every device; with
+  all sixteen narrated, fetching them all at install was 57 MB a device, which in the shared-room test slowed the pages
+  enough to break a headset's hand-over of its room; it would have been 570 MB over one router for ten headsets at
+  their first visit). Offline, a device has the narrations it has played. Built by hand and by one builder (the German narration); the text pass reviewed
   once (Sonnet reviewers; one medium, fixed). How the voices sound was not heard here. Tests: every narration checked in headless Chromium (`tools/voice/check.mjs --quick`, the pass story in both languages: each line where its cue is, the clock following the sound, jumps, the slideshow's stops) 16 of 16 good after the checker learnt to skip lines marked not read; the sound cues good; smoke 164 good; audio 53 good on the second run (the first had one timing check fail, Web Audio taking back over from the `<audio>` element mid-check, on the airports story, which v108 did not change); relay 243 good; the update test from v107 good; shared rooms (quick run) RESULT.
 - **Released as networks-v107 (2 November 2026; FORMAT networks-28 as v104 to v106, shell 107: running pages ask to
   reload), tested headlessly only: a room setup guide with an alignment check, the PET network in 3D, and three small

@@ -2,7 +2,8 @@
 // older version (service worker and offline cache), then serves this one the way GitHub Pages
 // does (browsers may keep files for ten minutes) and checks that the page and its story files
 // are from the same, new version within the first visit, on the next visit and offline, and
-// that the worker answers byte ranges of the cached narration.
+// that the worker answers byte ranges of the cached narration and caches a narration when it is first played (never all
+// of them at install).
 // Usage: git worktree add /tmp/old <an earlier commit>
 //        node tools/update.mjs /tmp/old [.]
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs. Uses port 8125.
@@ -93,6 +94,21 @@ const ranges = await page.evaluate(async () => {
   return { first: await get('bytes=0-99'), last: await get('bytes=-100'), beyond: await get('bytes=999999999-') };
 });
 report('narration byte ranges from the cache', ranges.first.join() === '206,100' && ranges.last.join() === '206,100' && ranges.beyond[0] === 416, JSON.stringify(ranges));
+// the narrations keep a cache of their own (networks-narration): the new worker took over those the older version held,
+// fetched none that this device never played (the tour's and every other story's), and keeps one a story fetches to play
+const held = () => page.evaluate(async () => (await caches.has('networks-narration')) ? (await (await caches.open('networks-narration')).keys()).map(r => r.url.replace(/.*\/audio\//, '')).sort() : null);
+const oldHeld = fs.readdirSync(path.join(oldDir, 'audio')).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
+const newAll = fs.readdirSync(path.join(newDir, 'audio')).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
+const kept = await held();
+const fresh = newAll.find(f => !oldHeld.includes(f));
+report('narrations: the ones held before are kept, no others fetched at install',
+  kept && oldHeld.every(f => kept.includes(f)) && kept.every(f => oldHeld.includes(f) || f === 'narration.mp3'), JSON.stringify({ held: kept, before: oldHeld }));
+if (fresh) {
+  await page.evaluate(f => fetch('audio/' + f).then(r => r.arrayBuffer()), fresh);
+  let has = false;
+  for (let i = 0; i < 20 && !has; i++) { await wait(250); has = (await held() || []).includes(fresh); }
+  report('narrations: one played for the first time is kept for next time', has, JSON.stringify({ fresh, held: await held() }));
+}
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();

@@ -5,12 +5,16 @@ const SHELL = ['./', './index.html', './sfx.js', './shared.js', './proteins.html
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-pass-de.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
-// The narrations (about 60 MB together, and seldom changed) keep a cache of their own that outlives the releases: a new
-// worker asks the server about each with its copy's ETag (or date) and fetches only those that changed; a copy in an
-// older release's cache counts too (until v107 they were fetched again in full at every release, on every device)
+// The narrations (about 60 MB together, and seldom changed) keep a cache of their own that outlives the releases. A
+// narration goes into it when a story first plays it (the fetch handler below), never all of them at once: ten
+// headsets fetching every story's narration at their first visit was 570 MB over one router, while people were already
+// in a room. A new worker asks the server only about those this device holds, each with its copy's ETag (or date), and
+// fetches only those that changed; a copy in an older release's cache counts too (until v107 they were fetched again
+// in full at every release, on every device)
 const NARR = 'networks-narration';
 async function narrFetch(n, a) {
   const own = await n.match(a), old = own || await caches.match(a), h = {};
+  if (!old) return;   // (not held here: fetched when a story first plays it)
   const et = old && old.headers.get('ETag'), lm = old && old.headers.get('Last-Modified');
   if (et) h['If-None-Match'] = et; else if (lm) h['If-Modified-Since'] = lm;
   try {
@@ -44,7 +48,7 @@ self.addEventListener('install', e => {
   // straight from the server, not from the browser's HTTP cache, which may still hold the old version
   const get = u => new Request(u, { cache: 'reload' });
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)))
-    // the narrations are optional: cache those that exist, fetching only what changed
+    // the narrations this device holds, fetched again only where they changed
     .then(() => caches.open(NARR)).then(n => Promise.all(AUDIO.map(a => narrFetch(n, a))))
     .then(() => self.skipWaiting()));
 });
@@ -88,12 +92,17 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
-  // the narration: from the cache when it is there (as byte ranges), else the network
+  // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
+  // (a story playing it for the first time on this device) for next time and offline
   const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
   if (narr) {
-    e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
-      if (!hit) return fetch(req);
-      return req.headers.has('range') ? rangeResponse(req, hit, narr[1]) : hit.clone();
+    const key = './audio/' + narr[1], range = req.headers.has('range');
+    e.respondWith(caches.match(key).then(hit => {
+      if (hit) return range ? rangeResponse(req, hit, narr[1]) : hit.clone();
+      return fetch(req).then(res => {
+        if (!range && res.status === 200 && res.type === 'basic') { const copy = res.clone(); e.waitUntil(caches.open(NARR).then(n => n.put(key, copy)).catch(() => {})); }
+        return res;
+      });
     }));
     return;
   }
