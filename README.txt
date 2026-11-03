@@ -56,8 +56,10 @@ over every circle its story's small model turns, so circles tell apart.
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
-AR from the start screen opens a Stories screen in the headset (one panel per
-story); entering from inside a story resumes it where you were. In a shared
+AR from the start screen opens a Stories screen in the headset (its title and
+one card per story, in two rows in front of you; the sound, Sound check,
+Anchor, Exit, Recenter and Repeat are in the headset's menu: click a stick);
+entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
@@ -67,7 +69,8 @@ directly (proteins.html and spatial.html forward there). Taking the headset off 
 A story builds in steps while it loads: the page shows a thin bar and the step
 under its loading line, and a headset shows a card with the story's name and a
 bar in front of you until the story appears.
-Repeat all and Repeat one on the Stories screen (page and headset) keep the app
+Repeat all and Repeat one (on the page's Stories screen, in a headset in its
+menu) keep the app
 playing for an exhibition: Repeat all plays the stories one after another
 without end, Repeat one plays the story you pick again and again. Press the lit
 button to turn it off. It is remembered on the device; a link ending in
@@ -91,7 +94,7 @@ Slideshow on the Stories screen (in a headset, in the menu's Settings tab).
 It is remembered on the device; #slides=on (or #slides=off) in a link sets it
 for every story. In a shared room a stop pauses the station for everyone there,
 like a pause by hand.
-Anchor (headset Stories screen) keeps the network and the panels at one spot
+Anchor (in the headset's menu) keeps the network and the panels at one spot
 in the real room, for every story: through taking the headset off and on (the
 next wearer still starts on the Stories menu), recentring, leaving VR and
 reloading. While anchored the grip moves nothing; Place again puts everything
@@ -298,8 +301,8 @@ click: the first one in the app (Enter VR counts) turns sound on for every
 story, also when you change story inside the headset. If the button says Play
 sound, press it. Without the file the story runs silently, at a pace that leaves time
 to read its panel (tools/pace.mjs sets it from the words).
-No sound? Open Sound check on the Stories screen (on the page, or in the headset
-under the title; in a shared room in the headset's menu): it shows what the sound system is doing, plays a test beep
+No sound? Open Sound check on the Stories screen (on the page; in a headset in
+its menu's Debug tab): it shows what the sound system is doing, plays a test beep
 through each of the app's two ways to play sound (Web Audio and an audio
 element) and lets you choose the one you hear. Reset clears the saved choices.
 A link ending in #soundcheck opens it.

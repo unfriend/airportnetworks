@@ -27,6 +27,29 @@ const SFX_PICK = {
   airports: ['selectAirport(A("SYD"))', 'pick'],
   flock: ['setCtl("flock", "birds", ctlValue("flock", GL.sets.flock.controls[1]) === "400" ? "100" : "400")', 'flutter'],
 };
+// The headset Stories screen (run inside a story, XR.on, the Stories screen open and its panels drawn): its header only
+// the title, the hint and Back to the story (the rest is the shell's menu's); one card per story in two rows on one arc,
+// the first half of the list (rounded up) in the upper row, each row centred, left to right in the list's order, the
+// rows apart and under the header, all within about 0.65 m of the eyes up and down
+const LAND_CHECK = `{
+  const ids = XR.land[0].regions.map(r => r.id).join();
+  if (ids !== 'back') throw new Error('the Stories screen\\'s header has [' + ids + '] (only Back to the story)');
+  const n = HOST.list.length, per = Math.ceil(n / 2), cards = XR.land.slice(1), ch = P => P.mesh.geometry.parameters.height;
+  if (cards.length !== n || !XR.land.every(P => P.mesh.visible)) throw new Error('the Stories screen shows ' + cards.length + ' cards of ' + n);
+  const wrong = cards.findIndex((P, k) => !P.sig().endsWith(HOST.list[k].key));
+  if (wrong >= 0) throw new Error('the Stories screen\\'s card ' + wrong + ' is not ' + HOST.list[wrong].key);
+  const rows = [cards.slice(0, per), cards.slice(per)], y = R => R.map(P => P.mesh.position.y), x = R => R.map(P => P.mesh.position.x);
+  for (const R of rows) {
+    if (R.length && Math.max(...y(R)) - Math.min(...y(R)) > 1e-6) throw new Error('a row of the Stories screen is not level: ' + y(R));
+    if (R.length && Math.abs(x(R).reduce((a, b) => a + b, 0)) > 1e-6) throw new Error('a row of the Stories screen is not centred: ' + x(R));
+    if (x(R).some((v, k) => k && v <= x(R)[k - 1])) throw new Error('a row of the Stories screen is not in the list\\'s order');
+  }
+  const head = XR.land[0].mesh, top = head.position.y + ch(XR.land[0]) / 2, up = rows[0][0].mesh.position.y;
+  if (head.position.y - ch(XR.land[0]) / 2 < up + ch(rows[0][0]) / 2) throw new Error('the Stories screen\\'s header overlaps its upper row');
+  if (rows[1].length && up - rows[1][0].mesh.position.y < ch(rows[0][0]) + 0.02) throw new Error('the Stories screen\\'s rows overlap');
+  const low = (rows[1].length ? rows[1][0] : rows[0][0]).mesh.position.y - ch(rows[0][0]) / 2;
+  if (top > 0.65 || low < -0.65) throw new Error('the Stories screen reaches from ' + top.toFixed(2) + ' to ' + low.toFixed(2) + ' m of the eyes');
+}`;
 for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
@@ -162,19 +185,17 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     }, [key, SFX_PICK[key]]);
     if (bad.length) errors.push(...bad.map(b => `${key}: sound effects: ${b}`));
   });
-  await step(`${key}: explore mode and headset panels`, () => page.evaluate(() => HOST.cur.peek(`(() => {
+  await step(`${key}: explore mode and headset panels`, () => page.evaluate(L => HOST.cur.peek(`(() => {
     APP.enterExplore();
     document.querySelectorAll('.tabs button').forEach(b => b.click());
     XR.on = true;
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
     if (XR.main.regions.some(r => r.id === 'exit')) throw new Error('Exit is on the story panel (it belongs in the menu on the left wrist)');
-    XR.stories = true;
+    const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0));
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-    XR.soundCheck = true; xrUpdate(storyState(0));
-    for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-    if (!XR.snd.mesh.visible || XR.land[1].mesh.visible) throw new Error('Sound check panel not shown in place of the cards');
-    XR.soundCheck = false; XR.stories = false; XR.on = false;
-  })()`)));
+    ${L}
+    XR.inStory = was; XR.stories = false; XR.on = false;
+  })()`), LAND_CHECK));
   if (key === 'lbi') await step('lbi: every scene and control in explore mode', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     for (const [k] of HOST.cur.peek('SCENES')) {
@@ -1164,21 +1185,19 @@ await step('design: a pretend headset picks a miniature up, both grips size it; 
   })()`));
   if (bad.length) errors.push(...bad.map(b => 'design: ' + b));
 });
-await step('design: explore mode and headset panels', () => page.evaluate(() => HOST.cur.peek(`(() => {
+await step('design: explore mode and headset panels', () => page.evaluate(L => HOST.cur.peek(`(() => {
   APP.enterExplore();
   document.querySelectorAll('.tabs button').forEach(b => b.click());
   XR.on = true;
   for (const tab of ['prop', 'all']) { pickTab(tab); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
   if (XR.main.regions.some(r => r.id === 'exit')) throw new Error('Exit is on the story panel (it belongs in the menu on the left wrist)');
   if (!XR.main.regions.some(r => r.id === 'pick:lbi.int') && !XR.main.regions.some(r => r.id.startsWith('pick:'))) throw new Error('no props to pick on the headset panel');
-  XR.stories = true;
+  const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0));
   for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-  XR.soundCheck = true; xrUpdate(storyState(0));
-  for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-  if (!XR.snd.mesh.visible || XR.land[1].mesh.visible) throw new Error('Sound check panel not shown in place of the cards');
-  XR.soundCheck = false; XR.stories = false; XR.on = false;
+  ${L}
+  XR.inStory = was; XR.stories = false; XR.on = false;
   APP.enterStory(0); APP.seek(T_END - 0.1); APP.playing = true;
-})()`)));
+})()`), LAND_CHECK));
 await step('design: the intro ends at the table', async () => {
   await page.waitForFunction(() => HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 20000 }).catch(() => errors.push('design: the intro did not end in explore mode'));
   await page.evaluate(() => HOST.openPicker());
@@ -1364,7 +1383,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       n.y = 0; h.y = 0; return h.length() < 0.01 ? 0 : n.angleTo(h) * 180 / Math.PI; };
     return { sprites: sp.length, signs: sg.length, onTop: sp.every(L => !L.sprite.material.depthTest), inDepth: sg.every(L => L.sign.material.depthTest),
       q: sg.map(L => L.sign.getWorldQuaternion(q).toArray()), up: Math.min(1, ...sg.map(L => up.set(0, 1, 0).applyQuaternion(L.sign.getWorldQuaternion(q)).y)),
-      face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible, panels: [XR.main, XR.foot].map(look), land: XR.land.concat(XR.snd).map(look) };
+      face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible, panels: [XR.main, XR.foot].map(look), land: XR.land.map(look) };
   })()`;
   const labels = () => sx(LABELS);
   // the story panels (text, foot) in each cards mode: on top as before (drawn over everything), in 3D in the scene as
