@@ -273,7 +273,11 @@ machine on the same Wi-Fi as the headsets and serves the app itself (node
 relay/server.mjs --lan prints the https:// address to open on each headset; see
 relay/README.md). GitHub Pages serves everything else; a copy there can join a
 relay elsewhere with &relay=wss://... in the room link. #s=XYZ in a link joins
-room XYZ. Without a relay (none known, or none answers) a room runs peer to
+room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
+device enters it once, in the Shared dialog or, in a headset, under the menu's
+Circles, Relay password (a keypad of lower-case letters and digits). The device
+keeps it for that relay; links and rooms never carry it. While a relay waits for
+its password, nothing starts or is joined anywhere else. Without a relay (none known, or none answers) a room runs peer to
 peer: one page hosts it and the others link to it directly (PeerJS, vendored;
 its public introduction server and Cloudflare's STUN server introduce the
 devices, and they and the other devices see each device's IP address). The

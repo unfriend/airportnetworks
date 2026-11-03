@@ -13,10 +13,11 @@ server for devices that link to each other directly (peer to peer, PeerJS's prot
 machine. GitHub Pages serves static files only, so it cannot run the relay; the app keeps working there for everyone
 else, and only shared rooms need the relay. Public hosting: [Public hosting on Coolify](#public-hosting-on-coolify).
 
-**No accounts, no passwords: the room code is the secret.** Rooms live in memory: a restart empties them. On a
-laptop at an event the relay trusts everyone who can reach it; on the internet `--public` narrows that down (only the
-app's pages, no list of rooms or names, limits per address), but a room's code (three letters) is still all it takes
-to join it.
+**No accounts; one shared password if you want it.** Rooms live in memory: a restart empties them. On a laptop at an
+event the relay trusts everyone who can reach it; on the internet `--public` narrows that down (only the app's pages, no
+list of rooms or names, limits per address). With a password (`COLLAB_TOKEN`, as asdf10k-collab-backend has it: [The
+shared password](#the-shared-password-collab_token)) only devices that have entered it can use the relay at all;
+without one a room's code (three letters) is all it takes to join it.
 
 **Running a session with headsets:** the checklist is [docs/event-runbook.md](../docs/event-runbook.md); this file
 is the reference for the relay itself.
@@ -24,7 +25,8 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>]
+COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the environment (better: not in a command)
 ```
 
 | flag | default | meaning |
@@ -42,6 +44,18 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app's files served from the repository; prints the address to open on the headsets |
 | `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
+| `--token <word>` | off | a shared password every client must bring ([The shared password](#the-shared-password-collab_token)); better set as `COLLAB_TOKEN` in the environment |
+
+The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
+things; a flag given as well wins):
+
+| variable | default | meaning |
+| --- | --- | --- |
+| `COLLAB_TOKEN` | (none) | the shared password (`--token`); empty or unset: none, everything open as before |
+| `COLLAB_PORT` | 8787 | `--port` |
+| `COLLAB_HOST` | 0.0.0.0 | `--host` |
+| `RELAY_ARGS` | (none) | more options, added after the command's own (Coolify: `--proxy 1 --public`) |
+| `RELAY_LOG_TOKEN` | (none) | the log token (`--log-token`) |
 
 For a public server ([Public hosting on Coolify](#public-hosting-on-coolify)). Each is off unless given; `--public`
 turns on all of them, with the defaults in the second column (a value given on its own wins):
@@ -52,9 +66,9 @@ turns on all of them, with the defaults in the second column (a value given on i
 | `--origin <list>` | `https://stories.lbi-netmed.com` | only pages from these origins (comma separated, the flag may be repeated; a scheme, a host and an optional port, no path) and the relay's own pages may open a socket (`/api/ws`, `/peerjs`) or use the API and the introduction server over HTTP. The relay's own pages: an `Origin` whose host is the one the request was sent to (`Host`, or with `--proxy` also `X-Forwarded-Host`). Another origin: 403, before any socket. CORS names the allowed origin (`Vary: Origin`) instead of `*`. A request with no `Origin` (the relay's own page asking with GET, the health check, curl) is answered; a socket with none is refused unless `--allow-no-origin` |
 | `--allow-no-origin` | off | with an origin rule: also sockets that send no `Origin` (not a browser: tools, scripts) |
 | `--unlisted` | on | no list of open rooms (`GET /api/rooms` answers `[]`), no member's name in any answer (`/api/near`: code, people, stations, version; `/api/rooms/<code>`: people as a count) or log line; `/api/ping` says `unlisted: true`. A room's own members still see each other's names (its people list) |
-| `--guesses <n>` | 30 | per address, at most `n` lookups a minute of room codes that do not exist (a burst of `2n`): a socket for an unknown room, `GET /api/rooms/<code>` answered 404, `POST /api/rooms` with a code that is taken (409). Past that, every lookup of a code from that address is refused, a known one too (or the answers would say which codes exist), until the budget fills again: 429 with `Retry-After`, or on a socket `error` `limit` and close 4029. A member coming back (its id still in the room) is let in |
+| `--guesses <n>` | 30 | per address, at most `n` lookups a minute of room codes that do not exist (a burst of `2n`): a socket for an unknown room, `GET /api/rooms/<code>` answered 404, `POST /api/rooms` with a code that is taken (409). Past that, every lookup of a code from that address is refused, a known one too (or the answers would say which codes exist), until the budget fills again: 429 with `Retry-After`, or on a socket `error` `limit` and close 4429 (4029 until v109; the app takes both). A member coming back (its id still in the room) is let in |
 | `--creates <n>` | 10 | per address, at most `n` new rooms a minute (a burst of `2n`), then 429 |
-| `--sockets <n>` | 64 | per address, at most `n` open sockets, rooms and the introduction server together (`error` `busy`, or PeerJS's `ERROR`, close 4029) |
+| `--sockets <n>` | 64 | per address, at most `n` open sockets, rooms and the introduction server together (`error` `busy`, or PeerJS's `ERROR`, close 4429) |
 | `--store <MB>` | 64 | every room together holds at most this many MB of keys and values (as JSON; each room still at most 4 MB): a write past it is refused (`the relay is full`) |
 | `--log-token <t>` | (needed with `--logs`) | `POST /api/log` keeps a log only with the header `X-Log-Token: <t>` (none: 404, as when logs are off, so a page stops sending; a wrong one: 403). At least 16 characters. Better than on the command line: the environment variable `RELAY_LOG_TOKEN` (Coolify's environment; never in the repository) |
 
@@ -81,6 +95,49 @@ Headsets need a secure context for WebXR (`https://`, or `http://localhost`), an
 open `wss://` sockets. `--lan` takes care of both on a local network: it makes a certificate of its own for
 this machine's addresses (once, with `openssl`, in `relay/.lan/`, made again when the addresses change), serves
 the app's files from the repository over HTTPS, and prints the address to open.
+
+## The shared password (`COLLAB_TOKEN`)
+
+The owner (3 November 2026): "i would like to add a secret to the relay like how this project does it:
+menchelab/asdf10k-collab-backend ... like one word like networksofthefuture2037 that i can use and enter on each client
+if i want it to be able to use the relay, no other way to use it". So the relay takes one shared password, the
+scheme of asdf10k-collab-backend's `COLLAB_TOKEN` ([Compared with
+asdf10k-collab-backend](#compared-with-asdf10k-collab-backend) lists what matches and what does not):
+
+- **Set it** in the relay's environment, `COLLAB_TOKEN=<word>` (or `--token <word>`, also in `RELAY_ARGS`). Empty or
+  unset: no password, and the relay behaves exactly as before (a laptop at an event, the tests).
+- **Needed for everything but** `GET /api/health` (`{ ok, protocol, rooms }`, `rooms` a count: open, as there, for
+  health checks) **and the app's own files** (the pages, stories, `s/<n>/` copies: a page must load to ask for the
+  password, and the app is public on GitHub Pages anyway). Preflights (`OPTIONS`) need none.
+- **How a client brings it:** the API (`/api/ping`, `/api/near`, `/api/rooms`, `/api/rooms/<code>`, `/api/log`, ...)
+  as `Authorization: Bearer <word>` or `?token=<word>`; the room's socket as `/api/ws?room=...&token=<word>` (browsers
+  cannot set headers there); the dev stream as `/api/watch?token=<word>`; the introduction server as PeerJS's key (the
+  socket's `key=<word>`, the id request's path `/peerjs/<word>/id`; PeerJS's default key `peerjs` is refused while a
+  password is set). Compared in constant time.
+- **Refused:** HTTP 401 `{"error":"missing or wrong token"}`. A room's socket gets the protocol's
+  `{ t: 'error', code: 'token', text: 'missing or wrong token' }`, then close 4401, before anything of a room (no welcome,
+  member, key or name); the introduction server's gets `INVALID-KEY`, then 4401.
+- **Failed attempts** (a wrong password, an unknown room code) are counted per address, as `--guesses` counts them
+  (with `--proxy` the one the outermost proxy saw; IPv6 by its /64; a keyed hash in memory, never logged), in a fixed
+  window of a minute: after 20, everything from that address but `/api/health` and the app's files gets 429
+  `{"error":"too many failed attempts, wait a minute"}` (`Retry-After: 60`), a socket `error` `limit` and close 4429
+  (PeerJS's `ERROR`), for the rest of the minute, the right password too (or the limit would tell a guesser when it
+  guessed right). A request with no password at all is refused but **not counted**: guessing needs a password sent, and
+  the app's own pages ask before they know one (every device behind an event's router shares one address).
+- **Never logged:** the start line says a password is needed, never which; a URL in an error line loses `?token=`, `key=`
+  and the key in `/peerjs/<key>/`; the headsets' logs never hold it (the app strips it).
+- **In the app** (AGENTS.md, "Shared rooms"): each device enters it once, on a page in the Shared dialog (*This relay
+  needs its password*, a password field and **Use**; *That is not this relay's password* after a wrong one; **Forget the
+  password** in its relay part), in a headset under the menu's **Circles** tab, **Relay password** (a keypad page of the
+  26 lower-case letters and the ten digits). On a Quest the 2D page in Quest Browser before VR or AR is the easiest
+  place; the headset then needs nothing more. The device keeps it per relay origin in its browser (`localStorage`
+  `relayTokens`), never in a room's keys, a link, the address or a log. While a relay waits for its password, a room
+  meant for it waits too: nothing goes peer to peer or onto the device instead, nothing is joined by itself, and the
+  relay is asked at most once a minute.
+- **Choose** lower-case letters and digits (the password is case-sensitive, and the headset's keypad has only those),
+  long enough not to be guessed: `networksofthefuture2037` is the owner's kind of word. **Changing it** means every
+  device enters it again (the old one is refused, dropped and asked for: *The password this device kept is no longer
+  this relay's*).
 
 ## A session on one Wi-Fi, step by step
 
@@ -292,6 +349,13 @@ with a public address and its proxy (Traefik or Caddy) running, and access to th
      `--proxy 1 --public --origin https://stories.lbi-netmed.com,https://other.example` (the list replaces the
      default, so name the app's own address too). The relay's own pages (`https://rooms.lbi-netmed.com/`) are always
      allowed.
+   - **`COLLAB_TOKEN`** = the shared password ([The shared password](#the-shared-password-collab_token)), a second
+     variable, marked as a secret in Coolify (its lock: *Is Secret*, so the value is not shown in the UI or the build
+     logs). Lower-case letters and digits, such as `networksofthefuture2037`; never in the repository, a link or a
+     chat. Empty or absent: no password (anyone the other rules let through may use the relay). Then each device
+     enters it once: the Shared dialog on a page (also the Quest's 2D page before VR or AR), or the headset menu's
+     **Circles** > **Relay password** keypad. Changing it later (edit the variable, redeploy) means every device enters
+     the new one.
    - Logs stay off (they are off unless asked for), and that is right for now: the app sends no log token, so a
      public relay could not take a headset's alignment log anyway. To turn them on later (for a test that needs two
      headsets' numbers): a second variable **`RELAY_LOG_TOKEN`** = a long random string (`openssl rand -hex 24`; at least
@@ -303,34 +367,40 @@ with a public address and its proxy (Traefik or Caddy) running, and access to th
    of large rooms from taking the server down with it. **Restart policy**: Coolify's containers restart unless stopped (its
    default); keep it, so a relay that ran out of memory comes back by itself (a restart empties the rooms; the
    pages in them bring them back within seconds).
-8. **Health check.** The image has its own (`GET http://127.0.0.1:8787/api/ping` every 30 s; a `/api/ping` with no
-   `Origin` is answered with `--public` too). Leave Coolify's *Healthcheck* tab off, or point it at path `/api/ping`,
-   port `8787`.
+8. **Health check.** The image has its own (`GET http://127.0.0.1:8787/api/health` every 30 s: open with a password
+   and with `--public`, as it sends no `Origin`). Leave Coolify's *Healthcheck* tab off, or point it at path
+   `/api/health`, port `8787`.
 9. **Deploy, and keep it in step.** Press **Deploy** and watch the logs. The start lines should read
    ```
    relay listening on http://0.0.0.0:8787, serving /app (protocol 1)
-   Introduction server for peer to peer (PeerJS) at /peerjs, key peerjs (--no-peer turns it off)
+   Introduction server for peer to peer (PeerJS) at /peerjs, key the password (--no-peer turns it off)
    Behind a reverse proxy: a client's address is the last one in X-Forwarded-For (rooms on this network)
    Only pages from https://stories.lbi-netmed.com and the relay's own may open a socket or read the API (...)
    No list of open rooms and no names in any answer: a room is joined by its code, a link or on its network
    Per address at most 30 lookups of unknown room codes a minute (a burst of 60), 10 new rooms a minute (...), 64 open sockets
    All rooms together hold at most 64 MB
+   A password is needed (COLLAB_TOKEN or --token): everything but GET /api/health and the app's files; 20 failed attempts a minute from one address, then 429
    ```
+   (without `COLLAB_TOKEN` the last line reads `No password (COLLAB_TOKEN): anyone who can reach the relay may use it`).
    Then turn on **Auto Deploy** in the resource's settings (with a public repository Coolify needs a webhook: copy
    the GitHub webhook address and secret from the resource's *Webhooks* page into the repository's *Settings* >
    *Webhooks*, content type `application/json`, push events; with the GitHub App it needs nothing more). Every push to `main` then rebuilds the relay, so it
    serves the same app as GitHub Pages and accepts its rooms (a room refuses another `FORMAT`). Each deploy restarts
    the relay: open rooms empty and come back from the pages within seconds; avoid pushing during an event.
 10. **Test it.**
-    - `curl -s https://rooms.lbi-netmed.com/api/ping` answers `{"now":...,"proto":1,"net":"...","unlisted":true}`;
-      run it from two different networks (a phone on mobile data): `net` differs, so `--proxy` is right.
+    - `curl -s https://rooms.lbi-netmed.com/api/health` answers `{"ok":true,"protocol":1,"rooms":0}`, and
+      `curl -s https://rooms.lbi-netmed.com/api/ping` (no password) `{"error":"missing or wrong token"}`.
+    - `curl -s -H "Authorization: Bearer $COLLAB_TOKEN" https://rooms.lbi-netmed.com/api/ping` answers
+      `{"now":...,"proto":1,"net":"...","unlisted":true}`; run it from two different networks (a phone on mobile data):
+      `net` differs, so `--proxy` is right. (Type the password into the shell's variable rather than the command, and
+      only on a machine of your own.)
     - `curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://evil.example' https://rooms.lbi-netmed.com/api/ping`
-      prints `403`; with `-H 'Origin: https://stories.lbi-netmed.com'` it prints `200` and the answer carries
+      prints `403`; with `-H 'Origin: https://stories.lbi-netmed.com'` (and the password) it prints `200` and the answer carries
       `Access-Control-Allow-Origin: https://stories.lbi-netmed.com` (`curl -si ...`).
-    - `curl -s https://rooms.lbi-netmed.com/api/rooms` prints `[]`, even while a room is open.
+    - `curl -s -H "Authorization: Bearer $COLLAB_TOKEN" https://rooms.lbi-netmed.com/api/rooms` prints `[]`, even while a room is open.
     - The app on GitHub Pages with the relay: open `https://stories.lbi-netmed.com/#stories&relay=wss://rooms.lbi-netmed.com`
-      on a laptop (the page remembers the relay; the Shared dialog's relay field takes the same address). **Shared** >
-      **Start a room**: its status says it is on the relay. On a second device on the same Wi-Fi the room shows under
+      on a laptop (the page remembers the relay; the Shared dialog's relay field takes the same address). **Shared**:
+      it asks for the relay's password; type it, **Use**. **Start a room**: its status says it is on the relay. On a second device on the same Wi-Fi the room shows under
       *Rooms on this network* (with its people as a count, no name); on a device elsewhere join it by its code or by
       the room's link (`https://stories.lbi-netmed.com/#s=XYZ&relay=wss://rooms.lbi-netmed.com`).
     - The relay's own copy of the app: `https://rooms.lbi-netmed.com/` (the same app, from the relay; a headset can use
@@ -359,8 +429,8 @@ with no setup: the integrator does that, not this file. Pages that saved another
   a room by trying codes takes hours from one address, not seconds. A relay restart at an event (every page looks its
   room up, finds it gone and brings it back: about three lookups a device) fits in the burst for some twenty devices
   behind one router. **The code is still all it takes to join**: anyone who has it (the link, a look at a screen) is
-  in, and a determined person with many addresses is slowed down, not stopped. A PIN (set in Coolify, asked once per
-  page) would be the next step; the owner set it aside for now (HANDOVER.md).
+  in, and a determined person with many addresses is slowed down, not stopped. Hence the shared password
+  (`COLLAB_TOKEN`, above): with it, only devices that entered it get that far.
 - **Limits per address** (`--creates 10`, `--sockets 64`) and **for everything** (`--store 64`, besides the 2,000
   rooms, 4 MB a room and the message rates every relay has): so that one address cannot use up the relay for everyone.
 - **Logs only with a token** (`--log-token`, `RELAY_LOG_TOKEN`): logs are files written on the server by anyone who
@@ -371,13 +441,13 @@ built and run with `--proxy 1 --public`, the app in Chromium from the relay and 
 the certificate and `wss://` through Coolify's proxy, the proxy's `X-Forwarded-For` (that `net` differs between
 networks and the limits fall per device's address, not the proxy's), whether the proxy passes `Host` or
 `X-Forwarded-Host` so the relay's own pages are recognised (if not, they get 403: add `--origin
-https://rooms.lbi-netmed.com`), auto deploy, the memory limit in practice, and headsets in a room over the internet
-(eduroam and hotspots may block or slow WebSockets).
+https://rooms.lbi-netmed.com`), auto deploy, the memory limit in practice, headsets in a room over the internet
+(eduroam and hotspots may block or slow WebSockets), and the password typed on a real headset's keypad.
 
 A redeploy restarts the relay and empties its rooms. The image (`node:22-alpine`, about 8 MB of app) runs as the
 user `node`; `docker build -f relay/Dockerfile -t networks-relay .` and `docker run -p 8787:8787 networks-relay` run it
-locally as on a laptop (no `--public`), and `docker run -p 8787:8787 -e RELAY_ARGS='--public' networks-relay` as on the
-server.
+locally as on a laptop (no `--public`), and `docker run -p 8787:8787 -e RELAY_ARGS='--public' -e COLLAB_TOKEN=<word>
+networks-relay` as on the server.
 
 ## HTTP API
 
@@ -385,10 +455,13 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 origin rule (`--origin`, `--public`): `Access-Control-Allow-Origin` is the asking page's origin when it is allowed
 (`Vary: Origin`), and a request from any other origin gets 403 `{ error: 'origin not allowed' }` (its preflight too);
 a request with no `Origin` is answered (the relay's own page, the health check, curl). Preflights allow the headers
-`Content-Type` and `X-Log-Token`.
+`Authorization`, `Content-Type` and `X-Log-Token`. With a password (`COLLAB_TOKEN`) every request below but
+`GET /api/health` needs it (`Authorization: Bearer` or `?token=`; 401 without, 429 past 20 failures a minute: [The
+shared password](#the-shared-password-collab_token)).
 
 | request | answer |
 | --- | --- |
+| `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
 | `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
@@ -435,7 +508,7 @@ development only: `--build` runs the build scripts of the folder it watches.
 
 ## WebSocket protocol (version 1)
 
-Connect to `/api/ws?room=XYZ&id=<client id>` (`wss://` behind HTTPS). The room code is case-insensitive; the
+Connect to `/api/ws?room=XYZ&id=<client id>` (`wss://` behind HTTPS; `&token=<password>` when the relay has one). The room code is case-insensitive; the
 client id is 1-64 characters `A-Z a-z 0-9 _ -`, random per page load and kept across reconnects. An optional
 `&proto=1` is checked. A second socket with the same id replaces the first (`replaced`). Every message is one
 JSON object with a `t` field, as a text frame; at most 1 MB.
@@ -493,8 +566,11 @@ log counts them).
 | `version` | the hello's `version` differs from the room's (a room made without one takes the first) | closed, 4006 |
 | `replaced` | the same client id connected again; the new socket stays | closed, 4008 |
 | `timeout` | silent for `--timeout` seconds | closed, 4009 |
-| `limit` | `--guesses`: this address looked up too many unknown room codes in the last minute (the room asked for may exist) | closed, 4029: try again in a minute |
-| `busy` | `--sockets`: this address has too many sockets open | closed, 4029: try again when one has closed |
+| `token` | the relay has a password and the socket brought none, or a wrong one (`&token=`) | closed, 4401, before anything of a room |
+| `limit` | `--guesses`: this address looked up too many unknown room codes in the last minute (the room asked for may exist); with a password, also 20 failed attempts in the last minute (a wrong password, an unknown room code) | closed, 4429: try again in a minute |
+| `busy` | `--sockets`: this address has too many sockets open | closed, 4429: try again when one has closed |
+
+(4429 and 4401 are asdf10k-collab-backend's codes; until v109 the limits closed with 4029, which the app still takes.)
 
 Broken WebSocket frames close the socket with the RFC 6455 codes: 1002 (unmasked frame, reserved bits,
 bad control frame or continuation, unknown opcode), 1003 (binary message), 1007 (not UTF-8), 1009 (a
@@ -537,7 +613,10 @@ self-signed one is refused there without asking, as for rooms (open the page fro
 With `--public` (or `--origin`, `--sockets`) the same rules hold here as for rooms: only the app's pages and the
 relay's own (403 for other origins, and for a socket with no `Origin` unless `--allow-no-origin`), and an address's
 sockets here count with its room sockets (past `--sockets`: `ERROR` *too many connections from your network*, closed
-4029). It stays on: peer to peer is the fallback when the relay is away.
+4429). It stays on: peer to peer is the fallback when the relay is away. With a password (`COLLAB_TOKEN`) PeerJS's key is
+the password (`new Peer(id, { ..., key: '<password>' })`; the app does this by itself for a relay whose password the
+device keeps): its default key `peerjs` gets `INVALID-KEY` and close 4401, the id request is `/peerjs/<password>/id`,
+`GET /peerjs` needs it as the API does, and failures count as above.
 
 **Protocol** (what PeerJS 1.5.5's client expects; ids, not rooms; nothing stored). HTTP, with CORS and preflights as
 the API (other keys or paths 404, other methods 405):
@@ -554,7 +633,7 @@ The socket is `/peerjs/peerjs?key=peerjs&id=<id>&token=<token>&version=...`; JSO
 | --- | --- | --- |
 | server | `OPEN` | the id is this socket's; also when the same id comes again with the same token (a reconnect while the old socket hangs on: the new one wins, the old is closed with 4008) |
 | server | `ID-TAKEN` `{ payload: { msg } }` | another socket holds the id with another token; closed (4001) |
-| server | `INVALID-KEY` | a key other than `peerjs`; closed (4003) |
+| server | `INVALID-KEY` | a key other than `peerjs` (closed, 4003); with a password, any key but the password (closed, 4401) |
 | server | `ERROR` `{ payload: { msg } }` | no id, token or key, an id PeerJS would not make (letters and digits, single `-`, `_` or spaces between them, at most 64), a token over 64 characters (closed, 4000), or 5000 ids connected (4013) |
 | client | `OFFER`, `ANSWER`, `CANDIDATE`, `LEAVE` `{ dst, payload }` | passed on to `dst` as `{ type, src, dst, payload }`, `src` the sender's id whatever it wrote |
 | client | `HEARTBEAT` | PeerJS sends one every 5 s; like any frame, it keeps the id |
@@ -588,6 +667,48 @@ through a relay on the internet is on that network peer to peer too. One id stan
   one the CDN added (the first when the header has only one). Without `--proxy` the header is ignored. The Dockerfile
   does not turn it on: Coolify's `RELAY_ARGS` does (step 6 of [public hosting](#public-hosting-on-coolify)).
 
+## Compared with asdf10k-collab-backend
+
+The owner may merge this relay with menchelab's asdf10k-collab-backend some day ("make sure to run everything so that it
+is quite the same if possible, we might merge at some point"; 3 November 2026). What already matches it, and what
+does not yet:
+
+**The same**
+
+- `COLLAB_TOKEN`: one shared token; trimmed; empty or unset means no authentication. `COLLAB_PORT` and `COLLAB_HOST`
+  name the port and the address (our defaults stay 8787 and 0.0.0.0; its are 8789 and 127.0.0.1).
+- Required on everything but `GET /api/health`: HTTP takes `Authorization: Bearer <token>` or `?token=`, the WebSocket
+  `?token=`. Compared as there (`tokenMatches`): equal-length buffers with `timingSafeEqual`, false when none is given.
+- A missing or wrong token: HTTP 401 `{"error":"missing or wrong token"}`; a socket gets the protocol's error message,
+  then close 4401. Too many failures: 429 `{"error":"too many failed attempts, wait a minute"}`, close 4429.
+- Its `FailureLimiter`: 20 failed attempts (a wrong token, an unknown room code) per client address in a fixed window of
+  a minute, swept every minute, checked before the token.
+- `GET /api/health` answers `{ ok, protocol, rooms }`, `rooms` a count. CORS allows the `Authorization` header.
+
+**Not the same (yet)**
+
+- **Protocol.** Ours: one socket at `/api/ws?room=XYZ&id=<id>&proto=1`, `hello`, `set { batch: [[k, v]], cid }`, `fx`,
+  `welcome { keys, members, now }`, stations with their own epoch rule (a station given another story drops its keys),
+  per-member rates and room limits. Its: `/api/rooms/<code>/ws?protocol=1&app=<version>&name=`, `set { epoch, keys }`,
+  `eph`, `log`, one epoch per room (the key `dataset`). Other close codes differ: ours 4005 protocol, 4006 version, 4008
+  replaced, 4009 timeout; its 4010 protocol, 4009 version (4000 and 4004 mean the same in both).
+- **Routes.** Ours: `/api/ping`, `/api/near` (rooms on this network), `/api/watch` (hot reload), `/api/log` (headsets'
+  alignment logs), `POST /api/rooms { app, version, code? }`, the introduction server at `/peerjs` (the token as PeerJS's
+  key) and the app's own files. Its: `POST /api/rooms { appVersion, dataset? }`, `/api/rooms/<code>/ice` (voice chat's
+  STUN and TURN), `/api/archive`, `/api/logs` (a debug timeline).
+- **Persistence.** Ours keeps rooms in memory (a restart empties them; the pages bring them back from their copies). Its
+  snapshots every room to `COLLAB_DATA_DIR`, archives expired ones and keeps a debug log there.
+- **The token's place in the app.** Its app reads the token from its deployment's `index.json`. Ours is public on GitHub
+  Pages, so each device enters it once and keeps it per relay origin (never in the app's files).
+- **What counts as a failure.** Its counts a missing token too; ours only a wrong one (the app's own pages ask before
+  they know it). Ours also refuses PeerJS's default key while a token is set, and checks the token on `/api/watch`.
+- **The client's address.** Its takes the first `X-Forwarded-For` hop always; ours the `n`-th from the right, and only
+  with `--proxy n` (a client could write anything before the proxy's entry). Ours limits by an IPv6 address's /64.
+- **CORS.** Its is `*` always (the token is the gate); ours is `*` unless `--origin` or `--public` names the pages.
+- **Settings.** Its other `COLLAB_*` variables (`COLLAB_ROOM_TTL_HOURS`, `COLLAB_LOG`, `COLLAB_DATA_DIR`, voice chat's)
+  have flags here or nothing yet (`--expire`, `--quiet`). Ours is one Node file with no packages; its is TypeScript with
+  `ws` and `zod`.
+
 ## Testing
 
 ```sh
@@ -619,11 +740,19 @@ unless `--allow-no-origin`, the relay's own origin by `Host` or `X-Forwarded-Hos
 lines (no LAN addresses), options from `RELAY_ARGS`, `--origin` alone (a list, repeated; bad values refused at the
 start; no other rule with it), no room list and no name in any answer (`/api/rooms/<code>`, `/api/near`) or log line
 while the room's own members still see names, unknown codes capped per address (`GET` 404s, sockets for unknown rooms
-and taken codes from one budget; past it a known code refused too, with `Retry-After` or `limit` and 4029; a member
+and taken codes from one budget; past it a known code refused too, with `Retry-After` or `limit` and 4429; a member
 coming back let in; another address, an IPv6 address in another /64 and the address `--proxy` takes not held up; one
 budget for everyone without `--proxy`), sockets per address (rooms and `/peerjs` together) and new rooms per address
 capped, the log token (refused at the start without one or with a short one; from `RELAY_LOG_TOKEN` or `--log-token`;
-none 404, wrong 403, never in the log) and `--store`. It exits 1 on a failure. The shared-room client in the app has
+none 404, wrong 403, never in the log) and `--store`; and the shared password: off by default (nothing changes,
+`/api/health` open), `COLLAB_TOKEN`, `--token` and in `RELAY_ARGS`, `COLLAB_PORT` and `COLLAB_HOST`, `/api/health`
+saying nothing more, ping, near, rooms, a room, a new room, log, watch, an unknown path and `/peerjs` without it or with a
+wrong one (Bearer or `?token=`, case counting) 401 with its body, both ways of bringing it working, a preflight allowing
+`Authorization`, the app's files open, a socket without it or with a wrong one getting `error` `token` and 4401 and
+nothing else, one with it welcome, the introduction server refusing PeerJS's default key (4401) and taking the password
+as key (in the socket and the id's path), `/api/watch` with `?token=`, the Dockerfile's health check, 20 wrong ones from
+an address then 429 (the right one too), 4429 on its socket and `/peerjs`, another address untouched, none at all not
+counted, unknown room codes counted, and the password in no log line or file. It exits 1 on a failure. The shared-room client in the app has
 its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the

@@ -151,7 +151,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both |
 | Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds | the protocol changed, or the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`) |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
-| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
+| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks, `--token` only the relay's password (not in the main run); `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
 | One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
@@ -296,9 +296,12 @@ saved settings and headset calibrations do not carry over from one address to an
 - **Public hosting** with Docker or Coolify: see [relay/README.md](../relay/README.md) ("Public hosting on
   Coolify": a step-by-step guide). On the internet the relay runs with `--public` (only the app's pages may connect,
   no list of open rooms and no names, limits per address, logs only with a token), set in Coolify's environment as
-  `RELAY_ARGS="--proxy 1 --public"`. Locally: `docker build -f relay/Dockerfile -t networks-relay .`, then
-  `docker run -p 8787:8787 networks-relay` (as on a laptop), or with `-e RELAY_ARGS=--public` (as on the server).
-  After touching the relay, run `node relay/test.mjs`.
+  `RELAY_ARGS="--proxy 1 --public"`, and its shared password as a secret variable, `COLLAB_TOKEN` (every device enters
+  it once; relay/README.md, "The shared password"; empty: no password). Locally: `docker build -f relay/Dockerfile -t networks-relay .`, then
+  `docker run -p 8787:8787 networks-relay` (as on a laptop), or with `-e RELAY_ARGS=--public -e COLLAB_TOKEN=<word>`
+  (as on the server). The image's health check asks `/api/health`, which needs no password.
+  After touching the relay, run `node relay/test.mjs`, and after touching the password in `shared.js`,
+  `node tools/collab.mjs --token` (a minute or two).
   **TO FILL (owner):** whether a public relay will run, and where, at which address and run by whom.
 
 ## 6. Rolling back

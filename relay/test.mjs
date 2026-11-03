@@ -1149,6 +1149,10 @@ try {
     });
     ok(watch.status === 200 && /event-stream/.test(watch.type), '/api/watch with ?token=: the stream');
     // logs: written with the password, and nowhere in a file
+    const hc = /CMD (node -e .*)$/m.exec(fs.readFileSync(path.join(HERE, 'Dockerfile'), 'utf8'));
+    let hcOk = false;
+    try { execFileSync('sh', ['-c', hc[1].replace(/^node /, JSON.stringify(process.execPath) + ' ').replace('8787', String(T.port))], { stdio: 'ignore', timeout: 5000 }); hcOk = true; } catch { /* failed */ }
+    ok(hc && /api\/health/.test(hc[1]) && hcOk, 'the Dockerfile\'s health check (/api/health) passes on a relay with a password');
     const lg = await get('/api/log', { method: 'POST', headers: bearer(), body: { room: code, id: 'pw4', name: 'Pat', kind: 'ar', entries: [{ ev: 'x' }] } });
     ok(lg.status === 200, 'POST /api/log with it: kept');
     // failures: 20 a minute from one address, then 429 / 4429 for anything from it, the password too

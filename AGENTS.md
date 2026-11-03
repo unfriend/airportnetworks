@@ -1815,10 +1815,47 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
   socket or use the API (`--origin`), no list of open rooms and no member's name
   in any answer or log line (`GET /api/rooms` is `[]`, `/api/ping` says
   `unlisted: true`), per address at most 30 lookups of unknown codes a minute
-  (then any code is refused: 429, or on a socket `error` `limit`, close 4029),
-  10 new rooms a minute and 64 sockets (`busy`, 4029), every room together 64 MB,
-  and logs only with a token (`X-Log-Token`; the app sends none). Off unless
-  asked: a laptop at an event runs as before.
+  (then any code is refused: 429, or on a socket `error` `limit`, close 4429;
+  4029 until v109, and the app takes both), 10 new rooms a minute and 64 sockets
+  (`busy`, 4429), every room together 64 MB, and logs only with a token
+  (`X-Log-Token`; the app sends none). Off unless asked: a laptop at an event
+  runs as before.
+- The relay's password (v110; the owner, 3 November 2026: "i would like to add a
+  secret to the relay like how this project does it: menchelab/asdf10k-collab-backend
+  ... like one word like networksofthefuture2037 that i can use and enter on each
+  client if i want it to be able to use the relay, no other way to use it"):
+  `COLLAB_TOKEN` in the relay's environment (or `--token`, also in `RELAY_ARGS`;
+  empty or unset: none, everything as before), asdf10k-collab-backend's scheme
+  (`relay/README.md`, "The shared password" and "Compared with
+  asdf10k-collab-backend", which lists what matches and what does not for a later
+  merge; `COLLAB_PORT` and `COLLAB_HOST` set `--port` and `--host` too). Needed for
+  everything but `GET /api/health` (`{ ok, protocol, rooms }`) and the app's own
+  files (a page must load to ask for it): the API as `Authorization: Bearer` or
+  `?token=` (401 `{"error":"missing or wrong token"}`), the room's socket and
+  `/api/watch` as `?token=` (the protocol's `error` `token`, then close 4401,
+  before anything of a room), the introduction server as PeerJS's key (its default
+  `peerjs` refused; `INVALID-KEY`, 4401). Compared in constant time. 20 failed
+  attempts a minute from one address (a wrong password, an unknown room code;
+  none at all is refused but not counted), then 429 or close 4429. Never in a log
+  line or file. In the app (`shared.js`, `AUTH`, `tokenFor`, `authSaw`,
+  `authTry`, `authForget`): each device enters it once, kept per relay origin in
+  `localStorage` `relayTokens` (`{ origin: password }`), never in a room's keys, a
+  link, the address or a log (`log` strips any it knows, `?token=`, `key=` and
+  `Bearer`); sent with every relay call (`api()`, `connect()`, `detect()`, the
+  headsets' log, PeerJS's `key` when the introduction server is that relay's,
+  `HOST.live`'s ping and `/api/watch`, the `p2p/` page). A relay that wants it (a
+  401, a socket closed 4401) is not unreachable: the room meant for it waits
+  (`C.status` `'auth'`), never peer to peer or on this device, nothing is joined by
+  itself, and the relay is asked at most once a minute (`authWait`) until one is
+  given. The page's Shared dialog shows *This relay needs its password* (a
+  password field and Use; *That is not this relay's password*; a kept one the
+  relay no longer takes is dropped and asked for again), *Forget the password* in
+  its relay part; the headset menu's Circles tab a *Relay password* row (in a room
+  and with none), which opens a keypad page as the code's (`passPage`, `PNL.pass`:
+  the 26 lower-case letters and the ten digits, Delete, Use greyed while empty,
+  Back). It is case-sensitive, so the owner's word is lower-case letters and
+  digits. Accepted once a call with it succeeds: the room that waited starts or
+  joins. Untested on a headset and on Coolify.
 - The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
   `enterStory` to publish the clock, polls `collab.state()` five times a second
   and publishes it when its value changed; a value from the room goes through
@@ -3041,8 +3078,14 @@ server at `/peerjs`, rooms on this network: `/api/near` by the asker's network, 
 /64, `--proxy` and `X-Forwarded-For` ignored without it, `--proxy 2` taking the second address from the right (the first
 when there is only one) and `--proxy` alone the last, an empty room still listed on its members' networks, `near`
 off, and no address in any answer or log line, nor a network's id in the log; `--public` and each of its rules: origins
-allowed and refused, no room list or names, unknown codes, sockets and new rooms capped per address, the log token,
-`--store`, and nothing of it without `--public`; no browser, seconds; `node tools/peer.mjs` links two pages of
+allowed and refused, no room list or names, unknown codes, sockets and new rooms capped per address (4429), the log
+token, `--store`, and nothing of it without `--public`; the relay's password: off by default with `/api/health` open,
+`COLLAB_TOKEN`, `--token` and in `RELAY_ARGS`, `COLLAB_PORT` and `COLLAB_HOST`, 401 for ping, near, rooms, a room, a new
+room, log, watch, `/peerjs` and its ids without it or with a wrong one, `Authorization: Bearer` and `?token=` working, a
+preflight allowing `Authorization`, the app's files open, the socket's `error` and close 4401 before anything of a room,
+`/peerjs` with PeerJS's default key refused and with the password as key open, `/api/watch` with `?token=`, the
+Dockerfile's health check (`/api/health`), 20 wrong ones from an address then 429, 4429 and PeerJS's `ERROR`, none at all
+not counted, unknown room codes counted, and the password in no log line or file; no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -3277,6 +3320,15 @@ it, the first page back hosting it from its copy and the next linking to it; on 
 the pretend addresses. `--quick` runs only the last story in the per-story part. `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
 canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
+`--token` runs only the relay's password (`tokenRound`, not in the main run; a relay of its own with `COLLAB_TOKEN`, a
+minute or two): a page without it sees the Shared dialog's field, and Start a room and a join by code wait for it on the
+relay (nothing peer to peer or on this device); a wrong one refused with its note and nothing kept; the right one kept
+under the relay's origin, the field gone and the room that waited started on the relay; a second page that has it
+joining by the room's link, which (and every address) carries no password; a pretend headset without it getting the
+menu's *Relay password* row and its keypad page (26 letters and 10 digits, Use greyed while empty, a wrong one refused,
+Delete), then joining; the password in no page's `window.__collabLog`, address or room key, nor in the room the relay
+keeps, its lines or its log files; *Forget the password* asking for it again (with `--shots`: `token-1-field.png`,
+`token-2-wrong.png`, `token-3-keypad.png`).
 `--follow` runs only following a person (a room of its own with two stations, a minute or two; with `--shots` the
 people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`
 and `follow-person-3-people-following.png`). The ten-headset round (`headsetRound`, also in the main run, after the
