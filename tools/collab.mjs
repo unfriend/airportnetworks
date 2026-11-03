@@ -602,10 +602,12 @@ async function headsetDesign(A, B, H, S, shots) {
   }));
   const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model); }, null, 20000);
   const i0 = await icons();
-  await step(400);
   // (a headset that has walked into a circle sees the others' icons, not its own station's)
   const own = await H.evaluate(() => (HOST.collab.live() ? HOST.collab.mine() : ''));
-  const i1 = await icons(), bad = i1.filter((x, k) => !(x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && (x.id === own ? !x.on : x.on && angle(x.a, i0[k].a) > 0.05)));
+  // (frames until each has turned, up to 5 s: a page drawing in software can draw none in 400 ms)
+  let i1 = [];
+  for (let k = 0; k < 12; k++) { await step(400); i1 = await icons(); if (i1.every((x, j) => x.id === own || angle(x.a, i0[j].a) > 0.05)) break; }
+  const bad = i1.filter((x, k) => !(x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && (x.id === own ? !x.on : x.on && angle(x.a, i0[k].a) > 0.05)));
   check(`design room: every station's icon is built from its story's miniature (lowpoly.js), in its colour and turning${own ? ' (but its own station\'s: the headset is in its circle)' : ''}`,
     built && i1.length > 5 && !bad.length, JSON.stringify({ built, n: i1.length, bad }));
   // locked: the button greyed, nothing placed
