@@ -741,7 +741,7 @@ function keepLog(parts, res) {
     let size = 0;
     try { size = fs.statSync(file).size; } catch { /* a new file */ }
     if (size + lines.length > MAX_LOG_FILE) return json(res, 507, { error: 'the log file is full' });
-    if (!size) log(`log ${path.relative(process.cwd(), file)} started (${b.room}, ${name})`);
+    if (!size) log(UNLISTED ? `log started (${b.room}, ${b.id.slice(0, 6)})` : `log ${path.relative(process.cwd(), file)} started (${b.room}, ${name})`);   // (--unlisted: no name, nor the file's, which holds it)
     fs.appendFileSync(file, lines);
   } catch (err) { return json(res, 500, { error: 'cannot write the log: ' + err.message }); }
   json(res, 200, { lines: lines ? lines.split('\n').length - 1 : 0 });

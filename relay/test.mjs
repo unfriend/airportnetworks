@@ -1064,6 +1064,7 @@ try {
     ok(r.status === 200 && r.json().lines === 1 && r.headers['access-control-allow-origin'] === APP && fs.readdirSync(dir).length === 1, 'the token from the environment (RELAY_LOG_TOKEN): kept');
     ok((await send({ 'X-Log-Token': TOKEN, Origin: EVIL })).status === 403, 'from another origin, even with the token: 403');
     ok(!L.out.includes(TOKEN) && /Logs need the relay's log token/.test(L.out), 'the start line says a token is needed, never the token');
+    ok(/log started \(ABC, lg[0-9a-f]{4}\)/.test(L.out) && !/Ada/.test(L.out), 'a log file started: said without the name');
     L.kill();
     const T2 = crypto.randomBytes(12).toString('hex');
     const L2 = await start(['--public', '--logs', dir, '--log-token', T2, '--quiet']);
