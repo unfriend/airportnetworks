@@ -1,18 +1,22 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-robots.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// robots writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [5.1, 4.6], [17.6, 9],                      // Robot gang
-  [23.9, 14], [24.6, 14.6], [25.9, 15.2], [36.5, 21], [43.7, 27],  // Bump and turn
-  [51.4, 34], [52.1, 34.6], [52.9, 35.2], [60.6, 41],  // Follow me
-  [74.9, 54], [76.2, 55.18], [77.2, 55.2], [84.5, 61], [91.1, 67],  // Follow the one ahead
-  [104.2, 74], [104.9, 74.6], [105.7, 75.2], [109.6, 77], [121.4, 84],  // Your gang
+  [0, 0], [1.32, 1.2], [4.5, 4], [14.04, 9],          // Robot gang
+  [19.54, 14], [20.84, 15.18], [22.49, 15.2], [31.35, 21],  // Bump and turn
+  [45.65, 34], [46.95, 35.18], [48.46, 35.2],         // Follow me
+  [69.14, 54], [70.44, 55.18], [72.34, 55.2],         // Follow the one ahead
+  [93.02, 74], [94.32, 75.18], [95.79, 75.2], [98.47, 77], [108.4, 83.3], [109.17, 84],  // Your gang
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 18.3, bump: 43.25, follow: 61.15, chain: 83.2, gang: 108.2 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -108,7 +112,7 @@ function buildStory() {
     chain: `<h2 data-at="0.6">Follow the one ahead</h2>
       <p data-at="1.2">Rewire the network. Each robot follows the one in front of it; only the first follows you.</p>
       <p data-at="7">Same robots, same rule, a different network: the gang becomes a line.</p>
-      <p class="credits" data-at="13">Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007).</p>`,
+      <p class="credits" data-at="13">Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007). Narration: a synthetic voice (Kokoro).</p>`,
     gang: `<h2 data-at="0.6">Your gang</h2>
       <p data-at="1.2">The gang stays for as long as you do.</p>
       <p data-at="3" data-xr="Change the rule, add robots, show the cleaned floor, or spill crumbs: point at the floor and pull the trigger. Walk about and the gang follows.">Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.</p>`,

@@ -145,11 +145,11 @@ void main() { vec3 d = normalize(vW - cameraPosition);
 
   // where the flock likes to be: a roost point in front of the viewer (towards the sunset) that wanders slowly
   // left and right, in and out, up and down, and every 88 s comes in low and close for about ten seconds, so the
-  // flock flies round the viewer (first at 115 s of flight, none before 70 s: the middle of the story's last chapter
-  // at its pace, NARRATION_SYNC, as the flock warms up for 6 s); two more points near it pull parts of the flock
+  // flock flies round the viewer (first at 95 s of flight, none before 70 s: the middle of the story's last chapter
+  // in its recording, NARRATION_SYNC, as the flock warms up for 6 s); two more points near it pull parts of the flock
   // aside, so it stretches and folds
   const roost = (k, t, out) => {
-    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = t < 70 ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.071 - 0.311)), 10);
+    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = t < 70 ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.071 + 1.109)), 10);
     const r = lerp(16 + 3 * Math.sin(t * 0.061), 2, sw), h = lerp(9 + 3 * Math.sin(t * 0.083 + 2), 5, sw);
     if (!k) SW = sw;
     out[0] = ME.c[0] + Math.cos(th) * r; out[1] = h; out[2] = ME.c[1] + Math.sin(th) * r;

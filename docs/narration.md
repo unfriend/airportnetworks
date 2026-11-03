@@ -14,21 +14,21 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Story | File | Narration | Length |
 | --- | --- | --- | --- |
 | Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
-| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:42 |
-| Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
-| Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
-| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 6:33 |
-| Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
-| Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:04 |
-| Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
-| Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
-| Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | not yet | 8:07 |
-| Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
-| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | not yet | 8:42 |
-| Network medicine: Proteins | `audio/narration-proteins.mp3` | not yet | 4:38 |
-| Spatial interactome: Cell map | `audio/narration-spatial.mp3` | not yet | 5:09 |
-| Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
-| Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
+| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:43 |
+| Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | synthetic voice | 8:56 |
+| Disease endotypes: Endotypes | `audio/narration-endo.mp3` | synthetic voice | 7:42 |
+| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | synthetic voice | 6:03 |
+| Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | synthetic voice | 8:06 |
+| Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | synthetic voice | 7:48 |
+| Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | synthetic voice | 8:54 |
+| Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | synthetic voice | 8:26 |
+| Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | synthetic voice | 8:50 |
+| Networks for everyone: Pass it on | `audio/narration-pass.mp3` | synthetic voice | 6:46 |
+| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | synthetic voice | 11:03 |
+| Network medicine: Proteins | `audio/narration-proteins.mp3` | synthetic voice | 5:48 |
+| Spatial interactome: Cell map | `audio/narration-spatial.mp3` | synthetic voice | 5:41 |
+| Collective motion: Flock | `audio/narration-flock.mp3` | synthetic voice | 1:36 |
+| Swarm robotics: Robot gang | `audio/narration-robots.mp3` | synthetic voice | 1:49 |
 
 ## Network theory: Airports (`#airports`)
 
@@ -71,7 +71,7 @@ File: `audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 E
 
 - **1:45** Shortest paths
 - **1:46** A shortest path uses the fewest edges between two nodes. Ushuaia to Tiksi: 17,970 km apart, yet only 5 flights.
-- **1:51** 0flights
+- **1:51** 0 flights
 - **2:01** Share of all airport pairs, by flights needed
 - **2:01** <1% 16% 229% 338% 418% 56% 62% 7<1% 8<1% 9<1% 10
 - **2:02** On average any two airports are 3.96 flights apart, and 98% of pairs need 6 or fewer: a small world. Even the most remote pair, Salluit, Quebec to Peawanuck, Ontario, needs only 12.
@@ -110,13 +110,13 @@ File: `audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 E
 ### 3:37 Recap
 
 - **3:38** Network theory
-- **3:38** NodesEdgesDegreeHubsShortest pathsBetweennessCommunitiesRobustness
+- **3:38** Nodes, Edges, Degree, Hubs, Shortest paths, Betweenness, Communities, Robustness
 - **3:40** Now it's your turn. Search any airport, trace shortest paths, isolate communities, or close airports and watch what breaks.
 - **3:41** Routes: OpenFlights.org (Open Database License), 2014 snapshot. Coastlines: Natural Earth (public domain). Statistics computed with NetworkX on the full graph.
 
 ## LBI Network Medicine: The future (`#lbi`)
 
-File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:55 Disease, 5:33 Immunity, 6:30 Treatment, 7:12 Scales, 7:52 Institute, 8:44 Body, 9:18 Tissue, 9:53 Mission; it ends at 10:42.
+File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:56 Disease, 5:34 Immunity, 6:31 Treatment, 7:13 Scales, 7:53 Institute, 8:45 Body, 9:19 Tissue, 9:54 Mission; it ends at 10:43.
 
 ### 0:00 Intro
 
@@ -139,7 +139,7 @@ File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Pa
 
 - **1:23** Networks are everywhere
 - **1:26** Once you look for the wiring, you find it everywhere. The internet is a network of computers and cables, held together by a few giant hubs.
-- **1:36** Friendships form a network too. Each bright light is a city; most ties join nearby cities, a few cross oceans.
+- **1:37** Friendships form a network too. Each bright light is a city; most ties join nearby cities, a few cross oceans.
 - **1:44** The first story in this app follows the world's airline network.
 - **1:47** Friendship map after Paul Butler, Facebook (December 2010). Bright city lights from the airports story; fainter lights and ties illustrative.
 
@@ -147,9 +147,9 @@ File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Pa
 
 - **1:53** The building blocks of life
 - **1:56** In 2001 a first draft of the human genome was published. One copy of our DNA holds
-- **2:03** 23: chromosomes
-- **2:06** 3 billion: letters, or base pairs
-- **2:09** 20,000: protein-coding genes
+- **2:03** 23 chromosomes
+- **2:06** 3 billion letters, or base pairs
+- **2:10** 20,000 protein-coding genes
 - **2:17** Each of these genes is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.
 - **2:28** Here are 25 of them. There are about 20,000 kinds, each with its own shape and job.
 - **2:33** International Human Genome Sequencing Consortium, Nature (2001, 2004); Jumper et al. and Tunyasuvunakool et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.
@@ -177,1291 +177,1287 @@ File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Pa
 - **4:41** Diseases whose neighbourhoods overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.
 - **4:47** Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2016); Menche et al., Science (2015). Disease modules illustrative.
 
-### 4:55 Disease
+### 4:56 Disease
 
 - **4:56** Understand, diagnose, treat
 - **4:59** More than 6,000 rare diseases have a known genetic cause; about four in five rare diseases are genetic. Each is rare, but together they affect some 300 million people.
-- **5:11** For every patient, the questions are the same: which gene is broken? What does that do to the cell? How can we treat it?
+- **5:12** For every patient, the questions are the same: which gene is broken? What does that do to the cell? How can we treat it?
 - **5:20** A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.
 - **5:25** Nguengang Wakap et al., European Journal of Human Genetics (2020). Disease and drug neighbourhoods illustrative.
 
-### 5:33 Immunity
+### 5:34 Immunity
 
 - **5:34** Inborn errors of immunity
-- **5:37** 430: rare diseases
-- **5:40** 1 in 1,000: to 1 in 5,000 people have one of them
-- **5:44** 95%of patients get non-specific treatment
+- **5:37** 430 rare diseases
+- **5:40** 1 in 1,000 to 1 in 5,000 people have one of them
+- **5:45** 95% of patients get non-specific treatment
 - **5:49** Diagnosis is often missing or late, and the diseases are poorly understood.
-- **5:55** On the interactome, the genes of the diseases that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.
-- **6:07** The 9 clinical categories that doctors use cut across their 19 molecular clusters. Endotypes define diseases by their mechanism.
-- **6:21** Guthrie et al., Science Advances (2023): 173 genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.
+- **5:56** On the interactome, the genes of the diseases that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.
+- **6:08** The 9 clinical categories that doctors use cut across their 19 molecular clusters. Endotypes define diseases by their mechanism.
+- **6:22** Guthrie et al., Science Advances (2023): 173 genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.
 
-### 6:30 Treatment
+### 6:31 Treatment
 
-- **6:30** Better treatments, faster diagnoses
-- **6:34** Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.
-- **6:46** As for diagnosis, a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.
-- **6:59** Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.
-- **7:06** Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.
+- **6:32** Better treatments, faster diagnoses
+- **6:35** Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.
+- **6:47** As for diagnosis, a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.
+- **7:00** Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.
+- **7:07** Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.
 
-### 7:12 Scales
+### 7:13 Scales
 
-- **7:13** Networks across scales
-- **7:16** From a billionth of a metre to a whole body, from a millionth of a second to a lifetime, life is built from networks.
-- **7:31** Proteins bind proteins, cells signal to cells, organs talk to organs, and diseases spread from person to person.
-- **7:41** Medicine reaches into all of them: diagnosis, treatment, nutrition and lifestyle.
-- **7:47** After Sin and Menche (2021).
+- **7:14** Networks across scales
+- **7:17** From a billionth of a metre to a whole body, from a millionth of a second to a lifetime, life is built from networks.
+- **7:32** Proteins bind proteins, cells signal to cells, organs talk to organs, and diseases spread from person to person.
+- **7:42** Medicine reaches into all of them: diagnosis, treatment, nutrition and lifestyle.
+- **7:49** After Sin and Menche (2021).
 
-### 7:52 Institute
+### 7:53 Institute
 
-- **7:52** Network medicine at the LBI-NetMed
-- **7:56** RG1: The geometry of molecular networks in health and disease: the mathematics of how perturbations mix and evolve over time.
-- **8:06** RG2: Intra- and inter-cellular networks: the human network architecture across scales.
-- **8:13** RG3: Disease patterns and treatment outcomes across the population, from health registry data.
-- **8:21** RG4: DataDiVR: the future of data exploration, with virtual reality, machine learning and AI.
-- **8:29** Led by Julia Guthrie, André Rendeiro and Jörg Menche, the groups work together across every scale.
+- **7:54** Network medicine at the LBI-NetMed
+- **7:57** RG1: The geometry of molecular networks in health and disease: the mathematics of how perturbations mix and evolve over time.
+- **8:07** RG2: Intra- and inter-cellular networks: the human network architecture across scales.
+- **8:15** RG3: Disease patterns and treatment outcomes across the population, from health registry data.
+- **8:22** RG4: DataDiVR: the future of data exploration, with virtual reality, machine learning and AI.
+- **8:31** Led by Julia Guthrie, André Rendeiro and Jörg Menche, the groups work together across every scale.
 
-### 8:44 Body
+### 8:45 Body
 
-- **8:44** Whole-body networks
-- **8:47** A total-body PET scan follows a tracer sugar through every organ at once. The brain takes up the most, and often the heart; the kidneys and bladder glow because the tracer leaves the body in the urine.
-- **9:00** Organs that rise and fall together form a network of organs.
-- **9:08** Disease rewires it.
-- **9:12** Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.
+- **8:46** Whole-body networks
+- **8:48** A total-body PET scan follows a tracer sugar through every organ at once. The brain takes up the most, and often the heart; the kidneys and bladder glow because the tracer leaves the body in the urine.
+- **9:01** Organs that rise and fall together form a network of organs.
+- **9:09** Disease rewires it.
+- **9:13** Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.
 
-### 9:18 Tissue
+### 9:19 Tissue
 
-- **9:18** From tissue to cells
-- **9:21** Here is a slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, and muscle below.
-- **9:30** Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.
-- **9:37** Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.
-- **9:46** Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).
+- **9:20** From tissue to cells
+- **9:22** Here is a slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, and muscle below.
+- **9:31** Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.
+- **9:38** Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.
+- **9:47** Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).
 
-### 9:53 Mission
+### 9:54 Mission
 
-- **9:53** Our mission
-- **9:56** We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We have four aims:
-- **10:04** Understand: gain fundamental insights into the network architecture of health and disease
-- **10:10** Help patients: turn these insights into concrete patient benefit
-- **10:15** Build in Vienna: make Vienna an international centre of excellence for network medicine
-- **10:21** Look ahead: invent the future of medicine
-- **10:30** Thank you! netmed.lbg.ac.at · menchelab.com · Narration: a synthetic voice (Kokoro).
+- **9:55** Our mission
+- **9:57** We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We have four aims:
+- **10:05** Understand: gain fundamental insights into the network architecture of health and disease
+- **10:12** Help patients: turn these insights into concrete patient benefit
+- **10:16** Build in Vienna: make Vienna an international centre of excellence for network medicine
+- **10:23** Look ahead: invent the future of medicine
+- **10:31** Thank you! netmed.lbg.ac.at · menchelab.com · Narration: a synthetic voice (Kokoro).
 
 ## Rare muscle diseases: Muscle and heart (`#nmd`)
 
-File: `audio/narration-nmd.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:22 Motor unit, 1:21 Causes, 1:47 Layers, 2:45 Walker, 3:44 Contexts, 4:27 Endotypes, 5:17 Heart and muscle, 6:25 Stress test, 7:08 Next; it ends at 7:47.
+File: `audio/narration-nmd.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:24 Motor unit, 1:38 Causes, 2:13 Layers, 3:22 Walker, 4:23 Contexts, 5:09 Endotypes, 6:01 Heart and muscle, 7:29 Stress test, 8:15 Next; it ends at 8:56.
 
 ### 0:00 Intro
 
 - **0:01** Hidden connections
-- **0:02** in rare diseases of nerves and muscles
-- **0:04** 71 layers of data in one network show how rare muscle diseases share their machinery, and what muscle and heart have in common.
-- **0:12** Each dot is a gene, the same gene on every level. Each level links the genes by a different kind of evidence.
+- **0:03** in rare diseases of nerves and muscles
+- **0:06** 71 layers of data in one network show how rare muscle diseases share their machinery, and what muscle and heart have in common.
+- **0:14** Each dot is a gene, the same gene on every level. Each level links the genes by a different kind of evidence.
 
-### 0:22 Motor unit
+### 0:24 Motor unit
 
-- **0:22** From nerve to muscle
-- **0:23** Every movement starts in a motor neuron in the spinal cord. Its long axon, wrapped in myelin, carries the signal to the muscle.
-- **0:35** At the neuromuscular junction the nerve passes the signal to the muscle fibre. Inside, chains of sarcomeres, tiny contracting units, pull as thin actin filaments slide along thick myosin filaments.
-- **0:55** Neuromuscular disorders are rare genetic diseases of this motor unit.
-- **0:57** 16: disease groups
-- **0:59** 1,200: or more diseases
-- **1:00** 700: or so causal genes
-- **1:01** 3.7-4.99: in 10,000 people
-- **1:03** They strike the nerve cells, the nerves, the junction or the muscle, causing weakness and low muscle tone.
-- **1:08** The heart muscle is built from the same sarcomeres: its inherited diseases, the cardiomyopathies, belong here too.
-- **1:12** Gene Table of Neuromuscular Disorders (2024). Motor unit illustrative.
+- **0:25** From nerve to muscle
+- **0:27** Every movement starts in a motor neuron in the spinal cord. Its long axon, wrapped in myelin, carries the signal to the muscle.
+- **0:39** At the neuromuscular junction the nerve passes the signal to the muscle fibre. Inside, chains of sarcomeres, tiny contracting units, pull as thin actin filaments slide along thick myosin filaments.
+- **0:59** Neuromuscular disorders are rare genetic diseases of this motor unit.
+- **1:04** 16 disease groups
+- **1:07** 1,200 or more diseases
+- **1:10** 700 or so causal genes
+- **1:13** 3.7-4.99 in 10,000 people
+- **1:18** They strike the nerve cells, the nerves, the junction or the muscle, causing weakness and low muscle tone.
+- **1:25** The heart muscle is built from the same sarcomeres: its inherited diseases, the cardiomyopathies, belong here too.
+- **1:29** Gene Table of Neuromuscular Disorders (2024). Motor unit illustrative.
 
-### 1:21 Causes
+### 1:38 Causes
 
-- **1:21** Same weakness, different causes
-- **1:22** Patients share weakness, but the causes are many: about 700 genes. There are no molecular subtypes for these diseases yet.
-- **1:31** A shared mechanism is called an endotype. Diseases that share one may share a treatment: a drug for one could be repurposed for another.
-- **1:37** First: define the endotypes of each disease group
-- **1:40** Then: find the endotypes that different diseases share
-- **1:42** Finally: point to genes and drugs worth a closer look
+- **1:38** Same weakness, different causes
+- **1:42** Patients share weakness, but the causes are many: about 700 genes. There are no molecular subtypes for these diseases yet.
+- **1:51** A shared mechanism is called an endotype. Diseases that share one may share a treatment: a drug for one could be repurposed for another.
+- **2:00** First: define the endotypes of each disease group
+- **2:03** Then: find the endotypes that different diseases share
+- **2:07** Finally: point to genes and drugs worth a closer look
 
-### 1:47 Layers
+### 2:13 Layers
 
-- **1:48** 71 layers, one network
-- **1:49** To see mechanisms, look at the genes from every side at once. The multiplex network stacks 71 layers; in each, the same genes are linked by a different kind of evidence.
-- **1:56** Proteins: those that bind each other, in a core of links found in more than 24 tissues and in 26 tissue layers with links of their own
-- **2:03** Genes: those switched on together, in 38 tissues and in a core layer
-- **2:10** Symptoms: those that genes share, in people and in mice
-- **2:15** Pathways and drugs: shared pathways and drug targets
-- **2:21** Essential: genes that cells need together, from CRISPR screens
-- **2:26** This map holds 1,182 genes, the known genes of the 13 disease groups plus the genes the walk added, and 15,246 protein links. The groups are the Gene Table's 16, with small ones joined to their closest. Layers still waiting for their data show as dotted rims.
-- **2:36** Proteins: Kotlyar et al. (IID). Genes switched on together: GTEx, with the co-expression core of Buphamalai et al., Nature Communications (2021). Symptoms: HPO, MPO. Pathways: Reactome. Drug targets: NeDRex.
+- **2:13** 71 layers, one network
+- **2:17** To see mechanisms, look at the genes from every side at once. The multiplex network stacks 71 layers; in each, the same genes are linked by a different kind of evidence.
+- **2:28** Proteins: those that bind each other, in a core of links found in more than 24 tissues and in 26 tissue layers with links of their own
+- **2:38** Genes: those switched on together, in 38 tissues and in a core layer
+- **2:44** Symptoms: those that genes share, in people and in mice
+- **2:50** Pathways and drugs: shared pathways and drug targets
+- **2:55** Essential: genes that cells need together, from CRISPR screens
+- **3:01** This map holds 1,182 genes, the known genes of the 13 disease groups plus the genes the walk added, and 15,246 protein links. The groups are the Gene Table's 16, with small ones joined to their closest. Layers still waiting for their data show as dotted rims.
+- **3:07** Proteins: Kotlyar et al. (IID). Genes switched on together: GTEx, with the co-expression core of Buphamalai et al., Nature Communications (2021). Symptoms: HPO, MPO. Pathways: Reactome. Drug targets: NeDRex.
 
-### 2:45 Walker
+### 3:22 Walker
 
-- **2:46** A walker that keeps coming home
-- **2:47** Start from the genes known to cause one group of diseases: here the 40 genes of congenital myopathies in the Gene Table.
-- **2:55** A random walker sets off from them. At every step it jumps back to a known gene seven times in ten; otherwise it follows a link. At a gene found in several layers it changes layer half the time, preferring the layers where the disease's genes cluster most.
-- **3:12** Genes the walker visits again and again are close to the disease, from many sides at once.
-- **3:23** The most visited genes join the disease module one by one, until the module holds together, or 200 genes have joined. For congenital myopathies the walk stopped at the limit of 200. Other groups held together sooner: for some a single gene was enough.
-- **3:34** Random walk with restart on the multiplex: restart 0.7, layer switch 0.5, layers weighted by z-score. After Buphamalai et al. (2021).
+- **3:22** A walker that keeps coming home
+- **3:25** Start from the genes known to cause one group of diseases: here the 40 genes of congenital myopathies in the Gene Table.
+- **3:34** A random walker sets off from them. At every step it jumps back to a known gene seven times in ten; otherwise it follows a link. At a gene found in several layers it changes layer half the time, preferring the layers where the disease's genes cluster most.
+- **3:52** Genes the walker visits again and again are close to the disease, from many sides at once.
+- **4:03** The most visited genes join the disease module one by one, until the module holds together, or 200 genes have joined. For congenital myopathies the walk stopped at the limit of 200. Other groups held together sooner: for some a single gene was enough.
+- **4:14** Random walk with restart on the multiplex: restart 0.7, layer switch 0.5, layers weighted by z-score. After Buphamalai et al. (2021).
 
-### 3:44 Contexts
+### 4:23 Contexts
 
-- **3:45** Different diseases, different layers
-- **3:46** Not every layer matters for every disease. A protein layer counts when a group's known genes link up in it more than chance would allow.
-- **3:54** Motor and sensory neuropathies: strongest in the protein layer of the dorsal root ganglia
-- **4:03** Myasthenic syndromes: strongest in the protein layer of the skeletal muscle
-- **4:13** Muscular dystrophies: strongest in the protein layer of the heart
-- **4:19** A protein layer counts at a z-score of at least 1.645. Z-scores computed in this map over the protein layers: the largest linked group of a disease's known genes against 1,000 random gene sets with the same numbers of links.
+- **4:24** Different diseases, different layers
+- **4:27** Not every layer matters for every disease. A protein layer counts when a group's known genes link up in it more than chance would allow.
+- **4:36** Motor and sensory neuropathies: strongest in the protein layer of the dorsal root ganglia
+- **4:46** Myasthenic syndromes: strongest in the protein layer of the skeletal muscle
+- **4:56** Muscular dystrophies: strongest in the protein layer of the heart
+- **5:01** A protein layer counts at a z-score of at least 1.645. Z-scores computed in this map over the protein layers: the largest linked group of a disease's known genes against 1,000 random gene sets with the same numbers of links.
 
-### 4:27 Endotypes
+### 5:09 Endotypes
 
-- **4:27** Endotypes
-- **4:28** Inside a module, genes that do the same job sit together. Grouping them by the functions around them, their Gene Ontology terms, splits each module into endotypes.
-- **4:40** Congenital myopathies fall into 14 endotypes, among them number 11, muscle contraction; number 12, skeletal muscle tissue development; number 8, myofibril assembly.
-- **4:55** Across the 13 groups there are 107 endotypes, candidates for shared mechanisms.
-- **5:02** Endotypes are numbered within each group, and named after the most typical Gene Ontology process of their genes.
+- **5:10** Endotypes
+- **5:12** Inside a module, genes that do the same job sit together. Grouping them by the functions around them, their Gene Ontology terms, splits each module into endotypes.
+- **5:24** Congenital myopathies fall into 14 endotypes, among them number 11, muscle contraction; number 12, skeletal muscle tissue development; number 8, myofibril assembly.
+- **5:39** Across the 13 groups there are 107 endotypes, candidates for shared mechanisms.
+- **5:46** Endotypes are numbered within each group, and named after the most typical Gene Ontology process of their genes.
 
-### 5:17 Heart and muscle
+### 6:01 Heart and muscle
 
-- **5:18** Heart and muscle
-- **5:19** Congenital myopathies and inherited cardiomyopathies often come together. Do they share machinery?
-- **5:26** Side by side, congenital myopathies have 240 genes, cardiomyopathies 116, and 29 are in both. The endotypes that share the most genes are endotype 13 of congenital myopathies, sarcomere organization, and endotype 7 of cardiomyopathies, sarcomere organization, with 7 genes in common; endotype 8 of congenital myopathies, myofibril assembly, and endotype 2 of cardiomyopathies, heart contraction, with 6 genes in common.
-- **5:41** The overlap shows in shared symptoms, in genes switched on together in the heart's atrium and ventricle, and in the proteins of skeletal muscle.
-- **5:55** Their known genes alone share 237 protein links in this map. With the genes the walk found, 2,641 links tie them together. Without the walk, much of what they share is missed.
-- **6:08** Congenital myopathies (endotypes CM 1-14) and hereditary cardiomyopathies (HC); layers after netviz-iactive by Philipp Friedrich.
+- **6:02** Heart and muscle
+- **6:04** Congenital myopathies and inherited cardiomyopathies often come together. Do they share machinery?
+- **6:12** Side by side, congenital myopathies have 240 genes, cardiomyopathies 116, and 29 are in both. The endotypes that share the most genes are endotype 13 of congenital myopathies, sarcomere organization, and endotype 7 of cardiomyopathies, sarcomere organization, with 7 genes in common; endotype 8 of congenital myopathies, myofibril assembly, and endotype 2 of cardiomyopathies, heart contraction, with 6 genes in common.
+- **6:45** The overlap shows in shared symptoms, in genes switched on together in the heart's atrium and ventricle, and in the proteins of skeletal muscle.
+- **6:58** Their known genes alone share 237 protein links in this map. With the genes the walk found, 2,641 links tie them together. Without the walk, much of what they share is missed.
+- **7:11** Congenital myopathies (endotypes CM 1-14) and hereditary cardiomyopathies (HC); layers after netviz-iactive by Philipp Friedrich.
 
-### 6:25 Stress test
+### 7:29 Stress test
 
-- **6:26** A stress test
-- **6:27** How much does the result hang on any one layer? Layers were removed at random, again and again: 10,000 networks for every number of removed layers, 680,000 in all.
-- **6:41** It took about 45 hours on MareNostrum 5 at the Barcelona Supercomputing Center, in jobs of 25 nodes with 112 cores each.
-- **6:50** The modules keep their originally detected genes until most layers are gone; with fewer layers the walk has to search wider. The full multiplex finds the smallest sets of genes that define the disease modules. That is the authors' result; the picture only illustrates it.
-- **7:00** With Alfonso Valencia and Davide Cirillo, Barcelona Supercomputing Center.
+- **7:30** A stress test
+- **7:32** How much does the result hang on any one layer? Layers were removed at random, again and again: 10,000 networks for every number of removed layers, 680,000 in all.
+- **7:46** It took about 45 hours on MareNostrum 5 at the Barcelona Supercomputing Center, in jobs of 25 nodes with 112 cores each.
+- **7:57** The modules keep their originally detected genes until most layers are gone; with fewer layers the walk has to search wider. The full multiplex finds the smallest sets of genes that define the disease modules. That is the authors' result; the picture only illustrates it.
+- **8:05** With Alfonso Valencia and Davide Cirillo, Barcelona Supercomputing Center.
 
-### 7:08 Next
+### 8:15 Next
 
-- **7:09** What comes next
-- **7:10** Genes shared by the endotypes of different diseases are candidates for diagnosis, and for drugs that might be repurposed from one disease to another.
-- **7:18** The same approach now turns to inborn errors of immunity, with Pauline Staiber.
-- **7:24** This work is by Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche, of the Guthrie Lab and the Menche Lab at the Ludwig Boltzmann Institute for Network Medicine in Vienna.
-- **7:32** ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex.
+- **8:16** What comes next
+- **8:18** Genes shared by the endotypes of different diseases are candidates for diagnosis, and for drugs that might be repurposed from one disease to another.
+- **8:28** The same approach now turns to inborn errors of immunity, with Pauline Staiber.
+- **8:33** This work is by Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche, of the Guthrie Lab and the Menche Lab at the Ludwig Boltzmann Institute for Network Medicine in Vienna.
+- **8:42** ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex. Narration: a synthetic voice (Kokoro).
 
 ## Disease endotypes: Endotypes (`#endo`)
 
-File: `audio/narration-endo.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:22 Tired, 0:59 Genes, 1:47 Network, 2:47 Walk, 3:42 Neighbours, 4:29 Tree, 5:20 Endotypes, 6:33 What for; it ends at 7:12.
+File: `audio/narration-endo.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:27 Tired, 1:08 Genes, 1:55 Network, 2:56 Walk, 3:50 Neighbours, 4:41 Tree, 5:28 Endotypes, 7:04 What for; it ends at 7:42.
 
 ### 0:00 Intro
 
 - **0:01** Endotypes
-- **0:02** One disease, many mechanisms
-- **0:04** 35 genes cause a group of rare diseases of the junction between nerve and muscle. How many mechanisms hide behind them?
-- **0:12** This is a story of congenital myasthenic syndromes, and of EndotypY, a Python package that finds the endotypes of a disease in a network of proteins.
+- **0:03** One disease, many mechanisms
+- **0:06** 35 genes cause a group of rare diseases of the junction between nerve and muscle. How many mechanisms hide behind them?
+- **0:15** This is a story of congenital myasthenic syndromes, and of EndotypY, a Python package that finds the endotypes of a disease in a network of proteins.
 
-### 0:22 Tired
+### 0:27 Tired
 
-- **0:22** Muscles that tire
-- **0:23** Every movement starts with a nerve cell telling muscle fibres to contract. Each fibre meets the nerve at one point: the neuromuscular junction.
-- **0:33** Up close, the nerve ending releases acetylcholine. It crosses a narrow gap and opens receptors on the muscle, and the fibre twitches.
-- **0:42** In congenital myasthenic syndromes, or CMS, the signal runs down: muscles tire as they work, and weakness grows with effort.
-- **0:50** CMS are rare and inherited, most often from both parents. Some patients only tire with exercise; others struggle to walk, or to breathe.
+- **0:27** Muscles that tire
+- **0:30** Every movement starts with a nerve cell telling muscle fibres to contract. Each fibre meets the nerve at one point: the neuromuscular junction.
+- **0:39** Up close, the nerve ending releases acetylcholine. It crosses a narrow gap and opens receptors on the muscle, and the fibre twitches.
+- **0:49** In congenital myasthenic syndromes, or CMS, the signal runs down: muscles tire as they work, and weakness grows with effort.
+- **0:58** CMS are rare and inherited, most often from both parents. Some patients only tire with exercise; others struggle to walk, or to breathe.
 
-### 0:59 Genes
+### 1:08 Genes
 
-- **1:00** 35 genes, one junction
-- **1:01** The Gene Table of Neuromuscular Disorders lists 35 genes for CMS. Each works somewhere in the junction.
-- **1:07** Nerve ending · 11 genes: making, loading and releasing acetylcholine
-- **1:13** The gap · 5 genes: the basement membrane that holds it together
-- **1:17** Muscle membrane · 10 genes: the receptor, the proteins that cluster it, and sodium channels
-- **1:23** Inside the fibre · 9 genes: sugar chains for receptors, the scaffold and the nuclei
-- **1:28** Yet one mutation can be mild in one patient and severe in another. Genes alone do not explain the range; other genes in their networks are thought to shape it.
-- **1:40** Gene Table of Neuromuscular Disorders; places after UniProt (the junction is illustrative). Severity: Núñez-Carpintero et al., Nature Communications (2024).
+- **1:09** 35 genes, one junction
+- **1:12** The Gene Table of Neuromuscular Disorders lists 35 genes for CMS. Each works somewhere in the junction.
+- **1:20** Nerve ending · 11 genes: making, loading and releasing acetylcholine
+- **1:26** The gap · 5 genes: the basement membrane that holds it together
+- **1:31** Muscle membrane · 10 genes: the receptor, the proteins that cluster it, and sodium channels
+- **1:37** Inside the fibre · 9 genes: sugar chains for receptors, the scaffold and the nuclei
+- **1:44** Yet one mutation can be mild in one patient and severe in another. Genes alone do not explain the range; other genes in their networks are thought to shape it.
+- **1:48** Gene Table of Neuromuscular Disorders; places after UniProt (the junction is illustrative). Severity: Núñez-Carpintero et al., Nature Communications (2024).
 
-### 1:47 Network
+### 1:55 Network
 
-- **1:48** 18,306 proteins
-- **1:49** Proteins that interact make a network: here, 18,306 proteins joined by 316,613 links. The 35 CMS genes are its seeds.
-- **1:57** Do the seeds share mechanisms? Endotypes are subtypes of a disease defined by its molecules: groups of disease genes that hang together, in the network and in what they do.
-- **2:09** First, one group or several? Give each seed a neighbourhood of its closest proteins, k of them. Seeds whose neighbourhoods meet form a group.
-- **2:18** 34: groups when k is 1
-- **2:22** 29: groups when k is 10
-- **2:25** 10: groups when k is 20
-- **2:28** 2: groups when k is 50
-- **2:31** Once k reaches 75, all 35 seeds share one neighbourhood: one module, which the next steps split.
-- **2:37** Step 1 of EndotypY (optional): seed groups. Even at k = 1, SLC5A7 and SLC18A3 share one. The protein network is the one the authors used.
+- **1:56** 18,306 proteins
+- **1:59** Proteins that interact make a network: here, 18,306 proteins joined by 316,613 links. The 35 CMS genes are its seeds.
+- **2:13** Do the seeds share mechanisms? Endotypes are subtypes of a disease defined by its molecules: groups of disease genes that hang together, in the network and in what they do.
+- **2:25** First, one group or several? Give each seed a neighbourhood of its closest proteins, k of them. Seeds whose neighbourhoods meet form a group.
+- **2:34** 34 groups when k is 1
+- **2:39** 29 groups when k is 10
+- **2:41** 10 groups when k is 20
+- **2:45** 2 groups when k is 50
+- **2:48** Once k reaches 75, all 35 seeds share one neighbourhood: one module, which the next steps split.
+- **2:50** Step 1 of EndotypY (optional): seed groups. Even at k = 1, SLC5A7 and SLC18A3 share one. The protein network is the one the authors used.
 
-### 2:47 Walk
+### 2:56 Walk
 
-- **2:47** A walker that keeps coming home
-- **2:50** To find the rest of the module, EndotypY sends random walkers out from the seeds. At every step a walker hops to a random neighbour, or, eight times in ten, jumps back to a seed.
-- **3:04** Proteins the walkers visit again and again are close to the seeds, by many paths at once.
-- **3:16** The most visited proteins join the seeds, one by one, until the module holds together. In the authors' run:
-- **3:23** 35: seeds
-- **3:25** 358: more found by the walk
-- **3:26** 393: genes in the module
-- **3:30** Step 2 of EndotypY: network expansion by random walk with restart (restart probability 0.8, the package's default). The walkers and their heat are a re-run with the package's defaults; the module is the authors'.
+- **2:57** A walker that keeps coming home
+- **3:00** To find the rest of the module, EndotypY sends random walkers out from the seeds. At every step a walker hops to a random neighbour, or, eight times in ten, jumps back to a seed.
+- **3:13** Proteins the walkers visit again and again are close to the seeds, by many paths at once.
+- **3:25** The most visited proteins join the seeds, one by one, until the module holds together. In the authors' run:
+- **3:32** 35 seeds
+- **3:34** 358 more found by the walk
+- **3:38** 393 genes in the module
+- **3:41** Step 2 of EndotypY: network expansion by random walk with restart (restart probability 0.8, the package's default). The walkers and their heat are a re-run with the package's defaults; the module is the authors'.
 
-### 3:42 Neighbours
+### 3:50 Neighbours
 
-- **3:43** Every gene's neighbourhood
-- **3:44** What does each gene do? Its neighbours tell more than the gene alone. Take COLQ, which anchors acetylcholinesterase in the gap. A walk from COLQ alone marks its neighbourhood: the top 1 per cent of the network, 184 proteins.
-- **3:58** Some parts of the cell, named by Gene Ontology terms, come up among them more often than by chance. With COLQ's own, they become COLQ's row of marks. Every gene gets one.
-- **4:10** 393: genes
-- **4:12** 457: cell parts
-- **4:13** 4,717: marks
-- **4:17** Genes with similar rows sit among similar parts of the cell.
-- **4:22** Step 3 of EndotypY: functional neighbourhood annotation (gene-set enrichment with GSEApy and Enrichr libraries; here GO Cellular Component 2026).
+- **3:51** Every gene's neighbourhood
+- **3:53** What does each gene do? Its neighbours tell more than the gene alone. Take COLQ, which anchors acetylcholinesterase in the gap. A walk from COLQ alone marks its neighbourhood: the top 1 per cent of the network, 184 proteins.
+- **4:09** Some parts of the cell, named by Gene Ontology terms, come up among them more often than by chance. With COLQ's own, they become COLQ's row of marks. Every gene gets one.
+- **4:21** 393 genes
+- **4:24** 457 cell parts
+- **4:27** 4,717 marks
+- **4:31** Genes with similar rows sit among similar parts of the cell.
+- **4:33** Step 3 of EndotypY: functional neighbourhood annotation (gene-set enrichment with GSEApy and Enrichr libraries; here GO Cellular Component 2026).
 
-### 4:29 Tree
+### 4:41 Tree
 
-- **4:30** A tree that splits only when it must
-- **4:33** Genes with similar rows are joined, pair by pair, into a tree.
-- **4:41** Where to cut it? Not at a fixed height. Tree2BreakSpace tests every split from the root down: do the two sides use the cell's parts differently? A split stays only when the data say so.
-- **4:55** Only 11 splits are kept, which leaves 12 endotypes.
-- **5:05** Laid out by their distances in the tree, genes that are close in the tree land close together.
-- **5:11** Step 4 of EndotypY: statistically filtered hierarchical clustering (Tree2BreakSpace, Sakalli et al., in progress).
+- **4:42** A tree that splits only when it must
+- **4:45** Genes with similar rows are joined, pair by pair, into a tree.
+- **4:52** Where to cut it? Not at a fixed height. Tree2BreakSpace tests every split from the root down: do the two sides use the cell's parts differently? A split stays only when the data say so.
+- **5:05** Only 11 splits are kept, which leaves 12 endotypes.
+- **5:15** Laid out by their distances in the tree, genes that are close in the tree land close together.
+- **5:19** Step 4 of EndotypY: statistically filtered hierarchical clustering (Tree2BreakSpace, Sakalli et al., in progress).
 
-### 5:20 Endotypes
+### 5:28 Endotypes
 
-- **5:20** 12 endotypes
-- **5:21** Each endotype is a group of genes tied together in the network and in what they do. Here each one is a bubble, with grey bands for the links between them. In the authors' analysis:
-- **5:34** Endotype 1 · Mitochondria: SLC25A1 exports citrate from the nerve ending's mitochondria; from it comes acetyl-CoA, needed to make acetylcholine.
-- **5:45** Endotype 9 · Vesicles: forming and releasing synaptic vesicles, with genes such as SYT1, SYT2, SNAP25, STX19, RPH3A. Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of this endotype's genes: a lead for repurposing, not a treatment for CMS.
-- **5:58** Endotype 5 · Ion channels: the receptor subunits CHRNB1, CHRND, which start the muscle's signal, and the sodium channels SCN4A, SCN8A, SCN1B, which carry it on.
-- **6:09** Endotype 2 · Basement membrane: the matrix in the gap, with genes such as COLQ, AGRN, LAMB2, LAMA5, COL13A1. It holds the junction together and anchors acetylcholinesterase.
-- **6:18** Back in the junction, the endotypes with a shared place settle there.
-- **6:24** Seven endotypes share a clear place in the cell, and two a weak one; three share none and hover loose: endotypes 0, 4, 7.
+- **5:28** 12 endotypes
+- **5:31** Each endotype is a group of genes tied together in the network and in what they do. Here each one is a bubble, with grey bands for the links between them. In the authors' analysis:
+- **5:43** Endotype 1 · Mitochondria: SLC25A1 exports citrate from the nerve ending's mitochondria; from it comes acetyl-CoA, needed to make acetylcholine.
+- **5:55** Endotype 9 · Vesicles: forming and releasing synaptic vesicles, with genes such as SYT1, SYT2, SNAP25, STX19, RPH3A. Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of this endotype's genes: a lead for repurposing, not a treatment for CMS.
+- **6:17** Endotype 5 · Ion channels: the receptor subunits CHRNB1, CHRND, which start the muscle's signal, and the sodium channels SCN4A, SCN8A, SCN1B, which carry it on.
+- **6:33** Endotype 2 · Basement membrane: the matrix in the gap, with genes such as COLQ, AGRN, LAMB2, LAMA5, COL13A1. It holds the junction together and anchors acetylcholinesterase.
+- **6:48** Back in the junction, the endotypes with a shared place settle there.
+- **6:54** Seven endotypes share a clear place in the cell, and two a weak one; three share none and hover loose: endotypes 0, 4, 7.
 
-### 6:33 What for
+### 7:04 What for
 
-- **6:34** What endotypes are for
-- **6:35** Patients: grouping them by mechanism, not by broad symptoms
-- **6:38** Drugs: finding pathways to target, and drugs to repurpose
-- **6:41** Rare and common: tracing the links between rare and common forms of a disease
-- **6:46** EndotypY is open source: a Python package you can install from GitHub.
-- **6:50** The authors are Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche, of the Ludwig Boltzmann Institute for Network Medicine at the University of Vienna.
-- **7:01** Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. EndotypY: github.com/menchelab/EndotypY. Rare and common autoimmunity: Guthrie et al., Science Advances (2023).
+- **7:04** What endotypes are for
+- **7:07** Patients: grouping them by mechanism, not by broad symptoms
+- **7:12** Drugs: finding pathways to target, and drugs to repurpose
+- **7:16** Rare and common: tracing the links between rare and common forms of a disease
+- **7:22** EndotypY is open source: a Python package you can install from GitHub.
+- **7:27** The authors are Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche, of the Ludwig Boltzmann Institute for Network Medicine at the University of Vienna.
+- **7:35** Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. EndotypY: github.com/menchelab/EndotypY. Rare and common autoimmunity: Guthrie et al., Science Advances (2023). Narration: a synthetic voice (Kokoro).
 
 ## Whole-body PET: One scan, one system (`#pet`)
 
-File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:28 Scanner, 1:50 Sugar, 2:41 Organs, 3:27 Network, 4:16 Health; it ends at 6:33.
+File: `audio/narration-pet.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:31 Scanner, 1:39 Sugar, 2:26 Organs, 3:09 Network, 4:02 Health; it ends at 6:03.
 
 ### 0:00 Intro
 
 - **0:01** One scan, one system
-- **0:03** The body as a metabolic network
-- **0:05** From PET scans to a network of organs, from health to disease.
+- **0:04** The body as a metabolic network
+- **0:07** From PET scans to a network of organs, from health to disease.
 - **0:11** The aim is to go from a scan to one network of the body, then to prognosis and medication. These are goals, not yet shown.
-- **0:19** This story is based on a paper in the journal Med, published in 2025, and a poster from the Medical University of Vienna and the LBI for Network Medicine.
+- **0:20** This story is based on a paper in the journal Med, published in 2025, and a poster from the Medical University of Vienna and the LBI for Network Medicine.
 
-### 0:28 Scanner
+### 0:31 Scanner
 
-- **0:28** How PET sees
-- **0:30** A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.
-- **0:45** After at least 6 hours without food, it goes into a vein. For about 60 minutes the person rests, while cells take it up like glucose and an enzyme, hexokinase, traps it inside.
-- **0:58** Then comes the scan. Around the tunnel sits a ring of detectors.
-- **1:03** A positron: fluorine-18 decays and sends one out, the electron's antimatter twin; it travels about a millimetre, though here it is drawn larger
-- **1:11** Two photons, one line: the positron meets an electron, and both vanish into two gamma photons of 511 keV that fly off in opposite directions. Two detectors on opposite sides of the ring register both within a few billionths of a second, and the line between them passes close to where the tracer sits
+- **0:32** How PET sees
+- **0:34** A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.
+- **0:50** After at least 6 hours without food, it goes into a vein. For about 60 minutes the person rests, while cells take it up like glucose and an enzyme, hexokinase, traps it inside.
+- **1:02** Then comes the scan. Around the tunnel sits a ring of detectors.
+- **1:06** A positron: fluorine-18 decays and sends one out, the electron's antimatter twin; it travels about a millimetre, though here it is drawn larger
+- **1:17** Two photons, one line: the positron meets an electron, and both vanish into two gamma photons of 511 keV that fly off in opposite directions. Two detectors on opposite sides of the ring register both within a few billionths of a second, and the line between them passes close to where the tracer sits
 - **1:33** The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: 250 to 300 MBq of FDG.
 
-### 1:50 Sugar
+### 1:39 Sugar
 
-- **1:51** Where the sugar goes
-- **1:57** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
-- **2:07** The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and mostly not taken back, so it leaves the body that way.
-- **2:26** A tumour shows as a hot spot. This is the main application of PET scans in routine care: finding and staging cancer.
-- **2:36** Yet the scan holds every organ's metabolism at once.
+- **1:40** Where the sugar goes
+- **1:47** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
+- **1:56** The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and mostly not taken back, so it leaves the body that way.
+- **2:11** A tumour shows as a hot spot. This is the main application of PET scans in routine care: finding and staging cancer.
+- **2:21** Yet the scan holds every organ's metabolism at once.
 
-### 2:41 Organs
+### 2:26 Organs
 
-- **2:41** Every organ, measured
-- **2:43** Segmentation algorithms outline up to 13 organs in each scan, in 3D, and a doctor checks them.
-- **2:57** Each organ's uptake is divided by that of the aorta, the blood pool, so the reference is the same in every scan.
-- **3:07** Brain: mean of the whole brain; it lives on sugar
-- **3:11** Liver: mean of the whole liver
-- **3:15** Muscle: mean of the gluteus maximus, the buttock muscle
-- **3:20** One scan, one row of numbers.
-- **3:23** The organs' values shown here are typical uptakes, for illustration.
+- **2:26** Every organ, measured
+- **2:29** Segmentation algorithms outline up to 13 organs in each scan, in 3D, and a doctor checks them.
+- **2:43** Each organ's uptake is divided by that of the aorta, the blood pool, so the reference is the same in every scan.
+- **2:53** Brain: mean of the whole brain; it lives on sugar
+- **2:57** Liver: mean of the whole liver
+- **3:02** Muscle: mean of the gluteus maximus, the buttock muscle
+- **3:06** One scan, one row of numbers.
+- **3:07** The organs' values shown here are typical uptakes, for illustration.
 
-### 3:27 Network
+### 3:09 Network
 
-- **3:28** 658 scans
-- **3:28** A network like this needs many scans: one scan gives only one row of numbers. These networks are the paper's, each one built from a group of scans.
-- **3:40** In all, 658 scans of 548 people: 241 of healthy volunteers and 417 of people with cancer.
-- **3:45** Which organs rise and fall together across scans? Two are linked when they still do once all the others are taken into account, which is called a partial correlation, and when that is unlikely to be chance. A link is blue where they rise together, and red where one rises as the other falls.
-- **4:05** The network of all 658 scans has 11 organs and 25 links, with a density of 12%. More on that next.
-- **4:11** Figure 2A of the paper.
+- **3:10** 658 scans
+- **3:13** A network like this needs many scans: one scan gives only one row of numbers. These networks are the paper's, each one built from a group of scans.
+- **3:23** In all, 658 scans of 548 people: 241 of healthy volunteers and 417 of people with cancer.
+- **3:34** Which organs rise and fall together across scans? Two are linked when they still do once all the others are taken into account, which is called a partial correlation, and when that is unlikely to be chance. A link is blue where they rise together, and red where one rises as the other falls.
+- **3:52** The network of all 658 scans has 11 organs and 25 links, with a density of 12%. More on that next.
+- **3:56** Figure 2A of the paper.
 
-### 4:16 Health
+### 4:02 Health
 
-- **4:16** From health to disease
-- **4:18** Split the scans into groups, and give each group its own network. Compared within this one set of scans, the healthy group's network is dense, at 30% of the most possible, against 7% for people with cancer.
-- **4:32** Among healthy people, split at the median body mass index, or BMI, which is weight for height, the lighter group's network has a density of 27%, and the heavier group's 7%.
-- **4:40** In the heavier group, the brain is a hub: an organ with far stronger links than the rest.
-- **4:48** There are two measures. Density is the strength of all links together, as a share of the most possible. Disorder is how unevenly that strength is spread, from 0 when it is even, and higher when it gathers in a few hubs.
-- **5:00** Among people with cancer, groups with more tumour load have thinner networks: 18% with less load, against 8% with more. So do groups with more of the stress hormone norepinephrine, among healthy people.
-- **5:11** In such sparse networks, muscle and subcutaneous fat, the fat under the skin, dominate; here muscle is a hub.
-- **5:18** And it holds across two scans within 6 weeks, an ultra-low dose, another scanner, men and women, and the aorta or the vena cava as the reference: none of these made a significant difference, though some groups were small, with as few as 21 people.
-- **5:34** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's network, with a correlation of 0.42.
-- **5:44** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
-- **5:59** The poster is by Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker, of the Division of Nuclear Medicine at the Medical University of Vienna and the LBI for Network Medicine.
-- **6:15** Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med (2025) (of all 658 scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative.
+- **4:02** From health to disease
+- **4:05** Split the scans into groups, and give each group its own network. Compared within this one set of scans, the healthy group's network is dense, at 30% of the most possible, against 7% for people with cancer.
+- **4:19** Among healthy people, split at the median body mass index, or BMI, which is weight for height, the lighter group's network has a density of 27%, and the heavier group's 7%.
+- **4:32** In the heavier group, the brain is a hub: an organ with far stronger links than the rest.
+- **4:38** There are two measures. Density is the strength of all links together, as a share of the most possible. Disorder is how unevenly that strength is spread, from 0 when it is even, and higher when it gathers in a few hubs.
+- **4:52** Among people with cancer, groups with more tumour load have thinner networks: 18% with less load, against 8% with more. So do groups with more of the stress hormone norepinephrine, among healthy people.
+- **5:05** In such sparse networks, muscle and subcutaneous fat, the fat under the skin, dominate; here muscle is a hub.
+- **5:13** And it holds across two scans within 6 weeks, an ultra-low dose, another scanner, men and women, and the aorta or the vena cava as the reference: none of these made a significant difference, though some groups were small, with as few as 21 people.
+- **5:29** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's network, with a correlation of 0.42.
+- **5:35** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
+- **5:45** The poster is by Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker, of the Division of Nuclear Medicine at the Medical University of Vienna and the LBI for Network Medicine.
+- **5:56** Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med (2025) (of all 658 scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative. Narration: a synthetic voice (Kokoro).
 
 ## Tissue microanatomy: Tissue and time (`#micro`)
 
-File: `audio/narration-micro.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:29 Slide, 1:26 Library, 2:06 Method, 3:05 Atlas, 3:58 Age, 5:03 Disease, 5:47 Contacts, 6:43 Next; it ends at 7:36.
+File: `audio/narration-micro.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:35 Slide, 1:34 Library, 2:23 Method, 3:32 Atlas, 4:28 Age, 5:50 Disease, 6:38 Contacts, 7:19 Next; it ends at 8:06.
 
 ### 0:00 Intro
 
 - **0:01** Tissue and time
-- **0:02** How organs are built, and how they age
-- **0:05** The body's organs are built from small working units, and they change as we age.
+- **0:03** How organs are built, and how they age
+- **0:06** The body's organs are built from small working units, and they change as we age.
 - **0:12** Each point of light is one of the 29 organs whose tissue the GTEx project collected from 983 people.
-- **0:18** This story follows a preprint posted on bioRxiv in 2025, a poster and a talk from the Rendeiro group at CeMM, the LBI for Network Medicine and the Medical University of Vienna.
+- **0:20** This story follows a preprint posted on bioRxiv in 2025, a poster and a talk from the Rendeiro group at CeMM, the LBI for Network Medicine and the Medical University of Vienna.
 
-### 0:29 Slide
+### 0:35 Slide
 
-- **0:29** One slide
-- **0:30** Take a thin slice of an organ, here the wall of the stomach, and stain it. This is H&E, haematoxylin and eosin, the standard stain of pathology.
-- **0:41** Haematoxylin colours the cells' nuclei purple-blue; eosin colours their cytoplasm and the fibres between them pink. White is fat, or empty space.
-- **0:50** Close up, it is all cells. Yet they are not scattered at random: they are arranged in units that each do a job.
-- **1:00** Mucosa: the lining, with glands that make mucus and acid
-- **1:04** Submucosa: loose tissue with blood vessels
-- **1:06** Muscularis: layers of muscle, one around and one along, that move food onwards
-- **1:11** Lymphoid patch: a cluster of immune cells
-- **1:13** Such recurring arrangements are microanatomical domains: the units between cells and organs.
-- **1:18** Slides like this are cheap, plentiful and show a wide field. This section is drawn, not a real slide.
+- **0:35** One slide
+- **0:38** Take a thin slice of an organ, here the wall of the stomach, and stain it. This is H&E, haematoxylin and eosin, the standard stain of pathology.
+- **0:48** Haematoxylin colours the cells' nuclei purple-blue; eosin colours their cytoplasm and the fibres between them pink. White is fat, or empty space.
+- **0:59** Close up, it is all cells. Yet they are not scattered at random: they are arranged in units that each do a job.
+- **1:09** Mucosa: the lining, with glands that make mucus and acid
+- **1:14** Submucosa: loose tissue with blood vessels
+- **1:17** Muscularis: layers of muscle, one around and one along, that move food onwards
+- **1:23** Lymphoid patch: a cluster of immune cells
+- **1:27** Such recurring arrangements are microanatomical domains: the units between cells and organs.
+- **1:30** Slides like this are cheap, plentiful and show a wide field. This section is drawn, not a real slide.
 
-### 1:26 Library
+### 1:34 Library
 
-- **1:26** 24,945 slides
-- **1:27** The Genotype-Tissue Expression project, GTEx, collected tissue from 983 people who died aged 20 to 70.
-- **1:32** 983: people
-- **1:34** 40: tissues
-- **1:36** 29: organs
-- **1:37** 24,945: slides
-- **1:41** Each slide is one tissue of one person. Here each column is a tissue, and each row an age, the youngest at the bottom.
-- **1:51** This is enough to compare how organs are built, and to see how that changes with age.
-- **1:57** 971 people's slides were analysed: median age 56, 66.8% men. The slides here are drawn, not the GTEx images.
+- **1:34** 24,945 slides
+- **1:39** The Genotype-Tissue Expression project, GTEx, collected tissue from 983 people who died aged 20 to 70.
+- **1:48** 983 people
+- **1:51** 40 tissues
+- **1:53** 29 organs
+- **1:55** 24,945 slides
+- **1:59** Each slide is one tissue of one person. Here each column is a tissue, and each row an age, the youngest at the bottom.
+- **2:07** This is enough to compare how organs are built, and to see how that changes with age.
+- **2:14** 971 people's slides were analysed: median age 56, 66.8% men. The slides here are drawn, not the GTEx images.
 
-### 2:06 Method
+### 2:23 Method
 
-- **2:07** Finding the domains
-- **2:08** Step 1 · Tiles: each slide is cut into small squares, far smaller than drawn here, giving 162 million tiles in all
-- **2:17** Step 2 · Features: a deep-learning vision model describes each tile with a list of numbers, drawn here as 16 blocks of colour
-- **2:26** Step 3 · Neighbours: joined to its neighbours, each tile mixes in their descriptions as messages run along the links, which is called message passing
-- **2:36** Step 4 · Domains: in a map of the mixed descriptions, alike tiles gather across all slides; each group is a domain, and colours the slide
-- **2:47** No labels are needed: a pathologist named the domains afterwards. The method, H&E-UTAG, agrees with pathologists' notes, with a correlation of 0.91 for salivary gland and 0.76 for stomach mucosa, where 1 would be perfect.
-- **2:58** Now the tiles of every tissue share one map: alike tiles lie close together, coloured by domain.
+- **2:23** Finding the domains
+- **2:26** Step 1 · Tiles: each slide is cut into small squares, far smaller than drawn here, giving 162 million tiles in all
+- **2:35** Step 2 · Features: a deep-learning vision model describes each tile with a list of numbers, drawn here as 16 blocks of colour
+- **2:44** Step 3 · Neighbours: joined to its neighbours, each tile mixes in their descriptions as messages run along the links, which is called message passing
+- **2:54** Step 4 · Domains: in a map of the mixed descriptions, alike tiles gather across all slides; each group is a domain, and colours the slide
+- **3:06** No labels are needed: a pathologist named the domains afterwards. The method, H&E-UTAG, agrees with pathologists' notes, with a correlation of 0.91 for salivary gland and 0.76 for stomach mucosa, where 1 would be perfect.
+- **3:24** Now the tiles of every tissue share one map: alike tiles lie close together, coloured by domain.
 
-### 3:05 Atlas
+### 3:32 Atlas
 
-- **3:05** An atlas of the body
-- **3:07** Across the 40 tissues, there are 218 domains of 74 types, in 10 classes.
-- **3:11** 74: types of domain
-- **3:13** 16%in three or more tissues
-- **3:15** 69%in one tissue only
-- **3:18** A few kinds recur in many tissues, such as connective tissue and blood vessels. Most belong to one tissue.
-- **3:28** Iva Buljan's network of organ architecture puts it together in four levels:
-- **3:33** 29 organs
-- **3:35** 24 tissues, where an organ has several
-- **3:38** 10 tissue types
-- **3:40** 70 domains, as named in this map
-- **3:44** Connective tissue is the tissue type shared most widely: 28 of the 29 organs have it.
-- **3:49** The network as in the talk's Figure 5: domains hang on tissue types, and tissue types on organs and their tissues.
+- **3:32** An atlas of the body
+- **3:35** Across the 40 tissues, there are 218 domains of 74 types, in 10 classes.
+- **3:42** 74 types of domain
+- **3:44** 16% in three or more tissues
+- **3:47** 69% in one tissue only
+- **3:51** A few kinds recur in many tissues, such as connective tissue and blood vessels. Most belong to one tissue.
+- **4:00** Iva Buljan's network of organ architecture puts it together in four levels:
+- **4:06** 29 organs
+- **4:08** 24 tissues, where an organ has several
+- **4:11** 10 tissue types
+- **4:14** 70 domains, as named in this map
+- **4:17** Connective tissue is the tissue type shared most widely: 28 of the 29 organs have it.
+- **4:20** The network as in the talk's Figure 5: domains hang on tissue types, and tissue types on organs and their tissues.
 
-### 3:58 Age
+### 4:28 Age
 
-- **3:58** Age
-- **3:59** Of 111 things known about the donors, age is the strongest in explaining how their domains differ.
-- **4:05** 28% of domains change with age: 37 of 128 pairs of a domain and a tissue, where the domain covers more than 1%. Most change by less than 3% per decade.
-- **4:16** Each bubble is a domain in a tissue: right, it grows with age; left, it shrinks; higher, the change is surer.
-- **4:24** Ovary · corpus albicans: scars left by old ovarian follicles, which pile up with age, from 1.4% of the section at 20 to 11.89% at 70, +3.51% per decade
-- **4:35** Gastrointestinal tract · submucosa: the loose layer under the gut lining thins, from 42.9% of the section at 20 to 34.5% at 70, −0.98% per decade
-- **4:46** Pituitary · adenohypophysis: the gland part of the pituitary shrinks, from 82.6% of the section at 20 to 67.9% at 70, −3.42% per decade
-- **4:55** Connective tissue increased with age in many organs. Integumentary tissues, that is skin, and reproductive tissues changed most; nervous and muscular tissues changed least.
+- **4:29** Age
+- **4:31** Of 111 things known about the donors, age is the strongest in explaining how their domains differ.
+- **4:38** 28% of domains change with age: 37 of 128 pairs of a domain and a tissue, where the domain covers more than 1%. Most change by less than 3% per decade.
+- **4:44** Each bubble is a domain in a tissue: right, it grows with age; left, it shrinks; higher, the change is surer.
+- **4:52** Ovary · corpus albicans: scars left by old ovarian follicles, which pile up with age, from 1.4% of the section at 20 to 11.89% at 70, +3.51% per decade
+- **5:08** Gastrointestinal tract · submucosa: the loose layer under the gut lining thins, from 42.9% of the section at 20 to 34.5% at 70, −0.98% per decade
+- **5:23** Pituitary · adenohypophysis: the gland part of the pituitary shrinks, from 82.6% of the section at 20 to 67.9% at 70, −3.42% per decade
+- **5:38** Connective tissue increased with age in many organs. Integumentary tissues, that is skin, and reproductive tissues changed most; nervous and muscular tissues changed least.
 
-### 5:03 Disease
+### 5:50 Disease
 
-- **5:04** Disease
-- **5:04** GTEx's pathologists noted what they saw on each slide: 9,643 notes of 54 kinds.
-- **5:09** Calcified plaques: in arteries, rise with age, faster after about 40
-- **5:14** Infarct tissue: in the heart, rises steeply after about 60
-- **5:21** Disease and healthy ageing often remodel different parts of a tissue: how much of a domain there is, its shape, or both.
-- **5:30** For example, testicular atrophy changes the shape of the seminiferous tubules, their morphology; arterial fibrosis changes how much tunica adventitia there is, its abundance; liver cirrhosis changes both.
-- **5:41** Curves read off the talk's figures.
+- **5:51** Disease
+- **5:53** GTEx's pathologists noted what they saw on each slide: 9,643 notes of 54 kinds.
+- **6:02** Calcified plaques: in arteries, rise with age, faster after about 40
+- **6:07** Infarct tissue: in the heart, rises steeply after about 60
+- **6:15** Disease and healthy ageing often remodel different parts of a tissue: how much of a domain there is, its shape, or both.
+- **6:23** For example, testicular atrophy changes the shape of the seminiferous tubules, their morphology; arterial fibrosis changes how much tunica adventitia there is, its abundance; liver cirrhosis changes both.
+- **6:31** Curves read off the talk's figures.
 
-### 5:47 Contacts
+### 6:38 Contacts
 
-- **5:48** Neighbours
-- **5:49** Domains touch. Which ones meet, and how much, makes a network of contacts in each organ.
-- **5:55** Muscularis and submucosa meet less with age in the colon.
-- **6:07** Calcified plaque and tunica intima meet more with age in coronary and tibial arteries.
-- **6:14** Most organs keep the same core network of domain contacts as they age: a resilient framework.
-- **6:20** Also: in the uterus, the endometrium shifts towards contacts with connective tissue; mucosa and fibromuscular tissue meet more in the ovary; subdermis and reticular dermis meet less in the skin; mucosa and muscularis meet less in the fallopian tube; mucosa and fibromuscular tissue meet more in the fallopian tube. Contact networks drawn after the preprint's findings.
+- **6:39** Neighbours
+- **6:41** Domains touch. Which ones meet, and how much, makes a network of contacts in each organ.
+- **6:47** Muscularis and submucosa meet less with age in the colon.
+- **6:59** Calcified plaque and tunica intima meet more with age in coronary and tibial arteries.
+- **7:06** Most organs keep the same core network of domain contacts as they age: a resilient framework.
+- **7:11** Also: in the uterus, the endometrium shifts towards contacts with connective tissue; mucosa and fibromuscular tissue meet more in the ovary; subdermis and reticular dermis meet less in the skin; mucosa and muscularis meet less in the fallopian tube; mucosa and fibromuscular tissue meet more in the fallopian tube. Contact networks drawn after the preprint's findings.
 
-### 6:43 Next
+### 7:19 Next
 
-- **6:44** Tissue and time
-- **6:45** This is a map of how the body is built, from cells to domains to organs, and of how it changes with age.
-- **6:53** It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.
-- **7:03** The preprint behind this story is by Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro, posted on bioRxiv in 2025. The poster and the talk are by Iva Buljan, of the Rendeiro group at the LBI for Network Medicine, the Medical University of Vienna and CeMM, the Research Center for Molecular Medicine of the Austrian Academy of Sciences. The slides are from GTEx, the Genotype-Tissue Expression project.
-- **7:24** Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers.
+- **7:20** Tissue and time
+- **7:22** This is a map of how the body is built, from cells to domains to organs, and of how it changes with age.
+- **7:29** It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.
+- **7:38** The preprint behind this story is by Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro, posted on bioRxiv in 2025. The poster and the talk are by Iva Buljan, of the Rendeiro group at the LBI for Network Medicine, the Medical University of Vienna and CeMM, the Research Center for Molecular Medicine of the Austrian Academy of Sciences. The slides are from GTEx, the Genotype-Tissue Expression project.
+- **7:50** Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers. Narration: a synthetic voice (Kokoro).
 
 ## Ovarian aging: The aging ovary (`#ovary`)
 
-File: `audio/narration-ovary.mp3` (not recorded yet). Chapters: 0:00 Reserve, 0:56 Donors, 1:41 Section, 2:41 Methods, 4:01 Age, 5:32 Next; it ends at 7:04.
+File: `audio/narration-ovary.mp3` (synthetic voice). Chapters: 0:00 Reserve, 1:05 Donors, 1:58 Section, 3:09 Methods, 4:50 Age, 6:43 Next; it ends at 7:48.
 
 ### 0:00 Reserve
 
 - **0:01** The aging ovary
-- **0:02** What 255 ovaries show about aging
-- **0:04** The ovaries hold the eggs, each in a small sac of cells called a follicle.
-- **0:10** Every ovary starts with a reserve of follicles that is never refilled.
-- **0:15** There are about 1 to 2 million follicles at birth, about 300,000 to 400,000 at puberty and about 1,000 at menopause, which comes at around 51 on average.
-- **0:22** Cut it open: the outer layer, called the cortex, holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part, the medulla, carries the blood vessels.
-- **0:34** About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar called a corpus albicans. Scars pile up over the years.
-- **0:46** The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot accurately reflect the true reserve of follicles.
+- **0:03** What 255 ovaries show about aging
+- **0:07** The ovaries hold the eggs, each in a small sac of cells called a follicle.
+- **0:12** Every ovary starts with a reserve of follicles that is never refilled.
+- **0:17** There are about 1 to 2 million follicles at birth, about 300,000 to 400,000 at puberty and about 1,000 at menopause, which comes at around 51 on average.
+- **0:30** Cut it open: the outer layer, called the cortex, holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part, the medulla, carries the blood vessels.
+- **0:41** About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar called a corpus albicans. Scars pile up over the years.
+- **0:53** The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot accurately reflect the true reserve of follicles.
 
-### 0:56 Donors
+### 1:05 Donors
 
-- **0:57** 255 donors
-- **0:57** The ovaries come from GTEx, the Genotype-Tissue Expression project, which collected tissue from people who had died.
-- **1:04** 255: donors
-- **1:06** 20–70: years old
-- **1:10** For each donor there is a slide of ovary stained with H&E, hematoxylin and eosin, which colors nuclei purple and the rest pink; the activity of its genes, measured by bulk RNA-seq; and clinical and demographic information.
-- **1:22** Each slide stacks up at its donor's age. Most donors were older: at least 204 of the 255 were over 40.
-- **1:30** The poster's age histogram. The slides are drawn, not the GTEx images.
+- **1:06** 255 donors
+- **1:09** The ovaries come from GTEx, the Genotype-Tissue Expression project, which collected tissue from people who had died.
+- **1:17** 255 donors
+- **1:19** 20–70 years old
+- **1:24** For each donor there is a slide of ovary stained with H&E, hematoxylin and eosin, which colors nuclei purple and the rest pink; the activity of its genes, measured by bulk RNA-seq; and clinical and demographic information.
+- **1:39** Each slide stacks up at its donor's age. Most donors were older: at least 204 of the 255 were over 40.
+- **1:47** The poster's age histogram. The slides are drawn, not the GTEx images.
 
-### 1:41 Section
+### 1:58 Section
 
-- **1:41** What's in a section
-- **1:43** This is a drawing of a thin slice of ovary. To teach a computer what to find, people marked 14,941 objects of four kinds by hand:
-- **1:51** Blood vessels · 8,706: tubes that carry blood, here cut across
-- **1:58** Macrophages · 5,540: immune cells that clear away debris
-- **2:04** Corpora albicantia · 421: pale scars, each left by a corpus luteum
-- **2:11** Follicles · 274: each an egg in a ring of cells; large ones hold fluid
-- **2:23** Here a younger ovary lies beside an older one. The older one has large pale scars and almost no follicles left.
-- **2:30** The numbers count the objects marked by hand, the training labels the computer learns from. The scale bars are as on the poster, 1.58 mm and 791 µm. Both sections are drawn, not GTEx images.
+- **1:59** What's in a section
+- **2:01** This is a drawing of a thin slice of ovary. To teach a computer what to find, people marked 14,941 objects of four kinds by hand:
+- **2:12** Blood vessels · 8,706: tubes that carry blood, here cut across
+- **2:19** Macrophages · 5,540: immune cells that clear away debris
+- **2:25** Corpora albicantia · 421: pale scars, each left by a corpus luteum
+- **2:32** Follicles · 274: each an egg in a ring of cells; large ones hold fluid
+- **2:44** Here a younger ovary lies beside an older one. The older one has large pale scars and almost no follicles left.
+- **2:52** The numbers count the objects marked by hand, the training labels the computer learns from. The scale bars are as on the poster, 1.58 mm and 791 µm. Both sections are drawn, not GTEx images.
 
-### 2:41 Methods
+### 3:09 Methods
 
-- **2:41** Two ways to find them
-- **2:43** First way · Tiles: the section is cut into small squares, each labeled with what it shows
-- **2:50** Features: UNI2, a large foundation model trained on pathology images, turns each tile into a list of numbers
-- **2:59** A random forest: many decision trees each ask a few questions of those numbers and vote; the most votes decide the tile's label
-- **3:17** Prediction: every tile gets a label. This is called tile-level classification
-- **3:24** Second way · Masks: SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel
-- **3:35** How good are they? Precision asks how many of the tiles called follicle really are one. Recall asks how many of the follicles were found. F1 puts the two in one number, and IoU measures how far a predicted mask and the true one overlap. For each score, 1 is perfect.
-- **3:51** The random forest's F1 scores: blood vessels 0.86, macrophages 0.87, corpora albicantia 0.88, follicles 0.83. SegFormer's IoU scores: blood vessels 0.84, macrophages 0.95, corpora albicantia 0.97, follicles 0.70. Cysts, which only the segmentation finds, are hard: their IoU is just 0.15.
+- **3:10** Two ways to find them
+- **3:13** First way · Tiles: the section is cut into small squares, each labeled with what it shows
+- **3:19** Features: UNI2, a large foundation model trained on pathology images, turns each tile into a list of numbers
+- **3:28** A random forest: many decision trees each ask a few questions of those numbers and vote; the most votes decide the tile's label
+- **3:47** Prediction: every tile gets a label. This is called tile-level classification
+- **3:53** Second way · Masks: SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel
+- **4:04** How good are they? Precision asks how many of the tiles called follicle really are one. Recall asks how many of the follicles were found. F1 puts the two in one number, and IoU measures how far a predicted mask and the true one overlap. For each score, 1 is perfect.
+- **4:22** The random forest's F1 scores: blood vessels 0.86, macrophages 0.87, corpora albicantia 0.88, follicles 0.83. SegFormer's IoU scores: blood vessels 0.84, macrophages 0.95, corpora albicantia 0.97, follicles 0.70. Cysts, which only the segmentation finds, are hard: their IoU is just 0.15.
 
-### 4:01 Age
+### 4:50 Age
 
-- **4:01** Trends with age
-- **4:03** Count each kind in every donor's section by both methods, the random forest and segmentation, RF and Seg on the tags, and set the counts against age, with different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.
-- **4:18** Follicles fall to none on the lines by about age 60: r is −0.48 by the random forest and −0.48 by segmentation; of donors in their 60s, about 80 percent have none in their section
-- **4:27** Blood vessels fall: r is −0.24 by the random forest and −0.43 by segmentation
-- **4:32** Corpora albicantia rise as the scars pile up: r is +0.40 by the random forest and +0.25 by segmentation
-- **4:38** Macrophages: no trend by the random forest, where r is +0.05 and p is 0.497; falling by segmentation, where r is −0.29. They are not drawn here
-- **4:45** Compare each method with itself over the years: they count in their own ways. Every other trend has p below 0.001.
-- **4:52** Donor by donor, the methods agree on follicles at r +0.94 and blood vessels at +0.78, less on macrophages at +0.51 and corpora albicantia at +0.41, where the segmentation finds fewer.
-- **5:01** r runs from −1 to +1. Below 0 means fewer with age, above 0 means more, and near 0 means no trend. A small p means a trend this strong would rarely come about by chance.
-- **5:12** r and p are the poster's (the agreement's p from 1.2×10⁻¹⁰ down to 2.2×10⁻⁴⁷). "Finds fewer" is read off the slopes of its comparison charts. The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.
+- **4:51** Trends with age
+- **4:53** Count each kind in every donor's section by both methods, the random forest and segmentation, RF and Seg on the tags, and set the counts against age, with different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.
+- **5:11** Follicles fall to none on the lines by about age 60: r is −0.48 by the random forest and −0.48 by segmentation; of donors in their 60s, about 80 percent have none in their section
+- **5:27** Blood vessels fall: r is −0.24 by the random forest and −0.43 by segmentation
+- **5:36** Corpora albicantia rise as the scars pile up: r is +0.40 by the random forest and +0.25 by segmentation
+- **5:46** Macrophages: no trend by the random forest, where r is +0.05 and p is 0.497; falling by segmentation, where r is −0.29. They are not drawn here
+- **6:02** Compare each method with itself over the years: they count in their own ways. Every other trend has p below 0.001.
+- **6:11** Donor by donor, the methods agree on follicles at r +0.94 and blood vessels at +0.78, less on macrophages at +0.51 and corpora albicantia at +0.41, where the segmentation finds fewer.
+- **6:29** r runs from −1 to +1. Below 0 means fewer with age, above 0 means more, and near 0 means no trend. A small p means a trend this strong would rarely come about by chance.
+- **6:37** r and p are the poster's (the agreement's p from 1.2×10⁻¹⁰ down to 2.2×10⁻⁴⁷). "Finds fewer" is read off the slopes of its comparison charts. The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.
 
-### 5:32 Next
+### 6:43 Next
 
-- **5:33** Next: a network
-- **5:34** Where things lie matters too. Make each object a node, link objects that lie close together, and you have a spatial neighbor network.
-- **5:43** The network is drawn as an illustration of the poster's next step, not its result.
-- **5:49** Gather the nodes by kind, and the links become bands that show which kinds lie next to which.
-- **5:58** As the ovary ages, the network changes: the follicles' nodes go, and the scars' nodes come.
-- **6:10** Next, the authors plan to study the spatial relationships between ovarian features, monitor how age affects the positional distribution of the microanatomical domains and validate in independent cohorts.
-- **6:21** Network medicine comes in here: as in the story Tissue and time, a tissue becomes a network of neighbors.
-- **6:29** Poster: "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty (1), Samir Moustafa (2, 3) and André Rendeiro (1, 3). (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; (2) CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; (3) Faculty of Computer Science, University of Vienna. Supported by CeMM and the European Research Council (ERC). Data: GTEx (the Genotype-Tissue Expression project).
-- **6:54** Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures).
+- **6:44** Next: a network
+- **6:46** Where things lie matters too. Make each object a node, link objects that lie close together, and you have a spatial neighbor network.
+- **6:55** The network is drawn as an illustration of the poster's next step, not its result.
+- **7:02** Gather the nodes by kind, and the links become bands that show which kinds lie next to which.
+- **7:11** As the ovary ages, the network changes: the follicles' nodes go, and the scars' nodes come.
+- **7:22** Next, the authors plan to study the spatial relationships between ovarian features, monitor how age affects the positional distribution of the microanatomical domains and validate in independent cohorts.
+- **7:36** Network medicine comes in here: as in the story Tissue and time, a tissue becomes a network of neighbors.
+- **7:41** Poster: "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty (1), Samir Moustafa (2, 3) and André Rendeiro (1, 3). (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; (2) CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; (3) Faculty of Computer Science, University of Vienna. Supported by CeMM and the European Research Council (ERC). Data: GTEx (the Genotype-Tissue Expression project).
+- **7:46** Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures). Narration: a synthetic voice (Kokoro).
 
 ## Quantum network compression: Three qubits (`#qubits`)
 
-File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:51 Walkers, 1:50 Shrink, 2:32 Cuts, 4:02 Coarse, 5:02 Bricks, 6:32 Toolbox, 7:53 Circuit; it ends at 9:04.
+File: `audio/narration-qubits.mp3` (synthetic voice). Chapters: 0:00 Pairs, 0:58 Walkers, 1:50 Shrink, 2:36 Cuts, 3:46 Coarse, 4:42 Bricks, 6:15 Toolbox, 8:08 Circuit; it ends at 8:54.
 
 ### 0:00 Pairs
 
 - **0:01** Three qubits
-- **0:02** How a gene network fits on a tiny quantum computer
+- **0:03** How a gene network fits on a tiny quantum computer
 - **0:07** Some diseases only appear when two genes are broken at the same time.
 - **0:12** The dots on the diagonal are genes, and every dot above them is a pair. Add genes, and the pairs grow much faster.
-- **0:22** 16,064: genes in the real network
-- **0:24** 129 million: pairs of them
-- **0:27** Far too many to test one by one.
-- **0:33** n genes make n times n minus 1 over 2 pairs, so 16,064 times 16,063 over 2 is 129,018,016. The real network takes the physical protein interactions in STRING v12.5 with a combined score of 500 or more, and keeps the largest connected component.
-- **0:44** After the method and figures of Joel Hancock. The networks drawn are examples, computed here.
+- **0:20** 16,064 genes in the real network
+- **0:24** 129 million pairs of them
+- **0:28** Far too many to test one by one.
+- **0:34** n genes make n times n minus 1 over 2 pairs, so 16,064 times 16,063 over 2 is 129,018,016. The real network takes the physical protein interactions in STRING v12.5 with a combined score of 500 or more, and keeps the largest connected component.
+- **0:46** After the method and figures of Joel Hancock. The networks drawn are examples, computed here.
 
-### 0:51 Walkers
+### 0:58 Walkers
 
-- **0:51** Two walkers on a map
-- **0:53** Think of the network as a map. Each gene is a place, and a street joins two genes whose proteins touch.
-- **1:03** Two walkers wander it, one for each gene of a pair.
-- **1:13** They are drawn to pairs that are broken together in patients more often than in healthy people.
-- **1:20** Where they settle is where to look.
-- **1:24** In symbols, the walkers' energy H is K plus c V plus ρ R. K, which is I minus A_c, lets them move along the network, and A_c comes later. V rewards the pairs that patients' data point to. R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.
-- **1:45** The valleys here are illustrative: this story uses no patients' data.
+- **0:59** Two walkers on a map
+- **1:01** Think of the network as a map. Each gene is a place, and a street joins two genes whose proteins touch.
+- **1:08** Two walkers wander it, one for each gene of a pair.
+- **1:18** They are drawn to pairs that are broken together in patients more often than in healthy people.
+- **1:26** Where they settle is where to look.
+- **1:29** In symbols, the walkers' energy H is K plus c V plus ρ R. K, which is I minus A_c, lets them move along the network, and A_c comes later. V rewards the pairs that patients' data point to. R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.
+- **1:40** The valleys here are illustrative: this story uses no patients' data.
 
 ### 1:50 Shrink
 
-- **1:50** Why shrink the map?
-- **1:52** A quantum computer could explore all the walkers' routes at once. But today's machines are tiny.
-- **1:59** 3 qubits can only tell 8 places apart. So the map has to be shrunk first.
+- **1:51** Why shrink the map?
+- **1:53** A quantum computer could explore all the walkers' routes at once. But today's machines are tiny.
+- **2:00** 3 qubits can only tell 8 places apart. So the map has to be shrunk first.
 - **2:05** It is folded into 8 neighborhoods, and each gets a 3-digit code, like a postal code, from 000 to 111.
-- **2:14** Each digit is one qubit: q2, q1 and q0, read left to right. A bright qubit is a 1.
+- **2:15** Each digit is one qubit: q2, q1 and q0, read left to right. A bright qubit is a 1.
 - **2:22** A qubit is a quantum bit. L qubits address 2 to the power L places, one per basis state, so 3 qubits give 2 times 2 times 2, which is 8. Each walker needs its own 3 qubits.
 
-### 2:32 Cuts
+### 2:36 Cuts
 
-- **2:33** Cutting the map
-- **2:34** Here is an example network, made up for this story. It has 320 genes and 5,637 links, with eight groups hidden in it. Its genes are never named.
-- **2:45** 1 · First cut: split the genes in two, keeping linked genes together: two halves, told apart by one digit
-- **2:56** 2 · Second cut: split each half again: four cells on a square, told apart by two digits
-- **3:07** 3 · Third cut: split every cell again: eight cells on a cube, told apart by three digits
-- **3:13** A gene's code is the side it fell on at each cut. Genes that share a code form a cell, at one corner of the cube.
-- **3:25** Each cut is a bisection. The first cut sets the most significant digit, q2, so cells nest: each new cut splits every cell in two. The real run used 8 cuts, which give 256 cells of about 63 genes each; the picture uses 3.
-- **3:41** The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into eight equal cells, then the codes that keep the most links on the cube's edges. It puts 100% of genes with their hidden group.
+- **2:37** Cutting the map
+- **2:39** Here is an example network, made up for this story. It has 320 genes and 5,637 links, with eight groups hidden in it. Its genes are never named.
+- **2:51** 1 · First cut: split the genes in two, keeping linked genes together: two halves, told apart by one digit
+- **3:02** 2 · Second cut: split each half again: four cells on a square, told apart by two digits
+- **3:13** 3 · Third cut: split every cell again: eight cells on a cube, told apart by three digits
+- **3:20** A gene's code is the side it fell on at each cut. Genes that share a code form a cell, at one corner of the cube.
+- **3:28** Each cut is a bisection. The first cut sets the most significant digit, q2, so cells nest: each new cut splits every cell in two. The real run used 8 cuts, which give 256 cells of about 63 genes each; the picture uses 3.
+- **3:37** The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into eight equal cells, then the codes that keep the most links on the cube's edges. It puts 100% of genes with their hidden group.
 
-### 4:02 Coarse
+### 3:46 Coarse
 
-- **4:02** The coarse operator
-- **4:04** Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.
-- **4:13** A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.
-- **4:24** Cube edges join cells one digit apart. Here they carry 79% of the traffic between cells, and face and body diagonals, which join cells two or three digits apart, carry the rest.
-- **4:36** A_c is P A P transposed, where A is the network's adjacency matrix and P holds the normalized cell indicators, so A_c is an 8 by 8 table. It is balanced over cells by Sinkhorn's method, so every row adds up to 1. The walkers move by K, which is I minus A_c, so what holds for A_c holds for K.
-- **4:56** In the real network, at 3 bits, cube edges carry 61% of the coupling between cells.
+- **3:47** The coarse operator
+- **3:49** Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.
+- **3:57** A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.
+- **4:06** Cube edges join cells one digit apart. Here they carry 79% of the traffic between cells, and face and body diagonals, which join cells two or three digits apart, carry the rest.
+- **4:19** A_c is P A P transposed, where A is the network's adjacency matrix and P holds the normalized cell indicators, so A_c is an 8 by 8 table. It is balanced over cells by Sinkhorn's method, so every row adds up to 1. The walkers move by K, which is I minus A_c, so what holds for A_c holds for K.
+- **4:31** In the real network, at 3 bits, cube edges carry 61% of the coupling between cells.
 
-### 5:02 Bricks
+### 4:42 Bricks
 
-- **5:03** Building blocks
-- **5:04** Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.
-- **5:13** I: do nothing, the same loop on every corner
-- **5:16** X₀, X₁, X₂flip one digit, hopping along the cube’s edges in one direction
-- **5:26** Z₂a sign set by one digit, with solid red loops of plus 1 and dashed blue loops of minus 1
-- **5:31** Z₂X₁hops with signs
-- **5:34** X₂X₁, Y₂Y₁flip two digits at once, along face diagonals, and Y adds signs
-- **5:41** Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.
-- **5:49** Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is 0.07, down from 1.
-- **6:00** A Pauli string puts one Pauli matrix on each qubit. I does nothing, X flips the bit, Z gives plus 1 on 0 and minus 1 on 1, and Y flips with a sign. Subscripts are qubits, and q2 is the first cut. Any 8 by 8 table is one weighted sum of the 64 strings. Here the largest weights are I 0.55, X₀ 0.17, X₁ 0.11, X₂ 0.08, X₁X₀ 0.04, and so on.
-- **6:22** In the real network the largest weights are I 0.40, X₁ 0.20, X₂X₁ 0.13, X₂ 0.11, Z₂Z₁ 0.08, Y₂Y₁ 0.07, X₀ 0.06, Z₀ 0.05, X₁X₀ 0.04, and a tail.
+- **4:43** Building blocks
+- **4:45** Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.
+- **4:52** I: do nothing, the same loop on every corner
+- **4:56** X₀, X₁, X₂flip one digit, hopping along the cube’s edges in one direction
+- **5:06** Z₂a sign set by one digit, with solid red loops of plus 1 and dashed blue loops of minus 1
+- **5:13** Z₂X₁hops with signs
+- **5:17** X₂X₁, Y₂Y₁flip two digits at once, along face diagonals, and Y adds signs
+- **5:24** Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.
+- **5:30** Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is 0.07, down from 1.
+- **5:41** A Pauli string puts one Pauli matrix on each qubit. I does nothing, X flips the bit, Z gives plus 1 on 0 and minus 1 on 1, and Y flips with a sign. Subscripts are qubits, and q2 is the first cut. Any 8 by 8 table is one weighted sum of the 64 strings. Here the largest weights are I 0.55, X₀ 0.17, X₁ 0.11, X₂ 0.08, X₁X₀ 0.04, and so on.
+- **5:54** In the real network the largest weights are I 0.40, X₁ 0.20, X₂X₁ 0.13, X₂ 0.11, Z₂Z₁ 0.08, Y₂Y₁ 0.07, X₀ 0.06, Z₀ 0.05, X₁X₀ 0.04, and a tail.
 
-### 6:32 Toolbox
+### 6:15 Toolbox
 
-- **6:32** The toolbox
-- **6:33** A quantum computer runs some moves quickly and others hardly at all.
-- **6:38** Keep only the bricks in its quick toolbox, called a Lie algebra; the rest goes gray and is dropped.
-- **6:46** What is dropped is the residual: 0 means nothing is lost, and 1 means everything is. Here it is 0.34 with three qubits.
-- **6:53** The toolbox: the moves of the TFIM chain, a transverse-field Ising model, are X on each qubit and ZZ on neighbors, and they close into so(6), with 15 strings at 3 qubits; adding Z on q2 gives so(7), with 21 strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. The residual is the norm of A₀ minus its projection onto the algebra, over the norm of A₀, the traceless part.
-- **7:19** In the real network, every extra bit makes the fit worse.
-- **7:24** Our cuts lose 0.44 at 2 bits, 0.52 at 3 and 0.56 at 4, where random cuts lose 0.57, 0.75 and 0.86. At 8 bits ours lose 0.88, and the best variant 0.82: most of the operator falls outside the toolbox.
-- **7:36** In the example network, computed here, the cuts lose 0.00 at 1 bit, 0.12 at 2 and 0.34 at 3, and random cuts 0.56 at 2 and 0.75 at 3.
-- **7:43** At 1 bit every cut loses nothing. In the real network at 3 bits, so(7)'s generators carry 66 percent of A_c's traceless weight, and the whole algebra 73 percent.
+- **6:16** The toolbox
+- **6:18** A quantum computer runs some moves quickly and others hardly at all.
+- **6:22** Keep only the bricks in its quick toolbox, called a Lie algebra; the rest goes gray and is dropped.
+- **6:29** What is dropped is the residual: 0 means nothing is lost, and 1 means everything is. Here it is 0.34 with three qubits.
+- **6:38** The toolbox: the moves of the TFIM chain, a transverse-field Ising model, are X on each qubit and ZZ on neighbors, and they close into so(6), with 15 strings at 3 qubits; adding Z on q2 gives so(7), with 21 strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. The residual is the norm of A₀ minus its projection onto the algebra, over the norm of A₀, the traceless part.
+- **7:10** In the real network, every extra bit makes the fit worse.
+- **7:16** Our cuts lose 0.44 at 2 bits, 0.52 at 3 and 0.56 at 4, where random cuts lose 0.57, 0.75 and 0.86. At 8 bits ours lose 0.88, and the best variant 0.82: most of the operator falls outside the toolbox.
+- **7:38** In the example network, computed here, the cuts lose 0.00 at 1 bit, 0.12 at 2 and 0.34 at 3, and random cuts 0.56 at 2 and 0.75 at 3.
+- **7:54** At 1 bit every cut loses nothing. In the real network at 3 bits, so(7)'s generators carry 66 percent of A_c's traceless weight, and the whole algebra 73 percent.
 
-### 7:53 Circuit
+### 8:08 Circuit
 
-- **7:53** The recipe as a circuit
-- **7:56** What is kept runs as a short circuit: six gates on three qubits, each a small turn.
-- **8:03** Red X gates flip and blue Z gates add signs; the deeper the color, the larger the turn.
-- **8:10** This is one Trotter step of e to the minus i K t, at 3 bits in so(7), with the real network's angles on its gates.
-- **8:29** From thousands of genes to 8 cells on 3 qubits, and from a traffic table to a few bricks a quantum computer runs well.
-- **8:39** Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.
-- **8:46** Method and figures: Joel Hancock.
-- **8:49** The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on STRING v12.5. The cuts here stand in for their beam search, and the valleys are illustrative. The circuit's angles in the real network: RX on q0, q1 and q2 (θ = −0.112, −0.396, −0.222), RZZ on (q2, q1) at −0.163 and (q1, q0) at +0.039, RZ on q2 at +0.029; θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.
+- **8:08** The recipe as a circuit
+- **8:11** What is kept runs as a short circuit: six gates on three qubits, each a small turn.
+- **8:17** Red X gates flip and blue Z gates add signs; the deeper the color, the larger the turn.
+- **8:23** This is one Trotter step of e to the minus i K t, at 3 bits in so(7), with the real network's angles on its gates.
+- **8:33** From thousands of genes to 8 cells on 3 qubits, and from a traffic table to a few bricks a quantum computer runs well.
+- **8:41** Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.
+- **8:48** Method and figures: Joel Hancock.
+- **8:51** The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on STRING v12.5. The cuts here stand in for their beam search, and the valleys are illustrative. The circuit's angles in the real network: RX on q0, q1 and q2 (θ = −0.112, −0.396, −0.222), RZZ on (q2, q1) at −0.163 and (q1, q0) at +0.039, RZ on q2 at +0.029; θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1. Narration: a synthetic voice (Kokoro).
 
 ## Quantum phylogenetics: The mutation machine (`#mutation`)
 
-File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters, 0:43 Family tree, 1:50 Qubits, 2:50 The rule, 3:49 Machine, 5:05 Pairs, 6:11 Rebuild, 7:26 What for; it ends at 8:39.
+File: `audio/narration-mutation.mp3` (synthetic voice). Chapters: 0:00 Letters, 0:41 Family tree, 1:39 Qubits, 2:44 The rule, 3:54 Machine, 5:09 Pairs, 6:19 Rebuild, 7:35 What for; it ends at 8:26.
 
 ### 0:00 Letters
 
 - **0:01** The mutation machine
-- **0:02** DNA's changes as a quantum circuit
-- **0:05** DNA is a text written in four letters: A, C, G and T.
-- **0:10** Every time it is copied, now and then a letter is swapped for another. That is a mutation.
-- **0:18** Here an ancestor's eight letters, ACGTTAGC, are copied twice, and each copy swaps two of them.
-- **0:25** Copy 1 · ACGTCGGC: T→C at letter 5 and A→G at letter 6
-- **0:31** Copy 2 · ACATTAGT: G→A at letter 3 and C→T at letter 8
-- **0:34** After the poster by Enes Berk Sakalli and Arndt von Haeseler. The numbers drawn are examples, as in the authors' own test.
+- **0:03** DNA's changes as a quantum circuit
+- **0:07** DNA is a text written in four letters: A, C, G and T.
+- **0:12** Every time it is copied, now and then a letter is swapped for another. That is a mutation.
+- **0:19** Here an ancestor's eight letters, ACGTTAGC, are copied twice, and each copy swaps two of them.
+- **0:27** Copy 1 · ACGTCGGC: T→C at letter 5 and A→G at letter 6
+- **0:34** Copy 2 · ACATTAGT: G→A at letter 3 and C→T at letter 8
+- **0:37** After the poster by Enes Berk Sakalli and Arndt von Haeseler. The numbers drawn are examples, as in the authors' own test.
 
-### 0:43 Family tree
+### 0:41 Family tree
 
-- **0:44** A family tree
-- **0:45** Copied over many generations, one text becomes many: a family tree.
-- **0:51** Where two branches part, there lived a shared ancestor.
-- **0:56** Each copy carries the letters up its branch. Where a letter flashes, it was swapped.
-- **1:10** A branch's length says how much changed along it: the expected number of swaps per letter, which grows with time.
-- **1:19** 0.47: swaps per letter on a long branch: 4 swaps here
-- **1:23** 0.15: on a short one: 1 swap
-- **1:25** Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread and how a tumour grew from one cancer cell, and the rule of change they assume matters.
-- **1:41** The tree's 14 branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length. On viruses see [1], on tumours [6], on the rule of change [2].
+- **0:42** A family tree
+- **0:44** Copied over many generations, one text becomes many: a family tree.
+- **0:50** Where two branches part, there lived a shared ancestor.
+- **0:55** Each copy carries the letters up its branch. Where a letter flashes, it was swapped.
+- **1:09** A branch's length says how much changed along it: the expected number of swaps per letter, which grows with time.
+- **1:16** 0.47 swaps per letter on a long branch: 4 swaps here
+- **1:22** 0.15 on a short one: 1 swap
+- **1:26** Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread and how a tumour grew from one cancer cell, and the rule of change they assume matters.
+- **1:32** The tree's 14 branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length. On viruses see [1], on tumours [6], on the rule of change [2].
 
-### 1:50 Qubits
+### 1:39 Qubits
 
-- **1:51** Letters as qubits
-- **1:52** A quantum computer can hold each letter in two qubits, drawn as arrows on spheres: up is 0, down is 1.
-- **2:00** A is |00⟩first up, second up
-- **2:03** C is |01⟩first up, second down
-- **2:07** G is |10⟩first down, second up
-- **2:10** T is |11⟩first down, second down
-- **2:14** Tilt the arrows and the two qubits hold a mix of all four letters at once, like a spinning coin.
-- **2:23** Reading them out makes the coin land on one letter, each with its own chance.
-- **2:29** Here the chances are A 71 %, C 5 %, G 19 % and T 6 %; 24 read-outs gave 18 A, 1 C, 4 G and 1 T.
-- **2:36** C's code, 01, means first 0, then 1. An arrow shorter than its sphere means the two qubits depend on each other. This mix is where the rule of the next chapter takes an A after 0.45 swaps per letter.
+- **1:40** Letters as qubits
+- **1:42** A quantum computer can hold each letter in two qubits, drawn as arrows on spheres: up is 0, down is 1.
+- **1:50** A is |00⟩first up, second up
+- **1:54** C is |01⟩first up, second down
+- **1:57** G is |10⟩first down, second up
+- **2:01** T is |11⟩first down, second down
+- **2:05** Tilt the arrows and the two qubits hold a mix of all four letters at once, like a spinning coin.
+- **2:11** Reading them out makes the coin land on one letter, each with its own chance.
+- **2:16** Here the chances are A 71 %, C 5 %, G 19 % and T 6 %; 24 read-outs gave 18 A, 1 C, 4 G and 1 T.
+- **2:28** C's code, 01, means first 0, then 1. An arrow shorter than its sphere means the two qubits depend on each other. This mix is where the rule of the next chapter takes an A after 0.45 swaps per letter.
 
-### 2:50 The rule
+### 2:44 The rule
 
-- **2:51** The rule
-- **2:52** A substitution model is the rule for how letters change:
-- **2:56** The thicker the arrow: the more readily one letter swaps for another
-- **2:59** The bigger the ball: the more common its letter is in the long run
-- **3:04** Here A and G, and C and T, swap about four times as readily as the other pairs, and A is the most common letter in the long run, at 32 %.
-- **3:14** Every mix of the four letters is a point in this pyramid, with the pure letters at its corners.
-- **3:22** Start at A, and as time goes on the rule moves the mix along a path towards the long-run mix.
-- **3:31** After 0.15, 0.45 and 1 swaps per letter, it has come 17 %, 41 % and 65 % of the way; after 1.6, 78 %.
+- **2:44** The rule
+- **2:46** A substitution model is the rule for how letters change:
+- **2:51** The thicker the arrow: the more readily one letter swaps for another
+- **2:55** The bigger the ball: the more common its letter is in the long run
+- **2:59** Here A and G, and C and T, swap about four times as readily as the other pairs, and A is the most common letter in the long run, at 32 %.
+- **3:10** Every mix of the four letters is a point in this pyramid, with the pure letters at its corners.
+- **3:16** Start at A, and as time goes on the rule moves the mix along a path towards the long-run mix.
+- **3:22** After 0.15, 0.45 and 1 swaps per letter, it has come 17 %, 41 % and 65 % of the way; after 1.6, 78 %.
 - **3:36** The most general standard rule is GTR, the general time-reversible model. The mix follows a dynamical system: after a time t it is the starting mix times e to the power of Q times t, where Q holds the rates. The rates and shares here are examples.
 
-### 3:49 Machine
+### 3:54 Machine
 
-- **3:50** The machine
-- **3:51** A compiler turns the rule into a quantum circuit: a machine of gears for one branch.
-- **3:58** 1 · Copy: the parent's letter is stamped onto the child
-- **4:04** 2 · Turn: the child's qubits turn, further on a longer branch, and the child's mix lands where the rule's path is at that time
-- **4:14** 3 · The circuit: four wires, for the parent's two qubits and the child's, carrying two copy gates and two turn blocks
-- **4:21** Each branch gets one machine, and the machines join into the tree.
-- **4:29** Read at the tips, it writes new sequences that follow the rule.
-- **4:35** The copy is two CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a G after 1 swap per letter, c1, the child's first qubit, turns 84°, and c0, its second, turns 55° or 56°. How far each step turns depends only on the branch length; the steps are the same on every branch: 12 turns of one qubit and 12 links.
+- **3:55** The machine
+- **3:57** A compiler turns the rule into a quantum circuit: a machine of gears for one branch.
+- **4:04** 1 · Copy: the parent's letter is stamped onto the child
+- **4:10** 2 · Turn: the child's qubits turn, further on a longer branch, and the child's mix lands where the rule's path is at that time
+- **4:19** 3 · The circuit: four wires, for the parent's two qubits and the child's, carrying two copy gates and two turn blocks
+- **4:27** Each branch gets one machine, and the machines join into the tree.
+- **4:35** Read at the tips, it writes new sequences that follow the rule.
+- **4:39** The copy is two CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a G after 1 swap per letter, c1, the child's first qubit, turns 84°, and c0, its second, turns 55° or 56°. How far each step turns depends only on the branch length; the steps are the same on every branch: 12 turns of one qubit and 12 links.
 
-### 5:05 Pairs
+### 5:09 Pairs
 
-- **5:05** Letters that work together
-- **5:07** Letters often act together.
-- **5:10** An RNA strand folds back on itself into a stem, held by pairs: A with T, C with G, G with T.
-- **5:21** If one letter changes alone, its pair breaks.
-- **5:29** Coupling lets the two letters of a pair change together, so the pair holds.
-- **5:36** Models of pairs exist, but each linked letter multiplies the combinations by four.
-- **5:42** 16: combinations for a pair
-- **5:46** 1,048,576: for ten letters: about a million
-- **5:49** 20: qubits for ten: two per letter
-- **5:51** T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair alongside the turn: changes that keep a pair are more likely, in the authors' example eight times as likely, and both letters may change at once.
+- **5:10** Letters that work together
+- **5:13** Letters often act together.
+- **5:16** An RNA strand folds back on itself into a stem, held by pairs: A with T, C with G, G with T.
+- **5:27** If one letter changes alone, its pair breaks.
+- **5:35** Coupling lets the two letters of a pair change together, so the pair holds.
+- **5:42** Models of pairs exist, but each linked letter multiplies the combinations by four.
+- **5:48** 16 combinations for a pair
+- **5:52** 1,048,576 for ten letters: about a million
+- **5:59** 20 qubits for ten: two per letter
+- **6:02** T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair alongside the turn: changes that keep a pair are more likely, in the authors' example eight times as likely, and both letters may change at once.
 
-### 6:11 Rebuild
+### 6:19 Rebuild
 
-- **6:12** Rebuilding the ancestor
-- **6:13** Three species carry the same stem, each changed in its own way.
-- **6:19** What did their shared ancestor have?
-- **6:27** Rebuild it 2,000 times with each method, and count the ancestors whose six pairs all hold:
-- **6:33** Letter by letter: 10 % of them
-- **6:37** The exact pair calculation: 20 %
-- **6:40** With the coupled circuit: 43 %
-- **6:43** So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.
-- **6:51** And a broken pair is normal: the true ancestor here has one, and only about a quarter of ancestors have all six pairs matched.
-- **7:01** One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.
-- **7:10** In the authors' test, the ancestor of a made-up stem of six pairs in three species was rebuilt 2,000 times per method, with matching pairs eight times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.
+- **6:20** Rebuilding the ancestor
+- **6:23** Three species carry the same stem, each changed in its own way.
+- **6:29** What did their shared ancestor have?
+- **6:37** Rebuild it 2,000 times with each method, and count the ancestors whose six pairs all hold:
+- **6:43** Letter by letter: 10 % of them
+- **6:47** The exact pair calculation: 20 %
+- **6:50** With the coupled circuit: 43 %
+- **6:53** So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.
+- **7:01** And a broken pair is normal: the true ancestor here has one, and only about a quarter of ancestors have all six pairs matched.
+- **7:10** One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.
+- **7:18** In the authors' test, the ancestor of a made-up stem of six pairs in three species was rebuilt 2,000 times per method, with matching pairs eight times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.
 
-### 7:26 What for
+### 7:35 What for
 
-- **7:27** What it is for
-- **7:28** Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research and trace how a tumour grew from one cancer cell.
-- **7:38** This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.
-- **7:48** For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.
-- **7:59** After the poster by Enes Berk Sakalli, of the Ludwig Boltzmann Institute for Network Medicine at the University of Vienna, and Arndt von Haeseler, of the Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and Medical University of Vienna.
-- **8:16** On both letters of a pair changing at once see [3], on old virus proteins [4, 5], on tumours [6]. [1] Hadfield et al., Nextstrain, Bioinformatics 2018. [2] Arenas and Posada, Curr HIV Res 2010. [3] Schöniger and von Haeseler, Mol Phylogenet Evol 1994. [4] Doria-Rose et al., J Virol 2005. [5] Rolland et al., J Virol 2007. [6] Li et al., Oncogene 2026.
-- **8:30** The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.
+- **7:36** What it is for
+- **7:38** Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research and trace how a tumour grew from one cancer cell.
+- **7:48** This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.
+- **7:56** For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.
+- **8:06** After the poster by Enes Berk Sakalli, of the Ludwig Boltzmann Institute for Network Medicine at the University of Vienna, and Arndt von Haeseler, of the Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and Medical University of Vienna.
+- **8:11** On both letters of a pair changing at once see [3], on old virus proteins [4, 5], on tumours [6]. [1] Hadfield et al., Nextstrain, Bioinformatics 2018. [2] Arenas and Posada, Curr HIV Res 2010. [3] Schöniger and von Haeseler, Mol Phylogenet Evol 1994. [4] Doria-Rose et al., J Virol 2005. [5] Rolland et al., J Virol 2007. [6] Li et al., Oncogene 2026.
+- **8:13** The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs. Narration: a synthetic voice (Kokoro).
 
 ## Tissue topology: The shape of tissue (`#topo`)
 
-File: `audio/narration-topo.mp3` (not recorded yet). Chapters: 0:00 Where cells sit, 0:56 Which scale?, 1:40 Balls grow, 2:51 The tower, 3:55 123 slides, 4:53 Which scales, 5:54 Every cell, 6:54 What next; it ends at 8:07.
+File: `audio/narration-topo.mp3` (synthetic voice). Chapters: 0:00 Where cells sit, 0:45 Which scale?, 1:31 Balls grow, 2:51 The tower, 3:59 123 slides, 5:11 Which scales, 6:38 Every cell, 7:45 What next; it ends at 8:50.
 
 ### 0:00 Where cells sit
 
 - **0:01** The shape of tissue
-- **0:02** Topology of cells in the liver
-- **0:05** Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.
+- **0:03** Topology of cells in the liver
+- **0:06** Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.
 - **0:13** Here a thin slice is cut from a liver and laid on glass.
 - **0:22** A computer can find every cell in a stained slide: here, 30.8 million of them in 123 slides of liver.
-- **0:29** Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also show where the cells are.
-- **0:38** From here on, only those positions count.
+- **0:30** Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also show where the cells are.
+- **0:40** From here on, only those positions count.
 - **0:41** After the poster by Simon Schindler, André Rendeiro and Jörg Menche. The cells were found by the authors with HistoPLUS in the GTEx project's slides; topocyte reads cells from any spatial modality (H&E, spatial transcriptomics, spatial proteomics) as an AnnData.
 
-### 0:56 Which scale?
+### 0:45 Which scale?
 
-- **0:57** Which scale?
-- **0:57** To read how cells are arranged, most tools pick one scale:
-- **1:02** One patch size: cut the tissue into squares, and read each square
-- **1:09** A neighbour count: join each cell to its nearest few, here six
-- **1:16** One radius: look only at the cells within a fixed distance
-- **1:21** But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.
-- **1:28** topocyte reads all of them at once.
-- **1:31** Scale-resolved means every radius at once, with no size to choose. Next come the 110 cells of the small square in the middle of this healthy tile.
+- **0:45** Which scale?
+- **0:48** To read how cells are arranged, most tools pick one scale:
+- **0:52** One patch size: cut the tissue into squares, and read each square
+- **0:59** A neighbour count: join each cell to its nearest few, here six
+- **1:06** One radius: look only at the cells within a fixed distance
+- **1:12** But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.
+- **1:17** topocyte reads all of them at once.
+- **1:20** Scale-resolved means every radius at once, with no size to choose. Next come the 110 cells of the small square in the middle of this healthy tile.
 
-### 1:40 Balls grow
+### 1:31 Balls grow
 
-- **1:41** Balls grow
-- **1:41** Take the 110 cells of that square, and keep only where they sit.
-- **1:46** Grow a ball round every cell.
-- **1:49** Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in, giving a network that also has triangles.
-- **1:59** At 4.08 µm: 82 separate pieces
-- **2:11** At 13.49 µm: 3 pieces left, and a big loop has just closed round an empty space
-- **2:22** At 24.59 µm: It is all one piece, the big loop still open inside
-- **2:30** At 48.86 µm: Still one piece, and the big loop has filled
-- **2:34** The network with triangles is called the alpha complex. It is a simplicial complex, the higher-order generalisation of a network. The radii and counts are the poster's snapshots; seven loops are alive at 13.49 µm: the big one, and six others that have all filled in by 14.5 µm.
+- **1:32** Balls grow
+- **1:34** Take the 110 cells of that square, and keep only where they sit.
+- **1:39** Grow a ball round every cell.
+- **1:43** Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in, giving a network that also has triangles.
+- **1:52** At 4.08 µm: 82 separate pieces
+- **2:04** At 13.49 µm: 3 pieces left, and a big loop has just closed round an empty space
+- **2:15** At 24.59 µm: It is all one piece, the big loop still open inside
+- **2:24** At 48.86 µm: Still one piece, and the big loop has filled
+- **2:29** The network with triangles is called the alpha complex. It is a simplicial complex, the higher-order generalisation of a network. The radii and counts are the poster's snapshots; seven loops are alive at 13.49 µm: the big one, and six others that have all filled in by 14.5 µm.
 
 ### 2:51 The tower
 
-- **2:51** The tower of scales
-- **2:53** Now let the radius become height.
-- **2:56** Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.
-- **3:05** Each loop is a chimney, from the height where it closes to where it fills.
-- **3:12** The glass plane rises with the radius: it cuts the tower where the network is at that radius.
-- **3:22** How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.
-- **3:30** 110: pieces, a bar each
-- **3:32** 85: loops, at most ten at once
+- **2:52** The tower of scales
+- **2:54** Now let the radius become height.
+- **2:57** Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.
+- **3:06** Each loop is a chimney, from the height where it closes to where it fills.
+- **3:14** The glass plane rises with the radius: it cuts the tower where the network is at that radius.
+- **3:24** How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.
+- **3:30** 110 pieces, a bar each
+- **3:33** 85 loops, at most ten at once
 - **3:36** Together they describe the tissue at every scale at once.
-- **3:40** This is persistent homology. Pieces are H0, the connected components, and loops H1, the holes; the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value t is r squared; the story shows the radius r.
+- **3:41** This is persistent homology. Pieces are H0, the connected components, and loops H1, the holes; the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value t is r squared; the story shows the radius r.
 
-### 3:55 123 slides
+### 3:59 123 slides
 
-- **3:55** 123 slides
-- **3:56** Do this for every slide: 66 healthy livers and 57 with cirrhosis, where scars cut the liver into knots.
-- **4:02** Each slide gets its own curves; here are its loops, small radii on the left, large on the right.
-- **4:09** Scaled to the same size, only their shape counts.
-- **4:15** The healthy slides' average is in blue, the cirrhotic slides' in red.
-- **4:20** Comparing every slide with every other finds the main shapes the curves vary by:
-- **4:26** 72 %of the variation in loops lies in shape 1
-- **4:28** 20 %in shape 2
-- **4:35** Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides separate before anything is trained.
-- **4:44** The curves get cosine normalisation, and the functional PCA is computed exactly from the bars' ends, with no grid. All 123 slides and 30.8 million cells took 1.9 minutes on a laptop's processor.
+- **4:00** 123 slides
+- **4:03** Do this for every slide: 66 healthy livers and 57 with cirrhosis, where scars cut the liver into knots.
+- **4:11** Each slide gets its own curves; here are its loops, small radii on the left, large on the right.
+- **4:18** Scaled to the same size, only their shape counts.
+- **4:23** The healthy slides' average is in blue, the cirrhotic slides' in red.
+- **4:29** Comparing every slide with every other finds the main shapes the curves vary by:
+- **4:34** 72 % of the variation in loops lies in shape 1
+- **4:39** 20 % in shape 2
+- **4:46** Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides separate before anything is trained.
+- **4:54** The curves get cosine normalisation, and the functional PCA is computed exactly from the bars' ends, with no grid. All 123 slides and 30.8 million cells took 1.9 minutes on a laptop's processor.
 
-### 4:53 Which scales
+### 5:11 Which scales
 
-- **4:54** Which scales matter
-- **4:55** A classifier draws a wall between the two clouds.
-- **5:02** Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.
-- **5:10** Read back through the shapes, it becomes a weight for every radius: loops alive at 5 to 15 µm speak for cirrhosis.
-- **5:24** What each stretch of radii adds to the difference between the two groups:
-- **5:29** +2.73: from loops of 5 to 10 µm
-- **5:30** +4.65: from 10 to 15 µm
-- **5:32** −0.35: from the other radii
-- **5:34** Together they add up to 7.04 in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about 1,138 times a healthy slide's.
-- **5:41** Tested fairly, on slides it never saw, it gets 109 of 123 right.
-- **5:45** The classifier is a logistic regression on the first four scores; its weight per radius is gamma of r. In five-fold cross-validation it gets 62 of 66 healthy and 47 of 57 cirrhotic slides right, an accuracy of 0.886.
+- **5:11** Which scales matter
+- **5:14** A classifier draws a wall between the two clouds.
+- **5:20** Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.
+- **5:28** Read back through the shapes, it becomes a weight for every radius: loops alive at 5 to 15 µm speak for cirrhosis.
+- **5:42** What each stretch of radii adds to the difference between the two groups:
+- **5:46** +2.73: from loops of 5 to 10 µm
+- **5:51** +4.65: from 10 to 15 µm
+- **5:56** −0.35: from the other radii
+- **5:59** Together they add up to 7.04 in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about 1,138 times a healthy slide's.
+- **6:12** Tested fairly, on slides it never saw, it gets 109 of 123 right.
+- **6:18** The classifier is a logistic regression on the first four scores; its weight per radius is gamma of r. In five-fold cross-validation it gets 62 of 66 healthy and 47 of 57 cirrhotic slides right, an accuracy of 0.886.
 
-### 5:54 Every cell
+### 6:38 Every cell
 
-- **5:55** Every cell a centre
-- **5:57** Now take a slide the classifier never saw: 398,611 cells, and a window of 6,716 of them.
-- **6:06** Pick one cell and look only at the cells within 50 µm of it.
-- **6:12** They make their own small network, with its own pieces and loops,
-- **6:18** and their own curves.
-- **6:25** The classifier gives the cell a score of its own:
-- **6:29** +6.97: its log-odds, so cirrhosis-like
-- **6:34** Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.
-- **6:42** This is local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted for the pieces, H0, on the other 122 slides. The colours are the poster's, at most 17.92 either way.
+- **6:38** Every cell a centre
+- **6:41** Now take a slide the classifier never saw: 398,611 cells, and a window of 6,716 of them.
+- **6:51** Pick one cell and look only at the cells within 50 µm of it.
+- **6:57** They make their own small network, with its own pieces and loops,
+- **7:03** and their own curves.
+- **7:10** The classifier gives the cell a score of its own:
+- **7:13** +6.97: its log-odds, so cirrhosis-like
+- **7:19** Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.
+- **7:27** This is local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted for the pieces, H0, on the other 122 slides. The colours are the poster's, at most 17.92 either way.
 
-### 6:54 What next
+### 7:45 What next
 
-- **6:54** Where analysis begins
-- **6:56** The cells now fall into two groups: 5,187 cirrhosis-like and 1,529 healthy-like.
-- **7:03** The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold more lymphocytes, 17 % against 5 %, and more fibroblasts, 26 % against 24 %.
-- **7:11** The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have 1,000 healthy-like and 5,716 cirrhosis-like cells.
-- **7:23** In spatial transcriptomics it would be genes, and in spatial proteomics, proteins.
-- **7:31** Four calls of topocyte, and the shape of tissue becomes something to measure.
-- **7:37** After the poster by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).
-- **7:55** The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com
+- **7:45** Where analysis begins
+- **7:48** The cells now fall into two groups: 5,187 cirrhosis-like and 1,529 healthy-like.
+- **7:58** The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold more lymphocytes, 17 % against 5 %, and more fibroblasts, 26 % against 24 %.
+- **8:11** The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have 1,000 healthy-like and 5,716 cirrhosis-like cells.
+- **8:28** In spatial transcriptomics it would be genes, and in spatial proteomics, proteins.
+- **8:35** Four calls of topocyte, and the shape of tissue becomes something to measure.
+- **8:40** After the poster by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).
+- **8:41** The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com Narration: a synthetic voice (Kokoro).
 
 ## Networks for everyone: Pass it on (`#pass`)
 
-File: `audio/narration-pass.mp3` (not recorded yet). Chapters: 0:00 The school, 0:44 Who watches whom, 1:53 Other links, 2:43 The sky, 4:18 The cell, 5:46 Medicine; it ends at 6:53.
+File: `audio/narration-pass.mp3` (synthetic voice). Chapters: 0:00 The school, 0:45 Who watches whom, 1:53 Other links, 2:44 The sky, 4:20 The cell, 5:54 Medicine; it ends at 6:46.
 
-In 2 languages (en, de): the recording follows the first; the others are what readers see in theirs (the pace gives each line the time of its longer text).
+In 2 languages (en, de), each with its own recording on one timeline (`audio/narration-pass.mp3`, `audio/narration-pass-de.mp3`): every line has the time of the longer of its two recordings.
 
 ### 0:00 The school
 
 - **0:01** Pass it on
-- **0:02** How warnings, viruses and signals spread
-- **0:05** Hundreds of fish swim all around you. They turn together, as if they were one big animal.
-- **0:14** No fish is in charge, and none of them can see the whole school.
-- **0:22** So how do they stay together?
-- **0:29** In a headset the school swims all around you, and in passthrough mode, right through your room.
+- **0:03** How warnings, viruses and signals spread
+- **0:07** Hundreds of fish swim all around you. They turn together, as if they were one big animal.
+- **0:15** No fish is in charge, and none of them can see the whole school.
+- **0:23** So how do they stay together?
+- **0:31** In a headset the school swims all around you, and in passthrough mode, right through your room.
 - **0:36** A story for everyone from the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) in Vienna.
 
 DE: Der Schwarm
 
 - **0:01** Weitersagen!
-- **0:02** Wie sich Warnungen, Viren und Signale ausbreiten
-- **0:05** Hunderte Fische schwimmen um dich herum. Sie drehen alle zugleich ab, als wären sie ein einziges großes Tier.
-- **0:14** Kein Fisch hat das Sagen, und keiner von ihnen sieht den ganzen Schwarm.
-- **0:22** Wie bleiben sie dann zusammen?
-- **0:29** Mit einer VR-Brille schwimmt der Schwarm rund um dich herum, im Durchsicht-Modus sogar mitten durch dein Zimmer.
+- **0:03** Wie sich Warnungen, Viren und Signale ausbreiten
+- **0:07** Hunderte Fische schwimmen um dich herum. Sie drehen alle zugleich ab, als wären sie ein einziges großes Tier.
+- **0:15** Kein Fisch hat das Sagen, und keiner von ihnen sieht den ganzen Schwarm.
+- **0:23** Wie bleiben sie dann zusammen?
+- **0:31** Mit einer VR-Brille schwimmt der Schwarm rund um dich herum, im Durchsicht-Modus sogar mitten durch dein Zimmer.
 - **0:36** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed) in Wien.
 
-### 0:44 Who watches whom
+### 0:45 Who watches whom
 
-- **0:45** Who watches whom
-- **0:46** Each fish watches just a few of its nearest neighbours and does what they do: it turns when they turn and stays close, but not too close.
-- **0:58** Draw a line from each fish to the neighbours it watches, and the school becomes a network.
-- **1:05** A network is just dots and the links between them. Here the dots are fish, and a link means “I am watching you”.
-- **1:14** Now a shark comes.
-- **1:19** The fish nearest to it turn away first. Their neighbours see them turn and do the same, and so on, from fish to fish.
-- **1:28** The warning races through the school faster than the shark can swim.
-- **1:36** A school is a network that passes on a warning.
-- **1:42** Real schools of fish pass on an attack like this, as studies from 2012 and 2015 showed. Ours is a simulation: in our school each fish watches seven neighbours.
+- **0:46** Who watches whom
+- **0:48** Each fish watches just a few of its nearest neighbours and does what they do: it turns when they turn and stays close, but not too close.
+- **0:57** Draw a line from each fish to the neighbours it watches, and the school becomes a network.
+- **1:03** A network is just dots and the links between them. Here the dots are fish, and a link means “I am watching you”.
+- **1:12** Now a shark comes.
+- **1:18** The fish nearest to it turn away first. Their neighbours see them turn and do the same, and so on, from fish to fish.
+- **1:26** The warning races through the school faster than the shark can swim.
+- **1:34** A school is a network that passes on a warning.
+- **1:40** Real schools of fish pass on an attack like this, as studies from 2012 and 2015 showed. Ours is a simulation: in our school each fish watches seven neighbours.
 
 DE: Wer sieht wen
 
-- **0:45** Wer wen beobachtet
-- **0:46** Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht mit, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.
-- **0:58** Zieh eine Linie von jedem Fisch zu den Nachbarn, die er beobachtet, und der Schwarm wird zu einem Netzwerk.
-- **1:05** Ein Netzwerk besteht nur aus Punkten und Verbindungen dazwischen. Hier sind die Punkte Fische, und eine Verbindung heißt: „Ich beobachte dich.“
-- **1:14** Jetzt kommt ein Hai.
-- **1:19** Die Fische, die ihm am nächsten sind, drehen zuerst ab. Ihre Nachbarn sehen das und drehen auch ab, und so weiter, von Fisch zu Fisch.
-- **1:28** Die Warnung rast schneller durch den Schwarm, als der Hai schwimmen kann.
-- **1:36** Ein Schwarm ist ein Netzwerk, das eine Warnung weitergibt.
-- **1:42** Echte Fischschwärme geben einen Angriff genau so weiter, das haben Studien aus den Jahren 2012 und 2015 gezeigt. Unser Schwarm ist eine Simulation: Hier beobachtet jeder Fisch sieben Nachbarn.
+- **0:46** Wer wen beobachtet
+- **0:48** Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht mit, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.
+- **0:57** Zieh eine Linie von jedem Fisch zu den Nachbarn, die er beobachtet, und der Schwarm wird zu einem Netzwerk.
+- **1:03** Ein Netzwerk besteht nur aus Punkten und Verbindungen dazwischen. Hier sind die Punkte Fische, und eine Verbindung heißt: „Ich beobachte dich.“
+- **1:12** Jetzt kommt ein Hai.
+- **1:18** Die Fische, die ihm am nächsten sind, drehen zuerst ab. Ihre Nachbarn sehen das und drehen auch ab, und so weiter, von Fisch zu Fisch.
+- **1:26** Die Warnung rast schneller durch den Schwarm, als der Hai schwimmen kann.
+- **1:34** Ein Schwarm ist ein Netzwerk, das eine Warnung weitergibt.
+- **1:40** Echte Fischschwärme geben einen Angriff genau so weiter, das haben Studien aus den Jahren 2012 und 2015 gezeigt. Unser Schwarm ist eine Simulation: Hier beobachtet jeder Fisch sieben Nachbarn.
 
 ### 1:53 Other links
 
-- **1:53** Change the links
-- **1:54** What if each fish watched only one neighbour?
-- **2:00** Now the lines join only pairs. Pairs follow pairs, and nothing holds the group together.
-- **2:07** The school falls apart.
-- **2:19** Back to seven neighbours each: the links knit the fish together, and the school forms again.
-- **2:29** The same fish, other links. The shape of the network decides what the group can do.
+- **1:54** Change the links
+- **1:56** What if each fish watched only one neighbour?
+- **2:01** Now the lines join only pairs. Pairs follow pairs, and nothing holds the group together.
+- **2:09** The school falls apart.
+- **2:21** Back to seven neighbours each: the links knit the fish together, and the school forms again.
+- **2:31** The same fish, other links. The shape of the network decides what the group can do.
 
 DE: Andere Links
 
-- **1:53** Andere Verbindungen
-- **1:54** Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?
-- **2:00** Jetzt verbinden die Linien nur noch Paare. Paare folgen Paaren, und nichts hält die Gruppe mehr zusammen.
-- **2:07** Der Schwarm fällt auseinander.
-- **2:19** Wieder sieben Nachbarn für jeden: Die Verbindungen knüpfen die Fische zusammen, und der Schwarm bildet sich neu.
-- **2:29** Dieselben Fische, andere Verbindungen. Die Form des Netzwerks bestimmt, was die Gruppe kann.
+- **1:54** Andere Verbindungen
+- **1:56** Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?
+- **2:01** Jetzt verbinden die Linien nur noch Paare. Paare folgen Paaren, und nichts hält die Gruppe mehr zusammen.
+- **2:09** Der Schwarm fällt auseinander.
+- **2:21** Wieder sieben Nachbarn für jeden: Die Verbindungen knüpfen die Fische zusammen, und der Schwarm bildet sich neu.
+- **2:31** Dieselben Fische, andere Verbindungen. Die Form des Netzwerks bestimmt, was die Gruppe kann.
 
-### 2:43 The sky
+### 2:44 The sky
 
-- **2:43** From the sea to the sky
-- **2:46** Rise out of the water, higher and higher, until you see the whole Earth.
-- **2:53** Here is another network: airports, joined by the routes that planes fly.
-- **2:58** 3,214: airports
-- **2:59** 18,858: routes
-- **3:06** An infection starts in Vienna. Each day it can travel along a route, from a city where people are ill to a city they fly to.
-- **3:16** At first it spreads slowly: 20 cities in the first week.
-- **3:21** 47: cities reached, day 10
-- **3:29** 676: cities reached, day 20
-- **3:38** 1,673: cities reached, day 30
-- **3:40** Then it reaches the hubs, the airports with the most routes, and from there everywhere at once.
-- **3:49** Like the warning in the school, it passes from neighbour to neighbour, only now across the whole planet.
-- **3:56** This is a simple model on the real route network, not a forecast: every route counts the same, an airport stands for its city, and no real disease is copied. A city it reaches turns amber for 5 days while exposed, red for 7 days while infectious, then grey once recovered.
-- **4:12** Routes: OpenFlights.org (Open Database License), 2014 snapshot, as in the airports story. Coastlines: Natural Earth.
+- **2:45** From the sea to the sky
+- **2:47** Rise out of the water, higher and higher, until you see the whole Earth.
+- **2:55** Here is another network: airports, joined by the routes that planes fly.
+- **3:01** 3,214 airports
+- **3:04** 18,858 routes
+- **3:10** An infection starts in Vienna. Each day it can travel along a route, from a city where people are ill to a city they fly to.
+- **3:19** At first it spreads slowly: 20 cities in the first week.
+- **3:23** 47 cities reached, day 10
+- **3:32** 676 cities reached, day 20
+- **3:41** 1,673 cities reached, day 30
+- **3:46** Then it reaches the hubs, the airports with the most routes, and from there everywhere at once.
+- **3:54** Like the warning in the school, it passes from neighbour to neighbour, only now across the whole planet.
+- **4:01** This is a simple model on the real route network, not a forecast: every route counts the same, an airport stands for its city, and no real disease is copied. A city it reaches turns amber for 5 days while exposed, red for 7 days while infectious, then grey once recovered.
+- **4:10** Routes: OpenFlights.org (Open Database License), 2014 snapshot, as in the airports story. Coastlines: Natural Earth.
 
 DE: Der Himmel
 
-- **2:43** Vom Meer in den Himmel
-- **2:46** Steig aus dem Wasser auf, immer höher, bis du die ganze Erde siehst.
-- **2:53** Hier ist ein anderes Netzwerk: Flughäfen, verbunden durch die Strecken, die Flugzeuge fliegen.
-- **2:58** 3.214: Flughäfen
-- **2:59** 18.858: Flugrouten
-- **3:06** In Wien beginnt eine Ansteckung. Jeden Tag kann sie über eine Flugroute reisen, von einer Stadt, in der Menschen krank sind, in eine Stadt, in die sie fliegen.
-- **3:16** Zuerst breitet sie sich langsam aus: 20 Städte in der ersten Woche.
-- **3:21** 47: Städte erreicht, Tag 10
-- **3:29** 676: Städte erreicht, Tag 20
-- **3:38** 1.673: Städte erreicht, Tag 30
-- **3:40** Dann erreicht sie die Drehkreuze, die Flughäfen mit den meisten Flugrouten, und von dort aus alle anderen auf einmal.
-- **3:49** Wie die Warnung im Schwarm geht sie von Nachbar zu Nachbar, nur jetzt über den ganzen Planeten.
-- **3:56** Das ist ein einfaches Modell auf dem echten Flugnetz, keine Vorhersage: Jede Route zählt gleich viel, ein Flughafen steht für seine Stadt, und keine echte Krankheit wird nachgemacht. Eine Stadt, die erreicht wird, ist 5 Tage angesteckt, orange markiert, dann 7 Tage ansteckend, rot markiert, und danach wieder gesund, grau markiert.
-- **4:12** Flugrouten: OpenFlights.org (Open Database License), Stand 2014, wie in der Geschichte über Flughäfen. Küsten: Natural Earth.
+- **2:45** Vom Meer in den Himmel
+- **2:47** Steig aus dem Wasser auf, immer höher, bis du die ganze Erde siehst.
+- **2:55** Hier ist ein anderes Netzwerk: Flughäfen, verbunden durch die Strecken, die Flugzeuge fliegen.
+- **3:01** 3.214 Flughäfen
+- **3:04** 18.858 Flugrouten
+- **3:10** In Wien beginnt eine Ansteckung. Jeden Tag kann sie über eine Flugroute reisen, von einer Stadt, in der Menschen krank sind, in eine Stadt, in die sie fliegen.
+- **3:19** Zuerst breitet sie sich langsam aus: 20 Städte in der ersten Woche.
+- **3:23** 47 Städte erreicht, Tag 10
+- **3:32** 676 Städte erreicht, Tag 20
+- **3:41** 1.673 Städte erreicht, Tag 30
+- **3:46** Dann erreicht sie die Drehkreuze, die Flughäfen mit den meisten Flugrouten, und von dort aus alle anderen auf einmal.
+- **3:54** Wie die Warnung im Schwarm geht sie von Nachbar zu Nachbar, nur jetzt über den ganzen Planeten.
+- **4:01** Das ist ein einfaches Modell auf dem echten Flugnetz, keine Vorhersage: Jede Route zählt gleich viel, ein Flughafen steht für seine Stadt, und keine echte Krankheit wird nachgemacht. Eine Stadt, die erreicht wird, ist 5 Tage angesteckt, orange markiert, dann 7 Tage ansteckend, rot markiert, und danach wieder gesund, grau markiert.
+- **4:10** Flugrouten: OpenFlights.org (Open Database License), Stand 2014, wie in der Geschichte über Flughäfen. Küsten: Natural Earth.
 
-### 4:18 The cell
+### 4:20 The cell
 
-- **4:19** Into the cell
-- **4:21** Now zoom from the planet into one single cell of your body. It is a network too.
-- **4:27** Inside it are rooms with walls of their own: the nucleus, which keeps the genes, and its factories and power stations.
-- **4:35** The dots are proteins, the cell’s tiny machines: 249 of them in this map, each in the places where it works.
-- **4:43** A protein can only meet a partner in the same place. Here a growth signal from outside meets its receptor on the cell’s surface.
-- **4:52** Signals cross the cell hand to hand, from protein to protein, like the warning in the school.
-- **4:59** An inflammation signal arrives at the surface. Inside, the protein NF-κB waits, held by its brake.
-- **5:06** The message is passed on until the brake lets go. Then NF-κB moves into the nucleus and switches genes on.
-- **5:14** But what if a protein ends up in the wrong place?
-- **5:20** In cystic fibrosis the protein CFTR gets stuck on its way to the surface. It never arrives where it should work.
-- **5:28** Its links are lost, and the message stops: a disease.
-- **5:33** This is the cell map story’s own cell, with 249 well-studied human proteins in 13 places. It is a small illustrative selection: a real cell makes about 20,000 kinds. The places follow the Human Protein Atlas and UniProt.
+- **4:21** Into the cell
+- **4:23** Now zoom from the planet into one single cell of your body. It is a network too.
+- **4:28** Inside it are rooms with walls of their own: the nucleus, which keeps the genes, and its factories and power stations.
+- **4:36** The dots are proteins, the cell’s tiny machines: 249 of them in this map, each in the places where it works.
+- **4:45** A protein can only meet a partner in the same place. Here a growth signal from outside meets its receptor on the cell’s surface.
+- **4:54** Signals cross the cell hand to hand, from protein to protein, like the warning in the school.
+- **5:00** An inflammation signal arrives at the surface. Inside, the protein NF-κB waits, held by its brake.
+- **5:08** The message is passed on until the brake lets go. Then NF-κB moves into the nucleus and switches genes on.
+- **5:17** But what if a protein ends up in the wrong place?
+- **5:22** In cystic fibrosis the protein CFTR gets stuck on its way to the surface. It never arrives where it should work.
+- **5:30** Its links are lost, and the message stops: a disease.
+- **5:36** This is the cell map story’s own cell, with 249 well-studied human proteins in 13 places. It is a small illustrative selection: a real cell makes about 20,000 kinds. The places follow the Human Protein Atlas and UniProt.
 
 DE: Die Zelle
 
-- **4:19** In die Zelle hinein
-- **4:21** Jetzt geht es vom Planeten in eine einzige Zelle deines Körpers. Auch sie ist ein Netzwerk.
-- **4:27** In ihr gibt es Räume mit eigenen Wänden: den Zellkern, in dem die Gene liegen, dazu Fabriken und Kraftwerke.
-- **4:35** Die Punkte sind Proteine, die winzigen Maschinen der Zelle: 249 sind es in dieser Karte, jedes an den Orten, an denen es arbeitet.
-- **4:43** Ein Protein kann einen Partner nur am selben Ort treffen. Hier trifft ein Wachstumssignal von draußen seinen Empfänger an der Oberfläche der Zelle.
-- **4:52** Signale wandern von Hand zu Hand durch die Zelle, von Protein zu Protein, wie die Warnung im Schwarm.
-- **4:59** Ein Entzündungssignal kommt an der Oberfläche an. Drinnen wartet das Protein NF-κB, festgehalten von seiner Bremse.
-- **5:06** Die Nachricht wird weitergegeben, bis die Bremse loslässt. Dann wandert NF-κB in den Zellkern und schaltet dort Gene an.
-- **5:14** Aber was ist, wenn ein Protein am falschen Ort landet?
-- **5:20** Bei Mukoviszidose bleibt das Protein CFTR auf dem Weg zur Oberfläche stecken. Es kommt nie dort an, wo es arbeiten soll.
-- **5:28** Seine Verbindungen gehen verloren, und die Nachricht kommt nicht mehr an: eine Krankheit.
-- **5:33** Hier siehst du die Zelle aus der Geschichte „Cell map“, mit 249 gut erforschten menschlichen Proteinen an 13 Orten. Das ist eine kleine Auswahl zum Zeigen: Eine echte Zelle stellt etwa 20.000 Sorten her. Die Orte stammen aus dem Human Protein Atlas und aus UniProt.
+- **4:21** In die Zelle hinein
+- **4:23** Jetzt geht es vom Planeten in eine einzige Zelle deines Körpers. Auch sie ist ein Netzwerk.
+- **4:28** In ihr gibt es Räume mit eigenen Wänden: den Zellkern, in dem die Gene liegen, dazu Fabriken und Kraftwerke.
+- **4:36** Die Punkte sind Proteine, die winzigen Maschinen der Zelle: 249 sind es in dieser Karte, jedes an den Orten, an denen es arbeitet.
+- **4:45** Ein Protein kann einen Partner nur am selben Ort treffen. Hier trifft ein Wachstumssignal von draußen seinen Empfänger an der Oberfläche der Zelle.
+- **4:54** Signale wandern von Hand zu Hand durch die Zelle, von Protein zu Protein, wie die Warnung im Schwarm.
+- **5:00** Ein Entzündungssignal kommt an der Oberfläche an. Drinnen wartet das Protein NF-κB, festgehalten von seiner Bremse.
+- **5:08** Die Nachricht wird weitergegeben, bis die Bremse loslässt. Dann wandert NF-κB in den Zellkern und schaltet dort Gene an.
+- **5:17** Aber was ist, wenn ein Protein am falschen Ort landet?
+- **5:22** Bei Mukoviszidose bleibt das Protein CFTR auf dem Weg zur Oberfläche stecken. Es kommt nie dort an, wo es arbeiten soll.
+- **5:30** Seine Verbindungen gehen verloren, und die Nachricht kommt nicht mehr an: eine Krankheit.
+- **5:36** Hier siehst du die Zelle aus der Geschichte „Cell map“, mit 249 gut erforschten menschlichen Proteinen an 13 Orten. Das ist eine kleine Auswahl zum Zeigen: Eine echte Zelle stellt etwa 20.000 Sorten her. Die Orte stammen aus dem Human Protein Atlas und aus UniProt.
 
-### 5:46 Medicine
+### 5:54 Medicine
 
-- **5:47** Network medicine
-- **5:47** Fish, flights and proteins: three very different networks, and the same maths for all of them.
-- **5:53** The school: who watches whom, passing on a warning
-- **5:56** The planet: which city flies to which, passing on an infection
-- **5:59** The cell: which protein works with which, passing on a signal
-- **6:03** Network medicine looks for the links that break in a disease, and for the places where a medicine could help.
-- **6:11** That is what we work on at the Ludwig Boltzmann Institute for Network Medicine in Vienna.
-- **6:17** Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.
-- **6:27** An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts.
+- **5:54** Network medicine
+- **5:57** Fish, flights and proteins: three very different networks, and the same maths for all of them.
+- **6:03** The school: who watches whom, passing on a warning
+- **6:07** The planet: which city flies to which, passing on an infection
+- **6:12** The cell: which protein works with which, passing on a signal
+- **6:16** Network medicine looks for the links that break in a disease, and for the places where a medicine could help.
+- **6:25** That is what we work on at the Ludwig Boltzmann Institute for Network Medicine in Vienna.
+- **6:30** Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.
+- **6:35** An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts. Narration: synthetic voices (Kokoro; in German, Piper’s Thorsten voice).
 
 DE: Medizin
 
-- **5:47** Netzwerkmedizin
-- **5:47** Fische, Flüge und Proteine: drei ganz verschiedene Netzwerke, und für alle dieselbe Mathematik.
-- **5:53** Der Schwarm: wer wen beobachtet, und so wandert eine Warnung
-- **5:56** Der Planet: welche Stadt wohin fliegt, und so wandert eine Ansteckung
-- **5:59** Die Zelle: welches Protein mit welchem arbeitet, und so wandert ein Signal
-- **6:03** Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.
-- **6:11** Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.
-- **6:17** Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.
-- **6:27** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.
+- **5:54** Netzwerkmedizin
+- **5:57** Fische, Flüge und Proteine: drei ganz verschiedene Netzwerke, und für alle dieselbe Mathematik.
+- **6:03** Der Schwarm: wer wen beobachtet, und so wandert eine Warnung
+- **6:07** Der Planet: welche Stadt wohin fliegt, und so wandert eine Ansteckung
+- **6:12** Die Zelle: welches Protein mit welchem arbeitet, und so wandert ein Signal
+- **6:16** Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.
+- **6:25** Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.
+- **6:30** Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.
+- **6:35** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen. Erzählt von synthetischen Stimmen (Kokoro; auf Deutsch Piper mit der Stimme Thorsten).
 
 ## Soil microbes: Holding on to nitrogen (`#soil`)
 
-File: `audio/narration-soil.mp3` (not recorded yet). Chapters: 0:00 Half the sack, 0:52 The relay, 1:53 A wheat fights back, 2:48 The field trial, 3:54 Greener, fewer leaks, 5:17 A crowd of 100,000, 6:17 Who rises together, 7:40 What we know; it ends at 8:42.
+File: `audio/narration-soil.mp3` (synthetic voice). Chapters: 0:00 Half the sack, 0:51 The relay, 2:06 A wheat fights back, 3:21 The field trial, 4:50 Greener, fewer leaks, 6:45 A crowd of 100,000, 8:14 Who rises together, 10:05 What we know; it ends at 11:03.
 
 ### 0:00 Half the sack
 
 - **0:01** Holding on to nitrogen
-- **0:02** A wheat, its soil and the microbes in between
-- **0:05** Less than half of the fertiliser a farmer spreads ends up in the crop.
-- **0:13** The plant takes up some of it; microbes in the soil get to much of the rest first.
-- **0:24** They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.
-- **0:33** So farmers spread more.
-- **0:36** The slides put it as "less than 50 per cent". The flows in this block are a drawing: ammonium is amber, nitrate blue, nitrous oxide lilac and nitrogen in the plant green.
-- **0:41** After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.
+- **0:04** A wheat, its soil and the microbes in between
+- **0:07** Less than half of the fertiliser a farmer spreads ends up in the crop.
+- **0:15** The plant takes up some of it; microbes in the soil get to much of the rest first.
+- **0:26** They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.
+- **0:35** So farmers spread more.
+- **0:38** The slides put it as "less than 50 per cent". The flows in this block are a drawing: ammonium is amber, nitrate blue, nitrous oxide lilac and nitrogen in the plant green.
+- **0:40** After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.
 
-### 0:52 The relay
+### 0:51 The relay
 
-- **0:53** The relay underground
+- **0:52** The relay underground
 - **0:54** Inside the soil, microbes pass the nitrogen on, like runners in a relay.
-- **1:02** Archaea: they turn ammonium into nitrite
-- **1:11** Bacteria: they do the same
-- **1:20** Nitrite oxidisers: they turn nitrite into nitrate
+- **1:03** Archaea: they turn ammonium into nitrite
+- **1:12** Bacteria: they do the same
+- **1:21** Nitrite oxidisers: they turn nitrite into nitrate
 - **1:30** Comammox: a single microbe that does both steps
-- **1:38** Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.
-- **1:43** This relay is called nitrification. Its runners are ammonia-oxidising archaea and bacteria, or AOA and AOB, nitrite-oxidising bacteria, or NOB, and complete ammonia oxidisers, or comammox. Nitrous oxide escapes along the way. The pore is an illustration.
+- **1:39** Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.
+- **1:46** This relay is called nitrification. Its runners are ammonia-oxidising archaea and bacteria, or AOA and AOB, nitrite-oxidising bacteria, or NOB, and complete ammonia oxidisers, or comammox. Nitrous oxide escapes along the way. The pore is an illustration.
 
-### 1:53 A wheat fights back
+### 2:06 A wheat fights back
 
-- **1:53** A wheat that fights back
-- **1:54** Some plants release substances from their roots that slow the relay down. This is called biological nitrification inhibition, or BNI.
-- **2:03** Breeders moved a piece of chromosome from a wild grass into the wheat Munal.
-- **2:19** The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.
-- **2:32** Until now the evidence was one bacterium in a dish and one day in a field.
-- **2:36** The wild grass is Leymus racemosus. The BNI wheat, described by Subbarao and colleagues in the journal PNAS, is Munal-BNI, and the control wheat Munal-control, the same wheat without the segment. As for the earlier evidence, root exudates, the substances roots release, slowed one ammonia-oxidising bacterium in a culture, and one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.
+- **2:07** A wheat that fights back
+- **2:09** Some plants release substances from their roots that slow the relay down. This is called biological nitrification inhibition, or BNI.
+- **2:19** Breeders moved a piece of chromosome from a wild grass into the wheat Munal.
+- **2:36** The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.
+- **2:48** Until now the evidence was one bacterium in a dish and one day in a field.
+- **2:53** The wild grass is Leymus racemosus. The BNI wheat, described by Subbarao and colleagues in the journal PNAS, is Munal-BNI, and the control wheat Munal-control, the same wheat without the segment. As for the earlier evidence, root exudates, the substances roots release, slowed one ammonia-oxidising bacterium in a culture, and one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.
 
-### 2:48 The field trial
+### 3:21 The field trial
 
-- **2:49** The field trial
-- **2:49** To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:
-- **3:06** with no fertiliser,
-- **3:07** with fertiliser,
-- **3:09** and with fertiliser and a synthetic inhibitor.
-- **3:16** Five times over 70 days, soil was taken from the roots in every plot.
-- **3:32** 119: samples
-- **3:34** 24: plots
-- **3:35** 5: dates
-- **3:39** The trial is by JIRCAS, a research centre in Japan. The trial's site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. The fertiliser was 250 kilograms of nitrogen per hectare, and the inhibitor DCD, which we read as dicyandiamide. Days 1 to 70 are 129 to 199 days after planting. Four replicates of each were grown. The soil sampled is the soil clinging to the roots, the rhizosphere, and one sample is missing. The plots' layout is illustrative.
+- **3:21** The field trial
+- **3:24** To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:
+- **3:40** with no fertiliser,
+- **3:42** with fertiliser,
+- **3:43** and with fertiliser and a synthetic inhibitor.
+- **3:50** Five times over 70 days, soil was taken from the roots in every plot.
+- **4:07** 119 samples
+- **4:09** 24 plots
+- **4:11** 5 dates
+- **4:14** The trial is by JIRCAS, a research centre in Japan. The trial's site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. The fertiliser was 250 kilograms of nitrogen per hectare, and the inhibitor DCD, which we read as dicyandiamide. Days 1 to 70 are 129 to 199 days after planting. Four replicates of each were grown. The soil sampled is the soil clinging to the roots, the rhizosphere, and one sample is missing. The plots' layout is illustrative.
 
-### 3:54 Greener, fewer leaks
+### 4:50 Greener, fewer leaks
 
-- **3:55** Greener, fewer leaks
-- **3:55** At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.
-- **4:04** 62: for the BNI wheat on day 70
-- **4:06** 49: for the control wheat
-- **4:07** This is chlorophyll in the leaves of unfertilised plots, measured as SPAD values and read off the slides.
-- **4:18** With fertiliser there is less nitrate in the soil under it in mid-season.
-- **4:27** 40: milligrams of nitrogen per kilogram on day 24
-- **4:29** 61: under the control wheat
-- **4:30** This is nitrate in fertilised plots, the group means of the data, with p = 0.03. The slides call it lower from day 24 to day 53, but only day 24 is starred as significant.
-- **4:40** And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.
-- **4:51** 0.4: parts per million at the peak for the BNI wheat
-- **4:53** 1.3: for the control wheat on day 1
-- **4:57** This is fertilised soil, read off the slides, which give the incubation as 250 milligrams of nitrogen per kilogram of soil, given as ammonium sulphate, at 70 per cent water content, for 20 days. There is an open question. The data's own nitrous oxide value, "the potential amount of produced nitrous oxide", given without a unit, shows no clear difference over the season, 0.81 against 0.98, with p = 0.58. How the two measurements relate is not known yet.
+- **4:51** Greener, fewer leaks
+- **4:53** At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.
+- **5:02** 62 for the BNI wheat on day 70
+- **5:05** 49 for the control wheat
+- **5:08** This is chlorophyll in the leaves of unfertilised plots, measured as SPAD values and read off the slides.
+- **5:19** With fertiliser there is less nitrate in the soil under it in mid-season.
+- **5:28** 40 milligrams of nitrogen per kilogram on day 24
+- **5:32** 61 under the control wheat
+- **5:35** This is nitrate in fertilised plots, the group means of the data, with p = 0.03. The slides call it lower from day 24 to day 53, but only day 24 is starred as significant.
+- **5:50** And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.
+- **6:01** 0.4 parts per million at the peak for the BNI wheat
+- **6:06** 1.3 for the control wheat on day 1
+- **6:09** This is fertilised soil, read off the slides, which give the incubation as 250 milligrams of nitrogen per kilogram of soil, given as ammonium sulphate, at 70 per cent water content, for 20 days. There is an open question. The data's own nitrous oxide value, "the potential amount of produced nitrous oxide", given without a unit, shows no clear difference over the season, 0.81 against 0.98, with p = 0.58. How the two measurements relate is not known yet.
 
-### 5:17 A crowd of 100,000
+### 6:45 A crowd of 100,000
 
-- **5:17** A crowd of 100,000
-- **5:18** Across the 119 samples, this soil holds about 100,000 kinds of microbe, some 3,200 in a typical sample.
-- **5:26** 3,384 of them make up 95 % of the DNA that was read.
-- **5:43** Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.
-- **5:51** The wheat line barely shows: only two of the 3,384 common kinds differ between the two wheats.
-- **5:58** 1,646: differ by fertiliser
-- **6:00** 580: by date
-- **6:02** 2: by wheat line
-- **6:05** The kinds of microbe are amplicon sequence variants, or ASVs, from 16S rRNA gene reads, numbered by abundance. Nitrosospira makes up 0.23, 0.51, 0.42 per cent of reads without fertiliser, with it, and with DCD. Gene counts of the ammonia oxidisers, measured by qPCR and read off the slides, differ little between the wheats, with one marginal p value of 0.057.
+- **6:46** A crowd of 100,000
+- **6:49** Across the 119 samples, this soil holds about 100,000 kinds of microbe, some 3,200 in a typical sample.
+- **6:59** 3,384 of them make up 95 % of the DNA that was read.
+- **7:16** Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.
+- **7:23** The wheat line barely shows: only two of the 3,384 common kinds differ between the two wheats.
+- **7:31** 1,646 differ by fertiliser
+- **7:36** 580 by date
+- **7:38** 2 by wheat line
+- **7:41** The kinds of microbe are amplicon sequence variants, or ASVs, from 16S rRNA gene reads, numbered by abundance. Nitrosospira makes up 0.23, 0.51, 0.42 per cent of reads without fertiliser, with it, and with DCD. Gene counts of the ammonia oxidisers, measured by qPCR and read off the slides, differ little between the wheats, with one marginal p value of 0.057.
 
-### 6:17 Who rises together
+### 8:14 Who rises together
 
-- **6:18** Who rises together
-- **6:18** Link two kinds of microbe when their numbers rise and fall together across the samples.
-- **6:28** 1,564: kinds
-- **6:30** 22,348: links
-- **6:38** Shuffle the samples, and not one link is left: the pattern is real.
-- **6:51** The network's groups follow the fertiliser and the field's plots; the wheat barely shows.
-- **7:01** Of about five big groups, called modules, two rise and fall with the fertiliser and three with the plots. The wheat line explains under 1 per cent of any big group's ups and downs.
-- **7:18** Split by wheat line, the two networks differ no more than two random halves of the samples do.
-- **7:27** And rising together is not working together.
-- **7:31** This network was built for this story and is not the authors' analysis. It uses the 3,384 common kinds, centred log-ratios, Spearman's correlation of at least 0.6 with a false discovery rate under 5 per cent, and Louvain modules. The two wheat lines' own networks have 38,653 and 30,276 links, and the halves of 20 random splits differ by 158 to 27,758 links.
+- **8:14** Who rises together
+- **8:17** Link two kinds of microbe when their numbers rise and fall together across the samples.
+- **8:27** 1,564 kinds
+- **8:30** 22,348 links
+- **8:38** Shuffle the samples, and not one link is left: the pattern is real.
+- **8:52** The network's groups follow the fertiliser and the field's plots; the wheat barely shows.
+- **9:01** Of about five big groups, called modules, two rise and fall with the fertiliser and three with the plots. The wheat line explains under 1 per cent of any big group's ups and downs.
+- **9:18** Split by wheat line, the two networks differ no more than two random halves of the samples do.
+- **9:28** And rising together is not working together.
+- **9:31** This network was built for this story and is not the authors' analysis. It uses the 3,384 common kinds, centred log-ratios, Spearman's correlation of at least 0.6 with a false discovery rate under 5 per cent, and Louvain modules. The two wheat lines' own networks have 38,653 and 30,276 links, and the halves of 20 random splits differ by 158 to 27,758 links.
 
-### 7:40 What we know
+### 10:05 What we know
 
-- **7:40** What we know
-- **7:41** There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.
-- **7:51** It is not yet proof.
-- **7:55** The next steps are to follow marked nitrogen atoms through soil, microbe and plant, and to read which microbial genes are switched on.
-- **8:07** Marking atoms means isotope studies with nitrogen-15; reading which genes are switched on is called metatranscriptomics. One question is still open. The jars show far less nitrous oxide from the BNI wheat's soil, while the data's own nitrous oxide value shows no clear difference over the season, 0.81 against 0.98, with p = 0.58. How the two measurements relate is not known yet.
-- **8:18** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
-- **8:26** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.
+- **10:05** What we know
+- **10:08** There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.
+- **10:19** It is not yet proof.
+- **10:24** The next steps are to follow marked nitrogen atoms through soil, microbe and plant, and to read which microbial genes are switched on.
+- **10:36** Marking atoms means isotope studies with nitrogen-15; reading which genes are switched on is called metatranscriptomics. One question is still open. The jars show far less nitrous oxide from the BNI wheat's soil, while the data's own nitrous oxide value shows no clear difference over the season, 0.81 against 0.98, with p = 0.58. How the two measurements relate is not known yet.
+- **10:41** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
+- **10:43** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative. Narration: a synthetic voice (Kokoro).
 
 ## Network medicine: Proteins (`#proteins`)
 
-File: `audio/narration-proteins.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:15 Proteins, 0:37 Interactions, 1:01 Hubs, 1:30 Essential, 1:52 Modules, 2:27 Disease modules, 2:58 Drug targets, 3:33 Robustness, 4:16 Recap; it ends at 4:38.
+File: `audio/narration-proteins.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Proteins, 0:50 Interactions, 1:21 Hubs, 1:49 Essential, 2:25 Modules, 3:20 Disease modules, 3:54 Drug targets, 4:34 Robustness, 5:25 Recap; it ends at 5:48.
 
 ### 0:00 Intro
 
 - **0:01** Network medicine
-- **0:02** told with the proteins in a human cell
-- **0:05** Here are 254 proteins and 375 interactions, placed where they work in the cell. First come eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
+- **0:03** told with the proteins in a human cell
+- **0:06** Here are 254 proteins and 375 interactions, placed where they work in the cell. First come eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
 
-### 0:15 Proteins
+### 0:21 Proteins
 
-- **0:15** Proteins are nodes
-- **0:16** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, which is the inner sphere.
-- **0:28** Proteins are nodes just like airports: the same rules of network theory apply.
+- **0:22** Proteins are nodes
+- **0:24** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, which is the inner sphere.
+- **0:41** Proteins are nodes just like airports: the same rules of network theory apply.
 
-### 0:37 Interactions
+### 0:50 Interactions
 
-- **0:38** Interactions are edges
-- **0:39** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
-- **0:48** All together, 375 interactions tie these proteins into one network.
-- **0:54** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
+- **0:51** Interactions are edges
+- **0:53** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
+- **1:04** All together, 375 interactions tie these proteins into one network.
+- **1:10** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
 
-### 1:01 Hubs
+### 1:21 Hubs
 
-- **1:01** Hubs
-- **1:02** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, and beta-catenin has 12.
-- **1:09** Proteins by number of partners
-- **1:09** 53 170 264 336 418 5–68 7–94 10–141 15+
-- **1:14** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24 per cent of all interactions. The height of each spike shows how many partners a protein has.
+- **1:21** Hubs
+- **1:23** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, and beta-catenin has 12.
+- **1:34** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24 per cent of all interactions. The height of each spike shows how many partners a protein has.
 
-### 1:30 Essential
+### 1:49 Essential
 
-- **1:30** Essential proteins
-- **1:31** Some proteins are essential: without them, almost no human cell can survive.
-- **1:35** 69 proteins in this map are essential, and they are highlighted. They have 3.2 partners on average, and the others have 2.9: essential proteins tend to have more partners.
-- **1:42** In yeast, hubs turned out more likely to be essential, a pattern known as the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
+- **1:50** Essential proteins
+- **1:52** Some proteins are essential: without them, almost no human cell can survive.
+- **1:58** 69 proteins in this map are essential, and they are highlighted. They have 3.2 partners on average, and the others have 2.9: essential proteins tend to have more partners.
+- **2:11** In yeast, hubs turned out more likely to be essential, a pattern known as the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
 
-### 1:52 Modules
+### 2:25 Modules
 
-- **1:52** Modules
-- **1:53** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. A method called the Louvain algorithm found these ten from the interactions alone.
-- **2:01** Cell cycle & DNA copying
-- **2:02** DNA break repair
-- **2:03** p53 & gene control
-- **2:04** Growth-factor signalling
-- **2:05** Wnt & amyloid
-- **2:06** Proteasome
-- **2:06** DNA replication start
-- **2:07** AKT-mTOR & survival
-- **2:07** TNF & cell death
-- **2:08** RNA polymerase II
+- **2:26** Modules
+- **2:28** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. A method called the Louvain algorithm found these ten from the interactions alone.
+- **2:40** Cell cycle & DNA copying
+- **2:43** DNA break repair
+- **2:43** p53 & gene control
+- **2:47** Growth-factor signalling
+- **2:50** Wnt & amyloid
+- **2:52** Proteasome
+- **2:54** DNA replication start
+- **2:56** AKT-mTOR & survival
+- **2:59** TNF & cell death
+- **3:02** RNA polymerase II
 
-### 2:27 Disease modules
+### 3:20 Disease modules
 
-- **2:28** Disease modules
-- **2:29** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
-- **2:35** 12of 16 form one connected module
-- **2:40** Pick 16 proteins at random, and their largest connected group has only 2.0 proteins on average. Disease genes cluster in the same neighbourhood. This is the disease module, the idea at the heart of network medicine.
+- **3:21** Disease modules
+- **3:23** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
+- **3:31** 12 of 16 form one connected module
+- **3:36** Pick 16 proteins at random, and their largest connected group has only 2.0 proteins on average. Disease genes cluster in the same neighbourhood. This is the disease module, the idea at the heart of network medicine.
 
-### 2:58 Drug targets
+### 3:54 Drug targets
 
-- **2:59** Drugs and distance
-- **3:00** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
-- **3:06** Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits right next to it.
-- **3:12** 0steps
-- **3:23** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
+- **3:55** Drugs and distance
+- **3:58** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
+- **4:06** Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits right next to it.
+- **4:22** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
 
-### 3:33 Robustness
+### 4:34 Robustness
 
-- **3:34** Robustness
-- **3:35** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
-- **3:42** 100%
-- **3:42** of protein pairs still connected
-- **3:45** Knock out 20 random proteins, and 75 per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
-- **3:58** Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the most shortest paths between other proteins.
-- **4:08** The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
+- **4:35** Robustness
+- **4:37** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
+- **4:46** 100%
+- **4:46** of protein pairs still connected
+- **4:49** Knock out 20 random proteins, and 75 per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
+- **5:02** Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the largest number of shortest paths between other proteins.
+- **5:13** The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
 
-### 4:16 Recap
+### 5:25 Recap
 
-- **4:16** Network medicine
-- **4:17** ProteinsInteractionsHubsEssentialModulesDisease modulesDrug targetsRobustness
-- **4:18** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
-- **4:26** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016.
+- **5:26** Network medicine
+- **5:28** Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness
+- **5:35** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
+- **5:37** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016. Narration: a synthetic voice (Kokoro).
 
 ## Spatial interactome: Cell map (`#spatial`)
 
-File: `audio/narration-spatial.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:16 Compartments, 0:50 Addresses, 1:16 Meeting, 1:50 Many places, 2:22 Signals, 3:00 Moving, 3:31 Proximity, 4:04 Wrong place, 4:37 Recap; it ends at 5:09.
+File: `audio/narration-spatial.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Compartments, 0:59 Addresses, 1:31 Meeting, 2:10 Many places, 2:45 Signals, 3:25 Moving, 4:04 Proximity, 4:40 Wrong place, 5:19 Recap; it ends at 5:41.
 
 ### 0:00 Intro
 
 - **0:01** Spatial interactome
-- **0:02** where proteins meet inside a human cell
-- **0:05** Here are 249 proteins in the compartments of a model cell, and the 252 interactions between them. First come eight ideas about how location shapes the protein network, then the cell is yours to explore.
+- **0:03** where proteins meet inside a human cell
+- **0:06** Here are 249 proteins in the compartments of a model cell, and the 252 interactions between them. First come eight ideas about how location shapes the protein network, then the cell is yours to explore.
 
-### 0:16 Compartments
+### 0:21 Compartments
 
-- **0:16** A cell has rooms
-- **0:19** Membranes divide a human cell into compartments, each with its own chemistry and its own set of proteins.
-- **0:18** Plasma membrane
-- **0:25** Nucleus
-- **0:28** Nucleolus
-- **0:30** Endoplasmic reticulum
-- **0:32** Golgi apparatus
-- **0:34** Mitochondria
-- **0:36** Lysosomes
-- **0:38** Endosomes and vesicles
-- **0:41** Peroxisomes
-- **0:43** Cytoskeleton
-- **0:47** The cytoplasm fills the space between them.
+- **0:22** A cell has rooms
+- **0:26** Membranes divide a human cell into compartments, each with its own chemistry and its own set of proteins.
+- **0:24** Plasma membrane
+- **0:34** Nucleus
+- **0:36** Nucleolus
+- **0:38** Endoplasmic reticulum
+- **0:41** Golgi apparatus
+- **0:43** Mitochondria
+- **0:45** Lysosomes
+- **0:47** Endosomes and vesicles
+- **0:50** Peroxisomes
+- **0:52** Cytoskeleton
+- **0:56** The cytoplasm fills the space between them.
 
-### 0:50 Addresses
+### 0:59 Addresses
 
-- **0:51** Every protein has an address
-- **0:52** Each dot is a protein, coloured by the compartment it works in. This model holds 249 well-studied human proteins.
-- **0:59** The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the endoplasmic reticulum or into mitochondria.
-- **1:08** The Human Protein Atlas has located more than 12,000 human proteins by staining them in cells.
+- **1:00** Every protein has an address
+- **1:03** Each dot is a protein, coloured by the compartment it works in. This model holds 249 well-studied human proteins.
+- **1:12** The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the endoplasmic reticulum or into mitochondria.
+- **1:23** The Human Protein Atlas has located more than 12,000 human proteins by staining them in cells.
 
-### 1:16 Meeting
+### 1:31 Meeting
 
-- **1:16** Proteins bind where they meet
-- **1:18** Two proteins can only bind if they are in the same place at the same time. These are the 252 interactions in this cell.
-- **1:27** 85%in one compartment
-- **1:30** The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only 15 per cent share a compartment.
-- **1:42** Spatial maps help weed out interactions measured in a test tube between proteins that never meet in a living cell.
+- **1:31** Proteins bind where they meet
+- **1:34** Two proteins can only bind if they are in the same place at the same time. These are the 252 interactions in this cell.
+- **1:43** 85% in one compartment
+- **1:46** The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only 15 per cent share a compartment.
+- **2:02** Spatial maps help weed out interactions measured in a test tube between proteins that never meet in a living cell.
 
-### 1:50 Many places
+### 2:10 Many places
 
-- **1:51** One protein, several places
-- **1:52** About half of human proteins are found in more than one place. Dotted lines join the copies of the 30 proteins here that live or work in two or three.
-- **2:03** Beta-catenin glues cells together at the membrane, is destroyed in the cytoplasm and switches on genes in the nucleus.
-- **2:10** 82%of linked protein pairs
-- **2:12** would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.
+- **2:10** One protein, several places
+- **2:14** About half of human proteins are found in more than one place. Dotted lines join the copies of the 30 proteins here that live or work in two or three.
+- **2:25** Beta-catenin glues cells together at the membrane, is destroyed in the cytoplasm and switches on genes in the nucleus.
+- **2:33** 82% of linked protein pairs
+- **2:34** would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.
 
-### 2:22 Signals
+### 2:45 Signals
 
-- **2:23** Signals cross the cell
-- **2:24** A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.
-- **2:31** 0steps
-- **2:47** The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF. That makes 10 steps, one of them a move.
+- **2:46** Signals cross the cell
+- **2:48** A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.
+- **3:08** The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF. That makes 10 steps, one of them a move.
 
-### 3:00 Moving
+### 3:25 Moving
 
-- **3:01** Moving rewires the network
-- **3:03** In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.
-- **3:09** TNF outside the cell sets off a relay that marks IκBα for destruction.
-- **3:15** Freed, NF-κB moves into the nucleus. It leaves IκB-alpha behind and gains 2 new partners, p300 and CBP, which switch on inflammation genes.
-- **3:24** Same protein, new place, new partners, new job.
+- **3:26** Moving rewires the network
+- **3:29** In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.
+- **3:38** TNF outside the cell sets off a relay that marks IκBα for destruction.
+- **3:44** Freed, NF-κB moves into the nucleus. It leaves IκB-alpha behind and gains 2 new partners, p300 and CBP, which switch on inflammation genes.
+- **3:56** Same protein, new place, new partners, new job.
 
-### 3:31 Proximity
+### 4:04 Proximity
 
-- **3:32** Mapping by proximity
-- **3:33** How are such maps made? Microscopes show where proteins sit. Proximity labelling fuses an enzyme to a bait protein, and it tags every protein within about ten nanometres.
-- **3:44** 8proteins tagged around LAMTOR1
-- **3:47** 4 of them bind LAMTOR1 directly; the others are neighbours on the same lysosome. Hundreds of baits together chart the neighbourhoods of a whole cell.
-- **3:56** In this model the bubble is drawn far larger than ten nanometres.
+- **4:04** Mapping by proximity
+- **4:07** How are such maps made? Microscopes show where proteins sit. Proximity labelling fuses an enzyme to a bait protein, and it tags every protein within about ten nanometres.
+- **4:19** 8 proteins tagged around LAMTOR1
+- **4:22** 4 of them bind LAMTOR1 directly; the others are neighbours on the same lysosome. Hundreds of baits together chart the neighbourhoods of a whole cell.
+- **4:32** In this model the bubble is drawn far larger than ten nanometres.
 
-### 4:04 Wrong place
+### 4:40 Wrong place
 
-- **4:04** Proteins in the wrong place
-- **4:06** Many disease mutations leave a protein able to work, but send it to the wrong place.
-- **4:12** In cystic fibrosis, the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the endoplasmic reticulum catches it, and it never reaches the membrane.
-- **4:22** In nearly all patients with ALS, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses 2 splicing partners and gains 3 new ones there.
+- **4:41** Proteins in the wrong place
+- **4:43** Many disease mutations leave a protein able to work, but send it to the wrong place.
+- **4:49** In cystic fibrosis, the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the endoplasmic reticulum catches it, and it never reaches the membrane.
+- **5:03** In nearly all patients with ALS, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses 2 splicing partners and gains 3 new ones there.
 
-### 4:37 Recap
+### 5:19 Recap
 
-- **4:38** Spatial interactome
-- **4:38** CompartmentsAddressesMeetingMany placesSignalsMovingProximityWrong place
-- **4:40** Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.
-- **4:48** An illustrative, curated set of 249 well-studied human proteins and 252 documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg & Borner 2019.
+- **5:19** Spatial interactome
+- **5:22** Compartments, Addresses, Meeting, Many places, Signals, Moving, Proximity, Wrong place
+- **5:28** Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.
+- **5:30** An illustrative, curated set of 249 well-studied human proteins and 252 documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg & Borner 2019. Narration: a synthetic voice (Kokoro).
 
 ## Collective motion: Flock (`#flock`)
 
-File: `audio/narration-flock.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:24 Seven, 1:02 Wave, 1:39 Around you; it ends at 1:57.
+File: `audio/narration-flock.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 Seven, 0:53 Wave, 1:20 Around you; it ends at 1:36.
 
 ### 0:00 Intro
 
 - **0:01** A flock
 - **0:02** of starlings at dusk
 - **0:04** Before they settle for the night, starlings gather in flocks of hundreds or thousands and sweep across the sky together. These 200 fly all around you.
-- **0:15** In a headset, look around: they never leave. On a screen the view follows them.
+- **0:14** In a headset, look around: they never leave. On a screen the view follows them.
 
-### 0:24 Seven
+### 0:23 Seven
 
-- **0:25** Seven neighbours
+- **0:23** Seven neighbours
 - **0:26** No bird leads. Each one keeps track of about seven of its nearest neighbours, however near or far they are, and matches their heading and speed.
-- **0:37** Draw each bird's link to the seven it follows, and the flock is a network: every bird is a node, and every link is one bird watching another.
-- **0:49** The links change from moment to moment, as birds change places.
-- **0:54** Ballerini et al., PNAS 2008: starlings follow a set number of neighbours, not all birds within a set distance.
+- **0:35** Draw each bird's link to the seven it follows, and the flock is a network: every bird is a node, and every link is one bird watching another.
+- **0:44** The links change from moment to moment, as birds change places.
+- **0:46** Ballerini et al., PNAS 2008: starlings follow a set number of neighbours, not all birds within a set distance.
 
-### 1:02 Wave
+### 0:53 Wave
 
-- **1:03** A wave
-- **1:03** A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.
-- **1:15** The dark bands you see are birds banking together, with their wings edge on or full on to you.
-- **1:23** Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.
-- **1:32** Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation.
+- **0:53** A wave
+- **0:55** A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.
+- **1:06** The dark bands you see are birds banking together, with their wings edge on or full on to you.
+- **1:12** Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.
+- **1:14** Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation. Narration: a synthetic voice (Kokoro).
 
-### 1:39 Around you
+### 1:20 Around you
 
-- **1:39** All around you
-- **1:41** The flock flies on for as long as you stay.
-- **1:45** Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.
+- **1:21** All around you
+- **1:23** The flock flies on for as long as you stay.
+- **1:27** Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.
 
 ## Swarm robotics: Robot gang (`#robots`)
 
-File: `audio/narration-robots.mp3` (not recorded yet). Chapters: 0:00 Robot gang, 0:23 Bump and turn, 0:51 Follow me, 1:14 Follow the one ahead, 1:44 Your gang; it ends at 2:01.
+File: `audio/narration-robots.mp3` (synthetic voice). Chapters: 0:00 Robot gang, 0:19 Bump and turn, 0:45 Follow me, 1:09 Follow the one ahead, 1:33 Your gang; it ends at 1:49.
 
 ### 0:00 Robot gang
 
 - **0:01** Robot gang
 - **0:02** vacuums in your room
 - **0:04** Six robot vacuums share a room with you. In a headset it is your own room: the headset knows your floor and walls from its room setup, and so do they.
-- **0:17** On a screen you stand in a model living room. Click the floor to walk.
+- **0:14** On a screen you stand in a model living room. Click the floor to walk.
 
-### 0:23 Bump and turn
+### 0:19 Bump and turn
 
-- **0:24** Bump and turn
-- **0:25** Early robot vacuums had no map of the room. Much of the time they simply drove until they bumped into something, turned, and drove on.
-- **0:36** Nobody plans a route, yet the floor gets clean: so far the gang has cleaned 0 % of it.
-- **0:43** Bouncing at random reaches every corner in the end, but the last patches take longest.
+- **0:20** Bump and turn
+- **0:22** Early robot vacuums had no map of the room. Much of the time they simply drove until they bumped into something, turned, and drove on.
+- **0:31** Nobody plans a route, yet the floor gets clean.
+- **0:37** Bouncing at random reaches every corner in the end, but the last patches take longest.
 
-### 0:51 Follow me
+### 0:45 Follow me
 
-- **0:52** Follow me
-- **0:52** Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.
-- **1:00** Draw who follows whom and you get a network, with you in the middle and a link to every robot: a star.
+- **0:46** Follow me
+- **0:48** Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.
+- **0:54** Draw who follows whom and you get a network, with you in the middle and a link to every robot: a star.
 
-### 1:14 Follow the one ahead
+### 1:09 Follow the one ahead
 
-- **1:15** Follow the one ahead
-- **1:17** Rewire the network. Each robot follows the one in front of it; only the first follows you.
-- **1:24** Same robots, same rule, a different network: the gang becomes a line.
-- **1:31** Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007).
+- **1:09** Follow the one ahead
+- **1:12** Rewire the network. Each robot follows the one in front of it; only the first follows you.
+- **1:18** Same robots, same rule, a different network: the gang becomes a line.
+- **1:25** Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007). Narration: a synthetic voice (Kokoro).
 
-### 1:44 Your gang
+### 1:33 Your gang
 
-- **1:44** Your gang
-- **1:45** The gang stays for as long as you do.
-- **1:49** Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.
+- **1:33** Your gang
+- **1:35** The gang stays for as long as you do.
+- **1:38** Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.

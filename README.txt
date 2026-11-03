@@ -289,8 +289,8 @@ audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
 audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
-one is recorded; the tour's is a synthetic voice, made by tools/voice/, which
-can narrate the others too, the pass story in English and German); see the note in the audio folder for chapter timings
+one is a human recording; every other story has a synthetic voice, made by tools/voice/: Kokoro's American af_heart,
+and for the pass story's German Piper's Thorsten); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or

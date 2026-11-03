@@ -3603,30 +3603,36 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-mutation.mp3, Kokoro's af_heart): node
+// tools/voice/narrate.mjs mutation writes this table and NARRATION_ENDS from
+// the recording it makes (each stretch lasts the longer of 1.1 times its story
+// time and its line's audio plus a pause); run it again after the text changes
+// (see tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [5.2, 4], [5.8, 4.6], [10.7, 6.5], [18.3, 13], [19, 13.6], [25.1, 15],
-  [31.2, 20.5], [34.6, 23], [35.2, 23.6],             // Letters
-  [43.9, 26], [44.6, 26.6], [45.8, 27.2], [71.6, 50.6], [79.4, 51.5], [80.1, 52.1], [83.2, 52.5],
-  [86.1, 55.1], [101.1, 57], [101.8, 57.6],           // Family tree
-  [110.4, 60], [111.1, 60.6], [112.4, 61.2], [120.4, 66], [134.7, 79], [143.2, 84], [149.6, 88],
-  [150.2, 88.6], [156.4, 91], [157, 91.6],            // Qubits
-  [170.8, 96], [171.5, 96.6], [172.3, 97.2], [173, 97.8], [176.5, 99], [179.9, 102], [184.3, 106],
-  [194.9, 113], [202.6, 118], [211.1, 124], [216.6, 128],  // The rule
-  [229.7, 134], [230.4, 134.6], [231.2, 135.2], [244.2, 147], [254, 154], [261.6, 160.5],
-  [270.5, 168.6], [275, 170], [275.6, 170.6],         // Machine
-  [305.1, 180], [306.4, 181.18], [307.4, 181.2], [337.6, 208.6], [342.4, 209], [346.8, 213],
-  [349.4, 215], [350, 215.6], [351.9, 216], [352.6, 216.6],  // Pairs
-  [371.4, 218], [372.1, 218.6], [373.4, 219.2], [387.4, 232], [393.8, 236], [403.7, 245],
-  [411.3, 249], [412, 249.6], [421.5, 253], [422.2, 253.6], [430, 256],  // Rebuild
-  [446.6, 264], [447.9, 265.18], [448.9, 265.2], [458.7, 270], [459.3, 270.6], [468, 273],
-  [468.7, 273.6], [479, 278], [479.7, 278.6], [495.6, 280], [497.3, 281.6], [510.2, 282], [519, 290],  // What for
+  [0, 0], [1.32, 1.2], [3.92, 2.4], [7.17, 4], [12.03, 6.5], [19.84, 13.6], [27.4, 15],
+  [34.39, 20.5], [40.89, 25.3],                       // Letters
+  [41.66, 26], [42.96, 27.18], [44.79, 27.2], [70.53, 50.6], [76.97, 51.5], [77.63, 52.1],
+  [82.4, 52.5], [86.12, 54.5], [86.78, 55.1], [98.94, 59.3],  // Family tree
+  [99.71, 60], [101, 61.18], [102.97, 61.2], [110.81, 66], [117.57, 72], [121.12, 75], [125.52, 79],
+  [131.68, 84], [136.57, 88], [137.23, 88.6], [148.68, 91], [149.34, 91.6], [163.35, 95.3],  // Qubits
+  [164.12, 96], [165.42, 97.18], [166.85, 97.2], [167.51, 97.8], [171.06, 99], [175.4, 102],
+  [179.8, 106], [190.27, 113], [196.15, 118], [203.41, 124.6], [216.32, 128], [216.98, 128.6],
+  [233.73, 133.3],                                    // The rule
+  [234.5, 134], [235.8, 135.18], [237.31, 135.2], [250.29, 147], [259.03, 154], [267.12, 160.5],
+  [275.37, 168], [279.69, 170], [280.35, 170.6], [309.04, 179.3],  // Machine
+  [309.81, 180], [311.11, 181.18], [313.26, 181.2], [343.4, 208.6], [348.58, 209], [353.64, 213.6],
+  [359.22, 215], [359.88, 215.6], [362.36, 216], [363.02, 216.6], [379.13, 217.3],  // Pairs
+  [379.9, 218], [381.19, 219.18], [383.31, 219.2], [397.39, 232], [403.9, 236], [407.2, 239],
+  [410.61, 242], [413.91, 245], [421.77, 249], [430.27, 253], [430.93, 253.6], [438.11, 256],
+  [438.77, 256.6], [454.98, 263.3],                   // Rebuild
+  [455.75, 264], [457.05, 265.18], [458.71, 265.2], [468.56, 270], [469.22, 270.6], [476.7, 273],
+  [486.58, 278], [505.65, 289.3], [506.42, 290],      // What for
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 40.65, tree: 98.7, qubits: 163.15, rule: 233.5, machine: 308.8, pairs: 378.9, rebuild: 454.75, what: 505.4 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -3894,7 +3900,7 @@ function buildStory() {
       `<p data-at="14">After the poster by ${esc(A1.name)}, of the ${esc(A1.inst)}, and ${esc(A2.name)}, of the ${esc(A2.inst)}.</p>
         <p data-at="16"><button class="btn primary" id="btnGoExplore" type="button">Explore the machine</button></p>
         <p class="credits" data-at="17">On both letters of a pair changing at once see [3], on old virus proteins [4, 5], on tumours [6]. ${F.refs.map((r, i) => `[${i + 1}] ${esc(r)}.`).join(' ')}</p>
-        <p class="credits" data-at="18">The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.</p>`)}`,
+        <p class="credits" data-at="18">The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs. Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

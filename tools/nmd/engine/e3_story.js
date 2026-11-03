@@ -1,23 +1,29 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-nmd.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// nmd writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [4.4, 4],                       // Intro
-  [22, 20], [22.7, 20.6], [23.7, 21.2], [56, 50.6], [57.9, 51], [63.4, 56], [68, 60],  // Motor unit
-  [81.2, 72], [81.8, 72.6], [82.8, 73.2],             // Causes
-  [107.9, 96], [108.6, 96.6], [109.3, 97.2], [116.9, 104], [147.3, 131.6], [156.8, 134],  // Layers
-  [165.6, 142], [166.9, 143.18], [167.8, 143.2],      // Walker
-  [224.7, 195], [225.4, 195.6], [226.4, 196.2], [234, 202],  // Contexts
-  [267, 232],                                         // Endotypes
-  [317.6, 278], [318.3, 278.6], [319, 279.2],         // Heart and muscle
-  [385.9, 340], [386.6, 340.6], [387.3, 341.2], [410.2, 362], [420.8, 368],  // Stress test
-  [428.5, 375], [429.2, 375.6], [430, 376.2], [467.1, 410],  // Next
+  [0, 0], [1.32, 1.2], [6.01, 4], [14.85, 11],        // Intro
+  [24.75, 20], [26.05, 21.18], [27.99, 21.2], [60.33, 50.6], [64.98, 51], [65.64, 51.6], [67.23, 52],
+  [67.89, 52.6], [70.52, 53], [71.18, 53.6], [73.56, 54], [74.22, 54.6], [78.1, 56], [85.1, 60],  // Motor unit
+  [98.3, 72], [99.6, 73.18], [102.18, 73.2], [111.03, 81], [120.04, 87], [123.74, 89], [127.57, 91],  // Causes
+  [133.07, 96], [134.37, 97.18], [137.06, 97.2], [148.69, 104], [158.37, 110], [181.47, 131],
+  [201.5, 141.3],                                     // Layers
+  [202.27, 142], [203.56, 143.18], [205.93, 143.2], [214.48, 150],  // Walker
+  [263.98, 195], [265.28, 196.18], [267.88, 196.2], [276.4, 202],  // Contexts
+  [309.4, 232], [310.7, 233.18], [312.36, 233.2], [339.64, 258], [346.33, 264],  // Endotypes
+  [361.73, 278], [363.03, 279.18], [364.8, 279.2], [372.94, 286.6], [405.42, 300],  // Heart and muscle
+  [449.42, 340], [450.71, 341.18], [452.44, 341.2], [466.52, 354], [477.18, 362], [494.67, 374.3],  // Stress test
+  [495.44, 375], [496.74, 376.18], [498.51, 376.2], [508.37, 384], [536.97, 410],  // Next
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 21.75, motor: 92.4, why: 131.1, tower: 201.25, walk: 260.15, layers: 300.3, endo: 353.1, overlap: 432.55, stress: 494.45, next: 526.6 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -199,7 +205,7 @@ function buildStory() {
       <p data-at="9">The same approach now turns to inborn errors of immunity, with Pauline Staiber.</p>
       <p data-at="14">This work is by Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche, of the Guthrie Lab and the Menche Lab at the Ludwig Boltzmann Institute for Network Medicine in Vienna.</p>
       <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the network</button></p>
-      <p class="credits" data-at="22">ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex.</p>`,
+      <p class="credits" data-at="22">ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex. Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

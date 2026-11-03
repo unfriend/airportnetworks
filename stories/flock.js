@@ -377,11 +377,11 @@ void main() { vec3 d = normalize(vW - cameraPosition);
 
   // where the flock likes to be: a roost point in front of the viewer (towards the sunset) that wanders slowly
   // left and right, in and out, up and down, and every 88 s comes in low and close for about ten seconds, so the
-  // flock flies round the viewer (first at 115 s of flight, none before 70 s: the middle of the story's last chapter
-  // at its pace, NARRATION_SYNC, as the flock warms up for 6 s); two more points near it pull parts of the flock
+  // flock flies round the viewer (first at 95 s of flight, none before 70 s: the middle of the story's last chapter
+  // in its recording, NARRATION_SYNC, as the flock warms up for 6 s); two more points near it pull parts of the flock
   // aside, so it stretches and folds
   const roost = (k, t, out) => {
-    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = t < 70 ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.071 - 0.311)), 10);
+    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = t < 70 ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.071 + 1.109)), 10);
     const r = lerp(16 + 3 * Math.sin(t * 0.061), 2, sw), h = lerp(9 + 3 * Math.sin(t * 0.083 + 2), 5, sw);
     if (!k) SW = sw;
     out[0] = ME.c[0] + Math.cos(th) * r; out[1] = h; out[2] = ME.c[1] + Math.sin(th) * r;
@@ -993,18 +993,22 @@ function tellFlock(xr, spot) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-flock.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// flock writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [4.5, 4], [15.8, 10],           // Intro
-  [24.6, 18], [25.2, 18.6], [26.1, 19.2], [37.9, 25], [49.2, 32], [49.9, 32.6], [54.2, 34],  // Seven
-  [62.4, 40], [63, 40.6], [63.9, 41.2], [75.3, 49], [83.4, 54], [84.1, 54.6], [92.5, 56],  // Wave
-  [99.3, 62], [100.6, 63.18], [101.3, 63.2], [102, 63.8], [105.8, 65], [117.1, 72],  // Around you
+  [0, 0], [4.4, 4], [14.35, 10],                      // Intro
+  [23.15, 18], [24.45, 19.18], [26.16, 19.2], [35.23, 25], [44.38, 32],  // Seven
+  [53.18, 40], [54.47, 41.18], [55.95, 41.2], [66.13, 49], [72.07, 54],  // Wave
+  [80.87, 62], [82.17, 63.18], [83.86, 63.2], [87.01, 65], [95.7, 71.3], [96.47, 72],  // Around you
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 19.15, seven: 48.35, wave: 78.15, around: 95.5 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -1090,7 +1094,7 @@ function buildStory() {
       <p data-at="1.2">A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.</p>
       <p data-at="9">The dark bands you see are birds banking together, with their wings edge on or full on to you.</p>
       <p data-at="14">Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.</p>
-      <p class="credits" data-at="16">Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation.</p>`,
+      <p class="credits" data-at="16">Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation. Narration: a synthetic voice (Kokoro).</p>`,
     around: `<h2 data-at="0.6">All around you</h2>
       <p data-at="1.2">The flock flies on for as long as you stay.</p>
       <p data-at="3">Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.</p>`,

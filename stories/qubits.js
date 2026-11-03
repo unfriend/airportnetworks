@@ -2063,29 +2063,35 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-qubits.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// qubits writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [3.3, 3], [7, 4], [7.7, 4.6], [12.7, 6.5], [22.4, 12], [24.6, 13.5], [34.6, 22.6],
-  [44.5, 26],                                         // Pairs
-  [51, 30], [52.3, 31.18], [53.9, 31.2], [54.6, 31.8], [63.1, 35], [84.7, 54.6], [105.5, 58],  // Walkers
-  [110.3, 62], [111.6, 63.18], [112.7, 63.2], [119.8, 67], [125.9, 72], [135.4, 80.6], [142.6, 83],  // Shrink
-  [152.7, 90], [153.4, 90.6], [154.7, 91.2], [165.2, 98], [194.5, 124.6], [205.2, 126],
-  [205.9, 126.6], [221, 128], [221.7, 128.6],         // Cuts
-  [242.1, 130], [242.7, 130.6], [244, 131.2], [253.3, 137], [264.7, 143], [276.1, 150],
-  [276.7, 150.6], [296.7, 155],                       // Coarse
-  [302.8, 160], [303.5, 160.6], [304.4, 161.2], [305, 161.8], [313.1, 165], [316.7, 168],
-  [326.6, 177], [331.4, 180], [341.3, 189], [349.6, 193], [360.6, 200], [361.2, 200.6], [382.1, 206],  // Bricks
-  [392, 215], [392.6, 215.6], [393.5, 216.2], [398.8, 219], [406.7, 224], [413.7, 230],
-  [414.4, 230.6], [439.2, 238], [444.7, 243], [456.9, 253], [463.1, 256],  // Toolbox
-  [473.2, 262], [474.5, 263.18], [476, 263.2], [476.7, 263.8], [483.5, 266], [490.9, 270],
-  [509.4, 279], [510, 279.6], [519, 282], [519.7, 282.6], [526.5, 285], [528.7, 286], [530.4, 287.6],
-  [544.2, 290],                                       // Circuit
+  [0, 0], [1.32, 1.2], [3.69, 2.4], [4.35, 3], [7.54, 4], [12.45, 6.5], [20.64, 12], [21.3, 12.6],
+  [24.79, 13.5], [28.15, 16], [35.41, 22.6], [57.93, 29.3],  // Pairs
+  [58.7, 30], [60, 31.18], [61.94, 31.2], [68.86, 35], [90.42, 54.6], [109.79, 61.3],  // Walkers
+  [110.56, 62], [111.86, 63.18], [113.65, 63.2], [120.02, 67], [125.66, 72], [135.12, 80],
+  [135.78, 80.6], [142.88, 83], [155.91, 89.3],       // Shrink
+  [156.68, 90], [157.98, 91.18], [159.6, 91.2], [171.92, 98], [193.92, 118], [200.54, 124],
+  [201.2, 124.6], [208.49, 126], [209.15, 126.6], [225.7, 129.3],  // Cuts
+  [226.47, 130], [227.77, 131.18], [229.67, 131.2], [237.53, 137], [246.73, 143], [259.74, 150],
+  [260.4, 150.6], [282.02, 159.3],                    // Coarse
+  [282.79, 160], [284.09, 161.18], [285.82, 161.2], [292.96, 165], [296.51, 168], [307.07, 177.6],
+  [313.93, 180], [317.23, 183], [324.94, 189], [330.99, 193], [341.3, 200], [341.96, 200.6],
+  [374.57, 214.3],                                    // Bricks
+  [375.34, 215], [376.64, 216.18], [378.28, 216.2], [382.92, 219], [389.53, 224], [398.95, 230],
+  [399.61, 230.6], [430.74, 238], [436.9, 243.6], [458.86, 253], [459.52, 253.6], [474.62, 256],
+  [475.28, 256.6], [487.26, 261.3],                   // Toolbox
+  [488.03, 262], [489.33, 263.18], [491.57, 263.2], [497.47, 266], [503.52, 270], [514.08, 279.6],
+  [521.88, 282], [522.54, 282.6], [528.86, 285], [534.36, 290],  // Circuit
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 57.7, walkers: 109.55, shrink: 155.7, cut: 225.5, coarse: 281.8, bricks: 374.35, toolbox: 487.05, circuit: 531.45 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -2327,7 +2333,7 @@ function buildStory() {
         <p data-at="20" class="amber">Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.</p>
         <p data-at="23">Method and figures: Joel Hancock.</p>
         <p data-at="24"><button class="btn primary" id="btnGoExplore" type="button">Explore the cube</button></p>
-        <p class="credits" data-at="25">The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on ${esc(F.source)}. The cuts here stand in for their beam search, and the valleys are illustrative. The circuit's angles in the real network: ${esc(gatesText(RL.gates))}; θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.</p>`)}`,
+        <p class="credits" data-at="25">The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on ${esc(F.source)}. The cuts here stand in for their beam search, and the valleys are illustrative. The circuit's angles in the real network: ${esc(gatesText(RL.gates))}; θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1. Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

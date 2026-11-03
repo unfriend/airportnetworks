@@ -8,27 +8,33 @@ const HOP_DIST = [0.01167, 0.03062, 0.06013, 0.10326, 0.14765, 0.16134, 0.15141,
 
 const D2R = Math.PI / 180;
 const LIFT = 0.0015;
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-proteins.mp3, Kokoro's af_heart): node
+// tools/voice/narrate.mjs proteins writes this table and NARRATION_ENDS from
+// the recording it makes (each stretch lasts the longer of 1.1 times its story
+// time and its line's audio plus a pause); run it again after the text changes
+// (see tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [5.3, 3.6],                     // Intro
-  [15, 12], [15.7, 12.6], [16.7, 13.2], [28.8, 20],   // Proteins
-  [37.6, 28], [38.2, 28.6], [39.2, 29.2], [54.4, 43],  // Interactions
-  [61.2, 48], [63.2, 49.8], [69.1, 51],               // Hubs
-  [90, 70], [95.5, 75], [102.3, 81],                  // Essential
-  [112.2, 90], [113.5, 91.2], [121.4, 94.8], [121.6, 95.02], [122.7, 95.04], [122.9, 95.26],
-  [123.7, 95.28], [123.9, 95.5], [124.6, 95.52], [124.9, 95.74], [125.3, 95.76], [125.5, 95.98],
-  [126, 96], [126.3, 96.24], [126.5, 96.46], [127.3, 96.48], [127.5, 96.7], [127.9, 96.72],
-  [128.2, 96.94], [128.9, 96.96],                     // Modules
-  [147.6, 114], [149, 115.2], [155.8, 119],           // Disease modules
-  [178.9, 140], [179.6, 140.6], [180.5, 141.2], [181.2, 141.8], [186.7, 144], [192.9, 149],  // Drug targets
-  [213.8, 168], [215.8, 169.8], [222, 171.2], [248.9, 195.6],  // Robustness
-  [256, 198], [259.6, 201.2], [265.7, 201.4], [266.6, 202.2], [278.1, 212],  // Recap
+  [0, 0], [1.32, 1.2], [6.1, 3.6], [20.73, 11.3],     // Intro
+  [21.5, 12], [22.8, 13.18], [24.67, 13.2], [25.33, 13.8], [41.6, 20],  // Proteins
+  [50.4, 28], [51.7, 29.18], [53.9, 29.2], [64.68, 38], [70.92, 43], [80.41, 47.3],  // Interactions
+  [81.18, 48], [82.48, 49.18], [83.87, 49.2], [94.27, 56],  // Hubs
+  [109.67, 70], [110.96, 71.18], [112.91, 71.2], [118.55, 75], [131.25, 81], [144.73, 89.3],  // Essential
+  [145.5, 90], [146.8, 91.18], [148.36, 91.2], [149.02, 91.8], [160.74, 94.8], [160.98, 95.02],
+  [163.65, 95.04], [164.16, 95.5], [167.87, 95.52], [168.11, 95.74], [170.09, 95.76],
+  [170.34, 95.98], [172.64, 96], [172.89, 96.22], [174.36, 96.24], [174.6, 96.46], [176.91, 96.48],
+  [177.15, 96.7], [179.87, 96.72], [180.11, 96.94], [182.07, 96.96],  // Modules
+  [200.82, 114], [202.12, 115.18], [203.99, 115.2], [211.85, 119],  // Disease modules
+  [234.95, 140], [236.25, 141.18], [238.15, 141.2], [238.81, 141.8], [246.21, 144], [262.71, 159],
+  [274.18, 167.3],                                    // Drug targets
+  [274.95, 168], [276.25, 169.18], [277.87, 169.2], [278.53, 169.8], [286.13, 171.2], [289.75, 174],
+  [302.95, 186], [313.05, 195], [313.71, 195.6], [324.61, 197.3],  // Robustness
+  [325.38, 198], [326.7, 199.2], [328.51, 199.4], [329.17, 200], [335.63, 200.6], [348.17, 212],  // Recap
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 20.5, nodes: 46.7, edges: 80.2, degree: 106.75, essential: 144.5, communities: 184.05, disease: 231.5, paths: 273.95, robustness: 324.4, outro: 344.35 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -818,8 +824,8 @@ function buildStory() {
       <p class="note" data-at="15">Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.</p>`,
     degree: `<h2 data-at="0.6">Hubs</h2>
       <p data-at="1.2">Most proteins bind only a few partners, while a few hubs bind many. p53 has ${deg[tp53]} partners in this map, and beta-catenin has ${deg[ctnnb1]}.</p>
-      <p class="caption" data-at="3">Proteins by number of partners</p>
-      <div class="bars" data-at="3">${degBars}</div>
+      <p class="caption" data-at="3" data-say="">Proteins by number of partners</p>
+      <div class="bars" data-at="3" data-say="">${degBars}</div>
       <p data-at="8">${fmt(small)} proteins have one or two partners, while the 10 biggest hubs take part in ${pct(touch / E)} per cent of all interactions. The height of each spike shows how many partners a protein has.</p>`,
     essential: `<h2 data-at="0.6">Essential proteins</h2>
       <p data-at="1.2">Some proteins are essential: without them, almost no human cell can survive.</p>
@@ -850,7 +856,7 @@ function buildStory() {
       <ul class="concepts" data-at="1.4">${CH.slice(1, 9).map(c => `<li>${c.name}</li>`).join('')}</ul>
       <p data-at="2.6">Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.</p>
       <p data-at="3.4"><button class="btn primary" id="btnGoExplore" type="button">Explore the network</button></p>
-      <p class="credits" data-at="4.2">An illustrative, curated subnetwork of ${fmt(N)} proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce &amp; Loscalzo 2011; Menche et al. 2015; Guney et al. 2016.</p>`,
+      <p class="credits" data-at="4.2">An illustrative, curated subnetwork of ${fmt(N)} proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce &amp; Loscalzo 2011; Menche et al. 2015; Guney et al. 2016. Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

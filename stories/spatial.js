@@ -1690,24 +1690,31 @@ function resize() {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-spatial.mp3, Kokoro's af_heart): node
+// tools/voice/narrate.mjs spatial writes this table and NARRATION_ENDS from the
+// recording it makes (each stretch lasts the longer of 1.1 times its story time
+// and its line's audio plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [5.3, 3.6],                     // Intro
-  [16.1, 12], [17.1, 12.88], [18.3, 12.9], [18.6, 13.18], [19, 13.2], [19.4, 13.58], [25.8, 13.6],  // Compartments
-  [50.4, 36], [51.7, 37.18], [52.9, 37.2], [59.7, 43], [68.6, 49],  // Addresses
-  [76.3, 56], [77.6, 57.18], [78.9, 57.2], [87.5, 63], [90.8, 66], [102.8, 73],  // Meeting
-  [110.5, 80], [111.8, 81.18], [112.6, 81.2], [123.5, 87], [130.6, 93],  // Many places
-  [142.7, 104], [144, 105.18], [144.8, 105.2], [151.6, 109], [167, 123],  // Signals
-  [180.8, 132], [182.1, 133.18], [183, 133.2], [195.9, 145], [204.2, 151],  // Moving
-  [211.9, 158], [212.5, 158.6], [213.7, 159.2], [224.1, 165], [227.4, 168], [236.4, 173],  // Proximity
-  [244.1, 180], [245.4, 181.18], [246.7, 181.2], [252.6, 184], [262, 192],  // Wrong place
-  [277.4, 206], [280.9, 209.2], [287.4, 209.4], [288.9, 210.8], [309.9, 220],  // Recap
+  [0, 0], [1.32, 1.2], [6.31, 3.6], [20.98, 11.3],    // Intro
+  [21.75, 12], [22.72, 12.88], [24.89, 12.9], [25.19, 13.18], [26.86, 13.2], [27.28, 13.58],
+  [34.23, 13.6], [38.63, 17.6], [41.09, 19.6], [47.69, 25.6], [50.14, 27.6], [56.08, 33],
+  [59.19, 35.3],                                      // Compartments
+  [59.96, 36], [61.26, 37.18], [63.58, 37.2], [72.53, 43], [83.44, 49],  // Addresses
+  [91.14, 56], [92.44, 57.18], [94.68, 57.2], [103.61, 63], [106.91, 66], [122.19, 73],
+  [129.4, 79.3],                                      // Meeting
+  [130.17, 80], [131.47, 81.18], [134.14, 81.2], [145.05, 87], [153.34, 93],  // Many places
+  [165.44, 104], [166.73, 105.18], [168.78, 105.2], [188.36, 123], [204.83, 131.3],  // Signals
+  [205.6, 132], [206.9, 133.18], [209.22, 133.2], [218.09, 139], [224.69, 145], [236.62, 151],  // Moving
+  [244.32, 158], [245.62, 159.18], [247.73, 159.2], [259.58, 165], [262.88, 168], [272.75, 173],  // Proximity
+  [280.45, 180], [281.75, 181.18], [283.9, 181.2], [289.69, 184], [303.64, 192],  // Wrong place
+  [319.04, 206], [320.36, 207.2], [322.43, 207.4], [323.09, 208], [328.58, 208.6], [341.12, 220],  // Recap
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 20.75, rooms: 58.95, address: 90.05, local: 129.15, multi: 163.75, signal: 204.6, move: 239.95, prox: 277.1, disease: 316.1, outro: 336.85 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -1892,7 +1899,7 @@ function buildStory() {
       <ul class="concepts" data-at="1.4">${CH.slice(1, 9).map(c => `<li>${c.name}</li>`).join('')}</ul>
       <p data-at="2.6">Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.</p>
       <p data-at="3.4"><button class="btn primary" id="btnGoExplore" type="button">Explore the cell</button></p>
-      <p class="credits" data-at="4.2">An illustrative, curated set of ${fmt(P)} well-studied human proteins and ${fmt(E)} documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg &amp; Borner 2019.</p>`,
+      <p class="credits" data-at="4.2">An illustrative, curated set of ${fmt(P)} well-studied human proteins and ${fmt(E)} documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg &amp; Borner 2019. Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

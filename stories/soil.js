@@ -4059,22 +4059,33 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-soil.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// soil writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [37, 33.6], [41.7, 35],                     // Half the sack
-  [52.7, 45],                                         // The relay
-  [113.2, 100], [113.9, 100.6], [114.9, 101.2],       // A wheat fights back
-  [168.5, 150],                                       // The field trial
-  [234.5, 210],                                       // Greener, fewer leaks
-  [317, 285],                                         // A crowd of 100,000
-  [377.5, 340],                                       // Who rises together
-  [460, 415], [488.2, 440.6], [496.9, 443], [498.7, 444.6], [506, 445], [522.5, 460],  // What we know
+  [0, 0], [1.98, 1.8], [4.18, 2.4], [7.62, 5],        // Half the sack
+  [51.62, 45], [52.92, 46.18], [54.91, 46.2], [99.79, 87], [106, 91], [106.66, 91.6], [125.71, 99.3],  // The relay
+  [126.48, 100], [127.78, 101.18], [129.87, 101.2], [139.72, 109], [168.32, 135], [173.55, 139],
+  [174.21, 139.6], [200.49, 149.3],                   // A wheat fights back
+  [201.26, 150], [202.56, 151.18], [204.33, 151.2], [247.01, 190], [249.43, 191.5], [251.41, 193],
+  [255.37, 196.6], [289.7, 209.3],                    // The field trial
+  [290.47, 210], [291.77, 211.18], [293.78, 211.2], [303.02, 219.6], [305.91, 220.5], [308.54, 222],
+  [329, 240.6], [332.98, 241.5], [335.79, 243], [350.58, 252], [362.24, 262.6], [366.14, 263.5],
+  [369.99, 267], [405.22, 284.3],                     // Greener, fewer leaks
+  [405.99, 285], [407.29, 286.18], [409.85, 286.2], [419.5, 294], [443.7, 316], [451.78, 323],
+  [452.44, 323.6], [456.1, 324.5], [458.58, 326], [462.54, 329.6], [493.51, 339.3],  // A crowd of 100,000
+  [494.28, 340], [495.58, 341.18], [497.54, 341.2], [507.88, 350.6], [510.56, 351.5], [568.31, 404],
+  [571.63, 407], [572.29, 407.6], [604.47, 414.3],    // Who rises together
+  [605.24, 415], [606.54, 416.18], [608.05, 416.2], [619.61, 425], [636.11, 440], [662.92, 459.3],
+  [663.69, 460],                                      // What we know
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 50.15, relay: 125.5, bni: 200.25, trial: 289.5, leaks: 405, crowd: 493.3, together: 604.25, know: 662.7 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -4315,7 +4326,7 @@ function buildStory() {
       `<p class="note" data-at="25">Marking atoms means isotope studies with nitrogen-15; reading which genes are switched on is called metatranscriptomics. One question is still open. The jars show far less nitrous oxide from the BNI wheat's soil, while the data's own nitrous oxide value shows no clear difference over the season, ${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, with ${pTxt(F.n2oMeta[2])}. How the two measurements relate is not known yet.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the trial</button></p>
         <p class="credits" data-at="29">After the slides by ${AUTH} (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.</p>
-        <p class="credits" data-at="30">The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.</p>`)}`,
+        <p class="credits" data-at="30">The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative. Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

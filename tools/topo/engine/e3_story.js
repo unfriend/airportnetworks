@@ -1,27 +1,33 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-topo.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// topo writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [2.8, 2.4], [5.1, 4], [13.5, 9], [22.3, 17], [29.2, 21], [38.5, 29.5],
-  [41.2, 31], [41.9, 31.6],                           // Where cells sit
-  [56.4, 34], [57.1, 34.6], [57.9, 35.2], [62.1, 38], [82.5, 56.6], [88.7, 59], [91.4, 61],
-  [92, 61.6],                                         // Which scale?
-  [100.5, 62], [101.2, 62.6], [101.9, 63.2], [106.5, 67], [109.8, 70], [119, 76], [150.9, 105],
-  [154.3, 108], [155, 108.6],                         // Balls grow
-  [171.1, 112], [172.4, 113.18], [173.2, 113.2], [203.4, 140.6], [210.7, 143], [220.6, 152],  // The tower
-  [235.1, 160], [236.4, 161.2], [242.9, 166], [249.8, 171], [261.4, 181.6], [266.1, 183],
-  [268.4, 184.5], [275.5, 191], [284.7, 198],         // 123 slides
-  [293.8, 206], [294.5, 206.6], [295.6, 207.2], [302, 213], [310, 217], [325, 230.6], [329.3, 231],
-  [334.8, 236], [341.3, 240], [345.7, 244],           // Which scales
-  [354.8, 252], [356.1, 253.18], [357, 253.2], [386, 279.6], [389.2, 280], [402.4, 292],  // Every cell
-  [414.2, 302], [414.8, 302.6], [416, 303.2], [423.5, 310], [431.5, 314], [443.7, 320], [451.4, 327],
-  [456.3, 330], [458.1, 331.6], [475, 332], [487.2, 340],  // What next
+  [0, 0], [1.32, 1.2], [3.81, 2.4], [6.45, 4], [13.39, 9], [22.19, 17], [30.97, 21],  // Where cells sit
+  [45.27, 34], [46.57, 35.18], [48.15, 35.2], [52.21, 38], [72.01, 56], [77.98, 59], [80.78, 61],
+  [91.21, 61.3],                                      // Which scale?
+  [91.98, 62], [93.28, 63.18], [94.92, 63.2], [99.73, 67], [103.03, 70], [112.11, 76], [144.01, 105],
+  [149.76, 108], [150.42, 108.6], [170.6, 111.3],     // Balls grow
+  [171.37, 112], [172.66, 113.18], [174.56, 113.2], [204.04, 140], [210.56, 143], [213.54, 145],
+  [221.9, 152.6], [239.02, 159.3],                    // The tower
+  [239.79, 160], [241.09, 161.18], [243.46, 161.2], [251.73, 166], [258.24, 171], [269.9, 181.6],
+  [274.76, 183], [275.42, 183.6], [279.44, 184.5], [286.59, 191], [294.88, 198], [310.49, 205.3],  // 123 slides
+  [311.26, 206], [312.56, 207.18], [314.46, 207.2], [320.84, 213], [328.06, 217], [343.02, 230.6],
+  [346.87, 231], [347.53, 231.6], [351.68, 232.5], [352.34, 233.1], [356.07, 234], [359.94, 236],
+  [360.6, 236.6], [372.22, 240], [378.8, 244], [379.46, 244.6], [397.29, 251.3],  // Which scales
+  [398.06, 252], [399.36, 253.18], [401.32, 253.2], [411.83, 262], [431.19, 279.6], [433.95, 280],
+  [447.15, 292], [464.55, 301.3],                     // Every cell
+  [465.32, 302], [466.62, 303.18], [468.71, 303.2], [478.28, 310], [478.94, 310.6], [491.99, 314],
+  [492.65, 314.6], [508.08, 320], [530.08, 340],      // What next
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 43.05, scale: 91, balls: 170.35, tower: 238.8, cohort: 310.25, scales: 397.05, cells: 464.35, next: 520.2 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -277,7 +283,7 @@ function buildStory() {
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
         <p class="credits" data-at="29">After the poster by ${AUTH} (${INSTS}).</p>
-        <p class="credits" data-at="30">${esc(CELLS_CREDIT)} The genes and proteins are sketches of the workflow, not data. ${SITE}</p>`)}`,
+        <p class="credits" data-at="30">${esc(CELLS_CREDIT)} The genes and proteins are sketches of the workflow, not data. ${SITE} Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

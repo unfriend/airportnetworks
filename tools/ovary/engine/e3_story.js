@@ -1,22 +1,30 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-ovary.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// ovary writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [4.6, 4], [10.1, 8.5], [22.7, 20], [34.1, 28], [46.3, 36],  // Reserve
-  [56.5, 45], [58.5, 46.8], [64.5, 49], [70.5, 54.5], [82.3, 63],  // Donors
-  [101, 80], [102.3, 81.18], [103.2, 81.2], [111.5, 86], [143.4, 115], [150.4, 120],  // Section
-  [161, 125], [161.7, 125.6], [163.6, 127], [216, 174.6], [231.4, 178],  // Methods
-  [241.2, 185], [241.9, 185.6], [243.1, 186.2], [243.7, 186.8], [258.8, 192], [267.4, 197],
-  [278.4, 207], [285.1, 211], [292.9, 216], [293.6, 216.6], [301.6, 219.5], [302.2, 220.1],
-  [312.2, 222.5], [312.8, 223.1],                     // Age
-  [332.9, 225], [333.6, 225.6], [334.8, 226.2], [343, 230], [371.2, 255.6], [381.5, 259.5],
-  [389, 263.5], [389.6, 264.1], [413.3, 266.5], [415.6, 268.6], [424.8, 270],  // Next
+  [0, 0], [1.32, 1.2], [3.79, 2.4], [4.45, 3], [7.77, 4], [12.88, 8.5], [17.83, 13], [30.13, 20],
+  [41.81, 28], [53.68, 36], [64.66, 44.3],            // Reserve
+  [65.43, 45], [66.73, 46.18], [69.16, 46.2], [69.82, 46.8], [77.03, 49], [79.6, 50.5], [84, 54.5],
+  [99.9, 63],                                         // Donors
+  [118.6, 80], [119.9, 81.18], [121.67, 81.2], [122.33, 81.8], [132.6, 86], [145.8, 98],
+  [152.43, 104], [164.53, 115], [172.67, 120], [173.33, 120.6], [188.98, 124.3],  // Section
+  [189.75, 125], [190.41, 125.6], [193.06, 127], [245.42, 174.6], [262.34, 178], [263, 178.6],
+  [289.82, 184.3],                                    // Methods
+  [290.59, 185], [291.89, 186.18], [293.61, 186.2], [294.27, 186.8], [311.8, 192], [312.46, 192.6],
+  [327.47, 197], [336.27, 202], [346.8, 207], [347.46, 207.6], [362.06, 211], [371.01, 216],
+  [371.67, 216.6], [389.41, 219.5], [390.07, 220.1], [403.06, 224.3],  // Age
+  [403.83, 225], [405.13, 226.18], [406.98, 226.2], [407.64, 226.8], [415.49, 230], [443.65, 255.6],
+  [456.71, 259.5], [468.26, 270],                     // Next
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 64.45, donors: 108.45, section: 188.75, methods: 289.6, trends: 402.85, network: 463.5 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -254,7 +262,7 @@ function buildStory() {
         <p class="amber" data-at="34.5">Network medicine comes in here: as in the story Tissue and time, a tissue becomes a network of neighbors.</p>
         <p class="credits" data-at="38.5">${esc(creditText())}</p>
         <p data-at="41.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
-        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures).</p>`)}`,
+        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures). Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

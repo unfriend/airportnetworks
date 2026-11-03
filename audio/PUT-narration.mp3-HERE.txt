@@ -8,10 +8,83 @@ If you re-record with different timings, change NARRATION_SYNC near the top of
 stories/airports.js (pairs of [time in recording, original story cue]).
 Without the file the story plays silently on the same timing.
 
-The stories below have no recording yet, except the tour (synthetic, see
-below). Their times are the pace NARRATION_SYNC gives them now, set from the
-words on their panels by node tools/pace.mjs (so that each line can be read);
-a recording replaces it with its own times (see Recording a narration, step 3).
+Every other story has a synthetic narration since v108 (3 November 2026), made
+with node tools/voice/narrate.mjs <key> (Kokoro-82M, the American voice
+af_heart, chosen by the owner on 29 October 2026; the pass story's German with
+Piper's Thorsten voice): the script speaks the panel's words, lays the story
+out on the recording and writes NARRATION_SYNC and NARRATION_ENDS from it.
+After a story's text changes, run it again (see tools/voice/README.md) rather
+than tools/pace.mjs. A human recording can replace a file: then change both
+tables to it (see Recording a narration, step 3).
+
+The tour of the Ludwig Boltzmann Institute (#lbi) has narration-lbi.mp3 (the
+first synthetic one, October 2026). Its chapters start at 0:00, 0:45, 1:22,
+1:52, 2:39, 3:41, 4:56, 5:34, 6:31, 7:13, 7:53, 8:45, 9:19 and 9:54, ending at
+10:43; the tables are in tools/lbi/engine/e3_story.js.
+
+The muscle story (#nmd) has narration-nmd.mp3. Its chapters start at 0:00,
+0:24, 1:38, 2:13, 3:22, 4:23, 5:09, 6:01, 7:29 and 8:15, ending at 8:56; its
+tables are in tools/nmd/engine/e3_story.js (then rebuild).
+
+The endotype story (#endo) has narration-endo.mp3. Its chapters start at 0:00,
+0:27, 1:08, 1:55, 2:56, 3:50, 4:41, 5:28 and 7:04, ending at 7:42; its tables
+are in tools/endo/engine/e3_story.js (then rebuild).
+
+The PET story (#pet) has narration-pet.mp3. Its chapters start at 0:00, 0:31,
+1:39, 2:26, 3:09 and 4:02, ending at 6:03; its tables are in
+tools/pet/engine/e3_story.js (then rebuild).
+
+The microanatomy story (#micro) has narration-micro.mp3. Its chapters start at
+0:00, 0:35, 1:34, 2:23, 3:32, 4:28, 5:50, 6:38 and 7:19, ending at 8:06; its
+tables are in tools/micro/engine/e3_story.js (then rebuild).
+
+The aging ovary story (#ovary) has narration-ovary.mp3. Its chapters start at
+0:00, 1:05, 1:58, 3:09, 4:50 and 6:43, ending at 7:48; its tables are in
+tools/ovary/engine/e3_story.js (then rebuild). Its words use American spelling
+(as the qubits story's do).
+
+The qubits story (#qubits) has narration-qubits.mp3. Its chapters start at
+0:00, 0:58, 1:50, 2:36, 3:46, 4:42, 6:15 and 8:08, ending at 8:54; its tables
+are in tools/qubits/engine/e3_story.js (then rebuild).
+
+The mutation machine (#mutation) has narration-mutation.mp3. Its chapters
+start at 0:00, 0:41, 1:39, 2:44, 3:54, 5:09, 6:19 and 7:35, ending at 8:26;
+its tables are in tools/mutation/engine/e3_story.js (then rebuild).
+
+The shape of tissue (#topo) has narration-topo.mp3. Its chapters start at
+0:00, 0:45, 1:31, 2:51, 3:59, 5:11, 6:38 and 7:45, ending at 8:50; its tables
+are in tools/topo/engine/e3_story.js (then rebuild).
+
+The soil story, Holding on to nitrogen (#soil), has narration-soil.mp3. Its
+chapters start at 0:00, 0:51, 2:06, 3:21, 4:50, 6:45, 8:14 and 10:05, ending
+at 11:03; its tables are in tools/soil/engine/e3_story.js (then rebuild).
+
+The network-medicine story (#proteins) has narration-proteins.mp3. Its
+chapters start at 0:00, 0:21, 0:50, 1:21, 1:49, 2:25, 3:20, 3:54, 4:34 and
+5:25, ending at 5:48; its tables are in stories/proteins.js.
+
+The cell map story (#spatial) has narration-spatial.mp3. Its chapters start at
+0:00, 0:21, 0:59, 1:31, 2:10, 2:45, 3:25, 4:04, 4:40 and 5:19, ending at 5:41;
+its tables are in stories/spatial.js.
+
+The flock (#flock) has narration-flock.mp3. Its chapters start at 0:00, 0:23,
+0:53 and 1:20, ending at 1:36 (after that the flock flies on in explore mode);
+its tables are in tools/flock/engine/e3_story.js (then rebuild).
+
+The robot gang (#robots) has narration-robots.mp3. Its chapters start at 0:00,
+0:19, 0:45, 1:09 and 1:33, ending at 1:49 (after that the gang stays in
+explore mode); its tables are in tools/robots/engine/e3_story.js (then
+rebuild).
+
+The pass story (#pass) has narration-pass.mp3 (English, Kokoro's af_heart) and
+narration-pass-de.mp3 (German, Piper's Thorsten): one recording per language
+on one timeline, so either plays on the same clock (docs/narration.md lists
+both texts); every line lasts as long as the longer of its two languages
+needs. Its chapters start at 0:00, 0:45, 1:53, 2:44, 4:20 and 5:54, ending at
+6:46; the tables are in tools/pass/engine/e3_story.js. A recording in one
+language needs one in the other on the same timeline.
+
+Recording a narration, step 3).
 
 The network-medicine story (#proteins) looks for narration-proteins.mp3. Its
 chapters start at 0:00, 0:15, 0:37, 1:01, 1:30, 1:52, 2:27, 2:58, 3:33 and
@@ -98,9 +171,9 @@ explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
 rebuild) if your recording differs.
 
 Recording a narration
-So far the airports story has one (narration.mp3, recorded) and the tour has a
-synthetic one (narration-lbi.mp3). A synthetic voice for another story: see
-tools/voice/README.md (node tools/voice/narrate.mjs <key> does steps 1 to 3).
+The airports story has a human recording (narration.mp3); every other story a
+synthetic one. A synthetic voice for a new story: see tools/voice/README.md
+(node tools/voice/narrate.mjs <key> does steps 1 to 3).
 1. Record from docs/narration.md: the words on each story's panel, chapter by
    chapter, with the time each line appears. It is made by
    node tools/narration.mjs http://127.0.0.1:8123/ (serve the folder first);

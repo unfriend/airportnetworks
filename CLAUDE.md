@@ -52,8 +52,9 @@
   story's cues, run `node tools/sfx-cues.mjs <url> <key>` and render its track
   (`node tools/sfx-render.mjs <url> <out> --story <key>`); nobody here can hear
   them, so report how they sound as unheard.
-- Synthetic narrations come from `tools/voice/` (Kokoro-82M; the tour's, voice
-  `af_heart`, the owner's choice; model and Python outside the repository, see
+- Synthetic narrations come from `tools/voice/` (Kokoro-82M; every story's but
+  the airports', voice `af_heart`, the owner's choice; the pass story's German
+  with Piper's Thorsten voice; models and Python outside the repository, see
   its README). After a narrated story's text changes, run
   `node tools/voice/narrate.mjs <key>` (it re-times the story from the audio;
   not `tools/pace.mjs`), then `node tools/voice/check.mjs <key>`; check new

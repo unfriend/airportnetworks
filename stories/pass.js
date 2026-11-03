@@ -4792,8 +4792,8 @@ const STR = {
   'med.4': ['Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.',
     'Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.'],
   'med.go': ['Explore it yourself', 'Selbst ausprobieren'],
-  'med.credit': ['An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts.',
-    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.'],
+  'med.credit': ['An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts. Narration: synthetic voices (Kokoro; in German, Piper’s Thorsten voice).',
+    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen. Erzählt von synthetischen Stimmen (Kokoro; auf Deutsch Piper mit der Stimme Thorsten).'],
 
   // ------------------------------------------------------------------ explore mode
   'lang': ['Language', 'Sprache'],
@@ -4879,24 +4879,30 @@ const STR = {
   'tip.city': ['{0} · {1} routes', '{0} · {1} Flugrouten'],
 };
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
-// (This story is in two languages: pace.mjs gives each line the reading time of the longer of the two, LANGS.)
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-pass.mp3, Kokoro's af_heart, and in German Piper's Thorsten
+// in audio/narration-pass-de.mp3): node tools/voice/narrate.mjs pass writes
+// this table and NARRATION_ENDS from the recording it makes (each stretch lasts
+// the longer of 1.1 times its story time and its line's audio plus a pause; in
+// two languages, the longer of the two); run it again after the text changes
+// (see tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [29.7, 27], [36.1, 32],                     // The school
-  [44.9, 40], [45.6, 40.6], [46.7, 41.2], [47.4, 41.8], [58, 46], [65.2, 52], [79.5, 65], [88.9, 73],  // Who watches whom
-  [113.1, 95], [113.7, 95.6], [114.9, 96.2],          // Other links
-  [163, 140], [164.3, 141.18], [166, 141.2], [173.4, 148], [178.3, 151], [186, 158], [196.6, 164],
-  [229.6, 194], [236.4, 199], [237, 199.6], [252.2, 204],  // The sky
-  [258.8, 210], [260.1, 211.18], [261, 211.2], [267.4, 216], [275.3, 220], [283.6, 225],
-  [292.6, 230], [293.3, 230.6], [299.4, 233], [320.3, 252], [328.2, 258], [333.1, 262],  // The cell
-  [346.3, 270], [347, 270.6], [347.7, 271.2], [353.7, 274], [356, 276], [359, 278], [363.4, 282],
-  [371.3, 288], [377.4, 291], [378, 291.6], [385.7, 293], [388.5, 295.6], [413.8, 305],  // Medicine
+  [0, 0], [1.32, 1.2], [3.56, 2.4], [7.13, 5],        // The school
+  [45.63, 40], [46.92, 41.18], [48.74, 41.2], [57.15, 46], [100.05, 85], [112.63, 94.3],  // Who watches whom
+  [113.4, 95], [114.7, 96.18], [116.46, 96.2],        // Other links
+  [164.64, 140], [165.93, 141.18], [167.94, 141.2], [175.42, 148], [181.08, 151], [184.31, 152.5],
+  [190.36, 158], [199.1, 164], [203.65, 168], [221.91, 184.6], [226.02, 186], [234.82, 194],
+  [241.23, 199], [259.64, 209.3],                     // The sky
+  [260.41, 210], [261.7, 211.18], [263.48, 211.2], [268.97, 216], [276.92, 220], [285.3, 225],
+  [294.06, 230], [300.45, 233], [308.35, 239], [322.65, 252], [330.88, 258], [336.15, 262],
+  [336.81, 262.6], [353.5, 269.3],                    // The cell
+  [354.27, 270], [355.56, 271.18], [357.4, 271.2], [358.06, 271.8], [363.86, 274], [367.74, 276],
+  [372.06, 278], [376.91, 282], [385.05, 288], [390.97, 291], [406.37, 305],  // Medicine
 ];
+// where each chapter's words end in the recordings (seconds by chapter key; the later of its languages): the slideshow lets the voice finish there
+const NARRATION_ENDS = { fish: 36.8, watch: 112.4, links: 156.75, sky: 259.4, cell: 353.25, med: 397.6 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;

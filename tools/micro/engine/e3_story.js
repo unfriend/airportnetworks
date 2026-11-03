@@ -1,25 +1,34 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-micro.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// micro writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [5.9, 4], [6.5, 4.6], [12.8, 7], [18.9, 10], [19.5, 10.6],  // Intro
-  [29, 14], [29.7, 14.6], [30.5, 15.2], [41.4, 20.5], [50.4, 27], [60.8, 36.5], [64.1, 38.5],
-  [66.9, 41.1], [71.1, 42.5], [73.6, 44.5], [78.4, 47], [79.1, 47.6],  // Slide
-  [86.2, 50], [87.5, 51.2], [92.8, 55], [101.6, 63], [111.3, 71],  // Library
-  [126.7, 85], [127.4, 85.6], [128.6, 86.5], [168.3, 122.6], [178.2, 126],  // Method
-  [185.1, 130], [186.4, 131.18], [187.8, 131.2], [193.6, 136.5], [195.6, 138], [209.5, 150.6],
-  [213.7, 151], [215.9, 153], [218.7, 155], [224.2, 160], [229.9, 163],  // Atlas
-  [238, 170], [239.3, 171.2], [245.8, 176], [246.5, 176.6], [256, 179.5], [264.5, 184], [296, 212.6],  // Age
-  [303.4, 215], [304.7, 216.2], [309.6, 220], [321.7, 231], [330.6, 237], [341.2, 244],  // Disease
-  [347.8, 250], [349.1, 251.2], [355.6, 256], [374.3, 273], [380.8, 278], [381.5, 278.6],  // Contacts
-  [403.5, 285], [404.2, 285.6], [405.4, 286.2], [406.1, 286.8], [413.9, 289.5], [423.3, 296],
-  [423.9, 296.6], [442.7, 298.5], [445, 300.6], [456.2, 305],  // Next
+  [0, 0], [1.32, 1.2], [3.77, 2.4], [6.79, 4], [12.37, 7], [13.03, 7.6], [20.59, 10], [21.25, 10.6],
+  [34.56, 13.3],                                      // Intro
+  [35.33, 14], [36.63, 15.18], [38.23, 15.2], [48.89, 20.5], [59.5, 27], [70.61, 37.1],
+  [74.53, 38.5], [77.99, 40.5], [78.65, 41.1], [83.81, 42.5], [87.17, 44.5], [93.5, 49.3],  // Slide
+  [94.27, 50], [95.57, 51.18], [99.3, 51.2], [99.96, 51.8], [108.76, 55], [111.2, 56.5],
+  [113.09, 58], [115.15, 59.5], [119.02, 63],         // Library
+  [143.22, 85], [144.54, 86.2], [146.4, 86.5], [155.9, 94.5], [164.7, 102.5], [174.63, 111.5],
+  [186.84, 122.6], [204.8, 126], [211.26, 129.3],     // Method
+  [212.03, 130], [213.32, 131.18], [215.41, 131.2], [222.15, 135], [224.57, 136.5], [227.73, 138],
+  [241.59, 150.6], [246.28, 151], [248.48, 153], [251.95, 155],  // Atlas
+  [268.45, 170], [269.74, 171.18], [271.13, 171.2], [278.39, 176], [292.4, 184], [308.28, 194],
+  [323.89, 204], [338.51, 212], [339.17, 212.6], [350.18, 214.3],  // Age
+  [350.95, 215], [352.24, 216.18], [353.78, 216.2], [354.44, 216.8], [362.43, 220], [367.84, 224],
+  [375.54, 231], [383.72, 237], [398.07, 249.3],      // Disease
+  [398.84, 250], [400.14, 251.18], [401.64, 251.2], [407.68, 256],  // Contacts
+  [439.58, 285], [440.88, 286.18], [442.7, 286.2], [449.62, 289.5], [458.12, 296], [458.78, 296.6],
+  [485.32, 304.3], [486.09, 305],                     // Next
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 34.35, slide: 93.3, library: 132.8, method: 211.05, atlas: 263.65, age: 349.95, pathology: 397.85, contacts: 432.7, next: 485.1 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -322,7 +331,7 @@ function buildStory() {
         <p data-at="4.5" data-out="10.5" class="amber">It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.</p>`,
       `<p data-at="11">The preprint behind this story is by Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro${F.year ? `, posted on bioRxiv in ${F.year}` : ''}. The poster and the talk are by Iva Buljan, of the Rendeiro group at the LBI for Network Medicine, the Medical University of Vienna and CeMM, the Research Center for Molecular Medicine of the Austrian Academy of Sciences. The slides are from ${esc(F.gtex)}.</p>
         <p data-at="13.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the atlas</button></p>
-        <p class="credits" data-at="15">Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers.</p>`)}`,
+        <p class="credits" data-at="15">Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers. Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

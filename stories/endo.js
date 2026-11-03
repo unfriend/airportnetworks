@@ -3986,25 +3986,34 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-endo.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// endo writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [4.4, 4], [12.4, 9],                        // Intro
-  [22.1, 14], [22.7, 14.6], [23.9, 15.2], [33.6, 24], [42.5, 31], [50.1, 36], [50.7, 36.6],  // Tired
-  [59.3, 40], [60, 40.6], [61.2, 41.2], [67.6, 46], [89.2, 65.6], [100.6, 67], [101.2, 67.6],  // Genes
-  [107.8, 70], [117.7, 79], [129.7, 87], [130.4, 87.6], [138.6, 89], [152.4, 101.6], [157.8, 103],  // Network
-  [167, 108], [168.3, 109.18], [170.1, 109.2], [184.2, 119], [196.3, 130], [203.5, 134],
-  [210.1, 140],                                       // Walk
-  [222.9, 148], [223.6, 148.6], [224.8, 149.2], [238.9, 159], [258.2, 176.6], [262, 178],  // Neighbours
-  [269.7, 185], [271, 186.18], [273.6, 186.2], [281, 193], [295.1, 204], [305, 213], [311.4, 217],  // Tree
-  [320.2, 225], [321.5, 226.2], [334.4, 233], [345.4, 243], [358.2, 253],  // Endotypes
-  [393.4, 285], [394.7, 286.18], [395.7, 286.2], [398.5, 288.5], [401.3, 291], [406.2, 294],
-  [410.6, 298], [411.2, 298.6], [419.4, 302], [421.6, 304], [432.9, 310],  // What for
+  [0, 0], [1.32, 1.2], [3.62, 2.4], [6.49, 4], [15.38, 9], [16.04, 9.6], [26.25, 13.3],  // Intro
+  [27.02, 14], [28.32, 15.18], [30.18, 15.2], [39.86, 24], [49.04, 31], [58.23, 36], [58.89, 36.6],
+  [68.14, 39.3],                                      // Tired
+  [68.91, 40], [70.21, 41.18], [72.94, 41.2], [80.89, 46], [86.61, 51], [91.17, 55], [97.71, 60],
+  [104.08, 65], [104.74, 65.6], [114.65, 69.3],       // Genes
+  [115.42, 70], [116.72, 71.18], [119.88, 71.2], [133.78, 79], [145.33, 87], [145.99, 87.6],
+  [154.73, 89], [159.13, 93], [161.87, 95], [168.47, 101], [175.87, 107.3],  // Network
+  [176.64, 108], [177.93, 109.18], [180.3, 109.2], [193.07, 119], [205.17, 130], [212.8, 134],
+  [214.86, 135.5], [215.52, 136.1], [218.24, 137],    // Walk
+  [230.34, 148], [231.64, 149.18], [233.68, 149.2], [249.48, 159], [261.69, 170], [262.35, 170.6],
+  [264.27, 171], [264.93, 171.6], [267.13, 172],      // Neighbours
+  [281.43, 185], [282.73, 186.18], [285.44, 186.2], [292.92, 193], [305.22, 204],  // Tree
+  [328.32, 225], [329.62, 226.18], [331.5, 226.2], [343.11, 233], [355.41, 243], [356.07, 243.6],
+  [377.89, 253], [393.19, 263], [408.01, 271], [414.61, 277], [423.31, 284.3],  // Endotypes
+  [424.08, 285], [425.38, 286.18], [427.43, 286.2], [432.11, 288.5], [436.56, 291], [442.05, 294],
+  [447.78, 298], [461.85, 309.3], [462.62, 310],      // What for
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 26.05, tired: 67.9, genes: 114.45, cloud: 175.65, walk: 221.1, hood: 275.45, split: 320.55, endotypes: 423.1, next: 461.65 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -4221,7 +4230,7 @@ function buildStory() {
       <p data-at="9">EndotypY is open source: a Python package you can install from GitHub.</p>
       <p data-at="13">The authors are Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche, of the Ludwig Boltzmann Institute for Network Medicine at the University of Vienna.</p>
       <p data-at="17"><button class="btn primary" id="btnGoExplore" type="button">Explore the endotypes</button></p>
-      <p class="credits" data-at="19">Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. EndotypY: github.com/menchelab/EndotypY. Rare and common autoimmunity: Guthrie et al., Science Advances (2023).</p>`,
+      <p class="credits" data-at="19">Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. EndotypY: github.com/menchelab/EndotypY. Rare and common autoimmunity: Guthrie et al., Science Advances (2023). Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

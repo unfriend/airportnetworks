@@ -5225,25 +5225,28 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
-// animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// Narration timing: [time in the recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands on
+// the matching sentence. The story is narrated by a synthetic voice
+// (audio/narration-pet.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// pet writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see
+// tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.7, 4], [11, 6.5], [11.7, 7.1], [19.4, 9],  // Intro
-  [28.1, 16], [28.8, 16.6], [30.1, 17.2], [30.8, 17.8], [45.1, 20.5], [58.3, 29], [58.9, 29.6],
-  [63.1, 30.5], [63.8, 31.1], [71.5, 33.5], [93, 47], [93.7, 47.6],  // Scanner
-  [110.6, 52], [127.1, 67], [146.9, 77],              // Sugar
-  [161.2, 90], [161.9, 90.6], [163.2, 91.2], [201, 125.6], [203, 126],  // Organs
-  [207.4, 128], [209.4, 129.8], [220.2, 131], [220.8, 131.6], [225.4, 133], [226.1, 133.6],
-  [245.7, 139], [251.8, 142],                         // Network
-  [256.2, 146], [257.5, 147.18], [258.6, 147.2], [259.3, 147.8], [272.3, 153], [280.6, 157],
-  [288.6, 162], [289.2, 162.6], [300.4, 167], [311, 174], [319.3, 181.6], [334.1, 185],
-  [334.7, 185.6], [344.2, 188], [344.9, 188.6], [359.2, 194], [359.8, 194.6], [373.7, 196],
-  [376, 198.1], [393.3, 200],                         // Health
+  [0, 0], [1.98, 1.8], [4.13, 2.4], [7, 4], [11.41, 6.5], [12.07, 7.1], [20.12, 9], [31.02, 15.3],  // Intro
+  [31.79, 16], [33.09, 17.18], [34.8, 17.2], [35.46, 17.8], [50.17, 20.5], [62.29, 29],
+  [62.95, 29.6], [66.87, 30.5], [67.53, 31.1], [77.19, 33.5], [99.11, 51.3],  // Scanner
+  [99.88, 52], [116.38, 67], [131.58, 77], [141.48, 86], [145.23, 89.3],  // Sugar
+  [146, 90], [147.3, 91.18], [149.31, 91.2],          // Organs
+  [189.79, 128], [191.08, 129.18], [193.52, 129.2], [194.18, 129.8], [203.49, 131], [204.15, 131.6],
+  [214.08, 133], [214.74, 133.6], [232.35, 139], [241.46, 145.3],  // Network
+  [242.23, 146], [243.53, 147.18], [245.49, 147.2], [246.15, 147.8], [259.77, 153], [260.43, 153.6],
+  [272.43, 157], [278.23, 162], [278.89, 162.6], [292.1, 167], [305.98, 174], [313.8, 181],
+  [314.46, 181.6], [329.85, 185], [345.44, 194], [346.1, 194.6], [363.14, 199.3], [363.91, 200],  // Health
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 30.8, scanner: 98.9, body: 145, organs: 188.7, cohort: 241.25, health: 362.9 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -5475,7 +5478,7 @@ function buildStory() {
         <p class="credits" data-at="42" data-out="47.5">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`,
       `<p data-at="48">The poster is by Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker, of the Division of Nuclear Medicine at the Medical University of Vienna and the LBI for Network Medicine.</p>
         <p data-at="50"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="51.5">Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''} (of all ${fmt(F.scans)} scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative.</p>`)}`,
+        <p class="credits" data-at="51.5">Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''} (of all ${fmt(F.scans)} scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative. Narration: a synthetic voice (Kokoro).</p>`)}`,
   };
 
   const story = $('#story');

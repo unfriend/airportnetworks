@@ -116,7 +116,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `node tools/voice/narrate.mjs <key>` speaks a story's lines (how each word is said: `say.json`, its German rules in
   their own section, `de`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
   `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser (`--lang de` a story's German).
-  The tour's narration is made so (the American voice `af_heart`, the owner's choice, 29 October 2026). A story in two
+  Every story but the airports (which keep their human recording) is narrated so, with the American voice `af_heart`
+  (the owner's choice, 29 October 2026): the tour first, the other fourteen in v108 (3 November 2026, after a pass over
+  every story's text so that it reads as a person would say it). A story in two
   languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
   Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
   `audio/narration-pass-de.mp3`.
@@ -1879,10 +1881,11 @@ narration heard from out of the circle, the locks and the People toggle in use.
   slows a stretch a lot, a line's 0.6 s fade-in keeps the light pace and the
   rest of the stretch waits, so the text is there at once). Run it again after a story's text changes, then update the lengths
   (`len` in `stories/list.js`, `audio/PUT-narration.mp3-HERE.txt`) and
-  `docs/narration.md`; the flock's first swoop (flight time, `roost` in its
-  set) is timed to its last chapter at this pace. A recorded narration replaces
+  `docs/narration.md` (every story has a recording since v108, so this is for a
+  new story until it is narrated); the flock's first swoop (flight time, `roost` in its
+  set) is timed to its last chapter in its recording. A recorded narration replaces
   the table with its own times (the airports' is): `pace.mjs` leaves a story
-  with an MP3 in `audio/` alone. A synthetic narration (`tools/voice/`, the tour's) is laid out from its audio instead:
+  with an MP3 in `audio/` alone. A synthetic narration (`tools/voice/`, every story's but the airports') is laid out from its audio instead:
   each stretch lasts the longer of 1.1 times its story time and its line plus a pause, and a chapter's words end
   before its slideshow stop; after such a story's text changes, run `node tools/voice/narrate.mjs <key>` again (only
   changed lines are spoken again), not `pace.mjs`. A story in two languages (`LANGS` and `setLang(l, false)`, the pass story) is read in
