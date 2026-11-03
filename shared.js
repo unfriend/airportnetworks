@@ -299,8 +299,8 @@
     if (why === 'link') C.linked = !!s;
     if (s === C.relay) return;
     C.relay = s; C.rooms = null; C.roomsErr = '';
-    Object.assign(C, { net: '', netSrc: '', netState: '', near: null, nearErr: '' });
-    if (AUTH.at && AUTH.at !== originOf(s)) Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });   // (another relay: asked afresh)   // (the network as this relay sees it: asked again)
+    Object.assign(C, { net: '', netSrc: '', netState: '', near: null, nearErr: '' });   // (the network as this relay sees it: asked again)
+    if (AUTH.at && AUTH.at !== originOf(s)) Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });   // (another relay: asked afresh)
     if (why !== 'served') put('collabRelay', s);
     log('relay', { relay: s, why });
     if (C.local && C.code && s) setTimeout(() => probe(performance.now(), true), 0);   // a room on this device: to this relay?
