@@ -5139,8 +5139,8 @@ function buildStory() {
       <p class="lede" data-at="2.4">Topology of cells in the liver</p>
       ${turns(`<p data-at="4" data-out="16.5">Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.</p>
         <p data-at="9" data-out="16.5" class="amber">Here a thin slice is cut from a liver and laid on glass.</p>`,
-      `<p data-at="17">A computer can find every cell in a stained slide: ${F.cellsM} million of them in ${F.slides} slides of liver here.</p>
-        <p data-at="21">Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also give where the cells are.</p>
+      `<p data-at="17">A computer can find every cell in a stained slide: here, ${F.cellsM} million of them in ${F.slides} slides of liver.</p>
+        <p data-at="21">Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also show where the cells are.</p>
         <p data-at="29.5" class="amber">From here on, only those positions count.</p>
         <p class="credits" data-at="31">After the poster by ${AUTH}. The cells were found by the authors with HistoPLUS in the GTEx project's slides; topocyte reads cells from any spatial modality (H&amp;E, spatial transcriptomics, spatial proteomics) as an AnnData.</p>`)}`,
     scale: `<h2 data-at="0.6">Which scale?</h2>
@@ -5152,13 +5152,13 @@ function buildStory() {
         </ul>`,
       `<p data-at="22">But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.</p>
         <p data-at="25" class="amber">topocyte reads all of them at once.</p>
-        <p class="note" data-at="27">Scale-resolved: every radius at once, with no size to choose. Next, the ${F.patch} cells of the small square in the middle of this healthy tile.</p>`)}`,
+        <p class="note" data-at="27">Scale-resolved means every radius at once, with no size to choose. Next come the ${F.patch} cells of the small square in the middle of this healthy tile.</p>`)}`,
     balls: `<h2 data-at="0.6">Balls grow</h2>
       ${turns(`<p data-at="1.2" data-out="13.5">Take the ${F.patch} cells of that square, and keep only where they sit.</p>
         <p data-at="5" data-out="13.5">Grow a ball round every cell.</p>
-        <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.</p>`,
-      `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
-        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm: the big one, and ${word(F.others.n)} others that have all filled in by ${fmtR(F.others.by)} µm.</p>`)}`,
+        <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in, giving a network that also has triangles.</p>`,
+      `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `At ${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
+        <p class="note" data-at="46">The network with triangles is called the alpha complex. It is a simplicial complex, the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm: the big one, and ${word(F.others.n)} others that have all filled in by ${fmtR(F.others.by)} µm.</p>`)}`,
     tower: `<h2 data-at="0.6">The tower of scales</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Now let the radius become height.</p>
         <p data-at="4" data-out="27.5">Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.</p>
@@ -5167,39 +5167,39 @@ function buildStory() {
       `<p data-at="28">How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.</p>
         <div class="facts"><div data-at="31">${big(AMBER, fmt(F.patch))}<small>pieces, a bar each</small></div><div data-at="33">${big(ORANGE, fmt(F.loops))}<small>loops, at most ${word(most)} at once</small></div></div>
         <p data-at="36" class="amber">Together they describe the tissue at every scale at once.</p>
-        <p class="note" data-at="40">This is persistent homology. Pieces are H0 (connected components), loops H1 (holes); the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value is t = r²; the story shows the radius r.</p>`)}`,
+        <p class="note" data-at="40">This is persistent homology. Pieces are H0, the connected components, and loops H1, the holes; the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value t is r squared; the story shows the radius r.</p>`)}`,
     cohort: `<h2 data-at="0.6">${F.slides} slides</h2>
       ${turns(`<p data-at="1.2" data-out="20.5">Do this for every slide: ${F.healthy} healthy livers and ${F.cirrhosis} with cirrhosis, where scars cut the liver into knots.</p>
-        <p data-at="6" data-out="20.5">Each slide gets its own curves: here its loops, small radii on the left, large on the right.</p>
+        <p data-at="6" data-out="20.5">Each slide gets its own curves; here are its loops, small radii on the left, large on the right.</p>
         <p data-at="11" data-out="20.5">Scaled to the same size, only their shape counts.</p>
-        <p data-at="16" data-out="20.5" class="amber">The healthy slides' average in blue, the cirrhotic slides' in red.</p>`,
+        <p data-at="16" data-out="20.5" class="amber">The healthy slides' average is in blue, the cirrhotic slides' in red.</p>`,
       `<p data-at="21">Comparing every slide with every other finds the main shapes the curves vary by:</p>
-        <div class="facts"><div data-at="23">${big(CYAN, pct(F.fve[0]))}<small>of the variation in loops: shape 1</small></div><div data-at="24.5">${big(GREEN, pct(F.fve[1]))}<small>shape 2</small></div></div>
-        <p data-at="31" class="amber">Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides fall apart before anything is trained.</p>
-        <p class="note" data-at="38">Cosine normalisation; the functional PCA, computed exactly from the bars' ends (no grid). All ${F.slides} slides and ${F.cellsM} million cells took ${F.minutes} minutes on a laptop's processor.</p>`)}`,
+        <div class="facts"><div data-at="23">${big(CYAN, pct(F.fve[0]))}<small>of the variation in loops lies in shape 1</small></div><div data-at="24.5">${big(GREEN, pct(F.fve[1]))}<small>in shape 2</small></div></div>
+        <p data-at="31" class="amber">Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides separate before anything is trained.</p>
+        <p class="note" data-at="38">The curves get cosine normalisation, and the functional PCA is computed exactly from the bars' ends, with no grid. All ${F.slides} slides and ${F.cellsM} million cells took ${F.minutes} minutes on a laptop's processor.</p>`)}`,
     scales: `<h2 data-at="0.6">Which scales matter</h2>
       ${turns(`<p data-at="1.2" data-out="23.5">A classifier draws a wall between the two clouds.</p>
         <p data-at="7" data-out="23.5">Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.</p>
         <p data-at="11" data-out="23.5" class="amber">Read back through the shapes, it becomes a weight for every radius: loops alive at ${wa.r0} to ${wb.r1} µm speak for cirrhosis.</p>`,
       `<p data-at="24">What each stretch of radii adds to the difference between the two groups:</p>
-        <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>the other radii</small></div></div>
-        <p data-at="30">Together: ${f2(F.gap)} in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about ${fmt(F.odds)} times a healthy slide's.</p>
+        <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>from loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>from ${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>from the other radii</small></div></div>
+        <p data-at="30">Together they add up to ${f2(F.gap)} in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about ${fmt(F.odds)} times a healthy slide's.</p>
         <p data-at="34" class="amber">Tested fairly, on slides it never saw, it gets ${F.right} of ${F.slides} right.</p>
-        <p class="note" data-at="38">A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, accuracy ${F.acc.toFixed(3)}.</p>`)}`,
+        <p class="note" data-at="38">The classifier is a logistic regression on the first four scores; its weight per radius is gamma of r. In five-fold cross-validation it gets ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, an accuracy of ${F.acc.toFixed(3)}.</p>`)}`,
     cells: `<h2 data-at="0.6">Every cell a centre</h2>
-      ${turns(`<p data-at="1.2" data-out="26.5">Now a slide the classifier never saw: ${fmt(F.newCells)} cells, and a window of ${fmt(F.window)} of them.</p>
+      ${turns(`<p data-at="1.2" data-out="26.5">Now take a slide the classifier never saw: ${fmt(F.newCells)} cells, and a window of ${fmt(F.window)} of them.</p>
         <p data-at="10" data-out="26.5">Pick one cell and look only at the cells within ${F.delta} µm of it.</p>
         <p data-at="15" data-out="26.5">They make their own small network, with its own pieces and loops,</p>
         <p data-at="21" data-out="26.5" class="amber">and their own curves.</p>`,
       `<p data-at="27">The classifier gives the cell a score of its own:</p>
-        <div class="facts"><div data-at="28">${big(F.score < 0 ? BLUE : RED, f2s(F.score))}<small>its log-odds: ${F.score < 0 ? 'healthy' : 'cirrhosis'}-like</small></div></div>
+        <div class="facts"><div data-at="28">${big(F.score < 0 ? BLUE : RED, f2s(F.score))}<small>its log-odds, so ${F.score < 0 ? 'healthy' : 'cirrhosis'}-like</small></div></div>
         <p data-at="33" class="amber">Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.</p>
-        <p class="note" data-at="40">Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other ${F.train} slides (pieces, H0). The colours are the poster's, at most ±${f2(F.limit)}.</p>`)}`,
+        <p class="note" data-at="40">This is local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted for the pieces, H0, on the other ${F.train} slides. The colours are the poster's, at most ${f2(F.limit)} either way.</p>`)}`,
     next: `<h2 data-at="0.6">Where analysis begins</h2>
       ${turns(`<p data-at="1.2" data-out="17.5">The cells now fall into two groups: ${fmt(F.sizes[1])} cirrhosis-like and ${fmt(F.sizes[0])} healthy-like.</p>
-        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${more(F.lymph)} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${more(F.fib)} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
+        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${more(F.lymph)} lymphocytes, ${pct(F.lymph[1])} against ${pct(F.lymph[0])}, and ${more(F.fib)} fibroblasts, ${pct(F.fib[1])} against ${pct(F.fib[0])}.</p>
         <p class="note" data-at="12" data-out="17.5">The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have ${fmt(F.sizes100[0])} healthy-like and ${fmt(F.sizes100[1])} cirrhosis-like cells.</p>`,
-      `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
+      `<p data-at="18">In spatial transcriptomics it would be genes, and in spatial proteomics, proteins.</p>
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
         <p class="credits" data-at="29">After the poster by ${AUTH} (${INSTS}).</p>

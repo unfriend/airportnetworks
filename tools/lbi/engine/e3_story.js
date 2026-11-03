@@ -120,12 +120,12 @@ function buildStory() {
       <p data-at="8">Each dot stands for a human protein, each line for a physical interaction between two of them. This illustrative map has ${fmt(I.nodeCount)} dots and ${fmt(I.edgeCount)} lines; real maps of the human interactome hold more than 13,000 proteins and 140,000 interactions.</p>
       <p class="note" data-at="13">The lights are groups of proteins that work together: the proteasome, growth-factor signalling, cell death and DNA repair.</p>`,
     whole: `<h2 data-at="0.6">More than the sum of its parts</h2>
-      <p data-at="1.2">A computer is built from a few hundred parts: chips full of transistors, resistors, screws.</p>
+      <p data-at="1.2">A computer is built from a few hundred parts: chips full of transistors, resistors and screws.</p>
       <div style="display:grid">
         <p data-at="7" data-out="15.5" style="grid-area:1/1">Take it apart and lay out every piece, and you have the complete parts list. It still does not tell you how the computer works.</p>
         <p data-at="16" class="amber" style="grid-area:1/1">What makes it work is how the parts are wired together.</p>
       </div>
-      <p data-at="25">Parts joined by wires: a network. Life is built the same way.</p>
+      <p data-at="25">Parts joined by wires make a network. Life is built the same way.</p>
       <p class="credits" data-at="27">After Todd McLellan, Things Come Apart (2013), and the Apple I schematic (Apple Computer Company, 1976), designed by Steve Wozniak.</p>`,
     everywhere: `<h2 data-at="0.6">Networks are everywhere</h2>
       <p data-at="1.2">Once you look for the wiring, you find it everywhere. The internet is a network of computers and cables, held together by a few giant hubs.</p>
@@ -134,7 +134,7 @@ function buildStory() {
       <p class="credits" data-at="19">Friendship map after Paul Butler, Facebook (December 2010). Bright city lights from the airports story; fainter lights and ties illustrative.</p>`,
     blocks: `<h2 data-at="0.6">The building blocks of life</h2>
       <p data-at="1.2">In 2001 a first draft of the human genome was published. One copy of our DNA holds</p>
-      <div class="facts"><div data-at="3"><b>23</b><small>chromosomes</small></div><div data-at="5.5"><b>3 billion</b><small>letters (base pairs)</small></div><div data-at="9"><b>20,000</b><small>protein-coding genes</small></div></div>
+      <div class="facts"><div data-at="3"><b>23</b><small>chromosomes</small></div><div data-at="5.5"><b>3 billion</b><small>letters, or base pairs</small></div><div data-at="9"><b>20,000</b><small>protein-coding genes</small></div></div>
       <p data-at="16">Each of these genes is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.</p>
       <p data-at="26">Here are 25 of them. There are about 20,000 kinds, each with its own shape and job.</p>
       <p class="credits" data-at="30">International Human Genome Sequencing Consortium, Nature (2001, 2004); Jumper et al. and Tunyasuvunakool et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.</p>`,
@@ -142,7 +142,7 @@ function buildStory() {
       <p data-at="1.2">Proteins rarely work alone. Here are 13 of the proteins that build ATP synthase, the machine that makes most of the cell's energy currency, ATP.</p>
       <div style="display:grid">
         <p data-at="9" data-out="17.5" style="grid-area:1/1">Assembled, they form a rotary motor in the inner membrane of mitochondria. Two helpers, ATPAF1 and ATPAF2, keep the alpha and beta parts from clumping until they join the head, then leave.</p>
-        <p data-at="18" data-out="29.5" style="grid-area:1/1">In action: protons flowing through the membrane turn the rotor. Each turn takes 8 protons and makes 3 ATP.</p>
+        <p data-at="18" data-out="29.5" style="grid-area:1/1">Here it is in action: protons flowing through the membrane turn the rotor. Each turn takes 8 protons and makes 3 ATP.</p>
         <p data-at="30" style="grid-area:1/1">As a network, each protein is a node and each contact a link.</p>
       </div>
       <p data-at="38" class="amber">The whole machine is one small neighbourhood in the map of all human protein interactions: the interactome.</p>
@@ -153,30 +153,30 @@ function buildStory() {
         <li data-at="4"><b>Shape</b>A city's layout shapes its life; the network's shape was set by evolution.</li>
         <li data-at="14"><b>Location</b>Central proteins matter most, like the centre of town.</li>
         <li data-at="28"><b>Neighbourhoods</b>Proteins that work together sit together.</li>
-        <li data-at="42"><b>Distance</b>Close in the network means related.</li>
+        <li data-at="42"><b>Distance</b>What lies close in the network is related.</li>
       </ul>
       <div style="display:grid">
         <p class="note" data-at="15" data-out="27.5" style="grid-area:1/1">In yeast, proteins with many partners are about three times as likely to be essential for life as those with few.</p>
         <p class="note" data-at="29" data-out="41.5" style="grid-area:1/1">In yeast, map which genes depend on which, and the cell's jobs fall into districts.</p>
-        <p class="note" data-at="47" style="grid-area:1/1">Diseases whose modules overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.</p>
+        <p class="note" data-at="47" style="grid-area:1/1">Diseases whose neighbourhoods overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.</p>
       </div>
       <p class="credits" data-at="52">Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2016); Menche et al., Science (2015). Disease modules illustrative.</p>`,
     rare: `<h2 data-at="0.6">Understand, diagnose, treat</h2>
       <p data-at="1.2">More than 6,000 rare diseases have a known genetic cause; about four in five rare diseases are genetic. Each is rare, but together they affect some 300 million people.</p>
-      <p data-at="6">For every patient the same questions: which gene is broken? What does that do to the cell? How can we treat it?</p>
+      <p data-at="6">For every patient, the questions are the same: which gene is broken? What does that do to the cell? How can we treat it?</p>
       <p data-at="14" class="amber">A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.</p>
       <p class="credits" data-at="18">Nguengang Wakap et al., European Journal of Human Genetics (2020). Disease and drug neighbourhoods illustrative.</p>`,
     iei: `<h2 data-at="0.6">Inborn errors of immunity</h2>
-      <div class="facts"><div data-at="1.2"><b>430</b><small>rare diseases</small></div><div data-at="2.4"><b>1 in 1,000</b><small>to 1 in 5,000 people, all together</small></div><div data-at="3.6"><b>95%</b><small>of patients get non-specific treatment</small></div></div>
+      <div class="facts"><div data-at="1.2"><b>430</b><small>rare diseases</small></div><div data-at="2.4"><b>1 in 1,000</b><small>to 1 in 5,000 people have one of them</small></div><div data-at="3.6"><b>95%</b><small>of patients get non-specific treatment</small></div></div>
       <p data-at="6">Diagnosis is often missing or late, and the diseases are poorly understood.</p>
       <div style="display:grid">
-        <p data-at="12" data-out="20" style="grid-area:1/1">On the interactome, the genes of those that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.</p>
-        <p data-at="21" style="grid-area:1/1">The ${SANKEY_N[0]} clinical categories doctors use cut across their ${SANKEY_N[1]} molecular clusters. Endotypes define diseases by their mechanism.</p>
+        <p data-at="12" data-out="20" style="grid-area:1/1">On the interactome, the genes of the diseases that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.</p>
+        <p data-at="21" style="grid-area:1/1">The ${SANKEY_N[0]} clinical categories that doctors use cut across their ${SANKEY_N[1]} molecular clusters. Endotypes define diseases by their mechanism.</p>
       </div>
       <p class="credits" data-at="34">Guthrie et al., Science Advances (2023): ${SANKEY_N[2]} genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.</p>`,
     treat: `<h2 data-at="0.6">Better treatments, faster diagnoses</h2>
       <p data-at="1.2">Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.</p>
-      <p data-at="12">Diagnosis: a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.</p>
+      <p data-at="12">As for diagnosis, a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.</p>
       <p data-at="24" class="amber">Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.</p>
       <p class="credits" data-at="28">Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.</p>`,
     scales: `<h2 data-at="0.6">Networks across scales</h2>
@@ -198,12 +198,12 @@ function buildStory() {
       <p data-at="17" class="amber">Disease rewires it.</p>
       <p class="credits" data-at="21">Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.</p>`,
     tissue: `<h2 data-at="0.6">From tissue to cells</h2>
-      <p data-at="1.2">A slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, muscle below.</p>
+      <p data-at="1.2">Here is a slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, and muscle below.</p>
       <p data-at="9">Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.</p>
       <p data-at="16">Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.</p>
       <p class="credits" data-at="24">Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).</p>`,
     mission: `<h2 data-at="0.6">Our mission</h2>
-      <p data-at="1.2">We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We want to</p>
+      <p data-at="1.2">We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We have four aims:</p>
       <ul class="steps">
         <li data-at="3"><b>Understand</b>gain fundamental insights into the network architecture of health and disease</li>
         <li data-at="5"><b>Help patients</b>turn these insights into concrete patient benefit</li>

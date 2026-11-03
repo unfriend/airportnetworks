@@ -233,40 +233,40 @@ function buildStory() {
         <p class="credits" data-at="23">After the poster by Enes Berk Sakalli and Arndt von Haeseler. The numbers drawn are examples, as in the authors' own test.</p>`)}`,
     tree: `<h2 data-at="0.6">A family tree</h2>
       ${turns(`<p data-at="1.2" data-out="23.5">Copied over many generations, one text becomes many: a family tree.</p>
-        <p data-at="6" data-out="23.5">Where two branches part lived a shared ancestor.</p>
-        <p data-at="11" data-out="23.5" class="amber">Each copy carries the letters up its branch. Where one flashes, a letter was swapped.</p>`,
+        <p data-at="6" data-out="23.5">Where two branches part, there lived a shared ancestor.</p>
+        <p data-at="11" data-out="23.5" class="amber">Each copy carries the letters up its branch. Where a letter flashes, it was swapped.</p>`,
       `<p data-at="24">A branch's length says how much changed along it: the expected number of swaps per letter, which grows with time.</p>
         <div class="facts"><div data-at="25.5">${big(GREEN, f2(F.long.len))}<small>swaps per letter on a long branch: ${swapsN(F.long.swaps)} here</small></div><div data-at="26.5">${big(GREEN, f2(F.short.len))}<small>on a short one: ${swapsN(F.short.swaps)}</small></div></div>
-        <p class="note" data-at="28.5">Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread [1] and how a tumour grew from one cancer cell [6], and the rule of change they assume matters [2].</p>
-        <p class="credits" data-at="31">The tree's ${F.branches} branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length.</p>`)}`,
+        <p class="note" data-at="28.5">Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread and how a tumour grew from one cancer cell, and the rule of change they assume matters.</p>
+        <p class="credits" data-at="31">The tree's ${F.branches} branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length. On viruses see [1], on tumours [6], on the rule of change [2].</p>`)}`,
     qubits: `<h2 data-at="0.6">Letters as qubits</h2>
       ${turns(`<p data-at="1.2" data-out="18.5">A quantum computer can hold each letter in ${word(F.perLetter)} qubits, drawn as arrows on spheres: up is 0, down is 1.</p>
         <ul class="steps">${[0, 1, 2, 3].map(i => step(6 + 3 * i, 18.5, LCOL[i], `${LET[i]} is ${KET[i]}`, codeWords(i))).join('')}</ul>`,
       `<p data-at="19">Tilt the arrows and the ${word(F.perLetter)} qubits hold a mix of all ${word(LET.length)} letters at once, like a spinning coin.</p>
         <p data-at="24">Reading them out makes the coin land on one letter, each with its own chance.</p>
         <p data-at="28" class="amber">Here the chances are ${chancesText(F.mix)}; ${F.nReads} read-outs gave ${listOf(F.reads.map((n, i) => `${n} ${LET[i]}`))}.</p>
-        <p class="note" data-at="31">|01⟩ means first 0, then 1. An arrow shorter than its sphere means the ${word(F.perLetter)} qubits depend on each other. This mix is where the rule of the next chapter takes an A after ${F.point} swaps per letter.</p>`)}`,
+        <p class="note" data-at="31">C's code, 01, means first 0, then 1. An arrow shorter than its sphere means the ${word(F.perLetter)} qubits depend on each other. This mix is where the rule of the next chapter takes an A after ${F.point} swaps per letter.</p>`)}`,
     rule: `<h2 data-at="0.6">The rule</h2>
       ${turns(`<p data-at="1.2" data-out="16.5">A substitution model is the rule for how letters change:</p>
         <ul class="steps">
-          ${step(3, 16.5, BLUE, 'Thicker arrows', 'how readily one letter swaps for another')}
-          ${step(6, 16.5, AMBER, 'Bigger balls', 'how common each letter is in the long run')}
+          ${step(3, 16.5, BLUE, 'The thicker the arrow', 'the more readily one letter swaps for another')}
+          ${step(6, 16.5, AMBER, 'The bigger the ball', 'the more common its letter is in the long run')}
         </ul>
-        <p class="note" data-at="10" data-out="16.5">Here A↔G and C↔T swap about ${word(Math.round(F.fast))} times as readily as the other pairs, and ${LET[F.top]} is the most common letter in the long run (${pct(F.pi[F.top])}).</p>`,
-      `<p data-at="17">Every mix of the four letters is a point in this pyramid, the pure letters at its corners.</p>
+        <p class="note" data-at="10" data-out="16.5">Here A and G, and C and T, swap about ${word(Math.round(F.fast))} times as readily as the other pairs, and ${LET[F.top]} is the most common letter in the long run, at ${pct(F.pi[F.top])}.</p>`,
+      `<p data-at="17">Every mix of the four letters is a point in this pyramid, with the pure letters at its corners.</p>
         <p data-at="22" class="amber">Start at A, and as time goes on the rule moves the mix along a path towards the long-run mix.</p>
-        <p data-at="28">After ${listOf(F.points.map(String))} swaps per letter it has come ${listOf(F.ways.slice(0, 3).map(pct))} of the way; after ${F.tPath}, ${pct(F.ways[3])}.</p>
-        <p class="note" data-at="32">The most general standard rule is GTR, the general time-reversible model. The mix follows p(t) = p(0) e^(Qt), a dynamical system: Q holds the rates. The rates and shares here are examples.</p>`)}`,
+        <p data-at="28">After ${listOf(F.points.map(String))} swaps per letter, it has come ${listOf(F.ways.slice(0, 3).map(pct))} of the way; after ${F.tPath}, ${pct(F.ways[3])}.</p>
+        <p class="note" data-at="32">The most general standard rule is GTR, the general time-reversible model. The mix follows a dynamical system: after a time t it is the starting mix times e to the power of Q times t, where Q holds the rates. The rates and shares here are examples.</p>`)}`,
     machine: `<h2 data-at="0.6">The machine</h2>
       ${turns(`<p data-at="1.2" data-out="25.5">A compiler turns the rule into a quantum circuit: a machine of gears for one branch.</p>
         <ul class="steps">
           ${step(8, 25.5, CYAN, '1 · Copy', 'the parent\'s letter is stamped onto the child')}
-          ${step(13, 25.5, GREEN, '2 · Turn', 'the child\'s qubits turn: the longer the branch, the further, and the child\'s mix lands where the rule\'s path is at that time')}
-          ${step(20, 25.5, BLUE, '3 · The circuit', `${word(F.wires)} wires, the parent's ${word(F.perLetter)} qubits and the child's, with ${word(F.copies)} copy gates and ${word(F.blocks)} turn blocks`)}
+          ${step(13, 25.5, GREEN, '2 · Turn', 'the child\'s qubits turn, further on a longer branch, and the child\'s mix lands where the rule\'s path is at that time')}
+          ${step(20, 25.5, BLUE, '3 · The circuit', `${word(F.wires)} wires, for the parent's ${word(F.perLetter)} qubits and the child's, carrying ${word(F.copies)} copy gates and ${word(F.blocks)} turn blocks`)}
         </ul>`,
-      `<p data-at="26.5">One machine per branch, joined into the tree.</p>
+      `<p data-at="26.5">Each branch gets one machine, and the machines join into the tree.</p>
         <p data-at="34" class="amber">Read at the tips, it writes new sequences that follow the rule.</p>
-        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1, the child's first qubit, turns ${deg(F.turn.c1)} and c0, its second, ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
+        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1, the child's first qubit, turns ${deg(F.turn.c1)}, and c0, its second, turns ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
     pairs: `<h2 data-at="0.6">Letters that work together</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Letters often act together.</p>
         <p data-at="4" data-out="27.5">An RNA strand folds back on itself into a stem, held by pairs: ${F.held.map(p => `${p[0]} with ${p[1]}`).join(', ')}.</p>
@@ -274,7 +274,7 @@ function buildStory() {
         <p data-at="21" data-out="27.5">Coupling lets the two letters of a pair change together, so the pair holds.</p>`,
       `<p data-at="28">Models of pairs exist, but each linked letter multiplies the combinations by ${word(F.perLink)}.</p>
         <div class="facts"><div data-at="29">${big(CYAN, fmt(F.combos.pair))}<small>combinations for a pair</small></div><div data-at="33">${big(AMBER, fmt(F.combos.ten))}<small>for ${word(F.ten)} letters: ${aboutN(F.combos.ten)}</small></div><div data-at="35">${big(GREEN, F.qubits10)}<small>qubits for ${word(F.ten)}: ${word(F.perLetter)} per letter</small></div></div>
-        <p class="note" data-at="36">T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair beside the turn: changes that keep a pair are more likely (${word(TD.w)} times, in the authors' example), and both letters may change at once [3].</p>`)}`,
+        <p class="note" data-at="36">T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair alongside the turn: changes that keep a pair are more likely, in the authors' example ${word(TD.w)} times as likely, and both letters may change at once.</p>`)}`,
     rebuild: `<h2 data-at="0.6">Rebuilding the ancestor</h2>
       ${turns(`<p data-at="1.2" data-out="26.5">${cap(word(F.species))} species carry the same stem, each changed in its own way.</p>
         <p data-at="7" data-out="26.5" class="amber">What did their shared ancestor have?</p>
@@ -283,14 +283,14 @@ function buildStory() {
       `<p data-at="27" class="amber">So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.</p>
         <p data-at="31">And a broken pair is normal: the true ancestor here has ${word(F.truthBroken)}, and only ${esc(TD.allSixPrior)} of ancestors have all ${W} pairs matched.</p>
         <p data-at="35">One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.</p>
-        <p class="note" data-at="38">In the authors' test: a made-up stem of ${W} pairs in ${word(F.species)} species, ${fmt(TD.n)} rebuilt ancestors per method, matching pairs ${word(TD.w)} times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.</p>`)}`,
+        <p class="note" data-at="38">In the authors' test, the ancestor of a made-up stem of ${W} pairs in ${word(F.species)} species was rebuilt ${fmt(TD.n)} times per method, with matching pairs ${word(TD.w)} times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.</p>`)}`,
     what: `<h2 data-at="0.6">What it is for</h2>
-      ${turns(`<p data-at="1.2" data-out="13.5">Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research [4, 5] and trace how a tumour grew from one cancer cell [6].</p>
+      ${turns(`<p data-at="1.2" data-out="13.5">Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research and trace how a tumour grew from one cancer cell.</p>
         <p data-at="6" data-out="13.5" class="amber">This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.</p>
         <p class="note" data-at="9" data-out="13.5">For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.</p>`,
-      `<p data-at="14">After the poster by ${esc(A1.name)} (${esc(A1.inst)}) and ${esc(A2.name)} (${esc(A2.inst)}).</p>
+      `<p data-at="14">After the poster by ${esc(A1.name)}, of the ${esc(A1.inst)}, and ${esc(A2.name)}, of the ${esc(A2.inst)}.</p>
         <p data-at="16"><button class="btn primary" id="btnGoExplore" type="button">Explore the machine</button></p>
-        <p class="credits" data-at="17">${F.refs.map((r, i) => `[${i + 1}] ${esc(r)}.`).join(' ')}</p>
+        <p class="credits" data-at="17">On both letters of a pair changing at once see [3], on old virus proteins [4, 5], on tumours [6]. ${F.refs.map((r, i) => `[${i + 1}] ${esc(r)}.`).join(' ')}</p>
         <p class="credits" data-at="18">The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.</p>`)}`,
   };
 

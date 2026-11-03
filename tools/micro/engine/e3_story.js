@@ -228,7 +228,7 @@ const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 const swCol = c => c;   // a swatch or a bar in the same colour
 // a worked example of change with age in a line: what it is, its share at both ages and per decade
-const exText = x => `${x.note}; ${pct(x.from)} of the section at ${FACTS.ages[0]}, ${pct(x.to)} at ${FACTS.ages[1]} (${signed(x.perDecade)}% per decade)`;
+const exText = x => `${x.note}, from ${pct(x.from)} of the section at ${FACTS.ages[0]} to ${pct(x.to)} at ${FACTS.ages[1]}, ${signed(x.perDecade)}% per decade`;
 const exName = x => `${cap(x.tissue)} · ${x.domain}`;
 // a change in the contacts between two domains, in words
 // where a finding is ('in arteries', 'in the heart')
@@ -260,56 +260,56 @@ function buildStory() {
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Tissue and time</h1>
-      <p class="lede" data-at="2.4">how organs are built, and how they age</p>
-      <p data-at="4">How the body's organs are built from small working units, and how they change as we age.</p>
-      <p data-at="7">Each point of light is one of the ${F.organs} organs whose tissue GTEx collected from ${fmt(F.donors)} people.</p>
-      <p class="note" data-at="10">After a preprint${F.year ? ` (bioRxiv, ${F.year})` : ''}, a poster and a talk from the Rendeiro group: CeMM, the LBI for Network Medicine and the Medical University of Vienna.</p>`,
+      <p class="lede" data-at="2.4">How organs are built, and how they age</p>
+      <p data-at="4">The body's organs are built from small working units, and they change as we age.</p>
+      <p data-at="7">Each point of light is one of the ${F.organs} organs whose tissue the GTEx project collected from ${fmt(F.donors)} people.</p>
+      <p class="note" data-at="10">This story follows a preprint${F.year ? ` posted on bioRxiv in ${F.year}` : ''}, a poster and a talk from the Rendeiro group at CeMM, the LBI for Network Medicine and the Medical University of Vienna.</p>`,
     slide: `<h2 data-at="0.6">One slide</h2>
-      ${turns(`<p data-at="1.2" data-out="21.5">Take a thin slice of an organ, here the wall of the stomach, and stain it. This is H&amp;E (haematoxylin and eosin), the standard stain of pathology.</p>
+      ${turns(`<p data-at="1.2" data-out="21.5">Take a thin slice of an organ, here the wall of the stomach, and stain it. This is H&amp;E, haematoxylin and eosin, the standard stain of pathology.</p>
         <p data-at="6.5" data-out="21.5">Haematoxylin colours the cells' nuclei purple-blue; eosin colours their cytoplasm and the fibres between them pink. White is fat, or empty space.</p>
         <p data-at="13" data-out="21.5">Close up, it is all cells. Yet they are not scattered at random: they are arranged in units that each do a job.</p>`,
       `<ul class="steps">
-          ${step(22.5, 0, domCol('mucosa'), 'Mucosa', 'the lining: glands that make mucus and acid')}
+          ${step(22.5, 0, domCol('mucosa'), 'Mucosa', 'the lining, with glands that make mucus and acid')}
           ${step(24.5, 0, domCol('submucosa'), 'Submucosa', 'loose tissue with blood vessels')}
-          ${step(26.5, 0, domCol('inner circular smooth muscle'), 'Muscularis', 'layers of muscle, one around and one along, that move food on')}
+          ${step(26.5, 0, domCol('inner circular smooth muscle'), 'Muscularis', 'layers of muscle, one around and one along, that move food onwards')}
           ${step(28.5, 0, domCol('lymphoid tissue'), 'Lymphoid patch', 'a cluster of immune cells')}
         </ul>
         <p data-at="30.5" class="amber">Such recurring arrangements are microanatomical domains: the units between cells and organs.</p>
         <p class="credits" data-at="33">Slides like this are cheap, plentiful and show a wide field. This section is drawn, not a real slide.</p>`)}`,
     library: `<h2 data-at="0.6">${fmt(F.slides)} slides</h2>
-      <p data-at="1.2">GTEx (the Genotype-Tissue Expression project) collected tissue from ${fmt(F.donors)} people who died aged ${F.ages[0]} to ${F.ages[1]}.</p>
+      <p data-at="1.2">The Genotype-Tissue Expression project, GTEx, collected tissue from ${fmt(F.donors)} people who died aged ${F.ages[0]} to ${F.ages[1]}.</p>
       <div class="facts"><div data-at="5"><b>${fmt(F.donors)}</b><small>people</small></div><div data-at="6.5"><b>${F.tissues}</b><small>tissues</small></div><div data-at="8"><b>${F.organs}</b><small>organs</small></div><div data-at="9.5"><b>${fmt(F.slides)}</b><small>slides</small></div></div>
       <p data-at="13">Each slide is one tissue of one person. Here each column is a tissue, and each row an age, the youngest at the bottom.</p>
-      <p data-at="21" class="amber">Enough to compare how organs are built, and to see how that changes with age.</p>
+      <p data-at="21" class="amber">This is enough to compare how organs are built, and to see how that changes with age.</p>
       <p class="credits" data-at="27">${fmt(F.donorsAnalysed)} people's slides were analysed: median age ${F.medianAge}, ${pct(F.male)} men. The slides here are drawn, not the GTEx images.</p>`,
     method: `<h2 data-at="0.6">Finding the domains</h2>
       ${turns(`<ul class="steps">
-          ${step(1.5, 36.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
-          ${step(9.5, 36.5, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers (drawn here as 16 blocks of colour)')}
-          ${step(17.5, 36.5, '#46d9ff', '3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions: messages run along the links (message passing)')}
-          ${step(26.5, 36.5, '#46d9ff', '4 · Domains', 'in a map of the mixed descriptions, alike tiles gather, across all slides: each group is a domain, and colours the slide')}
+          ${step(1.5, 36.5, '#46d9ff', 'Step 1 · Tiles', `each slide is cut into small squares, far smaller than drawn here, giving ${F.tilesM} million tiles in all`)}
+          ${step(9.5, 36.5, '#46d9ff', 'Step 2 · Features', 'a deep-learning vision model describes each tile with a list of numbers, drawn here as 16 blocks of colour')}
+          ${step(17.5, 36.5, '#46d9ff', 'Step 3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions as messages run along the links, which is called message passing')}
+          ${step(26.5, 36.5, '#46d9ff', 'Step 4 · Domains', 'in a map of the mixed descriptions, alike tiles gather across all slides; each group is a domain, and colours the slide')}
         </ul>`,
-      `<p data-at="37">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
-        <p data-at="41" class="amber">Now the tiles of every tissue in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
+      `<p data-at="37">No labels are needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes, with a correlation of ${F.bench.salivary.r} for salivary gland and ${F.bench.stomach.r} for stomach mucosa, where 1 would be perfect.</p>
+        <p data-at="41" class="amber">Now the tiles of every tissue share one map: alike tiles lie close together, coloured by domain.</p>`)}`,
     atlas: `<h2 data-at="0.6">An atlas of the body</h2>
-      ${turns(`<p data-at="1.2" data-out="19.5">Across the ${F.tissues} tissues: ${F.domains} domains of ${F.types} types, in ${F.superclasses} classes.</p>
+      ${turns(`<p data-at="1.2" data-out="19.5">Across the ${F.tissues} tissues, there are ${F.domains} domains of ${F.types} types, in ${F.superclasses} classes.</p>
         <div class="facts"><div data-at="5" data-out="19.5"><b>${F.types}</b><small>types of domain</small></div><div data-at="6.5" data-out="19.5"><b>${pct(F.shared3)}</b><small>in three or more tissues</small></div><div data-at="8" data-out="19.5"><b>${pct(F.specific)}</b><small>in one tissue only</small></div></div>
         <p data-at="11" data-out="19.5">A few kinds recur in many tissues, such as connective tissue and blood vessels. Most belong to one tissue.</p>`,
       `<p data-at="20">Iva Buljan's network of organ architecture puts it together in four levels:</p>
-        <ul class="legend">${[`${F.levels[0]} organs`, `their tissues, where an organ has several (${F.levels[1]})`, `${F.levels[2]} tissue types`, `${F.levels[3]} domains, as named in this map`].map((t, l) => `<li data-at="${21 + 2 * l}"><span class="sw" style="background:${LEVEL_COL[l]}"></span>${t}</li>`).join('')}</ul>
+        <ul class="legend">${[`${F.levels[0]} organs`, `${F.levels[1]} tissues, where an organ has several`, `${F.levels[2]} tissue types`, `${F.levels[3]} domains, as named in this map`].map((t, l) => `<li data-at="${21 + 2 * l}"><span class="sw" style="background:${LEVEL_COL[l]}"></span>${t}</li>`).join('')}</ul>
         ${F.wide ? `<p data-at="30" class="amber">${esc(cap(F.wide.name))} is the tissue type shared most widely: ${F.wide.organs} of the ${F.organs} organs have it.</p>` : ''}
         <p class="credits" data-at="33">The network as in the talk's Figure 5: domains hang on tissue types, and tissue types on organs and their tissues.</p>`)}`,
     age: `<h2 data-at="0.6">Age</h2>
       ${turns(`<p data-at="1.2" data-out="13.5">Of ${F.donorVars} things known about the donors, age is the strongest in explaining how their domains differ.</p>
-        <p data-at="6" data-out="13.5" class="amber">${pct(F.ageChange)} of domains change with age (${F.agePairs[0]} of ${F.agePairs[1]} pairs of a domain and a tissue, where the domain covers more than ${pct(F.agePairsMin)}), mostly by less than ${pct(F.mostUnder)} per decade.</p>
+        <p data-at="6" data-out="13.5" class="amber">${pct(F.ageChange)} of domains change with age: ${F.agePairs[0]} of ${F.agePairs[1]} pairs of a domain and a tissue, where the domain covers more than ${pct(F.agePairsMin)}. Most change by less than ${pct(F.mostUnder)} per decade.</p>
         <p class="credits" data-at="9.5" data-out="13.5">Each bubble is a domain in a tissue: right, it grows with age; left, it shrinks; higher, the change is surer.</p>`,
       `<ul class="steps">${F.ex.map((x, i) => step(14 + 10 * i, 0, exCol[i], exName(x), esc(exText(x)))).join('')}</ul>
         <p data-at="42">${esc(F.connective)} ${esc(F.most)}</p>`)}`,
     pathology: `<h2 data-at="0.6">Disease</h2>
       ${turns(`<p data-at="1.2" data-out="15.5">GTEx's pathologists noted what they saw on each slide: ${fmt(F.pathology.instances)} notes of ${F.pathology.kinds} kinds.</p>
-        <ul class="steps">${[F.plaque, F.infarct].filter(Boolean).map((p, i) => step(5 + 4 * i, 15.5, i ? '#ff5a4b' : '#ffb43b', cap(p.kind), `${esc(inOrgan(p.organ))}: ${esc(p.note)}`)).join('')}</ul>`,
+        <ul class="steps">${[F.plaque, F.infarct].filter(Boolean).map((p, i) => step(5 + 4 * i, 15.5, i ? '#ff5a4b' : '#ffb43b', cap(p.kind), `${esc(inOrgan(p.organ))}, ${esc(p.note)}`)).join('')}</ul>`,
       `<p data-at="16" class="amber">Disease and healthy ageing often remodel different parts of a tissue: how much of a domain there is, its shape, or both.</p>
-        ${F.remodel.length ? `<p data-at="22">For example: ${esc(F.remodel.map(p => `${p.kind} ${p.note}`).join('; '))}.</p>` : ''}
+        ${F.remodel.length ? `<p data-at="22">For example, ${esc(F.remodel.map(p => `${p.kind} ${p.note}`).join('; '))}.</p>` : ''}
         <p class="credits" data-at="29">${F.figs.includes('trajectories') ? 'Curves read off the talk\'s figures.' : 'Curves drawn after the preprint\'s descriptions, not its data points.'}</p>`)}`,
     contacts: `<h2 data-at="0.6">Neighbours</h2>
       ${turns(`<p data-at="1.2" data-out="16.5">Domains touch. Which ones meet, and how much, makes a network of contacts in each organ.</p>
@@ -318,9 +318,9 @@ function buildStory() {
         ${F.stable ? `<p data-at="23" class="amber">${esc(F.stable)}</p>` : ''}
         ${others.length ? `<p class="credits" data-at="28">Also: ${esc(others.join('; '))}. Contact networks drawn after the preprint's findings.</p>` : ''}`)}`,
     next: `<h2 data-at="0.6">Tissue and time</h2>
-      ${turns(`<p data-at="1.2" data-out="10.5">A map of how the body is built, from cells to domains to organs, and of how it changes with age.</p>
+      ${turns(`<p data-at="1.2" data-out="10.5">This is a map of how the body is built, from cells to domains to organs, and of how it changes with age.</p>
         <p data-at="4.5" data-out="10.5" class="amber">It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.</p>`,
-      `<p data-at="11">Preprint: Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro${F.year ? ` (bioRxiv, ${F.year})` : ''}. Poster and talk: Iva Buljan, of the Rendeiro group at CeMM (Research Center for Molecular Medicine of the Austrian Academy of Sciences), the LBI for Network Medicine and the Medical University of Vienna. Slides: ${esc(F.gtex)}.</p>
+      `<p data-at="11">The preprint behind this story is by Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro${F.year ? `, posted on bioRxiv in ${F.year}` : ''}. The poster and the talk are by Iva Buljan, of the Rendeiro group at the LBI for Network Medicine, the Medical University of Vienna and CeMM, the Research Center for Molecular Medicine of the Austrian Academy of Sciences. The slides are from ${esc(F.gtex)}.</p>
         <p data-at="13.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the atlas</button></p>
         <p class="credits" data-at="15">Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers.</p>`)}`,
   };

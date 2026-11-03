@@ -56,24 +56,24 @@ const FACTS = {
   ageChange: 28, agePairs: [37, 128], agePairsMin: 1, mostUnder: 3, donorVars: 111,
   pathology: { instances: 9643, kinds: 54 },
   bench: { salivary: { r: 0.91, r2: 0.83 }, stomach: { r: 0.76, r2: 0.58 } },
-  method: 'H&E-UTAG', gtex: 'GTEx (Genotype-Tissue Expression project)',
+  method: 'H&E-UTAG', gtex: 'GTEx, the Genotype-Tissue Expression project',
 };
 const EXAMPLES = [
   { domain: 'corpus albicans', tissue: 'Ovary', from: 1.4, to: 11.89, perDecade: 3.51,
-    note: 'scars left by old ovarian follicles: they pile up with age' },
+    note: 'scars left by old ovarian follicles, which pile up with age' },
   { domain: 'submucosa', tissue: 'gastrointestinal tract', from: 42.9, to: 34.5, perDecade: -0.98,
     note: 'the loose layer under the gut lining thins' },
   { domain: 'adenohypophysis', tissue: 'Pituitary', from: 82.6, to: 67.9, perDecade: -3.42,
     note: 'the gland part of the pituitary shrinks' },
 ];
 const FINDINGS = {
-  most: 'Integumentary (skin) and reproductive tissues changed most, nervous and muscular tissues least.',
+  most: 'Integumentary tissues, that is skin, and reproductive tissues changed most; nervous and muscular tissues changed least.',
   connective: 'Connective tissue increased with age in many organs.',
   pathology: [
     { kind: 'calcified plaques', organ: 'Artery', note: 'rise with age, faster after about 40' },
     { kind: 'infarct tissue', organ: 'Heart', note: 'rises steeply after about 60' },
-    { kind: 'testicular atrophy', organ: 'Testis', note: 'changes the shape of the seminiferous tubules (morphology)' },
-    { kind: 'arterial fibrosis', organ: 'Artery', note: 'changes how much tunica adventitia there is (abundance)' },
+    { kind: 'testicular atrophy', organ: 'Testis', note: 'changes the shape of the seminiferous tubules, their morphology' },
+    { kind: 'arterial fibrosis', organ: 'Artery', note: 'changes how much tunica adventitia there is, its abundance' },
     { kind: 'liver cirrhosis', organ: 'Liver', note: 'changes both' },
   ],
   interactions: [

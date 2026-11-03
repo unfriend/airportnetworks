@@ -808,33 +808,33 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--magenta)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--magenta)"/><circle cx="352" cy="36" r="4.5" fill="var(--magenta)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Network medicine</h1>
       <p class="lede" data-at="2.4">told with the proteins in a human cell</p>
-      <p data-at="3.6">${fmt(N)} proteins and ${fmt(E)} interactions, placed where they work in the cell. Eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.</p>`,
+      <p data-at="3.6">Here are ${fmt(N)} proteins and ${fmt(E)} interactions, placed where they work in the cell. First come eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.</p>`,
     nodes: `<h2 data-at="0.6">Proteins are nodes</h2>
-      <p data-at="1.2">Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows ${fmt(N)} well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, the inner sphere.</p>
+      <p data-at="1.2">Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows ${fmt(N)} well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, which is the inner sphere.</p>
       <p data-at="8">Proteins are nodes just like airports: the same rules of network theory apply.</p>`,
     edges: `<h2 data-at="0.6">Interactions are edges</h2>
       <p data-at="1.2">When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.</p>
       <p data-at="10">All together, ${fmt(E)} interactions tie these proteins into one network.</p>
       <p class="note" data-at="15">Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.</p>`,
     degree: `<h2 data-at="0.6">Hubs</h2>
-      <p data-at="1.2">Most proteins bind only a few partners, while a few hubs bind many. p53 has ${deg[tp53]} partners in this map, beta-catenin ${deg[ctnnb1]}.</p>
+      <p data-at="1.2">Most proteins bind only a few partners, while a few hubs bind many. p53 has ${deg[tp53]} partners in this map, and beta-catenin has ${deg[ctnnb1]}.</p>
       <p class="caption" data-at="3">Proteins by number of partners</p>
       <div class="bars" data-at="3">${degBars}</div>
-      <p data-at="8">${fmt(small)} proteins have one or two partners, while the 10 biggest hubs take part in ${pct(touch / E)}% of all interactions. Spike height shows the number of partners.</p>`,
+      <p data-at="8">${fmt(small)} proteins have one or two partners, while the 10 biggest hubs take part in ${pct(touch / E)} per cent of all interactions. The height of each spike shows how many partners a protein has.</p>`,
     essential: `<h2 data-at="0.6">Essential proteins</h2>
       <p data-at="1.2">Some proteins are essential: without them, almost no human cell can survive.</p>
-      <p data-at="5">${essL.length} proteins in this map are essential (highlighted). They have ${mEss.toFixed(1)} partners on average, the others ${mOth.toFixed(1)}: essential proteins tend to have ${more} partners.</p>
-      <p class="note" data-at="11">In yeast, hubs turned out to be more likely essential: the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.</p>`,
+      <p data-at="5">${essL.length} proteins in this map are essential, and they are highlighted. They have ${mEss.toFixed(1)} partners on average, and the others have ${mOth.toFixed(1)}: essential proteins tend to have ${more} partners.</p>
+      <p class="note" data-at="11">In yeast, hubs turned out more likely to be essential, a pattern known as the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.</p>`,
     communities: `<h2 data-at="0.6">Modules</h2>
-      <p data-at="1.2">Proteins that work together are densely linked: molecular machines and signalling pathways form modules. The Louvain algorithm found these ten from the interactions alone.</p>
+      <p data-at="1.2">Proteins that work together are densely linked: molecular machines and signalling pathways form modules. A method called the Louvain algorithm found these ten from the interactions alone.</p>
       <ul class="legend">${legend}</ul>`,
     disease: `<h2 data-at="0.6">Disease modules</h2>
       <p data-at="1.2">Genes linked to the same disease are not scattered across the network. Here are the ${breast.length} breast cancer genes in this map.</p>
       <div class="big magenta" data-at="5">${lcc}<small>of ${breast.length} form one connected module</small></div>
-      <p data-at="9">Pick ${breast.length} proteins at random and the largest connected group has only ${rndLcc.toFixed(1)} on average. Disease genes cluster in the same neighbourhood: the disease module at the heart of network medicine.</p>`,
+      <p data-at="9">Pick ${breast.length} proteins at random, and their largest connected group has only ${rndLcc.toFixed(1)} proteins on average. Disease genes cluster in the same neighbourhood. This is the disease module, the idea at the heart of network medicine.</p>`,
     paths: `<h2 data-at="0.6">Drugs and distance</h2>
       <p data-at="1.2">Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.</p>
-      <p data-at="4">Tamoxifen and trastuzumab hit ESR1 and HER2, inside the breast cancer module. Olaparib blocks PARP1, ${dParp === 1 ? 'right next to it' : dParp + ' steps away'}.</p>
+      <p data-at="4">Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits ${dParp === 1 ? 'right next to it' : dParp + ' steps away'}.</p>
       <div class="big magenta" data-at="9"><span id="flights">0</span><small id="flightsWord">steps</small></div>
       <p data-at="19">BACE1, a target of drugs tested against Alzheimer's disease, sits ${L} steps away. Drugs whose targets are close to a disease module are more likely to work against it.</p>`,
     robustness: `<h2 data-at="0.6">Robustness</h2>
@@ -842,10 +842,10 @@ function buildStory() {
       <div class="big" data-at="3.2" id="robPct">${pct(base)}%</div>
       <p class="caption" data-at="3.2">of protein pairs still connected</p>
       <div style="display:grid">
-        <p data-at="6" data-out="17" style="grid-area:1/1">Knock out 20 random proteins: ${pct(rnd)}% of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.</p>
-        <p data-at="18" style="grid-area:1/1">Now knock out the 20 most central proteins, the ones with the highest betweenness.</p>
+        <p data-at="6" data-out="17" style="grid-area:1/1">Knock out 20 random proteins, and ${pct(rnd)} per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.</p>
+        <p data-at="18" style="grid-area:1/1">Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the most shortest paths between other proteins.</p>
       </div>
-      <p data-at="27" class="amber">Robust to random failure, fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.</p>`,
+      <p data-at="27" class="amber">The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.</p>`,
     outro: `<h2 data-at="0.6">Network medicine</h2>
       <ul class="concepts" data-at="1.4">${CH.slice(1, 9).map(c => `<li>${c.name}</li>`).join('')}</ul>
       <p data-at="2.6">Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.</p>

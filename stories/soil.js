@@ -4258,61 +4258,61 @@ function buildStory() {
         <p data-at="12" data-out="21.5" class="amber">The plant takes up some of it; microbes in the soil get to much of the rest first.</p>`,
       `<p data-at="22">They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.</p>
         <p data-at="30" class="amber">So farmers spread more.</p>
-        <p class="note" data-at="33">"Less than 50 %", as the slides put it. The flows in this block are a drawing: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.</p>
+        <p class="note" data-at="33">The slides put it as "less than 50 per cent". The flows in this block are a drawing: ammonium is amber, nitrate blue, nitrous oxide lilac and nitrogen in the plant green.</p>
         <p class="credits" data-at="35">After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.</p>`)}`,
     relay: `<h2 data-at="0.6">The relay underground</h2>
       ${turns(`<p data-at="1.2" data-out="41.5">Inside the soil, microbes pass the nitrogen on, like runners in a relay.</p>
         <ul class="steps">
-          ${step(9, 41.5, G.aoa, 'Archaea', 'turn ammonium into nitrite')}
-          ${step(17, 41.5, G.nsp, 'Bacteria', 'do the same')}
-          ${step(25, 41.5, G.nit, 'Nitrite oxidisers', 'turn nitrite into nitrate')}
-          ${step(34, 41.5, AMBER, 'Comammox', 'does both steps in one microbe')}
+          ${step(9, 41.5, G.aoa, 'Archaea', 'they turn ammonium into nitrite')}
+          ${step(17, 41.5, G.nsp, 'Bacteria', 'they do the same')}
+          ${step(25, 41.5, G.nit, 'Nitrite oxidisers', 'they turn nitrite into nitrate')}
+          ${step(34, 41.5, AMBER, 'Comammox', 'a single microbe that does both steps')}
         </ul>`,
       `<p data-at="42">Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.</p>
-        <p class="note" data-at="46">Nitrification: ammonia-oxidising archaea (AOA) and bacteria (AOB), nitrite-oxidising bacteria (NOB), complete ammonia oxidisers (comammox). Nitrous oxide escapes along the way. The pore is an illustration.</p>`)}`,
+        <p class="note" data-at="46">This relay is called nitrification. Its runners are ammonia-oxidising archaea and bacteria, or AOA and AOB, nitrite-oxidising bacteria, or NOB, and complete ammonia oxidisers, or comammox. Nitrous oxide escapes along the way. The pore is an illustration.</p>`)}`,
     bni: `<h2 data-at="0.6">A wheat that fights back</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.</p>
+      ${turns(`<p data-at="1.2" data-out="23.5">Some plants release substances from their roots that slow the relay down. This is called biological nitrification inhibition, or BNI.</p>
         <p data-at="9" data-out="23.5" class="amber">Breeders moved a piece of chromosome from a wild grass into the wheat Munal.</p>`,
       `<p data-at="24">The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.</p>
         <p data-at="35" class="amber">Until now the evidence was one bacterium in a dish and one day in a field.</p>
-        <p class="note" data-at="39">The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence: root exudates slowed one ammonia-oxidising bacterium in a culture; one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.</p>`)}`,
+        <p class="note" data-at="39">The wild grass is Leymus racemosus. The BNI wheat, described by Subbarao and colleagues in the journal PNAS, is Munal-BNI, and the control wheat Munal-control, the same wheat without the segment. As for the earlier evidence, root exudates, the substances roots release, slowed one ammonia-oxidising bacterium in a culture, and one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.</p>`)}`,
     trial: `<h2 data-at="0.6">The field trial</h2>
       ${turns(`<p data-at="1.2" data-out="24.5">To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:</p>
-        ${legend([[16, FERT_COL[0], 'with no fertiliser'], [17.5, FERT_COL[1], 'with fertiliser'], [19, FERT_COL[2], 'with fertiliser and a synthetic inhibitor']], 24.5)}`,
+        ${legend([[16, FERT_COL[0], 'with no fertiliser,'], [17.5, FERT_COL[1], 'with fertiliser,'], [19, FERT_COL[2], 'and with fertiliser and a synthetic inhibitor.']], 24.5)}`,
       `<p data-at="25">Five times over ${F.days[F.days.length - 1]} days, soil was taken from the roots in every plot.</p>
         <div class="facts">${fact(40, AMBER, fmt(F.samples), 'samples')}${fact(41.5, CYAN, fmt(F.plots), 'plots')}${fact(43, GREEN, fmt(F.dates), 'dates')}</div>
-        <p class="note" data-at="46">A JIRCAS trial: its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: ${F.kgN} kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). Days ${d1} to ${dL} are ${F.dap[0]} to ${F.dap[F.dap.length - 1]} days after planting. ${cap(word(F.reps))} replicates; soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.</p>`)}`,
+        <p class="note" data-at="46">The trial is by JIRCAS, a research centre in Japan. The trial's site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. The fertiliser was ${F.kgN} kilograms of nitrogen per hectare, and the inhibitor DCD, which we read as dicyandiamide. Days ${d1} to ${dL} are ${F.dap[0]} to ${F.dap[F.dap.length - 1]} days after planting. ${cap(word(F.reps))} replicates of each were grown. The soil sampled is the soil clinging to the roots, the rhizosphere, and one sample is missing. The plots' layout is illustrative.</p>`)}`,
     leaks: `<h2 data-at="0.6">Greener, fewer leaks</h2>
       ${turns(`<p data-at="1.2" data-out="21.5">At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.</p>
-        <div class="facts">${fact(9, LINE_COL[0], Math.round(cB), `BNI wheat, day ${dL}`, 21.5)}${fact(10.5, LINE_COL[1], Math.round(cC), 'control wheat', 21.5)}</div>
-        <p class="note" data-at="12" data-out="21.5">Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.</p>`,
+        <div class="facts">${fact(9, LINE_COL[0], Math.round(cB), `for the BNI wheat on day ${dL}`, 21.5)}${fact(10.5, LINE_COL[1], Math.round(cC), 'for the control wheat', 21.5)}</div>
+        <p class="note" data-at="12" data-out="21.5">This is chlorophyll in the leaves of unfertilised plots, measured as SPAD values and read off the slides.</p>`,
       `<p data-at="22" data-out="41.5">With fertiliser there is less nitrate in the soil under it in mid-season.</p>
-        <div class="facts">${fact(30, LINE_COL[0], Math.round(nB), `mg N per kg, day ${F.days[2]}`, 41.5)}${fact(31.5, LINE_COL[1], Math.round(nC), 'under the control wheat', 41.5)}</div>
-        <p class="note" data-at="33" data-out="41.5">Nitrate in fertilised plots, the group means of the data (${pTxt(F.no3d24[2])}). The slides call it lower from day ${F.days[2]} to day ${F.days[3]}; only day ${F.days[2]} is starred.</p>`,
+        <div class="facts">${fact(30, LINE_COL[0], Math.round(nB), `milligrams of nitrogen per kilogram on day ${F.days[2]}`, 41.5)}${fact(31.5, LINE_COL[1], Math.round(nC), 'under the control wheat', 41.5)}</div>
+        <p class="note" data-at="33" data-out="41.5">This is nitrate in fertilised plots, the group means of the data, with ${pTxt(F.no3d24[2])}. The slides call it lower from day ${F.days[2]} to day ${F.days[3]}, but only day ${F.days[2]} is starred as significant.</p>`,
       `<p data-at="42">And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.</p>
-        <div class="facts">${fact(52, LINE_COL[0], n1(oB), 'ppm at the peak, BNI wheat')}${fact(53.5, LINE_COL[1], n1(oC), `control wheat, day ${d1}`)}</div>
-        <p class="note" data-at="57">Fertilised soil, read off the slides (${esc(F.incubation.replace(/ \(slide text\)$/, ''))}). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, ${pTxt(F.n2oMeta[2])}); how the two measurements relate is not known yet.</p>`)}`,
+        <div class="facts">${fact(52, LINE_COL[0], n1(oB), 'parts per million at the peak for the BNI wheat')}${fact(53.5, LINE_COL[1], n1(oC), `for the control wheat on day ${d1}`)}</div>
+        <p class="note" data-at="57">This is fertilised soil, read off the slides, which give the incubation as ${esc(F.incubation.replace(/ \(slide text\)$/, '').replace(/^(\d+) mg N\/kg soil \(NH4\)2SO4, (\d+)% water content, (\d+) days incubation$/, '$1 milligrams of nitrogen per kilogram of soil, given as ammonium sulphate, at $2 per cent water content, for $3 days'))}. There is an open question. The data's own nitrous oxide value, "the potential amount of produced nitrous oxide", given without a unit, shows no clear difference over the season, ${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, with ${pTxt(F.n2oMeta[2])}. How the two measurements relate is not known yet.</p>`)}`,
     crowd: `<h2 data-at="0.6">A crowd of ${thousands(F.kinds)}</h2>
       ${turns(`<p data-at="1.2" data-out="23.5">Across the ${fmt(F.samples)} samples, this soil holds about ${thousands(F.kinds)} kinds of microbe, some ${fmt(Math.round(F.perSample / 100) * 100)} in a typical sample.</p>
-        <p data-at="9" data-out="23.5" class="amber">${fmt(F.common)} of them make up ${pct(F.readShare)} of the DNA read.</p>`,
+        <p data-at="9" data-out="23.5" class="amber">${fmt(F.common)} of them make up ${pct(F.readShare)} of the DNA that was read.</p>`,
       `<p data-at="24">Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.</p>
         <p data-at="31">The wheat line barely shows: only ${word(F.byLine)} of the ${fmt(F.common)} common kinds differ between the two wheats.</p>
         <div class="facts">${fact(38, FERT_COL[1], fmt(F.byFert), 'differ by fertiliser')}${fact(39.5, GREY, fmt(F.byTime), 'by date')}${fact(41, LINE_COL[0], fmt(F.byLine), 'by wheat line')}</div>
-        <p class="note" data-at="44">Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered by abundance. Nitrosospira: ${F.nitrosospira.map(v => v.toFixed(2)).join(', ')} % of reads without fertiliser, with it, with DCD. Gene counts of the ammonia oxidisers (qPCR, read off the slides) differ little between the wheats (one marginal p = ${F.qpcrP}).</p>`)}`,
+        <p class="note" data-at="44">The kinds of microbe are amplicon sequence variants, or ASVs, from 16S rRNA gene reads, numbered by abundance. Nitrosospira makes up ${F.nitrosospira.map(v => v.toFixed(2)).join(', ')} per cent of reads without fertiliser, with it, and with DCD. Gene counts of the ammonia oxidisers, measured by qPCR and read off the slides, differ little between the wheats, with one marginal p value of ${F.qpcrP}.</p>`)}`,
     together: `<h2 data-at="0.6">Who rises together</h2>
       ${turns(`<p data-at="1.2" data-out="30.5">Link two kinds of microbe when their numbers rise and fall together across the samples.</p>
         <div class="facts">${fact(10, CYAN, fmt(F.nodes), 'kinds', 30.5)}${fact(11.5, CYAN, fmt(F.links), 'links', 30.5)}</div>
         <p data-at="19" data-out="30.5" class="amber">Shuffle the samples, and not one link is left: the pattern is real.</p>`,
-      `<p data-at="31" data-out="54.5">Its groups follow the fertiliser and the field's plots; the wheat barely shows.</p>
-        <p class="note" data-at="40" data-out="54.5">About ${word(F.big)} big groups (modules): ${word(F.bigFert)} rise and fall with the fertiliser, ${word(F.bigPlot)} with the plots; the wheat line explains under ${Math.max(1, Math.ceil(F.lineR2 * 100))} % of any big group's ups and downs.</p>`,
+      `<p data-at="31" data-out="54.5">The network's groups follow the fertiliser and the field's plots; the wheat barely shows.</p>
+        <p class="note" data-at="40" data-out="54.5">Of about ${word(F.big)} big groups, called modules, ${word(F.bigFert)} rise and fall with the fertiliser and ${word(F.bigPlot)} with the plots. The wheat line explains under ${Math.max(1, Math.ceil(F.lineR2 * 100))} per cent of any big group's ups and downs.</p>`,
       `<p data-at="55">Split by wheat line, the two networks differ no more than two random halves of the samples do.</p>
         <p data-at="64" class="amber">And rising together is not working together.</p>
-        <p class="note" data-at="67">Built for this story, not the authors' analysis: the ${fmt(F.common)} common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), Louvain modules. Each half's own network: ${fmt(F.lineLinks[0])} and ${fmt(F.lineLinks[1])} links; ${fmt(F.randomN)} random halves differ by ${fmt(F.randomDiff[0])} to ${fmt(F.randomDiff[1])}.</p>`)}`,
+        <p class="note" data-at="67">This network was built for this story and is not the authors' analysis. It uses the ${fmt(F.common)} common kinds, centred log-ratios, Spearman's correlation of at least 0.6 with a false discovery rate under 5 per cent, and Louvain modules. The two wheat lines' own networks have ${fmt(F.lineLinks[0])} and ${fmt(F.lineLinks[1])} links, and the halves of ${fmt(F.randomN)} random splits differ by ${fmt(F.randomDiff[0])} to ${fmt(F.randomDiff[1])} links.</p>`)}`,
     know: `<h2 data-at="0.6">What we know</h2>
       ${turns(`<p data-at="1.2" data-out="24.5">There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.</p>
         <p data-at="10" data-out="24.5" class="amber">It is not yet proof.</p>
-        <p data-at="14" data-out="24.5">Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.</p>`,
-      `<p class="note" data-at="25">Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Still open: the jars show far less nitrous oxide from the BNI wheat's soil, while the data's own N2O value shows no clear difference over the season (${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, ${pTxt(F.n2oMeta[2])}); how the two measurements relate is not known yet.</p>
+        <p data-at="14" data-out="24.5">The next steps are to follow marked nitrogen atoms through soil, microbe and plant, and to read which microbial genes are switched on.</p>`,
+      `<p class="note" data-at="25">Marking atoms means isotope studies with nitrogen-15; reading which genes are switched on is called metatranscriptomics. One question is still open. The jars show far less nitrous oxide from the BNI wheat's soil, while the data's own nitrous oxide value shows no clear difference over the season, ${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, with ${pTxt(F.n2oMeta[2])}. How the two measurements relate is not known yet.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the trial</button></p>
         <p class="credits" data-at="29">After the slides by ${AUTH} (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.</p>
         <p class="credits" data-at="30">The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.</p>`)}`,

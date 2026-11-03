@@ -1851,19 +1851,19 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--teal)"/><circle cx="352" cy="36" r="4.5" fill="var(--teal)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Spatial interactome</h1>
       <p class="lede" data-at="2.4">where proteins meet inside a human cell</p>
-      <p data-at="3.6">${fmt(P)} proteins in the compartments of a model cell, and the ${fmt(E)} interactions between them. Eight ideas about how location shapes the protein network, then the cell is yours to explore.</p>`,
+      <p data-at="3.6">Here are ${fmt(P)} proteins in the compartments of a model cell, and the ${fmt(E)} interactions between them. First come eight ideas about how location shapes the protein network, then the cell is yours to explore.</p>`,
     rooms: `<h2 data-at="0.6">A cell has rooms</h2>
       <p data-at="1.2">Membranes divide a human cell into compartments, each with its own chemistry and its own set of proteins.</p>
       <ul class="legend">${legend}</ul>
       <p class="note" data-at="21">The cytoplasm fills the space between them.</p>`,
     address: `<h2 data-at="0.6">Every protein has an address</h2>
       <p data-at="1.2">Each dot is a protein, coloured by the compartment it works in. This model holds ${fmt(P)} well-studied human proteins.</p>
-      <p data-at="7">The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the ER or into mitochondria.</p>
+      <p data-at="7">The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the endoplasmic reticulum or into mitochondria.</p>
       <p class="note" data-at="13">The Human Protein Atlas has located more than 12,000 human proteins by staining them in cells.</p>`,
     local: `<h2 data-at="0.6">Proteins bind where they meet</h2>
       <p data-at="1.2">Two proteins can only bind if they are in the same place at the same time. These are the ${fmt(E)} interactions in this cell.</p>
       <div class="big cyan" data-at="7">${pct(ps.same)}%<small>in one compartment</small></div>
-      <p data-at="10">The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only ${pct(ps.rnd)}% share a compartment.</p>
+      <p data-at="10">The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only ${pct(ps.rnd)} per cent share a compartment.</p>
       <p class="note" data-at="17">Spatial maps help weed out interactions measured in a test tube between proteins that never meet in a living cell.</p>`,
     multi: `<h2 data-at="0.6">One protein, several places</h2>
       <p data-at="1.2">About half of human proteins are found in more than one place. Dotted lines join the copies of the ${multi.length} proteins here that live or work in two or three.</p>
@@ -1873,7 +1873,7 @@ function buildStory() {
     signal: `<h2 data-at="0.6">Signals cross the cell</h2>
       <p data-at="1.2">A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.</p>
       <div class="big teal" data-at="5"><span id="steps">0</span><small id="stepsWord">steps</small></div>
-      <p data-at="19">The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF: ${L} steps, one of them a move.</p>`,
+      <p data-at="19">The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF. That makes ${L} steps, one of them a move.</p>`,
     move: `<h2 data-at="0.6">Moving rewires the network</h2>
       <p data-at="1.2">In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.</p>
       <p data-at="7">TNF outside the cell sets off a relay that marks IκBα for destruction.</p>
@@ -1886,8 +1886,8 @@ function buildStory() {
       <p class="note" data-at="15">In this model the bubble is drawn far larger than ten nanometres.</p>`,
     disease: `<h2 data-at="0.6">Proteins in the wrong place</h2>
       <p data-at="1.2">Many disease mutations leave a protein able to work, but send it to the wrong place.</p>
-      <p data-at="4">Cystic fibrosis: the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the ER catches it, and it never reaches the membrane.</p>
-      <p data-at="12">ALS: in nearly all patients, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses ${tdp.lost.length} splicing partners and gains ${tdp.gained.length} new ones there.</p>`,
+      <p data-at="4">In cystic fibrosis, the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the endoplasmic reticulum catches it, and it never reaches the membrane.</p>
+      <p data-at="12">In nearly all patients with ALS, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses ${tdp.lost.length} splicing partners and gains ${tdp.gained.length} new ones there.</p>`,
     outro: `<h2 data-at="0.6">Spatial interactome</h2>
       <ul class="concepts" data-at="1.4">${CH.slice(1, 9).map(c => `<li>${c.name}</li>`).join('')}</ul>
       <p data-at="2.6">Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.</p>

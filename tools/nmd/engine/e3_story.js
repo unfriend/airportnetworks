@@ -123,8 +123,8 @@ function buildStory() {
   // the biggest endotypes of congenital myopathies, by name, for the text
   const named = D.groups[5].endo.filter(e => e.name).sort((a, b) => b.n - a.n);
   const muscle = named.filter(e => /muscle|sarcomere|myofibril|contraction|actin|myosin/i.test(e.name) && e.name.length <= 45);
-  const cmEndo = (muscle.length >= 2 ? muscle : named).slice(0, 3).map(e => `${e.c}, ${lc(e.name)}`);
-  const shared = F.pairs.slice(0, 2).map(p => `endotype ${p.c1} of congenital myopathies (${lc(F.endoName(5, p.c1) || 'unnamed')}) and ${p.c2} of cardiomyopathies (${lc(F.endoName(11, p.c2) || 'unnamed')}), ${p.n} genes`);
+  const cmEndo = (muscle.length >= 2 ? muscle : named).slice(0, 3).map(e => `number ${e.c}, ${lc(e.name)}`);
+  const shared = F.pairs.slice(0, 2).map(p => `endotype ${p.c1} of congenital myopathies, ${lc(F.endoName(5, p.c1) || 'unnamed')}, and endotype ${p.c2} of cardiomyopathies, ${lc(F.endoName(11, p.c2) || 'unnamed')}, with ${p.n} genes in common`);
   const capped = F.cm.added >= 200;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
@@ -135,69 +135,69 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Hidden connections</h1>
       <p class="lede" data-at="2.4">in rare diseases of nerves and muscles</p>
-      <p data-at="4">${F.layers} layers of data, one network: how rare muscle diseases share their machinery, and what muscle and heart have in common.</p>
+      <p data-at="4">${F.layers} layers of data in one network show how rare muscle diseases share their machinery, and what muscle and heart have in common.</p>
       <p class="note" data-at="11">Each dot is a gene, the same gene on every level. Each level links the genes by a different kind of evidence.</p>`,
     motor: `<h2 data-at="0.6">From nerve to muscle</h2>
       <p data-at="1.2">Every movement starts in a motor neuron in the spinal cord. Its long axon, wrapped in myelin, carries the signal to the muscle.</p>
-      <p data-at="12">At the neuromuscular junction the nerve passes the signal to the muscle fibre. Inside, chains of sarcomeres pull: thin actin filaments slide along thick myosin filaments.</p>
+      <p data-at="12">At the neuromuscular junction the nerve passes the signal to the muscle fibre. Inside, chains of sarcomeres, tiny contracting units, pull as thin actin filaments slide along thick myosin filaments.</p>
       <p data-at="30" class="amber">Neuromuscular disorders are rare genetic diseases of this motor unit.</p>
-      <div class="facts"><div data-at="31"><b>16</b><small>disease groups</small></div><div data-at="32"><b>1,200+</b><small>diseases</small></div><div data-at="33"><b>~700</b><small>causal genes</small></div><div data-at="34"><b>3.7-4.99</b><small>in 10,000 people</small></div></div>
-      <p data-at="36">They strike the nerve cells, the nerves, the junction or the muscle, with weakness and low muscle tone.</p>
-      <p data-at="40">The heart muscle is built from the same sarcomeres: inherited cardiomyopathies belong here too.</p>
+      <div class="facts"><div data-at="31"><b>16</b><small>disease groups</small></div><div data-at="32"><b>1,200</b><small>or more diseases</small></div><div data-at="33"><b>700</b><small>or so causal genes</small></div><div data-at="34"><b>3.7-4.99</b><small>in 10,000 people</small></div></div>
+      <p data-at="36">They strike the nerve cells, the nerves, the junction or the muscle, causing weakness and low muscle tone.</p>
+      <p data-at="40">The heart muscle is built from the same sarcomeres: its inherited diseases, the cardiomyopathies, belong here too.</p>
       <p class="credits" data-at="44">Gene Table of Neuromuscular Disorders (2024). Motor unit illustrative.</p>`,
     why: `<h2 data-at="0.6">Same weakness, different causes</h2>
       <p data-at="1.2">Patients share weakness, but the causes are many: about 700 genes. There are no molecular subtypes for these diseases yet.</p>
       <p data-at="9">A shared mechanism is called an endotype. Diseases that share one may share a treatment: a drug for one could be repurposed for another.</p>
       <ul class="steps">
-        <li data-at="15"><b>Define</b>the endotypes of each disease group</li>
-        <li data-at="17"><b>Overlap</b>find the endotypes different diseases share</li>
-        <li data-at="19"><b>Point</b>to genes and drugs worth a closer look</li>
+        <li data-at="15"><b>First</b>define the endotypes of each disease group</li>
+        <li data-at="17"><b>Then</b>find the endotypes that different diseases share</li>
+        <li data-at="19"><b>Finally</b>point to genes and drugs worth a closer look</li>
       </ul>`,
     tower: `<h2 data-at="0.6">${F.layers} layers, one network</h2>
       <p data-at="1.2">To see mechanisms, look at the genes from every side at once. The multiplex network stacks ${F.layers} layers; in each, the same genes are linked by a different kind of evidence.</p>
       <ul class="steps">
-        <li data-at="8"><b>Proteins</b>that bind each other: a core of links found in more than 24 tissues, and ${F.cats.ppi - 1} tissue layers with their own links (IID)</li>
-        <li data-at="14"><b>Genes</b>switched on together, in ${F.cats.coex - 1} tissues and a core (GTEx)</li>
-        <li data-at="20"><b>Symptoms</b>shared in people and in mice (HPO, MPO)</li>
-        <li data-at="25"><b>Pathways, drugs</b>shared pathways (Reactome) and drug targets (NeDRex)</li>
-        <li data-at="30"><b>Essential</b>genes that cells need together (CRISPR screens)</li>
+        <li data-at="8"><b>Proteins</b>those that bind each other, in a core of links found in more than 24 tissues and in ${F.cats.ppi - 1} tissue layers with links of their own</li>
+        <li data-at="14"><b>Genes</b>those switched on together, in ${F.cats.coex - 1} tissues and in a core layer</li>
+        <li data-at="20"><b>Symptoms</b>those that genes share, in people and in mice</li>
+        <li data-at="25"><b>Pathways and drugs</b>shared pathways and drug targets</li>
+        <li data-at="30"><b>Essential</b>genes that cells need together, from CRISPR screens</li>
       </ul>
-      <p class="note" data-at="35">In this map: ${fmt(F.genes)} genes (the known genes of the ${F.groups} disease groups and the genes the walk added) and ${fmt(F.links)} protein links. The Gene Table's 16 groups, small ones joined to their closest. Layers still waiting for their data show as dotted rims.</p>
-      <p class="credits" data-at="38">Kotlyar et al. (IID); GTEx, with the co-expression core of Buphamalai et al., Nature Communications (2021); HPO; MPO; Reactome; NeDRex.</p>`,
+      <p class="note" data-at="35">This map holds ${fmt(F.genes)} genes, the known genes of the ${F.groups} disease groups plus the genes the walk added, and ${fmt(F.links)} protein links. The groups are the Gene Table's 16, with small ones joined to their closest. Layers still waiting for their data show as dotted rims.</p>
+      <p class="credits" data-at="38">Proteins: Kotlyar et al. (IID). Genes switched on together: GTEx, with the co-expression core of Buphamalai et al., Nature Communications (2021). Symptoms: HPO, MPO. Pathways: Reactome. Drug targets: NeDRex.</p>`,
     walk: `<h2 data-at="0.6">A walker that keeps coming home</h2>
       <p data-at="1.2">Start from the genes known to cause one group of diseases: here the ${F.cm.seeds} genes of congenital myopathies in the Gene Table.</p>
       <p data-at="8">A random walker sets off from them. At every step it jumps back to a known gene seven times in ten; otherwise it follows a link. At a gene found in several layers it changes layer half the time, preferring the layers where the disease's genes cluster most.</p>
       <p data-at="24" class="amber">Genes the walker visits again and again are close to the disease, from many sides at once.</p>
-      <p data-at="34">The most visited join the disease module one by one, until the module holds together, or 200 genes have joined. ${capped ? 'For congenital myopathies the walk stopped at the limit of 200.' : `For congenital myopathies, ${F.cm.added} joined.`} Other groups held together sooner: for some a single gene was enough.</p>
+      <p data-at="34">The most visited genes join the disease module one by one, until the module holds together, or 200 genes have joined. ${capped ? 'For congenital myopathies the walk stopped at the limit of 200.' : `For congenital myopathies, ${F.cm.added} joined.`} Other groups held together sooner: for some a single gene was enough.</p>
       <p class="credits" data-at="44">Random walk with restart on the multiplex: restart 0.7, layer switch 0.5, layers weighted by z-score. After Buphamalai et al. (2021).</p>`,
     layers: `<h2 data-at="0.6">Different diseases, different layers</h2>
-      <p data-at="1.2">Not every layer matters for every disease. A protein layer counts when a group's known genes link up in it more than chance would allow (a z-score of at least 1.645).</p>
+      <p data-at="1.2">Not every layer matters for every disease. A protein layer counts when a group's known genes link up in it more than chance would allow.</p>
       <ul class="steps">
-        <li data-at="7"><b>Motor and sensory neuropathies</b>strongest in the ${lc(F.topLayer(1))} protein layer</li>
-        <li data-at="16"><b>Myasthenic syndromes</b>strongest in the ${lc(F.topLayer(4))} protein layer</li>
-        <li data-at="25"><b>Muscular dystrophies</b>strongest in the ${lc(F.topLayer(9))} protein layer</li>
+        <li data-at="7"><b>Motor and sensory neuropathies</b>strongest in the protein layer of the ${lc(F.topLayer(1))}</li>
+        <li data-at="16"><b>Myasthenic syndromes</b>strongest in the protein layer of the ${lc(F.topLayer(4))}</li>
+        <li data-at="25"><b>Muscular dystrophies</b>strongest in the protein layer of the ${lc(F.topLayer(9))}</li>
       </ul>
-      <p class="credits" data-at="30">Z-scores computed in this map over the protein layers: the largest linked group of a disease's known genes against ${fmt(D.walk.runs)} random gene sets with the same numbers of links.</p>`,
+      <p class="credits" data-at="30">A protein layer counts at a z-score of at least 1.645. Z-scores computed in this map over the protein layers: the largest linked group of a disease's known genes against ${fmt(D.walk.runs)} random gene sets with the same numbers of links.</p>`,
     endo: `<h2 data-at="0.6">Endotypes</h2>
-      <p data-at="1.2">Inside a module, genes that do the same job sit together. Grouping them by the functions around them (Gene Ontology terms) splits each module into endotypes.</p>
+      <p data-at="1.2">Inside a module, genes that do the same job sit together. Grouping them by the functions around them, their Gene Ontology terms, splits each module into endotypes.</p>
       <p data-at="12">Congenital myopathies fall into ${F.cm.endo} endotypes, among them ${cmEndo.join('; ')}.</p>
-      <p data-at="26" class="amber">Across the ${F.groups} groups: ${F.endotypes} endotypes, candidates for shared mechanisms.</p>
-      <p class="note" data-at="32">Endotypes are numbered within each group; names are the most typical GO process of their genes.</p>`,
+      <p data-at="26" class="amber">Across the ${F.groups} groups there are ${F.endotypes} endotypes, candidates for shared mechanisms.</p>
+      <p class="note" data-at="32">Endotypes are numbered within each group, and named after the most typical Gene Ontology process of their genes.</p>`,
     overlap: `<h2 data-at="0.6">Heart and muscle</h2>
       <p data-at="1.2">Congenital myopathies and inherited cardiomyopathies often come together. Do they share machinery?</p>
-      <p data-at="8">Side by side: ${F.cm.n} genes for congenital myopathies, ${F.hc.n} for cardiomyopathies, ${F.shared} in both. The endotypes that share the most genes: ${shared.join('; ')}.</p>
-      <p data-at="22">The overlap shows in shared symptoms, in the co-expression of heart atrium and ventricle, and in the proteins of skeletal muscle.</p>
-      <p data-at="34" class="amber">Their known genes alone share ${fmt(F.seedLinks)} protein links in this map. With the genes the walk found, ${fmt(F.moduleLinks)} links tie them together: without the walk, much of what they share is missed.</p>
+      <p data-at="8">Side by side, congenital myopathies have ${F.cm.n} genes, cardiomyopathies ${F.hc.n}, and ${F.shared} are in both. The endotypes that share the most genes are ${shared.join('; ')}.</p>
+      <p data-at="22">The overlap shows in shared symptoms, in genes switched on together in the heart's atrium and ventricle, and in the proteins of skeletal muscle.</p>
+      <p data-at="34" class="amber">Their known genes alone share ${fmt(F.seedLinks)} protein links in this map. With the genes the walk found, ${fmt(F.moduleLinks)} links tie them together. Without the walk, much of what they share is missed.</p>
       <p class="credits" data-at="46">Congenital myopathies (endotypes CM 1-${F.cm.endo}) and hereditary cardiomyopathies (HC); layers after netviz-iactive by Philipp Friedrich.</p>`,
     stress: `<h2 data-at="0.6">A stress test</h2>
       <p data-at="1.2">How much does the result hang on any one layer? Layers were removed at random, again and again: 10,000 networks for every number of removed layers, 680,000 in all.</p>
-      <p data-at="14">About 45 hours on MareNostrum 5 at the Barcelona Supercomputing Center, in jobs of 25 nodes with 112 cores each.</p>
-      <p data-at="22" class="amber">The modules keep their originally detected genes until most layers are gone; with fewer layers the walk has to search wider. The full multiplex finds the smallest sets of genes that define the disease modules (the authors' result; the picture is illustrative).</p>
+      <p data-at="14">It took about 45 hours on MareNostrum 5 at the Barcelona Supercomputing Center, in jobs of 25 nodes with 112 cores each.</p>
+      <p data-at="22" class="amber">The modules keep their originally detected genes until most layers are gone; with fewer layers the walk has to search wider. The full multiplex finds the smallest sets of genes that define the disease modules. That is the authors' result; the picture only illustrates it.</p>
       <p class="credits" data-at="28">With Alfonso Valencia and Davide Cirillo, Barcelona Supercomputing Center.</p>`,
     next: `<h2 data-at="0.6">What comes next</h2>
-      <p data-at="1.2">Genes shared by the endotypes of different diseases are candidates: for diagnosis, and for drugs that might be repurposed from one disease to another.</p>
-      <p data-at="9">The same approach now turns to inborn errors of immunity (Pauline Staiber).</p>
-      <p data-at="14">Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche: Guthrie Lab and Menche Lab, Ludwig Boltzmann Institute for Network Medicine, Vienna.</p>
+      <p data-at="1.2">Genes shared by the endotypes of different diseases are candidates for diagnosis, and for drugs that might be repurposed from one disease to another.</p>
+      <p data-at="9">The same approach now turns to inborn errors of immunity, with Pauline Staiber.</p>
+      <p data-at="14">This work is by Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche, of the Guthrie Lab and the Menche Lab at the Ludwig Boltzmann Institute for Network Medicine in Vienna.</p>
       <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the network</button></p>
       <p class="credits" data-at="22">ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex.</p>`,
   };

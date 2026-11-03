@@ -2536,14 +2536,14 @@ function buildStory() {
       <p data-at="13">Bouncing at random reaches every corner in the end, but the last patches take longest.</p>`,
     follow: `<h2 data-at="0.6">Follow me</h2>
       <p data-at="1.2">Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.</p>
-      <p data-at="7" class="amber">Draw who follows whom and you get a network: you in the middle, a link to every robot. A star.</p>`,
+      <p data-at="7" class="amber">Draw who follows whom and you get a network, with you in the middle and a link to every robot: a star.</p>`,
     chain: `<h2 data-at="0.6">Follow the one ahead</h2>
       <p data-at="1.2">Rewire the network. Each robot follows the one in front of it; only the first follows you.</p>
       <p data-at="7">Same robots, same rule, a different network: the gang becomes a line.</p>
       <p class="credits" data-at="13">Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007).</p>`,
     gang: `<h2 data-at="0.6">Your gang</h2>
       <p data-at="1.2">The gang stays for as long as you do.</p>
-      <p data-at="3" data-xr="Change the rule, add robots, show the cleaned floor, or spill crumbs: point at the floor and pull the trigger. Walk about and the gang follows.">Change the rule, add robots, show the cleaned floor, or spill crumbs: click the floor to walk; in a headset, point at the floor and pull the trigger.</p>`,
+      <p data-at="3" data-xr="Change the rule, add robots, show the cleaned floor, or spill crumbs: point at the floor and pull the trigger. Walk about and the gang follows.">Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

@@ -198,73 +198,73 @@ function buildStory() {
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Three qubits</h1>
-      <p class="lede" data-at="2.4">how a gene network fits on a tiny quantum computer</p>
+      <p class="lede" data-at="2.4">How a gene network fits on a tiny quantum computer</p>
       ${turns(`<p data-at="4" data-out="21.5">Some diseases only appear when two genes are broken at the same time.</p>
-        <p data-at="6.5" data-out="21.5">The dots on the diagonal are genes, and every dot above them a pair. Add genes, and the pairs grow much faster.</p>
+        <p data-at="6.5" data-out="21.5">The dots on the diagonal are genes, and every dot above them is a pair. Add genes, and the pairs grow much faster.</p>
         <div class="facts"><div data-at="12" data-out="21.5"><b>${fmt(F.genes)}</b><small>genes in the real network</small></div><div data-at="13.5" data-out="21.5"><b>${F.pairsM} million</b><small>pairs of them</small></div></div>
         <p data-at="16" data-out="21.5" class="amber">Far too many to test one by one.</p>`,
-      `<p class="note" data-at="22">n genes make n(n − 1)/2 pairs: ${fmt(F.genes)} × ${fmt(F.genes - 1)} / 2 = ${fmt(F.pairs)}. The real network: ${esc(F.source)}, physical protein interactions with a combined score of ${F.score} or more, its largest connected component.</p>
+      `<p class="note" data-at="22">n genes make n times n minus 1 over 2 pairs, so ${fmt(F.genes)} times ${fmt(F.genes - 1)} over 2 is ${fmt(F.pairs)}. The real network takes the physical protein interactions in ${esc(F.source)} with a combined score of ${F.score} or more, and keeps the largest connected component.</p>
         <p class="credits" data-at="26">After the method and figures of Joel Hancock. The networks drawn are examples, computed here.</p>`)}`,
     walkers: `<h2 data-at="0.6">Two walkers on a map</h2>
       ${turns(`<p data-at="1.2" data-out="20.5">Think of the network as a map. Each gene is a place, and a street joins two genes whose proteins touch.</p>
         <p data-at="5" data-out="20.5">Two walkers wander it, one for each gene of a pair.</p>
         <p data-at="14" data-out="20.5" class="amber">They are drawn to pairs that are broken together in patients more often than in healthy people.</p>`,
       `<p data-at="21" class="amber">Where they settle is where to look.</p>
-        <p class="note" data-at="24">In symbols, the walkers' energy is H = K + c V + ρ R. K = I − A_c lets them move along the network (A_c comes later); V rewards the pairs that patients' data point to; R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.</p>
+        <p class="note" data-at="24">In symbols, the walkers' energy H is K plus c V plus ρ R. K, which is I minus A_c, lets them move along the network, and A_c comes later. V rewards the pairs that patients' data point to. R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.</p>
         <p class="credits" data-at="28">The valleys here are illustrative: this story uses no patients' data.</p>`)}`,
     shrink: `<h2 data-at="0.6">Why shrink the map?</h2>
       ${turns(`<p data-at="1.2" data-out="17.5">A quantum computer could explore all the walkers' routes at once. But today's machines are tiny.</p>
         <p data-at="5" data-out="17.5" class="amber">3 qubits can only tell 8 places apart. So the map has to be shrunk first.</p>
-        <p data-at="10" data-out="17.5">It is folded into 8 neighborhoods, and each gets a 3-digit code, like a postal code: 000 to 111.</p>`,
+        <p data-at="10" data-out="17.5">It is folded into 8 neighborhoods, and each gets a 3-digit code, like a postal code, from 000 to 111.</p>`,
       `<p data-at="18">Each digit is one qubit: q2, q1 and q0, read left to right. A bright qubit is a 1.</p>
-        <p class="note" data-at="21">A qubit is a quantum bit. L qubits address 2^L places, one per basis state: 3 qubits give 2 × 2 × 2 = 8. Each walker needs its own 3 qubits.</p>`)}`,
+        <p class="note" data-at="21">A qubit is a quantum bit. L qubits address 2 to the power L places, one per basis state, so 3 qubits give 2 times 2 times 2, which is 8. Each walker needs its own 3 qubits.</p>`)}`,
     cut: `<h2 data-at="0.6">Cutting the map</h2>
-      ${turns(`<p data-at="1.2" data-out="33.5">Here is an example network, made up for this story: ${fmt(E.n)} genes and ${fmt(E.m)} links, with ${word(E.cells)} groups hidden in it. Its genes are never named.</p>
+      ${turns(`<p data-at="1.2" data-out="33.5">Here is an example network, made up for this story. It has ${fmt(E.n)} genes and ${fmt(E.m)} links, with ${word(E.cells)} groups hidden in it. Its genes are never named.</p>
         <ul class="steps">
-          ${step(8, 33.5, PURPLE, '1 · First cut', 'split the genes in two, keeping linked genes together: two halves, one digit')}
-          ${step(18, 33.5, PURPLE, '2 · Second cut', 'split each half again: four cells, two digits (a square)')}
-          ${step(28, 33.5, PURPLE, '3 · Third cut', 'and again: eight cells, three digits (a cube)')}
+          ${step(8, 33.5, PURPLE, '1 · First cut', 'split the genes in two, keeping linked genes together: two halves, told apart by one digit')}
+          ${step(18, 33.5, PURPLE, '2 · Second cut', 'split each half again: four cells on a square, told apart by two digits')}
+          ${step(28, 33.5, PURPLE, '3 · Third cut', 'split every cell again: eight cells on a cube, told apart by three digits')}
         </ul>`,
       `<p data-at="34" class="amber">A gene's code is the side it fell on at each cut. Genes that share a code form a cell, at one corner of the cube.</p>
-        <p class="note" data-at="36">Each cut is a bisection. The first is the most significant digit (q2), so cells nest: each new cut splits every cell in two. The real run used ${F.run.bits} cuts: ${fmt(F.run.cells)} cells of about ${F.run.genesPerCell} genes; the picture uses 3.</p>
+        <p class="note" data-at="36">Each cut is a bisection. The first cut sets the most significant digit, q2, so cells nest: each new cut splits every cell in two. The real run used ${F.run.bits} cuts, which give ${fmt(F.run.cells)} cells of about ${F.run.genesPerCell} genes each; the picture uses 3.</p>
         <p class="credits" data-at="38">The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into ${word(E.cells)} equal cells, then the codes that keep the most links on the cube's edges.${E.purity !== null ? ` It puts ${pct(E.purity)} of genes with their hidden group.` : ''}</p>`)}`,
     coarse: `<h2 data-at="0.6">The coarse operator</h2>
       ${turns(`<p data-at="1.2" data-out="19.5">Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.</p>
         <p data-at="7" data-out="19.5">A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.</p>
-        <p data-at="13" data-out="19.5" class="amber">Cube edges join cells one digit apart. Here they carry ${pct(E.cube)} of the traffic between cells; face and body diagonals, two or three digits apart, the rest.</p>`,
-      `<p class="note" data-at="20">A_c = P A Pᵀ: A is the network's adjacency matrix, and P the normalized cell indicators, so A_c is an 8 × 8 table. It is balanced over cells (Sinkhorn), so every row adds up to 1. The walkers move by K = I − A_c: what holds for A_c holds for K.</p>
+        <p data-at="13" data-out="19.5" class="amber">Cube edges join cells one digit apart. Here they carry ${pct(E.cube)} of the traffic between cells, and face and body diagonals, which join cells two or three digits apart, carry the rest.</p>`,
+      `<p class="note" data-at="20">A_c is P A P transposed, where A is the network's adjacency matrix and P holds the normalized cell indicators, so A_c is an 8 by 8 table. It is balanced over cells by Sinkhorn's method, so every row adds up to 1. The walkers move by K, which is I minus A_c, so what holds for A_c holds for K.</p>
         <p class="credits" data-at="25">In the real network, at 3 bits, cube edges carry ${RL.cube}% of the coupling between cells.</p>`)}`,
     bricks: `<h2 data-at="0.6">Building blocks</h2>
       ${turns(`<p data-at="1.2" data-out="28.5">Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.</p>
         <ul class="steps">
-          ${step(5, 28.5, PURPLE, 'I', 'do nothing: the same loop on every corner')}
-          ${step(8, 28.5, PURPLE, 'X₀, X₁, X₂', 'flip one digit: hops along the cube’s edges in one direction')}
-          ${step(17, 28.5, RED, 'Z₂', 'a sign by digit: loops of +1 (solid, red) and −1 (dashed, blue)')}
+          ${step(5, 28.5, PURPLE, 'I', 'do nothing, the same loop on every corner')}
+          ${step(8, 28.5, PURPLE, 'X₀, X₁, X₂', 'flip one digit, hopping along the cube’s edges in one direction')}
+          ${step(17, 28.5, RED, 'Z₂', 'a sign set by one digit, with solid red loops of plus 1 and dashed blue loops of minus 1')}
           ${step(20, 28.5, PURPLE, 'Z₂X₁', 'hops with signs')}
-          ${step(23, 28.5, PURPLE, 'X₂X₁, Y₂Y₁', 'flip two digits at once: face diagonals (Y with signs)')}
+          ${step(23, 28.5, PURPLE, 'X₂X₁, Y₂Y₁', 'flip two digits at once, along face diagonals, and Y adds signs')}
         </ul>`,
       `<p data-at="29">Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.</p>
         <p data-at="33" class="amber">Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is ${f2(E.err10)}, down from 1.</p>
-        <p class="note" data-at="40">A Pauli string puts one Pauli matrix on each qubit: I (do nothing), X (flip the bit), Z (+1 on 0, −1 on 1) or Y (flip with a sign). Subscripts are qubits; q2 is the first cut. Any 8 × 8 table is one weighted sum of the 64 strings. Here: ${esc(E.top.join(', '))} …</p>
+        <p class="note" data-at="40">A Pauli string puts one Pauli matrix on each qubit. I does nothing, X flips the bit, Z gives plus 1 on 0 and minus 1 on 1, and Y flips with a sign. Subscripts are qubits, and q2 is the first cut. Any 8 by 8 table is one weighted sum of the 64 strings. Here the largest weights are ${esc(E.top.join(', '))}, and so on.</p>
         <p class="credits" data-at="46">In the real network the largest weights are ${esc(RL.weights.join(', '))}, and a tail.</p>`)}`,
     toolbox: `<h2 data-at="0.6">The toolbox</h2>
       ${turns(`<p data-at="1.2" data-out="22.5">A quantum computer runs some moves quickly and others hardly at all.</p>
-        <p data-at="4" data-out="22.5" class="amber">Keep only the bricks in its quick toolbox, a Lie algebra; the rest goes gray and is dropped.</p>
-        <p data-at="9" data-out="22.5">What is dropped is the residual: 0 means nothing lost, 1 everything. Here it is ${f2(E.res7)} with three qubits.</p>
-        <p class="note" data-at="15" data-out="22.5">The toolbox: the TFIM chain's moves (X on each qubit, ZZ on neighbors) close to ${F.alg.tfim.label}, ${F.alg.tfim.dim} strings at 3 qubits; Z on q2 as well gives ${F.alg.odd.label}, ${F.alg.odd.dim} strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. Residual = ‖A₀ − ΠA₀‖ / ‖A₀‖, with A₀ the traceless part and Π the projection onto the algebra.</p>`,
+        <p data-at="4" data-out="22.5" class="amber">Keep only the bricks in its quick toolbox, called a Lie algebra; the rest goes gray and is dropped.</p>
+        <p data-at="9" data-out="22.5">What is dropped is the residual: 0 means nothing is lost, and 1 means everything is. Here it is ${f2(E.res7)} with three qubits.</p>
+        <p class="note" data-at="15" data-out="22.5">The toolbox: the moves of the TFIM chain, a transverse-field Ising model, are X on each qubit and ZZ on neighbors, and they close into ${F.alg.tfim.label}, with ${F.alg.tfim.dim} strings at 3 qubits; adding Z on q2 gives ${F.alg.odd.label}, with ${F.alg.odd.dim} strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. The residual is the norm of A₀ minus its projection onto the algebra, over the norm of A₀, the traceless part.</p>`,
       `<p data-at="23">In the real network, every extra bit makes the fit worse.</p>
-        <p data-at="28" class="amber">Our cuts lose ${f2(RL.ours(2))} at 2 bits, ${f2(RL.ours(3))} at 3 and ${f2(RL.ours(4))} at 4, where random cuts lose ${f2(RL.rand(2))}, ${f2(RL.rand(3))} and ${f2(RL.rand(4))}. At 8 bits ours lose ${f2(RL.ours(8))} (the best variant ${f2(RL.best8)}): most of the operator falls outside the toolbox.</p>
-        <p data-at="38">The example network, computed here: ${ex[0]} at 1 bit, ${ex[1]} at 2 and ${ex[2]} at 3 (random cuts: ${rd[1]} at 2, ${rd[2]} at 3).</p>
-        <p class="note" data-at="41">At 1 bit every cut loses nothing. In the real network at 3 bits, ${F.alg.odd.label}'s generators carry ${RL.so7.gens}% of A_c's traceless weight, and the whole algebra ${RL.so7.whole}%.</p>`)}`,
+        <p data-at="28" class="amber">Our cuts lose ${f2(RL.ours(2))} at 2 bits, ${f2(RL.ours(3))} at 3 and ${f2(RL.ours(4))} at 4, where random cuts lose ${f2(RL.rand(2))}, ${f2(RL.rand(3))} and ${f2(RL.rand(4))}. At 8 bits ours lose ${f2(RL.ours(8))}, and the best variant ${f2(RL.best8)}: most of the operator falls outside the toolbox.</p>
+        <p data-at="38">In the example network, computed here, the cuts lose ${ex[0]} at 1 bit, ${ex[1]} at 2 and ${ex[2]} at 3, and random cuts ${rd[1]} at 2 and ${rd[2]} at 3.</p>
+        <p class="note" data-at="41">At 1 bit every cut loses nothing. In the real network at 3 bits, ${F.alg.odd.label}'s generators carry ${RL.so7.gens} percent of A_c's traceless weight, and the whole algebra ${RL.so7.whole} percent.</p>`)}`,
     circuit: `<h2 data-at="0.6">The recipe as a circuit</h2>
       ${turns(`<p data-at="1.2" data-out="16.5">What is kept runs as a short circuit: six gates on three qubits, each a small turn.</p>
-        <p data-at="4" data-out="16.5" class="amber">Red gates flip (X), blue gates add signs (Z); the deeper the color, the larger the turn.</p>
-        <p class="note" data-at="8" data-out="16.5">One Trotter step of e^(−iKt) at 3 bits in ${F.alg.odd.label}, with the real network's angles: ${esc(gatesText(RL.gates))}. θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.</p>`,
+        <p data-at="4" data-out="16.5" class="amber">Red X gates flip and blue Z gates add signs; the deeper the color, the larger the turn.</p>
+        <p class="note" data-at="8" data-out="16.5">This is one Trotter step of e to the minus i K t, at 3 bits in ${F.alg.odd.label}, with the real network's angles on its gates.</p>`,
       `<p data-at="17">From thousands of genes to 8 cells on 3 qubits, and from a traffic table to a few bricks a quantum computer runs well.</p>
         <p data-at="20" class="amber">Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.</p>
         <p data-at="23">Method and figures: Joel Hancock.</p>
         <p data-at="24"><button class="btn primary" id="btnGoExplore" type="button">Explore the cube</button></p>
-        <p class="credits" data-at="25">The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on ${esc(F.source)}. The cuts here stand in for their beam search, and the valleys are illustrative.</p>`)}`,
+        <p class="credits" data-at="25">The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on ${esc(F.source)}. The cuts here stand in for their beam search, and the valleys are illustrative. The circuit's angles in the real network: ${esc(gatesText(RL.gates))}; θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.</p>`)}`,
   };
 
   const story = $('#story');

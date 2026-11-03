@@ -158,7 +158,7 @@ const FACTS = (() => {
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
 const mil = n => (n >= 1e6 ? `${n / 1e6}` : fmt(n));
 // the textbook numbers of follicles, said with "about"
-const reserveText = F => `About ${mil(F.birth[0])} to ${mil(F.birth[1])} million follicles at birth, about ${fmt(F.puberty[0])} to ${fmt(F.puberty[1])} at puberty and about ${fmt(F.menopause)} at menopause (on average around ${F.menoAge}).`;
+const reserveText = F => `There are about ${mil(F.birth[0])} to ${mil(F.birth[1])} million follicles at birth, about ${fmt(F.puberty[0])} to ${fmt(F.puberty[1])} at puberty and about ${fmt(F.menopause)} at menopause, which comes at around ${F.menoAge} on average.`;
 // the authors with their affiliations, and the support, as the poster gives them
 const creditText = () => {
   const S = OD.source;
@@ -187,71 +187,71 @@ function buildStory() {
   // a trend in words: both methods' r below 0, 'fall'; above, 'rise' (the poster's r); per method, 'no trend' where its
   // p is 0.05 or more
   const trendDir = k => (k.trend.rf.r < 0 && k.trend.seg.r < 0 ? 'fall' : k.trend.rf.r > 0 && k.trend.seg.r > 0 ? 'rise' : '');
-  const trendBy = (k, m) => { const t = k.trend[m]; return `${t.p >= 0.05 ? 'no trend' : t.r < 0 ? 'falling' : 'rising'} by ${m === 'rf' ? 'the random forest' : 'segmentation'} (r ${rT(t.r)}${t.p >= 0.05 ? `, p ${pT(t.p)}` : ''})`; };
+  const trendBy = (k, m) => { const t = k.trend[m]; return `${t.p >= 0.05 ? 'no trend' : t.r < 0 ? 'falling' : 'rising'} by ${m === 'rf' ? 'the random forest' : 'segmentation'}, where r is ${rT(t.r)}${t.p >= 0.05 ? ` and p is ${pT(t.p)}` : ''}`; };
   // the methods' agreement donor by donor (the poster's comparison r), well (r 0.7 or more) and less; where the
   // segmentation's fitted line runs below the diagonal for all the less (slopes below 1, read off the poster's
   // comparison charts), it finds fewer (and the small print says where that comes from)
   const ag = KINDS4.slice().sort((p, q) => KD[q].compare.r - KD[p].compare.r), well = ag.filter(k => KD[k].compare.r >= 0.7), less = ag.filter(k => KD[k].compare.r < 0.7);
   const fewer = well.length > 0 && less.length > 0 && less.every(k => OD.compare[k] && OD.compare[k].slope < 1);
   const agreeText = () => {
-    const rl = (ks, first) => listOf(ks.map((k, i) => `${plural(k)} (${first && !i ? 'r ' : ''}${rT(KD[k].compare.r)})`));
-    return well.length && less.length ? `Donor by donor the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer ? ': the segmentation finds fewer' : ''}.` : `Donor by donor the methods agree on ${rl(ag, true)}.`;
+    const rl = (ks, first) => listOf(ks.map((k, i) => `${plural(k)} at ${first && !i ? 'r ' : ''}${rT(KD[k].compare.r)}`));
+    return well.length && less.length ? `Donor by donor, the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer ? ', where the segmentation finds fewer' : ''}.` : `Donor by donor, the methods agree on ${rl(ag, true)}.`;
   };
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The aging ovary</h1>
-      <p class="lede" data-at="2.4">what ${F.donors} ovaries show about aging</p>
-      ${turns(`<p data-at="4" data-out="19.5">The ovaries hold the eggs, each in a small sac of cells: a follicle.</p>
+      <p class="lede" data-at="2.4">What ${F.donors} ovaries show about aging</p>
+      ${turns(`<p data-at="4" data-out="19.5">The ovaries hold the eggs, each in a small sac of cells called a follicle.</p>
         <p data-at="8.5" data-out="19.5" class="amber">Every ovary starts with a reserve of follicles that is never refilled.</p>
         <p class="note" data-at="13" data-out="19.5">${esc(reserveText(F))}</p>`,
-      `<p data-at="20">Cut open: the outer layer (the cortex) holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part (the medulla) carries the blood vessels.</p>
-        <p data-at="28">About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar: a corpus albicans. Scars pile up over the years.</p>
+      `<p data-at="20">Cut it open: the outer layer, called the cortex, holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part, the medulla, carries the blood vessels.</p>
+        <p data-at="28">About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar called a corpus albicans. Scars pile up over the years.</p>
         <p class="note" data-at="36">The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot accurately reflect the true reserve of follicles.</p>`)}`,
     donors: `<h2 data-at="0.6">${F.donors} donors</h2>
-      <p data-at="1.2">The ovaries come from GTEx (the Genotype-Tissue Expression project), which collected tissue from people who had died.</p>
+      <p data-at="1.2">The ovaries come from GTEx, the Genotype-Tissue Expression project, which collected tissue from people who had died.</p>
       <div class="facts"><div data-at="4"><b>${F.donors}</b><small>donors</small></div><div data-at="5.5"><b>${F.ages[0]}–${F.ages[1]}</b><small>years old</small></div></div>
-      <p data-at="9.5">For each donor: a slide of ovary stained with H&amp;E (hematoxylin and eosin: nuclei purple, the rest pink), the activity of its genes (bulk RNA-seq), and clinical and demographic information.</p>
-      <p data-at="18" class="amber">Each slide stacks on its donor's age. Most donors were older: at least ${F.over40} of the ${F.donors} were over 40.</p>
+      <p data-at="9.5">For each donor there is a slide of ovary stained with H&amp;E, hematoxylin and eosin, which colors nuclei purple and the rest pink; the activity of its genes, measured by bulk RNA-seq; and clinical and demographic information.</p>
+      <p data-at="18" class="amber">Each slide stacks up at its donor's age. Most donors were older: at least ${F.over40} of the ${F.donors} were over 40.</p>
       <p class="credits" data-at="25">The poster's age histogram. The slides are drawn, not the GTEx images.</p>`,
     section: `<h2 data-at="0.6">What's in a section</h2>
-      ${turns(`<p data-at="1.2" data-out="34.5">A thin slice of ovary, drawn. To teach a computer what to find, people marked ${fmt(F.annotated)} objects of four kinds by hand:</p>
+      ${turns(`<p data-at="1.2" data-out="34.5">This is a drawing of a thin slice of ovary. To teach a computer what to find, people marked ${fmt(F.annotated)} objects of four kinds by hand:</p>
         <ul class="steps">
           ${step(6, 34.5, KCOL.vessel, `${Plural('vessel')} · ${fmt(ves.annotated)}`, 'tubes that carry blood, here cut across')}
           ${step(12, 34.5, KCOL.macrophage, `${Plural('macrophage')} · ${fmt(mac.annotated)}`, 'immune cells that clear away debris')}
           ${step(18, 34.5, KCOL.albicans, `${Plural('albicans')} · ${fmt(alb.annotated)}`, 'pale scars, each left by a corpus luteum')}
-          ${step(24, 34.5, KCOL.follicle, `${Plural('follicle')} · ${fmt(fol.annotated)}`, 'an egg in a ring of cells; large ones hold fluid')}
+          ${step(24, 34.5, KCOL.follicle, `${Plural('follicle')} · ${fmt(fol.annotated)}`, 'each an egg in a ring of cells; large ones hold fluid')}
         </ul>`,
-      `<p data-at="35">A younger ovary beside an older one. In the older: large pale scars, and almost no follicles left.</p>
-        <p class="note" data-at="40">The numbers are the objects marked by hand (the training labels). Scale bars as on the poster: ${esc(F.scale.young)} and ${esc(F.scale.old)}. Both sections are drawn, not GTEx images.</p>`)}`,
+      `<p data-at="35">Here a younger ovary lies beside an older one. The older one has large pale scars and almost no follicles left.</p>
+        <p class="note" data-at="40">The numbers count the objects marked by hand, the training labels the computer learns from. The scale bars are as on the poster, ${esc(F.scale.young)} and ${esc(F.scale.old)}. Both sections are drawn, not GTEx images.</p>`)}`,
     methods: `<h2 data-at="0.6">Two ways to find them</h2>
       ${turns(`<ul class="steps">
-          ${step(2, 38.5, '#46d9ff', '1 · Tiles', 'the section is cut into small squares, each labeled with what it shows')}
-          ${step(8, 38.5, '#46d9ff', 'Features', 'UNI2, a pathology foundation model (a large model trained on pathology images), turns each tile into a list of numbers')}
-          ${step(16, 38.5, '#ffb43b', 'A random forest', 'many decision trees each ask a few questions of those numbers and vote; the most votes name the tile')}
-          ${step(33, 38.5, '#ffb43b', 'Prediction', 'every tile gets a label: tile-level classification')}
+          ${step(2, 38.5, '#46d9ff', 'First way · Tiles', 'the section is cut into small squares, each labeled with what it shows')}
+          ${step(8, 38.5, '#46d9ff', 'Features', 'UNI2, a large foundation model trained on pathology images, turns each tile into a list of numbers')}
+          ${step(16, 38.5, '#ffb43b', 'A random forest', 'many decision trees each ask a few questions of those numbers and vote; the most votes decide the tile\'s label')}
+          ${step(33, 38.5, '#ffb43b', 'Prediction', 'every tile gets a label. This is called tile-level classification')}
         </ul>`,
-      `<ul class="steps">${step(39, 0, '#3ee08f', '2 · Masks', 'SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel')}</ul>
-        <p data-at="49">How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.</p>
-        <p class="note" data-at="53">Random forest F1: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].rf.f1)}`).join(', ')}. SegFormer IoU: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].iou)}`).join(', ')}; cysts, which only the segmentation finds, just ${sc2(cyst.iou)}: hard.</p>`)}`,
+      `<ul class="steps">${step(39, 0, '#3ee08f', 'Second way · Masks', 'SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel')}</ul>
+        <p data-at="49">How good are they? Precision asks how many of the tiles called follicle really are one. Recall asks how many of the follicles were found. F1 puts the two in one number, and IoU measures how far a predicted mask and the true one overlap. For each score, 1 is perfect.</p>
+        <p class="note" data-at="53">The random forest's F1 scores: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].rf.f1)}`).join(', ')}. SegFormer's IoU scores: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].iou)}`).join(', ')}. Cysts, which only the segmentation finds, are hard: their IoU is just ${sc2(cyst.iou)}.</p>`)}`,
     trends: `<h2 data-at="0.6">Trends with age</h2>
-      ${turns(`<p data-at="1.2" data-out="30.5">Count each kind in every donor's section by both methods, RF (random forest) and Seg (segmentation), and set the counts against age: different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.</p>
+      ${turns(`<p data-at="1.2" data-out="30.5">Count each kind in every donor's section by both methods, the random forest and segmentation, RF and Seg on the tags, and set the counts against age, with different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.</p>
         <ul class="steps">
-          ${step(7, 30.5, KCOL.follicle, `${Plural('follicle')} ${trendDir(fol)}`, `RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)} · the lines reach none by about ${F.zeroAt}; in their ${F.noneDecade}s about ${F.nonePct}% of donors have none in their section`)}
-          ${step(12, 30.5, KCOL.vessel, `${Plural('vessel')} ${trendDir(ves)}`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
-          ${step(17, 30.5, KCOL.albicans, `${Plural('albicans')} ${trendDir(alb)}`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
-          ${step(22, 30.5, KCOL.macrophage, Plural('macrophage'), `${trendBy(mac, 'rf')}, ${trendBy(mac, 'seg')}; not drawn in this ovary`)}
+          ${step(7, 30.5, KCOL.follicle, `${Plural('follicle')} ${trendDir(fol)} to none on the lines by about age ${F.zeroAt}`, `r is ${rT(fol.trend.rf.r)} by the random forest and ${rT(fol.trend.seg.r)} by segmentation; of donors in their ${F.noneDecade}s, about ${F.nonePct} percent have none in their section`)}
+          ${step(12, 30.5, KCOL.vessel, `${Plural('vessel')} ${trendDir(ves)}`, `r is ${rT(ves.trend.rf.r)} by the random forest and ${rT(ves.trend.seg.r)} by segmentation`)}
+          ${step(17, 30.5, KCOL.albicans, `${Plural('albicans')} ${trendDir(alb)} as the scars pile up`, `r is ${rT(alb.trend.rf.r)} by the random forest and ${rT(alb.trend.seg.r)} by segmentation`)}
+          ${step(22, 30.5, KCOL.macrophage, Plural('macrophage'), `${trendBy(mac, 'rf')}; ${trendBy(mac, 'seg')}. They are not drawn here`)}
         </ul>
         <p class="note" data-at="26" data-out="30.5">Compare each method with itself over the years: they count in their own ways.${F.pBelow ? ` ${F.noTrend ? 'Every other' : 'Every'} trend has p below ${F.pBelow}.` : ''}</p>`,
       `<p data-at="31">${esc(agreeText())}</p>
-        <p class="note" data-at="34.5">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
+        <p class="note" data-at="34.5">r runs from −1 to +1. Below 0 means fewer with age, above 0 means more, and near 0 means no trend. A small p means a trend this strong would rarely come about by chance.</p>
         <p class="credits" data-at="37.5">r and p are the poster's (the agreement's p from ${pT(F.pMax)} down to ${pT(F.pMin)}).${fewer ? ' "Finds fewer" is read off the slopes of its comparison charts.' : ''} The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.</p>`)}`,
     network: `<h2 data-at="0.6">Next: a network</h2>
-      ${turns(`<p data-at="1.2" data-out="29.5">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
-        <p class="note" data-at="5" data-out="29.5">Drawn as an illustration of the poster's next step, not its result.</p>
-        <p data-at="11" data-out="29.5">Gather the nodes by kind and the links become bands: which kinds lie next to which.</p>
-        <p data-at="19.5" data-out="29.5">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>`,
+      ${turns(`<p data-at="1.2" data-out="29.5">Where things lie matters too. Make each object a node, link objects that lie close together, and you have a spatial neighbor network.</p>
+        <p class="note" data-at="5" data-out="29.5">The network is drawn as an illustration of the poster's next step, not its result.</p>
+        <p data-at="11" data-out="29.5">Gather the nodes by kind, and the links become bands that show which kinds lie next to which.</p>
+        <p data-at="19.5" data-out="29.5">As the ovary ages, the network changes: the follicles' nodes go, and the scars' nodes come.</p>`,
       `<p data-at="30">Next, the authors plan to ${esc(listOf(F.future))}.</p>
-        <p class="amber" data-at="34.5">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
+        <p class="amber" data-at="34.5">Network medicine comes in here: as in the story Tissue and time, a tissue becomes a network of neighbors.</p>
         <p class="credits" data-at="38.5">${esc(creditText())}</p>
         <p data-at="41.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
         <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures).</p>`)}`,
