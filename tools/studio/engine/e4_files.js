@@ -41,20 +41,22 @@ function fileUrl(p, loader) {
   return sceneUrl(STU.scene) + encPath(p) + (q.length ? '?' + q.join('&') : '');
 }
 const AUTH_NOTE = 'This relay needs its password: enter it under Shared (or in the menu\'s Circles tab).';
-// tell the shell what the relay answered (a 401 brings up its password prompts)
-const saw = (status, sent) => { try { if (SRC.kind === 'relay' && HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(SRC.base, status, !!sent); } catch (e) { /* an older shell */ } };
+// tell the shell what the relay answered (a 401 brings up its password prompts; an answer with the password accepted
+// keeps it): the password the call carried ('' none) and its JSON, when it had any
+const saw = (status, sent, j) => { try { if (SRC.kind === 'relay' && HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(SRC.base, status, sent || '', j || null); } catch (e) { /* an older shell */ } };
 // a call: the relay's password as a header (never in the address), the error's status kept
 async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
   if (relay && SRC.token) headers.Authorization = 'Bearer ' + SRC.token;
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
-  if (relay) saw(r.status, SRC.token);
   if (!r.ok) {
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }
+    if (relay) saw(r.status, SRC.token, j);
     throw Object.assign(new Error((j && j.error) || 'HTTP ' + r.status), { status: r.status });
   }
+  if (relay) saw(r.status, SRC.token);
   return r;
 }
 const getJSON = async (url, o) => (await call(url, o)).json();
@@ -170,7 +172,7 @@ async function loadScene() {
     if (SRC.kind === 'relay') { j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`); layout = j.layout || null; if (j.save !== undefined) SRC.save = !!j.save; }
     else {
       j = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/files.json`);
-      try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; }
+      if (Array.isArray(j && j.files) && j.files.some(f => f && f.path === 'layout.json')) { try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; } }
     }
     if (gen !== STU.gen || GL.gone) return;
     setFiles(j && j.files);
