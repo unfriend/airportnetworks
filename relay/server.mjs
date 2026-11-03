@@ -10,6 +10,8 @@
 //   node relay/server.mjs --static . --watch [--build]   (while developing: the pages follow the app's files)
 //   node relay/server.mjs --port 8787 --static . --proxy 1 --public   (on a public server behind a reverse proxy, Coolify:
 //                                   only the app's pages may connect, no open-room list and no names, limits per address)
+//   COLLAB_TOKEN=<word> node relay/server.mjs ...   (or --token <word>: a shared password every client must bring, as
+//                                   asdf10k-collab-backend's COLLAB_TOKEN; COLLAB_PORT and COLLAB_HOST as there too)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -25,7 +27,16 @@ import { fileURLToPath } from 'node:url';
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
   // a public server (--public, or each rule on its own; -1: not given, so --public's default or off)
-  public: false, origin: [], 'allow-no-origin': false, unlisted: false, guesses: -1, creates: -1, sockets: -1, store: -1, 'log-token': '' };
+  public: false, origin: [], 'allow-no-origin': false, unlisted: false, guesses: -1, creates: -1, sockets: -1, store: -1, 'log-token': '',
+  token: '' };
+// the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
+// command's flags and RELAY_ARGS over it
+{
+  const e = process.env, port = String(e.COLLAB_PORT || '').trim();
+  if (port) { if (/^\d+$/.test(port) && +port < 65536) OPT.port = +port; else console.log(`COLLAB_PORT="${port}" is not a port: using ${OPT.port}`); }
+  if (String(e.COLLAB_HOST || '').trim()) OPT.host = String(e.COLLAB_HOST).trim();
+  OPT.token = String(e.COLLAB_TOKEN || '').trim();
+}
 const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // where the app lives (GitHub Pages): --public's origin unless --origin says
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
@@ -56,7 +67,13 @@ On a public server (each is off unless given, and --public turns on all of them 
   --store <MB>     all rooms' keys and values together at most this many MB (as JSON); a write past it is refused
   --log-token <t>  POST /api/log needs the header X-Log-Token: <t> (or set RELAY_LOG_TOKEN in the environment rather
                    than putting it in the command; --public with --logs needs one)
-The environment variable RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public").`;
+A shared password (as asdf10k-collab-backend's COLLAB_TOKEN; off unless given):
+  --token <t>      every client must bring it: the API (all but GET /api/health) as Authorization: Bearer <t> or ?token=,
+                   the room's socket and /api/watch as ?token=, the introduction server as PeerJS's key. Better set
+                   COLLAB_TOKEN in the environment than put it in a command. None or a wrong one: 401 (a socket: close
+                   4401); 20 failures a minute from one address (a wrong password, an unknown room code), then 429 (4429)
+The environment: RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public"); COLLAB_TOKEN,
+COLLAB_PORT and COLLAB_HOST set --token, --port and --host (the flags win).`;
 // the options: the command's, then RELAY_ARGS's (the environment's: Coolify sets it, so its start command needs no change)
 const ARGV = [...process.argv.slice(2), ...String(process.env.RELAY_ARGS || '').trim().split(/\s+/).filter(Boolean)];
 for (let i = 0; i < ARGV.length; i++) {
@@ -71,6 +88,7 @@ for (let i = 0; i < ARGV.length; i++) {
   if (v === undefined || (typeof OPT[name] === 'number' && !(OPT[name] >= 0))) { console.log(HELP); process.exit(1); }
 }
 if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); process.exit(1); }
+const TOKEN = String(OPT.token || '').trim();   // '' none: no password asked (as ever)
 const PEER = !OPT['no-peer'];
 
 // ---- a public server (--public; each rule also on its own). On a laptop at an event none of this is on: the relay
@@ -257,14 +275,23 @@ function upgrade(req, socket, head) {
   const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
   const ws = new Ws(socket), who = LIM.sockets || LIM.guesses ? clientOf(req) : null;
+  // refused before anything of a room is sent: told why in the protocol's own error (PeerJS's for the introduction
+  // server), then closed (4429 a limit, as asdf10k-collab-backend's; 4401 no or a wrong password)
+  const no = (code, type, text, close) => { if (peer) peerOut(ws, type, { msg: text }); else ws.text(JSON.stringify({ t: 'error', code, text })); ws.close(close, code); };
+  const fid = TOKEN ? failId(req) : '';
+  if (fid && blocked(fid)) { tally('sockets refused: too many failed attempts from one address'); return no('limit', 'ERROR', FAIL_TEXT, 4429); }
+  const given = fid && url.searchParams.get(peer ? 'key' : 'token');
+  if (fid && !tokenMatches(given)) {
+    if (given && given !== PEER_KEY) failed(fid);   // (PeerJS's default key: no password yet, as none at all)
+    tally('sockets refused: missing or wrong token');
+    return peer ? no('token', 'INVALID-KEY', 'Invalid key provided', 4401) : no('token', 'ERROR', TOKEN_TEXT, 4401);
+  }
   if (who && LIM.sockets && who.socks >= LIM.sockets) {   // (told why, as the page logs it; not counted: it closes at once)
     tally('sockets refused: too many from one address');
-    const text = 'too many connections from your network';
-    if (peer) peerOut(ws, 'ERROR', { msg: text }); else ws.text(JSON.stringify({ t: 'error', code: 'busy', text }));
-    return ws.close(4029, 'busy');
+    return no('busy', 'ERROR', 'too many connections from your network', 4429);
   }
   if (who) { who.socks++; who.at = Date.now(); socket.once('close', () => { who.socks--; who.at = Date.now(); }); }
-  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, netOf(req), who);
+  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, netOf(req), who, fid);
   if (head && head.length) ws.data(head);
 }
 
@@ -290,8 +317,8 @@ const send = (m, msg) => m.ws.text(JSON.stringify(msg));
 const cut = keys => (keys.length > 12 ? keys.slice(0, 12).join(' ') + ` +${keys.length - 12} more` : keys.join(' '));
 
 // (net: the member's network, a hash: netOf; never its address, which is neither kept nor logged. who: its address's
-// limits, clientOf)
-function join(ws, q, net, who) {
+// limits, clientOf; fid: its address for failed attempts while a password is set, failId)
+function join(ws, q, net, who, fid) {
   const code = (q.get('room') || '').toUpperCase(), id = q.get('id') || '';
   const fatal = (c, text, close, quiet) => { if (quiet) tally(quiet); else log(`refused a socket (${text})`); ws.text(JSON.stringify({ t: 'error', code: c, text })); ws.close(close, c); };
   if (!CODE.test(code) || !ID.test(id)) return fatal('bad', 'a room code and a client id are needed', 4000);
@@ -299,8 +326,8 @@ function join(ws, q, net, who) {
   const room = rooms.get(code);
   // guessing codes: past its lookups of unknown codes an address gets no answer about any code (a known one included,
   // or the answer would say which exist) until a minute's worth has passed; a member coming back (its id in the room) is let in
-  if (!(room && room.members.has(id)) && !canGuess(who)) return fatal('limit', GUESS_TEXT, 4029, 'sockets refused: too many unknown room codes from one address');
-  if (!room) { guessed(who); return fatal('room', `no room ${code}`, 4004); }
+  if (!(room && room.members.has(id)) && !canGuess(who)) return fatal('limit', GUESS_TEXT, 4429, 'sockets refused: too many unknown room codes from one address');
+  if (!room) { guessed(who); return fatal('room', `no room ${code}`, 4004); }   // (with a password: not a failed attempt, see authOk)
   let m = room.members.get(id);
   if (m) {   // the same page again (a reconnect while its old socket hangs on): the new socket wins
     const old = m.ws;
@@ -457,7 +484,7 @@ function peerJoin(ws, q) {
   const id = q.get('id') || '', token = q.get('token') || '', key = q.get('key') || '';
   const shut = (type, msg, code, why) => { if (why) log(`peer refused ${pid(id.slice(0, 64)) || '(no id)'} (${why})`); peerOut(ws, type, { msg }); ws.close(code, why || msg); };
   if (!id || !token || !key) return shut('ERROR', 'No id, token, or key supplied to websocket server', 4000, 'no id, token or key');
-  if (key !== PEER_KEY) return shut('INVALID-KEY', 'Invalid key provided', 4003, 'another key');
+  if (!TOKEN && key !== PEER_KEY) return shut('INVALID-KEY', 'Invalid key provided', 4003, 'another key');   // (with a password: checked as the socket opened)
   if (id.length > 64 || !PEER_ID.test(id) || token.length > 64) return shut('ERROR', 'Invalid id or token', 4000, 'a bad id or token');
   let p = peers.get(id);
   if (p && p.token !== token) return shut('ID-TAKEN', 'ID is taken', 4001, 'id taken');
@@ -530,6 +557,7 @@ setInterval(() => {
   // the limits per address: forgotten once nothing of an address is open and its buckets are full again; the
   // refusals said in one line each (a crowd of them must not fill the log)
   for (const [k, c] of CLIENTS) if (!c.socks && now - c.at > 120000) CLIENTS.delete(k);
+  for (const [k, h] of FAILS) if (now - h.since > 60000) FAILS.delete(k);
   for (const [what, n] of TALLY) log(`${what} (${n})`);
   TALLY.clear();
 }, Math.max(50, Math.min(5000, OPT.ping * 1000, OPT.timeout * 250, OPT.expire * 250)));
@@ -589,6 +617,48 @@ const wait = (c, b, n) => Math.max(1, Math.ceil(((1 - c[b]) * 60) / n));   // se
 const GUESS_TEXT = 'too many unknown room codes from your network: wait a minute';
 const TALLY = new Map(), tally = what => TALLY.set(what, (TALLY.get(what) || 0) + 1);
 
+// ---- the shared password (--token, COLLAB_TOKEN; the owner, 3 November 2026: "one word ... that i can use and enter on
+// each client if i want it to be able to use the relay, no other way to use it"). The scheme is asdf10k-collab-backend's
+// (src/server.ts): required on everything but GET /api/health and the app's own files (a page must load to ask for it);
+// HTTP takes Authorization: Bearer <t> or ?token=, a socket ?token= (browsers cannot set headers there), the introduction
+// server PeerJS's key (its own token is a random one of PeerJS's). Compared in constant time. Failed attempts (a wrong
+// password, an unknown room code) are counted per address in a one-minute window (its FailureLimiter): 20, then 429 or
+// close 4429 for the rest of the minute. A request with no password at all is refused (401) but not counted: guessing
+// needs a password sent, and the app's own pages ask before they know one (every device behind an event's router shares
+// one address). None of it without a password: the relay behaves as it always has
+const tokenMatches = given => {
+  if (!TOKEN) return true;
+  if (!given) return false;
+  const a = Buffer.from(TOKEN), b = Buffer.from(String(given));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+const givenToken = (req, url) => (/^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || '')) || [])[1] || url.searchParams.get('token');
+const TOKEN_TEXT = 'missing or wrong token', FAIL_TEXT = 'too many failed attempts, wait a minute', FAIL_MAX = 20, FAILS = new Map();
+// an address as the limits per address take it (with --proxy the one the outermost proxy saw; IPv6 by its /64), kept only
+// as a keyed hash
+function failId(req) {
+  const a = String(addrOf(req) || '').replace(/^::ffff:(?=\d+\.)/i, ''), n = netName(a);
+  return crypto.createHmac('sha256', CLIENT_KEY).update(/::\/64$/.test(n) ? n : a).digest('base64url').slice(0, 22);
+}
+const blocked = id => { const h = FAILS.get(id); return !!h && Date.now() - h.since <= 60000 && h.n >= FAIL_MAX; };
+const failed = id => { const h = FAILS.get(id), now = Date.now(); if (!h || now - h.since > 60000) FAILS.set(id, { n: 1, since: now }); else h.n++; };
+// an HTTP request's password: true when it may go on, else answered (429 while its address is held back, 401)
+function authOk(req, res, given) {
+  if (!TOKEN) return true;
+  const id = failId(req);
+  if (blocked(id)) { tally('requests refused: too many failed attempts from one address'); json(res, 429, { error: FAIL_TEXT }, { 'Retry-After': '60' }); return false; }
+  if (tokenMatches(given)) return true;
+  // (a wrong password counts; none at all, or PeerJS's default key, does not: pages ask before they know it, and every
+  // device behind an event's router shares one address. An unknown room code asked with the password does not either:
+  // the password is the gate, and after a relay restart every kept room is unknown for a moment)
+  if (given && given !== PEER_KEY) failed(id);
+  tally('requests refused: missing or wrong token');
+  json(res, 401, { error: TOKEN_TEXT });
+  return false;
+}
+// a URL as a log line may show it: never a password (?token=, PeerJS's key, in its query or its path)
+const scrub = u => String(u).replace(/([?&](?:token|key)=)[^&#\s]*/gi, '$1***').replace(/^(\/peerjs\/)[^/?#]+(?=\/)/, '$1***');
+
 // ---- which pages may connect (--origin, --public): the origins listed and the relay's own pages (an Origin whose host
 // is the one the request was sent to: Host, or with --proxy X-Forwarded-For's companion X-Forwarded-Host). A browser
 // always sends Origin with a socket and with a request from another origin, and a page cannot make it up; a request with
@@ -636,7 +706,7 @@ function cors(req, res) {   // the API and the introduction server, for pages on
     if (o !== undefined) res.setHeader('Access-Control-Allow-Origin', o);
   } else res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method !== 'OPTIONS') return false;
-  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, X-Log-Token', 'Access-Control-Max-Age': '600',
+  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Log-Token', 'Access-Control-Max-Age': '600',
     ...(req.headers['access-control-request-private-network'] ? { 'Access-Control-Allow-Private-Network': 'true' } : {}) });
   res.end();
   return true;
@@ -645,6 +715,9 @@ const tooMany = (res, text, s) => json(res, 429, { error: text }, { 'Retry-After
 function api(req, res, url) {
   if (cors(req, res)) return;
   const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
+  // (open, as asdf10k-collab-backend's: whether it runs, and how many rooms; nothing more)
+  if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
+  if (!authOk(req, res, givenToken(req, url))) return;
   if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(UNLISTED ? { unlisted: true } : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
@@ -660,21 +733,28 @@ function api(req, res, url) {
     if (!r) { guessed(who); return json(res, 404, { error: 'no such room' }); }
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: UNLISTED ? r.members.size : people(r), keys: keysOut(r) });
   }
-  if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || room) return json(res, 405, { error: 'method not allowed' });
+  if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || p === '/api/health' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
 }
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
 function peerHttp(req, res, url) {
   if (cors(req, res)) return;
   if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
-  const p = url.pathname;
-  if (p === '/peerjs' || p === PEER_PATH) return json(res, 200, { name: 'Introduction server for peer to peer (PeerJS 1.5 protocol)', key: PEER_KEY, path: '/peerjs' });
-  if (p === PEER_PATH + PEER_KEY + '/id') {
+  const p = url.pathname, k = /^\/peerjs\/([^/]+)\/(?:id|peers)$/.exec(p);
+  // with a password PeerJS's key is the password (its own default, peerjs, is refused), in the path or the socket's query
+  if (TOKEN) {
+    let key = '';
+    try { key = k ? decodeURIComponent(k[1]) : givenToken(req, url); } catch { /* a bad escape: no key */ }
+    if (!authOk(req, res, key)) return;
+  }
+  if (p === '/peerjs' || p === PEER_PATH) return json(res, 200, { name: 'Introduction server for peer to peer (PeerJS 1.5 protocol)', ...(TOKEN ? {} : { key: PEER_KEY }), path: '/peerjs' });
+  const mine = !!k && (TOKEN || k[1] === PEER_KEY);   // (another key than PeerJS's default, with no password: not found)
+  if (mine && p.endsWith('/id')) {
     let id;
     do id = crypto.randomUUID(); while (peers.has(id) || waiting.has(id));
     return reply(res, 200, id, 'text/plain; charset=utf-8');   // (no newline: the page takes the text as it is)
   }
-  if (p === PEER_PATH + PEER_KEY + '/peers') return json(res, 401, { error: 'listing peers is off' });
+  if (mine && p.endsWith('/peers')) return json(res, 401, { error: 'listing peers is off' });
   json(res, 404, { error: 'not found' });
 }
 function createRoom(req, res) {
@@ -946,7 +1026,7 @@ startWatch();
 function request(req, res) {
   const url = parseUrl(req);
   if (!url) return plain(res, 400, 'Bad request');
-  const fail = err => { log('error', req.url, err.message); if (!res.headersSent) plain(res, 500, 'Internal error'); else res.destroy(); };
+  const fail = err => { log('error', scrub(req.url), err.message); if (!res.headersSent) plain(res, 500, 'Internal error'); else res.destroy(); };
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) { try { return api(req, res, url); } catch (err) { return fail(err); } }
   if (PEER && (url.pathname === '/peerjs' || url.pathname.startsWith(PEER_PATH))) { try { return peerHttp(req, res, url); } catch (err) { return fail(err); } }
   if (ROOT) return serve(req, res, url).catch(fail);
@@ -959,7 +1039,7 @@ server.on('upgrade', upgrade);
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
-  if (PEER) console.log(`Introduction server for peer to peer (PeerJS) at /peerjs, key ${PEER_KEY} (--no-peer turns it off)`);
+  if (PEER) console.log(`Introduction server for peer to peer (PeerJS) at /peerjs, key ${TOKEN ? 'the password' : PEER_KEY} (--no-peer turns it off)`);
   if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address) && !PUB) {   // (--public: the address is a container's or a server's, no one's to open)
     const lan = lanAddresses(), at = lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ');
     const pick = lan.length > 1 ? '\n(This machine has several addresses: use the one on the Wi-Fi the headsets are on.)' : '';
@@ -985,6 +1065,9 @@ server.listen(OPT.port, OPT.host, () => {
   if (per.length) console.log(`Per address at most ${per.join(', ')}`);
   if (STORE) console.log(`All rooms together hold at most ${+(STORE / (1 << 20)).toFixed(2)} MB`);
   if (OPT.logs && LOG_TOKEN) console.log('Logs need the relay\'s log token (header X-Log-Token)');
+  // (never the password itself)
+  if (TOKEN) console.log(`A password is needed (COLLAB_TOKEN or --token): everything but GET /api/health and the app's files; ${FAIL_MAX} failed attempts a minute from one address, then 429`);
+  else if (PUB) console.log('No password (COLLAB_TOKEN): anyone who can reach the relay may use it');
   if ((per.length || PUB) && !OPT.proxy) console.log('No --proxy: behind a reverse proxy (Coolify\'s) every device would seem to be the proxy, one address for all (add --proxy 1)');
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {

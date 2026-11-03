@@ -981,7 +981,7 @@ try {
       (await get('/api/rooms', '198.51.100.1', { method: 'POST', body: { code: codes[12] } })).status === 429, 'and a chosen code to make a room: 429 (taken or free)');
     let c = wsAt(G, `/api/ws?room=${K}&id=gx1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.1' });
     let m = await first(c);
-    ok(m.t === 'error' && m.code === 'limit' && (await c.closedIn(2000))?.code === 4029, 'and a socket for the known room: error limit, closed 4029');
+    ok(m.t === 'error' && m.code === 'limit' && (await c.closedIn(2000))?.code === 4429, 'and a socket for the known room: error limit, closed 4429');
     ok((await get('/api/rooms/' + K, '198.51.100.2')).status === 200 && (await get('/api/rooms/' + codes[11], '198.51.100.2')).status === 404, 'another address is not held up');
     ok((await get('/api/rooms/' + K, '198.51.100.1, 198.51.100.2')).status === 200, '--proxy: the address the proxy put last counts (a made-up one before it does not)');
     // sockets for unknown rooms are lookups too
@@ -1038,10 +1038,10 @@ try {
     ok(firsts.every(x => x.t === 'welcome'), '--sockets 4: four sockets from one address');
     const fifth = sock('sk4', '198.51.100.23');
     const f5 = await first(fifth);
-    ok(f5.t === 'error' && f5.code === 'busy' && (await fifth.closedIn(2000))?.code === 4029, 'the fifth: error busy, closed 4029');
+    ok(f5.t === 'error' && f5.code === 'busy' && (await fifth.closedIn(2000))?.code === 4429, 'the fifth: error busy, closed 4429');
     const p5 = wsAt(S, peerQuery('skpeer', 'tok'), { Origin: APP, 'X-Forwarded-For': '198.51.100.23' });
     const pf = await first(p5);
-    ok(pf.type === 'ERROR' && /too many connections/.test(pf.payload?.msg) && (await p5.closedIn(2000))?.code === 4029, 'an introduction server socket counts too (ERROR, 4029)');
+    ok(pf.type === 'ERROR' && /too many connections/.test(pf.payload?.msg) && (await p5.closedIn(2000))?.code === 4429, 'an introduction server socket counts too (ERROR, 4429)');
     ok((await first(sock('sk5', '198.51.100.24'))).t === 'welcome', 'another address is not held up');
     mine[0].ws.close(); await mine[0].done; await sleep(200);
     ok((await first(sock('sk6', '198.51.100.23'))).t === 'welcome', 'one closed: room for another');
@@ -1072,6 +1072,145 @@ try {
     L2.kill();
     ok((await req('POST', '/api/log', { at: PUBR.port, headers: { 'X-Log-Token': TOKEN }, body: { room: 'ABC', id: 'lg3', entries: [] } })).status === 404, '--public without --logs: logs are off');
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  // ---- a shared password (COLLAB_TOKEN or --token; asdf10k-collab-backend's scheme): off unless given
+  await step('a password: off by default (nothing changes), /api/health open on every relay', async () => {
+    const h = await req('GET', '/api/health');
+    ok(h.status === 200 && Object.keys(h.json()).sort().join() === 'ok,protocol,rooms' && h.json().ok === true && h.json().protocol === 1 && Number.isInteger(h.json().rooms),
+      'GET /api/health: { ok, protocol, rooms } and nothing more');
+    ok((await req('GET', '/api/ping')).status === 200 && (await req('GET', '/peerjs/peerjs/id')).status === 200 && !/password/i.test(relay.out),
+      'without a password: ping and the introduction server open, the start lines say nothing of one');
+    const c = client(R, 'nopass');
+    ok((await c.next(is('welcome')))?.you === 'nopass', 'a socket without ?token= is welcome');
+    c.ws.close();
+  });
+
+  await step('a password (COLLAB_TOKEN): everything but /api/health and the app\'s files needs it; 401, 4401; 20 failures, then 429, 4429', async () => {
+    const PASS = 'networks' + crypto.randomBytes(5).toString('hex');   // (made here: no password is ever kept in the repository)
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-pass-'));
+    const T = await start(['--static', REPO, '--watch', '--logs', dir, '--proxy', '--ping', '0.2'], { COLLAB_TOKEN: PASS });
+    let ipN = 0;
+    const ip = () => '203.0.113.' + (++ipN);   // (a fresh address for each part: failures are counted per address)
+    const get = (p, o = {}) => req(o.method || 'GET', p, { at: T.port, headers: { 'X-Forwarded-For': o.ip || ip(), ...(o.headers || {}) }, body: o.body });
+    const bearer = (t = PASS) => ({ Authorization: 'Bearer ' + t });
+    const no = r => r.status === 401 && r.text === '{"error":"missing or wrong token"}';
+    await sleep(300);   // (the start lines after the first)
+    ok(/A password is needed/.test(T.out) && !T.out.includes(PASS), 'the start line says a password is needed, never the password');
+    const h = await get('/api/health');
+    ok(h.status === 200 && Object.keys(h.json()).sort().join() === 'ok,protocol,rooms', '/api/health open, saying nothing more');
+    const code = (await get('/api/rooms', { method: 'POST', headers: bearer(), body: { app: 'networks', version: 'v1' } })).json().code;
+    ok(/^[A-Z]{3}$/.test(code || ''), 'POST /api/rooms with Authorization: Bearer: a room');
+    const asks = [['GET', '/api/ping'], ['GET', '/api/near'], ['GET', '/api/rooms'], ['GET', '/api/rooms/' + code], ['POST', '/api/rooms', { app: 'networks' }],
+      ['POST', '/api/log', { room: code, id: 'pw1', entries: [{ t: 1 }] }], ['GET', '/api/watch'], ['GET', '/api/nothing'], ['GET', '/peerjs'], ['GET', '/peerjs/peerjs/id']];
+    let s = [];
+    for (const [m, p, b] of asks) s.push(no(await get(p, { method: m, body: b })));
+    ok(s.every(Boolean), 'without it: 401 {"error":"missing or wrong token"} for ping, near, rooms, a room, a new room, log, watch, an unknown path, /peerjs and its ids');
+    s = [];
+    for (const [m, p, b] of asks.slice(0, 6)) s.push(no(await get(p, { method: m, body: b, headers: bearer(PASS + 'x') })) && no(await get(p + '?token=' + PASS.slice(1), { method: m, body: b })));
+    ok(s.every(Boolean), 'a wrong one (Bearer or ?token=, one letter more or less): 401');
+    ok(no(await get('/api/ping', { headers: { Authorization: 'Basic ' + PASS } })) && no(await get('/api/ping', { headers: bearer(PASS.toUpperCase()) })), 'not as Basic, and case counts');
+    const p1 = await get('/api/ping', { headers: bearer() }), p2 = await get('/api/ping?token=' + PASS);
+    ok(p1.status === 200 && p1.json().proto === 1 && p2.status === 200, 'Authorization: Bearer and ?token= both work');
+    ok((await get('/api/rooms/' + code, { headers: bearer() })).json().code === code && (await get('/api/near?token=' + PASS)).status === 200, 'a room and near with it');
+    const pre = await get('/api/ping', { method: 'OPTIONS', headers: { Origin: 'https://x.example', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' } });
+    ok(pre.status === 204 && /Authorization/.test(pre.headers['access-control-allow-headers']), 'a preflight needs no password and allows the Authorization header');
+    s = [];
+    for (const f of ['/', '/index.html', '/shared.js', '/stories/list.js', '/s/1/', '/p2p/']) s.push((await get(f)).status);
+    ok(s.every(x => x === 200), 'the app\'s files stay open: ' + s.join(' '));
+    // the room's socket: refused before anything of the room is sent
+    for (const [q, what] of [['', 'without ?token='], ['&token=' + PASS + 'x', 'with a wrong one']]) {
+      const c = wsAt(T, `/api/ws?room=${code}&id=pw2${q}`, { 'X-Forwarded-For': ip() });
+      const m = await first(c), cl = await c.closedIn(2000);
+      ok(m.t === 'error' && m.code === 'token' && m.text === 'missing or wrong token' && cl?.code === 4401 && !c.q.length, `a socket ${what}: error token, closed 4401, nothing else`);
+    }
+    const a = wsAt(T, `/api/ws?room=${code}&id=pw3&token=${encodeURIComponent(PASS)}`, { 'X-Forwarded-For': ip() });
+    const aw = await first(a);
+    ok(aw.t === 'welcome' && aw.you === 'pw3', 'with ?token=: welcome');
+    a.send({ t: 'hello', name: 'Pat', kind: 'ar', version: 'v1' });
+    await a.next(is('members'));
+    // the introduction server: PeerJS's key is the password; its default key refused
+    const pp = wsAt(T, peerQuery('pwpeer', 'tok1'), { 'X-Forwarded-For': ip() });
+    const pm = await first(pp);
+    ok(pm.type === 'INVALID-KEY' && (await pp.closedIn(2000))?.code === 4401, '/peerjs with PeerJS\'s default key: INVALID-KEY, closed 4401');
+    const pk = wsAt(T, peerQuery('pwpeer', 'tok1', encodeURIComponent(PASS)), { 'X-Forwarded-For': ip() });
+    ok((await first(pk)).type === 'OPEN', 'with the password as its key: OPEN');
+    const idr = await get('/peerjs/' + PASS + '/id');
+    ok(idr.status === 200 && /^[0-9a-f-]{36}$/.test(idr.text) && (await get('/peerjs', { headers: bearer() })).json().key === undefined, 'an id over HTTP with the key in its path; the info never names a key');
+    pk.ws.close();
+    // the dev watch stream
+    const watch = await new Promise(r => {
+      const q = http.get({ host: '127.0.0.1', port: T.port, path: '/api/watch?token=' + PASS, headers: { 'X-Forwarded-For': ip() } }, res => {
+        let text = '';
+        res.on('data', d => { text += d; if (/event: hello/.test(text)) { r({ status: res.statusCode, type: res.headers['content-type'], text }); q.destroy(); } });
+      });
+      q.on('error', () => {});
+      setTimeout(() => { r({}); q.destroy(); }, 3000);
+    });
+    ok(watch.status === 200 && /event-stream/.test(watch.type), '/api/watch with ?token=: the stream');
+    // logs: written with the password, and nowhere in a file
+    const hc = /CMD (node -e .*)$/m.exec(fs.readFileSync(path.join(HERE, 'Dockerfile'), 'utf8'));
+    let hcOk = false;
+    try { execFileSync('sh', ['-c', hc[1].replace(/^node /, JSON.stringify(process.execPath) + ' ').replace('8787', String(T.port))], { stdio: 'ignore', timeout: 5000 }); hcOk = true; } catch { /* failed */ }
+    ok(hc && /api\/health/.test(hc[1]) && hcOk, 'the Dockerfile\'s health check (/api/health) passes on a relay with a password');
+    const lg = await get('/api/log', { method: 'POST', headers: bearer(), body: { room: code, id: 'pw4', name: 'Pat', kind: 'ar', entries: [{ ev: 'x' }] } });
+    ok(lg.status === 200, 'POST /api/log with it: kept');
+    // failures: 20 a minute from one address, then 429 / 4429 for anything from it, the password too
+    const X = ip();
+    s = [];
+    for (let i = 0; i < 20; i++) s.push((await get('/api/ping', { ip: X, headers: bearer('wrong' + i) })).status);
+    const held = await get('/api/ping', { ip: X, headers: bearer() });
+    ok(s.every(x => x === 401) && held.status === 429 && /wait a minute/.test(held.json().error) && +held.headers['retry-after'] > 0, '20 wrong ones from one address: 401 each, then 429 even with the right one');
+    const Z = ip();
+    s = [];
+    for (let i = 0; i < 25; i++) s.push((await get('/api/ping', { ip: Z })).status);
+    ok(s.every(x => x === 401) && (await get('/api/ping', { ip: Z, headers: bearer() })).status === 200, 'none at all is not counted (pages ask before they know it): 25 times 401, then the right one works');
+    const hs = wsAt(T, `/api/ws?room=${code}&id=pw5&token=${PASS}`, { 'X-Forwarded-For': X });
+    const hm = await first(hs);
+    ok(hm.t === 'error' && hm.code === 'limit' && (await hs.closedIn(2000))?.code === 4429, 'and its socket: error limit, closed 4429');
+    const hp = wsAt(T, peerQuery('pwpeer2', 'tok2', PASS), { 'X-Forwarded-For': X });
+    ok((await first(hp)).type === 'ERROR' && (await hp.closedIn(2000))?.code === 4429, 'and the introduction server: ERROR, 4429');
+    ok((await get('/api/ping', { headers: bearer() })).status === 200 && (await get('/api/health', { ip: X })).status === 200 && (await get('/index.html', { ip: X })).status === 200,
+      'another address is not held back; /api/health and the app\'s files stay open for this one');
+    // unknown room codes asked with the right password do not count (after a relay restart every kept room is unknown, and
+    // the devices behind an event's router share one address): 15 lookups and 15 sockets, then a known room still answers
+    const Y = ip();
+    s = [];
+    for (const x of unknownCodes(15)) s.push((await get('/api/rooms/' + x, { ip: Y, headers: bearer() })).status);
+    for (const x of unknownCodes(30).slice(15)) { const u = wsAt(T, `/api/ws?room=${x}&id=pw6&token=${PASS}`, { 'X-Forwarded-For': Y }); s.push((await first(u)).code); }
+    ok(s.slice(0, 15).every(x => x === 404) && s.slice(15).every(x => x === 'room') && (await get('/api/rooms/' + code, { ip: Y, headers: bearer() })).status === 200,
+      'unknown room codes asked with the password (15 lookups, 15 sockets) are not counted: a known room still answers');
+    // PeerJS's default key (a page with no password yet sends it) is refused but not counted, as none at all
+    const K = ip();
+    s = [];
+    for (let i = 0; i < 25; i++) { const u = wsAt(T, peerQuery('pwdef' + i, 'tokd' + i, 'peerjs'), { 'X-Forwarded-For': K }); s.push((await u.closedIn(2000))?.code); }
+    ok(s.every(x => x === 4401) && (await get('/api/ping', { ip: K, headers: bearer() })).status === 200, "PeerJS's default key is not counted: 25 times 4401, then the right password works");
+    a.ws.close();
+    await sleep(400);
+    const files = fs.readdirSync(dir).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+    ok(files.length > 0 && !files.includes(PASS) && !T.out.includes(PASS), 'the password is in no log line and no log file');
+    ok(/requests refused: missing or wrong token \(\d+\)/.test(T.out) && /sockets refused: missing or wrong token \(\d+\)/.test(T.out) && /too many failed attempts from one address/.test(T.out),
+      'the refusals counted in the log');
+    T.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await step('a password with --token (and in RELAY_ARGS); COLLAB_PORT and COLLAB_HOST', async () => {
+    const PASS = 'flag' + crypto.randomBytes(4).toString('hex');
+    const F = await start(['--token', PASS, '--quiet']);
+    ok((await req('GET', '/api/ping', { at: F.port })).status === 401 && (await req('GET', '/api/ping', { at: F.port, headers: { Authorization: 'Bearer ' + PASS } })).status === 200, '--token <t>');
+    F.kill();
+    const G = await start(['--quiet'], { RELAY_ARGS: '--token ' + PASS });
+    ok((await req('GET', '/api/ping', { at: G.port })).status === 401 && (await req('GET', '/api/ping?token=' + PASS, { at: G.port })).status === 200, 'RELAY_ARGS="--token <t>"');
+    G.kill();
+    // a free port, then a relay told it by the environment alone
+    const free = await new Promise(r => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
+    const E = spawn(process.execPath, [path.join(HERE, 'server.mjs')], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_PORT: String(free), COLLAB_HOST: '127.0.0.1', COLLAB_TOKEN: '' } });
+    procs.push(E);
+    let out = '';
+    const line = await new Promise(r => { E.stdout.on('data', d => { out += d; if (/listening on/.test(out)) r(out); }); setTimeout(() => r(out), 4000); });
+    ok(line.includes(`http://127.0.0.1:${free}`) && (await req('GET', '/api/health', { at: free })).status === 200, 'COLLAB_PORT and COLLAB_HOST');
+    E.kill();
   });
 
   await step('--store: every room together holds at most so many MB', async () => {

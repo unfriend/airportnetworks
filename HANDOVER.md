@@ -607,10 +607,19 @@ Before handing over (or making anything more public), someone has to decide thes
      this network* still lists a room to the devices on its network, without names), slows guessing codes to 30
      unknown codes a minute per address, caps new rooms (10 a minute), sockets (64) per address and every room's data
      together (64 MB), and keeps logs only with a token from Coolify's environment (`RELAY_LOG_TOKEN`; the app sends none
-     yet). **It still has no login:** a room's 3-letter code is all it takes to read and change it and to see the names
-     and positions in it. The PIN (set in Coolify; asked once per page, a number pad in the headset's menu, or carried by
-     the room link) stays set aside (owner: "no pins for now, I'll host this privately or think about it"). Not yet
-     deployed: what only Coolify can show is listed at the end of the guide. Once it is up, its address can become the
+     yet). **A shared password (decided 3 November 2026, v110):** the owner: "i would like to add a secret to the relay
+     like how this project does it: menchelab/asdf10k-collab-backend ... like one word like networksofthefuture2037 that
+     i can use and enter on each client if i want it to be able to use the relay, no other way to use it", and "make sure
+     to run everything so that it is quite the same if possible, we might merge at some point". The scheme follows
+     asdf10k-collab-backend's `COLLAB_TOKEN`: set it in Coolify as a secret environment variable, and the relay asks for it
+     on everything but `GET /api/health` and the app's own files (401, a socket closed 4401; 20 wrong ones a minute from
+     one address, then 429 or 4429). Unlike there, the app's files carry no password (they are public on GitHub Pages):
+     each device enters it once (the Shared dialog on a page, or the headset menu's *Relay password* keypad; lower-case
+     letters and digits), kept per relay in that browser; changing it means every device enters it again. Without
+     `COLLAB_TOKEN` the relay is open as before (a laptop at an event). What matches asdf10k-collab-backend and what still
+     differs (protocol, routes, persistence) is in `relay/README.md`, "Compared with asdf10k-collab-backend". With it, a
+     room's code alone no longer lets a stranger in; inside the relay's users the code still is the room's only key. Not
+     yet deployed: what only Coolify can show is listed at the end of the guide. Once it is up, its address can become the
      app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):

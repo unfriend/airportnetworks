@@ -80,6 +80,20 @@ local network found each other this way, and then shared a peer-to-peer room; he
   A new network or address means a new certificate, accepted again on every headset.
 - [ ] Firewall allows port 8787 (allow it on private networks when asked).
 - [ ] Mains power, no sleep while the relay runs. **TO FILL (owner):** the power and sleep settings you use.
+- [ ] A password for the relay, if you want one (anyone on the Wi-Fi could otherwise use it): start it with
+  `COLLAB_TOKEN=<word> node relay/server.mjs --lan` (Windows PowerShell: `$env:COLLAB_TOKEN="<word>"` first), a word of
+  lower-case letters and digits such as `networksofthefuture2037` (the headset's keypad has only those, and case
+  counts). The public relay on Coolify has its own, set there (relay/README.md, "The shared password").
+
+**The password, on every device** (only when the relay has one)
+
+- [ ] Before the event, once per device: open the relay's address (or the live copy with `&relay=`), **Shared**, type the
+  password under *This relay needs its password*, **Use**. The device keeps it for that relay. On a Quest the easiest
+  is its 2D page in Quest Browser before entering VR or AR; in a headset session it is the menu's **Circles** tab,
+  **Relay password** (a keypad). A device that has it never asks again; links and room codes never carry it.
+- [ ] Changed the password? Every device enters the new one (the old one is refused and forgotten:
+  *The password this device kept is no longer this relay's*). **Forget the password** (the Shared dialog's relay part)
+  takes it off a device.
 
 **Peer to peer** (if you use it)
 
@@ -91,7 +105,8 @@ local network found each other this way, and then shared a peer-to-peer room; he
 - [ ] A network where devices reach each other: eduroam and guest networks usually do not; bring a router or use a
   phone's hotspot. If you can, reserve the laptop's address: Quest Browser keeps calibrations, Anchor places and the
   accepted certificate per address.
-- [ ] From a headset, `https://<address>:8787/api/ping` answers `{"now":...}`.
+- [ ] From a headset, `https://<address>:8787/api/ping` answers `{"now":...}` (with a password: `/api/health` answers
+  `{"ok":true,...}`, and `/api/ping` says `missing or wrong token`, which is right).
 - [ ] Two fixed spots, A and B, about 2 m apart in the middle of the play area (1 m at least): two corners of a table
   that stays put, or two tape crosses on the floor with an arrow from A to B, left all day (and for the next session).
   Every headset calibrates on them as it starts and checks on them; the first headset's calibration makes them the
