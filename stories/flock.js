@@ -1083,17 +1083,17 @@ function buildStory() {
       <p class="note" data-at="10">In a headset, look around: they never leave. On a screen the view follows them.</p>`,
     seven: `<h2 data-at="0.6">Seven neighbours</h2>
       <p data-at="1.2">No bird leads. Each one keeps track of about seven of its nearest neighbours, however near or far they are, and matches their heading and speed.</p>
-      <p data-at="7" class="amber">Draw each bird's link to the seven it follows, and the flock is a network: every bird a node, every link one bird watching another.</p>
+      <p data-at="7" class="amber">Draw each bird's link to the seven it follows, and the flock is a network: every bird is a node, and every link is one bird watching another.</p>
       <p data-at="14">The links change from moment to moment, as birds change places.</p>
       <p class="credits" data-at="16">Ballerini et al., PNAS 2008: starlings follow a set number of neighbours, not all birds within a set distance.</p>`,
     wave: `<h2 data-at="0.6">A wave</h2>
-      <p data-at="1.2">A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs: a wave of turning runs through the whole flock.</p>
-      <p data-at="9">The dark bands you see are birds banking together, their wings edge on or full on to you.</p>
+      <p data-at="1.2">A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.</p>
+      <p data-at="9">The dark bands you see are birds banking together, with their wings edge on or full on to you.</p>
       <p data-at="14">Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.</p>
       <p class="credits" data-at="16">Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation.</p>`,
     around: `<h2 data-at="0.6">All around you</h2>
       <p data-at="1.2">The flock flies on for as long as you stay.</p>
-      <p data-at="3">Change the number of birds, show who follows whom, or send a falcon: click the sky, or point and pull the trigger in a headset.</p>`,
+      <p data-at="3">Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
