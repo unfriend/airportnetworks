@@ -12155,7 +12155,15 @@ function buildModel(it) {
   it.proxy.position.set((b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2, (b[0][2] + b[1][2]) / 2);
   it.proxy.scale.set(Math.max(1e-4, b[1][0] - b[0][0]), Math.max(1e-4, b[1][1] - b[0][1]), Math.max(1e-4, b[1][2] - b[0][2]));
   applyLight(it);
+  warmModel(c.o);
   if (it.fresh) placeFresh(it, it.fresh);
+}
+// its shaders compiled now (with the scene's lights, as when drawn), so a cube that shows it later does not stall the
+// headset the moment it appears (a stand-in scene holds the lights and the model without taking them from their parents)
+function warmModel(o) {
+  const sc = new THREE.Scene();
+  try { sc.children = GL.scene.children.filter(x => x.isLight).concat(o); GL.renderer.compile(sc, GL.camera); } catch (e) { /* compiled when first drawn */ }
+  sc.children = [];
 }
 // a file placed for the first time here: its units and up axis as its starting scale and turn, its lowest point on the
 // floor with its middle where it was put, lit or as scanned, its first clip (stored in the record from then on)

@@ -1671,12 +1671,12 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       M.add('flat', g.plane(0.007, len), '#3c5072', [o, TOP + 0.002, 0], [-PI / 2, 0, 0]);
     }
     // the figure (a placed, rigged model): legs, a body, arms (the right one raised, waving) and a head, light clay
-    const F = [-0.2, TOP, -0.02], at = (x, y, z) => [F[0] + x, F[1] + y, F[2] + z];
-    for (const s of [-1, 1]) M.add('gloss', g.rod(at(s * 0.036, 0.235, 0), at(s * 0.046, 0.008, 0.01), 0.022, 6, true), CLAY);
-    M.add('gloss', g.cyl(0.064, 0.046, 0.17, 8), CLAY, at(0, 0.32, 0));
-    M.add('gloss', g.rod(at(-0.07, 0.385, 0), at(-0.105, 0.235, 0.02), 0.016, 6, true), CLAY);
-    M.add('gloss', g.rod(at(0.07, 0.385, 0), at(0.15, 0.5, 0.03), 0.016, 6, true), CLAY);
-    M.add('gloss', g.ball(0.05, 1), CLAY, at(0, 0.46, 0));
+    const F = [-0.2, TOP, -0.02], K = 1.18, at = (x, y, z) => [F[0] + x * K, F[1] + y * K, F[2] + z * K];   // (K: its size, to read as an icon)
+    for (const s of [-1, 1]) M.add('gloss', g.rod(at(s * 0.036, 0.235, 0), at(s * 0.046, 0.008, 0.01), 0.022 * K, 6, true), CLAY);
+    M.add('gloss', g.cyl(0.064 * K, 0.046 * K, 0.17 * K, 8), CLAY, at(0, 0.32, 0));
+    M.add('gloss', g.rod(at(-0.07, 0.385, 0), at(-0.105, 0.235, 0.02), 0.016 * K, 6, true), CLAY);
+    M.add('gloss', g.rod(at(0.07, 0.385, 0), at(0.15, 0.5, 0.03), 0.016 * K, 6, true), CLAY);
+    M.add('gloss', g.ball(0.05 * K, 1), CLAY, at(0, 0.46, 0));
     // the trigger cube: faint see-through faces, glowing edges and a ball at each corner (as the studio draws one)
     const C = [0.17, TOP + 0.185, -0.14], E = 0.36, h = E / 2;
     M.add('veil', g.box(E, E, E), CUBE, C);
