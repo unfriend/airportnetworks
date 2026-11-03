@@ -12,6 +12,8 @@
 //                                   only the app's pages may connect, no open-room list and no names, limits per address)
 //   COLLAB_TOKEN=<word> node relay/server.mjs ...   (or --token <word>: a shared password every client must bring, as
 //                                   asdf10k-collab-backend's COLLAB_TOKEN; COLLAB_PORT and COLLAB_HOST as there too)
+//   node relay/server.mjs --lan --scenes <dir>   (the studio's scenes: models, textures, sounds and layout.json, one
+//                                   subfolder each, served and their layouts saved; tools/studio/SPEC.md)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -23,12 +25,16 @@ import os from 'node:os';
 import { execFileSync, execFile } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf,
+  MAX_DEPTH, MAX_LAYOUT, LAYOUT } from './scenes.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
   // a public server (--public, or each rule on its own; -1: not given, so --public's default or off)
   public: false, origin: [], 'allow-no-origin': false, unlisted: false, guesses: -1, creates: -1, sockets: -1, store: -1, 'log-token': '',
-  token: '' };
+  token: '',
+  // the studio's scenes (--scenes <dir>; --scenes-readonly: never written)
+  scenes: '', 'scenes-readonly': false };
 // the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
 // command's flags and RELAY_ARGS over it
 {
@@ -36,6 +42,7 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   if (port) { if (/^\d+$/.test(port) && +port < 65536) OPT.port = +port; else console.log(`COLLAB_PORT="${port}" is not a port: using ${OPT.port}`); }
   if (String(e.COLLAB_HOST || '').trim()) OPT.host = String(e.COLLAB_HOST).trim();
   OPT.token = String(e.COLLAB_TOKEN || '').trim();
+  OPT.scenes = String(e.COLLAB_SCENES || '').trim();
 }
 const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // where the app lives (GitHub Pages): --public's origin unless --origin says
 const HELP = `usage: node relay/server.mjs [options]
@@ -54,6 +61,10 @@ const HELP = `usage: node relay/server.mjs [options]
   --watch [<dir>]  while developing: watch the app's files (the --static folder, or <dir>, then also served); the
                    pages it serves swap a changed story in place and reload, their place kept, when a shell file changes
   --build          with --watch: run a built story's build (tools/<key>/build.mjs) when its sources change
+  --scenes <dir>   the studio's scenes (or COLLAB_SCENES): each subfolder of <dir> is one scene (models, their textures,
+                   sounds, layout.json), listed at /api/scenes, its files at /scenes/<name>/<file>, its layout saved
+                   there by the studio (the old one kept in its .history/, the newest 20); with a password, they need it
+  --scenes-readonly  with --scenes: layouts are never written (the studio offers Download instead)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64, and
                    --logs only with a token
@@ -73,7 +84,7 @@ A shared password (as asdf10k-collab-backend's COLLAB_TOKEN; off unless given):
                    COLLAB_TOKEN in the environment than put it in a command. None or a wrong one: 401 (a socket: close
                    4401); 20 failures a minute from one address (a wrong password, an unknown room code), then 429 (4429)
 The environment: RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public"); COLLAB_TOKEN,
-COLLAB_PORT and COLLAB_HOST set --token, --port and --host (the flags win).`;
+COLLAB_PORT, COLLAB_HOST and COLLAB_SCENES set --token, --port, --host and --scenes (the flags win).`;
 // the options: the command's, then RELAY_ARGS's (the environment's: Coolify sets it, so its start command needs no change)
 const ARGV = [...process.argv.slice(2), ...String(process.env.RELAY_ARGS || '').trim().split(/\s+/).filter(Boolean)];
 for (let i = 0; i < ARGV.length; i++) {
@@ -157,6 +168,21 @@ if (PUB && OPT.logs && !LOG_TOKEN) {
   console.log('--public with --logs needs a token: set RELAY_LOG_TOKEN in the environment (or pass --log-token), and send it as X-Log-Token');
   process.exit(1);
 }
+// --scenes: the studio's scenes. They are the owner's own work, not the app's: on a public server only behind the password
+if (OPT['scenes-readonly'] && !OPT.scenes) { console.log('--scenes-readonly goes with --scenes <dir>'); process.exit(1); }
+const SCENES = (() => {
+  if (!OPT.scenes) return '';
+  const want = path.resolve(String(OPT.scenes));
+  let real = '';
+  try { real = fs.realpathSync(want); if (!fs.statSync(real).isDirectory()) real = ''; } catch { /* said below */ }
+  if (!real) { console.log(`--scenes: there is no folder ${want} (make it, with one subfolder per scene)`); process.exit(1); }
+  if (PUB && !TOKEN) {
+    console.log('--public with --scenes needs a password: set COLLAB_TOKEN in the environment (or pass --token). The scenes are your own files: nobody else should read them');
+    process.exit(1);
+  }
+  return real;
+})();
+const SAVE = !!SCENES && !OPT['scenes-readonly'];
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -706,7 +732,7 @@ function cors(req, res) {   // the API and the introduction server, for pages on
     if (o !== undefined) res.setHeader('Access-Control-Allow-Origin', o);
   } else res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method !== 'OPTIONS') return false;
-  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Log-Token', 'Access-Control-Max-Age': '600',
+  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, Range, X-Log-Token', 'Access-Control-Max-Age': '600',
     ...(req.headers['access-control-request-private-network'] ? { 'Access-Control-Allow-Private-Network': 'true' } : {}) });
   res.end();
   return true;
@@ -718,7 +744,7 @@ function api(req, res, url) {
   // (open, as asdf10k-collab-backend's: whether it runs, and how many rooms; nothing more)
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(UNLISTED ? { unlisted: true } : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(SCENES ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -726,6 +752,7 @@ function api(req, res, url) {
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
+  if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, p);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
     const who = LIM.guesses ? clientOf(req) : null;
     if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
@@ -831,7 +858,10 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.css': 'text/css; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.ico': 'image/x-icon', '.gif': 'image/gif', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.mp4': 'video/mp4', '.wasm': 'application/wasm',
-  '.woff2': 'font/woff2', '.glb': 'model/gltf-binary', '.pdf': 'application/pdf' };
+  '.woff2': 'font/woff2', '.glb': 'model/gltf-binary', '.pdf': 'application/pdf',
+  // the studio's scenes (--scenes): models, their data and textures, sounds
+  '.gltf': 'model/gltf+json', '.fbx': 'application/octet-stream', '.bin': 'application/octet-stream', '.tga': 'image/x-tga', '.bmp': 'image/bmp',
+  '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
 const SQUEEZE = /^(text\/|application\/(json|manifest\+json|wasm)|image\/svg)/;   // worth sending gzipped
 const gzip = promisify(zlib.gzip), GZ = new Map();
 const ROOT = OPT.static ? path.resolve(OPT.static) : '';
@@ -867,18 +897,24 @@ async function serve(req, res, url) {
     const real = await fs.promises.realpath(file);   // a link must lead to an app file too, not out of the folder
     if (!st.isFile() || !appFile(path.relative(REAL, real).split(path.sep))) throw new Error('not an app file');
   } catch { return plain(res, 404, 'Not found'); }
+  // (the release's version file is never kept: live updates compare it with what a page runs)
+  return sendFile(req, res, file, st, { cache: segs.join('/') === 'version.json' ? 'no-store' : 'no-cache' });
+}
+// a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
+// no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
+// text gzipped (squeeze: the app's files; a scene's are models, pictures and sounds, already packed)
+async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true, extra = {} } = {}) {
   const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
   const base = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
   const useRange = range && (range[1] || range[2]) && (!req.headers['if-range'] || req.headers['if-range'] === base);
-  const zip = !useRange && SQUEEZE.test(type) && st.size > 1024 && st.size < 32 * MAX_MSG && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+  const zip = squeeze && !useRange && SQUEEZE.test(type) && st.size > 1024 && st.size < 32 * MAX_MSG && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
   const etag = zip ? base.slice(0, -1) + '-gz"' : base;
-  // (the release's version file is never kept: live updates compare it with what a page runs)
-  const head = { 'Content-Type': type, 'Cache-Control': segs.join('/') === 'version.json' ? 'no-store' : 'no-cache', ETag: etag, 'Last-Modified': st.mtime.toUTCString(), 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff',
-    ...(SQUEEZE.test(type) ? { Vary: 'Accept-Encoding' } : {}) };
+  const head = { 'Content-Type': type, 'Cache-Control': cache, ETag: etag, 'Last-Modified': st.mtime.toUTCString(), 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff',
+    ...(squeeze && SQUEEZE.test(type) ? { Vary: 'Accept-Encoding' } : {}), ...extra };
   if (String(req.headers['if-none-match'] || '').split(',').some(t => t.trim().replace(/^W\//, '') === etag)) { res.writeHead(304, head); return res.end(); }
-  const stream = (opts, status, extra) => {
-    res.writeHead(status, { ...head, ...extra });
+  const stream = (opts, status, more) => {
+    res.writeHead(status, { ...head, ...more });
     if (req.method === 'HEAD') return res.end();
     pipeline(fs.createReadStream(file, opts), res, () => {});   // a download cut short closes the file too
   };
@@ -1023,12 +1059,196 @@ function startWatch() {
 }
 startWatch();
 
+// ---- the studio's scenes (--scenes <dir>; tools/studio/SPEC.md, "Where scenes come from"). Each subfolder is a scene;
+// the listing rules are relay/scenes.mjs's, shared with tools/studio/scan.mjs (a plain folder's index.json and files.json
+// say the same). GET /api/scenes lists them, GET /api/scenes/<name> gives one's files and layout, GET /scenes/<name>/<path>
+// a file, POST /api/scenes/<name>/layout saves its layout.json, GET /api/scenes/watch streams changes. Everything behind
+// the password when there is one, as the API is (the files are the owner's own work, not the app's).
+const SAID = new Set();   // folders whose names cannot be a scene's: said once each
+const sayBad = n => {
+  if (SAID.has(n)) return;
+  SAID.add(n);
+  log(`scenes: left out the folder ${JSON.stringify(n.slice(0, 80))} (${n === 'watch' ? 'watch is the change stream\'s name' :
+    'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -'})`);
+};
+const scenesOut = all => all.map(summary);
+function scenesApi(req, res, p) {
+  const failed = err => { log('scenes: ' + err.message); if (!res.headersSent) json(res, 500, { error: 'internal error' }); else res.destroy(); };
+  if (!SCENES) return json(res, 404, { error: 'no scenes here (start the relay with --scenes <folder>)' });
+  if (p === '/api/scenes') return req.method === 'GET' ? allScenes(SCENES, sayBad).then(all => json(res, 200, { scenes: scenesOut(all), save: SAVE }), failed) : json(res, 405, { error: 'method not allowed' });
+  if (p === '/api/scenes/watch') return req.method === 'GET' ? scenesWatch(req, res).catch(failed) : json(res, 405, { error: 'method not allowed' });
+  const m = /^\/api\/scenes\/([^/]+)(\/layout)?$/.exec(p);
+  let name = '';
+  try { name = m ? decodeURIComponent(m[1]) : ''; } catch { /* a bad escape: no such scene */ }
+  if (!m) return json(res, 404, { error: 'not found' });
+  if (m[2]) return req.method === 'POST' ? saveLayout(req, res, name).catch(failed) : json(res, 405, { error: 'method not allowed' });
+  if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+  sceneOne(res, name).catch(failed);
+}
+async function sceneOne(res, name) {
+  const dir = await sceneDir(SCENES, name);
+  if (!dir) return json(res, 404, { error: 'no such scene' });
+  const s = await sceneFiles(dir);
+  json(res, 200, { name, files: s.files.map(fileOut), layout: s.layout ? await readLayout(dir) : null, layoutAt: layoutAt(s.layout), save: SAVE });
+}
+
+// a scene's file. Its path is decoded once; '..', dot files (.history/), backslashes and NUL are refused, and so is
+// anything whose real path (a link followed) leaves the scene's folder: 404, said in the log by its path (never its query,
+// where a password may ride), at most 20 lines a minute
+const REFUSED = { n: 0, t0: 0 };
+function refusedPath(res, p, why) {
+  const now = Date.now();
+  if (now - REFUSED.t0 > 60000) { REFUSED.t0 = now; REFUSED.n = 0; }
+  if (++REFUSED.n <= 20) log(`scenes: refused ${JSON.stringify(String(p).slice(0, 200))} (${why})`);
+  else tally('scene files refused: paths out of their folder');
+  plain(res, 404, 'Not found');
+}
+async function sceneFile(req, res, url) {
+  if (cors(req, res)) return;   // (a page on another origin: GitHub Pages with &relay=; its preflight needs no password)
+  if (!authOk(req, res, givenToken(req, url))) return;
+  if (req.method !== 'GET' && req.method !== 'HEAD') return plain(res, 405, 'Method not allowed', { Allow: 'GET, HEAD, OPTIONS' });
+  // (the path as sent, not url.pathname: the URL parser resolves '..' and turns '\' into '/', which would hide them)
+  const raw = String(req.url).split(/[?#]/)[0];
+  let p;
+  try { p = decodeURIComponent(raw); } catch { return refusedPath(res, raw, 'a bad escape'); }
+  const segs = p.split('/').slice(2);   // ('', 'scenes', then the scene's name and the file's path)
+  if (p.includes('\0') || p.includes('\\')) return refusedPath(res, raw, 'a backslash or NUL');
+  if (!p.startsWith('/scenes/') || segs.some(x => x === '.' || x === '..')) return refusedPath(res, raw, 'out of its folder');
+  if (segs.length < 2 || segs.some(x => !x || x.startsWith('.')) || !validName(segs[0]) || segs.length > MAX_DEPTH + 2) return plain(res, 404, 'Not found');
+  const dir = await sceneDir(SCENES, segs[0]);
+  if (!dir) return plain(res, 404, 'Not found');
+  const file = path.join(dir, ...segs.slice(1));
+  let st, real;
+  try { real = await fs.promises.realpath(file); st = await fs.promises.stat(real); } catch { return plain(res, 404, 'Not found'); }
+  if (!inside(dir, real)) return refusedPath(res, raw, 'a link out of its folder');
+  if (!st.isFile()) return plain(res, 404, 'Not found');
+  return sendFile(req, res, real, st, { squeeze: false, extra: { 'Access-Control-Expose-Headers': 'ETag, Content-Range, Accept-Ranges' } });
+}
+
+// POST /api/scenes/<name>/layout: layout.json written whole (a temporary file renamed over it, so it is never half
+// written or missing), the old one copied into the scene's .history/ first (layout-<time>.json, the newest 20 kept).
+// One save at a time per scene.
+const HISTORY = 20, SAVING = new Map();
+async function saveLayout(req, res, name) {
+  const early = (status, error) => { res.setHeader('Connection', 'close'); json(res, status, { error }); req.resume(); };
+  if (!SAVE) return early(403, 'saving is off on this relay (--scenes-readonly): use Download layout.json');
+  const dir = await sceneDir(SCENES, name);
+  if (!dir) return early(404, 'no such scene');
+  if (+req.headers['content-length'] > MAX_LAYOUT) return early(413, 'a layout is at most 2 MB');
+  const body = await new Promise(done => {
+    const parts = [];
+    let n = 0;
+    req.on('data', c => { if ((n += c.length) <= MAX_LAYOUT) parts.push(c); else if (!res.headersSent) { early(413, 'a layout is at most 2 MB'); done(null); } });
+    req.on('end', () => done(res.headersSent ? null : Buffer.concat(parts).toString()));
+    req.on('error', () => done(null));
+  });
+  if (body === null) return;
+  let v, text;
+  try { v = JSON.parse(body); text = isLayout(v) ? layoutText(v) : ''; } catch { /* said below */ }
+  if (!text) return json(res, 400, { error: 'not a layout: a JSON object with studio: 1' });
+  const job = (SAVING.get(dir) || Promise.resolve()).then(() => writeLayout(dir, text));
+  const done = job.catch(() => {});
+  SAVING.set(dir, done);
+  done.then(() => { if (SAVING.get(dir) === done) SAVING.delete(dir); });
+  try {
+    const r = await job;
+    log(`scenes: ${name} saved its layout (${r.bytes} bytes)`);
+    json(res, 200, { ok: true, ...r });
+  } catch (err) { log(`scenes: ${name} could not save its layout (${err.code || err.message})`); json(res, 500, { error: 'cannot write layout.json (' + (err.code || 'error') + ')' }); }
+}
+async function writeLayout(dir, text) {
+  const file = path.join(dir, LAYOUT), hist = path.join(dir, '.history');
+  let old = null;
+  try { old = await fs.promises.stat(file); } catch { /* the first save */ }
+  if (old && old.isFile()) {
+    await fs.promises.mkdir(hist, { recursive: true });
+    // (the time in the name with - for :, which Windows does not allow; never two saves in one millisecond)
+    let h;
+    for (;;) {
+      h = path.join(hist, `layout-${new Date().toISOString().replace(/:/g, '-')}.json`);
+      try { await fs.promises.copyFile(file, h, fs.constants.COPYFILE_EXCL); break; } catch (err) { if (err.code !== 'EEXIST') throw err; }
+      await new Promise(r => setTimeout(r, 2));
+    }
+    const kept = (await fs.promises.readdir(hist)).filter(n => /^layout-.+\.json$/.test(n)).sort();
+    for (const n of kept.slice(0, Math.max(0, kept.length - HISTORY))) await fs.promises.rm(path.join(hist, n), { force: true });
+  }
+  const tmp = path.join(dir, `.layout-${process.pid}-${crypto.randomBytes(4).toString('hex')}.tmp`);
+  try {
+    const fh = await fs.promises.open(tmp, 'wx');
+    try { await fh.writeFile(text); await fh.sync(); } finally { await fh.close(); }
+    await fs.promises.rename(tmp, file);
+  } catch (err) { await fs.promises.rm(tmp, { force: true }); throw err; }
+  const st = await fs.promises.stat(file);
+  return { at: Math.floor(st.mtimeMs), bytes: st.size };
+}
+
+// GET /api/scenes/watch: Server-Sent Events. hello { scenes } at once; scene { name, path, kind, gone } when a file is
+// added, changed or removed, layout { name, at } when a layout.json is (gone: true when removed), scenes { scenes } when a
+// scene comes or goes; a comment every 20 s. The folder is looked at every 2 s while anyone listens (not fs.watch, which
+// differs by system and misses changes on shared folders), and a change is told once it has settled: the same for about
+// 0.5 s (a copy in progress grows meanwhile). Never for .history/, dot or temporary files (the listing leaves them out).
+const SW = { clients: new Set(), known: null, first: null, pending: new Map(), timer: 0, busy: false, beat: 0 };
+async function sceneState() {
+  const all = await allScenes(SCENES, sayBad), sig = new Map();
+  for (const s of all) {
+    for (const f of s.files) sig.set(s.name + '\0' + f.path, `${f.bytes}:${f.at}:${f.ino}`);
+    if (s.layout) sig.set(s.name + '\0', `${s.layout.size}:${Math.floor(s.layout.mtimeMs)}:${s.layout.ino}`);   // (its layout.json)
+  }
+  return { sig, scenes: scenesOut(all), names: all.map(s => s.name).join('\0') };
+}
+const tellScenes = (event, data) => { for (const res of SW.clients) sse(res, event, data); };
+async function scenesWatch(req, res) {
+  if (SW.clients.size >= MAX_WATCHERS) return json(res, 503, { error: 'too many pages watching' });
+  let gone = false;
+  res.on('close', () => { gone = true; if (SW.clients.delete(res) && !SW.clients.size) sceneQuiet(); });
+  if (!SW.known) SW.known = await (SW.first ||= sceneState().finally(() => { SW.first = null; }));
+  if (gone) return;
+  res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.write('retry: 2000\n\n');
+  sse(res, 'hello', { scenes: SW.known.scenes });
+  SW.clients.add(res);
+  if (!SW.timer && !SW.busy) SW.timer = setTimeout(scenePoll, 2000);
+  if (!SW.beat) SW.beat = setInterval(() => { for (const r of SW.clients) { try { r.write(': still here\n\n'); } catch { /* gone */ } } }, 20000);
+}
+function sceneQuiet() {   // nobody listens: nothing looked at, nothing kept
+  clearTimeout(SW.timer); clearInterval(SW.beat);
+  SW.timer = 0; SW.beat = 0; SW.known = null; SW.pending.clear();
+}
+async function scenePoll() {
+  SW.timer = 0;
+  if (!SW.clients.size || !SW.known) return sceneQuiet();
+  SW.busy = true;
+  try { await sceneLook(); } catch (err) { log('scenes: watch: ' + err.message); }
+  SW.busy = false;
+  if (SW.clients.size && SW.known) SW.timer = setTimeout(scenePoll, SW.pending.size ? 500 : 2000);
+  else sceneQuiet();
+}
+async function sceneLook() {
+  const cur = await sceneState(), old = SW.known, now = Date.now();
+  if (!old) return;
+  for (const k of new Set([...old.sig.keys(), ...cur.sig.keys()])) {
+    const a = old.sig.get(k), b = cur.sig.get(k);
+    if (a === b) { SW.pending.delete(k); continue; }
+    const p = SW.pending.get(k);
+    if (!p || p.sig !== b) { SW.pending.set(k, { sig: b, since: now }); continue; }
+    if (now - p.since < 450) continue;
+    SW.pending.delete(k);   // settled: told, and known from now on
+    if (b === undefined) old.sig.delete(k); else old.sig.set(k, b);
+    const [name, file] = k.split('\0');
+    if (!file) tellScenes('layout', b === undefined ? { name, at: null, gone: true } : { name, at: +b.split(':')[1] });
+    else tellScenes('scene', { name, path: file, kind: kindOf(file), gone: b === undefined });
+  }
+  if (cur.names !== old.names) tellScenes('scenes', { scenes: cur.scenes });
+  old.names = cur.names; old.scenes = cur.scenes;
+}
+
 function request(req, res) {
   const url = parseUrl(req);
   if (!url) return plain(res, 400, 'Bad request');
   const fail = err => { log('error', scrub(req.url), err.message); if (!res.headersSent) plain(res, 500, 'Internal error'); else res.destroy(); };
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) { try { return api(req, res, url); } catch (err) { return fail(err); } }
   if (PEER && (url.pathname === '/peerjs' || url.pathname.startsWith(PEER_PATH))) { try { return peerHttp(req, res, url); } catch (err) { return fail(err); } }
+  if (SCENES && url.pathname.startsWith('/scenes/')) return sceneFile(req, res, url).catch(fail);
   if (ROOT) return serve(req, res, url).catch(fail);
   if (url.pathname === '/') return plain(res, 200, 'Shared-room relay: the API is under /api/ (see relay/README.md).');
   plain(res, 404, 'Not found');
@@ -1056,6 +1276,11 @@ server.listen(OPT.port, OPT.host, () => {
   if (OPT.proxy) console.log(OPT.proxy === 1 ? 'Behind a reverse proxy: a client\'s address is the last one in X-Forwarded-For (rooms on this network)' :
     `Behind ${OPT.proxy} reverse proxies: a client's address is the ${OPT.proxy === 2 ? 'second' : OPT.proxy === 3 ? 'third' : OPT.proxy + 'th'} from the right in X-Forwarded-For (rooms on this network)`);
   if (WATCH) console.log(`Watching ${WATCH}: pages swap a changed story in place, and reload for a shell file` + (OPT.build ? '; a built story is built again when its sources change' : ''));
+  // the studio's scenes: which, and whether layouts are saved (said after the lines above: the folder is looked at first)
+  if (SCENES) allScenes(SCENES, sayBad).then(all => console.log(`Scenes for the studio (#studio) from ${SCENES}: ` +
+    (all.length ? `${all.length} (${all.map(x => x.name).join(', ').slice(0, 300)})` : 'none yet (put one subfolder per scene there)') + '; ' +
+    (SAVE ? 'the studio saves their layouts there (the old layout.json in each one\'s .history/)' : 'read only (--scenes-readonly): layouts are never written') +
+    (TOKEN ? '; they need the password' : '')));
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +
     (OPT['allow-no-origin'] ? ' (and clients that send no Origin, such as scripts)' : ' (a client that sends no Origin gets no socket: --allow-no-origin)'));
@@ -1074,7 +1299,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
-    for (const res of W.clients) res.end();
+    for (const res of [...W.clients, ...SW.clients]) res.end();
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

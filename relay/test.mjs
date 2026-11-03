@@ -22,7 +22,7 @@ const is = (t, more = () => true) => m => m.t === t && more(m);
 // ---- the relay
 const procs = [];
 async function start(args, env) {
-  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_LOG_TOKEN: '', RELAY_ARGS: '', ...env } });
+  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_LOG_TOKEN: '', RELAY_ARGS: '', COLLAB_SCENES: '', ...env } });
   procs.push(p);
   p.out = '';
   p.port = await new Promise((res, rej) => {
@@ -1231,6 +1231,284 @@ try {
     ok((await write(a, [['pose.1', 'small']], 'shrink'))?.t === 'set', 'a value made smaller is never refused');
     a.ws.close(); b.ws.close(); T.kill();
   });
+
+  // ---- the studio's scenes (--scenes; tools/studio/SPEC.md, "Where scenes come from")
+  // a folder of scenes in the OS's temporary folder: every kind of file, the files a listing leaves out, links in and out
+  const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-scenes-')), S = path.join(SC, 'scenes'), OUT = path.join(SC, 'outside');
+  const put = (rel, data) => { const f = path.join(S, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, data); return f; };
+  const bytes = n => crypto.randomBytes(n);
+  const TONE = bytes(2000), GLB = Buffer.concat([Buffer.from('glTF'), bytes(96)]);
+  const ALPHA = { studio: 1, scene: 'alpha', objects: [{ id: 'k3f9qa', name: 'Box', file: 'model.glb', p: [0, 0, 0], q: [0, 0, 0, 1], s: 1 }], cubes: [], sounds: [] };
+  put('alpha/model.glb', GLB); put('alpha/Model2.GLTF', '{"asset":{"version":"2.0"}}'); put('alpha/rig.FBX', bytes(300));
+  put('alpha/tex/wall.PNG', bytes(40)); put('alpha/tex/photo.jpeg', bytes(50)); put('alpha/sounds/tone.wav', TONE); put('alpha/sounds/birds.MP3', bytes(70));
+  put('alpha/data.bin', bytes(16)); put('alpha/notes.txt', 'notes'); put('alpha/deep/a/b/c/ok.glb', bytes(10)); put('alpha/deep/a/b/c/d/too-deep.glb', bytes(10));
+  put('alpha/layout.json', JSON.stringify(ALPHA)); put('alpha/files.json', '{"stale":true}'); put('alpha/.hidden', 'x'); put('alpha/.history/layout-old.json', '{}');
+  put('alpha/x.tmp', 'x'); put('alpha/y~', 'x'); put('alpha/z.part', 'x');
+  put('beta/a.ogg', bytes(30)); put('with space/x.webm', bytes(20)); put('bad!/x.glb', 'x'); put('-dash/x.glb', 'x'); put('watch/x.glb', 'x'); put('.git/x', 'x'); put('readme.txt', 'x');
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'secret.glb'), 'secret'); fs.writeFileSync(path.join(OUT, 'secret.txt'), 'secret');
+  fs.symlinkSync(path.join(S, 'alpha/sounds/tone.wav'), path.join(S, 'alpha/link.wav'));   // a link inside: followed
+  fs.symlinkSync(path.join(OUT, 'secret.glb'), path.join(S, 'alpha/escape.glb'));        // links out: never
+  fs.symlinkSync(OUT, path.join(S, 'alpha/escdir'));
+  const ALPHA_FILES = [['Model2.GLTF', 'model'], ['data.bin', 'data'], ['deep/a/b/c/ok.glb', 'model'], ['link.wav', 'audio'], ['model.glb', 'model'], ['notes.txt', 'other'],
+    ['rig.FBX', 'model'], ['sounds/birds.MP3', 'audio'], ['sounds/tone.wav', 'audio'], ['tex/photo.jpeg', 'image'], ['tex/wall.PNG', 'image']];
+  const SCN = await start(['--scenes', S]);
+  const sget = (p, o = {}) => req(o.method || 'GET', p, { at: SCN.port, headers: o.headers || {}, body: o.body });
+  const mtime = rel => Math.floor(fs.statSync(path.join(S, rel)).mtimeMs);
+  // a Server-Sent Events stream, its events kept in order
+  function sse(at, p, headers = {}) {
+    const c = { events: [], status: 0 };
+    c.ready = new Promise(resolve => {
+      c.req = http.get({ host: '127.0.0.1', port: at, path: p, headers }, res => {
+        c.status = res.statusCode; c.headers = res.headers;
+        let buf = '';
+        res.on('data', d => {
+          buf += d;
+          for (let i; (i = buf.indexOf('\n\n')) >= 0;) {
+            const block = buf.slice(0, i), ev = /^event: (.*)$/m.exec(block), data = /^data: (.*)$/m.exec(block);
+            buf = buf.slice(i + 2);
+            if (ev && data) c.events.push({ event: ev[1], data: JSON.parse(data[1]), at: Date.now() });
+          }
+        });
+        resolve(c);
+      });
+      c.req.on('error', () => resolve(c));
+    });
+    c.next = async (pred, ms = 6000) => {
+      for (const end = Date.now() + ms; ;) {
+        const i = c.events.findIndex(pred);
+        if (i >= 0) return c.events.splice(i, 1)[0];
+        if (Date.now() > end) return null;
+        await sleep(25);
+      }
+    };
+    c.close = () => c.req.destroy();
+    return c;
+  }
+  const ev = (event, more = () => true) => e => e.event === event && more(e.data);
+
+  await step('scenes (--scenes): /api/ping says so, the list and one scene by the listing rules; none on a relay without it', async () => {
+    ok((await sget('/api/ping')).json().scenes === true && (await req('GET', '/api/ping')).json().scenes === undefined, '/api/ping: scenes: true only with --scenes');
+    const none = await req('GET', '/api/scenes');
+    ok(none.status === 404 && /--scenes/.test(none.json().error) && (await req('GET', '/scenes/alpha/model.glb')).status === 404, 'a relay without --scenes: no /api/scenes, no /scenes/');
+    const l = await sget('/api/scenes');
+    const list = l.json();
+    ok(l.status === 200 && list.save === true && list.scenes.map(s => s.name).join('|') === 'alpha|beta|with space', 'GET /api/scenes: alpha, beta and "with space" (bad!, -dash, watch, .git and a file at the top left out): ' + list.scenes.map(s => s.name).join('|'));
+    const a = list.scenes[0], b = list.scenes[1];
+    ok(Object.keys(a).sort().join() === 'at,bytes,files,layout,name' && a.files === ALPHA_FILES.length && a.layout === true && b.layout === false && b.files === 1 && b.bytes === 30,
+      'each { name, files, bytes, at, layout }');
+    const sizes = ALPHA_FILES.map(([p]) => fs.statSync(path.join(S, 'alpha', p)).size);
+    ok(a.bytes === sizes.reduce((x, y) => x + y, 0) && a.at === Math.max(...ALPHA_FILES.map(([p]) => mtime('alpha/' + p))), 'bytes the files\' size, at the newest file\'s time');
+    ok((SCN.out.match(/left out the folder "bad!"/g) || []).length === 1 && /left out the folder "-dash"/.test(SCN.out) && /left out the folder "watch" \(watch is the change stream/.test(SCN.out),
+      'a folder whose name cannot be a scene\'s is said in the log, once (listed twice now)');
+    const o = await sget('/api/scenes/alpha'), one = o.json();
+    ok(o.status === 200 && Object.keys(one).sort().join() === 'files,layout,layoutAt,name,save' && one.name === 'alpha' && one.save === true, 'GET /api/scenes/alpha: { name, files, layout, layoutAt, save }');
+    ok(JSON.stringify(one.files.map(f => [f.path, f.kind])) === JSON.stringify(ALPHA_FILES), 'its files sorted by path with their kinds (not layout.json, files.json, dot files, .history/, temporary files, too deep or links out): ' + one.files.map(f => f.path).join(' '));
+    ok(one.files.every(f => Object.keys(f).sort().join() === 'at,bytes,kind,path' && f.bytes === fs.statSync(path.join(S, 'alpha', f.path)).size && f.at === mtime('alpha/' + f.path)), 'each file { path, bytes, at, kind }');
+    ok(JSON.stringify(one.layout) === JSON.stringify(ALPHA) && one.layoutAt === mtime('alpha/layout.json'), 'its layout parsed, layoutAt its time');
+    const bt = (await sget('/api/scenes/beta')).json();
+    ok(bt.layout === null && bt.layoutAt === null && bt.files.length === 1 && bt.files[0].kind === 'audio', 'a scene without layout.json: layout and layoutAt null');
+    ok((await sget('/api/scenes/with%20space')).json().files?.[0]?.kind === 'audio', 'a name with a space, escaped');
+    const s = [];
+    for (const p of ['/api/scenes/nope', '/api/scenes/bad!', '/api/scenes/%2e%2e', '/api/scenes/alpha%2Fsounds', '/api/scenes/%E0%A4%A', '/api/scenes/alpha/x']) s.push((await sget(p)).status);
+    ok(s.every(x => x === 404), 'no such scene, a name that cannot be one, .., an escaped slash, a bad escape, a path past it: 404 (' + s.join(' ') + ')');
+    ok((await sget('/api/scenes', { method: 'POST', body: {} })).status === 405 && (await sget('/api/scenes/alpha', { method: 'DELETE' })).status === 405 && (await sget('/api/scenes/alpha/layout')).status === 405,
+      'other methods: 405');
+  });
+
+  await step('scenes: tools/studio/scan.mjs writes index.json and files.json as the API answers them, and nothing when run again', async () => {
+    const scan = (...a) => { try { return { code: 0, out: execFileSync(process.execPath, [path.join(REPO, 'tools/studio/scan.mjs'), ...a], { encoding: 'utf8' }) }; } catch (err) { return { code: err.status, out: String(err.stdout) }; } };
+    const r1 = scan(S);
+    ok(r1.code === 0 && /wrote .*index\.json \(3 scenes\)/.test(r1.out) && /wrote .*alpha[\\/]files\.json \(11 files and layout\.json\)/.test(r1.out) && /left out the folder "bad!"/.test(r1.out), 'scan.mjs: what it wrote');
+    const api = (await sget('/api/scenes')).json(), idx = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
+    ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }), 'index.json is GET /api/scenes with save: false');
+    for (const n of ['alpha', 'beta', 'with space']) {
+      const one = (await sget('/api/scenes/' + encodeURIComponent(n))).json(), fj = JSON.parse(fs.readFileSync(path.join(S, n, 'files.json'), 'utf8'));
+      delete one.layout;
+      ok(JSON.stringify(fj) === JSON.stringify({ ...one, save: false }), `${n}/files.json is GET /api/scenes/${n} without layout, save: false`);
+    }
+    ok(JSON.stringify((await sget('/api/scenes')).json()) === JSON.stringify(api), 'index.json and files.json are not listed themselves');
+    const r2 = scan(S), r3 = scan(S, '--check');
+    ok(r2.code === 0 && !/wrote/.test(r2.out) && (r2.out.match(/unchanged/g) || []).length === 4 && r3.code === 0 && !/NOT CURRENT/.test(r3.out), 'run again: unchanged; --check: current');
+    const extra = put('beta/new.png', 'x');
+    const r4 = scan(S, '--check');
+    ok(r4.code === 1 && /NOT CURRENT .*beta[\\/]files\.json/.test(r4.out), '--check: a new file makes it not current (exit 1)');
+    fs.rmSync(extra);
+    ok(scan(S, '--check').code === 0 && scan(path.join(SC, 'nope')).code === 1, 'gone again: current; no such folder: exit 1');
+  });
+
+  await step('scenes: files with their types, ETag and 304, no-cache, byte ranges, CORS; .., dot files, backslashes, NUL and links out refused', async () => {
+    const g = await sget('/scenes/alpha/model.glb');
+    ok(g.status === 200 && g.buf.equals(GLB) && g.headers['content-type'] === 'model/gltf-binary' && g.headers['cache-control'] === 'no-cache' && g.headers['accept-ranges'] === 'bytes' &&
+      /^"[0-9a-z]+-[0-9a-z]+"$/.test(g.headers.etag) && g.headers['access-control-allow-origin'] === '*' && !g.headers['content-encoding'], 'a model: its bytes, model/gltf-binary, no-cache, an ETag, CORS');
+    ok((await sget('/scenes/alpha/model.glb', { headers: { 'If-None-Match': g.headers.etag } })).status === 304, 'If-None-Match with its ETag: 304');
+    const types = [['alpha/Model2.GLTF', 'model/gltf+json'], ['alpha/rig.FBX', 'application/octet-stream'], ['alpha/tex/wall.PNG', 'image/png'], ['alpha/tex/photo.jpeg', 'image/jpeg'],
+      ['alpha/sounds/tone.wav', 'audio/wav'], ['alpha/sounds/birds.MP3', 'audio/mpeg'], ['alpha/data.bin', 'application/octet-stream'], ['with%20space/x.webm', 'audio/webm'], ['beta/a.ogg', 'audio/ogg']];
+    const got = [];
+    for (const [p] of types) got.push((await sget('/scenes/' + p)).headers['content-type']);
+    ok(got.every((t, i) => t === types[i][1]), 'types by extension, any case: ' + got.join(' '));
+    const r = await sget('/scenes/alpha/sounds/tone.wav', { headers: { Range: 'bytes=10-19' } }), suf = await sget('/scenes/alpha/sounds/tone.wav', { headers: { Range: 'bytes=-100' } });
+    ok(r.status === 206 && r.headers['content-range'] === 'bytes 10-19/2000' && r.buf.equals(TONE.subarray(10, 20)) && suf.status === 206 && suf.buf.equals(TONE.subarray(1900)),
+      'byte ranges: 206 with Content-Range, a suffix range');
+    ok((await sget('/scenes/alpha/sounds/tone.wav', { headers: { Range: 'bytes=5000-' } })).status === 416 && (await sget('/scenes/alpha/model.glb', { method: 'HEAD' })).buf.length === 0, 'a range past the end: 416; HEAD: no body');
+    const pre = await sget('/scenes/alpha/model.glb', { method: 'OPTIONS', headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization, range' } });
+    ok(pre.status === 204 && /Authorization/.test(pre.headers['access-control-allow-headers']) && /Range/.test(pre.headers['access-control-allow-headers']), 'a preflight allows Authorization and Range');
+    ok((await sget('/scenes/alpha/link.wav')).buf.equals(TONE) && (await sget('/scenes/alpha/deep/a/b/c/ok.glb')).status === 200, 'a link inside the scene and a file 4 folders deep: served');
+    const s = [];
+    for (const p of ['/scenes/alpha/../beta/a.ogg', '/scenes/alpha/%2e%2e/beta/a.ogg?token=QSECRETQ', '/scenes/alpha/%2e%2e%2f%2e%2e%2foutside%2fsecret.txt', '/scenes/alpha/..%2F..%2F..%2Frelay%2Fserver.mjs',
+      '/scenes/alpha/sounds%5Ctone.wav', '/scenes/alpha/sounds\\tone.wav', '/scenes/alpha/tone%00.wav', '/scenes/alpha/escape.glb', '/scenes/alpha/escdir/secret.txt',
+      '/scenes/alpha/.hidden', '/scenes/alpha/.history/layout-old.json', '/scenes/alpha/deep/a/b/c/d/too-deep.glb', '/scenes/bad!/x.glb', '/scenes/nope/x.glb', '/scenes/alpha/', '/scenes/alpha', '/scenes/alpha/tex',
+      '/scenes/%252e%252e/x', '/scenes/alpha/%E0%A4%A']) s.push((await sget(p)).status);
+    ok(s.every(x => x === 404), '.. (as is or escaped), backslashes, NUL, links out, dot files, .history/, too deep, no such scene, a folder: 404 (' + s.join(' ') + ')');
+    ok((await sget('/scenes/alpha/model.glb', { method: 'POST', body: 'x' })).status === 405, 'POST to a file: 405');
+    await sleep(100);
+    ok(/scenes: refused "\/scenes\/alpha\/\.\.\/beta\/a\.ogg" \(out of its folder\)/.test(SCN.out) && /scenes: refused "\/scenes\/alpha\/escape\.glb" \(a link out of its folder\)/.test(SCN.out) &&
+      /refused "\/scenes\/alpha\/%2e%2e\/beta\/a\.ogg" \(out of its folder\)/.test(SCN.out) && /\(a backslash or NUL\)/.test(SCN.out) && !SCN.out.includes('QSECRETQ'),
+      'refusals said in the log by their path, never its query');
+  });
+
+  await step('scenes: POST /api/scenes/<name>/layout writes layout.json whole, the old one into .history/ (20 kept); bad, too big, unknown refused', async () => {
+    const save = (name, body, headers = {}) => sget(`/api/scenes/${encodeURIComponent(name)}/layout`, { method: 'POST', body, headers: { 'Content-Type': 'application/json', ...headers } });
+    const L = n => ({ studio: 1, scene: 'beta', saved: new Date().toISOString(), n, objects: [{ id: 'a' + n, name: 'X', file: 'a.ogg', p: [n, 0, 0] }], cubes: [], sounds: [] });
+    const f = path.join(S, 'beta', 'layout.json'), hist = path.join(S, 'beta', '.history');
+    const r1 = await save('beta', L(1)), a1 = r1.json();
+    ok(r1.status === 200 && a1.ok === true && a1.bytes === fs.statSync(f).size && a1.at === Math.floor(fs.statSync(f).mtimeMs) && !fs.existsSync(hist), 'the first save: { ok, at, bytes }, no history yet');
+    ok(JSON.stringify(JSON.parse(fs.readFileSync(f, 'utf8'))) === JSON.stringify(L(1)).replace(/"saved":"[^"]*"/, `"saved":${JSON.stringify(JSON.parse(fs.readFileSync(f, 'utf8')).saved)}`) &&
+      /^\{\n  "studio": 1,\n[\s\S]*\n  "objects": \[\n    \{"id":"a1",/.test(fs.readFileSync(f, 'utf8')), 'layout.json as sent, laid out a field a line and an item a line');
+    const r2 = await save('beta', L(2));
+    const h1 = fs.readdirSync(hist);
+    ok(r2.status === 200 && h1.length === 1 && /^layout-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d\.\d{3}Z\.json$/.test(h1[0]) && JSON.parse(fs.readFileSync(path.join(hist, h1[0]), 'utf8')).n === 1, 'the second: the first in .history/layout-<time>.json');
+    const one = (await sget('/api/scenes/beta')).json();
+    ok(one.layout.n === 2 && one.layoutAt === r2.json().at, 'GET gives the saved layout and its time');
+    for (let n = 3; n <= 24; n++) await save('beta', L(n));
+    const ns = fs.readdirSync(hist).map(x => JSON.parse(fs.readFileSync(path.join(hist, x), 'utf8')).n).sort((x, y) => x - y);
+    ok(ns.length === 20 && ns[0] === 4 && ns[19] === 23 && JSON.parse(fs.readFileSync(f, 'utf8')).n === 24, '24 saves: layout.json the last, the newest 20 before it kept (' + ns[0] + ' to ' + ns[19] + ')');
+    const all = await Promise.all([25, 26, 27, 28, 29].map(n => save('beta', L(n))));
+    const last = JSON.parse(fs.readFileSync(f, 'utf8')).n;
+    ok(all.every(x => x.status === 200) && last >= 25 && fs.readdirSync(hist).length === 20 && !fs.readdirSync(path.join(S, 'beta')).some(x => /\.tmp$/.test(x)), 'five at once: one at a time, no temporary file left');
+    const before = fs.readFileSync(f, 'utf8');
+    const bad = [];
+    for (const b of ['not json', '[1]', '{"studio":2}', '{}', 'null', '"x"']) bad.push((await save('beta', b)).status);
+    ok(bad.every(x => x === 400) && (await save('beta', '{"studio":1')).json().error.includes('studio: 1'), 'not a layout (not JSON, not an object, studio not 1): 400 (' + bad.join(' ') + ')');
+    const big = JSON.stringify({ studio: 1, pad: 'x'.repeat(2 << 20) });
+    let tb;
+    try { tb = (await save('beta', big)).status; } catch { tb = 'cut'; }
+    ok(tb === 413, 'more than 2 MB: 413 (' + tb + ')');
+    ok((await save('nope', L(1))).status === 404 && (await save('bad!', L(1))).status === 404 && (await save('with space', { studio: 1 })).status === 200, 'no such scene: 404; a name with a space: saved');
+    ok(fs.readFileSync(f, 'utf8') === before, 'refused saves change nothing');
+    const pre = await sget('/api/scenes/beta/layout', { method: 'OPTIONS', headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization, content-type' } });
+    ok(pre.status === 204 && /POST/.test(pre.headers['access-control-allow-methods']) && /Authorization/.test(pre.headers['access-control-allow-headers']) && /Content-Type/.test(pre.headers['access-control-allow-headers']),
+      'the preflight allows POST, Authorization and Content-Type');
+    const RO = await start(['--scenes', S, '--scenes-readonly', '--quiet']);
+    const ro = await req('POST', '/api/scenes/beta/layout', { at: RO.port, body: L(99) });
+    ok(ro.status === 403 && /--scenes-readonly/.test(ro.json().error) && fs.readFileSync(f, 'utf8') === before, '--scenes-readonly: 403 { error }, nothing written');
+    ok((await req('GET', '/api/scenes', { at: RO.port })).json().save === false && (await req('GET', '/api/scenes/beta', { at: RO.port })).json().save === false && (await sget('/api/scenes')).json().save === true,
+      '--scenes-readonly: save false in the list and the scene');
+    RO.kill();
+  });
+
+  await step('scenes: the watch (/api/scenes/watch): hello, a file added, changed and removed once settled, a saved layout, a new scene; nothing for .history/ or temporary files', async () => {
+    const w = sse(SCN.port, '/api/scenes/watch');
+    await w.ready;
+    const hello = await w.next(ev('hello'), 3000);
+    ok(w.status === 200 && /event-stream/.test(w.headers['content-type']) && hello?.data.scenes.map(s => s.name).join('|') === 'alpha|beta|with space', 'hello { scenes } at once');
+    put('beta/new.glb', 'x'); fs.appendFileSync(path.join(S, 'beta/a.ogg'), 'more'); fs.rmSync(path.join(S, 'alpha/notes.txt'));
+    put('beta/.x.tmp', 'x'); put('beta/y.part', 'x'); put('beta/.history/extra.json', 'x');
+    const t0 = Date.now();
+    const [e1, e2, e3] = await Promise.all([w.next(ev('scene', d => d.path === 'new.glb')), w.next(ev('scene', d => d.path === 'a.ogg')), w.next(ev('scene', d => d.path === 'notes.txt'))]);
+    ok(JSON.stringify(e1?.data) === '{"name":"beta","path":"new.glb","kind":"model","gone":false}' && JSON.stringify(e2?.data) === '{"name":"beta","path":"a.ogg","kind":"audio","gone":false}' &&
+      JSON.stringify(e3?.data) === '{"name":"alpha","path":"notes.txt","kind":"other","gone":true}', 'scene { name, path, kind, gone } for a file added, changed and removed');
+    ok(e1 && e1.at - t0 >= 400 && e1.at - t0 < 5000, `told a moment after it settled (${e1 ? e1.at - t0 : '-'} ms)`);
+    const s = await sget('/api/scenes/beta/layout', { method: 'POST', body: { studio: 1, scene: 'beta', objects: [] } });
+    const lay = await w.next(ev('layout'));
+    ok(JSON.stringify(lay?.data) === JSON.stringify({ name: 'beta', at: s.json().at }), 'a save: layout { name, at }');
+    fs.mkdirSync(path.join(S, 'gamma')); put('gamma/g.mp3', 'x');
+    const sc = await w.next(ev('scenes')), g = await w.next(ev('scene', d => d.name === 'gamma'));
+    ok(sc?.data.scenes.map(x => x.name).join('|') === 'alpha|beta|gamma|with space' && g?.data.path === 'g.mp3' && g.data.kind === 'audio', 'a new scene: scenes { scenes }, and its file');
+    // a file still being written (a copy in progress): told once, after its last part
+    const grow = path.join(S, 'beta/grow.bin');
+    for (let i = 0; i < 10; i++) { fs.appendFileSync(grow, bytes(1000)); await sleep(150); }
+    const done = Date.now(), gr = await w.next(ev('scene', d => d.path === 'grow.bin'));
+    await sleep(2600);
+    ok(gr && gr.at >= done && !w.events.some(e => e.data.path === 'grow.bin'), 'a file written in parts over 1.5 s: told once, after its last part');
+    ok(!w.events.some(e => e.event === 'scene' && /(^|\/)\.|\.part$|\.tmp$/.test(e.data.path)), 'nothing for .history/, dot files or temporary files: ' + w.events.map(e => e.event + ' ' + (e.data.path || '')).join(', '));
+    fs.rmSync(path.join(S, 'beta/layout.json'));
+    const gone = await w.next(ev('layout'));
+    ok(gone?.data.name === 'beta' && gone.data.gone === true && gone.data.at === null, 'layout.json removed: layout { name, at: null, gone: true }');
+    const w2 = sse(SCN.port, '/api/scenes/watch');
+    await w2.ready;
+    ok((await w2.next(ev('hello'), 3000))?.data.scenes.length === 4, 'a second page: hello with the scenes as they are now');
+    fs.rmSync(path.join(S, 'gamma'), { recursive: true });
+    const [x1, x2] = await Promise.all([w.next(ev('scenes')), w2.next(ev('scenes'))]);
+    ok(x1?.data.scenes.length === 3 && x2?.data.scenes.length === 3, 'both told when a scene goes');
+    w.close(); w2.close();
+    ok((await req('POST', '/api/scenes/watch', { at: SCN.port })).status === 405, 'POST to the watch: 405');
+  });
+  SCN.kill();
+
+  await step('scenes with a password: every scene endpoint and file needs it (Bearer or ?token=), wrong ones counted, never in a log line; --public needs one', async () => {
+    const PASS = 'scenes' + crypto.randomBytes(5).toString('hex');
+    const T = await start(['--scenes', S, '--proxy'], { COLLAB_TOKEN: PASS });
+    let n = 0;
+    const ip = () => '198.51.100.' + (++n);
+    const tget = (p, o = {}) => req(o.method || 'GET', p, { at: T.port, headers: { 'X-Forwarded-For': o.ip || ip(), ...(o.headers || {}) }, body: o.body });
+    const bearer = (t = PASS) => ({ Authorization: 'Bearer ' + t });
+    const no = r => r.status === 401 && r.text === '{"error":"missing or wrong token"}';
+    const asks = [['GET', '/api/scenes'], ['GET', '/api/scenes/alpha'], ['GET', '/api/scenes/nope'], ['POST', '/api/scenes/beta/layout', { studio: 1 }], ['GET', '/api/scenes/watch'],
+      ['GET', '/scenes/alpha/model.glb'], ['HEAD', '/scenes/alpha/model.glb'], ['GET', '/scenes/alpha/../beta/a.ogg'], ['GET', '/scenes/nope/x']];
+    let s = [];
+    for (const [m, p, b] of asks) s.push(no(await tget(p, { method: m, body: b })) || (m === 'HEAD' && (await tget(p, { method: m })).status === 401));
+    ok(s.every(Boolean), 'without it: 401 for the list, a scene, no scene, a save, the watch, a file (GET and HEAD), a path out, no such file');
+    s = [];
+    for (const [m, p, b] of asks.slice(0, 4).concat([asks[5]])) s.push(no(await tget(p, { method: m, body: b, headers: bearer(PASS + 'x') })));
+    ok(s.every(Boolean), 'a wrong one: 401');
+    const f1 = await tget('/scenes/alpha/model.glb?token=' + PASS), f2 = await tget('/scenes/alpha/model.glb', { headers: bearer() });
+    ok(f1.status === 200 && f1.buf.equals(GLB) && f2.status === 200 && (await tget('/scenes/alpha/sounds/tone.wav?token=' + PASS, { headers: { Range: 'bytes=0-9' } })).status === 206,
+      'a file with ?token= (as the loaders fetch them) or Authorization: Bearer; a range too');
+    ok((await tget('/api/scenes', { headers: bearer() })).json().scenes.length === 3 && (await tget('/api/scenes/alpha?token=' + PASS)).json().name === 'alpha' &&
+      (await tget('/api/scenes/beta/layout', { method: 'POST', headers: bearer(), body: { studio: 1, scene: 'beta' } })).json().ok === true, 'the list, a scene and a save with it');
+    const pre = await tget('/scenes/alpha/model.glb', { method: 'OPTIONS', headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' } });
+    ok(pre.status === 204, 'a preflight needs no password');
+    const w = sse(T.port, '/api/scenes/watch?token=' + PASS, { 'X-Forwarded-For': ip() });
+    await w.ready;
+    ok(w.status === 200 && !!(await w.next(ev('hello'), 3000)), 'the watch with ?token=');
+    w.close();
+    const X = ip();
+    s = [];
+    for (let i = 0; i < 20; i++) s.push((await tget('/scenes/alpha/model.glb?token=wrong' + i, { ip: X })).status);
+    const held = await tget('/scenes/alpha/model.glb?token=' + PASS, { ip: X });
+    ok(s.every(x => x === 401) && held.status === 429 && (await tget('/api/scenes', { ip: X, headers: bearer() })).status === 429, '20 wrong ones for files from one address: 401 each, then 429 for files and the API');
+    ok((await tget('/scenes/alpha/model.glb?token=' + PASS)).status === 200, 'another address is not held back');
+    await tget('/scenes/alpha/%2e%2e/beta/a.ogg?token=' + PASS);
+    await sleep(300);
+    ok(!T.out.includes(PASS) && /they need the password/.test(T.out) && /refused "\/scenes\/alpha\/%2e%2e\/beta\/a\.ogg"/.test(T.out), 'the password in no log line (a refused path said without its query); the start line says they need it');
+    T.kill();
+    const P = await start(['--scenes', S, '--public', '--quiet'], { COLLAB_TOKEN: PASS });
+    ok((await req('GET', '/api/scenes', { at: P.port, headers: bearer() })).status === 200, '--public with --scenes and a password: runs');
+    P.kill();
+  });
+
+  await step('scenes: the options (COLLAB_SCENES, RELAY_ARGS) and the ones refused at the start', async () => {
+    const E = await start(['--quiet'], { COLLAB_SCENES: S });
+    ok((await req('GET', '/api/scenes', { at: E.port })).json().scenes?.length === 3, 'COLLAB_SCENES=<dir>');
+    E.kill();
+    const R2 = await start(['--quiet'], { RELAY_ARGS: '--scenes ' + S + ' --scenes-readonly' });
+    ok((await req('GET', '/api/scenes', { at: R2.port })).json().save === false, 'RELAY_ARGS="--scenes <dir> --scenes-readonly"');
+    R2.kill();
+    const refused = (args, env = {}) => new Promise(resolve => {
+      const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', ...env } });
+      procs.push(p);
+      let out = '';
+      p.stdout.on('data', d => { out += d; });
+      p.on('exit', code => resolve({ code, out }));
+      setTimeout(() => { p.kill(); resolve({ code: 'still running', out }); }, 5000);
+    });
+    const pub = await refused(['--scenes', S, '--public']);
+    ok(pub.code === 1 && /--public with --scenes needs a password/.test(pub.out) && !/listening/.test(pub.out), '--public with --scenes and no password: refuses to start, saying why');
+    const miss = await refused(['--scenes', path.join(SC, 'nope')]), ro = await refused(['--scenes-readonly']);
+    ok(miss.code === 1 && /--scenes: there is no folder/.test(miss.out) && ro.code === 1 && /--scenes-readonly goes with --scenes/.test(ro.out), 'a folder that is not there, --scenes-readonly alone: refused');
+  });
+  fs.rmSync(SC, { recursive: true, force: true });
 
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');

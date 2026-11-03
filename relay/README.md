@@ -3,7 +3,8 @@
 A small server that lets several headsets and desktop browsers share a room: each sees the same stations
 playing the same stories in step (the plan is [docs/shared-space-plan.md](../docs/shared-space-plan.md)). It keeps,
 per room, the latest value of every shared state key and passes ephemeral messages (pointer rays, effects) on
-without storing them. One file, `server.mjs`: Node 18 or newer, no packages (its own minimal WebSocket code). It
+without storing them. One file, `server.mjs` (and `scenes.mjs`, the studio's listing rules, which
+`tools/studio/scan.mjs` shares): Node 18 or newer, no packages (its own minimal WebSocket code). It
 can serve the app as well (`--static .`), so the page and the relay share one address. It is also an introduction
 server for devices that link to each other directly (peer to peer, PeerJS's protocol at `/peerjs`; see
 [Introduction server for peer to peer](#introduction-server-for-peer-to-peer-peerjs)).
@@ -25,7 +26,7 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir>]
 COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the environment (better: not in a command)
 ```
 
@@ -45,6 +46,8 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
 | `--token <word>` | off | a shared password every client must bring ([The shared password](#the-shared-password-collab_token)); better set as `COLLAB_TOKEN` in the environment |
+| `--scenes <dir>` | off | the studio's scenes: each subfolder of `<dir>` is one scene (models, textures, sounds, its `layout.json`), served and its layout saved there ([Your own scenes](#your-own-scenes-the-studio)) |
+| `--scenes-readonly` | off | with `--scenes`: never write a layout (the studio offers *Download layout.json* instead) |
 
 The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
 things; a flag given as well wins):
@@ -54,6 +57,7 @@ things; a flag given as well wins):
 | `COLLAB_TOKEN` | (none) | the shared password (`--token`); empty or unset: none, everything open as before |
 | `COLLAB_PORT` | 8787 | `--port` |
 | `COLLAB_HOST` | 0.0.0.0 | `--host` |
+| `COLLAB_SCENES` | (none) | `--scenes` |
 | `RELAY_ARGS` | (none) | more options, added after the command's own (Coolify: `--proxy 1 --public`) |
 | `RELAY_LOG_TOKEN` | (none) | the log token (`--log-token`) |
 
@@ -452,25 +456,113 @@ user `node`; `docker build -f relay/Dockerfile -t networks-relay .` and `docker 
 locally as on a laptop (no `--public`), and `docker run -p 8787:8787 -e RELAY_ARGS='--public' -e COLLAB_TOKEN=<word>
 networks-relay` as on the server.
 
+## Your own scenes (the studio)
+
+The owner (3 November 2026): "i can run a relay and serve the fbx and glb files from that and also save the json files
+directly". The studio (`#studio` in the app; its contract is `tools/studio/SPEC.md`) shows your own models, their
+textures and sounds, lets you place them, add trigger cubes (that show and hide things as people walk in) and sound
+emitters, and save where everything stands. The relay serves the files from a folder on your computer and writes the
+layouts straight back into it.
+
+**At an event** (headsets on the same Wi-Fi as the laptop):
+
+```sh
+node relay/server.mjs --lan --scenes ~/scenes
+COLLAB_TOKEN=<word> node relay/server.mjs --lan --scenes ~/scenes   # with the shared password
+```
+
+It prints `Scenes for the studio (#studio) from <folder>: 2 (atelier, garden); the studio saves their layouts there`.
+On every headset open the address it prints, as for any session, then the studio: `#studio` at the end of the address
+(`https://192.168.1.20:8787/#studio`), or the headset menu's *Studio* row. A page on another origin (GitHub Pages with
+`&relay=`) uses it too: the scenes' files carry CORS headers as the API does.
+
+**The folder.** Each subfolder is one scene, named after it:
+
+```
+scenes/
+  atelier/                  a scene: letters, digits, spaces, _ . - (up to 64, not starting with a space, . or -)
+    annette.fbx             models: .glb .gltf .fbx
+    eva_001.fbx
+    eva_001.png             a texture a model names but does not hold: anywhere in the scene, by its file name
+    sounds/birds.mp3        sounds: .mp3 .ogg .oga .wav .m4a .aac .flac .opus .webm
+    layout.json             where everything stands (the studio's Save writes it)
+    .history/               the layouts before the last 20 saves (the relay keeps them)
+  garden/
+```
+
+Files may sit in subfolders up to 4 levels deep; at most 2,000 a scene are listed (by path). Left out: dot files and
+folders (`.history/`, `.DS_Store`), temporary files (ending in `~`, `.tmp`, `.temp`, `.part`, `.partial`, `.crdownload`,
+`.download`, `.swp`), the scene's own `layout.json` (it comes apart, as `layout`) and a `files.json` (from
+`tools/studio/scan.mjs`). A link is followed only when it leads somewhere inside its scene's folder (a scene folder that
+is itself a link is followed: your choice). A folder whose name cannot be a scene's (and one named `watch`, the change
+stream's name) is left out and said once in the log. Big FBX files are slow to open on a headset (a 14 MB scan takes
+seconds to parse); `node tools/studio/convert.mjs <file.fbx>` makes a GLB from one (textures drawn down to 4,096 px).
+
+**Saving.** The studio's *Save* sends what is placed now; the relay writes `layout.json` whole (a temporary file renamed
+over it, so it is never half written), after copying the old one into the scene's `.history/` as
+`layout-<time>.json` (an ISO time with `-` in place of `:`, which Windows does not allow; the newest 20 are kept). To
+go back, copy one of them over `layout.json`; the studio's *Load saved* then takes it. `layout.json` is laid out a field
+a line and an item a line, so it reads (and compares in git) well. `--scenes-readonly` writes nothing: *Save* says why
+and the page offers *Download layout.json*.
+
+**The password.** With `COLLAB_TOKEN` every scene request and file needs it, exactly as the API does
+(`Authorization: Bearer <word>` or `?token=<word>`: the studio adds `?token=` to every file its loaders fetch, and
+`Authorization` to sounds and JSON), and wrong ones count towards the 20 a minute from an address ([The shared
+password](#the-shared-password-collab_token)). The files are your own work, not the app's, so `--public` with
+`--scenes` refuses to start without a password. On Coolify: a *Persistent Storage* volume the user `node` may write to
+(say at `/scenes`), and `--scenes /scenes` added to `RELAY_ARGS` (or `COLLAB_SCENES=/scenes`).
+
+| request | answer |
+| --- | --- |
+| `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` false with `--scenes-readonly` |
+| `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
+| `GET /scenes/<name>/<path>` | the file (also `HEAD`): its type by extension, `ETag` from its size and time (304 when it matches), `Cache-Control: no-cache`, single byte ranges (206, 416), CORS (`Access-Control-Expose-Headers: ETag, Content-Range, Accept-Ranges`). The path is decoded once; `..` (as sent or escaped), backslashes, NUL, dot files and folders (`.history/`), more than 4 folders deep, and anything whose real path (a link followed) leaves the scene's folder: 404, the refusals said in the log by their path (never their query), at most 20 lines a minute |
+| `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
+| `GET /api/scenes/watch` | Server-Sent Events (with a password `?token=`: an `EventSource` cannot send headers), below |
+
+**The watch.** `GET /api/scenes/watch` (`text/event-stream`, `retry: 2000`, a comment line every 20 s, at most 200
+pages) tells the pages what changes in the folder, so a file you save in Blender or drop in appears in the studio by
+itself:
+
+| event | data |
+| --- | --- |
+| `hello` | `{ scenes }` (as `GET /api/scenes`), at once on every connection |
+| `scene` | `{ name, path, kind, gone }`: a file added or changed (`gone: false`) or removed (`gone: true`) |
+| `layout` | `{ name, at }`: a scene's `layout.json` written (by a save, or by hand); `{ name, at: null, gone: true }` when removed |
+| `scenes` | `{ scenes }`: a scene came or went (the list as `GET /api/scenes` gives it) |
+
+The relay looks at the folder every 2 s while anyone listens, and not at all otherwise (not `fs.watch`: it differs by
+system and misses changes on shared folders), and tells a change once it has settled: the same for about 0.5 s (a copy
+in progress grows meanwhile, and is told once, after its last part). So a change shows within about 1 to 3 s. Never for
+anything the listing leaves out (`.history/`, dot files, temporary files).
+
+**Without the relay** (a plain web host, the tests; read only): `node tools/studio/scan.mjs <folder>` writes
+`<folder>/index.json` (what `GET /api/scenes` answers, `save: false`) and `<folder>/<name>/files.json` (what
+`GET /api/scenes/<name>` answers, without `layout`: the page fetches `<name>/layout.json` itself), by the relay's own
+listing rules (`relay/scenes.mjs`, which both use). Run it again after changing the folder (it writes only what
+changed; `--check` exits 1 when something is not current, the files' times aside). The page then takes the folder
+with `&scenes=<relative folder>` in its link.
+
 ## HTTP API
 
 All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
 origin rule (`--origin`, `--public`): `Access-Control-Allow-Origin` is the asking page's origin when it is allowed
 (`Vary: Origin`), and a request from any other origin gets 403 `{ error: 'origin not allowed' }` (its preflight too);
-a request with no `Origin` is answered (the relay's own page, the health check, curl). Preflights allow the headers
-`Authorization`, `Content-Type` and `X-Log-Token`. With a password (`COLLAB_TOKEN`) every request below but
+a request with no `Origin` is answered (the relay's own page, the health check, curl). Preflights allow the methods
+`GET`, `POST` and `OPTIONS` and the headers `Authorization`, `Content-Type`, `Range` and `X-Log-Token`. With a password (`COLLAB_TOKEN`) every request below but
 `GET /api/health` needs it (`Authorization: Bearer` or `?token=`; 401 without, 429 past 20 failures a minute: [The
 shared password](#the-shared-password-collab_token)).
 
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here) |
+| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
+| `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
@@ -483,8 +575,10 @@ authors' data (`ikerdata/`), `tools/`, `docs/`, the relay itself, folders (no li
 a part starting with `.` (no `..`, no `.git`), and links that lead out of those files. `GET` and `HEAD`. `Cache-Control: no-cache` with `ETag`/`Last-Modified` (304 when unchanged, as the
 service worker expects), gzip for text when asked, single byte ranges on every file (206; 416 when
 unsatisfiable; the narration's `<audio>` element asks for them), types for `.html .js .mjs .json .webmanifest
-.css .txt .md .svg .png .jpg .webp .ico .gif .mp3 .ogg .wav .mp4 .wasm .woff2 .glb .pdf`. Without `--static`,
-`/` answers a line of text.
+.css .txt .md .svg .png .jpg .webp .ico .gif .mp3 .ogg .wav .mp4 .wasm .woff2 .glb .pdf` (and for scenes `.gltf .fbx .bin
+.tga .bmp .oga .opus .m4a .aac .flac .webm`). Without `--static`, `/` answers a line of text. With `--scenes`, the
+paths under `/scenes/` are the scenes' files ([Your own scenes](#your-own-scenes-the-studio)), with or without
+`--static`.
 
 ## Hot reload (`--watch`)
 
@@ -757,7 +851,19 @@ wrong one (Bearer or `?token=`, case counting) 401 with its body, both ways of b
 nothing else, one with it welcome, the introduction server refusing PeerJS's default key (4401) and taking the password
 as key (in the socket and the id's path), `/api/watch` with `?token=`, the Dockerfile's health check, 20 wrong ones from
 an address then 429 (the right one too), 4429 on its socket and `/peerjs`, another address untouched, none at all not
-counted (nor PeerJS's default key, nor an unknown room code asked with the password), and the password in no log line or file. It exits 1 on a failure. The shared-room client in the app has
+counted (nor PeerJS's default key, nor an unknown room code asked with the password), and the password in no log line or file; and
+the studio's scenes (`--scenes`, in a folder of its own under the OS's temporary folder, removed afterwards): `/api/ping`
+saying so (and nothing on a relay without it), the list and a scene by the listing rules (names left out and said once,
+the files a listing leaves out, 4 folders deep, links in and out, kinds, sorting, sizes and times), `tools/studio/scan.mjs`
+writing what the API answers and nothing when run again (`--check`), the files (types in any case, ETag and 304,
+no-cache, ranges, HEAD, CORS and its preflight; `..` as sent and escaped, backslashes, NUL, links out, dot files,
+`.history/`, too deep: 404, said in the log without the query), saving (the first save, `.history/` from the second,
+the newest 20 kept over 24 saves, five at once, no temporary file left, bad, too big and unknown refused and changing
+nothing, `--scenes-readonly` 403), the watch (`hello`, a file added, changed and removed told once settled, a save's
+`layout`, a scene coming and going, a file written in parts told once after its last part, nothing for `.history/` or
+temporary files, `layout.json` removed, a second page), the password on every scene endpoint and file (Bearer and
+`?token=`, wrong ones counted to 429, never in a log line), `--public` with `--scenes` refused without a password,
+`COLLAB_SCENES`, `RELAY_ARGS`, a folder that is not there and `--scenes-readonly` alone. It exits 1 on a failure. The shared-room client in the app has
 its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
