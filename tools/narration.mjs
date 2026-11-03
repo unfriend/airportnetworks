@@ -73,7 +73,8 @@ const toRec = (sync, t) => {
   }
   return t;
 };
-const fileOf = k => k === 'airports' ? 'audio/narration.mp3' : `audio/narration-${k}.mp3`;
+// (a story in two languages: the first language's file, and audio/narration-<key>-<lang>.mp3 for another)
+const fileOf = (k, l) => k === 'airports' ? 'audio/narration.mp3' : `audio/narration-${k}${l ? '-' + l : ''}.mp3`;
 // how a story is narrated: a recording, a synthetic voice (made by tools/voice/narrate.mjs, which the story's file names
 // beside its NARRATION_SYNC), or nothing yet
 const voiceOf = k => {
@@ -101,7 +102,9 @@ for (const d of docs) md += `| ${d.kick}: ${d.title} | \`${fileOf(d.key)}\` | ${
 for (const d of docs) {
   md += `\n## ${d.kick}: ${d.title} (\`#${d.key}\`)\n\nFile: \`${fileOf(d.key)}\`${voiceOf(d.key) ? ` (${voiceOf(d.key)})` : ' (not recorded yet)'}. ` +
     `Chapters: ${d.CH.map(c => `${mmss(toRec(d.sync, c.a))} ${c.name}`).join(', ')}; it ends at ${mmss(toRec(d.sync, d.CH[d.CH.length - 1].b))}.\n`;
-  if (d.langs) md += `\nIn ${d.langs.length} languages (${d.langs.join(', ')}): the recording follows the first; the others are what readers see in theirs (the pace gives each line the time of its longer text).\n`;
+  if (d.langs) md += d.langs.slice(1).every(l => fs.existsSync(fileOf(d.key, l)))
+    ? `\nIn ${d.langs.length} languages (${d.langs.join(', ')}), each with its own recording on one timeline (${d.langs.map((l, i) => `\`${fileOf(d.key, i ? l : '')}\``).join(', ')}): every line has the time of the longer of its two recordings.\n`
+    : `\nIn ${d.langs.length} languages (${d.langs.join(', ')}): the recording follows the first; the others are what readers see in theirs (the pace gives each line the time of its longer text).\n`;
   for (const c of d.CH) {
     md += `\n### ${mmss(toRec(d.sync, c.a))} ${c.name}\n\n`;
     for (const l of d.lines[c.key] || []) md += `- **${mmss(toRec(d.sync, c.a + l.at))}** ${l.text}\n`;

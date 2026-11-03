@@ -288,9 +288,9 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
 one is recorded; the tour's is a synthetic voice, made by tools/voice/, which
-can narrate the others too); see the note in the audio folder for chapter timings
+can narrate the others too, the pass story in English and German); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or
@@ -496,6 +496,6 @@ writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
 lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a
-synthetic narration: node tools/voice/narrate.mjs <story>), tools/release.mjs (writes version.json), tools/live.mjs
+synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), tools/release.mjs (writes version.json), tools/live.mjs
 (headless test of live updates), tools/icons.html (the stations' icons side by side),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

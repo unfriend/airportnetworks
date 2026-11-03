@@ -1,29 +1,44 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-pass.mp3 (one recording, in English: the German reader reads).
+// Optional voice-over, one recording per language on one timeline (NARRATION_SYNC): audio/narration-pass.mp3 in
+// English and audio/narration-pass-de.mp3 in German (node tools/voice/narrate.mjs pass makes both, a synthetic voice
+// each, and lays out the story for the longer of the two lines at every cue). The language on show plays its own
+// (AUDIO, audioLang: switched in place, the clock, playing and the slideshow kept), so in a shared room every device
+// plays its own language on the station's clock.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
 // (HOST.audio): one engine for the whole app, unlocked by the first tap or click
 // and kept running across stories and headset sessions.
 let AUD = null;
+const AUDIO = { en: 'audio/narration-pass.mp3', de: 'audio/narration-pass-de.mp3' };
+const AUD_HOOKS = {
+  // a recording longer than the story stretches the timeline
+  ready(d) {
+    if (d + 1 <= T_END) return;
+    T_END = d + 1;
+    document.querySelectorAll('#track .tick, #track .name').forEach(el => {
+      const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
+    });
+    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
+  },
+  error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
+};
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-pass.mp3', {
-    // a recording longer than the story stretches the timeline
-    ready(d) {
-      if (d + 1 <= T_END) return;
-      T_END = d + 1;
-      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
-        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
-      });
-      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    },
-    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
-  });
+  AUD = HOST.audio.narration(AUDIO[LANG] || AUDIO.en, AUD_HOOKS);
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
+}
+// the language switched (setLang): the other language's recording, from where the story is now. The shell keeps one
+// file at a time, so it is fetched again (the service worker's copy) and decoded; meanwhile the <audio> element plays
+// it, or the story runs on its own clock until it can (a missing file: silent, as before)
+function audioLang() {
+  const url = AUDIO[LANG] || AUDIO.en;
+  if (!AUD || AUD.url === url) return;
+  AUD = HOST.audio.narration(url, AUD_HOOKS);
+  AUD.seeked(); audioSync();
 }
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 function audioSync() { if (AUD) AUD.sync(...slideSound()); }
@@ -250,6 +265,7 @@ function setLang(l, keep = true) {
   if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
   exploreHTML();
   if (APP.mode === 'story') updateStoryDOM(storyT(APP.t));
+  audioLang();   // (the narration in this language)
 }
 
 let lastNow = 0, tsPrev = null;

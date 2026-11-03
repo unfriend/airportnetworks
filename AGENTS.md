@@ -111,11 +111,15 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
-- `tools/voice/` - a synthetic narration (Kokoro-82M through kokoro-onnx; the model, its Python and the spoken lines
-  stay outside the repository, see its `README.md`): `node tools/voice/narrate.mjs <key>` speaks a story's lines (how
-  each word is said: `say.json`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
-  `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser. The tour's narration is made
-  so (the American voice `af_heart`, the owner's choice, 29 October 2026).
+- `tools/voice/` - a synthetic narration (Kokoro-82M through kokoro-onnx, `kokoro.py`; German with Piper, `piper.py`;
+  the models, their Python and the spoken lines stay outside the repository, see its `README.md`):
+  `node tools/voice/narrate.mjs <key>` speaks a story's lines (how each word is said: `say.json`, its German rules in
+  their own section, `de`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
+  `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser (`--lang de` a story's German).
+  The tour's narration is made so (the American voice `af_heart`, the owner's choice, 29 October 2026). A story in two
+  languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
+  Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
+  `audio/narration-pass-de.mp3`.
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
@@ -1883,7 +1887,12 @@ narration heard from out of the circle, the locks and the People toggle in use.
   before its slideshow stop; after such a story's text changes, run `node tools/voice/narrate.mjs <key>` again (only
   changed lines are spoken again), not `pace.mjs`. A story in two languages (`LANGS` and `setLang(l, false)`, the pass story) is read in
   each, and each stretch takes the reading time of its longer text (by words); `tools/narration.mjs` writes both into
-  `docs/narration.md`. `slideStep` (slideshow, see above)
+  `docs/narration.md`. Narrated (`tools/voice/narrate.mjs`), it is spoken in each (English by Kokoro, German by Piper)
+  and laid out on one timeline: each stretch lasts the longest of 1.1 times its story time and each language's line
+  plus its pause (a line one language reads as one and the other as two spans both stretches), `NARRATION_ENDS` is the
+  later of the two, and each language has its own recording on that timeline (`audio/narration-<key>.mp3` for the
+  first, `audio/narration-<key>-<lang>.mp3` for the others, all of one length), so the clock, the slideshow's stops and
+  a station's clock are the same in either. `slideStep` (slideshow, see above)
   runs in `frame()` after the clock moves and before the end check.
 - Explore mode: the `X` state object, `exploreStep()`, tab renderers
   (`render*`), and the canvas/pointer handling in `bindCanvas()`.
@@ -2369,6 +2378,16 @@ contract.
   English. British English, and plain, natural German for a 12-year-old ("du"), not word for word; the cell's
   protein names (their roles are in German, `ROLE_DE`) and most city names stay as in their stories (open, see `docs/questions-for-authors.md`).
   Add a string in both languages, or the smoke test fails.
+- **The narration in two languages.** One recording per language, on one timeline (`NARRATION_SYNC`, `NARRATION_ENDS`
+  the later of the two): `audio/narration-pass.mp3` (English, Kokoro's `af_heart`) and `audio/narration-pass-de.mp3`
+  (German, Piper's Thorsten voice), both made by `node tools/voice/narrate.mjs pass` from the text in each language
+  (each stretch as long as the longer of the two lines needs). The story plays the language on show (`AUDIO` and
+  `audioLang` in `engine/e7_app.js`, from `setLang`): switched, page or headset, the other file is loaded in place
+  through `HOST.audio.narration` (the shell keeps one file at a time; while Web Audio decodes it the `<audio>` element
+  plays it), the clock, playing and the slideshow kept (checked in headless Chromium; untested on a headset). A missing file leaves that language silent. In a shared room each device plays
+  its own language on the station's clock (the language stays out of `collab.state()`). After the text changes in
+  either language, run `narrate.mjs pass` again and check both (`node tools/voice/check.mjs pass` and `--lang de`);
+  the German pronunciations are in `tools/voice/say.json`'s `de` section. How the German voice sounds is unheard here.
 - **Life size and tabletop in one story.** The fish are life size as the flock is (1 unit is 1 m, eyes at 1.6 m): on a
   screen a wide lens (the `lens` track, 58 degrees among the fish, 32 for the globe and the cell) and the flock's
   `followView`; in a headset the fish set hangs in a holder (`GL.life`, `placeLife`) that undoes the pose `xrPlace`

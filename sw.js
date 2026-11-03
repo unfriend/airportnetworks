@@ -4,7 +4,7 @@ const VERSION = 'networks-v107';
 const SHELL = ['./', './index.html', './sfx.js', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
-const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
+const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-pass-de.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
 // the audio element (the fallback sound engine) asks for byte ranges; answer them from the
 // cached file, read once per file while this worker runs
 const BYTES = new Map();
@@ -74,7 +74,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)?\.mp3)$/.exec(url.pathname);
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);

@@ -4,13 +4,18 @@
 //     where NARRATION_ENDS says, before its slideshow stop;
 //   - the story's clock follows the sound while it plays;
 //   - a jump to a line lands the sound there, in step with the clock;
-//   - the slideshow stops at each chapter's end with the voice finished, and Next goes on with the sound.
+//   - the slideshow stops at each chapter's end with the voice finished, and Next goes on with the sound;
+//   - in a story in two languages (LANGS, setLang: the pass story), the language given (--lang de; else the page's
+//     own) is checked with its own recording, and switching to the other language while it plays changes the
+//     recording in place, the sound going on from where the story is, and back again.
 // Whether it sounds right can only be heard.
-// Usage: serve the folder, then node tools/voice/check.mjs <key> [base-url] [--quick] (--quick: three chapters'
-// slideshow stops instead of all). PLAYWRIGHT_MODULE and CHROMIUM_PATH as in tools/smoke.mjs.
+// Usage: serve the folder, then node tools/voice/check.mjs <key> [base-url] [--quick] [--lang de] (--quick: three
+// chapters' slideshow stops instead of all). PLAYWRIGHT_MODULE and CHROMIUM_PATH as in tools/smoke.mjs.
 const args = process.argv.slice(2);
-const key = args.find(a => !a.startsWith('--') && !/^https?:/.test(a)), base = args.find(a => /^https?:/.test(a)) || 'http://127.0.0.1:8123/';
-if (!key) { console.error('usage: node tools/voice/check.mjs <story key> [base-url] [--quick]'); process.exit(1); }
+const li = args.indexOf('--lang'), LANG = li >= 0 ? args[li + 1] : '';
+const pos = args.filter((a, i) => !a.startsWith('--') && !(li >= 0 && i === li + 1));
+const key = pos.find(a => !/^https?:/.test(a)), base = pos.find(a => /^https?:/.test(a)) || 'http://127.0.0.1:8123/';
+if (!key) { console.error('usage: node tools/voice/check.mjs <story key> [base-url] [--quick] [--lang de]'); process.exit(1); }
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -23,7 +28,7 @@ page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resou
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let failed = 0;
 const ok = (good, what) => { console.log((good ? 'ok   ' : 'FAIL ') + what); if (!good) failed++; };
-const probe = () => page.evaluate(() => { const n = HOST.cur && HOST.cur.peek('AUD'); return { t: HOST.cur.peek('APP.t'), playing: HOST.cur.peek('APP.playing'), pos: n && n.pos(), label: n && n.label(), at: HOST.cur.peek('SLIDE.at') }; });
+const probe = () => page.evaluate(() => { const n = HOST.cur && HOST.cur.peek('AUD'); return { t: HOST.cur.peek('APP.t'), playing: HOST.cur.peek('APP.playing'), pos: n && n.pos(), label: n && n.label(), at: HOST.cur.peek('SLIDE.at'), url: n && n.url }; });
 async function until(what, test, ms = 30000) {
   const t0 = Date.now();
   let p;
@@ -36,6 +41,20 @@ await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && doc
 await page.click(`#picker .card[data-story="${key}"]`); // a real tap: it unlocks the sound and starts the story
 await page.waitForFunction(k => HOST.curKey === k && HOST.cur && !HOST.busy && HOST.cur.peek('AUD && AUD.buf'), key, { timeout: 120000 });
 await until('the narration playing', p => p.label === 'Sound on' && p.pos !== null, 30000);
+// a story in two languages: the one asked for (its recording decoded), then the other one for the switch below
+const langs = await page.evaluate(() => HOST.cur.peek('typeof LANGS !== "undefined" ? LANGS : null'));
+if (LANG && !(langs || []).includes(LANG)) { console.error(`${key} has no language ${LANG}` + (langs ? ` (it has ${langs.join(', ')})` : '')); process.exit(1); }
+// the language switched while the story plays: the other recording, decoded, and the sound playing from the story
+async function switchTo(l) {
+  const was = (await probe()).url;
+  await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), l);
+  const p = await until(`the ${l} recording`, p => p.url !== was && p.pos !== null, 30000);
+  await page.waitForFunction(() => HOST.cur.peek('AUD && AUD.buf && AUD.label() === "Sound on"'), null, { timeout: 120000 });
+  return p;
+}
+if (LANG && LANG !== await page.evaluate(() => HOST.cur.peek('LANG'))) await switchTo(LANG);
+const CUR = langs ? await page.evaluate(() => HOST.cur.peek('LANG')) : '';
+console.log(`checking ${key}${CUR ? ` in ${CUR}` : ''}: ${(await probe()).url}`);
 // the longest time between two frames since the last reset (a loaded machine draws software WebGL slowly)
 await page.evaluate(() => { let last = performance.now(); window.__gap = 0; const f = () => { const n = performance.now(); window.__gap = Math.max(window.__gap, (n - last) / 1000); last = n; requestAnimationFrame(f); }; requestAnimationFrame(f); });
 
@@ -47,14 +66,19 @@ const R = await page.evaluate(() => {
   const cues = [];
   for (const sec of document.querySelectorAll('section.ch')) {
     const c = CH.find(c => c.key === sec.dataset.ch);
+    const mine = [];
     for (const el of sec.querySelectorAll('[data-at]')) {
       if (el.closest('.credits')) continue;
       const x = el.cloneNode(true); x.querySelectorAll('button, svg').forEach(b => b.remove());
       const txt = x.textContent.replace(/\s+/g, ' ').trim();
-      if (!txt || /^\p{Ll}/u.test(txt)) continue;
-      const s = c.a + (+el.dataset.at || 0);
-      cues.push({ ch: c.key, s, rec: P(`narrT(${s})`), text: txt.slice(0, 40) });
+      if (txt) mine.push({ s: c.a + (+el.dataset.at || 0), txt });
     }
+    // (in story time; a line starting in lower case carries on the one before unless that one ended: 'Weitersagen!' /
+    // 'wie sich ...' are two lines)
+    mine.sort((a, b) => a.s - b.s).forEach((m, i) => {
+      if (i && /^\p{Ll}/u.test(m.txt) && !/[.!?]$/.test(mine[i - 1].txt)) return;
+      cues.push({ ch: c.key, s: m.s, rec: P(`narrT(${m.s})`), text: m.txt.slice(0, 40) });
+    });
   }
   // the sound: loud 20 ms windows, joined across gaps under 0.55 s (a sentence's own pauses)
   const b = P('AUD.buf'), d = b.getChannelData(0), sr = b.sampleRate, w = Math.round(sr * 0.02), on = [];
@@ -79,8 +103,10 @@ for (const [i, c] of R.CH.entries()) {
   const next = R.CH[i + 1] ? R.CH[i + 1].na : R.end, mine = R.spans.filter(([a]) => a >= c.na && a < next);
   const first = R.cues.filter(x => x.ch === c.key).sort((x, y) => x.s - y.s)[0], last = mine.length ? mine[mine.length - 1][1] : null;
   const e = R.ends[c.key];
-  ok(mine.length && first && near(mine[0][0], first.rec + 0.3, 0.15) && e !== undefined && last <= e + 0.05 && last > e - 0.3 && e <= c.stop,
-    `${c.name}: starts with "${first ? first.text : '?'}" at ${mine.length ? mine[0][0].toFixed(2) : '-'} s (chapter at ${c.na.toFixed(2)}); words end at ${last === null ? '-' : last.toFixed(2)} (NARRATION_ENDS ${e}), stop at ${c.stop.toFixed(2)}`);
+  // (in two languages NARRATION_ENDS is the later of the two: this language's words may end before it)
+  const early = langs && langs.length > 1 && last !== null && last <= e - 0.3;
+  ok(mine.length && first && near(mine[0][0], first.rec + 0.3, 0.15) && e !== undefined && last <= e + 0.05 && (last > e - 0.3 || early) && e <= c.stop,
+    `${c.name}: starts with "${first ? first.text : '?'}" at ${mine.length ? mine[0][0].toFixed(2) : '-'} s (chapter at ${c.na.toFixed(2)}); words end at ${last === null ? '-' : last.toFixed(2)} (NARRATION_ENDS ${e}${early ? ', the other language\'s' : ''}), stop at ${c.stop.toFixed(2)}`);
 }
 
 // ------------------------------------------------------------------ the clock follows the sound
@@ -121,6 +147,32 @@ for (const c of pick) {
     ok(span && a.pos >= c.rec - 0.15 && a.pos < c.rec + 1 && Math.abs(b.pos - b.t) < 0.3 + gap,
       `a jump to "${c.text}" (${c.rec.toFixed(2)} s, its words from ${span ? span[0].toFixed(2) : '-'}): the sound from ${a.pos.toFixed(2)}, then ${b.pos.toFixed(2)} with the clock at ${b.t.toFixed(2)}`);
   } catch (e) { ok(false, `a jump to "${c.text}": ${e.message}`); }
+}
+
+// ------------------------------------------------------------------ the other language (a story in two)
+// switched while the story plays: the other recording plays on from where the story is, in step; switched back while
+// paused: still paused and quiet, and Play goes on from there in this language's recording
+if (langs && langs.length > 1) {
+  const other = langs.find(l => l !== CUR), c = R.cues[Math.floor(R.cues.length / 2)];
+  try {
+    await page.evaluate(t => HOST.cur.peek(`(APP.seek(${t}), APP.playing || APP.togglePlay())`), c.rec + 1);
+    await until('playing before the switch', p => p.pos !== null && p.playing, 8000);
+    await inStep();
+    const b = await probe(), a = await switchTo(other), [n, gap] = await inStep();
+    const lang = await page.evaluate(() => HOST.cur.peek('LANG'));
+    ok(lang === other && a.url !== b.url && a.t >= b.t - 0.3 && a.pos >= a.t - 0.5 && n.playing && Math.abs(n.pos - n.t) < 0.3 + gap,
+      `switched to ${other} while playing at ${b.t.toFixed(2)} s: ${a.url}, the sound from ${a.pos.toFixed(2)} (the clock at ${a.t.toFixed(2)}), then ${n.pos.toFixed(2)} with the clock at ${n.t.toFixed(2)}`);
+    await page.evaluate(() => HOST.cur.peek('APP.playing && APP.togglePlay()'));
+    const s = await probe();
+    await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), CUR);
+    await page.waitForFunction(() => HOST.cur.peek('AUD && AUD.buf && AUD.label() === "Sound on"'), null, { timeout: 120000 });
+    await wait(800);
+    const q = await probe();
+    await page.evaluate(() => HOST.cur.peek('APP.togglePlay()'));
+    const r = await until('Play after the switch back', p => p.pos !== null && p.playing, 8000), [m, gap2] = await inStep();
+    ok(!q.playing && q.pos === null && Math.abs(q.t - s.t) < 0.05 && q.url !== a.url && r.pos >= s.t - 0.5 && r.pos < s.t + 1.5 && Math.abs(m.pos - m.t) < 0.3 + gap2,
+      `switched back to ${CUR} while paused at ${s.t.toFixed(2)} s: still paused and quiet (${q.url}); Play: the sound from ${r.pos.toFixed(2)}, then ${m.pos.toFixed(2)} with the clock at ${m.t.toFixed(2)}`);
+  } catch (e) { ok(false, `switching the language: ${e.message}`); }
 }
 
 // ------------------------------------------------------------------ the slideshow

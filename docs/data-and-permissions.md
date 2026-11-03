@@ -144,6 +144,10 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
   on the work branch. Have its authors' agreement first.
 - [ ] **The authors' permissions** recorded for `lbi`, `nmd`, `endo`, `pet` and `micro` (record above).
 - [ ] **The narration's speaker** agreed to `audio/narration.mp3` being published (record above).
+- [ ] **The German synthetic voice.** Piper's Thorsten voice (the pass story's German narration) is CC0 by its own data,
+  but finetuned from Piper's English lessac voice, whose data is under a research licence (no commercial use; see the
+  table). The app is non-commercial outreach; decide whether that is enough before `audio/narration-pass-de.mp3` goes
+  on the site, or ask for a Thorsten voice trained without lessac.
 - [ ] **A project licence** (below).
 - [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
   servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.
@@ -212,3 +216,4 @@ Third-party material:
 | Buljan et al., bioRxiv 2025 | `tools/micro/` | CC BY-NC: credit, and no commercial use |
 | EndotypY | used by `tools/endo/data/gen_data.py` only, not shipped | MIT |
 | Kokoro-82M v1.0 (hexgrad), its American voice `af_heart` | the tour's narration, `audio/narration-lbi.mp3`, made by `tools/voice/` (the model is not shipped) | Apache-2.0: the recordings it makes are ours to use; no speaker to ask. The story's credits say the narration is a synthetic voice (Kokoro). kokoro-onnx (MIT), espeak-ng and phonemizer (GPL-3) only run offline to make it: nothing of them ships |
+| Piper's German voice Thorsten, high quality (`de_DE-thorsten-high`, from `rhasspy/piper-voices` on Hugging Face) | the pass story's German narration, `audio/narration-pass-de.mp3`, made by `tools/voice/` (the model is not shipped; its English one is Kokoro's, above) | Its model card (`de/de_DE/thorsten/high/MODEL_CARD`): dataset Thorsten-Voice (github.com/thorstenMueller/Thorsten-Voice), licence CC0; training: finetuned from the U.S. English lessac voice (high quality). The voices repository is marked MIT. The lessac voice's model card gives its dataset's licence as the Blizzard 2013 Lessac data's (cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html), a research licence: research purposes only, no commercial use (checklist below). The speaker gave his voice under CC0: no speaker to ask. The story's credits should say the German narration is a synthetic voice (Piper, Thorsten). piper-tts (GPL-3.0-or-later) and its espeak-ng only run offline to make it: nothing of them ships |
