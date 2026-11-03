@@ -2092,19 +2092,18 @@ async function guideRound() {
     if (!shots) return;
     await A.setViewportSize({ width: 820, height: 800 });
     const go = Promise.all([run(H1, 15000), run(H2, 15000)]);
-    // (once it says so, the presence it shows is held for the picture: pages drawing in software send theirs every few
-    // seconds, and a list read a moment later may already have lapsed)
-    const said = await until(A, re => { const ok = new RegExp(re).test([...document.querySelectorAll('#shared .sh-lu li')].map(li => li.textContent).join('|'));
-      if (ok) for (const P of HOST.collab.internals().pres.values()) P.at = performance.now() + 20000;
+    // (once it says so, the list is held as it is for the picture: a copy in its place, the list itself hidden. Pages
+    // drawing in software on a busy machine send their presence every few seconds, so it can lapse between two reads)
+    const said = await until(A, re => {
+      const ul = document.querySelector('#shared .sh-lu'), ok = new RegExp(re).test([...ul.querySelectorAll('li')].map(li => li.textContent).join('|'));
+      if (ok) { const f = ul.cloneNode(true); f.dataset.held = '1'; ul.after(f); ul.style.display = 'none'; }
       return ok; }, re.source, 15000);
     if (!said) console.log(`  (${file}: the list did not say ${re.source} within 15 s: ${await diag()})`);
-    const clip = await A.evaluate(() => { const ul = document.querySelector('#shared .sh-lu'), h = ul.previousElementSibling, d = document.querySelector('#shared .sh-guide'), box = document.querySelector('#shared .box');
+    const clip = await A.evaluate(() => { const h = document.querySelector('#shared .sh-lu').previousElementSibling, d = document.querySelector('#shared .sh-guide'), box = document.querySelector('#shared .box');
       box.scrollTop += h.getBoundingClientRect().top - box.getBoundingClientRect().top - 74;
       const a = h.getBoundingClientRect(), b = d.getBoundingClientRect(); return { x: Math.max(0, Math.min(a.left, b.left) - 8), y: Math.max(0, a.top - 8), width: Math.max(a.right, b.right) - Math.min(a.left, b.left) + 16, height: Math.min(b.bottom, 800) - a.top + 16 }; });
-    await A.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // (painted as it is now)
     await A.screenshot({ path: path.join(shots, file), clip });
-    const after = await listText();
-    if (said && !re.test(after.join('|'))) console.log(`  (${file}: the list said ${re.source}, then ${JSON.stringify(after)})`);
+    await A.evaluate(() => { for (const f of document.querySelectorAll('#shared .sh-lu[data-held]')) f.remove(); const ul = document.querySelector('#shared .sh-lu'); if (ul) ul.style.display = ''; });
     await Promise.all([H1, H2].map(H => H.evaluate(() => { window.__go = false; })));
     await go;
   };
