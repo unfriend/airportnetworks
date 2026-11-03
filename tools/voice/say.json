@@ -1,5 +1,5 @@
 {
-  "about": "How the synthetic voice says what the panels write (tools/voice/narrate.mjs). The panels keep their text; this only changes what is spoken. units: after a number ('511 keV'); words: whole words, case as written; symbols: anywhere; patterns: regular expressions ($1 for a group). A story's own entries (stories.<key>) come before the global ones, the longest first. The voice is American (en-us), so units are spelled the American way here; the text on screen stays British. Check new entries with node tools/voice/narrate.mjs <key> --phonemes.",
+  "about": "How the synthetic voice says what the panels write (tools/voice/narrate.mjs). The panels keep their text; this only changes what is spoken. units: after a number ('511 keV'); words: whole words, case as written; symbols: anywhere; patterns: regular expressions ($1 for a group). A story's own entries (stories.<key>) come before the global ones, the longest first. global and stories are for English: the voice is American (en-us), so units are spelled the American way here; the text on screen stays British. Another language's rules are in its own section (de: German), so they never touch English text, nor these German. Check new entries with node tools/voice/narrate.mjs <key> --phonemes.",
   "global": {
     "units": {
       "keV": "kilo electron volts",
@@ -95,6 +95,121 @@
         "DataDiVR": "Data Diver",
         "ATPAF1": "A-T-P A-F 1",
         "ATPAF2": "A-T-P A-F 2"
+      }
+    },
+    "pass": {
+      "words": {
+        "Rosenthal": "Rosentahl"
+      },
+      "patterns": {
+        "^Pass it on how": "Pass it on: how",
+        "(\\d),(?=\\d{3}(?!\\d))": "$1"
+      }
+    }
+  },
+  "de": {
+    "about": "German, for Piper's Thorsten (espeak-ng's German): the same kinds of rule as above, only for German text. espeak-ng reads German numbers (3.214, 0,5, years) well. Where no spelling makes it stress a word right, a word may be given as Piper's phonemes in [[...]] (espeak-ng's German IPA, as --phonemes prints them; punctuation right after them is taken in): only Piper reads those. Brackets are read as commas (a pause), as a reader would.",
+    "global": {
+      "units": {
+        "keV": "Kilo-Elektronenvolt",
+        "MeV": "Mega-Elektronenvolt",
+        "MBq": "Mega-Beckerell",
+        "GBq": "Giga-Beckerell",
+        "kBq": "Kilo-Beckerell",
+        "mSv": "Milli-Sievert",
+        "µm": "Mikrometer",
+        "μm": "Mikrometer",
+        "nm": "Nanometer",
+        "mm": "Millimeter",
+        "cm": "Zentimeter",
+        "km": "Kilometer",
+        "kDa": "Kilo-Dalton",
+        "Da": "Dalton",
+        "mg": "Milligramm",
+        "kg": "Kilogramm",
+        "mL": "Milliliter",
+        "ml": "Milliliter",
+        "ms": "Millisekunden",
+        "kHz": "Kilo-Hertz",
+        "MHz": "Mega-Hertz",
+        "Hz": "Hertz",
+        "°C": "Grad Celsius",
+        "GB": "Giga-Bait",
+        "TB": "Tera-Bait"
+      },
+      "words": {
+        "NF-κB": "N F Kappa B",
+        "et al.": "und andere",
+        "z. B.": "zum Beispiel",
+        "z.B.": "zum Beispiel",
+        "d. h.": "das heißt",
+        "d.h.": "das heißt",
+        "ca.": "zirka",
+        "usw.": "und so weiter",
+        "bzw.": "beziehungsweise",
+        "vgl.": "vergleiche",
+        "Nachbar": "Nachbaar",
+        "Zellkern": "Zell-Kern",
+        "Zellkerne": "Zell-Kerne",
+        "Zellkerns": "Zell-Kerns",
+        "Netzwerkmedizin": "Netzwerk-Medizin",
+        "kaputt": "[[kapˈʊt]]",
+        "kaputtgehen": "[[kapˈʊtɡˌeːən]]",
+        "orange": "[[oːrˈaŋʃə]]",
+        "Mukoviszidose": "[[mˌuːkoːvɪstsiːdˈoːzə]]",
+        "Hub": "Habb",
+        "Hubs": "Habbs",
+        "Headset": "[[hˈɛtsɛt]]",
+        "Headsets": "[[hˈɛtsɛts]]",
+        "Human Protein Atlas": "[[hjˈuːmən pɾˈoːtiːn ˈɛtləs]]"
+      },
+      "symbols": {
+        "%": " Prozent",
+        "×": " mal ",
+        "≈": " etwa ",
+        "±": " plus minus ",
+        "≤": " höchstens ",
+        "≥": " mindestens ",
+        "<": " weniger als ",
+        ">": " mehr als ",
+        "=": " gleich ",
+        "→": " zu ",
+        "·": ", ",
+        "&": " und ",
+        "α": " Alpha ",
+        "β": " Beta ",
+        "γ": " Gamma ",
+        "δ": " Delta ",
+        "Δ": " Delta ",
+        "ε": " Epsilon ",
+        "θ": " Theta ",
+        "κ": " Kappa ",
+        "λ": " Lambda ",
+        "μ": " My ",
+        "µ": " My ",
+        "π": " Pi ",
+        "σ": " Sigma ",
+        "Σ": " Sigma ",
+        "τ": " Tau ",
+        "φ": " Phi ",
+        "χ": " Chi ",
+        "ψ": " Psi ",
+        "ω": " Omega ",
+        "Ω": " Omega "
+      },
+      "patterns": {
+        "(\\d)\\s*[–-]\\s*(\\d)": "$1 bis $2",
+        "\\s*\\(([^()]*)\\)(?=\\s*[,.!?;:])": ", $1",
+        "\\s*\\(([^()]*)\\)": ", $1,",
+        ",(\\s*[,.!?;:])": "$1"
+      }
+    },
+    "stories": {
+      "pass": {
+        "words": {
+          "„Cell map“": "[[sˈɛl mˈɛp]]",
+          "Cell map": "[[sˈɛl mˈɛp]]"
+        }
       }
     }
   }

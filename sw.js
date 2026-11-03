@@ -89,7 +89,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);

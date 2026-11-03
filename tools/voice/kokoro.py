@@ -10,7 +10,8 @@ the repository (see README.md).
   kokoro.py phonemes [--lang en-us] < lines.json
       Prints the phonemes espeak-ng gives Kokoro for each line (a JSON list of strings), to check pronunciations.
   kokoro.py mix --out FILE.wav --length SECONDS < layout.json
-      layout.json: a JSON list of { file, at } (at in seconds). Writes one mono WAV with each file placed at its time.
+      layout.json: a JSON list of { file, at } (at in seconds). Writes one mono WAV with each file placed at its time
+      (any lines of one rate: narrate.mjs mixes piper.py's German lines here too).
 
 The model: --model and --voices, or KOKORO_MODEL and KOKORO_VOICES, or KOKORO_DIR holding kokoro-v1.0.onnx and
 voices-v1.0.bin. The cache: --cache, or VOICE_CACHE, or <KOKORO_DIR>/cache.

@@ -474,7 +474,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   story has a human recording; the tour (*The future*) a synthetic one, made by `tools/voice/` with Kokoro-82M's
   American voice `af_heart`, which the owner picked from samples of several voices (29 October 2026). The others can
   follow with the same command on the owner's go (`node tools/voice/narrate.mjs <key>`, see
-  [tools/voice/README.md](tools/voice/README.md)); how the tour sounds was not heard here. The muscle
+  [tools/voice/README.md](tools/voice/README.md)); how the tour sounds was not heard here. The pass story, in English and
+  German, gets a recording per language on one timeline (`node tools/voice/narrate.mjs pass`: Kokoro for English,
+  Piper's Thorsten voice for German, the owner's choice; its licence point is in
+  [docs/data-and-permissions.md](docs/data-and-permissions.md)). The muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws

@@ -28,6 +28,13 @@ node tools/pass/test-sets.mjs      # the sets without a browser: the outbreak, t
 Serve the repository root (`npx http-server -p 8123 -c-1 .`), run `node tools/pass/build.mjs` once, then the tools from
 this folder (`node shot.mjs fish "cam=afar&fov=60&follow=1&warm=20&p=fish_links:1" fish`). Shots go to `shots/`.
 
+The narration: a recording per language on one timeline, `audio/narration-pass.mp3` (English, Kokoro's `af_heart`) and
+`audio/narration-pass-de.mp3` (German, Piper's Thorsten voice), made by `node tools/voice/narrate.mjs pass` (it writes
+`NARRATION_SYNC` and `NARRATION_ENDS` in `engine/e3_story.js` and rebuilds) and checked by
+`node tools/voice/check.mjs pass` and `--lang de`; see `tools/voice/README.md`. The story plays the language on show and
+changes the file in place when the language changes (`audioLang` in `engine/e7_app.js`). Run it again after the text
+changes in either language (not `tools/pace.mjs`, which leaves a narrated story alone).
+
 Sources: the airports story's data (OpenFlights.org routes, 2014 snapshot, Open Database License; Natural Earth
 coastlines) and the cell map story's lists (Human Protein Atlas and UniProt places; ideas from Thul et al. 2017, Go et al.
 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019), as those stories credit them; the fish are after the
