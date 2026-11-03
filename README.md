@@ -196,7 +196,7 @@ writes it from the words (run it again after the text changes).
 - **Muscle and heart** (`stories/nmd.js`), after the ISMB 2026 talk "Deep
   integrative multiplex network-based analysis of rare neuromuscular
   disorders" (Iker Núñez-Carpintero, Philipp Friedrich, Julia Guthrie, Jörg
-  Menche), on the authors' data in `ikerdata/` (no patient data): the 13
+  Menche), on the authors' data (kept out of the repository; no patient data): the 13
   disease groups of the 2024 Gene Table of Neuromuscular Disorders with their
   known genes, the genes the random walk added and their endotypes; 15,246
   links among the 1,182 module genes in the 27 protein-interaction layers
@@ -347,7 +347,7 @@ The protein data is meant for teaching, not research.
 | `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
 | `tools/pace.mjs` | paces the stories without a recording: writes their `NARRATION_SYNC` from the words on their panels (`--write`; serve the folder first) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
-| `tools/nmd/`, `ikerdata/` | sources of the muscle story and the authors' data (`node tools/nmd/data/gen_data.mjs`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
+| `tools/nmd/` | sources of the muscle story (`node tools/nmd/data/gen_data.mjs <the authors' folder>`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
 | `tools/endo/` | sources of the endotype story (`node tools/endo/build.mjs` writes `stories/endo.js`; data from `tools/endo/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `tools/pet/` | sources of the PET story (`node tools/pet/data/gen_data.mjs`, then `node tools/pet/build.mjs` writes `stories/pet.js`) |
 | `tools/micro/` | sources of the microanatomy story (`node tools/micro/build.mjs` writes `stories/micro.js`; data from `tools/micro/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |

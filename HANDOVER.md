@@ -24,7 +24,7 @@ and where to read on.
 | Network medicine: Proteins | `proteins` | `stories/proteins.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated proteins and interactions |
 | Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated, laid out at load time |
 | LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
-| Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files in `ikerdata/`, some stand-ins |
+| Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files (kept out of the repository since 3 November 2026), some stand-ins |
 | Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | synthetic (Kokoro, `af_heart`) | the authors' EndotypY run (kept out of the repository) |
 | Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | synthetic (Kokoro, `af_heart`) | the paper's tables and figures, some stand-ins |
 | Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | synthetic (Kokoro, `af_heart`) | the preprint's numbers, Iva Buljan's network (kept out) |
@@ -616,8 +616,9 @@ Before handing over (or making anything more public), someone has to decide thes
    Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
    organisation, who gets admin rights, and whether it stays public.
 4. **Things already public** that may not belong there: the `logs-2026-10-*` branches (headset logs whose file names
-   carry people's first names and room codes), `ikerdata/` (88 MB of the muscle story's authors' files: GitHub Pages
-   serves the whole branch, so these files download from the live site too) and screenshots in the history (commits
+   carry people's first names and room codes), the muscle story's authors' files (`ikerdata/`, 88 MB: removed from the
+   repository on 3 November 2026, so the live site no longer serves them; they are still in the history, from
+   `4d7aacc`, which only a rewrite would take out) and screenshots in the history (commits
    `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
    history cannot be undone for those who already fetched them: decide first. The checklist is in
    [docs/data-and-permissions.md](docs/data-and-permissions.md).

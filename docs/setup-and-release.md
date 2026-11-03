@@ -270,8 +270,8 @@ Installed copies play narrations from their offline copy, so a replaced narratio
   owner); the github.io address redirects there (301). Everything a browser keeps (the installed app, settings, an
   anchored place, calibrations and their anchors, rooms kept on a device, Quest's shared space) belongs to the address,
   so it started afresh at the new one.
-- Pages publishes **everything** on main, not only the app. `ikerdata/`, `tools/` and `docs/` can be downloaded from
-  the live site too (a file in `ikerdata/` answered). The relay, and its Docker image, serve only the app's files.
+- Pages publishes **everything** on main, not only the app. `tools/` and `docs/` can be downloaded from the live site
+  too (and `ikerdata/` could, until it was removed from the repository on 3 November 2026). The relay, and its Docker image, serve only the app's files.
 - Pages sends `Cache-Control: max-age=600` and ETags (tags that let a browser ask whether a file changed). The update
   test copies this behaviour.
 

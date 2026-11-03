@@ -59,7 +59,7 @@ After regenerating a story's data, rebuild it (`node tools/<story>/build.mjs`, t
 | `proteins` | not possible: hand-edited data block `PPI` in `stories/proteins.js` | the curation notes, if any | none stated | see the record below |
 | `spatial` | edit `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` in `stories/spatial.js`; the layout is made at load | the curation notes, if any | none stated (Human Protein Atlas, UniProt) | see the record below |
 | `lbi` | `node tools/lbi/data/extract_proteins.mjs`, then `node tools/lbi/data/gen_int.mjs` | the welcome talk | the airport lights: ODbL, as above | see the record below |
-| `nmd` | `node tools/nmd/data/gen_data.mjs` (reads `ikerdata/`, about a minute) | the talk's slides (`ikerdata/` itself is committed) | none stated | see the record below |
+| `nmd` | `node tools/nmd/data/gen_data.mjs` (reads the authors' folder, given on the command line; about a minute) | the talk's slides and the authors' files (removed from the repository on 3 November 2026) | none stated | see the record below |
 | `endo` | `python -I tools/endo/data/gen_data.py run.pkl seeds.xlsx` (Python 3.11+ with EndotypY; downloads Enrichr libraries) | `run.pkl`, `seeds.xlsx`, the poster | EndotypY package: MIT (`tools/endo/SPEC.md`); the run: none stated | see the record below |
 | `pet` | `node tools/pet/data/gen_data.mjs` | the poster, the vision slide (and `Network_VR`, never to be used) | paper: CC BY 4.0 (credited in the story); poster: none stated | see the record below |
 | `micro` | `node tools/micro/data/gen_data.mjs <graphml>` | the GraphML, the poster, the talk | preprint: CC BY-NC; poster, talk, network: none stated | see the record below |
@@ -83,7 +83,7 @@ written down in the repository yet.
 | `airports` | the narration recording (`audio/narration.mp3`): the speaker | | | | | |
 | `proteins`, `spatial` | the project's own curation of published facts: is anyone's agreement needed? | | | | | |
 | `lbi` | the LBI welcome talk | | | | | |
-| `nmd` | the ISMB 2026 talk; the files in `ikerdata/` (public in the repository already) | | | | | |
+| `nmd` | the ISMB 2026 talk; the files in `ikerdata/` (public in the repository until 3 November 2026, still in its history) | | | | | |
 | `endo` | the ISMB 2026 poster; the numbers from the authors' EndotypY run | | | | | |
 | `pet` | the poster and the vision slide (the paper is CC BY 4.0) | | | | | |
 | `micro` | the poster, the talk, Iva Buljan's network (the preprint is CC BY-NC) | | | | | |
@@ -119,7 +119,7 @@ preprint (doi 10.1101/2025.10.13.682110).
 **Both are public already.** Checked on 22 October 2026: GitHub reports `unfriend/airportnetworks` as public, and
 GitHub Pages serves it at `https://stories.lbi-netmed.com/` (the github.io address redirects there) with the same version as `main`
 (`networks-v64`; nine stories, the microanatomy story is not on `main` yet). GitHub Pages serves every file of the
-branch, not only the app: a file of `ikerdata/` downloads from the site. (The relay serves only the app's own files,
+branch, not only the app (a file of `ikerdata/` downloaded from the site until it was removed on 3 November 2026). (The relay serves only the app's own files,
 see `APP_FILES` in `relay/server.mjs`; the Docker image leaves out `ikerdata/`, `tools/`, `docs/` and the logs, see
 `.dockerignore`.) So check these now; each is the owner's decision. Deleting branches or rewriting history cannot be
 undone for clones and forks made before (GitHub showed no forks on 22 October 2026).
@@ -129,10 +129,13 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
   names and contents include people's first names and room codes. Keep a copy where the team keeps such logs
   (**TO FILL (owner):** where), then delete the branches on GitHub. [relay/README.md](../relay/README.md) ("Logs")
   already says never to push logs to a public repository: keep to that.
-- [ ] **`ikerdata/`.** 17 TSV files, 88 MB, the muscle story's authors' analysis files, committed in full (commit
-  `4d7aacc`, 16 October 2026) and downloadable from the site. Get the authors' agreement (record above), or remove
-  the folder from the published branch and from the history. The generator reads it at `ikerdata/`, so whoever
-  regenerates the muscle story needs a copy there.
+- [x] **`ikerdata/`.** 17 TSV files, 88 MB, the muscle story's authors' analysis files, committed in full (commit
+  `4d7aacc`, 16 October 2026). Removed from the repository on 3 November 2026 (the owner: "do we actually need the
+  ikerdata for the stories? if not simply remove it so it is not served anymore"; the app never read it, only the
+  generator does), so the site no longer serves it. Still in the history (`git show 4d7aacc:ikerdata/<file>`): only a
+  rewrite of the history takes it out there (the owner's decision). Whoever regenerates the muscle story gives the
+  generator a folder with the files (`node tools/nmd/data/gen_data.mjs <folder>`); a copy kept at `ikerdata/` is ignored
+  by git.
 - [ ] **Screenshots in the history.** `tools/micro/shots/*.png` were committed in `d7c7862`, `e548fa0` and `e3f6b4f`
   and removed in `bdc8a8e`. They show drawn content only. Decide whether to leave them.
 - [ ] **Ignored folders stay ignored**: `relay/logs/` (names, room codes) and `relay/.lan/` (the relay's certificate

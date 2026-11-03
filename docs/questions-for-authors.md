@@ -109,7 +109,7 @@ Philipp Friedrich. Contact person: **TO FILL (owner)**. What to do when new file
 | N2 | The authors' random walk: its settings and visits. | their analysis | Computed here: restart 0.7, layer switch 0.5, layers weighted by the z-scores ("After Buphamalai et al. (2021)" in the small print). `heat` in `tools/nmd/sets/data.js`, from `gen_data.mjs`. | open |
 | N3 | The authors' names for the endotypes. | their analysis | Each endotype is named after the most typical GO process of its genes (`gen_data.mjs`); the story says so. | open |
 | N4 | The links of the other layers: 33 of the 71 layers have none yet, and 11 have links only for the overlap of congenital myopathies and cardiomyopathies. | their analysis | Those layers are drawn empty (`data: ''` in `layers`); they fill in without code changes once the files are in `ikerdata/` and `gen_data.mjs` reads them. | open |
-| N5 | May the files in `ikerdata/` stay public? They are committed in full and served by the public site. | — | See [data-and-permissions.md](data-and-permissions.md), "Before the repository or the site is public". | open |
+| N5 | May the files in `ikerdata/` stay public? Removed from the repository and the site on 3 November 2026; still in the repository's history. | — | See [data-and-permissions.md](data-and-permissions.md), "Before the repository or the site is public". | open |
 
 ## Endotypes (`endo`)
 

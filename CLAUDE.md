@@ -104,8 +104,8 @@
   (no internet), and links between real devices are untested until tried there.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
-  (`node tools/nmd/build.mjs`; data from `ikerdata/` via
-  `node tools/nmd/data/gen_data.mjs`). Never show patient or variant data in it.
+  (`node tools/nmd/build.mjs`; data from the authors' files, kept out of the repository, via
+  `node tools/nmd/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
   `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
   and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
   `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`

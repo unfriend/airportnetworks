@@ -1,7 +1,7 @@
 // Assembles stories/nmd.js from the tour's kit (tools/lbi/kit.js) and the data, sets and engine parts in this folder.
 // usage (from the repository root): node tools/nmd/build.mjs        -> writes stories/nmd.js
 //                                   node tools/nmd/build.mjs --check -> exits 1 if stories/nmd.js is out of date
-// After changing ikerdata/, first run node tools/nmd/data/gen_data.mjs (it writes sets/data.js).
+// After the authors' files change, first run node tools/nmd/data/gen_data.mjs <their folder> (it writes sets/data.js).
 import fs from 'fs';
 import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');

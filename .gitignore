@@ -15,6 +15,9 @@ tools/qubits/shots/
 # run and seed table, the tissue topology story's cohort of cells) and any medical image (the PET authors' Network_VR
 # holds a patient's scan); see docs/data-and-permissions.md
 *.graphml
+# the muscle story's authors' files (removed from the repository on 3 November 2026: give their folder to
+# tools/nmd/data/gen_data.mjs, or keep a copy here, never committed)
+ikerdata/
 *.h5ad
 *.pkl
 *.pickle

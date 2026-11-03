@@ -1,5 +1,7 @@
-// Turns the analysis files in ikerdata/ into the data block of the muscle story (tools/nmd/sets/data.js).
-// usage (from the repository root): node tools/nmd/data/gen_data.mjs
+// Turns the authors' analysis files into the data block of the muscle story (tools/nmd/sets/data.js).
+// usage (from the repository root): node tools/nmd/data/gen_data.mjs <folder with the files below>
+// (the files are not in the repository since 3 November 2026; they are in its history up to then, as ikerdata/, and a
+// copy kept at ikerdata/ in the repository's folder is read when no folder is given: .gitignore keeps it out)
 // Inputs (Iker Núñez-Carpintero and Philipp Friedrich, LBI Network Medicine; no patient data):
 //   <group>_Multiplex_Metadata.tsv  the 13 disease groups: gene, endotype (Cluster), seed ('Disease Gene', from the
 //                                   2024 Gene Table of Neuromuscular Disorders) or 'RWR Added'
@@ -13,7 +15,8 @@
 import fs from 'fs';
 import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../../..');
-const DIR = path.join(root, 'ikerdata');
+const DIR = path.resolve(process.argv[2] || path.join(root, 'ikerdata'));
+if (!fs.existsSync(path.join(DIR, 'iker_nodes.tsv'))) { console.error(`No authors' files in ${DIR}: give the folder that holds iker_nodes.tsv, iker_edges.tsv and the group files.`); process.exit(1); }
 const tsv = f => {
   const lines = fs.readFileSync(path.join(DIR, f), 'utf8').split('\n').filter(l => l.length);
   const head = lines[0].split('\t');

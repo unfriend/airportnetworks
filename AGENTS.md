@@ -18,7 +18,7 @@ Quest Browser, WebXR).
 | Network medicine | `stories/proteins.js` | 254 curated proteins, 375 interactions in a cell |
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
-| Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
+| Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (the authors' real data, kept out of the repository), the motor unit, a supercomputer |
 | Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
@@ -131,7 +131,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `audio/narration-pass-de.mp3`.
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
-  `README.md`. `ikerdata/` holds the authors' analysis files it reads.
+  `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its
+  history as `ikerdata/`; a local copy there is ignored by git).
 - `tools/endo/` - the sources of `stories/endo.js` (data generator, data block, sets,
   engine parts adapted from the muscle story's, build script, set harness; it uses
   `tools/lbi/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
@@ -2192,8 +2193,8 @@ describes its three sets: `tower` (the multiplex network: 71 layers, the hero
 of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
 and `hpc` (the supercomputer and the stress test).
 
-- The data is real: `tools/nmd/data/gen_data.mjs` reads the authors' files in
-  `ikerdata/` and writes `tools/nmd/sets/data.js` (the constant `NMD_DATA`,
+- The data is real: `tools/nmd/data/gen_data.mjs <folder>` reads the authors' files (not in the repository
+  since 3 November 2026; `ikerdata/` in its history) and writes `tools/nmd/sets/data.js` (the constant `NMD_DATA`,
   documented in its header), never edited by hand. It also computes the layer
   z-scores (degree-matched random sets) and the walk's visits on the protein
   layers, and names endotypes after their most typical GO process; these are
@@ -2880,8 +2881,8 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   on the Stories screen, not in a headset); a story needing a newer shell is
   never swapped in. After changing `sw.js`, run `tools/update.mjs`.
 - Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt`.
-- After changing anything in `tools/nmd/` (or `ikerdata/`: first
-  `node tools/nmd/data/gen_data.mjs`), rebuild `stories/nmd.js` with
+- After changing anything in `tools/nmd/` (or the authors' files: first
+  `node tools/nmd/data/gen_data.mjs <their folder>`), rebuild `stories/nmd.js` with
   `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
   `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing

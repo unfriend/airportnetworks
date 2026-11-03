@@ -398,7 +398,7 @@ structure (13 of its proteins, two of them assembly helpers that leave;
 9 clinical categories, 19 clusters); the flows between them are illustrative,
 as are the disease modules, the patient, the organ network and the tissue.
 
-Muscle story data (stories/nmd.js): the authors' analysis files in ikerdata/
+Muscle story data (stories/nmd.js): the authors' analysis files (kept out of the repository)
 (no patient data): 13 disease groups of the 2024 Gene Table of Neuromuscular
 Disorders, their known genes, the genes the random walk added and their
 endotypes; 15,246 links among 1,182 genes in the 27 protein layers, and the
@@ -521,7 +521,7 @@ directly? Two laptops on a local network did, 29 October 2026), relay/ (the shar
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
-tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
+tools/nmd/ (sources of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/endo/ (sources of the endotype story; node
 tools/endo/build.mjs writes stories/endo.js), tools/pet/ (sources of the PET story; node
 tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microanatomy story; node
