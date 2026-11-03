@@ -80,6 +80,20 @@ mode Controls pulls the tools up from the bar. It is on by default on phones and
 tablets and off on computers; switch it with Focus view on the Stories screen or
 in the ... menu at the top. It is remembered on the device; #focus=on (or
 #focus=off) in a link sets it.
+Phones and tablets: on a narrow screen the top bar keeps Stories, Sound, AR and
+a ... menu with the rest (Explore now, Install, Shared, VR, Full screen, Focus
+view). Where the phone has AR (Android's Chrome with ARCore; iPhones and iPads
+have none), Enter AR stays in the top bar, and the first time a story opens a
+small card offers it once ("See it in your room"). Opening a story from the
+Stories screen on a phone or tablet goes full screen where the browser allows it
+(Android's Chrome, iPad's Safari); Full screen in the ... menu switches it. An
+iPhone cannot go full screen in Safari: a tip says once to add the app to the
+Home Screen (Share, then Add to Home Screen), where it opens without Safari's
+bars. The back button (Android's back, iOS's swipe) closes what is open first
+(the story's text, the controls, the ... menu), then returns from a story to
+the Stories screen; on the Stories screen it leaves as usual. On touch screens
+the timeline and the bars keep clear of the screen's edges, where iOS takes a
+swipe as back or home.
 Slideshow: a story stops at the end of each chapter, with all its text shown,
 until you press Next (or Play, or A or X in a headset). The narration finishes
 the chapter's last words before it waits. Next is at the foot of the story

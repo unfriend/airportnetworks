@@ -1929,7 +1929,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       await fp.waitForFunction(() => !HOST.focus(), null, { timeout: 8000 }).catch(() => {});
       await fp.waitForTimeout(200);
       const s = await ev(() => ({ focus: HOST.focus(), subs: getComputedStyle(document.getElementById('subs')).display, title: getComputedStyle(document.getElementById('chtitle')).display, more: getComputedStyle(document.getElementById('fcMore')).display, top: document.getElementById('top').getBoundingClientRect().height, btn: document.getElementById('btnFocus').getAttribute('aria-pressed') }));
-      if (s.focus || s.subs !== 'none' || s.title !== 'none' || s.more !== 'none' || Math.abs(s.top - 58) > 1 || s.btn !== 'true') errors.push(`${dev}: the Stories screen is not as ever (${JSON.stringify(s)})`);
+      // (a phone's narrow top bar keeps its More there: HOST.handheld)
+      if (s.focus || s.subs !== 'none' || s.title !== 'none' || s.more !== (dev === 'phone' ? 'grid' : 'none') || Math.abs(s.top - 58) > 1 || s.btn !== 'true') errors.push(`${dev}: the Stories screen is not as ever (${JSON.stringify(s)})`);
       await ev(() => HOST.closePicker());
     });
     if (dev === 'phone') await step('focus mode: #focus=off gives the layout as ever, and Focus view on the Stories screen brings it back', async () => {
@@ -1937,13 +1938,194 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       await fp.waitForFunction(ready, null, { timeout: 60000 });
       await fp.waitForTimeout(300);
       const s = await ev(() => ({ on: HOST.focus.on(), focus: HOST.focus(), body: document.body.classList.contains('focus'), panel: getComputedStyle(document.getElementById('panel')).display,
-        h: document.getElementById('panel').getBoundingClientRect().height, fc: [...document.querySelectorAll('.fc, #subs, #chtitle')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id), kept: localStorage.getItem('pageFocus') }));
+        h: document.getElementById('panel').getBoundingClientRect().height, fc: [...document.querySelectorAll('.fc:not(#fcMore), #subs, #chtitle')].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id), kept: localStorage.getItem('pageFocus') }));   // (More: the narrow top bar's)
       if (s.on || s.focus || s.body || s.panel === 'none' || s.h < 100 || s.fc.length || s.kept !== 'off') errors.push(`#focus=off: ${JSON.stringify(s)}`);
       await ev(() => HOST.openPicker()); await fp.click('#btnFocus'); await ev(() => HOST.closePicker());
       await fp.waitForFunction(() => HOST.focus(), null, { timeout: 8000 }).catch(() => {});
       if (!await ev(() => HOST.focus() && localStorage.getItem('pageFocus') === 'on')) errors.push('Focus view on the Stories screen did not turn focus mode on');
     });
     await ctx.close();
+  }
+  // Phones and tablets (HOST.handheld, HOST.hist): the top bar fits at 320, 360, 390 and 430 px and on an iPad either way
+  // round (no overflow, no button's text clipped, nothing overlapping) on the Stories screen, in a story with focus mode
+  // on and off and in explore mode; AR in focus mode's top bar where the phone has it and not where it has none; the AR
+  // invitation once per device (not again after a reload); the back button (a story opened from the Stories screen is an
+  // entry of its own; back closes Text first; forward goes back in); full screen asked for within the tap that opens a
+  // story (a stub counts it), never with a pretend headset session, its toggle in More only where the browser has full
+  // screen; the iPhone's Home Screen tip once (an iPhone without full screen) and never when opened from the Home Screen;
+  // the timeline's touch strip at least 20 px from the screen's edges
+  {
+    const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
+    const fakeXR = (ar, vr) => `Object.defineProperty(navigator, 'xr', { configurable: true, value: { isSessionSupported: m => Promise.resolve(m === 'immersive-ar' ? ${ar} : m === 'immersive-vr' ? ${vr} : false), requestSession: () => Promise.reject(new DOMException('a pretend phone', 'NotSupportedError')), addEventListener() {}, removeEventListener() {} } });`;
+    const fsStub = 'Element.prototype.requestFullscreen = function () { window.__fs = (window.__fs || 0) + 1; return Promise.resolve(); };';
+    const noFs = "Object.defineProperty(Document.prototype, 'fullscreenEnabled', { configurable: true, get: () => false }); delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen;";
+    const open = async (opts, init, hash) => {
+      const ctx = await browser.newContext(opts);
+      for (const s of init) await ctx.addInitScript(s);
+      const p = await ctx.newPage();
+      watch(p);
+      await p.goto(base + 'index.html' + hash);
+      await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.handheld && HOST.cur, null, { timeout: 60000 });
+      return { ctx, p };
+    };
+    const frames = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const topBad = p => p.evaluate(() => {
+      const t = document.getElementById('top'), out = [], vw = innerWidth;
+      if (t.scrollWidth > t.clientWidth + 0.5) out.push(`the bar is ${t.scrollWidth} px wide in ${t.clientWidth}`);
+      for (const e of t.children) {
+        if (e.id === 'fcMenu' || getComputedStyle(e).display === 'none') continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width) continue;
+        if (r.left < -0.5 || r.right > vw + 0.5) out.push(`${e.id || e.className} outside the page`);
+        if (e.tagName === 'BUTTON' && e.scrollWidth > e.clientWidth + 0.5) out.push(`${e.id}'s text clipped ("${e.textContent}")`);
+      }
+      const b = t.querySelector('.brand');
+      if (b.clientWidth + 0.5 < Math.min(b.scrollWidth, 60)) out.push(`the title squeezed to ${b.clientWidth} px`);
+      return out;
+    });
+    const shown = (p, id) => p.evaluate(id => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0; }, id);
+    const modes = [['the Stories screen', () => { HOST.openPicker(); }], ['a story, focus mode on', () => { HOST.closePicker(); HOST.focus.set(true); HOST.cur.collab.APP.enterStory(20); }],
+      ['a story, focus mode off', () => { HOST.focus.set(false); }], ['explore mode, focus mode off', () => { HOST.cur.collab.APP.enterExplore(); }],
+      ['explore mode, focus mode on', () => { HOST.focus.set(true); }]];
+    await step('phones: the top bar fits at 320, 360, 390 and 430 px (AR and VR, Install, the sound), AR always in it', async () => {
+      const { ctx, p } = await open(phone, [fakeXR(true, true)], '#stories');
+      await p.waitForFunction(() => HOST.picking && HOST.handheld.state().ar && !document.getElementById('btnVR').hidden, null, { timeout: 30000 }).catch(() => {});
+      await p.evaluate(() => { document.getElementById('btnInstall').hidden = false; });   // (as when the browser offers to install)
+      for (const [name, f] of modes) {
+        await p.evaluate(f);
+        for (const w of [320, 360, 390, 430]) {
+          await p.setViewportSize({ width: w, height: 800 }); await frames(p);
+          for (const b of await topBad(p)) errors.push(`${w} px, ${name}: ${b}`);
+          if (!await shown(p, 'btnAR')) errors.push(`${w} px, ${name}: AR is not in the top bar`);
+          if (/focus mode on/.test(name)) for (const b of await bars(p)) errors.push(`${w} px, ${name}: ${b}`);
+        }
+      }
+      // More: what has no room, and Focus view in a story; on the Stories screen it opens there
+      await p.setViewportSize({ width: 390, height: 844 }); await p.evaluate(() => { HOST.focus.set(false); HOST.cur.collab.APP.enterStory(20); }); await frames(p);
+      await p.click('#fcMore');
+      const m = await p.evaluate(() => [...document.querySelectorAll('#fcMenu button')].map(b => b.textContent));
+      for (const want of ['Explore now', 'Install', 'Focus view: off']) if (!m.includes(want)) errors.push(`More holds ${m.join(', ')}: no ${want}`);
+      await p.click('#fcMore');
+      await p.evaluate(() => HOST.openPicker()); await frames(p);
+      await p.click('#fcMore');
+      const pk = await p.evaluate(() => ({ picking: HOST.picking, open: !document.getElementById('fcMenu').hidden, items: [...document.querySelectorAll('#fcMenu button')].map(b => b.textContent) }));
+      if (!pk.picking || !pk.open || !pk.items.includes('Explore now') || pk.items.includes('Focus view: off')) errors.push(`More on the Stories screen: ${JSON.stringify(pk)}`);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(200);   // (back there leaves the page: nothing of ours is under it)
+      if (await p.evaluate(() => !document.getElementById('fcMenu').hidden || !HOST.picking)) errors.push('Escape on the Stories screen did not close More first');
+      await ctx.close();
+    });
+    await step('tablets: the top bar fits on an iPad (1180 x 820 and 820 x 1180)', async () => {
+      const { ctx, p } = await open({ viewport: { width: 1180, height: 820 }, hasTouch: true }, [], '#stories');
+      await p.waitForFunction(() => HOST.picking, null, { timeout: 30000 });
+      for (const [name, f] of modes) {
+        await p.evaluate(f);
+        for (const [w, h] of [[1180, 820], [820, 1180]]) {
+          await p.setViewportSize({ width: w, height: h }); await frames(p);
+          for (const b of await topBad(p)) errors.push(`iPad ${w} x ${h}, ${name}: ${b}`);
+        }
+      }
+      await ctx.close();
+    });
+    await step('phones: AR in focus mode\'s top bar only where the phone has it; the invitation once', async () => {
+      const { ctx, p } = await open(phone, [fakeXR(true, false)], '#airports&t=1');
+      await p.waitForFunction(ready, null, { timeout: 60000 });
+      await p.waitForFunction(() => HOST.handheld.state().ar, null, { timeout: 10000 }).catch(() => {});
+      const a = await p.evaluate(() => ({ focus: HOST.focus(), text: document.getElementById('btnAR').innerText.trim() }));
+      if (!a.focus || !await shown(p, 'btnAR') || a.text !== 'AR') errors.push(`AR is not in focus mode's top bar (${JSON.stringify(a)})`);
+      const card = () => p.waitForFunction(() => !document.getElementById('hhCard').hidden, null, { timeout: 15000 }).then(() => true, () => false);
+      if (!await card()) errors.push('no AR invitation as the story opened');
+      else {
+        const c = await p.evaluate(() => ({ title: document.getElementById('hhTitle').textContent, go: document.getElementById('hhGo').textContent, kept: localStorage.getItem('arInvite') }));
+        if (c.title !== 'See it in your room' || c.go !== 'Enter AR' || !c.kept) errors.push(`the invitation: ${JSON.stringify(c)}`);
+        await p.click('#hhNo');
+        if (!await p.evaluate(() => document.getElementById('hhCard').hidden)) errors.push('Not now did not close the invitation');
+      }
+      await p.reload();
+      await p.waitForFunction(ready, null, { timeout: 60000 });
+      await p.waitForTimeout(5000);
+      if (!await p.evaluate(() => document.getElementById('hhCard').hidden)) errors.push('the invitation came again after a reload');
+      await ctx.close();
+      const n = await open(phone, [fakeXR(false, false)], '#airports&t=1');
+      await n.p.waitForFunction(ready, null, { timeout: 60000 });
+      await n.p.waitForTimeout(5000);
+      if (await shown(n.p, 'btnAR') || !await n.p.evaluate(() => document.getElementById('hhCard').hidden)) errors.push('a phone without AR shows AR or the invitation');
+      await n.ctx.close();
+    });
+    await step('phones: back returns to the Stories screen and closes Text first; full screen asked for within the tap, not in a headset session', async () => {
+      const { ctx, p } = await open(phone, [fsStub, fakeXR(false, false)], '#stories');   // (Enter VR below asks a pretend WebXR)
+      await p.waitForFunction(() => HOST.picking, null, { timeout: 30000 });
+      const st = () => p.evaluate(() => ({ picking: HOST.picking, key: HOST.curKey, hash: location.hash, up: !!(history.state && history.state.nwUp), text: HOST.focus.text(), fs: window.__fs || 0 }));
+      await p.click('#picker [data-story="proteins"]');
+      await p.waitForFunction(() => HOST.curKey === 'proteins' && !HOST.picking && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      let s = await st();
+      if (!s.up || s.hash !== '#proteins' || s.fs !== 1) errors.push(`a story from the Stories screen: ${JSON.stringify(s)} (an entry of its own, full screen asked for once)`);
+      await p.evaluate(() => history.back());
+      await p.waitForFunction(() => HOST.picking, null, { timeout: 5000 }).catch(() => {});
+      s = await st();
+      if (!s.picking || s.hash !== '#stories' || s.up) errors.push(`back did not return to the Stories screen (${JSON.stringify(s)})`);
+      await p.evaluate(() => history.forward());
+      await p.waitForFunction(() => !HOST.picking, null, { timeout: 5000 }).catch(() => {});
+      s = await st();
+      if (s.picking || s.key !== 'proteins' || s.hash !== '#proteins' || s.fs !== 1) errors.push(`forward did not go back into the story (${JSON.stringify(s)})`);
+      await p.click('#fcText');
+      await p.evaluate(() => history.back()); await p.waitForTimeout(600);
+      s = await st();
+      if (s.picking || s.text || !s.up || s.hash !== '#proteins') errors.push(`back with Text open: ${JSON.stringify(s)} (Text closed, still in the story)`);
+      // the Stories button goes back to the Stories screen's entry: no entries pile up
+      const len = await p.evaluate(() => history.length);
+      for (const k of ['airports', 'proteins']) {
+        await p.click('#btnOther');
+        await p.click(`#picker [data-story="${k}"]`);
+        await p.waitForFunction(k => HOST.curKey === k && !HOST.picking && !HOST.busy && HOST.cur.collab.scene(), k, { timeout: 60000 });
+      }
+      await p.waitForTimeout(600);
+      s = await st();
+      if (await p.evaluate(() => history.length) !== len || !s.up) errors.push(`the history grew with Stories and a card (${len} entries, then ${await p.evaluate(() => history.length)}; ${JSON.stringify(s)})`);
+      // a pretend headset session, and Enter VR just pressed (a session being asked for): no full screen asked for
+      await p.evaluate(() => { HOST.session = { visibilityState: 'visible', renderState: {}, addEventListener() {}, removeEventListener() {} }; HOST.openPicker(); });
+      await p.click('#picker [data-story="proteins"]');
+      await p.evaluate(() => { HOST.session = null; HOST.openPicker(); document.getElementById('btnVR').click(); });
+      await p.click('#picker [data-story="proteins"]');
+      await p.waitForFunction(() => !HOST.picking, null, { timeout: 10000 }).catch(() => {});
+      const fs = await p.evaluate(() => window.__fs);
+      if (fs !== 3) errors.push(`full screen asked for ${fs} times (3 taps on a card outside a headset session, then 2 with one or with Enter VR just pressed)`);
+      // its toggle in More
+      await p.click('#fcMore');
+      if (!await p.evaluate(() => [...document.querySelectorAll('#fcMenu button')].some(b => b.textContent === 'Full screen'))) errors.push('no Full screen in More');
+      await p.click('#fcMore');
+      // the timeline's touch strip clear of the edges, focus mode on and off
+      for (const on of [true, false]) {
+        await p.evaluate(on => HOST.focus.set(on), on); await frames(p);
+        const r = await p.evaluate(() => { const r = document.getElementById('track').getBoundingClientRect(); return { l: r.left, r: innerWidth - r.right, h: r.height }; });
+        if (r.l < 20 || r.r < 20 || r.h < 24) errors.push(`the timeline (focus mode ${on ? 'on' : 'off'}) is ${Math.round(r.l)} and ${Math.round(r.r)} px from the edges, ${Math.round(r.h)} px tall`);
+      }
+      await ctx.close();
+      const n = await open(phone, [noFs], '#airports&t=1');
+      await n.p.waitForFunction(ready, null, { timeout: 60000 });
+      await n.p.click('#fcMore');
+      if (await n.p.evaluate(() => [...document.querySelectorAll('#fcMenu button')].some(b => /full screen/i.test(b.textContent)))) errors.push('Full screen in More where the browser has none');
+      await n.ctx.close();
+    });
+    await step('iPhone: the Home Screen tip once, not again, never when opened from the Home Screen', async () => {
+      const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+      const noXR = "Object.defineProperty(navigator, 'xr', { configurable: true, value: undefined });";
+      const { ctx, p } = await open({ ...phone, userAgent: ua }, [noFs, noXR], '#airports&t=1');
+      await p.waitForFunction(ready, null, { timeout: 60000 });
+      const tip = await p.waitForFunction(() => !document.getElementById('hhCard').hidden, null, { timeout: 15000 }).then(() => true, () => false);
+      const t = await p.evaluate(() => ({ text: document.getElementById('hhText').textContent, go: document.getElementById('hhGo').hidden, kept: localStorage.getItem('homeTip'), ar: getComputedStyle(document.getElementById('btnAR')).display }));
+      if (!tip || !/Share, then Add to Home Screen/.test(t.text) || !t.go || !t.kept || t.ar !== 'none') errors.push(`the iPhone tip: ${tip} ${JSON.stringify(t)}`);
+      await p.evaluate(() => HOST.handheld.close());
+      await p.reload();
+      await p.waitForFunction(ready, null, { timeout: 60000 });
+      await p.waitForTimeout(5000);
+      if (!await p.evaluate(() => document.getElementById('hhCard').hidden)) errors.push('the iPhone tip came again after a reload');
+      await ctx.close();
+      const s = await open({ ...phone, userAgent: ua }, [noFs, noXR, "Object.defineProperty(navigator, 'standalone', { configurable: true, value: true });"], '#airports&t=1');
+      await s.p.waitForFunction(ready, null, { timeout: 60000 });
+      await s.p.waitForTimeout(5000);
+      if (!await s.p.evaluate(() => document.getElementById('hhCard').hidden)) errors.push('the iPhone tip shows on the Home Screen app');
+      await s.ctx.close();
+    });
   }
   await step('focus mode: a desktop page is off and as ever', async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 } }), dp = await ctx.newPage();

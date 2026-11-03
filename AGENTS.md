@@ -233,6 +233,18 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - The address mirrors the state (`HOST.setUrl`): `#stories` while the Stories
   screen shows (page or headset), `#<key>` in a story. A `#<key>` link opens
   that story directly; no hash or `#stories` lands on the Stories screen.
+  It replaces the address (`HOST.hist.replace`, keeping `history.state`), with one exception (v109, the back button on
+  phones: `HOST.hist` in `index.html`): a story opened from the page's Stories screen (`closePicker` onto a story,
+  outside a headset session and a headset's browser) is a history entry of its own (`{ nwUp: 1, key, doc }` in its
+  state, `setUrl(false, 'push')`), so back (Android's back, iOS's swipe, a desktop's) comes back to the Stories screen;
+  the Stories button there steps back to that entry (`setUrl(true, 'back')`), so entries never pile up (an entry a page
+  made before a reload, `doc` another page's, is turned into the Stories screen's instead: stepping back would load the
+  old page again); forward goes back into the story. On `popstate` back first closes what is open (the Shared dialog, the card of `HOST.handheld`, More,
+  focus mode's Text, explore's drawer: `HOST.hist.closeOne()`) and puts the story's entry back. On the Stories screen
+  and in a story opened by a link (nothing of ours under it) back leaves as ever, and a new address typed in changes
+  nothing. No entry per chapter, explore change, swap (`HOST.swap` keeps the entry) or story the room or Repeat starts;
+  a shared room's `#s=XYZ` stays on both entries. In a headset session nothing changes (the address replaced). Untested
+  on real phones (Android's back, iOS's swipe).
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
 - Repeat (`HOST.repeat`: `off`, `all` or `one`; buttons on the page's Stories
@@ -429,8 +441,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   story"). Body classes: `focus` while the setting is on, `fc-text` with Text open, `fc-drawer` with the drawer open; all
   its rules are scoped to `body.focus:not(.picking)`. `HOST.focus.on()`, `set(on)`, `text(open)`, `drawer(open)`,
   `close()` (Escape: More, then Text, then the drawer), `chapter(±1)`, `check()` and `state()` (tests).
-  - The top bar (48 px plus the safe area, `--fc-top`): the story's short title, Stories, Shared and More (what has no
-    room: the mode button under 700 px, AR, VR, Install, Focus view). The foot bar (56 px plus the safe area,
+  - The top bar (48 px plus the safe area, `--fc-top`): the story's short title, Stories, Shared, AR where the device
+    has it (v109) and More (what has no room: the mode button under 700 px, VR, Install, Full screen, Focus view). The foot bar (56 px plus the safe area,
     `--fc-bot`): Play, the chapter arrows (as the headset's foot panel's: back to this chapter's start, or the one before
     within 2 s of it; on to the next), the chapter's name (Next in its place at a slideshow stop), a thin timeline along
     its top edge, the clock from 600 px up, Sound (as the top bar's) and Text, which opens the story's panel as it is (the
@@ -449,6 +461,37 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - Nothing changes on desktops with it off, in headsets, or in `collab.state()` (no `FORMAT` change). Untested on real
     phones and iPads (Safari's safe areas and URL bar, `:has()`, how readable the strip is over every scene): only in
     headless Chromium with touch emulated.
+  - Phones and tablets (v109, `HOST.handheld` in `index.html`; the owner, 3 November 2026: AR more prominent where a
+    phone has it, a top bar that fits, the back button, "mobile browsers do not properly fullscreen", and "on iphone and
+    ipad one goes back when they want to move the story timeline on the bottom"). A phone or tablet is focus mode's own
+    test (`HOST.handheld.hand`).
+    - The top bar fits any page (`fit`, on the bar's changes, the body's classes, resizes and the font's arrival): under
+      700 px wide (`#top.slim`, the Stories screen too, focus mode on or off, explore mode) short labels (*AR*, *VR*: the
+      `.long` "Enter " hidden) and the mode button and Install in More (focus mode's ⋯, shown while `#top.more`); then
+      only while the bar has no room (no button is squeezed; the title keeps 72 px or its own width) in turn: VR to More,
+      a tighter bar (`#top.tight`), the Sound button's words for an icon (`#btnSoundIco`, `#top.sndico`, mirroring it
+      as the foot bar's does), Shared, then AR (`#top .ovf`). More lists what is hidden (Shared under 760 px too), then
+      *Full screen* / *Exit full screen* where the browser has it, then *Focus view: on/off* in a story. Its items pass
+      the click on to their buttons; the top bar's own handler leaves More and its menu alone (the Stories screen stays
+      open). Wide screens as ever.
+    - AR on a phone or tablet that has it (`isSessionSupported('immersive-ar')`: Android's Chrome with ARCore; no iPhone
+      or iPad has WebXR): Enter AR shown even without VR (the stories show it only beside VR), in focus mode's top bar
+      too (an icon and *AR*, a cyan edge), and once per device (`arInvite` in `localStorage`, set as it shows) a card,
+      *See it in your room*, about 3.5 s after a story first shows (`#hhCard`): Enter AR (the top bar's button, within
+      the tap) or Not now. How a story feels in a phone's AR session (taps on the screen as input) is untested.
+    - Full screen (the Fullscreen API: Android's Chrome, iPad's Safari, desktops): asked for within the tap on a story's
+      card on the Stories screen on a phone or tablet (`storyTap`; a refusal is quiet), and from More. Never while a
+      headset session runs or Enter VR or AR (or the card's) was pressed in the last 8 s, and never again by itself: a
+      person who left it (back, Esc, the browser's swipe; back leaves full screen first, by itself) gets it back only by
+      opening a story from the Stories screen or from More. An iPhone (Safari has no element full screen) not opened from
+      the Home Screen (`navigator.standalone`, `display-mode: standalone`) gets, once per device (`homeTip`), a card
+      saying *For full screen, add this to your Home Screen: Share, then Add to Home Screen.* (the manifest's `display`
+      is `standalone`; the page uses the safe areas and `100dvh`).
+    - Touch (`pointer: coarse`): the bars 20 to 22 px inside the safe areas (iOS takes a swipe from a side edge as back,
+      from the bottom as home), the focus foot bar a little above the home indicator (up to 8 px more than the inset),
+      its timeline a 28 px tall strip starting 24 px in (`touch-action: none`), the phone's bottom sheet 22 px in.
+    - Untested on real devices: Android's and iPad's full screen, the iPhone tip, AR on a phone, Safari's gestures and
+      address bar; only in headless Chromium with touch emulated and these APIs stubbed.
 - Panels per story (`HOST.panels` in `index.html`; the owner, 29 October 2026:
   "i would want that for every story as an independent per story toggle maybe
   inside the clock menu"): `'shown'` (as ever), `'controls'` (only the foot bar,
@@ -2793,6 +2836,14 @@ focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, a
 and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening
 the panel and closing it with a resize each time, explore's drawer closed by default, then open and closed; `#focus=off`
 giving today's layout; a desktop page unchanged; and the framing lines in all sixteen stories and the design room),
+phones and tablets (v109: the top bar fitting at 320, 360, 390 and 430 px with a pretend AR and VR and Install, and on an
+iPad either way round, on the Stories screen, in a story with focus mode on and off and in explore mode, AR always in it;
+More's items, and More opening on the Stories screen without closing it; AR in focus mode's top bar only where a
+pretend WebXR has it, the invitation once and not after a reload; back from a story opened from the Stories screen
+returning there, forward going back in, back with Text open closing Text, the Stories button not piling entries up;
+full screen asked for once per card tap through a stub, never with a pretend headset session or Enter VR just pressed,
+its toggle in More only where the browser has full screen; the iPhone tip once, not after a reload, never in the Home
+Screen app; the timeline's touch strip at least 20 px from both edges),
 and fails on console errors:
 
 ```sh
