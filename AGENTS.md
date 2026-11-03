@@ -1586,10 +1586,10 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   sleep: a woken calibrated headset keeps its frame (moved by the reset), waits
   up to 5 s for its anchors (`afterWake`), then looks for them again by their
   saved handles (they put the frame back on the marks) and shows the orange
-  crosses for 30 s ("Check the marks"). Not found (after 5 and 15 minutes
+  crosses for 30 s ("Check the spots"). Not found (after 5 and 15 minutes
   asleep two Quest 3s did not find them, and did once AR was entered again), it
   looks again every 10 s for two minutes, then every minute up to ten
-  (`restore`, `retryDue`; "Marks found again"); a retry does not hold the room
+  (`restore`, `retryDue`; "Spots found again"); a retry does not hold the room
   in 'restoring', and a calibration from last time not found at session start
   is looked for the same way. Waking never drops a calibration
   (asking to calibrate after every wake was worse). Not found after waking, the
