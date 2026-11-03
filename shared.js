@@ -381,6 +381,14 @@
       C.note = code === 4000 ? 'The relay refused this room code.' : 'This room runs another version of the app. Reload the page on every device, then join again.';
       changed(); return;
     }
+    // a public relay's limits (relay --public: too many unknown codes or new rooms from this network in a minute, too many
+    // sockets from it): the relay again a little later, never peer to peer (the room would split in two)
+    if (code === 4029 && C.via === 'relay') {
+      C.note = reason === 'busy' ? 'Too many devices on this network are connected to the relay: trying again in a moment.' :
+        'The relay is holding this network back for a minute (too many room codes tried): trying again in a moment.';
+      log('relay limit', { reason });
+      changed(); later(); return;
+    }
     if (C.via === 'relay') {
       // never reached the relay in this room: peer to peer, else on this device (the relay is asked again, probe)
       if (!C.welcomed) { fallback(reason || 'no relay'); return; }
@@ -1242,6 +1250,7 @@
     return (C.netBusy = (async () => {
       if (relay) {
         const r = await api('ping', undefined, 5000).catch(() => null);
+        if (r && r.ok) C.unlisted = !!(r.j && r.j.unlisted);   // (a public relay lists no rooms: joined by code, link or network)
         if (r && r.ok) return r.j && NET_RE.test(r.j.net || '') ? [r.j.net, 'relay'] : ['', ''];   // (an older relay does not say)
       }
       if (C.pretend) return [await netHash('pretend:' + C.pretend), 'pretend'];
@@ -1306,6 +1315,8 @@
     if (!C.relay) { go(); return true; }
     C.rejoining = true;
     api('rooms/' + r.code, undefined, 5000).then(x => {
+      // (a public relay holding this network back: the room's id cannot be checked, so not joined now: again in a minute)
+      if (x.status === 429) { C.rejoining = false; log('rejoin: relay busy', { code: r.code }); setTimeout(() => rejoin('again'), 60000); return; }
       const there = x.ok && x.j && x.j.keys && x.j.keys.rid ? x.j.keys.rid.v : '';
       if (there && there !== r.rid) { C.rejoining = false; notMine(r.code); return; }
       go();
@@ -5851,7 +5862,7 @@
       }
       const rooms = (C.rooms || []).filter(r => !near.some(o => o.code === r.code)), kept = localRooms().filter(r => !rooms.some(o => o.code === r.code) && !near.some(o => o.code === r.code) && !(off && off.code === r.code));
       $('.sh-rooms').innerHTML = (!C.relay ? '' : rooms.length ? rooms.map(r => `<li${r.members ? '' : ' class="empty"'}><b>${esc(r.code)}</b><span>${esc(peopleIn(r))}${r.stations ? ` · ${r.stations} station${r.stations === 1 ? '' : 's'}` : ''}</span><button class="btn${r.members ? ' primary' : ''}" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('')
-        : `<li class="none">${esc(C.roomsErr || (C.rooms ? (near.length ? 'No other open rooms.' : 'No open rooms yet. Start one, and others join it here or from a headset.') : 'Looking for rooms...'))}</li>`) +
+        : `<li class="none">${esc(C.roomsErr || (C.rooms ? (near.length ? 'No other open rooms.' : (C.unlisted ? 'This relay lists no rooms: join one by its code or link, or under Rooms on this network.' : 'No open rooms yet. Start one, and others join it here or from a headset.')) : 'Looking for rooms...'))}</li>`) +
         kept.map(r => `<li class="empty"><b>${esc(r.code)}</b><span>Kept on this device · ${r.stations} station${r.stations === 1 ? '' : 's'}</span><button class="btn" type="button" data-sh="open:${esc(r.code)}">Open</button></li>`).join('');
       const rf = $('[data-sh="refresh"]');
       if (rf) rf.hidden = !C.relay && !peerOn();
