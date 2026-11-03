@@ -4,7 +4,22 @@ const VERSION = 'networks-v107';
 const SHELL = ['./', './index.html', './sfx.js', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
-const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
+const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-pass-de.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
+// The narrations (about 60 MB together, and seldom changed) keep a cache of their own that outlives the releases: a new
+// worker asks the server about each with its copy's ETag (or date) and fetches only those that changed; a copy in an
+// older release's cache counts too (until v107 they were fetched again in full at every release, on every device)
+const NARR = 'networks-narration';
+async function narrFetch(n, a) {
+  const own = await n.match(a), old = own || await caches.match(a), h = {};
+  const et = old && old.headers.get('ETag'), lm = old && old.headers.get('Last-Modified');
+  if (et) h['If-None-Match'] = et; else if (lm) h['If-Modified-Since'] = lm;
+  try {
+    const r = await fetch(new Request(a, { cache: 'no-store', headers: h }));
+    if (r.status === 304) { if (!own) await n.put(a, old); }
+    else if (r.ok) await n.put(a, r);
+    else if (r.status === 404) await n.delete(a);   // (a narration taken away)
+  } catch (e) { /* offline: the copy held stays */ }
+}
 // the audio element (the fallback sound engine) asks for byte ranges; answer them from the
 // cached file, read once per file while this worker runs
 const BYTES = new Map();
@@ -28,9 +43,9 @@ async function rangeResponse(req, cached, key) {
 self.addEventListener('install', e => {
   // straight from the server, not from the browser's HTTP cache, which may still hold the old version
   const get = u => new Request(u, { cache: 'reload' });
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)).then(() =>
-    // the narrations are optional: cache those that exist
-    Promise.all(AUDIO.map(a => fetch(get(a)).then(r => (r.ok ? c.put(a, r) : null)).catch(() => null)))))
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)))
+    // the narrations are optional: cache those that exist, fetching only what changed
+    .then(() => caches.open(NARR)).then(n => Promise.all(AUDIO.map(a => narrFetch(n, a))))
     .then(() => self.skipWaiting()));
 });
 // the network's answer (and a fresh copy in the cache); the cached copy when the network fails,
@@ -47,7 +62,7 @@ function fresh(net, key) {
 }
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== NARR).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
@@ -74,7 +89,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)?\.mp3)$/.exec(url.pathname);
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);
