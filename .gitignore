@@ -32,3 +32,6 @@ tools/pass/gen/
 tools/ovary/shots/
 tools/mutation/shots/
 tools/topo/shots/
+
+# the owner's own scenes, linked in for local checks only (never committed)
+tools/studio/test/local
