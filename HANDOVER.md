@@ -64,8 +64,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   brings its rooms back from one address); `relay/README.md` lists what matches and what still differs ("Compared with
   asdf10k-collab-backend"). Built by one builder, reviewed once (two Sonnet reviewers, two skeptics for each finding: two
   mediums, a router's devices locked out by their own rooms coming back after a restart and a page held back by 429
-  taking the relay for absent, and two lows, fixed). Tests: RESULTS. Untested: on Coolify (the secret variable, the
-  health check), and in a headset (the keypad, the password through the introduction server).
+  taking the relay for absent, and two lows, fixed). Tests: relay 367 good; smoke 169 good; live 21 good; shared rooms:
+  the password round (`--token`) 7 of 7, peer to peer 18 of 18, rooms on this network 19 of 19, the quick run 324 good and
+  one failing, as in v109's quick run: a peer-to-peer host that falls silent was replaced after 41 s (the relay's 40 s
+  timeout for an id never let go) instead of within a few seconds, while the same check passes on its own (`--p2p`); open,
+  a slow path worth a look, not a broken takeover. Untested: on Coolify (the secret variable, the health check), and in a
+  headset (the keypad, the password through the introduction server).
 - **Released as networks-v109 (3 November 2026; FORMAT networks-29, shell 109: running pages ask to reload, and rooms of
   an older version are refused until their devices update), tested headlessly only: every story narrated, sound off by
   default, a room that starts as a shared Stories screen, lining up as part of every headset's start, phones and tablets,
