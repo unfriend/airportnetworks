@@ -202,8 +202,9 @@ you put it, and opens there next time. It has four tabs: Story (the story
 panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
-Recenter; Slideshow for every story; four headset settings for every story; the
-sound switches; the design room), Circles (the shared room: rooms to join, a
+Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
+for every story; Sound, this headset's own on or off; the sound switches; the
+design room), Circles (the shared room: rooms to join, a
 room by its code, Room setup, the stations, the locks, Show all rings, the people,
 your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
@@ -293,10 +294,14 @@ one is recorded; the tour's is a synthetic voice, made by tools/voice/, which
 can narrate the others too); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
-on/off button (top bar and VR panel). Browsers only start sound after a tap or
-click: the first one in the app (Enter VR counts) turns sound on for every
-story, also when you change story inside the headset. If the button says Play
-sound, press it. Without the file the story runs silently, at a pace that leaves time
+on/off button (top bar, VR panel, and Sound in the headset's menu under
+Settings). The sound is off until you turn it on (on every page and headset, in
+every mode): the button says Sound off, and a press turns the narration and the
+effects on; each device remembers its choice, and #sound=on or #sound=off in a
+link sets it. Muted, a story runs on its own clock with its subtitles. Browsers
+only start sound after a tap or click: the first one in the app (Enter VR
+counts) starts it for every story, also when you change story inside the
+headset. If the button says Play sound, press it. Without the file the story runs silently, at a pace that leaves time
 to read its panel (tools/pace.mjs sets it from the words).
 No sound? Open Sound check on the Stories screen (on the page, or in the headset
 under the title; in a shared room in the headset's menu): it shows what the sound system is doing, plays a test beep
@@ -312,7 +317,7 @@ go on). They are in the headset's menu, the page's Shared dialog and Sound check
 and #sfx=off or #voice=off in a link sets them; in a shared room they are the
 room's, for every page and headset in it, once someone there sets them (until
 then each device keeps its own). The effects' volume (Sound check, the
-headset's menu) is each device's own. The Sound button silences the narration
+headset's menu) is each device's own. The Sound button (off until pressed) silences the narration
 and the effects together on that device, and the effects dip under the
 narration while it plays. tools/sfx.html is a sound board that plays every one and renders a
 story's whole sound track; node tools/sfx-render.mjs writes them to files

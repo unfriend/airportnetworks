@@ -222,8 +222,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   that story directly; no hash or `#stories` lands on the Stories screen.
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
-- Repeat (`HOST.repeat`: `off`, `all` or `one`; buttons on the Stories screen,
-  page and headset, via `HOST.toggleRepeat`): a story that reaches its end
+- Repeat (`HOST.repeat`: `off`, `all` or `one`; buttons on the page's Stories
+  screen, via `HOST.toggleRepeat`, and *Repeat* on the headset menu's Settings
+  tab, each press the next, via `HOST.setRepeat`; the headset Stories screen's
+  buttons until v109): a story that reaches its end
   calls `HOST.ended()`; when that returns true the story only pauses, and after
   a moment the shell starts the next story (`all`, wrapping round) or sends
   `storyrestart` (`one`); otherwise the story opens explore mode. Remembered in
@@ -273,8 +275,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `GL.rig`. Normally the rig is set from your head (`xrRecenter`) when a
   session starts, on Recenter, when the reference space resets, and when the
   headset was off for more than 3 s (`xrFreshStart`: a new wearer). Anchored
-  mode (`HOST.anchor` in `index.html`; the Anchor button on the headset Stories
-  screen, `#anchor=on` / `#anchor=off`; remembered as `xrAnchor` and `xrPlace`
+  mode (`HOST.anchor` in `index.html`; *Anchor: on/off* on the headset menu's
+  Settings tab, beside Exit and Recenter, a button on the headset Stories screen
+  until v109; in a shared room it can be turned off there, not on; `#anchor=on` / `#anchor=off`; remembered as `xrAnchor` and `xrPlace`
   in `localStorage`) pins the rig to a WebXR anchor with a persistent handle
   (Meta Quest Browser), so the place survives all of those and reloads. Stories
   call `HOST.anchor.frame(frame, ref)` in `xrBegin` and set the rig from what
@@ -489,9 +492,22 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     within 30 s. A Web Audio engine that runs after all is taken back.
     `follow()` only trusts a clock that is known to move, so a stuck engine never
     freezes a story.
-  - The mute is saved under `narrationMuted2`: older versions saved a mute
-    when *Play sound* was pressed in the headset. *Play sound* (and any press
-    while loading) only starts the engines; it never mutes. The Narration
+  - The mute (the Sound button: the page's bar, focus mode's foot bar, a
+    narrated story's headset foot panel, and *Sound: on/off* on the headset
+    menu's Settings tab, `HOST.audio.mute(on)`) is **on by default** (v109; the
+    owner, November 2026: "Default to sound off in all modes"): a device plays
+    nothing, narration, effects, backgrounds or the vacuum, until it turns the
+    sound on, and its choice is saved under `narrationMuted3` (only `'0'` keeps
+    the sound on; a new key, so every device started muted once; the older
+    `narrationMuted`, a mute saved when *Play sound* was pressed in the headset,
+    and `narrationMuted2`, sound on by default, are removed). Muted, a story
+    runs on its own clock with its subtitles, as with the Narration switch off.
+    The bar's button says *Sound off* (title *Turn the sound on*); a press turns
+    it on (it is a tap, so it starts the engines too); with no recording (a
+    story without one, the design room) it stays, for the effects (*Sound off*,
+    *Sound on* or *Play sound*). `#sound=on|off` in a link sets it (saved).
+    *Play sound* (and any press while loading with the sound on) only starts the
+    engines; it never mutes. Reset in Sound check turns it on. The Narration
     switch (v100, `HOST.xr.voice()`, in a room the room's; see "The two sound
     switches" under "Sound effects") is a second, finer way to silence it:
     `sync` plays nothing and `speaking()` is false while it is off, so the story
@@ -530,8 +546,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     the first tap and nothing while only the `<audio>` element plays. It builds
     its graph again on a new context (the watchdog's `renew`). The hum, both
     engines and the watchdog are untouched. While the sound is off (the bar's
-    Sound button, or the headset panel's: `HOST.audio.muted`, this device's quick
-    mute of everything) the effects and the background are silent too (the app's
+    Sound button, the headset panel's or the menu's *Sound* row: `HOST.audio.muted`,
+    this device's quick mute of everything, on until the device turns the sound on, v109) the effects and the background are silent too (the app's
     adapter gives no context then: a visitor who turns the sound off expects
     silence); the two switches are the finer ones (the narration without
     effects, or the other way round).
@@ -580,8 +596,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     else this device's own (`sfxOn`, only `'off'` saved keeps them off;
     `narrationOn` likewise), which keeps a room's last value after leaving it,
     as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link.
-    Rows: the headset's menu (*Sound effects: on/off* and *Narration: on/off*
-    side by side under Subtitles and Panels, then *Effects volume* with a note),
+    Rows: the headset's menu (*Sound: on/off*, this headset's mute, then *Sound
+    effects: on/off* and *Narration: on/off* side by side under Subtitles and
+    Panels, then *Effects volume* with a note),
     the page's Shared dialog (a Sound row under the room's parts, shown in a
     room for everyone there and outside a room for this device) and Sound check
     (Sound effects: on/off, a volume slider, Try them, Narration: on/off). The
@@ -1302,16 +1319,20 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     menu, never the story's panel (`xrGrab` ignores `h.menu`). Over them the story's title in its colour; with no story
     on show a line instead (in a room away from every station: walk into a circle; else pick one). The story gives
     its panels through the `panels` hook (below).
-  - **Settings**: Exit (ends the session: the story panels have no Exit, the headset Stories screen keeps its own) and
-    *Recenter* side by side (the owner, 30 October 2026: the story's own, `HOST.cur.recenter`, as the story panel's
+  - **Settings**: Exit (ends the session: the story panels have no Exit), *Recenter* and *Anchor: on/off* side by side
+    (Recenter, the owner, 30 October 2026: the story's own, `HOST.cur.recenter`, as the story panel's
     button: you in front of it again, *Place again* while anchored; at a station the station's scene and panel back
     where the story puts them, for everyone at its circle, greyed while its story is locked; greyed away from every
-    station), *Slideshow: on/off* (`HOST.slides.setGlobal`, for every story, shown when `HOST.slides` exists, a note
-    beside it), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
+    station. Anchor, `set:anchor`: `HOST.anchor.set`, anchored placement for every story, the headset Stories screen's
+    button until v109; in a shared room it can be turned off, not on, as the room places everything), *Slideshow:
+    on/off* (`HOST.slides.setGlobal`, for every story, shown when `HOST.slides` exists, a note beside it), *Repeat:
+    off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
+    what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
     `HOST.xr`), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
-    a line that these settings and the sound are the room's takes its place); *Sound effects: on/off* and *Narration:
-    on/off* side by side (the two sound switches, for every story; in a room the room's: "The two sound switches"),
+    a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
+    mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines
+    too; a note beside it); *Sound effects: on/off* and *Narration: on/off* side by side (the two sound switches, for every story; in a room the room's: "The two sound switches"),
     then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* (outside a room it
     opens the design room; in a room *Design room here* puts its table at your feet: "The design room in a room"), a
     note beside it.
@@ -1333,7 +1354,7 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 820, Debug about 840; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
+  guide's tallest page about 1090; Settings about 970, Debug about 840; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
@@ -2751,10 +2772,15 @@ report results.
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
 rule (an `AudioContext` starts locked and only a real tap unlocks it; an
-`<audio>` element plays only once started inside a tap) and checks that the
-narration plays after a click, after a story change with no tap (as in the
+`<audio>` element plays only once started inside a tap; its pages start as a
+device that turned the sound on, `narrationMuted3` `'0'`) and checks the sound
+off by default (a fresh device, also one with the sound on under the old key,
+showing *Sound off*, a tap playing the story silently, no narration and no
+effects, until Sound is pressed; a page without a recording (the design room) having the button
+too; the choice kept across a reload, on and off; `#sound=on` and `#sound=off`),
+that the narration plays after a click, after a story change with no tap (as in the
 headset's Stories menu), through pause, jumps, the Sound button, the Stories
-screen and a headset session going hidden and visible; that an old saved mute is
+screen and a headset session going hidden and visible; that old saved mutes are
 ignored, Play sound never mutes and the hum runs; Sound check's beeps and engine
 choice; and that the `<audio>` element takes over when Web Audio cannot decode,
 never starts, or its clock stops. For the sound effects (`HOST.sfx`): on by
@@ -2771,7 +2797,7 @@ Narration switch silencing the narration only, the story's clock running on, the
 effects playing and nothing ducked; the Sound effects switch the effects only;
 both from the Shared dialog's Sound row outside a room, kept across a reload and
 shown so in Sound check, whose buttons turn them on again; `#voice=off`,
-`#voice=on` and `#sfx=off` in a link); the headset menu's rows (Sound effects,
+`#voice=on` and `#sfx=off` in a link); the headset menu's rows (Sound, Sound effects,
 Narration, the effects' volume steps), and in a pretend headset the listener at the
 head, a sound from a place through an HRTF panner, and a press on a story panel's
 button clicking at it. The stories' sounds: a cue at its time (the log, the
@@ -2976,7 +3002,9 @@ not tracked (the frame follows the reset at once, then the anchors found
 again by their handles), unknown saved anchors deleted at session start, a
 full anchor store (cleaned and asked again; still full: the marks hold and the
 panel says so), the mark taken where the
-controller was held still, VR elsewhere with its in-room question; in a
+controller was held still, VR elsewhere with its in-room question (then the menu's
+Settings tab: Sound turning the mute off and on, Anchor turning off and greyed while off in
+a room, Repeat going off, all, one); in a
 room no Stories button (at a station either) and a Stories screen closing by itself, the grip on
 the scene and the panel unlocked there (not locked by the circles lock; locked by
 its story's lock, set on a page), both grips

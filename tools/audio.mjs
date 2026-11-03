@@ -3,9 +3,13 @@
 // locked and only resume() within a few seconds of a real tap unlocks it, and an <audio>
 // element plays only once it has been started inside a tap. Faults can be switched on per
 // page (a file Web Audio cannot decode, a Web Audio engine that never starts, a clock that
-// stops) to check that the <audio> element takes over. Checked here: sound after a click,
+// stops) to check that the <audio> element takes over. The sound is off until a device turns it on (the owner, November
+// 2026: "Default to sound off in all modes"), so the pages here start as a device that did (narrationMuted3 '0'), but
+// for the checks of that: a fresh device (also one that had the sound on before, narrationMuted2) starts with Sound off,
+// a tap plays nothing (no narration, no effects) until Sound is pressed, the choice is kept across a reload (on and off),
+// a page without a recording (the design room) has the button too, #sound=on and #sound=off in a link. Checked here: sound after a click,
 // after a story change with no tap (the headset's Stories menu), through pause, jumps, the
-// Sound button and the Stories screen; a mute saved by older versions is ignored; Play sound
+// Sound button and the Stories screen; mutes saved by older versions are ignored; Play sound
 // never mutes; Esc is not a tap; the hum runs only in a headset session (hidden and visible
 // again); each fault falls back to the <audio> element, which also plays while a slow decode
 // runs; Sound check (beeps, engine choice). The sound effects (HOST.sfx, sfx.js): on by default (a device that saved
@@ -13,8 +17,8 @@
 // Sound check (its volume kept, Try them) or by #sfx=off and #sfx=on; nothing before a tap; a sound really going through
 // the narration's one context; a page button's click; a background only for the flock and the pass story (the flock's
 // heard, gone with the sound off and on the Stories screen; none for the airports); ducked under the narration and back;
-// at most 16 voices; none with the audio element engine or when Web Audio never starts; the headset menu's rows (Sound
-// effects, Narration, the volume's steps), the listener following a pretend headset's head and a sound from a place
+// at most 16 voices; none with the audio element engine or when Web Audio never starts; the headset menu's rows (Sound,
+// Sound effects, Narration, the volume's steps), the listener following a pretend headset's head and a sound from a place
 // panned (HRTF). The two switches (HOST.xr.sfx and HOST.xr.voice, for every story; in a shared room the room's): the
 // Narration switch silencing the narration only (the story's clock running on, the effects playing, nothing ducked),
 // the Sound effects switch the effects only, both from the Shared dialog's row, kept across a reload, and set by
@@ -34,11 +38,13 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const errors = [];
-// page.evaluate counts as a gesture for Chromium, so the imitated rule looks at real input events
+// page.evaluate counts as a gesture for Chromium, so the imitated rule looks at real input events. The seed is put in
+// localStorage before each load (a key given null is left as it is); the sound turned on unless the seed says otherwise
 async function open(url, fault = '', seed = null) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  seed = Object.assign({ narrationMuted3: '0' }, seed || {});
   await page.addInitScript(([fault, seed]) => {
-    if (seed) for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
+    for (const [k, v] of Object.entries(seed)) if (v !== null) localStorage.setItem(k, v);
     let tapAt = -1e9;
     for (const t of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) window.addEventListener(t, e => {
       if (e.isTrusted && !(e.type === 'keydown' && /^(Escape|Shift|Control|Alt|Meta|Tab)$/.test(e.key))) tapAt = performance.now();
@@ -99,7 +105,7 @@ async function step(what, fn) {
 const ready = () => until('narration ready', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok');
 
 // 1. the usual way: Stories screen, a click, then everything a visitor does
-page = await open(base, '', { narrationMuted: '1' });
+page = await open(base, '', { narrationMuted: '1', narrationMuted2: '1' });
 await step('narration loads on the Stories screen', async () => {
   const p = await ready();
   if (p.ctx === 'running' || p.pos !== null || p.hum) throw new Error('sound before any tap: ' + JSON.stringify(p));
@@ -109,8 +115,8 @@ await page.click('#picker .card[data-story="airports"]');
 await step('a click on the story card', async () => {
   await playing('a click on the story card');
   if ((await probe()).hum) throw new Error('a hum without a headset session');
-  if (await page.evaluate(() => localStorage.getItem('narrationMuted')) !== null) throw new Error('old mute key still there');
-  console.log('ok   a mute saved by an older version is ignored; no hum outside a headset');
+  if (await page.evaluate(() => [localStorage.getItem('narrationMuted'), localStorage.getItem('narrationMuted2')].join()) !== ',') throw new Error('old mute keys still there');
+  console.log('ok   mutes saved by older versions are ignored and gone; no hum outside a headset');
 });
 // let the click's activation run out, then change story with no tap
 await wait(6000);
@@ -138,7 +144,7 @@ await step('a jump moves the sound', async () => {
 await step('the Sound button turns the narration off and on', async () => {
   await page.click('#btnSound');
   await until('off', p => p.pos === null && p.label === 'Sound off', 3000);
-  if (await page.evaluate(() => localStorage.getItem('narrationMuted2')) !== '1') throw new Error('not saved');
+  if (await page.evaluate(() => localStorage.getItem('narrationMuted3')) !== '1') throw new Error('not saved');
   await page.click('#btnSound');
   await playing('on again');
 });
@@ -203,6 +209,80 @@ await step('Sound check: beeps and engine choice', async () => {
   await page.click('#picker .card[data-story="airports"]');
   await playing('chosen: automatic', 'webaudio');
   console.log('ok   Sound check: both beeps play, the engine choice works');
+});
+await page.close();
+
+// 1b. the sound off by default (the owner, November 2026: "Default to sound off in all modes"): a fresh device, also one
+// that had the sound on before (narrationMuted2 '0': every device starts muted once), shows Sound off; a tap plays the
+// story silently (no narration, no effects) until Sound is pressed; a page without a recording (the design room) has the button too; the
+// choice is kept across a reload, on and off
+page = await open(base, '', { narrationMuted3: null, narrationMuted2: '0' });
+const btn = () => page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted3')].join(); });
+await step('sound off by default: Sound off, and a tap plays nothing until Sound is pressed', async () => {
+  await ready();
+  const b0 = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.title, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted2'), localStorage.getItem('narrationMuted3')].join('|'); });
+  if (b0 !== 'true|false|Sound off|Turn the sound on|false||') throw new Error('before a tap: ' + b0);
+  await page.click('#picker .card[data-story="airports"]');
+  const t0 = (await probe()).t;
+  await until('the story playing, silent', p => p.ctx === 'running' && p.label === 'Sound off' && p.t > t0 + 0.5, 20000);
+  await wait(1000);
+  const p = await probe(), fx = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.audio.speaking(), HOST.cur.peek('APP.playing')]);
+  if (p.pos !== null || fx[0] !== null || fx[1] || !fx[2]) throw new Error('with the sound off: ' + JSON.stringify([p, fx]));
+  await page.click('#btnSound');
+  await playing('Sound pressed: the narration');
+  const k = await page.evaluate(() => [HOST.audio.muted, document.getElementById('btnSound').textContent, localStorage.getItem('narrationMuted3'), !!HOST.sfx.play('notice', { force: true })].join());
+  if (k !== 'false,Sound on,0,true') throw new Error('after Sound: ' + k);
+  console.log('ok   a fresh device (sound on under the old key): Sound off, a tap played the story silently (no narration, no effects), Sound turned both on (saved)');
+});
+// (the design room: never a recording, as a story may have one where its MP3 was made but not committed)
+const designUp = () => page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.audio && HOST.curKey === 'design' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
+await step('sound off by default: a page without a recording has the Sound button too', async () => {
+  await page.evaluate(() => HOST.go('design'));
+  await designUp();
+  await wait(1200);   // (a press within 800 ms of the sound coming on only starts it)
+  const a = await btn();
+  if (a !== 'false,false,Sound on,true,0') throw new Error('before: ' + a);
+  await page.click('#btnSound');
+  const b = await btn(), bfx = await page.evaluate(() => HOST.sfx.play('notice', { force: true }));
+  await page.click('#btnSound');
+  const c = await btn(), cfx = await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }));
+  if (b !== 'true,false,Sound off,false,1' || bfx !== null || c !== 'false,false,Sound on,true,0' || !cfx) throw new Error(JSON.stringify([b, bfx, c, cfx]));
+  console.log('ok   a page without a recording (the design room) shows Sound on; a press silences the effects (Sound off), another brings them back');
+});
+await step('sound off by default: the choice kept across a reload, on and off', async () => {
+  await page.reload({ waitUntil: 'load' });
+  await designUp();
+  const a = await btn();
+  if (!/^false,false,(Play sound,false|Sound on,true),0$/.test(a)) throw new Error('on, after a reload: ' + a);
+  await page.click('#btnSound');   // (Play sound: only starts it)
+  await page.waitForFunction(() => HOST.audio.running(), null, { timeout: 5000 });
+  await wait(1200);
+  await page.click('#btnSound');
+  const b = await btn();
+  if (b !== 'true,false,Sound off,false,1') throw new Error('turned off: ' + b);
+  await page.reload({ waitUntil: 'load' });
+  await designUp();
+  const c = await btn();
+  if (c !== 'true,false,Sound off,false,1') throw new Error('off, after a reload: ' + c);
+  console.log(`ok   on kept across a reload (${a.split(',')[2]} until a tap), off kept too (Sound off)`);
+});
+await page.close();
+page = await open(base + '#airports&sound=on', '', { narrationMuted3: null });
+await step('#sound=on in a link', async () => {
+  await until('file found', p => p.state === 'ok');
+  const a = await btn();
+  if (!/^false,false,(Sound loading|Play sound),false,0$/.test(a)) throw new Error(a);
+  await until('waiting for a tap', p => p.state === 'ok' && p.decode === 'ok' && p.label === 'Play sound');
+  await page.click('#btnSound');
+  await playing('#sound=on, then Play sound');
+});
+await page.close();
+page = await open(base + '#airports&sound=off');
+await step('#sound=off in a link', async () => {
+  await until('file found', p => p.state === 'ok');
+  const a = await btn();
+  if (a !== 'true,false,Sound off,false,1') throw new Error(a);
+  console.log('ok   #sound=on turns the sound on (saved; Play sound until a tap, then the narration), #sound=off off (saved)');
 });
 await page.close();
 
@@ -315,7 +395,7 @@ await step('backgrounds: only the flock and the pass story', async () => {
   await page.click('#picker .card[data-story="flock"]');
   await page.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
   const b = await fxUntil('the flock\'s background', s => s.bed === 'flock' && s.bedKind === 'dusk', 8000);
-  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it: the flock has no recording, so no button)
+  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it, without saving it)
   await fxUntil('no background while the sound is off', s => !s.bed, 4000);
   await page.evaluate(() => { HOST.audio.state().muted = false; });
   await fxUntil('the background back', s => s.bed === 'flock', 6000);
@@ -461,6 +541,8 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     const ids = () => HOST.collab.menuIds(), tap = id => { const x = HOST.collab.menuFind(id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
     HOST.collab.panelOpen(true); window.__tick(3);
     const out = { row: ids().includes('sfx') && ids().includes('sfxvol') && ids().includes('voice'), v0: HOST.sfx.volume() };
+    // Sound (this device's mute, the Sound button's): off, then on again, saved each time
+    out.mute = ids().includes('set:sound') && [tap('set:sound'), HOST.audio.muted, localStorage.getItem('narrationMuted3'), tap('set:sound'), HOST.audio.muted, localStorage.getItem('narrationMuted3')].join();
     out.vol = tap('sfxvol') && HOST.sfx.volume(); out.off = tap('sfx') && HOST.sfx.on(); out.on = tap('sfx') && HOST.sfx.on();
     out.voff = tap('voice') && HOST.xr.voice(); out.von = tap('voice') && HOST.xr.voice();
     HOST.collab.panelOpen(false);
@@ -483,8 +565,8 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     out.flat = !!HOST.sfx.play('click', { at: [1.5, 1.7, -0.2], force: true }) && HOST.sfx.state().spatial;
     return out;
   });
-  if (!r.row || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
-  console.log(`ok   the headset menu has Sound effects, Narration (off and on again) and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
+  if (!r.row || r.mute !== 'true,true,1,true,false,0' || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
+  console.log(`ok   the headset menu has Sound (off and on again, saved), Sound effects, Narration (off and on again) and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
 });
 await page.close();
 page = await open(base + '#airports&sfx=off', '', { sfxOn: 'on' });
