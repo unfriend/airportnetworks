@@ -715,9 +715,8 @@ Before handing over (or making anything more public), someone has to decide thes
    - **subtitles in the headset**: built as a setting for the whole room, on or off (the owner, 29 October: "a
      switchable option per room"), replacing the earlier plan of a per-person choice (off / follow / placed, a strip
      picked up and left in the room). The strip follows the head loosely (it stays until you turn about 15 degrees
-     away, then glides back); the words are the panel's, timed by word count from each line's start. Only the airports
-     and the tour have a voice so far, so elsewhere they repeat the panel's words (useful when the panel is out of
-     view). A caption bar on screens and phones, and placing the strip by hand, were not built. How they read and
+     away, then glides back); the words are the panel's, timed by word count from each line's start. Every story has a
+     voice since v109, so they follow it (useful when the panel is out of view, or with the sound off). A caption bar on screens and phones, and placing the strip by hand, were not built. How they read and
      follow on a headset is untested.
 8. **The PET story ("One scan, one system"): its second half waits for the poster** (October 2026). Done on 28 October:
    the scanner hands its patient to the body in one move (the scanner goes, the body stands up, its glow fades, then
@@ -816,7 +815,7 @@ Before handing over (or making anything more public), someone has to decide thes
     data is written by `tools/soil/data/gen_data.py` from the authors' three CSVs (kept out of the repository; see
     [docs/setup-and-release.md](docs/setup-and-release.md)), with the slides' charts read off by two readers
     (`tools/soil/data/reconcile.py`), and checked by `node tools/soil/test-data.mjs`.
-    - **What it is** (8:42, 8 chapters, then explore): a cut-away block of soil with a wheat plant, where less than half
+    - **What it is** (11:03 as narrated since v109, 8 chapters, then explore): a cut-away block of soil with a wheat plant, where less than half
       the fertiliser reaches the crop and the microbes' relay turns the rest into nitrate and nitrous oxide; a wheat
       given a piece of chromosome from a wild grass that slows the relay (BNI); the globe and the hop to the field trial
       in Japan (24 plots, three regimes, five dates, 119 samples); the BNI wheat greener and leaking less nitrate, and

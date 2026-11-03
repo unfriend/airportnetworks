@@ -1834,9 +1834,11 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
   `?token=` (401 `{"error":"missing or wrong token"}`), the room's socket and
   `/api/watch` as `?token=` (the protocol's `error` `token`, then close 4401,
   before anything of a room), the introduction server as PeerJS's key (its default
-  `peerjs` refused; `INVALID-KEY`, 4401). Compared in constant time. 20 failed
-  attempts a minute from one address (a wrong password, an unknown room code;
-  none at all is refused but not counted), then 429 or close 4429. Never in a log
+  `peerjs` refused; `INVALID-KEY`, 4401). Compared in constant time. 20 wrong
+  passwords a minute from one address, then 429 or close 4429 (none at all,
+  PeerJS's default key and an unknown room code asked with the password are
+  refused or answered but not counted: pages ask before they know it, and after a
+  relay restart every device behind one router brings its rooms back). Never in a log
   line or file. In the app (`shared.js`, `AUTH`, `tokenFor`, `authSaw`,
   `authTry`, `authForget`): each device enters it once, kept per relay origin in
   `localStorage` `relayTokens` (`{ origin: password }`), never in a room's keys, a
@@ -3085,7 +3087,7 @@ room, log, watch, `/peerjs` and its ids without it or with a wrong one, `Authori
 preflight allowing `Authorization`, the app's files open, the socket's `error` and close 4401 before anything of a room,
 `/peerjs` with PeerJS's default key refused and with the password as key open, `/api/watch` with `?token=`, the
 Dockerfile's health check (`/api/health`), 20 wrong ones from an address then 429, 4429 and PeerJS's `ERROR`, none at all
-not counted, unknown room codes counted, and the password in no log line or file; no browser, seconds; `node tools/peer.mjs` links two pages of
+not counted, nor PeerJS's default key, nor unknown room codes asked with the password, and the password in no log line or file; no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
