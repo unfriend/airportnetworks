@@ -2870,7 +2870,7 @@ opening by itself; the second, more than 10 s later, lines up through the shared
 first, Next, Back, Close, *Room setup* opening it again, *Check here* there and in the Debug tab; the laptop's *Setting up
 a room* listing both; Touch the spot with the tips 3 cm apart, the first waiting, then green on both and *checked 3 cm*
 in the laptop's list; 40 cm apart, red on both, *Not lined up?* opened by itself on both, the laptop's list saying so;
-Re-align taking the red result away and a check alone timing out (the window shortened to 3 s); the second back with no
+Re-align taking the red result away and a check alone timing out (the window shortened to 8 s); the second back with no
 shared space getting *Not lined up?* by itself once late (shortened), saying why; back again lined up, nothing opening by
 itself; with `--shots` its pictures, `guide-*.png`: each page's menu canvas, waiting, green, red, alone, no shared space,
 and the laptop's section), the design room (the Shared dialog's picker listing it after

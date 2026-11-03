@@ -64,7 +64,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   with the head) and is fully gone before the next comes in; the story the same. Built by two builders (the guide; the
   PET network) and by hand, reviewed once (six Sonnet reviewers, two skeptics for each finding): one medium (an armed
   *Check here* took the trigger until used: it now stops after 30 s or when the menu closes) and lows, fixed. Tests:
-  TESTS-V107. The site moved to the owner's domain, https://stories.lbi-netmed.com/ (the github.io address redirects;
+  smoke 164 good; audio 53 good; relay 243 good; the update test from v106 good; live 21 good; the room setup guide
+  round 12 of 12; shared rooms: the full run 427 good (its failures: a check of the test's own made wrong by the new
+  order, a timing check that passed on re-running, and the last round cut short by a container restart, which passed
+  on its own, 19 of 19), then the quick run 301 good with one or two timing checks failing, a different one each run
+  and each passing in the others (pages drawing in software at a few frames a second). The runs found one real fault,
+  fixed: *Setting up a room* stood above the room map in the Shared dialog, which pushed the map out of sight and
+  moved it 2 px under a drag that had begun (now below the map). Four checks were made robust: a carried station
+  stops 12 m from the hand (with the new order the test's station stands about 10 m off), the room's frame written
+  again a second after a wake rather than within milliseconds of it, a double pull while calibrating sent in one
+  moment, and the guide's check alone with an 8 s window. The site moved to the owner's domain, https://stories.lbi-netmed.com/ (the github.io address redirects;
   install again there and calibrate again). Untested on headsets: how the guide's pages read, when it opens, how close
   two tips on one cross read when headsets do line up (the 10 cm limit), the PET organ models' frame rate on a Quest,
   and whether the ovary's flicker is gone.

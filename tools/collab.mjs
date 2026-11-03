@@ -2175,18 +2175,18 @@ async function guideRound() {
   const l3 = await listed(/not lined up \(checked 40 cm out\)/);
   await laptopPic('guide-12-laptop-red.png', /checked 40 cm out.*checked 40 cm out/);
   check('guide: the laptop\'s list says not lined up (checked 40 cm out)', l3, JSON.stringify(await listText()));
-  // a check alone: waiting, then nobody within the window (shortened to 3 s here)
-  await H1.evaluate(() => HOST.collab.guideTimes({ win: 3000 }));
+  // a check alone: waiting, then nobody within the window (shortened to 8 s here)
+  await H1.evaluate(() => HOST.collab.guideTimes({ win: 8000 }));   // (shortened: 8 s, as the steps before the reading can take 3 s on pages drawing in software)
   await H1.evaluate(() => HOST.room.realignNow());   // (Re-align takes the red result away: check again)
   await frames(H1, 400);
   const cs0 = (await G(H1)).check, cleared = cs0.s !== 'done';
   await touchSpot(H1, SPOT);
   const al1 = (await G(H1)).check;
-  await sleep(3300); await frames(H1, 200);
+  await sleep(8300); await frames(H1, 200);
   const al2 = (await G(H1)).check;
   await menuPic(H1, 'guide-10-alone.png');
   check('guide: Re-align takes the red result away; a check alone waits, then says nobody else pressed Check here in time',
-    cleared && al1.s === 'wait' && al2.s === 'late' && /^Nobody else pressed Check here within 3 s/.test(al2.text), JSON.stringify({ cs0, al1, al2, log: await H1.evaluate(() => [HOST.collab.now(), window.__collabLog.filter(e => /check|guide|realign/.test(e.ev)).slice(-12)]) }));
+    cleared && al1.s === 'wait' && al2.s === 'late' && /^Nobody else pressed Check here within 8 s/.test(al2.text), JSON.stringify({ cs0, al1, al2, log: await H1.evaluate(() => [HOST.collab.now(), window.__collabLog.filter(e => /check|guide|realign/.test(e.ev)).slice(-12)]) }));
   await H1.evaluate(() => HOST.collab.guideTimes({ win: 20000 }));
   // the second headset back with no shared space: not lined up, and the last page opens by itself once it is late
   await H2.evaluate(() => window.__xr.end());
