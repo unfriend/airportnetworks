@@ -25,9 +25,11 @@ const first = s => { s = one(s); const m = /^(.{14,}?)(?:; | \(|\. |: )/.exec(s)
 const NOTES = {
   'micro.organs': 'Not a scene of its own: a library of small organ models (ORGAN3D) that the atlas, the network and the tissue topology story draw.',
 };
+// icons, not props: the design room's own, the studio's and the shell's circles' (pages and circles that are not stories)
+const ICONS = new Set(['design', 'studio', 'all']);
 const CARDS = {};
 for (const key of Object.keys(lp.M)) {
-  if (lp.M[key].story === 'design' || lp.M[key].story === 'all') continue;   // (icons, not props: the design room's own and the shell's circles')
+  if (ICONS.has(lp.M[key].story)) continue;
   const m = lp.M[key], s = props.sets.find(x => x.story === m.story && x.key === m.set), hw = props.handwrittenStories.find(x => x.story === m.story);
   if (s) {
     const twins = props.sets.filter(x => x !== s && x.file === s.file).map(x => x.story + '/' + x.key);

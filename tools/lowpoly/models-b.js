@@ -2,8 +2,8 @@
 // and robot gang stories' sets and the three hand-written stories' scenes (airports, proteins, spatial). They stand on the
 // design room's table, and a story's main one (its entry's icon in stories/list.js) is its station icon above the ring;
 // the design room's own table (design.table) is only that design room's icon, not a prop on the table, and so are the
-// last two, all.stories and all.lobby, the icons of the shell's own circles (All stories, Back to the lobby: shared.js's
-// KINDS), not of a story.
+// studio's stage (studio.stage, the studio's icon: not a story either) and the last two, all.stories and all.lobby, the
+// icons of the shell's own circles (All stories, Back to the lobby: shared.js's KINDS), not of a story.
 // Each entry of LOWPOLY_MODELS['<story>.<set>'] is { story, set, name, shows, build(THREE) -> THREE.Group, tris }:
 // the group is centred on x and z, stands on y = 0 and fits a 1 x 1 x 1 box (the caller scales it). Built from simple
 // shapes coloured per face (vertex colours), merged into one mesh per material (at most six), in the props' own
@@ -823,7 +823,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // A low stage with the studio's floor grid, a small figure on it (a placed model), a see-through trigger cube's
   // glowing edges and a little speaker on a post sending out sound, its full-volume ring on the floor
   def('studio.stage', 'Studio stage', 'The studio: a low stage with a floor grid, a small figure standing on it, a see-through trigger cube\'s glowing edges and a little speaker on a post sending out sound, its ring on the floor.', 870, (M, g) => {
-    const TOP = 0.06, R = 0.5, BEIGE = '#e6d3b8', CLAY = '#ece4d6', CUBE = '#46d9ff', SOUND = '#ffb43b';
+    const TOP = 0.06, R = 0.5, BEIGE = '#e2c28f', CLAY = '#ece4d6', CUBE = '#46d9ff', SOUND = '#ffb43b';
     M.add('gloss', g.cyl(R, R * 1.04, TOP, 16), NAVY, [0, TOP / 2, 0]);           // the stage
     M.add('glow', g.tor(R, 0.012, 3, 20), BEIGE, [0, TOP, 0], [PI / 2, 0, 0]);    // its rim, in the studio's colour
     // the floor's grid (in VR the studio's floor has a faint 1 m grid): three lines each way, inside the rim
@@ -833,7 +833,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       M.add('flat', g.plane(0.007, len), '#3c5072', [o, TOP + 0.002, 0], [-PI / 2, 0, 0]);
     }
     // the figure (a placed, rigged model): legs, a body, arms (the right one raised, waving) and a head, light clay
-    const F = [-0.17, TOP, 0.08], at = (x, y, z) => [F[0] + x, F[1] + y, F[2] + z];
+    const F = [-0.2, TOP, -0.02], at = (x, y, z) => [F[0] + x, F[1] + y, F[2] + z];
     for (const s of [-1, 1]) M.add('gloss', g.rod(at(s * 0.036, 0.235, 0), at(s * 0.046, 0.008, 0.01), 0.022, 6, true), CLAY);
     M.add('gloss', g.cyl(0.064, 0.046, 0.17, 8), CLAY, at(0, 0.32, 0));
     M.add('gloss', g.rod(at(-0.07, 0.385, 0), at(-0.105, 0.235, 0.02), 0.016, 6, true), CLAY);
@@ -848,17 +848,17 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       if (Math.abs(d - E) < 1e-6) M.add('glow', g.rod(cn[i], cn[j], 0.008, 4), '#a6ecff');   // (the twelve edges: neighbours one side apart)
     }
     for (const p of cn) M.add('glow', g.oct(0.016), '#e2f8ff', p);
-    // the speaker: a small box on a post with its driver and two arcs of sound, turned to the figure, and the ring on the
-    // floor where it is at full volume
-    const S = [0.25, TOP, 0.25], yaw = Math.atan2(F[0] - S[0], F[2] - S[2]);
+    // the speaker: a small box on a post at the front with its driver and two arcs of sound going out ahead, a little
+    // turned to the figure, and the ring on the floor where it is at full volume
+    const S = [0.21, TOP, 0.26];
     M.add('glow', g.tor(0.13, 0.005, 3, 16), SOUND, [S[0], TOP + 0.004, S[2]], [PI / 2, 0, 0]);
-    M.frame(S, [0, yaw, 0]);
+    M.frame(S, [0, -0.45, 0]);
     M.add('gloss', g.cyl(0.04, 0.045, 0.014, 8), NAVY, [0, 0.007, 0]);
-    M.add('gloss', g.rod([0, 0.014, 0], [0, 0.13, 0], 0.011, 4), '#8a96a3');
-    M.add('gloss', g.box(0.1, 0.13, 0.08), '#26324a', [0, 0.195, 0]);
-    M.add('glow', g.cone(0.034, 0.028, 10), SOUND, [0, 0.18, 0.047], [-PI / 2, 0, 0]);   // the driver, opening forward
-    M.add('glow', g.ball(0.013, 0), '#ffe2b0', [0, 0.235, 0.042]);                    // and a tweeter over it
-    for (const [rad, arc] of [[0.075, 1.3], [0.115, 1.2]]) M.add('glow', g.tor(rad, 0.007, 3, 8, arc), SOUND, [0, 0.185, 0.04], [PI / 2, 0, PI / 2 - arc / 2]);
+    M.add('gloss', g.rod([0, 0.014, 0], [0, 0.12, 0], 0.011, 4), '#8a96a3');
+    M.add('gloss', g.box(0.11, 0.15, 0.09), '#4a5874', [0, 0.195, 0]);
+    M.add('glow', g.cone(0.04, 0.03, 10), SOUND, [0, 0.18, 0.052], [-PI / 2, 0, 0]);   // the driver, opening forward
+    M.add('glow', g.ball(0.014, 0), '#ffe2b0', [0, 0.243, 0.047]);                   // and a tweeter over it
+    for (const [rad, arc] of [[0.08, 1.3], [0.125, 1.2]]) M.add('glow', g.tor(rad, 0.007, 3, 8, arc), SOUND, [0, 0.185, 0.045], [PI / 2, 0, PI / 2 - arc / 2]);
     M.frame();
   });
 
