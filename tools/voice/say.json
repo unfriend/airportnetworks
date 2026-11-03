@@ -44,7 +44,41 @@
       "proteasomes": "proteazomes",
       "Peroxisomal": "Per-oxi-somal",
       "peroxisomal": "per-oxi-somal",
-      "Menche": "Mensha"
+      "Menche": "Mensha",
+      "AGRN": "A-G-R-N",
+      "AMH": "A-M-H",
+      "AOA": "A-O-A",
+      "AOB": "A-O-B",
+      "NOB": "N-O-B",
+      "ALS": "A-L-S",
+      "ASVs": "A-S-Vees",
+      "CIBIV": "C-I-B-I-V",
+      "COLQ": "Col-Q",
+      "COLQ's": "Col-Q's",
+      "EGF": "E-G-F",
+      "ESR1": "E-S-R-1",
+      "IoU": "I-O-U",
+      "SYT1": "S-Y-T-1",
+      "SYT2": "S-Y-T-2",
+      "TFIM": "T-F-I-M",
+      "PNAS": "P-N-Eigh-S",
+      "16S": "16 S",
+      "60s": "sixties",
+      "II": "two",
+      "Proteasome": "Proteazome",
+      "Peroxisomes": "Per-oxi-zomes",
+      "peroxisomes": "per-oxi-zomes",
+      "Bûcheron": "Boo-sheh-ron",
+      "Iker": "Eeker",
+      "Enes": "Enness",
+      "Haeseler": "Hayzeler",
+      "Buljan": "Boolyan",
+      "Buljan's": "Boolyan's",
+      "Bagó-Horváth": "Bah-go Hor-vaat",
+      "Smajlovic": "Smy-lo-vitch",
+      "Tsukuba": "Tsoo-koo-ba",
+      "dicyandiamide": "dye-sigh-an-dye-amide",
+      "Nitrosospira": "Nitrosospyra"
     },
     "symbols": {
       "%": " percent",
@@ -82,7 +116,8 @@
     },
     "patterns": {
       "(\\d)\\s*[–-]\\s*(\\d)": "$1 to $2",
-      "\\b([Ii]n|[Ss]ince|[Uu]ntil|[Bb]y|[Ff]rom) 20([1-9]\\d)\\b": "$1 twenty $2"
+      "\\b([Ii]n|[Ss]ince|[Uu]ntil|[Bb]y|[Ff]rom) 20([1-9]\\d)\\b": "$1 twenty $2",
+      "(\\d),(?=\\d{3}(?!\\d))": "$1"
     }
   },
   "stories": {
@@ -102,8 +137,53 @@
         "Rosenthal": "Rosentahl"
       },
       "patterns": {
-        "^Pass it on how": "Pass it on: how",
-        "(\\d),(?=\\d{3}(?!\\d))": "$1"
+        "^Pass it on how": "Pass it on: how"
+      }
+    },
+    "mutation": {
+      "words": {
+        "ACGTTAGC": "A, C, G, T, T, A, G, C",
+        "ACGTCGGC": "A, C, G, T, C, G, G, C",
+        "ACATTAGT": "A, C, A, T, T, A, G, T"
+      },
+      "symbols": {
+        "|00⟩": "zero zero: ",
+        "|01⟩": "zero one: ",
+        "|10⟩": "one zero: ",
+        "|11⟩": "one one: "
+      },
+      "patterns": {
+        "\\bA to ([ACGTU])\\b": "Eigh to $1",
+        "\\b([ACGTU]) to A\\b": "$1 to Eigh",
+        "^A is\\b": "Eigh is",
+        "\\bare A (\\d)": "are Eigh $1",
+        "\\b(\\d+) A,": "$1 Eigh,",
+        "\\ban A after\\b": "an Eigh after",
+        "\\bA and G\\b": "Eigh and G",
+        "\\band A is\\b": "and Eigh is",
+        "\\bat A,": "at Eigh,",
+        "\\bA with T\\b": "Eigh with T",
+        "\\bA→([ACGTU])": "Eigh to $1",
+        "([ACGTU])→A\\b": "$1 to Eigh"
+      }
+    },
+    "qubits": {
+      "words": {
+        "A_c": "Eigh-C",
+        "A_c's": "Eigh-C's",
+        "A₀": "A-zero",
+        "so(6)": "S-O 6",
+        "so(7)": "S-O 7",
+        "so(7)'s": "S-O seven's"
+      },
+      "patterns": {
+        "\\bP A P\\b": "P Eigh P",
+        "\\bwhere A is\\b": "where Eigh is"
+      }
+    },
+    "micro": {
+      "symbols": {
+        "H&E-UTAG": "H and E, U-tag"
       }
     }
   },

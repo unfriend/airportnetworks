@@ -94,13 +94,14 @@ const readStory = () => page.evaluate(skip => {
         continue;
       }
       if (last && last.cue === cue) {
-        // a bold run straight into its text: a figure and its caption ('<b>23</b>chromosomes') read on, a name and its
-        // text ('<b>Shape</b>A city's layout') with a colon between; a number straight into its small caption ('12<small>of
-        // 16</small>') with a space; the items of one list ('<li>Proteins</li><li>Hubs</li>') with a comma
+        // a bold run straight into its text: a figure and its caption ('<b>23</b>chromosomes', a bold that starts with a
+        // number, not a numbered step's '1 · Copy') read on, a name and its text ('<b>Shape</b>A city's layout') with a
+        // colon between; a number straight into its small caption ('12<small>of 16</small>') with a space; the items of
+        // one list ('<li>Proteins</li><li>Hubs</li>') with a comma
         const b = last.p !== p && /^(B|STRONG)$/.test(last.p.tagName) && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
         const li = !b && last.p !== p && !!p.closest('li') && !!last.p.closest('li') && p.closest('li') !== last.p.closest('li') && !/[,.;:!?]\s*$/.test(last.text);
         const cap = !b && !li && last.p !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
-        last.text += b ? (/^\s*\d/.test(last.p.textContent) ? ' ' : ': ') + txt : li ? ', ' + txt : cap ? ' ' + txt : txt;
+        last.text += b ? (/^\s*\d/.test(last.p.textContent) && !/·/.test(last.p.textContent) ? ' ' : ': ') + txt : li ? ', ' + txt : cap ? ' ' + txt : txt;
       } else {
         last = { cue, ch: c.key, at: cue === sec ? 0 : +cue.dataset.at || 0, text: txt,
           title: !!p.closest('h1, h2, h3'), small: !!(skip && p.closest(skip)) };

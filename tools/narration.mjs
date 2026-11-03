@@ -41,13 +41,14 @@ for (const s of list) {
           if (!(last && last.cue === cue)) { last = { cue, at: +cue.dataset.at || 0, text: cue.dataset.say || ' ' }; L.push(last); }
           last.p = p; continue;
         }
-        // a bold name run straight into its text ('<b>Mucosa</b>the lining') gets a colon between; a number straight into
+        // a bold name run straight into its text ('<b>Mucosa</b>the lining') gets a colon between (a bold that starts
+        // with a number, '<b>23</b>chromosomes', not a numbered step's '1 · Copy': a space); a number straight into
         // its small caption a space; the items of one list a comma
         if (last && last.cue === cue) {
           const b = last.p !== p && /^(B|STRONG)$/.test(last.p.tagName) && /^[A-Za-z0-9(]/.test(txt) && /[A-Za-z0-9)]$/.test(last.text);
           const li = !b && last.p !== p && !!p.closest('li') && !!last.p.closest('li') && p.closest('li') !== last.p.closest('li') && !/[,.;:!?]\s*$/.test(last.text);
           const cap = !b && !li && last.p !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
-          last.text += (b ? ': ' : li ? ', ' : cap ? ' ' : '') + txt;
+          last.text += (b ? (/^\s*\d/.test(last.p.textContent) && !/·/.test(last.p.textContent) ? ' ' : ': ') : li ? ', ' : cap ? ' ' : '') + txt;
         } else { last = { cue, at: cue === sec ? 0 : +cue.dataset.at || 0, text: txt }; L.push(last); }
         last.p = p;
       }
