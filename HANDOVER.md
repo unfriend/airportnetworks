@@ -43,6 +43,24 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v108 (3 November 2026; FORMAT networks-28 as v104 to v107, shell 108: running pages ask to
+  reload), tested headlessly only: every story narrated.** (1) A pass over every story's text but the airports' (the
+  owner: "go through all the texts and make sure that they are actually what a human speaker would say"): lines that
+  read like captions, lists or notes were rewritten as a person would say them, the numbers kept as the data gives them
+  (a page of before and after was sent; `docs/narration.md` holds the words). (2) Fourteen more stories narrated with the
+  tour's synthetic voice (Kokoro-82M, `af_heart`), the tour's changed lines spoken again, and the pass story's German
+  with Piper's Thorsten voice (the owner: "piper thorsten for the german part sounds great"), both languages on one
+  timeline: `node tools/voice/narrate.mjs <key>` speaks each line, lays the story out on the recording and writes its
+  tables. Pronunciations for gene names, letters, units and names are in `tools/voice/say.json` (thousands read without
+  their commas, DNA letters spelt so the voice says them as letters, a numbered step read with a colon). What the voice
+  and the subtitles read follows the same rules (a list's items with commas, a number spaced from its caption,
+  `data-say` for a line said otherwise or not at all: the proteins' chart, the live counters). The stories got longer or
+  shorter with their voices (the soil story is now the longest, 11:03); the flock's first swoop round you moved to
+  its last chapter in the recording (95 s of flight). Each story's credits say the narration is a synthetic voice.
+  (3) The narrations keep a cache of their own in the service worker (`networks-narration`), so a release no longer
+  fetches all 57 MB again on every device: a new worker asks the server about each file with its copy's ETag and
+  fetches only those that changed. Built by hand and by one builder (the German narration); the text pass reviewed
+  once (Sonnet reviewers; one medium, fixed). How the voices sound was not heard here. Tests: every narration checked in headless Chromium (`tools/voice/check.mjs --quick`, the pass story in both languages: each line where its cue is, the clock following the sound, jumps, the slideshow's stops) 16 of 16 good after the checker learnt to skip lines marked not read; the sound cues good; smoke 164 good; audio 53 good on the second run (the first had one timing check fail, Web Audio taking back over from the `<audio>` element mid-check, on the airports story, which v108 did not change); relay 243 good; the update test from v107 good; shared rooms (quick run) RESULT.
 - **Released as networks-v107 (2 November 2026; FORMAT networks-28 as v104 to v106, shell 107: running pages ask to
   reload), tested headlessly only: a room setup guide with an alignment check, the PET network in 3D, and three small
   notes.** (1) The room setup guide (the owner: "a from zero tutorial when one starts a shared room ... How can we check
