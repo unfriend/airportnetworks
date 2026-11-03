@@ -67,6 +67,9 @@ body {
   height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink);
   font-family: var(--font); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased;
 }
+/* the dynamic viewport where the browser has it (else 100 %, which iOS keeps to the small viewport, not 100vh's large
+   one): the page fits as a phone's bars come and go, and in full screen (the body is 100 % of it, inside the insets) */
+@supports (height: 100dvh) { html { height: 100dvh; } }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -448,11 +451,11 @@ body.focus:not(.picking) .brand { font-size: 14px; }
 body.focus:not(.picking) .brand span { display: none; }
 body.focus:not(.picking) #top .btn { padding: 6px 11px; font-size: 13px; }
 body.focus:not(.picking) #btnShared:not(.on) { display: inline-block; }
-body.focus:not(.picking) #top :is(#btnSound, #btnInstall, #btnAR, #btnVR) { display: none; }
+body.focus:not(.picking) #top :is(#btnSound, #btnInstall, #btnVR) { display: none; }
 @media (max-width: 699px) { body.focus:not(.picking) #top #btnMode { display: none; } }
 body.focus:not(.picking) #top #fcMore { display: grid; place-items: center; width: 36px; height: 32px; padding: 0; }
 #fcMore svg { width: 16px; height: 16px; fill: var(--ink); }
-body.focus:not(.picking) #fcMenu:not([hidden]) {
+:is(body.focus:not(.picking), #top.more) #fcMenu:not([hidden]) {
   display: flex; flex-direction: column; gap: 2px; position: absolute; top: calc(100% - 6px); right: max(10px, env(safe-area-inset-right, 0px));
   min-width: 13rem; padding: 6px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
@@ -522,6 +525,54 @@ body.focus:not(.picking) #chtitle {
 /* neither over the story's text, explore mode (its drawer) or a headset session: gone at once, not faded */
 body.focus:not(.picking):is(.fc-text, .exploring, .xr) :is(#subs, #chtitle) { display: none; }
 body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(var(--fc-top) + 8px); }
+/* phones and tablets (HOST.handheld). The top bar on a narrow screen (#top.slim, under 700 px: the Stories screen, a
+   story with focus mode on or off, explore mode): short labels (AR, VR), the mode button and Install in More (the ⋯ of
+   focus mode, #top.more), and, only while the bar still has no room, in turn: VR, a tighter bar (#top.tight), the
+   Sound button's words (an icon instead: #top.sndico), Shared and then AR (#top .ovf); a wide screen's bar as ever */
+#top .ic, #btnSoundIco { display: none; }
+#top.slim .long { display: none; }
+#top.slim { gap: 6px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+#top .btn.ovf { display: none !important; }
+/* (a tight bar, before anything more goes to More: the ids keep it over focus mode's own spacing) */
+#top.tight:is(#top) { gap: 4px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+#top.tight > .btn:is(#btnOther, #btnShared, #btnSound, #btnAR, #btnVR, #btnMode) { padding-left: 8px; padding-right: 8px; }
+#top.more #fcMore { display: grid; place-items: center; width: 40px; height: 39px; padding: 0; }
+:is(body:not(.focus), body.picking) #top.sndico #btnSound { display: none; }
+:is(body:not(.focus), body.picking) #top.sndico #btnSoundIco:not([hidden]) { display: grid; place-items: center; width: 40px; height: 39px; padding: 0; }
+#btnSoundIco svg { width: 16px; height: 16px; fill: var(--ink); }
+#btnSoundIco svg :is(.w, .x) { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; }
+#btnSoundIco[data-s="off"] svg .w, #btnSoundIco:not([data-s="off"]) svg .x { display: none; }
+#btnSoundIco[data-s="wait"] { border-color: #46d9ff; }
+#btnSoundIco[data-s="wait"] svg .w { opacity: 0.35; }
+/* AR where a phone or tablet has it (Android's Chrome): in focus mode's top bar and the narrow one, with its icon */
+:is(#top.slim, body.focus:not(.picking) #top) #btnAR .ic { display: inline-block; width: 15px; height: 15px; margin: 0 6px 0 0; vertical-align: -3px; }
+body.focus:not(.picking) #top #btnAR { border-color: #46d9ff; }
+/* the AR invitation and the iPhone's Home Screen tip: a small card once per device as a story first opens */
+#hhCard { position: fixed; z-index: 7; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(23rem, calc(100vw - 32px));
+  background: var(--panel-solid); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); font-size: 15px; }
+#hhCard[hidden] { display: none; }
+body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
+#hhCard b { display: block; font-size: 19px; margin-bottom: 4px; }
+#hhCard p { margin: 0 0 12px; color: var(--muted); line-height: 1.4; }
+#hhCard .row { gap: 10px; }
+#hhGo { font-size: 17px; padding: 11px 22px; display: inline-flex; align-items: center; gap: 8px; }
+#hhGo svg { width: 18px; height: 18px; }
+#hhGo[hidden] { display: none; }
+/* touch: the timeline and the bars' controls clear of the screen's edges, where iOS takes a swipe as back (and the
+   bottom one as home): 20 px or more inside the safe areas, the foot bar a little above the home indicator, the focus
+   bar's timeline a taller strip (28 px) that starts 24 px in */
+@media (pointer: coarse) {
+  :root { --fc-bot: calc(56px + env(safe-area-inset-bottom, 0px) + min(8px, env(safe-area-inset-bottom, 0px))); }
+  #bar { padding-left: calc(22px + env(safe-area-inset-left, 0px)); padding-right: calc(22px + env(safe-area-inset-right, 0px)); }
+  body.focus:not(.picking) #bar { padding: 0 calc(20px + env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + min(8px, env(safe-area-inset-bottom, 0px))) calc(20px + env(safe-area-inset-left, 0px)); }
+  body.focus:not(.picking) #track { left: calc(24px + env(safe-area-inset-left, 0px)); right: calc(24px + env(safe-area-inset-right, 0px)); top: -21px; height: 28px; }
+  body.focus:not(.picking) #track .rail, body.focus:not(.picking) #track .done { top: 20px; }
+  body.focus:not(.picking) #track .tick { top: 17px; }
+  body.focus:not(.picking) #track .knob { top: 16px; }
+}
+@media (pointer: coarse) and (max-width: 899px) {
+  #panel { padding-left: calc(22px + env(safe-area-inset-left, 0px)); padding-right: calc(22px + env(safe-area-inset-right, 0px)); }
+}
 @media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading { transition: none; } }
 </style>
 </head>
@@ -536,9 +587,10 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
   <button class="btn" id="btnShared" type="button" data-open-shared aria-expanded="false" aria-controls="shared" title="Shared rooms: several headsets and screens see the same stories">Shared</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
+  <button class="btn" id="btnSoundIco" type="button" data-sfx="none" hidden aria-label="Sound on" title="Sound on"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5h3L8.5 2v12l-4-3.5h-3z"/><path class="w" d="M10.6 5.2a3.6 3.6 0 0 1 0 5.6M12.4 3.3a6.2 6.2 0 0 1 0 9.4"/><path class="x" d="M10.5 5.5l4 5M14.5 5.5l-4 5"/></svg></button>
   <button class="btn" id="btnInstall" type="button" hidden title="Install as an app">Install</button>
-  <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the network floats in your room">Enter AR</button>
-  <button class="btn primary" id="btnVR" type="button" hidden title="View in your VR headset">Enter VR</button>
+  <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the network floats in your room"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7zM2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span class="long">Enter </span>AR</button>
+  <button class="btn primary" id="btnVR" type="button" hidden title="View in your VR headset"><span class="long">Enter </span>VR</button>
   <button class="btn" id="btnMode" type="button">Explore now</button>
   <button class="btn fc" id="fcMore" type="button" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="fcMenu" title="More"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.6"/><circle cx="8" cy="8" r="1.6"/><circle cx="13" cy="8" r="1.6"/></svg></button>
   <div id="fcMenu" hidden></div>
@@ -565,6 +617,12 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
 <!-- focus mode: the narration's words over the 3D, and a chapter's title as it starts (HOST.focus) -->
 <div id="subs" aria-hidden="true"><div></div></div>
 <div id="chtitle" aria-hidden="true"></div>
+<!-- phones and tablets: AR offered once, or on an iPhone the Home Screen for full screen (HOST.handheld) -->
+<div id="hhCard" hidden role="dialog" aria-labelledby="hhTitle" aria-describedby="hhText">
+  <b id="hhTitle"></b>
+  <p id="hhText"></p>
+  <div class="row"><button class="btn primary" id="hhGo" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7zM2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Enter AR</button><button class="btn" id="hhNo" type="button">Not now</button></div>
+</div>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
     <h1 id="pickTitle">Networks, in sixteen stories</h1>
@@ -659,7 +717,7 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
 'use strict';
 // one address for the same page: Quest Browser keeps a shared space per page address, so a headset that opened
 // .../index.html and one that opened .../ might not share one (the folder is served as index.html, also offline)
-if (/\/index\.html$/.test(location.pathname)) history.replaceState(null, '', location.pathname.replace(/index\.html$/, '') + location.search + location.hash);
+if (/\/index\.html$/.test(location.pathname)) history.replaceState(history.state, '', location.pathname.replace(/index\.html$/, '') + location.search + location.hash);
 // The app shell. Each story lives in stories/<name>.js and is loaded when it is
 // first picked. Stories share this page, its renderer and any running headset
 // session, so changing story never ends VR or AR.
@@ -1891,7 +1949,9 @@ HOST.run = function (meta, keepHash, place) {
   // in a shared room, a story started at your station takes the station's place in the headset
   const at = this.collab && this.collab.starting(meta.key);
   if (at) this.xrPose = at;
-  if (!keepHash) history.replaceState(null, '', (this.collab && this.collab.hash()) || '#' + meta.key);
+  // (the address says the story at once, except over the Stories screen, which closes next: closePicker gives the story
+  // a history entry of its own there, HOST.hist)
+  if (!keepHash && !this.picking) this.hist.replace((this.collab && this.collab.hash()) || '#' + meta.key);
   document.getElementById('gl').setAttribute('aria-label', meta.aria);
   document.getElementById('btnAR').title = `Mixed reality: the ${meta.thing} floats in your room`;
   document.getElementById('nogl').textContent = `This ${meta.thing} needs WebGL, which this browser has turned off.`;
@@ -1924,7 +1984,7 @@ HOST.swap = async function (key) {
   if (!fresh || this.curKey !== key || !this.cur) { this.busy = false; this.next(); return false; }
   const place = this.place();
   // (the address as it is, without a deep link's &t= or &explore, which the story would take at its start)
-  history.replaceState(null, '', (this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key));
+  this.hist.replace((this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key));
   this.run(meta, true, place);
   this.swaps = (this.swaps || 0) + 1;
   console.info('Swapped in place: stories/' + key + '.js');
@@ -1962,11 +2022,13 @@ HOST.putPlace = function (P) {
 HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // the address says where you are, so it can be shared: #stories on the Stories
 // screen (page or headset), #airports, #proteins or #spatial in a story; in a shared
-// room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL)
-HOST.setUrl = function (stories) {
+// room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL). It replaces the address, except
+// how = 'push' (the page's Stories screen closing onto a story: an entry of its own, so the back button comes back) and
+// 'back' (the Stories screen opened over such an entry: back to the one under it), HOST.hist
+HOST.setUrl = function (stories, how) {
   this.onStories = !!stories;   // (the Stories screen, page or headset: no story on show, for the menu's Panels row)
   const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey);
-  if (location.hash !== h) history.replaceState(null, '', h);
+  if (!(how && this.hist[how] && this.hist[how](h))) this.hist.replace(h);
   this.chrome(stories);
 };
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
@@ -2145,7 +2207,7 @@ HOST.focus = (function () {
     body.classList.toggle('fc-text', F.on && F.text);
     body.classList.toggle('fc-drawer', F.on && F.drawer);
     pressed(el('fcText'), F.text); pressed(el('fcCtl'), F.drawer); pressed(el('btnFocus'), F.on);
-    if (!F.on || HOST.picking) menu(false);
+    if (!(F.on && !HOST.picking) && !el('top').classList.contains('more')) menu(false);   // (More gone: focus mode off, and a bar with room)
     const v = value();
     // no subtitles and no chapter title over the story's text, explore mode or the Stories screen: gone at once
     if (!v || exploring()) {
@@ -2177,32 +2239,39 @@ HOST.focus = (function () {
     const over = last.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(p).paddingBottom) || 0));
     if (over > 0) p.scrollTop += over;
   }
-  // More: what the top bar has no room for now (the mode button stays there on a wide screen), then Focus view
+  // More (focus mode's, and a narrow top bar's: HOST.handheld): what the top bar has no room for now (the mode button
+  // stays there on a wide screen), then Full screen where the browser has it, and Focus view in a story (the Stories
+  // screen has its own)
   function menu(open) {
     const m = el('fcMenu'), b = el('fcMore');
     if (!open) { if (!m.hidden) { m.hidden = true; b.setAttribute('aria-expanded', 'false'); } return; }
     m.textContent = '';
     const add = (label, data) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; Object.assign(x.dataset, data); m.appendChild(x); return x; };
-    const left = ['btnMode', 'btnAR', 'btnVR', 'btnInstall'].map(el).filter(x => x && !x.hidden && getComputedStyle(x).display === 'none');
+    const left = ['btnShared', 'btnMode', 'btnAR', 'btnVR', 'btnInstall'].map(el).filter(x => x && !x.hidden && getComputedStyle(x).display === 'none');
     for (const x of left) add(x.textContent, { for: x.id });
-    if (left.length) m.appendChild(Object.assign(document.createElement('div'), { className: 'sep' }));
-    add('Focus view: on', { fc: 'off' }).setAttribute('aria-pressed', 'true');
+    const hh = HOST.handheld, more = [];
+    if (hh && hh.fsOK()) more.push([hh.fsOn() ? 'Exit full screen' : 'Full screen', { full: '1' }, hh.fsOn()]);
+    if (!HOST.picking && HOST.curKey) more.push(F.on ? ['Focus view: on', { fc: 'off' }, true] : ['Focus view: off', { fc: 'on' }, false]);
+    if (left.length && more.length) m.appendChild(Object.assign(document.createElement('div'), { className: 'sep' }));
+    for (const [label, data, on] of more) add(label, data).setAttribute('aria-pressed', on ? 'true' : 'false');
     m.hidden = false; b.setAttribute('aria-expanded', 'true');
   }
   function close() {
     if (!el('fcMenu').hidden) { menu(false); return true; }
+    if (HOST.picking) return false;   // (the story's text and explore's drawer are not on show there)
     if (F.text) { text(false); return true; }
     if (F.drawer) { drawer(false); return true; }
     return false;
   }
-  // the foot bar's Sound, as the top bar's button (HOST.audio) says it
+  // the foot bar's Sound, and a narrow top bar's icon for it (HOST.handheld), as the top bar's button (HOST.audio) says it
   function sound() {
     const b = el('btnSound'), s = b.hidden ? '' : b.textContent, p = b.getAttribute('aria-pressed') || 'false', k = s + '|' + p + '|' + b.title;
     if (k === F.snd) return;
     F.snd = k;
-    const f = el('fcSound');
-    f.hidden = !s; f.dataset.s = s === 'Sound on' ? 'on' : s === 'Sound off' ? 'off' : 'wait';
-    f.setAttribute('aria-label', s || 'Sound'); f.title = b.title || s; f.setAttribute('aria-pressed', p);
+    for (const f of [el('fcSound'), el('btnSoundIco')]) {
+      f.hidden = !s; f.dataset.s = s === 'Sound on' ? 'on' : s === 'Sound off' ? 'off' : 'wait';
+      f.setAttribute('aria-label', s || 'Sound'); f.title = b.title || s; f.setAttribute('aria-pressed', p);
+    }
   }
   // the subtitles: the caption in the strip, at most two lines (its type smaller, down to about three quarters, before a
   // third)
@@ -2232,8 +2301,8 @@ HOST.focus = (function () {
     const dt = F.t ? Math.min(0.1, Math.max(0, (now - F.t) / 1000)) : 0;
     F.t = now;
     check();
-    if (!F.on) return;
     sound();
+    if (!F.on) return;
     const A = app(), picking = HOST.picking, story = !!A && A.mode === 'story' && built();
     const ch = story ? chapters() : null, i = ch ? chAt(ch, +A.t || 0) : -1, on = !!ch && value() && !document.hidden;
     if (ch) { const n = el('fcName'), name = String(ch[i].name || ''); if (n.textContent !== name) n.textContent = name; }
@@ -2264,6 +2333,7 @@ HOST.focus = (function () {
   el('fcPrev').addEventListener('click', () => chapter(-1));
   el('fcNext').addEventListener('click', () => chapter(1));
   el('fcSound').addEventListener('click', () => el('btnSound').click());
+  el('btnSoundIco').addEventListener('click', () => el('btnSound').click());
   el('fcText').addEventListener('click', () => text(!F.text));
   el('fcCtl').addEventListener('click', () => drawer(!F.drawer));
   el('fcHandle').addEventListener('click', () => drawer(false));
@@ -2272,7 +2342,8 @@ HOST.focus = (function () {
     const b = ev.target.closest('button');
     if (!b) return;
     menu(false);
-    if (b.dataset.fc === 'off') { b.setAttribute('aria-pressed', 'false'); set(false); return; }
+    if (b.dataset.fc) { const on = b.dataset.fc === 'on'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); set(on); return; }
+    if (b.dataset.full) { HOST.handheld.fullscreen(); return; }   // (within the tap: the browser asks for one)
     const o = el(b.dataset.for);
     if (o) o.click();
   });
@@ -2296,6 +2367,184 @@ HOST.focus = (function () {
     state: () => ({ on: F.on, text: F.text, drawer: F.drawer, value: value(), sub: F.sub.shown, subA: F.sub.a, title: F.title ? el('chtitle').textContent : '' }),
   });
 })();
+// ------------------------------------------------------------------ phones and tablets --
+// Phones and tablets (the owner, 3 November 2026: AR more prominent where a phone has it, a top bar that fits a phone,
+// the back button, full screen, edges clear of iOS's gestures; HOST.handheld). A phone or tablet is focus mode's test: a
+// coarse pointer and a screen whose smaller side is at most 1100 px, never a headset's browser.
+//  - The top bar fits the screen (fit, on any page): under 700 px wide (#top.slim) short labels (AR, VR) and the mode
+//    button and Install in More (focus mode's ⋯, #top.more); then, only while the bar still has no room (its buttons are
+//    never squeezed, and the title keeps 72 px or its own width): VR goes to More, the bar tightens its spacing
+//    (#top.tight), the Sound button's words give way to an icon (#top.sndico), then Shared and AR go to More (#top .ovf).
+//    A wide screen's bar as ever.
+//  - AR where the phone or tablet has it (isSessionSupported('immersive-ar'): Android's Chrome with ARCore; never an
+//    iPhone or iPad): Enter AR shown (the stories show it only beside VR), in focus mode's slim top bar too, and once per
+//    device (arInvite in localStorage) a small card a few seconds after a story first opens: See it in your room, Enter
+//    AR or Not now.
+//  - Full screen through the Fullscreen API (Android's Chrome, iPad's Safari, desktops): asked for within the tap that
+//    opens a story from the Stories screen on a phone or tablet (storyTap; a refusal is quiet), and Full screen / Exit
+//    full screen in More. Never while a headset session runs or is being asked for (Enter VR or AR pressed in the last
+//    8 s), and never by itself again: a person who left it gets it back only by opening a story from the Stories screen
+//    or from More.
+//  - An iPhone (Safari has no full screen but a video's) not opened from the Home Screen: once per device (homeTip) a
+//    small card as a story first opens says how to add it there (installed, it opens without Safari's bars).
+// Untested on real phones and tablets: only in headless Chromium with touch emulated and these APIs stubbed.
+HOST.handheld = (function () {
+  const el = id => document.getElementById(id), body = document.body, de = document.documentElement, ua = navigator.userAgent;
+  const headset = /OculusBrowser|Quest|Pico|Wolvic/i.test(ua), iphone = /iPhone|iPod/.test(ua);
+  let hand = false, small = false;
+  try { const m = Math.min(screen.width, screen.height); hand = !headset && matchMedia('(pointer: coarse)').matches && m <= 1100; small = m < 600; } catch (e) { /* no media queries */ }
+  const H = { ar: false, xrAt: -1e9, asks: 0, card: '', ready: 0, wait: 3500, t: 0, mem: {} };
+  const get = k => { if (H.mem[k]) return H.mem[k]; try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const put = (k, v) => { H.mem[k] = v; try { localStorage.setItem(k, v); } catch (e) { /* storage blocked: this page only */ } };
+  const standalone = () => { try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || (!fsOn() && matchMedia('(display-mode: fullscreen)').matches); } catch (e) { return false; } };
+  const xrBusy = () => !!HOST.session || !!(HOST.renderer && HOST.renderer.xr && HOST.renderer.xr.isPresenting) || performance.now() - H.xrAt < 8000;
+
+  // ---- full screen
+  const fsOK = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !!(de.requestFullscreen || de.webkitRequestFullscreen);
+  const fsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  function fsAsk() {
+    if (!fsOK() || fsOn() || xrBusy()) return false;
+    H.asks++;
+    try {
+      const p = de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }) : de.webkitRequestFullscreen();
+      if (p && p.catch) p.catch(() => {});   // (refused, or not within a tap: quietly)
+    } catch (e) { return false; }
+    return true;
+  }
+  function fsLeave() {
+    try { const p = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not in full screen */ }
+  }
+  const fullscreen = on => { if (on === undefined ? !fsOn() : on) fsAsk(); else fsLeave(); };
+  // a story opened from the Stories screen (within the card's tap)
+  const storyTap = () => { if (hand) fsAsk(); };
+  // Enter VR or AR pressed (the tap goes on to the story's xrStart): no full screen asked for meanwhile
+  document.addEventListener('click', ev => { if (ev.target.closest && ev.target.closest('#btnAR, #btnVR, #hhGo')) H.xrAt = performance.now(); }, true);
+
+  // ---- the card: AR offered once, or the iPhone's Home Screen tip once, a few seconds after a story first opens
+  const thing = () => { const m = HOST.meta(HOST.curKey); return (m && m.thing) || 'network'; };
+  function cardShow(kind) {
+    const ar = kind === 'ar';
+    H.card = kind;
+    el('hhTitle').textContent = ar ? 'See it in your room' : 'Full screen';
+    el('hhText').textContent = ar ? `Your ${small ? 'phone' : 'tablet'} can place the ${thing()} in the room around you, through its camera: walk round it and look from every side.`
+      : 'For full screen, add this to your Home Screen: Share, then Add to Home Screen.';
+    el('hhGo').hidden = !ar;
+    el('hhNo').textContent = ar ? 'Not now' : 'OK';
+    el('hhCard').hidden = false;
+  }
+  function cardHide() { if (!H.card) return false; H.card = ''; el('hhCard').hidden = true; return true; }
+  const due = () => (hand && H.ar && !get('arInvite') ? 'ar' : iphone && !standalone() && !fsOK() && !get('homeTip') ? 'home' : '');
+  const built = () => { try { return !!(HOST.cur && HOST.cur.collab.scene()) && el('loading').classList.contains('gone'); } catch (e) { return false; } };
+  function step() {
+    if (H.card) { if (xrBusy() || HOST.picking) cardHide(); return true; }
+    const k = due();
+    if (!k) return false;
+    if (!(HOST.curKey && !HOST.picking && !xrBusy() && !document.hidden && el('shared').hidden && built())) { H.ready = 0; return true; }
+    const now = performance.now();
+    if (!H.ready) H.ready = now;
+    if (now - H.ready >= H.wait) { put(k === 'ar' ? 'arInvite' : 'homeTip', 'shown'); H.ready = 0; cardShow(k); }   // (once shown, never again here)
+    return true;
+  }
+  function tick() { H.t = step() ? setTimeout(tick, 400) : 0; }
+  const kick = () => { if (!H.t) tick(); };
+  el('hhGo').addEventListener('click', () => { cardHide(); el('btnAR').click(); });
+  el('hhNo').addEventListener('click', () => cardHide());
+  if (hand && navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported('immersive-ar').then(ok => { if (!ok) return; H.ar = true; el('btnAR').hidden = false; kick(); }).catch(() => {});
+  }
+
+  // ---- the top bar: what has no room goes to More
+  const top = el('top'), brand = top.querySelector('.brand');
+  const fits = () => top.scrollWidth <= top.clientWidth + 0.5 && brand.clientWidth + 0.5 >= Math.min(brand.scrollWidth, 72);
+  let watch = null;
+  function fit() {
+    const slim = innerWidth < 700, fcs = body.classList.contains('focus') && !body.classList.contains('picking');
+    top.classList.toggle('slim', slim);
+    top.classList.remove('sndico', 'tight');
+    for (const b of top.querySelectorAll('.ovf')) b.classList.remove('ovf');
+    if (slim) for (const id of ['btnMode', 'btnInstall']) el(id).classList.add('ovf');
+    top.classList.toggle('more', slim || fcs);
+    if (!fits()) {
+      top.classList.add('more');
+      for (const f of [() => el('btnVR').classList.add('ovf'), () => top.classList.add('tight'), () => top.classList.add('sndico'), () => el('btnShared').classList.add('ovf'), () => el('btnAR').classList.add('ovf')]) { f(); if (fits()) break; }
+    }
+    if (watch) watch.takeRecords();   // (its own changes)
+  }
+  // the bar's buttons shown, hidden or relabelled (the sound, Shared's room, the mode, the story's title), focus mode and
+  // the Stories screen, the window's size and the font's arrival
+  // (not More's own menu, and not a text put back as it was: HOST.audio writes the Sound button's words now and then)
+  const same = r => r.type === 'childList' && r.addedNodes.length === 1 && r.removedNodes.length === 1 && r.addedNodes[0].textContent === r.removedNodes[0].textContent;
+  watch = new MutationObserver(rs => { if (rs.some(r => !el('fcMenu').contains(r.target) && !same(r))) fit(); });
+  watch.observe(top, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+  new MutationObserver(fit).observe(body, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  fit();
+  kick();
+  return {
+    hand, iphone, fsOK, fsOn, fullscreen, storyTap, fit, close: cardHide,
+    // for tests: what it knows and did; how long a story shows before the card (ms)
+    state: () => ({ hand, iphone, ar: H.ar, asks: H.asks, card: H.card, standalone: standalone(), fs: fsOn(), due: due() }),
+    cardWait(ms) { H.wait = ms; kick(); },
+  };
+})();
+// ------------------------------------------------------------------ the back button --
+// The address mirrors where you are (HOST.setUrl) by replacing it, except that a story opened from the page's Stories
+// screen (the picker closing onto a story, outside a headset) gets a history entry of its own (nwUp in its state), so
+// the back button (Android's back, iOS's swipe, a desktop's) comes back to the Stories screen; the Stories button there
+// goes back to that entry too, so entries never pile up. Back first closes what is open (the Shared dialog, the card of
+// HOST.handheld, More, the story's Text, explore's drawer) and stays where it was (its entry put back); on the Stories
+// screen, and in a story opened by a link, back leaves as ever; forward from the Stories screen goes back into the
+// story. No entry per chapter or explore change; a shared room's address (#s=XYZ) stays on both entries. In a headset
+// session and a headset's browser nothing changes (the address replaced, back as it was). In full screen the browser
+// leaves it on back first, by itself.
+HOST.hist = (function () {
+  const H = { url: location.href, up: false, len: history.length, self: 0, selfT: 0, fwd: 0, pops: 0 };
+  const DOC = Math.random().toString(36).slice(2, 10);   // (this page's entries: a reload is another page)
+  const entry = () => ({ nwUp: 1, key: HOST.curKey, doc: DOC });
+  const headset = /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
+  const ok = () => !headset && !HOST.session && !(HOST.renderer && HOST.renderer.xr && HOST.renderer.xr.isPresenting);
+  function note() { H.url = location.href; H.up = !!(history.state && history.state.nwUp); H.len = history.length; }
+  note();
+  function replace(h) { if (location.hash !== h) history.replaceState(history.state, '', h); note(); return true; }
+  function push(h) {
+    if (H.fwd) { H.fwd = 0; return false; }   // (forward into the story's entry: it is there already)
+    if (H.self) return true;                  // (on its way back to the Stories screen's entry: the story's comes again there)
+    if (!ok()) return false;
+    try { history.pushState(entry(), '', h); } catch (e) { return false; }   // (Safari limits how often)
+    note();
+    return true;
+  }
+  function back(h) {
+    if (H.self) return true;
+    if (!H.up || !ok()) return false;
+    // an entry a page before a reload made: the one under it is that page's, and going back would load it again
+    if (history.state.doc !== DOC) { history.replaceState(null, '', h); note(); return true; }
+    H.self = 1; clearTimeout(H.selfT);
+    H.selfT = setTimeout(() => { if (H.self) { H.self = 0; HOST.setUrl(HOST.picking); } }, 1500);   // (no step back came)
+    history.back();
+    return true;
+  }
+  // what back closes first: true when it closed something
+  function closeOne() {
+    if (!document.getElementById('shared').hidden && HOST.collab) { HOST.collab.dialog(false); return true; }
+    if (HOST.handheld && HOST.handheld.close()) return true;
+    return !!(HOST.focus && HOST.focus.close());
+  }
+  addEventListener('popstate', () => {
+    const was = H.url, wasUp = H.up, grew = history.length > H.len;
+    note();
+    // our own step back (the Stories button); the Stories screen closed again meanwhile: the story's entry again
+    if (H.self) { H.self = 0; clearTimeout(H.selfT); HOST.setUrl(HOST.picking, HOST.picking ? '' : 'push'); return; }
+    if (!ok() || grew) return;   // a headset (as ever); an address typed in or a link followed (a new entry): nothing changes
+    H.pops++;
+    if (closeOne()) { try { history.pushState(wasUp ? entry() : null, '', was); } catch (e) { /* a step back */ } note(); return; }
+    if (wasUp && !HOST.picking) { HOST.openPicker(); return; }
+    if (H.up && HOST.picking && HOST.cur && history.state.key === HOST.curKey) { H.fwd = 1; HOST.closePicker(); return; }
+    HOST.setUrl(HOST.picking);
+  });
+  return { replace, push, back, closeOne, state: () => ({ up: H.up, self: H.self, pops: H.pops, len: history.length }) };
+})();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on
 // the last picture) and the story should just stop, false that it opens explore mode as usual
 HOST.ended = function () {
@@ -2316,7 +2565,7 @@ HOST.openPicker = function () {
   const pk = document.getElementById('picker');
   if (!pk.hidden) return;
   pk.hidden = false; document.body.classList.add('picking');
-  HOST.setUrl(true);
+  HOST.setUrl(true, 'back');
   window.dispatchEvent(new Event('storypause'));
   HOST.reloadIfUpdated();
   setTimeout(() => (pk.querySelector('.card.here') || pk.querySelector('.card')).focus(), 200);
@@ -2326,7 +2575,7 @@ HOST.closePicker = function () {
   if (pk.hidden) return;
   pk.hidden = true; document.body.classList.remove('picking');
   HOST.soundCheck(false);
-  HOST.setUrl(false);
+  HOST.setUrl(false, 'push');
 };
 // ---------------------------------------------------------------- hot reload and live updates --
 // The app follows its files while it runs (AGENTS.md, "Hot reload and live updates"):
@@ -2768,6 +3017,7 @@ HOST.cards = function () {
     }
     const c = ev.target.closest('[data-story]');
     if (!c) return;
+    HOST.handheld.storyTap();   // (a phone or tablet: full screen, asked for within the tap)
     if (HOST.collab && HOST.collab.allPick && HOST.collab.allPick(c.dataset.story)) return;   // (following an All stories circle: its pick)
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
   });
@@ -2778,6 +3028,7 @@ HOST.cards = function () {
   document.getElementById('btnOther').addEventListener('click', () => HOST.openPicker());
   // top-bar buttons close the start screen; Enter VR/AR leaves it to the headset, which then shows the Stories menu
   document.getElementById('top').addEventListener('click', ev => {
+    if (ev.target.closest('#fcMore, #fcMenu')) return;   // (More and its menu: an item passes the click on to its button)
     // in a shared room the headset goes straight to the stations, not to the Stories menu
     if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking) { if (HOST.collab.joined) HOST.closePicker(); else HOST.landingVR = true; } return; }
     if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
@@ -2785,8 +3036,8 @@ HOST.cards = function () {
   });
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
-    // (in focus mode, More, the story's text or explore's drawer close first)
-    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (HOST.picking || !HOST.focus.close()) HOST.closePicker();
+    // (the card of HOST.handheld, More, and in focus mode the story's text or explore's drawer close first)
+    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (!HOST.handheld.close() && !HOST.focus.close() && HOST.picking) HOST.closePicker();
   });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
