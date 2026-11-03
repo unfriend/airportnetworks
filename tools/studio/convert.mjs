@@ -285,10 +285,14 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
     return true;
   };
   let drawn = 0;
+  const clear = new Set();
   wrap.traverse(o => {
     if (!o.isMesh) return;
     const ms = [].concat(o.material).map(toStd);
     o.material = Array.isArray(o.material) ? ms : ms[0];
+    // a material wholly see-through with nothing to see through it by (no alpha map) is an exporter's quirk, not a wish:
+    // 3ds Max writes Opacity 0 for an opaque one (the figure's), and three.js's FBX loader would draw nothing at all
+    for (const m of ms) if (m.opacity <= 0.01 && !m.alphaMap) { m.opacity = 1; m.transparent = false; clear.add(m.name || 'a material'); }
     for (const m of ms) for (const k of ['map', 'normalMap', 'emissiveMap', 'aoMap', 'alphaMap', 'roughnessMap', 'metalnessMap']) {
       const t = m[k];
       if (!t || !t.isTexture) continue;
@@ -304,6 +308,7 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
     }
   });
   if (drawn) notes.push(`${drawn} texture${drawn > 1 ? 's' : ''} drawn down to ${maxTex} px on the longer side`);
+  if (clear.size) notes.push(`made opaque: ${[...clear].join(', ')} (its opacity was 0, which would show nothing: an exporter's quirk)`);
 
   // ---- corners welded: a vertex for every distinct corner (all its attributes the same), and an index
   if (weld) {
@@ -434,7 +439,17 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
     const W = 320, H = 200, r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
     r.setPixelRatio(1); r.setSize(W, H, false); r.outputEncoding = T.sRGBEncoding;
     wrap.traverse(o => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap']) if (m[k]) { m[k].encoding = T.sRGBEncoding; m.needsUpdate = true; } });
-    const box = new T.Box3().setFromObject(wrap), c = box.getCenter(new T.Vector3()), R = Math.max(1e-3, box.getSize(new T.Vector3()).length() / 2);
+    // (framed on what is drawn: a skinned mesh by its corners as skinned, which its geometry's box does not follow)
+    const box = new T.Box3(), v = new T.Vector3();
+    wrap.updateMatrixWorld(true);
+    wrap.traverse(o => {
+      if (!o.isMesh) return;
+      if (!o.isSkinnedMesh) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); return; }
+      o.skeleton.update();
+      const n = o.geometry.attributes.position.count;
+      for (let i = 0; i < n; i += Math.max(1, Math.floor(n / 5000))) box.expandByPoint(o.boneTransform(i, v).applyMatrix4(o.matrixWorld));
+    });
+    const c = box.getCenter(new T.Vector3()), R = Math.max(1e-3, box.getSize(new T.Vector3()).length() / 2);
     const cam = new T.PerspectiveCamera(50, W / H, R / 200, R * 20), dirs = [[1, 0.7, 1.2], [-1.2, 0.5, -0.8], [0.15, 1.6, 0.25]];
     const draw = obj => dirs.map(d => {
       const sc = new T.Scene(), parent = obj.parent;
