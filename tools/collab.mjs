@@ -1406,12 +1406,21 @@ async function headsetRound(dir) {
       a1 && a2 && ra.rings.every(Boolean) && keptR.join() === 'all,true' && !rb.some(Boolean) && !wroteR.length && !Object.keys((await roomInfo(rc)).keys).some(k => /ring/i.test(k)), JSON.stringify({ ra, keptR, rb, wroteR }));
     // a ray resting on another station's icon: its card while it points, still there a second after, gone a few seconds
     // later (the icon stays); the trigger there runs nothing (walk into its circle)
+    // (the pretend session never presents, so the story's xrUpdate, which hides the Stories screen's cards every frame in
+    // a headset, runs only when asked: its two rows at 1.25 m would otherwise stand in the ray's way as last shown)
+    await H.evaluate(() => HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'));
     const at2 = await ringAt(H, S2.id), on2 = await pointAt(H, at2);
     const shown2 = on2 === S2.id && await until(H, ([a, b]) => { window.__xr.step(); const O = HOST.collab.overlay(), c = O.cards.get(a), o = O.rings.get(a);
       return !!c && c.mesh.visible && c.mesh.material.opacity > 0.95 && O.hit.includes(c.mesh) && o.icon.k > 0.9 && !O.cards.get(b).mesh.visible && O.rings.get(b).icon.k > 0.9; }, [S2.id, S3.id], 10000);
     const d2 = await H.evaluate(([a, b]) => { const O = HOST.collab.overlay(), c = O.cards.get(a), h = HOST.collab.internals().hov.get(0);
       return { vis: c && c.mesh.visible, op: c && +c.mesh.material.opacity.toFixed(2), hit: c && O.hit.includes(c.mesh), k: +O.rings.get(a).icon.k.toFixed(2), peek: O.rings.get(a).peek,
-        other: O.cards.get(b) && O.cards.get(b).mesh.visible, ok: +O.rings.get(b).icon.k.toFixed(2), hov: h && h.target, age: h && performance.now() - h.at }; }, [S2.id, S3.id]);
+        other: O.cards.get(b) && O.cards.get(b).mesh.visible, ok: +O.rings.get(b).icon.k.toFixed(2), hov: h && h.target, age: h && performance.now() - h.at,
+        ray: (r => r && { near: r.near, n: r.n, o: r.o.toArray().map(v => +v.toFixed(2)), d: r.d.toArray().map(v => +v.toFixed(2)) })(HOST.collab.internals().rays.get(0)),
+        root: !!(O.root && O.root.visible && O.root.parent), ball: (b => b && b.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)))(O.rings.get(a).ball),
+        inHit: O.hit.includes(O.rings.get(a).ball), mode: HOST.cur.peek('APP.mode'), panels: HOST.cur.peek('[XR.main.mesh.visible, XR.foot.mesh.visible]'),
+        phit: HOST.cur.peek('XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false).map(h => [XR.panels.indexOf(XR.panels.find(q => q.mesh === h.object)), h.object === XR.main.mesh ? "main" : h.object === XR.foot.mesh ? "foot" : "?", +h.distance.toFixed(2)])'),
+        mainAt: HOST.cur.peek('XR.main.mesh.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2))'), footAt: HOST.cur.peek('XR.foot.mesh.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2))'),
+        rig: HOST.cur.peek('[GL.rig.position.x, GL.rig.position.y, GL.rig.position.z].map(v => +v.toFixed(2))'), cm: HOST.cur.peek('XR.cm'), st: HOST.collab.val('st.' + HOST.collab.mine() + '.panel') }; }, [S2.id, S3.id]);
     if (dir) { await headView(H, path.join(dir, 'round-2-pointed.png'), -0.55, -0.25, [960, 600]); await pointAt(H, at2); }   // (drawing took a while: pointed at again)
     await H.evaluate(() => window.__xr.ctrl(0, null));
     const t0 = Date.now();
@@ -1719,8 +1728,9 @@ async function allRound() {
       why: await H.evaluate(() => { const C = HOST.collab.internals(), R = HOST.room.internals(); return { auto: C.autoAll, allpFor: C.allpFor, code: C.code, allpAt: C.allpAt, welcomed: C.welcomed, session: !!R.session, aligned: R.aligned, headOK: R.headOK,
         locked: HOST.collab.locked, arc: HOST.collab.arc(), mode: HOST.mode, hereSet: C.hereSet, failed: window.__collabLog.filter(e => e.ev === 'frame failed').slice(-2),
         notYet: window.__collabLog.filter(e => e.ev === 'all stories not yet').slice(-3), n: window.__collabLog.filter(e => e.ev === 'all stories not yet').length }; }) }));
-  // at it without walking in (1.2 m from its spot): its cards (the single-player Stories screen) there, the scene hidden,
-  // nothing of it drawn, the rig at its spot, its presence there, nothing synced
+  // at it without walking in (it stands where the headset stands, and zoneStep never walks into it): its cards (the
+  // single-player Stories screen) there, the scene hidden, nothing of it drawn, the rig at its spot, its presence there,
+  // nothing synced
   await stepUntil(id => HOST.collab.mine() === id && HOST.cur.peek('XR.stories'), AID, 8000);
   await frames(H, 800);
   const ALs = await H.evaluate(() => HOST.collab.arc());
@@ -1729,12 +1739,12 @@ async function allRound() {
     const O = HOST.collab.overlay(), o = O.rings.get(id), cd = O.cards.get(id);
     return { mine: HOST.collab.mine(), cards: HOST.room.cards(), here: HOST.room.allHere(), away: HOST.room.away(), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'),
       land: HOST.cur.peek('XR.land.slice(1).every(P => P.mesh.visible)'), back: HOST.cur.peek('!!XR.land[0].regions.find(r => r.id === "back")'),
-      drawn: (!!o && (o.ring.visible || o.icon.g.visible)) || !!(cd && cd.mesh.visible) };
+      drawn: (!!o && (o.ring.visible || o.icon.g.visible)) || !!(cd && cd.mesh.visible), zone: HOST.collab.internals().zone };
   }, AID);
   const rig = await rigOf(H), rw = rigAt(ALs), pres = await until(A, ([id, st]) => (HOST.collab.people().get(id) || {}).st === st, [hId, AID], 3000), quiet = await keysOf(A, AID);
-  check('arc: the headset is at the arc without walking in (1.2 m from its spot): its cards in front (no Back), the scene hidden, no ring, card or icon for it, the rig at its spot, its presence there, nothing synced',
+  check('arc: the headset is at the arc without walking in (standing at its spot, never walked into): its cards in front (no Back), the scene hidden, no ring, card or icon for it, the rig at its spot, its presence there, nothing synced',
     c1.mine === AID && c1.cards && c1.here && !c1.away && c1.stories && !c1.world && c1.land && !c1.back && !c1.drawn && dist(rig.slice(0, 3), rw.slice(0, 3)) < 0.02 && angle(rig[3], rw[3]) < 0.02 &&
-    Math.hypot(HEAD.x - ALs.x, HEAD.z - ALs.z) > 1.1 && pres && !quiet.length, JSON.stringify({ c1, rig, rw, pres, quiet }));
+    c1.zone !== AID && pres && !quiet.length, JSON.stringify({ c1, rig, rw, pres, quiet }));
   if (shots) { fs.mkdirSync(shots, { recursive: true }); await headView(H, path.join(shots, 'all-1-arc.png'), HEAD.yaw, -0.08, [1280, 800]); }   // (the arc's cards, as the first headset sees them)
   // a card pressed on the headset (its landing card's region) picks that story for everyone at the arc: the pages too
   await redraw();
@@ -1785,8 +1795,11 @@ async function allRound() {
   const dr = await DRAG(H, [P(g0, 1.4, 0), P(g0, 1.4, 1.1)], 1500), held = await seenHeld;
   const landed = await until(A, ([id, s]) => { const v = HOST.collab.val('st.' + id); return !!v && v.h === undefined && v.arc === true && Math.abs(v.x - s.x) < 0.002 && Math.abs(v.z - s.z) < 0.002; }, [AID, dr.s], 5000) &&
     await until(B, ([id, s]) => { const v = HOST.collab.station(id); return !!v && Math.abs(v.x - s.x) < 0.002 && Math.abs(v.z - s.z) < 0.002; }, [AID, dr.s], 5000);
+  // (the arc stands where the headset stands, so the hand is at its spot: pointing to the side swings it round the hand,
+  // and the point held, 1.4 m ahead of its spot, stays under the ray: seen from the head, it lies where the ray went)
+  const hp = P(dr.s, 1.4, 0), fa = P(g0, 1.4, 1.1), under = angle(Math.atan2(hp[0] - HEAD.x, hp[2] - HEAD.z), Math.atan2(fa[0] - HEAD.x, fa[2] - HEAD.z));
   check('arc: the grip on its cards carries it for everyone (out to the room while held, then where it was let go, still the arc), swung round with the pointing',
-    dr.grabbed === AID && dr.after === '' && held > 0 && landed && Math.hypot(dr.s.x - g0.x, dr.s.z - g0.z) > 0.2 && angle(dr.s.yaw, g0.yaw) > 0.15 && dr.s.arc === true, JSON.stringify({ dr, held, landed, g0 }));
+    dr.grabbed === AID && dr.after === '' && held > 0 && landed && angle(dr.s.yaw, g0.yaw) > 0.15 && under < 0.15 && dr.s.arc === true, JSON.stringify({ dr, held, landed, g0, under }));
   // the room map moves it too, and the headset's cards glide there (the rig, frame by frame)
   const mp = await A.evaluate(async id => {
     HOST.collab.dialog(true);
@@ -3645,7 +3658,8 @@ try {
     await steps(25);
     out.handClosed = !HOST.collab.menu;
     const pinch = src => X.fire('selectstart', { inputSource: src });
-    pinch(left); await steps(1); await wait(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
+    // (no frame stepped between the two: on a loaded machine one step can take longer than the 0.4 s a double pinch has)
+    pinch(left); await wait(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
     pinch(left); await wait(120); pinch(left); await steps(2); out.pinch2Closed = !HOST.collab.menu;
     pinch(left); await wait(700); out.pinch1 = HOST.collab.menu;
     pinch(left); await wait(600); pinch(left); await steps(2); out.pinchSlow = HOST.collab.menu;
