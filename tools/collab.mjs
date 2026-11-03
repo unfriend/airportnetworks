@@ -53,9 +53,11 @@
 // with no ts gliding; one for another story moving nothing; a held grip writing at most 16 place values a second);
 // --all only the All stories and Back to the lobby circles (allRound: a room of its own; the first headset's circle, its
 // cards, a pick for everyone there, its switch joining the room's circle of that story, the lobby, Arrange all);
-// --guide only the room setup guide and Touch the spot (guideRound: a room of its own with two pretend headsets; the
-// guide opening by itself on the second the first time, its pages, two checks 3 cm and 40 cm apart, one alone, the
-// laptop's Setting up a room; with --shots its pictures);
+// --guide only the room setup guide, its startup flow and the checks (guideRound: a room of its own with two pretend
+// headsets; the flow opening by itself every session, Skip for now, its pages, two checks with someone 3 cm and 40 cm
+// apart, one alone; the first headset's calibration on two spots setting the room, the second straight to Check, checks
+// on their own at spot A and B, green and red, Calibrate from Line up; the laptop's Setting up a room; with --shots its
+// pictures);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -2032,16 +2034,21 @@ async function smoothRound() {
   }
 }
 
-// ---- the room setup guide (v107; --guide runs only this, a room of its own, a few minutes): a page starts a room with
-// one station; the first pretend headset enters AR alone and becomes the room's origin (Room ready; the guide does not
-// open by itself: no other headset); the second, more than 10 s later, lines up through the shared space and its guide
-// opens by itself at Line up (once on this device, roomGuide); its pages (Back, Next, Close, the live status, the
-// headsets lined up); the laptop's Setting up a room lists both headsets as they line up; Touch the spot with the two tips
-// 3 cm apart (green on both, the page's list saying checked 3 cm), then 40 cm apart (red on both, the last page opened by
-// itself); a check alone timing out (its window shortened); the second headset back with no shared space opening the
-// last page by itself once it is not lined up (shortened), and back again lined up, the guide not opening by itself.
-// With --shots its pictures: guide-*.png (the menu's canvas on each page, waiting, green, red, the Circles tab, alone, no
-// shared space; the laptop's Setting up a room, green and red)
+// ---- the room setup guide and the startup flow (v107, v109; --guide runs only this, a room of its own, five minutes or
+// so): a page starts a room with one station. The first pretend headset enters AR alone: the flow opens by itself at Line
+// up, as the room's first headset with no spots yet (pick two and calibrate), and Skip for now closes it and the menu;
+// it becomes the room's origin (Room ready). The second lines up through the shared space and its flow opens at Line up
+// (no spots yet: check with someone, or calibrate); its pages (Back, Next, Skip for now, Room setup opening it again where
+// it was, Close, the live status, the headsets lined up); the laptop's Setting up a room lists both, not checked yet;
+// Touch the spot with the two tips 3 cm apart (green on both, checked 3 cm), then 40 cm apart (red on both, the last
+// page opened by itself); a check alone timing out; the second back with no shared space: its flow skipped, the last
+// page opens by itself once it is late; back in the shared space, the flow again (every session). Then the spots: the
+// first headset calibrates on two from Line up (its calibration sets the room: rm and a frame from the spots for the
+// space), Check at A 3 cm off, green, the flow done; the second, taking that frame through the shared space, is asked once
+// more, at Check; entering again, its flow goes straight to Check, Check at A 3 cm off: green, the guide and the menu
+// close; 40 cm off: red, back to Line up; Calibrate there on the spots, on to Check by itself, Check at B: green; the
+// laptop's list says checked at which spot. With --shots its pictures: guide-*.png (the menu's canvas on each page and
+// case, waiting, green, red, the Circles tab, alone, no shared space, calibrating; the laptop's Setting up a room)
 async function guideRound() {
   const A = await open('#stories');
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
@@ -2065,11 +2072,14 @@ async function guideRound() {
     return ok;
   };
   const pres = P => P.evaluate(() => [...HOST.collab.people()].map(([id, Q]) => [id, Q.lu, Q.al, !!Q.head, Math.round(performance.now() - Q.at)]));
-  const G = H => H.evaluate(() => Object.assign(HOST.collab.guide(), { menu: HOST.collab.menu, tab: HOST.collab.menuTab(), local: localStorage.getItem('roomGuide') }));
+  const G = H => H.evaluate(() => Object.assign(HOST.collab.guide(), { menu: HOST.collab.menu, tab: HOST.collab.menuTab(), local: localStorage.getItem('roomGuide'), src: HOST.room.src }));
   const tap = (H, id) => H.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
     for (let k = 0; k < 2; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); } return ok; }, id);
   const has = (H, id) => H.evaluate(id => { const r = HOST.collab.menuFind(id); return r ? !!r.fn : null; }, id);
   const listText = () => A.evaluate(() => [...document.querySelectorAll('#shared .sh-lu li')].map(li => li.className + ': ' + li.textContent));
+  // (what the laptop and the headsets say when its list is not as expected)
+  const hs = H => H.evaluate(() => { const C = HOST.collab.internals(); return [HOST.collab.id, HOST.room.aligned, HOST.collab.status, C.ws && C.ws.readyState, Math.round(performance.now() - C.presAt), Math.round(performance.now() - (C.tickAt || 0)), window.__collabLog.slice(-8).map(e => e.ev)]; });
+  const diag = async () => JSON.stringify([await listText(), await pres(A), await A.evaluate(() => [HOST.collab.status, HOST.collab.id, Math.round(performance.now()), window.__collabLog.slice(-8).map(e => e.ev)]), await hs(H1), await hs(H2)]);
   const lu = re => new RegExp(re).test([...document.querySelectorAll('#shared .sh-lu li')].map(li => li.textContent).join('|'));
   const listed = re => bothUntil(A, lu, re.source, 15000);
   const menuPic = async (H, file) => {
@@ -2082,133 +2092,248 @@ async function guideRound() {
     if (!shots) return;
     await A.setViewportSize({ width: 820, height: 800 });
     const go = Promise.all([run(H1, 15000), run(H2, 15000)]);
-    await until(A, lu, re.source, 15000);
+    // (once it says so, the presence it shows is held for the picture: pages drawing in software send theirs every few
+    // seconds, and a list read a moment later may already have lapsed)
+    const said = await until(A, re => { const ok = new RegExp(re).test([...document.querySelectorAll('#shared .sh-lu li')].map(li => li.textContent).join('|'));
+      if (ok) for (const P of HOST.collab.internals().pres.values()) P.at = performance.now() + 20000;
+      return ok; }, re.source, 15000);
+    if (!said) console.log(`  (${file}: the list did not say ${re.source} within 15 s: ${await diag()})`);
     const clip = await A.evaluate(() => { const ul = document.querySelector('#shared .sh-lu'), h = ul.previousElementSibling, d = document.querySelector('#shared .sh-guide'), box = document.querySelector('#shared .box');
       box.scrollTop += h.getBoundingClientRect().top - box.getBoundingClientRect().top - 74;
       const a = h.getBoundingClientRect(), b = d.getBoundingClientRect(); return { x: Math.max(0, Math.min(a.left, b.left) - 8), y: Math.max(0, a.top - 8), width: Math.max(a.right, b.right) - Math.min(a.left, b.left) + 16, height: Math.min(b.bottom, 800) - a.top + 16 }; });
+    await A.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // (painted as it is now)
     await A.screenshot({ path: path.join(shots, file), clip });
+    const after = await listText();
+    if (said && !re.test(after.join('|'))) console.log(`  (${file}: the list said ${re.source}, then ${JSON.stringify(after)})`);
     await Promise.all([H1, H2].map(H => H.evaluate(() => { window.__go = false; })));
     await go;
   };
+  // the controller's tip held still on p (room coordinates of the pretend room), then the trigger
+  const touch = async (H, p) => {
+    await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
+    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150);
+  };
+  // Calibrate pressed on the guide's page, then spot A and spot B touched
+  const calibrateOn = async (H, a, b) => {
+    const ok = await tap(H, 'guide:cal');
+    const st = await H.evaluate(() => HOST.room.state);
+    await touch(H, a); await touch(H, b);
+    await H.evaluate(() => window.__xr.ctrl(0, null)); await frames(H, 300);
+    return ok && st === 'mark-a';
+  };
+  // Check at A (or B) on the guide's Check page, then the tip held still at p and the trigger
+  const selfCheck = async (H, spot, p) => {
+    const ok = await tap(H, 'guide:self' + spot);
+    const armed = await H.evaluate(() => HOST.collab.guide().check.s === 'armed');
+    await touch(H, p);
+    await H.evaluate(() => window.__xr.ctrl(0, null)); await frames(H, 100);
+    return ok && armed;
+  };
   if (shots) fs.mkdirSync(shots, { recursive: true });
-  // the first headset, alone among headsets: the room's origin once its shared space has nobody's frame (8 s), no guide
+  // the first headset, alone among headsets: the flow opens by itself at Line up (the room's first, no spots yet), Skip
+  // for now closes it (and the menu it opened); then it becomes the room's origin once its shared space has nobody's frame
   await xr(H1, [0, 1.6, 0, 0]);
   await H1.evaluate(() => window.__xr.begin());
-  const t1 = Date.now();
   await frames(H1, 300);
   await inSpace(H1);
-  const ready1 = await stepUntil(H1, () => HOST.room.src === 'shared' && HOST.collab.guide().status.k === 'ok', null, 20000);
+  const f1 = await stepUntil(H1, () => HOST.collab.guide().open, null, 15000);
   const g1 = await G(H1);
-  check('guide: the first headset alone becomes the room\'s origin (Room ready), and the guide does not open by itself (no other headset)',
-    ready1 && g1.status.h === 'origin' && /^Room ready/.test(g1.status.text) && !g1.open && !g1.menu && !g1.seen && g1.local === null && await H1.evaluate(() => HOST.collab.notes().some(n => n.title === 'Room ready')),
-    JSON.stringify({ ready1, g1 }));
-  // the second, more than 10 s later (so the first headset's own first 10 s have passed): lines up, its guide opens
-  await sleep(Math.max(0, 11000 - (Date.now() - t1)));
+  await menuPic(H1, 'guide-01-first.png');
+  check('guide: the first headset entering AR gets the startup flow by itself at Line up: the room\'s first, no spots yet (pick two and calibrate)',
+    f1 && g1.open && g1.menu && g1.tab === 'circles' && g1.step === 1 && g1.flow === 'on' && g1.case === 'first' && g1.spots === null && g1.local === null && await has(H1, 'guide:cal') === true && await has(H1, 'guide:skip') === true,
+    JSON.stringify(g1));
+  const sk1 = await tap(H1, 'guide:skip'), g1s = await G(H1);
+  check('guide: Skip for now closes the flow and the menu it opened', sk1 && !g1s.open && !g1s.menu && g1s.flow === 'skipped', JSON.stringify(g1s));
+  const ready1 = await stepUntil(H1, () => HOST.room.src === 'shared' && HOST.collab.guide().status.k === 'ok', null, 20000);
+  const g1r = await G(H1);
+  check('guide: the first headset becomes the room\'s origin (Room ready), and the skipped flow stays shut',
+    ready1 && g1r.status.h === 'origin' && /^Room ready/.test(g1r.status.text) && !g1r.open && !g1r.menu && g1r.flow === 'skipped' && await H1.evaluate(() => HOST.collab.notes().some(n => n.title === 'Room ready')),
+    JSON.stringify({ ready1, g1r }));
+  // the second: lines up through the shared space; its flow opens at Line up (no spots yet, not the first)
   await frames(H1, 200);
   await xr(H2, [0.6, 1.6, 0.4, 0.3]);
   await H2.evaluate(() => window.__xr.begin());
   await frames(H2, 300);
   await inSpace(H2);
-  const lined2 = await stepUntil(H2, () => HOST.room.src === 'adopted' && HOST.collab.guide().open, null, 20000);
-  const ln1 = await bothUntil(H1, () => HOST.collab.guide().lined.join() === '2,2', null, 10000), ln2 = await bothUntil(H2, () => HOST.collab.guide().lined.join() === '2,2', null, 10000);
+  const lined2 = await stepUntil(H2, () => HOST.room.src === 'adopted' && HOST.collab.guide().open && HOST.collab.guide().status.k === 'ok', null, 20000);
+  const ln1 = await bothUntil(H1, () => HOST.collab.guide().lined.slice(0, 2).join() === '2,2', null, 10000), ln2 = await bothUntil(H2, () => HOST.collab.guide().lined.slice(0, 2).join() === '2,2', null, 10000);
   const g2 = await G(H2), g1b = await G(H1);
-  check('guide: the second headset lines up through the shared space and its guide opens by itself at Line up, once on this device',
-    lined2 && g2.open && g2.menu && g2.tab === 'circles' && g2.step === 1 && g2.status.k === 'ok' && g2.status.h === 'shared' && g2.status.text === 'Lined up through the shared space' &&
-    g2.seen && g2.local === '1', JSON.stringify(g2));
-  check('guide: the first headset\'s guide stays shut when the second comes in (its first 10 s long gone); both count the headsets lined up',
-    !g1b.open && !g1b.seen && ln1 && ln2, JSON.stringify({ g1b, ln1, ln2, p1: await pres(H1), p2: await pres(H2) }));
-  // its pages: Back greyed on the first, Next, Back, Close; Room setup on the Circles tab opens it again where it was
+  await menuPic(H2, 'guide-02-none.png');
+  check('guide: the second headset lines up through the shared space and its flow opens by itself at Line up (no spots yet: check with someone, or calibrate)',
+    lined2 && g2.open && g2.menu && g2.tab === 'circles' && g2.step === 1 && g2.flow === 'on' && g2.case === 'none' && g2.status.k === 'ok' && g2.status.h === 'shared' &&
+    g2.status.text === 'Lined up through the shared space' && await has(H2, 'guide:tocheck') === true && g2.local === null, JSON.stringify(g2));
+  check('guide: the first headset\'s flow stays shut when the second comes in; both count the headsets lined up, none checked',
+    !g1b.open && g1b.flow === 'skipped' && ln1 && ln2 && g2.lined[2] === 0, JSON.stringify({ g1b, ln1, ln2, p1: await pres(H1), p2: await pres(H2) }));
+  // its pages: Back greyed on the first; Next, Back; Skip for now (the menu closes); Room setup on the Circles tab opens
+  // it again where it was, now with Close; Check here on its check page and the Debug tab; Re-align and Calibrate on its last
   const p0 = await H2.evaluate(() => { HOST.collab.guideOpen(0); window.__xr.step(); return HOST.collab.guide().step; });
-  await menuPic(H2, 'guide-1-before.png');
+  await menuPic(H2, 'guide-03-before.png');
   const back0 = await has(H2, 'guide:back'), nx = await tap(H2, 'guide:next') && (await G(H2)).step === 1;
-  await menuPic(H2, 'guide-2-line-up.png');
   const nx2 = await tap(H2, 'guide:next') && (await G(H2)).step === 2, chk = await has(H2, 'guide:check');
-  await menuPic(H2, 'guide-3-check.png');
+  await menuPic(H2, 'guide-04-check-with-someone.png');
   const nx3 = await tap(H2, 'guide:next') && (await G(H2)).step === 3, fix = (await has(H2, 'guide:realign')) && (await has(H2, 'guide:cal'));
-  await menuPic(H2, 'guide-4-not-lined-up.png');
+  await menuPic(H2, 'guide-05-not-lined-up.png');
   const bk = await tap(H2, 'guide:back') && (await G(H2)).step === 2;
-  const cl = await tap(H2, 'guide:close') && !(await G(H2)).open && await has(H2, 'guide') === true;
-  const again = await tap(H2, 'guide') && (await G(H2)).open && (await G(H2)).step === 2;
+  const sk = await tap(H2, 'guide:skip'), gs = await G(H2), skipped = sk && !gs.open && !gs.menu && gs.flow === 'skipped';
+  await H2.evaluate(() => HOST.collab.panelOpen(true));
+  const again = await has(H2, 'guide') === true && await tap(H2, 'guide') && (await G(H2)).open && (await G(H2)).step === 2 && (await G(H2)).flow === 'skipped' && await has(H2, 'guide:close') === true;
+  const cl = await tap(H2, 'guide:close') && !(await G(H2)).open && (await G(H2)).menu;
   const dbg = await has(H2, 'check');   // (the Debug tab's Check here, beside Re-align)
-  await H2.evaluate(() => HOST.collab.menuTab('circles'));
-  check('guide: its pages (Back greyed on the first; Next, Back, Close; Room setup on the Circles tab opens it again where it was; Check here on its check page and the Debug tab; Re-align and Calibrate on its last page)',
-    p0 === 0 && back0 === null && nx && nx2 && chk === true && nx3 && fix && bk && cl && again && dbg === true, JSON.stringify({ p0, back0, nx, nx2, chk, nx3, fix, bk, cl, again, dbg }));
-  // the laptop's Setting up a room: both headsets and how they line up
+  await H2.evaluate(() => { HOST.collab.menuTab('circles'); HOST.collab.panelOpen(false); });
+  check('guide: its pages (Back greyed on the first; Next, Back; Skip for now closing the flow and its menu; Room setup opening it again where it was, then with Close; Check here on its check page and the Debug tab; Re-align and Calibrate on its last page)',
+    p0 === 0 && back0 === null && nx && nx2 && chk === true && nx3 && fix && bk && skipped && again && cl && dbg === true, JSON.stringify({ p0, back0, nx, nx2, chk, nx3, fix, bk, skipped, gs, again, cl, dbg }));
+  // the laptop's Setting up a room: both headsets, how they line up, not checked yet
   await A.evaluate(() => HOST.collab.dialog(true));
-  const l1 = await listed(/room ready \(the room's origin\).*lined up \(shared space\).*2 of 2 headsets|lined up \(shared space\).*room ready \(the room's origin\).*2 of 2 headsets/);
-  check('guide: the laptop\'s Setting up a room lists both headsets: room ready (the room\'s origin) and lined up (shared space), 2 of 2', l1, JSON.stringify([await listText(), await A.evaluate(() => [...HOST.collab.people()].map(([id, P]) => [id, P.lu, P.al, !!P.head, Math.round(performance.now() - P.at)])),
-    await H2.evaluate(() => { const C = HOST.collab.internals(); return [HOST.collab.id, HOST.room.aligned, HOST.collab.status, C.ws && C.ws.readyState, Math.round(performance.now() - C.presAt), Math.round(performance.now() - (C.tickAt || 0)), window.__collabLog.slice(-8).map(e => e.ev)]; })]));
-  // Touch the spot: both tips on one spot (3 cm apart): green on both
+  const l1 = await listed(/room ready \(the room's origin, not checked yet\).*lined up \(shared space, not checked yet\).*2 of 2 headsets in the room lined up, 0 checked|lined up \(shared space, not checked yet\).*room ready \(the room's origin, not checked yet\).*2 of 2 headsets in the room lined up, 0 checked/);
+  check('guide: the laptop\'s Setting up a room lists both headsets: room ready (the room\'s origin) and lined up (shared space), not checked yet; 2 of 2, 0 checked', l1, await diag());
+  // Touch the spot: both tips on one spot (3 cm apart): green on both, the check this session's
   const SPOT = [1.2, 0.04, -0.6];
   const touchSpot = async (H, p) => {   // (Check here pressed on the guide's check page, then the tip held still on the spot and the trigger)
     await H.evaluate(() => { HOST.collab.guideOpen(2); window.__xr.step(); });
     const ok = await tap(H, 'guide:check');
-    await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
-    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150);
+    await touch(H, p);
     await H.evaluate(() => window.__xr.ctrl(0, null));
     return ok;
   };
   const a1 = await touchSpot(H1, SPOT), w1 = (await G(H1)).check;
-  await menuPic(H1, 'guide-5-waiting.png');
+  await menuPic(H1, 'guide-06-waiting.png');
   const a2 = await touchSpot(H2, [SPOT[0] + 0.03, SPOT[1], SPOT[2]]);
   await both(600);
   const c1 = await G(H1), c2 = await G(H2);
-  await menuPic(H2, 'guide-6-green.png');
-  check('guide: Touch the spot 3 cm apart: the first waits for someone else, then both show green, Lined up: 3 cm',
+  await menuPic(H2, 'guide-07-green.png');
+  check('guide: Touch the spot 3 cm apart: the first waits for someone else, then both show green, Lined up: 3 cm, a check that stands this session',
     a1 && a2 && w1.s === 'wait' && /^Waiting for someone else to press Check here \(\d+ s\)$/.test(w1.text) && c1.check.s === 'done' && c2.check.s === 'done' &&
-    /^Lined up: 3 cm/.test(c1.check.text) && /^Lined up: 3 cm/.test(c2.check.text) && c1.check.col === '#3ee08f' && c2.status.c === 3 && c2.status.k === 'ok', JSON.stringify({ a1, a2, w1, c1: c1.check, c2: c2.check, s2: c2.status }));
-  const l2 = await listed(/room ready \(the room's origin, checked 3 cm\)/) && await listed(/lined up \(shared space, checked 3 cm\)/);
-  await laptopPic('guide-9-laptop.png', /checked 3 cm.*checked 3 cm/);
-  check('guide: the laptop\'s list says each headset\'s check (checked 3 cm)', l2, JSON.stringify(await listText()));
-  // 40 cm apart: red on both, and the last page (Not lined up?) opens by itself on both
+    /^Lined up: 3 cm \(with /.test(c1.check.text) && /^Lined up: 3 cm/.test(c2.check.text) && c1.check.col === '#3ee08f' && c2.status.c === 3 && c2.status.k === 'ok' &&
+    c1.flow === 'done' && c2.flow === 'done' && c1.ok && c1.ok.how === 'p' && c2.ok && c2.ok.how === 'p', JSON.stringify({ a1, a2, w1, c1: [c1.check, c1.flow, c1.ok], c2: [c2.check, c2.flow, c2.ok], s2: c2.status }));
+  const l2 = await listed(/room ready \(the room's origin, checked 3 cm\)/) && await listed(/lined up \(shared space, checked 3 cm\)/) && await listed(/2 of 2 headsets in the room lined up, 2 checked/);
+  await laptopPic('guide-08-laptop.png', /checked 3 cm.*checked 3 cm/);
+  check('guide: the laptop\'s list says each headset\'s check (checked 3 cm; 2 checked)', l2, JSON.stringify(await listText()));
+  // 40 cm apart: red on both, and the last page (Not lined up?) opens by itself on both (the room has no spots)
   const b1 = await touchSpot(H1, SPOT);
   await H1.evaluate(() => HOST.collab.panelOpen(false));
   const b2 = await touchSpot(H2, [SPOT[0] + 0.4, SPOT[1], SPOT[2]]);
   await both(600);
   const r1 = await G(H1), r2 = await G(H2);
-  check('guide: Touch the spot 40 cm apart: red on both (40 cm out: not lined up), and the guide\'s last page opened by itself on both',
+  check('guide: Touch the spot 40 cm apart: red on both (40 cm out: not lined up), and the guide\'s last page opened by itself on both (no spots in the room)',
     b1 && b2 && [r1, r2].every(g => g.check.s === 'done' && /^40 cm out: not lined up/.test(g.check.text) && g.check.col === '#ff6b6b' && g.status.k === 'no' && g.status.w === 'check' &&
-      g.open && g.menu && g.step === 3), JSON.stringify({ b1, b2, r1: [r1.open, r1.step, r1.check, r1.status], r2: [r2.open, r2.step, r2.check, r2.status] }));
-  await menuPic(H2, 'guide-7-red-last-page.png');
+      g.open && g.menu && g.step === 3 && !g.ok && g.red && g.red.spot === 'p'), JSON.stringify({ b1, b2, r1: [r1.open, r1.step, r1.check, r1.status, r1.red], r2: [r2.open, r2.step, r2.check, r2.status, r2.red] }));
+  await menuPic(H2, 'guide-09-red-last-page.png');
   await H2.evaluate(() => { HOST.collab.menuTab('circles'); window.__xr.step(); });   // (the Circles tab: Room setup, and how it lines up beside it)
-  await menuPic(H2, 'guide-8-circles-tab.png');
+  await menuPic(H2, 'guide-10-circles-tab.png');
   const l3 = await listed(/not lined up \(checked 40 cm out\)/);
-  await laptopPic('guide-12-laptop-red.png', /checked 40 cm out.*checked 40 cm out/);
+  await laptopPic('guide-11-laptop-red.png', /checked 40 cm out.*checked 40 cm out/);
   check('guide: the laptop\'s list says not lined up (checked 40 cm out)', l3, JSON.stringify(await listText()));
   // a check alone: waiting, then nobody within the window (shortened to 8 s here)
-  await H1.evaluate(() => HOST.collab.guideTimes({ win: 8000 }));   // (shortened: 8 s, as the steps before the reading can take 3 s on pages drawing in software)
+  await H1.evaluate(() => HOST.collab.guideTimes({ win: 14000 }));   // (shortened: 14 s, as the steps before the reading can take several seconds on pages drawing in software on a busy machine)
   await H1.evaluate(() => HOST.room.realignNow());   // (Re-align takes the red result away: check again)
   await frames(H1, 400);
   const cs0 = (await G(H1)).check, cleared = cs0.s !== 'done';
   await touchSpot(H1, SPOT);
   const al1 = (await G(H1)).check;
-  await sleep(8300); await frames(H1, 200);
+  await sleep(14300); await frames(H1, 200);
   const al2 = (await G(H1)).check;
-  await menuPic(H1, 'guide-10-alone.png');
+  await menuPic(H1, 'guide-12-alone.png');
   check('guide: Re-align takes the red result away; a check alone waits, then says nobody else pressed Check here in time',
-    cleared && al1.s === 'wait' && al2.s === 'late' && /^Nobody else pressed Check here within 8 s/.test(al2.text), JSON.stringify({ cs0, al1, al2, log: await H1.evaluate(() => [HOST.collab.now(), window.__collabLog.filter(e => /check|guide|realign/.test(e.ev)).slice(-12)]) }));
+    cleared && al1.s === 'wait' && al2.s === 'late' && /^Nobody else pressed Check here within 14 s/.test(al2.text), JSON.stringify({ cs0, al1, al2, log: await H1.evaluate(() => [HOST.collab.now(), window.__collabLog.filter(e => /check|guide|realign/.test(e.ev)).slice(-12)]) }));
   await H1.evaluate(() => HOST.collab.guideTimes({ win: 20000 }));
-  // the second headset back with no shared space: not lined up, and the last page opens by itself once it is late
+  // the second headset back with no shared space: its flow opens at Line up again (a new session), Skip for now, and the
+  // last page opens by itself once it is late, saying why
   await H2.evaluate(() => window.__xr.end());
   await frames(H1, 200);
   await xr(H2, [0.6, 1.6, 0.4, 0.3], { features: ['local-floor', 'anchors'] });
-  await H2.evaluate(() => { HOST.collab.guideTimes({ late: 2500 }); window.__xr.begin(); });
-  const late = await stepUntil(H2, () => HOST.collab.guide().open && HOST.collab.guide().step === 3, null, 8000);
+  await H2.evaluate(() => window.__xr.begin());
+  const f2 = await stepUntil(H2, () => HOST.collab.guide().open && HOST.collab.guide().flow === 'on', null, 15000);
+  const n1 = await G(H2);
+  const sk2 = await tap(H2, 'guide:skip');
+  await H2.evaluate(() => HOST.collab.guideTimes({ late: 2500 }));   // (shortened once skipped: it is late at once)
+  const late = await stepUntil(H2, () => HOST.collab.guide().open && HOST.collab.guide().step === 3, null, 10000);
   const n2 = await G(H2);
-  check('guide: a headset not lined up (no shared space) gets the guide\'s last page by itself once it is late, saying why',
-    late && n2.status.k === 'no' && n2.status.w === 'space' && /no shared space/.test(n2.status.text), JSON.stringify(n2));
-  await menuPic(H2, 'guide-11-no-space.png');
+  check('guide: a new session opens the flow again (every session, at Line up); skipped, a headset not lined up (no shared space) gets the last page by itself once it is late, saying why',
+    f2 && n1.step === 1 && n1.case === 'none' && sk2 && late && n2.status.k === 'no' && n2.status.w === 'space' && /no shared space/.test(n2.status.text), JSON.stringify({ f2, n1: [n1.step, n1.case, n1.flow, n1.status], sk2, n2 }));
+  await menuPic(H2, 'guide-13-no-space.png');
   await H2.evaluate(() => HOST.collab.guideTimes({ late: 20000 }));   // (back to the default: the next phase must not open late)
-  // and back in the shared space, lined up: the guide does not open by itself again
+  // back in the shared space, lined up: the flow opens at Line up again; skipped
   await H2.evaluate(() => window.__xr.end());
   await xr(H2, [0.6, 1.6, 0.4, 0.3]);
   await H2.evaluate(() => window.__xr.begin());
   await frames(H2, 300);
   await inSpace(H2);
-  await stepUntil(H2, () => HOST.room.src === 'adopted', null, 15000);
-  await both(4000);
+  const f3 = await stepUntil(H2, () => HOST.room.src === 'adopted' && HOST.collab.guide().open && HOST.collab.guide().flow === 'on', null, 15000);
   const n3 = await G(H2);
-  check('guide: back again and lined up, the guide does not open by itself (seen on this device; lined up when late)', !n3.open && !n3.menu && n3.status.k === 'ok', JSON.stringify(n3));
+  const sk3 = await tap(H2, 'guide:skip');
+  check('guide: back again and lined up, the flow opens again at Line up (no spots yet), and Skip for now closes it', f3 && n3.step === 1 && n3.case === 'none' && n3.status.k === 'ok' && sk3 && !(await G(H2)).open,
+    JSON.stringify({ f3, n3 }));
+  // ------------------------------------------------------------ the spots --
+  // the first headset (the room's origin, no spots in the room) calibrates on two from Line up: its calibration sets the
+  // room (rm, and a frame from the spots for its shared space); on to Check by itself; Check at A 3 cm off: green, done
+  const SA = [1.0, 0.76, -0.8], SB = [2.8, 0.76, -0.2];
+  await H1.evaluate(() => { HOST.collab.guideOpen(1); window.__xr.step(); });
+  const q1 = await G(H1);
+  await menuPic(H1, 'guide-14-first-red-line.png');
+  const cal1 = await calibrateOn(H1, SA, SB);
+  const to2 = await stepUntil(H1, () => HOST.collab.guide().open && HOST.collab.guide().step === 2, null, 5000);
+  const q2 = await G(H1);
+  const rm = await H1.evaluate(() => [HOST.collab.internals().keys.get('rm'), HOST.collab.internals().keys.get(HOST.room.frameKey('G1')), HOST.collab.id]);
+  await menuPic(H1, 'guide-15-check-spots.png');
+  check('guide: the first headset with no spots in the room is asked to pick two (Line up, the room\'s first, the red check\'s why above it); its calibration sets the room (rm and a frame from the spots for the shared space), and the guide goes on to Check by itself',
+    q1.step === 1 && q1.case === 'first' && cal1 && to2 && q2.src === 'marks' && q2.case === 'check' && Array.isArray(q2.spots) && Math.abs(q2.spots[1] - Math.hypot(SB[0] - SA[0], SB[2] - SA[2])) < 0.01 &&
+      rm[0] && rm[0].v && rm[0].v.by === rm[2] && Math.abs(rm[0].v.a - SA[1]) < 0.01 && rm[1] && rm[1].v && rm[1].v.g === 'marks' && rm[1].v.by === rm[2] && await has(H1, 'guide:selfA') === true && await has(H1, 'guide:selfB') === true,
+    JSON.stringify({ q1: [q1.step, q1.case, q1.red], cal1, to2, q2: [q2.step, q2.case, q2.src, q2.spots], rm }));
+  const s1 = await selfCheck(H1, 'A', [SA[0] + 0.03, SA[1], SA[2]]);
+  const q3 = await G(H1);
+  check('guide: Check at A with the tip 3 cm off spot A: green (Lined up: 3 cm at spot A), the flow done and the guide closed',
+    s1 && q3.check.s === 'done' && q3.check.text === 'Lined up: 3 cm at spot A' && q3.check.col === '#3ee08f' && q3.status.c === 3 && q3.ok && q3.ok.how === 'a' && q3.flow === 'done' && !q3.open,
+    JSON.stringify(q3));
+  // the second headset (in a session, its flow skipped) takes the frame from the spots through the shared space: asked
+  // once more, at Check (lined up by the room's spots)
+  const sp = await bothUntil(H2, () => { const g = HOST.collab.guide(); return HOST.room.src === 'adopted' && !!HOST.room.marks && g.open && g.step === 2 && g.case === 'check'; }, null, 20000);
+  const v1 = await G(H2);
+  check('guide: the room gets its spots: a headset that skipped its flow, lined up through the shared space from them, is asked once more, at Check', sp && v1.flow === 'on' && v1.menu,
+    JSON.stringify({ sp, v1: [v1.open, v1.step, v1.case, v1.flow, v1.src, v1.status] }));
+  await tap(H2, 'guide:skip');
+  // entering again: straight to Check (lined up through the shared space from the spots); Check at A 3 cm off: green, the
+  // guide and the menu it opened close
+  await H2.evaluate(() => window.__xr.end());
+  await frames(H1, 200);
+  await xr(H2, [0.6, 1.6, 0.4, 0.3]);
+  await H2.evaluate(() => window.__xr.begin());
+  await frames(H2, 300);
+  await inSpace(H2);
+  const st2 = await stepUntil(H2, () => { const g = HOST.collab.guide(); return g.open && g.step === 2 && g.case === 'check'; }, null, 20000);
+  const v2 = await G(H2);
+  await menuPic(H2, 'guide-16-straight-to-check.png');
+  const s2 = await selfCheck(H2, 'A', [SA[0] + 0.03, SA[1], SA[2]]);
+  const v3 = await G(H2);
+  check('guide: a headset lined up through the shared space from the room\'s spots goes straight to Check as it enters; Check at A 3 cm off: green, the guide and its menu close',
+    st2 && v2.src === 'adopted' && v2.flow === 'on' && s2 && v3.check.text === 'Lined up: 3 cm at spot A' && v3.ok && v3.ok.how === 'a' && v3.flow === 'done' && !v3.open && !v3.menu &&
+      await H2.evaluate(() => HOST.collab.notes().some(n => n.title === 'Lined up: 3 cm')), JSON.stringify({ st2, v2: [v2.step, v2.case, v2.src, v2.flow, v2.status], s2, v3 }));
+  const l4 = await listed(/lined up \(shared space, checked 3 cm at spot A\)/);
+  check('guide: the laptop\'s list says checked 3 cm at spot A', l4, await diag());
+  // 40 cm off: red, back to Line up (calibrate on the room's spots, and why); Calibrate there, on to Check by itself,
+  // Check at B: green
+  await H2.evaluate(() => { HOST.collab.guideOpen(2); window.__xr.step(); });
+  const s3 = await selfCheck(H2, 'A', [SA[0] + 0.4, SA[1], SA[2]]);
+  const v4 = await G(H2);
+  await menuPic(H2, 'guide-17-red-line-up.png');
+  check('guide: Check at A 40 cm off: red (40 cm out at spot A: not lined up), back to Line up to calibrate on the room\'s spots, saying why',
+    s3 && v4.open && v4.step === 1 && v4.case === 'room' && v4.flow === 'on' && v4.check.text === '40 cm out at spot A: not lined up' && v4.status.k === 'no' && v4.status.w === 'check' && v4.red && v4.red.spot === 'a' && !v4.ok,
+    JSON.stringify(v4));
+  const cal2 = await tap(H2, 'guide:cal');
+  await frames(H2, 100);
+  await menuPic(H2, 'guide-18-calibrating.png');
+  await touch(H2, SA); await touch(H2, SB);
+  await H2.evaluate(() => window.__xr.ctrl(0, null));
+  const to2b = await stepUntil(H2, () => { const g = HOST.collab.guide(); return g.open && g.step === 2 && g.case === 'check'; }, null, 5000);
+  const v5 = await G(H2);
+  const s4 = await selfCheck(H2, 'B', [SB[0], SB[1], SB[2] + 0.02]);
+  const v6 = await G(H2);
+  check('guide: Calibrate on the room\'s two spots from Line up goes on to Check by itself; Check at B 2 cm off: green, the flow done',
+    cal2 && to2b && v5.src === 'marks' && !v5.red && s4 && v6.check.text === 'Lined up: 2 cm at spot B' && v6.ok && v6.ok.how === 'b' && v6.flow === 'done' && !v6.open &&
+      await H2.evaluate(id => { const M = HOST.collab.internals().keys.get('rm'); return !!(M && M.v.by === id); }, await H1.evaluate(() => HOST.collab.id)),
+    JSON.stringify({ cal2, to2b, v5: [v5.step, v5.case, v5.src, v5.red], s4, v6 }));
+  const l5 = await listed(/lined up \(the room's spots, checked 2 cm at spot B\)/) && await listed(/lined up \(the room's spots, checked 3 cm at spot A\)/) && await listed(/2 of 2 headsets in the room lined up, 2 checked/);
+  await laptopPic('guide-19-laptop-spots.png', /checked 2 cm at spot B/);
+  check('guide: the laptop\'s list says each headset lined up from the room\'s spots and checked at its spot (2 of 2, 2 checked)', l5, await diag());
   for (const H of [H1, H2]) await H.evaluate(() => window.__xr.end()).catch(() => {});
   for (const p of [A, H1, H2]) await p.context().close();
 }
