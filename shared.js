@@ -4068,7 +4068,10 @@
     const P = val('allp'), A = arcSt(), pg = !!(P && P.pg && A && A.id === ARC.id && !A.x && !A.z && !A.yaw);
     const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && C.allpFor !== C.code &&
       (P === undefined ? !C.st.some(s => s.kind === ALL) : pg);   // (one placed by hand already: none more)
-    if (!ok) { C.allpAt = 0; return; }
+    if (!ok) {
+      if (C.allpAt) log('all stories not yet', { aligned: R.aligned, head: R.headOK, here: here(), locked: circlesLocked(), allp: !!P, pg, arc: !!A });   // (it waited, and something changed)
+      C.allpAt = 0; return;
+    }
     if (!C.allpAt) { C.allpAt = t; return; }
     if (t - C.allpAt < AUTO.hold) return;
     C.allpFor = C.code; C.allpAt = 0;

@@ -1704,11 +1704,17 @@ async function allRound() {
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
   const want = [HEAD.x - 1.2 * Math.sin(HEAD.yaw), HEAD.z - 1.2 * Math.cos(HEAD.yaw)], at = (w, s) => !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06;
-  const moved = await stepUntil(w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 15000);
+  // (aligned first: through the shared space a busy machine may take a while; then the 1.5 s the headset waits)
+  const t0 = Date.now(), aligned = await stepUntil(() => HOST.room.aligned, null, 30000), tAl = Date.now() - t0;
+  const moved = aligned && await stepUntil(w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 15000);
   await until(A, w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 5000);
   const a1 = await arcOf(A), p1 = await A.evaluate(() => HOST.collab.val('allp'));
   check('arc: the first headset in the room moves the page\'s arc 1.2 m in front of its head, facing away (allp its own now), still the arc', moved && at(want, a1) && a1.arc === true && angle(a1.yaw, HEAD.yaw) < 0.05 &&
-    !!p1 && p1.by === hId && !p1.pg, JSON.stringify({ a1, p1, want, aligned: await H.evaluate(() => HOST.room.aligned) }));
+    !!p1 && p1.by === hId && !p1.pg, JSON.stringify({ a1, p1, want, aligned, tAl, moved, ms: Date.now() - t0, pendA: await A.evaluate(() => [...HOST.collab.internals().pending.keys()]),
+      onH: await H.evaluate(() => [HOST.collab.arc(), HOST.collab.val('allp')]), log: await H.evaluate(() => window.__collabLog.filter(e => /all stories|arc|station|align|frame/.test(e.ev)).slice(-8).map(e => e.ev)),
+      why: await H.evaluate(() => { const C = HOST.collab.internals(), R = HOST.room.internals(); return { auto: C.autoAll, allpFor: C.allpFor, code: C.code, allpAt: C.allpAt, welcomed: C.welcomed, session: !!R.session, aligned: R.aligned, headOK: R.headOK,
+        locked: HOST.collab.locked, arc: HOST.collab.arc(), mode: HOST.mode, hereSet: C.hereSet, failed: window.__collabLog.filter(e => e.ev === 'frame failed').slice(-2),
+        notYet: window.__collabLog.filter(e => e.ev === 'all stories not yet').slice(-3), n: window.__collabLog.filter(e => e.ev === 'all stories not yet').length }; }) }));
   // at it without walking in (1.2 m from its spot): its cards (the single-player Stories screen) there, the scene hidden,
   // nothing of it drawn, the rig at its spot, its presence there, nothing synced
   await stepUntil(id => HOST.collab.mine() === id && HOST.cur.peek('XR.stories'), AID, 8000);
