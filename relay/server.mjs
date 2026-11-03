@@ -8,6 +8,8 @@
 //   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
 //                                   served, the headsets' logs kept in relay/logs/)
 //   node relay/server.mjs --static . --watch [--build]   (while developing: the pages follow the app's files)
+//   node relay/server.mjs --port 8787 --static . --proxy 1 --public   (on a public server behind a reverse proxy, Coolify:
+//                                   only the app's pages may connect, no open-room list and no names, limits per address)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -21,7 +23,10 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0 };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
+  // a public server (--public, or each rule on its own; -1: not given, so --public's default or off)
+  public: false, origin: [], 'allow-no-origin': false, unlisted: false, guesses: -1, creates: -1, sockets: -1, store: -1, 'log-token': '' };
+const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // where the app lives (GitHub Pages): --public's origin unless --origin says
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
@@ -37,12 +42,26 @@ const HELP = `usage: node relay/server.mjs [options]
                    logs kept in relay/logs/
   --watch [<dir>]  while developing: watch the app's files (the --static folder, or <dir>, then also served); the
                    pages it serves swap a changed story in place and reload, their place kept, when a shell file changes
-  --build          with --watch: run a built story's build (tools/<key>/build.mjs) when its sources change`;
+  --build          with --watch: run a built story's build (tools/<key>/build.mjs) when its sources change
+On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
+  --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64, and
+                   --logs only with a token
+  --origin <list>  only pages from these origins (comma separated, may be repeated) and the relay's own pages may open
+                   a socket or read the API (CORS for them alone; other origins 403)
+  --allow-no-origin  with --origin or --public: also sockets that send no Origin (not a browser: tools, scripts)
+  --unlisted       no list of open rooms (GET /api/rooms answers []) and no member's name in any answer or log line
+  --guesses <n>    per address, at most n lookups a minute of room codes that do not exist (a burst of 2n), then 429
+  --creates <n>    per address, at most n new rooms a minute (a burst of 2n), then 429
+  --sockets <n>    per address, at most n open sockets (rooms and the introduction server together)
+  --store <MB>     all rooms' keys and values together at most this many MB (as JSON); a write past it is refused
+  --log-token <t>  POST /api/log needs the header X-Log-Token: <t> (or set RELAY_LOG_TOKEN in the environment rather
+                   than putting it in the command; --public with --logs needs one)`;
 for (let i = 2; i < process.argv.length; i++) {
   const name = process.argv[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
   if (name === 'watch') { const v = process.argv[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
   if (name === 'proxy') { const v = process.argv[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
+  if (name === 'origin') { const v = process.argv[++i]; if (v === undefined) { console.log(HELP); process.exit(1); } OPT.origin.push(...v.split(',')); continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
   const v = process.argv[++i];
   OPT[name] = typeof OPT[name] === 'number' ? Number(v) : v;
@@ -50,6 +69,29 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); process.exit(1); }
 const PEER = !OPT['no-peer'];
+
+// ---- a public server (--public; each rule also on its own). On a laptop at an event none of this is on: the relay
+// behaves as it always has (CORS for every origin, the open rooms listed with their people's names, no limits per address)
+const PUB = OPT.public;
+const ORIGINS = new Set();   // the pages that may connect (besides the relay's own): origins as the browser sends them
+for (const o of OPT.origin.map(s => s.trim()).filter(Boolean)) {
+  let u = null;
+  try { u = new URL(o); } catch { /* said below */ }
+  if (!u || !/^https?:$/.test(u.protocol) || u.pathname !== '/' || u.search || u.hash || u.username || u.password) {
+    console.log(`--origin takes origins such as ${APP_ORIGIN} (a scheme, a host and an optional port; no path): not ${JSON.stringify(o)}`);
+    process.exit(1);
+  }
+  ORIGINS.add(u.origin);
+}
+if (PUB && !ORIGINS.size) ORIGINS.add(APP_ORIGIN);
+const ORIGIN_RULE = ORIGINS.size > 0;
+const UNLISTED = PUB || OPT.unlisted;
+const orPublic = (v, dflt) => (v >= 0 ? v : PUB ? dflt : 0);
+const LIM = { guesses: orPublic(OPT.guesses, 30), creates: orPublic(OPT.creates, 10), sockets: orPublic(OPT.sockets, 64) };
+const STORE = orPublic(OPT.store, 64) * (1 << 20);   // bytes; 0: no cap besides each room's own
+// the logs' token: from Coolify's environment (never from the repository); the command line takes one too
+const LOG_TOKEN = String(OPT['log-token'] || process.env.RELAY_LOG_TOKEN || '');
+if (LOG_TOKEN && LOG_TOKEN.length < 16) { console.log('the log token (--log-token or RELAY_LOG_TOKEN) needs at least 16 characters'); process.exit(1); }
 
 // This machine's addresses on the local network (what a headset on the same Wi-Fi types in)
 const lanAddresses = () => Object.values(os.networkInterfaces()).flat().filter(a => a && a.family === 'IPv4' && !a.internal).map(a => a.address);
@@ -89,6 +131,11 @@ if (OPT.lan) {
 if (OPT.watch === true && !OPT.static) { console.log('--watch needs the folder it serves: --static <dir> (or --lan), or --watch <dir>'); process.exit(1); }
 if (OPT.watch && OPT.watch !== true && !OPT.static) OPT.static = OPT.watch;
 if (OPT.build && !OPT.watch) { console.log('--build goes with --watch'); process.exit(1); }
+// on a public server anyone could write files into the logs' folder: only with a token, which the owner sets
+if (PUB && OPT.logs && !LOG_TOKEN) {
+  console.log('--public with --logs needs a token: set RELAY_LOG_TOKEN in the environment (or pass --log-token), and send it as X-Log-Token');
+  process.exit(1);
+}
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -201,15 +248,26 @@ function upgrade(req, socket, head) {
   if (!url || (url.pathname !== '/api/ws' && !peer)) return deny(404);
   if (req.method !== 'GET' || !/^websocket$/i.test(req.headers.upgrade || '') || !/^[A-Za-z0-9+/]{22}==$/.test(key || '')) return deny(400);
   if (req.headers['sec-websocket-version'] !== '13') return deny(426, 'Sec-WebSocket-Version: 13\r\n');
+  // only the app's pages (and the relay's own): a page elsewhere is refused before it gets a socket, as is a client
+  // that sends no Origin at all (not a browser) unless --allow-no-origin
+  if (!originOk(req, true)) { tally('sockets refused: origin not allowed'); return deny(403); }
   const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
-  const ws = new Ws(socket);
-  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, netOf(req));
+  const ws = new Ws(socket), who = LIM.sockets || LIM.guesses ? clientOf(req) : null;
+  if (who && LIM.sockets && who.socks >= LIM.sockets) {   // (told why, as the page logs it; not counted: it closes at once)
+    tally('sockets refused: too many from one address');
+    const text = 'too many connections from your network';
+    if (peer) peerOut(ws, 'ERROR', { msg: text }); else ws.text(JSON.stringify({ t: 'error', code: 'busy', text }));
+    return ws.close(4029, 'busy');
+  }
+  if (who) { who.socks++; who.at = Date.now(); socket.once('close', () => { who.socks--; who.at = Date.now(); }); }
+  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, netOf(req), who);
   if (head && head.length) ws.data(head);
 }
 
 // ---- rooms and members
 const rooms = new Map();
+let stored = 0;   // every room's size together (keys and values, as JSON), for --store
 function makeRoom(code, app, version) {
   // (nets: the networks of the members it has had, the last few: an empty room stays listed on its network)
   const r = { code, app, version, created: Date.now(), seq: 0, keys: new Map(), size: 0, members: new Map(), empty: Date.now(), nets: new Set() };
@@ -228,14 +286,18 @@ function broadcast(room, msg, except) {
 const send = (m, msg) => m.ws.text(JSON.stringify(msg));
 const cut = keys => (keys.length > 12 ? keys.slice(0, 12).join(' ') + ` +${keys.length - 12} more` : keys.join(' '));
 
-// (net: the member's network, a hash: netOf; never its address, which is neither kept nor logged)
-function join(ws, q, net) {
+// (net: the member's network, a hash: netOf; never its address, which is neither kept nor logged. who: its address's
+// limits, clientOf)
+function join(ws, q, net, who) {
   const code = (q.get('room') || '').toUpperCase(), id = q.get('id') || '';
-  const fatal = (c, text, close) => { log(`refused a socket (${text})`); ws.text(JSON.stringify({ t: 'error', code: c, text })); ws.close(close, c); };
+  const fatal = (c, text, close, quiet) => { if (quiet) tally(quiet); else log(`refused a socket (${text})`); ws.text(JSON.stringify({ t: 'error', code: c, text })); ws.close(close, c); };
   if (!CODE.test(code) || !ID.test(id)) return fatal('bad', 'a room code and a client id are needed', 4000);
   if (q.has('proto') && q.get('proto') !== String(PROTO)) return fatal('proto', `this relay speaks protocol ${PROTO}`, 4005);
   const room = rooms.get(code);
-  if (!room) return fatal('room', `no room ${code}`, 4004);
+  // guessing codes: past its lookups of unknown codes an address gets no answer about any code (a known one included,
+  // or the answer would say which exist) until a minute's worth has passed; a member coming back (its id in the room) is let in
+  if (!(room && room.members.has(id)) && !canGuess(who)) return fatal('limit', GUESS_TEXT, 4029, 'sockets refused: too many unknown room codes from one address');
+  if (!room) { guessed(who); return fatal('room', `no room ${code}`, 4004); }
   let m = room.members.get(id);
   if (m) {   // the same page again (a reconnect while its old socket hangs on): the new socket wins
     const old = m.ws;
@@ -253,6 +315,7 @@ function join(ws, q, net) {
     try { message(room, m, text); } catch (err) { refuse(room, m, null, [], `bad message: ${err.message}`, 'bad'); }
   };
   ws.onclose = () => leave(room, m);
+  // (the room's own members see each other's names: its people list. --unlisted only keeps them out of what anyone else can ask)
   send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO });
   broadcast(room, { t: 'members', members: people(room) });
   log(`${code} join ${id} (${room.members.size} in the room)`);
@@ -301,7 +364,7 @@ function message(room, m, text) {
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
       kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version });
     broadcast(room, { t: 'members', members: people(room) });
-    return log(`${room.code} hello ${m.id} "${m.name}" ${m.kind}${m.here ? ' here' : ''} ${version}`);
+    return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''} ${version}`);
   }
   refuse(room, m, null, [], `bad message: unknown t ${JSON.stringify(String(msg.t)).slice(0, 40)}`, 'bad');
 }
@@ -355,8 +418,10 @@ function set(room, m, msg) {
   for (const [k, n] of after) { const e = room.keys.get(k); grow += n - (e ? e.n : 0); more += (n ? 1 : 0) - (e ? 1 : 0); }
   if (ok.length && room.size + grow > MAX_ROOM) return refuse(room, m, cid, named, 'the room is full');
   if (ok.length && more > 0 && room.keys.size + more > MAX_KEYS) return refuse(room, m, cid, named, `the room is full (${MAX_KEYS} keys)`);
+  if (ok.length && STORE && grow > 0 && stored + grow > STORE) return refuse(room, m, cid, named, 'the relay is full');   // (--store: every room together)
   if (ok.length) {
     const seq = ++room.seq, out = [];
+    stored -= room.size;
     const drop = k => { const e = room.keys.get(k); if (e) { room.size -= e.n; room.keys.delete(k); } };
     for (const k of gone) { drop(k); out.push([k, null]); }
     for (const { k, v, n } of ok) {
@@ -364,6 +429,7 @@ function set(room, m, msg) {
       else { room.size += n - (room.keys.get(k)?.n || 0); room.keys.set(k, { v, seq, by: m.id, n }); }
       out.push([k, v]);
     }
+    stored += room.size;
     broadcast(room, { t: 'set', batch: out, seq, by: m.id, cid });
     log(`${room.code} set #${seq} by ${m.id}: ${cut(out.map(([k, v]) => (v === null ? k + '=null' : k)))}`);
   }
@@ -456,8 +522,13 @@ setInterval(() => {
       if (now - m.ws.pinged >= OPT.ping * 1000) { m.ws.send(9, EMPTY); m.ws.pinged = now; }
       if (m.fxDropped) { log(`${room.code} refused ${m.fxDropped} fx from ${m.id} (more than ${FX_RATE} a second)`); m.fxDropped = 0; }
     }
-    if (!room.members.size && now - room.empty > OPT.expire * 1000) { rooms.delete(room.code); log(`${room.code} expired`); }
+    if (!room.members.size && now - room.empty > OPT.expire * 1000) { rooms.delete(room.code); stored -= room.size; log(`${room.code} expired`); }
   }
+  // the limits per address: forgotten once nothing of an address is open and its buckets are full again; the
+  // refusals said in one line each (a crowd of them must not fill the log)
+  for (const [k, c] of CLIENTS) if (!c.socks && now - c.at > 120000) CLIENTS.delete(k);
+  for (const [what, n] of TALLY) log(`${what} (${n})`);
+  TALLY.clear();
 }, Math.max(50, Math.min(5000, OPT.ping * 1000, OPT.timeout * 250, OPT.expire * 250)));
 
 // ---- HTTP: the API (with CORS, for the app on another origin) and the app's files
@@ -490,46 +561,101 @@ function netName(a) {
 }
 const netHash = name => (name ? crypto.createHash('sha256').update(NET_SALT + '|' + name).digest('hex').slice(0, 6) : '');
 const forwarded = req => { const a = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean); return a.length ? a[Math.max(0, a.length - OPT.proxy)] : ''; };
-const netOf = req => netHash(netName((OPT.proxy && forwarded(req)) || req.socket.remoteAddress));
+const addrOf = req => (OPT.proxy && forwarded(req)) || req.socket.remoteAddress;
+const netOf = req => netHash(netName(addrOf(req)));
+
+// ---- limits per address (--guesses, --creates, --sockets; --public): the address as for rooms on this network (with
+// --proxy the one the outermost proxy saw), IPv6 by its /64 (one household or device can have a whole /64), kept only
+// as a keyed hash in memory (the key made afresh at every start), never logged. Every device behind one router shares
+// its address (ten headsets and the laptops at an event): the defaults leave them room.
+const CLIENTS = new Map(), CLIENT_KEY = crypto.randomBytes(16);
+function clientOf(req) {
+  const a = String(addrOf(req) || ''), k = crypto.createHmac('sha256', CLIENT_KEY).update(netName(a) || a).digest('base64url').slice(0, 22);
+  let c = CLIENTS.get(k);
+  if (!c) CLIENTS.set(k, c = { socks: 0, at: Date.now(), g: 2 * LIM.guesses, gt: Date.now(), c: 2 * LIM.creates, ct: Date.now() });
+  return c;
+}
+// a bucket of 2n that fills again at n a minute: n a minute on end, and a burst of 2n (a relay restarted at an event:
+// every page there looks its room up again, finds it gone and brings it back under its code)
+function fill(c, b, n) { const now = Date.now(); c[b] = Math.min(2 * n, c[b] + ((now - c[b + 't']) * n) / 60000); c[b + 't'] = now; c.at = now; return c[b]; }
+const canGuess = c => !LIM.guesses || !c || fill(c, 'g', LIM.guesses) >= 1;
+const guessed = c => { if (LIM.guesses && c) c.g = Math.max(0, fill(c, 'g', LIM.guesses) - 1); };
+const canCreate = c => !LIM.creates || fill(c, 'c', LIM.creates) >= 1;
+const created = c => { if (LIM.creates) c.c = Math.max(0, fill(c, 'c', LIM.creates) - 1); };
+const wait = (c, b, n) => Math.max(1, Math.ceil(((1 - c[b]) * 60) / n));   // seconds until one more is allowed (Retry-After)
+const GUESS_TEXT = 'too many unknown room codes from your network: wait a minute';
+const TALLY = new Map(), tally = what => TALLY.set(what, (TALLY.get(what) || 0) + 1);
+
+// ---- which pages may connect (--origin, --public): the origins listed and the relay's own pages (an Origin whose host
+// is the one the request was sent to: Host, or with --proxy X-Forwarded-For's companion X-Forwarded-Host). A browser
+// always sends Origin with a socket and with a request from another origin, and a page cannot make it up; a request with
+// none comes from the relay's own page (a GET) or from no browser at all (curl, the health check)
+const hostOf = h => String(h).trim().toLowerCase().replace(/:(80|443)$/, '');
+function originAllowed(o, req) {
+  let u;
+  try { u = new URL(o); } catch { return false; }
+  if (!/^https?:$/.test(u.protocol)) return false;   // ('null': a file, a sandboxed frame)
+  if (ORIGINS.has(u.origin)) return true;
+  const own = [req.headers.host, ...(OPT.proxy ? String(req.headers['x-forwarded-host'] || '').split(',') : [])];
+  return own.some(h => h && hostOf(h) === hostOf(u.host));
+}
+// socket: an upgrade, which needs an Origin unless --allow-no-origin (only a browser is held to the rule anyway: any
+// other client can send what it likes, so the rule keeps other web pages off the relay, not people)
+function originOk(req, socket) {
+  if (!ORIGIN_RULE) return true;
+  const o = req.headers.origin;
+  if (o === undefined) return !socket || OPT['allow-no-origin'];
+  return originAllowed(o, req);
+}
 // a room shows on a network while someone in it is on that network (an empty one: while its members were), unless the
 // room says otherwise (its key near, { on: false }: Show on this network, off)
 const shownOn = (r, net) => !!net && !(r.keys.get('near')?.v?.on === false) &&
   (r.members.size ? [...r.members.values()].some(m => m.net === net) : r.nets.has(net));
-// the rooms on the asking device's network: code, the first member's name, how many are in it (never an address)
+// the rooms on the asking device's network: code, the first member's name, how many are in it (never an address;
+// --unlisted: no name either)
 function nearRooms(net) {
   return [...rooms.values()].filter(r => shownOn(r, net)).sort((a, b) => (b.members.size > 0) - (a.members.size > 0) || b.seq - a.seq).slice(0, 20)
-    .map(r => ({ code: r.code, name: ([...r.members.values()].sort((a, b) => a.since - b.since).find(m => m.name) || {}).name || '', members: r.members.size, stations: stations(r), version: r.version }));
+    .map(r => (UNLISTED ? { code: r.code, members: r.members.size, stations: stations(r), version: r.version } :
+      { code: r.code, name: ([...r.members.values()].sort((a, b) => a.since - b.since).find(m => m.name) || {}).name || '', members: r.members.size, stations: stations(r), version: r.version }));
 }
 function reply(res, status, body, type, extra = {}) {
   res.writeHead(status, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-store', ...extra });
   res.end(body);
 }
-const json = (res, status, obj) => reply(res, status, JSON.stringify(obj), 'application/json');
+const json = (res, status, obj, extra) => reply(res, status, JSON.stringify(obj), 'application/json', extra);
 const plain = (res, status, text, extra) => reply(res, status, text + '\n', 'text/plain; charset=utf-8', extra);
 
 function cors(req, res) {   // the API and the introduction server, for pages on another origin (GitHub Pages); true: answered
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (ORIGIN_RULE) {   // (--origin, --public: those origins alone, the one asking named; another origin is refused outright)
+    res.setHeader('Vary', 'Origin');
+    const o = req.headers.origin;
+    if (o !== undefined && !originAllowed(o, req)) { tally('requests refused: origin not allowed'); json(res, 403, { error: 'origin not allowed' }); return true; }
+    if (o !== undefined) res.setHeader('Access-Control-Allow-Origin', o);
+  } else res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method !== 'OPTIONS') return false;
-  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600',
+  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, X-Log-Token', 'Access-Control-Max-Age': '600',
     ...(req.headers['access-control-request-private-network'] ? { 'Access-Control-Allow-Private-Network': 'true' } : {}) });
   res.end();
   return true;
 }
+const tooMany = (res, text, s) => json(res, 429, { error: text }, { 'Retry-After': String(s) });
 function api(req, res, url) {
   if (cors(req, res)) return;
   const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(UNLISTED ? { unlisted: true } : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
-  if (p === '/api/rooms' && req.method === 'GET') {
-    return json(res, 200, [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
+  if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
+    return json(res, 200, UNLISTED ? [] : [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
-  if (room && req.method === 'GET') {
+  if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
+    const who = LIM.guesses ? clientOf(req) : null;
+    if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
     const r = rooms.get(room[1].toUpperCase());
-    if (!r) return json(res, 404, { error: 'no such room' });
-    return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: people(r), keys: keysOut(r) });
+    if (!r) { guessed(who); return json(res, 404, { error: 'no such room' }); }
+    return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: UNLISTED ? r.members.size : people(r), keys: keysOut(r) });
   }
   if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
@@ -559,8 +685,13 @@ function createRoom(req, res) {
     if (!b || typeof b !== 'object') return json(res, 400, { error: 'body is not an object' });
     let code = typeof b.code === 'string' ? b.code.toUpperCase() : '';
     if (b.code !== undefined && !CODE.test(code)) return json(res, 400, { error: 'a code is three letters' });
-    if (code && rooms.has(code)) return json(res, 409, { error: 'taken' });
+    // a chosen code is a lookup too (taken says it exists): from the same budget as the others
+    const who = LIM.guesses || LIM.creates ? clientOf(req) : null;
+    if (code && !canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
+    if (code && rooms.has(code)) { guessed(who); return json(res, 409, { error: 'taken' }); }
+    if (who && !canCreate(who)) { tally('requests refused: too many new rooms from one address'); return tooMany(res, 'too many new rooms from your network: wait a minute', wait(who, 'c', LIM.creates)); }
     if (rooms.size >= MAX_ROOMS) return json(res, 503, { error: 'too many rooms' });
+    if (who) created(who);
     while (!code || rooms.has(code)) code = Array.from({ length: 3 }, () => String.fromCharCode(65 + crypto.randomInt(26))).join('');
     const r = makeRoom(code, str(b.app, 32), str(b.version, 64));
     log(`${code} created (${r.app || 'no app'} ${r.version || 'no version'})`);
@@ -571,8 +702,17 @@ function createRoom(req, res) {
 // --logs: what a headset logs about its room alignment (shared.js sends it every 10 s), one JSON line per entry in
 // <dir>/<day>-<room>-<name>-<member>.jsonl, so two headsets' numbers can be compared afterwards
 const MAX_LOG_BODY = 1 << 20, MAX_LOG_FILE = 20 << 20, LOGGED = new Map();
+// With a token (--log-token, RELAY_LOG_TOKEN; --public needs one) only a request that brings it is kept. One without
+// any is answered as if logs were off, so a page that has none stops sending (shared.js, upload); a wrong one is 403.
+// Both before the body is read.
+const tokenOk = t => { const a = Buffer.from(String(t)), b = Buffer.from(LOG_TOKEN); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 function saveLog(req, res) {
   if (!OPT.logs) return json(res, 404, { error: 'logs are off (start the relay with --logs <dir>, or --lan)' });
+  if (LOG_TOKEN) {
+    const t = req.headers['x-log-token'];
+    if (t === undefined) { res.setHeader('Connection', 'close'); return json(res, 404, { error: 'logs are off for pages without the relay\'s log token' }); }
+    if (!tokenOk(t)) { res.setHeader('Connection', 'close'); tally('logs refused: a wrong token'); return json(res, 403, { error: 'wrong log token' }); }
+  }
   const parts = [];
   let n = 0;
   req.on('data', c => { if ((n += c.length) <= MAX_LOG_BODY) parts.push(c); else if (!res.headersSent) { res.setHeader('Connection', 'close'); json(res, 413, { error: 'body too big' }); } });
@@ -817,7 +957,7 @@ server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
   if (PEER) console.log(`Introduction server for peer to peer (PeerJS) at /peerjs, key ${PEER_KEY} (--no-peer turns it off)`);
-  if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address)) {
+  if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address) && !PUB) {   // (--public: the address is a container's or a server's, no one's to open)
     const lan = lanAddresses(), at = lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ');
     const pick = lan.length > 1 ? '\n(This machine has several addresses: use the one on the Wi-Fi the headsets are on.)' : '';
     if (OPT.cert && lan.length) {   // a headset needs a secure page for WebXR: an https:// address is one
@@ -833,6 +973,16 @@ server.listen(OPT.port, OPT.host, () => {
   if (OPT.proxy) console.log(OPT.proxy === 1 ? 'Behind a reverse proxy: a client\'s address is the last one in X-Forwarded-For (rooms on this network)' :
     `Behind ${OPT.proxy} reverse proxies: a client's address is the ${OPT.proxy === 2 ? 'second' : OPT.proxy === 3 ? 'third' : OPT.proxy + 'th'} from the right in X-Forwarded-For (rooms on this network)`);
   if (WATCH) console.log(`Watching ${WATCH}: pages swap a changed story in place, and reload for a shell file` + (OPT.build ? '; a built story is built again when its sources change' : ''));
+  // a public server: what it allows, said once (never the log token)
+  if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +
+    (OPT['allow-no-origin'] ? ' (and clients that send no Origin, such as scripts)' : ' (a client that sends no Origin gets no socket: --allow-no-origin)'));
+  if (UNLISTED) console.log('No list of open rooms and no names in any answer: a room is joined by its code, a link or on its network');
+  const per = [LIM.guesses && `${LIM.guesses} lookups of unknown room codes a minute (a burst of ${2 * LIM.guesses})`,
+    LIM.creates && `${LIM.creates} new rooms a minute (a burst of ${2 * LIM.creates})`, LIM.sockets && `${LIM.sockets} open sockets`].filter(Boolean);
+  if (per.length) console.log(`Per address at most ${per.join(', ')}`);
+  if (STORE) console.log(`All rooms together hold at most ${+(STORE / (1 << 20)).toFixed(2)} MB`);
+  if (OPT.logs && LOG_TOKEN) console.log('Logs need the relay\'s log token (header X-Log-Token)');
+  if ((per.length || PUB) && !OPT.proxy) console.log('No --proxy: behind a reverse proxy (Coolify\'s) every device would seem to be the proxy, one address for all (add --proxy 1)');
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)

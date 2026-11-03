@@ -21,8 +21,8 @@ const is = (t, more = () => true) => m => m.t === t && more(m);
 
 // ---- the relay
 const procs = [];
-async function start(args) {
-  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'] });
+async function start(args, env) {
+  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_LOG_TOKEN: '', ...env } });
   procs.push(p);
   p.out = '';
   p.port = await new Promise((res, rej) => {
@@ -51,12 +51,12 @@ function req(method, p, { body, headers = {}, at = port } = {}) {
 const newRoom = async (body = { app: 'networks', version: 'v1' }) => (await req('POST', '/api/rooms', { body })).json().code;
 const state = async code => (await req('GET', '/api/rooms/' + code)).json();
 
-// ---- a WebSocket client (Node's own, as a browser would)
+// ---- a WebSocket client (Node's own, as a browser would; headers: as a browser sends Origin, or a proxy X-Forwarded-For)
 const client = (room, id, extra = '') => socket(`ws://127.0.0.1:${port}/api/ws?room=${room}&id=${id}${extra}`);
-function socket(url) {
-  const ws = new WebSocket(url);
+function socket(url, headers) {
+  const ws = headers ? new WebSocket(url, { headers }) : new WebSocket(url);
   const c = { ws, q: [], closed: null };
-  c.opened = new Promise(r => { ws.onopen = r; ws.onerror = r; });
+  c.opened = new Promise(r => { ws.onopen = r; ws.onerror = e => { c.failed = true; r(e); }; });
   c.done = new Promise(r => { ws.onclose = e => { c.closed = { code: e.code, reason: e.reason }; r(c.closed); }; });
   ws.onmessage = e => c.q.push(JSON.parse(e.data));
   c.send = m => ws.send(typeof m === 'string' ? m : JSON.stringify(m));
@@ -93,7 +93,7 @@ function frame({ op = 1, fin = true, payload = '', mask = true, rsv = 0, len }) 
   if (mask) for (let i = 0; i < body.length; i++) body[i] ^= key[i & 3];
   return Buffer.concat([head, key, body]);
 }
-async function raw(pathAndQuery, { version = '13', at = port } = {}) {
+async function raw(pathAndQuery, { version = '13', at = port, host = 'x', headers = {} } = {}) {
   const s = net.connect(at, '127.0.0.1');
   await new Promise(r => s.once('connect', r));
   const r = { s, buf: Buffer.alloc(0), head: '', frames: [], msgs: [], ended: false };
@@ -113,7 +113,8 @@ async function raw(pathAndQuery, { version = '13', at = port } = {}) {
   });
   s.on('close', () => { r.ended = true; });
   s.on('error', () => {});
-  s.write(`GET ${pathAndQuery} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: ${version}\r\n\r\n`);
+  const more = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join('');
+  s.write(`GET ${pathAndQuery} HTTP/1.1\r\nHost: ${host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: ${version}\r\n${more}\r\n`);
   r.send = f => s.write(frame(f));
   r.wait = async (pred, ms = 2000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(10)) { const f = r.frames.find(pred); if (f) return f; } return null; };
   r.closeCode = async (ms = 2000) => { const f = await r.wait(f => f.op === 8, ms); return f && f.payload.length >= 2 ? f.payload.readUInt16BE(0) : null; };
@@ -786,6 +787,304 @@ try {
     ok(await net(P1, HOME + ', ' + CDN) === h(CDN) && await net(P1, MADE + ', ' + HOME) === h(HOME), '--proxy 1: the last, as --proxy alone (the step before)');
     ok(/Behind 2 reverse proxies: a client's address is the second from the right in X-Forwarded-For/.test(P2.out), 'the start line says how many');
     P2.kill(); P1.kill();
+  });
+
+  // ---- a public server (--public, and each rule on its own); none of it is on unless asked
+  const APP = 'https://stories.lbi-netmed.com', EVIL = 'https://evil.example';
+  const unknownCodes = n => { const out = []; for (let i = 0; out.length < n; i++) { const c = 'Q' + String.fromCharCode(65 + Math.floor(i / 26) % 26) + String.fromCharCode(65 + i % 26); out.push(c); } return out; };
+  const exits = args => new Promise(r => {   // a relay that refuses to start: its exit code and what it said
+    const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, RELAY_LOG_TOKEN: '' } });
+    let out = ''; p.stdout.on('data', d => { out += d; }); p.stderr.on('data', d => { out += d; });
+    const t = setTimeout(() => p.kill(), 3000);
+    p.on('exit', c => { clearTimeout(t); r({ code: c, out }); });
+  });
+  // a socket as a browser opens one (its Origin) through a proxy (X-Forwarded-For); first: welcome, an error or a close
+  const wsAt = (P, q, headers) => socket(`ws://127.0.0.1:${P.port}${q}`, headers);
+  const first = async c => {   // (a message comes before its socket's close: the queue is looked at first)
+    for (const end = Date.now() + 3000; Date.now() < end; await sleep(10)) {
+      const i = c.q.findIndex(m => m.t === 'welcome' || m.t === 'error' || !!m.type);
+      if (i >= 0) return c.q.splice(i, 1)[0];
+      if (c.closed || c.failed) return { closed: c.closed, failed: c.failed };
+    }
+    return {};
+  };
+
+  await step('without --public: every origin, sockets with no Origin, no limits per address, the room list with names (as before)', async () => {
+    const p = await req('GET', '/api/ping', { headers: { Origin: EVIL } });
+    ok(p.status === 200 && p.headers['access-control-allow-origin'] === '*' && !('unlisted' in p.json()) && !/Origin/.test(p.headers.vary || ''), 'any origin: CORS *, no Vary, no unlisted');
+    const c = socket(`ws://127.0.0.1:${port}/api/ws?room=${R}&id=ev1`, { Origin: EVIL });
+    ok((await c.next(is('welcome')))?.room === R, 'a socket from any origin is welcome');
+    c.ws.close();
+    const r = await raw(`/api/ws?room=${R}&id=no1`);
+    await sleep(200);
+    ok(/^HTTP\/1.1 101/.test(r.head) && r.msgs.some(is('welcome')), 'a socket with no Origin too');
+    r.s.destroy();
+    const codes = unknownCodes(100).filter(x => x !== R);
+    const st = await Promise.all(codes.map(x => req('GET', '/api/rooms/' + x)));
+    ok(st.every(x => x.status === 404), `${codes.length} lookups of unknown codes in a row: all 404, none refused`);
+    const taken = await Promise.all(Array.from({ length: 25 }, () => req('POST', '/api/rooms', { body: { code: R } })));
+    ok(taken.every(x => x.status === 409), '25 chosen codes that are taken: 409 each');
+    const joins = [];
+    for (const x of codes.slice(0, 30)) joins.push(client(x, 'gu1'));
+    const errs = await Promise.all(joins.map(j => j.next(is('error'))));
+    ok(errs.every(e => e?.code === 'room'), '30 sockets for unknown rooms: each told no such room');
+    const list = (await req('GET', '/api/rooms')).json();
+    ok(list.find(x => x.code === R)?.names.includes('Ann'), 'the open rooms listed with their people\'s names');
+    ok(/hello a1 "Ann" ar here v1/.test(relay.out), 'the log names who said hello');
+  });
+
+  let PUBR;
+  await step('--public: only the app\'s pages and the relay\'s own may connect (sockets, the API, CORS, the introduction server)', async () => {
+    const P = PUBR = await start(['--public', '--proxy', '--static', REPO, '--ping', '0.2']);
+    const get = (p, headers = {}, o = {}) => req(o.method || 'GET', p, { at: P.port, headers, ...o });
+    let r = await get('/api/ping');
+    ok(r.status === 200 && r.json().proto === 1 && r.json().unlisted === true && !r.headers['access-control-allow-origin'] && /Origin/.test(r.headers.vary || ''),
+      'ping with no Origin (the health check, the relay\'s own page): answered, unlisted: true, Vary: Origin, no CORS needed');
+    r = await get('/api/ping', { Origin: APP });
+    ok(r.status === 200 && r.headers['access-control-allow-origin'] === APP && /Origin/.test(r.headers.vary), `the app's origin (${APP}): CORS for it alone (echoed)`);
+    for (const o of [EVIL, 'null', 'https://stories.lbi-netmed.com.evil.example', 'http://stories.lbi-netmed.com']) {
+      r = await get('/api/ping', { Origin: o });
+      ok(r.status === 403 && !r.headers['access-control-allow-origin'], `another origin is refused: ${o} (403, no CORS)`);
+    }
+    r = await get('/api/ping', { Origin: `http://127.0.0.1:${P.port}` });
+    ok(r.status === 200 && r.headers['access-control-allow-origin'] === `http://127.0.0.1:${P.port}`, 'the relay\'s own origin (its Host)');
+    ok((await get('/api/ping', { Origin: 'https://rooms.example.org', Host: 'rooms.example.org' })).status === 200 &&
+      (await get('/api/ping', { Origin: 'https://rooms.example.org', 'X-Forwarded-Host': 'rooms.example.org' })).status === 200 &&
+      (await get('/api/ping', { Origin: 'https://rooms.example.org' })).status === 403, 'the relay\'s own name behind its proxy (Host, or X-Forwarded-Host with --proxy); not another\'s');
+    r = await get('/api/rooms', { Origin: APP, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' }, { method: 'OPTIONS' });
+    ok(r.status === 204 && r.headers['access-control-allow-origin'] === APP && /X-Log-Token/.test(r.headers['access-control-allow-headers']), 'a preflight from the app: 204 for it');
+    ok((await get('/api/rooms', { Origin: EVIL, 'Access-Control-Request-Method': 'POST' }, { method: 'OPTIONS' })).status === 403, 'a preflight from elsewhere: 403');
+    ok((await get('/api/rooms', { Origin: EVIL }, { method: 'POST', body: { app: 'networks', version: 'v1' } })).status === 403, 'a room from another origin\'s page: 403');
+    ok((await get('/api/rooms', { Origin: APP }, { method: 'POST', body: { app: 'networks', version: 'v1' } })).status === 201, 'from the app\'s: made');
+    const f = await fetch(`http://127.0.0.1:${P.port}/api/ping`);
+    ok(f.ok && (await f.json()).proto === 1, 'Node\'s fetch (no Origin) gets ping');
+    const hc = /CMD (node -e .*)$/m.exec(fs.readFileSync(path.join(HERE, 'Dockerfile'), 'utf8'));
+    let hcOk = false;
+    try { execFileSync('sh', ['-c', hc[1].replace(/^node /, JSON.stringify(process.execPath) + ' ').replace('8787', String(P.port))], { stdio: 'ignore', timeout: 5000 }); hcOk = true; } catch { /* failed */ }
+    ok(hc && hcOk, 'the Dockerfile\'s health check passes on a public relay');
+    r = await get('/', { Origin: EVIL });
+    ok(r.status === 200 && r.buf.equals(fs.readFileSync(path.join(REPO, 'index.html'))) && (await get('/stories/flock.js')).status === 200, 'the relay\'s own pages are served to anyone');
+    // sockets
+    const code = (await get('/api/rooms', { Origin: APP }, { method: 'POST', body: { app: 'networks', version: 'v1' } })).json().code;
+    const a = wsAt(P, `/api/ws?room=${code}&id=o1`, { Origin: APP });
+    ok((await first(a)).t === 'welcome', 'a socket from the app\'s page: welcome');
+    const own = wsAt(P, `/api/ws?room=${code}&id=o2`, { Origin: `http://127.0.0.1:${P.port}` });
+    ok((await first(own)).t === 'welcome', 'from the relay\'s own page: welcome');
+    const e = wsAt(P, `/api/ws?room=${code}&id=o3`, { Origin: EVIL });
+    const ef = await first(e);
+    ok(!ef.t && (ef.failed || ef.closed?.code === 1006), 'from another origin: no socket');
+    let w = await raw(`/api/ws?room=${code}&id=o4`, { at: P.port, headers: { Origin: EVIL } });
+    await sleep(200);
+    ok(/^HTTP\/1.1 403/.test(w.head), '... refused before the upgrade (403)');
+    w = await raw(`/api/ws?room=${code}&id=o5`, { at: P.port });
+    await sleep(200);
+    ok(/^HTTP\/1.1 403/.test(w.head), 'a socket with no Origin (not a browser): 403');
+    w = await raw(`/api/ws?room=${code}&id=o6`, { at: P.port, host: 'rooms.example.org', headers: { Origin: 'https://rooms.example.org' } });
+    await sleep(200);
+    ok(/^HTTP\/1.1 101/.test(w.head) && w.msgs.some(is('welcome')), 'from the relay\'s own name (Host): welcome');
+    w.s.destroy();
+    // the introduction server
+    r = await get('/peerjs/peerjs/id', { Origin: APP });
+    ok(r.status === 200 && /^[0-9a-f-]{36}$/.test(r.text) && r.headers['access-control-allow-origin'] === APP, 'an id for the app\'s page (CORS for it)');
+    ok((await get('/peerjs/peerjs/id', { Origin: EVIL })).status === 403 && (await get('/peerjs/peerjs/id')).status === 200, 'not for another origin; with no Origin (the same origin) yes');
+    const pa = wsAt(P, peerQuery('pubpeer1', 'tok1'), { Origin: APP });
+    ok((await first(pa)).type === 'OPEN', 'a peer from the app\'s page: OPEN');
+    w = await raw(peerQuery('pubpeer2', 'tok2'), { at: P.port, headers: { Origin: EVIL } });
+    const w2 = await raw(peerQuery('pubpeer3', 'tok3'), { at: P.port });
+    await sleep(200);
+    ok(/^HTTP\/1.1 403/.test(w.head) && /^HTTP\/1.1 403/.test(w2.head), 'a peer from another origin, or with no Origin: 403');
+    for (const c of [a, own, pa]) c.ws.close();
+    await sleep(400);
+    ok(/sockets refused: origin not allowed \(\d+\)/.test(P.out) && /requests refused: origin not allowed \(\d+\)/.test(P.out), 'refusals counted in the log, a line a tick');
+    ok(new RegExp(`Only pages from ${APP} and the relay's own`).test(P.out) && /No list of open rooms/.test(P.out) &&
+      /Per address at most 30 lookups of unknown room codes a minute \(a burst of 60\), 10 new rooms a minute \(a burst of 20\), 64 open sockets/.test(P.out) &&
+      /All rooms together hold at most 64 MB/.test(P.out) && !/No --proxy/.test(P.out), 'the start lines say what --public allows');
+    const H = await start(['--public', '--static', REPO, '--host', '0.0.0.0', '--quiet']);
+    for (const end = Date.now() + 2000; !/All rooms together/.test(H.out) && Date.now() < end;) await sleep(20);
+    ok(/All rooms together/.test(H.out) && !/Desktops on the same network|For headsets|On this machine/.test(H.out) && /No --proxy: behind a reverse proxy/.test(H.out),
+      'on every address: no addresses to open on a LAN (a container\'s are no one\'s), and a word that --proxy is missing');
+    H.kill();
+    // --allow-no-origin, and --origin on its own
+    const N = await start(['--public', '--allow-no-origin', '--quiet']);
+    w = await raw('/api/ws?room=ABC&id=n1', { at: N.port });
+    const we = await raw('/api/ws?room=ABC&id=n2', { at: N.port, headers: { Origin: EVIL } });
+    await sleep(200);
+    ok(/^HTTP\/1.1 101/.test(w.head) && w.msgs.some(is('error', m => m.code === 'room')) && /^HTTP\/1.1 403/.test(we.head), '--allow-no-origin: a socket with no Origin gets in; another origin still not');
+    N.kill();
+    const O = await start(['--origin', 'https://a.example,https://B.example/', '--origin', 'https://c.example:8443']);
+    const oget = (p, o) => req('GET', p, { at: O.port, headers: o ? { Origin: o } : {} });
+    const echoed = [];
+    for (const o of ['https://a.example', 'https://b.example', 'https://c.example:8443']) echoed.push((await oget('/api/ping', o)).headers['access-control-allow-origin'] === o);
+    ok(echoed.every(Boolean), '--origin (a list, repeated, any case, a slash at the end): each origin allowed');
+    ok((await oget('/api/ping', APP)).status === 403 && (await oget('/api/ping', 'https://c.example')).status === 403, 'others refused (the app\'s too: not listed, not --public)');
+    const ocode = (await req('POST', '/api/rooms', { at: O.port, body: { app: 'networks', version: 'v1' } })).json().code;
+    const oc = wsAt(O, `/api/ws?room=${ocode}&id=ol1`, { Origin: 'https://a.example' });
+    await first(oc);
+    oc.send({ t: 'hello', name: 'Ola', version: 'v1' });
+    await oc.next(is('members', m => m.members.some(x => x.name === 'Ola')));
+    const ol = (await oget('/api/rooms')).json();
+    ok(!(await oget('/api/ping')).json().unlisted && ol.find(x => x.code === ocode)?.names.includes('Ola'), '--origin alone: the room list and names as before');
+    ok((await Promise.all(unknownCodes(70).map(x => oget('/api/rooms/' + x)))).every(x => x.status === 404), '--origin alone: no limit on lookups');
+    ok(!/Per address|No list of open rooms/.test(O.out) && /Only pages from https:\/\/a\.example, https:\/\/b\.example, https:\/\/c\.example:8443/.test(O.out), 'its start line');
+    oc.ws.close(); O.kill();
+    for (const bad of ['notaurl', 'https://x.example/path', 'ftp://x.example', 'https://x.example/?q=1']) {
+      const x = await exits(['--origin', bad]);
+      ok(x.code === 1 && /--origin takes origins/.test(x.out), `--origin ${bad}: refused at the start`);
+    }
+  });
+
+  await step('--public: no open-room list and no member\'s name in any answer or log line', async () => {
+    const P = PUBR, HOME = '198.51.100.7';
+    const get = (p, headers = {}) => req('GET', p, { at: P.port, headers: { Origin: APP, ...headers } });
+    const code = (await req('POST', '/api/rooms', { at: P.port, headers: { Origin: APP, 'X-Forwarded-For': HOME }, body: { app: 'networks', version: 'v1' } })).json().code;
+    const a = wsAt(P, `/api/ws?room=${code}&id=nm1`, { Origin: APP, 'X-Forwarded-For': HOME });
+    await first(a);
+    a.send({ t: 'hello', name: 'Annelie', color: '#ff8800', kind: 'ar', version: 'v1' });
+    await a.next(is('members', m => m.members.some(x => x.name === 'Annelie')));
+    a.send({ t: 'set', batch: [['st.s1', { story: 'flock', x: 0, z: 0, yaw: 0 }]], cid: 1 });
+    await a.next(is('set'));
+    const b = wsAt(P, `/api/ws?room=${code}&id=nm2`, { Origin: APP });
+    const bw = await first(b);
+    ok(bw.t === 'welcome' && bw.members.some(x => x.name === 'Annelie'), 'the room\'s own members still see each other\'s names (its people list)');
+    const list = await get('/api/rooms');
+    ok(list.status === 200 && Array.isArray(list.json()) && list.json().length === 0, 'GET /api/rooms: an empty list (the page shows none, without an error)');
+    const one = await get('/api/rooms/' + code);
+    const j = one.json();
+    ok(one.status === 200 && j.members === 2 && j.version === 'v1' && j.keys['st.s1']?.v.story === 'flock' && !/Annelie|#ff8800/.test(one.text),
+      'GET /api/rooms/<code>: the version and keys a page needs, people as a count, no names');
+    const near = await get('/api/near', { 'X-Forwarded-For': HOME });
+    const row = near.json().rooms.find(x => x.code === code);
+    ok(row && Object.keys(row).sort().join() === 'code,members,stations,version' && row.members === 2 && row.stations === 1 && !/Annelie/.test(near.text),
+      '/api/near: code, people, stations and version, no name');
+    a.ws.close(); b.ws.close();
+    await sleep(300);
+    ok(!/Annelie/.test(P.out) && /hello nm1 ar v1/.test(P.out), 'the log names nobody (hello: the member\'s id)');
+  });
+
+  await step('--public: lookups of unknown codes capped per address (with --proxy, IPv6 by its /64), a known code then refused too', async () => {
+    const G = await start(['--public', '--proxy', '--guesses', '5', '--creates', '50', '--ping', '0.2']);
+    const get = (p, xff, o = {}) => req(o.method || 'GET', p, { at: G.port, headers: { Origin: APP, 'X-Forwarded-For': xff }, ...o });
+    const K = (await get('/api/rooms', '192.0.2.1', { method: 'POST', body: { app: 'networks', version: 'v1' } })).json().code;
+    const codes = unknownCodes(40).filter(x => x !== K);
+    let s = [];
+    for (const x of codes.slice(0, 10)) s.push((await get('/api/rooms/' + x, '198.51.100.1')).status);
+    ok(s.every(x => x === 404), '10 unknown codes (a burst of twice --guesses 5): 404 each');
+    let r = await get('/api/rooms/' + codes[10], '198.51.100.1');
+    ok(r.status === 429 && +r.headers['retry-after'] >= 1 && +r.headers['retry-after'] <= 12 && /wait a minute/.test(r.json().error), 'the 11th: 429, Retry-After');
+    ok((await get('/api/rooms/' + K, '198.51.100.1')).status === 429, 'then a known code too (or the answers would say which exist)');
+    ok((await get('/api/rooms', '198.51.100.1', { method: 'POST', body: { code: K } })).status === 429 &&
+      (await get('/api/rooms', '198.51.100.1', { method: 'POST', body: { code: codes[12] } })).status === 429, 'and a chosen code to make a room: 429 (taken or free)');
+    let c = wsAt(G, `/api/ws?room=${K}&id=gx1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.1' });
+    let m = await first(c);
+    ok(m.t === 'error' && m.code === 'limit' && (await c.closedIn(2000))?.code === 4029, 'and a socket for the known room: error limit, closed 4029');
+    ok((await get('/api/rooms/' + K, '198.51.100.2')).status === 200 && (await get('/api/rooms/' + codes[11], '198.51.100.2')).status === 404, 'another address is not held up');
+    ok((await get('/api/rooms/' + K, '198.51.100.1, 198.51.100.2')).status === 200, '--proxy: the address the proxy put last counts (a made-up one before it does not)');
+    // sockets for unknown rooms are lookups too
+    s = [];
+    for (const x of codes.slice(0, 10)) { const u = wsAt(G, `/api/ws?room=${x}&id=gy1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.3' }); s.push((await first(u)).code); }
+    ok(s.every(x => x === 'room'), '10 sockets for unknown rooms: no room each');
+    c = wsAt(G, `/api/ws?room=${codes[10]}&id=gy1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.3' });
+    ok((await first(c)).code === 'limit', 'the 11th: limit');
+    // a chosen code that is taken (409) counts too
+    s = [];
+    for (let i = 0; i < 5; i++) s.push((await get('/api/rooms', '198.51.100.4', { method: 'POST', body: { code: K } })).status);
+    for (const x of codes.slice(0, 5)) s.push((await get('/api/rooms/' + x, '198.51.100.4')).status);
+    ok(s.join() === '409,409,409,409,409,404,404,404,404,404' && (await get('/api/rooms/' + codes[5], '198.51.100.4')).status === 429, 'taken (409) and unknown (404) from one budget');
+    // a member coming back is let in past the limit; a new id is not
+    const mem = wsAt(G, `/api/ws?room=${K}&id=mem1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.5' });
+    ok((await first(mem)).t === 'welcome', 'a member joins');
+    for (const x of codes.slice(0, 10)) await get('/api/rooms/' + x, '198.51.100.5');
+    const back = wsAt(G, `/api/ws?room=${K}&id=mem1`, { Origin: APP, 'X-Forwarded-For': '198.51.100.5' });
+    const fresh = wsAt(G, `/api/ws?room=${K}&id=mem2`, { Origin: APP, 'X-Forwarded-For': '198.51.100.5' });
+    ok((await first(back)).t === 'welcome' && (await first(fresh)).code === 'limit', 'past the limit: the member again (its id in the room) welcome; a new id not');
+    // IPv6: one budget per /64
+    for (const x of codes.slice(0, 10)) await get('/api/rooms/' + x, '2001:db8:1:2::5');
+    ok((await get('/api/rooms/' + codes[10], '2001:db8:1:2::9')).status === 429 && (await get('/api/rooms/' + codes[10], '2001:db8:1:3::5')).status === 404,
+      'IPv6: an address in the same /64 shares the budget, one in another /64 does not');
+    back.ws.close(); mem.ws.close();
+    await sleep(400);
+    ok(/requests refused: too many unknown room codes from one address \(\d+\)/.test(G.out) && /sockets refused: too many unknown room codes from one address \(\d+\)/.test(G.out),
+      'the refusals counted in the log');
+    ok(!/198\.51\.100|2001:db8/.test(G.out), 'no address in the log');
+    G.kill();
+    // without --proxy the header is ignored: every client of this test is one address (this machine)
+    const N = await start(['--public', '--guesses', '2', '--quiet']);
+    const nget = (x, xff) => req('GET', '/api/rooms/' + x, { at: N.port, headers: { 'X-Forwarded-For': xff } });
+    s = [];
+    for (const x of codes.slice(0, 4)) s.push((await nget(x, '198.51.100.' + (10 + s.length))).status);
+    ok(s.every(x => x === 404) && (await nget(codes[4], '198.51.100.99')).status === 429, 'without --proxy, X-Forwarded-For is ignored: one budget for the socket\'s address');
+    N.kill();
+  });
+
+  await step('--public: open sockets and new rooms capped per address', async () => {
+    const S = await start(['--public', '--proxy', '--sockets', '4', '--creates', '3', '--quiet']);
+    const post = (xff, body = { app: 'networks', version: 'v1' }) => req('POST', '/api/rooms', { at: S.port, headers: { Origin: APP, 'X-Forwarded-For': xff }, body });
+    const made = [];
+    for (let i = 0; i < 6; i++) made.push((await post('198.51.100.21')).status);
+    const over = await post('198.51.100.21');
+    ok(made.every(x => x === 201) && over.status === 429 && +over.headers['retry-after'] >= 1 && /new rooms/.test(over.json().error), '--creates 3: 6 new rooms (a burst of twice that), then 429');
+    ok((await post('198.51.100.21', { code: 'ZQZ' })).status === 429, 'a chosen code too');
+    const K = (await post('198.51.100.22')).json().code;
+    ok(/^[A-Z]{3}$/.test(K || ''), 'another address makes one');
+    const sock = (id, xff) => wsAt(S, `/api/ws?room=${K}&id=${id}`, { Origin: APP, 'X-Forwarded-For': xff });
+    const mine = [];
+    for (let i = 0; i < 4; i++) { mine.push(sock('sk' + i, '198.51.100.23')); }
+    const firsts = await Promise.all(mine.map(first));
+    ok(firsts.every(x => x.t === 'welcome'), '--sockets 4: four sockets from one address');
+    const fifth = sock('sk4', '198.51.100.23');
+    const f5 = await first(fifth);
+    ok(f5.t === 'error' && f5.code === 'busy' && (await fifth.closedIn(2000))?.code === 4029, 'the fifth: error busy, closed 4029');
+    const p5 = wsAt(S, peerQuery('skpeer', 'tok'), { Origin: APP, 'X-Forwarded-For': '198.51.100.23' });
+    const pf = await first(p5);
+    ok(pf.type === 'ERROR' && /too many connections/.test(pf.payload?.msg) && (await p5.closedIn(2000))?.code === 4029, 'an introduction server socket counts too (ERROR, 4029)');
+    ok((await first(sock('sk5', '198.51.100.24'))).t === 'welcome', 'another address is not held up');
+    mine[0].ws.close(); await mine[0].done; await sleep(200);
+    ok((await first(sock('sk6', '198.51.100.23'))).t === 'welcome', 'one closed: room for another');
+    S.kill();
+  });
+
+  await step('--public: logs only with the relay\'s token (X-Log-Token), never written in the log', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-publog-'));
+    let x = await exits(['--public', '--logs', dir]);
+    ok(x.code === 1 && /--public with --logs needs a token/.test(x.out), '--public --logs without a token: refused at the start');
+    x = await exits(['--public', '--logs', dir, '--log-token', 'short']);
+    ok(x.code === 1 && /at least 16 characters/.test(x.out), 'a token under 16 characters: refused');
+    const TOKEN = crypto.randomBytes(12).toString('hex');   // (made here: no token is ever kept in the repository)
+    const L = await start(['--public', '--logs', dir], { RELAY_LOG_TOKEN: TOKEN });
+    const send = (headers, body = { room: 'ABC', id: 'lg' + crypto.randomBytes(3).toString('hex'), name: 'Ada', kind: 'ar', entries: [{ t: 1 }] }) => req('POST', '/api/log', { at: L.port, headers, body });
+    let r = await send({});
+    ok(r.status === 404 && /without the relay's log token/.test(r.json().error), 'no token (as a page sends it): 404, so the page stops sending');
+    ok((await send({ 'X-Log-Token': 'x'.repeat(24) })).status === 403 && (await send({ 'X-Log-Token': TOKEN + 'x' })).status === 403, 'a wrong token: 403');
+    r = await send({ 'X-Log-Token': TOKEN, Origin: APP });
+    ok(r.status === 200 && r.json().lines === 1 && r.headers['access-control-allow-origin'] === APP && fs.readdirSync(dir).length === 1, 'the token from the environment (RELAY_LOG_TOKEN): kept');
+    ok((await send({ 'X-Log-Token': TOKEN, Origin: EVIL })).status === 403, 'from another origin, even with the token: 403');
+    ok(!L.out.includes(TOKEN) && /Logs need the relay's log token/.test(L.out), 'the start line says a token is needed, never the token');
+    L.kill();
+    const T2 = crypto.randomBytes(12).toString('hex');
+    const L2 = await start(['--public', '--logs', dir, '--log-token', T2, '--quiet']);
+    ok((await req('POST', '/api/log', { at: L2.port, headers: { 'X-Log-Token': T2 }, body: { room: 'ABD', id: 'lg2', entries: [{ t: 1 }] } })).status === 200, '--log-token on the command line works too');
+    L2.kill();
+    ok((await req('POST', '/api/log', { at: PUBR.port, headers: { 'X-Log-Token': TOKEN }, body: { room: 'ABC', id: 'lg3', entries: [] } })).status === 404, '--public without --logs: logs are off');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await step('--store: every room together holds at most so many MB', async () => {
+    const T = await start(['--store', '1', '--quiet']);
+    const mk = async () => (await req('POST', '/api/rooms', { at: T.port, body: { app: 'networks', version: 'v1' } })).json().code;
+    const [r1, r2] = [await mk(), await mk()];
+    const a = wsAt(T, `/api/ws?room=${r1}&id=sa`), b = wsAt(T, `/api/ws?room=${r2}&id=sb`);
+    await first(a); await first(b);
+    const write = async (c, batch, cid) => { c.send({ t: 'set', batch, cid }); return Promise.race([c.next(is('set', m => m.cid === cid)), c.next(is('error', m => m.cid === cid))]); };
+    const big = 'x'.repeat(MAX_VALUE - 2);
+    let s;
+    for (let i = 0; i < 3; i++) s = await write(a, [['pose.' + i, big]], 'w' + i);
+    ok(s?.t === 'set', 'three values of 256 KB in one room');
+    s = await write(b, [['pose.x', big]], 'wb');
+    ok(s?.t === 'error' && /the relay is full/.test(s.text), 'a fourth in another room: the relay is full (1 MB)');
+    s = await write(a, [['pose.0', null]], 'del');
+    ok(s?.t === 'set' && (await write(b, [['pose.x', big]], 'wb2'))?.t === 'set', 'one deleted: room for it');
+    ok((await write(a, [['pose.1', 'small']], 'shrink'))?.t === 'set', 'a value made smaller is never refused');
+    a.ws.close(); b.ws.close(); T.kill();
   });
 
   await step('the log has a line per write and per refusal', async () => {
