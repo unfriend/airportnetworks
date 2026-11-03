@@ -70,7 +70,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   story files are always the same version; the cache is the offline copy (and
   the answer when the network takes more than 4 s). The narration MP3s are
   served from the cache (with byte ranges), a cache of their own that outlives
-  the releases (`networks-narration`, v108): a narration goes in when a story
+  the releases (`networks-narration`, v109): a narration goes in when a story
   first plays it on this device, never all sixteen at once (about 57 MB; ten
   headsets at their first visit would pull 570 MB over one router while people
   are already in a room), so offline a device has the narrations it has
@@ -124,7 +124,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   their own section, `de`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
   `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser (`--lang de` a story's German).
   Every story but the airports (which keep their human recording) is narrated so, with the American voice `af_heart`
-  (the owner's choice, 29 October 2026): the tour first, the other fourteen in v108 (3 November 2026, after a pass over
+  (the owner's choice, 29 October 2026): the tour first, the other fourteen in v109 (3 November 2026, after a pass over
   every story's text so that it reads as a person would say it). A story in two
   languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
   Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
@@ -2063,7 +2063,7 @@ narration heard from out of the circle, the locks and the People toggle in use.
   slows a stretch a lot, a line's 0.6 s fade-in keeps the light pace and the
   rest of the stretch waits, so the text is there at once). Run it again after a story's text changes, then update the lengths
   (`len` in `stories/list.js`, `audio/PUT-narration.mp3-HERE.txt`) and
-  `docs/narration.md` (every story has a recording since v108, so this is for a
+  `docs/narration.md` (every story has a recording since v109, so this is for a
   new story until it is narrated); the flock's first swoop (flight time, `roost` in its
   set) is timed to its last chapter in its recording. A recorded narration replaces
   the table with its own times (the airports' is): `pace.mjs` leaves a story
@@ -2522,7 +2522,7 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
 - Kinds of microbe are numbered by abundance, never named by their ids; no sequences, no ASV ids, no pictures or photos
   from the slides (everything is redrawn in 3D), no e-mail addresses. The two kinds that differ by line (a Denitratisoma
   and a Kitasatospora) are named only in explore's small print, never as an effect of the wheat.
-- Eight chapters, 11:03 as narrated (v108): Half the sack, The relay, A wheat fights
+- Eight chapters, 11:03 as narrated (v109): Half the sack, The relay, A wheat fights
   back, The field trial (the globe and the hop, then the field), Greener, fewer leaks, A crowd of 100,000, Who rises
   together, What we know. Every number the text shows comes from `SOIL_DATA` (`FACTS` in `engine/e3_story.js`). In a
   headset no set stands life size (`field_life` was optional and is not built). A set label's `text` may be a function

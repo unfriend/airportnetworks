@@ -8,7 +8,7 @@ If you re-record with different timings, change NARRATION_SYNC near the top of
 stories/airports.js (pairs of [time in recording, original story cue]).
 Without the file the story plays silently on the same timing.
 
-Every other story has a synthetic narration since v108 (3 November 2026), made
+Every other story has a synthetic narration since v109 (3 November 2026), made
 with node tools/voice/narrate.mjs <key> (Kokoro-82M, the American voice
 af_heart, chosen by the owner on 29 October 2026; the pass story's German with
 Piper's Thorsten voice): the script speaks the panel's words, lays the story

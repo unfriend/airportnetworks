@@ -120,7 +120,7 @@ await step('a click on the story card', async () => {
 });
 // let the click's activation run out, then change story with no tap
 await wait(6000);
-// (the design room: since v108 every story has a narration, and only the design room has none)
+// (the design room: since v109 every story has a narration, and only the design room has none)
 await page.evaluate(() => HOST.go('design'));
 await until('the design room', p => p.story === 'design');
 await step('the engine keeps running in a story without narration', async () => {

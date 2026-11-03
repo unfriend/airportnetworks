@@ -43,43 +43,75 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **Released as networks-v108 (3 November 2026; FORMAT networks-28 as v104 to v107, shell 108: running pages ask to
-  reload), tested headlessly only: every story narrated.** (1) A pass over every story's text but the airports' (the
-  owner: "go through all the texts and make sure that they are actually what a human speaker would say"): lines that
-  read like captions, lists or notes were rewritten as a person would say them, the numbers kept as the data gives
-  them (a page of before and after was sent; `docs/narration.md` holds the words). (2) Fourteen more stories narrated
-  with the tour's synthetic voice (Kokoro-82M, `af_heart`), the tour's changed lines spoken again, and the pass
-  story's German with Piper's Thorsten voice (the owner: "piper thorsten for the german part sounds great"), both
-  languages on one timeline: `node tools/voice/narrate.mjs <key>` speaks each line, lays the story out on the
-  recording and writes its tables. Pronunciations for gene names, letters, units and names are in
-  `tools/voice/say.json` (thousands read without their commas, DNA letters spelt so the voice says them as letters, a
-  numbered step read with a colon). What the voice and the subtitles read follows the same rules (a list's items with
-  commas, a number spaced from its caption, `data-say` for a line said otherwise or not at all: the proteins' chart,
-  the live counters). The stories got longer or shorter with their voices (the soil story is now the longest, 11:03);
-  the flock's first swoop round you moved to its last chapter in the recording (95 s of flight). Each story's credits
-  say the narration is a synthetic voice. (3) The narrations keep a cache of their own in the service worker
-  (`networks-narration`), filled as a device first plays each story, never all at once: a new worker asks the server
-  only about the narrations it holds, with their ETag, and fetches only those that changed (until v107 every release
-  fetched all of them again, on every device; with all sixteen narrated, fetching them all at install was 57 MB a
-  device, which in the shared-room test slowed the pages enough to break a headset's hand-over of its room; it would
-  have been 570 MB over one router for ten headsets at their first visit). Offline, a device has the narrations it has
-  played. Built by hand and by one builder (the German narration); the text pass reviewed once (Sonnet reviewers; one
-  medium, fixed). How the voices sound was not heard here. The last changes (the narration cache, the reading rules,
-  the tests, the flock's swoop, the credits) were reviewed once more (four Sonnet reviewers, two skeptics for each
-  finding): one medium (a narration that could not be checked at install stayed as it was, perhaps an old recording
-  against a new story's timing: now it is dropped and the next play fetches it) and lows (a first play past the
-  browser's own cache; the subtitles and `docs/narration.md` now take a bold run into its text as the voice does,
-  which showed in the qubits story's X₂ and Z₂), fixed. Tests: every narration checked in headless Chromium
-  (`tools/voice/check.mjs --quick`, the pass story in both languages: each line where its cue is, the clock following
-  the sound, jumps, the slideshow's stops) 16 of 16 good, once the checker skipped the lines marked not read; the
-  sound cues good; relay 243 good; the update test from v107 good, with new checks of the narration cache (the two
-  narrations v107 held kept, the tour's re-recorded one replaced, none other fetched at install, one played for the
-  first time kept); RESULTS. The runs found one real fault, fixed: with every story narrated, a new service worker
-  fetched all 57 MB of narration at install, and in the shared-room test that slowed the pages enough to break a
-  headset's hand-over of its peer-to-peer room (v107 passed it, v108 failed it twice, and passed with the new
-  recordings taken away); now a narration is kept when a story first plays it. And one check made robust: the audio
-  test's fault cases wait for the narration to be decoded before they press play (on a loaded machine the `<audio>`
-  element playing while Web Audio decoded passed for the fallback, and Web Audio took over a moment later).
+- **Released as networks-v109 (3 November 2026; FORMAT networks-29, shell 109: running pages ask to reload, and rooms of
+  an older version are refused until their devices update), tested headlessly only: every story narrated, sound off by
+  default, a room that starts as a shared Stories screen, lining up as part of every headset's start, phones and tablets,
+  and a relay that can run on a public server.** v108 was not released on its own: its narrations went out with v109.
+  (1) A pass over every story's text but the airports' (the owner: "go through all the texts and make sure that they
+  are actually what a human speaker would say"): lines that read like captions, lists or notes were rewritten as a
+  person would say them, the numbers kept as the data gives them (`docs/narration.md` holds the words). (2) Fourteen
+  more stories narrated with the tour's synthetic voice (Kokoro-82M, `af_heart`), the tour's changed lines spoken again,
+  and the pass story's German with Piper's Thorsten voice (the owner: "piper thorsten for the german part sounds
+  great"), both languages on one timeline: `node tools/voice/narrate.mjs <key>` speaks each line, lays the story out on
+  the recording and writes its tables. Pronunciations are in `tools/voice/say.json` (gene names, units, names;
+  thousands read without their commas, DNA letters spelt, a numbered step read with a colon). The voice and the
+  subtitles read alike (a list's items with commas, a number spaced from its caption, `data-say` for a line said
+  otherwise or not at all: the proteins' chart, the live counters). The stories got longer or shorter with their voices
+  (the soil story is now the longest, 11:03); the flock's first swoop moved to its last chapter (95 s of flight). Each
+  story's credits say the narration is a synthetic voice. (3) The narrations keep a cache of their own in the service
+  worker (`networks-narration`), filled as a device first plays each story, never all at once: a new worker asks the
+  server only about the narrations it holds, with their ETag, and fetches only those that changed (fetching all sixteen
+  at install was 57 MB a device, which in the shared-room test slowed the pages enough to break a headset's hand-over of
+  its room; for ten headsets at their first visit it would be 570 MB over one router). Offline, a device has the
+  narrations it has played. (4) Sound off by default, everywhere (the owner: "Default to sound off in all modes"): one
+  switch, this device's Sound button (the page's bar, focus mode's foot bar, the headset's foot panel, and *Sound* on
+  the headset menu's Settings tab), saved under a new key, so every device starts muted once; nothing plays (narration,
+  effects, backgrounds, the vacuum) until it is turned on; muted, a story runs on its own clock with its subtitles;
+  `#sound=on|off` in a link. (5) The headset Stories screen keeps only its title, its hint and *Back to the story* on
+  its header, and its sixteen cards stand in two rows on one arc, as the All stories icon has them (eight a row, 1.25 m
+  away); its other buttons moved to the menu's Settings tab (*Sound*, *Anchor*, *Repeat*, beside Exit, Recenter and the
+  rest) and Sound check to the Debug tab (the owner: "the menu inside the ar/vr story screen ... can go into the stick
+  click menu"; "can the stories be arranged in two arcs on top of each other ... like in their little icon"). (6) A
+  shared room starts as a shared version of the single-player Stories screen (the owner: "the players can move the story
+  arc around by dragging it, change it to a circle once a player places the first other circle or arrange all"; anyone
+  may move it, the circles lock stops that, the lobby counts as another circle, and laptops show it by themselves): the
+  room's arc, one All stories circle (`arc: true`) where the first headset stands (or at the room's origin when a page
+  starts the room, until the first headset moves it there), which every headset in the room is at without walking in
+  and every page follows without Follow. A card picked there plays for everyone at it. The grip on its cards, or near
+  them, carries it for everyone; the room map and Move here move it too. The first other circle added, or Arrange all,
+  makes it an ordinary All stories circle where it stands (`arc: false`; walk-in from then on, its ring shown to those
+  outside it). It waits while the room's first headset is asked to calibrate (that calibration moves the room's
+  origin). FORMAT networks-29: rooms from before are refused until their devices update ("no existing rooms get the new
+  thing or need to update"); a room kept on a device whose only station is the old automatic circle becomes the arc.
+  (7) Lining up is part of every headset's start in a room (the owner: "just do the calibrated marks but make it part of
+  the startup flow to check and make people check and calibrate if needed"; two fixed spots, such as table corners or
+  tape crosses, are more accurate than two people touching controllers): each time a headset enters AR (or VR in the
+  room), the room setup guide opens by itself at *Line up* (the room's first: pick two fixed spots A and B and touch
+  them, which sets the room for everyone; later headsets: calibrate on the room's spots) or straight at *Check* when it
+  is lined up by them already; *Check at A* or *Check at B* touches a spot with the controller's tip and says how far
+  this headset puts it (up to 10 cm green, 25 cm amber, beyond red); a check that stands closes the guide for the
+  session, a red one opens it again at *Line up*. *Skip for now* leaves it until something goes wrong. Touch the spot
+  with someone stays (*Check here*), as the check of two headsets against each other. The laptop's *Setting up a room*
+  says for each headset how it lines up and which check stood. (8) Phones and tablets (the owner: AR more prominent,
+  once per device, nothing on iPhone; "Top menu on mobile overflows"; "Back button not working correctly on mobile";
+  "on iphone and ipad one goes back when they want to move the story timeline on the bottom"; "mobile browsers do not
+  properly fullscreen"): the top bar fits any width (short labels, then what has no room goes into More); Enter AR shows
+  on a phone that has it (Android's Chrome with ARCore; no iPhone or iPad has WebXR), in focus mode's top bar too, with
+  a card *See it in your room* once per device; a story opened from the Stories screen is a history entry, so back
+  returns to the Stories screen (and closes Text, the drawer or a dialog first); the bars sit 20 to 22 px inside the
+  safe areas and the timeline is a taller strip clear of the edges; tapping a story's card asks for full screen on
+  Android and iPad (and More has *Full screen*), and an iPhone not opened from the Home Screen gets a one-time tip to add
+  it there. (9) The relay can run on a public server (the owner: "how can we make it safe and nice on our coolify"):
+  `--public` (opt-in; a laptop at an event runs as before) lets only the app's pages open a socket or use the API, lists
+  no rooms and names nobody in answers or logs, limits guessing codes, new rooms and sockets per address and the rooms'
+  data together, and keeps logs only with a token; `RELAY_ARGS` in its environment, and the step-by-step Coolify guide in
+  `relay/README.md`. The app on a public relay says that it lists no rooms, waits when a limit refuses it (never falls to
+  peer to peer, which would split a room) and waits a minute when a rejoin is held back. Not deployed yet; once it is,
+  its address can become the app's default relay. Built by hand (1 to 3) and by six builders in parallel (5 to 9, and 4
+  with the menu), integrated by hand, reviewed once (REVIEW). Tests: RESULTS. Untested on devices: how the voices
+  sound; the Stories screen's two rows and the menu's new rows on a headset; the room's arc dragged in a real room and
+  how close its cards stand; the startup flow's timing and how accurately a tip finds a table corner; Android's and
+  iPad's full screen, the iPhone tip, AR on a phone, Safari's gestures and back; the relay on Coolify.
 - **Released as networks-v107 (2 November 2026; FORMAT networks-28 as v104 to v106, shell 107: running pages ask to
   reload), tested headlessly only: a room setup guide with an alignment check, the PET network in 3D, and three small
   notes.** (1) The room setup guide (the owner: "a from zero tutorial when one starts a shared room ... How can we check
@@ -507,9 +539,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
   layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
   says what to try at an event.
-- **Narration:** every story is narrated (v108). The airports story has a human recording; the other fifteen a
+- **Narration:** every story is narrated (v109). The airports story has a human recording; the other fifteen a
   synthetic one, made by `tools/voice/` with Kokoro-82M's American voice `af_heart`, which the owner picked from samples
-  of several voices (29 October 2026): the tour first, the rest in v108 after a pass over every story's text so that it
+  of several voices (29 October 2026): the tour first, the rest in v109 after a pass over every story's text so that it
   reads as a person would say it. The pass story, in English and German, has a recording per language on one timeline
   (`node tools/voice/narrate.mjs pass`: Kokoro for English, Piper's Thorsten voice for German, the owner's choice; its
   licence point is in [docs/data-and-permissions.md](docs/data-and-permissions.md)). After a story's text changes, run
