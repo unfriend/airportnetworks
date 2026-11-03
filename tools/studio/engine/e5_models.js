@@ -58,7 +58,7 @@ async function libLoad(E) {
   E.state = 'loading'; E.p = 0; E.err = '';
   libChanged(E);
   try {
-    const buf = await getBytes(fileUrl(E.path), n => { if (gen === E.gen) { E.p = f && f.bytes ? Math.min(0.99, n / f.bytes) : 0; STU.libRev++; } });
+    const buf = await getBytes(fileUrl(E.path), n => { if (gen === E.gen) E.p = f && f.bytes ? Math.min(0.99, n / f.bytes) : 0; });   // (the grey box shows it)
     if (gen !== E.gen || scene !== STU.scene || GL.gone) return;
     E.state = 'parsing'; libChanged(E);
     await new Promise(r => later(r, 60));   // (the grey box says "Reading" before parsing stalls the page)

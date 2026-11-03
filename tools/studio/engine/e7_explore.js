@@ -195,7 +195,7 @@ function itemBlocks(it, B, ed) {
     const kv = [['File', r.file + (f ? ' · ' + mb(f.bytes) : '')]];
     if (info) {
       const b = placedBox(E, r.q, r.s), sz = b.getSize(new THREE.Vector3());
-      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', `${r.s} (units: ${E.guess.read ? E.guess.unit + ' cm each' : 'not said'}${E.guess.up === 2 ? ', Z up' : ''})`],
+      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (E.guess.read || E.guess.up !== 1 ? ` (the file says ${E.guess.read ? fmt(E.guess.unit) + ' cm a unit' : ''}${E.guess.read && E.guess.up !== 1 ? ', ' : ''}${E.guess.up === 2 ? 'Z up' : E.guess.up === 0 ? 'X up' : ''})` : '')],
         ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
@@ -335,6 +335,7 @@ function renderPanes() {
 }
 let paneLast = '';
 function paneStep(now) {
+  if (GL.tc && GL.tc.object && !editOn()) tcAttach();   // (a lock or the end of editing: the arrows go)
   if (APP.mode !== 'explore') return;
   const s = paneSig();
   if (s !== paneLast) { paneLast = s; X.dirty = true; }

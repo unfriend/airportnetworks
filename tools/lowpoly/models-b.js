@@ -818,6 +818,50 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
   });
 
+  // ================================================================== the studio (its station icon, not a prop)
+  // stories/studio.js: your own models placed life size, trigger cubes that show and hide them, sounds placed in the room.
+  // A low stage with the studio's floor grid, a small figure on it (a placed model), a see-through trigger cube's
+  // glowing edges and a little speaker on a post sending out sound, its full-volume ring on the floor
+  def('studio.stage', 'Studio stage', 'The studio: a low stage with a floor grid, a small figure standing on it, a see-through trigger cube\'s glowing edges and a little speaker on a post sending out sound, its ring on the floor.', 870, (M, g) => {
+    const TOP = 0.06, R = 0.5, BEIGE = '#e6d3b8', CLAY = '#ece4d6', CUBE = '#46d9ff', SOUND = '#ffb43b';
+    M.add('gloss', g.cyl(R, R * 1.04, TOP, 16), NAVY, [0, TOP / 2, 0]);           // the stage
+    M.add('glow', g.tor(R, 0.012, 3, 20), BEIGE, [0, TOP, 0], [PI / 2, 0, 0]);    // its rim, in the studio's colour
+    // the floor's grid (in VR the studio's floor has a faint 1 m grid): three lines each way, inside the rim
+    for (const k of [-1, 0, 1]) {
+      const o = k * 0.24, len = 2 * Math.sqrt(R * R - o * o) * 0.94;
+      M.add('flat', g.plane(len, 0.007), '#3c5072', [0, TOP + 0.002, o], [-PI / 2, 0, 0]);
+      M.add('flat', g.plane(0.007, len), '#3c5072', [o, TOP + 0.002, 0], [-PI / 2, 0, 0]);
+    }
+    // the figure (a placed, rigged model): legs, a body, arms (the right one raised, waving) and a head, light clay
+    const F = [-0.17, TOP, 0.08], at = (x, y, z) => [F[0] + x, F[1] + y, F[2] + z];
+    for (const s of [-1, 1]) M.add('gloss', g.rod(at(s * 0.036, 0.235, 0), at(s * 0.046, 0.008, 0.01), 0.022, 6, true), CLAY);
+    M.add('gloss', g.cyl(0.064, 0.046, 0.17, 8), CLAY, at(0, 0.32, 0));
+    M.add('gloss', g.rod(at(-0.07, 0.385, 0), at(-0.105, 0.235, 0.02), 0.016, 6, true), CLAY);
+    M.add('gloss', g.rod(at(0.07, 0.385, 0), at(0.15, 0.5, 0.03), 0.016, 6, true), CLAY);
+    M.add('gloss', g.ball(0.05, 1), CLAY, at(0, 0.46, 0));
+    // the trigger cube: faint see-through faces, glowing edges and a ball at each corner (as the studio draws one)
+    const C = [0.17, TOP + 0.185, -0.14], E = 0.36, h = E / 2;
+    M.add('veil', g.box(E, E, E), CUBE, C);
+    const cn = []; for (const x of [-h, h]) for (const y of [-h, h]) for (const z of [-h, h]) cn.push([C[0] + x, C[1] + y, C[2] + z]);
+    for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) {
+      const d = Math.abs(cn[i][0] - cn[j][0]) + Math.abs(cn[i][1] - cn[j][1]) + Math.abs(cn[i][2] - cn[j][2]);
+      if (Math.abs(d - E) < 1e-6) M.add('glow', g.rod(cn[i], cn[j], 0.008, 4), '#a6ecff');   // (the twelve edges: neighbours one side apart)
+    }
+    for (const p of cn) M.add('glow', g.oct(0.016), '#e2f8ff', p);
+    // the speaker: a small box on a post with its driver and two arcs of sound, turned to the figure, and the ring on the
+    // floor where it is at full volume
+    const S = [0.25, TOP, 0.25], yaw = Math.atan2(F[0] - S[0], F[2] - S[2]);
+    M.add('glow', g.tor(0.13, 0.005, 3, 16), SOUND, [S[0], TOP + 0.004, S[2]], [PI / 2, 0, 0]);
+    M.frame(S, [0, yaw, 0]);
+    M.add('gloss', g.cyl(0.04, 0.045, 0.014, 8), NAVY, [0, 0.007, 0]);
+    M.add('gloss', g.rod([0, 0.014, 0], [0, 0.13, 0], 0.011, 4), '#8a96a3');
+    M.add('gloss', g.box(0.1, 0.13, 0.08), '#26324a', [0, 0.195, 0]);
+    M.add('glow', g.cone(0.034, 0.028, 10), SOUND, [0, 0.18, 0.047], [-PI / 2, 0, 0]);   // the driver, opening forward
+    M.add('glow', g.ball(0.013, 0), '#ffe2b0', [0, 0.235, 0.042]);                    // and a tweeter over it
+    for (const [rad, arc] of [[0.075, 1.3], [0.115, 1.2]]) M.add('glow', g.tor(rad, 0.007, 3, 8, arc), SOUND, [0, 0.185, 0.04], [PI / 2, 0, PI / 2 - arc / 2]);
+    M.frame();
+  });
+
   // ================================================================== the shell's own circles (their station icons, not props)
   // shared.js's two kinds of circle that are not stories (KINDS: their entries name these as their icons); story 'all'
   // is no story, so the design room's table leaves them out (tools/design/build.mjs)
