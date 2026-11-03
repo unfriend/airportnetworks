@@ -2786,6 +2786,9 @@ try {
   const fz = await nap(F8, NEWS), [fo8, fx8] = inFloor(F8, ROOM);
   check('after a night, a follower holds the room where it was rather than take last night\'s frame through a space made again', fz.src === 'adopted' && fz.hold && fz.held &&
     near([fz.o[0], fz.o[2]], [fo8[0], fo8[2]], 2e-3) && near(fz.x, fx8, 2e-3), JSON.stringify(Object.assign(fz, { want: [fo8, fx8] })));
+  // (the writer writes it again a moment after it woke, as a headset does once settled: written within a few hundred
+  // ms of the nap, by the other page's measure of the relay's clock it could still be before this headset fell asleep)
+  await sleep(1000);
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), Object.assign(f, { p: Math.round(HOST.collab.now()) })]]), frameIn(NEWS, ROOM2, 'U1', aId, 'shared'));
   await frames(H, 400);
   const fw2 = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice(), hold: !!HOST.room.internals().wakeHold })), [fo2, fx2] = inFloor(F8, ROOM2);
