@@ -21,21 +21,21 @@ and where to read on.
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
 | Network theory: Airports | `airports` | `stories/airports.js` (hand-written) | recorded | real (OpenFlights routes) |
-| Network medicine: Proteins | `proteins` | `stories/proteins.js` (hand-written) | not yet | curated proteins and interactions |
-| Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | not yet | curated, laid out at load time |
+| Network medicine: Proteins | `proteins` | `stories/proteins.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated proteins and interactions |
+| Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated, laid out at load time |
 | LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
-| Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | not yet | the authors' files in `ikerdata/`, some stand-ins |
-| Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | not yet | the authors' EndotypY run (kept out of the repository) |
-| Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | not yet | the paper's tables and figures, some stand-ins |
-| Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | not yet | the preprint's numbers, Iva Buljan's network (kept out) |
-| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
-| Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
-| Quantum phylogenetics: The mutation machine | `mutation` | `tools/mutation/` (built) | not yet | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
-| Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | not yet | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
-| Soil microbes: Holding on to nitrogen | `soil` | `tools/soil/` (built) | not yet | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
-| Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
-| Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |
-| Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | not yet | a live simulation |
+| Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files in `ikerdata/`, some stand-ins |
+| Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | synthetic (Kokoro, `af_heart`) | the authors' EndotypY run (kept out of the repository) |
+| Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | synthetic (Kokoro, `af_heart`) | the paper's tables and figures, some stand-ins |
+| Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | synthetic (Kokoro, `af_heart`) | the preprint's numbers, Iva Buljan's network (kept out) |
+| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | synthetic (Kokoro, `af_heart`) | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
+| Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | synthetic (Kokoro, `af_heart`) | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
+| Quantum phylogenetics: The mutation machine | `mutation` | `tools/mutation/` (built) | synthetic (Kokoro, `af_heart`) | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
+| Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | synthetic (Kokoro, `af_heart`) | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
+| Soil microbes: Holding on to nitrogen | `soil` | `tools/soil/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
+| Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
+| Collective motion: Flock | `flock` | `tools/flock/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
+| Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
 
 "Built" stories are generated: edit `tools/<key>/` and run `node tools/<key>/build.mjs` (`--check` says whether the
 built file is in step); never edit `stories/<key>.js` by hand. What is real and what is a stand-in, story by story, is
@@ -470,14 +470,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
   layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
   says what to try at an event.
-- **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)). The airports
-  story has a human recording; the tour (*The future*) a synthetic one, made by `tools/voice/` with Kokoro-82M's
-  American voice `af_heart`, which the owner picked from samples of several voices (29 October 2026). The others can
-  follow with the same command on the owner's go (`node tools/voice/narrate.mjs <key>`, see
-  [tools/voice/README.md](tools/voice/README.md)); how the tour sounds was not heard here. The pass story, in English and
-  German, gets a recording per language on one timeline (`node tools/voice/narrate.mjs pass`: Kokoro for English,
-  Piper's Thorsten voice for German, the owner's choice; its licence point is in
-  [docs/data-and-permissions.md](docs/data-and-permissions.md)). The muscle
+- **Narration:** every story is narrated (v108). The airports story has a human recording; the other fifteen a
+  synthetic one, made by `tools/voice/` with Kokoro-82M's American voice `af_heart`, which the owner picked from samples
+  of several voices (29 October 2026): the tour first, the rest in v108 after a pass over every story's text so that it
+  reads as a person would say it. The pass story, in English and German, has a recording per language on one timeline
+  (`node tools/voice/narrate.mjs pass`: Kokoro for English, Piper's Thorsten voice for German, the owner's choice; its
+  licence point is in [docs/data-and-permissions.md](docs/data-and-permissions.md)). After a story's text changes, run
+  `node tools/voice/narrate.mjs <key>` again (only changed lines are spoken again; see
+  [tools/voice/README.md](tools/voice/README.md)); how the voices sound was not heard here.
+- **Unfinished:** the muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws

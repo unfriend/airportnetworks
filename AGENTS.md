@@ -5,9 +5,10 @@ Guidance for AI coding agents (and humans) working on this repository.
 ## What this is
 
 An installable web app that teaches network science in sixteen narrated stories
-(the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
-story about eight, the endotype story about seven, the PET story about six, the microanatomy story about seven
-and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the tissue topology story about eight, the soil story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
+(the airports about four minutes, the proteins and the cell map about six, the tour about ten and a half, the muscle
+story about nine, the endotype story about seven and a half, the PET story about six, the microanatomy story about eight,
+the ovary story about eight, the qubits story about nine, the mutation story about eight and a half, the tissue topology
+story about nine, the soil story about eleven, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -2340,7 +2341,7 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
 - Kinds of microbe are numbered by abundance, never named by their ids; no sequences, no ASV ids, no pictures or photos
   from the slides (everything is redrawn in 3D), no e-mail addresses. The two kinds that differ by line (a Denitratisoma
   and a Kitasatospora) are named only in explore's small print, never as an effect of the wheat.
-- Eight chapters, 8:42 at the pace `tools/pace.mjs` set (no recording yet): Half the sack, The relay, A wheat fights
+- Eight chapters, 11:03 as narrated (v108): Half the sack, The relay, A wheat fights
   back, The field trial (the globe and the hop, then the field), Greener, fewer leaks, A crowd of 100,000, Who rises
   together, What we know. Every number the text shows comes from `SOIL_DATA` (`FACTS` in `engine/e3_story.js`). In a
   headset no set stands life size (`field_life` was optional and is not built). A set label's `text` may be a function

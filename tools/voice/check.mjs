@@ -70,7 +70,8 @@ const R = await page.evaluate(() => {
     for (const el of sec.querySelectorAll('[data-at]')) {
       if (el.closest('.credits')) continue;
       const x = el.cloneNode(true); x.querySelectorAll('button, svg').forEach(b => b.remove());
-      const txt = x.textContent.replace(/\s+/g, ' ').trim();
+      // (data-say: what is said in its place; empty, not read, as a chart or a live counter)
+      const txt = (el.hasAttribute('data-say') ? el.dataset.say : x.textContent).replace(/\s+/g, ' ').trim();
       if (txt) mine.push({ s: c.a + (+el.dataset.at || 0), txt });
     }
     // (in story time; a line starting in lower case carries on the one before unless that one ended: 'Weitersagen!' /

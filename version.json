@@ -1,76 +1,76 @@
 {
   "app": "networks",
-  "version": "networks-v107",
+  "version": "networks-v108",
   "format": "networks-28",
   "shell": {
-    "n": 107,
-    "id": "81d6aff765e18f9f"
+    "n": 108,
+    "id": "0f6d568a0b2f76e0"
   },
-  "list": "69e2e7b2953d8d0b",
+  "list": "d408d01a2b1a5ff7",
   "stories": {
     "airports": {
       "fp": "af8134470dbaa1cc",
       "needs": 106
     },
     "lbi": {
-      "fp": "8d65e6b6eab52464",
-      "needs": 106
+      "fp": "acd14725f42ec625",
+      "needs": 108
     },
     "nmd": {
-      "fp": "ec4360da3d4870ad",
-      "needs": 107
+      "fp": "e654705fbc65c53b",
+      "needs": 108
     },
     "endo": {
-      "fp": "2abb91317af3d14c",
-      "needs": 106
+      "fp": "5a86db715b305b6a",
+      "needs": 108
     },
     "pet": {
-      "fp": "6b911476999c4e6f",
-      "needs": 107
+      "fp": "07195c2c1251907e",
+      "needs": 108
     },
     "micro": {
-      "fp": "4ef93af863221722",
-      "needs": 106
+      "fp": "7645db91a2a263f2",
+      "needs": 108
     },
     "ovary": {
-      "fp": "b03ce5e1903f104d",
-      "needs": 107
+      "fp": "4e95c0124eb2c295",
+      "needs": 108
     },
     "qubits": {
-      "fp": "90dbe99d9ae8e178",
-      "needs": 106
+      "fp": "15509b9261e963f4",
+      "needs": 108
     },
     "mutation": {
-      "fp": "78504af5c36df5e2",
-      "needs": 106
+      "fp": "83f87df1a2882122",
+      "needs": 108
     },
     "topo": {
-      "fp": "7dc16d6e057ac1ae",
-      "needs": 106
+      "fp": "7919c8baf2d66c0a",
+      "needs": 108
     },
     "pass": {
-      "fp": "d2bb019981d6a4f3",
-      "needs": 106
+      "fp": "302c87e687d98952",
+      "needs": 108
     },
     "soil": {
-      "fp": "670918c305eec75e",
-      "needs": 106
+      "fp": "2463939bc70988da",
+      "needs": 108
     },
     "proteins": {
-      "fp": "a34f9b5be7b0cc84",
-      "needs": 106
+      "fp": "6025a9015c055484",
+      "needs": 108
     },
     "spatial": {
-      "fp": "12955532059e4fe6",
-      "needs": 106
+      "fp": "ddcb48f323a9c7e0",
+      "needs": 108
     },
     "flock": {
-      "fp": "edd948f90183eec0",
-      "needs": 106
+      "fp": "85f20db223923752",
+      "needs": 108
     },
     "robots": {
-      "fp": "c9e5afa3ac1a5b2b",
-      "needs": 106
+      "fp": "b73095464ac9bb2e",
+      "needs": 108
     },
     "design": {
       "fp": "082cc6fdc56042a3",

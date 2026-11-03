@@ -2,9 +2,9 @@
 
 `narrate.mjs` reads a story's words from the running app, speaks them with a synthetic voice (Kokoro-82M through
 kokoro-onnx; German with Piper) and fits the story to the recording: it writes the story's `NARRATION_SYNC` and
-`NARRATION_ENDS` and `audio/narration-<key>.mp3`. The tour (*The future*, `#lbi`) was narrated this way with the
-American voice `af_heart`, the owner's choice (29 October 2026, from samples of several voices). The other stories can
-follow with the same command. A story in two languages (the pass story, *Pass it on* / *Weitersagen!*) gets one
+`NARRATION_ENDS` and `audio/narration-<key>.mp3`. Every story but the airports (a human recording) is narrated this way
+with the American voice `af_heart`, the owner's choice (29 October 2026, from samples of several voices): the tour
+(*The future*, `#lbi`) first, the other fourteen in v108 (3 November 2026). A story in two languages (the pass story, *Pass it on* / *Weitersagen!*) gets one
 recording per language on one timeline: English with Kokoro's `af_heart`, German with Piper's Thorsten voice
 (`de_DE-thorsten-high`; the owner: "piper thorsten for the german part sounds great"), since Kokoro has no German.
 

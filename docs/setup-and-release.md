@@ -156,10 +156,12 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
 Worked examples of `shot.mjs` and `sweep.mjs` are in [tools/lbi/README.md](../tools/lbi/README.md) ("Changing
-something"). After changing a story's text, also run `node tools/pace.mjs http://127.0.0.1:8123/ --write <key>` (a
-story without a recording: its pace follows its words; update its length in `stories/list.js` from what it prints) and then
-`node tools/narration.mjs http://127.0.0.1:8123/`. Neither is a test: they write the story's `NARRATION_SYNC` and
-[narration.md](narration.md) again from the running stories.
+something"). After changing a story's text, also run `node tools/voice/narrate.mjs <key>` (every story but the airports
+has a synthetic narration: it speaks the changed lines again and re-times the story from the recording; update its length
+in `stories/list.js` from what it prints; then `node tools/voice/check.mjs <key>`; see
+[tools/voice/README.md](../tools/voice/README.md)) and then `node tools/narration.mjs http://127.0.0.1:8123/`. Neither is a
+test: they write the story's recording, `NARRATION_SYNC` and [narration.md](narration.md) again from the running stories.
+`node tools/pace.mjs http://127.0.0.1:8123/ --write <key>` paces a new story from its words until it is narrated.
 
 **Timing checks.** Some checks in the shared-room test are timed: play has to reach a following page within 5 s, and
 a playing station has to keep to the relay's clock. Under software WebGL, long frames sometimes kept the page's timers
