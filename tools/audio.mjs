@@ -114,8 +114,9 @@ await step('a click on the story card', async () => {
 });
 // let the click's activation run out, then change story with no tap
 await wait(6000);
-await page.evaluate(() => HOST.go('proteins'));
-await until('proteins story', p => p.story === 'proteins');
+// (the design room: since v108 every story has a narration, and only the design room has none)
+await page.evaluate(() => HOST.go('design'));
+await until('the design room', p => p.story === 'design');
 await step('the engine keeps running in a story without narration', async () => {
   await wait(1500);
   const p = await probe();
@@ -318,7 +319,7 @@ await step('backgrounds: only the flock and the pass story', async () => {
   await page.click('#picker .card[data-story="flock"]');
   await page.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
   const b = await fxUntil('the flock\'s background', s => s.bed === 'flock' && s.bedKind === 'dusk', 8000);
-  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it: the flock has no recording, so no button)
+  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it)
   await fxUntil('no background while the sound is off', s => !s.bed, 4000);
   await page.evaluate(() => { HOST.audio.state().muted = false; });
   await fxUntil('the background back', s => s.bed === 'flock', 6000);
