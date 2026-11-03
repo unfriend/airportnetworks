@@ -51,8 +51,11 @@
 // moving its panel, carrying another station and walking a person's head at 15 Hz with ts, a pretend headset there
 // moving steadily, about DELAY behind, landing where it was let go; a grip there right after never pulled back; a value
 // with no ts gliding; one for another story moving nothing; a held grip writing at most 16 place values a second);
-// --all only the All stories and Back to the lobby circles (allRound: a room of its own; the first headset's circle, its
-// cards, a pick for everyone there, its switch joining the room's circle of that story, the lobby, Arrange all);
+// --all only the room's arc and the All stories and Back to the lobby circles (allRound: rooms of its own; the arc a page
+// makes, followed by every page and at every headset without walking in, moved in front of the first headset, a pick for
+// everyone there, carried by the grip on its cards and on the map, turned into a circle by Add, Arrange all and the lobby;
+// a headset first in a room; a room from before v109; then its switch joining the room's circle of that story, the lobby,
+// Arrange all; with --shots its pictures, all-*.png);
 // --guide only the room setup guide and Touch the spot (guideRound: a room of its own with two pretend headsets; the
 // guide opening by itself on the second the first time, its pages, two checks 3 cm and 40 cm apart, one alone, the
 // laptop's Setting up a room; with --shots its pictures);
@@ -283,6 +286,15 @@ const browser = await chromium.launch({
   // (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'],
 });
+// every device starts with the room's automatic All stories circles off (a page's arc in a room with no stations, the
+// first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
+// ({ arc: true } with a context's options, or open(hash, size, true))
+const newContext = browser.newContext.bind(browser);
+browser.newContext = async (o = {}) => {
+  const { arc, ...rest } = o, ctx = await newContext(rest);
+  if (!arc) await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+  return ctx;
+};
 const fails = [], errors = [];
 const check = (name, ok, detail) => {
   console.log((ok ? 'ok   ' : 'FAIL ') + name + (!ok && detail ? ': ' + detail : ''));
@@ -316,8 +328,8 @@ const base = () => `http://127.0.0.1:${port}/`;
 const roomInfo = async code => (await fetch(base() + 'api/rooms/' + code)).json();
 
 // ---- pages: each in its own browser context (its own storage, like separate devices)
-async function open(hash, size) {
-  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 } });
+async function open(hash, size, arc) {
+  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 }, arc: !!arc });   // (arc: the room's automatic All stories circles on)
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.stack || e.message));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
@@ -1639,37 +1651,50 @@ async function codeRound() {
   await H.context().close(); await A.context().close();
 }
 
-// ---- the All stories and Back to the lobby circles (v104; --all runs only this, a room of its own, a few minutes): a
-// page starts a room (no All stories circle while only pages are there); the first headset adds one 1.2 m in front
-// of itself, facing away, once (allp written; removed, it does not come back); walked into, its cards are the
-// single-player Stories screen (the scene hidden, nothing synced) and a page following it shows its Stories screen; a
-// card pressed on the headset picks that story for everyone there (from its start, playing; the station's story is its
-// key); the story panel's Stories button goes back to the cards (the circle's keys gone); its switch on (the menu's row)
-// with a circle of the same story in the room: the headset there follows that circle's clock and explore state both
-// ways, its presence still the All stories circle's; off again (the dialog's toggle) its own keys, the story going on;
-// the dialog's picker; the lobby (added from the page, no Follow): walking in ends the headset's story (away: hidden,
-// paused) with every ring and card showing, then a story circle is entered as usual; Arrange all leaves both kinds
+// ---- the room's arc and the All stories and Back to the lobby circles (v104, v109; --all runs only this, rooms of its
+// own, several minutes). A page on a story starts a room: the room's arc (an All stories circle at the room's origin, its
+// only station) is made, and the page follows it and shows its Stories screen without Follow, as a page joining does;
+// the first headset moves it 1.2 m in front of itself, facing away, and is at it without walking in (its cards there,
+// the scene hidden, nothing of it drawn, the rig at its spot, its presence there); a card pressed there picks that story
+// for everyone (from its start, playing), and the story panel's Stories button goes back to the cards; the grip on its
+// cards carries it for everyone (held writes, then where it was let go), the room map moves it (the headset's cards
+// glide there), the circles lock refuses the grip, Move here puts it at the headset; Add from the headset turns it into
+// a circle where it stands (the headset still at it, its ring now drawn while outside it; the pages still following);
+// then as for any All stories circle: its switch on (the menu's row) joining the room's circle of that story, state and
+// clock both ways, off again (the dialog's toggle) its own keys; the linked circle given another story; the dialog's
+// picker; the lobby (no Follow): walking in ends the headset's story, every ring and card showing; a story circle, then
+// the All stories circle walked into again (its cards); Arrange all leaves both kinds. Then an arc turned into a circle
+// by Arrange all and by adding the lobby, and left one when every other circle goes; removed, it does not come back; a
+// headset first in a room of its own makes the arc in front of itself; a room kept from before v109 (all01 without arc,
+// alone) is the arc once joined
 async function allRound() {
-  const PK = PICK_STORY, T = ALL_T;
-  const A = await open('#stories');
+  const PK = PICK_STORY, T = ALL_T, AID = 'all01';
+  const A = await open('#airports', null, true);
+  await ready(A, 'airports');
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(A, () => HOST.collab.status === 'open', null, 10000);
   const rc = await A.evaluate(() => HOST.collab.code);
-  const SP = { x: 3, z: -3.2, yaw: 0 };   // (the room's circle of the story picked later: for the switch)
-  await A.evaluate(([k, b]) => HOST.collab.add(k, b), [PK, SP]);
-  const B = await open('#s=' + rc, { width: 480, height: 320 }), H = await open('#s=' + rc, { width: 320, height: 200 });
+  const kinds = p => p.evaluate(() => HOST.collab.stations().filter(s => s.kind).map(s => ({ id: s.id, kind: s.kind, story: s.story, sync: s.sync, arc: s.arc, x: s.x, z: s.z, yaw: s.yaw })));
+  const arcOf = p => p.evaluate(() => { const s = HOST.collab.arc(); return s && { id: s.id, kind: s.kind, story: s.story, arc: s.arc, x: s.x, z: s.z, yaw: s.yaw }; });
+  const keysOf = (p, id) => p.evaluate(id => [...new Set([...HOST.collab.internals().keys.keys()])].filter(k => k.startsWith('st.' + id + '.')).sort(), id);
+  const following = (p, id, ms) => until(p, id => HOST.collab.following() === id && HOST.picking, id, ms || 5000);
+  // the room's arc, made by the page that started the room: it follows it and shows its Stories screen
+  const made = await until(A, () => !!HOST.collab.arc(), null, 8000);
+  const a0 = await arcOf(A), p0 = await A.evaluate(() => HOST.collab.val('allp')), aOn = await following(A, AID);
+  check('arc: a page that starts a room makes the room\'s arc (an All stories circle at the room\'s origin, its only station; allp a page\'s) and shows its Stories screen, following it without Follow',
+    made && !!a0 && a0.id === AID && a0.kind === 'all' && a0.story === 'all' && a0.arc === true && !a0.x && !a0.z && !a0.yaw && !!p0 && p0.pg === 1 && aOn && (await A.evaluate(() => HOST.collab.stations().length)) === 1,
+    JSON.stringify({ made, a0, p0, aOn }));
+  const B = await open('#s=' + rc, { width: 480, height: 320 }, true), H = await open('#s=' + rc, { width: 320, height: 200 }, true);
+  const bOn = await following(B, AID, 20000);
+  check('arc: a page joining the room follows the arc and shows its Stories screen (no Follow), and makes no arc of its own', bOn && (await B.evaluate(() => HOST.collab.stations().length)) === 1,
+    JSON.stringify({ bOn, b: await B.evaluate(() => [HOST.collab.following(), HOST.picking, HOST.collab.stations().length]) }));
   // (frames on the pretend headset until fn is true there: a page drawing in software takes its time)
   const stepUntil = async (fn, arg, ms) => { const t0 = Date.now(); for (;;) { await frames(H, 300); if (await H.evaluate(fn, arg)) return true; if (Date.now() - t0 > ms) return false; } };
   // (the pretend session never presents, so the stories' own xrUpdate does not run: it is run here, and the panels drawn)
   const redraw = () => H.evaluate(() => HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })'));
-  const kinds = p => p.evaluate(() => HOST.collab.stations().filter(s => s.kind).map(s => ({ id: s.id, kind: s.kind, story: s.story, sync: s.sync, x: s.x, z: s.z, yaw: s.yaw })));
-  const keysOf = (p, id) => p.evaluate(id => [...new Set([...HOST.collab.internals().keys.keys()])].filter(k => k.startsWith('st.' + id + '.')).sort(), id);
-  await until(B, () => HOST.collab.stations().length === 1, null, 20000); await until(H, () => HOST.collab.stations().length === 1, null, 20000);
-  await sleep(1500);
-  check('all: a room started on a page has no All stories circle while only pages are in it', !(await kinds(A)).length && await A.evaluate(() => HOST.collab.val('allp') === undefined));
-  // the first headset: aligned in the room, in AR, it adds one 1 m in front of its head, facing away from it
+  // the first headset: aligned in the room, in AR, it moves the page's arc in front of its head, facing away from it
   await ready(H, 'airports');
-  const aId = await A.evaluate(() => HOST.collab.id);
+  const aId = await A.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => HOST.room.sharedAlign(true));
@@ -1678,86 +1703,149 @@ async function allRound() {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-  await stepUntil(() => HOST.collab.stations().some(s => s.kind === 'all'), null, 12000);
-  await until(A, () => HOST.collab.stations().some(s => s.kind === 'all'), null, 5000);
-  let k1 = await kinds(A);
-  const want = [HEAD.x - 1.2 * Math.sin(HEAD.yaw), HEAD.z - 1.2 * Math.cos(HEAD.yaw)], a1 = k1[0] || {};
-  check('all: the first headset in the room adds an All stories circle 1.2 m in front of its head, facing away, showing its cards, Own stories', k1.length === 1 && a1.kind === 'all' && a1.story === 'all' &&
-    a1.sync === false && Math.hypot(a1.x - want[0], a1.z - want[1]) < 0.06 && angle(a1.yaw, HEAD.yaw) < 0.05 && await A.evaluate(id => { const v = HOST.collab.val('allp'); return !!(v && v.by === id); }, await H.evaluate(() => HOST.collab.id)),
-  JSON.stringify({ k1, want, aligned: await H.evaluate(() => HOST.room.aligned) }));
-  // removed, it does not come back (the room has had one); added again from the page's dialog
-  await A.evaluate(id => HOST.collab.remove(id), a1.id);
-  await frames(H, 3000);
-  check('all: removed, the first headset\'s circle does not come back', !(await kinds(A)).length && !(await kinds(H)).length);
-  await A.evaluate(() => HOST.collab.dialog(true));
-  await sleep(300);
-  const opts = await A.evaluate(() => [...document.querySelectorAll('#shAdd option')].map(o => o.value));
-  check('all: the page\'s Add lists All stories and Back to the lobby after the design room', opts.slice(-3).join() === 'design,all,lobby', opts.join());
-  await A.selectOption('#shAdd', 'all');
-  await A.click('[data-sh="add"]');
-  await until(A, () => HOST.collab.stations().some(s => s.kind === 'all'), null, 3000);
-  const AL = (await kinds(A)).find(s => s.kind === 'all');
-  // (moved where the first one stood, from the page: a move keeps its kind)
-  await A.evaluate(([id, x, z, yaw]) => HOST.collab.publish([['st.' + id, { story: 'all', kind: 'all', sync: false, x, z, yaw }]]), [AL.id, r3(want[0]), r3(want[1]), r3(HEAD.yaw)]);
-  await until(H, ([id, x, z]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.01 && Math.abs(s.z - z) < 0.01; }, [AL.id, r3(want[0]), r3(want[1])], 5000);   // (the move itself arrived)
-  const ALs = await H.evaluate(id => HOST.collab.station(id), AL.id);
-  // walked into: its cards, the single-player Stories screen, the scene hidden, nothing synced
-  await H.evaluate(h => window.__xr.head(h), headAt(ALs, ROOM[3] + ALs.yaw));
-  await stepUntil(id => HOST.collab.mine() === id && HOST.cur.peek('XR.stories'), AL.id, 10000);
-  const c1 = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { mine: HOST.collab.mine(), cards: HOST.room.cards(), here: HOST.room.allHere(), away: HOST.room.away(), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'),
-    land: HOST.cur.peek('XR.land.slice(1).every(P => P.mesh.visible)'), back: HOST.cur.peek('!!XR.land[0].regions.find(r => r.id === "back")') }));
-  await sleep(1500);
-  const quiet = await keysOf(A, AL.id);
-  check('all: walked into, the All stories circle shows the Stories screen (its cards, no Back), the scene hidden, nothing synced', c1.mine === AL.id && c1.cards && c1.here && !c1.away && c1.stories && !c1.world && c1.land && !c1.back && !quiet.length,
-    JSON.stringify({ c1, quiet }));
-  if (shots) { fs.mkdirSync(shots, { recursive: true }); await headView(H, path.join(shots, 'all-1-cards.png'), ALs.yaw, -0.08, [1280, 800]); }   // (its cards, as a headset in it sees them)
-  // a page following it shows its Stories screen
-  await B.evaluate(id => HOST.collab.follow(id), AL.id);
-  check('all: a page following the circle shows its Stories screen while its cards show', await until(B, () => HOST.picking, null, 3000));
-  // a card pressed on the headset (its landing card's region) picks that story for everyone at the circle
+  const want = [HEAD.x - 1.2 * Math.sin(HEAD.yaw), HEAD.z - 1.2 * Math.cos(HEAD.yaw)], at = (w, s) => !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06;
+  const moved = await stepUntil(w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 15000);
+  await until(A, w => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06; }, want, 5000);
+  const a1 = await arcOf(A), p1 = await A.evaluate(() => HOST.collab.val('allp'));
+  check('arc: the first headset in the room moves the page\'s arc 1.2 m in front of its head, facing away (allp its own now), still the arc', moved && at(want, a1) && a1.arc === true && angle(a1.yaw, HEAD.yaw) < 0.05 &&
+    !!p1 && p1.by === hId && !p1.pg, JSON.stringify({ a1, p1, want, aligned: await H.evaluate(() => HOST.room.aligned) }));
+  // at it without walking in (1.2 m from its spot): its cards (the single-player Stories screen) there, the scene hidden,
+  // nothing of it drawn, the rig at its spot, its presence there, nothing synced
+  await stepUntil(id => HOST.collab.mine() === id && HOST.cur.peek('XR.stories'), AID, 8000);
+  await frames(H, 800);
+  const ALs = await H.evaluate(() => HOST.collab.arc());
+  const c1 = await H.evaluate(id => {
+    window.__xr.step(); HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    const O = HOST.collab.overlay(), o = O.rings.get(id), cd = O.cards.get(id);
+    return { mine: HOST.collab.mine(), cards: HOST.room.cards(), here: HOST.room.allHere(), away: HOST.room.away(), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'),
+      land: HOST.cur.peek('XR.land.slice(1).every(P => P.mesh.visible)'), back: HOST.cur.peek('!!XR.land[0].regions.find(r => r.id === "back")'),
+      drawn: (!!o && (o.ring.visible || o.icon.g.visible)) || !!(cd && cd.mesh.visible) };
+  }, AID);
+  const rig = await rigOf(H), rw = rigAt(ALs), pres = await until(A, ([id, st]) => (HOST.collab.people().get(id) || {}).st === st, [hId, AID], 3000), quiet = await keysOf(A, AID);
+  check('arc: the headset is at the arc without walking in (1.2 m from its spot): its cards in front (no Back), the scene hidden, no ring, card or icon for it, the rig at its spot, its presence there, nothing synced',
+    c1.mine === AID && c1.cards && c1.here && !c1.away && c1.stories && !c1.world && c1.land && !c1.back && !c1.drawn && dist(rig.slice(0, 3), rw.slice(0, 3)) < 0.02 && angle(rig[3], rw[3]) < 0.02 &&
+    Math.hypot(HEAD.x - ALs.x, HEAD.z - ALs.z) > 1.1 && pres && !quiet.length, JSON.stringify({ c1, rig, rw, pres, quiet }));
+  if (shots) { fs.mkdirSync(shots, { recursive: true }); await headView(H, path.join(shots, 'all-1-arc.png'), HEAD.yaw, -0.08, [1280, 800]); }   // (the arc's cards, as the first headset sees them)
+  // a card pressed on the headset (its landing card's region) picks that story for everyone at the arc: the pages too
   await redraw();
   const press = await H.evaluate(k => { const i = HOST.list.findIndex(m => m.key === k) + 1, P = HOST.cur.peek('XR.land')[i], r = P && P.regions.find(r => r.id === 'card'); if (r) r.fn(); return !!r; }, PK);
-  await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AL.id, PK], 5000);
-  const play0 = await A.evaluate(id => HOST.collab.val('st.' + id + '.play'), AL.id);
+  await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AID, PK], 5000);
+  const play0 = await A.evaluate(id => HOST.collab.val('st.' + id + '.play'), AID);
   let switched = false;
   for (let i = 0; i < 40 && !switched; i++) { await frames(H, 300); switched = await H.evaluate(k => HOST.curKey === k, PK); }
   switched = switched && await ready(H, PK);
   if (switched) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
-  const okB = await ready(B, PK);
+  const okA = await ready(A, PK), okB = await ready(B, PK);
   await sleep(1500);
-  const hc = await clockOf(H), bc = await clockOf(B), hs = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), placing: HOST.room.placing(), cards: HOST.room.cards() }));
+  const hc = await clockOf(H), bc = await clockOf(B), ac = await clockOf(A), still = await arcOf(A), hs = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), placing: HOST.room.placing(), cards: HOST.room.cards() }));
   // (from its start: no further on than the time since the pick, which a loaded machine's story load can make long)
   const since = play0 ? (await A.evaluate(() => HOST.collab.now()) - play0.at) / 1000 : 0;
-  check('all: a card pressed at the circle picks its story for everyone there: the station\'s story its key, from its start, playing, on the headset and the page following',
-    press && !!play0 && play0.mode === 'story' && play0.t === 0 && play0.playing === true && switched && okB && hc[0] === 'story' && hc[1] && hc[2] < since + 2 && bc[0] === 'story' && bc[1] && Math.abs(bc[2] - hc[2]) < 3 &&
-    !hs.stories && hs.world && hs.placing && !hs.cards && !(await B.evaluate(() => HOST.picking)), JSON.stringify({ press, play0, switched, okB, hc, bc, since, hs }));
+  check('arc: a card pressed there picks its story for everyone: the arc\'s story its key (still the arc), from its start, playing, on the headset and both pages following it',
+    press && !!play0 && play0.mode === 'story' && play0.t === 0 && play0.playing === true && switched && okA && okB && hc[0] === 'story' && hc[1] && hc[2] < since + 2 && bc[0] === 'story' && bc[1] && Math.abs(bc[2] - hc[2]) < 3 &&
+    ac[0] === 'story' && ac[1] && !!still && still.story === PK && !hs.stories && hs.world && hs.placing && !hs.cards && !(await B.evaluate(() => HOST.picking)), JSON.stringify({ press, play0, switched, okA, okB, hc, bc, ac, since, still, hs }));
   if (shots) await headView(H, path.join(shots, 'all-2-picked.png'), ALs.yaw, -0.2, [1280, 800]);   // (the story picked there, playing)
-  // the story panel's Stories button: back to the cards, for everyone there (the circle's keys gone)
+  // the story panel's Stories button: back to the cards, for everyone there (the arc's keys gone)
   await frames(H, 300);
   await redraw();
   const sb = await H.evaluate(() => { const r = HOST.cur.peek('XR.main').regions.find(r => r.id === 'stories'); if (r) r.fn(); return !!r; });
-  await until(A, id => (HOST.collab.station(id) || {}).story === 'all', AL.id, 5000);
+  await until(A, id => (HOST.collab.station(id) || {}).story === 'all', AID, 5000);
   await frames(H, 600);
   const back = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { cards: HOST.room.cards(), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), playing: HOST.cur.peek('APP.playing') }));
-  check('all: the story panel\'s Stories button there goes back to the cards for everyone (its keys gone; the page following shows its Stories screen)', sb && back.cards && back.stories && !back.world && !back.playing &&
-    !(await keysOf(A, AL.id)).length && await until(B, () => HOST.picking, null, 3000), JSON.stringify({ sb, back, keys: await keysOf(A, AL.id) }));
+  check('arc: the story panel\'s Stories button goes back to the cards for everyone (its keys gone; both pages show their Stories screen)', sb && back.cards && back.stories && !back.world && !back.playing &&
+    !(await keysOf(A, AID)).length && await until(B, () => HOST.picking, null, 3000) && await until(A, () => HOST.picking, null, 3000), JSON.stringify({ sb, back, keys: await keysOf(A, AID) }));
+  // the grip on its cards carries it for everyone (as a station's ring is carried): out to the room while held, put down
+  // where it was let go. P(s, d, side): a point d m ahead of s's spot and side m to its right, 1.5 m up, in the room
+  const P = (s, d, side) => [s.x - d * Math.sin(s.yaw) + side * Math.cos(s.yaw), 1.5, s.z - d * Math.cos(s.yaw) - side * Math.sin(s.yaw)];
+  const DRAG = async (p, pts, ms) => p.evaluate(async ([pts, ms]) => {
+    const X = window.__xr, V = THREE.Vector3, src = () => X.session.inputSources[0], wait = t => new Promise(r => setTimeout(r, t));
+    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.12, -0.3, -0.1));
+    const aim = pt => { const t = HOST.room.toLocal(new V(...pt)); X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), t.clone().sub(o).normalize()), new V(1, 1, 1))); };
+    aim(pts[0]); X.step(); X.step();   // (a grip comes between frames, on a fresh ray)
+    X.fire('squeezestart', { inputSource: src() }); X.step();
+    const grabbed = HOST.room.moving, n = pts.length > 1 ? Math.max(1, Math.round(ms / 60)) : 0;
+    for (let k = 1; k <= n; k++) { const f = k / n, a = pts[0], b = pts[1]; aim([a[0] + (b[0] - a[0]) * f, a[1], a[2] + (b[2] - a[2]) * f]); X.step(); await wait(40); }
+    X.fire('squeezeend', { inputSource: src() }); X.step();
+    const s = HOST.collab.station('all01'), notes = HOST.collab.notes().map(x => x.title);
+    X.ctrl(0, null); X.step();
+    return { grabbed, after: HOST.room.moving, s: s && { x: s.x, z: s.z, yaw: s.yaw, arc: s.arc }, notes };
+  }, [pts, ms]);
+  const g0 = await H.evaluate(() => HOST.collab.arc());
+  const seenHeld = A.evaluate(async id => { const t0 = performance.now(); let n = 0; while (performance.now() - t0 < 15000) { const v = HOST.collab.val('st.' + id); if (v && v.h === 1) n++; else if (n) break;
+    await new Promise(r => setTimeout(r, 30)); } return n; }, AID);
+  const dr = await DRAG(H, [P(g0, 1.4, 0), P(g0, 1.4, 1.1)], 1500), held = await seenHeld;
+  const landed = await until(A, ([id, s]) => { const v = HOST.collab.val('st.' + id); return !!v && v.h === undefined && v.arc === true && Math.abs(v.x - s.x) < 0.002 && Math.abs(v.z - s.z) < 0.002; }, [AID, dr.s], 5000) &&
+    await until(B, ([id, s]) => { const v = HOST.collab.station(id); return !!v && Math.abs(v.x - s.x) < 0.002 && Math.abs(v.z - s.z) < 0.002; }, [AID, dr.s], 5000);
+  check('arc: the grip on its cards carries it for everyone (out to the room while held, then where it was let go, still the arc), swung round with the pointing',
+    dr.grabbed === AID && dr.after === '' && held > 0 && landed && Math.hypot(dr.s.x - g0.x, dr.s.z - g0.z) > 0.2 && angle(dr.s.yaw, g0.yaw) > 0.15 && dr.s.arc === true, JSON.stringify({ dr, held, landed, g0 }));
+  // the room map moves it too, and the headset's cards glide there (the rig, frame by frame)
+  const mp = await A.evaluate(async id => {
+    HOST.collab.dialog(true);
+    const cv = document.querySelector('#shMap');
+    for (let k = 0; k < 30 && !HOST.collab.mapView(); k++) await new Promise(r => setTimeout(r, 100));   // (drawn by the pump)
+    const tf = HOST.collab.mapView(), s = HOST.collab.station(id);
+    if (!tf || !s) return { err: 'no map' };
+    const r = cv.getBoundingClientRect(), ev = (type, x, z) => cv.dispatchEvent(new PointerEvent(type, { clientX: r.left + tf.X(x), clientY: r.top + tf.Y(z), pointerId: 11, buttons: type === 'pointerup' ? 0 : 1, bubbles: true }));
+    ev('pointerdown', s.x, s.z); ev('pointermove', s.x + 0.4, s.z + 0.2); await new Promise(r => setTimeout(r, 150)); ev('pointermove', s.x + 0.8, s.z + 0.4); ev('pointerup', s.x + 0.8, s.z + 0.4);
+    const m = HOST.collab.station(id);
+    HOST.collab.dialog(false);
+    return { from: [s.x, s.z], to: [m.x, m.z], arc: m.arc, follow: HOST.collab.following() };
+  }, AID);
+  const got = !mp.err && await until(H, ([id, x, z]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.01 && Math.abs(s.z - z) < 0.01; }, [AID, mp.to[0], mp.to[1]], 5000);
+  const r0 = await rigOf(H), path1 = await H.evaluate(async () => { const X = window.__xr, out = []; for (let k = 0; k < 30; k++) { X.step(); const r = HOST.cur.peek('GL.rig.position'); out.push([r.x, r.y, r.z]); await new Promise(res => setTimeout(res, 30)); } return out; });
+  const r1 = rigAt(await H.evaluate(() => HOST.collab.arc())), mid = path1.filter(q => dist(q, r0.slice(0, 3)) > 0.01 && dist(q, r1.slice(0, 3)) > 0.01).length;
+  check('arc: the room map moves it (still the arc, the page still following it), and the headset\'s cards glide there', got && mp.arc === true && mp.follow === AID && Math.abs(mp.to[0] - mp.from[0] - 0.8) < 0.05 &&
+    mid >= 2 && dist(path1[path1.length - 1], r1.slice(0, 3)) < 0.02, JSON.stringify({ mp, got, mid, last: path1[path1.length - 1], r1 }));
+  // the circles lock refuses the grip on it (a notice says so); Move here (the menu) puts it at the headset, facing its way
+  await A.evaluate(() => HOST.collab.lock(true));
+  await until(H, () => HOST.collab.locked, null, 3000);
+  const g1 = await H.evaluate(() => HOST.collab.arc()), lk = await DRAG(H, [P(g1, 1.4, 0)], 0);
+  await A.evaluate(() => HOST.collab.lock(false));
+  await until(H, () => !HOST.collab.locked, null, 3000);
+  check('arc: the circles lock refuses the grip on it (a notice says so)', !lk.grabbed && lk.notes.includes('The circles are locked') && Math.abs(lk.s.x - g1.x) < 1e-6, JSON.stringify(lk));
+  const mh = await H.evaluate(async () => { const X = window.__xr; HOST.collab.panelOpen(true); X.step(); X.step(); const r = HOST.collab.menuFind('move'), ok = !!(r && r.fn); if (ok) r.fn();
+    X.step(); HOST.collab.panelOpen(false); X.step(); return ok; });
+  const mhA = await until(A, h => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - h.x, s.z - h.z) < 0.05; }, HEAD, 5000), a2 = await arcOf(A);
+  check('arc: Move here (the menu) puts it at the headset, facing its way, still the arc', mh && mhA && !!a2 && angle(a2.yaw, HEAD.yaw) < 0.05, JSON.stringify({ mh, mhA, a2 }));
+  // stepped back 1.5 m: still at it (no walking in)
+  const HB = { x: HEAD.x + 1.5 * Math.sin(HEAD.yaw), z: HEAD.z + 1.5 * Math.cos(HEAD.yaw), yaw: HEAD.yaw };
+  await H.evaluate(h => window.__xr.head(h), headAt(HB, ROOM[3] + HB.yaw));
+  await frames(H, 1500);
+  // Add from the headset (as its menu's Add here does; here at a spot far off): the arc becomes an ordinary All stories
+  // circle where it stands, in the same batch; the headset still at it, its ring now drawn while it stands outside it; the
+  // pages still following it
+  await A.evaluate(() => HOST.collab.dialog(true));
+  await sleep(300);
+  const opts = await A.evaluate(() => [...document.querySelectorAll('#shAdd option')].map(o => o.value));
+  await A.evaluate(() => HOST.collab.dialog(false));
+  check('all: the page\'s Add lists All stories and Back to the lobby after the design room', opts.slice(-3).join() === 'design,all,lobby', opts.join());
+  const SP = { x: 3, z: -3.2, yaw: 0 };   // (the room's circle of the story picked later: for the switch)
+  const SPid = await H.evaluate(([k, b]) => HOST.collab.add(k, b), [PK, SP]);
+  const conv = await until(A, ([id, sp]) => !HOST.collab.arc() && !!HOST.collab.station(sp) && HOST.collab.val('st.' + id).arc === false, [AID, SPid], 5000) &&
+    await until(B, ([id, sp]) => !HOST.collab.arc() && !!HOST.collab.station(sp) && HOST.collab.station(id).arc === false, [AID, SPid], 5000);
+  await frames(H, 1200);
+  const AL = await A.evaluate(id => HOST.collab.station(id), AID);
+  const c2 = await H.evaluate(id => { window.__xr.step(); const O = HOST.collab.overlay(), o = O.rings.get(id), cd = O.cards.get(id);
+    return { mine: HOST.collab.mine(), cards: HOST.room.cards(), stories: HOST.cur.peek('XR.stories'), ring: !!o && o.ring.visible, icon: !!o && o.icon.g.visible, card: !!(cd && cd.mesh.visible) }; }, AID);
+  const fol = await A.evaluate(() => HOST.collab.following()) === AID && await B.evaluate(() => HOST.collab.following()) === AID;
+  check('arc: Add (the headset\'s) turns the arc into an All stories circle where it stands (arc false); the headset still at it with its cards, its ring now drawn (it stands outside it), no card or icon; the pages still following it',
+    !!SPid && conv && Math.hypot(AL.x - HEAD.x, AL.z - HEAD.z) < 0.05 && c2.mine === AID && c2.cards && c2.stories && c2.ring && !c2.icon && !c2.card && fol, JSON.stringify({ SPid, conv, AL, c2, fol }));
+  if (shots) await headView(H, path.join(shots, 'all-4-circle.png'), HB.yaw, -0.3, [1280, 800]);   // (its ring now, beneath its cards)
   // the switch on, from the headset's menu at the circle; a card again: it joins the room's circle of that story
-  const SPid = await stationOf(A, PK);
   const sw = await H.evaluate(async () => { const X = window.__xr; HOST.collab.panelOpen(true); X.step(); X.step(); const r = HOST.collab.menuFind('allsync'), ok = !!(r && r.fn); if (ok) r.fn();
     for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); } HOST.collab.panelOpen(false); X.step(); return ok; });
-  check('all: the menu\'s row at the circle turns its switch on (With the room\'s circles), for the room', sw && await until(A, id => HOST.collab.station(id).sync === true, AL.id, 3000));
+  check('all: the menu\'s row at the circle turns its switch on (With the room\'s circles), for the room', sw && await until(A, id => HOST.collab.station(id).sync === true, AID, 3000));
   await A.evaluate(id => HOST.collab.follow(id), SPid);
   await ready(A, PK);
   await A.evaluate(() => HOST.cur.peek('APP.enterExplore()'));
   await sleep(800);
   await redraw();
   await H.evaluate(k => { const i = HOST.list.findIndex(m => m.key === k) + 1, r = HOST.cur.peek('XR.land')[i].regions.find(r => r.id === 'card'); r.fn(); }, PK);
-  await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AL.id, PK], 5000);
+  await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AID, PK], 5000);
   const live = () => frames(H, 5000);
   let run = live();
   const joined = await until(H, sp => { const S = HOST.collab.session(); return !!S && S.id === sp && HOST.cur.peek('APP.mode') === 'explore' && !HOST.room.cards(); }, SPid, 6000);
   await run;
-  const own0 = await keysOf(A, AL.id);
+  const own0 = await keysOf(A, AID);
   // explore state both ways, and the clock: a change on the page at the room's circle reaches the headset, and one the
   // headset makes reaches the page; the headset's presence still the All stories circle's
   await peek(A, T.change);
@@ -1772,9 +1860,9 @@ async function allRound() {
   run = live();
   const got3 = await until(H, () => HOST.cur.peek('APP.mode') === 'story' && HOST.cur.peek('APP.t') > 29 && HOST.cur.peek('APP.t') < 45, null, 5000);
   await run;
-  const pres = await A.evaluate(id => (HOST.collab.people().get(id) || {}).st, await H.evaluate(() => HOST.collab.id));
+  const pres2 = await A.evaluate(id => (HOST.collab.people().get(id) || {}).st, hId);
   check('all: with the switch on and a circle of that story in the room, the headset at the All stories circle joins its session: explore state and clock both ways, its presence still the All stories circle\'s',
-    joined && !own0.length && got1 && got2 && got3 && pres === AL.id, JSON.stringify({ joined, own0, got1, got2, got3, pres, AL: AL.id, sp: SPid }));
+    joined && !own0.length && got1 && got2 && got3 && pres2 === AID, JSON.stringify({ joined, own0, got1, got2, got3, pres2, AL: AID, sp: SPid }));
   // (the linked circle's scene moved, for the switch turned off below: it stays where it is, not back where the story puts it)
   await A.evaluate(([id, k]) => HOST.collab.publish([['st.' + id + '.place', { x: 0.2, y: 0, z: 0, s: 1, story: k }]]), [SPid, PK]);
   await until(H, id => { const v = HOST.collab.val('st.' + id + '.place'); return !!v && v.x === 0.2; }, SPid, 5000);
@@ -1782,17 +1870,17 @@ async function allRound() {
   // the story going on
   await A.evaluate(() => HOST.collab.dialog(true));
   await sleep(300);
-  await A.click(`[data-sh="allsync:${AL.id}"]`);
+  await A.click(`[data-sh="allsync:${AID}"]`);
   run = live();
-  const ownAgain = await until(H, id => { const S = HOST.collab.session(); return !!S && S.id === id; }, AL.id, 5000);
+  const ownAgain = await until(H, id => { const S = HOST.collab.session(); return !!S && S.id === id; }, AID, 5000);
   await run;
-  const own1 = await keysOf(A, AL.id), hm = await clockOf(H), pl1 = await A.evaluate(id => HOST.collab.val('st.' + id + '.place'), AL.id);
+  const own1 = await keysOf(A, AID), hm = await clockOf(H), pl1 = await A.evaluate(id => HOST.collab.val('st.' + id + '.place'), AID);
   check('all: the dialog\'s toggle turns the switch off: its own keys again (the clock, the state and the scene\'s place carried over), the story going on there',
-    ownAgain && own1.includes('st.' + AL.id + '.play') && !!pl1 && pl1.x === 0.2 && hm[0] === 'story' && !(await A.evaluate(id => HOST.collab.station(id).sync, AL.id)),
+    ownAgain && own1.includes('st.' + AID + '.play') && !!pl1 && pl1.x === 0.2 && hm[0] === 'story' && !(await A.evaluate(id => HOST.collab.station(id).sync, AID)),
     JSON.stringify({ ownAgain, own1, pl1, hm }));
   // on again, then the linked circle given another story: the All stories circle goes on alone from where the story is
   // (its own clock written by the people at it), not left without a clock
-  await A.click(`[data-sh="allsync:${AL.id}"]`);
+  await A.click(`[data-sh="allsync:${AID}"]`);
   run = live();
   const rejoined = await until(H, sp => { const S = HOST.collab.session(); return !!S && S.id === sp; }, SPid, 6000);
   await run;
@@ -1801,19 +1889,19 @@ async function allRound() {
   const spv = await A.evaluate(id => HOST.collab.val('st.' + id), SPid);
   await A.evaluate(([id, v, k]) => HOST.collab.publish([['st.' + id, Object.assign({}, v, { story: k })]]), [SPid, spv, OTHER_STORY]);
   run = live();
-  const alone = await until(A, id => { const v = HOST.collab.val('st.' + id + '.play'); return !!v && v.mode === 'story' && v.t > 30; }, AL.id, 8000);
+  const alone = await until(A, id => { const v = HOST.collab.val('st.' + id + '.play'); return !!v && v.mode === 'story' && v.t > 30; }, AID, 8000);
   await run;
   const hm2 = await clockOf(H), ses2 = await H.evaluate(() => (HOST.collab.session() || {}).id);
   check('all: with the linked circle given another story, the All stories circle goes on alone where its story was (its own clock written), still the same story',
-    rejoined && alone && ses2 === AL.id && hm2[0] === 'story' && hm2[2] > 30, JSON.stringify({ rejoined, alone, ses2, hm2 }));
-  await A.click(`[data-sh="allsync:${AL.id}"]`);   // (and its switch off again)
-  await until(A, id => HOST.collab.station(id).sync === false, AL.id, 3000);
+    rejoined && alone && ses2 === AID && hm2[0] === 'story' && hm2[2] > 30, JSON.stringify({ rejoined, alone, ses2, hm2 }));
+  await A.click(`[data-sh="allsync:${AID}"]`);   // (and its switch off again)
+  await until(A, id => HOST.collab.station(id).sync === false, AID, 3000);
   // the dialog's picker: back to its cards (Choosing a story), for everyone there
-  await A.selectOption(`[data-sh-pick="${AL.id}"]`, 'all');
+  await A.selectOption(`[data-sh-pick="${AID}"]`, 'all');
   run = live();
   const cardsAgain = await until(H, () => HOST.room.cards() && HOST.cur.peek('XR.stories'), null, 5000);
   await run;
-  check('all: the dialog\'s picker sends the circle back to its cards', cardsAgain && (await A.evaluate(id => HOST.collab.station(id).story, AL.id)) === 'all');
+  check('all: the dialog\'s picker sends the circle back to its cards', cardsAgain && (await A.evaluate(id => HOST.collab.station(id).story, AID)) === 'all');
   // the lobby, from the page: listed without Follow; walking in ends the headset's station (away: the story hidden and
   // paused) and every ring and card shows; then a story circle is entered as usual
   const LB = { x: -3.4, z: -3.2, yaw: 0 };
@@ -1828,13 +1916,19 @@ async function allRound() {
   const lob = await H.evaluate(([lb]) => { window.__xr.step(); HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'); const O = HOST.collab.overlay(), st = HOST.collab.stations();
     return { mine: HOST.collab.mine(), away: HOST.room.away(), cards: HOST.room.cards(), world: HOST.cur.peek('GL.world.visible'), stories: HOST.cur.peek('XR.stories'), playing: HOST.cur.peek('APP.playing'),
       rings: st.every(s => { const o = O.rings.get(s.id); return !!o && o.ring.visible && o.icon.g.visible; }), cardsOn: st.filter(s => s.id !== lb).every(s => { const c = O.cards.get(s.id); return !!c && c.mesh.visible; }) }; }, [LBid]);
-  if (shots) await headView(H, path.join(shots, 'all-3-lobby.png'), Math.atan2(-(ALs.x - LB.x), -(ALs.z - LB.z)), 0.02, [1280, 800]);   // (from the lobby: every circle again)
+  if (shots) await headView(H, path.join(shots, 'all-3-lobby.png'), Math.atan2(-(AL.x - LB.x), -(AL.z - LB.z)), 0.02, [1280, 800]);   // (from the lobby: every circle again)
   check('all: walking into the lobby ends the headset\'s story (away: hidden, paused) and every ring, icon and card shows; the page lists it without Follow',
     noFollow && lob.mine === '' && lob.away && !lob.cards && !lob.world && !lob.stories && !lob.playing && lob.rings && lob.cardsOn, JSON.stringify({ noFollow, lob }));
   const SPs = await A.evaluate(id => HOST.collab.station(id), SPid);
-  await H.evaluate(h => window.__xr.head(h), headAt(SPs, ROOM[3] + SPs.yaw));
-  await stepUntil(id => HOST.collab.mine() === id, SPid, 10000);
-  check('all: after the lobby, walking into a story circle enters it as usual', await H.evaluate(id => HOST.collab.mine() === id && HOST.room.placing() && !HOST.room.away(), SPid));
+  // (walk: its story loaded, a scene story on a machine busy with other pages slowly, and taking the session, as a story does)
+  const inSP = await walk(H, SPs, SPs.story, ROOM[3] + SPs.yaw);
+  const sp1 = await H.evaluate(id => ({ mine: HOST.collab.mine(), placing: HOST.room.placing(), away: HOST.room.away(), cur: HOST.curKey, ok: HOST.collab.mine() === id }), SPid);
+  check('all: after the lobby, walking into a story circle enters it as usual', inSP && sp1.ok && sp1.placing && !sp1.away, JSON.stringify({ inSP, sp1, story: SPs.story }));
+  // the All stories circle that was the arc, walked into again: its cards, as any All stories circle's
+  await H.evaluate(h => window.__xr.head(h), headAt(AL, ROOM[3] + AL.yaw));
+  const inAgain = await stepUntil(id => HOST.collab.mine() === id && HOST.room.cards() && HOST.cur.peek('XR.stories'), AID, 15000);
+  check('all: walked into again, the All stories circle that was the arc shows its cards', inAgain,
+    JSON.stringify(await H.evaluate(() => ({ mine: HOST.collab.mine(), cards: HOST.room.cards(), cur: HOST.curKey, on: HOST.cur.peek('XR.on'), stories: HOST.cur.peek('XR.stories') }))));
   // Arrange all leaves both kinds where they are
   const before = await kinds(A);
   await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 6, yaw: 0 }));
@@ -1842,8 +1936,64 @@ async function allRound() {
   await sleep(500);
   const after = await kinds(A);
   check('all: Arrange all leaves the All stories and lobby circles where they are', before.length === 2 && JSON.stringify(after) === JSON.stringify(before), JSON.stringify({ before, after }));
+  // an arc again (every other circle gone, written as the arc), turned into a circle by Arrange all, and again by adding
+  // the lobby; with every other circle gone, a circle stays a circle
+  const NS = await A.evaluate(() => HOST.list.length);
+  const arcAgain = () => A.evaluate(id => { const v = Object.assign({}, HOST.collab.val('st.' + id), { arc: true }); delete v.ts; delete v.h;
+    HOST.collab.publish(HOST.collab.stations().filter(s => s.id !== id).map(s => ['st.' + s.id, null]).concat([['st.' + id, v]])); }, AID);
+  const onlyIt = () => A.evaluate(id => HOST.collab.publish(HOST.collab.stations().filter(s => s.id !== id).map(s => ['st.' + s.id, null])), AID);
+  await arcAgain();
+  const arc3 = await until(H, id => !!HOST.collab.arc() && HOST.collab.stations().length === 1 && HOST.collab.mine() === id, AID, 5000), a3 = await arcOf(A);
+  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 8, yaw: 0 }));
+  const byArr = await until(B, ([id, n]) => !HOST.collab.arc() && !!HOST.collab.station(id) && HOST.collab.station(id).arc === false && HOST.collab.stations().length === n + 1, [AID, NS], 6000);
+  await frames(H, 600);
+  const s3 = await A.evaluate(id => HOST.collab.station(id), AID), m3 = await H.evaluate(() => HOST.collab.mine());
+  check('arc: Arrange all turns the arc into a circle where it stands (the headset still at it)', arc3 && byArr && !!a3 && Math.abs(s3.x - a3.x) < 1e-6 && Math.abs(s3.z - a3.z) < 1e-6 && m3 === AID, JSON.stringify({ arc3, byArr, a3, s3, m3 }));
+  await onlyIt();
+  await until(A, () => HOST.collab.stations().length === 1, null, 5000);
+  await frames(H, 2500);
+  const stays = await A.evaluate(id => !HOST.collab.arc() && HOST.collab.val('st.' + id).arc === false, AID) && await H.evaluate(id => !HOST.collab.arc() && HOST.collab.mine() === id, AID);
+  check('arc: with every other circle gone, the circle that was the arc stays a circle', stays);
+  await arcAgain();
+  await until(A, () => !!HOST.collab.arc(), null, 5000);
+  await A.evaluate(b => HOST.collab.add('lobby', b), LB);
+  const byLobby = await until(B, id => !HOST.collab.arc() && HOST.collab.station(id).arc === false && HOST.collab.stations().some(s => s.kind === 'lobby'), AID, 6000);
+  check('arc: adding the lobby turns the arc into a circle too', byLobby);
+  // removed, it does not come back by itself (the room has had one: allp)
+  await A.evaluate(() => HOST.collab.publish(HOST.collab.stations().map(s => ['st.' + s.id, null])));
+  await frames(H, 3500);
+  check('arc: removed, the room\'s All stories circle does not come back', !(await kinds(A)).length && !(await kinds(B)).length && !(await kinds(H)).length);
+  // a headset first in a room of its own (another room, its frame written by someone there): the arc in front of itself,
+  // and it is at it at once
+  const mk = async () => (await (await fetch(base() + 'api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: 'networks', version: FORMAT }) })).json()).code;
+  const c3 = await mk(), W3 = writer(c3, 'w3' + Date.now().toString(36));
+  await W3.open; await sleep(400);
+  W3.set(await H.evaluate(() => HOST.room.frameKey('U1')), frameFor(ROOM, 'U1', W3.id, Date.now() - 60000));
+  await sleep(400);
+  const H3 = { x: 0.6, z: 0.4, yaw: -0.3 }, want3 = [H3.x - 1.2 * Math.sin(H3.yaw), H3.z - 1.2 * Math.cos(H3.yaw)];
+  await H.evaluate(h => window.__xr.head(h), headAt(H3, ROOM[3] + H3.yaw));
+  await H.evaluate(c => HOST.collab.join(c), c3);
+  const first = await stepUntil(([w, id]) => { const s = HOST.collab.arc(); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.06 && HOST.collab.mine() === id && HOST.room.cards(); }, [want3, AID], 25000);
+  const v3 = (await roomInfo(c3)).keys;
+  check('arc: a headset first in a room makes the room\'s arc 1.2 m in front of its head, facing away (allp its own), and is at it at once', first && !!v3['st.' + AID] && v3['st.' + AID].v.arc === true &&
+    angle(v3['st.' + AID].v.yaw, H3.yaw) < 0.05 && !!v3.allp && v3.allp.v.by === hId, JSON.stringify({ first, st: v3['st.' + AID] && v3['st.' + AID].v, allp: v3.allp && v3.allp.v, src: await H.evaluate(() => [HOST.room.aligned, HOST.room.src, HOST.collab.code]) }));
+  W3.close();
+  // a room kept from before v109 (its first All stories circle, all01 without arc, its only station): the arc once joined,
+  // by a page whose own arc is off
+  const c2r = await mk(), W2 = writer(c2r, 'w2' + Date.now().toString(36));
+  await W2.open; await sleep(400);
+  W2.set('st.' + AID, { story: 'all', kind: 'all', sync: false, x: 1, z: -1, yaw: 0.5 });
+  W2.set('allp', { by: W2.id, at: Date.now() });
+  await sleep(500);
+  W2.close();
+  const J = await open('#s=' + c2r, { width: 480, height: 320 });
+  const up = await until(J, id => { const s = HOST.collab.arc(); return !!s && s.id === id && HOST.collab.following() === id && HOST.picking; }, AID, 20000);
+  await sleep(500);
+  const kv = (await roomInfo(c2r)).keys['st.' + AID];
+  check('arc: a room kept from before (all01 without arc, its only station) is the room\'s arc once joined: the page follows it and shows its Stories screen',
+    up && !!kv && kv.v.arc === true && kv.v.x === 1 && kv.v.yaw === 0.5, JSON.stringify({ up, kv: kv && kv.v }));
   await H.evaluate(() => window.__xr.end());
-  for (const p of [A, B, H]) await p.context().close();
+  for (const p of [A, B, H, J]) await p.context().close();
 }
 
 async function smoothRound() {

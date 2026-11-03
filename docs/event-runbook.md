@@ -120,15 +120,22 @@ local network found each other this way, and then shared a peer-to-peer room; he
    another Quest Browser version, or nothing after 20 s); then, with another headset in the room, the guide's last page,
    *Not lined up?*, opens by itself (step 8). The first time a headset comes into a room with another headset there
    (within its first 10 s there), the guide opens by itself (once per headset). In VR, answer *Are you in the same room as the others?* with **In this room** (the menu opens by itself
-   for it); **Somewhere else** skips all this. The first headset in the room (aligned, in the room with the others) puts an **All stories**
-   circle 1.2 m in front of itself, facing away, once per room: one step forward and the Stories screen shows there, as
-   on a headset on its own, and the story picked plays for everyone in that circle (its panel's **Stories** button takes
-   them back to the cards). It runs its own stories at first; **With the room's circles** (the menu at that circle, or
-   its row in the Shared dialog) makes a story picked there join the room's circle of that story. Removed, it does not
-   come back by itself (**Add here** or **Add a station** puts one again). A **Back to the lobby** circle (added the
-   same way; none is placed by itself) ends the story of whoever walks into it: the room shows as at the start.
-5. In each headset's menu press **Sound check** and both beeps (in a room there is no Stories screen; a room with no
-   stations yet opens the menu by itself).
+   for it); **Somewhere else** skips all this. A room starts as a shared Stories screen (since v109): the page that
+   starts it (or the first headset, in a room started in a headset) makes the room's arc of story cards, and the first
+   headset in the room (aligned, in the room with the others) puts it 1.2 m in front of itself, facing away. Every
+   headset in the room is at it without walking anywhere, and every page shows it as its Stories screen: the story
+   picked there plays for everyone (the story panel's **Stories** button takes everyone back to the cards). Anyone can
+   move it: point at the cards and hold the grip (point to swing, raise or lower to push or pull, twist to turn), or drag
+   its dot on the Shared dialog's map, or **Move here** in the menu; **Lock circles** stops that. As soon as someone adds
+   another circle (**Add here**, **Add a station**, **Design room here**, a lobby) or presses **Arrange all**, the arc
+   becomes an ordinary **All stories** circle where it stands: whoever was at it stays with it, and from then on it is
+   reached by walking into its circle, as any circle. It runs its own stories at first; **With the room's circles** (the
+   menu at that circle, or its row in the Shared dialog) makes a story picked there join the room's circle of that
+   story. Removed, it does not come back by itself (**Add here** or **Add a station** puts an All stories circle again).
+   A **Back to the lobby** circle (added the same way; none is placed by itself) ends the story of whoever walks into
+   it: the room shows as at the start.
+5. In each headset's menu press **Sound check** and both beeps (in a room there is no Stories screen but the room's arc
+   or an All stories circle; a room with no stations at all opens the menu by itself).
 6. **Arrange all** on a headset: two rows in front of you (from a page: round mark A). To move a station, point at its
    ring or card and hold the grip: point to swing, raise or lower to push or pull, twist to turn. On the page, drag its
    dot (move) or square (turn). The design room's table is not one of the stories: to have it, stand where it should

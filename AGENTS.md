@@ -826,7 +826,9 @@ explore view became `{ v, story }`, for motion smoothing, networks-27 when the t
 and the cards' setting, `cards`, joined `look` in v100, networks-28 when the shell's own two kinds of circle came in v104:
 an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, x, z, yaw }` and a lobby circle
 `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`: the first headset's All stories
-circle placed), below). The plan is `docs/shared-space-plan.md`.
+circle placed), below; networks-29 when the room's first All stories circle became the room's arc in v109: `st.all01`
+gains `arc` (`true` while it is the arc, `false` once it became a circle) and `allp` may carry `pg: 1` (the arc a page
+made, not yet moved by a headset), and a room now starts with the arc, below). The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
   like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
@@ -845,9 +847,48 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     back) and that has none (one added by hand on a page is enough), the conditions holding 1.5 s (a room refilled after a relay restart comes back empty first), once per page
     and room: an All stories circle 1.2 m ahead of its head along the floor (just outside the 1.1 m walk-in: one step and
     you are in it), facing away from it (its cards float ahead, as on the Stories screen), Own stories, always under one
-    id (`all01`), so two headsets that place it at the same moment place one circle (the last writer's). A room started on
-    a page gets none until a headset comes; one started in a headset gets it at once. Tests turn it off
-    (`HOST.collab.autoAll(false)`; the pretend headsets in `tools/collab.mjs` do unless asked).
+    id (`all01`), so two headsets that place it at the same moment place one circle (the last writer's). Since v109 it is
+    the room's arc (`arc: true`, below) when the room has no other circle, else an ordinary circle (`arc: false`); and a
+    room a page started already has the page's arc, which the first headset moves 1.2 m in front of itself instead, as
+    long as it stands where the page put it (`allp` with `pg`; `allp` is then rewritten as the headset's). Tests turn
+    both off (`HOST.collab.autoAll(false)`, or `localStorage` `collabAutoAll` = `off` before the page loads: every
+    device in `tools/collab.mjs` starts so, and its pretend headsets keep it off, unless the All stories round asks).
+  - The room's arc (v109; the owner, 3 November 2026: "Change it so that the room behaves like a shared version of the
+    single player room and the players can move the story arc around by dragging it, change it to a circle once a player
+    places the first other circle or arrange all"; anyone may move it, the circles lock stops that). A room starts as a
+    shared version of the single-player Stories screen: one All stories circle, `st.all01` with `arc: true` (`arcSt()`,
+    `HOST.collab.arc()`), made by the first headset (`allFirst`) or by a page that starts a room or joins one with no
+    stations (`pageArc`, from the pump: at the room's origin facing -z, once per page and room, after the room has been
+    empty for 1.5 s, with `allp` `{ by, at, pg: 1 }` written in the same batch, so the first headset moves it in front of
+    itself and a removed one does not come back).
+    - Everyone is at it without walking in (`arcStep`, from the pump and every headset frame): every aligned headset in
+      the room with the others (AR, or VR answered "in this room"; one elsewhere walks into it as into any circle) has it
+      as its live station (`choose(id, 'arc')`: `C.live`, `C.mine`, so `cards()` is true, `away()` false and `place()`
+      puts the rig at its spot: everyone sees the same arc of cards at one place in the room; presence says `st` is the
+      arc), and every page follows it (`C.follow`) and shows its Stories screen (`pageCards`), no Follow needed, unless
+      it left it by hand (Stop following, or a story of its own: `C.arcOff`, per room). A pick there plays for everyone
+      at it (`allPickAt`, in front of the arc), and the story panel's Stories button goes back (`allBack`). `zoneStep`
+      never walks into it (it is live anyway). In a headset at it nothing of it is drawn (`drawPreviews`: no ring, card or
+      icon; its cards are the circle).
+    - Dragging it: the grip on its cards (the story's own panels: the ray's `near` from `HOST.collab.ray`) or in an
+      unseen volume round them (`arcHit`, `ARC`: 0.7 to 3.1 m from its spot along the floor, within 1.35 rad of its
+      facing, 0.95 m below to 0.75 m above the eyes; generous, for one arc or two rows of cards), only while its cards
+      show, carries it for everyone as a station is carried (`grabStation`, `carryStation`, `sendStation` with `ts` and
+      `h`; the others' cards glide, `SHOWN`): the point held stays under the ray (`MV.off`, `offAt`), swinging round
+      the hand as you point, pushed away as you raise the controller, turned as you twist. The trigger still picks
+      cards (the shell claims no hover for the volume). Refused while the circles are locked (`refused`, its notice).
+      Move here (the menu) and the page's room map move it too; every write of it carries `arc` (`stVal`).
+    - Turning it into a circle: the first other circle placed (`add`: the page's Add, the headset's Add here, Design room
+      here, the lobby, another All stories circle) or Arrange all (`arrange`) writes `st.all01` with `arc: false` in the
+      same batch (`arcEnd`): an ordinary All stories circle where it stands (ring, card, icon; walk-in from then on;
+      Arrange all leaves it where it is). Headsets and pages at it stay with it (a station is left only by walking into
+      another one); a headset that took it as the arc (`C.arcd`, never walked into it) sees its ring, faint as your own
+      station's, while it stands outside it (more than 1.1 m from its spot), so it knows where the circle is. Removing
+      every other circle leaves it a circle. An arc beside another circle (two writes crossing) is turned into a circle
+      by whoever sees it.
+    - Rooms from before v109: a room kept on a device or a relay (revived from a copy) whose only station is `all01`
+      (kind all) without `arc` becomes the arc as it is joined (`arcStep` writes `arc: true`); one with other circles keeps
+      it a circle. A room of another `FORMAT` is refused as ever (devices update).
   - Walked into (as any circle), it is the headset's live station. Showing its cards (`HOST.room.cards()`), the story
     loaded hosts the single-player Stories screen there (the stories open it while `cards()` is true, below; the
     shell's `place()` puts their rig at the circle's spot, so the cards float ahead of it), the scene hidden, the story
@@ -883,12 +924,13 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     drawn); it is never a live station itself, its own ring, card and icon stay, and walking into a story circle after
     enters it as usual. No automatic lobby circle (the owner: "no automatic placement for now").
   - Pages: a page following an All stories circle shows its Stories screen while the cards show (`pageCards`; a pick
-    there is the circle's) and follows the story picked as any station (in sync mode, the linked session). The dialog's
-    row of an All stories circle has a picker (*Choosing a story* or a story) and its switch; the lobby's row has no
+    there is the circle's) and follows the story picked as any station (in sync mode, the linked session); the room's
+    arc is followed without Follow (above). The dialog's row of an All stories circle has a picker (*Choosing a story* or
+    a story) and its switch (the arc's says it is for everyone in the room until another circle is added); the lobby's row has no
     Follow, Panels or Lock (only Remove), and a click on its dot follows nothing.
   - Add (the dialog's picker and the headset's *Add here* page) offers *All stories* and *Back to the lobby* after the
     design room; moving, turning, removing, the circles lock and the map work on them as on any circle (a move keeps
-    `kind` and `sync`: `stVal`). Arrange all leaves both where they are.
+    `kind`, `sync` and `arc`: `stVal`). Arrange all leaves both where they are (and turns the room's arc into a circle).
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -1337,7 +1379,8 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
-  (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"). The notices
+  (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"; since v109
+  not while this headset is about to make the room's arc: automatic circles on, no `allp` yet, in the room with the others). The notices
   say how to open it and under which tab (`menuWhere`). `HOST.collab.panelOpen(on)`, `HOST.collab.menu`,
   `menuTab(t)`, `menuIdle(ms)`, `menuFind(id)` (a button on whichever tab has it, that tab shown), `menuIds()`
   (every tab's buttons), `menuGrab` (held by the grip), `menuPos()` (`{ d, h, pinned }`) and `notes()` (the last eight notices
@@ -2848,21 +2891,32 @@ Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
 circles are locked), a room joined by its code from a pretend headset's menu (`codeRound`; `--code` runs only it, a
 minute: *Join with a code*, the keypad, Join greyed until three letters, a fourth refused, Delete; in the room *Another
-room*, its own code greyed, a code with no room saying so), the All stories and lobby circles (`allRound`, after the
-code round in the main run; `--all` runs only it, a room of its own, a few minutes: no All stories circle while only a
-page is in the room; a pretend headset (`autoAll: true` in its `installXR`; the others leave it off) adding one 1.2 m in
-front of its head, facing away, once, `allp` written, and removed it not coming back; the dialog's Add listing All
-stories and Back to the lobby after the design room; walked into, the Stories screen (its cards, no Back) with the scene
-hidden and nothing written to the circle's keys, and a page following it on its Stories screen; a landing card pressed
-picking that story for everyone there, from its start and playing on the headset and the page; the story panel's
-Stories button back to the cards, the keys gone; the menu's switch row turning sync on, and with a circle of that story
-in the room the headset joining its session: explore state and clock both ways with a page following that circle, its
-presence still the All stories circle's; the dialog's toggle turning it off, its own keys seeded (the clock, state and the linked circle's moved scene) and the
-story going on; on again and the linked circle given another story, the circle going on alone where its story was (its own
-clock written); the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
-headset's story with every ring, icon and card showing, then a story circle entered as usual; Arrange all leaving both
-kinds where they are; with `--shots` its pictures: `all-1-cards.png`, the cards from inside the circle, `all-2-picked.png`,
-a story picked there, and `all-3-lobby.png`, the All stories circle seen from the lobby), the room setup guide (`guideRound`, after the All stories
+room*, its own code greyed, a code with no room saying so), the room's arc and the All stories and lobby circles (`allRound`, after
+the code round in the main run; `--all` runs only it, rooms of its own, several minutes; its devices with `arc: true`, the
+others in the run starting with the automatic circles off: a page on a story starting a room making the arc at the room's
+origin (its only station, `allp` with `pg`) and showing its Stories screen without Follow, as a page joining does; a
+pretend headset (`autoAll: true` in its `installXR`) moving it 1.2 m in front of its head, facing away (`allp` its own),
+and at it without walking in, 1.2 m from its spot: the Stories screen (its cards, no Back), the scene hidden, no ring,
+card or icon for it, the rig at its spot, its presence there, nothing written to its keys; a landing card pressed picking
+that story for everyone, from its start and playing on the headset and both pages; the story panel's Stories button back
+to the cards, the keys gone; the grip on its cards carrying it for everyone (held writes seen on a page, then where it
+was let go, swung round, still the arc); the room map moving it and the headset's cards gliding there; the circles lock
+refusing the grip, with its notice; Move here putting it at the headset; Add from the headset turning it into a circle
+where it stands (`arc` false), the headset still at it with its cards and now its ring (it stands 1.5 m off), the pages
+still following; the dialog's Add listing All stories and Back to the lobby after the design room; then as any All stories
+circle: the menu's switch row turning sync on, and with a circle of that story in the room the headset joining its
+session: explore state and clock both ways with a page following that circle, its presence still the All stories
+circle's; the dialog's toggle turning it off, its own keys seeded (the clock, state and the linked circle's moved scene)
+and the story going on; on again and the linked circle given another story, the circle going on alone where its story
+was (its own clock written); the dialog's picker back to the cards; the lobby added from the page, listed without Follow,
+walking in ending the headset's story with every ring, icon and card showing, then a story circle entered as usual, then
+the circle that was the arc walked into again (its cards); Arrange all leaving both kinds where they are; an arc again
+turned into a circle by Arrange all and by adding the lobby, and left a circle once every other circle is gone; removed,
+it not coming back; the headset first in a room of its own making the arc in front of itself, at it at once; a room from
+before v109 (`all01` without `arc`, alone, written by a raw socket) the arc once a page joins; with `--shots` its
+pictures: `all-1-arc.png`, the arc's cards as the first headset sees them, `all-2-picked.png`, a story picked there,
+`all-3-lobby.png`, the All stories circle seen from the lobby, and `all-4-circle.png`, the arc turned into a circle, its
+ring under its cards), the room setup guide (`guideRound`, after the All stories
 round in the main run; `--guide` runs only it, a room of its own, three or four minutes: a page starts the room with a
 station far off; the first pretend headset enters AR alone and becomes the room's origin, *Room ready*, its guide not
 opening by itself; the second, more than 10 s later, lines up through the shared space and its guide opens by itself at

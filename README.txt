@@ -115,14 +115,21 @@ at a model shows its card), and your own ring is hidden (Show all rings in the
 menu shows every ring); walk out of a circle and you stay in its story until you
 walk into another. Pointing at a card and pulling the trigger
 does not take you there: walk into its circle. A headset in a room never shows
-the Stories screen (leave the room in the menu and it comes back), except at an
-All stories circle; in a room with no stations yet the menu opens by itself,
-with Arrange all.
-All stories and Back to the lobby (two circles of the app's own): the first
-headset in a room (in AR, or in VR in the same room) puts an All stories circle
-1.2 m in front of itself, facing away, once per room (a room started on a laptop
-gets one when the first headset comes; removed, it does not come back). Step
-into it and you see the Stories screen, as on your own; the story you pick plays
+the Stories screen (leave the room in the menu and it comes back), except at the
+room's arc or an All stories circle; in a room with no stations at all the menu
+opens by itself, with Arrange all.
+A room starts as a shared Stories screen (the room's arc): the page that starts
+it, or the first headset, makes an arc of story cards, and the first headset in
+the room (in AR, or in VR in the same room) puts it 1.2 m in front of itself,
+facing away. Every headset in the room is at it without walking anywhere and
+every page shows it as its Stories screen; the story picked there plays for
+everyone. Anyone moves it with the grip on its cards (point to swing, raise or
+lower to push or pull, twist to turn), its dot on the Shared dialog's map, or
+Move here; Lock circles stops that. The first other circle added, or Arrange
+all, turns it into an ordinary All stories circle where it stands (whoever was
+at it stays with it); removed, it does not come back.
+All stories and Back to the lobby (two circles of the app's own): step into an
+All stories circle and you see the Stories screen, as on your own; the story you pick plays
 there for everyone in that circle, from its start, and the Stories button on its
 panel takes everyone there back to the cards. Its switch (the menu's Circles tab
 at that circle, or its row in the Shared dialog) is Own stories at first: With
