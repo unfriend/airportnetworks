@@ -4159,7 +4159,10 @@
   function allFirst(t) {
     const P = val('allp'), A = arcSt(), pg = !!(P && P.pg && A && A.id === ARC.id && !A.x && !A.z && !A.yaw);
     const ok = C.autoAll && C.code && C.welcomed && R.session && R.aligned && R.headOK && here() && !circlesLocked() && C.allpFor !== C.code &&
-      (P === undefined ? !C.st.some(s => s.kind === ALL) : pg);   // (one placed by hand already: none more)
+      (P === undefined ? !C.st.some(s => s.kind === ALL) : pg) &&   // (one placed by hand already: none more)
+      // (not while the startup flow asks this headset, the room's first, to calibrate on two spots: that calibration moves
+      // the room's origin to spot A, and an arc placed before it would end up elsewhere in the real room; Skip places it)
+      !(guideShown() && (R.calib || lineCase() === 'first'));
     if (!ok) {
       if (C.allpAt) log('all stories not yet', { aligned: R.aligned, head: R.headOK, here: here(), locked: circlesLocked(), allp: !!P, pg, arc: !!A });   // (it waited, and something changed)
       C.allpAt = 0; return;

@@ -1264,10 +1264,10 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
     `autoGuide(on)` (its opening by itself; the pretend headsets in `tools/collab.mjs` turn it off unless asked, `guide:
     true` in `installXR`, as they do `autoAll`). How it works on real Quests (how accurately a tip finds a table corner
     or a tape cross, the points' accuracy, the guide's timing and whether it feels light, the notices) is untested.
-  - Known interplay: the room's first headset becomes the room's origin through its shared space within about 8 s and
-    places its All stories circle (`allFirst`) before it calibrates on the spots in its flow; the calibration then moves
-    the room's origin to spot A, so that circle stands elsewhere in the real room (move it, or let `allFirst` wait while
-    the flow is at *Line up* for the room's first headset, `lineCase() === 'first'`).
+  - The room's arc waits for that first calibration: the room's first headset becomes the room's origin through its
+    shared space within about 8 s, and a calibration on the spots then moves the origin to spot A, so `allFirst` places
+    nothing while the flow is on show asking it to calibrate (`guideShown()` with `R.calib` or `lineCase() === 'first'`);
+    once calibrated, or on Skip for now, the arc stands where the headset stands.
 - A headset runs live the station whose circle it walked into last (within
   1.1 m of its spot for 1 s): stations are walk-in only (the owner, October
   2026: "the stories can only be visited by going to their circle"), and a
