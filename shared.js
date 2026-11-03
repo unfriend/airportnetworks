@@ -3701,14 +3701,21 @@
     const k = SUB.txt.get(el);
     if (k && t - k.at < 250) return k.s;
     let s = '', lp = null;
-    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = w.nextNode(); n; n = w.nextNode()) {
-      const p = n.parentElement;
-      if (!p || p.closest('svg, script, style, button') || p.closest('[data-at]') !== el) continue;
-      const x = n.textContent.replace(/\s+/g, ' ');
-      if (!x.trim()) { s += ' '; continue; }
-      if (lp && lp !== p && /^(B|STRONG)$/.test(lp.tagName) && /^[A-Za-z0-9(]/.test(x) && /[A-Za-z0-9)]$/.test(s)) s += ': ';
-      s += x; lp = p;
+    // a line's own spoken words (data-say: what a live number would show wrongly; empty, no caption), as the voice says it
+    if (el.hasAttribute('data-say')) s = el.dataset.say || '';
+    else {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const p = n.parentElement;
+        if (!p || p.closest('svg, script, style, button') || p.closest('[data-at]') !== el) continue;
+        const x = n.textContent.replace(/\s+/g, ' ');
+        if (!x.trim()) { s += ' '; continue; }
+        // a bold name into its text: a colon; a number into its small caption: a space; the items of one list: a comma
+        if (lp && lp !== p && /^(B|STRONG)$/.test(lp.tagName) && /^[A-Za-z0-9(]/.test(x) && /[A-Za-z0-9)]$/.test(s)) s += ': ';
+        else if (lp && lp !== p && p.closest('li') && lp.closest('li') && p.closest('li') !== lp.closest('li') && !/[,.;:!?]\s*$/.test(s)) s += ', ';
+        else if (lp && lp !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(x) && /[\p{L}\p{N})%]$/u.test(s)) s += ' ';
+        s += x; lp = p;
+      }
     }
     s = s.replace(/\s+/g, ' ').trim();
     if (!/\p{L}{2}/u.test(s)) s = '';   // (a chart's numbers are not read)

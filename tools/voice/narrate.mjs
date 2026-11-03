@@ -83,11 +83,24 @@ const readStory = () => page.evaluate(skip => {
       const txt = n.textContent.replace(/\s+/g, ' ');
       if (!txt.trim()) { if (last) last.text += ' '; continue; }
       const at = p.closest('[data-at]'), cue = at && sec.contains(at) ? at : sec;
+      // a line's own words for the voice (data-say on its cue element: a live number would be read as it stands at the
+      // start, '0 steps'; empty, the line is not read)
+      if (cue !== sec && cue.hasAttribute('data-say')) {
+        if (!(last && last.cue === cue)) {
+          last = { cue, ch: c.key, at: +cue.dataset.at || 0, text: cue.dataset.say || ' ', title: !!cue.closest('h1, h2, h3'), small: !!(skip && cue.closest(skip)) };
+          lines.push(last);
+        }
+        last.p = p;
+        continue;
+      }
       if (last && last.cue === cue) {
         // a bold run straight into its text: a figure and its caption ('<b>23</b>chromosomes') read on, a name and its
-        // text ('<b>Shape</b>A city's layout') with a colon between
+        // text ('<b>Shape</b>A city's layout') with a colon between; a number straight into its small caption ('12<small>of
+        // 16</small>') with a space; the items of one list ('<li>Proteins</li><li>Hubs</li>') with a comma
         const b = last.p !== p && /^(B|STRONG)$/.test(last.p.tagName) && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
-        last.text += b ? (/^\s*\d/.test(last.p.textContent) ? ' ' : ': ') + txt : txt;
+        const li = !b && last.p !== p && !!p.closest('li') && !!last.p.closest('li') && p.closest('li') !== last.p.closest('li') && !/[,.;:!?]\s*$/.test(last.text);
+        const cap = !b && !li && last.p !== p && p.tagName === 'SMALL' && /^[\p{L}\p{N}(]/u.test(txt) && /[\p{L}\p{N})%]$/u.test(last.text);
+        last.text += b ? (/^\s*\d/.test(last.p.textContent) ? ' ' : ': ') + txt : li ? ', ' + txt : cap ? ' ' + txt : txt;
       } else {
         last = { cue, ch: c.key, at: cue === sec ? 0 : +cue.dataset.at || 0, text: txt,
           title: !!p.closest('h1, h2, h3'), small: !!(skip && p.closest(skip)) };

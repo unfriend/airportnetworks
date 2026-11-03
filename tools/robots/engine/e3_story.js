@@ -100,7 +100,7 @@ function buildStory() {
       <p class="note" data-at="9" data-xr="Walk about: the robots know where you are. Point at the floor and pull the trigger to spill crumbs.">On a screen you stand in a model living room. Click the floor to walk.</p>`,
     bump: `<h2 data-at="0.6">Bump and turn</h2>
       <p data-at="1.2">Early robot vacuums had no map of the room. Much of the time they simply drove until they bumped into something, turned, and drove on.</p>
-      <p data-at="7">Nobody plans a route, yet the floor gets clean: so far the gang has cleaned <b data-live="cov">0 %</b> of it.</p>
+      <p data-at="7" data-say="Nobody plans a route, yet the floor gets clean.">Nobody plans a route, yet the floor gets clean: so far the gang has cleaned <b data-live="cov">0 %</b> of it.</p>
       <p data-at="13">Bouncing at random reaches every corner in the end, but the last patches take longest.</p>`,
     follow: `<h2 data-at="0.6">Follow me</h2>
       <p data-at="1.2">Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.</p>

@@ -835,7 +835,7 @@ function buildStory() {
     paths: `<h2 data-at="0.6">Drugs and distance</h2>
       <p data-at="1.2">Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.</p>
       <p data-at="4">Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits ${dParp === 1 ? 'right next to it' : dParp + ' steps away'}.</p>
-      <div class="big magenta" data-at="9"><span id="flights">0</span><small id="flightsWord">steps</small></div>
+      <div class="big magenta" data-at="9" data-say=""><span id="flights">0</span><small id="flightsWord">steps</small></div>
       <p data-at="19">BACE1, a target of drugs tested against Alzheimer's disease, sits ${L} steps away. Drugs whose targets are close to a disease module are more likely to work against it.</p>`,
     robustness: `<h2 data-at="0.6">Robustness</h2>
       <p data-at="1.2">What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.</p>
@@ -843,7 +843,7 @@ function buildStory() {
       <p class="caption" data-at="3.2">of protein pairs still connected</p>
       <div style="display:grid">
         <p data-at="6" data-out="17" style="grid-area:1/1">Knock out 20 random proteins, and ${pct(rnd)} per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.</p>
-        <p data-at="18" style="grid-area:1/1">Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the most shortest paths between other proteins.</p>
+        <p data-at="18" style="grid-area:1/1">Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the largest number of shortest paths between other proteins.</p>
       </div>
       <p data-at="27" class="amber">The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.</p>`,
     outro: `<h2 data-at="0.6">Network medicine</h2>

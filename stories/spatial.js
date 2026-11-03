@@ -1872,7 +1872,7 @@ function buildStory() {
       <p data-at="14.5">would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.</p>`,
     signal: `<h2 data-at="0.6">Signals cross the cell</h2>
       <p data-at="1.2">A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.</p>
-      <div class="big teal" data-at="5"><span id="steps">0</span><small id="stepsWord">steps</small></div>
+      <div class="big teal" data-at="5" data-say=""><span id="steps">0</span><small id="stepsWord">steps</small></div>
       <p data-at="19">The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF. That makes ${L} steps, one of them a move.</p>`,
     move: `<h2 data-at="0.6">Moving rewires the network</h2>
       <p data-at="1.2">In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.</p>
