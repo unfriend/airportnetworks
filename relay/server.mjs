@@ -66,8 +66,8 @@ const HELP = `usage: node relay/server.mjs [options]
                    there by the studio (the old one kept in its .history/, the newest 20); with a password, they need it
   --scenes-readonly  with --scenes: layouts are never written (the studio offers Download instead)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
-  --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64, and
-                   --logs only with a token
+  --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
+                   --logs only with a token, and --scenes only with a password
   --origin <list>  only pages from these origins (comma separated, may be repeated) and the relay's own pages may open
                    a socket or read the API (CORS for them alone; other origins 403)
   --allow-no-origin  with --origin or --public: also sockets that send no Origin (not a browser: tools, scripts)

@@ -1491,6 +1491,15 @@ try {
   await step('scenes: the options (COLLAB_SCENES, RELAY_ARGS) and the ones refused at the start', async () => {
     const E = await start(['--quiet'], { COLLAB_SCENES: S });
     ok((await req('GET', '/api/scenes', { at: E.port })).json().scenes?.length === 3, 'COLLAB_SCENES=<dir>');
+    // a scene folder that is itself a link (the owner's choice) is followed; its own links still may not leave it
+    const far = path.join(SC, 'elsewhere', 'scene');
+    fs.mkdirSync(far, { recursive: true }); fs.writeFileSync(path.join(far, 'x.glb'), 'far'); fs.writeFileSync(path.join(SC, 'elsewhere', 'up.txt'), 'up');
+    fs.symlinkSync(path.join(SC, 'elsewhere', 'up.txt'), path.join(far, 'up.txt'));
+    fs.symlinkSync(far, path.join(S, 'linked'));
+    const lk = (await req('GET', '/api/scenes/linked', { at: E.port })).json();
+    ok(lk.files?.map(f => f.path).join() === 'x.glb' && (await req('GET', '/scenes/linked/x.glb', { at: E.port })).text === 'far' && (await req('GET', '/scenes/linked/up.txt', { at: E.port })).status === 404,
+      'a linked scene folder: listed and served; a link in it out of it is not');
+    fs.rmSync(path.join(S, 'linked'));
     E.kill();
     const R2 = await start(['--quiet'], { RELAY_ARGS: '--scenes ' + S + ' --scenes-readonly' });
     ok((await req('GET', '/api/scenes', { at: R2.port })).json().save === false, 'RELAY_ARGS="--scenes <dir> --scenes-readonly"');

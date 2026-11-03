@@ -282,7 +282,7 @@ function shownFor(p) {
 function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = false; dirty(true); }
 
 // ----------------------------------------------------------- every frame --
-const _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3();
+
 const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
@@ -356,7 +356,7 @@ function editStep(editing) {
     if (!ok) continue;
     const t = it.model ? it.proxy : it.greyHit;
     t.updateWorldMatrix(true, false);
-    B.matrix.copy(t.matrixWorld);
+    B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
@@ -384,6 +384,21 @@ function editStep(editing) {
     it.tick.userData.set((sh ? '✓ shown by ' : '✕ hidden by ') + P.rec.name, sh ? '#3ee08f' : '#ff5a4b', 0.075);
     itemTopInto(it, it.tick.position, false); it.tick.position.y += 0.1;
   }
+}
+// what editing draws: the selected and the pointed-at object's outlines (over everything), a cube's lines
+function editLooks() {
+  const edges = new THREE.EdgesGeometry(BOX1);
+  for (const [k, col, o] of [['selBox', 0x46d9ff, 0.95], ['hoverBox', 0x9fe8ff, 0.5]]) {
+    const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: o, depthTest: false, depthWrite: false }));
+    B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
+    GL.scene.add(B); GL[k] = B;
+  }
+  const g = new THREE.BufferGeometry(), n = 1600;
+  g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+  GL.links.frustumCulled = false; GL.links.renderOrder = 8; GL.links.visible = false;
+  GL.edit.add(GL.links);
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {

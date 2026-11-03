@@ -109,12 +109,18 @@ try {
       ['three.min.js', ...LIBS].map(f => `<script src="/lib/${f}"></script>`).join('') });
     if (p === '/lib/three.min.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(REPO, 'three.min.js')) });
     if (p.startsWith('/lib/') && LIBS.includes(p.slice(5))) return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'vendor', p.slice(5))) });
+    if (p === '/in/' + path.basename(input)) return route.fulfill({ body: bytes });
     if (p.startsWith('/in/') && listing.includes(p.slice(4))) return route.fulfill({ body: fs.readFileSync(path.join(path.dirname(input), ...p.slice(4).split('/'))) });
     if (p === '/out' && route.request().method() === 'POST') { glb = route.request().postDataBuffer(); return route.fulfill({ body: 'ok' }); }
     return route.fulfill({ status: 404, body: 'not found' });
   });
   await page.goto('http://convert.local/');
-  out = await page.evaluate(convertInPage, { file: path.basename(input), ext, meta, listing, maxTex, weld });
+  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, meta, listing, maxTex, weld }); } catch (err) {
+    console.log(`${path.basename(input)}: could not be read or written (${String(err.message).split('\n')[0].replace(/^page\.evaluate: /, '')})`);
+    if (logs.length) console.log(logs.slice(0, 8).map(t => '  ' + t.slice(0, 200)).join('\n'));
+    process.exitCode = 1;
+  }
+  if (!out) throw new Error('not converted');
   out.logs = logs;
   out.glbBytes = glb ? glb.length : 0;
   out.images = glb ? glbImages(glb) : [];
@@ -127,7 +133,11 @@ try {
     fs.mkdirSync(path.dirname(output), { recursive: true });
     fs.writeFileSync(output, glb);
   }
+} catch (err) {
+  if (out) throw err;
+  if (err.message !== 'not converted') console.log('could not convert: ' + String(err.message).split('\n')[0]);
 } finally { await browser.close(); }
+if (!out) process.exit(1);
 
 // what a GLB holds its pictures as (from its JSON chunk)
 function glbImages(buf) {
@@ -170,7 +180,7 @@ const warns = [...new Set(out.logs.filter(t => !/Use MeshStandardMaterial|Creati
 if (warns.length) console.log('\n  the loaders said:\n' + warns.map(t => '    ' + t.slice(0, 200)).join('\n'));
 if (!out.ok) { console.log(`\nNOT WRITTEN: ${out.why}`); process.exit(1); }
 console.log(`\nwrote ${output} (${mb(out.glbBytes)})`);
-console.log('(times in headless Chromium on this machine, without a GPU: a headset is slower, but in the same proportion)');
+console.log('(times in headless Chromium on this machine, drawing in software: a headset\'s own are untested)');
 
 // ---- in the page: load, guess, lighten, export, load back and compare
 async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
@@ -360,16 +370,18 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
   });
 
   // where things are at a moment of an animation: every bone, and a sample of each skinned mesh's corners after skinning
-  const poseOf = (root, clip, t) => {
+  // (the original's nodes compared: its bones and what its animations move; the GLB's: every named node, since glTF's
+  // loader makes a bone that is no skin's joint a plain node)
+  const moving = new Set(outClips.flatMap(c => c.tracks.map(tr => T.PropertyBinding.parseTrackName(tr.name).nodeName)));
+  const poseOf = (root, clip, t, all = false) => {
     const saved = [];
     root.traverse(o => saved.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]));
     const mixer = new T.AnimationMixer(root);
     if (clip) { mixer.clipAction(clip).play(); mixer.setTime(t); }
     root.updateMatrixWorld(true);
     const bones = new Map(), skins = [];
-    // (every named node: a bone the loader made a plain node, as glTF's loader does for one that is no skin's joint, too)
     root.traverse(o => {
-      if (o.name && o !== root && !o.isMesh && !bones.has(o.name)) bones.set(o.name, new T.Vector3().setFromMatrixPosition(o.matrixWorld));
+      if (o.name && o !== root && !bones.has(o.name) && (all ? !o.isMesh : o.isBone || moving.has(o.name))) bones.set(o.name, new T.Vector3().setFromMatrixPosition(o.matrixWorld));
       if (o.isSkinnedMesh) {
         o.skeleton.update();
         const n = o.geometry.attributes.position.count, step = Math.max(1, Math.floor(n / 150)), pts = [];
@@ -382,7 +394,7 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
     root.updateMatrixWorld(true);
     return { bones, skins };
   };
-  const restOf = root => poseOf(root, null, 0);
+  const restOf = (root, all) => poseOf(root, null, 0, all);
   const sampleTimes = c => [0, c.duration / 3, (2 * c.duration) / 3, c.duration * 0.999];
   // the original's poses, before the export (and the original back at rest after)
   const want = outClips.map(c => sampleTimes(c).map(t => poseOf(wrap, c, t)));
@@ -422,11 +434,11 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
       s.pts.forEach((p, i) => { worst = Math.max(worst, p.distanceTo(m.pts[i])); compared++; });
     }
   };
-  comparePose(rest, restOf(back), 'at rest');
+  comparePose(rest, restOf(back, true), 'at rest');
   outClips.forEach((c, ci) => {
     const b = g.animations.find(x => x.name === c.name);
     for (const w of want[ci]) for (const [name, p] of w.bones) { const r = rest.bones.get(name); if (r) moved = Math.max(moved, p.distanceTo(r)); }
-    if (b) sampleTimes(c).forEach((t, ti) => comparePose(want[ci][ti], poseOf(back, b, t), `${c.name} at ${t.toFixed(2)} s`));
+    if (b) sampleTimes(c).forEach((t, ti) => comparePose(want[ci][ti], poseOf(back, b, t, true), `${c.name} at ${t.toFixed(2)} s`));
   });
   if (worst > tol) why.push(`bones or skinned corners move differently: up to ${(worst * 100).toFixed(1)} cm apart (more than ${(tol * 100).toFixed(1)} cm)`);
   const check = !compared ? 'no bones or animations to compare: triangles and size' : `${compared.toLocaleString('en-GB')} bone and skinned-corner positions at rest and at ${outClips.length * 4} moments of ${outClips.length} animation${outClips.length === 1 ? '' : 's'}: at most ${(worst * 1000).toFixed(2)} mm apart` +
@@ -438,7 +450,13 @@ async function convertInPage({ file, ext, meta, listing, maxTex, weld }) {
   try {
     const W = 320, H = 200, r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
     r.setPixelRatio(1); r.setSize(W, H, false); r.outputEncoding = T.sRGBEncoding;
-    wrap.traverse(o => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap']) if (m[k]) { m[k].encoding = T.sRGBEncoding; m.needsUpdate = true; } });
+    // (and a mesh without normals flat-shaded, as glTF's loader shows one: lit, it would otherwise draw black)
+    wrap.traverse(o => {
+      for (const m of [].concat(o.material || [])) {
+        for (const k of ['map', 'emissiveMap']) if (m[k]) { m[k].encoding = T.sRGBEncoding; m.needsUpdate = true; }
+        if (o.isMesh && !o.geometry.attributes.normal) { m.flatShading = true; m.needsUpdate = true; }
+      }
+    });
     // (framed on what is drawn: a skinned mesh by its corners as skinned, which its geometry's box does not follow)
     const box = new T.Box3(), v = new T.Vector3();
     wrap.updateMatrixWorld(true);

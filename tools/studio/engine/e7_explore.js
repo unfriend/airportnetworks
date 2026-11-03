@@ -1,0 +1,533 @@
+
+// ================================================================ EXPLORE ==
+// Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
+// list of blocks (paneBlocks) that the page draws as HTML (renderPanes) and the headset as its canvas twin
+// (drawExplorePane), so both say the same. On a page the camera goes round the scene (Orbit) or walks in it at 1.6 m
+// (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
+// size what is selected.
+const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items']];
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {} };
+const XS = {};
+const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
+const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
+const KEYS = new Set();
+
+function exploreTargets() {
+  const out = {};
+  for (const n in DEF) out[n] = n.endsWith('_a') ? 0 : XS[n];
+  out.stage_a = 1;
+  return out;
+}
+function exploreStep(dt) {
+  const tg = exploreTargets(), k = 1 - Math.exp(-dt * 3.5);
+  for (const n in DEF) XS[n] = XS[n] + (tg[n] - XS[n]) * k;
+  return XS;
+}
+function openScene_() { /* (the engine's scene list has one entry: the stage) */ }
+function flyTo(v) {
+  const c = orbit.cur;
+  orbit.from = c.slice();
+  orbit.to = v.slice();
+  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
+  orbit.t0 = performance.now();
+}
+function orbitStep(now) {
+  if (!orbit.to) return;
+  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
+  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
+  if (x >= 1) orbit.to = null;
+}
+// the whole scene in view (once a scene's models are in, and on View: Orbit)
+function frameScene(now) {
+  const b = new THREE.Box3();
+  for (const it of STU.items.values()) {
+    if (it.kind === 'o') { const ob = objBox(it); if (ob) b.union(ob); else b.expandByPoint(_sv.fromArray(it.rec.p)); }
+    else if (it.kind === 'c') { b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(-0.5)); b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(0.5)); }
+    else b.expandByPoint(_sv.fromArray(it.rec.p));
+  }
+  if (b.isEmpty()) b.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
+  const c = b.getCenter(new THREE.Vector3()), r = Math.max(1, b.getSize(new THREE.Vector3()).length() / 2);
+  const v = [orbit.cur[0], 24, clamp(r * 2.1, 2.5, 80), c.x, clamp(c.y, 0.5, 3), c.z];
+  if (now) flyTo(v); else { orbit.cur = v; orbit.to = null; }
+}
+function setView(name) {
+  if (name !== 'orbit' && name !== 'walk') return;
+  if (name !== X.view) sfxAct('whoosh', 'stage', 'centre', { dur: 0.6 });
+  X.view = name;
+  KEYS.clear(); WALK.to = null;
+  if (name === 'orbit') frameScene(true);
+  document.querySelectorAll('[data-ctl="view"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === name));
+  dirty(true);
+}
+
+// ------------------------------------------------------------ the panes --
+// A pane is a list of blocks: { h, sub } a heading; { p, c } a line (c: muted, faint, amber, red, green); { code } a
+// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }. A button or a row: { id, label,
+// sub, act, v, on, dis, primary, warn, col, page (page only), xr (headset only) }
+const SOUND_NOTE = 'The scene\'s sounds follow this device\'s Sound button (not the Sound effects or Narration switches: they are the scene\'s own).';
+const hhmm = ms => { const d = new Date(ms), t = d.toTimeString().slice(0, 5); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + t; };
+const mb = n => (n >= 1 << 20 ? (n / 1048576).toFixed(n >= 10 << 20 ? 0 : 1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+const metres = v => (v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, '') + ' m';
+function srcLine() {
+  if (SRC.state === 'looking') return 'Looking for scenes...';
+  if (SRC.kind === 'relay') return `Scenes from the relay at ${SRC.base.replace(/^https?:\/\//, '')}` + (SRC.save ? ' (it saves layouts).' : ' (read only).');
+  if (SRC.state === 'none') return SRC.noScenes ? 'The relay serves no scenes, and there is no folder of scenes next to the app.' : 'No relay and no folder of scenes found.';
+  return `Scenes from the folder ${SRC.folder} (read only).`;
+}
+function savedLine() {
+  if (STU.listing !== 'ok') return '';
+  const by = STU.savedBy && !(HOST.collab && HOST.collab.name === STU.savedBy) ? ' by ' + STU.savedBy : '';
+  if (unsaved()) return 'Unsaved changes' + (STU.savedAt ? ` (saved ${hhmm(STU.savedAt)}${by})` : '') + (SRC.kind !== 'relay' ? ': this folder is read only, Download layout.json and put it in the scene\'s folder.' : '.');
+  return STU.savedAt ? `Saved ${hhmm(STU.savedAt)}${by}.` : 'Nothing placed or saved yet.';
+}
+// the Quest's budget, said (never refused): triangles in the scene and in one model, big textures
+function budget() {
+  let tris = 0;
+  const big = new Set(), heavy = [];
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'o' || !it.E || !it.E.info) continue;
+    tris += it.E.info.tris;
+    if (it.E.info.tris > 300000 && !heavy.includes(it.rec.file)) heavy.push(it.rec.file);
+    for (const t of it.E.info.textures) if ((t.to || Math.max(t.w, t.h)) > 2048) big.add(it.rec.file + '|' + t.name);
+  }
+  const out = [];
+  if (tris > 500000) out.push(`${fmt(tris)} triangles in the scene: more than a Quest draws smoothly (about 500,000).`);
+  for (const f of heavy) out.push(`${baseName(f)} has more than 300,000 triangles: heavy for a Quest.`);
+  if (big.size > 6) out.push(`${big.size} textures over 2,048 px: a Quest may run short of memory.`);
+  return { tris, notes: out };
+}
+function paneBlocks(tab) {
+  const B = [], ed = editOn(), lock = editLocked(), st = atStation();
+  if (tab === 'scene') {
+    B.push({ h: STU.scene || 'Your own scenes', sub: 'Studio' }, { p: srcLine(), c: 'muted' });
+    if (SRC.state === 'auth') B.push({ p: AUTH_NOTE, c: 'amber' });
+    if (SRC.state === 'error') B.push({ p: 'The scenes could not be listed: ' + SRC.note, c: 'red' });
+    if (SRC.state === 'ok') {
+      if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
+      else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
+      if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+    }
+    if (['none', 'error', 'auth'].includes(SRC.state)) B.push({ row: [{ id: 'again', label: 'Look again', act: 'again' }] });
+    if (STU.listing === 'loading' || STU.listing === 'waiting') B.push({ p: 'Reading the scene...', c: 'faint' });
+    if (STU.note) B.push({ p: STU.note, c: 'amber' });
+    if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
+    if (STU.scene && !OPT.visit) {
+      B.push({ row: [
+        { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
+        SRC.kind === 'relay' ? { id: 'save', label: STU.saving ? 'Saving...' : 'Save', act: 'save', primary: canSave() && unsaved(), dis: !canSave() || STU.saving || !ed } : null,
+        { id: 'undo', label: 'Undo' + (UNDO.length ? ` (${UNDO.length})` : ''), act: 'undo', dis: !UNDO.length || !ed },
+        { id: 'load', label: STU.loadAsk ? 'Press again to load' : 'Load saved', act: 'load', dis: STU.listing !== 'ok' || !ed, warn: !!STU.loadAsk },
+      ].filter(Boolean) });
+      if (lock) B.push({ p: 'This scene is locked (Lock this story): unlock it in the menu or the Shared dialog to edit.', c: 'amber' });
+      const sl = savedLine();
+      if (sl) B.push({ p: sl, c: unsaved() ? 'amber' : 'muted' });
+      if (STU.saveNote) B.push({ p: STU.saveNote, c: 'red' });
+    }
+    if (STU.draft) B.push({ p: `Your unsaved changes from ${hhmm(STU.draft.at)}:`, c: 'amber' }, { row: [{ id: 'restore', label: 'Restore', act: 'restore', primary: true }, { id: 'discard', label: 'Discard', act: 'discard' }] });
+    if (STU.scene) {
+      B.push({ row: [
+        { id: 'seen', label: 'Reset what I have seen', act: 'seen', dis: !STU.seen.size },
+        { id: 'download', label: 'Download layout.json', act: 'download', page: true, dis: STU.listing !== 'ok' },
+        OPT.visit ? null : { id: 'upload', label: 'Upload', act: 'upload', page: true, dis: !ed },
+      ].filter(Boolean) });
+      if (STU.upNote) B.push({ p: STU.upNote, c: 'muted' });
+      for (const n of budget().notes) B.push({ p: n, c: 'amber' });
+      if ([...STU.items.values()].some(it => it.kind === 's')) B.push({ p: SOUND_NOTE, c: 'faint' });
+    }
+    if (SRC.kind !== 'relay' && SRC.state !== 'looking') {
+      B.push({ p: 'To serve your own scenes and save their layouts, run a relay on a computer here:', c: 'muted' }, { code: 'node relay/server.mjs --lan --scenes <folder>' },
+        { p: 'Each folder in it is a scene: models (.glb, .gltf, .fbx), their textures, sounds, and layout.json.', c: 'faint' });
+    }
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select. Grip: carry (both grips size an object; a cube\'s corner stretches it). Left stick: walk; right stick: turn.' : 'Click: select. W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
+  } else if (tab === 'add') {
+    B.push({ h: 'Add', sub: STU.scene || 'No scene' });
+    if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
+    if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
+    B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
+    const models = STU.files.filter(f => f.kind === 'model'), sounds = STU.files.filter(f => f.kind === 'audio');
+    const full = k => countOf(k) >= LIMITS[k];
+    B.push({ label: `Models (${models.length})`, list: models.map(f => {
+      const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20;
+      return { id: 'add:' + f.path, label: f.path, sub: mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : ''), act: 'add', v: f.path, warn: w, dis: full('o') };
+    }) });
+    if (!models.length) B.push({ p: 'No models in the scene\'s folder: put .glb, .gltf or .fbx files there.', c: 'faint' });
+    B.push({ label: `Sounds (${sounds.length})`, list: sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes), act: 'adds', v: f.path, dis: full('s') })) });
+    if (!sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
+    B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects and sounds you pick for it.', c: 'faint' });
+    for (const k of ['o', 'c', 's']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+  } else if (tab === 'item') {
+    const it = STU.items.get(STU.sel);
+    if (!it) { B.push({ h: 'Item' }, { p: ed ? (XR.on ? 'Point at something in the scene and pull the trigger, or pick it under Items.' : 'Click something in the scene, or pick it under Items.') : 'Pick something under Items to see its card.', c: 'muted' }); return B; }
+    itemBlocks(it, B, ed);
+  } else {
+    const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id);
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` });
+    if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them.`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
+    if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
+    const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
+    for (const [k, title] of [['o', 'Objects'], ['c', 'Trigger cubes'], ['s', 'Sounds']]) {
+      const L = all.filter(it => it.kind === k);
+      if (!L.length) continue;
+      B.push({ label: title, list: L.map(it => {
+        const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '';
+        const row = { id: 'sel:' + it.id, label: (inP ? '✓ ' : '') + it.rec.name, sub: itemSub(it), act: P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP, col: it.kind !== 'o' ? it.look.col : '' };
+        if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
+        return row;
+      }) });
+    }
+    if (selCube) B.push({ p: `Ticks: what ${selCube.rec.name} shows and hides.`, c: 'faint', page: true });
+  }
+  return B;
+}
+function itemSub(it) {
+  const r = it.rec, me = it.kind !== 'c' ? (it.shown ? '' : ' · hidden for you') : '';
+  if (it.kind === 'o') return baseName(r.file) + me;
+  if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + me;
+  return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
+}
+function itemBlocks(it, B, ed) {
+  const r = it.rec, dis = !ed;
+  if (it.kind === 'o') {
+    const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
+    B.push({ h: r.name, sub: 'Object' + (it.shown ? '' : ' · hidden for you now') });
+    const st = !E ? 'Waiting for the scene\'s files.' : E.state === 'loading' ? `Loading: ${Math.round(E.p * 100)} %.` : E.state === 'parsing' ? 'Reading the file...' : E.state === 'failed' ? E.err : E.state === 'idle' && !f ? 'Its file is not in the scene\'s folder.' : E.state === 'missing' ? 'Its file is not in the scene\'s folder any more.' : '';
+    if (st) B.push({ p: st, c: E && E.state === 'failed' ? 'red' : 'muted' });
+    const kv = [['File', r.file + (f ? ' · ' + mb(f.bytes) : '')]];
+    if (info) {
+      const b = placedBox(E, r.q, r.s), sz = b.getSize(new THREE.Vector3());
+      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', `${r.s} (units: ${E.guess.read ? E.guess.unit + ' cm each' : 'not said'}${E.guess.up === 2 ? ', Z up' : ''})`],
+        ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
+        ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
+    }
+    B.push({ kv });
+    if (E) for (const m of E.missing) B.push({ p: `Missing texture ${m}: put it in the scene's folder.`, c: 'amber' });
+    if (info) {
+      for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
+      if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
+    }
+    B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
+    if (info && info.clips.length) {
+      B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
+        { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
+      { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
+    }
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: dis || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !info }] },
+      { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis })) });
+  } else if (it.kind === 'c') {
+    B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Shows', r.show.length ? r.show.map(nameOf).join(', ') : 'nothing'], ['Hides', r.hide.length ? r.hide.map(nameOf).join(', ') : 'nothing']] });
+    B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
+      { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
+      { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
+        { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
+    if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
+    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
+  } else {
+    const F = it.F;
+    B.push({ h: r.name, sub: 'Sound' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')]] });
+    if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
+    else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
+    else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
+    B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
+      { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] },
+      { label: 'Plays', row: [{ id: 'loop:on', label: 'Loop', act: 'i:loop', v: 'on', on: r.loop, dis }, { id: 'loop:off', label: 'Once', act: 'i:loop', v: 'off', on: !r.loop, dis },
+        { id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] },
+      { p: SOUND_NOTE, c: 'faint' });
+  }
+  if (it.kind !== 's' || true) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
+  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
+}
+const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
+// a pane's button or row pressed (page and headset)
+function act(a, v) {
+  if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  const lock = editLocked();
+  ({
+    scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
+    again: () => findSource(),
+    edit: () => setEdit(!STU.edit),
+    save: () => saveLayout(),
+    undo: () => undo(),
+    load: () => loadSaved(),
+    restore: () => draftRestore(),
+    discard: () => draftDiscard(),
+    seen: () => resetSeen(),
+    download: () => downloadLayout(),
+    upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
+    add: () => addModel(v),
+    adds: () => addSound(v),
+    cube: () => addCube(),
+    sel: () => select(v === STU.sel ? '' : v),
+    link: () => { if (STU.pick) toggleLink(STU.pick.id, STU.pick.list, v); },
+    pickdone: () => { STU.pick = null; },
+    tc: () => tcSetMode(v),
+    tab: () => pickTab(v),
+  }[a] || (() => {}))();
+  dirty(true);
+}
+function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; dirty(true); }
+// the panes on the page: drawn again (at most about 7 times a second) when something they show changed
+function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
+function paneSig() { return [X.tab, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function buildExplore() {
+  $('#explore').innerHTML = `<style>
+    .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
+    .stu-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 6px 8px; border-radius: 4px; cursor: pointer; border-left: 3px solid transparent; }
+    .stu-list li:hover { background: var(--chip); }
+    .stu-list li[aria-pressed="true"] { background: var(--chip); outline: 1px solid var(--line); }
+    .stu-list li[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+    .stu-list li small { grid-column: 1; color: var(--muted); font-size: 12.5px; }
+    .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
+    .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+    .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
+    #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+    #explore .actions .btn.red { color: var(--red); }
+    #explore .actions .btn.warn { border-color: var(--amber); color: var(--amber); }
+    .stu-k { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 0 0 4px; }
+    .pane p.stu-l { margin: 10px 0 2px; font-size: 13px; color: var(--muted); }
+    .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
+  </style>
+    <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
+    ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
+    <input type="file" id="stuUpload" accept=".json,application/json" hidden>`;
+  document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
+  $('#explore').addEventListener('click', ev => {
+    const t = ev.target.closest('[data-act]');
+    if (!t || t.getAttribute('aria-disabled') === 'true' || t.disabled) return;
+    if (t.dataset.act === 'tick') return;
+    act(t.dataset.act, t.dataset.n ? +t.dataset.v : t.dataset.v);
+  });
+  // a tick box in Items: an item in or out of the selected cube's list
+  $('#explore').addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
+    if (t.dataset && t.dataset.act === 'tick') toggleLink(STU.sel, t.dataset.list, t.dataset.v);
+  });
+  $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
+  $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
+  renderPanes();
+}
+function showTab(k) { pickTab(k); }
+function blockHTML(b) {
+  if (b.xr) return '';
+  const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`;
+  if (b.h !== undefined) return `${b.sub ? `<p class="stu-k">${esc(b.sub)}</p>` : ''}<h3>${esc(b.h)}</h3>`;
+  if (b.p !== undefined) return `<p class="${b.c || ''}">${esc(b.p)}</p>`;
+  if (b.code !== undefined) return `<code class="stu-code">${esc(b.code)}</code>`;
+  if (b.kv) return `<dl class="stats">${b.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+  const lab = b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '';
+  if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
+  if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col}` : ''}">
+    <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
+    ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
+  return '';
+}
+function renderPanes() {
+  X.dirty = false; X.drawn = performance.now();
+  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
+  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
+  const pane = $('#pane-' + X.tab);
+  if (!pane) return;
+  pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
+  for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
+  const vb = $('#viewctl [data-ctl="view"]');
+  if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));
+}
+let paneLast = '';
+function paneStep(now) {
+  if (APP.mode !== 'explore') return;
+  const s = paneSig();
+  if (s !== paneLast) { paneLast = s; X.dirty = true; }
+  if (X.dirty && now - X.drawn > 150) renderPanes();
+}
+// the two labels: the name of what you point at, and of what is selected
+function updateExtraLabels() {
+  const [Lh, Ls] = LBL.extra;
+  if (!Lh) return;
+  const ed = editOn(), h = ed && STU.hover !== STU.sel ? STU.items.get(STU.hover) : null, s = ed ? STU.items.get(STU.sel) : null;
+  labelSet(Lh, h ? [h.rec.name, KIND_NAME[h.kind]] : null);
+  labelSet(Ls, s ? [s.rec.name, 'selected'] : null);
+  Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
+}
+
+// ----------------------------------------------------------- canvas input --
+const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+// what the pointer can find while editing: objects (their unseen boxes, or a grey box), sounds, cubes (behind the others:
+// you often stand inside a cube) and the selected cube's corners
+function pickables() {
+  const L = [];
+  for (const it of STU.items.values()) {
+    if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
+    else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
+    else if (it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }
+  }
+  return L;
+}
+// the nearest thing a ray finds: a corner first, then an object or a sound, a cube only when nothing else is hit
+function rayPick(ray) {
+  GL.world.updateMatrixWorld(true);
+  const hs = ray.intersectObjects(pickables(), false);
+  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const it = STU.items.get(h.object.userData.id); return it && it.kind !== 'c'; }) || hs[0];
+  if (!c) return null;
+  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance };
+}
+function pointerRay(mx, my) {
+  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
+  _rc.setFromCamera(_m2, GL.camera);
+  return _rc;
+}
+function bindCanvas() {
+  const cv = GL.canvas, pts = new Map();
+  let down = null, pinch = 0;
+  cv.style.cursor = 'grab';
+  cv.addEventListener('pointerdown', ev => {
+    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
+    if (!down.tc) cv.setPointerCapture(ev.pointerId);
+    orbit.held = true;
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
+  });
+  cv.addEventListener('pointermove', ev => {
+    if (!pts.has(ev.pointerId)) {
+      // pointing without a button (editing): what is under the mouse lights up and shows its name
+      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
+        const h = rayPick(pointerRay(ev.clientX, ev.clientY));
+        STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
+      }
+      return;
+    }
+    if (APP.mode !== 'explore' || (down && down.tc) || X.tcDrag) return;
+    const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
+    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch > 0 && X.view === 'orbit') orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.5, 120);
+      pinch = d; down.moved = true; return;
+    }
+    if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
+    if (!down || !down.moved) return;
+    if (X.view === 'walk') { WALK.yaw += dx * 0.004; WALK.pitch = clamp(WALK.pitch + dy * 0.004, -1.3, 1.3); WALK.to = null; return; }
+    orbit.to = null;
+    if (down.b === 2 || down.shift) {
+      // pan: the target slides along the floor (right button or Shift)
+      const a = orbit.cur[0] * D2R, k = orbit.cur[2] * 0.0016;
+      orbit.cur[3] -= (Math.cos(a) * dx - Math.sin(a) * dy) * k; orbit.cur[5] -= (-Math.sin(a) * dx - Math.cos(a) * dy) * k;
+    } else { orbit.cur[0] -= dx * 0.3; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -10, 86); }
+  });
+  const end = ev => {
+    pts.delete(ev.pointerId);
+    if (pts.size < 2) pinch = 0;
+    if (APP.mode === 'explore' && down && !down.moved && !down.tc && ev.type === 'pointerup' && performance.now() - X.tcUp > 200) clickAt(ev.clientX, ev.clientY);
+    if (!pts.size) { down = null; orbit.held = false; }
+  };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('contextmenu', ev => ev.preventDefault());
+  cv.addEventListener('pointerleave', () => { if (!pts.size) STU.hover = ''; });
+  cv.addEventListener('wheel', ev => {
+    if (APP.mode !== 'explore') return;
+    ev.preventDefault();
+    if (X.view === 'walk') { const f = -ev.deltaY * 0.004; WALK.pos.x -= Math.sin(WALK.yaw) * f; WALK.pos.z -= Math.cos(WALK.yaw) * f; return; }
+    orbit.to = null;
+    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.5, 120);
+  }, { passive: false });
+  document.addEventListener('keydown', ev => {
+    if (ev.target && ev.target.closest && ev.target.closest('input, textarea, select')) return;
+    if (APP.mode !== 'explore' || XR.on || HOST.picking) return;
+    const k = ev.key.toLowerCase();
+    if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
+    if (k === 'escape' && (STU.pick || STU.sel)) { if (STU.pick) STU.pick = null; else select(''); dirty(true); return; }
+    if (!editOn()) return;
+    if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
+    else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
+    else if ({ w: 1, e: 1, r: 1 }[k]) tcSetMode({ w: 'translate', e: 'rotate', r: 'scale' }[k]);
+  });
+  document.addEventListener('keyup', ev => KEYS.delete(ev.key.toLowerCase()));
+  window.addEventListener('blur', () => KEYS.clear());
+}
+// a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
+// click on the floor walks there
+function clickAt(mx, my) {
+  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray) : null;
+  if (h) { pressItem(h.id); return; }
+  if (X.view === 'walk') {
+    const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
+    if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
+  }
+  if (editOn() && !STU.pick) select('');
+}
+// the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected
+function pressItem(id) {
+  const it = STU.items.get(id);
+  if (!it || !editOn()) return;
+  if (STU.pick && it.kind !== 'c' && id !== STU.pick.id) { toggleLink(STU.pick.id, STU.pick.list, id); return; }
+  select(id);
+  sfxAct('pick', 'world', null);
+}
+// Walk view: W A S D or the arrows walk (Shift faster), a click on the floor walks there; the camera at 1.6 m
+function walkStep(dt) {
+  const f = (KEYS.has('w') || KEYS.has('arrowup') ? 1 : 0) - (KEYS.has('s') || KEYS.has('arrowdown') ? 1 : 0);
+  const sd = (KEYS.has('d') ? 1 : 0) - (KEYS.has('a') ? 1 : 0), turn = (KEYS.has('arrowright') ? 1 : 0) - (KEYS.has('arrowleft') ? 1 : 0);
+  const v = 1.6 * dt;
+  WALK.yaw -= turn * 1.6 * dt;
+  WALK.pos.x += (-Math.sin(WALK.yaw) * f + Math.cos(WALK.yaw) * sd) * v;
+  WALK.pos.z += (-Math.cos(WALK.yaw) * f - Math.sin(WALK.yaw) * sd) * v;
+  if (WALK.to) {
+    const dx = WALK.to.x - WALK.pos.x, dz = WALK.to.z - WALK.pos.z, d = Math.hypot(dx, dz), step = Math.min(d, 2 * dt);
+    if (d < 0.02) WALK.to = null; else { WALK.pos.x += dx / d * step; WALK.pos.z += dz / d * step; }
+  }
+  WALK.pos.y = 1.6;
+  const c = GL.camera;
+  c.position.copy(WALK.pos);
+  c.rotation.set(WALK.pitch, WALK.yaw, 0, 'YXZ');
+}
+
+// -------------------------------------------------------- the page's arrows --
+// TransformControls on the selected item (page, editing): move, turn and size; a cube stays level and takes its size
+// per axis, a sound only moves, an object sizes as a whole. A drag is one change (Undo), and while it lasts the room's
+// records do not move the item here
+function tcSetup() {
+  if (!THREE.TransformControls) return;
+  const tc = new THREE.TransformControls(GL.camera, GL.canvas);
+  tc.setSize(0.85);
+  tc.addEventListener('dragging-changed', e => {
+    X.tcDrag = !!e.value;
+    const it = tc.object && STU.items.get(tc.object.userData.id);
+    if (e.value) { if (it) { it.carry = true; it.gl = null; beginChange([it.id]); } }
+    else { if (it) { it.carry = false; tcRead(it); } endChange(); X.tcUp = performance.now(); }
+  });
+  tc.addEventListener('objectChange', () => { const it = tc.object && STU.items.get(tc.object.userData.id); if (it) tcRead(it); });
+  GL.scene.add(tc);
+  GL.tc = tc;
+}
+function tcRead(it) {
+  const h = it.holder;
+  if (it.kind === 'o') {
+    let s = it.rec.s;
+    if (GL.tc.mode === 'scale') { const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - s)); s = Math.max(1e-4, v[d.indexOf(Math.max(...d))]); h.scale.setScalar(s); }
+    setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s });
+  } else if (it.kind === 'c') {
+    const yaw = new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y;
+    h.rotation.set(0, yaw, 0);
+    setRec(it.id, { p: h.position.toArray(), yaw, size: h.scale.toArray().map(v => Math.max(0.05, Math.abs(v))) });
+  } else setRec(it.id, { p: h.position.toArray() });
+}
+function tcSetMode(m) {
+  X.tcMode = m;
+  tcAttach();
+  dirty(true);
+}
+function tcAttach() {
+  const tc = GL.tc;
+  if (!tc) return;
+  const it = STU.items.get(STU.sel);
+  if (!it || !editOn() || XR.on || APP.mode !== 'explore') { if (tc.object) tc.detach(); return; }
+  const m = it.kind === 's' ? 'translate' : X.tcMode;
+  tc.setMode(m);
+  tc.setSpace(it.kind === 'c' && m !== 'translate' ? 'local' : 'world');
+  tc.showX = tc.showZ = !(it.kind === 'c' && m === 'rotate');
+  tc.showY = true;
+  if (tc.object !== it.holder) tc.attach(it.holder);
+}
