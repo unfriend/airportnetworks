@@ -43,6 +43,29 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v110 (3 November 2026; FORMAT networks-29 as v109, shell 110: running pages ask to reload),
+  tested headlessly only: a password for the relay.** The owner: "i would like to add a secret to the relay like how this
+  project does it (asdf10k-collab-backend) ... one word like networksofthefuture2037 that i can use and enter on each
+  client if i want it to be able to use the relay, no other way to use it", and, with that project's code, "make sure to
+  run everything so that it is quite the same if possible, we might merge at some point". The relay takes one shared
+  password as asdf10k-collab-backend does: `COLLAB_TOKEN` in its environment (on Coolify a secret variable; or
+  `--token`), needed on everything but `GET /api/health` (new, as there) and the app's own files, as
+  `Authorization: Bearer` or `?token=` on HTTP, `?token=` on the socket and PeerJS's key on the introduction server
+  (`/peerjs`); a missing or wrong one gets 401 `{"error":"missing or wrong token"}` or, on a socket, an error and close
+  4401 before anything of a room; 20 wrong ones a minute from one address, then 429 or close 4429 (the `--public`
+  limits close with 4429 now too; the app takes 4029 as well). `COLLAB_PORT` and `COLLAB_HOST` work too; the Dockerfile's
+  health check uses `/api/health`. Each device enters the password once (the Shared dialog: *This relay needs its
+  password*; in a headset the menu's Circles tab, *Relay password*, a keypad of lower-case letters and digits; or typed on
+  the Quest's 2D page before entering VR) and keeps it for that relay (`relayTokens` in `localStorage`); it never goes into
+  a room's keys, a room link, the address or any log. While the relay wants it, a room waits for it (never peer to peer or
+  on this device alone, which would split it). Without `COLLAB_TOKEN` nothing changes. Unlike asdf10k-collab-backend's,
+  a request with no password, PeerJS's default key or an unknown room code asked with the password does not count as a
+  failed attempt (the pages ask before they know it, and after a relay restart every device behind an event's router
+  brings its rooms back from one address); `relay/README.md` lists what matches and what still differs ("Compared with
+  asdf10k-collab-backend"). Built by one builder, reviewed once (two Sonnet reviewers, two skeptics for each finding: two
+  mediums, a router's devices locked out by their own rooms coming back after a restart and a page held back by 429
+  taking the relay for absent, and two lows, fixed). Tests: RESULTS. Untested: on Coolify (the secret variable, the
+  health check), and in a headset (the keypad, the password through the introduction server).
 - **Released as networks-v109 (3 November 2026; FORMAT networks-29, shell 109: running pages ask to reload, and rooms of
   an older version are refused until their devices update), tested headlessly only: every story narrated, sound off by
   default, a room that starts as a shared Stories screen, lining up as part of every headset's start, phones and tablets,
