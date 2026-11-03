@@ -70,8 +70,8 @@ On a public server (each is off unless given, and --public turns on all of them 
 A shared password (as asdf10k-collab-backend's COLLAB_TOKEN; off unless given):
   --token <t>      every client must bring it: the API (all but GET /api/health) as Authorization: Bearer <t> or ?token=,
                    the room's socket and /api/watch as ?token=, the introduction server as PeerJS's key. Better set
-                   COLLAB_TOKEN in the environment than put it in a command. Wrong ones: 401 (a socket: close 4401); 20
-                   failures a minute from one address (a wrong password, an unknown room code), then 429 (close 4429)
+                   COLLAB_TOKEN in the environment than put it in a command. None or a wrong one: 401 (a socket: close
+                   4401); 20 failures a minute from one address (a wrong password, an unknown room code), then 429 (4429)
 The environment: RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public"); COLLAB_TOKEN,
 COLLAB_PORT and COLLAB_HOST set --token, --port and --host (the flags win).`;
 // the options: the command's, then RELAY_ARGS's (the environment's: Coolify sets it, so its start command needs no change)
@@ -280,8 +280,10 @@ function upgrade(req, socket, head) {
   const no = (code, type, text, close) => { if (peer) peerOut(ws, type, { msg: text }); else ws.text(JSON.stringify({ t: 'error', code, text })); ws.close(close, code); };
   const fid = TOKEN ? failId(req) : '';
   if (fid && blocked(fid)) { tally('sockets refused: too many failed attempts from one address'); return no('limit', 'ERROR', FAIL_TEXT, 4429); }
-  if (fid && !tokenMatches(url.searchParams.get(peer ? 'key' : 'token'))) {
-    failed(fid); tally('sockets refused: missing or wrong token');
+  const given = fid && url.searchParams.get(peer ? 'key' : 'token');
+  if (fid && !tokenMatches(given)) {
+    if (given) failed(fid);
+    tally('sockets refused: missing or wrong token');
     return peer ? no('token', 'INVALID-KEY', 'Invalid key provided', 4401) : no('token', 'ERROR', TOKEN_TEXT, 4401);
   }
   if (who && LIM.sockets && who.socks >= LIM.sockets) {   // (told why, as the page logs it; not counted: it closes at once)
@@ -619,9 +621,11 @@ const TALLY = new Map(), tally = what => TALLY.set(what, (TALLY.get(what) || 0) 
 // each client if i want it to be able to use the relay, no other way to use it"). The scheme is asdf10k-collab-backend's
 // (src/server.ts): required on everything but GET /api/health and the app's own files (a page must load to ask for it);
 // HTTP takes Authorization: Bearer <t> or ?token=, a socket ?token= (browsers cannot set headers there), the introduction
-// server PeerJS's key (its own token is a random one of PeerJS's). Compared in constant time. Failed attempts (a wrong or
-// missing password, an unknown room code) are counted per address in a one-minute window (its FailureLimiter): 20, then
-// 429 or close 4429 for the rest of the minute. None of it without a password: the relay behaves as it always has
+// server PeerJS's key (its own token is a random one of PeerJS's). Compared in constant time. Failed attempts (a wrong
+// password, an unknown room code) are counted per address in a one-minute window (its FailureLimiter): 20, then 429 or
+// close 4429 for the rest of the minute. A request with no password at all is refused (401) but not counted: guessing
+// needs a password sent, and the app's own pages ask before they know one (every device behind an event's router shares
+// one address). None of it without a password: the relay behaves as it always has
 const tokenMatches = given => {
   if (!TOKEN) return true;
   if (!given) return false;
@@ -644,7 +648,8 @@ function authOk(req, res, given) {
   const id = failId(req);
   if (blocked(id)) { tally('requests refused: too many failed attempts from one address'); json(res, 429, { error: FAIL_TEXT }, { 'Retry-After': '60' }); return false; }
   if (tokenMatches(given)) return true;
-  failed(id); tally('requests refused: missing or wrong token');
+  if (given) failed(id);
+  tally('requests refused: missing or wrong token');
   json(res, 401, { error: TOKEN_TEXT });
   return false;
 }

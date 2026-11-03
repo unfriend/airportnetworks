@@ -1157,6 +1157,10 @@ try {
     for (let i = 0; i < 20; i++) s.push((await get('/api/ping', { ip: X, headers: bearer('wrong' + i) })).status);
     const held = await get('/api/ping', { ip: X, headers: bearer() });
     ok(s.every(x => x === 401) && held.status === 429 && /wait a minute/.test(held.json().error) && +held.headers['retry-after'] > 0, '20 wrong ones from one address: 401 each, then 429 even with the right one');
+    const Z = ip();
+    s = [];
+    for (let i = 0; i < 25; i++) s.push((await get('/api/ping', { ip: Z })).status);
+    ok(s.every(x => x === 401) && (await get('/api/ping', { ip: Z, headers: bearer() })).status === 200, 'none at all is not counted (pages ask before they know it): 25 times 401, then the right one works');
     const hs = wsAt(T, `/api/ws?room=${code}&id=pw5&token=${PASS}`, { 'X-Forwarded-For': X });
     const hm = await first(hs);
     ok(hm.t === 'error' && hm.code === 'limit' && (await hs.closedIn(2000))?.code === 4429, 'and its socket: error limit, closed 4429');
