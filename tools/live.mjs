@@ -256,7 +256,7 @@ try {
   // a station in a shared room: the swap writes nothing to the room
   {
     await dev.evaluate(() => HOST.start('airports')); await built(dev, 'airports');
-    await dev.evaluate(() => HOST.collab.create());
+    await dev.evaluate(() => { HOST.collab.autoAll(false); HOST.collab.create(); });   // (no arc of its own: one station only)
     await until(dev, () => HOST.collab.code && HOST.collab.status === 'open', null, 15000);
     const id = await dev.evaluate(() => HOST.collab.add('airports'));
     await dev.evaluate(i => HOST.collab.follow(i), id);
