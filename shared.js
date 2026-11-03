@@ -3107,7 +3107,7 @@
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '',
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
       PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, linedUp(), R.calib && R.calib.step]]);
   }
@@ -3318,16 +3318,28 @@
       return;
     }
     if (PNL.tab === 'settings') {
-      // Exit (leave VR or AR) and Recenter (as the story panel's: at a station its scene and panel back where the story
-      // puts them, for everyone at its circle; greyed while its story is locked), then the slideshow for every story
-      const rc = recenterRow();
-      button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
-      button(S, 'recenter', x + bw + 16, y, bw, 60, rc.label, rc.fn);
+      // Exit (leave VR or AR), Recenter (as the story panel's: at a station its scene and panel back where the story puts
+      // them, for everyone at its circle; greyed while its story is locked) and Anchor (the Stories screen's until v109:
+      // the scenes and panels kept at this spot in the room, for every story; anchored, Recenter is Place again. In a
+      // shared room the room places everything: there it can be turned off, not on), then the slideshow and Repeat for
+      // every story (this headset's own)
+      const rc = recenterRow(), b3 = (w - 32) / 3, an = !!(HOST.anchor && HOST.anchor.on);
+      button(S, 'exit', x, y, b3, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+      button(S, 'recenter', x + b3 + 16, y, b3, 60, rc.label, rc.fn);
+      if (HOST.anchor) button(S, 'set:anchor', x + 2 * (b3 + 16), y, b3, 60, an ? 'Anchor: on' : 'Anchor: off', an || !C.code ? () => HOST.anchor.set(!an) : null, { on: an });
       y += 76;
       if (HOST.slides) {
         const on = !!HOST.slides.global();
         button(S, 'slides', x, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 });
         note('Every story waits at the end of each chapter', y);
+        y += 76;
+      }
+      // Repeat, each press the next (off, all, one): at a story's end the next story (after the last, the first) or the
+      // same one again; never at a shared room's circle (a story's end there opens explore mode)
+      if (HOST.setRepeat) {
+        const rp = /^(all|one)$/.test(HOST.repeat) ? HOST.repeat : 'off', nr = { off: 'all', all: 'one', one: 'off' }[rp];
+        button(S, 'set:repeat', x, y, bw, 60, 'Repeat: ' + rp, () => HOST.setRepeat(nr), { on: rp !== 'off', tog: nr === 'off', px: 23 });
+        note(C.code ? 'Not in a shared room: a story\'s end opens explore mode there' : { off: 'At a story\'s end: explore mode', all: 'Every story, one after another', one: 'The same story again and again' }[rp], y);
         y += 76;
       }
       // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
@@ -3351,11 +3363,17 @@
         y += 76;
       } else if (C.code) {
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, 'These settings and the sound: the same for everyone in this room', w), x, y - 4); y += 30;
+        ctx.fillText(fit(ctx, 'These four and the two sound switches: for everyone here', w), x, y - 4); y += 30;   // (Sound is this headset's own)
       }
-      // the sound switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in
-      // a room the room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next
-      // step) is always this headset's own
+      // the sound on this headset (the Sound button's mute: off until turned on, the owner, November 2026: "Default to sound
+      // off in all modes"; this headset's own; a press here counts as a tap, so it starts the engines too), then the sound
+      // switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in a room the
+      // room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next step) is
+      // always this headset's own
+      const mu = !!HOST.audio.muted;
+      button(S, 'set:sound', x, y, bw, 60, mu ? 'Sound: off' : 'Sound: on', () => (HOST.audio.mute ? HOST.audio.mute(!mu) : HOST.audio.toggle()), { on: !mu, px: 23 });
+      note(mu ? 'Nothing plays on this headset until it is on' : 'This headset\'s own: narration and effects', y);
+      y += 76;
       if (HOST.sfx) {
         const so = HOST.sfx.on(), vo = !HOST.xr.voice || HOST.xr.voice();
         button(S, 'sfx', x, y, bw, 60, so ? 'Sound effects: on' : 'Sound effects: off', () => HOST.sfx.set(!so), { on: so, px: 23 });

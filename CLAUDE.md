@@ -35,7 +35,10 @@
   on a headset as untested (Sound check is the on-device tool). Sound effects
   are the shell's too (`HOST.sfx`, `sfx.js`): they play only through
   `HOST.audio`'s context (`HOST.audio.fx()`), on by default (the owner approved
-  them; the Sound button silences them with the narration). Two switches, each
+  them; the Sound button silences them with the narration). The Sound button
+  itself, this device's mute (`HOST.audio.mute()`, `narrationMuted3`), starts
+  muted on every device until it is pressed (the owner: "Default to sound off in
+  all modes"; its tests seed the sound on where they need it). Two switches, each
   for every story at once: Sound effects (`HOST.xr.sfx()`, through `HOST.sfx.on()`
   and `set()`) and Narration (`HOST.xr.voice()`: off, the narration is silent and
   the story runs on its clock; effects and subtitles go on); in a room the room's

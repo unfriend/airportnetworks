@@ -4291,6 +4291,26 @@ try {
   await H.evaluate(() => HOST.collab.panelOpen(false));
   check('Exit is inside the headset\'s menu (not on the closed clock) and ends the session; the story panel has none', exitClosed && exitT.found && exitT.ended === 1 && exitT.story === false,
     JSON.stringify(Object.assign({ exitClosed }, exitT)));
+  // the Stories screen's settings in the menu's Settings tab (v109): Sound (this device's mute, off by default), Anchor
+  // (in a room it can be turned off, not on: greyed while off) and Repeat (each press the next: off, all, one)
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  await frames(H, 100);
+  const setT = await H.evaluate(() => {
+    const m0 = HOST.audio.muted, a0 = HOST.anchor.on, r0 = HOST.repeat;
+    HOST.anchor.set(true);   // (in a room a greyed button, Anchor off, has no region: on first, to be found)
+    const ids = HOST.collab.menuIds(), find = id => HOST.collab.menuFind(id), tap = id => { const r = find(id); if (r && r.fn) r.fn(); return !!(r && r.fn); };
+    const out = { ids: ['set:sound', 'set:anchor', 'set:repeat'].filter(i => ids.includes(i)).join(), tab: (find('set:sound'), HOST.collab.menuTab()) };
+    out.sound = [m0, tap('set:sound'), HOST.audio.muted, tap('set:sound'), HOST.audio.muted].join();
+    out.anchor = [tap('set:anchor'), HOST.anchor.on, !!find('set:anchor')].join();   // (off now: greyed in a room)
+    HOST.setRepeat('off');
+    out.repeat = [1, 2, 3].map(() => (tap('set:repeat'), HOST.repeat)).join();
+    HOST.setRepeat(r0); HOST.anchor.set(a0); if (HOST.audio.muted !== m0) HOST.audio.mute(m0);
+    HOST.collab.panelOpen(false);
+    return out;
+  });
+  check('the headset\'s menu has Sound, Anchor and Repeat under Settings: Sound turns the mute off and on, Anchor turns off (in a room not on), Repeat goes off, all, one, off',
+    setT.ids === 'set:sound,set:anchor,set:repeat' && setT.tab === 'settings' && setT.sound === [setT.sound.split(',')[0], 'true', String(setT.sound.split(',')[0] !== 'true'), 'true', setT.sound.split(',')[0]].join() &&
+    setT.anchor === 'true,false,false' && setT.repeat === 'all,one,off', JSON.stringify(setT));
 
   // ------------------------------------------- a fresh shared space --
   // Fresh shared space (two presses): every page in the room moves to the app under s/<n>/ (a new page address, so

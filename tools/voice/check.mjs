@@ -22,6 +22,8 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const page = await browser.newPage({ viewport: { width: 640, height: 400 } });
+// the sound is off until a device turns it on (HOST.audio's mute): this one has
+await page.addInitScript(() => { try { localStorage.setItem('narrationMuted3', '0'); } catch (e) { /* storage blocked */ } });
 const errors = [];
 page.on('pageerror', e => errors.push(String(e)));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
