@@ -622,6 +622,8 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
     </div>
     <div class="sh-in">
       <div class="sh-room"></div>
+      <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
+      <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Setting up a room</h3>
       <ul class="sh-lu"></ul>
       <details class="sh-guide" open><summary>The steps (in a headset: the menu, Circles, Room setup)</summary>
@@ -632,8 +634,6 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
           <li><b>Not lined up:</b> <b>Re-align</b> on that headset, then check again. Still out: <b>Calibrate</b> on the tape, on every headset (mark A, then mark B). Still out: check each headset's room scan and browser version, then <b>Fresh shared space</b> (everyone leaves AR; one headset first, the others after <em>Room ready</em>).</li>
         </ol>
       </details>
-      <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
-      <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>
@@ -670,7 +670,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 107, id: 'c895ec14a4d649b2', format: 'networks-28' },
+  shell: { n: 107, id: '81d6aff765e18f9f', format: 'networks-28' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story

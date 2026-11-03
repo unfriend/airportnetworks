@@ -1088,7 +1088,7 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     cm), and a headset in a room that is not lined up yet, or has lost its head pose, sends a presence without a head once
     a second (`statusOut`, with `al` as the full presence has it),
     so the pages hear it (older pages keep it as they keep a page's; nothing new is stored, no `FORMAT` change). The
-    page's Shared dialog has *Setting up a room* under the room's line: each headset in the room and how it lines up
+    page's Shared dialog has *Setting up a room* under the room map (below it, so the map does not move as it changes): each headset in the room and how it lines up
     (`guideList`, `luLine`: *Anna: lined up (shared space, checked 4 cm)*, *room ready (the room's origin)*, *not lined up
     (no room scan)*, *not lined up (checked 60 cm out)*, *elsewhere: nothing to line up*; an older app's headset by its
     `al`), *n of m headsets in the room lined up*, and the steps as text (a `<details>`, open). For tests:
