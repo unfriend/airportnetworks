@@ -302,7 +302,7 @@ function makeConverter(THREE, hooks) {
       return true;
     };
     let drawn = 0;
-    const clear = new Set(), done = new Set();
+    const clear = new Set(), done = new Set(), pics = new Map();   // (pics: each picture drawn down once, though textures share it)
     wrap.traverse(n => {
       if (!n.isMesh) return;
       const ms = [].concat(n.material).map(toStd);
@@ -317,14 +317,17 @@ function makeConverter(THREE, hooks) {
         if (!w || !h) { mt[k] = null; continue; }   // a texture that never loaded: left out
         if (done.has(t)) continue;
         done.add(t);
-        const k2 = Math.min(1, maxTex / Math.max(w, h));
-        if (k2 < 1) drawn++;
-        t.image = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
-        if (typeof img.close === 'function') img.close();
-        t.format = opaque(t.image) ? T.RGBFormat : T.RGBAFormat;   // (the exporter writes RGB as JPEG, RGBA as PNG)
-        t.needsUpdate = true;
+        let pic = pics.get(img);
+        if (!pic) {
+          const k2 = Math.min(1, maxTex / Math.max(w, h));
+          if (k2 < 1) drawn++;
+          const cv = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
+          pics.set(img, pic = { cv, fmt: opaque(cv) ? T.RGBFormat : T.RGBAFormat });   // (the exporter writes RGB as JPEG, RGBA as PNG)
+        }
+        t.image = pic.cv; t.format = pic.fmt; t.needsUpdate = true;
       }
     });
+    for (const img of pics.keys()) if (typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
     if (drawn) notes.push(`${drawn} texture${drawn > 1 ? 's' : ''} drawn down to ${maxTex} px on the longer side`);
     if (clear.size) notes.push(`made opaque: ${[...clear].join(', ')} (its opacity was 0, which would show nothing: an exporter's quirk)`);
     if (!before.normals) notes.push('no normals (a scan\'s mesh): marked to be shown as scanned');

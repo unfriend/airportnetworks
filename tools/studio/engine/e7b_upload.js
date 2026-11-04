@@ -111,7 +111,7 @@ async function convertFile(path) {
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: r.record, p: null });
       const n = switchToGLB(path, out, r.record);
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${maxTexNow()} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + lost;
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
     } else {
@@ -294,6 +294,8 @@ function upTake(list) {
 async function upPlan() {
   const gen = ++UP.gen, E = UP.entries, byName = new Map();
   UP.planning = true; upChanged();
+  if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
+  if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
   // (the nearest of several by that name: in the model's own folder first)
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
@@ -370,7 +372,7 @@ function rowPlan(r) {
   const d = r.dur, len = d > 0 && isFinite(d) ? (d >= 60 ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s` : `${d.toFixed(d < 10 ? 1 : 0)} s`) : '';
   if (r.kind === 'model') {
     const more = r.src.length - 1;
-    return `A model: ${r.out[0]} (metres, Y up, textures at most ${maxTexNow()} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
+    return `A model: ${r.out[0]} (metres, Y up, textures at most ${fmt(maxTexNow())} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
   }
   if (r.kind === 'sound') {
     const rate = Math.min(48000, r.rate || 44100);

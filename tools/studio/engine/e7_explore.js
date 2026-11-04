@@ -160,7 +160,7 @@ function paneBlocks(tab) {
     // (the page converts: every model to place that is not a GLB yet)
     const conv = L.models.filter(f => extOf(f.path) !== 'glb');
     if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
-      { page: true, p: `GLB loads faster and sits right without guessing; textures at most ${maxTexNow()} px (For Quest, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
+      { page: true, p: `GLB loads faster and sits right without guessing; textures at most ${fmt(maxTexNow())} px (For Quest, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
     else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
     if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
@@ -234,7 +234,7 @@ function itemBlocks(it, B, ed) {
     else if (MODEL_EXT.includes(extOf(r.file)) && extOf(r.file) !== 'glb') {
       if (XR.on) B.push({ p: 'Convert on a laptop: as a GLB it loads faster and sits right without guessing (Convert to GLB on this card, on a page).', c: 'faint' });
       else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
-        { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${maxTexNow()} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
+        { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${fmt(maxTexNow())} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
     }
     if (CV.note && !XR.on && (CV.busy === r.file || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
@@ -257,9 +257,10 @@ function itemBlocks(it, B, ed) {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')]] });
     if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
-    else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory. Mono files place best.`, c: 'faint' });
+    else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory.`, c: 'faint' });
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
     else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
+    B.push({ p: 'Mono files place best: a stereo one is played from its point, mixed (Upload makes sounds mono).', c: 'faint' });
     B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
       { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] },
       { label: 'Plays', row: [{ id: 'loop:on', label: 'Loop', act: 'i:loop', v: 'on', on: r.loop, dis }, { id: 'loop:off', label: 'Once', act: 'i:loop', v: 'off', on: !r.loop, dis },
@@ -314,6 +315,7 @@ function buildExplore() {
     .stu-list li[aria-pressed="true"] { background: var(--chip); outline: 1px solid var(--line); }
     .stu-list li[aria-disabled="true"] { opacity: 0.45; cursor: default; }
     .stu-list li small { grid-column: 1; color: var(--muted); font-size: 12.5px; }
+    .stu-list li > span:first-child { overflow-wrap: anywhere; min-width: 0; }
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
