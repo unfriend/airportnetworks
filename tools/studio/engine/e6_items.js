@@ -109,7 +109,7 @@ function removeItem(id) {
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
   else { it.look.drop(); if (it.look.deco) GL.edit.remove(it.look.deco); if (it.look.ring) GL.edit.remove(it.look.ring); }
-  if (it.kind === 's') emitStop(it);
+  if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.holder.parent) it.holder.parent.remove(it.holder);
   if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
@@ -117,7 +117,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
-function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(); sndClear(); }
+function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
 // where a record puts its item: its place, turn and scale (a cube's scale is its size; it stays level)
 const _pp = new THREE.Vector3(), _pq = new THREE.Quaternion(), _ps = new THREE.Vector3(), _yUp = new THREE.Vector3(0, 1, 0);
 function poseOf(it) {
@@ -138,7 +138,7 @@ function applyRec(it, was, glide) {
   } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
   else {
     it.look.name.userData.set(r.name, it.look.col, 0.07);
-    if (!was || was.file !== r.file) { emitStop(it); itemFile(it); }
+    if (!was || was.file !== r.file) { emitStop(it, true); itemFile(it); }
     if (!was || was.loop !== r.loop || was.start !== r.start) { emitStop(it); it.ended = false; }
   }
 }
@@ -433,7 +433,11 @@ function itemTop(id) {
 // a headset the listener is your head (the shell's HOST.sfx.listen puts it there too); on a page this camera. Silent
 // while the context is not there (before a tap, hidden, the <audio> engine chosen) or this device's Sound button is off
 // (they fade out, and are rebuilt on a new context); not the Sound effects or Narration switches: these are the scene's
-// own sounds. 'always' loops start at the same moment for everyone at a station (the room's time modulo their length)
+// own sounds. 'always' loops start at the same moment for everyone at a station (the room's time modulo their length).
+// A sound longer than 20 s is streamed (snd: it.F.stream): an <audio> element per emitter (crossOrigin anonymous, the
+// relay's password as ?token=) through createMediaElementSource on the same context into its gain and panner; paused,
+// not torn down, while the context is away or the device muted, and set to the right moment again when it comes back;
+// on a new context (the shell's renew) a new element (an element can feed one context only)
 const EM = { ctx: null, lis: false };
 const _ep = new THREE.Vector3(), _eq = new THREE.Quaternion(), _ef = new THREE.Vector3(), _eu = new THREE.Vector3();
 function emitStep(now) {
@@ -448,6 +452,7 @@ function emitStep(now) {
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
     const want = quiet ? 0 : it.sa * it.rec.vol;
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now);
+    else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now);
     if (!it.src) continue;
     any = true;
     if (it.gt !== want) { try { it.gain.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } it.gt = want; }
@@ -501,15 +506,57 @@ function emitStart(it, ctx, buf, now) {
     Object.assign(it, { src, gain: g, pan: p, gt: -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
-function emitStop(it) {
+// stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
+function emitStop(it, drop) {
   const s = it.src;
+  if (it.st) {
+    if (s) { it.src = null; try { it.st.gain.gain.setValueAtTime(0, it.st.ctx.currentTime); } catch (e) { /* closed */ } try { it.st.el.pause(); } catch (e) { /* gone */ } }
+    if (drop) streamDrop(it);
+    return;
+  }
   if (!s) return;
   it.src = null;
   try { s.onended = null; s.stop(); } catch (e) { /* not started */ }
   for (const n of [s, it.gain, it.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
   it.gain = it.pan = null;
 }
-function emitAll() { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it); }
+// a streamed sound: its element (made once per context) set to the moment it should be at, and played
+function streamStart(it, ctx, F, now) {
+  let S = it.st;
+  if (S && S.ctx !== ctx) { streamDrop(it); S = null; }
+  const off = emitOffset(it, F.dur || 1, now);
+  if (off < 0) { it.ended = true; return; }
+  if (!S) {
+    try {
+      const el = new Audio();
+      el.crossOrigin = 'anonymous'; el.preload = 'auto';
+      const node = ctx.createMediaElementSource(el), g = ctx.createGain(), p = ctx.createPanner();
+      g.gain.value = 0;
+      p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
+      node.connect(g); g.connect(p); p.connect(ctx.destination);
+      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop) it.ended = true; } });
+      el.src = fileUrl(F.path, true);
+      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path };
+    } catch (e) { it.ended = true; return; }
+  }
+  const el = S.el;
+  el.loop = !!it.rec.loop;
+  // (before its metadata an element ignores a new time: set once it has it)
+  const seek = () => { try { el.currentTime = off; } catch (e) { /* not seekable yet */ } };
+  if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
+  const pr = el.play();
+  if (pr && pr.catch) pr.catch(() => { if (it.src === el) { emitStop(it); it.stFail = performance.now(); } });   // (not allowed yet: again in 2 s)
+  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: -1, zeroAt: 0 });
+}
+function streamDrop(it) {
+  const S = it.st;
+  if (!S) return;
+  it.st = null;
+  if (it.src === S.el) { it.src = null; it.gain = it.pan = null; }
+  try { S.el.pause(); S.el.removeAttribute('src'); S.el.load(); } catch (e) { /* gone */ }
+  for (const n of [S.node, S.gain, S.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
+}
+function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
 
 // ------------------------------------------------------------------ edits --
 // Editing is this device's own (studioEdit), never in the state; refused while the station's story is locked (Lock

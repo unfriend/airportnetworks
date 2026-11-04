@@ -18,7 +18,7 @@ const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && 
 const extOf = p => (/\.([^./\\]+)$/.exec(String(p)) || ['', ''])[1].toLowerCase();
 const baseName = p => String(p).split(/[\\/]/).pop();
 const stem = p => baseName(p).replace(/\.[^.]*$/, '');
-const KINDS_EXT = { model: ['glb', 'gltf', 'fbx'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
+const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
 const kindOf = p => { const e = extOf(p); for (const k in KINDS_EXT) if (KINDS_EXT[k].includes(e)) return k; return 'other'; };
 // timers that die with the studio (dispose clears them: a late one must not write into the next story's panes)
 const TIMERS = new Set();
@@ -26,7 +26,7 @@ const later = (fn, ms) => { const t = setTimeout(() => { TIMERS.delete(t); if (!
 const unlater = t => { if (t) { clearTimeout(t); TIMERS.delete(t); } };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
 
-const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
+const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, upload: false, ffmpeg: false, maxUpload: 0, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
 // kind: 'relay' or 'folder'; state: 'looking', 'ok', 'auth' (the relay wants its password), 'none' (no relay and no
 // folder of scenes), 'error'. held: the relay refused the password this page has (or none): nothing more is asked of it
 // until the shell holds another one (every wrong one counts on the relay: 20 in a minute shut this address out)
@@ -145,6 +145,8 @@ async function listScenes(gen) {
     SRC.scenes = (j && Array.isArray(j.scenes) ? j.scenes : []).filter(s => s && okScene(s.name))
       .map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
     SRC.save = SRC.kind === 'relay' && !!(j && j.save);
+    // (uploads: this caller may upload, the relay has ffmpeg for long sounds, one file's limit in bytes)
+    SRC.upload = SRC.kind === 'relay' && !!(j && j.upload); SRC.ffmpeg = SRC.upload && !!(j && j.ffmpeg); SRC.maxUpload = +(j && j.maxUpload) || 0;
     SRC.state = 'ok'; SRC.note = '';
     if (SRC.kind === 'relay') watchStart();
   } catch (e) {
@@ -228,7 +230,8 @@ function setFiles(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path) });
+    // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path) });
   }
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));

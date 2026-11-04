@@ -326,6 +326,7 @@ function initEnd() {
   // editing: this device's own (studioEdit), &edit turns it on, &visit offers none at all
   STU.edit = !OPT.visit && (OPT.edit || store.get('studioEdit') === '1');
   if (TABS.some(t => t[0] === hp.get('tab'))) X.tab = hp.get('tab');
+  if (hp.has('upload')) X.tab = 'upload';   // (#studio&upload: the Upload pane, where the relay's /upload sends people)
   if (hp.get('view') === 'walk') X.view = 'walk';
   renderPanes();
   // where the scenes come from (a relay with --scenes, else a folder), then the scene
@@ -341,12 +342,14 @@ const STUDIO = {
   state: () => ({
     src: SRC.kind, srcState: SRC.state, base: SRC.base, folder: SRC.folder, save: SRC.save, scenes: SRC.scenes.map(s => s.name), scene: STU.scene, listing: STU.listing,
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
-    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size }])),
-    sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size }])),
+    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null }])),
+    sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
   }),
-  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible })),
+  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused) })),
   // every object's model in (or failed) and every sound fetched: the scene is ready
-  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && it.F.state !== 'loading' && it.F.state !== 'idle'))),
+  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
 };
 LOAD.t = setTimeout(init, 40);
@@ -378,7 +381,7 @@ return {
     TIMERS.clear();
     watchStop();
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
-    try { emitAll(); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
+    try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }
     for (const it of STU.items.values()) if (it.kind === 'o') dropModel(it);
     for (const E of LIB.values()) if (E.root) disposeTree(E.root, true);

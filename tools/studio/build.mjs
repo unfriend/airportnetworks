@@ -9,18 +9,22 @@ import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
-const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'e5_models', 'e6_items', 'e7_explore', 'e8_xr', 'e9_panels', 'e10_app'];
-// the app's add-ons, in the order they need each other (the NURBS curve before the FBX loader that asks for it);
-// GLTFExporter.js is for tools only and stays out
-const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'SkeletonUtils', 'TransformControls'];
+// (convert: the converter, one module that tools/studio/convert.mjs loads in its headless page too)
+const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'convert', 'e5_models', 'e6_items', 'e7_explore', 'e7b_upload', 'e8_xr', 'e9_panels', 'e10_app'];
+// the app's add-ons, in the order they need each other (the NURBS curve before the FBX loader that asks for it); the
+// GLTFExporter last, inside a function the converter calls the first time it converts (exporterLoad)
+const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'OBJLoader', 'MTLLoader', 'PLYLoader', 'STLLoader', 'SkeletonUtils', 'TransformControls'];
+const LATER = ['GLTFExporter'];
 
 // ---- the vendored add-ons
 const fflate = read('vendor/fflate.min.js').trim();
-const three = VENDOR.map(f => {
+const iife = f => {
   const src = read(`vendor/${f}.js`).trim();
   if (!/^\( function \(\) \{/.test(src) || !/THREE\.\w+ = \w+;\s*\} \)\(\);$/.test(src)) throw new Error(`vendor/${f}.js is not the IIFE three.js r128 ships (it would leak names): check vendor/README.md`);
-  return `// ---- ${f}.js\n${src}\n`;
-}).join('\n');
+  return src;
+};
+const three = VENDOR.map(f => `// ---- ${f}.js\n${iife(f)}\n`).join('\n') + '\n' +
+  LATER.map(f => `// ---- ${f}.js: defined only when the studio first converts a model (Convert to GLB, the Upload pane)\nfunction exporterLoad() {\nif (THREE.${f}) return;\n${iife(f)}\n}\n`).join('\n');
 const vendor = [
   '// three.js r128\'s own add-ons (three@0.128.0, examples/js; MIT, as three.min.js: three.LICENSE.txt), unchanged, and',
   '// fflate 0.6.9 (MIT, Arjun Barrett, https://github.com/101arrowz/fflate), which the FBX loader needs to unpack',

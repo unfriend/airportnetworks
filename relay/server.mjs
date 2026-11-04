@@ -1306,7 +1306,11 @@ async function upload(req, res, url, name, sound) {
   // refuses the path before anything is made outside
   for (let at = folder; ; at = path.dirname(at)) {
     let real = '';
-    try { real = await fs.promises.realpath(at); } catch (err) { if (err.code === 'ENOENT' && at !== dir) continue; throw err; }
+    try { real = await fs.promises.realpath(at); } catch (err) {
+      if (err.code === 'ENOENT' && at !== dir) continue;
+      if (err.code === 'ENOTDIR') return no(409, 'a file stands where a folder of the path should be');
+      throw err;
+    }
     if (!inside(dir, real)) { log(`scenes: refused an upload to ${JSON.stringify(name + '/' + want.rel)} (a folder of it leads out of the scene)`); return no(400, 'a folder of the path leads out of the scene'); }
     break;
   }

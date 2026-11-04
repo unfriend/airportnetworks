@@ -1321,8 +1321,9 @@ try {
     const r1 = scan(S);
     ok(r1.code === 0 && /wrote .*index\.json \(3 scenes\)/.test(r1.out) && /wrote .*alpha[\\/]files\.json \(11 files and layout\.json\)/.test(r1.out) && /left out the folder "bad!"/.test(r1.out), 'scan.mjs: what it wrote');
     // (a plain folder takes no uploads: index.json is the list without upload, ffmpeg and maxUpload, which a page reads as none)
-    const { upload: _u, ffmpeg: _f, maxUpload: _m, ...api } = (await sget('/api/scenes')).json(), idx = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
-    ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }), 'index.json is GET /api/scenes with save: false (and no upload fields)');
+    // (it may say upload: false, ffmpeg: false, maxUpload: 0 outright)
+    const { upload: _u, ffmpeg: _f, maxUpload: _m, ...api } = (await sget('/api/scenes')).json(), { upload: iu, ffmpeg: iff, maxUpload: im, ...idx } = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
+    ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }) && !iu && !iff && !im, 'index.json is GET /api/scenes with save: false (and no uploads)');
     for (const n of ['alpha', 'beta', 'with space']) {
       const one = (await sget('/api/scenes/' + encodeURIComponent(n))).json(), fj = JSON.parse(fs.readFileSync(path.join(S, n, 'files.json'), 'utf8'));
       delete one.layout;
@@ -1659,7 +1660,8 @@ if (me === 'hang') setInterval(() => {}, 1000);
     fs.rmSync(at('out'));
     fs.mkdirSync(at('tex/dir.png'));
     ok((await upf('tex/dir.png', Buffer.from('x'), { replace: true })).status === 409 && fs.statSync(at('tex/dir.png')).isDirectory(), 'a folder of that name: 409, even with replace=1');
-    ok((await upf('models/a.glb/x.glb', Buffer.from('x'))).status === 409 && fs.statSync(at('models/a.glb')).isFile(), 'a file where a folder of the path should be: 409');
+    ok((await upf('models/a.glb/x.glb', Buffer.from('x'))).status === 409 && (await upf('models/a.glb/y/x.glb', Buffer.from('x'))).status === 409 && fs.statSync(at('models/a.glb')).isFile(),
+      'a file where a folder of the path should be: 409');
     const nf = [await upf('a.glb', Buffer.from('x'), { scene: 'nope' }), await upf('a.glb', Buffer.from('x'), { scene: 'bad!' }), await upf('a.glb', Buffer.from('x'), { scene: 'watch' }), await upf('a.glb', Buffer.from('x'), { scene: '%2e%2e' })];
     ok(nf.every(x => x.status === 404), 'no such scene: 404 (' + nf.map(x => x.status).join(' ') + ')');
     ok((await req('GET', '/api/scenes/one/file?path=a.glb', { at: UP.port })).status === 405 && (await req('PUT', '/api/scenes/one/sound?path=a.mp3', { at: UP.port })).status === 405, 'other methods: 405');

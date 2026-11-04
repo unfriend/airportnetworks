@@ -8776,6 +8776,2220 @@ version 0.6.9
 
 } )();
 
+// ---- OBJLoader.js
+( function () {
+
+	const _object_pattern = /^[og]\s*(.+)?/; // mtllib file_reference
+
+	const _material_library_pattern = /^mtllib /; // usemtl material_name
+
+	const _material_use_pattern = /^usemtl /; // usemap map_name
+
+	const _map_use_pattern = /^usemap /;
+
+	const _vA = new THREE.Vector3();
+
+	const _vB = new THREE.Vector3();
+
+	const _vC = new THREE.Vector3();
+
+	const _ab = new THREE.Vector3();
+
+	const _cb = new THREE.Vector3();
+
+	function ParserState() {
+
+		const state = {
+			objects: [],
+			object: {},
+			vertices: [],
+			normals: [],
+			colors: [],
+			uvs: [],
+			materials: {},
+			materialLibraries: [],
+			startObject: function ( name, fromDeclaration ) {
+
+				// If the current object (initial from reset) is not from a g/o declaration in the parsed
+				// file. We need to use it for the first parsed g/o to keep things in sync.
+				if ( this.object && this.object.fromDeclaration === false ) {
+
+					this.object.name = name;
+					this.object.fromDeclaration = fromDeclaration !== false;
+					return;
+
+				}
+
+				const previousMaterial = this.object && typeof this.object.currentMaterial === 'function' ? this.object.currentMaterial() : undefined;
+
+				if ( this.object && typeof this.object._finalize === 'function' ) {
+
+					this.object._finalize( true );
+
+				}
+
+				this.object = {
+					name: name || '',
+					fromDeclaration: fromDeclaration !== false,
+					geometry: {
+						vertices: [],
+						normals: [],
+						colors: [],
+						uvs: [],
+						hasUVIndices: false
+					},
+					materials: [],
+					smooth: true,
+					startMaterial: function ( name, libraries ) {
+
+						const previous = this._finalize( false ); // New usemtl declaration overwrites an inherited material, except if faces were declared
+						// after the material, then it must be preserved for proper MultiMaterial continuation.
+
+
+						if ( previous && ( previous.inherited || previous.groupCount <= 0 ) ) {
+
+							this.materials.splice( previous.index, 1 );
+
+						}
+
+						const material = {
+							index: this.materials.length,
+							name: name || '',
+							mtllib: Array.isArray( libraries ) && libraries.length > 0 ? libraries[ libraries.length - 1 ] : '',
+							smooth: previous !== undefined ? previous.smooth : this.smooth,
+							groupStart: previous !== undefined ? previous.groupEnd : 0,
+							groupEnd: - 1,
+							groupCount: - 1,
+							inherited: false,
+							clone: function ( index ) {
+
+								const cloned = {
+									index: typeof index === 'number' ? index : this.index,
+									name: this.name,
+									mtllib: this.mtllib,
+									smooth: this.smooth,
+									groupStart: 0,
+									groupEnd: - 1,
+									groupCount: - 1,
+									inherited: false
+								};
+								cloned.clone = this.clone.bind( cloned );
+								return cloned;
+
+							}
+						};
+						this.materials.push( material );
+						return material;
+
+					},
+					currentMaterial: function () {
+
+						if ( this.materials.length > 0 ) {
+
+							return this.materials[ this.materials.length - 1 ];
+
+						}
+
+						return undefined;
+
+					},
+					_finalize: function ( end ) {
+
+						const lastMultiMaterial = this.currentMaterial();
+
+						if ( lastMultiMaterial && lastMultiMaterial.groupEnd === - 1 ) {
+
+							lastMultiMaterial.groupEnd = this.geometry.vertices.length / 3;
+							lastMultiMaterial.groupCount = lastMultiMaterial.groupEnd - lastMultiMaterial.groupStart;
+							lastMultiMaterial.inherited = false;
+
+						} // Ignore objects tail materials if no face declarations followed them before a new o/g started.
+
+
+						if ( end && this.materials.length > 1 ) {
+
+							for ( let mi = this.materials.length - 1; mi >= 0; mi -- ) {
+
+								if ( this.materials[ mi ].groupCount <= 0 ) {
+
+									this.materials.splice( mi, 1 );
+
+								}
+
+							}
+
+						} // Guarantee at least one empty material, this makes the creation later more straight forward.
+
+
+						if ( end && this.materials.length === 0 ) {
+
+							this.materials.push( {
+								name: '',
+								smooth: this.smooth
+							} );
+
+						}
+
+						return lastMultiMaterial;
+
+					}
+				}; // Inherit previous objects material.
+				// Spec tells us that a declared material must be set to all objects until a new material is declared.
+				// If a usemtl declaration is encountered while this new object is being parsed, it will
+				// overwrite the inherited material. Exception being that there was already face declarations
+				// to the inherited material, then it will be preserved for proper MultiMaterial continuation.
+
+				if ( previousMaterial && previousMaterial.name && typeof previousMaterial.clone === 'function' ) {
+
+					const declared = previousMaterial.clone( 0 );
+					declared.inherited = true;
+					this.object.materials.push( declared );
+
+				}
+
+				this.objects.push( this.object );
+
+			},
+			finalize: function () {
+
+				if ( this.object && typeof this.object._finalize === 'function' ) {
+
+					this.object._finalize( true );
+
+				}
+
+			},
+			parseVertexIndex: function ( value, len ) {
+
+				const index = parseInt( value, 10 );
+				return ( index >= 0 ? index - 1 : index + len / 3 ) * 3;
+
+			},
+			parseNormalIndex: function ( value, len ) {
+
+				const index = parseInt( value, 10 );
+				return ( index >= 0 ? index - 1 : index + len / 3 ) * 3;
+
+			},
+			parseUVIndex: function ( value, len ) {
+
+				const index = parseInt( value, 10 );
+				return ( index >= 0 ? index - 1 : index + len / 2 ) * 2;
+
+			},
+			addVertex: function ( a, b, c ) {
+
+				const src = this.vertices;
+				const dst = this.object.geometry.vertices;
+				dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+				dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+				dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+
+			},
+			addVertexPoint: function ( a ) {
+
+				const src = this.vertices;
+				const dst = this.object.geometry.vertices;
+				dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+
+			},
+			addVertexLine: function ( a ) {
+
+				const src = this.vertices;
+				const dst = this.object.geometry.vertices;
+				dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+
+			},
+			addNormal: function ( a, b, c ) {
+
+				const src = this.normals;
+				const dst = this.object.geometry.normals;
+				dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+				dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+				dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+
+			},
+			addFaceNormal: function ( a, b, c ) {
+
+				const src = this.vertices;
+				const dst = this.object.geometry.normals;
+
+				_vA.fromArray( src, a );
+
+				_vB.fromArray( src, b );
+
+				_vC.fromArray( src, c );
+
+				_cb.subVectors( _vC, _vB );
+
+				_ab.subVectors( _vA, _vB );
+
+				_cb.cross( _ab );
+
+				_cb.normalize();
+
+				dst.push( _cb.x, _cb.y, _cb.z );
+				dst.push( _cb.x, _cb.y, _cb.z );
+				dst.push( _cb.x, _cb.y, _cb.z );
+
+			},
+			addColor: function ( a, b, c ) {
+
+				const src = this.colors;
+				const dst = this.object.geometry.colors;
+				if ( src[ a ] !== undefined ) dst.push( src[ a + 0 ], src[ a + 1 ], src[ a + 2 ] );
+				if ( src[ b ] !== undefined ) dst.push( src[ b + 0 ], src[ b + 1 ], src[ b + 2 ] );
+				if ( src[ c ] !== undefined ) dst.push( src[ c + 0 ], src[ c + 1 ], src[ c + 2 ] );
+
+			},
+			addUV: function ( a, b, c ) {
+
+				const src = this.uvs;
+				const dst = this.object.geometry.uvs;
+				dst.push( src[ a + 0 ], src[ a + 1 ] );
+				dst.push( src[ b + 0 ], src[ b + 1 ] );
+				dst.push( src[ c + 0 ], src[ c + 1 ] );
+
+			},
+			addDefaultUV: function () {
+
+				const dst = this.object.geometry.uvs;
+				dst.push( 0, 0 );
+				dst.push( 0, 0 );
+				dst.push( 0, 0 );
+
+			},
+			addUVLine: function ( a ) {
+
+				const src = this.uvs;
+				const dst = this.object.geometry.uvs;
+				dst.push( src[ a + 0 ], src[ a + 1 ] );
+
+			},
+			addFace: function ( a, b, c, ua, ub, uc, na, nb, nc ) {
+
+				const vLen = this.vertices.length;
+				let ia = this.parseVertexIndex( a, vLen );
+				let ib = this.parseVertexIndex( b, vLen );
+				let ic = this.parseVertexIndex( c, vLen );
+				this.addVertex( ia, ib, ic );
+				this.addColor( ia, ib, ic ); // normals
+
+				if ( na !== undefined && na !== '' ) {
+
+					const nLen = this.normals.length;
+					ia = this.parseNormalIndex( na, nLen );
+					ib = this.parseNormalIndex( nb, nLen );
+					ic = this.parseNormalIndex( nc, nLen );
+					this.addNormal( ia, ib, ic );
+
+				} else {
+
+					this.addFaceNormal( ia, ib, ic );
+
+				} // uvs
+
+
+				if ( ua !== undefined && ua !== '' ) {
+
+					const uvLen = this.uvs.length;
+					ia = this.parseUVIndex( ua, uvLen );
+					ib = this.parseUVIndex( ub, uvLen );
+					ic = this.parseUVIndex( uc, uvLen );
+					this.addUV( ia, ib, ic );
+					this.object.geometry.hasUVIndices = true;
+
+				} else {
+
+					// add placeholder values (for inconsistent face definitions)
+					this.addDefaultUV();
+
+				}
+
+			},
+			addPointGeometry: function ( vertices ) {
+
+				this.object.geometry.type = 'Points';
+				const vLen = this.vertices.length;
+
+				for ( let vi = 0, l = vertices.length; vi < l; vi ++ ) {
+
+					const index = this.parseVertexIndex( vertices[ vi ], vLen );
+					this.addVertexPoint( index );
+					this.addColor( index );
+
+				}
+
+			},
+			addLineGeometry: function ( vertices, uvs ) {
+
+				this.object.geometry.type = 'Line';
+				const vLen = this.vertices.length;
+				const uvLen = this.uvs.length;
+
+				for ( let vi = 0, l = vertices.length; vi < l; vi ++ ) {
+
+					this.addVertexLine( this.parseVertexIndex( vertices[ vi ], vLen ) );
+
+				}
+
+				for ( let uvi = 0, l = uvs.length; uvi < l; uvi ++ ) {
+
+					this.addUVLine( this.parseUVIndex( uvs[ uvi ], uvLen ) );
+
+				}
+
+			}
+		};
+		state.startObject( '', false );
+		return state;
+
+	} //
+
+
+	class OBJLoader extends THREE.Loader {
+
+		constructor( manager ) {
+
+			super( manager );
+			this.materials = null;
+
+		}
+
+		load( url, onLoad, onProgress, onError ) {
+
+			const scope = this;
+			const loader = new THREE.FileLoader( this.manager );
+			loader.setPath( this.path );
+			loader.setRequestHeader( this.requestHeader );
+			loader.setWithCredentials( this.withCredentials );
+			loader.load( url, function ( text ) {
+
+				try {
+
+					onLoad( scope.parse( text ) );
+
+				} catch ( e ) {
+
+					if ( onError ) {
+
+						onError( e );
+
+					} else {
+
+						console.error( e );
+
+					}
+
+					scope.manager.itemError( url );
+
+				}
+
+			}, onProgress, onError );
+
+		}
+
+		setMaterials( materials ) {
+
+			this.materials = materials;
+			return this;
+
+		}
+
+		parse( text ) {
+
+			const state = new ParserState();
+
+			if ( text.indexOf( '\r\n' ) !== - 1 ) {
+
+				// This is faster than String.split with regex that splits on both
+				text = text.replace( /\r\n/g, '\n' );
+
+			}
+
+			if ( text.indexOf( '\\\n' ) !== - 1 ) {
+
+				// join lines separated by a line continuation character (\)
+				text = text.replace( /\\\n/g, '' );
+
+			}
+
+			const lines = text.split( '\n' );
+			let line = '',
+				lineFirstChar = '';
+			let lineLength = 0;
+			let result = []; // Faster to just trim left side of the line. Use if available.
+
+			const trimLeft = typeof ''.trimLeft === 'function';
+
+			for ( let i = 0, l = lines.length; i < l; i ++ ) {
+
+				line = lines[ i ];
+				line = trimLeft ? line.trimLeft() : line.trim();
+				lineLength = line.length;
+				if ( lineLength === 0 ) continue;
+				lineFirstChar = line.charAt( 0 ); // @todo invoke passed in handler if any
+
+				if ( lineFirstChar === '#' ) continue;
+
+				if ( lineFirstChar === 'v' ) {
+
+					const data = line.split( /\s+/ );
+
+					switch ( data[ 0 ] ) {
+
+						case 'v':
+							state.vertices.push( parseFloat( data[ 1 ] ), parseFloat( data[ 2 ] ), parseFloat( data[ 3 ] ) );
+
+							if ( data.length >= 7 ) {
+
+								state.colors.push( parseFloat( data[ 4 ] ), parseFloat( data[ 5 ] ), parseFloat( data[ 6 ] ) );
+
+							} else {
+
+								// if no colors are defined, add placeholders so color and vertex indices match
+								state.colors.push( undefined, undefined, undefined );
+
+							}
+
+							break;
+
+						case 'vn':
+							state.normals.push( parseFloat( data[ 1 ] ), parseFloat( data[ 2 ] ), parseFloat( data[ 3 ] ) );
+							break;
+
+						case 'vt':
+							state.uvs.push( parseFloat( data[ 1 ] ), parseFloat( data[ 2 ] ) );
+							break;
+
+					}
+
+				} else if ( lineFirstChar === 'f' ) {
+
+					const lineData = line.substr( 1 ).trim();
+					const vertexData = lineData.split( /\s+/ );
+					const faceVertices = []; // Parse the face vertex data into an easy to work with format
+
+					for ( let j = 0, jl = vertexData.length; j < jl; j ++ ) {
+
+						const vertex = vertexData[ j ];
+
+						if ( vertex.length > 0 ) {
+
+							const vertexParts = vertex.split( '/' );
+							faceVertices.push( vertexParts );
+
+						}
+
+					} // Draw an edge between the first vertex and all subsequent vertices to form an n-gon
+
+
+					const v1 = faceVertices[ 0 ];
+
+					for ( let j = 1, jl = faceVertices.length - 1; j < jl; j ++ ) {
+
+						const v2 = faceVertices[ j ];
+						const v3 = faceVertices[ j + 1 ];
+						state.addFace( v1[ 0 ], v2[ 0 ], v3[ 0 ], v1[ 1 ], v2[ 1 ], v3[ 1 ], v1[ 2 ], v2[ 2 ], v3[ 2 ] );
+
+					}
+
+				} else if ( lineFirstChar === 'l' ) {
+
+					const lineParts = line.substring( 1 ).trim().split( ' ' );
+					let lineVertices = [];
+					const lineUVs = [];
+
+					if ( line.indexOf( '/' ) === - 1 ) {
+
+						lineVertices = lineParts;
+
+					} else {
+
+						for ( let li = 0, llen = lineParts.length; li < llen; li ++ ) {
+
+							const parts = lineParts[ li ].split( '/' );
+							if ( parts[ 0 ] !== '' ) lineVertices.push( parts[ 0 ] );
+							if ( parts[ 1 ] !== '' ) lineUVs.push( parts[ 1 ] );
+
+						}
+
+					}
+
+					state.addLineGeometry( lineVertices, lineUVs );
+
+				} else if ( lineFirstChar === 'p' ) {
+
+					const lineData = line.substr( 1 ).trim();
+					const pointData = lineData.split( ' ' );
+					state.addPointGeometry( pointData );
+
+				} else if ( ( result = _object_pattern.exec( line ) ) !== null ) {
+
+					// o object_name
+					// or
+					// g group_name
+					// WORKAROUND: https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					// let name = result[ 0 ].substr( 1 ).trim();
+					const name = ( ' ' + result[ 0 ].substr( 1 ).trim() ).substr( 1 );
+					state.startObject( name );
+
+				} else if ( _material_use_pattern.test( line ) ) {
+
+					// material
+					state.object.startMaterial( line.substring( 7 ).trim(), state.materialLibraries );
+
+				} else if ( _material_library_pattern.test( line ) ) {
+
+					// mtl file
+					state.materialLibraries.push( line.substring( 7 ).trim() );
+
+				} else if ( _map_use_pattern.test( line ) ) {
+
+					// the line is parsed but ignored since the loader assumes textures are defined MTL files
+					// (according to https://www.okino.com/conv/imp_wave.htm, 'usemap' is the old-style Wavefront texture reference method)
+					console.warn( 'THREE.OBJLoader: Rendering identifier "usemap" not supported. Textures must be defined in MTL files.' );
+
+				} else if ( lineFirstChar === 's' ) {
+
+					result = line.split( ' ' ); // smooth shading
+					// @todo Handle files that have varying smooth values for a set of faces inside one geometry,
+					// but does not define a usemtl for each face set.
+					// This should be detected and a dummy material created (later MultiMaterial and geometry groups).
+					// This requires some care to not create extra material on each smooth value for "normal" obj files.
+					// where explicit usemtl defines geometry groups.
+					// Example asset: examples/models/obj/cerberus/Cerberus.obj
+
+					/*
+        	 * http://paulbourke.net/dataformats/obj/
+        	 * or
+        	 * http://www.cs.utah.edu/~boulos/cs3505/obj_spec.pdf
+        	 *
+        	 * From chapter "Grouping" Syntax explanation "s group_number":
+        	 * "group_number is the smoothing group number. To turn off smoothing groups, use a value of 0 or off.
+        	 * Polygonal elements use group numbers to put elements in different smoothing groups. For free-form
+        	 * surfaces, smoothing groups are either turned on or off; there is no difference between values greater
+        	 * than 0."
+        	 */
+
+					if ( result.length > 1 ) {
+
+						const value = result[ 1 ].trim().toLowerCase();
+						state.object.smooth = value !== '0' && value !== 'off';
+
+					} else {
+
+						// ZBrush can produce "s" lines #11707
+						state.object.smooth = true;
+
+					}
+
+					const material = state.object.currentMaterial();
+					if ( material ) material.smooth = state.object.smooth;
+
+				} else {
+
+					// Handle null terminated files without exception
+					if ( line === '\0' ) continue;
+					console.warn( 'THREE.OBJLoader: Unexpected line: "' + line + '"' );
+
+				}
+
+			}
+
+			state.finalize();
+			const container = new THREE.Group();
+			container.materialLibraries = [].concat( state.materialLibraries );
+			const hasPrimitives = ! ( state.objects.length === 1 && state.objects[ 0 ].geometry.vertices.length === 0 );
+
+			if ( hasPrimitives === true ) {
+
+				for ( let i = 0, l = state.objects.length; i < l; i ++ ) {
+
+					const object = state.objects[ i ];
+					const geometry = object.geometry;
+					const materials = object.materials;
+					const isLine = geometry.type === 'Line';
+					const isPoints = geometry.type === 'Points';
+					let hasVertexColors = false; // Skip o/g line declarations that did not follow with any faces
+
+					if ( geometry.vertices.length === 0 ) continue;
+					const buffergeometry = new THREE.BufferGeometry();
+					buffergeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( geometry.vertices, 3 ) );
+
+					if ( geometry.normals.length > 0 ) {
+
+						buffergeometry.setAttribute( 'normal', new THREE.Float32BufferAttribute( geometry.normals, 3 ) );
+
+					}
+
+					if ( geometry.colors.length > 0 ) {
+
+						hasVertexColors = true;
+						buffergeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( geometry.colors, 3 ) );
+
+					}
+
+					if ( geometry.hasUVIndices === true ) {
+
+						buffergeometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( geometry.uvs, 2 ) );
+
+					} // Create materials
+
+
+					const createdMaterials = [];
+
+					for ( let mi = 0, miLen = materials.length; mi < miLen; mi ++ ) {
+
+						const sourceMaterial = materials[ mi ];
+						const materialHash = sourceMaterial.name + '_' + sourceMaterial.smooth + '_' + hasVertexColors;
+						let material = state.materials[ materialHash ];
+
+						if ( this.materials !== null ) {
+
+							material = this.materials.create( sourceMaterial.name ); // mtl etc. loaders probably can't create line materials correctly, copy properties to a line material.
+
+							if ( isLine && material && ! ( material instanceof THREE.LineBasicMaterial ) ) {
+
+								const materialLine = new THREE.LineBasicMaterial();
+								THREE.Material.prototype.copy.call( materialLine, material );
+								materialLine.color.copy( material.color );
+								material = materialLine;
+
+							} else if ( isPoints && material && ! ( material instanceof THREE.PointsMaterial ) ) {
+
+								const materialPoints = new THREE.PointsMaterial( {
+									size: 10,
+									sizeAttenuation: false
+								} );
+								THREE.Material.prototype.copy.call( materialPoints, material );
+								materialPoints.color.copy( material.color );
+								materialPoints.map = material.map;
+								material = materialPoints;
+
+							}
+
+						}
+
+						if ( material === undefined ) {
+
+							if ( isLine ) {
+
+								material = new THREE.LineBasicMaterial();
+
+							} else if ( isPoints ) {
+
+								material = new THREE.PointsMaterial( {
+									size: 1,
+									sizeAttenuation: false
+								} );
+
+							} else {
+
+								material = new THREE.MeshPhongMaterial();
+
+							}
+
+							material.name = sourceMaterial.name;
+							material.flatShading = sourceMaterial.smooth ? false : true;
+							material.vertexColors = hasVertexColors;
+							state.materials[ materialHash ] = material;
+
+						}
+
+						createdMaterials.push( material );
+
+					} // Create mesh
+
+
+					let mesh;
+
+					if ( createdMaterials.length > 1 ) {
+
+						for ( let mi = 0, miLen = materials.length; mi < miLen; mi ++ ) {
+
+							const sourceMaterial = materials[ mi ];
+							buffergeometry.addGroup( sourceMaterial.groupStart, sourceMaterial.groupCount, mi );
+
+						}
+
+						if ( isLine ) {
+
+							mesh = new THREE.LineSegments( buffergeometry, createdMaterials );
+
+						} else if ( isPoints ) {
+
+							mesh = new THREE.Points( buffergeometry, createdMaterials );
+
+						} else {
+
+							mesh = new THREE.Mesh( buffergeometry, createdMaterials );
+
+						}
+
+					} else {
+
+						if ( isLine ) {
+
+							mesh = new THREE.LineSegments( buffergeometry, createdMaterials[ 0 ] );
+
+						} else if ( isPoints ) {
+
+							mesh = new THREE.Points( buffergeometry, createdMaterials[ 0 ] );
+
+						} else {
+
+							mesh = new THREE.Mesh( buffergeometry, createdMaterials[ 0 ] );
+
+						}
+
+					}
+
+					mesh.name = object.name;
+					container.add( mesh );
+
+				}
+
+			} else {
+
+				// if there is only the default parser state object with no geometry data, interpret data as point cloud
+				if ( state.vertices.length > 0 ) {
+
+					const material = new THREE.PointsMaterial( {
+						size: 1,
+						sizeAttenuation: false
+					} );
+					const buffergeometry = new THREE.BufferGeometry();
+					buffergeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( state.vertices, 3 ) );
+
+					if ( state.colors.length > 0 && state.colors[ 0 ] !== undefined ) {
+
+						buffergeometry.setAttribute( 'color', new THREE.Float32BufferAttribute( state.colors, 3 ) );
+						material.vertexColors = true;
+
+					}
+
+					const points = new THREE.Points( buffergeometry, material );
+					container.add( points );
+
+				}
+
+			}
+
+			return container;
+
+		}
+
+	}
+
+	THREE.OBJLoader = OBJLoader;
+
+} )();
+
+// ---- MTLLoader.js
+( function () {
+
+	/**
+ * Loads a Wavefront .mtl file specifying materials
+ */
+
+	class MTLLoader extends THREE.Loader {
+
+		constructor( manager ) {
+
+			super( manager );
+
+		}
+		/**
+   * Loads and parses a MTL asset from a URL.
+   *
+   * @param {String} url - URL to the MTL file.
+   * @param {Function} [onLoad] - Callback invoked with the loaded object.
+   * @param {Function} [onProgress] - Callback for download progress.
+   * @param {Function} [onError] - Callback for download errors.
+   *
+   * @see setPath setResourcePath
+   *
+   * @note In order for relative texture references to resolve correctly
+   * you must call setResourcePath() explicitly prior to load.
+   */
+
+
+		load( url, onLoad, onProgress, onError ) {
+
+			const scope = this;
+			const path = this.path === '' ? THREE.LoaderUtils.extractUrlBase( url ) : this.path;
+			const loader = new THREE.FileLoader( this.manager );
+			loader.setPath( this.path );
+			loader.setRequestHeader( this.requestHeader );
+			loader.setWithCredentials( this.withCredentials );
+			loader.load( url, function ( text ) {
+
+				try {
+
+					onLoad( scope.parse( text, path ) );
+
+				} catch ( e ) {
+
+					if ( onError ) {
+
+						onError( e );
+
+					} else {
+
+						console.error( e );
+
+					}
+
+					scope.manager.itemError( url );
+
+				}
+
+			}, onProgress, onError );
+
+		}
+
+		setMaterialOptions( value ) {
+
+			this.materialOptions = value;
+			return this;
+
+		}
+		/**
+   * Parses a MTL file.
+   *
+   * @param {String} text - Content of MTL file
+   * @return {MaterialCreator}
+   *
+   * @see setPath setResourcePath
+   *
+   * @note In order for relative texture references to resolve correctly
+   * you must call setResourcePath() explicitly prior to parse.
+   */
+
+
+		parse( text, path ) {
+
+			const lines = text.split( '\n' );
+			let info = {};
+			const delimiter_pattern = /\s+/;
+			const materialsInfo = {};
+
+			for ( let i = 0; i < lines.length; i ++ ) {
+
+				let line = lines[ i ];
+				line = line.trim();
+
+				if ( line.length === 0 || line.charAt( 0 ) === '#' ) {
+
+					// Blank line or comment ignore
+					continue;
+
+				}
+
+				const pos = line.indexOf( ' ' );
+				let key = pos >= 0 ? line.substring( 0, pos ) : line;
+				key = key.toLowerCase();
+				let value = pos >= 0 ? line.substring( pos + 1 ) : '';
+				value = value.trim();
+
+				if ( key === 'newmtl' ) {
+
+					// New material
+					info = {
+						name: value
+					};
+					materialsInfo[ value ] = info;
+
+				} else {
+
+					if ( key === 'ka' || key === 'kd' || key === 'ks' || key === 'ke' ) {
+
+						const ss = value.split( delimiter_pattern, 3 );
+						info[ key ] = [ parseFloat( ss[ 0 ] ), parseFloat( ss[ 1 ] ), parseFloat( ss[ 2 ] ) ];
+
+					} else {
+
+						info[ key ] = value;
+
+					}
+
+				}
+
+			}
+
+			const materialCreator = new MaterialCreator( this.resourcePath || path, this.materialOptions );
+			materialCreator.setCrossOrigin( this.crossOrigin );
+			materialCreator.setManager( this.manager );
+			materialCreator.setMaterials( materialsInfo );
+			return materialCreator;
+
+		}
+
+	}
+	/**
+ * Create a new MTLLoader.MaterialCreator
+ * @param baseUrl - Url relative to which textures are loaded
+ * @param options - Set of options on how to construct the materials
+ *                  side: Which side to apply the material
+ *                        THREE.FrontSide (default), THREE.BackSide, THREE.DoubleSide
+ *                  wrap: What type of wrapping to apply for textures
+ *                        THREE.RepeatWrapping (default), THREE.ClampToEdgeWrapping, THREE.MirroredRepeatWrapping
+ *                  normalizeRGB: RGBs need to be normalized to 0-1 from 0-255
+ *                                Default: false, assumed to be already normalized
+ *                  ignoreZeroRGBs: Ignore values of RGBs (Ka,Kd,Ks) that are all 0's
+ *                                  Default: false
+ * @constructor
+ */
+
+
+	class MaterialCreator {
+
+		constructor( baseUrl = '', options = {} ) {
+
+			this.baseUrl = baseUrl;
+			this.options = options;
+			this.materialsInfo = {};
+			this.materials = {};
+			this.materialsArray = [];
+			this.nameLookup = {};
+			this.crossOrigin = 'anonymous';
+			this.side = this.options.side !== undefined ? this.options.side : THREE.FrontSide;
+			this.wrap = this.options.wrap !== undefined ? this.options.wrap : THREE.RepeatWrapping;
+
+		}
+
+		setCrossOrigin( value ) {
+
+			this.crossOrigin = value;
+			return this;
+
+		}
+
+		setManager( value ) {
+
+			this.manager = value;
+
+		}
+
+		setMaterials( materialsInfo ) {
+
+			this.materialsInfo = this.convert( materialsInfo );
+			this.materials = {};
+			this.materialsArray = [];
+			this.nameLookup = {};
+
+		}
+
+		convert( materialsInfo ) {
+
+			if ( ! this.options ) return materialsInfo;
+			const converted = {};
+
+			for ( const mn in materialsInfo ) {
+
+				// Convert materials info into normalized form based on options
+				const mat = materialsInfo[ mn ];
+				const covmat = {};
+				converted[ mn ] = covmat;
+
+				for ( const prop in mat ) {
+
+					let save = true;
+					let value = mat[ prop ];
+					const lprop = prop.toLowerCase();
+
+					switch ( lprop ) {
+
+						case 'kd':
+						case 'ka':
+						case 'ks':
+							// Diffuse color (color under white light) using RGB values
+							if ( this.options && this.options.normalizeRGB ) {
+
+								value = [ value[ 0 ] / 255, value[ 1 ] / 255, value[ 2 ] / 255 ];
+
+							}
+
+							if ( this.options && this.options.ignoreZeroRGBs ) {
+
+								if ( value[ 0 ] === 0 && value[ 1 ] === 0 && value[ 2 ] === 0 ) {
+
+									// ignore
+									save = false;
+
+								}
+
+							}
+
+							break;
+
+						default:
+							break;
+
+					}
+
+					if ( save ) {
+
+						covmat[ lprop ] = value;
+
+					}
+
+				}
+
+			}
+
+			return converted;
+
+		}
+
+		preload() {
+
+			for ( const mn in this.materialsInfo ) {
+
+				this.create( mn );
+
+			}
+
+		}
+
+		getIndex( materialName ) {
+
+			return this.nameLookup[ materialName ];
+
+		}
+
+		getAsArray() {
+
+			let index = 0;
+
+			for ( const mn in this.materialsInfo ) {
+
+				this.materialsArray[ index ] = this.create( mn );
+				this.nameLookup[ mn ] = index;
+				index ++;
+
+			}
+
+			return this.materialsArray;
+
+		}
+
+		create( materialName ) {
+
+			if ( this.materials[ materialName ] === undefined ) {
+
+				this.createMaterial_( materialName );
+
+			}
+
+			return this.materials[ materialName ];
+
+		}
+
+		createMaterial_( materialName ) {
+
+			// Create material
+			const scope = this;
+			const mat = this.materialsInfo[ materialName ];
+			const params = {
+				name: materialName,
+				side: this.side
+			};
+
+			function resolveURL( baseUrl, url ) {
+
+				if ( typeof url !== 'string' || url === '' ) return ''; // Absolute URL
+
+				if ( /^https?:\/\//i.test( url ) ) return url;
+				return baseUrl + url;
+
+			}
+
+			function setMapForType( mapType, value ) {
+
+				if ( params[ mapType ] ) return; // Keep the first encountered texture
+
+				const texParams = scope.getTextureParams( value, params );
+				const map = scope.loadTexture( resolveURL( scope.baseUrl, texParams.url ) );
+				map.repeat.copy( texParams.scale );
+				map.offset.copy( texParams.offset );
+				map.wrapS = scope.wrap;
+				map.wrapT = scope.wrap;
+				params[ mapType ] = map;
+
+			}
+
+			for ( const prop in mat ) {
+
+				const value = mat[ prop ];
+				let n;
+				if ( value === '' ) continue;
+
+				switch ( prop.toLowerCase() ) {
+
+					// Ns is material specular exponent
+					case 'kd':
+						// Diffuse color (color under white light) using RGB values
+						params.color = new THREE.Color().fromArray( value );
+						break;
+
+					case 'ks':
+						// Specular color (color when light is reflected from shiny surface) using RGB values
+						params.specular = new THREE.Color().fromArray( value );
+						break;
+
+					case 'ke':
+						// Emissive using RGB values
+						params.emissive = new THREE.Color().fromArray( value );
+						break;
+
+					case 'map_kd':
+						// Diffuse texture map
+						setMapForType( 'map', value );
+						break;
+
+					case 'map_ks':
+						// Specular map
+						setMapForType( 'specularMap', value );
+						break;
+
+					case 'map_ke':
+						// Emissive map
+						setMapForType( 'emissiveMap', value );
+						break;
+
+					case 'norm':
+						setMapForType( 'normalMap', value );
+						break;
+
+					case 'map_bump':
+					case 'bump':
+						// Bump texture map
+						setMapForType( 'bumpMap', value );
+						break;
+
+					case 'map_d':
+						// Alpha map
+						setMapForType( 'alphaMap', value );
+						params.transparent = true;
+						break;
+
+					case 'ns':
+						// The specular exponent (defines the focus of the specular highlight)
+						// A high exponent results in a tight, concentrated highlight. Ns values normally range from 0 to 1000.
+						params.shininess = parseFloat( value );
+						break;
+
+					case 'd':
+						n = parseFloat( value );
+
+						if ( n < 1 ) {
+
+							params.opacity = n;
+							params.transparent = true;
+
+						}
+
+						break;
+
+					case 'tr':
+						n = parseFloat( value );
+						if ( this.options && this.options.invertTrProperty ) n = 1 - n;
+
+						if ( n > 0 ) {
+
+							params.opacity = 1 - n;
+							params.transparent = true;
+
+						}
+
+						break;
+
+					default:
+						break;
+
+				}
+
+			}
+
+			this.materials[ materialName ] = new THREE.MeshPhongMaterial( params );
+			return this.materials[ materialName ];
+
+		}
+
+		getTextureParams( value, matParams ) {
+
+			const texParams = {
+				scale: new THREE.Vector2( 1, 1 ),
+				offset: new THREE.Vector2( 0, 0 )
+			};
+			const items = value.split( /\s+/ );
+			let pos;
+			pos = items.indexOf( '-bm' );
+
+			if ( pos >= 0 ) {
+
+				matParams.bumpScale = parseFloat( items[ pos + 1 ] );
+				items.splice( pos, 2 );
+
+			}
+
+			pos = items.indexOf( '-s' );
+
+			if ( pos >= 0 ) {
+
+				texParams.scale.set( parseFloat( items[ pos + 1 ] ), parseFloat( items[ pos + 2 ] ) );
+				items.splice( pos, 4 ); // we expect 3 parameters here!
+
+			}
+
+			pos = items.indexOf( '-o' );
+
+			if ( pos >= 0 ) {
+
+				texParams.offset.set( parseFloat( items[ pos + 1 ] ), parseFloat( items[ pos + 2 ] ) );
+				items.splice( pos, 4 ); // we expect 3 parameters here!
+
+			}
+
+			texParams.url = items.join( ' ' ).trim();
+			return texParams;
+
+		}
+
+		loadTexture( url, mapping, onLoad, onProgress, onError ) {
+
+			const manager = this.manager !== undefined ? this.manager : THREE.DefaultLoadingManager;
+			let loader = manager.getHandler( url );
+
+			if ( loader === null ) {
+
+				loader = new THREE.TextureLoader( manager );
+
+			}
+
+			if ( loader.setCrossOrigin ) loader.setCrossOrigin( this.crossOrigin );
+			const texture = loader.load( url, onLoad, onProgress, onError );
+			if ( mapping !== undefined ) texture.mapping = mapping;
+			return texture;
+
+		}
+
+	}
+
+	THREE.MTLLoader = MTLLoader;
+
+} )();
+
+// ---- PLYLoader.js
+( function () {
+
+	/**
+ * Description: A THREE loader for PLY ASCII files (known as the Polygon
+ * File Format or the Stanford Triangle Format).
+ *
+ * Limitations: ASCII decoding assumes file is UTF-8.
+ *
+ * Usage:
+ *	const loader = new PLYLoader();
+ *	loader.load('./models/ply/ascii/dolphins.ply', function (geometry) {
+ *
+ *		scene.add( new THREE.Mesh( geometry ) );
+ *
+ *	} );
+ *
+ * If the PLY file uses non standard property names, they can be mapped while
+ * loading. For example, the following maps the properties
+ * “diffuse_(red|green|blue)” in the file to standard color names.
+ *
+ * loader.setPropertyNameMapping( {
+ *	diffuse_red: 'red',
+ *	diffuse_green: 'green',
+ *	diffuse_blue: 'blue'
+ * } );
+ *
+ */
+
+	class PLYLoader extends THREE.Loader {
+
+		constructor( manager ) {
+
+			super( manager );
+			this.propertyNameMapping = {};
+
+		}
+
+		load( url, onLoad, onProgress, onError ) {
+
+			const scope = this;
+			const loader = new THREE.FileLoader( this.manager );
+			loader.setPath( this.path );
+			loader.setResponseType( 'arraybuffer' );
+			loader.setRequestHeader( this.requestHeader );
+			loader.setWithCredentials( this.withCredentials );
+			loader.load( url, function ( text ) {
+
+				try {
+
+					onLoad( scope.parse( text ) );
+
+				} catch ( e ) {
+
+					if ( onError ) {
+
+						onError( e );
+
+					} else {
+
+						console.error( e );
+
+					}
+
+					scope.manager.itemError( url );
+
+				}
+
+			}, onProgress, onError );
+
+		}
+
+		setPropertyNameMapping( mapping ) {
+
+			this.propertyNameMapping = mapping;
+
+		}
+
+		parse( data ) {
+
+			function parseHeader( data ) {
+
+				const patternHeader = /ply([\s\S]*)end_header\r?\n/;
+				let headerText = '';
+				let headerLength = 0;
+				const result = patternHeader.exec( data );
+
+				if ( result !== null ) {
+
+					headerText = result[ 1 ];
+					headerLength = new Blob( [ result[ 0 ] ] ).size;
+
+				}
+
+				const header = {
+					comments: [],
+					elements: [],
+					headerLength: headerLength,
+					objInfo: ''
+				};
+				const lines = headerText.split( '\n' );
+				let currentElement;
+
+				function make_ply_element_property( propertValues, propertyNameMapping ) {
+
+					const property = {
+						type: propertValues[ 0 ]
+					};
+
+					if ( property.type === 'list' ) {
+
+						property.name = propertValues[ 3 ];
+						property.countType = propertValues[ 1 ];
+						property.itemType = propertValues[ 2 ];
+
+					} else {
+
+						property.name = propertValues[ 1 ];
+
+					}
+
+					if ( property.name in propertyNameMapping ) {
+
+						property.name = propertyNameMapping[ property.name ];
+
+					}
+
+					return property;
+
+				}
+
+				for ( let i = 0; i < lines.length; i ++ ) {
+
+					let line = lines[ i ];
+					line = line.trim();
+					if ( line === '' ) continue;
+					const lineValues = line.split( /\s+/ );
+					const lineType = lineValues.shift();
+					line = lineValues.join( ' ' );
+
+					switch ( lineType ) {
+
+						case 'format':
+							header.format = lineValues[ 0 ];
+							header.version = lineValues[ 1 ];
+							break;
+
+						case 'comment':
+							header.comments.push( line );
+							break;
+
+						case 'element':
+							if ( currentElement !== undefined ) {
+
+								header.elements.push( currentElement );
+
+							}
+
+							currentElement = {};
+							currentElement.name = lineValues[ 0 ];
+							currentElement.count = parseInt( lineValues[ 1 ] );
+							currentElement.properties = [];
+							break;
+
+						case 'property':
+							currentElement.properties.push( make_ply_element_property( lineValues, scope.propertyNameMapping ) );
+							break;
+
+						case 'obj_info':
+							header.objInfo = line;
+							break;
+
+						default:
+							console.log( 'unhandled', lineType, lineValues );
+
+					}
+
+				}
+
+				if ( currentElement !== undefined ) {
+
+					header.elements.push( currentElement );
+
+				}
+
+				return header;
+
+			}
+
+			function parseASCIINumber( n, type ) {
+
+				switch ( type ) {
+
+					case 'char':
+					case 'uchar':
+					case 'short':
+					case 'ushort':
+					case 'int':
+					case 'uint':
+					case 'int8':
+					case 'uint8':
+					case 'int16':
+					case 'uint16':
+					case 'int32':
+					case 'uint32':
+						return parseInt( n );
+
+					case 'float':
+					case 'double':
+					case 'float32':
+					case 'float64':
+						return parseFloat( n );
+
+				}
+
+			}
+
+			function parseASCIIElement( properties, line ) {
+
+				const values = line.split( /\s+/ );
+				const element = {};
+
+				for ( let i = 0; i < properties.length; i ++ ) {
+
+					if ( properties[ i ].type === 'list' ) {
+
+						const list = [];
+						const n = parseASCIINumber( values.shift(), properties[ i ].countType );
+
+						for ( let j = 0; j < n; j ++ ) {
+
+							list.push( parseASCIINumber( values.shift(), properties[ i ].itemType ) );
+
+						}
+
+						element[ properties[ i ].name ] = list;
+
+					} else {
+
+						element[ properties[ i ].name ] = parseASCIINumber( values.shift(), properties[ i ].type );
+
+					}
+
+				}
+
+				return element;
+
+			}
+
+			function parseASCII( data, header ) {
+
+				// PLY ascii format specification, as per http://en.wikipedia.org/wiki/PLY_(file_format)
+				const buffer = {
+					indices: [],
+					vertices: [],
+					normals: [],
+					uvs: [],
+					faceVertexUvs: [],
+					colors: []
+				};
+				let result;
+				const patternBody = /end_header\s([\s\S]*)$/;
+				let body = '';
+
+				if ( ( result = patternBody.exec( data ) ) !== null ) {
+
+					body = result[ 1 ];
+
+				}
+
+				const lines = body.split( '\n' );
+				let currentElement = 0;
+				let currentElementCount = 0;
+
+				for ( let i = 0; i < lines.length; i ++ ) {
+
+					let line = lines[ i ];
+					line = line.trim();
+
+					if ( line === '' ) {
+
+						continue;
+
+					}
+
+					if ( currentElementCount >= header.elements[ currentElement ].count ) {
+
+						currentElement ++;
+						currentElementCount = 0;
+
+					}
+
+					const element = parseASCIIElement( header.elements[ currentElement ].properties, line );
+					handleElement( buffer, header.elements[ currentElement ].name, element );
+					currentElementCount ++;
+
+				}
+
+				return postProcess( buffer );
+
+			}
+
+			function postProcess( buffer ) {
+
+				let geometry = new THREE.BufferGeometry(); // mandatory buffer data
+
+				if ( buffer.indices.length > 0 ) {
+
+					geometry.setIndex( buffer.indices );
+
+				}
+
+				geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( buffer.vertices, 3 ) ); // optional buffer data
+
+				if ( buffer.normals.length > 0 ) {
+
+					geometry.setAttribute( 'normal', new THREE.Float32BufferAttribute( buffer.normals, 3 ) );
+
+				}
+
+				if ( buffer.uvs.length > 0 ) {
+
+					geometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( buffer.uvs, 2 ) );
+
+				}
+
+				if ( buffer.colors.length > 0 ) {
+
+					geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( buffer.colors, 3 ) );
+
+				}
+
+				if ( buffer.faceVertexUvs.length > 0 ) {
+
+					geometry = geometry.toNonIndexed();
+					geometry.setAttribute( 'uv', new THREE.Float32BufferAttribute( buffer.faceVertexUvs, 2 ) );
+
+				}
+
+				geometry.computeBoundingSphere();
+				return geometry;
+
+			}
+
+			function handleElement( buffer, elementName, element ) {
+
+				if ( elementName === 'vertex' ) {
+
+					buffer.vertices.push( element.x, element.y, element.z );
+
+					if ( 'nx' in element && 'ny' in element && 'nz' in element ) {
+
+						buffer.normals.push( element.nx, element.ny, element.nz );
+
+					}
+
+					if ( 's' in element && 't' in element ) {
+
+						buffer.uvs.push( element.s, element.t );
+
+					}
+
+					if ( 'red' in element && 'green' in element && 'blue' in element ) {
+
+						buffer.colors.push( element.red / 255.0, element.green / 255.0, element.blue / 255.0 );
+
+					}
+
+				} else if ( elementName === 'face' ) {
+
+					const vertex_indices = element.vertex_indices || element.vertex_index; // issue #9338
+
+					const texcoord = element.texcoord;
+
+					if ( vertex_indices.length === 3 ) {
+
+						buffer.indices.push( vertex_indices[ 0 ], vertex_indices[ 1 ], vertex_indices[ 2 ] );
+
+						if ( texcoord && texcoord.length === 6 ) {
+
+							buffer.faceVertexUvs.push( texcoord[ 0 ], texcoord[ 1 ] );
+							buffer.faceVertexUvs.push( texcoord[ 2 ], texcoord[ 3 ] );
+							buffer.faceVertexUvs.push( texcoord[ 4 ], texcoord[ 5 ] );
+
+						}
+
+					} else if ( vertex_indices.length === 4 ) {
+
+						buffer.indices.push( vertex_indices[ 0 ], vertex_indices[ 1 ], vertex_indices[ 3 ] );
+						buffer.indices.push( vertex_indices[ 1 ], vertex_indices[ 2 ], vertex_indices[ 3 ] );
+
+					}
+
+				}
+
+			}
+
+			function binaryRead( dataview, at, type, little_endian ) {
+
+				switch ( type ) {
+
+					// corespondences for non-specific length types here match rply:
+					case 'int8':
+					case 'char':
+						return [ dataview.getInt8( at ), 1 ];
+
+					case 'uint8':
+					case 'uchar':
+						return [ dataview.getUint8( at ), 1 ];
+
+					case 'int16':
+					case 'short':
+						return [ dataview.getInt16( at, little_endian ), 2 ];
+
+					case 'uint16':
+					case 'ushort':
+						return [ dataview.getUint16( at, little_endian ), 2 ];
+
+					case 'int32':
+					case 'int':
+						return [ dataview.getInt32( at, little_endian ), 4 ];
+
+					case 'uint32':
+					case 'uint':
+						return [ dataview.getUint32( at, little_endian ), 4 ];
+
+					case 'float32':
+					case 'float':
+						return [ dataview.getFloat32( at, little_endian ), 4 ];
+
+					case 'float64':
+					case 'double':
+						return [ dataview.getFloat64( at, little_endian ), 8 ];
+
+				}
+
+			}
+
+			function binaryReadElement( dataview, at, properties, little_endian ) {
+
+				const element = {};
+				let result,
+					read = 0;
+
+				for ( let i = 0; i < properties.length; i ++ ) {
+
+					if ( properties[ i ].type === 'list' ) {
+
+						const list = [];
+						result = binaryRead( dataview, at + read, properties[ i ].countType, little_endian );
+						const n = result[ 0 ];
+						read += result[ 1 ];
+
+						for ( let j = 0; j < n; j ++ ) {
+
+							result = binaryRead( dataview, at + read, properties[ i ].itemType, little_endian );
+							list.push( result[ 0 ] );
+							read += result[ 1 ];
+
+						}
+
+						element[ properties[ i ].name ] = list;
+
+					} else {
+
+						result = binaryRead( dataview, at + read, properties[ i ].type, little_endian );
+						element[ properties[ i ].name ] = result[ 0 ];
+						read += result[ 1 ];
+
+					}
+
+				}
+
+				return [ element, read ];
+
+			}
+
+			function parseBinary( data, header ) {
+
+				const buffer = {
+					indices: [],
+					vertices: [],
+					normals: [],
+					uvs: [],
+					faceVertexUvs: [],
+					colors: []
+				};
+				const little_endian = header.format === 'binary_little_endian';
+				const body = new DataView( data, header.headerLength );
+				let result,
+					loc = 0;
+
+				for ( let currentElement = 0; currentElement < header.elements.length; currentElement ++ ) {
+
+					for ( let currentElementCount = 0; currentElementCount < header.elements[ currentElement ].count; currentElementCount ++ ) {
+
+						result = binaryReadElement( body, loc, header.elements[ currentElement ].properties, little_endian );
+						loc += result[ 1 ];
+						const element = result[ 0 ];
+						handleElement( buffer, header.elements[ currentElement ].name, element );
+
+					}
+
+				}
+
+				return postProcess( buffer );
+
+			} //
+
+
+			let geometry;
+			const scope = this;
+
+			if ( data instanceof ArrayBuffer ) {
+
+				const text = THREE.LoaderUtils.decodeText( new Uint8Array( data ) );
+				const header = parseHeader( text );
+				geometry = header.format === 'ascii' ? parseASCII( text, header ) : parseBinary( data, header );
+
+			} else {
+
+				geometry = parseASCII( data, parseHeader( data ) );
+
+			}
+
+			return geometry;
+
+		}
+
+	}
+
+	THREE.PLYLoader = PLYLoader;
+
+} )();
+
+// ---- STLLoader.js
+( function () {
+
+	/**
+ * Description: A THREE loader for STL ASCII files, as created by Solidworks and other CAD programs.
+ *
+ * Supports both binary and ASCII encoded files, with automatic detection of type.
+ *
+ * The loader returns a non-indexed buffer geometry.
+ *
+ * Limitations:
+ *  Binary decoding supports "Magics" color format (http://en.wikipedia.org/wiki/STL_(file_format)#Color_in_binary_STL).
+ *  There is perhaps some question as to how valid it is to always assume little-endian-ness.
+ *  ASCII decoding assumes file is UTF-8.
+ *
+ * Usage:
+ *  const loader = new STLLoader();
+ *  loader.load( './models/stl/slotted_disk.stl', function ( geometry ) {
+ *    scene.add( new THREE.Mesh( geometry ) );
+ *  });
+ *
+ * For binary STLs geometry might contain colors for vertices. To use it:
+ *  // use the same code to load STL as above
+ *  if (geometry.hasColors) {
+ *    material = new THREE.MeshPhongMaterial({ opacity: geometry.alpha, vertexColors: true });
+ *  } else { .... }
+ *  const mesh = new THREE.Mesh( geometry, material );
+ *
+ * For ASCII STLs containing multiple solids, each solid is assigned to a different group.
+ * Groups can be used to assign a different color by defining an array of materials with the same length of
+ * geometry.groups and passing it to the Mesh constructor:
+ *
+ * const mesh = new THREE.Mesh( geometry, material );
+ *
+ * For example:
+ *
+ *  const materials = [];
+ *  const nGeometryGroups = geometry.groups.length;
+ *
+ *  const colorMap = ...; // Some logic to index colors.
+ *
+ *  for (let i = 0; i < nGeometryGroups; i++) {
+ *
+ *		const material = new THREE.MeshPhongMaterial({
+ *			color: colorMap[i],
+ *			wireframe: false
+ *		});
+ *
+ *  }
+ *
+ *  materials.push(material);
+ *  const mesh = new THREE.Mesh(geometry, materials);
+ */
+
+	class STLLoader extends THREE.Loader {
+
+		constructor( manager ) {
+
+			super( manager );
+
+		}
+
+		load( url, onLoad, onProgress, onError ) {
+
+			const scope = this;
+			const loader = new THREE.FileLoader( this.manager );
+			loader.setPath( this.path );
+			loader.setResponseType( 'arraybuffer' );
+			loader.setRequestHeader( this.requestHeader );
+			loader.setWithCredentials( this.withCredentials );
+			loader.load( url, function ( text ) {
+
+				try {
+
+					onLoad( scope.parse( text ) );
+
+				} catch ( e ) {
+
+					if ( onError ) {
+
+						onError( e );
+
+					} else {
+
+						console.error( e );
+
+					}
+
+					scope.manager.itemError( url );
+
+				}
+
+			}, onProgress, onError );
+
+		}
+
+		parse( data ) {
+
+			function isBinary( data ) {
+
+				const reader = new DataView( data );
+				const face_size = 32 / 8 * 3 + 32 / 8 * 3 * 3 + 16 / 8;
+				const n_faces = reader.getUint32( 80, true );
+				const expect = 80 + 32 / 8 + n_faces * face_size;
+
+				if ( expect === reader.byteLength ) {
+
+					return true;
+
+				} // An ASCII STL data must begin with 'solid ' as the first six bytes.
+				// However, ASCII STLs lacking the SPACE after the 'd' are known to be
+				// plentiful.  So, check the first 5 bytes for 'solid'.
+				// Several encodings, such as UTF-8, precede the text with up to 5 bytes:
+				// https://en.wikipedia.org/wiki/Byte_order_mark#Byte_order_marks_by_encoding
+				// Search for "solid" to start anywhere after those prefixes.
+				// US-ASCII ordinal values for 's', 'o', 'l', 'i', 'd'
+
+
+				const solid = [ 115, 111, 108, 105, 100 ];
+
+				for ( let off = 0; off < 5; off ++ ) {
+
+					// If "solid" text is matched to the current offset, declare it to be an ASCII STL.
+					if ( matchDataViewAt( solid, reader, off ) ) return false;
+
+				} // Couldn't find "solid" text at the beginning; it is binary STL.
+
+
+				return true;
+
+			}
+
+			function matchDataViewAt( query, reader, offset ) {
+
+				// Check if each byte in query matches the corresponding byte from the current offset
+				for ( let i = 0, il = query.length; i < il; i ++ ) {
+
+					if ( query[ i ] !== reader.getUint8( offset + i, false ) ) return false;
+
+				}
+
+				return true;
+
+			}
+
+			function parseBinary( data ) {
+
+				const reader = new DataView( data );
+				const faces = reader.getUint32( 80, true );
+				let r,
+					g,
+					b,
+					hasColors = false,
+					colors;
+				let defaultR, defaultG, defaultB, alpha; // process STL header
+				// check for default color in header ("COLOR=rgba" sequence).
+
+				for ( let index = 0; index < 80 - 10; index ++ ) {
+
+					if ( reader.getUint32( index, false ) == 0x434F4C4F
+        /*COLO*/
+        && reader.getUint8( index + 4 ) == 0x52
+        /*'R'*/
+        && reader.getUint8( index + 5 ) == 0x3D
+        /*'='*/
+					) {
+
+						hasColors = true;
+						colors = new Float32Array( faces * 3 * 3 );
+						defaultR = reader.getUint8( index + 6 ) / 255;
+						defaultG = reader.getUint8( index + 7 ) / 255;
+						defaultB = reader.getUint8( index + 8 ) / 255;
+						alpha = reader.getUint8( index + 9 ) / 255;
+
+					}
+
+				}
+
+				const dataOffset = 84;
+				const faceLength = 12 * 4 + 2;
+				const geometry = new THREE.BufferGeometry();
+				const vertices = new Float32Array( faces * 3 * 3 );
+				const normals = new Float32Array( faces * 3 * 3 );
+
+				for ( let face = 0; face < faces; face ++ ) {
+
+					const start = dataOffset + face * faceLength;
+					const normalX = reader.getFloat32( start, true );
+					const normalY = reader.getFloat32( start + 4, true );
+					const normalZ = reader.getFloat32( start + 8, true );
+
+					if ( hasColors ) {
+
+						const packedColor = reader.getUint16( start + 48, true );
+
+						if ( ( packedColor & 0x8000 ) === 0 ) {
+
+							// facet has its own unique color
+							r = ( packedColor & 0x1F ) / 31;
+							g = ( packedColor >> 5 & 0x1F ) / 31;
+							b = ( packedColor >> 10 & 0x1F ) / 31;
+
+						} else {
+
+							r = defaultR;
+							g = defaultG;
+							b = defaultB;
+
+						}
+
+					}
+
+					for ( let i = 1; i <= 3; i ++ ) {
+
+						const vertexstart = start + i * 12;
+						const componentIdx = face * 3 * 3 + ( i - 1 ) * 3;
+						vertices[ componentIdx ] = reader.getFloat32( vertexstart, true );
+						vertices[ componentIdx + 1 ] = reader.getFloat32( vertexstart + 4, true );
+						vertices[ componentIdx + 2 ] = reader.getFloat32( vertexstart + 8, true );
+						normals[ componentIdx ] = normalX;
+						normals[ componentIdx + 1 ] = normalY;
+						normals[ componentIdx + 2 ] = normalZ;
+
+						if ( hasColors ) {
+
+							colors[ componentIdx ] = r;
+							colors[ componentIdx + 1 ] = g;
+							colors[ componentIdx + 2 ] = b;
+
+						}
+
+					}
+
+				}
+
+				geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+				geometry.setAttribute( 'normal', new THREE.BufferAttribute( normals, 3 ) );
+
+				if ( hasColors ) {
+
+					geometry.setAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
+					geometry.hasColors = true;
+					geometry.alpha = alpha;
+
+				}
+
+				return geometry;
+
+			}
+
+			function parseASCII( data ) {
+
+				const geometry = new THREE.BufferGeometry();
+				const patternSolid = /solid([\s\S]*?)endsolid/g;
+				const patternFace = /facet([\s\S]*?)endfacet/g;
+				let faceCounter = 0;
+				const patternFloat = /[\s]+([+-]?(?:\d*)(?:\.\d*)?(?:[eE][+-]?\d+)?)/.source;
+				const patternVertex = new RegExp( 'vertex' + patternFloat + patternFloat + patternFloat, 'g' );
+				const patternNormal = new RegExp( 'normal' + patternFloat + patternFloat + patternFloat, 'g' );
+				const vertices = [];
+				const normals = [];
+				const normal = new THREE.Vector3();
+				let result;
+				let groupCount = 0;
+				let startVertex = 0;
+				let endVertex = 0;
+
+				while ( ( result = patternSolid.exec( data ) ) !== null ) {
+
+					startVertex = endVertex;
+					const solid = result[ 0 ];
+
+					while ( ( result = patternFace.exec( solid ) ) !== null ) {
+
+						let vertexCountPerFace = 0;
+						let normalCountPerFace = 0;
+						const text = result[ 0 ];
+
+						while ( ( result = patternNormal.exec( text ) ) !== null ) {
+
+							normal.x = parseFloat( result[ 1 ] );
+							normal.y = parseFloat( result[ 2 ] );
+							normal.z = parseFloat( result[ 3 ] );
+							normalCountPerFace ++;
+
+						}
+
+						while ( ( result = patternVertex.exec( text ) ) !== null ) {
+
+							vertices.push( parseFloat( result[ 1 ] ), parseFloat( result[ 2 ] ), parseFloat( result[ 3 ] ) );
+							normals.push( normal.x, normal.y, normal.z );
+							vertexCountPerFace ++;
+							endVertex ++;
+
+						} // every face have to own ONE valid normal
+
+
+						if ( normalCountPerFace !== 1 ) {
+
+							console.error( 'THREE.STLLoader: Something isn\'t right with the normal of face number ' + faceCounter );
+
+						} // each face have to own THREE valid vertices
+
+
+						if ( vertexCountPerFace !== 3 ) {
+
+							console.error( 'THREE.STLLoader: Something isn\'t right with the vertices of face number ' + faceCounter );
+
+						}
+
+						faceCounter ++;
+
+					}
+
+					const start = startVertex;
+					const count = endVertex - startVertex;
+					geometry.addGroup( start, count, groupCount );
+					groupCount ++;
+
+				}
+
+				geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+				geometry.setAttribute( 'normal', new THREE.Float32BufferAttribute( normals, 3 ) );
+				return geometry;
+
+			}
+
+			function ensureString( buffer ) {
+
+				if ( typeof buffer !== 'string' ) {
+
+					return THREE.LoaderUtils.decodeText( new Uint8Array( buffer ) );
+
+				}
+
+				return buffer;
+
+			}
+
+			function ensureBinary( buffer ) {
+
+				if ( typeof buffer === 'string' ) {
+
+					const array_buffer = new Uint8Array( buffer.length );
+
+					for ( let i = 0; i < buffer.length; i ++ ) {
+
+						array_buffer[ i ] = buffer.charCodeAt( i ) & 0xff; // implicitly assumes little-endian
+
+					}
+
+					return array_buffer.buffer || array_buffer;
+
+				} else {
+
+					return buffer;
+
+				}
+
+			} // start
+
+
+			const binData = ensureBinary( data );
+			return isBinary( binData ) ? parseBinary( binData ) : parseASCII( ensureString( data ) );
+
+		}
+
+	}
+
+	THREE.STLLoader = STLLoader;
+
+} )();
+
 // ---- SkeletonUtils.js
 ( function () {
 
@@ -10751,6 +12965,2236 @@ version 0.6.9
 
 } )();
 
+// ---- GLTFExporter.js: defined only when the studio first converts a model (Convert to GLB, the Upload pane)
+function exporterLoad() {
+if (THREE.GLTFExporter) return;
+( function () {
+
+	class GLTFExporter {
+
+		constructor() {
+
+			this.pluginCallbacks = [];
+			this.register( function ( writer ) {
+
+				return new GLTFLightExtension( writer );
+
+			} );
+			this.register( function ( writer ) {
+
+				return new GLTFMaterialsUnlitExtension( writer );
+
+			} );
+			this.register( function ( writer ) {
+
+				return new GLTFMaterialsPBRSpecularGlossiness( writer );
+
+			} );
+
+		}
+
+		register( callback ) {
+
+			if ( this.pluginCallbacks.indexOf( callback ) === - 1 ) {
+
+				this.pluginCallbacks.push( callback );
+
+			}
+
+			return this;
+
+		}
+
+		unregister( callback ) {
+
+			if ( this.pluginCallbacks.indexOf( callback ) !== - 1 ) {
+
+				this.pluginCallbacks.splice( this.pluginCallbacks.indexOf( callback ), 1 );
+
+			}
+
+			return this;
+
+		}
+		/**
+   * Parse scenes and generate GLTF output
+   * @param  {Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
+   * @param  {Function} onDone  Callback on completed
+   * @param  {Object} options options
+   */
+
+
+		parse( input, onDone, options ) {
+
+			const writer = new GLTFWriter();
+			const plugins = [];
+
+			for ( let i = 0, il = this.pluginCallbacks.length; i < il; i ++ ) {
+
+				plugins.push( this.pluginCallbacks[ i ]( writer ) );
+
+			}
+
+			writer.setPlugins( plugins );
+			writer.write( input, onDone, options );
+
+		}
+
+	} //------------------------------------------------------------------------------
+	// Constants
+	//------------------------------------------------------------------------------
+
+
+	const WEBGL_CONSTANTS = {
+		POINTS: 0x0000,
+		LINES: 0x0001,
+		LINE_LOOP: 0x0002,
+		LINE_STRIP: 0x0003,
+		TRIANGLES: 0x0004,
+		TRIANGLE_STRIP: 0x0005,
+		TRIANGLE_FAN: 0x0006,
+		UNSIGNED_BYTE: 0x1401,
+		UNSIGNED_SHORT: 0x1403,
+		FLOAT: 0x1406,
+		UNSIGNED_INT: 0x1405,
+		ARRAY_BUFFER: 0x8892,
+		ELEMENT_ARRAY_BUFFER: 0x8893,
+		NEAREST: 0x2600,
+		LINEAR: 0x2601,
+		NEAREST_MIPMAP_NEAREST: 0x2700,
+		LINEAR_MIPMAP_NEAREST: 0x2701,
+		NEAREST_MIPMAP_LINEAR: 0x2702,
+		LINEAR_MIPMAP_LINEAR: 0x2703,
+		CLAMP_TO_EDGE: 33071,
+		MIRRORED_REPEAT: 33648,
+		REPEAT: 10497
+	};
+	const THREE_TO_WEBGL = {};
+	THREE_TO_WEBGL[ THREE.NearestFilter ] = WEBGL_CONSTANTS.NEAREST;
+	THREE_TO_WEBGL[ THREE.NearestMipmapNearestFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_NEAREST;
+	THREE_TO_WEBGL[ THREE.NearestMipmapLinearFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_LINEAR;
+	THREE_TO_WEBGL[ THREE.LinearFilter ] = WEBGL_CONSTANTS.LINEAR;
+	THREE_TO_WEBGL[ THREE.LinearMipmapNearestFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_NEAREST;
+	THREE_TO_WEBGL[ THREE.LinearMipmapLinearFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_LINEAR;
+	THREE_TO_WEBGL[ THREE.ClampToEdgeWrapping ] = WEBGL_CONSTANTS.CLAMP_TO_EDGE;
+	THREE_TO_WEBGL[ THREE.RepeatWrapping ] = WEBGL_CONSTANTS.REPEAT;
+	THREE_TO_WEBGL[ THREE.MirroredRepeatWrapping ] = WEBGL_CONSTANTS.MIRRORED_REPEAT;
+	const PATH_PROPERTIES = {
+		scale: 'scale',
+		position: 'translation',
+		quaternion: 'rotation',
+		morphTargetInfluences: 'weights'
+	}; // GLB constants
+	// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
+
+	const GLB_HEADER_BYTES = 12;
+	const GLB_HEADER_MAGIC = 0x46546C67;
+	const GLB_VERSION = 2;
+	const GLB_CHUNK_PREFIX_BYTES = 8;
+	const GLB_CHUNK_TYPE_JSON = 0x4E4F534A;
+	const GLB_CHUNK_TYPE_BIN = 0x004E4942; //------------------------------------------------------------------------------
+	// Utility functions
+	//------------------------------------------------------------------------------
+
+	/**
+ * Compare two arrays
+ * @param  {Array} array1 Array 1 to compare
+ * @param  {Array} array2 Array 2 to compare
+ * @return {Boolean}        Returns true if both arrays are equal
+ */
+
+	function equalArray( array1, array2 ) {
+
+		return array1.length === array2.length && array1.every( function ( element, index ) {
+
+			return element === array2[ index ];
+
+		} );
+
+	}
+	/**
+ * Converts a string to an ArrayBuffer.
+ * @param  {string} text
+ * @return {ArrayBuffer}
+ */
+
+
+	function stringToArrayBuffer( text ) {
+
+		if ( window.TextEncoder !== undefined ) {
+
+			return new TextEncoder().encode( text ).buffer;
+
+		}
+
+		const array = new Uint8Array( new ArrayBuffer( text.length ) );
+
+		for ( let i = 0, il = text.length; i < il; i ++ ) {
+
+			const value = text.charCodeAt( i ); // Replacing multi-byte character with space(0x20).
+
+			array[ i ] = value > 0xFF ? 0x20 : value;
+
+		}
+
+		return array.buffer;
+
+	}
+	/**
+ * Is identity matrix
+ *
+ * @param {Matrix4} matrix
+ * @returns {Boolean} Returns true, if parameter is identity matrix
+ */
+
+
+	function isIdentityMatrix( matrix ) {
+
+		return equalArray( matrix.elements, [ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ] );
+
+	}
+	/**
+ * Get the min and max vectors from the given attribute
+ * @param  {BufferAttribute} attribute Attribute to find the min/max in range from start to start + count
+ * @param  {Integer} start
+ * @param  {Integer} count
+ * @return {Object} Object containing the `min` and `max` values (As an array of attribute.itemSize components)
+ */
+
+
+	function getMinMax( attribute, start, count ) {
+
+		const output = {
+			min: new Array( attribute.itemSize ).fill( Number.POSITIVE_INFINITY ),
+			max: new Array( attribute.itemSize ).fill( Number.NEGATIVE_INFINITY )
+		};
+
+		for ( let i = start; i < start + count; i ++ ) {
+
+			for ( let a = 0; a < attribute.itemSize; a ++ ) {
+
+				let value;
+
+				if ( attribute.itemSize > 4 ) {
+
+					// no support for interleaved data for itemSize > 4
+					value = attribute.array[ i * attribute.itemSize + a ];
+
+				} else {
+
+					if ( a === 0 ) value = attribute.getX( i ); else if ( a === 1 ) value = attribute.getY( i ); else if ( a === 2 ) value = attribute.getZ( i ); else if ( a === 3 ) value = attribute.getW( i );
+
+				}
+
+				output.min[ a ] = Math.min( output.min[ a ], value );
+				output.max[ a ] = Math.max( output.max[ a ], value );
+
+			}
+
+		}
+
+		return output;
+
+	}
+	/**
+ * Get the required size + padding for a buffer, rounded to the next 4-byte boundary.
+ * https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#data-alignment
+ *
+ * @param {Integer} bufferSize The size the original buffer.
+ * @returns {Integer} new buffer size with required padding.
+ *
+ */
+
+
+	function getPaddedBufferSize( bufferSize ) {
+
+		return Math.ceil( bufferSize / 4 ) * 4;
+
+	}
+	/**
+ * Returns a buffer aligned to 4-byte boundary.
+ *
+ * @param {ArrayBuffer} arrayBuffer Buffer to pad
+ * @param {Integer} paddingByte (Optional)
+ * @returns {ArrayBuffer} The same buffer if it's already aligned to 4-byte boundary or a new buffer
+ */
+
+
+	function getPaddedArrayBuffer( arrayBuffer, paddingByte = 0 ) {
+
+		const paddedLength = getPaddedBufferSize( arrayBuffer.byteLength );
+
+		if ( paddedLength !== arrayBuffer.byteLength ) {
+
+			const array = new Uint8Array( paddedLength );
+			array.set( new Uint8Array( arrayBuffer ) );
+
+			if ( paddingByte !== 0 ) {
+
+				for ( let i = arrayBuffer.byteLength; i < paddedLength; i ++ ) {
+
+					array[ i ] = paddingByte;
+
+				}
+
+			}
+
+			return array.buffer;
+
+		}
+
+		return arrayBuffer;
+
+	}
+
+	let cachedCanvas = null;
+	/**
+ * Writer
+ */
+
+	class GLTFWriter {
+
+		constructor() {
+
+			this.plugins = [];
+			this.options = {};
+			this.pending = [];
+			this.buffers = [];
+			this.byteOffset = 0;
+			this.buffers = [];
+			this.nodeMap = new Map();
+			this.skins = [];
+			this.extensionsUsed = {};
+			this.uids = new Map();
+			this.uid = 0;
+			this.json = {
+				asset: {
+					version: '2.0',
+					generator: 'THREE.GLTFExporter'
+				}
+			};
+			this.cache = {
+				meshes: new Map(),
+				attributes: new Map(),
+				attributesNormalized: new Map(),
+				materials: new Map(),
+				textures: new Map(),
+				images: new Map()
+			};
+
+		}
+
+		setPlugins( plugins ) {
+
+			this.plugins = plugins;
+
+		}
+		/**
+   * Parse scenes and generate GLTF output
+   * @param  {Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
+   * @param  {Function} onDone  Callback on completed
+   * @param  {Object} options options
+   */
+
+
+		write( input, onDone, options ) {
+
+			this.options = Object.assign( {}, {
+				// default options
+				binary: false,
+				trs: false,
+				onlyVisible: true,
+				truncateDrawRange: true,
+				embedImages: true,
+				maxTextureSize: Infinity,
+				animations: [],
+				includeCustomExtensions: false
+			}, options );
+
+			if ( this.options.animations.length > 0 ) {
+
+				// Only TRS properties, and not matrices, may be targeted by animation.
+				this.options.trs = true;
+
+			}
+
+			this.processInput( input );
+			const writer = this;
+			Promise.all( this.pending ).then( function () {
+
+				const buffers = writer.buffers;
+				const json = writer.json;
+				const options = writer.options;
+				const extensionsUsed = writer.extensionsUsed; // Merge buffers.
+
+				const blob = new Blob( buffers, {
+					type: 'application/octet-stream'
+				} ); // Declare extensions.
+
+				const extensionsUsedList = Object.keys( extensionsUsed );
+				if ( extensionsUsedList.length > 0 ) json.extensionsUsed = extensionsUsedList; // Update bytelength of the single buffer.
+
+				if ( json.buffers && json.buffers.length > 0 ) json.buffers[ 0 ].byteLength = blob.size;
+
+				if ( options.binary === true ) {
+
+					// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
+					const reader = new window.FileReader();
+					reader.readAsArrayBuffer( blob );
+
+					reader.onloadend = function () {
+
+						// Binary chunk.
+						const binaryChunk = getPaddedArrayBuffer( reader.result );
+						const binaryChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+						binaryChunkPrefix.setUint32( 0, binaryChunk.byteLength, true );
+						binaryChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_BIN, true ); // JSON chunk.
+
+						const jsonChunk = getPaddedArrayBuffer( stringToArrayBuffer( JSON.stringify( json ) ), 0x20 );
+						const jsonChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+						jsonChunkPrefix.setUint32( 0, jsonChunk.byteLength, true );
+						jsonChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_JSON, true ); // GLB header.
+
+						const header = new ArrayBuffer( GLB_HEADER_BYTES );
+						const headerView = new DataView( header );
+						headerView.setUint32( 0, GLB_HEADER_MAGIC, true );
+						headerView.setUint32( 4, GLB_VERSION, true );
+						const totalByteLength = GLB_HEADER_BYTES + jsonChunkPrefix.byteLength + jsonChunk.byteLength + binaryChunkPrefix.byteLength + binaryChunk.byteLength;
+						headerView.setUint32( 8, totalByteLength, true );
+						const glbBlob = new Blob( [ header, jsonChunkPrefix, jsonChunk, binaryChunkPrefix, binaryChunk ], {
+							type: 'application/octet-stream'
+						} );
+						const glbReader = new window.FileReader();
+						glbReader.readAsArrayBuffer( glbBlob );
+
+						glbReader.onloadend = function () {
+
+							onDone( glbReader.result );
+
+						};
+
+					};
+
+				} else {
+
+					if ( json.buffers && json.buffers.length > 0 ) {
+
+						const reader = new window.FileReader();
+						reader.readAsDataURL( blob );
+
+						reader.onloadend = function () {
+
+							const base64data = reader.result;
+							json.buffers[ 0 ].uri = base64data;
+							onDone( json );
+
+						};
+
+					} else {
+
+						onDone( json );
+
+					}
+
+				}
+
+			} );
+
+		}
+		/**
+   * Serializes a userData.
+   *
+   * @param {THREE.Object3D|THREE.Material} object
+   * @param {Object} objectDef
+   */
+
+
+		serializeUserData( object, objectDef ) {
+
+			if ( Object.keys( object.userData ).length === 0 ) return;
+			const options = this.options;
+			const extensionsUsed = this.extensionsUsed;
+
+			try {
+
+				const json = JSON.parse( JSON.stringify( object.userData ) );
+
+				if ( options.includeCustomExtensions && json.gltfExtensions ) {
+
+					if ( objectDef.extensions === undefined ) objectDef.extensions = {};
+
+					for ( const extensionName in json.gltfExtensions ) {
+
+						objectDef.extensions[ extensionName ] = json.gltfExtensions[ extensionName ];
+						extensionsUsed[ extensionName ] = true;
+
+					}
+
+					delete json.gltfExtensions;
+
+				}
+
+				if ( Object.keys( json ).length > 0 ) objectDef.extras = json;
+
+			} catch ( error ) {
+
+				console.warn( 'THREE.GLTFExporter: userData of \'' + object.name + '\' ' + 'won\'t be serialized because of JSON.stringify error - ' + error.message );
+
+			}
+
+		}
+		/**
+   * Assign and return a temporal unique id for an object
+   * especially which doesn't have .uuid
+   * @param  {Object} object
+   * @return {Integer}
+   */
+
+
+		getUID( object ) {
+
+			if ( ! this.uids.has( object ) ) this.uids.set( object, this.uid ++ );
+			return this.uids.get( object );
+
+		}
+		/**
+   * Checks if normal attribute values are normalized.
+   *
+   * @param {BufferAttribute} normal
+   * @returns {Boolean}
+   */
+
+
+		isNormalizedNormalAttribute( normal ) {
+
+			const cache = this.cache;
+			if ( cache.attributesNormalized.has( normal ) ) return false;
+			const v = new THREE.Vector3();
+
+			for ( let i = 0, il = normal.count; i < il; i ++ ) {
+
+				// 0.0005 is from glTF-validator
+				if ( Math.abs( v.fromBufferAttribute( normal, i ).length() - 1.0 ) > 0.0005 ) return false;
+
+			}
+
+			return true;
+
+		}
+		/**
+   * Creates normalized normal buffer attribute.
+   *
+   * @param {BufferAttribute} normal
+   * @returns {BufferAttribute}
+   *
+   */
+
+
+		createNormalizedNormalAttribute( normal ) {
+
+			const cache = this.cache;
+			if ( cache.attributesNormalized.has( normal ) ) return cache.attributesNormalized.get( normal );
+			const attribute = normal.clone();
+			const v = new THREE.Vector3();
+
+			for ( let i = 0, il = attribute.count; i < il; i ++ ) {
+
+				v.fromBufferAttribute( attribute, i );
+
+				if ( v.x === 0 && v.y === 0 && v.z === 0 ) {
+
+					// if values can't be normalized set (1, 0, 0)
+					v.setX( 1.0 );
+
+				} else {
+
+					v.normalize();
+
+				}
+
+				attribute.setXYZ( i, v.x, v.y, v.z );
+
+			}
+
+			cache.attributesNormalized.set( normal, attribute );
+			return attribute;
+
+		}
+		/**
+   * Applies a texture transform, if present, to the map definition. Requires
+   * the KHR_texture_transform extension.
+   *
+   * @param {Object} mapDef
+   * @param {THREE.Texture} texture
+   */
+
+
+		applyTextureTransform( mapDef, texture ) {
+
+			let didTransform = false;
+			const transformDef = {};
+
+			if ( texture.offset.x !== 0 || texture.offset.y !== 0 ) {
+
+				transformDef.offset = texture.offset.toArray();
+				didTransform = true;
+
+			}
+
+			if ( texture.rotation !== 0 ) {
+
+				transformDef.rotation = texture.rotation;
+				didTransform = true;
+
+			}
+
+			if ( texture.repeat.x !== 1 || texture.repeat.y !== 1 ) {
+
+				transformDef.scale = texture.repeat.toArray();
+				didTransform = true;
+
+			}
+
+			if ( didTransform ) {
+
+				mapDef.extensions = mapDef.extensions || {};
+				mapDef.extensions[ 'KHR_texture_transform' ] = transformDef;
+				this.extensionsUsed[ 'KHR_texture_transform' ] = true;
+
+			}
+
+		}
+		/**
+   * Process a buffer to append to the default one.
+   * @param  {ArrayBuffer} buffer
+   * @return {Integer}
+   */
+
+
+		processBuffer( buffer ) {
+
+			const json = this.json;
+			const buffers = this.buffers;
+			if ( ! json.buffers ) json.buffers = [ {
+				byteLength: 0
+			} ]; // All buffers are merged before export.
+
+			buffers.push( buffer );
+			return 0;
+
+		}
+		/**
+   * Process and generate a BufferView
+   * @param  {BufferAttribute} attribute
+   * @param  {number} componentType
+   * @param  {number} start
+   * @param  {number} count
+   * @param  {number} target (Optional) Target usage of the BufferView
+   * @return {Object}
+   */
+
+
+		processBufferView( attribute, componentType, start, count, target ) {
+
+			const json = this.json;
+			if ( ! json.bufferViews ) json.bufferViews = []; // Create a new dataview and dump the attribute's array into it
+
+			let componentSize;
+
+			if ( componentType === WEBGL_CONSTANTS.UNSIGNED_BYTE ) {
+
+				componentSize = 1;
+
+			} else if ( componentType === WEBGL_CONSTANTS.UNSIGNED_SHORT ) {
+
+				componentSize = 2;
+
+			} else {
+
+				componentSize = 4;
+
+			}
+
+			const byteLength = getPaddedBufferSize( count * attribute.itemSize * componentSize );
+			const dataView = new DataView( new ArrayBuffer( byteLength ) );
+			let offset = 0;
+
+			for ( let i = start; i < start + count; i ++ ) {
+
+				for ( let a = 0; a < attribute.itemSize; a ++ ) {
+
+					let value;
+
+					if ( attribute.itemSize > 4 ) {
+
+						// no support for interleaved data for itemSize > 4
+						value = attribute.array[ i * attribute.itemSize + a ];
+
+					} else {
+
+						if ( a === 0 ) value = attribute.getX( i ); else if ( a === 1 ) value = attribute.getY( i ); else if ( a === 2 ) value = attribute.getZ( i ); else if ( a === 3 ) value = attribute.getW( i );
+
+					}
+
+					if ( componentType === WEBGL_CONSTANTS.FLOAT ) {
+
+						dataView.setFloat32( offset, value, true );
+
+					} else if ( componentType === WEBGL_CONSTANTS.UNSIGNED_INT ) {
+
+						dataView.setUint32( offset, value, true );
+
+					} else if ( componentType === WEBGL_CONSTANTS.UNSIGNED_SHORT ) {
+
+						dataView.setUint16( offset, value, true );
+
+					} else if ( componentType === WEBGL_CONSTANTS.UNSIGNED_BYTE ) {
+
+						dataView.setUint8( offset, value );
+
+					}
+
+					offset += componentSize;
+
+				}
+
+			}
+
+			const bufferViewDef = {
+				buffer: this.processBuffer( dataView.buffer ),
+				byteOffset: this.byteOffset,
+				byteLength: byteLength
+			};
+			if ( target !== undefined ) bufferViewDef.target = target;
+
+			if ( target === WEBGL_CONSTANTS.ARRAY_BUFFER ) {
+
+				// Only define byteStride for vertex attributes.
+				bufferViewDef.byteStride = attribute.itemSize * componentSize;
+
+			}
+
+			this.byteOffset += byteLength;
+			json.bufferViews.push( bufferViewDef ); // @TODO Merge bufferViews where possible.
+
+			const output = {
+				id: json.bufferViews.length - 1,
+				byteLength: 0
+			};
+			return output;
+
+		}
+		/**
+   * Process and generate a BufferView from an image Blob.
+   * @param {Blob} blob
+   * @return {Promise<Integer>}
+   */
+
+
+		processBufferViewImage( blob ) {
+
+			const writer = this;
+			const json = writer.json;
+			if ( ! json.bufferViews ) json.bufferViews = [];
+			return new Promise( function ( resolve ) {
+
+				const reader = new window.FileReader();
+				reader.readAsArrayBuffer( blob );
+
+				reader.onloadend = function () {
+
+					const buffer = getPaddedArrayBuffer( reader.result );
+					const bufferViewDef = {
+						buffer: writer.processBuffer( buffer ),
+						byteOffset: writer.byteOffset,
+						byteLength: buffer.byteLength
+					};
+					writer.byteOffset += buffer.byteLength;
+					resolve( json.bufferViews.push( bufferViewDef ) - 1 );
+
+				};
+
+			} );
+
+		}
+		/**
+   * Process attribute to generate an accessor
+   * @param  {BufferAttribute} attribute Attribute to process
+   * @param  {THREE.BufferGeometry} geometry (Optional) Geometry used for truncated draw range
+   * @param  {Integer} start (Optional)
+   * @param  {Integer} count (Optional)
+   * @return {Integer|null} Index of the processed accessor on the "accessors" array
+   */
+
+
+		processAccessor( attribute, geometry, start, count ) {
+
+			const options = this.options;
+			const json = this.json;
+			const types = {
+				1: 'SCALAR',
+				2: 'VEC2',
+				3: 'VEC3',
+				4: 'VEC4',
+				16: 'MAT4'
+			};
+			let componentType; // Detect the component type of the attribute array (float, uint or ushort)
+
+			if ( attribute.array.constructor === Float32Array ) {
+
+				componentType = WEBGL_CONSTANTS.FLOAT;
+
+			} else if ( attribute.array.constructor === Uint32Array ) {
+
+				componentType = WEBGL_CONSTANTS.UNSIGNED_INT;
+
+			} else if ( attribute.array.constructor === Uint16Array ) {
+
+				componentType = WEBGL_CONSTANTS.UNSIGNED_SHORT;
+
+			} else if ( attribute.array.constructor === Uint8Array ) {
+
+				componentType = WEBGL_CONSTANTS.UNSIGNED_BYTE;
+
+			} else {
+
+				throw new Error( 'THREE.GLTFExporter: Unsupported bufferAttribute component type.' );
+
+			}
+
+			if ( start === undefined ) start = 0;
+			if ( count === undefined ) count = attribute.count; // @TODO Indexed buffer geometry with drawRange not supported yet
+
+			if ( options.truncateDrawRange && geometry !== undefined && geometry.index === null ) {
+
+				const end = start + count;
+				const end2 = geometry.drawRange.count === Infinity ? attribute.count : geometry.drawRange.start + geometry.drawRange.count;
+				start = Math.max( start, geometry.drawRange.start );
+				count = Math.min( end, end2 ) - start;
+				if ( count < 0 ) count = 0;
+
+			} // Skip creating an accessor if the attribute doesn't have data to export
+
+
+			if ( count === 0 ) return null;
+			const minMax = getMinMax( attribute, start, count );
+			let bufferViewTarget; // If geometry isn't provided, don't infer the target usage of the bufferView. For
+			// animation samplers, target must not be set.
+
+			if ( geometry !== undefined ) {
+
+				bufferViewTarget = attribute === geometry.index ? WEBGL_CONSTANTS.ELEMENT_ARRAY_BUFFER : WEBGL_CONSTANTS.ARRAY_BUFFER;
+
+			}
+
+			const bufferView = this.processBufferView( attribute, componentType, start, count, bufferViewTarget );
+			const accessorDef = {
+				bufferView: bufferView.id,
+				byteOffset: bufferView.byteOffset,
+				componentType: componentType,
+				count: count,
+				max: minMax.max,
+				min: minMax.min,
+				type: types[ attribute.itemSize ]
+			};
+			if ( attribute.normalized === true ) accessorDef.normalized = true;
+			if ( ! json.accessors ) json.accessors = [];
+			return json.accessors.push( accessorDef ) - 1;
+
+		}
+		/**
+   * Process image
+   * @param  {Image} image to process
+   * @param  {Integer} format of the image (e.g. THREE.RGBFormat, THREE.RGBAFormat etc)
+   * @param  {Boolean} flipY before writing out the image
+   * @return {Integer}     Index of the processed texture in the "images" array
+   */
+
+
+		processImage( image, format, flipY ) {
+
+			const writer = this;
+			const cache = writer.cache;
+			const json = writer.json;
+			const options = writer.options;
+			const pending = writer.pending;
+			if ( ! cache.images.has( image ) ) cache.images.set( image, {} );
+			const cachedImages = cache.images.get( image );
+			const mimeType = format === THREE.RGBAFormat ? 'image/png' : 'image/jpeg';
+			const key = mimeType + ':flipY/' + flipY.toString();
+			if ( cachedImages[ key ] !== undefined ) return cachedImages[ key ];
+			if ( ! json.images ) json.images = [];
+			const imageDef = {
+				mimeType: mimeType
+			};
+
+			if ( options.embedImages ) {
+
+				const canvas = cachedCanvas = cachedCanvas || document.createElement( 'canvas' );
+				canvas.width = Math.min( image.width, options.maxTextureSize );
+				canvas.height = Math.min( image.height, options.maxTextureSize );
+				const ctx = canvas.getContext( '2d' );
+
+				if ( flipY === true ) {
+
+					ctx.translate( 0, canvas.height );
+					ctx.scale( 1, - 1 );
+
+				}
+
+				if ( typeof HTMLImageElement !== 'undefined' && image instanceof HTMLImageElement || typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement || typeof OffscreenCanvas !== 'undefined' && image instanceof OffscreenCanvas || typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap ) {
+
+					ctx.drawImage( image, 0, 0, canvas.width, canvas.height );
+
+				} else {
+
+					if ( format !== THREE.RGBAFormat && format !== THREE.RGBFormat ) {
+
+						console.error( 'GLTFExporter: Only RGB and RGBA formats are supported.' );
+
+					}
+
+					if ( image.width > options.maxTextureSize || image.height > options.maxTextureSize ) {
+
+						console.warn( 'GLTFExporter: Image size is bigger than maxTextureSize', image );
+
+					}
+
+					let data = image.data;
+
+					if ( format === THREE.RGBFormat ) {
+
+						data = new Uint8ClampedArray( image.height * image.width * 4 );
+
+						for ( let i = 0, j = 0; i < data.length; i += 4, j += 3 ) {
+
+							data[ i + 0 ] = image.data[ j + 0 ];
+							data[ i + 1 ] = image.data[ j + 1 ];
+							data[ i + 2 ] = image.data[ j + 2 ];
+							data[ i + 3 ] = 255;
+
+						}
+
+					}
+
+					ctx.putImageData( new ImageData( data, image.width, image.height ), 0, 0 );
+
+				}
+
+				if ( options.binary === true ) {
+
+					pending.push( new Promise( function ( resolve ) {
+
+						canvas.toBlob( function ( blob ) {
+
+							writer.processBufferViewImage( blob ).then( function ( bufferViewIndex ) {
+
+								imageDef.bufferView = bufferViewIndex;
+								resolve();
+
+							} );
+
+						}, mimeType );
+
+					} ) );
+
+				} else {
+
+					imageDef.uri = canvas.toDataURL( mimeType );
+
+				}
+
+			} else {
+
+				imageDef.uri = image.src;
+
+			}
+
+			const index = json.images.push( imageDef ) - 1;
+			cachedImages[ key ] = index;
+			return index;
+
+		}
+		/**
+   * Process sampler
+   * @param  {Texture} map Texture to process
+   * @return {Integer}     Index of the processed texture in the "samplers" array
+   */
+
+
+		processSampler( map ) {
+
+			const json = this.json;
+			if ( ! json.samplers ) json.samplers = [];
+			const samplerDef = {
+				magFilter: THREE_TO_WEBGL[ map.magFilter ],
+				minFilter: THREE_TO_WEBGL[ map.minFilter ],
+				wrapS: THREE_TO_WEBGL[ map.wrapS ],
+				wrapT: THREE_TO_WEBGL[ map.wrapT ]
+			};
+			return json.samplers.push( samplerDef ) - 1;
+
+		}
+		/**
+   * Process texture
+   * @param  {Texture} map Map to process
+   * @return {Integer} Index of the processed texture in the "textures" array
+   */
+
+
+		processTexture( map ) {
+
+			const cache = this.cache;
+			const json = this.json;
+			if ( cache.textures.has( map ) ) return cache.textures.get( map );
+			if ( ! json.textures ) json.textures = [];
+			const textureDef = {
+				sampler: this.processSampler( map ),
+				source: this.processImage( map.image, map.format, map.flipY )
+			};
+			if ( map.name ) textureDef.name = map.name;
+
+			this._invokeAll( function ( ext ) {
+
+				ext.writeTexture && ext.writeTexture( map, textureDef );
+
+			} );
+
+			const index = json.textures.push( textureDef ) - 1;
+			cache.textures.set( map, index );
+			return index;
+
+		}
+		/**
+   * Process material
+   * @param  {THREE.Material} material Material to process
+   * @return {Integer|null} Index of the processed material in the "materials" array
+   */
+
+
+		processMaterial( material ) {
+
+			const cache = this.cache;
+			const json = this.json;
+			if ( cache.materials.has( material ) ) return cache.materials.get( material );
+
+			if ( material.isShaderMaterial ) {
+
+				console.warn( 'GLTFExporter: THREE.ShaderMaterial not supported.' );
+				return null;
+
+			}
+
+			if ( ! json.materials ) json.materials = []; // @QUESTION Should we avoid including any attribute that has the default value?
+
+			const materialDef = {
+				pbrMetallicRoughness: {}
+			};
+
+			if ( material.isMeshStandardMaterial !== true && material.isMeshBasicMaterial !== true ) {
+
+				console.warn( 'GLTFExporter: Use MeshStandardMaterial or MeshBasicMaterial for best results.' );
+
+			} // pbrMetallicRoughness.baseColorFactor
+
+
+			const color = material.color.toArray().concat( [ material.opacity ] );
+
+			if ( ! equalArray( color, [ 1, 1, 1, 1 ] ) ) {
+
+				materialDef.pbrMetallicRoughness.baseColorFactor = color;
+
+			}
+
+			if ( material.isMeshStandardMaterial ) {
+
+				materialDef.pbrMetallicRoughness.metallicFactor = material.metalness;
+				materialDef.pbrMetallicRoughness.roughnessFactor = material.roughness;
+
+			} else {
+
+				materialDef.pbrMetallicRoughness.metallicFactor = 0.5;
+				materialDef.pbrMetallicRoughness.roughnessFactor = 0.5;
+
+			} // pbrMetallicRoughness.metallicRoughnessTexture
+
+
+			if ( material.metalnessMap || material.roughnessMap ) {
+
+				if ( material.metalnessMap === material.roughnessMap ) {
+
+					const metalRoughMapDef = {
+						index: this.processTexture( material.metalnessMap )
+					};
+					this.applyTextureTransform( metalRoughMapDef, material.metalnessMap );
+					materialDef.pbrMetallicRoughness.metallicRoughnessTexture = metalRoughMapDef;
+
+				} else {
+
+					console.warn( 'THREE.GLTFExporter: Ignoring metalnessMap and roughnessMap because they are not the same Texture.' );
+
+				}
+
+			} // pbrMetallicRoughness.baseColorTexture or pbrSpecularGlossiness diffuseTexture
+
+
+			if ( material.map ) {
+
+				const baseColorMapDef = {
+					index: this.processTexture( material.map )
+				};
+				this.applyTextureTransform( baseColorMapDef, material.map );
+				materialDef.pbrMetallicRoughness.baseColorTexture = baseColorMapDef;
+
+			}
+
+			if ( material.emissive ) {
+
+				// emissiveFactor
+				const emissive = material.emissive.clone().multiplyScalar( material.emissiveIntensity ).toArray();
+
+				if ( ! equalArray( emissive, [ 0, 0, 0 ] ) ) {
+
+					materialDef.emissiveFactor = emissive;
+
+				} // emissiveTexture
+
+
+				if ( material.emissiveMap ) {
+
+					const emissiveMapDef = {
+						index: this.processTexture( material.emissiveMap )
+					};
+					this.applyTextureTransform( emissiveMapDef, material.emissiveMap );
+					materialDef.emissiveTexture = emissiveMapDef;
+
+				}
+
+			} // normalTexture
+
+
+			if ( material.normalMap ) {
+
+				const normalMapDef = {
+					index: this.processTexture( material.normalMap )
+				};
+
+				if ( material.normalScale && material.normalScale.x !== - 1 ) {
+
+					if ( material.normalScale.x !== material.normalScale.y ) {
+
+						console.warn( 'THREE.GLTFExporter: Normal scale components are different, ignoring Y and exporting X.' );
+
+					}
+
+					normalMapDef.scale = material.normalScale.x;
+
+				}
+
+				this.applyTextureTransform( normalMapDef, material.normalMap );
+				materialDef.normalTexture = normalMapDef;
+
+			} // occlusionTexture
+
+
+			if ( material.aoMap ) {
+
+				const occlusionMapDef = {
+					index: this.processTexture( material.aoMap ),
+					texCoord: 1
+				};
+
+				if ( material.aoMapIntensity !== 1.0 ) {
+
+					occlusionMapDef.strength = material.aoMapIntensity;
+
+				}
+
+				this.applyTextureTransform( occlusionMapDef, material.aoMap );
+				materialDef.occlusionTexture = occlusionMapDef;
+
+			} // alphaMode
+
+
+			if ( material.transparent ) {
+
+				materialDef.alphaMode = 'BLEND';
+
+			} else {
+
+				if ( material.alphaTest > 0.0 ) {
+
+					materialDef.alphaMode = 'MASK';
+					materialDef.alphaCutoff = material.alphaTest;
+
+				}
+
+			} // doubleSided
+
+
+			if ( material.side === THREE.DoubleSide ) materialDef.doubleSided = true;
+			if ( material.name !== '' ) materialDef.name = material.name;
+			this.serializeUserData( material, materialDef );
+
+			this._invokeAll( function ( ext ) {
+
+				ext.writeMaterial && ext.writeMaterial( material, materialDef );
+
+			} );
+
+			const index = json.materials.push( materialDef ) - 1;
+			cache.materials.set( material, index );
+			return index;
+
+		}
+		/**
+   * Process mesh
+   * @param  {THREE.Mesh} mesh Mesh to process
+   * @return {Integer|null} Index of the processed mesh in the "meshes" array
+   */
+
+
+		processMesh( mesh ) {
+
+			const cache = this.cache;
+			const json = this.json;
+			const meshCacheKeyParts = [ mesh.geometry.uuid ];
+
+			if ( Array.isArray( mesh.material ) ) {
+
+				for ( let i = 0, l = mesh.material.length; i < l; i ++ ) {
+
+					meshCacheKeyParts.push( mesh.material[ i ].uuid );
+
+				}
+
+			} else {
+
+				meshCacheKeyParts.push( mesh.material.uuid );
+
+			}
+
+			const meshCacheKey = meshCacheKeyParts.join( ':' );
+			if ( cache.meshes.has( meshCacheKey ) ) return cache.meshes.get( meshCacheKey );
+			const geometry = mesh.geometry;
+			let mode; // Use the correct mode
+
+			if ( mesh.isLineSegments ) {
+
+				mode = WEBGL_CONSTANTS.LINES;
+
+			} else if ( mesh.isLineLoop ) {
+
+				mode = WEBGL_CONSTANTS.LINE_LOOP;
+
+			} else if ( mesh.isLine ) {
+
+				mode = WEBGL_CONSTANTS.LINE_STRIP;
+
+			} else if ( mesh.isPoints ) {
+
+				mode = WEBGL_CONSTANTS.POINTS;
+
+			} else {
+
+				mode = mesh.material.wireframe ? WEBGL_CONSTANTS.LINES : WEBGL_CONSTANTS.TRIANGLES;
+
+			}
+
+			if ( geometry.isBufferGeometry !== true ) {
+
+				throw new Error( 'THREE.GLTFExporter: Geometry is not of type THREE.BufferGeometry.' );
+
+			}
+
+			const meshDef = {};
+			const attributes = {};
+			const primitives = [];
+			const targets = []; // Conversion between attributes names in threejs and gltf spec
+
+			const nameConversion = {
+				uv: 'TEXCOORD_0',
+				uv2: 'TEXCOORD_1',
+				color: 'COLOR_0',
+				skinWeight: 'WEIGHTS_0',
+				skinIndex: 'JOINTS_0'
+			};
+			const originalNormal = geometry.getAttribute( 'normal' );
+
+			if ( originalNormal !== undefined && ! this.isNormalizedNormalAttribute( originalNormal ) ) {
+
+				console.warn( 'THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.' );
+				geometry.setAttribute( 'normal', this.createNormalizedNormalAttribute( originalNormal ) );
+
+			} // @QUESTION Detect if .vertexColors = true?
+			// For every attribute create an accessor
+
+
+			let modifiedAttribute = null;
+
+			for ( let attributeName in geometry.attributes ) {
+
+				// Ignore morph target attributes, which are exported later.
+				if ( attributeName.substr( 0, 5 ) === 'morph' ) continue;
+				const attribute = geometry.attributes[ attributeName ];
+				attributeName = nameConversion[ attributeName ] || attributeName.toUpperCase(); // Prefix all geometry attributes except the ones specifically
+				// listed in the spec; non-spec attributes are considered custom.
+
+				const validVertexAttributes = /^(POSITION|NORMAL|TANGENT|TEXCOORD_\d+|COLOR_\d+|JOINTS_\d+|WEIGHTS_\d+)$/;
+				if ( ! validVertexAttributes.test( attributeName ) ) attributeName = '_' + attributeName;
+
+				if ( cache.attributes.has( this.getUID( attribute ) ) ) {
+
+					attributes[ attributeName ] = cache.attributes.get( this.getUID( attribute ) );
+					continue;
+
+				} // JOINTS_0 must be UNSIGNED_BYTE or UNSIGNED_SHORT.
+
+
+				modifiedAttribute = null;
+				const array = attribute.array;
+
+				if ( attributeName === 'JOINTS_0' && ! ( array instanceof Uint16Array ) && ! ( array instanceof Uint8Array ) ) {
+
+					console.warn( 'GLTFExporter: Attribute "skinIndex" converted to type UNSIGNED_SHORT.' );
+					modifiedAttribute = new THREE.BufferAttribute( new Uint16Array( array ), attribute.itemSize, attribute.normalized );
+
+				}
+
+				const accessor = this.processAccessor( modifiedAttribute || attribute, geometry );
+
+				if ( accessor !== null ) {
+
+					attributes[ attributeName ] = accessor;
+					cache.attributes.set( this.getUID( attribute ), accessor );
+
+				}
+
+			}
+
+			if ( originalNormal !== undefined ) geometry.setAttribute( 'normal', originalNormal ); // Skip if no exportable attributes found
+
+			if ( Object.keys( attributes ).length === 0 ) return null; // Morph targets
+
+			if ( mesh.morphTargetInfluences !== undefined && mesh.morphTargetInfluences.length > 0 ) {
+
+				const weights = [];
+				const targetNames = [];
+				const reverseDictionary = {};
+
+				if ( mesh.morphTargetDictionary !== undefined ) {
+
+					for ( const key in mesh.morphTargetDictionary ) {
+
+						reverseDictionary[ mesh.morphTargetDictionary[ key ] ] = key;
+
+					}
+
+				}
+
+				for ( let i = 0; i < mesh.morphTargetInfluences.length; ++ i ) {
+
+					const target = {};
+					let warned = false;
+
+					for ( const attributeName in geometry.morphAttributes ) {
+
+						// glTF 2.0 morph supports only POSITION/NORMAL/TANGENT.
+						// Three.js doesn't support TANGENT yet.
+						if ( attributeName !== 'position' && attributeName !== 'normal' ) {
+
+							if ( ! warned ) {
+
+								console.warn( 'GLTFExporter: Only POSITION and NORMAL morph are supported.' );
+								warned = true;
+
+							}
+
+							continue;
+
+						}
+
+						const attribute = geometry.morphAttributes[ attributeName ][ i ];
+						const gltfAttributeName = attributeName.toUpperCase(); // Three.js morph attribute has absolute values while the one of glTF has relative values.
+						//
+						// glTF 2.0 Specification:
+						// https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#morph-targets
+
+						const baseAttribute = geometry.attributes[ attributeName ];
+
+						if ( cache.attributes.has( this.getUID( attribute ) ) ) {
+
+							target[ gltfAttributeName ] = cache.attributes.get( this.getUID( attribute ) );
+							continue;
+
+						} // Clones attribute not to override
+
+
+						const relativeAttribute = attribute.clone();
+
+						if ( ! geometry.morphTargetsRelative ) {
+
+							for ( let j = 0, jl = attribute.count; j < jl; j ++ ) {
+
+								relativeAttribute.setXYZ( j, attribute.getX( j ) - baseAttribute.getX( j ), attribute.getY( j ) - baseAttribute.getY( j ), attribute.getZ( j ) - baseAttribute.getZ( j ) );
+
+							}
+
+						}
+
+						target[ gltfAttributeName ] = this.processAccessor( relativeAttribute, geometry );
+						cache.attributes.set( this.getUID( baseAttribute ), target[ gltfAttributeName ] );
+
+					}
+
+					targets.push( target );
+					weights.push( mesh.morphTargetInfluences[ i ] );
+					if ( mesh.morphTargetDictionary !== undefined ) targetNames.push( reverseDictionary[ i ] );
+
+				}
+
+				meshDef.weights = weights;
+
+				if ( targetNames.length > 0 ) {
+
+					meshDef.extras = {};
+					meshDef.extras.targetNames = targetNames;
+
+				}
+
+			}
+
+			const isMultiMaterial = Array.isArray( mesh.material );
+			if ( isMultiMaterial && geometry.groups.length === 0 ) return null;
+			const materials = isMultiMaterial ? mesh.material : [ mesh.material ];
+			const groups = isMultiMaterial ? geometry.groups : [ {
+				materialIndex: 0,
+				start: undefined,
+				count: undefined
+			} ];
+
+			for ( let i = 0, il = groups.length; i < il; i ++ ) {
+
+				const primitive = {
+					mode: mode,
+					attributes: attributes
+				};
+				this.serializeUserData( geometry, primitive );
+				if ( targets.length > 0 ) primitive.targets = targets;
+
+				if ( geometry.index !== null ) {
+
+					let cacheKey = this.getUID( geometry.index );
+
+					if ( groups[ i ].start !== undefined || groups[ i ].count !== undefined ) {
+
+						cacheKey += ':' + groups[ i ].start + ':' + groups[ i ].count;
+
+					}
+
+					if ( cache.attributes.has( cacheKey ) ) {
+
+						primitive.indices = cache.attributes.get( cacheKey );
+
+					} else {
+
+						primitive.indices = this.processAccessor( geometry.index, geometry, groups[ i ].start, groups[ i ].count );
+						cache.attributes.set( cacheKey, primitive.indices );
+
+					}
+
+					if ( primitive.indices === null ) delete primitive.indices;
+
+				}
+
+				const material = this.processMaterial( materials[ groups[ i ].materialIndex ] );
+				if ( material !== null ) primitive.material = material;
+				primitives.push( primitive );
+
+			}
+
+			meshDef.primitives = primitives;
+			if ( ! json.meshes ) json.meshes = [];
+
+			this._invokeAll( function ( ext ) {
+
+				ext.writeMesh && ext.writeMesh( mesh, meshDef );
+
+			} );
+
+			const index = json.meshes.push( meshDef ) - 1;
+			cache.meshes.set( meshCacheKey, index );
+			return index;
+
+		}
+		/**
+   * Process camera
+   * @param  {THREE.Camera} camera Camera to process
+   * @return {Integer}      Index of the processed mesh in the "camera" array
+   */
+
+
+		processCamera( camera ) {
+
+			const json = this.json;
+			if ( ! json.cameras ) json.cameras = [];
+			const isOrtho = camera.isOrthographicCamera;
+			const cameraDef = {
+				type: isOrtho ? 'orthographic' : 'perspective'
+			};
+
+			if ( isOrtho ) {
+
+				cameraDef.orthographic = {
+					xmag: camera.right * 2,
+					ymag: camera.top * 2,
+					zfar: camera.far <= 0 ? 0.001 : camera.far,
+					znear: camera.near < 0 ? 0 : camera.near
+				};
+
+			} else {
+
+				cameraDef.perspective = {
+					aspectRatio: camera.aspect,
+					yfov: THREE.MathUtils.degToRad( camera.fov ),
+					zfar: camera.far <= 0 ? 0.001 : camera.far,
+					znear: camera.near < 0 ? 0 : camera.near
+				};
+
+			} // Question: Is saving "type" as name intentional?
+
+
+			if ( camera.name !== '' ) cameraDef.name = camera.type;
+			return json.cameras.push( cameraDef ) - 1;
+
+		}
+		/**
+   * Creates glTF animation entry from AnimationClip object.
+   *
+   * Status:
+   * - Only properties listed in PATH_PROPERTIES may be animated.
+   *
+   * @param {THREE.AnimationClip} clip
+   * @param {THREE.Object3D} root
+   * @return {number|null}
+   */
+
+
+		processAnimation( clip, root ) {
+
+			const json = this.json;
+			const nodeMap = this.nodeMap;
+			if ( ! json.animations ) json.animations = [];
+			clip = GLTFExporter.Utils.mergeMorphTargetTracks( clip.clone(), root );
+			const tracks = clip.tracks;
+			const channels = [];
+			const samplers = [];
+
+			for ( let i = 0; i < tracks.length; ++ i ) {
+
+				const track = tracks[ i ];
+				const trackBinding = THREE.PropertyBinding.parseTrackName( track.name );
+				let trackNode = THREE.PropertyBinding.findNode( root, trackBinding.nodeName );
+				const trackProperty = PATH_PROPERTIES[ trackBinding.propertyName ];
+
+				if ( trackBinding.objectName === 'bones' ) {
+
+					if ( trackNode.isSkinnedMesh === true ) {
+
+						trackNode = trackNode.skeleton.getBoneByName( trackBinding.objectIndex );
+
+					} else {
+
+						trackNode = undefined;
+
+					}
+
+				}
+
+				if ( ! trackNode || ! trackProperty ) {
+
+					console.warn( 'THREE.GLTFExporter: Could not export animation track "%s".', track.name );
+					return null;
+
+				}
+
+				const inputItemSize = 1;
+				let outputItemSize = track.values.length / track.times.length;
+
+				if ( trackProperty === PATH_PROPERTIES.morphTargetInfluences ) {
+
+					outputItemSize /= trackNode.morphTargetInfluences.length;
+
+				}
+
+				let interpolation; // @TODO export CubicInterpolant(InterpolateSmooth) as CUBICSPLINE
+				// Detecting glTF cubic spline interpolant by checking factory method's special property
+				// GLTFCubicSplineInterpolant is a custom interpolant and track doesn't return
+				// valid value from .getInterpolation().
+
+				if ( track.createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline === true ) {
+
+					interpolation = 'CUBICSPLINE'; // itemSize of CUBICSPLINE keyframe is 9
+					// (VEC3 * 3: inTangent, splineVertex, and outTangent)
+					// but needs to be stored as VEC3 so dividing by 3 here.
+
+					outputItemSize /= 3;
+
+				} else if ( track.getInterpolation() === THREE.InterpolateDiscrete ) {
+
+					interpolation = 'STEP';
+
+				} else {
+
+					interpolation = 'LINEAR';
+
+				}
+
+				samplers.push( {
+					input: this.processAccessor( new THREE.BufferAttribute( track.times, inputItemSize ) ),
+					output: this.processAccessor( new THREE.BufferAttribute( track.values, outputItemSize ) ),
+					interpolation: interpolation
+				} );
+				channels.push( {
+					sampler: samplers.length - 1,
+					target: {
+						node: nodeMap.get( trackNode ),
+						path: trackProperty
+					}
+				} );
+
+			}
+
+			json.animations.push( {
+				name: clip.name || 'clip_' + json.animations.length,
+				samplers: samplers,
+				channels: channels
+			} );
+			return json.animations.length - 1;
+
+		}
+		/**
+   * @param {THREE.Object3D} object
+   * @return {number|null}
+   */
+
+
+		processSkin( object ) {
+
+			const json = this.json;
+			const nodeMap = this.nodeMap;
+			const node = json.nodes[ nodeMap.get( object ) ];
+			const skeleton = object.skeleton;
+			if ( skeleton === undefined ) return null;
+			const rootJoint = object.skeleton.bones[ 0 ];
+			if ( rootJoint === undefined ) return null;
+			const joints = [];
+			const inverseBindMatrices = new Float32Array( skeleton.bones.length * 16 );
+			const temporaryBoneInverse = new THREE.Matrix4();
+
+			for ( let i = 0; i < skeleton.bones.length; ++ i ) {
+
+				joints.push( nodeMap.get( skeleton.bones[ i ] ) );
+				temporaryBoneInverse.copy( skeleton.boneInverses[ i ] );
+				temporaryBoneInverse.multiply( object.bindMatrix ).toArray( inverseBindMatrices, i * 16 );
+
+			}
+
+			if ( json.skins === undefined ) json.skins = [];
+			json.skins.push( {
+				inverseBindMatrices: this.processAccessor( new THREE.BufferAttribute( inverseBindMatrices, 16 ) ),
+				joints: joints,
+				skeleton: nodeMap.get( rootJoint )
+			} );
+			const skinIndex = node.skin = json.skins.length - 1;
+			return skinIndex;
+
+		}
+		/**
+   * Process Object3D node
+   * @param  {THREE.Object3D} node Object3D to processNode
+   * @return {Integer} Index of the node in the nodes list
+   */
+
+
+		processNode( object ) {
+
+			const json = this.json;
+			const options = this.options;
+			const nodeMap = this.nodeMap;
+			if ( ! json.nodes ) json.nodes = [];
+			const nodeDef = {};
+
+			if ( options.trs ) {
+
+				const rotation = object.quaternion.toArray();
+				const position = object.position.toArray();
+				const scale = object.scale.toArray();
+
+				if ( ! equalArray( rotation, [ 0, 0, 0, 1 ] ) ) {
+
+					nodeDef.rotation = rotation;
+
+				}
+
+				if ( ! equalArray( position, [ 0, 0, 0 ] ) ) {
+
+					nodeDef.translation = position;
+
+				}
+
+				if ( ! equalArray( scale, [ 1, 1, 1 ] ) ) {
+
+					nodeDef.scale = scale;
+
+				}
+
+			} else {
+
+				if ( object.matrixAutoUpdate ) {
+
+					object.updateMatrix();
+
+				}
+
+				if ( isIdentityMatrix( object.matrix ) === false ) {
+
+					nodeDef.matrix = object.matrix.elements;
+
+				}
+
+			} // We don't export empty strings name because it represents no-name in Three.js.
+
+
+			if ( object.name !== '' ) nodeDef.name = String( object.name );
+			this.serializeUserData( object, nodeDef );
+
+			if ( object.isMesh || object.isLine || object.isPoints ) {
+
+				const meshIndex = this.processMesh( object );
+				if ( meshIndex !== null ) nodeDef.mesh = meshIndex;
+
+			} else if ( object.isCamera ) {
+
+				nodeDef.camera = this.processCamera( object );
+
+			}
+
+			if ( object.isSkinnedMesh ) this.skins.push( object );
+
+			if ( object.children.length > 0 ) {
+
+				const children = [];
+
+				for ( let i = 0, l = object.children.length; i < l; i ++ ) {
+
+					const child = object.children[ i ];
+
+					if ( child.visible || options.onlyVisible === false ) {
+
+						const nodeIndex = this.processNode( child );
+						if ( nodeIndex !== null ) children.push( nodeIndex );
+
+					}
+
+				}
+
+				if ( children.length > 0 ) nodeDef.children = children;
+
+			}
+
+			this._invokeAll( function ( ext ) {
+
+				ext.writeNode && ext.writeNode( object, nodeDef );
+
+			} );
+
+			const nodeIndex = json.nodes.push( nodeDef ) - 1;
+			nodeMap.set( object, nodeIndex );
+			return nodeIndex;
+
+		}
+		/**
+   * Process THREE.Scene
+   * @param  {Scene} node THREE.Scene to process
+   */
+
+
+		processScene( scene ) {
+
+			const json = this.json;
+			const options = this.options;
+
+			if ( ! json.scenes ) {
+
+				json.scenes = [];
+				json.scene = 0;
+
+			}
+
+			const sceneDef = {};
+			if ( scene.name !== '' ) sceneDef.name = scene.name;
+			json.scenes.push( sceneDef );
+			const nodes = [];
+
+			for ( let i = 0, l = scene.children.length; i < l; i ++ ) {
+
+				const child = scene.children[ i ];
+
+				if ( child.visible || options.onlyVisible === false ) {
+
+					const nodeIndex = this.processNode( child );
+					if ( nodeIndex !== null ) nodes.push( nodeIndex );
+
+				}
+
+			}
+
+			if ( nodes.length > 0 ) sceneDef.nodes = nodes;
+			this.serializeUserData( scene, sceneDef );
+
+		}
+		/**
+   * Creates a THREE.Scene to hold a list of objects and parse it
+   * @param  {Array} objects List of objects to process
+   */
+
+
+		processObjects( objects ) {
+
+			const scene = new THREE.Scene();
+			scene.name = 'AuxScene';
+
+			for ( let i = 0; i < objects.length; i ++ ) {
+
+				// We push directly to children instead of calling `add` to prevent
+				// modify the .parent and break its original scene and hierarchy
+				scene.children.push( objects[ i ] );
+
+			}
+
+			this.processScene( scene );
+
+		}
+		/**
+   * @param {THREE.Object3D|Array<THREE.Object3D>} input
+   */
+
+
+		processInput( input ) {
+
+			const options = this.options;
+			input = input instanceof Array ? input : [ input ];
+
+			this._invokeAll( function ( ext ) {
+
+				ext.beforeParse && ext.beforeParse( input );
+
+			} );
+
+			const objectsWithoutScene = [];
+
+			for ( let i = 0; i < input.length; i ++ ) {
+
+				if ( input[ i ] instanceof THREE.Scene ) {
+
+					this.processScene( input[ i ] );
+
+				} else {
+
+					objectsWithoutScene.push( input[ i ] );
+
+				}
+
+			}
+
+			if ( objectsWithoutScene.length > 0 ) this.processObjects( objectsWithoutScene );
+
+			for ( let i = 0; i < this.skins.length; ++ i ) {
+
+				this.processSkin( this.skins[ i ] );
+
+			}
+
+			for ( let i = 0; i < options.animations.length; ++ i ) {
+
+				this.processAnimation( options.animations[ i ], input[ 0 ] );
+
+			}
+
+			this._invokeAll( function ( ext ) {
+
+				ext.afterParse && ext.afterParse( input );
+
+			} );
+
+		}
+
+		_invokeAll( func ) {
+
+			for ( let i = 0, il = this.plugins.length; i < il; i ++ ) {
+
+				func( this.plugins[ i ] );
+
+			}
+
+		}
+
+	}
+	/**
+ * Punctual Lights Extension
+ *
+ * Specification: https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_lights_punctual
+ */
+
+
+	class GLTFLightExtension {
+
+		constructor( writer ) {
+
+			this.writer = writer;
+			this.name = 'KHR_lights_punctual';
+
+		}
+
+		writeNode( light, nodeDef ) {
+
+			if ( ! light.isLight ) return;
+
+			if ( ! light.isDirectionalLight && ! light.isPointLight && ! light.isSpotLight ) {
+
+				console.warn( 'THREE.GLTFExporter: Only directional, point, and spot lights are supported.', light );
+				return;
+
+			}
+
+			const writer = this.writer;
+			const json = writer.json;
+			const extensionsUsed = writer.extensionsUsed;
+			const lightDef = {};
+			if ( light.name ) lightDef.name = light.name;
+			lightDef.color = light.color.toArray();
+			lightDef.intensity = light.intensity;
+
+			if ( light.isDirectionalLight ) {
+
+				lightDef.type = 'directional';
+
+			} else if ( light.isPointLight ) {
+
+				lightDef.type = 'point';
+				if ( light.distance > 0 ) lightDef.range = light.distance;
+
+			} else if ( light.isSpotLight ) {
+
+				lightDef.type = 'spot';
+				if ( light.distance > 0 ) lightDef.range = light.distance;
+				lightDef.spot = {};
+				lightDef.spot.innerConeAngle = ( light.penumbra - 1.0 ) * light.angle * - 1.0;
+				lightDef.spot.outerConeAngle = light.angle;
+
+			}
+
+			if ( light.decay !== undefined && light.decay !== 2 ) {
+
+				console.warn( 'THREE.GLTFExporter: Light decay may be lost. glTF is physically-based, ' + 'and expects light.decay=2.' );
+
+			}
+
+			if ( light.target && ( light.target.parent !== light || light.target.position.x !== 0 || light.target.position.y !== 0 || light.target.position.z !== - 1 ) ) {
+
+				console.warn( 'THREE.GLTFExporter: Light direction may be lost. For best results, ' + 'make light.target a child of the light with position 0,0,-1.' );
+
+			}
+
+			if ( ! extensionsUsed[ this.name ] ) {
+
+				json.extensions = json.extensions || {};
+				json.extensions[ this.name ] = {
+					lights: []
+				};
+				extensionsUsed[ this.name ] = true;
+
+			}
+
+			const lights = json.extensions[ this.name ].lights;
+			lights.push( lightDef );
+			nodeDef.extensions = nodeDef.extensions || {};
+			nodeDef.extensions[ this.name ] = {
+				light: lights.length - 1
+			};
+
+		}
+
+	}
+	/**
+ * Unlit Materials Extension
+ *
+ * Specification: https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_unlit
+ */
+
+
+	class GLTFMaterialsUnlitExtension {
+
+		constructor( writer ) {
+
+			this.writer = writer;
+			this.name = 'KHR_materials_unlit';
+
+		}
+
+		writeMaterial( material, materialDef ) {
+
+			if ( ! material.isMeshBasicMaterial ) return;
+			const writer = this.writer;
+			const extensionsUsed = writer.extensionsUsed;
+			materialDef.extensions = materialDef.extensions || {};
+			materialDef.extensions[ this.name ] = {};
+			extensionsUsed[ this.name ] = true;
+			materialDef.pbrMetallicRoughness.metallicFactor = 0.0;
+			materialDef.pbrMetallicRoughness.roughnessFactor = 0.9;
+
+		}
+
+	}
+	/**
+ * Specular-Glossiness Extension
+ *
+ * Specification: https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_pbrSpecularGlossiness
+ */
+
+
+	class GLTFMaterialsPBRSpecularGlossiness {
+
+		constructor( writer ) {
+
+			this.writer = writer;
+			this.name = 'KHR_materials_pbrSpecularGlossiness';
+
+		}
+
+		writeMaterial( material, materialDef ) {
+
+			if ( ! material.isGLTFSpecularGlossinessMaterial ) return;
+			const writer = this.writer;
+			const extensionsUsed = writer.extensionsUsed;
+			const extensionDef = {};
+
+			if ( materialDef.pbrMetallicRoughness.baseColorFactor ) {
+
+				extensionDef.diffuseFactor = materialDef.pbrMetallicRoughness.baseColorFactor;
+
+			}
+
+			const specularFactor = [ 1, 1, 1 ];
+			material.specular.toArray( specularFactor, 0 );
+			extensionDef.specularFactor = specularFactor;
+			extensionDef.glossinessFactor = material.glossiness;
+
+			if ( materialDef.pbrMetallicRoughness.baseColorTexture ) {
+
+				extensionDef.diffuseTexture = materialDef.pbrMetallicRoughness.baseColorTexture;
+
+			}
+
+			if ( material.specularMap ) {
+
+				const specularMapDef = {
+					index: writer.processTexture( material.specularMap )
+				};
+				writer.applyTextureTransform( specularMapDef, material.specularMap );
+				extensionDef.specularGlossinessTexture = specularMapDef;
+
+			}
+
+			materialDef.extensions = materialDef.extensions || {};
+			materialDef.extensions[ this.name ] = extensionDef;
+			extensionsUsed[ this.name ] = true;
+
+		}
+
+	}
+	/**
+ * Static utility functions
+ */
+
+
+	GLTFExporter.Utils = {
+		insertKeyframe: function ( track, time ) {
+
+			const tolerance = 0.001; // 1ms
+
+			const valueSize = track.getValueSize();
+			const times = new track.TimeBufferType( track.times.length + 1 );
+			const values = new track.ValueBufferType( track.values.length + valueSize );
+			const interpolant = track.createInterpolant( new track.ValueBufferType( valueSize ) );
+			let index;
+
+			if ( track.times.length === 0 ) {
+
+				times[ 0 ] = time;
+
+				for ( let i = 0; i < valueSize; i ++ ) {
+
+					values[ i ] = 0;
+
+				}
+
+				index = 0;
+
+			} else if ( time < track.times[ 0 ] ) {
+
+				if ( Math.abs( track.times[ 0 ] - time ) < tolerance ) return 0;
+				times[ 0 ] = time;
+				times.set( track.times, 1 );
+				values.set( interpolant.evaluate( time ), 0 );
+				values.set( track.values, valueSize );
+				index = 0;
+
+			} else if ( time > track.times[ track.times.length - 1 ] ) {
+
+				if ( Math.abs( track.times[ track.times.length - 1 ] - time ) < tolerance ) {
+
+					return track.times.length - 1;
+
+				}
+
+				times[ times.length - 1 ] = time;
+				times.set( track.times, 0 );
+				values.set( track.values, 0 );
+				values.set( interpolant.evaluate( time ), track.values.length );
+				index = times.length - 1;
+
+			} else {
+
+				for ( let i = 0; i < track.times.length; i ++ ) {
+
+					if ( Math.abs( track.times[ i ] - time ) < tolerance ) return i;
+
+					if ( track.times[ i ] < time && track.times[ i + 1 ] > time ) {
+
+						times.set( track.times.slice( 0, i + 1 ), 0 );
+						times[ i + 1 ] = time;
+						times.set( track.times.slice( i + 1 ), i + 2 );
+						values.set( track.values.slice( 0, ( i + 1 ) * valueSize ), 0 );
+						values.set( interpolant.evaluate( time ), ( i + 1 ) * valueSize );
+						values.set( track.values.slice( ( i + 1 ) * valueSize ), ( i + 2 ) * valueSize );
+						index = i + 1;
+						break;
+
+					}
+
+				}
+
+			}
+
+			track.times = times;
+			track.values = values;
+			return index;
+
+		},
+		mergeMorphTargetTracks: function ( clip, root ) {
+
+			const tracks = [];
+			const mergedTracks = {};
+			const sourceTracks = clip.tracks;
+
+			for ( let i = 0; i < sourceTracks.length; ++ i ) {
+
+				let sourceTrack = sourceTracks[ i ];
+				const sourceTrackBinding = THREE.PropertyBinding.parseTrackName( sourceTrack.name );
+				const sourceTrackNode = THREE.PropertyBinding.findNode( root, sourceTrackBinding.nodeName );
+
+				if ( sourceTrackBinding.propertyName !== 'morphTargetInfluences' || sourceTrackBinding.propertyIndex === undefined ) {
+
+					// Tracks that don't affect morph targets, or that affect all morph targets together, can be left as-is.
+					tracks.push( sourceTrack );
+					continue;
+
+				}
+
+				if ( sourceTrack.createInterpolant !== sourceTrack.InterpolantFactoryMethodDiscrete && sourceTrack.createInterpolant !== sourceTrack.InterpolantFactoryMethodLinear ) {
+
+					if ( sourceTrack.createInterpolant.isInterpolantFactoryMethodGLTFCubicSpline ) {
+
+						// This should never happen, because glTF morph target animations
+						// affect all targets already.
+						throw new Error( 'THREE.GLTFExporter: Cannot merge tracks with glTF CUBICSPLINE interpolation.' );
+
+					}
+
+					console.warn( 'THREE.GLTFExporter: Morph target interpolation mode not yet supported. Using LINEAR instead.' );
+					sourceTrack = sourceTrack.clone();
+					sourceTrack.setInterpolation( THREE.InterpolateLinear );
+
+				}
+
+				const targetCount = sourceTrackNode.morphTargetInfluences.length;
+				const targetIndex = sourceTrackNode.morphTargetDictionary[ sourceTrackBinding.propertyIndex ];
+
+				if ( targetIndex === undefined ) {
+
+					throw new Error( 'THREE.GLTFExporter: Morph target name not found: ' + sourceTrackBinding.propertyIndex );
+
+				}
+
+				let mergedTrack; // If this is the first time we've seen this object, create a new
+				// track to store merged keyframe data for each morph target.
+
+				if ( mergedTracks[ sourceTrackNode.uuid ] === undefined ) {
+
+					mergedTrack = sourceTrack.clone();
+					const values = new mergedTrack.ValueBufferType( targetCount * mergedTrack.times.length );
+
+					for ( let j = 0; j < mergedTrack.times.length; j ++ ) {
+
+						values[ j * targetCount + targetIndex ] = mergedTrack.values[ j ];
+
+					} // We need to take into consideration the intended target node
+					// of our original un-merged morphTarget animation.
+
+
+					mergedTrack.name = ( sourceTrackBinding.nodeName || '' ) + '.morphTargetInfluences';
+					mergedTrack.values = values;
+					mergedTracks[ sourceTrackNode.uuid ] = mergedTrack;
+					tracks.push( mergedTrack );
+					continue;
+
+				}
+
+				const sourceInterpolant = sourceTrack.createInterpolant( new sourceTrack.ValueBufferType( 1 ) );
+				mergedTrack = mergedTracks[ sourceTrackNode.uuid ]; // For every existing keyframe of the merged track, write a (possibly
+				// interpolated) value from the source track.
+
+				for ( let j = 0; j < mergedTrack.times.length; j ++ ) {
+
+					mergedTrack.values[ j * targetCount + targetIndex ] = sourceInterpolant.evaluate( mergedTrack.times[ j ] );
+
+				} // For every existing keyframe of the source track, write a (possibly
+				// new) keyframe to the merged track. Values from the previous loop may
+				// be written again, but keyframes are de-duplicated.
+
+
+				for ( let j = 0; j < sourceTrack.times.length; j ++ ) {
+
+					const keyframeIndex = this.insertKeyframe( mergedTrack, sourceTrack.times[ j ] );
+					mergedTrack.values[ keyframeIndex * targetCount + targetIndex ] = sourceTrack.values[ j ];
+
+				}
+
+			}
+
+			clip.tracks = tracks;
+			return clip;
+
+		}
+	};
+
+	THREE.GLTFExporter = GLTFExporter;
+
+} )();
+}
+
 // ================================================================== SETS ==
 // The stage (the floor, its grid and the sky, life size: 1 unit is 1 m, the floor at y = 0) and the looks of the
 // items: a cube's see-through box, a sound's speaker, a model's grey box while it loads.
@@ -11298,7 +15742,7 @@ const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && 
 const extOf = p => (/\.([^./\\]+)$/.exec(String(p)) || ['', ''])[1].toLowerCase();
 const baseName = p => String(p).split(/[\\/]/).pop();
 const stem = p => baseName(p).replace(/\.[^.]*$/, '');
-const KINDS_EXT = { model: ['glb', 'gltf', 'fbx'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
+const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
 const kindOf = p => { const e = extOf(p); for (const k in KINDS_EXT) if (KINDS_EXT[k].includes(e)) return k; return 'other'; };
 // timers that die with the studio (dispose clears them: a late one must not write into the next story's panes)
 const TIMERS = new Set();
@@ -11306,7 +15750,7 @@ const later = (fn, ms) => { const t = setTimeout(() => { TIMERS.delete(t); if (!
 const unlater = t => { if (t) { clearTimeout(t); TIMERS.delete(t); } };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
 
-const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
+const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, upload: false, ffmpeg: false, maxUpload: 0, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
 // kind: 'relay' or 'folder'; state: 'looking', 'ok', 'auth' (the relay wants its password), 'none' (no relay and no
 // folder of scenes), 'error'. held: the relay refused the password this page has (or none): nothing more is asked of it
 // until the shell holds another one (every wrong one counts on the relay: 20 in a minute shut this address out)
@@ -11425,6 +15869,8 @@ async function listScenes(gen) {
     SRC.scenes = (j && Array.isArray(j.scenes) ? j.scenes : []).filter(s => s && okScene(s.name))
       .map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
     SRC.save = SRC.kind === 'relay' && !!(j && j.save);
+    // (uploads: this caller may upload, the relay has ffmpeg for long sounds, one file's limit in bytes)
+    SRC.upload = SRC.kind === 'relay' && !!(j && j.upload); SRC.ffmpeg = SRC.upload && !!(j && j.ffmpeg); SRC.maxUpload = +(j && j.maxUpload) || 0;
     SRC.state = 'ok'; SRC.note = '';
     if (SRC.kind === 'relay') watchStart();
   } catch (e) {
@@ -11508,7 +15954,8 @@ function setFiles(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path) });
+    // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path) });
   }
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
@@ -11712,6 +16159,532 @@ function onScenesEvent(d) {
   chooseScene();
   dirty(true);
 }
+// ================================================================ CONVERT ==
+// The converter (tools/studio/SPEC.md, "GLB first, and converting"): one module in two places, the studio's page (its
+// Convert to GLB and the Upload pane; pasted into stories/studio.js by tools/studio/build.mjs) and
+// tools/studio/convert.mjs (in its headless page). Nothing in it knows where files come from: the caller says how a name
+// a model gives becomes an address (url). makeConverter(THREE, hooks) gives:
+//   fbxGuess(buf)       an FBX's units and up axis, read from its bytes (three.js's loader ignores them)
+//   guessFor(g, size)   the scale and turn a model starts with (the studio's guess; a GLB has it baked in)
+//   namesIn(ext, buf), mtlNames(text)   the files a model names (textures, an OBJ's MTL, a glTF's buffers), unloaded
+//   load(o)             a model read: FBX, glTF/GLB, OBJ (with its MTL), PLY, STL -> { root, clips, guess, asset, missing }
+//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up, loaded back and checked against it
+//   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
+// hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.renderer(w, h): a WebGL
+// renderer for drawing both to compare their looks (convert.mjs only: the app's one renderer is the shell's)
+function makeConverter(THREE, hooks) {
+  const T = THREE, H = hooks || {};
+  const AX = new T.Vector3(1, 0, 0), AZ = new T.Vector3(0, 0, 1);
+  const yieldNow = () => new Promise(r => setTimeout(r, 0));
+  const baseOf = p => String(p).split(/[?#]/)[0].split(/[\\/]/).pop();
+  const MODEL_EXT = ['fbx', 'glb', 'gltf', 'obj', 'ply', 'stl'];
+  const TEX_KEYS = ['map', 'normalMap', 'emissiveMap', 'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap', 'bumpMap', 'lightMap'];
+  // what a texture not found becomes while the model loads: a tiny white picture (3 x 1, so it is told apart), dropped after
+  let missingUrl = '';
+  const MISSING = () => missingUrl || (missingUrl = (() => { const c = document.createElement('canvas'); c.width = 3; c.height = 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 3, 1); return c.toDataURL(); })());
+
+  // ---- units and up axis
+  // An FBX's GlobalSettings: UnitScaleFactor (cm per unit), UpAxis and UpAxisSign. Binary: each is a P record of four
+  // strings and a number (the name's length before it tells "UnitScaleFactor" from "OriginalUnitScaleFactor"); ASCII: a
+  // line P: "UnitScaleFactor", "double", ..., 1. (GlobalSettings comes near the start: the first 4 MB are read)
+  function fbxGuess(buf) {
+    const out = { unit: 1, up: 1, sign: 1, gltf: false, read: false, format: 'FBX' };
+    const u8 = new Uint8Array(buf), n = Math.min(u8.length, 4 << 20);
+    let s = '';
+    for (let i = 0; i < n; i += 65536) s += String.fromCharCode.apply(null, u8.subarray(i, Math.min(n, i + 65536)));
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    let u, a, g;
+    if (s.startsWith('Kaydara FBX Binary')) {
+      out.format = 'binary FBX ' + (u8.length > 27 ? dv.getUint32(23, true) : '');
+      const prop = name => {
+        const L = name.length, pat = 'S' + String.fromCharCode(L & 255, (L >> 8) & 255, 0, 0) + name;
+        let i = s.indexOf(pat);
+        if (i < 0) return null;
+        i += pat.length;
+        for (let k = 0; k < 3; k++) { if (u8[i] !== 0x53) return null; i += 5 + dv.getUint32(i + 1, true); }
+        const t = String.fromCharCode(u8[i]);
+        return t === 'D' ? dv.getFloat64(i + 1, true) : t === 'F' ? dv.getFloat32(i + 1, true) : t === 'I' ? dv.getInt32(i + 1, true)
+          : t === 'Y' ? dv.getInt16(i + 1, true) : t === 'L' ? Number(dv.getBigInt64(i + 1, true)) : null;
+      };
+      u = prop('UnitScaleFactor'); a = prop('UpAxis'); g = prop('UpAxisSign');
+    } else {
+      const v = /FBXVersion:\s*(\d+)/.exec(s);
+      out.format = ('ASCII FBX ' + (v ? v[1] : '')).trim();
+      const num = name => { const m = new RegExp('P:\\s*"' + name + '"\\s*,\\s*"[^"]*"\\s*,\\s*"[^"]*"\\s*,\\s*"[^"]*"\\s*,\\s*([-+0-9.eE]+)').exec(s); return m ? +m[1] : null; };
+      u = num('UnitScaleFactor'); a = num('UpAxis'); g = num('UpAxisSign');
+    }
+    if (Number.isFinite(u) && u > 0) { out.unit = u; out.read = true; }
+    if ([0, 1, 2].includes(a)) out.up = a;
+    if (g === -1) out.sign = -1;
+    return out;
+  }
+  // The scale and turn a file starts with (the studio stores them in the item; a GLB has them baked into its root). FBX:
+  // its UnitScaleFactor (cm per unit) gives the scale factor / 100, Z up a quarter turn about x; that scale is taken only
+  // when it makes the largest side 5 cm to 60 m, else 1 unit = 1 m when that does, else it is sized to 1 m. glTF is metres
+  // and Y up. OBJ, PLY and STL say nothing of their units (free): metres, else centimetres, else millimetres when that
+  // makes it 5 cm to 60 m, else sized to 1 m. how: 'unit', 'metres', 'cm', 'mm' or 'fit'; would: its largest side in the
+  // file's own units, in metres (what the card says when they are refused)
+  function guessFor(g, size) {
+    const q = new T.Quaternion();
+    if (g.up === 2) q.setFromAxisAngle(AX, -Math.PI / 2 * g.sign);
+    else if (g.up === 0) q.setFromAxisAngle(AZ, Math.PI / 2 * g.sign);
+    else if (g.sign < 0) q.setFromAxisAngle(AX, Math.PI);
+    const L = Math.max(size.x, size.y, size.z) || 1, u = g.unit / 100, fits = c => L * c >= 0.05 && L * c <= 60;
+    let how, s;
+    if (g.free) { how = fits(1) ? 'metres' : fits(0.01) ? 'cm' : fits(0.001) ? 'mm' : 'fit'; s = { metres: 1, cm: 0.01, mm: 0.001, fit: 1 / L }[how]; }
+    else { how = fits(u) ? 'unit' : fits(1) ? 'metres' : 'fit'; s = how === 'unit' ? u : how === 'metres' ? 1 : 1 / L; }
+    return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, sign: g.sign, read: !!g.read, gltf: !!g.gltf, free: !!g.free, how, would: +(L * u).toPrecision(3) };
+  }
+
+  // ---- the files a model names, before it is loaded (the Upload pane's plan groups them with it)
+  const IMG = /[^\0-\x1f"*:<>?\\/|]{1,160}?\.(png|jpe?g|tga|bmp|webp|gif|tiff?|dds|psd|exr|hdr)(?![a-z0-9])/gi;
+  function namesIn(ext, buf) {
+    const out = { textures: [], mtl: [], buffers: [] }, add = (list, n) => { n = baseOf(n).trim(); if (n && !list.some(x => x.toLowerCase() === n.toLowerCase())) list.push(n); };
+    const u8 = new Uint8Array(buf);
+    ext = String(ext).toLowerCase();
+    if (ext === 'fbx') {
+      // the file names of its textures: an author's full path (C:\Users\...\x.png) or a relative one; the base name counts
+      let s = '';
+      for (let i = 0; i < u8.length; i += 65536) s += String.fromCharCode.apply(null, u8.subarray(i, Math.min(u8.length, i + 65536)));
+      const re = /[^\0-\x1f"*:<>?|]{1,240}?\.(png|jpe?g|tga|bmp|webp|gif|tiff?|dds|psd|exr|hdr)(?![a-z0-9])/gi;
+      let m;
+      while ((m = re.exec(s))) { const nm = baseOf(m[0].replace(/^.*[\\/]/, '')); if (/^[\w\-. ()[\]+,~'&@!$#%^]+$/.test(nm) && /[a-z0-9]/i.test(nm.replace(/\.[^.]+$/, ''))) add(out.textures, nm); }
+    } else if (ext === 'obj') {
+      const text = new TextDecoder().decode(u8);
+      for (const m of text.matchAll(/^[ \t]*mtllib[ \t]+(.+?)[ \t]*$/gim)) add(out.mtl, m[1]);
+    } else if (ext === 'gltf' || ext === 'glb') {
+      const j = ext === 'glb' ? glbJSON(buf) : (() => { try { return JSON.parse(new TextDecoder().decode(u8)); } catch (e) { return null; } })();
+      if (j) {
+        for (const b of j.buffers || []) if (b && typeof b.uri === 'string' && !/^data:/i.test(b.uri)) add(out.buffers, decodeURIComponent(b.uri));
+        for (const im of j.images || []) if (im && typeof im.uri === 'string' && !/^data:/i.test(im.uri)) add(out.textures, decodeURIComponent(im.uri));
+      }
+    }
+    return out;
+  }
+  // an MTL's textures (map_Kd, bump, norm...: the last of its words after the options)
+  const MTL_OPT = { '-bm': 1, '-blendu': 1, '-blendv': 1, '-boost': 1, '-cc': 1, '-clamp': 1, '-imfchan': 1, '-texres': 1, '-type': 1, '-mm': 2, '-o': 3, '-s': 3, '-t': 3 };
+  function mtlNames(text) {
+    const out = [];
+    for (const m of String(text).matchAll(/^[ \t]*(map_\w+|bump|norm|disp|decal|refl)[ \t]+(.+?)[ \t]*$/gim)) {
+      const w = m[2].split(/\s+/);
+      let i = 0;
+      while (i < w.length && MTL_OPT[w[i].toLowerCase()] !== undefined) i += 1 + MTL_OPT[w[i].toLowerCase()];
+      const n = baseOf(w.slice(i).join(' '));
+      if (n && !out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n);
+    }
+    return out;
+  }
+  const mtllibs = text => [...String(text).matchAll(/^[ \t]*mtllib[ \t]+(.+?)[ \t]*$/gim)].map(m => m[1]);
+
+  // ---- a model read. o: { ext, data (ArrayBuffer), base (the address its names are relative to), url(name) -> an
+  // address or null (not found: it loads untextured and missing says so) }
+  async function load(o) {
+    const ext = String(o.ext).toLowerCase(), manager = new T.LoadingManager(), W = { n: 0, done: null }, missing = new Set();
+    // what the model asks for (textures, a .gltf's buffers): it is ready once each has come or failed (the manager's own
+    // counters are private)
+    const s0 = manager.itemStart.bind(manager), e0 = manager.itemEnd.bind(manager);
+    manager.itemStart = u => { W.n++; s0(u); };
+    manager.itemEnd = u => { e0(u); if (--W.n <= 0 && W.done) W.done(); };
+    const named = u => {
+      if (/^(blob|data):/i.test(u)) return u;
+      const r = o.url(u);
+      if (r) return r;
+      const n = baseOf(u);
+      if (n && n !== 'undefined') missing.add(n);   // (the FBX loader asks for 'undefined' when a texture names no image)
+      return MISSING();
+    };
+    manager.setURLModifier(named);
+    if (T.TGALoader) manager.addHandler(/\.tga$/i, new T.TGALoader(manager));
+    const settle = () => new Promise(res => { if (W.n <= 0) res(); else { W.done = res; setTimeout(res, 60000); } });
+    let root = null, clips = [], guess, asset = null;
+    const u8 = new Uint8Array(o.data);
+    if (ext === 'fbx') {
+      guess = fbxGuess(o.data);
+      root = new T.FBXLoader(manager).parse(o.data, o.base);
+      clips = root.animations || [];
+    } else if (ext === 'glb' || ext === 'gltf') {
+      const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
+      root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
+      guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
+    } else if (ext === 'obj') {
+      const text = new TextDecoder().decode(u8), loader = new T.OBJLoader(manager);
+      // its materials: the MTL files it names, read through the same names (one creator for all of them)
+      let mtl = '';
+      for (const name of mtllibs(text)) {
+        const u = o.url(name);
+        if (!u) { missing.add(baseOf(name)); continue; }
+        try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); mtl += '\n' + await r.text(); } catch (e) { missing.add(baseOf(name)); }
+      }
+      if (mtl) { const mc = new T.MTLLoader(manager).parse(mtl, o.base); mc.preload(); loader.setMaterials(mc); }
+      root = loader.parse(text);
+      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: 'OBJ' };
+    } else if (ext === 'ply' || ext === 'stl') {
+      const geo = ext === 'ply' ? new T.PLYLoader().parse(o.data) : new T.STLLoader().parse(o.data);
+      const col = !!geo.attributes.color;
+      const m = new T.MeshStandardMaterial({ name: 'surface', color: col ? 0xffffff : 0xb8c2cf, vertexColors: col, roughness: 1, metalness: 0, transparent: geo.alpha !== undefined && geo.alpha < 1, opacity: geo.alpha !== undefined ? geo.alpha : 1 });
+      const mesh = new T.Mesh(geo, m);
+      mesh.name = o.name || ext;
+      root = new T.Group(); root.add(mesh);
+      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: ext.toUpperCase() };
+    } else throw new Error('Unknown format: ' + ext);
+    if (!root) throw new Error('the file has no scene in it');
+    if (W.n > 0) await settle();
+    // pictures loaded but not yet decoded, decoded now (so the conversion and its times include them); the ones not found
+    // (the 3 x 1 stand-in) left out
+    const images = new Set();
+    root.traverse(n => {
+      for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) {
+        const t = m[k];
+        if (!t || !t.isTexture) continue;
+        const im = t.image;
+        if (im && im.width === 3 && im.height === 1 && missing.size) { m[k] = null; m.needsUpdate = true; continue; }
+        if (im) images.add(im);
+      }
+    });
+    for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+    return { root, clips, guess, asset, missing: [...missing], ext };
+  }
+
+  // ---- a GLB's JSON chunk, a GLB with it changed, and the studio's record in it
+  function glbJSON(buf) {
+    try {
+      const u8 = new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+      if (u8.length < 20 || dv.getUint32(0, true) !== 0x46546c67 || dv.getUint32(16, true) !== 0x4e4f534a) return null;
+      const n = dv.getUint32(12, true);
+      if (20 + n > u8.length) return null;
+      return JSON.parse(new TextDecoder().decode(u8.subarray(20, 20 + n)));
+    } catch (e) { return null; }
+  }
+  function glbPatch(buf, fn) {
+    const u8 = new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), n = dv.getUint32(12, true);
+    const j = glbJSON(buf);
+    if (!j) throw new Error('not a binary glTF');
+    fn(j);
+    let js = new TextEncoder().encode(JSON.stringify(j));
+    const pad = (4 - (js.length % 4)) % 4, rest = u8.subarray(20 + n), out = new Uint8Array(20 + js.length + pad + rest.length);
+    const ov = new DataView(out.buffer);
+    out.set(u8.subarray(0, 12)); ov.setUint32(8, out.length, true);
+    ov.setUint32(12, js.length + pad, true); ov.setUint32(16, 0x4e4f534a, true);
+    out.set(js, 20); out.fill(0x20, 20 + js.length, 20 + js.length + pad);
+    out.set(rest, 20 + js.length + pad);
+    return out.buffer;
+  }
+  // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals }
+  function glbRecord(j) {
+    const r = j && j.asset && j.asset.extras && j.asset.extras.studio;
+    if (!r || typeof r !== 'object') return null;
+    const q = Array.isArray(r.q) && r.q.length === 4 && r.q.every(Number.isFinite) ? r.q : [0, 0, 0, 1];
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan };
+  }
+
+  // ---- numbers for both sides of the comparison
+  function stats(root, cl) {
+    let tris = 0, verts = 0, meshes = 0, skinned = 0, normals = true;
+    const bones = new Set(), tex = new Map(), bufs = new Set();   // (bones: the skeletons' joints; a loader makes other bones plain nodes)
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      meshes++;
+      if (o.isSkinnedMesh) { skinned++; for (const b of o.skeleton.bones) bones.add(b); }
+      const g = o.geometry, n = g.index ? g.index.count : g.attributes.position.count;
+      tris += n / 3; verts += g.attributes.position.count;
+      if (!g.attributes.normal) normals = false;
+      for (const a of [g.index, ...Object.values(g.attributes), ...Object.values(g.morphAttributes || {}).flat()]) if (a && a.array) bufs.add(a.array);
+      for (const m of [].concat(o.material || [])) for (const k of TEX_KEYS) {
+        const t = m[k];
+        if (t && t.isTexture && !tex.has(t.image || t)) tex.set(t.image || t, { w: (t.image && (t.image.naturalWidth || t.image.width)) || 0, h: (t.image && (t.image.naturalHeight || t.image.height)) || 0, kind: t.format === T.RGBFormat ? 'JPEG' : '' });
+      }
+    });
+    const size = new T.Box3().setFromObject(root).getSize(new T.Vector3()).toArray();
+    const textures = [...tex.values()].filter(t => t.w);
+    // the headset's memory for it, about: its vertex buffers, and every texture as RGBA with its mipmaps (4/3)
+    const gpu = [...bufs].reduce((n, a) => n + a.byteLength, 0) + textures.reduce((n, t) => n + (t.w * t.h * 4 * 4) / 3, 0);
+    return { tris: Math.round(tris), verts, meshes, skinned, bones: bones.size, size, textures, gpu, normals, clips: cl.map(c => ({ name: c.name, duration: c.duration, tracks: c.tracks.length })) };
+  }
+  const disposeTree = root => {
+    const seen = new Set();
+    root.traverse(o => {
+      if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
+      for (const m of [].concat(o.material || [])) {
+        if (seen.has(m)) continue;
+        seen.add(m);
+        for (const k of TEX_KEYS) if (m[k] && m[k].isTexture && !seen.has(m[k])) { seen.add(m[k]); m[k].dispose(); }
+        m.dispose();
+      }
+    });
+  };
+
+  // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
+  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), look
+  // (draw both and compare: needs hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
+  // scale and turn), so the GLB is in metres and Y up, as glTF is. Loaded back and compared with the original: triangles,
+  // size, skins, bones, animations, and where the bones and a sample of skinned corners are at a few moments of every
+  // animation. -> { ok, why, notes, before, after, check, look, sheet, glb, record, missing }. Nothing is changed on a
+  // failure but the model given (its materials and geometry are made over for export: dispose it after)
+  async function toGLB(m, o) {
+    o = o || {};
+    const step = o.step || (() => {}), maxTex = o.maxTex || 4096, notes = [];
+    if (H.exporter) H.exporter();
+    if (!T.GLTFExporter) throw new Error('no GLTFExporter');
+    const ext = m.ext, clips = m.clips || [];
+    step('Making it lighter', 0.05);
+    const wrap = new T.Object3D();
+    wrap.name = o.name || 'model';
+    wrap.add(m.root);
+    m.root.updateMatrixWorld(true);
+    const box0 = new T.Box3().setFromObject(m.root), g = guessFor(m.guess, box0.getSize(new T.Vector3()));
+    wrap.scale.setScalar(g.s);
+    wrap.quaternion.fromArray(g.q).normalize();
+    wrap.updateMatrixWorld(true);
+    if (!g.gltf) {
+      const unit = { unit: `${+(+g.unit).toPrecision(3)} cm a unit (the file's own)`, metres: '1 unit = 1 m', cm: 'centimetres', mm: 'millimetres', fit: 'sized to 1 m' }[g.how];
+      notes.push(`units: ${g.free ? 'the file gives none, ' : g.read ? '' : 'none given (FBX\'s own, centimetres), '}${unit}: scale ${g.s}` + (g.how === 'metres' && !g.free ? ` (the file's own units would make it ${g.would} m)` : ''));
+      notes.push(`up: ${['X', 'Y', 'Z'][g.up] || '?'}${g.sign < 0 ? ' (down)' : ''}${g.up === 2 ? ': stood up (a quarter turn about x)' : g.up === 0 ? ': turned about z' : g.sign < 0 ? ': turned over' : ''}`);
+    }
+    const before = stats(wrap, clips);
+    if (m.missing && m.missing.length) notes.push(`missing texture${m.missing.length > 1 ? 's' : ''} ${m.missing.join(', ')}: converted without ${m.missing.length > 1 ? 'them' : 'it'}`);
+
+    // materials as glTF's: Phong and Lambert (the FBX and OBJ loaders') become standard ones of the same look
+    const toStd = mt => {
+      if (mt.isMeshStandardMaterial || mt.isMeshBasicMaterial || !mt.isMaterial) return mt;
+      const spec = mt.specular ? (mt.specular.r + mt.specular.g + mt.specular.b) / 3 : 0;
+      const rough = mt.isMeshLambertMaterial || spec < 0.05 ? 1 : Math.min(1, Math.max(0.25, Math.sqrt(2 / ((mt.shininess || 30) + 2))));
+      const s = new T.MeshStandardMaterial({ name: mt.name, color: mt.color, map: mt.map, normalMap: mt.normalMap || null, emissive: mt.emissive, emissiveMap: mt.emissiveMap || null,
+        emissiveIntensity: mt.emissiveIntensity ?? 1, aoMap: mt.aoMap || null, alphaMap: mt.alphaMap || null, opacity: mt.opacity, transparent: mt.transparent, alphaTest: mt.alphaTest,
+        side: mt.side, vertexColors: mt.vertexColors, skinning: mt.skinning, morphTargets: mt.morphTargets, morphNormals: mt.morphNormals, flatShading: mt.flatShading, metalness: 0, roughness: rough });
+      if (mt.normalScale) s.normalScale.copy(mt.normalScale);
+      if (mt.bumpMap || mt.specularMap) notes.push(`${mt.name || 'a material'}: its ${[mt.bumpMap && 'bump', mt.specularMap && 'specular'].filter(Boolean).join(' and ')} map is left out (glTF has none)`);
+      return s;
+    };
+    const canvasOf = (img, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, w, h); return c; };
+    const opaque = img => {   // any pixel that is not opaque (on a small copy: enough to tell)
+      const k = Math.min(1, 512 / Math.max(img.width, img.height)), c = canvasOf(img, Math.max(1, Math.round(img.width * k)), Math.max(1, Math.round(img.height * k)));
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 255) return false;
+      return true;
+    };
+    let drawn = 0;
+    const clear = new Set(), done = new Set();
+    wrap.traverse(n => {
+      if (!n.isMesh) return;
+      const ms = [].concat(n.material).map(toStd);
+      n.material = Array.isArray(n.material) ? ms : ms[0];
+      // a material wholly see-through with nothing to see through it by (no alpha map) is an exporter's quirk, not a wish:
+      // 3ds Max writes Opacity 0 for an opaque one (the owner's figure), and three.js's FBX loader would draw nothing at all
+      if (ext === 'fbx') for (const mt of ms) if (mt.opacity <= 0.01 && !mt.alphaMap) { mt.opacity = 1; mt.transparent = false; clear.add(mt.name || 'a material'); }
+      for (const mt of ms) for (const k of ['map', 'normalMap', 'emissiveMap', 'aoMap', 'alphaMap', 'roughnessMap', 'metalnessMap']) {
+        const t = mt[k];
+        if (!t || !t.isTexture) continue;
+        const img = t.image, w = img && (img.naturalWidth || img.width), h = img && (img.naturalHeight || img.height);
+        if (!w || !h) { mt[k] = null; continue; }   // a texture that never loaded: left out
+        if (done.has(t)) continue;
+        done.add(t);
+        const k2 = Math.min(1, maxTex / Math.max(w, h));
+        if (k2 < 1) drawn++;
+        t.image = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
+        if (typeof img.close === 'function') img.close();
+        t.format = opaque(t.image) ? T.RGBFormat : T.RGBAFormat;   // (the exporter writes RGB as JPEG, RGBA as PNG)
+        t.needsUpdate = true;
+      }
+    });
+    if (drawn) notes.push(`${drawn} texture${drawn > 1 ? 's' : ''} drawn down to ${maxTex} px on the longer side`);
+    if (clear.size) notes.push(`made opaque: ${[...clear].join(', ')} (its opacity was 0, which would show nothing: an exporter's quirk)`);
+    if (!before.normals) notes.push('no normals (a scan\'s mesh): marked to be shown as scanned');
+    await yieldNow();
+
+    // corners welded: a vertex for every distinct corner (all its attributes the same), and an index
+    if (o.weld !== false) {
+      step('Welding corners', 0.15);
+      let was = 0, now = 0;
+      const seen = new Set();
+      wrap.traverse(n => {
+        if (!n.isMesh || seen.has(n.geometry)) return;
+        seen.add(n.geometry);
+        const gm = n.geometry;
+        if (gm.index) return;
+        const attrs = Object.entries(gm.attributes), morphs = Object.entries(gm.morphAttributes || {}).flatMap(([nm, list]) => list.map((a, i) => [nm, i, a]));
+        if ([...attrs.map(a => a[1]), ...morphs.map(x => x[2])].some(a => a.isInterleavedBufferAttribute)) return;
+        const cnt = gm.attributes.position.count, cols = [...attrs.map(a => a[1]), ...morphs.map(x => x[2])];
+        const views = cols.map(a => (a.array instanceof Float32Array ? new Uint32Array(a.array.buffer, a.array.byteOffset, a.array.length) : a.array));
+        const sizes = cols.map(a => a.itemSize);
+        let cap = 1; while (cap < cnt * 2) cap <<= 1;
+        const table = new Int32Array(cap).fill(-1), remap = new Uint32Array(cnt), first = [];
+        for (let v = 0; v < cnt; v++) {
+          let h = 2166136261;
+          for (let c = 0; c < views.length; c++) { const a = views[c], s = sizes[c]; for (let j = v * s, e = j + s; j < e; j++) h = Math.imul(h ^ a[j], 16777619); }
+          let slot = (h >>> 0) & (cap - 1);
+          for (;;) {
+            const u = table[slot];
+            if (u < 0) { table[slot] = first.length; remap[v] = first.length; first.push(v); break; }
+            const w = first[u];
+            let same = true;
+            for (let c = 0; c < views.length && same; c++) { const a = views[c], s = sizes[c]; for (let j = 0; j < s; j++) if (a[v * s + j] !== a[w * s + j]) { same = false; break; } }
+            if (same) { remap[v] = u; break; }
+            slot = (slot + 1) & (cap - 1);
+          }
+        }
+        if (first.length === cnt) return;
+        const pick = a => { const s = a.itemSize, arr = new a.array.constructor(first.length * s); for (let i = 0; i < first.length; i++) for (let j = 0; j < s; j++) arr[i * s + j] = a.array[first[i] * s + j]; return new T.BufferAttribute(arr, s, a.normalized); };
+        for (const [nm, a] of attrs) gm.setAttribute(nm, pick(a));
+        for (const [nm, i, a] of morphs) gm.morphAttributes[nm][i] = pick(a);
+        gm.setIndex(new T.BufferAttribute(first.length < 65536 ? new Uint16Array(remap) : remap, 1));   // (groups keep their ranges: the index is in the old order)
+        gm.boundingBox = null; gm.boundingSphere = null;
+        was += cnt; now += first.length;
+      });
+      if (was) notes.push(`corners welded: ${was.toLocaleString('en-GB')} vertices became ${now.toLocaleString('en-GB')}`);
+      await yieldNow();
+    }
+
+    // animation tracks for things the file does not export (the exporter would drop the whole animation): left out
+    const PATHS = { position: 1, quaternion: 1, scale: 1, morphTargetInfluences: 1 };
+    const outClips = clips.map(c => {
+      const keep = c.tracks.filter(tr => { const b = T.PropertyBinding.parseTrackName(tr.name); return PATHS[b.propertyName] && T.PropertyBinding.findNode(wrap, b.nodeName); });
+      if (keep.length < c.tracks.length) notes.push(`${JSON.stringify(c.name)}: ${c.tracks.length - keep.length} of its ${c.tracks.length} tracks name nothing in the model (left out)`);
+      return new T.AnimationClip(c.name, c.duration, keep, c.blendMode);
+    });
+
+    // where things are at a moment of an animation: every bone, and a sample of each skinned mesh's corners after skinning
+    // (the original's nodes compared: its bones and what its animations move; the GLB's: every named node, since glTF's
+    // loader makes a bone that is no skin's joint a plain node)
+    const moving = new Set(outClips.flatMap(c => c.tracks.map(tr => T.PropertyBinding.parseTrackName(tr.name).nodeName)));
+    const poseOf = (root, clip, t, all = false) => {
+      const saved = [];
+      root.traverse(n => saved.push([n, n.position.clone(), n.quaternion.clone(), n.scale.clone()]));
+      const mixer = new T.AnimationMixer(root);
+      if (clip) { mixer.clipAction(clip).play(); mixer.setTime(t); }
+      root.updateMatrixWorld(true);
+      const bones = new Map(), skins = [];
+      root.traverse(n => {
+        if (n.name && n !== root && !bones.has(n.name) && (all ? !n.isMesh : n.isBone || moving.has(n.name))) bones.set(n.name, new T.Vector3().setFromMatrixPosition(n.matrixWorld));
+        if (n.isSkinnedMesh) {
+          n.skeleton.update();
+          const cnt = n.geometry.attributes.position.count, st = Math.max(1, Math.floor(cnt / 150)), pts = [];
+          for (let i = 0; i < cnt; i += st) pts.push(n.boneTransform(i, new T.Vector3()).applyMatrix4(n.matrixWorld));
+          skins.push({ n: cnt, name: n.name, pts });
+        }
+      });
+      mixer.stopAllAction(); mixer.uncacheRoot(root);
+      for (const [n, p, q, s] of saved) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); }   // (back at rest)
+      root.updateMatrixWorld(true);
+      return { bones, skins };
+    };
+    const restOf = (root, all) => poseOf(root, null, 0, all);
+    const sampleTimes = c => [0, c.duration / 3, (2 * c.duration) / 3, c.duration * 0.999];
+    const want = outClips.map(c => sampleTimes(c).map(t => poseOf(wrap, c, t)));
+    const rest = restOf(wrap);
+
+    // ---- export, and its record
+    step('Writing the GLB', 0.35);
+    await yieldNow();
+    const t0 = performance.now();
+    let glb = await new Promise((res, rej) => {
+      try { new T.GLTFExporter().parse(wrap, res, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { rej(err); }
+    });
+    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
+    if (!before.normals) record.scan = true;
+    glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
+    const exportMs = performance.now() - t0;
+
+    // ---- loaded back and compared
+    step('Checking it', 0.75);
+    await yieldNow();
+    const t1 = performance.now();
+    const gb = await new Promise((res, rej) => new T.GLTFLoader().parse(glb.slice(0), '', res, rej));
+    const back = gb.scene, after = stats(back, gb.animations);
+    after.parse = performance.now() - t1;
+    const tol = Math.max(0.002, 0.005 * Math.max(...before.size)), why = [];
+    if (after.tris !== before.tris) why.push(`triangles ${before.tris} became ${after.tris}`);
+    if (after.skinned !== before.skinned) why.push(`skinned meshes ${before.skinned} became ${after.skinned}`);
+    if (after.bones < before.bones) why.push(`bones ${before.bones} became ${after.bones}`);
+    if (before.size.some((v, i) => Math.abs(v - after.size[i]) > tol)) why.push(`size ${before.size.map(v => v.toFixed(3))} became ${after.size.map(v => v.toFixed(3))}`);
+    if (!glbRecord(gb.parser && gb.parser.json) && !glbRecord({ asset: gb.asset })) why.push('its record (asset.extras.studio) did not come through');
+    for (const c of outClips) {
+      const b = gb.animations.find(x => x.name === c.name);
+      if (!b) { why.push(`the animation ${JSON.stringify(c.name)} did not come through`); continue; }
+      if (Math.abs(b.duration - c.duration) > 0.01) why.push(`${JSON.stringify(c.name)} lasts ${b.duration.toFixed(2)} s, not ${c.duration.toFixed(2)} s`);
+    }
+    // poses: the bones by name, each original skinned mesh against the one loaded back with as many corners
+    let worst = 0, compared = 0, moved = 0;   // (moved: how far the animations take things from rest, so a match means something)
+    const comparePose = (a, b, label) => {
+      for (const [name, p] of a.bones) { const q = b.bones.get(name); if (q) { worst = Math.max(worst, p.distanceTo(q)); compared++; } }
+      const used = new Set();
+      for (const s of a.skins) {
+        const x = b.skins.find((y, i) => !used.has(i) && y.n === s.n && (y.name === s.name || !s.name)) || b.skins.find((y, i) => !used.has(i) && y.n === s.n);
+        if (!x) { why.push(`${label}: no skinned mesh like ${s.name || 'one'} came back`); continue; }
+        used.add(b.skins.indexOf(x));
+        s.pts.forEach((p, i) => { worst = Math.max(worst, p.distanceTo(x.pts[i])); compared++; });
+      }
+    };
+    comparePose(rest, restOf(back, true), 'at rest');
+    outClips.forEach((c, ci) => {
+      const b = gb.animations.find(x => x.name === c.name);
+      for (const w of want[ci]) for (const [name, p] of w.bones) { const r = rest.bones.get(name); if (r) moved = Math.max(moved, p.distanceTo(r)); }
+      if (b) sampleTimes(c).forEach((t, ti) => comparePose(want[ci][ti], poseOf(back, b, t, true), `${c.name} at ${t.toFixed(2)} s`));
+    });
+    if (worst > tol) why.push(`bones or skinned corners move differently: up to ${(worst * 100).toFixed(1)} cm apart (more than ${(tol * 100).toFixed(1)} cm)`);
+    const check = !compared ? 'no bones or animations to compare: triangles and size' : `${compared.toLocaleString('en-GB')} bone and skinned-corner positions at rest and at ${outClips.length * 4} moments of ${outClips.length} animation${outClips.length === 1 ? '' : 's'}: at most ${(worst * 1000).toFixed(2)} mm apart` +
+      (outClips.length ? ` (the animations move them up to ${(moved * 100).toFixed(0)} cm from rest)` : '');
+
+    // how it looks (convert.mjs only): the original (with the materials it is exported with) and the GLB drawn from the
+    // same three places, lit evenly (an ambient light alone shows a texture's own colours), colour textures as sRGB on both
+    // sides (glTF's rule; the FBX loader leaves them linear), and the pictures compared, channel by channel
+    let look = '', sheet = '';
+    if (o.look && H.renderer) {
+      try {
+        const W = 320, Hh = 200, r = H.renderer(W, Hh);
+        r.outputEncoding = T.sRGBEncoding;
+        // (and a mesh without normals flat-shaded, as glTF's loader shows one: lit, it would otherwise draw black)
+        wrap.traverse(n => {
+          for (const mt of [].concat(n.material || [])) {
+            for (const k of ['map', 'emissiveMap']) if (mt[k]) { mt[k].encoding = T.sRGBEncoding; mt.needsUpdate = true; }
+            if (n.isMesh && !n.geometry.attributes.normal) { mt.flatShading = true; mt.needsUpdate = true; }
+          }
+        });
+        // (framed on what is drawn: a skinned mesh by its corners as skinned, which its geometry's box does not follow)
+        const box = new T.Box3(), v = new T.Vector3();
+        wrap.updateMatrixWorld(true);
+        wrap.traverse(n => {
+          if (!n.isMesh) return;
+          if (!n.isSkinnedMesh) { n.geometry.computeBoundingBox(); box.union(n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld)); return; }
+          n.skeleton.update();
+          const cnt = n.geometry.attributes.position.count;
+          for (let i = 0; i < cnt; i += Math.max(1, Math.floor(cnt / 5000))) box.expandByPoint(n.boneTransform(i, v).applyMatrix4(n.matrixWorld));
+        });
+        const c = box.getCenter(new T.Vector3()), R = Math.max(1e-3, box.getSize(new T.Vector3()).length() / 2);
+        const cam = new T.PerspectiveCamera(50, W / Hh, R / 200, R * 20), dirs = [[1, 0.7, 1.2], [-1.2, 0.5, -0.8], [0.15, 1.6, 0.25]];
+        const draw = obj => dirs.map(d => {
+          const sc = new T.Scene(), parent = obj.parent;
+          sc.add(new T.AmbientLight(0xffffff, 1)); sc.add(obj);
+          cam.position.copy(c).add(new T.Vector3(...d).normalize().multiplyScalar(R * 1.9)); cam.lookAt(c); cam.updateProjectionMatrix();
+          r.render(sc, cam);
+          const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh; cv.getContext('2d').drawImage(r.domElement, 0, 0);
+          sc.remove(obj); if (parent) parent.add(obj);
+          return cv;
+        });
+        const A = draw(wrap), B = draw(back);
+        let dsum = 0, cnt = 0, lit = 0;
+        A.forEach((a, i) => {
+          const x = a.getContext('2d').getImageData(0, 0, W, Hh).data, y = B[i].getContext('2d').getImageData(0, 0, W, Hh).data;
+          for (let k = 0; k < x.length; k += 4) { for (let j = 0; j < 3; j++) dsum += Math.abs(x[k + j] - y[k + j]); cnt += 3; if (x[k] + x[k + 1] + x[k + 2] > 0) lit++; }
+        });
+        const mean = dsum / cnt, cover = lit / (cnt / 3);
+        const S = document.createElement('canvas'); S.width = W * 3; S.height = Hh * 2;
+        const sx = S.getContext('2d');
+        A.forEach((a, i) => sx.drawImage(a, i * W, 0)); B.forEach((b, i) => sx.drawImage(b, i * W, Hh));
+        sheet = S.toDataURL('image/png');
+        look = `drawn from three sides, the GLB differs from the original by ${mean.toFixed(2)} of 255 on average (it covers ${(cover * 100).toFixed(0)} % of the pictures)`;
+        if (mean > 12) why.push(`it looks different: ${mean.toFixed(1)} of 255 on average from the original`);
+        if (cover < 0.005) why.push('nothing shows when it is drawn');
+        r.dispose();
+      } catch (err) { look = 'not drawn (' + err.message + ')'; }
+    }
+    disposeTree(back);
+    wrap.remove(m.root);
+    step(why.length ? 'Not written' : 'Converted', 1);
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) } };
+  }
+
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, stats, disposeTree, MODEL_EXT };
+}
 
 // ================================================================= MODELS ==
 // One entry per model file of the scene: fetched and parsed once (GLTF/GLB with three.js's GLTFLoader, FBX with its
@@ -11721,9 +16694,11 @@ function onScenesEvent(d) {
 // one not there leaves the model untextured and its card says so. Textures larger than OPT.maxtex (4,096 px) on a side
 // are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
 const LIB = new Map();   // path -> entry
+// the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
+// turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter)
+const CONV = makeConverter(THREE, { exporter: () => exporterLoad() });
+const MODEL_EXT = CONV.MODEL_EXT;
 const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap', 'lightMap', 'displacementMap'];
-// what a texture not found becomes while the model loads: a tiny white picture (3 x 1, so it is told apart), dropped after
-const MISSING = (() => { const c = document.createElement('canvas'); c.width = 3; c.height = 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 3, 1); return c.toDataURL(); })();
 function lib(path) {
   let E = LIB.get(path);
   if (!E) {
@@ -11803,76 +16778,32 @@ function whyFailed(e) {
   if (/meshopt/i.test(m)) return 'Compressed with meshopt, which the studio cannot read: export it without compression.';
   if (/basisu|KTX2/i.test(m)) return 'Its textures are KTX2/Basis, which the studio cannot read: export PNG or JPEG textures.';
   if (/FBX version not supported/i.test(m)) return 'An FBX older than version 7, which the studio cannot read: export it as FBX 2011 or newer.';
-  if (/Unknown format/i.test(m)) return 'Not a model the studio can read (an FBX or a glTF file).';
+  if (/Unknown format/i.test(m)) return 'Not a model the studio can read (GLB, glTF, FBX, OBJ, PLY or STL).';
   if (e && e.status === 404) return 'The file is not in the scene\'s folder any more.';
   if (e && e.status === 401) return AUTH_NOTE;
   return 'It could not be read: ' + m.slice(0, 160);
 }
 function parseModel(E, buf, missing, texPaths) {
-  const ext = extOf(E.path), dir = E.path.includes('/') ? E.path.slice(0, E.path.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
-  const manager = new THREE.LoadingManager(), W = { n: 0, done: null };
-  // what the model asks for (textures, a .gltf's buffers): it is ready once each has come or failed
-  const s0 = manager.itemStart.bind(manager), e0 = manager.itemEnd.bind(manager);
-  manager.itemStart = u => { W.n++; s0(u); };
-  manager.itemEnd = u => { e0(u); if (--W.n <= 0 && W.done) W.done(); };
-  manager.setURLModifier(u => resolveUrl(u, base, dir, missing, texPaths));
-  manager.addHandler(/\.tga$/i, new THREE.TGALoader(manager));
-  const settle = () => new Promise(res => { if (W.n <= 0) res(); else { W.done = res; later(res, 60000); } });
-  if (ext === 'fbx') {
-    const guess = fbxGuess(buf);
-    const root = new THREE.FBXLoader(manager).parse(buf, base);
-    return settle().then(() => ({ root, clips: root.animations || [], guess }));
-  }
-  return new Promise((res, rej) => { new THREE.GLTFLoader(manager).parse(buf, base, res, rej); })
-    .then(g => settle().then(() => ({ root: g.scene || (g.scenes && g.scenes[0]), clips: g.animations || [], guess: { unit: 100, up: 1, sign: 1, gltf: true } })));
+  const dir = E.path.includes('/') ? E.path.slice(0, E.path.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
+  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), url: u => resolveUrl(u, base, dir, texPaths) })
+    .then(res => { for (const m of res.missing) missing.add(m); return res; });
 }
 // what a model file names (a texture, a buffer), as a file of the scene: the path it gives (beside the model, or from the
 // scene's top), else any file of the scene with its base name; never anything outside the scene
-function resolveUrl(u, base, dir, missing, texPaths) {
+// (null: not found, which the converter's loader counts as missing and stands in for)
+function resolveUrl(u, base, dir, texPaths) {
   if (/^(blob|data):/i.test(u)) return u;
-  if (SRC.held) { missing.add(baseName(u.split(/[?#]/)[0]) || u); return MISSING; }   // (a relay that refused the password: asked nothing more)
+  if (SRC.held) return null;   // (a relay that refused the password: asked nothing more)
   let rel = (u.startsWith(base) ? u.slice(base.length) : u).split(/[?#]/)[0];
   try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
   rel = rel.replace(/\\/g, '/').replace(/^(\.\/)+/, '');
   let f = /^[a-z][a-z0-9+.-]*:/i.test(rel) || rel.startsWith('/') ? null : STU.fileMap.get(dir + rel) || STU.fileMap.get(rel);
   if (!f) { const b = baseName(rel).toLowerCase(); f = b ? STU.files.find(x => x.kind !== 'model' && baseName(x.path).toLowerCase() === b) : null; }
   if (f) { texPaths.add(f.path); return fileUrl(f.path, true); }
-  missing.add(baseName(rel) || rel);
-  return MISSING;
+  return null;
 }
-// An FBX's units and up axis, read from its bytes (the loader ignores them): GlobalSettings' UnitScaleFactor (cm per
-// unit) and UpAxis, UpAxisSign. Binary: each is a P record of four strings and a number (the name's length before it
-// tells "UnitScaleFactor" from "OriginalUnitScaleFactor"); ASCII: a line P: "UnitScaleFactor", "double", ..., 1
-function fbxGuess(buf) {
-  const out = { unit: 1, up: 1, sign: 1, gltf: false, read: false };
-  const u8 = new Uint8Array(buf), n = Math.min(u8.length, 4 << 20);   // (GlobalSettings comes near the start)
-  let s = '';
-  for (let i = 0; i < n; i += 65536) s += String.fromCharCode.apply(null, u8.subarray(i, Math.min(n, i + 65536)));
-  const dv = new DataView(buf);
-  if (s.startsWith('Kaydara FBX Binary')) {
-    const prop = name => {
-      const L = name.length, pat = 'S' + String.fromCharCode(L & 255, (L >> 8) & 255, 0, 0) + name;
-      let i = s.indexOf(pat);
-      if (i < 0) return null;
-      i += pat.length;
-      for (let k = 0; k < 3; k++) { if (u8[i] !== 0x53) return null; i += 5 + dv.getUint32(i + 1, true); }
-      const t = String.fromCharCode(u8[i]);
-      return t === 'D' ? dv.getFloat64(i + 1, true) : t === 'F' ? dv.getFloat32(i + 1, true) : t === 'I' ? dv.getInt32(i + 1, true)
-        : t === 'Y' ? dv.getInt16(i + 1, true) : t === 'L' ? Number(dv.getBigInt64(i + 1, true)) : null;
-    };
-    const u = prop('UnitScaleFactor'), a = prop('UpAxis'), g = prop('UpAxisSign');
-    if (Number.isFinite(u) && u > 0) { out.unit = u; out.read = true; }
-    if ([0, 1, 2].includes(a)) out.up = a;
-    if (g === -1) out.sign = -1;
-  } else {
-    const num = name => { const m = new RegExp('P:\\s*"' + name + '"\\s*,\\s*"[^"]*"\\s*,\\s*"[^"]*"\\s*,\\s*"[^"]*"\\s*,\\s*([-+0-9.eE]+)').exec(s); return m ? +m[1] : null; };
-    const u = num('UnitScaleFactor'), a = num('UpAxis'), g = num('UpAxisSign');
-    if (Number.isFinite(u) && u > 0) { out.unit = u; out.read = true; }
-    if ([0, 1, 2].includes(a)) out.up = a;
-    if (g === -1) out.sign = -1;
-  }
-  return out;
-}
+// An FBX's units and up axis, read from its bytes (the loader ignores them): the converter's (engine/convert.js)
+const fbxGuess = buf => CONV.fbxGuess(buf);
 // a model loaded: textures settled (missing ones dropped, big ones drawn down, each shown as it is), what its card says
 // (triangles, textures, clips, its size in its own units), and its starting scale and turn
 function finishModel(E, res) {
@@ -11919,11 +16850,14 @@ function finishModel(E, res) {
   if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
   const size = box.getSize(new THREE.Vector3()), tl = [...texs.values()];
   E.root = root; E.clips = res.clips || []; E.rigged = rigged;
+  // a GLB the converter wrote: what it was made from, and the scale and turn baked into it (asset.extras.studio)
+  E.record = res.asset ? CONV.glbRecord({ asset: res.asset }) : null;
+  if (E.record) GLBREC.set(E.path, { at: (STU.fileMap.get(E.path) || {}).at || 0, rec: E.record });
   E.info = {
     tris: Math.round(tris), textures: tl, clips: E.clips.map(c => [c.name, c.duration]), materials: mats.size, rigged,
     box: [box.min.toArray(), box.max.toArray()], own: size.toArray(), normals, flat, solid,
     // photogrammetry: a mesh without normals, or one textured material over many triangles; its light is in its texture
-    scan: !normals || (mats.size === 1 && tl.length >= 1 && !rigged && tris >= 50000),
+    scan: !normals || !!(E.record && E.record.scan) || (mats.size === 1 && tl.length >= 1 && !rigged && tris >= 50000),
   };
   E.guess = guessFor(res.guess, size);
 }
@@ -11944,21 +16878,12 @@ function capTexture(t) {
   out.to = Math.max(cw, ch);
   return out;
 }
-// The scale and turn a file starts with (stored in the item from then on: a layout never changes when this guess does).
-// FBX: its UnitScaleFactor (cm per unit) gives the scale factor / 100, and Z up a quarter turn about x; a scale is taken
-// only when it makes the largest side 5 cm to 60 m, else 1 unit = 1 m when that does, else it is sized to 1 m. glTF is
-// metres and Y up
+// The scale and turn a file starts with (stored in the item from then on: a layout never changes when this guess does):
+// the converter's guess (engine/convert.js), the same one a GLB has baked in. FBX: its UnitScaleFactor (cm per unit) and
+// Z up; glTF metres and Y up; OBJ, PLY and STL no units (metres, centimetres or millimetres, whichever makes it 5 cm to
+// 60 m); a scale that makes it smaller than 5 cm or larger than 60 m refused (1 unit = 1 m, else sized to 1 m)
 const _ax = new THREE.Vector3(1, 0, 0), _az = new THREE.Vector3(0, 0, 1);
-function guessFor(g, size) {
-  const q = new THREE.Quaternion();
-  if (g.up === 2) q.setFromAxisAngle(_ax, -Math.PI / 2 * g.sign);
-  else if (g.up === 0) q.setFromAxisAngle(_az, Math.PI / 2 * g.sign);
-  const L = Math.max(size.x, size.y, size.z) || 1, u = g.unit / 100, fits = c => L * c >= 0.05 && L * c <= 60;
-  // how: 'unit' (the file's own units taken), 'metres' (they would make it too small or too big: 1 unit = 1 m instead)
-  // or 'fit' (neither: sized to 1 m); would: its largest side in the file's own units, in metres (the card says why)
-  const how = fits(u) ? 'unit' : fits(1) ? 'metres' : 'fit', s = how === 'unit' ? u : how === 'metres' ? 1 : 1 / L;
-  return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, sign: g.sign, read: g.read, gltf: !!g.gltf, how, would: +(L * u).toPrecision(3) };
-}
+const guessFor = (g, size) => CONV.guessFor(g, size);
 // the card's words for that guess: what the file says of its units and up axis, and what was made of it, e.g. "the file
 // says centimetres; that would make it 1.7 cm, so taken as metres; stood up from Z up"
 const UNIT_WORDS = { 0.1: 'millimetres', 1: 'centimetres', 2.54: 'inches', 30.48: 'feet', 91.44: 'yards', 100: 'metres', 100000: 'kilometres' };
@@ -11966,11 +16891,15 @@ const lenWords = v => (v < 0.01 ? +(v * 1000).toPrecision(2) + ' mm' : v < 1 ? +
 function guessWords(g) {
   if (!g) return '';
   const unit = UNIT_WORDS[g.unit] || `${+(+g.unit).toPrecision(3)} cm a unit`, out = [];
-  out.push(g.gltf ? 'glTF is in metres' : g.read ? 'the file says ' + unit : 'the file gives no units: FBX\'s own, centimetres');
-  if (g.how === 'metres') out.push(`that would make it ${lenWords(g.would)}, so taken as metres`);
-  else if (g.how === 'fit') out.push(`that would make it ${lenWords(g.would)}, so sized to 1 m`);
+  if (g.free) out.push('the file gives no units: ' + { metres: 'taken as metres', cm: 'taken as centimetres', mm: 'taken as millimetres', fit: 'sized to 1 m' }[g.how]);
+  else {
+    out.push(g.gltf ? 'glTF is in metres' : g.read ? 'the file says ' + unit : 'the file gives no units: FBX\'s own, centimetres');
+    if (g.how === 'metres') out.push(`that would make it ${lenWords(g.would)}, so taken as metres`);
+    else if (g.how === 'fit') out.push(`that would make it ${lenWords(g.would)}, so sized to 1 m`);
+  }
   if (g.up === 2) out.push(g.sign < 0 ? 'turned over from Z down' : 'stood up from Z up');
   else if (g.up === 0) out.push(g.sign < 0 ? 'turned from X down' : 'turned from X up');
+  else if (g.sign < 0) out.push('turned over from Y down');
   return out.join('; ');
 }
 // a clone for one object: its own materials (lit as loaded; as scanned built when asked), its rest pose kept (an
@@ -12011,20 +16940,44 @@ function placedBox(E, q, s, out) {
 }
 
 // ================================================================= SOUNDS ==
-// A sound file of the scene: fetched once (its bytes kept), decoded on the shell's one context (HOST.audio.fx(); never a
-// context of its own) and again on a new one; at most 60 MB of decoded sound in a scene (the rest not loaded, said)
-const SND = new Map();   // path -> { state: 'loading'|'bytes'|'decoding'|'ready'|'failed'|'over', bytes, buf, size, err, gen }
-const SND_MAX = 60 << 20;
+// A sound file of the scene. Its length is read first from an <audio> element's metadata (nothing decoded): one longer
+// than 20 s is streamed (an <audio> element per emitter through the shell's context, e6_items.js: the owner's 4-minute
+// stereo MP3 would take about 98 MB decoded); a shorter one is fetched once (its bytes kept) and decoded on the shell's
+// one context (HOST.audio.fx(); never a context of its own), again on a new one, so it loops without a gap. At most 60 MB
+// of decoded sound in a scene (the rest not loaded, said); streamed ones do not count
+const SND = new Map();   // path -> { state: 'probing'|'loading'|'bytes'|'decoding'|'ready'|'stream'|'failed'|'over', bytes, buf, size, dur, err, gen }
+const SND_MAX = 60 << 20, STREAM_S = 20;
 let sndTotal = 0;
 function snd(path) {
   let F = SND.get(path);
-  if (!F) { F = { path, state: 'idle', bytes: null, buf: null, size: 0, err: '', gen: 0, ctx: null }; SND.set(path, F); }
-  if (F.state === 'idle' && STU.fileMap.has(path)) sndFetch(F);
+  if (!F) { F = { path, state: 'idle', bytes: null, buf: null, size: 0, dur: 0, stream: false, err: '', gen: 0, ctx: null }; SND.set(path, F); }
+  if (F.state === 'idle' && STU.fileMap.has(path)) sndProbe(F);
   return F;
+}
+// how long it is, from an <audio> element's metadata (the relay's password as ?token=, the only way an element can carry
+// it); an element that cannot tell (a format it does not play, a refusal) leaves it to the fetch and the decoder
+function sndProbe(F) {
+  const gen = ++F.gen, scene = STU.scene;
+  F.state = 'probing'; F.err = '';
+  if (SRC.held || typeof Audio === 'undefined') { sndFetch(F); return; }
+  const el = new Audio();
+  let done = false;
+  const end = dur => {
+    if (done) return;
+    done = true; unlater(t);
+    el.removeAttribute('src'); try { el.load(); } catch (e) { /* gone */ }
+    if (gen !== F.gen || scene !== STU.scene || GL.gone) return;
+    if (dur > STREAM_S && isFinite(dur)) { F.state = 'stream'; F.stream = true; F.dur = dur; dirty(); } else sndFetch(F);
+  };
+  const t = later(() => end(0), 10000);
+  el.preload = 'metadata'; el.crossOrigin = 'anonymous';
+  el.addEventListener('loadedmetadata', () => end(el.duration));
+  el.addEventListener('error', () => end(0));
+  el.src = fileUrl(F.path, true);
 }
 async function sndFetch(F) {
   const gen = ++F.gen, scene = STU.scene;
-  F.state = 'loading'; F.err = '';
+  F.state = 'loading'; F.err = ''; F.stream = false;
   try {
     const b = await getBytes(fileUrl(F.path));
     if (gen !== F.gen || scene !== STU.scene || GL.gone) return;
@@ -12043,12 +16996,12 @@ function sndDecode(F, ctx) {
     if (gen !== F.gen || F.ctx !== ctx || GL.gone) return;
     const size = buf.length * buf.numberOfChannels * 4;
     if (sndTotal + size > SND_MAX) { F.state = 'over'; F.err = 'Not loaded: the scene\'s sounds would take more than 60 MB once decoded.'; dirty(); return; }
-    sndTotal += size; F.size = size; F.buf = buf; F.state = 'ready';
+    sndTotal += size; F.size = size; F.buf = buf; F.dur = buf.duration; F.state = 'ready';
     dirty();
   }, e => { if (gen === F.gen) { F.state = 'failed'; F.err = 'It could not be decoded (' + ((e && e.message) || 'not a sound this browser plays') + ').'; dirty(); } });
 }
 // a new context (or none): every decoded sound goes, to be decoded again on the new one
-function sndForget() { for (const F of SND.values()) { F.buf = null; if (F.state === 'ready' || F.state === 'decoding') F.state = F.bytes ? 'bytes' : 'idle'; F.ctx = null; F.size = 0; } sndTotal = 0; }
+function sndForget() { for (const F of SND.values()) { if (F.stream) continue; F.buf = null; if (F.state === 'ready' || F.state === 'decoding') F.state = F.bytes ? 'bytes' : 'idle'; F.ctx = null; F.size = 0; } sndTotal = 0; }
 function emitChanged(p) {
   const F = SND.get(p);
   if (!F) return;
@@ -12168,7 +17121,7 @@ function removeItem(id) {
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
   else { it.look.drop(); if (it.look.deco) GL.edit.remove(it.look.deco); if (it.look.ring) GL.edit.remove(it.look.ring); }
-  if (it.kind === 's') emitStop(it);
+  if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.holder.parent) it.holder.parent.remove(it.holder);
   if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
@@ -12176,7 +17129,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
-function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(); sndClear(); }
+function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
 // where a record puts its item: its place, turn and scale (a cube's scale is its size; it stays level)
 const _pp = new THREE.Vector3(), _pq = new THREE.Quaternion(), _ps = new THREE.Vector3(), _yUp = new THREE.Vector3(0, 1, 0);
 function poseOf(it) {
@@ -12197,7 +17150,7 @@ function applyRec(it, was, glide) {
   } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
   else {
     it.look.name.userData.set(r.name, it.look.col, 0.07);
-    if (!was || was.file !== r.file) { emitStop(it); itemFile(it); }
+    if (!was || was.file !== r.file) { emitStop(it, true); itemFile(it); }
     if (!was || was.loop !== r.loop || was.start !== r.start) { emitStop(it); it.ended = false; }
   }
 }
@@ -12492,7 +17445,11 @@ function itemTop(id) {
 // a headset the listener is your head (the shell's HOST.sfx.listen puts it there too); on a page this camera. Silent
 // while the context is not there (before a tap, hidden, the <audio> engine chosen) or this device's Sound button is off
 // (they fade out, and are rebuilt on a new context); not the Sound effects or Narration switches: these are the scene's
-// own sounds. 'always' loops start at the same moment for everyone at a station (the room's time modulo their length)
+// own sounds. 'always' loops start at the same moment for everyone at a station (the room's time modulo their length).
+// A sound longer than 20 s is streamed (snd: it.F.stream): an <audio> element per emitter (crossOrigin anonymous, the
+// relay's password as ?token=) through createMediaElementSource on the same context into its gain and panner; paused,
+// not torn down, while the context is away or the device muted, and set to the right moment again when it comes back;
+// on a new context (the shell's renew) a new element (an element can feed one context only)
 const EM = { ctx: null, lis: false };
 const _ep = new THREE.Vector3(), _eq = new THREE.Quaternion(), _ef = new THREE.Vector3(), _eu = new THREE.Vector3();
 function emitStep(now) {
@@ -12507,6 +17464,7 @@ function emitStep(now) {
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
     const want = quiet ? 0 : it.sa * it.rec.vol;
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now);
+    else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now);
     if (!it.src) continue;
     any = true;
     if (it.gt !== want) { try { it.gain.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } it.gt = want; }
@@ -12560,15 +17518,57 @@ function emitStart(it, ctx, buf, now) {
     Object.assign(it, { src, gain: g, pan: p, gt: -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
-function emitStop(it) {
+// stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
+function emitStop(it, drop) {
   const s = it.src;
+  if (it.st) {
+    if (s) { it.src = null; try { it.st.gain.gain.setValueAtTime(0, it.st.ctx.currentTime); } catch (e) { /* closed */ } try { it.st.el.pause(); } catch (e) { /* gone */ } }
+    if (drop) streamDrop(it);
+    return;
+  }
   if (!s) return;
   it.src = null;
   try { s.onended = null; s.stop(); } catch (e) { /* not started */ }
   for (const n of [s, it.gain, it.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
   it.gain = it.pan = null;
 }
-function emitAll() { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it); }
+// a streamed sound: its element (made once per context) set to the moment it should be at, and played
+function streamStart(it, ctx, F, now) {
+  let S = it.st;
+  if (S && S.ctx !== ctx) { streamDrop(it); S = null; }
+  const off = emitOffset(it, F.dur || 1, now);
+  if (off < 0) { it.ended = true; return; }
+  if (!S) {
+    try {
+      const el = new Audio();
+      el.crossOrigin = 'anonymous'; el.preload = 'auto';
+      const node = ctx.createMediaElementSource(el), g = ctx.createGain(), p = ctx.createPanner();
+      g.gain.value = 0;
+      p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
+      node.connect(g); g.connect(p); p.connect(ctx.destination);
+      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop) it.ended = true; } });
+      el.src = fileUrl(F.path, true);
+      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path };
+    } catch (e) { it.ended = true; return; }
+  }
+  const el = S.el;
+  el.loop = !!it.rec.loop;
+  // (before its metadata an element ignores a new time: set once it has it)
+  const seek = () => { try { el.currentTime = off; } catch (e) { /* not seekable yet */ } };
+  if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
+  const pr = el.play();
+  if (pr && pr.catch) pr.catch(() => { if (it.src === el) { emitStop(it); it.stFail = performance.now(); } });   // (not allowed yet: again in 2 s)
+  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: -1, zeroAt: 0 });
+}
+function streamDrop(it) {
+  const S = it.st;
+  if (!S) return;
+  it.st = null;
+  if (it.src === S.el) { it.src = null; it.gain = it.pan = null; }
+  try { S.el.pause(); S.el.removeAttribute('src'); S.el.load(); } catch (e) { /* gone */ }
+  for (const n of [S.node, S.gain, S.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
+}
+function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
 
 // ------------------------------------------------------------------ edits --
 // Editing is this device's own (studioEdit), never in the state; refused while the station's story is locked (Lock
@@ -12801,11 +17801,12 @@ function studioEffect() { /* none */ }
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
 // list of blocks (paneBlocks) that the page draws as HTML (renderPanes) and the headset as its canvas twin
-// (drawExplorePane), so both say the same. On a page the camera goes round the scene (Orbit) or walks in it at 1.6 m
+// (drawExplorePane), so both say the same; on pages a fifth, Upload (e7b_upload.js), which a headset never shows. On a
+// page the camera goes round the scene (Orbit) or walks in it at 1.6 m
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
-const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {} };
+const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -12935,7 +17936,11 @@ function paneBlocks(tab) {
     }
     if (SRC.kind !== 'relay' && SRC.state !== 'looking') {
       B.push({ p: 'To serve your own scenes and save their layouts, run a relay on a computer here:', c: 'muted' }, { code: 'node relay/server.mjs --lan --scenes <folder>' },
-        { p: 'Each folder in it is a scene: models (.glb, .gltf, .fbx), their textures, sounds, and layout.json.', c: 'faint' });
+        { p: 'Each folder in it is a scene: models, their textures, sounds, and layout.json. Its page /upload (the Upload tab here) converts and sorts what you drop into it.', c: 'faint' });
+    }
+    // which files to use (the formats guide, short; tools/studio/README.md has it all), where no scene is found
+    if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
+      B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
     if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select. Grip: carry (both grips size an object; a cube\'s corner stretches it). Left stick: walk; right stick: turn.' : 'Click: select. W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
@@ -12943,17 +17948,31 @@ function paneBlocks(tab) {
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
     if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
     B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
-    const models = STU.files.filter(f => f.kind === 'model'), sounds = STU.files.filter(f => f.kind === 'audio');
-    const full = k => countOf(k) >= LIMITS[k];
-    B.push({ label: `Models (${models.length})`, list: models.map(f => {
-      const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20;
-      return { id: 'add:' + f.path, label: f.path, sub: mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : ''), act: 'add', v: f.path, warn: w, dis: full('o') };
-    }) });
-    if (!models.length) B.push({ p: 'No models in the scene\'s folder: put .glb, .gltf or .fbx files there.', c: 'faint' });
-    B.push({ label: `Sounds (${sounds.length})`, list: sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes), act: 'adds', v: f.path, dis: full('s') })) });
-    if (!sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
+    const L = sceneLists(), full = k => countOf(k) >= LIMITS[k], froms = new Map([...L.stands].map(([o, g]) => [g, o]));
+    const modelRow = (f, orig) => {
+      const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+        sub: g ? `converted: ${baseName(g)}` : mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : '') + (froms.has(f.path) ? ` · from ${baseName(froms.get(f.path))}` : '') };
+    };
+    B.push({ label: `Models (${L.models.length})`, list: L.models.map(f => modelRow(f, false)) });
+    if (!L.models.length) B.push({ p: 'No models in the scene\'s folder: put .glb (best), .gltf, .fbx, .obj, .ply or .stl files there, or drop them under Upload.', c: 'faint' });
+    // (the page converts: every model to place that is not a GLB yet)
+    const conv = L.models.filter(f => extOf(f.path) !== 'glb');
+    if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
+      { page: true, p: `GLB loads faster and sits right without guessing; textures at most ${maxTexNow()} px (For Quest, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
+    else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
+    if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
+    B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
+    if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
+    if (L.orig.length) {
+      B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
+      if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
+        { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+    }
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects and sounds you pick for it.', c: 'faint' });
     for (const k of ['o', 'c', 's']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+  } else if (tab === 'upload') {
+    uploadBlocks(B);
   } else if (tab === 'item') {
     const it = STU.items.get(STU.sel);
     if (!it) { B.push({ h: 'Item' }, { p: ed ? (XR.on ? 'Point at something in the scene and pull the trigger, or pick it under Items.' : 'Click something in the scene, or pick it under Items.') : 'Pick something under Items to see its card.', c: 'muted' }); return B; }
@@ -13008,6 +18027,15 @@ function itemBlocks(it, B, ed) {
       for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
       if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
     }
+    // GLB first: a GLB of this file in the scene (switch to it), or Convert to GLB (pages; a headset says where)
+    const g = extOf(r.file) !== 'glb' ? glbFor().get(r.file) : '';
+    if (g) B.push({ p: `A converted GLB is in the scene (${g}): switch to it.`, c: 'amber' }, { row: [{ id: 'switch', label: 'Switch to the GLB', act: 'switch', v: r.file, primary: true, dis }] });
+    else if (MODEL_EXT.includes(extOf(r.file)) && extOf(r.file) !== 'glb') {
+      if (XR.on) B.push({ p: 'Convert on a laptop: as a GLB it loads faster and sits right without guessing (Convert to GLB on this card, on a page).', c: 'faint' });
+      else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
+        { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${maxTexNow()} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
+    }
+    if (CV.note && !XR.on && (CV.busy === r.file || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
@@ -13028,6 +18056,7 @@ function itemBlocks(it, B, ed) {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')]] });
     if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
+    else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory. Mono files place best.`, c: 'faint' });
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
     else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
     B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
@@ -13043,6 +18072,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (UP_ACT[a]) { if (!XR.on) UP_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -13056,7 +18086,11 @@ function act(a, v) {
     seen: () => resetSeen(),
     download: () => downloadLayout(),
     upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
-    add: () => addModel(v),
+    add: () => addModel(glbFor().get(v) || v),
+    convert: () => convertFile(v),
+    convertAll: () => convertAll(),
+    switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
+    orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
     sel: () => select(v === STU.sel ? '' : v),
@@ -13067,10 +18101,10 @@ function act(a, v) {
   }[a] || (() => {}))();
   dirty(true);
 }
-function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; dirty(true); }
+function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && XR.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -13088,11 +18122,29 @@ function buildExplore() {
     #explore .actions .btn.warn { border-color: var(--amber); color: var(--amber); }
     .stu-k { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 0 0 4px; }
     .pane p.stu-l { margin: 10px 0 2px; font-size: 13px; color: var(--muted); }
+    .stu-drop { border: 2px dashed var(--line); border-radius: 8px; padding: 18px 12px 8px; text-align: center; margin: 8px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .stu-drop.hot { border-color: var(--cyan); background: var(--chip); }
+    .stu-drop.off { opacity: 0.5; }
+    .stu-drop span { color: var(--muted); font-size: 13px; }
+    .stu-in input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
+    .stu-plan { list-style: none; padding: 0; margin: 4px 0 12px; }
+    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; }
+    .stu-plan li > small, .stu-plan li > .bar, .stu-plan li > a { grid-column: 2; }
+    .stu-plan li .k { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-top: 2px; }
+    .stu-plan li .t { word-break: break-all; }
+    .stu-plan li .t small, .stu-plan li small { color: var(--muted); font-size: 12.5px; }
+    .stu-plan li small.n { color: var(--amber); }
+    .stu-plan li small.m { color: var(--ink); }
+    .stu-plan li.done { border-left-color: var(--green); } .stu-plan li.failed { border-left-color: var(--red); } .stu-plan li.failed small.m { color: var(--red); } .stu-plan li.working { border-left-color: var(--cyan); }
+    .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
+    .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
+    .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
-    <input type="file" id="stuUpload" accept=".json,application/json" hidden>`;
+    <input type="file" id="stuUpload" accept=".json,application/json" hidden>
+    <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
     const t = ev.target.closest('[data-act]');
@@ -13108,11 +18160,14 @@ function buildExplore() {
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
+  uploadBind();
   renderPanes();
 }
 function showTab(k) { pickTab(k); }
 function blockHTML(b) {
   if (b.xr) return '';
+  if (b.drop || b.input || b.plan) return uploadHTML(b);
+  if (b.label && b.p !== undefined) return `<p class="stu-l">${esc(b.label)}</p><p class="${b.c || ''}">${esc(b.p)}</p>`;
   const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`;
   if (b.h !== undefined) return `${b.sub ? `<p class="stu-k">${esc(b.sub)}</p>` : ''}<h3>${esc(b.h)}</h3>`;
   if (b.p !== undefined) return `<p class="${b.c || ''}">${esc(b.p)}</p>`;
@@ -13131,7 +18186,9 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
+  const fo = document.activeElement && document.activeElement.id === 'stuNewName' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
+  if (fo) { const i = $('#stuNewName'); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
   const vb = $('#viewctl [data-ctl="view"]');
   if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));
@@ -13335,6 +18392,622 @@ function tcAttach() {
   tc.showY = true;
   if (tc.object !== it.holder) tc.attach(it.holder);
 }
+// ================================================================= UPLOAD ==
+// GLB first (tools/studio/SPEC.md, "GLB first, and converting" and "The upload page"). What the studio makes goes into
+// folders of the scene: models/ (GLB), sounds/ and originals/ (the files as they were given, so a model can be converted
+// again). A GLB the converter wrote records what it was made from (asset.extras.studio): read from its head (a byte
+// range) so the Add list shows the GLB and folds the original under Originals. Convert to GLB (an object's card, and
+// Convert every model under Add) converts a model of the scene in this page and, with a relay that takes uploads, puts it
+// in models/ and switches every object placed from the original to it where it stands (s' = s / b, q' = q * r^-1: one
+// change, one Undo step); else it is downloaded. The Upload pane (pages only) takes files and folders dropped onto it,
+// shows the plan (one row per thing it will make), then converts and uploads them: models to models/<name>.glb, sounds
+// to sounds/ (mono: short ones WAV, long ones MP3 through the relay's ffmpeg), and everything given to originals/.
+
+// ---------------------------------------------------------- GLB records --
+const GLBREC = new Map();   // path -> { at, rec (null: none), p (a read under way) }
+// a GLB's record: the object (from, s, q, at, scan), null (none), or undefined (not read yet: a read starts)
+function glbRec(path) {
+  const f = STU.fileMap.get(path);
+  if (!f || extOf(path) !== 'glb') return undefined;
+  const c = GLBREC.get(path);
+  if (c && c.at === f.at) return c.p ? undefined : c.rec;
+  if (SRC.held || STU.listing !== 'ok') return undefined;
+  const e = { at: f.at, rec: null, p: null }, scene = STU.scene;
+  GLBREC.set(path, e);
+  e.p = glbHead(path).then(j => { e.rec = CONV.glbRecord(j); }, () => { /* none read: by its name */ })
+    .then(() => { e.p = null; if (scene === STU.scene) { STU.libRev++; dirty(); } });
+  return undefined;
+}
+// a GLB's JSON chunk, from its first bytes (a range: a scan's GLB is megabytes, its JSON a few KB)
+async function glbHead(path) {
+  const part = async (a, b) => {
+    const r = await call(fileUrl(path), { headers: { Range: `bytes=${a}-${b}` }, cache: 'no-cache' });
+    if (!r.body || !r.body.getReader) return new Uint8Array(await r.arrayBuffer()).subarray(r.status === 206 ? 0 : a);
+    // (a server that sends the whole file anyway: read only as far as needed)
+    const rd = r.body.getReader(), want = b - a + 1, from = r.status === 206 ? 0 : a, parts = [];
+    let n = 0;
+    while (n < from + want) { const { done, value } = await rd.read(); if (done) break; parts.push(value); n += value.length; }
+    try { rd.cancel(); } catch (e) { /* done */ }
+    const out = new Uint8Array(n);
+    let o = 0;
+    for (const p of parts) { out.set(p, o); o += p.length; }
+    return out.subarray(from, from + want);
+  };
+  let u8 = await part(0, 65535);
+  if (u8.length < 20) return null;
+  const len = new DataView(u8.buffer, u8.byteOffset, u8.byteLength).getUint32(12, true);
+  if (len > 8 << 20) return null;
+  if (20 + len > u8.length) { const rest = await part(u8.length, 19 + len), all = new Uint8Array(20 + len); all.set(u8); all.set(rest, u8.length); u8 = all; }
+  return CONV.glbJSON(u8.slice(0, 20 + len).buffer);
+}
+// the scene's models a GLB stands for: original path -> GLB path. A GLB's record names what it was made from; a GLB
+// without one (or not read yet) stands for a model of the same base name. GLBs under originals/ stand for nothing
+function glbFor() {
+  const map = new Map(), glbs = STU.files.filter(f => extOf(f.path) === 'glb' && !inOriginals(f.path));
+  for (const g of glbs) { const r = glbRec(g.path); if (r && r.from && r.from !== g.path && STU.fileMap.has(r.from)) map.set(r.from, g.path); }
+  for (const g of glbs) {
+    const r = glbRec(g.path);
+    if (r && r.from) continue;
+    const st = stem(g.path).toLowerCase();
+    for (const f of STU.files) if (f.kind === 'model' && extOf(f.path) !== 'glb' && stem(f.path).toLowerCase() === st && !map.has(f.path)) map.set(f.path, g.path);
+  }
+  return map;
+}
+const inOriginals = p => /^originals\//i.test(p);
+// what the scene's folders hold: models and sounds to place (models/, sounds/, anything outside originals/; an original a
+// GLB stands for goes under Originals, with the GLB placed for it), and the Originals fold
+function sceneLists() {
+  const stands = glbFor(), models = [], sounds = [], orig = [];
+  for (const f of STU.files) {
+    const o = inOriginals(f.path);
+    if (o || (f.kind === 'model' && stands.has(f.path))) orig.push(f);
+    else if (f.kind === 'model') models.push(f);
+    else if (f.kind === 'audio') sounds.push(f);
+  }
+  return { models, sounds, orig, stands };
+}
+
+// --------------------------------------------------------- Convert to GLB --
+// A model of the scene converted in this page (the converter, engine/convert.js): fetched again and loaded afresh (the
+// placed one is left alone), given the studio's guess, its textures at most 2,048 px (For Quest) or 4,096, written as a
+// GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
+// from this file before, else a free name) and every object placed from the original switches to it; else it is
+// downloaded. A failure changes nothing
+const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null };
+const canConvert = p => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && !XR.on;
+const canUpload = () => SRC.kind === 'relay' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
+const maxTexNow = () => (UP.quest ? 2048 : 4096);
+async function convertFile(path) {
+  if (!canConvert(path) || CV.busy) return false;
+  const name = stem(path), scene = STU.scene, gen = STU.gen;
+  CV.busy = path; CV.note = `Converting ${baseName(path)}: reading it...`; CV.noteC = 'muted'; dirty(true);
+  let ok = false;
+  try {
+    const buf = await getBytes(fileUrl(path));
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '', base = sceneUrl(scene) + encPath(dir);
+    await new Promise(r => later(r, 30));
+    const m = await CONV.load({ ext: extOf(path), data: buf, base, name, url: u => resolveUrl(u, base, dir, new Set()) });
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: path, step: l => { CV.note = `Converting ${baseName(path)}: ${l.toLowerCase()}...`; dirty(); } });
+    CONV.disposeTree(m.root);
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
+    if (gen !== STU.gen || GL.gone) return false;
+    if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
+    const size = mb(r.glb.byteLength), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
+    if (canUpload()) {
+      // (models/<base>.glb: replaced when it was made from this very file, else the next free name)
+      let out = 'models/' + safeSeg(name) + '.glb', replace = false;
+      if (STU.fileMap.has(out)) { const rec = glbRec(out) || (await glbHead(out).then(j => CONV.glbRecord(j), () => null)); if (rec && rec.from === path) replace = true; else out = freeName(out, p => STU.fileMap.has(p)); }
+      CV.note = `Converting ${baseName(path)}: uploading ${out} (${size})...`; dirty();
+      const j = await upSend(fileApi(scene, out, replace), new Blob([r.glb], { type: 'model/gltf-binary' }), p => { CV.note = `Converting ${baseName(path)}: uploading ${out} (${Math.round(p * 100)} %)...`; dirty(); });
+      out = (j && j.path) || out;
+      if (gen !== STU.gen) return false;
+      await refreshFiles(new Set([out]));
+      const f = STU.fileMap.get(out);
+      GLBREC.set(out, { at: f ? f.at : 0, rec: r.record, p: null });
+      const n = switchToGLB(path, out, r.record);
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${maxTexNow()} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + lost;
+      CV.noteC = 'green';
+      CV.done.push(out);
+    } else {
+      saveFile(r.glb, name + '.glb', 'model/gltf-binary');
+      CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
+      CV.noteC = 'green';
+      CV.done.push(name + '.glb');
+    }
+    ok = true;
+    sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
+  } catch (e) {
+    if (gen === STU.gen) { CV.note = `${baseName(path)} was not converted (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; }
+  } finally { CV.busy = ''; dirty(true); }
+  return ok;
+}
+// Convert every model (Add): each model to place that is not a GLB, one after another
+async function convertAll() {
+  if (CV.busy || CV.all) return;
+  const list = sceneLists().models.filter(f => extOf(f.path) !== 'glb').map(f => f.path);
+  CV.all = { i: 0, n: list.length, ok: 0 };
+  try { for (const p of list) { CV.all.i++; if (await convertFile(p)) CV.all.ok++; if (!editOn()) break; } } finally {
+    const a = CV.all;
+    CV.all = null;
+    if (a.n > 1) { CV.note = `Converted ${a.ok} of ${a.n} models.` + (a.ok < a.n ? ' ' + CV.note : ''); CV.noteC = a.ok === a.n ? 'green' : 'amber'; }
+    dirty(true);
+  }
+}
+// Every object placed from `orig` now placed from the GLB where it stands: the GLB holds the original turned by r and
+// scaled by b (its record), so the object's own scale and turn become s / b and q * r^-1 (one change, one Undo step,
+// for everyone at a station). A GLB with no record is taken as the studio's own guess for the original made into metres
+// and Y up
+function switchToGLB(orig, glb, rec) {
+  if (!editOn()) return 0;
+  const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
+  const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
+  if (!list.length) return 0;
+  change(() => { for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g)); });
+  sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
+  return list.length;
+}
+const switchedRec = (r, glb, g) => {
+  const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
+  return { file: glb, s: r.s / (g.s || 1), q: q.toArray() };
+};
+// a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
+function saveFile(data, name, type) {
+  const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: type || 'application/octet-stream' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  later(() => URL.revokeObjectURL(url), 60000);
+}
+
+// ------------------------------------------------------------- the relay --
+// a scene's file, as the upload endpoint takes it (the relay's rules: relay/scenes.mjs, uploadPath)
+const fileApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/file?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
+const soundApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/sound?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
+// one upload, with its progress (an XMLHttpRequest: fetch says nothing of what has gone); the password as a header, a
+// refusal told to the shell once (authHold, as every call)
+function upSend(url, body, onP) {
+  return new Promise((res, rej) => {
+    if (SRC.held) { rej(AUTH_ERR()); return; }
+    const x = new XMLHttpRequest();
+    x.open('POST', url);
+    x.setRequestHeader('Content-Type', 'application/octet-stream');
+    if (SRC.token) x.setRequestHeader('Authorization', 'Bearer ' + SRC.token);
+    if (onP) x.upload.onprogress = e => { if (e.lengthComputable) onP(e.loaded / Math.max(1, e.total)); };
+    x.onload = () => {
+      let j = null;
+      try { j = JSON.parse(x.responseText); } catch (e) { /* not JSON */ }
+      if (x.status === 401) { if (!SRC.held) { saw(401, SRC.token, j); authHold(); } rej(AUTH_ERR()); return; }
+      saw(x.status, SRC.token, x.status < 300 ? null : j);
+      if (x.status >= 200 && x.status < 300) res(j);
+      else rej(Object.assign(new Error((j && j.error) || 'HTTP ' + x.status), { status: x.status, retry: +x.getResponseHeader('Retry-After') || 0 }));
+    };
+    x.onerror = () => rej(Object.assign(new Error('the relay could not be reached'), { status: 0 }));
+    x.send(body);
+  });
+}
+// a path part the relay takes as it is (no characters a common file system cannot keep, no dot at the start, none of
+// its device names, nothing that reads as a temporary file)
+function safeSeg(s) {
+  s = String(s).replace(/[\0-\x1f\x7f\\/:*?"<>|]/g, '_').replace(/^[. ]+/, m => '_'.repeat(m.length)).replace(/[. ]+$/, m => '_'.repeat(m.length)).slice(0, 90);
+  if (/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(s)) s = '_' + s;
+  if (/(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i.test(s)) s += '_';
+  return s || '_';
+}
+// the next free name: "eva_001.glb", "eva_001 2.glb", ...
+function freeName(p, taken) {
+  if (!taken(p)) return p;
+  const i = p.lastIndexOf('/'), dir = p.slice(0, i + 1), f = p.slice(i + 1), dot = f.lastIndexOf('.'), b = dot > 0 ? f.slice(0, dot) : f, e = dot > 0 ? f.slice(dot) : '';
+  for (let n = 2; ; n++) { const q = `${dir}${b} ${n}${e}`; if (!taken(q)) return q; }
+}
+
+// ---------------------------------------------------------------- sounds --
+// A sound's own sample rate, from its header (WAV, FLAC, AIFF, Ogg, MP3, ADTS AAC, MP4/M4A): a short one is written at
+// it (at most 48 kHz); 0 when it cannot be told
+function rateOf(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), str = (o, n) => String.fromCharCode.apply(null, u8.subarray(o, o + n));
+  try {
+    if (str(0, 4) === 'RIFF' && str(8, 4) === 'WAVE') for (let o = 12; o + 16 <= u8.length;) { const n = dv.getUint32(o + 4, true); if (str(o, 4) === 'fmt ') return dv.getUint32(o + 12, true); o += 8 + n + (n & 1); }
+    if (str(0, 4) === 'fLaC') return (u8[18] << 12) | (u8[19] << 4) | (u8[20] >> 4);
+    if (str(0, 4) === 'FORM' && /^AIF[FC]$/.test(str(8, 4))) for (let o = 12; o + 26 <= u8.length;) {
+      const n = dv.getUint32(o + 4, false);
+      if (str(o, 4) === 'COMM') { const e = dv.getUint16(o + 16, false) & 0x7fff, m = dv.getUint32(o + 18, false); return Math.round(m * Math.pow(2, e - 16383 - 31)); }
+      o += 8 + n + (n & 1);
+    }
+    const head = str(0, Math.min(u8.length, 4096));
+    if (head.startsWith('OggS')) { const v = head.indexOf('\x01vorbis'); if (v >= 0) return dv.getUint32(v + 12, true); if (head.includes('OpusHead')) return 48000; }
+    const mp4 = head.indexOf('mp4a');
+    if (mp4 > 4 && mp4 + 32 <= u8.length && /ftyp/.test(head)) return dv.getUint32(mp4 + 28, false) >>> 16;
+    let o = 0;
+    if (str(0, 3) === 'ID3') o = 10 + ((u8[6] & 127) << 21 | (u8[7] & 127) << 14 | (u8[8] & 127) << 7 | (u8[9] & 127));
+    for (const end = Math.min(u8.length - 4, o + 65536); o < end; o++) {
+      if (u8[o] !== 0xff || (u8[o + 1] & 0xe0) !== 0xe0) continue;
+      const b1 = u8[o + 1], b2 = u8[o + 2];
+      if ((b1 & 0xf6) === 0xf0) { const r = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350][(b2 >> 2) & 15]; if (r) return r; continue; }   // ADTS (AAC)
+      const ver = (b1 >> 3) & 3, layer = (b1 >> 1) & 3, ri = (b2 >> 2) & 3;
+      if (ver === 1 || layer === 0 || ri === 3) continue;
+      return [[11025, 12000, 8000], null, [22050, 24000, 16000], [44100, 48000, 32000]][ver][ri];
+    }
+  } catch (e) { /* not told */ }
+  return 0;
+}
+// a sound decoded and mixed to mono at `rate` (an OfflineAudioContext only decodes: it opens no output, so the rule that
+// sound is the shell's is kept), as a 16-bit WAV
+async function monoWav(bytes, rate) {
+  let ctx;
+  try { ctx = new OfflineAudioContext(1, 1, rate); } catch (e) { ctx = new OfflineAudioContext(1, 1, 44100); }
+  const b = await ctx.decodeAudioData(bytes.slice(0)), n = b.length, ch = b.numberOfChannels, mix = new Float32Array(n);
+  for (let c = 0; c < ch; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) mix[i] += d[i] / ch; }
+  const out = new ArrayBuffer(44 + n * 2), dv = new DataView(out), w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, b.sampleRate, true); dv.setUint32(28, b.sampleRate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, mix[i])) * 32767), true);
+  return { wav: out, rate: b.sampleRate, dur: b.duration, ch };
+}
+// how long a dropped sound is, from an <audio> element's metadata (NaN: this browser cannot read it)
+function probeFile(file) {
+  return new Promise(res => {
+    const el = new Audio(), url = URL.createObjectURL(file);
+    let done = false;
+    const end = d => { if (done) return; done = true; unlater(t); el.removeAttribute('src'); try { el.load(); } catch (e) { /* gone */ } URL.revokeObjectURL(url); res(d); };
+    const t = later(() => end(NaN), 15000);
+    el.preload = 'metadata';
+    el.addEventListener('loadedmetadata', () => end(el.duration));
+    el.addEventListener('error', () => end(NaN));
+    el.src = url;
+  });
+}
+
+// ----------------------------------------------------------- the Upload pane --
+// UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
+// will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
+const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [] };
+const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
+const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
+const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
+const upRelay = () => SRC.kind === 'relay' && SRC.upload && SRC.state === 'ok';
+const upChanged = () => { UP.rev++; dirty(); };
+// files dropped or chosen: [{ path, file }] (a dropped folder's structure kept in path)
+function upTake(list) {
+  if (UP.busy) return;
+  const out = [], left = [];
+  for (const x of list) {
+    const path = String(x.path || x.file.name).replace(/\\/g, '/').replace(/^\/+/, ''), name = baseName(path);
+    if (!name || path.split('/').some(s => JUNK.test(s))) { left.push(name || path); continue; }
+    if (out.length >= 2000) break;
+    out.push({ path, file: x.file, ext: extOf(name), name, buf: null });
+  }
+  UP.entries = out; UP.left = left; UP.ran = false; UP.note = '';
+  for (const u of UP.blobs) URL.revokeObjectURL(u);
+  UP.blobs = [];
+  if (!UP.scene) UP.scene = STU.scene || (SRC.scenes.length === 1 ? SRC.scenes[0].name : '');
+  X.tab = 'upload';
+  upPlan();
+}
+// the plan: each model with the files it names (found by base name, case aside, anywhere in what was dropped: its
+// textures, an OBJ's MTL and the MTL's textures, a glTF's .bin), each sound on its own, and anything left kept as it is
+async function upPlan() {
+  const gen = ++UP.gen, E = UP.entries, byName = new Map();
+  UP.planning = true; upChanged();
+  for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
+  // (the nearest of several by that name: in the model's own folder first)
+  const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
+  const used = new Set(), rows = [];
+  for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
+    const r = { kind: 'model', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
+    used.add(e);
+    try {
+      if (!e.buf) e.buf = await e.file.arrayBuffer();
+      if (gen !== UP.gen) return;
+      const N = CONV.namesIn(e.ext, e.buf), lost = [];
+      const attach = n => { const f = find(n, e); if (f) { if (!r.src.includes(f)) r.src.push(f); used.add(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
+      for (const n of N.mtl) {
+        const f = attach(n);
+        if (f) { const txt = await f.file.text(); for (const t of CONV.mtlNames(txt)) attach(t); }
+      }
+      for (const n of N.buffers) attach(n);
+      for (const n of N.textures) attach(n);
+      if (lost.length) r.notes.push(e.ext === 'fbx' ? `Names ${lost.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
+    } catch (err) { r.notes.push('It could not be read: ' + err.message); }
+    rows.push(r);
+  }
+  for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !used.has(x))) { used.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
+  for (const e of E.filter(x => !used.has(x))) rows.push({ kind: 'keep', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path });
+  if (gen !== UP.gen) return;
+  UP.rows = rows;
+  upNames();
+  UP.planning = false; upChanged();
+  // the sounds' lengths and rates (an element's metadata, the header's first bytes), then the names again
+  for (const r of rows.filter(x => x.kind === 'sound')) {
+    const [dur, head] = await Promise.all([probeFile(r.main.file), r.main.file.slice(0, 1 << 18).arrayBuffer()]);
+    if (gen !== UP.gen) return;
+    r.dur = dur; r.rate = rateOf(new Uint8Array(head)); r.msg = '';
+    upNames(); upChanged();
+  }
+}
+// where each row's files go in the scene, against what the scene holds (numbered unless Replace) and each other
+async function upHave() {
+  const name = UP.scene;
+  if (!name || !upRelay()) { UP.have = []; UP.haveFor = name; return; }
+  if (name === STU.scene && STU.listing === 'ok') { UP.have = STU.files.map(f => f.path); UP.haveFor = name; return; }
+  try { const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`); if (UP.scene === name) { UP.have = (j.files || []).map(f => f.path); UP.haveFor = name; } } catch (e) { UP.have = []; UP.haveFor = name; }
+}
+function origPath(path) {
+  const segs = path.split('/').map(safeSeg), file = segs.pop(), dirs = segs.slice(-3);   // (the relay keeps 4 folders: originals/ and 3 of the dropped ones)
+  const p = ['originals', ...dirs, file].join('/');
+  return p.length <= 200 ? p : 'originals/' + file.slice(0, 180);
+}
+function upNames() {
+  const have = new Set((UP.have || []).map(p => p.toLowerCase())), mine = new Set(), given = new Map();
+  const taken = p => mine.has(p.toLowerCase()) || (!UP.replace && have.has(p.toLowerCase()));
+  const claim = p => { const q = freeName(p, taken); mine.add(q.toLowerCase()); return q; };
+  const orig = e => { if (!given.has(e)) given.set(e, claim(origPath(e.path))); return given.get(e); };
+  const relay = upRelay() && !!UP.scene;
+  for (const r of UP.rows) {
+    r.out = []; r.how = '';
+    const st = safeSeg(r.main.name.replace(/\.[^.]*$/, ''));
+    if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
+    else if (r.kind === 'sound') {
+      const d = r.dur;
+      if (d === undefined) r.how = 'measuring';
+      else if (!(d > 0) || !isFinite(d)) { r.how = 'unread'; r.out.push(orig(r.main)); continue; }
+      else if (d <= STREAM_S) r.how = 'wav';
+      else if (relay && SRC.ffmpeg) r.how = 'mp3';
+      else if (KEEP_AS_IS.includes(r.main.ext)) r.how = 'keep';
+      else r.how = 'wav22';
+      if (r.how !== 'measuring') r.out.push(claim(`sounds/${st}.${r.how === 'mp3' ? 'mp3' : r.how === 'keep' ? r.main.ext : 'wav'}`));
+      r.out.push(orig(r.main));
+    } else r.out.push(orig(r.main));
+  }
+}
+// what a row says it will make, in words
+function rowPlan(r) {
+  const d = r.dur, len = d > 0 && isFinite(d) ? (d >= 60 ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s` : `${d.toFixed(d < 10 ? 1 : 0)} s`) : '';
+  if (r.kind === 'model') {
+    const more = r.src.length - 1;
+    return `A model: ${r.out[0]} (metres, Y up, textures at most ${maxTexNow()} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
+  }
+  if (r.kind === 'sound') {
+    const rate = Math.min(48000, r.rate || 44100);
+    return r.how === 'measuring' ? 'A sound: measuring its length...'
+      : r.how === 'unread' ? 'This browser cannot read this sound: kept as it is in originals/.'
+      : r.how === 'wav' ? `A short sound (${len}): ${r.out[0]}, mono, 16-bit, ${(rate / 1000).toFixed(rate % 1000 ? 2 : 0)} kHz (loops without a gap).`
+      : r.how === 'mp3' ? `A long sound (${len}): ${r.out[0]}, made mono MP3 by the relay's ffmpeg (streamed when played).`
+      : r.how === 'keep' ? `A long sound (${len}): ${r.out[0]} kept as it is (a stereo file plays from one point; no ffmpeg on ${upRelay() ? 'this relay' : 'a page alone'}).`
+      : `A long sound (${len}): ${r.out[0]}, mono WAV at ${r.rate && r.rate < 22050 ? (r.rate / 1000).toFixed(r.rate % 1000 ? 2 : 0) : '22.05'} kHz (no ffmpeg ${upRelay() ? 'on this relay' : 'without a relay'} to make an MP3).`;
+  }
+  return 'Kept as it is: to originals/ (no model names it).';
+}
+// a new scene (POST /api/scenes): its folder made, then picked
+async function upMake() {
+  const name = UP.newName.trim();
+  if (!okScene(name) || name === 'watch') { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -.'; dirty(true); return; }
+  if (!upRelay() || UP.making) return;
+  UP.making = true; UP.newNote = ''; dirty(true);
+  try {
+    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    UP.scene = name; UP.newOpen = false; UP.newName = '';
+    await listScenes(SRC.gen);
+    await upHave(); upNames();
+  } catch (e) { UP.newNote = e.status === 409 ? `There is a scene called ${name} already: pick it above.` : 'The scene could not be made: ' + e.message; }
+  finally { UP.making = false; dirty(true); }
+}
+async function upPick(name) { if (UP.busy) return; UP.scene = name; UP.rev++; await upHave(); upNames(); dirty(true); }
+// Convert and upload (or, with no relay that takes uploads, Convert: the outputs offered as downloads)
+async function upRun() {
+  if (UP.busy || !UP.rows.length) return;
+  const relay = upRelay();
+  if (relay && !UP.scene) { UP.note = 'Pick a scene first, or make a new one.'; dirty(true); return; }
+  UP.busy = true; UP.ran = true; UP.note = ''; dirty(true);
+  const gen = UP.gen, scene = UP.scene, sent = new Set();
+  try {
+    if (relay) { await upHave(); upNames(); }
+    for (const r of UP.rows) {
+      if (gen !== UP.gen || GL.gone) return;
+      if (r.state === 'done') continue;
+      r.state = 'work'; r.p = 0; r.msg = ''; r.dl = []; upChanged();
+      try { await upRow(r, relay, scene, sent); }
+      catch (e) { r.state = 'failed'; r.msg = e.status === 401 ? AUTH_NOTE : (r.msg ? r.msg + ' ' : '') + 'It failed: ' + e.message; if (e.status === 401) break; }
+      upChanged();
+    }
+    const bad = UP.rows.filter(r => r.state === 'failed').length;
+    UP.note = relay ? (bad ? `Done, with ${bad} row${bad === 1 ? '' : 's'} not made (said in each).` : `Done: everything is in the scene ${scene}.`)
+      : 'Converted here: download what was made (nothing was uploaded: no relay takes uploads here).';
+    if (relay && scene === STU.scene) refreshFiles(new Set());
+    if (relay) listScenes(SRC.gen);
+  } finally { UP.busy = false; dirty(true); }
+}
+// one row: converted (a model, a sound) and its files uploaded, the given ones to originals/ (each once a run)
+async function upRow(r, relay, scene, sent) {
+  const prog = (a, b) => f => { r.p = a + (b - a) * f; dirty(); };
+  const keep = async (e, p) => {
+    if (!relay || !p || sent.has(p)) return;
+    sent.add(p);
+    r.msg = `Uploading ${p}...`; upChanged();
+    await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
+  };
+  if (r.kind === 'keep' || (r.kind === 'sound' && r.how === 'unread')) {
+    if (relay) await keep(r.main, r.out[0]);
+    r.state = 'done'; r.p = 1; r.msg = relay ? `In ${r.out[0]}.` : 'Kept as it is (with a relay it goes to originals/).';
+    return;
+  }
+  if (r.kind === 'model') {
+    const e = r.main, glbPath = r.out[0], urls = new Map();
+    for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
+    const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
+    const url = u => {
+      let rel = u.startsWith(base) ? u.slice(base.length) : u;
+      try { rel = decodeURIComponent(rel); } catch (err) { /* as it is */ }
+      rel = rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+      return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
+    };
+    r.msg = 'Reading it...'; r.p = 0.02; upChanged();
+    if (!e.buf) e.buf = await e.file.arrayBuffer();
+    await new Promise(res => later(res, 30));
+    let res = null;
+    try {
+      const m = await CONV.load({ ext: e.ext, data: e.buf, base, name: e.name.replace(/\.[^.]*$/, ''), url });
+      res = await CONV.toGLB(m, { name: e.name.replace(/\.[^.]*$/, ''), maxTex: maxTexNow(), from: r.from, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      CONV.disposeTree(m.root);
+    } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
+    e.buf = null;
+    for (const m of res.missing || []) r.notes.push(`Converted without its texture ${m}.`);
+    if (res.notes) for (const n of res.notes) if (/^made opaque|^no normals/.test(n)) r.notes.push(n.charAt(0).toUpperCase() + n.slice(1) + '.');
+    r.notes = [...new Set(r.notes.filter(n => !/^Names .* not among the files/.test(n) || !res.ok))];
+    // the given files kept whether or not it converted (a failure is said; the original can be tried again)
+    r.p = 0.55;
+    for (const f of r.src) await keep(f, r.out[r.src.indexOf(f) + 1]);
+    if (!res.ok) { r.state = 'failed'; r.msg = `Not converted: ${res.why}.` + (relay ? ' Its files are kept in originals/.' : ''); return; }
+    const size = mb(res.glb.byteLength);
+    if (relay) {
+      r.msg = `Uploading ${glbPath} (${size})...`; upChanged();
+      const j = await upFile(scene, glbPath, new Blob([res.glb], { type: 'model/gltf-binary' }), prog(0.85, 1));
+      r.out[0] = (j && j.path) || glbPath;
+      r.msg = `Made ${r.out[0]} (${size}).`;
+    } else { r.dl.push({ name: baseName(glbPath), url: blobOf(res.glb, 'model/gltf-binary') }); r.msg = `Converted (${size}).`; }
+    r.state = 'done'; r.p = 1;
+    return;
+  }
+  // a sound
+  const e = r.main, out = r.out[0];
+  if (r.how === 'mp3') {
+    r.msg = `The relay's ffmpeg is making ${out}...`; r.p = 0.1; upChanged();
+    let j = null;
+    for (let k = 0; ; k++) {
+      try { j = await upSend(soundApi(scene, out, UP.replace), e.file, prog(0.1, 0.7)); break; }
+      catch (err) { if (err.status !== 429 || k > 8) throw err; await new Promise(res => later(res, 1000 * Math.max(2, err.retry || 3))); }
+    }
+    r.out[0] = (j && j.path) || out;
+  } else if (r.how === 'keep') {
+    if (relay) await upFile(scene, out, e.file, prog(0.1, 0.7));
+  } else {
+    r.msg = 'Decoding it...'; r.p = 0.1; upChanged();
+    const w = await monoWav(await e.file.arrayBuffer(), Math.min(r.how === 'wav' ? 48000 : 22050, Math.max(8000, r.rate || 44100)));
+    if (relay) { r.msg = `Uploading ${out} (${mb(w.wav.byteLength)})...`; upChanged(); await upFile(scene, out, new Blob([w.wav], { type: 'audio/wav' }), prog(0.3, 0.7)); }
+    else r.dl.push({ name: baseName(out), url: blobOf(w.wav, 'audio/wav') });
+    r.made = `mono, ${w.rate} Hz, ${w.dur.toFixed(1)} s` + (w.ch > 1 ? ` (from ${w.ch} channels)` : '');
+  }
+  r.p = 0.75;
+  await keep(e, r.out[1]);
+  r.state = 'done'; r.p = 1;
+  r.msg = r.how === 'keep' && !relay ? 'Kept as it is (nothing to convert here).' : relay ? `Made ${r.out[0]}` + (r.made ? ` (${r.made}).` : '.') : `Converted (${r.made}).`;
+}
+// one file to the scene (409 for a name taken meanwhile: the next free one)
+async function upFile(scene, p, body, onP) {
+  for (let k = 0; k < 6; k++) {
+    try { return await upSend(fileApi(scene, p, UP.replace), body, onP); }
+    catch (e) { if (e.status !== 409 || UP.replace) throw e; const was = p; p = freeName(p, q => q === was || (UP.have || []).includes(q)); (UP.have || (UP.have = [])).push(was); }
+  }
+  throw new Error('no free name for ' + p);
+}
+// a file the relay would refuse (over its --max-upload), said before anything is sent
+const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
+const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
+function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
+function upOpen() {
+  const name = UP.scene;
+  if (!name) return;
+  if (name !== STU.scene) openScene(name, 'pick'); else refreshFiles(new Set());
+  if (!OPT.visit && !STU.edit) setEdit(true);
+  X.tab = 'add'; dirty(true);
+}
+// a folder dropped: every file in it (its path kept), read through the browser's entries (at most 2,000 files)
+async function readDropped(dt) {
+  const out = [], walk = async (en, pre) => {
+    if (out.length >= 2000) return;
+    if (en.isFile) { try { out.push({ path: pre + en.name, file: await new Promise((res, rej) => en.file(res, rej)) }); } catch (e) { /* unreadable */ } return; }
+    if (!en.isDirectory) return;
+    const rd = en.createReader();
+    for (;;) { const batch = await new Promise(res => rd.readEntries(res, () => res([]))); if (!batch.length) break; for (const c of batch) await walk(c, pre + en.name + '/'); }
+  };
+  const ents = [...(dt.items || [])].map(i => (i.kind === 'file' && i.webkitGetAsEntry ? i.webkitGetAsEntry() : null));
+  if (ents.length && ents.every(Boolean)) { for (const en of ents) await walk(en, ''); return out; }
+  return [...(dt.files || [])].map(f => ({ path: f.webkitRelativePath || f.name, file: f }));
+}
+// the pane's blocks (pages only: a headset shows no Upload tab)
+function uploadBlocks(B) {
+  const relay = upRelay(), busy = UP.busy;
+  B.push({ h: 'Upload', sub: 'Studio' });
+  B.push({ p: 'Drop models, textures and sounds here (files or whole folders). Each model is converted to a GLB (metres, Y up, light enough for a headset), each sound made mono, everything sorted into the scene\'s models/, sounds/ and originals/ folders.', c: 'muted' });
+  if (relay) {
+    B.push({ label: 'Into the scene', row: SRC.scenes.map(s => ({ id: 'up:scene:' + s.name, label: s.name, act: 'up:scene', v: s.name, on: s.name === UP.scene, dis: busy }))
+      .concat({ id: 'up:new', label: 'New scene', act: 'up:new', on: UP.newOpen, dis: busy }) });
+    if (UP.newOpen) B.push({ input: { id: 'stuNewName', value: UP.newName, ph: 'The new scene\'s name' }, row: [{ id: 'up:make', label: UP.making ? 'Making...' : 'Make it', act: 'up:make', primary: true, dis: UP.making || !UP.newName.trim() }] });
+    if (UP.newNote) B.push({ p: UP.newNote, c: 'red' });
+    if (!UP.scene) B.push({ p: 'Pick a scene, or make a new one.', c: 'amber' });
+  } else {
+    B.push({ p: SRC.state === 'auth' ? AUTH_NOTE : SRC.kind === 'relay' && SRC.state === 'ok' ? 'This relay does not take uploads (it runs with --scenes-readonly): you can still convert here and download what is made.'
+      : 'No relay that takes uploads: you can still drop files to see the plan, and convert here to download what is made. To upload, run a relay on a computer here:', c: 'amber' });
+    if (!(SRC.kind === 'relay' && SRC.state === 'ok')) B.push({ code: 'node relay/server.mjs --lan --scenes <folder>' }, { p: 'Then open its address /upload (each folder in <folder> is a scene; it saves layouts and takes uploads; with ffmpeg installed it makes long sounds MP3).', c: 'faint' });
+  }
+  B.push({ drop: true, dis: busy });
+  B.push({ row: [
+    { id: 'up:quest', label: 'For Quest: ' + (UP.quest ? 'on' : 'off'), act: 'up:quest', on: UP.quest, dis: busy },
+    { id: 'up:replace', label: 'Replace files with the same name: ' + (UP.replace ? 'on' : 'off'), act: 'up:replace', on: UP.replace, dis: busy || !relay },
+  ] }, { p: `For Quest: textures at most ${UP.quest ? '2,048' : '4,096'} px. Replace off: a name taken gets a number (eva_001 2.glb).`, c: 'faint' });
+  if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
+  if (UP.rows.length) {
+    const n = k => UP.rows.filter(r => r.kind === k).length;
+    B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
+    if (UP.left.length) B.push({ p: `Left out: ${UP.left.length} hidden or system file${UP.left.length === 1 ? '' : 's'} (${UP.left.slice(0, 4).join(', ')}${UP.left.length > 4 ? '...' : ''}).`, c: 'faint' });
+    const todo = UP.rows.some(r => r.state !== 'done');
+    B.push({ row: [
+      { id: 'up:run', label: busy ? 'Working...' : relay ? 'Convert and upload' : 'Convert', act: 'up:run', primary: todo, dis: busy || !todo || (relay && !UP.scene) || UP.rows.some(r => r.how === 'measuring') },
+      { id: 'up:clear', label: 'Clear', act: 'up:clear', dis: busy },
+      relay && UP.ran && !busy && UP.scene ? { id: 'up:open', label: 'Open the scene', act: 'up:open', primary: !todo } : null,
+    ].filter(Boolean) });
+  }
+  if (UP.note) B.push({ p: UP.note, c: /not made|failed/.test(UP.note) ? 'amber' : 'green' });
+  B.push({ p: 'Models: GLB is best (one file, its textures and animations inside); FBX, OBJ with its MTL, glTF, PLY and STL are converted. Textures: JPEG for photos and scans, PNG only where see-through. Sounds: mono places best; short loops become WAV, long ones (over 20 s, streamed) MP3.', c: 'faint' });
+}
+// the page's HTML for the pane's own blocks: the drop zone, a text field, the plan
+function uploadHTML(b) {
+  if (b.drop) return `<div class="stu-drop${b.dis ? ' off' : ''}" data-drop="1"><b>Drop files or folders here</b><span>or</span><div class="actions"><button class="btn" type="button" data-act="up:choose" data-v=""${b.dis ? ' disabled' : ''}>Choose files</button><button class="btn" type="button" data-act="up:folder" data-v=""${b.dis ? ' disabled' : ''}>Choose a folder</button></div></div>`;
+  if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
+  if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map(r => {
+    const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
+    return `<li class="${st}" data-kind="${r.kind}"><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+      <small class="w">${esc(rowPlan(r))}</small>${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
+      ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
+      ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
+  }).join('')}</ul>`;
+  return '';
+}
+// the page's listeners: files dropped anywhere on the studio's page (the Upload pane opens with them), the file choosers,
+// the new scene's name as it is typed
+function uploadBind() {
+  const ex = $('#explore'), over = ev => !!(ev.dataTransfer && [...(ev.dataTransfer.types || [])].includes('Files'));
+  const zone = on => document.querySelectorAll('#explore .stu-drop').forEach(z => z.classList.toggle('hot', on));
+  document.addEventListener('dragover', ev => { if (!over(ev) || XR.on || OPT.visit || UP.busy) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; zone(true); });
+  document.addEventListener('dragleave', ev => { if (!ev.relatedTarget) zone(false); });
+  document.addEventListener('drop', ev => {
+    if (!over(ev) || XR.on || OPT.visit) return;
+    ev.preventDefault(); zone(false);
+    if (UP.busy) return;
+    if (APP.mode !== 'explore') APP.enterExplore();
+    readDropped(ev.dataTransfer).then(upTake);
+  });
+  ex.addEventListener('input', ev => { if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); } });
+  ex.addEventListener('keydown', ev => { if (ev.target.id === 'stuNewName' && ev.key === 'Enter') { ev.preventDefault(); upMake(); } });
+  ex.addEventListener('change', ev => {
+    const t = ev.target;
+    if (t.id !== 'stuFiles' && t.id !== 'stuFolder') return;
+    const list = [...(t.files || [])].map(f => ({ path: f.webkitRelativePath || f.name, file: f }));
+    t.value = '';
+    if (list.length) upTake(list);
+  });
+}
+const UP_ACT = {
+  'up:scene': v => upPick(v),
+  'up:new': () => { UP.newOpen = !UP.newOpen; UP.newNote = ''; if (UP.newOpen) later(() => { const i = $('#stuNewName'); if (i) i.focus(); }, 50); },
+  'up:make': () => upMake(),
+  'up:choose': () => { const i = $('#stuFiles'); if (i) i.click(); },
+  'up:folder': () => { const i = $('#stuFolder'); if (i) i.click(); },
+  'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
+  'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
+  'up:run': () => upRun(),
+  'up:clear': () => upClear(),
+  'up:open': () => upOpen(),
+};
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
@@ -14500,10 +20173,11 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 
 // explore: the Scene, Add, Item and Items panes, drawn from the same blocks as the page's (paneBlocks), without the
-// page's own (Download, Upload, the arrows, tick boxes); a pane taller than the panel scrolls with Up and More
+// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
-  for (const [k, n] of TABS) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
+  if (X.tab === 'upload') X.tab = 'scene';   // (Upload is the page's: a headset has no files to drop)
+  for (const [k, n] of TABS.filter(t => t[0] !== 'upload')) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
   y += 76;
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;
@@ -14965,6 +20639,7 @@ function initEnd() {
   // editing: this device's own (studioEdit), &edit turns it on, &visit offers none at all
   STU.edit = !OPT.visit && (OPT.edit || store.get('studioEdit') === '1');
   if (TABS.some(t => t[0] === hp.get('tab'))) X.tab = hp.get('tab');
+  if (hp.has('upload')) X.tab = 'upload';   // (#studio&upload: the Upload pane, where the relay's /upload sends people)
   if (hp.get('view') === 'walk') X.view = 'walk';
   renderPanes();
   // where the scenes come from (a relay with --scenes, else a folder), then the scene
@@ -14980,12 +20655,14 @@ const STUDIO = {
   state: () => ({
     src: SRC.kind, srcState: SRC.state, base: SRC.base, folder: SRC.folder, save: SRC.save, scenes: SRC.scenes.map(s => s.name), scene: STU.scene, listing: STU.listing,
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
-    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size }])),
-    sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size }])),
+    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null }])),
+    sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
   }),
-  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible })),
+  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused) })),
   // every object's model in (or failed) and every sound fetched: the scene is ready
-  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && it.F.state !== 'loading' && it.F.state !== 'idle'))),
+  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
 };
 LOAD.t = setTimeout(init, 40);
@@ -15017,7 +20694,7 @@ return {
     TIMERS.clear();
     watchStop();
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
-    try { emitAll(); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
+    try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }
     for (const it of STU.items.values()) if (it.kind === 'o') dropModel(it);
     for (const E of LIB.values()) if (E.root) disposeTree(E.root, true);

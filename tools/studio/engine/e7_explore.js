@@ -2,11 +2,12 @@
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
 // list of blocks (paneBlocks) that the page draws as HTML (renderPanes) and the headset as its canvas twin
-// (drawExplorePane), so both say the same. On a page the camera goes round the scene (Orbit) or walks in it at 1.6 m
+// (drawExplorePane), so both say the same; on pages a fifth, Upload (e7b_upload.js), which a headset never shows. On a
+// page the camera goes round the scene (Orbit) or walks in it at 1.6 m
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
-const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {} };
+const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -136,7 +137,11 @@ function paneBlocks(tab) {
     }
     if (SRC.kind !== 'relay' && SRC.state !== 'looking') {
       B.push({ p: 'To serve your own scenes and save their layouts, run a relay on a computer here:', c: 'muted' }, { code: 'node relay/server.mjs --lan --scenes <folder>' },
-        { p: 'Each folder in it is a scene: models (.glb, .gltf, .fbx), their textures, sounds, and layout.json.', c: 'faint' });
+        { p: 'Each folder in it is a scene: models, their textures, sounds, and layout.json. Its page /upload (the Upload tab here) converts and sorts what you drop into it.', c: 'faint' });
+    }
+    // which files to use (the formats guide, short; tools/studio/README.md has it all), where no scene is found
+    if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
+      B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
     if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select. Grip: carry (both grips size an object; a cube\'s corner stretches it). Left stick: walk; right stick: turn.' : 'Click: select. W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
@@ -144,17 +149,31 @@ function paneBlocks(tab) {
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
     if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
     B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
-    const models = STU.files.filter(f => f.kind === 'model'), sounds = STU.files.filter(f => f.kind === 'audio');
-    const full = k => countOf(k) >= LIMITS[k];
-    B.push({ label: `Models (${models.length})`, list: models.map(f => {
-      const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20;
-      return { id: 'add:' + f.path, label: f.path, sub: mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : ''), act: 'add', v: f.path, warn: w, dis: full('o') };
-    }) });
-    if (!models.length) B.push({ p: 'No models in the scene\'s folder: put .glb, .gltf or .fbx files there.', c: 'faint' });
-    B.push({ label: `Sounds (${sounds.length})`, list: sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes), act: 'adds', v: f.path, dis: full('s') })) });
-    if (!sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
+    const L = sceneLists(), full = k => countOf(k) >= LIMITS[k], froms = new Map([...L.stands].map(([o, g]) => [g, o]));
+    const modelRow = (f, orig) => {
+      const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+        sub: g ? `converted: ${baseName(g)}` : mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : '') + (froms.has(f.path) ? ` · from ${baseName(froms.get(f.path))}` : '') };
+    };
+    B.push({ label: `Models (${L.models.length})`, list: L.models.map(f => modelRow(f, false)) });
+    if (!L.models.length) B.push({ p: 'No models in the scene\'s folder: put .glb (best), .gltf, .fbx, .obj, .ply or .stl files there, or drop them under Upload.', c: 'faint' });
+    // (the page converts: every model to place that is not a GLB yet)
+    const conv = L.models.filter(f => extOf(f.path) !== 'glb');
+    if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
+      { page: true, p: `GLB loads faster and sits right without guessing; textures at most ${maxTexNow()} px (For Quest, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
+    else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
+    if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
+    B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
+    if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
+    if (L.orig.length) {
+      B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
+      if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
+        { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+    }
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects and sounds you pick for it.', c: 'faint' });
     for (const k of ['o', 'c', 's']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+  } else if (tab === 'upload') {
+    uploadBlocks(B);
   } else if (tab === 'item') {
     const it = STU.items.get(STU.sel);
     if (!it) { B.push({ h: 'Item' }, { p: ed ? (XR.on ? 'Point at something in the scene and pull the trigger, or pick it under Items.' : 'Click something in the scene, or pick it under Items.') : 'Pick something under Items to see its card.', c: 'muted' }); return B; }
@@ -209,6 +228,15 @@ function itemBlocks(it, B, ed) {
       for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
       if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
     }
+    // GLB first: a GLB of this file in the scene (switch to it), or Convert to GLB (pages; a headset says where)
+    const g = extOf(r.file) !== 'glb' ? glbFor().get(r.file) : '';
+    if (g) B.push({ p: `A converted GLB is in the scene (${g}): switch to it.`, c: 'amber' }, { row: [{ id: 'switch', label: 'Switch to the GLB', act: 'switch', v: r.file, primary: true, dis }] });
+    else if (MODEL_EXT.includes(extOf(r.file)) && extOf(r.file) !== 'glb') {
+      if (XR.on) B.push({ p: 'Convert on a laptop: as a GLB it loads faster and sits right without guessing (Convert to GLB on this card, on a page).', c: 'faint' });
+      else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
+        { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${maxTexNow()} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
+    }
+    if (CV.note && !XR.on && (CV.busy === r.file || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
@@ -229,6 +257,7 @@ function itemBlocks(it, B, ed) {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')]] });
     if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
+    else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory. Mono files place best.`, c: 'faint' });
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
     else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
     B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
@@ -244,6 +273,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (UP_ACT[a]) { if (!XR.on) UP_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -257,7 +287,11 @@ function act(a, v) {
     seen: () => resetSeen(),
     download: () => downloadLayout(),
     upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
-    add: () => addModel(v),
+    add: () => addModel(glbFor().get(v) || v),
+    convert: () => convertFile(v),
+    convertAll: () => convertAll(),
+    switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
+    orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
     sel: () => select(v === STU.sel ? '' : v),
@@ -268,10 +302,10 @@ function act(a, v) {
   }[a] || (() => {}))();
   dirty(true);
 }
-function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; dirty(true); }
+function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && XR.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -289,11 +323,29 @@ function buildExplore() {
     #explore .actions .btn.warn { border-color: var(--amber); color: var(--amber); }
     .stu-k { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 0 0 4px; }
     .pane p.stu-l { margin: 10px 0 2px; font-size: 13px; color: var(--muted); }
+    .stu-drop { border: 2px dashed var(--line); border-radius: 8px; padding: 18px 12px 8px; text-align: center; margin: 8px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .stu-drop.hot { border-color: var(--cyan); background: var(--chip); }
+    .stu-drop.off { opacity: 0.5; }
+    .stu-drop span { color: var(--muted); font-size: 13px; }
+    .stu-in input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
+    .stu-plan { list-style: none; padding: 0; margin: 4px 0 12px; }
+    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; }
+    .stu-plan li > small, .stu-plan li > .bar, .stu-plan li > a { grid-column: 2; }
+    .stu-plan li .k { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-top: 2px; }
+    .stu-plan li .t { word-break: break-all; }
+    .stu-plan li .t small, .stu-plan li small { color: var(--muted); font-size: 12.5px; }
+    .stu-plan li small.n { color: var(--amber); }
+    .stu-plan li small.m { color: var(--ink); }
+    .stu-plan li.done { border-left-color: var(--green); } .stu-plan li.failed { border-left-color: var(--red); } .stu-plan li.failed small.m { color: var(--red); } .stu-plan li.working { border-left-color: var(--cyan); }
+    .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
+    .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
+    .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
-    <input type="file" id="stuUpload" accept=".json,application/json" hidden>`;
+    <input type="file" id="stuUpload" accept=".json,application/json" hidden>
+    <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
     const t = ev.target.closest('[data-act]');
@@ -309,11 +361,14 @@ function buildExplore() {
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
+  uploadBind();
   renderPanes();
 }
 function showTab(k) { pickTab(k); }
 function blockHTML(b) {
   if (b.xr) return '';
+  if (b.drop || b.input || b.plan) return uploadHTML(b);
+  if (b.label && b.p !== undefined) return `<p class="stu-l">${esc(b.label)}</p><p class="${b.c || ''}">${esc(b.p)}</p>`;
   const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`;
   if (b.h !== undefined) return `${b.sub ? `<p class="stu-k">${esc(b.sub)}</p>` : ''}<h3>${esc(b.h)}</h3>`;
   if (b.p !== undefined) return `<p class="${b.c || ''}">${esc(b.p)}</p>`;
@@ -332,7 +387,9 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
+  const fo = document.activeElement && document.activeElement.id === 'stuNewName' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
+  if (fo) { const i = $('#stuNewName'); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
   const vb = $('#viewctl [data-ctl="view"]');
   if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));

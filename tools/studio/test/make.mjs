@@ -6,6 +6,10 @@
 //               its material's Opacity 0 (as 3ds Max writes it: the studio draws it solid and says so)
 //   figure.png  the figure's texture
 //   tone.wav    a short tone (0.6 s, 440 Hz)
+//   sounds/long.wav  a 25 s chord (8 kHz, 8-bit mono: small), longer than 20 s, so the studio streams it
+//   originals/crate.obj, crate.mtl, crate.png  an OBJ in centimetres (80 units across: no units in the file, so taken
+//               as centimetres, 0.8 m) with its MTL naming its texture: an original to place, and to drop on the Upload
+//               pane in the smoke test (with figure.fbx and figure.png, tone.wav and sounds/long.wav)
 //   layout.json one object of each model, a cube showing the figure and the sound and hiding the box, and the sound
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
@@ -249,6 +253,30 @@ function wav() {
   return b;
 }
 
+// ---- sounds/long.wav (8-bit unsigned mono, 8,000 Hz, 25 s: a soft chord that swells and fades every 5 s)
+function longWav() {
+  const rate = 8000, n = rate * 25, b = Buffer.alloc(44 + n);
+  b.write('RIFF', 0, 'ascii'); b.writeUInt32LE(36 + n, 4); b.write('WAVE', 8, 'ascii'); b.write('fmt ', 12, 'ascii');
+  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34);
+  b.write('data', 36, 'ascii'); b.writeUInt32LE(n, 40);
+  for (let i = 0; i < n; i++) {
+    const t = i / rate, env = Math.min(1, i / 800, (n - i) / 800) * (0.55 + 0.45 * Math.sin(2 * Math.PI * t / 5));
+    const v = (Math.sin(2 * Math.PI * 220 * t) + Math.sin(2 * Math.PI * 277.2 * t) * 0.7 + Math.sin(2 * Math.PI * 329.6 * t) * 0.5) / 2.2;
+    b[44 + i] = 128 + Math.round(v * env * 0.5 * 127);
+  }
+  return b;
+}
+// ---- originals/crate.obj, crate.mtl (an 80 cm crate: OBJ gives no units), crate.png
+function crateObj() {
+  const h = 40, c = [[-h, 0, -h], [h, 0, -h], [h, 2 * h, -h], [-h, 2 * h, -h], [-h, 0, h], [h, 0, h], [h, 2 * h, h], [-h, 2 * h, h]];
+  const faces = [[[4, 5, 6, 7], 1], [[1, 0, 3, 2], 2], [[5, 1, 2, 6], 3], [[0, 4, 7, 3], 4], [[7, 6, 2, 3], 5], [[0, 1, 5, 4], 6]];
+  const vn = ['0 0 1', '0 0 -1', '1 0 0', '-1 0 0', '0 1 0', '0 -1 0'];
+  return ['# The studio\'s test crate: 80 units across, in centimetres (an OBJ says nothing of its units)', 'mtllib crate.mtl', 'o crate',
+    ...c.map(p => 'v ' + p.join(' ')), 'vt 0 0', 'vt 1 0', 'vt 1 1', 'vt 0 1', ...vn.map(n => 'vn ' + n), 'usemtl crate',
+    ...faces.map(([q, n]) => 'f ' + q.map((v, k) => `${v + 1}/${k + 1}/${n}`).join(' ')), ''].join('\n');
+}
+const crateMtl = () => ['# The test crate\'s material', 'newmtl crate', 'Kd 1 1 1', 'Ka 0 0 0', 'map_Kd crate.png', ''].join('\n');
+
 // ---- layout.json
 const layout = {
   studio: 1, scene: 'test', saved: '2026-11-03T22:40:00.000Z',
@@ -269,10 +297,14 @@ const files = {
   'figure.fbx': Buffer.from(fbxText),
   'figure.png': png(64, 64, (x, y) => { const s = (Math.sin(x / 5) + Math.sin(y / 4)) * 0.25 + 0.5; return [Math.round(200 * s + 40), Math.round(120 * s + 60), Math.round(90 + 60 * (1 - s)), 255]; }),
   'tone.wav': wav(),
+  'sounds/long.wav': longWav(),
+  'originals/crate.obj': Buffer.from(crateObj()),
+  'originals/crate.mtl': Buffer.from(crateMtl()),
+  'originals/crate.png': png(8, 8, (x, y) => ((x >> 1) + (y >> 1)) & 1 ? [205, 140, 70, 255] : [120, 80, 40, 255]),
   'layout.json': Buffer.from(layoutText(layout)),   // (as the relay writes a saved one)
 };
 let total = 0;
-for (const [f, b] of Object.entries(files)) { fs.writeFileSync(path.join(out, f), b); total += b.length; }
+for (const [f, b] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true }); fs.writeFileSync(path.join(out, f), b); total += b.length; }
 scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 total += fs.statSync(path.join(out, 'files.json')).size;

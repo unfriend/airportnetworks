@@ -395,10 +395,11 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 
 // explore: the Scene, Add, Item and Items panes, drawn from the same blocks as the page's (paneBlocks), without the
-// page's own (Download, Upload, the arrows, tick boxes); a pane taller than the panel scrolls with Up and More
+// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
-  for (const [k, n] of TABS) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
+  if (X.tab === 'upload') X.tab = 'scene';   // (Upload is the page's: a headset has no files to drop)
+  for (const [k, n] of TABS.filter(t => t[0] !== 'upload')) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
   y += 76;
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;
