@@ -1,4 +1,4 @@
-// Headless smoke test for the sixteen stories and the design room.
+// Headless smoke test for the sixteen stories, the design room and the studio.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -17,6 +17,10 @@ const step = async (name, fn) => { const n = errors.length; await fn(); console.
 
 await page.goto(base + 'index.html');
 await page.waitForTimeout(4000);
+// the sixteen stories, and the pages that are not stories (stories/list.js's STORY_EXTRA: the design room, the studio),
+// which keep the same hook lines as every story: each check of those lines covers both
+const STORY_KEYS = ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots'];
+const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
@@ -50,7 +54,7 @@ const LAND_CHECK = `{
   const low = (rows[1].length ? rows[1][0] : rows[0][0]).mesh.position.y - ch(rows[0][0]) / 2;
   if (top > 0.65 || low < -0.65) throw new Error('the Stories screen reaches from ' + top.toFixed(2) + ' to ' + low.toFixed(2) + ' m of the eyes');
 }`;
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) {
+for (const key of STORY_KEYS) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -983,7 +987,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
 // run's longest was about 0.5 s, a loaded one's 2.9 s), and the shared-room hooks see the scene only once all of it is
 // built. A story picked while another builds stops that one's steps and keeps the headset's controllers and place
 const LOAD_LIMIT = 4000;
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design']) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
+for (const key of [...STORY_KEYS, ...EXTRA]) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
   const built = k => page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 60000 });
   if (await page.evaluate(k => HOST.curKey === k, key)) { const o = key === 'flock' ? 'robots' : 'flock'; await page.evaluate(o => HOST.start(o), o); await built(o); }
   const bad = await page.evaluate(async ([k, limit]) => {
@@ -1202,6 +1206,298 @@ await step('design: the intro ends at the table', async () => {
   await page.waitForFunction(() => HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 20000 }).catch(() => errors.push('design: the intro did not end in explore mode'));
   await page.evaluate(() => HOST.openPicker());
 });
+// The studio (#studio, not one of the stories: STORY_EXTRA), on a page of its own: the test scene
+// tools/studio/test/scenes/test (made by tools/studio/test/make.mjs) read from its folder (&scenes=): every file loaded with
+// its sizes and the two guesses in the card's words (and one the studio refuses, and sized to fit), the clips, the missing
+// texture and the FBX's opacity-0 material said and drawn solid, a scan's mesh without normals as scanned and flat when
+// lit; a pretend head walking into the cube showing the figure and the sound and hiding the box (fading over 0.4 s,
+// stepped frame by frame), the figure's take from when it was shown, out again the reverse, a cube that stays, editing's
+// faint hidden box; editing (a click selecting, the page's arrows moving, a cube stretched, a link added from the Items
+// pane, Add and Delete, Undo); the shared state and back, the room's taken, bad values ignored; a pretend headset's grips
+// (carry, size, a corner) and the VR stick walk; the relay's watch (a scene added, a layout removed) and its password (one
+// refusal told to the shell once, nothing more asked until another password); the sound's panner at its place, silent when
+// muted; the headset panels' panes and its Stories screen; Download
+{
+  const stp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+  stp.on('pageerror', e => errors.push('studio: ' + (e.stack || e.message)));
+  stp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio: ' + m.text()); });
+  const ss = s => stp.evaluate(s => HOST.cur.peek(s), s);
+  const frames = async n => { const f0 = await stp.evaluate(() => window.__frames || 0); await stp.waitForFunction(f => window.__frames >= f, f0 + (n || 1), { timeout: 30000 }).catch(() => errors.push('studio: the page drew no frames')); };
+  const until = (src, ms) => stp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  await step('studio: not on the Stories screen; the test scene loads with its sizes, the guesses in the card\'s words, the clips and what its files lack', async () => {
+    await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (await stp.$('#picker [data-story="studio"]')) errors.push('studio: it has a card on the Stories screen');
+    if (await stp.evaluate(() => HOST.list.some(s => s.key === 'studio') || !HOST.meta('studio') || HOST.count() !== 'sixteen' || !(self.STORY_EXTRA || []).some(s => s.key === 'studio'))) errors.push('studio: it is in the list of stories, or not in STORY_EXTRA');
+    if (!await until('STUDIO.ready()', 120000)) { errors.push('studio: the test scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 600)); return; }
+    const s = await ss('STUDIO.state()'), M = s.models, B = M['box.glb'], F = M['figure.fbx'];
+    const bad = [];
+    if (s.src !== 'folder' || s.scene !== 'test' || s.items !== 4 || s.bad || s.unsaved || s.files !== 4) bad.push(`the scene (its layout read from the folder): ${JSON.stringify([s.src, s.scene, s.items, s.files, s.bad, s.unsaved])}`);
+    if (!B || B.state !== 'ready' || B.guess.s !== 1 || B.guess.q.join() !== '0,0,0,1' || Math.abs(B.info.own[0] - 0.5) > 1e-3 || B.info.clips.map(c => c[0]).join() !== 'Spin,Bob' || B.info.textures.length !== 1 || B.info.solid) bad.push('box.glb: ' + JSON.stringify(B && { s: B.state, g: B.guess, own: B.info && B.info.own, clips: B.info && B.info.clips }));
+    if (!F || F.state !== 'ready' || F.guess.s !== 0.01 || F.guess.how !== 'unit' || F.guess.q.join() !== '-0.7071,0,0,0.7071' || !F.guess.read || F.guess.up !== 2 || F.info.clips.map(c => c[0]).join() !== 'Take 001' || F.missing.join() !== 'figure_spec.png' || F.info.textures.length !== 1 || F.info.textures[0].w !== 64 || F.info.solid !== 1 || !F.info.normals || F.info.scan)
+      bad.push('figure.fbx: ' + JSON.stringify(F && { s: F.state, g: F.guess, clips: F.info && F.info.clips, missing: F.missing, tex: F.info && F.info.textures, solid: F.info && F.info.solid }));
+    // as placed: the box 0.5 m, the figure standing 1.7 m tall on the floor, its opacity-0 material drawn solid
+    const sz = await ss(`['box001', 'fig001'].map(id => { const b = objBox(STU.items.get(id)); return [b.getSize(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)), +b.min.y.toFixed(3)]; })`);
+    if (sz[0][0].join() !== '0.5,0.5,0.5' || sz[1][0][1] !== 1.7 || sz[1][1] !== 0) bad.push('sizes as placed: ' + JSON.stringify(sz));
+    const solid = await ss(`(() => { const m = [].concat(LIB.get('figure.fbx').root.getObjectByProperty('isMesh', true).material)[0]; return [m.opacity, m.transparent]; })()`);
+    if (solid.join() !== '1,false') bad.push('the figure\'s opacity-0 material is not drawn solid: ' + solid);
+    // the cards: what is missing, the opacity, the take, the size, and the scale's reasons
+    const card = async id => { await ss(`(select('${id}'), X.tab = 'item', renderPanes(), 0)`); return stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' ')); };
+    const fc = await card('fig001'), bc = await card('box001');
+    if (!/Missing texture figure_spec\.png: put it in the scene's folder/.test(fc) || !/Take 001/.test(fc) || !/1\.7 m/.test(fc) || !/drawn solid/.test(fc) || !/Scale ?0\.01 \(the file says centimetres; stood up from Z up\)/.test(fc)) bad.push('the figure\'s card: ' + fc.slice(0, 400));
+    if (!/Scale ?1 \(glTF is in metres\)/.test(bc) || /drawn solid|no normals/.test(bc)) bad.push('the box\'s card: ' + bc.slice(0, 300));
+    await ss(`(setRec('fig001', { s: 0.02 }), renderPanes(), 0)`);
+    if (!/Scale ?0\.02 \(placed first at 0\.01: the file says centimetres/.test(await card('fig001'))) bad.push('a figure sized since does not say what it was placed at: ' + (await card('fig001')).slice(0, 300));
+    await ss(`(setRec('fig001', { s: 0.01 }), select(''), 0)`);
+    // a file's own units refused (the owner's figure: centimetres, as its file says, would make it 1.7 cm), and neither
+    const gw = await ss(`[guessFor({ unit: 1, up: 2, sign: 1, read: true }, new THREE.Vector3(0.45, 0.3, 1.66)), guessFor({ unit: 1, up: 1, sign: 1, read: true }, new THREE.Vector3(1e5, 10, 10))].map(g => [g.s, g.how, guessWords(g)])`);
+    if (JSON.stringify(gw) !== JSON.stringify([[1, 'metres', 'the file says centimetres; that would make it 1.7 cm, so taken as metres; stood up from Z up'], [0.00001, 'fit', 'the file says centimetres; that would make it 1 km, so sized to 1 m']])) bad.push('the guesses refused: ' + JSON.stringify(gw));
+    // a scan's mesh without normals: as scanned by default; lit, flat (Phong: from its own slopes) or given normals (Lambert)
+    const nn = await ss(`(() => { const out = [];
+      for (const Mat of [THREE.MeshPhongMaterial, THREE.MeshLambertMaterial]) {
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0], 3));
+        const m = new Mat({ map: new THREE.DataTexture(new Uint8Array(4), 1, 1) }), root = new THREE.Group(); root.add(new THREE.Mesh(g, m));
+        const E = { path: 'scan.fbx', missing: new Set() }; finishModel(E, { root, clips: [], guess: { unit: 1, up: 1, sign: 1, read: true } });
+        out.push([E.info.normals, E.info.scan, !!m.flatShading, !!g.attributes.normal]); g.dispose(); m.dispose(); }
+      return out; })()`);
+    if (JSON.stringify(nn) !== '[[false,true,true,false],[false,true,false,true]]') bad.push('a mesh without normals: ' + JSON.stringify(nn));
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: a pretend head in the cube shows the figure and the sound and hides the box, fading over 0.4 s; out the reverse; a cube that stays', async () => {
+    // (the frame loop paused: each step below is one frame of 0.1 s, the same on every machine)
+    const bad = await ss(`(() => {
+      const out = [], A = () => Object.fromEntries(STUDIO.items().filter(i => i.kind !== 'c').map(i => [i.id, [i.shown, +i.a.toFixed(2), i.visible]]));
+      GL.renderer.setAnimationLoop(null);
+      let t = performance.now();
+      const step = n => { for (let i = 0; i < (n || 1); i++) itemsStep(0.1, t += 100); return A(); };
+      try {
+        setEdit(false); shownFor([3, 1.6, 3]); step(12);
+        let s = A();
+        if (!(s.box001.join() === 'true,1,true' && s.fig001.join() === 'false,0,false' && !s.snd001[0])) out.push('outside the cube: ' + JSON.stringify(s));
+        shownFor([0, 1.6, 0]);
+        const t0 = t; s = step();
+        if (!(s.fig001.join() === 'true,0.25,true' && s.box001.join() === 'false,0.75,true' && s.snd001[0])) out.push('a frame into the cube (fading): ' + JSON.stringify(s));
+        s = step(3);
+        if (!(s.fig001.join() === 'true,1,true' && s.box001[1] === 0)) out.push('0.4 s into the cube: ' + JSON.stringify(s));
+        s = step();
+        if (s.box001[2]) out.push('the box faded out is still drawn');
+        // the figure's take (When shown) runs from when the cube showed it: 1.5 s on, 1.5 s into its 2 s take
+        const fg = STU.items.get('fig001'); itemsStep(0.1, fg.shownAt + 1500);
+        if (!fg.action || Math.abs(fg.action.time - 1.5) > 1e-3 || Math.abs(fg.dur - 2) > 1e-3) out.push('the figure\\'s take did not run from when it was shown: ' + JSON.stringify([fg.action && fg.action.time, fg.dur]));
+        t = fg.shownAt + 1500;
+        shownFor([3, 1.6, 3]); s = step(5);
+        if (!(s.box001.join() === 'true,1,true' && s.fig001.join() === 'false,0,false')) out.push('out of the cube again: ' + JSON.stringify(s));
+        // a cube that stays once entered, until Reset what I have seen
+        STU.edit = true; setRec('cube01', { mode: 'stay' }); shownFor([0, 1.6, 0]); s = step(); shownFor([3, 1.6, 3]); s = step(5);
+        if (!(s.fig001[0] && !s.box001[0] && s.fig001[1] === 1)) out.push('a staying cube left: ' + JSON.stringify(s));
+        resetSeen(); shownFor([3, 1.6, 3]); s = step(5);
+        if (!(!s.fig001[0] && s.box001[0])) out.push('Reset what I have seen: ' + JSON.stringify(s));
+        setRec('cube01', { mode: 'while' });
+        // editing: what a cube hides is drawn faint (0.3), so it can still be picked
+        setEdit(true); shownFor([0, 1.6, 0]); s = step(5);
+        if (!(s.box001.join() === 'false,0.3,true')) out.push('editing, the box the cube hides is not faint: ' + JSON.stringify(s));
+        shownFor(null); step(5);
+        while (UNDO.length) undo();
+      } finally { GL.renderer.setAnimationLoop(frame); }
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: editing on the page: a click selects, the arrows move it, a cube grows, a tick links, Add and Delete, Undo', async () => {
+    const bad = [];
+    await ss(`(setEdit(true), setView('orbit'), orbit.cur = [10, 18, 3.2, -1, 0.3, -2], orbit.to = null, select(''), 0)`);
+    await frames(3);
+    const at = await ss(`(() => { const v = STU.items.get('box001').proxy.getWorldPosition(new THREE.Vector3()).project(GL.camera); return [(v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight]; })()`);
+    await stp.mouse.move(at[0], at[1]);
+    if (await ss('STU.hover') !== 'box001') bad.push('the mouse over the box did not light it: ' + await ss('STU.hover'));
+    await stp.mouse.click(at[0], at[1]);
+    await until(`STU.sel === 'box001'`, 5000);
+    if (await ss('STU.sel') !== 'box001' || await ss('X.tab') !== 'item' || await ss('GL.tc && GL.tc.object === STU.items.get("box001").holder') !== true) bad.push('the click did not select the box (its card, the arrows): ' + JSON.stringify([await ss('STU.sel'), await ss('X.tab')]));
+    // the page's arrows (TransformControls): a drag is one change, the record follows
+    const u0 = await ss('UNDO.length');
+    await ss(`(GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }), STU.items.get('box001').holder.position.x += 0.5, GL.tc.dispatchEvent({ type: 'objectChange' }), GL.tc.dispatchEvent({ type: 'dragging-changed', value: false }), 0)`);
+    const p = await ss(`STU.items.get('box001').rec.p`);
+    if (p[0] !== -0.5 || await ss('UNDO.length') !== u0 + 1) bad.push('the arrows did not move the box as one change: ' + JSON.stringify([p, await ss('UNDO.length')]));
+    // a cube's size steps (10 cm), its foot staying on the floor
+    await ss(`(select('cube01'), itemAct('grow', '1:0.1'), 0)`);
+    const c = await ss(`STU.items.get('cube01').rec`);
+    if (c.size.join() !== '1.2,2.1,1.2' || c.p[1] !== 1.05) bad.push('a cube\'s height step: ' + JSON.stringify(c));
+    // the Items pane's tick box: the box on the cube's Shows list (and off its Hides list), then Undo
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    await stp.click('#pane-items input[data-act="tick"][data-list="show"][data-v="box001"]');
+    const c2 = await ss(`STU.items.get('cube01').rec`);
+    if (!c2.show.includes('box001') || c2.hide.includes('box001')) bad.push('the tick did not put the box on the cube\'s Shows list: ' + JSON.stringify(c2));
+    await ss('undo()');
+    const c3 = await ss(`STU.items.get('cube01').rec`);
+    if (c3.show.includes('box001') || !c3.hide.includes('box001')) bad.push('Undo did not take the link back: ' + JSON.stringify(c3));
+    await ss('(undo(), undo(), 0)');
+    if (JSON.stringify(await ss(`STU.items.get('box001').rec.p`)) !== '[-1,0.25,-2]' || await ss(`STU.items.get('cube01').rec.size.join()`) !== '1.2,2,1.2' || await ss('unsaved()')) bad.push('Undo did not bring the layout back: ' + JSON.stringify(await ss('collabState()')));
+    // added and deleted: a cube, a sound and an object, each selected; Delete takes it off every cube's lists
+    const ids = await ss(`[addCube(), addSound('tone.wav'), addModel('box.glb')]`);
+    if (ids.some(i => !i) || await ss('STU.items.size') !== 7) bad.push('Add did not place a cube, a sound and a box: ' + JSON.stringify(ids));
+    const placed = await ss(`(() => { const b = objBox(STU.items.get('${ids[2]}')); return b && [+b.min.y.toFixed(3), STU.items.get('${ids[2]}').rec.name, STU.items.get('${ids[2]}').rec.clip]; })()`);
+    if (!placed || placed[0] !== 0 || placed[1] !== 'box 2' && placed[1] !== 'box' || placed[2] !== 'Spin') bad.push('a box added: not on the floor, named and with its first take: ' + JSON.stringify(placed));
+    await ss(`(toggleLink('${ids[0]}', 'show', '${ids[2]}'), deleteItem('${ids[2]}'), 0)`);
+    if (await ss(`STU.items.get('${ids[0]}').rec.show.length`) !== 0) bad.push('a deleted object stayed on its cube\'s list');
+    await ss(`(deleteItem('${ids[0]}'), deleteItem('${ids[1]}'), select(''), 0)`);
+    if (await ss('STU.items.size') !== 4) bad.push('Delete left items: ' + await ss('STU.items.size'));
+    while (await ss('UNDO.length')) await ss('undo()');
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) bad.push('Undo all the way did not bring the layout back');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the shared state and back, a state from the room taken, bad values ignored', async () => {
+    const bad = await ss(`(() => {
+      const out = [], same = () => { const a = JSON.stringify(collabState()); collabApply(JSON.parse(a)); return JSON.stringify(collabState()) === a; };
+      const s0 = collabState();
+      if (s0.scene !== 'test' || Object.keys(s0).sort().join() !== 'c.cube01,o.box001,o.fig001,s.snd001,scene' || !same()) out.push('the state is not the scene and its four items, or apply changed it: ' + JSON.stringify(s0).slice(0, 300));
+      // from the room: the box moved (it glides there), the sound gone, a new cube
+      const st = JSON.parse(JSON.stringify(s0));
+      st['o.box001'].p = [0.5, 0.25, -1]; delete st['s.snd001']; st['c.zz9876'] = { name: 'Corner', p: [2, 1, 2], size: [1, 2, 1], show: ['box001'] };
+      collabApply(st);
+      const s1 = collabState();
+      if (JSON.stringify(s1['o.box001'].p) !== '[0.5,0.25,-1]' || 's.snd001' in s1 || !s1['c.zz9876'] || s1['c.zz9876'].mode !== 'while' || !same()) out.push('the room\\'s state was not taken: ' + JSON.stringify(s1).slice(0, 400));
+      if (!STU.items.get('box001').gl) out.push('the moved box does not glide');
+      // bad values: ignored (the items kept as they are, nothing made)
+      const was = JSON.stringify(collabState()), b = JSON.parse(was);
+      Object.assign(b, { 'o.box001': { file: '../x.glb', p: [0, 0, 0] }, 'c.zz9876': { p: [1, 2] }, 's.abcdef': { file: 'tone.wav', p: [0, 1, 0], vol: 'loud' }, 'q.abcdef': 1, 'o.TOOLONG1': { file: 'box.glb', p: [0, 0, 0] } });
+      collabApply(b);
+      if (JSON.stringify(collabState()) !== was) out.push('bad values were taken: ' + JSON.stringify(collabState()).slice(0, 400));
+      collabApply(s0);
+      if (JSON.stringify(collabState()) !== JSON.stringify(s0)) out.push('the first state did not come back');
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: a pretend headset carries an object, both grips size it, a corner stretches a cube, the sticks walk and turn', async () => {
+    await until(`[...STU.items.values()].every(it => !it.gl)`, 5000);   // (the glides from the room's state done)
+    const bad = await ss(`(() => {
+      const out = [], it = STU.items.get('box001'), cube = STU.items.get('cube01');
+      setEdit(true); XR.on = true; XR.clear = true; GL.world.updateMatrixWorld(true);
+      const ctl = (c, p, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand || 'right', gamepad: axes ? { axes, buttons: [] } : null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const [a, b] = XR.ctrls, w0 = it.holder.getWorldPosition(new THREE.Vector3()), u0 = UNDO.length;
+      ctl(a, [w0.x, w0.y + 0.2, w0.z + 0.3]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      if (!a.grab || a.grab.id !== 'box001' || !it.carry) out.push('the grip did not take the box');
+      ctl(a, [w0.x + 0.3, w0.y + 0.4, w0.z + 0.3]); carry(a, 0.016);
+      const w1 = it.holder.getWorldPosition(new THREE.Vector3());
+      if (Math.abs(w1.x - w0.x - 0.3) > 1e-3 || Math.abs(w1.y - w0.y - 0.2) > 1e-3) out.push('the box did not follow the hand: moved ' + w1.clone().sub(w0).toArray().map(v => v.toFixed(3)));
+      // the other hand takes it too: both size it with the distance between them
+      ctl(b, [w1.x + 0.1, w1.y, w1.z]); b.hover = { kind: 'item', id: 'box001' }; xrGrab(b, true);
+      ctl(a, [w1.x - 0.1, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
+      ctl(b, [w1.x + 0.2, w1.y, w1.z]); ctl(a, [w1.x - 0.2, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
+      xrGrab(b, false); xrGrab(a, false);
+      if (Math.abs(it.rec.s - 2) > 0.01 || it.carry) out.push('both grips did not size it twice as big: ' + it.rec.s);
+      if (UNDO.length !== u0 + 1) out.push('the carry was not one change for Undo');
+      // a selected cube's corner: the grip stretches it, the opposite corner staying
+      select('cube01'); GL.world.updateMatrixWorld(true);
+      const r0 = cube.rec, k = 7, c0 = new THREE.Vector3(r0.size[0] / 2, r0.size[1] / 2, r0.size[2] / 2).add(new THREE.Vector3(...r0.p)), opp = new THREE.Vector3(...r0.p).sub(new THREE.Vector3(r0.size[0] / 2, r0.size[1] / 2, r0.size[2] / 2));
+      const wc = GL.world.localToWorld(c0.clone());
+      ctl(a, wc.toArray()); a.hover = { kind: 'item', id: 'cube01', corner: k }; xrGrab(a, true);
+      if (!a.grab || a.grab.target !== 'corner') out.push('the grip on a corner did not take it');
+      ctl(a, wc.clone().add(new THREE.Vector3(0.4, 0, 0)).toArray()); carry(a, 0.016); xrGrab(a, false);
+      const r1 = cube.rec, opp1 = new THREE.Vector3(...r1.p).sub(new THREE.Vector3(r1.size[0] / 2, r1.size[1] / 2, r1.size[2] / 2));
+      if (Math.abs(r1.size[0] - r0.size[0] - 0.4) > 0.002 || opp1.distanceTo(opp) > 0.002) out.push('the corner did not stretch the cube: ' + JSON.stringify([r0, r1]));
+      // the sticks (VR, nothing carried): the left walks (the scene moves, not the rig), the right turns 30 degrees a flick
+      XR.walk.x = XR.walk.z = XR.walk.yaw = 0; XR.head.set(0, 0, 0); XR.headQ.identity(); GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
+      ctl(a, [0.2, -0.3, -0.3], 'left', [0, 0, 0, -1]); stickWalk(a, a.src.gamepad, 0.5);
+      if (Math.abs(XR.walk.z - 0.75) > 1e-6 || Math.abs(XR.walk.x) > 1e-6) out.push('the left stick did not walk: ' + JSON.stringify(XR.walk));
+      ctl(b, [0.2, -0.3, -0.3], 'right', [0, 0, 1, 0]); stickWalk(b, b.src.gamepad, 0.016); stickWalk(b, b.src.gamepad, 0.016);
+      if (Math.abs(XR.walk.yaw - Math.PI / 6) > 1e-6) out.push('the right stick did not turn 30 degrees once a flick: ' + XR.walk.yaw);
+      xrPlace(); if (Math.abs(GL.world.position.z - XR.walk.z) > 1e-9 || GL.rig.position.length() > 0) out.push('the walk moved the rig, not the scene');
+      // passthrough: no stick walk (you walk for real)
+      XR.clear = false; const wz = XR.walk.z; stickWalk(a, a.src.gamepad, 0.5); XR.clear = true;
+      if (XR.walk.z !== wz) out.push('the stick walked in passthrough');
+      // the trigger pointing at nothing clears the selection
+      a.hover = null; xrPress(a);
+      if (STU.sel) out.push('the trigger on nothing kept the selection');
+      xrRecenter();
+      if (XR.walk.x || XR.walk.z || XR.walk.yaw) out.push('Recenter did not reset the walk');
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; STU.hover = ''; GL.rig.position.set(0, 0, 0); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity();
+      while (UNDO.length) undo();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the relay\'s watch (a scene added, a layout removed) and its password (one refusal told once, nothing more asked until another)', async () => {
+    const bad = await ss(`(async () => {
+      const out = [], keep = { fetch: window.fetch, saw: HOST.collab.relaySaw, find: HOST.collab.relayFind, fs: findSource, src: Object.assign({}, SRC), stu: [STU.saved, STU.savedAt, STU.savedBy, STU.mine] };
+      let fetched = 0, sawn = [], found = 0, tok = 'old';
+      try {
+        // the watch: a scene folder added (the picker follows), the scene's layout.json removed (no saved layout, the items kept)
+        SRC.kind = 'relay';
+        onScenesEvent({ scenes: [{ name: 'test', files: 4 }, { name: 'atelier', files: 5 }, { name: '../no' }] });
+        if (SRC.scenes.map(s => s.name).join() !== 'test,atelier') out.push('a scene added: the picker has ' + SRC.scenes.map(s => s.name));
+        onLayoutEvent({ name: 'test', at: null, gone: true });
+        if (STU.savedAt !== 0 || !unsaved() || STU.items.size !== 4 || !/^Unsaved changes/.test(savedLine())) out.push('the layout removed: ' + JSON.stringify([STU.savedAt, unsaved(), STU.items.size, savedLine()]));
+        [STU.saved, STU.savedAt, STU.savedBy, STU.mine] = keep.stu;
+        // the password: the first refusal goes to the shell (its prompts), and nothing more goes to the relay until the shell
+        // holds another password, the same one seen twice (one being checked is not taken)
+        window.fetch = async () => { fetched++; return new Response('{"error":"missing or wrong token"}', { status: 401, headers: { 'Content-Type': 'application/json' } }); };
+        HOST.collab.relaySaw = (b, st, sent) => { sawn.push([st, sent]); };
+        HOST.collab.relayFind = async () => ({ base: 'http://relay.test', token: tok });
+        findSource = () => { found++; };
+        Object.assign(SRC, { base: 'http://relay.test', token: 'old', held: false, state: 'ok' });
+        for (const p of ['scenes/test/box.glb', 'scenes/test/figure.fbx', 'api/scenes']) { try { await call('http://relay.test/' + p); out.push('a refused call did not throw'); } catch (e) { if (e.status !== 401) out.push('a refused call threw ' + e.status); } }
+        if (fetched !== 1 || JSON.stringify(sawn) !== '[[401,"old"]]' || !SRC.held || SRC.state !== 'auth') out.push('after the first refusal: ' + JSON.stringify({ fetched, sawn, held: SRC.held, state: SRC.state }));
+        if (!/This relay needs its password/.test(paneBlocks('scene').map(b => b.p || '').join(' '))) out.push('the Scene pane does not say the relay needs its password');
+        await authStep(); await authStep();
+        tok = 'new'; await authStep();
+        if (found) out.push('a password seen once (perhaps still being checked) was taken');
+        await authStep();
+        if (found !== 1 || SRC.held || fetched !== 1) out.push('another password held twice did not list the scenes again: ' + JSON.stringify({ found, held: SRC.held, fetched }));
+      } finally {
+        unlater(SRC.retry); window.fetch = keep.fetch; HOST.collab.relaySaw = keep.saw; HOST.collab.relayFind = keep.find; findSource = keep.fs;
+        Object.assign(SRC, keep.src, { held: false, retry: 0 }); dirty(true);
+      }
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the sound plays from its place through an HRTF panner once shown, silent while muted', async () => {
+    const bad = [];
+    await stp.evaluate(() => HOST.audio.mute(false));
+    await stp.click('#explore .tabs button[data-tab="scene"]');   // (a tap: the sound may start)
+    await ss(`(X.tab = 'scene', renderPanes(), shownFor([0, 1.6, 0]), 0)`);
+    if (!await until(`!!(STU.items.get('snd001').src && STU.items.get('snd001').gt > 0.1)`, 15000)) bad.push('the shown sound did not start: ' + JSON.stringify(await ss(`[!!HOST.audio.fx(), HOST.audio.muted, STUDIO.state().sounds, STU.items.get('snd001').shown]`)));
+    else {
+      const p = await ss(`(() => { const it = STU.items.get('snd001'), n = it.pan, w = it.holder.getWorldPosition(new THREE.Vector3()); return [n.panningModel, n.distanceModel, n.refDistance, n.maxDistance, n.rolloffFactor, n.positionX ? [n.positionX.value, n.positionY.value, n.positionZ.value].map(v => +v.toFixed(3)) : null, w.toArray().map(v => +v.toFixed(3))]; })()`);
+      if (p[0] !== 'HRTF' || p[1] !== 'inverse' || p[2] !== 1.5 || p[3] !== 50 || p[4] !== 1 || JSON.stringify(p[5]) !== JSON.stringify(p[6])) bad.push('its panner: ' + JSON.stringify(p));
+      await stp.evaluate(() => HOST.audio.mute(true));
+      if (!await until(`!STU.items.get('snd001').src`, 8000)) bad.push('muted, the sound went on');
+    }
+    await ss(`(shownFor(null), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the headset panels\' panes, its Stories screen, and Download', async () => {
+    const bad = await ss(`(() => {
+      const out = [], want = { scene: ['edit', 'scene:test', 'load'], add: ['add:box.glb', 'add:figure.fbx', 'adds:tone.wav', 'cube'], item: ['light:scan', 'anim:once', 'turn', 'stand', 'del'], items: ['sel:box001', 'sel:cube01', 'sel:snd001'] };
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      setEdit(true); select('box001'); XR.on = true;
+      for (const tab of Object.keys(want)) {
+        X.tab = tab; X.scroll = {}; draw();
+        const ids = XR.main.regions.map(r => r.id), miss = want[tab].filter(i => !ids.includes(i));
+        if (miss.length) out.push('the headset\\'s ' + tab + ' pane lacks ' + miss.join(', ') + ' (' + ids.join(' ') + ')');
+        if (ids.some(i => i === 'download' || i === 'upload' || i.startsWith('tc:'))) out.push('the headset\\'s ' + tab + ' pane has the page\\'s own buttons');
+        if (ids.includes('exit')) out.push('Exit is on the panel (it belongs in the menu)');
+      }
+      // a button on the headset's pane works as the page's
+      X.tab = 'item'; draw();
+      const r = XR.main.regions.find(q => q.id === 'light:scan'); if (r) r.fn();
+      if (STU.items.get('box001').rec.light !== 'scan') out.push('the headset\\'s As scanned did not set the box\\'s light');
+      undo(); select('');
+      // the headset's Stories screen, as every story's
+      const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0)); draw();
+      try { ${LAND_CHECK} } catch (e) { out.push(e.message); }
+      XR.inStory = was; XR.stories = false; XR.on = false; XR.landShown = false; HOST.setUrl(false); GL.world.visible = true; for (const P of XR.panels) P.mesh.visible = false; X.tab = 'scene'; renderPanes();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+    await stp.click('#pane-scene [data-act="download"]');
+    const d = JSON.parse(await ss('STUDIO.download') || 'null');
+    if (!d || d.studio !== 1 || d.scene !== 'test' || d.objects.length !== 2 || d.cubes.length !== 1 || d.sounds.length !== 1 || d.cubes[0].show.join() !== 'fig001,snd001') errors.push('studio: Download did not give the layout: ' + JSON.stringify(d).slice(0, 300));
+    await stp.close();
+  });
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
@@ -1224,7 +1520,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
@@ -1664,7 +1960,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const a1 = await at(140);
     if (!(a1.vis && await inPanel(a1.text))) bad.push('the airports at 140 s: no caption of its line: ' + JSON.stringify(a1));
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => (await (await fetch('stories/' + k + '.js')).text()).includes('caption: xrCaption') ? '' : k))).filter(Boolean),
-      ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']);
+      STORY_KEYS);
     if (miss.length) bad.push('no caption hook in ' + miss.join(', '));
     await sp.evaluate(() => HOST.xr.setSubs(false));
     if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
@@ -1679,14 +1975,14 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       'if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }', "() => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }",
       "if (!xrCards()) vButton(ctx, P, 'story:close', ", "if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', "];
     const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
-      [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
+      [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('the All stories hook lines are missing in ' + miss.join(', '));
   });
   // focus mode's framing line (v106): every story frames its scene for the whole page while HOST.focus() is true
   await step('every story keeps the focus mode framing lines', async () => {
     const lines = ['GL.bare = !!(HOST.focus && HOST.focus());', 'if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);'];
     const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
-      [['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design'], lines]);
+      [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('the focus mode framing lines are missing in ' + miss.join(', '));
   });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
@@ -1771,7 +2067,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') &&
         s.includes("const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());") && s.includes("XR.lm = xrLabelMode(); XR.cm = xrCardMode();") &&
         s.includes("panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');") ? '' : k; }))).filter(Boolean),
-    ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design']);
+    [...STORY_KEYS, ...EXTRA]);
     if (miss.length) bad.push('no panels or cards lines in ' + miss.join(', '));
     await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
     if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));

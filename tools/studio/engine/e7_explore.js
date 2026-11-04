@@ -195,13 +195,17 @@ function itemBlocks(it, B, ed) {
     const kv = [['File', r.file + (f ? ' · ' + mb(f.bytes) : '')]];
     if (info) {
       const b = placedBox(E, r.q, r.s), sz = b.getSize(new THREE.Vector3());
-      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (E.guess.read || E.guess.up !== 1 ? ` (the file says ${E.guess.read ? fmt(E.guess.unit) + ' cm a unit' : ''}${E.guess.read && E.guess.up !== 1 ? ', ' : ''}${E.guess.up === 2 ? 'Z up' : E.guess.up === 0 ? 'X up' : ''})` : '')],
+      // (the scale it started at, and why: what the file says of its units and up axis, and what was made of it)
+      const gw = guessWords(E.guess), g0 = r.s === E.guess.s;
+      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (gw ? (g0 ? ` (${gw})` : ` (placed first at ${E.guess.s}: ${gw})`) : '')],
         ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
     if (E) for (const m of E.missing) B.push({ p: `Missing texture ${m}: put it in the scene's folder.`, c: 'amber' });
     if (info) {
+      if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
+      if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
       for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
       if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
     }

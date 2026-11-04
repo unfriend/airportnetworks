@@ -1,37 +1,11 @@
 {
- "name": "test",
- "files": [
-  {
-   "path": "box.glb",
-   "bytes": 3208,
-   "at": 1793747980791,
-   "kind": "model"
-  },
-  {
-   "path": "figure.fbx",
-   "bytes": 4066,
-   "at": 1793747980791,
-   "kind": "model"
-  },
-  {
-   "path": "figure.png",
-   "bytes": 6272,
-   "at": 1793747980791,
-   "kind": "image"
-  },
-  {
-   "path": "layout.json",
-   "bytes": 1299,
-   "at": 1793747980791,
-   "kind": "other"
-  },
-  {
-   "path": "tone.wav",
-   "bytes": 26504,
-   "at": 1793747980791,
-   "kind": "audio"
-  }
- ],
- "layoutAt": 1793747980791,
- "save": false
+  "name": "test",
+  "files": [
+    {"path":"box.glb","bytes":3208,"at":1793752180147,"kind":"model"},
+    {"path":"figure.fbx","bytes":4108,"at":1793752180147,"kind":"model"},
+    {"path":"figure.png","bytes":6272,"at":1793752180147,"kind":"image"},
+    {"path":"tone.wav","bytes":26504,"at":1793752180151,"kind":"audio"}
+  ],
+  "layoutAt": 1793752180151,
+  "save": false
 }

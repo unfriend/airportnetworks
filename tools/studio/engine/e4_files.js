@@ -26,9 +26,10 @@ const later = (fn, ms) => { const t = setTimeout(() => { TIMERS.delete(t); if (!
 const unlater = t => { if (t) { clearTimeout(t); TIMERS.delete(t); } };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
 
-const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false };
+const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
 // kind: 'relay' or 'folder'; state: 'looking', 'ok', 'auth' (the relay wants its password), 'none' (no relay and no
-// folder of scenes), 'error'
+// folder of scenes), 'error'. held: the relay refused the password this page has (or none): nothing more is asked of it
+// until the shell holds another one (every wrong one counts on the relay: 20 in a minute shut this address out)
 const srcKey = () => (SRC.kind === 'relay' ? SRC.base : SRC.kind === 'folder' ? 'folder:' + SRC.folder : '');
 const encPath = p => String(p).split('/').map(encodeURIComponent).join('/');
 const sceneUrl = name => (SRC.kind === 'relay' ? `${SRC.base}/scenes/${encodeURIComponent(name)}/` : `${SRC.folder}/${encodeURIComponent(name)}/`);
@@ -44,20 +45,51 @@ const AUTH_NOTE = 'This relay needs its password: enter it under Shared (or in t
 // tell the shell what the relay answered (a 401 brings up its password prompts; an answer with the password accepted
 // keeps it): the password the call carried ('' none) and its JSON, when it had any
 const saw = (status, sent, j) => { try { if (SRC.kind === 'relay' && HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(SRC.base, status, sent || '', j || null); } catch (e) { /* an older shell */ } };
-// a call: the relay's password as a header (never in the address), the error's status kept
+// a call: the relay's password as a header (never in the address), the error's status kept. Once the relay has refused
+// the password (or its lack), no call goes to it until the shell holds another (authHold, authStep): the first 401 goes
+// to the shell, which asks for it where it always does
+const AUTH_ERR = () => Object.assign(new Error(AUTH_NOTE), { status: 401 });
 async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
+  if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token) headers.Authorization = 'Bearer ' + SRC.token;
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
   if (!r.ok) {
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }
+    if (relay && r.status === 401) { if (!SRC.held) { saw(401, SRC.token, j); authHold(); } throw AUTH_ERR(); }
     if (relay) saw(r.status, SRC.token, j);
     throw Object.assign(new Error((j && j.error) || 'HTTP ' + r.status), { status: r.status });
   }
   if (relay) saw(r.status, SRC.token);
   return r;
+}
+// the relay refused this page's password: held (every call refused here, the panes say so) until the shell holds
+// another one for it, looked at every 2 s (the same one twice in a row: one the shell is still checking is not taken,
+// so a wrong one typed is not sent twice); then the scenes are listed again and what the refusal stopped is fetched again
+function authHold() {
+  if (SRC.held) return;
+  SRC.held = true; SRC.state = 'auth'; SRC.note = AUTH_NOTE; SRC.seen = null;
+  if (STU.scene && STU.listing !== 'ok') { STU.listing = 'auth'; STU.note = AUTH_NOTE; }
+  unlater(SRC.retry); SRC.retry = later(authStep, 2000);
+  dirty(true);
+}
+async function authStep() {
+  SRC.retry = 0;
+  if (!SRC.held || GL.gone) return;
+  let r = null;
+  try { r = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : null; } catch (e) { r = null; }
+  if (!SRC.held || GL.gone) return;
+  const t = r && r.base ? r.token || '' : null;
+  if (t !== null && t !== SRC.token && t === SRC.seen) { SRC.held = false; findSource(); return; }
+  SRC.seen = t;
+  SRC.retry = later(authStep, 2000);
+}
+// once the relay takes the password: the models and sounds a refusal stopped are fetched again
+function authAgain() {
+  for (const E of LIB.values()) if (E.auth && E.users.size) { E.auth = false; libLoad(E); }
+  for (const F of SND.values()) if (F.auth) { F.auth = false; sndFetch(F); }
 }
 const getJSON = async (url, o) => (await call(url, o)).json();
 // the bytes of a file, with its progress (n bytes so far)
@@ -93,7 +125,7 @@ async function ownRelay() {
 async function findSource() {
   const gen = ++SRC.gen;
   unlater(SRC.retry); SRC.retry = 0;
-  SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false;
+  SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false; SRC.held = false;
   dirty();
   let r = null;
   if (!OPT.scenes) {
@@ -120,11 +152,11 @@ async function listScenes(gen) {
     SRC.scenes = [];
     // a relay that serves no scenes: a folder next to the app may still have some
     if (SRC.kind === 'relay' && e.status === 404) { SRC.noScenes = true; Object.assign(SRC, { kind: 'folder', base: '', token: '', folder: 'scenes', dflt: true }); return listScenes(gen); }
+    // (a relay that wants its password: held until the shell has another one, authHold)
     SRC.state = e.status === 401 ? 'auth' : SRC.kind === 'folder' && SRC.dflt && (e.status === 404 || e.status === 0) ? 'none' : 'error';
     SRC.note = SRC.state === 'auth' ? AUTH_NOTE : e.message;
-    // the password given meanwhile (the shell keeps it): asked again every few seconds while it is wanted
-    if (SRC.state === 'auth') SRC.retry = later(findSource, 5000);
   }
+  if (SRC.state === 'ok') authAgain();
   if (STU.scene && STU.listing !== 'ok' && SRC.state === 'ok') loadScene();
   chooseScene();
   dirty();
@@ -172,7 +204,8 @@ async function loadScene() {
     if (SRC.kind === 'relay') { j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`); layout = j.layout || null; if (j.save !== undefined) SRC.save = !!j.save; }
     else {
       j = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/files.json`);
-      if (Array.isArray(j && j.files) && j.files.some(f => f && f.path === 'layout.json')) { try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; } }
+      // (scan.mjs gives the layout's time apart from the files, as the relay does; an older listing names it a file)
+      if (+(j && j.layoutAt) > 0 || (Array.isArray(j && j.files) && j.files.some(f => f && f.path === 'layout.json'))) { try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; } }
     }
     if (gen !== STU.gen || GL.gone) return;
     setFiles(j && j.files);
@@ -187,7 +220,6 @@ async function loadScene() {
     if (gen !== STU.gen || GL.gone) return;
     STU.listing = e.status === 404 ? 'missing' : e.status === 401 ? 'auth' : 'error';
     STU.note = e.status === 404 ? `This device cannot find the scene ${name}: its items keep their places as grey boxes.` : e.status === 401 ? AUTH_NOTE : 'The scene could not be read: ' + e.message;
-    if (e.status === 401) { SRC.state = 'auth'; SRC.note = AUTH_NOTE; unlater(SRC.retry); SRC.retry = later(findSource, 5000); }
   }
   dirty(true);
 }
@@ -361,6 +393,7 @@ function watchStart() {
   const data = ev => { try { return JSON.parse(ev.data); } catch (e) { return null; } };
   es.addEventListener('scene', ev => { const d = data(ev); if (d) onFileEvent(d); });
   es.addEventListener('layout', ev => { const d = data(ev); if (d) onLayoutEvent(d); });
+  es.addEventListener('scenes', ev => { const d = data(ev); if (d) onScenesEvent(d); });
   es.onerror = () => { if (es.readyState === 2 && SRC.es === es) { SRC.es = null; later(watchStart, 10000); } };
 }
 function watchStop() { if (SRC.es) { try { SRC.es.close(); } catch (e) { /* closed */ } SRC.es = null; } }
@@ -374,15 +407,26 @@ function onFileEvent(d) {
   if (okFile(d.path)) fileQ.add(d.path);
   if (!fileT) fileT = later(() => { fileT = 0; const s = new Set(fileQ); fileQ.clear(); refreshFiles(s); }, 300);
 }
+// a layout saved (here, or by another device, or put in the folder by hand) or removed: what Unsaved changes compares
+// with; removed, there is no saved layout (what is placed stays)
 async function onLayoutEvent(d) {
   if (!d || d.name !== STU.scene || !STU.scene) return;
+  if (d.gone) { STU.saved = keyOf([]); STU.savedAt = 0; STU.savedBy = ''; STU.mine = 0; dirty(true); return; }
   if (STU.mine && Math.abs((+d.at || 0) - STU.mine) < 2) return;   // (our own save)
   const gen = STU.gen;
   try {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || +d.at || Date.now(); STU.savedBy = L.by;
+    STU.saved = keyOf(L.items); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
+  dirty(true);
+}
+// a scene folder added or removed: the scene picker follows (the scene open stays open; gone, its listing says so the
+// next time it is read)
+function onScenesEvent(d) {
+  if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
+  SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
+  chooseScene();
   dirty(true);
 }

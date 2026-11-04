@@ -1,12 +1,6 @@
 {
- "scenes": [
-  {
-   "name": "test",
-   "files": 5,
-   "bytes": 41349,
-   "at": 1793747980791,
-   "layout": true
-  }
- ],
- "save": false
+  "scenes": [
+    {"name":"test","files":4,"bytes":40092,"at":1793752180151,"layout":true}
+  ],
+  "save": false
 }

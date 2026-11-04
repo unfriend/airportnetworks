@@ -91,6 +91,7 @@ Objects:  {
 			P: "DiffuseColor", "Color", "", "A",0.8,0.8,0.8
 			P: "SpecularColor", "Color", "", "A",0.2,0.2,0.2
 			P: "Shininess", "double", "Number", "",20
+			P: "Opacity", "double", "Number", "",0
 		}
 	}
 	Texture: 4001, "Texture::figure", "" {

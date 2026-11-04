@@ -11306,9 +11306,10 @@ const later = (fn, ms) => { const t = setTimeout(() => { TIMERS.delete(t); if (!
 const unlater = t => { if (t) { clearTimeout(t); TIMERS.delete(t); } };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
 
-const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false };
+const SRC = { kind: '', base: '', token: '', folder: '', dflt: false, state: 'looking', note: '', scenes: [], save: false, es: null, gen: 0, retry: 0, noScenes: false, held: false, seen: null };
 // kind: 'relay' or 'folder'; state: 'looking', 'ok', 'auth' (the relay wants its password), 'none' (no relay and no
-// folder of scenes), 'error'
+// folder of scenes), 'error'. held: the relay refused the password this page has (or none): nothing more is asked of it
+// until the shell holds another one (every wrong one counts on the relay: 20 in a minute shut this address out)
 const srcKey = () => (SRC.kind === 'relay' ? SRC.base : SRC.kind === 'folder' ? 'folder:' + SRC.folder : '');
 const encPath = p => String(p).split('/').map(encodeURIComponent).join('/');
 const sceneUrl = name => (SRC.kind === 'relay' ? `${SRC.base}/scenes/${encodeURIComponent(name)}/` : `${SRC.folder}/${encodeURIComponent(name)}/`);
@@ -11324,20 +11325,51 @@ const AUTH_NOTE = 'This relay needs its password: enter it under Shared (or in t
 // tell the shell what the relay answered (a 401 brings up its password prompts; an answer with the password accepted
 // keeps it): the password the call carried ('' none) and its JSON, when it had any
 const saw = (status, sent, j) => { try { if (SRC.kind === 'relay' && HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(SRC.base, status, sent || '', j || null); } catch (e) { /* an older shell */ } };
-// a call: the relay's password as a header (never in the address), the error's status kept
+// a call: the relay's password as a header (never in the address), the error's status kept. Once the relay has refused
+// the password (or its lack), no call goes to it until the shell holds another (authHold, authStep): the first 401 goes
+// to the shell, which asks for it where it always does
+const AUTH_ERR = () => Object.assign(new Error(AUTH_NOTE), { status: 401 });
 async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
+  if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token) headers.Authorization = 'Bearer ' + SRC.token;
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
   if (!r.ok) {
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }
+    if (relay && r.status === 401) { if (!SRC.held) { saw(401, SRC.token, j); authHold(); } throw AUTH_ERR(); }
     if (relay) saw(r.status, SRC.token, j);
     throw Object.assign(new Error((j && j.error) || 'HTTP ' + r.status), { status: r.status });
   }
   if (relay) saw(r.status, SRC.token);
   return r;
+}
+// the relay refused this page's password: held (every call refused here, the panes say so) until the shell holds
+// another one for it, looked at every 2 s (the same one twice in a row: one the shell is still checking is not taken,
+// so a wrong one typed is not sent twice); then the scenes are listed again and what the refusal stopped is fetched again
+function authHold() {
+  if (SRC.held) return;
+  SRC.held = true; SRC.state = 'auth'; SRC.note = AUTH_NOTE; SRC.seen = null;
+  if (STU.scene && STU.listing !== 'ok') { STU.listing = 'auth'; STU.note = AUTH_NOTE; }
+  unlater(SRC.retry); SRC.retry = later(authStep, 2000);
+  dirty(true);
+}
+async function authStep() {
+  SRC.retry = 0;
+  if (!SRC.held || GL.gone) return;
+  let r = null;
+  try { r = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : null; } catch (e) { r = null; }
+  if (!SRC.held || GL.gone) return;
+  const t = r && r.base ? r.token || '' : null;
+  if (t !== null && t !== SRC.token && t === SRC.seen) { SRC.held = false; findSource(); return; }
+  SRC.seen = t;
+  SRC.retry = later(authStep, 2000);
+}
+// once the relay takes the password: the models and sounds a refusal stopped are fetched again
+function authAgain() {
+  for (const E of LIB.values()) if (E.auth && E.users.size) { E.auth = false; libLoad(E); }
+  for (const F of SND.values()) if (F.auth) { F.auth = false; sndFetch(F); }
 }
 const getJSON = async (url, o) => (await call(url, o)).json();
 // the bytes of a file, with its progress (n bytes so far)
@@ -11373,7 +11405,7 @@ async function ownRelay() {
 async function findSource() {
   const gen = ++SRC.gen;
   unlater(SRC.retry); SRC.retry = 0;
-  SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false;
+  SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false; SRC.held = false;
   dirty();
   let r = null;
   if (!OPT.scenes) {
@@ -11400,11 +11432,11 @@ async function listScenes(gen) {
     SRC.scenes = [];
     // a relay that serves no scenes: a folder next to the app may still have some
     if (SRC.kind === 'relay' && e.status === 404) { SRC.noScenes = true; Object.assign(SRC, { kind: 'folder', base: '', token: '', folder: 'scenes', dflt: true }); return listScenes(gen); }
+    // (a relay that wants its password: held until the shell has another one, authHold)
     SRC.state = e.status === 401 ? 'auth' : SRC.kind === 'folder' && SRC.dflt && (e.status === 404 || e.status === 0) ? 'none' : 'error';
     SRC.note = SRC.state === 'auth' ? AUTH_NOTE : e.message;
-    // the password given meanwhile (the shell keeps it): asked again every few seconds while it is wanted
-    if (SRC.state === 'auth') SRC.retry = later(findSource, 5000);
   }
+  if (SRC.state === 'ok') authAgain();
   if (STU.scene && STU.listing !== 'ok' && SRC.state === 'ok') loadScene();
   chooseScene();
   dirty();
@@ -11452,7 +11484,8 @@ async function loadScene() {
     if (SRC.kind === 'relay') { j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`); layout = j.layout || null; if (j.save !== undefined) SRC.save = !!j.save; }
     else {
       j = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/files.json`);
-      if (Array.isArray(j && j.files) && j.files.some(f => f && f.path === 'layout.json')) { try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; } }
+      // (scan.mjs gives the layout's time apart from the files, as the relay does; an older listing names it a file)
+      if (+(j && j.layoutAt) > 0 || (Array.isArray(j && j.files) && j.files.some(f => f && f.path === 'layout.json'))) { try { layout = await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`); } catch (e) { layout = null; } }
     }
     if (gen !== STU.gen || GL.gone) return;
     setFiles(j && j.files);
@@ -11467,7 +11500,6 @@ async function loadScene() {
     if (gen !== STU.gen || GL.gone) return;
     STU.listing = e.status === 404 ? 'missing' : e.status === 401 ? 'auth' : 'error';
     STU.note = e.status === 404 ? `This device cannot find the scene ${name}: its items keep their places as grey boxes.` : e.status === 401 ? AUTH_NOTE : 'The scene could not be read: ' + e.message;
-    if (e.status === 401) { SRC.state = 'auth'; SRC.note = AUTH_NOTE; unlater(SRC.retry); SRC.retry = later(findSource, 5000); }
   }
   dirty(true);
 }
@@ -11641,6 +11673,7 @@ function watchStart() {
   const data = ev => { try { return JSON.parse(ev.data); } catch (e) { return null; } };
   es.addEventListener('scene', ev => { const d = data(ev); if (d) onFileEvent(d); });
   es.addEventListener('layout', ev => { const d = data(ev); if (d) onLayoutEvent(d); });
+  es.addEventListener('scenes', ev => { const d = data(ev); if (d) onScenesEvent(d); });
   es.onerror = () => { if (es.readyState === 2 && SRC.es === es) { SRC.es = null; later(watchStart, 10000); } };
 }
 function watchStop() { if (SRC.es) { try { SRC.es.close(); } catch (e) { /* closed */ } SRC.es = null; } }
@@ -11654,16 +11687,27 @@ function onFileEvent(d) {
   if (okFile(d.path)) fileQ.add(d.path);
   if (!fileT) fileT = later(() => { fileT = 0; const s = new Set(fileQ); fileQ.clear(); refreshFiles(s); }, 300);
 }
+// a layout saved (here, or by another device, or put in the folder by hand) or removed: what Unsaved changes compares
+// with; removed, there is no saved layout (what is placed stays)
 async function onLayoutEvent(d) {
   if (!d || d.name !== STU.scene || !STU.scene) return;
+  if (d.gone) { STU.saved = keyOf([]); STU.savedAt = 0; STU.savedBy = ''; STU.mine = 0; dirty(true); return; }
   if (STU.mine && Math.abs((+d.at || 0) - STU.mine) < 2) return;   // (our own save)
   const gen = STU.gen;
   try {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || +d.at || Date.now(); STU.savedBy = L.by;
+    STU.saved = keyOf(L.items); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
+  dirty(true);
+}
+// a scene folder added or removed: the scene picker follows (the scene open stays open; gone, its listing says so the
+// next time it is read)
+function onScenesEvent(d) {
+  if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
+  SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
+  chooseScene();
   dirty(true);
 }
 
@@ -11681,7 +11725,7 @@ const MISSING = (() => { const c = document.createElement('canvas'); c.width = 3
 function lib(path) {
   let E = LIB.get(path);
   if (!E) {
-    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null };
+    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null, auth: false };
     LIB.set(path, E);
   }
   if (E.drop) { unlater(E.drop); E.drop = 0; }
@@ -11723,7 +11767,7 @@ function fileChanged(p) {
 const libChanged = () => { STU.libRev++; dirty(); };
 async function libLoad(E) {
   const gen = ++E.gen, f = STU.fileMap.get(E.path), scene = STU.scene, t0 = performance.now();
-  E.state = 'loading'; E.p = 0; E.err = '';
+  E.state = 'loading'; E.p = 0; E.err = ''; E.auth = false;
   libChanged(E);
   try {
     const buf = await getBytes(fileUrl(E.path), n => { if (gen === E.gen) E.p = f && f.bytes ? Math.min(0.99, n / f.bytes) : 0; });   // (the grey box shows it)
@@ -11736,6 +11780,7 @@ async function libLoad(E) {
     if (gen !== E.gen || scene !== STU.scene || GL.gone) { if (res && res.root) disposeTree(res.root, true); return; }
     const old = E.root;
     E.missing = missing; E.texPaths = texPaths;
+    E.auth = SRC.held && missing.size > 0;   // (its textures refused with the relay's password: fetched again once it has one)
     finishModel(E, res);
     E.ms = { fetch: Math.round(t1 - t0), parse: Math.round(performance.now() - t1) };
     E.state = 'ready';
@@ -11744,6 +11789,7 @@ async function libLoad(E) {
     if (gen !== E.gen) return;
     E.state = 'failed';
     E.err = whyFailed(e);
+    E.auth = e && e.status === 401;   // (fetched again once the relay takes this page's password: authAgain)
     if (!GL.gone) console.warn('The studio could not load', E.path, e && e.message);
   }
   libChanged(E);
@@ -11782,6 +11828,7 @@ function parseModel(E, buf, missing, texPaths) {
 // scene's top), else any file of the scene with its base name; never anything outside the scene
 function resolveUrl(u, base, dir, missing, texPaths) {
   if (/^(blob|data):/i.test(u)) return u;
+  if (SRC.held) { missing.add(baseName(u.split(/[?#]/)[0]) || u); return MISSING; }   // (a relay that refused the password: asked nothing more)
   let rel = (u.startsWith(base) ? u.slice(base.length) : u).split(/[?#]/)[0];
   try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
   rel = rel.replace(/\\/g, '/').replace(/^(\.\/)+/, '');
@@ -11830,7 +11877,7 @@ function finishModel(E, res) {
   const root = res.root;
   if (!root) throw new Error('the file has no scene in it');
   root.updateMatrixWorld(true);
-  let tris = 0, rigged = false, normals = true;
+  let tris = 0, rigged = false, normals = true, flat = 0, solid = 0;
   const mats = new Set();
   root.traverse(o => {
     if (o.isSkinnedMesh) rigged = true;
@@ -11842,6 +11889,18 @@ function finishModel(E, res) {
     }
     for (const m of [].concat(o.material || [])) mats.add(m);
   });
+  // a mesh without normals (a photogrammetry scan's): lit, its faces shaded flat (from the pixels' own slopes: nothing
+  // more to keep), else the light finds no surface and draws it black; a material that cannot (Lambert's) gets normals
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry || o.geometry.attributes.normal) return;
+    const ms = [].concat(o.material || []);
+    if (ms.length && ms.every(m => m.isMeshPhongMaterial || m.isMeshStandardMaterial || m.isMeshToonMaterial || m.isMeshBasicMaterial)) {
+      for (const m of ms) if (!m.isMeshBasicMaterial && !m.flatShading) { m.flatShading = true; m.needsUpdate = true; flat++; }
+    } else { o.geometry.computeVertexNormals(); flat++; }
+  });
+  // an FBX whose material says it is fully see-through with nothing to show where (opacity 0 and no alpha map: a habit
+  // of 3ds Max's exports, which r128's loader takes at its word, so the model is not drawn at all): drawn solid
+  if (extOf(E.path) === 'fbx') for (const m of mats) if (m.opacity <= 0.01 && !m.alphaMap) { m.opacity = 1; m.transparent = false; m.needsUpdate = true; solid++; }
   const texs = new Map();
   for (const m of mats) {
     for (const k of TEX_KEYS) {
@@ -11860,9 +11919,9 @@ function finishModel(E, res) {
   E.root = root; E.clips = res.clips || []; E.rigged = rigged;
   E.info = {
     tris: Math.round(tris), textures: tl, clips: E.clips.map(c => [c.name, c.duration]), materials: mats.size, rigged,
-    box: [box.min.toArray(), box.max.toArray()], own: size.toArray(),
-    // photogrammetry (one textured material, many triangles or no normals): its light is in its texture
-    scan: mats.size === 1 && tl.length >= 1 && !rigged && (!normals || tris >= 50000),
+    box: [box.min.toArray(), box.max.toArray()], own: size.toArray(), normals, flat, solid,
+    // photogrammetry: a mesh without normals, or one textured material over many triangles; its light is in its texture
+    scan: !normals || (mats.size === 1 && tl.length >= 1 && !rigged && tris >= 50000),
   };
   E.guess = guessFor(res.guess, size);
 }
@@ -11892,10 +11951,25 @@ function guessFor(g, size) {
   const q = new THREE.Quaternion();
   if (g.up === 2) q.setFromAxisAngle(_ax, -Math.PI / 2 * g.sign);
   else if (g.up === 0) q.setFromAxisAngle(_az, Math.PI / 2 * g.sign);
-  const L = Math.max(size.x, size.y, size.z) || 1;
-  let s = [g.unit / 100, 1].find(c => L * c >= 0.05 && L * c <= 60);
-  if (s === undefined) s = 1 / L;
-  return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, read: g.read };
+  const L = Math.max(size.x, size.y, size.z) || 1, u = g.unit / 100, fits = c => L * c >= 0.05 && L * c <= 60;
+  // how: 'unit' (the file's own units taken), 'metres' (they would make it too small or too big: 1 unit = 1 m instead)
+  // or 'fit' (neither: sized to 1 m); would: its largest side in the file's own units, in metres (the card says why)
+  const how = fits(u) ? 'unit' : fits(1) ? 'metres' : 'fit', s = how === 'unit' ? u : how === 'metres' ? 1 : 1 / L;
+  return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, sign: g.sign, read: g.read, gltf: !!g.gltf, how, would: +(L * u).toPrecision(3) };
+}
+// the card's words for that guess: what the file says of its units and up axis, and what was made of it, e.g. "the file
+// says centimetres; that would make it 1.7 cm, so taken as metres; stood up from Z up"
+const UNIT_WORDS = { 0.1: 'millimetres', 1: 'centimetres', 2.54: 'inches', 30.48: 'feet', 91.44: 'yards', 100: 'metres', 100000: 'kilometres' };
+const lenWords = v => (v < 0.01 ? +(v * 1000).toPrecision(2) + ' mm' : v < 1 ? +(v * 100).toPrecision(2) + ' cm' : v < 1000 ? +v.toPrecision(3) + ' m' : +(v / 1000).toPrecision(3) + ' km');
+function guessWords(g) {
+  if (!g) return '';
+  const unit = UNIT_WORDS[g.unit] || `${+(+g.unit).toPrecision(3)} cm a unit`, out = [];
+  out.push(g.gltf ? 'glTF is in metres' : g.read ? 'the file says ' + unit : 'the file gives no units: FBX\'s own, centimetres');
+  if (g.how === 'metres') out.push(`that would make it ${lenWords(g.would)}, so taken as metres`);
+  else if (g.how === 'fit') out.push(`that would make it ${lenWords(g.would)}, so sized to 1 m`);
+  if (g.up === 2) out.push(g.sign < 0 ? 'turned over from Z down' : 'stood up from Z up');
+  else if (g.up === 0) out.push(g.sign < 0 ? 'turned from X down' : 'turned from X up');
+  return out.join('; ');
 }
 // a clone for one object: its own materials (lit as loaded; as scanned built when asked), its rest pose kept (an
 // animation turned off goes back to it)
@@ -11953,7 +12027,7 @@ async function sndFetch(F) {
     const b = await getBytes(fileUrl(F.path));
     if (gen !== F.gen || scene !== STU.scene || GL.gone) return;
     F.bytes = b; F.state = 'bytes';
-  } catch (e) { if (gen === F.gen) { F.state = 'failed'; F.err = e.status === 404 ? 'The file is not in the scene\'s folder any more.' : 'It could not be fetched: ' + e.message; } }
+  } catch (e) { if (gen === F.gen) { F.state = 'failed'; F.auth = e.status === 401; F.err = e.status === 404 ? 'The file is not in the scene\'s folder any more.' : e.status === 401 ? AUTH_NOTE : 'It could not be fetched: ' + e.message; } }
   dirty();
 }
 // decoded for this context (once; again on a new context)
@@ -12918,13 +12992,17 @@ function itemBlocks(it, B, ed) {
     const kv = [['File', r.file + (f ? ' · ' + mb(f.bytes) : '')]];
     if (info) {
       const b = placedBox(E, r.q, r.s), sz = b.getSize(new THREE.Vector3());
-      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (E.guess.read || E.guess.up !== 1 ? ` (the file says ${E.guess.read ? fmt(E.guess.unit) + ' cm a unit' : ''}${E.guess.read && E.guess.up !== 1 ? ', ' : ''}${E.guess.up === 2 ? 'Z up' : E.guess.up === 0 ? 'X up' : ''})` : '')],
+      // (the scale it started at, and why: what the file says of its units and up axis, and what was made of it)
+      const gw = guessWords(E.guess), g0 = r.s === E.guess.s;
+      kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (gw ? (g0 ? ` (${gw})` : ` (placed first at ${E.guess.s}: ${gw})`) : '')],
         ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
     if (E) for (const m of E.missing) B.push({ p: `Missing texture ${m}: put it in the scene's folder.`, c: 'amber' });
     if (info) {
+      if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
+      if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
       for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
       if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
     }

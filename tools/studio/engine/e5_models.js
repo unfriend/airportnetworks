@@ -13,7 +13,7 @@ const MISSING = (() => { const c = document.createElement('canvas'); c.width = 3
 function lib(path) {
   let E = LIB.get(path);
   if (!E) {
-    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null };
+    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null, auth: false };
     LIB.set(path, E);
   }
   if (E.drop) { unlater(E.drop); E.drop = 0; }
@@ -55,7 +55,7 @@ function fileChanged(p) {
 const libChanged = () => { STU.libRev++; dirty(); };
 async function libLoad(E) {
   const gen = ++E.gen, f = STU.fileMap.get(E.path), scene = STU.scene, t0 = performance.now();
-  E.state = 'loading'; E.p = 0; E.err = '';
+  E.state = 'loading'; E.p = 0; E.err = ''; E.auth = false;
   libChanged(E);
   try {
     const buf = await getBytes(fileUrl(E.path), n => { if (gen === E.gen) E.p = f && f.bytes ? Math.min(0.99, n / f.bytes) : 0; });   // (the grey box shows it)
@@ -68,6 +68,7 @@ async function libLoad(E) {
     if (gen !== E.gen || scene !== STU.scene || GL.gone) { if (res && res.root) disposeTree(res.root, true); return; }
     const old = E.root;
     E.missing = missing; E.texPaths = texPaths;
+    E.auth = SRC.held && missing.size > 0;   // (its textures refused with the relay's password: fetched again once it has one)
     finishModel(E, res);
     E.ms = { fetch: Math.round(t1 - t0), parse: Math.round(performance.now() - t1) };
     E.state = 'ready';
@@ -76,6 +77,7 @@ async function libLoad(E) {
     if (gen !== E.gen) return;
     E.state = 'failed';
     E.err = whyFailed(e);
+    E.auth = e && e.status === 401;   // (fetched again once the relay takes this page's password: authAgain)
     if (!GL.gone) console.warn('The studio could not load', E.path, e && e.message);
   }
   libChanged(E);
@@ -114,6 +116,7 @@ function parseModel(E, buf, missing, texPaths) {
 // scene's top), else any file of the scene with its base name; never anything outside the scene
 function resolveUrl(u, base, dir, missing, texPaths) {
   if (/^(blob|data):/i.test(u)) return u;
+  if (SRC.held) { missing.add(baseName(u.split(/[?#]/)[0]) || u); return MISSING; }   // (a relay that refused the password: asked nothing more)
   let rel = (u.startsWith(base) ? u.slice(base.length) : u).split(/[?#]/)[0];
   try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
   rel = rel.replace(/\\/g, '/').replace(/^(\.\/)+/, '');
@@ -162,7 +165,7 @@ function finishModel(E, res) {
   const root = res.root;
   if (!root) throw new Error('the file has no scene in it');
   root.updateMatrixWorld(true);
-  let tris = 0, rigged = false, normals = true;
+  let tris = 0, rigged = false, normals = true, flat = 0, solid = 0;
   const mats = new Set();
   root.traverse(o => {
     if (o.isSkinnedMesh) rigged = true;
@@ -174,6 +177,18 @@ function finishModel(E, res) {
     }
     for (const m of [].concat(o.material || [])) mats.add(m);
   });
+  // a mesh without normals (a photogrammetry scan's): lit, its faces shaded flat (from the pixels' own slopes: nothing
+  // more to keep), else the light finds no surface and draws it black; a material that cannot (Lambert's) gets normals
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry || o.geometry.attributes.normal) return;
+    const ms = [].concat(o.material || []);
+    if (ms.length && ms.every(m => m.isMeshPhongMaterial || m.isMeshStandardMaterial || m.isMeshToonMaterial || m.isMeshBasicMaterial)) {
+      for (const m of ms) if (!m.isMeshBasicMaterial && !m.flatShading) { m.flatShading = true; m.needsUpdate = true; flat++; }
+    } else { o.geometry.computeVertexNormals(); flat++; }
+  });
+  // an FBX whose material says it is fully see-through with nothing to show where (opacity 0 and no alpha map: a habit
+  // of 3ds Max's exports, which r128's loader takes at its word, so the model is not drawn at all): drawn solid
+  if (extOf(E.path) === 'fbx') for (const m of mats) if (m.opacity <= 0.01 && !m.alphaMap) { m.opacity = 1; m.transparent = false; m.needsUpdate = true; solid++; }
   const texs = new Map();
   for (const m of mats) {
     for (const k of TEX_KEYS) {
@@ -192,9 +207,9 @@ function finishModel(E, res) {
   E.root = root; E.clips = res.clips || []; E.rigged = rigged;
   E.info = {
     tris: Math.round(tris), textures: tl, clips: E.clips.map(c => [c.name, c.duration]), materials: mats.size, rigged,
-    box: [box.min.toArray(), box.max.toArray()], own: size.toArray(),
-    // photogrammetry (one textured material, many triangles or no normals): its light is in its texture
-    scan: mats.size === 1 && tl.length >= 1 && !rigged && (!normals || tris >= 50000),
+    box: [box.min.toArray(), box.max.toArray()], own: size.toArray(), normals, flat, solid,
+    // photogrammetry: a mesh without normals, or one textured material over many triangles; its light is in its texture
+    scan: !normals || (mats.size === 1 && tl.length >= 1 && !rigged && tris >= 50000),
   };
   E.guess = guessFor(res.guess, size);
 }
@@ -224,10 +239,25 @@ function guessFor(g, size) {
   const q = new THREE.Quaternion();
   if (g.up === 2) q.setFromAxisAngle(_ax, -Math.PI / 2 * g.sign);
   else if (g.up === 0) q.setFromAxisAngle(_az, Math.PI / 2 * g.sign);
-  const L = Math.max(size.x, size.y, size.z) || 1;
-  let s = [g.unit / 100, 1].find(c => L * c >= 0.05 && L * c <= 60);
-  if (s === undefined) s = 1 / L;
-  return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, read: g.read };
+  const L = Math.max(size.x, size.y, size.z) || 1, u = g.unit / 100, fits = c => L * c >= 0.05 && L * c <= 60;
+  // how: 'unit' (the file's own units taken), 'metres' (they would make it too small or too big: 1 unit = 1 m instead)
+  // or 'fit' (neither: sized to 1 m); would: its largest side in the file's own units, in metres (the card says why)
+  const how = fits(u) ? 'unit' : fits(1) ? 'metres' : 'fit', s = how === 'unit' ? u : how === 'metres' ? 1 : 1 / L;
+  return { s: +s.toPrecision(4), q: q.toArray().map(v => Math.round(v * 1e4) / 1e4), unit: g.unit, up: g.up, sign: g.sign, read: g.read, gltf: !!g.gltf, how, would: +(L * u).toPrecision(3) };
+}
+// the card's words for that guess: what the file says of its units and up axis, and what was made of it, e.g. "the file
+// says centimetres; that would make it 1.7 cm, so taken as metres; stood up from Z up"
+const UNIT_WORDS = { 0.1: 'millimetres', 1: 'centimetres', 2.54: 'inches', 30.48: 'feet', 91.44: 'yards', 100: 'metres', 100000: 'kilometres' };
+const lenWords = v => (v < 0.01 ? +(v * 1000).toPrecision(2) + ' mm' : v < 1 ? +(v * 100).toPrecision(2) + ' cm' : v < 1000 ? +v.toPrecision(3) + ' m' : +(v / 1000).toPrecision(3) + ' km');
+function guessWords(g) {
+  if (!g) return '';
+  const unit = UNIT_WORDS[g.unit] || `${+(+g.unit).toPrecision(3)} cm a unit`, out = [];
+  out.push(g.gltf ? 'glTF is in metres' : g.read ? 'the file says ' + unit : 'the file gives no units: FBX\'s own, centimetres');
+  if (g.how === 'metres') out.push(`that would make it ${lenWords(g.would)}, so taken as metres`);
+  else if (g.how === 'fit') out.push(`that would make it ${lenWords(g.would)}, so sized to 1 m`);
+  if (g.up === 2) out.push(g.sign < 0 ? 'turned over from Z down' : 'stood up from Z up');
+  else if (g.up === 0) out.push(g.sign < 0 ? 'turned from X down' : 'turned from X up');
+  return out.join('; ');
 }
 // a clone for one object: its own materials (lit as loaded; as scanned built when asked), its rest pose kept (an
 // animation turned off goes back to it)
@@ -285,7 +315,7 @@ async function sndFetch(F) {
     const b = await getBytes(fileUrl(F.path));
     if (gen !== F.gen || scene !== STU.scene || GL.gone) return;
     F.bytes = b; F.state = 'bytes';
-  } catch (e) { if (gen === F.gen) { F.state = 'failed'; F.err = e.status === 404 ? 'The file is not in the scene\'s folder any more.' : 'It could not be fetched: ' + e.message; } }
+  } catch (e) { if (gen === F.gen) { F.state = 'failed'; F.auth = e.status === 401; F.err = e.status === 404 ? 'The file is not in the scene\'s folder any more.' : e.status === 401 ? AUTH_NOTE : 'It could not be fetched: ' + e.message; } }
   dirty();
 }
 // decoded for this context (once; again on a new context)

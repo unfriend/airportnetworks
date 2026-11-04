@@ -2,46 +2,26 @@
 //   box.glb     a 0.5 m box with a small texture inside and two clips (Spin, Bob): glTF, metres, Y up
 //   figure.fbx  an ASCII FBX 7.4: a 40 x 30 x 170 cm block standing along Z (Z up, centimetres: both guesses show), its
 //               material's colour texture named by an author's path (C:\Users\...\figure.png, found by its base name)
-//               and a specular texture that is not there (figure_spec.png: its card says so), a take that turns it
+//               and a specular texture that is not there (figure_spec.png: its card says so), a take that turns it, and
+//               its material's Opacity 0 (as 3ds Max writes it: the studio draws it solid and says so)
 //   figure.png  the figure's texture
 //   tone.wav    a short tone (0.6 s, 440 Hz)
 //   layout.json one object of each model, a cube showing the figure and the sound and hiding the box, and the sound
-// and index.json and files.json as tools/studio/scan.mjs writes them (the integrator runs scan.mjs again once it is in).
+// and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
+// says whether they are current).
 // usage (from the repository root): node tools/studio/test/make.mjs
-//        node tools/studio/test/make.mjs --index <folder>   only index.json and files.json, for any folder of scenes
+//        node tools/studio/test/make.mjs --index <folder>   only index.json and files.json (scan.mjs), for any folder of scenes
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
+import { execFileSync } from 'child_process';
+import { layoutText } from '../../../relay/scenes.mjs';
 const here = path.dirname(new URL(import.meta.url).pathname);
 
-// ---- index.json and files.json: what the relay's GET /api/scenes and /api/scenes/<name> answer (save: false)
-const KINDS = { model: ['glb', 'gltf', 'fbx'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
-const kindOf = p => { const e = (/\.([^./]+)$/.exec(p) || ['', ''])[1].toLowerCase(); for (const k in KINDS) if (KINDS[k].includes(e)) return k; return 'other'; };
-const NAME = /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/;
-function index(folder) {
-  const scenes = [];
-  for (const name of fs.readdirSync(folder).sort()) {
-    const dir = path.join(folder, name);
-    if (!fs.statSync(dir).isDirectory() || !NAME.test(name)) continue;
-    const files = [];
-    const walk = (d, rel, depth) => {
-      for (const f of fs.readdirSync(d).sort()) {
-        if (f.startsWith('.') || (!rel && (f === 'files.json' || f === 'index.json'))) continue;
-        const p = path.join(d, f), st = fs.statSync(p), r = rel ? rel + '/' + f : f;
-        if (st.isDirectory()) { if (depth < 4) walk(p, r, depth + 1); } else if (files.length < 2000) files.push({ path: r, bytes: st.size, at: Math.round(st.mtimeMs), kind: kindOf(r) });
-      }
-    };
-    walk(dir, '', 0);
-    files.sort((a, b) => (a.path < b.path ? -1 : 1));
-    const lay = files.find(f => f.path === 'layout.json');
-    fs.writeFileSync(path.join(dir, 'files.json'), JSON.stringify({ name, files, layoutAt: lay ? lay.at : 0, save: false }, null, 1) + '\n');
-    scenes.push({ name, files: files.length, bytes: files.reduce((a, f) => a + f.bytes, 0), at: Math.max(0, ...files.map(f => f.at)), layout: !!lay });
-  }
-  fs.writeFileSync(path.join(folder, 'index.json'), JSON.stringify({ scenes, save: false }, null, 1) + '\n');
-  console.log(`wrote ${path.join(folder, 'index.json')} (${scenes.length} scene${scenes.length === 1 ? '' : 's'}) and each scene's files.json`);
-}
+// ---- index.json and files.json: what tools/studio/scan.mjs writes (the relay's own listing rules), run after the files
+const scan = folder => execFileSync(process.execPath, [path.join(here, '../scan.mjs'), folder], { stdio: 'inherit' });
 const ai = process.argv.indexOf('--index');
-if (ai > 0) { index(path.resolve(process.argv[ai + 1] || '.')); process.exit(0); }
+if (ai > 0) { scan(path.resolve(process.argv[ai + 1] || '.')); process.exit(0); }
 
 const out = path.join(here, 'scenes/test');
 fs.mkdirSync(out, { recursive: true });
@@ -194,6 +174,7 @@ ${tt}Properties70:  {
 ${ttt}P: "DiffuseColor", "Color", "", "A",0.8,0.8,0.8
 ${ttt}P: "SpecularColor", "Color", "", "A",0.2,0.2,0.2
 ${ttt}P: "Shininess", "double", "Number", "",20
+${ttt}P: "Opacity", "double", "Number", "",0
 ${tt}}
 ${t}}
 ${t}Texture: 4001, "Texture::figure", "" {
@@ -288,11 +269,11 @@ const files = {
   'figure.fbx': Buffer.from(fbxText),
   'figure.png': png(64, 64, (x, y) => { const s = (Math.sin(x / 5) + Math.sin(y / 4)) * 0.25 + 0.5; return [Math.round(200 * s + 40), Math.round(120 * s + 60), Math.round(90 + 60 * (1 - s)), 255]; }),
   'tone.wav': wav(),
-  'layout.json': Buffer.from(JSON.stringify(layout, null, 2) + '\n'),
+  'layout.json': Buffer.from(layoutText(layout)),   // (as the relay writes a saved one)
 };
 let total = 0;
 for (const [f, b] of Object.entries(files)) { fs.writeFileSync(path.join(out, f), b); total += b.length; }
-index(path.join(here, 'scenes'));
+scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);

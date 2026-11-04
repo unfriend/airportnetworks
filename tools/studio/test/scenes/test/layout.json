@@ -3,88 +3,13 @@
   "scene": "test",
   "saved": "2026-11-03T22:40:00.000Z",
   "objects": [
-    {
-      "id": "box001",
-      "name": "Box",
-      "file": "box.glb",
-      "p": [
-        -1,
-        0.25,
-        -2
-      ],
-      "q": [
-        0,
-        0,
-        0,
-        1
-      ],
-      "s": 1,
-      "light": "lit",
-      "clip": "Spin",
-      "anim": "loop",
-      "start": "always"
-    },
-    {
-      "id": "fig001",
-      "name": "Figure",
-      "file": "figure.fbx",
-      "p": [
-        1,
-        0,
-        -2
-      ],
-      "q": [
-        -0.7071,
-        0,
-        0,
-        0.7071
-      ],
-      "s": 0.01,
-      "light": "lit",
-      "clip": "Take 001",
-      "anim": "loop",
-      "start": "shown"
-    }
+    {"id":"box001","name":"Box","file":"box.glb","p":[-1,0.25,-2],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Spin","anim":"loop","start":"always"},
+    {"id":"fig001","name":"Figure","file":"figure.fbx","p":[1,0,-2],"q":[-0.7071,0,0,0.7071],"s":0.01,"light":"lit","clip":"Take 001","anim":"loop","start":"shown"}
   ],
   "cubes": [
-    {
-      "id": "cube01",
-      "name": "Doorway",
-      "p": [
-        0,
-        1,
-        0
-      ],
-      "yaw": 0,
-      "size": [
-        1.2,
-        2,
-        1.2
-      ],
-      "mode": "while",
-      "show": [
-        "fig001",
-        "snd001"
-      ],
-      "hide": [
-        "box001"
-      ]
-    }
+    {"id":"cube01","name":"Doorway","p":[0,1,0],"yaw":0,"size":[1.2,2,1.2],"mode":"while","show":["fig001","snd001"],"hide":["box001"]}
   ],
   "sounds": [
-    {
-      "id": "snd001",
-      "name": "Tone",
-      "file": "tone.wav",
-      "p": [
-        1,
-        1.2,
-        -2
-      ],
-      "vol": 0.8,
-      "r": 1.5,
-      "loop": true,
-      "start": "shown"
-    }
+    {"id":"snd001","name":"Tone","file":"tone.wav","p":[1,1.2,-2],"vol":0.8,"r":1.5,"loop":true,"start":"shown"}
   ]
 }

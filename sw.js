@@ -96,6 +96,10 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
+  // the studio's scenes (the relay's --scenes, or a static folder of them): the owner's own models, sounds and layouts,
+  // large and changing while they work, so never kept here; the browser asks the server each time (no-cache, ETags).
+  // Before the narration's rule: a scene's own audio/narration.mp3 must never be taken for (and cached as) the app's
+  if (url.origin === self.location.origin && /\/scenes\//.test(url.pathname)) return;
   // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
   // (a story playing it for the first time on this device) for next time and offline
   const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
@@ -113,9 +117,6 @@ self.addEventListener('fetch', e => {
   }
   // the shared rooms' relay (when it serves the app): its API is live, never cached
   if (url.origin === self.location.origin && /\/api\//.test(url.pathname)) return;
-  // the studio's scenes (the relay's --scenes, or a static folder of them): the owner's own models, sounds and layouts,
-  // large and changing while they work, so never kept here; the browser asks the server each time (no-cache, ETags)
-  if (url.origin === self.location.origin && /\/scenes\//.test(url.pathname)) return;
   // the latest release's version file (tools/release.mjs): always the server's, never kept (HOST.live compares it
   // with what this page runs)
   if (url.origin === self.location.origin && /\/version\.json$/.test(url.pathname)) return;
