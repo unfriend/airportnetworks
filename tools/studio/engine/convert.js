@@ -6,7 +6,11 @@
 //   fbxGuess(buf)       an FBX's units and up axis, read from its bytes (three.js's loader ignores them)
 //   guessFor(g, size)   the scale and turn a model starts with (the studio's guess; a GLB has it baked in)
 //   namesIn(ext, buf), mtlNames(text)   the files a model names (textures, an OBJ's MTL, a glTF's buffers), unloaded
-//   load(o)             a model read: FBX, glTF/GLB, OBJ (with its MTL), PLY, STL -> { root, clips, guess, asset, missing }
+//   load(o)             a model read: FBX, glTF/GLB, OBJ (with its MTL), PLY, STL -> { root, clips, guess, asset, missing,
+//                       why, decoded }; the TIFF, PSD and DDS pictures it names read first (engine/images.js) and given
+//                       to its loader as PNG, a TGA name read whatever the file is
+//   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
+//   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up, loaded back and checked against it
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.renderer(w, h): a WebGL
@@ -18,9 +22,72 @@ function makeConverter(THREE, hooks) {
   const baseOf = p => String(p).split(/[?#]/)[0].split(/[\\/]/).pop();
   const MODEL_EXT = ['fbx', 'glb', 'gltf', 'obj', 'ply', 'stl'];
   const TEX_KEYS = ['map', 'normalMap', 'emissiveMap', 'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap', 'bumpMap', 'lightMap'];
+  // pictures and their names (engine/images.js; fflate unpacks a zipped TIFF or PSD: the studio's own copy, or the page's)
+  const IM = H.images || makeImages(typeof fflate !== 'undefined' ? fflate : null);
   // what a texture not found becomes while the model loads: a tiny white picture (3 x 1, so it is told apart), dropped after
   let missingUrl = '';
   const MISSING = () => missingUrl || (missingUrl = (() => { const c = document.createElement('canvas'); c.width = 3; c.height = 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 3, 1); return c.toDataURL(); })());
+
+  // ---- pictures: bytes made something to draw. The browser's own formats as an <img>, TGA through three.js's
+  // TGALoader, TIFF, PSD and DDS through engine/images.js; a refused one throws its sentence
+  const rgbaCanvas = (w, h, data) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    // (a browser keeps canvases under a size: 32,767 px a side in Chromium, less in all on an iPad)
+    const x = w <= 16384 && h <= 16384 && c.width === w && c.height === h ? c.getContext('2d') : null;
+    if (!x) throw new Error('a picture too large for this browser to draw: save it smaller');
+    x.putImageData(new ImageData(data instanceof Uint8ClampedArray ? data : new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), w, h), 0, 0);
+    return c;
+  };
+  async function toImage(buf, ext) {
+    const k = IM.sniff(buf) || String(ext || '').toLowerCase();
+    if (IM.way(k) === 'browser') {
+      const url = URL.createObjectURL(new Blob([buf])), img = new Image();
+      try { img.src = url; await img.decode(); } catch (e) { throw new Error(`a ${IM.FMT[k] || k} this browser could not read`); } finally { URL.revokeObjectURL(url); }
+      return img;
+    }
+    if (k === 'tga') {
+      if (!T.TGALoader) throw new Error('a TGA, and no TGA reader here');
+      let r;
+      try { r = new T.TGALoader().parse(buf); } catch (e) { throw new Error('a TGA that could not be read (' + String(e.message || e).replace(/^THREE\.TGALoader:\s*/, '') + ')'); }
+      return rgbaCanvas(r.width, r.height, r.data);
+    }
+    const r = IM.decodeImage(k, buf);
+    return rgbaCanvas(r.width, r.height, r.data);
+  }
+  // (drawn down to max px on its longer side when bigger)
+  const shrink = (img, max) => {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (!max || Math.max(w, h) <= max) return img;
+    const k = max / Math.max(w, h), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
+    return c;
+  };
+  // a picture at an address, drawn down to o.max (o.ext: its kind when the address does not say, as a blob's)
+  async function picture(url, o) {
+    o = o || {};
+    let r;
+    try { r = await fetch(url); } catch (e) { throw new Error('it could not be fetched'); }
+    if (!r.ok) throw Object.assign(new Error('it could not be fetched (HTTP ' + r.status + ')'), { status: r.status });
+    return shrink(await toImage(await r.arrayBuffer(), o.ext || (/^blob:/i.test(url) ? '' : IM.extOf(url))), o.max);
+  }
+  const pngUrl = img => new Promise((res, rej) => {
+    let c = img;
+    if (!(c instanceof HTMLCanvasElement)) { c = document.createElement('canvas'); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height; c.getContext('2d').drawImage(img, 0, 0); }
+    c.toBlob(b => (b ? res(URL.createObjectURL(b)) : rej(new Error('the picture could not be written'))), 'image/png');
+  });
+  // the mean colour of a picture (0 to 1; a small copy is enough): a normal map's bluish purple tells it apart
+  const meanOf = img => {
+    const c = document.createElement('canvas'), w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = Math.min(1, 64 / Math.max(w, h));
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, c.width, c.height);
+    const d = x.getImageData(0, 0, c.width, c.height).data, m = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) m[j] += d[i + j];
+    return m.map(v => v / (255 * (d.length / 4)));
+  };
 
   // ---- units and up axis
   // An FBX's GlobalSettings: UnitScaleFactor (cm per unit), UpAxis and UpAxisSign. Binary: each is a P record of four
@@ -95,12 +162,12 @@ function makeConverter(THREE, hooks) {
       const j = ext === 'glb' ? glbJSON(buf) : (() => { try { return JSON.parse(new TextDecoder().decode(u8)); } catch (e) { return null; } })();
       if (j) {
         for (const b of j.buffers || []) if (b && typeof b.uri === 'string' && !/^data:/i.test(b.uri)) add(out.buffers, decodeURIComponent(b.uri));
-        for (const im of j.images || []) if (im && typeof im.uri === 'string' && !/^data:/i.test(im.uri)) add(out.textures, decodeURIComponent(im.uri));
+        for (const im of j.images || []) if (im && typeof im.uri === 'string' && !/^data:/i.test(im.uri)) { let u = im.uri; try { u = decodeURIComponent(u); } catch (e) { /* as it is */ } if (!out.textures.some(x => x.toLowerCase() === u.toLowerCase())) out.textures.push(u); }   // (its path kept: the ladder's first rung)
       }
     }
     return out;
   }
-  // an MTL's textures (map_Kd, bump, norm...: the last of its words after the options)
+  // an MTL's textures (map_Kd, bump, norm...: the last of its words after the options), each with the path it gives
   const MTL_OPT = { '-bm': 1, '-blendu': 1, '-blendv': 1, '-boost': 1, '-cc': 1, '-clamp': 1, '-imfchan': 1, '-texres': 1, '-type': 1, '-mm': 2, '-o': 3, '-s': 3, '-t': 3 };
   function mtlNames(text) {
     const out = [];
@@ -108,17 +175,24 @@ function makeConverter(THREE, hooks) {
       const w = m[2].split(/\s+/);
       let i = 0;
       while (i < w.length && MTL_OPT[w[i].toLowerCase()] !== undefined) i += 1 + MTL_OPT[w[i].toLowerCase()];
-      const n = baseOf(w.slice(i).join(' '));
-      if (n && !out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n);
+      const n = w.slice(i).join(' ').replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+      if (baseOf(n) && !out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n);
     }
     return out;
   }
   const mtllibs = text => [...String(text).matchAll(/^[ \t]*mtllib[ \t]+(.+?)[ \t]*$/gim)].map(m => m[1]);
 
   // ---- a model read. o: { ext, data (ArrayBuffer), base (the address its names are relative to), url(name) -> an
-  // address or null (not found: it loads untextured and missing says so) }
+  // address or null (not found: it loads untextured and missing says so), maxTex (pictures read here drawn down to it) }.
+  // The pictures it names that the browser cannot show (TIFF, PSD, DDS; a TGA under another name) are read first and
+  // given to its loader as PNG (why: the sentence for one that could not be read; decoded: the ones read so)
   async function load(o) {
     const ext = String(o.ext).toLowerCase(), manager = new T.LoadingManager(), W = { n: 0, done: null }, missing = new Set();
+    // (pict: the address a name stands for -> a PNG's blob address, '' unread; byName: a name, lower case, -> that address,
+    // for the loader's names that resolve elsewhere (an FBX's full paths), null when two files of that name were read)
+    const pict = new Map(), byName = new Map(), why = {}, decoded = [], blobs = new Map();
+    const keyOf = u => { let b = baseOf(IM.psdBack(u)); try { b = decodeURIComponent(b); } catch (e) { /* as it is */ } return b.toLowerCase(); };
+    const nameOf = u => { let b = baseOf(IM.psdBack(u)); try { b = decodeURIComponent(b); } catch (e) { /* as it is */ } return b; };
     // what the model asks for (textures, a .gltf's buffers): it is ready once each has come or failed (the manager's own
     // counters are private)
     const s0 = manager.itemStart.bind(manager), e0 = manager.itemEnd.bind(manager);
@@ -126,62 +200,105 @@ function makeConverter(THREE, hooks) {
     manager.itemEnd = u => { e0(u); if (--W.n <= 0 && W.done) W.done(); };
     const named = u => {
       if (/^(blob|data):/i.test(u)) return u;
-      const r = o.url(u);
+      u = IM.psdBack(u);
+      const r = o.url(u), k = r && pict.has(r) ? r : byName.get(keyOf(u));
+      if (k && pict.has(k)) { if (pict.get(k)) return pict.get(k); missing.add(nameOf(u)); return MISSING(); }
       if (r) return r;
-      const n = baseOf(u);
+      const n = nameOf(u);
       if (n && n !== 'undefined') missing.add(n);   // (the FBX loader asks for 'undefined' when a texture names no image)
       return MISSING();
     };
     manager.setURLModifier(named);
-    if (T.TGALoader) manager.addHandler(/\.tga$/i, new T.TGALoader(manager));
+    // a name ending in .tga (the FBX loader sends those to the handler whatever they are, an MTL by its name): read as
+    // whatever its bytes are (a TGA, or the PNG another rung of the ladder found), the manager waiting for it
+    let tgaN = 0;
+    manager.addHandler(/\.tga$/i, {
+      setPath() { return this; }, setCrossOrigin() { return this; },
+      load(url, onLoad, onProgress, onError) {
+        const tex = new T.Texture(), key = 'tga:' + ++tgaN + ':' + url;
+        manager.itemStart(key);
+        fetch(manager.resolveURL(url)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+          .then(buf => toImage(buf, 'tga')).then(img => { tex.image = shrink(img, o.maxTex); tex.name = tex.name || nameOf(url); tex.needsUpdate = true; if (onLoad) onLoad(tex); })
+          .catch(e => { missing.add(nameOf(url)); if (onError) onError(e); }).finally(() => manager.itemEnd(key));
+        return tex;
+      },
+    });
+    // the pictures it names that its loader would not read (by the file each name stands for, its bytes first): read here
+    const prep = async names => {
+      for (const n of names) {
+        const r = o.url(n), nk = keyOf(n);
+        if (!r || /^data:/i.test(r)) continue;
+        if (byName.has(nk) && byName.get(nk) !== r) byName.set(nk, null); else if (!byName.has(nk)) byName.set(nk, r);
+        if (pict.has(r)) continue;
+        const k = r;
+        const fe = /^blob:/i.test(r) ? '' : IM.extOf(r);
+        if (fe ? !IM.way(fe) || IM.way(fe) === 'browser' : !IM.isPicture(n)) continue;
+        try {
+          const res = await fetch(r);
+          if (!res.ok) continue;
+          const buf = await res.arrayBuffer(), kind = IM.sniff(buf) || fe || IM.extOf(n), w = IM.way(kind);
+          if (w === 'browser') continue;   // (a PNG or JPEG under another name: the loader reads it)
+          const url = await pngUrl(shrink(await toImage(buf, kind), o.maxTex));
+          pict.set(k, url); blobs.set(url, nameOf(n));
+          if (w === 'decode') decoded.push({ name: nameOf(n), fmt: IM.FMT[kind] || kind.toUpperCase() });
+        } catch (e) { pict.set(k, ''); why[nameOf(n)] = String(e.message || e); missing.add(nameOf(n)); }
+      }
+    };
     const settle = () => new Promise(res => { if (W.n <= 0) res(); else { W.done = res; setTimeout(res, 60000); } });
     let root = null, clips = [], guess, asset = null;
     const u8 = new Uint8Array(o.data);
-    if (ext === 'fbx') {
-      guess = fbxGuess(o.data);
-      root = new T.FBXLoader(manager).parse(o.data, o.base);
-      clips = root.animations || [];
-    } else if (ext === 'glb' || ext === 'gltf') {
-      const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
-      root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
-      guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
-    } else if (ext === 'obj') {
-      const text = new TextDecoder().decode(u8), loader = new T.OBJLoader(manager);
-      // its materials: the MTL files it names, read through the same names (one creator for all of them)
-      let mtl = '';
-      for (const name of mtllibs(text)) {
-        const u = o.url(name);
-        if (!u) { missing.add(baseOf(name)); continue; }
-        try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); mtl += '\n' + await r.text(); } catch (e) { missing.add(baseOf(name)); }
-      }
-      if (mtl) { const mc = new T.MTLLoader(manager).parse(mtl, o.base); mc.preload(); loader.setMaterials(mc); }
-      root = loader.parse(text);
-      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: 'OBJ' };
-    } else if (ext === 'ply' || ext === 'stl') {
-      const geo = ext === 'ply' ? new T.PLYLoader().parse(o.data) : new T.STLLoader().parse(o.data);
-      const col = !!geo.attributes.color;
-      const m = new T.MeshStandardMaterial({ name: 'surface', color: col ? 0xffffff : 0xb8c2cf, vertexColors: col, roughness: 1, metalness: 0, transparent: geo.alpha !== undefined && geo.alpha < 1, opacity: geo.alpha !== undefined ? geo.alpha : 1 });
-      const mesh = new T.Mesh(geo, m);
-      mesh.name = o.name || ext;
-      root = new T.Group(); root.add(mesh);
-      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: ext.toUpperCase() };
-    } else throw new Error('Unknown format: ' + ext);
-    if (!root) throw new Error('the file has no scene in it');
-    if (W.n > 0) await settle();
-    // pictures loaded but not yet decoded, decoded now (so the conversion and its times include them); the ones not found
-    // (the 3 x 1 stand-in) left out
-    const images = new Set();
-    root.traverse(n => {
-      for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) {
-        const t = m[k];
-        if (!t || !t.isTexture) continue;
-        const im = t.image;
-        if (im && im.width === 3 && im.height === 1 && missing.size) { m[k] = null; m.needsUpdate = true; continue; }
-        if (im) images.add(im);
-      }
-    });
-    for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
-    return { root, clips, guess, asset, missing: [...missing], ext };
+    // (the pictures read here given back whether the model loads or not: each may be as big as a texture)
+    try {
+      if (ext === 'fbx') {
+        guess = fbxGuess(o.data);
+        await prep(namesIn('fbx', o.data).textures);
+        const ren = IM.renamePsd(o.data);   // (its .psd names, which its loader never asks for, made .ps~: back in named)
+        root = new T.FBXLoader(manager).parse(ren.count ? ren.bytes : o.data, o.base);
+        clips = root.animations || [];
+      } else if (ext === 'glb' || ext === 'gltf') {
+        await prep(namesIn(ext, o.data).textures);
+        const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
+        root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
+        guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
+      } else if (ext === 'obj') {
+        const text = new TextDecoder().decode(u8), loader = new T.OBJLoader(manager);
+        // its materials: the MTL files it names, read through the same names (one creator for all of them)
+        let mtl = '';
+        for (const name of mtllibs(text)) {
+          const u = o.url(name);
+          if (!u) { missing.add(baseOf(name)); continue; }
+          try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); mtl += '\n' + await r.text(); } catch (e) { missing.add(baseOf(name)); }
+        }
+        if (mtl) { await prep(mtlNames(mtl)); const mc = new T.MTLLoader(manager).parse(mtl, o.base); mc.preload(); loader.setMaterials(mc); }
+        root = loader.parse(text);
+        guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: 'OBJ' };
+      } else if (ext === 'ply' || ext === 'stl') {
+        const geo = ext === 'ply' ? new T.PLYLoader().parse(o.data) : new T.STLLoader().parse(o.data);
+        const col = !!geo.attributes.color;
+        const m = new T.MeshStandardMaterial({ name: 'surface', color: col ? 0xffffff : 0xb8c2cf, vertexColors: col, roughness: 1, metalness: 0, transparent: geo.alpha !== undefined && geo.alpha < 1, opacity: geo.alpha !== undefined ? geo.alpha : 1 });
+        const mesh = new T.Mesh(geo, m);
+        mesh.name = o.name || ext;
+        root = new T.Group(); root.add(mesh);
+        guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: ext.toUpperCase() };
+      } else throw new Error('Unknown format: ' + ext);
+      if (!root) throw new Error('the file has no scene in it');
+      if (W.n > 0) await settle();
+      // pictures loaded but not yet decoded, decoded now (so the conversion and its times include them); the ones not found
+      // (the 3 x 1 stand-in) left out
+      const images = new Set();
+      root.traverse(n => {
+        for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) {
+          const t = m[k];
+          if (!t || !t.isTexture) continue;
+          const im = t.image;
+          if (im && im.width === 3 && im.height === 1 && missing.size) { m[k] = null; m.needsUpdate = true; continue; }
+          if (im) images.add(im);
+          if (im && typeof im.src === 'string' && blobs.has(im.src)) t.name = t.name || blobs.get(im.src);   // (a picture read here: its own name)
+        }
+      });
+      for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+      return { root, clips, guess, asset, missing: [...missing], ext, why, decoded };
+    } finally { for (const u of blobs.keys()) URL.revokeObjectURL(u); }
   }
 
   // ---- a GLB's JSON chunk, a GLB with it changed, and the studio's record in it
@@ -208,12 +325,63 @@ function makeConverter(THREE, hooks) {
     out.set(rest, 20 + js.length + pad);
     return out.buffer;
   }
-  // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals }
+  // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
+  // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
+  // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }] }
+  const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
+  const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
+  const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
+    name: typeof x.name === 'string' ? x.name.slice(0, 160) : '', mat: Number.isInteger(x.mat) && x.mat >= 0 && x.mat < 1000 ? x.mat : typeof x.mat === 'string' ? x.mat.slice(0, 80) : '',
+    slot: SLOT_OK.includes(x.slot) ? x.slot : '', from: x.from.slice(0, 200), how: HOW_OK.includes(x.how) ? x.how : 'chosen' }));
   function glbRecord(j) {
     const r = j && j.asset && j.asset.extras && j.asset.extras.studio;
     if (!r || typeof r !== 'object') return null;
     const q = Array.isArray(r.q) && r.q.length === 4 && r.q.every(Number.isFinite) ? r.q : [0, 0, 0, 1];
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan };
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex) };
+  }
+
+  // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
+  // meshes have texture coordinates and the slots it has pictures in (key: its name when no other has it, else its index)
+  function matsOf(root) {
+    const out = [], seen = new Map();
+    root.traverse(n => {
+      if (!n.isMesh) return;
+      for (const m of [].concat(n.material || [])) {
+        let e = seen.get(m);
+        if (!e) { e = { m, name: m.name || '', uv: false, meshes: [] }; seen.set(m, e); out.push(e); }
+        e.meshes.push(n);
+        if (n.geometry && n.geometry.attributes.uv) e.uv = true;
+      }
+    });
+    out.forEach((e, i) => { e.i = i; e.key = e.name && out.filter(x => x.name === e.name).length === 1 ? e.name : i; e.slots = SLOT_OK.filter(k => k !== 'orm' && e.m[k] && e.m[k].isTexture); });
+    return out;
+  }
+  // list: [{ mat, slot, image, name }] (image a picture from picture()); o.gltf: the model came through glTF's loader
+  // (pictures the right way up: flipY off). An 'orm' picture (occlusion, roughness, metalness packed in red, green and
+  // blue) goes in all three. -> { done, why: [sentences] }
+  function addTextures(root, list, o) {
+    o = o || {};
+    const mats = matsOf(root), why = [];
+    let done = 0;
+    for (const x of list) {
+      const keys = x.slot === 'orm' ? ['aoMap', 'roughnessMap', 'metalnessMap'] : [x.slot];
+      const want = x.mat === '*' ? mats.filter(e => e.uv && !keys.some(k => e.m[k])) : mats.filter(e => e.key === x.mat || e.name === x.mat || e.i === x.mat).slice(0, 1);
+      if (!want.length) { if (x.mat !== '*') why.push(`${x.name || 'a picture'}: the model has no material ${JSON.stringify(x.mat)}`); continue; }
+      for (const e of want) {
+        if (!e.uv) { why.push(`${e.name || 'its material'}: it has no texture coordinates (UVs), so a picture cannot be laid on it`); continue; }
+        const t = new T.Texture(x.image);
+        t.name = x.name || ''; t.flipY = !o.gltf; t.wrapS = t.wrapT = T.RepeatWrapping; t.needsUpdate = true;
+        for (const k of keys) e.m[k] = t;
+        if (keys.includes('aoMap')) for (const n of e.meshes) { const g = n.geometry; if (g && g.attributes.uv && !g.attributes.uv2) g.setAttribute('uv2', g.attributes.uv); }
+        if (keys.includes('emissiveMap') && e.m.emissive && e.m.emissive.r + e.m.emissive.g + e.m.emissive.b === 0) e.m.emissive.setRGB(1, 1, 1);
+        if (keys.includes('alphaMap')) e.m.transparent = true;
+        if (keys.includes('roughnessMap') && 'roughness' in e.m) e.m.roughness = 1;   // (the picture says how rough: its factor is a multiplier)
+        if (keys.includes('metalnessMap') && 'metalness' in e.m) e.m.metalness = 1;
+        e.m.needsUpdate = true;
+        done++;
+      }
+    }
+    return { done, why };
   }
 
   // ---- numbers for both sides of the comparison
@@ -287,12 +455,67 @@ function makeConverter(THREE, hooks) {
       if (mt.isMeshStandardMaterial || mt.isMeshBasicMaterial || !mt.isMaterial) return mt;
       const spec = mt.specular ? (mt.specular.r + mt.specular.g + mt.specular.b) / 3 : 0;
       const rough = mt.isMeshLambertMaterial || spec < 0.05 ? 1 : Math.min(1, Math.max(0.25, Math.sqrt(2 / ((mt.shininess || 30) + 2))));
+      // (pictures laid on by hand in slots such a material does not use, roughness and metalness, carried over)
       const s = new T.MeshStandardMaterial({ name: mt.name, color: mt.color, map: mt.map, normalMap: mt.normalMap || null, emissive: mt.emissive, emissiveMap: mt.emissiveMap || null,
         emissiveIntensity: mt.emissiveIntensity ?? 1, aoMap: mt.aoMap || null, alphaMap: mt.alphaMap || null, opacity: mt.opacity, transparent: mt.transparent, alphaTest: mt.alphaTest,
-        side: mt.side, vertexColors: mt.vertexColors, skinning: mt.skinning, morphTargets: mt.morphTargets, morphNormals: mt.morphNormals, flatShading: mt.flatShading, metalness: 0, roughness: rough });
+        side: mt.side, vertexColors: mt.vertexColors, skinning: mt.skinning, morphTargets: mt.morphTargets, morphNormals: mt.morphNormals, flatShading: mt.flatShading,
+        roughnessMap: mt.roughnessMap || null, metalnessMap: mt.metalnessMap || null, metalness: mt.metalnessMap ? 1 : 0, roughness: mt.roughnessMap ? 1 : rough });
       if (mt.normalScale) s.normalScale.copy(mt.normalScale);
-      if (mt.bumpMap || mt.specularMap) notes.push(`${mt.name || 'a material'}: its ${[mt.bumpMap && 'bump', mt.specularMap && 'specular'].filter(Boolean).join(' and ')} map is left out (glTF has none)`);
+      // a bump map (FBX's and MTL's; glTF has none) made a normal map from its slopes, when the material has none
+      const bn = mt.bumpMap && !mt.normalMap ? bumpToNormal(mt.bumpMap, mt.bumpScale) : null;
+      if (bn) { s.normalMap = bn; notes.push(`${mt.name || 'a material'}: its bump map made a normal map (from its slopes: glTF has no bump maps)`); }
+      const left = [mt.bumpMap && !bn && 'bump', mt.specularMap && 'specular'].filter(Boolean);
+      if (left.length) notes.push(`${mt.name || 'a material'}: its ${left.join(' and ')} map is left out (glTF has none)`);
       return s;
+    };
+    // a height picture as a normal map: its slopes (a Sobel filter over its brightness), as steep as its bumpScale says;
+    // green up the picture as three.js reads a normal map the right way up (flipY), else down
+    const bumpToNormal = (t, scale) => {
+      const img = t.image, w0 = img && (img.naturalWidth || img.width), h0 = img && (img.naturalHeight || img.height);
+      if (!w0 || !h0) return null;
+      const k = Math.min(1, maxTex / Math.max(w0, h0)), w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+      const c = canvasOf(img, w, h), x = c.getContext('2d'), src = x.getImageData(0, 0, w, h).data, out = x.createImageData(w, h), d = out.data, L = new Float32Array(w * h);
+      for (let i = 0; i < w * h; i++) L[i] = (0.299 * src[i * 4] + 0.587 * src[i * 4 + 1] + 0.114 * src[i * 4 + 2]) / 255;
+      const at = (a, b) => L[Math.min(h - 1, Math.max(0, b)) * w + Math.min(w - 1, Math.max(0, a))];
+      const K = Math.min(20, Math.max(0.05, Math.abs(scale) || 1)), up = t.flipY === false ? -1 : 1;
+      for (let y = 0; y < h; y++) for (let q = 0; q < w; q++) {
+        const gx = at(q + 1, y - 1) + 2 * at(q + 1, y) + at(q + 1, y + 1) - at(q - 1, y - 1) - 2 * at(q - 1, y) - at(q - 1, y + 1);
+        const gy = at(q - 1, y + 1) + 2 * at(q, y + 1) + at(q + 1, y + 1) - at(q - 1, y - 1) - 2 * at(q, y - 1) - at(q + 1, y - 1);
+        let nx = -gx * K, ny = gy * K * up, nz = 1;
+        const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+        const i = (y * w + q) * 4;
+        d[i] = Math.round((nx * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
+      }
+      x.putImageData(out, 0, 0);
+      const n = new T.Texture(c);
+      n.flipY = t.flipY; n.wrapS = t.wrapS; n.wrapT = t.wrapT; n.name = (t.name || 'bump') + ' (normal)'; n.needsUpdate = true;
+      return n;
+    };
+    // roughness and metalness as glTF keeps them: one picture, roughness in its green and metalness in its blue (three.js
+    // reads them so too; its exporter writes them only when both slots hold the same picture, and drops them otherwise)
+    const packed = new Set();
+    const packRM = mt => {
+      const r = mt.roughnessMap, m = mt.metalnessMap;
+      if (packed.has(mt) || !(r || m) || r === m) return;
+      packed.add(mt);
+      const ims = [r, m].map(t => (t && t.image && (t.image.naturalWidth || t.image.width) ? t.image : null)), big = ims.filter(Boolean);
+      if (!big.length) { mt.roughnessMap = mt.metalnessMap = null; return; }
+      const w0 = Math.max(...big.map(i => i.naturalWidth || i.width)), h0 = Math.max(...big.map(i => i.naturalHeight || i.height)), k = Math.min(1, maxTex / Math.max(w0, h0));
+      const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k)), read = i => (i ? canvasOf(i, w, h).getContext('2d').getImageData(0, 0, w, h).data : null);
+      const R = read(ims[0]), M = read(ims[1]), c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d'), o2 = x.createImageData(w, h), d = o2.data;
+      // (the one without a picture written as its factor, which then becomes 1: a glTF material with no metallicFactor is
+      // fully metal by three.js's reading, and a roughness picture alone must not make it so)
+      const f = v => Math.round(255 * Math.min(1, Math.max(0, Number.isFinite(v) ? v : 1))), fr = f(mt.roughness), fm = f(mt.metalness);
+      for (let i = 0; i < w * h * 4; i += 4) { d[i] = 255; d[i + 1] = R ? R[i + 1] : fr; d[i + 2] = M ? M[i + 2] : fm; d[i + 3] = 255; }
+      if (!R) mt.roughness = 1;
+      if (!M) mt.metalness = 1;
+      x.putImageData(o2, 0, 0);
+      const t = new T.Texture(c), was = r || m;
+      t.flipY = was.flipY; t.wrapS = was.wrapS; t.wrapT = was.wrapT; t.name = 'roughness and metalness'; t.needsUpdate = true;
+      mt.roughnessMap = mt.metalnessMap = t;
+      notes.push(`${mt.name || 'a material'}: its ${r && m ? 'roughness and metalness pictures packed into one' : (r ? 'roughness' : 'metalness') + ' picture packed as glTF keeps it'} (roughness in green, metalness in blue)`);
     };
     const canvasOf = (img, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, w, h); return c; };
     const opaque = img => {   // any pixel that is not opaque (on a small copy: enough to tell)
@@ -310,6 +533,7 @@ function makeConverter(THREE, hooks) {
       // a material wholly see-through with nothing to see through it by (no alpha map) is an exporter's quirk, not a wish:
       // 3ds Max writes Opacity 0 for an opaque one (the owner's figure), and three.js's FBX loader would draw nothing at all
       if (ext === 'fbx') for (const mt of ms) if (mt.opacity <= 0.01 && !mt.alphaMap) { mt.opacity = 1; mt.transparent = false; clear.add(mt.name || 'a material'); }
+      for (const mt of ms) if (mt.isMeshStandardMaterial) packRM(mt);
       for (const mt of ms) for (const k of ['map', 'normalMap', 'emissiveMap', 'aoMap', 'alphaMap', 'roughnessMap', 'metalnessMap']) {
         const t = mt[k];
         if (!t || !t.isTexture) continue;
@@ -423,6 +647,7 @@ function makeConverter(THREE, hooks) {
     });
     const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
     if (!before.normals) record.scan = true;
+    if (o.tex && o.tex.length) record.tex = texList(o.tex);
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -525,5 +750,6 @@ function makeConverter(THREE, hooks) {
     return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) } };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, stats, disposeTree, MODEL_EXT };
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT,
+    IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }

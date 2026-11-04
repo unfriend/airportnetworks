@@ -61,6 +61,28 @@ switches to it where it stands; without one it is downloaded.
   without guessing (an FBX often says the wrong units). The studio also reads glTF, OBJ (with its MTL), PLY and STL.
 - **Textures:** JPEG for photos and scans, PNG only where something is see-through. At most 4,096 px on a side; 2,048 is
   safer on a Quest (the atelier's 8,192 px JPEG alone would take about 340 MB of its memory).
+- **Pictures the studio reads**, and what they become in a GLB (always JPEG when opaque, PNG when see-through):
+
+  | Picture | Read by | Notes |
+  | --- | --- | --- |
+  | PNG, JPEG, WebP, GIF, BMP, AVIF | the browser | as they are |
+  | TGA | three.js's TGALoader | also when a model names a `.tga` and the scene has another kind |
+  | TIFF (`.tif`, `.tiff`) | the studio | none, LZW, PackBits or Deflate; 1 to 16 bits; grey, RGB, palette, CMYK; alpha |
+  | PSD, PSB | the studio | the merged picture Photoshop keeps (save with *Maximise compatibility* on); 8 or 16 bits; a saved selection or mask channel is not taken for transparency |
+  | DDS | the studio | uncompressed, DXT1, DXT3, DXT5, BC4, BC5 (a normal map: its z rebuilt); the largest picture only |
+  | EXR, HDR, HEIC, KTX, KTX2, BC6H, BC7, a TIFF compressed with JPEG, a 32-bit PSD | refused | the card says so: save it as PNG or JPEG |
+  | anything over 64 million pixels (8,192 x 8,192), or cut short | refused | the card says so: save it smaller, or again |
+
+- **A texture a model names but the scene lacks** is looked for by itself: the path it gives, its name in any case, the
+  same name as another kind of picture (`brick.tga` finds `brick.png`), then a name of the same words but colour words
+  (`stone_diffuse.jpg` finds `Stone-BaseColor.dds`; never a normal map for a colour one). Still missing, the object's
+  card offers the scene's likeliest pictures (*Use <file>*) or one from this computer (*Choose a picture...*), and *Add
+  a texture...* lays a picture on a material that has none (choose its slot: Colour, Normal, Roughness, Metalness,
+  Occlusion, Glow, Opacity). Either converts the model to a GLB with the picture in it at once (on a page; a headset
+  says to do it on a laptop); the choice is kept in the GLB, never in the layout. The upload page does the same for
+  what is dropped, and pairs the only picture left over with the only model lacking one.
+- **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), and a
+  bump map becomes a normal map.
 - **Budgets on a Quest:** about 300,000 triangles a model, 500,000 a scene (said on the cards, never refused).
 - **Sounds: mono**, so they place well (a stereo file is played from its point, mixed). Short loops as WAV (MP3 adds
   silence at its ends, so a loop clicks; OGG does not play on iPhones). Long ones (more than 20 s: streamed, not held in
@@ -72,16 +94,23 @@ The upload page does all of this by itself. By hand:
 ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav    # a loop
 ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3           # a long one
 node tools/studio/convert.mjs model.fbx           # a model, on a computer with Playwright (as tools/smoke.mjs)
+node tools/studio/convert.mjs model.obj --textures ~/pictures --texture rust_old.png=paint.png --texture 0:roughnessMap=rough.tif
 ```
 
 `convert.mjs` uses the same converter as the page (`engine/convert.js`) and also draws the original and the GLB from
-three sides and compares them; `--max-texture 2048`, `--shots <dir>` keeps the pictures.
+three sides and compares them; `--max-texture 2048`, `--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
+look in (any depth), `--texture <name>=<picture>` gives a texture the model names, and `--texture
+<material>:<slot>=<picture>` lays one on (the material's name, its number from 0, or `*`); it prints what each texture
+was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`), `engine/convert.js` the converter (shared with `convert.mjs`),
-  `engine/e7b_upload.js` GLB records, Convert to GLB and the Upload pane.
+- `engine/` the studio's engine (`e*.js`), `engine/convert.js` the converter and `engine/images.js` the picture reader
+  and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
+  in and the Upload pane.
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).
 - `test/make.mjs` makes the test scene `test/scenes/test/` (models, a texture, a short and a 25 s sound, and an OBJ with
-  its MTL under `originals/`, under 250 KB) and its listings; `test/local/` is ignored by git (your own scenes for
+  its MTL under `originals/`, under 250 KB), the textures scene `test/scenes/textures/` (about 20 KB: pictures from
+  `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung) and their listings;
+  `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).

@@ -15,7 +15,7 @@ export const LAYOUT = 'layout.json', LISTING = 'files.json', INDEX = 'index.json
 const KINDS = {
   model: ['.glb', '.gltf', '.fbx'],
   audio: ['.mp3', '.ogg', '.oga', '.wav', '.m4a', '.aac', '.flac', '.opus', '.webm'],
-  image: ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.tga', '.bmp'],
+  image: ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.tga', '.bmp', '.tif', '.tiff', '.psd', '.psb', '.dds', '.avif'],   // (TIFF, PSD and DDS read by the studio itself)
   data: ['.bin'],
 };
 const KIND = new Map(Object.entries(KINDS).flatMap(([k, exts]) => exts.map(e => [e, k])));

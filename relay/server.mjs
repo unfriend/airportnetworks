@@ -897,6 +897,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   '.woff2': 'font/woff2', '.glb': 'model/gltf-binary', '.pdf': 'application/pdf',
   // the studio's scenes (--scenes): models, their data and textures, sounds
   '.gltf': 'model/gltf+json', '.fbx': 'application/octet-stream', '.bin': 'application/octet-stream', '.tga': 'image/x-tga', '.bmp': 'image/bmp',
+  '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds', '.avif': 'image/avif',
   '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
 const SQUEEZE = /^(text\/|application\/(json|manifest\+json|wasm)|image\/svg)/;   // worth sending gzipped
 const gzip = promisify(zlib.gzip), GZ = new Map();
@@ -905,10 +906,11 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // Only the app's own files are served, not the rest of the repository (the authors' data in ikerdata/,
 // tools/, docs/, the relay's certificate): these files at the top, and the files directly inside these
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
-// (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server.)
+// (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server; room-test/ is
+// the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app.)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'lowpoly.js']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 
 async function serve(req, res, url) {

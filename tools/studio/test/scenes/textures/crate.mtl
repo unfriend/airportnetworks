@@ -1,0 +1,6 @@
+# a texture test material
+newmtl crate
+Kd 1 1 1
+Ka 0 0 0
+map_Kd tex/wood.tif
+bump -bm 2 crate_height.png

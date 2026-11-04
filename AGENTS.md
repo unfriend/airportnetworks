@@ -103,6 +103,26 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   page (not part of the app) for checking a network before an event: do two
   devices link directly, how fast, and inside VR or AR (`&peer=` picks another
   introduction server).
+- `room-test/` - a test page (not part of the app; served by GitHub Pages and by the relay, `APP_DIRS`) for one Quest 3
+  before building real-world occlusion (the owner, 4 November 2026: "start with a test page"): in AR, through the app's
+  own renderer path (three.js r128's WebXR with a plain `XRWebGLLayer`, the stories' renderer settings, the `local`
+  space), it asks for `depth-sensing` (GPU or CPU; a ladder of data formats, each rung tried in turn whatever the error:
+  with `'unsigned-short'`, then without it, then without depth) and the room scan (`plane-detection`, `mesh-detection`, `initiateRoomCapture` offered
+  when nothing comes within 5 s), records what came back (formats, texture type and size, raw to metres, the matrix, a
+  16 x 16 probe of the raw values per eye read back exactly, planes and meshes by label) and runs five modes, each one's
+  cost measured (the gap between frames, which stays at the display's while a mode fits; our code's time and the depth's
+  part of it; every 12th frame the time until the GPU has finished it, `gl.finish`, and the headroom left in the frame;
+  a GPU timer query where `EXT_disjoint_timer_query_webgl2` is offered): *Depth picture* (false colours over each eye), *Occlusion* (the depth written as each eye's
+  `gl_FragDepth` in a full-view pass before the test things: three.js's `ShaderMaterial` in GLSL3 with the session's
+  texture handed to three.js as an external texture, per eye in `onBeforeRender`; raw WebGL after three.js as the
+  fallback, `Draw with`; the session's texture set to nearest every frame, an eye without depth that frame left
+  unoccluded), *Room*, *Room hides* (the meshes and planes depth-only, built only while one of the two shows) and
+  *Nothing* (no depth asked for: the baseline). *Depth as* tries the readings (metres through
+  `normDepthBufferFromNormView`, flipped, or a depth buffer's window depth for the depth's own near and far, as three.js
+  r158 reads it, turned back into metres). The report (kept every 5 s while the session runs and when the page hides) (JSON,
+  no names: the user agent, what came back, the frame times) is kept in `localStorage` (`roomTestReport`), copied,
+  downloaded or sent to a relay that keeps logs (`POST /api/log`, with the app's kept password for that origin). Its
+  test is `tools/room-test.mjs`. Untested on a real Quest: that is what it is for.
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages; it can serve
   the app too, and `--lan` makes it an HTTPS server for the headsets on one
   Wi-Fi that keeps their alignment logs in `relay/logs/`), its test (`test.mjs`)
@@ -185,8 +205,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   catalogue `props.json`, the table set, engine parts adapted from the flock's,
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.
 - `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
-  engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, one module shared
-  with `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB and the Upload pane), two sets (`stage`, the
+  engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
+  `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
+  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -196,7 +217,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   host), `convert.mjs` (a model to GLB on a computer), and the test scene (`test/make.mjs` makes
   `test/scenes/test/`: an animated `box.glb`, an ASCII `figure.fbx` in centimetres and Z up with `figure.png`, a short
   `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
-  about 250 KB, committed; `test/local/` is git-ignored, for your own scenes); see its `README.md` and `SPEC.md`.
+  about 250 KB, committed; and `test/scenes/textures/`, about 20 KB: pictures in every kind the studio reads, from
+  `test/pictures.mjs`, and models that name them by each rung of the ladder; `test/local/` is git-ignored, for your own
+  scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
   under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table` and the studio's
@@ -2953,8 +2976,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   twice, 2 s apart), when it lists the scenes again and fetches what was refused.
 - **Models.** GLB and glTF (`GLTFLoader`: PBR materials, every clip; no Draco, Meshopt or KTX2, which its card says),
   FBX (binary or ASCII, version 7 and up), OBJ with its MTL, PLY (vertex colours) and STL. Textures a file names but
-  does not hold are found in the scene's listing by their file name (any case; the author's own path ignored); one not
-  found leaves the model untextured and its card says *Missing texture x.png: put it in the scene's folder*. Textures
+  does not hold are found in the scene's pictures by the ladder ("Textures" below; the author's own path ignored); one
+  not found leaves the model untextured and its card says *Missing texture x.png: put it in the scene's folder* and
+  offers pictures for it. Textures
   over 4,096 px are drawn down before they reach the GPU (`&maxtex=` 512 to 8,192; the card says so: the atelier's 8,192
   px JPEG alone would take about 340 MB of a Quest's memory). The units and up axis are guessed when a file is first
   placed and then stored in the item (`s`, `q`), so a layout never changes when the guess does: an FBX's
@@ -2986,6 +3010,34 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   is downloaded. The Add list shows `models/`, `sounds/` and everything outside `originals/`, with `originals/` folded
   under *Originals*; a GLB whose record (read from its first bytes with a `Range` request) names another file of the
   scene, or without one has its base name, stands for it, and a placed original's card offers *Switch to the GLB*.
+- **Textures: found, added, converted** (the owner, 4 November 2026: "it needs a way to add textures to models in case
+  they are missing, preferably with autoassign and direct convert to good formats"; `tools/studio/SPEC.md` has it in
+  full). The browser shows PNG, JPEG, WebP, GIF, BMP and AVIF, TGA goes through `TGALoader`, and **TIFF** (none, LZW,
+  PackBits, Deflate; 1 to 16 bits; grey, RGB, palette, CMYK), **PSD/PSB** (the merged picture) and **DDS** (uncompressed,
+  DXT1, DXT3, DXT5, BC4, BC5) are read in the page by `tools/studio/engine/images.js` (fflate for the zipped ones);
+  EXR, HDR, HEIC, KTX, BC6H/BC7 and JPEG-in-TIFF are refused with a sentence. The converter's `load` reads such a picture
+  a model names first and gives its loader a PNG (an FBX's `.psd` names, which r128's loader never asks for, made `.ps~`
+  in a copy of its bytes and back in the URL modifier; a `.tga` name read whatever its bytes are). **The ladder**
+  (`CONV.texFind`): the path the model gives, its name in any case (nearest folder first), the same name as another kind
+  of picture (`x.tga` finds `x.png`), then the same words but colour words (`diffuse`, `albedo`, `basecolor`...), in the
+  same slot (`CONV.slotOf`: normal, roughness, metalness, occlusion, glow, opacity, `orm`, by name words or a normal
+  map's colour), only when exactly one picture is so; the card says each one found under another name or read from a
+  TIFF, PSD or DDS. **By hand** (an object's card, pages with editing on, never `&visit`; a headset says *Add a texture
+  on a laptop*): each missing name offers *Use <file>* (up to three of the scene's pictures, `CONV.texRank`) and *Choose
+  a picture...* (with a relay into `originals/`, else from memory), and *Add a texture...* lays a picture on a material
+  with texture coordinates (a material, a slot: Colour, Normal, Roughness, Metalness, Occlusion, Glow, Opacity). One
+  press converts at once through Convert to GLB's path (`texGo`, `convertFile(path, { tex, into })`): the pictures baked
+  into `models/<name>.glb` (objects switched where they stand; without a relay downloaded), **never stored in the layout
+  or `collab.state()`** (no `FORMAT` change), recorded in the GLB as `asset.extras.studio.tex` (`[{ name, mat, slot,
+  from, how }]`), so converting the original again lays the ones chosen by hand on again; an object on a GLB is fixed by
+  making that GLB again (from its original when it is in the scene, else from itself, the old one kept under
+  `originals/`). In the GLB separate roughness and metalness pictures are packed into one (green and blue) and a bump map
+  becomes a normal map. The Upload pane lists each texture a dropped model names (found, how, or *Use* and *Choose a
+  file...*), pairs the only picture left over with the only model lacking one (`only`), takes a picture dropped onto a
+  model's row, and at convert time gives a model with no colour picture a left-over one of its name (`stem`).
+  `convert.mjs`: `--texture <name>=<picture>`, `--texture <material>:<slot>=<picture>`, `--textures <dir>`. The relay
+  lists `.tif .tiff .psd .psb .dds .avif` as images. Untested: real Photoshop, Substance and game-engine files beyond the
+  generated ones and those ImageMagick and Pillow write (checked by hand), a big TIFF or PSD's memory on a headset.
 - **The upload page** (the owner, 4 November 2026: "the relay should offer an upload page where everything gets
   converted into the right formats directly and then sorted into a folder if possible"). `<relay>/upload` sends the
   browser to the studio's **Upload** tab (`#studio&upload`; pages only, none in a headset or with `&visit`): pick a
@@ -3282,7 +3334,17 @@ decoded buffer), a short one decoded, paused while muted; GLB first (the Add lis
 with the same triangles and clip, a placed figure switched to it keeping where it stands, its corners within 1 mm);
 the Upload pane with no relay (the test originals dropped: the plan's rows, grouping and names, converting offered as
 downloads, a mono WAV of each sound); the headset panels' panes and its Stories screen (no Upload tab and no Convert
-there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane.
+there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane. Its *studio textures* steps
+run on another page, at `&scene=textures` (the second test scene, every model placed): every rung of the ladder; TIFF
+(LZW, PackBits), a PSD named by an FBX (the `.ps~` renaming) and DDS (DXT1, BC5) read in the page, their pixels sampled
+against those they were made from (`tools/studio/test/pictures.mjs`); a refused picture's sentence; the cards' lines;
+*Use paint.png* and *Choose a picture...* (the chooser stubbed with a file) each converting at once to a downloaded GLB
+whose record has `tex` and that loads back textured, the object switched to it where it stands (corners within 1 mm),
+its card then naming the picture; *Add a texture...* on a box with no material (Roughness preselected by the picture's
+name, Colour chosen); no UVs refused in words; roughness and metalness packed into one; the crate's bump made a normal
+map; the Upload pane's plan (`only`, `ext`, `similar`, *Not this* and *Use*, a picture dropped onto a row) and its four
+GLBs with their records; no texture buttons, and nothing converted, for a visitor (`&visit`) or with editing off; the
+headset's card (no texture buttons, *Add a texture on a laptop*).
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -3638,8 +3700,10 @@ cube added on another at once, both kept; the headset inside the cube seeing the
 while a page walking outside and one in Orbit view see the box; *Save* from the headset's panel writing `layout.json`
 *by* its name, `.history/` holding 1 file and then 2, every page then *Saved*; a file copied into the folder in the Add
 lists within a few seconds; the story's lock refusing a page's edits and the headset's grip; *Convert to GLB* writing
-`models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a 25 s sound
-streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+`models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a model
+lacking its picture (the textures scene's `rust.obj`, copied in; that scene itself left out of the copy) given *Use
+paint.png* on a page's card: `models/rust.glb` through the relay with the picture in its record, every device's object
+switched to it, textured, where it stands; a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
 test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
 `ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`
@@ -3687,6 +3751,18 @@ and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 the menu's canvas `near-menu.png`), of the dialog and eight headset views (the menu open on its Settings tab, its Story tab, its Sound check,
 stepped out of a station's circle: still in its story, the others as icons only, and the stations' icons from behind the first row and along it, as a headset in no circle sees them, at 1280 x 800), and the ten-headset round's four.
 
+After changing the room and depth test page (`room-test/`), run `node tools/room-test.mjs` (a minute; it starts its own
+relay on port 8131 with `--logs` in a temporary folder): a pretend headset drives three.js r128's own WebXR path with a
+real WebGL2 depth texture array made in the page, a new one every frame with WebGL's default filter (near on the left
+half of each eye, far on the right), drawn into a framebuffer of the pretend layer's own, and its pixels show the test pillar and panel hidden where the depth is nearer and drawn where it is farther, in
+both eyes, through three.js and through raw WebGL; depth of 1.9 and 2.1 m against the 2 m pillar; an eye with no depth
+for a frame; rows split top and bottom (identity, *Depth as: metres, flipped*, and a matrix that turns y over); window
+depth for its own near and far (auto reading it so, the close steps right); the ladder after another error; also the
+depth picture's colours, an integer (`'unsigned-short'`)
+texture, CPU depth, a pretend wall, floor and table (Room's labels, Room hides hiding what stands behind the wall), a
+pretend controller pressing the panel's Mode, a session without depth, the format ladder, the frame times (Nothing asking
+for no depth, the GPU's done-by time per mode), the autosave and the report, and Send to the relay.
+
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
@@ -3702,7 +3778,15 @@ against the original (triangles, size, textures, clips, bones, where the bones a
 four moments of each clip, and pictures from three sides) and writes nothing when something did not come through (exit
 1); it prints the record it wrote (`asset.extras.studio`). The default output is `<name>.glb` beside the input
 (`<name>-<max>.glb` for a GLB). It is both a tool for the owner's batches and the test of the converter on real files
-(the owner's two, outside the repository).
+(the owner's two, outside the repository). `--textures <dir>` adds pictures to look in, `--texture <name>=<picture>`
+gives a texture the model names and `--texture <material>:<slot>=<picture>` lays one on; it prints what each texture was
+found as and writes `tex` into the record. `node tools/studio/test-images.mjs` (seconds, no browser) reads the textures
+test scene's pictures and more kinds made in memory back against the pixels they were made from (exactly, or within the
+block format's error for DXT1, DXT5 and BC5), and checks the refusals, broken and forged files refused in words and
+quickly (strips or tiles of no size, sizes their data cannot hold, RLE counts past the end, a Deflate strip that unpacks
+to 64 MB), a PSD's named alpha channel not taken for transparency, LZW and PackBits round trips, the ladder, `slotOf`
+(colour words first, the last word only), `texRank` and the `.psd` renaming; run it after changing `tools/studio/engine/images.js` or
+`tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`).
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -3736,7 +3820,8 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
 `view=group:pet` a story's plate, `&tab=all`, `&now`), `#studio` (the studio: the last scene used here, else the only
-one, else the list), `#studio&scene=atelier` (a scene), `&edit` (editing on), `&visit` (a visitor's kiosk: no editing
+one, else the list), `#studio&scene=atelier` (a scene), `#studio&scenes=tools/studio/test/scenes&scene=textures&edit` (the textures test
+scene: place its models to see the ladder and the cards), `&edit` (editing on), `&visit` (a visitor's kiosk: no editing
 and no uploads at all), `&upload` (the Upload pane, where the relay's `/upload` sends people; `&relay=wss://...` with
 it for a relay elsewhere), `&tab=scene|add|item|items|upload`, `&view=walk`, `&scenes=tools/studio/test/scenes&scene=test`
 (a static folder of scenes instead of the relay's: a relative path only), `&maxtex=2048` (the texture limit, 512 to

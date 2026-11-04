@@ -78,40 +78,87 @@ function sceneLists() {
 // placed one is left alone), given the studio's guess, its textures at most 2,048 px (For Quest) or 4,096, written as a
 // GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
 // from this file before, else a free name) and every object placed from the original switches to it; else it is
-// downloaded. A failure changes nothing
-const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null };
+// downloaded. A failure changes nothing. Pictures laid on by hand (o.tex: [{ name, mat, slot, from, url }], "Textures:
+// found, added, converted" in tools/studio/SPEC.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
+// converting the original again lays them on again; o.into: the GLB to write (an object's own: replaced where it is,
+// the old one first kept under originals/ when it is made again from itself); o.label: the note's first words
+const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null, item: '' };
 const canConvert = p => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && !XR.on;
 const canUpload = () => SRC.kind === 'relay' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
 const maxTexNow = () => (UP.quest ? 2048 : 4096);
-async function convertFile(path) {
+// (only the pictures chosen by hand, or by the Upload pane's own rungs, are laid on again: the ladder finds the rest)
+const BY_HAND = ['chosen', 'only', 'stem'];
+async function convertFile(path, o = {}) {
   if (!canConvert(path) || CV.busy) return false;
-  const name = stem(path), scene = STU.scene, gen = STU.gen;
-  CV.busy = path; CV.note = `Converting ${baseName(path)}: reading it...`; CV.noteC = 'muted'; dirty(true);
+  const name = stem(path), scene = STU.scene, gen = STU.gen, lab = o.label || `Converting ${baseName(path)}`, self = o.into === path;
+  CV.busy = path; CV.note = `${lab}: reading it...`; CV.noteC = 'muted'; dirty(true);
   let ok = false;
   try {
+    // where it goes, and what was laid on before (the record of the GLB made from this file)
+    let out = o.into || 'models/' + safeSeg(name) + '.glb', replace = !!o.into, prev = null;
+    if (STU.fileMap.has(out)) {
+      prev = glbRec(out) || (await glbHead(out).then(j => CONV.glbRecord(j), () => null));
+      if (!o.into) { if (prev && prev.from === path) replace = true; else { out = freeName(out, p => STU.fileMap.has(p)); prev = null; } }
+    }
+    const keyT = x => (x.name ? 'n:' + x.name.toLowerCase() : 'm:' + x.mat + ':' + x.slot), tex = new Map();
+    if (prev && !self) for (const x of prev.tex || []) if (BY_HAND.includes(x.how) && STU.fileMap.has(x.from)) tex.set(keyT(x), x);
+    for (const x of o.tex || []) tex.set(keyT(x), Object.assign({ name: '', mat: '', slot: '', how: 'chosen' }, x));
+    const byName = new Map([...tex.values()].filter(x => x.name).map(x => [x.name.toLowerCase(), x])), urlOf = x => x.url || fileUrl(x.from, true);
     const buf = await getBytes(fileUrl(path));
-    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '', base = sceneUrl(scene) + encPath(dir);
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '', base = sceneUrl(scene) + encPath(dir), found = new Map();
     await new Promise(r => later(r, 30));
-    const m = await CONV.load({ ext: extOf(path), data: buf, base, name, url: u => resolveUrl(u, base, dir, new Set()) });
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: path, step: l => { CV.note = `Converting ${baseName(path)}: ${l.toLowerCase()}...`; dirty(); } });
+    const url = u => {
+      if (/^(blob|data):/i.test(u)) return u;
+      let b = baseName(CONV.IM.psdBack(u.split(/[?#]/)[0]));
+      try { b = decodeURIComponent(b); } catch (e) { /* as it is */ }
+      const x = byName.get(b.toLowerCase());
+      return x ? urlOf(x) : resolveUrl(u, base, dir, new Set(), found);
+    };
+    const m = await CONV.load({ ext: extOf(path), data: buf, base, name, maxTex: maxTexNow(), url });
+    // a slot added on a GLB's material, laid on its original: that material found there by its meshes' names, else its
+    // own name (the two need not have the same materials in the same order), the record then keyed as the original has it
+    if (!self) {
+      const ms = CONV.matsOf(m.root), again = new Map();
+      for (const [k, x] of tex) {
+        if (!x.name && ((x.meshes && x.meshes.length) || x.mname)) {
+          const hit = ms.find(e => x.meshes && e.meshes.some(n => x.meshes.includes(n.name)) && (!x.mname || e.name === x.mname)) || ms.find(e => x.meshes && e.meshes.some(n => x.meshes.includes(n.name))) || (x.mname ? ms.find(e => e.name === x.mname) : null);
+          if (hit) x.mat = hit.key;
+          delete x.meshes; delete x.mname;
+          again.delete(keyT(x)); again.set(keyT(x), x);
+        } else again.set(k, x);
+      }
+      tex.clear();
+      for (const [k, x] of again) tex.set(k, x);
+    }
+    // pictures laid on in slots: fetched, read and put on their materials (the GLB made again from itself has the earlier
+    // ones in it already)
+    const gltf = ['glb', 'gltf'].includes(extOf(path));
+    for (const x of (self ? o.tex || [] : [...tex.values()]).filter(q => !q.name)) {
+      CV.note = `${lab}: laying ${baseName(x.from)} on...`; dirty();
+      const image = await CONV.picture(urlOf(x), { max: maxTexNow(), ext: extOf(x.from) });
+      const r = CONV.addTextures(m.root, [{ mat: x.mat, slot: x.slot, image, name: baseName(x.from) }], { gltf });
+      if (!r.done) throw new Error(r.why[0] || 'it has no material to lay it on');
+    }
+    // (made again from itself: the old one kept under originals/, and the new one says so)
+    const keepOld = self && canUpload() && /^models\//i.test(path) ? freeName('originals/' + baseName(path), p => STU.fileMap.has(p)) : '';
+    const recTex = self ? [...new Map([...((prev && prev.tex) || []), ...(o.tex || [])].map(x => [keyT(x), x])).values()] : [...[...found].filter(([n]) => !m.missing.includes(n)).map(([n, f]) => ({ name: n, mat: '', slot: '', from: f.path, how: f.how })), ...tex.values()];
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
     const size = mb(r.glb.byteLength), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
     if (canUpload()) {
-      // (models/<base>.glb: replaced when it was made from this very file, else the next free name)
-      let out = 'models/' + safeSeg(name) + '.glb', replace = false;
-      if (STU.fileMap.has(out)) { const rec = glbRec(out) || (await glbHead(out).then(j => CONV.glbRecord(j), () => null)); if (rec && rec.from === path) replace = true; else out = freeName(out, p => STU.fileMap.has(p)); }
-      CV.note = `Converting ${baseName(path)}: uploading ${out} (${size})...`; dirty();
-      const j = await upSend(fileApi(scene, out, replace), new Blob([r.glb], { type: 'model/gltf-binary' }), p => { CV.note = `Converting ${baseName(path)}: uploading ${out} (${Math.round(p * 100)} %)...`; dirty(); });
+      if (keepOld) { CV.note = `${lab}: keeping the old one as ${keepOld}...`; dirty(); await upSend(fileApi(scene, keepOld, false), new Blob([buf], { type: 'model/gltf-binary' })); }
+      CV.note = `${lab}: uploading ${out} (${size})...`; dirty();
+      const j = await upSend(fileApi(scene, out, replace), new Blob([r.glb], { type: 'model/gltf-binary' }), p => { CV.note = `${lab}: uploading ${out} (${Math.round(p * 100)} %)...`; dirty(); });
       out = (j && j.path) || out;
       if (gen !== STU.gen) return false;
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
-      GLBREC.set(out, { at: f ? f.at : 0, rec: r.record, p: null });
-      const n = switchToGLB(path, out, r.record);
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + lost;
+      GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
+      const n = out === path ? 0 : switchToGLB(path, out, r.record);
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
     } else {
@@ -126,6 +173,43 @@ async function convertFile(path) {
     if (gen === STU.gen) { CV.note = `${baseName(path)} was not converted (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; }
   } finally { CV.busy = ''; dirty(true); }
   return ok;
+}
+// A texture added to an object (its card): a picture of the scene, or one from this computer (into originals/ with a
+// relay, else used from memory and the GLB downloaded), baked into the GLB at once. list: [{ name (a missing name) | mat
+// and slot (a slot added), from, file }]. An object on a GLB made from an original still in the scene is made again from
+// that original into the same GLB; a GLB that has none is made again from itself
+async function texGo(id, list) {
+  const it = STU.items.get(id);
+  if (!it || it.kind !== 'o' || CV.busy || !canConvert(it.rec.file)) return false;
+  const file = it.rec.file, x0 = list[0], pic = x0.file ? x0.file.name : baseName(x0.from), lab = `Adding ${pic}`, mem = [], gen = STU.gen;
+  CV.item = id;
+  try {
+    for (const x of list) {
+      x.how = 'chosen';
+      if (!x.file) continue;
+      if (canUpload()) {
+        const p = freeName('originals/' + safeSeg(x.file.name), q => STU.fileMap.has(q));
+        CV.busy = file; CV.note = `${lab}: uploading it to ${p}...`; CV.noteC = 'muted'; dirty(true);
+        const j = await upSend(fileApi(STU.scene, p, false), x.file);
+        x.from = (j && j.path) || p;
+        await refreshFiles(new Set([x.from]));
+        CV.busy = '';
+        // (the scene changed, editing went off or the story was locked meanwhile: the picture stays in originals/, said)
+        if (gen !== STU.gen) return false;
+        if (!canConvert(file)) { CV.note = `${pic} is in ${x.from}, but ${baseName(file)} was not converted: editing is off or this scene is locked. Use it from the card again.`; CV.noteC = 'amber'; dirty(true); return false; }
+      } else { x.url = URL.createObjectURL(x.file); mem.push(x.url); x.from = 'originals/' + safeSeg(x.file.name); }
+      delete x.file;
+    }
+    let src = file, into = '';
+    if (extOf(file) === 'glb') {
+      const r = glbRec(file) || (it.E && it.E.record);
+      if (r && r.from && r.from !== file && STU.fileMap.has(r.from) && MODEL_EXT.includes(extOf(r.from))) { src = r.from; into = file; } else if (/^models\//i.test(file)) into = file;
+    }
+    return await convertFile(src, { tex: list, into, label: lab });
+  } catch (e) {
+    CV.busy = ''; CV.note = `${pic} was not added (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; dirty(true);
+    return false;
+  } finally { for (const u of mem) later(() => URL.revokeObjectURL(u), 1000); }
 }
 // Convert every model (Add): each model to place that is not a GLB, one after another
 async function convertAll() {
@@ -269,7 +353,7 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set() };
+const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
@@ -292,41 +376,53 @@ function upTake(list) {
   X.tab = 'upload';
   upPlan();
 }
-// the plan: each model with the files it names (found by base name, case aside, anywhere in what was dropped: its
-// textures, an OBJ's MTL and the MTL's textures, a glTF's .bin), each sound on its own, and anything left kept as it is
+// the plan: each model with the files it names (an OBJ's MTL, a glTF's .bin: by name, case aside, anywhere in what was
+// dropped; its textures by the ladder, CONV.texFind: the path it gives, the name, another kind of picture of the same
+// name, a name of the same words), each sound on its own, and anything left kept as it is. Then the rung only the plan
+// has: exactly one model lacking exactly one texture, and exactly one picture no model uses, are put together ('only')
 async function upPlan() {
-  const gen = ++UP.gen, E = UP.entries, byName = new Map();
+  const gen = ++UP.gen, E = UP.entries, byName = new Map(), byPath = new Map(E.map(e => [e.path, e])), pics = E.filter(e => CONV.IM.isPicture(e.path)).map(e => e.path);
   UP.planning = true; upChanged();
   if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
   if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
   // (the nearest of several by that name: in the model's own folder first)
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
-  const used = new Set(), rows = [];
+  const rows = [];
   for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
-    const r = { kind: 'model', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
-    used.add(e);
+    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
     try {
       if (!e.buf) e.buf = await e.file.arrayBuffer();
       if (gen !== UP.gen) return;
       const N = CONV.namesIn(e.ext, e.buf), lost = [];
-      const attach = n => { const f = find(n, e); if (f) { if (!r.src.includes(f)) r.src.push(f); used.add(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
+      const dep = n => { const f = find(n, e); if (f) { if (!r.deps.includes(f)) r.deps.push(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
+      const tex = n => {
+        if (r.names.some(x => x.name.toLowerCase() === baseName(n).toLowerCase())) return;
+        if (!CONV.IM.isPicture(n)) { dep(n); return; }
+        const hit = CONV.texFind(n, pics, { dir: dirOf(e.path) });
+        r.names.push({ name: baseName(n), entry: hit ? byPath.get(hit.path) : null, how: hit ? hit.how : '' });
+      };
       for (const n of N.mtl) {
-        const f = attach(n);
-        if (f) { const txt = await f.file.text(); for (const t of CONV.mtlNames(txt)) attach(t); }
+        const f = dep(n);
+        if (f) { const txt = await f.file.text(); for (const t of CONV.mtlNames(txt)) tex(t); }
       }
-      for (const n of N.buffers) attach(n);
-      for (const n of N.textures) attach(n);
-      if (lost.length) r.notes.push(e.ext === 'fbx' ? `Names ${lost.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
-    } catch (err) { r.notes.push('It could not be read: ' + err.message); }
+      for (const n of N.buffers) dep(n);
+      for (const n of N.textures) tex(n);
+      if (lost.length) r.notes0.push(`Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
+    } catch (err) { r.notes0.push('It could not be read: ' + err.message); }
     finally { e.buf = null; }   // (read again when its row runs: a folder of large scans is never all in memory at once)
     rows.push(r);
   }
-  for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !used.has(x))) { used.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
-  for (const e of E.filter(x => !used.has(x))) rows.push({ kind: 'keep', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path });
+  const taken = new Set(rows.flatMap(r => [r.main, ...r.deps, ...r.names.map(x => x.entry).filter(Boolean)]));
+  for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
+  // ('only': one model lacking one texture, one picture left over)
+  const lacking = rows.filter(r => r.kind === 'model' && r.names.filter(x => !x.entry).length === 1), left = E.filter(x => CONV.IM.isPicture(x.path) && CONV.IM.way(x.ext) !== 'refuse' && !taken.has(x));
+  // (and of the same kind: a normal map left over never stands in for a missing colour picture; it is still offered)
+  const gap = lacking.length === 1 ? lacking[0].names.find(x => !x.entry) : null;
+  if (gap && left.length === 1 && CONV.slotOf(left[0].path) === CONV.slotOf(gap.name)) Object.assign(gap, { entry: left[0], how: 'only' });
   if (gen !== UP.gen) return;
   UP.rows = rows;
-  upNames();
+  upRebuild();
   UP.planning = false; upChanged();
   // the sounds' lengths and rates (an element's metadata, the header's first bytes), then the names again
   for (const r of rows.filter(x => x.kind === 'sound')) {
@@ -335,6 +431,51 @@ async function upPlan() {
     r.dur = dur; r.rate = rateOf(new Uint8Array(head)); r.msg = '';
     upNames(); upChanged();
   }
+}
+// each model's files (the model, what it needs, its pictures), and a row kept as it is for anything no row uses (a
+// picture a model takes goes to originals/ as that model's file, not on its own); its notes; the names again
+function upRebuild() {
+  const used = new Set();
+  for (const r of UP.rows) {
+    if (r.kind === 'sound') used.add(r.main);
+    if (r.kind !== 'model') continue;
+    if (r.state === 'plan') {
+      r.src = [r.main, ...r.deps];
+      for (const e of [...r.names.map(x => x.entry), ...r.adds.map(a => a.entry)]) if (e && !r.src.includes(e)) r.src.push(e);
+      const miss = r.names.filter(x => !x.entry).map(x => x.name);
+      r.notes = r.notes0.concat(miss.length ? [r.main.ext === 'fbx' ? `Names ${miss.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${miss.join(', ')}: converted without ${miss.length > 1 ? 'them' : 'it'}, unless you give ${miss.length > 1 ? 'them' : 'it'} a picture`] : []);
+    }
+    for (const e of r.src) used.add(e);
+  }
+  const keepOf = new Map(UP.rows.filter(r => r.kind === 'keep').map(r => [r.main, r]));
+  const keeps = UP.entries.filter(e => !used.has(e)).map(e => keepOf.get(e) || { kind: 'keep', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path });
+  UP.rows = UP.rows.filter(r => r.kind !== 'keep' || (r.state !== 'plan' && !keeps.includes(r))).concat(keeps);
+  upNames();
+}
+// the pictures no model uses (the Use buttons' choice, the convert-time rung)
+const upLeft = () => { const used = new Set(UP.rows.filter(r => r.kind !== 'keep').flatMap(r => r.src)); return UP.entries.filter(e => CONV.IM.isPicture(e.path) && CONV.IM.way(e.ext) !== 'refuse' && !used.has(e)); };
+// pictures given to a model row (dropped onto it, or Choose a file): for a texture it lacks (name, else the first), else
+// laid on as a slot of their own (by their name, or a normal map's colour; changeable on the row)
+function upGive(ri, files, name) {
+  const r = UP.rows[ri];
+  if (!r || r.kind !== 'model' || UP.busy || r.state !== 'plan') return;
+  for (const f of files) {
+    if (!CONV.IM.isPicture(f.name)) continue;
+    let p = f.name, k = 2;
+    while (UP.entries.some(x => x.path === p)) p = `added ${k++}/${f.name}`;
+    const e = { path: p, file: f, ext: extOf(f.name), name: f.name, buf: null };
+    UP.entries.push(e);
+    const miss = r.names.find(x => !x.entry && (!name || x.name === name)) || r.names.find(x => !x.entry);
+    if (miss) Object.assign(miss, { entry: e, how: 'chosen' });
+    else { const a = { entry: e, slot: CONV.slotOf(f.name), why: '' }; r.adds.push(a); upMean(a); }
+  }
+  upRebuild(); upChanged();
+}
+async function upMean(a) {
+  const u = URL.createObjectURL(a.entry.file);
+  try { const img = await CONV.picture(u, { max: 128, ext: a.entry.ext }); if (a.slot === 'map' && CONV.slotOf(a.entry.name, CONV.meanOf(img)) === 'normalMap') a.slot = 'normalMap'; }
+  catch (e) { a.why = e.message; }
+  finally { URL.revokeObjectURL(u); upChanged(); }
 }
 // where each row's files go in the scene, against what the scene holds (numbered unless Replace) and each other
 async function upHave() {
@@ -353,6 +494,7 @@ function upNames() {
   const taken = p => mine.has(p.toLowerCase()) || (!UP.replace && have.has(p.toLowerCase()));
   const claim = p => { const q = freeName(p, taken); mine.add(q.toLowerCase()); return q; };
   const orig = e => { if (!given.has(e)) given.set(e, claim(origPath(e.path))); return given.get(e); };
+  UP.given = given;   // (where each given file goes: a GLB's record names its pictures there)
   const relay = upRelay() && !!UP.scene;
   // a row already run (made, or failed and run again) keeps its names: what it made is not renamed, and what it sent is
   // not sent again under another name (the files this upload wrote are in the scene's listing by now)
@@ -457,20 +599,40 @@ async function upRow(r, relay, scene, sent) {
     const e = r.main, glbPath = r.out[0], urls = new Map();
     for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
     const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
+    // (a texture name the plan gave a picture: that picture, whatever its name)
+    const blobFor = f => { const u = urls.get(f.path.toLowerCase()); if (u) return u; const v = URL.createObjectURL(f.file); UP.blobs.push(v); urls.set(f.path.toLowerCase(), v); return v; };
+    const named = new Map(r.names.filter(x => x.entry).map(x => [x.name.toLowerCase(), x.entry]));
     const url = u => {
       let rel = u.startsWith(base) ? u.slice(base.length) : u;
       try { rel = decodeURIComponent(rel); } catch (err) { /* as it is */ }
-      rel = rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+      rel = CONV.IM.psdBack(rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
+      const x = named.get(baseName(rel).toLowerCase());
+      if (x) return blobFor(x);
       return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
     };
     r.msg = 'Reading it...'; r.p = 0.02; upChanged();
     if (!e.buf) e.buf = await e.file.arrayBuffer();
     await new Promise(res => later(res, 30));
     let res = null;
+    const op = f => (UP.given && UP.given.get(f)) || origPath(f.path), tex = r.names.filter(x => x.entry).map(x => ({ name: x.name, mat: '', slot: '', from: op(x.entry), how: x.how }));
     try {
-      const m = await CONV.load({ ext: e.ext, data: e.buf, base, name: e.name.replace(/\.[^.]*$/, ''), url });
-      res = await CONV.toGLB(m, { name: e.name.replace(/\.[^.]*$/, ''), maxTex: maxTexNow(), from: r.from, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: maxTexNow(), url }), gltf = ['glb', 'gltf'].includes(e.ext);
+      // pictures given as slots of their own, then (no colour picture at all) a left-over one whose name matches the
+      // model's or a material's
+      const lay = async (f, slot, how) => {
+        const image = await CONV.picture(blobFor(f), { max: maxTexNow(), ext: f.ext }), d = CONV.addTextures(m.root, [{ mat: '*', slot, image, name: f.name }], { gltf });
+        if (d.done) tex.push({ name: '', mat: '*', slot, from: op(f), how }); else r.notes.push(`${f.name} was not laid on: ${d.why[0] || 'every material has that picture already'}.`);
+        return d.done;
+      };
+      for (const a of r.adds) await lay(a.entry, a.slot, 'chosen');
+      const mats = CONV.matsOf(m.root);
+      if (mats.length && !mats.some(x => x.m.map)) {
+        const want = new Set([nm, ...mats.map(x => x.name)].map(x => CONV.normStem(x)).filter(Boolean)), c = upLeft().filter(f => want.has(CONV.normStem(f.name)) && CONV.slotOf(f.name) === 'map');
+        if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
+      }
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
+      for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
     e.buf = null;
     for (const m of res.missing || []) r.notes.push(`Converted without its texture ${m}.`);
@@ -586,14 +748,33 @@ function uploadBlocks(B) {
 function uploadHTML(b) {
   if (b.drop) return `<div class="stu-drop${b.dis ? ' off' : ''}" data-drop="1"><b>Drop files or folders here</b><span>or</span><div class="actions"><button class="btn" type="button" data-act="up:choose" data-v=""${b.dis ? ' disabled' : ''}>Choose files</button><button class="btn" type="button" data-act="up:folder" data-v=""${b.dis ? ' disabled' : ''}>Choose a folder</button></div></div>`;
   if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
-  if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map(r => {
+  if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
-    return `<li class="${st}" data-kind="${r.kind}"><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
-      <small class="w">${esc(rowPlan(r))}</small>${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+      <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
   return '';
+}
+// a model row's textures: each name it gives and the picture it will have (and how it was found), or for one it lacks
+// the pictures no model uses (likeliest first) and Choose a file; pictures laid on as slots of their own, their slot
+// changeable. (Drop a picture onto the row: the same as Choose a file)
+const UP_HOW = { path: 'by its path', name: 'by its name', ext: 'the same name as another kind of picture', similar: 'a picture of a similar name', only: 'the only picture left over', chosen: 'chosen by hand' };
+function texRows(r, ri) {
+  const can = r.state === 'plan' && !UP.busy, left = upLeft(), J = v => esc(JSON.stringify(v));
+  const btn = (act, v, label, primary) => `<button class="btn${primary ? ' primary' : ''}" type="button" data-act="${act}" data-v="${J(v)}"${can ? '' : ' disabled'}>${esc(label)}</button>`;
+  let h = '';
+  for (const x of r.names) {
+    if (x.entry) h += `<small class="x">Texture ${esc(x.name)}: ${esc(x.entry.path)}${x.how === 'path' || x.how === 'name' ? '' : ` (${esc(UP_HOW[x.how] || '')})`}${x.how === 'chosen' || x.how === 'only' ? ' ' + btn('up:unuse', [ri, x.name], 'Not this') : ''}</small>`;
+    else {
+      const c = CONV.texRank(x.name, left.map(e => e.path), { dir: dirOf(r.main.path) }, 3);
+      h += `<small class="n">Texture ${esc(x.name)}: not among the files</small><span class="tx">${c.map((q, i) => btn('up:use', [ri, x.name, q], 'Use ' + baseName(q), i === 0)).join('')}${btn('up:file', [ri, x.name], 'Choose a file...')}</span>`;
+    }
+  }
+  r.adds.forEach((a, i) => { h += `<small class="x">Laid on: ${esc(a.entry.name)} as ${btn('up:slot', [ri, i], SLOT_NAME[a.slot] + ' ▸')} ${btn('up:unadd', [ri, i], 'Not this')}${a.why ? ` <b class="n">${esc(a.why)}</b>` : ''}</small>`; });
+  if (r.state === 'plan') h += `<small class="h">Drop a picture on this row to lay it on${r.names.some(x => !x.entry) ? ' (it takes the missing texture first)' : ''}, or ${btn('up:file', [ri, ''], 'choose one...')}</small>`;
+  return h;
 }
 // the page's listeners: files dropped anywhere on the studio's page (the Upload pane opens with them), the file choosers,
 // the new scene's name as it is typed
@@ -606,6 +787,9 @@ function uploadBind() {
     if (!over(ev) || XR.on || OPT.visit) return;
     ev.preventDefault(); zone(false);
     if (UP.busy) return;
+    // (pictures dropped onto a model's row: that model's)
+    const li = ev.target && ev.target.closest && ev.target.closest('.stu-plan li[data-row]'), fl = [...((ev.dataTransfer && ev.dataTransfer.files) || [])];
+    if (li && fl.length && fl.every(f => CONV.IM.isPicture(f.name))) { upGive(+li.dataset.row, fl); return; }
     if (APP.mode !== 'explore') APP.enterExplore();
     readDropped(ev.dataTransfer).then(upTake);
   });
@@ -630,4 +814,9 @@ const UP_ACT = {
   'up:run': () => upRun(),
   'up:clear': () => upClear(),
   'up:open': () => upOpen(),
+  'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },
+  'up:unuse': v => { const [ri, n] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n); if (x && r.state === 'plan') { Object.assign(x, { entry: null, how: '' }); upRebuild(); upChanged(); } },
+  'up:file': v => { const [ri, n] = JSON.parse(v); chooseTex({ kind: 'up', ri, name: n }); },
+  'up:slot': v => { const [ri, i] = JSON.parse(v), a = UP.rows[ri] && UP.rows[ri].adds[i]; if (a) { a.slot = SLOTS_ADD[(SLOTS_ADD.indexOf(a.slot) + 1) % SLOTS_ADD.length]; upChanged(); } },
+  'up:unadd': v => { const [ri, i] = JSON.parse(v), r = UP.rows[ri]; if (r && r.adds[i] && r.state === 'plan') { r.adds.splice(i, 1); upRebuild(); upChanged(); } },
 };

@@ -77,6 +77,13 @@ its circle at your feet, for everyone at it).
   slower and may say the wrong size), JPEG textures (PNG only where see-through),
   about 300,000 triangles a model and 500,000 a scene on a Quest; mono sounds,
   WAV for short loops, MP3 for long ones. tools/studio/README.md has the details.
+- Textures: the studio also reads TIFF, PSD and DDS pictures, and finds a
+  texture a model names under another name by itself (brick.tga finds
+  brick.png; stone_diffuse.jpg finds Stone-BaseColor.dds). One still missing:
+  the object's card (on a laptop, editing on) offers Use <a picture of the
+  scene> or Choose a picture..., and Add a texture... lays a picture on a model
+  that has none (Colour, Normal, Roughness...). Either makes the model a GLB with
+  the picture in it at once. The upload page pairs what was dropped the same way.
 - Editing: Edit on the studio's Scene pane. On a laptop click an item and drag
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,

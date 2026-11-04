@@ -18,7 +18,7 @@ const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && 
 const extOf = p => (/\.([^./\\]+)$/.exec(String(p)) || ['', ''])[1].toLowerCase();
 const baseName = p => String(p).split(/[\\/]/).pop();
 const stem = p => baseName(p).replace(/\.[^.]*$/, '');
-const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
+const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp', 'tif', 'tiff', 'psd', 'psb', 'dds', 'avif'], data: ['bin'] };
 const kindOf = p => { const e = extOf(p); for (const k in KINDS_EXT) if (KINDS_EXT[k].includes(e)) return k; return 'other'; };
 // timers that die with the studio (dispose clears them: a late one must not write into the next story's panes)
 const TIMERS = new Set();

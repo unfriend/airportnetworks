@@ -1,0 +1,29 @@
+{
+  "name": "textures",
+  "files": [
+    {"path":"Stone-BaseColor.dds","bytes":640,"at":1793800183553,"kind":"image"},
+    {"path":"brick.mtl","bytes":74,"at":1793800183553,"kind":"other"},
+    {"path":"brick.obj","bytes":422,"at":1793800183553,"kind":"other"},
+    {"path":"brick.tif","bytes":2506,"at":1793800183553,"kind":"image"},
+    {"path":"broken.mtl","bytes":76,"at":1793800183553,"kind":"other"},
+    {"path":"broken.obj","bytes":425,"at":1793800183553,"kind":"other"},
+    {"path":"broken.tif","bytes":188,"at":1793800183554,"kind":"image"},
+    {"path":"crate.mtl","bytes":105,"at":1793800183553,"kind":"other"},
+    {"path":"crate.obj","bytes":422,"at":1793800183546,"kind":"other"},
+    {"path":"crate_height.png","bytes":666,"at":1793800183554,"kind":"image"},
+    {"path":"paint.png","bytes":618,"at":1793800183554,"kind":"image"},
+    {"path":"panel.fbx","bytes":2991,"at":1793800183553,"kind":"model"},
+    {"path":"panel_albedo.psd","bytes":4520,"at":1793800183553,"kind":"image"},
+    {"path":"panel_nrm.dds","bytes":1152,"at":1793800183554,"kind":"image"},
+    {"path":"plain.obj","bytes":392,"at":1793800183553,"kind":"other"},
+    {"path":"rust.mtl","bytes":76,"at":1793800183553,"kind":"other"},
+    {"path":"rust.obj","bytes":419,"at":1793800183553,"kind":"other"},
+    {"path":"stone.mtl","bytes":82,"at":1793800183553,"kind":"other"},
+    {"path":"stone.obj","bytes":422,"at":1793800183553,"kind":"other"},
+    {"path":"tex/glass.dds","bytes":1152,"at":1793800183553,"kind":"image"},
+    {"path":"tex/rough.tif","bytes":222,"at":1793800183553,"kind":"image"},
+    {"path":"tex/wood.tif","bytes":2148,"at":1793800183553,"kind":"image"}
+  ],
+  "layoutAt": null,
+  "save": false
+}

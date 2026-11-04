@@ -3,8 +3,9 @@
 // One entry per model file of the scene: fetched and parsed once (GLTF/GLB with three.js's GLTFLoader, FBX with its
 // FBXLoader), then cloned for every object that places it (SkeletonUtils for a rigged one), each clone with its own
 // materials (so each fades on its own) and its own AnimationMixer. Textures a file names but does not hold are looked
-// for in the scene's listing (the exact path, else the base name, case aside: an FBX's C:\Users\... path is ignored);
-// one not there leaves the model untextured and its card says so. Textures larger than OPT.maxtex (4,096 px) on a side
+// for in the scene's pictures by the ladder (engine/images.js: the path it gives, its file name in any case, the same name
+// as another kind of picture, a name of the same words; an FBX's C:\Users\... path is ignored), TIFF, PSD and DDS read
+// in the page; one not there leaves the model untextured and its card says so and offers pictures (Textures, below). Textures larger than OPT.maxtex (4,096 px) on a side
 // are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
@@ -15,7 +16,7 @@ const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', '
 function lib(path) {
   let E = LIB.get(path);
   if (!E) {
-    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null, auth: false };
+    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), found: new Map(), why: {}, decoded: [], mats: [], err: '', drop: 0, ms: null, auth: false };
     LIB.set(path, E);
   }
   if (E.drop) { unlater(E.drop); E.drop = 0; }
@@ -70,11 +71,11 @@ async function libLoad(E) {
     E.state = 'parsing'; libChanged(E);
     await new Promise(r => later(r, 60));   // (the grey box says "Reading" before parsing stalls the page)
     if (gen !== E.gen || scene !== STU.scene || GL.gone) return;
-    const t1 = performance.now(), missing = new Set(), texPaths = new Set();
-    const res = await parseModel(E, buf, missing, texPaths);
+    const t1 = performance.now(), missing = new Set(), texPaths = new Set(), found = new Map();
+    const res = await parseModel(E, buf, missing, texPaths, found);
     if (gen !== E.gen || scene !== STU.scene || GL.gone) { if (res && res.root) disposeTree(res.root, true); return; }
     const old = E.root;
-    E.missing = missing; E.texPaths = texPaths;
+    E.missing = missing; E.texPaths = texPaths; E.found = found; E.why = res.why || {}; E.decoded = res.decoded || [];
     E.auth = SRC.held && missing.size > 0;   // (its textures refused with the relay's password: fetched again once it has one)
     finishModel(E, res);
     E.ms = { fetch: Math.round(t1 - t0), parse: Math.round(performance.now() - t1) };
@@ -101,20 +102,31 @@ function whyFailed(e) {
   if (e && e.status === 401) return AUTH_NOTE;
   return 'It could not be read: ' + m.slice(0, 160);
 }
-function parseModel(E, buf, missing, texPaths) {
+function parseModel(E, buf, missing, texPaths, found) {
   const dir = E.path.includes('/') ? E.path.slice(0, E.path.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
-  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), url: u => resolveUrl(u, base, dir, texPaths) })
+  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), maxTex: OPT.maxtex, url: u => resolveUrl(u, base, dir, texPaths, found) })
     .then(res => { for (const m of res.missing) missing.add(m); return res; });
 }
-// what a model file names (a texture, a buffer), as a file of the scene: the path it gives (beside the model, or from the
-// scene's top), else any file of the scene with its base name; never anything outside the scene
-// (null: not found, which the converter's loader counts as missing and stands in for)
-function resolveUrl(u, base, dir, texPaths) {
+// the scene's pictures (every picture kind the ladder knows, refused ones too: one named exactly is said to be refused)
+let picMemo = [null, []];
+const scenePictures = () => (picMemo[0] === STU.files ? picMemo[1] : (picMemo = [STU.files, STU.files.filter(f => CONV.IM.isPicture(f.path)).map(f => f.path)])[1]);
+// what a model file names (a texture, a buffer), as a file of the scene: a picture by the ladder (CONV.texFind: its path,
+// its name in any case, the same name as another kind of picture, a name of the same words; found: name -> { path, how }),
+// anything else by the path it gives (beside the model, or from the scene's top), else any file with its base name; never
+// anything outside the scene (null: not found, which the converter's loader counts as missing and stands in for)
+function resolveUrl(u, base, dir, texPaths, found) {
   if (/^(blob|data):/i.test(u)) return u;
   if (SRC.held) return null;   // (a relay that refused the password: asked nothing more)
   let rel = (u.startsWith(base) ? u.slice(base.length) : u).split(/[?#]/)[0];
   try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
-  rel = rel.replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+  rel = CONV.IM.psdBack(rel.replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
+  if (CONV.IM.isPicture(rel)) {
+    const r = CONV.texFind(rel, scenePictures(), { dir });
+    if (!r) return null;
+    texPaths.add(r.path);
+    if (found) found.set(baseName(rel), r);
+    return fileUrl(r.path, true);
+  }
   let f = /^[a-z][a-z0-9+.-]*:/i.test(rel) || rel.startsWith('/') ? null : STU.fileMap.get(dir + rel) || STU.fileMap.get(rel);
   if (!f) { const b = baseName(rel).toLowerCase(); f = b ? STU.files.find(x => x.kind !== 'model' && baseName(x.path).toLowerCase() === b) : null; }
   if (f) { texPaths.add(f.path); return fileUrl(f.path, true); }
@@ -167,6 +179,10 @@ function finishModel(E, res) {
     if (m.isMeshStandardMaterial) m.needsUpdate = true;
   }
   for (const [img, p] of pics) if (p.cv && typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
+  // (an occlusion picture is read through a second set of texture coordinates: the first, when there is no second)
+  root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.uv && !o.geometry.attributes.uv2 && [].concat(o.material || []).some(m => m.aoMap)) o.geometry.setAttribute('uv2', o.geometry.attributes.uv); });
+  // the materials as Add a texture names them (CONV.matsOf: name or number, texture coordinates, the slots they fill)
+  E.mats = CONV.matsOf(root).map(e => ({ key: e.key, name: e.name, uv: e.uv, slots: e.slots, meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))].slice(0, 20) }));
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
   const size = box.getSize(new THREE.Vector3()), tl = [...texs.values()];

@@ -103,8 +103,9 @@ for (const key of STORY_KEYS) {
         const nextCue = peek(`typeof SFXQ !== "undefined" ? SFXQ.cues.map(c => c.n).filter(n => n > ${s}).sort((a, b) => a - b)[0] : undefined`);
         nb.click();
         if (!await until(() => peek('APP.playing') && peek('APP.t') > s, 30000)) out.push(`Next did not go on (playing ${peek('APP.playing')}, t ${peek('APP.t')})`);
-        // after Next, the next cue as the clock passes it (when it comes soon)
-        if (nextCue !== undefined && nextCue < s + 3 && i !== last && (!await until(() => peek('APP.t') > nextCue + 0.2 || !peek('APP.playing'), 20000) || peek('SFXQ.hi') < nextCue - 0.001)) out.push(`chapter ${i + 1}: after Next the next cue (${nextCue.toFixed(2)} s) did not play (latest ${peek('SFXQ.hi')}, t ${peek('APP.t')})`);
+        // after Next, the next cue as the clock passes it (when it comes soon; a heavy scene draws about a frame a second
+        // headlessly and each frame moves the clock at most 0.1 s, so 3 s of story can take 30 s)
+        if (nextCue !== undefined && nextCue < s + 3 && i !== last && (!await until(() => peek('APP.t') > nextCue + 0.2 || !peek('APP.playing'), 60000) || peek('SFXQ.hi') < nextCue - 0.001)) out.push(`chapter ${i + 1}: after Next the next cue (${nextCue.toFixed(2)} s) did not play (latest ${peek('SFXQ.hi')}, t ${peek('APP.t')})`);
         if (tail && peek('APP.t') < T.v - 0.2 && peek('slideSound()[0]')) out.push(`chapter ${i + 1}: after Next the narration says the chapter's end again (t ${peek('APP.t')}, voice ended ${T.v})`);
         if (tail && !await until(() => !peek('SLIDE.tail') && peek('APP.t') >= T.v, 30000)) out.push(`chapter ${i + 1}: the narration does not follow the story again past the voice's end (t ${peek('APP.t')})`);
         if (bar && !bar.hidden && peek('APP.mode') === 'story') out.push('Next still in the bar once playing');
@@ -1655,6 +1656,240 @@ await step('design: the intro ends at the table', async () => {
     await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
     if (!await until(`X.tab === 'upload' && !!document.querySelector('#pane-upload.on .stu-drop')`, 10000)) errors.push('studio: #studio&upload did not open the Upload pane: ' + await ss('X.tab'));
     await stp.close();
+  });
+}
+// The studio's textures (tools/studio/SPEC.md, "Textures: found, added, converted"), on a page of its own: the second test
+// scene, tools/studio/test/scenes/textures (made by tools/studio/test/make.mjs), every model placed: the ladder's rungs
+// (a TIFF by its path, a PSD in an FBX by its name, a TGA named and a TIFF there, a DDS of a similar name), TIFF, PSD and
+// DDS read in the page with the pixels they were made from (tools/studio/test/pictures.mjs), a refused picture's
+// sentence, the card's lines; the card's Use and Choose (a stubbed chooser) converting at once to a GLB whose record has
+// tex and that loads back textured, the object switched to it where it stands; Add a texture on an untextured model
+// with UVs; roughness and metalness packed into one; a bump made a normal map; the Upload pane's plan ('only', 'ext',
+// 'similar', a picture dropped onto a row, Not this and Use) and its GLBs (no relay: downloads); the headset's lines
+{
+  const { PX } = await import('./studio/test/pictures.mjs');
+  const txp = await browser.newPage({ viewport: { width: 1280, height: 760 }, acceptDownloads: true });
+  txp.on('pageerror', e => errors.push('studio textures: ' + (e.stack || e.message)));
+  txp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio textures: ' + m.text()); });
+  const ss = s => txp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => txp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const T_DIR = 'tools/studio/test/scenes/textures/';
+  const MODELS = ['crate.obj', 'panel.fbx', 'brick.obj', 'stone.obj', 'rust.obj', 'broken.obj', 'plain.obj'];
+  const idOf = f => ss(`([...STU.items.values()].find(it => it.rec.file === ${JSON.stringify(f)}) || {}).id || ''`);
+  const card = async f => { await ss(`(select(${JSON.stringify(await idOf(f))}), X.tab = 'item', renderPanes(), 0)`); return txp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' ')); };
+  // the GLB made last (STUDIO.lastGLB): its record, its materials' pictures, and loaded back
+  const lastGLB = () => ss(`(async () => {
+    const L = STUDIO.lastGLB; if (!L) return null;
+    const j = CONV.glbJSON(L.glb), back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej)), mats = [];
+    back.scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) mats.push({ map: !!m.map, normal: !!m.normalMap, rm: !!m.roughnessMap && m.roughnessMap === m.metalnessMap, ao: !!m.aoMap }); });
+    return { ok: L.ok, why: L.why, notes: L.notes, rec: j.asset.extras.studio, mats, mdefs: j.materials };
+  })()`);
+  const waitConv = () => until(`!CV.busy && !!STUDIO.lastGLB`, 60000);
+  await step('studio textures: the ladder (path, name, another kind, similar words), TIFF, PSD in an FBX and DDS read in the page with their pixels, a refusal\'s sentence, the card\'s lines', async () => {
+    await txp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=textures&edit');
+    await txp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STU.scene === 'textures' && STU.listing === 'ok'`, 30000)) { errors.push('studio textures: the textures scene did not open: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 300)); return; }
+    await ss(`(${JSON.stringify(MODELS)}.forEach(f => addModel(f)), 0)`);
+    if (!await until(`LIB.size === 7 && [...LIB.values()].every(E => E.state === 'ready' || E.state === 'failed')`, 60000)) { errors.push('studio textures: the models did not load'); return; }
+    const M = await ss('STUDIO.state().models'), bad = [];
+    const want = {
+      'crate.obj': { found: { 'wood.tif': ['tex/wood.tif', 'path'], 'crate_height.png': ['crate_height.png', 'path'] }, decoded: ['wood.tif TIFF'], missing: [] },
+      'panel.fbx': { found: { 'Panel_Albedo.PSD': ['panel_albedo.psd', 'name'], 'panel_nrm.dds': ['panel_nrm.dds', 'path'] }, decoded: ['Panel_Albedo.PSD PSD (Photoshop)', 'panel_nrm.dds DDS (DirectX)'], missing: [] },
+      'brick.obj': { found: { 'brick.tga': ['brick.tif', 'ext'] }, decoded: ['brick.tga TIFF'], missing: [] },
+      'stone.obj': { found: { 'stone_diffuse.jpg': ['Stone-BaseColor.dds', 'similar'] }, decoded: ['stone_diffuse.jpg DDS (DirectX)'], missing: [] },
+      'rust.obj': { found: {}, decoded: [], missing: ['rust_old.png'] },
+      'broken.obj': { found: { 'broken.tif': ['broken.tif', 'path'] }, decoded: [], missing: ['broken.tif'], why: { 'broken.tif': 'a TIFF compressed with JPEG: save it as PNG' } },
+      'plain.obj': { found: {}, decoded: [], missing: [] },
+    };
+    for (const [f, w] of Object.entries(want)) {
+      const m = M[f], got = m && { found: Object.fromEntries(Object.entries(m.found).map(([k, v]) => [k, [v.path, v.how]])), decoded: m.decoded.map(d => d.name + ' ' + d.fmt), missing: m.missing };
+      if (!m || m.state !== 'ready' || JSON.stringify(got) !== JSON.stringify({ found: w.found, decoded: w.decoded, missing: w.missing }) || (w.why && JSON.stringify(m.why) !== JSON.stringify(w.why))) bad.push(`${f}: ${JSON.stringify(m && Object.assign(got, { state: m.state, why: m.why }))}`);
+    }
+    if (!M['panel.fbx'] || JSON.stringify(M['panel.fbx'].mats) !== '[{"key":"panel","name":"panel","uv":true,"slots":["map","normalMap"],"meshes":["panel"]}]' || JSON.stringify(M['plain.obj'].mats) !== '[{"key":0,"name":"","uv":true,"slots":[],"meshes":["plain"]}]') bad.push('the materials: ' + JSON.stringify([M['panel.fbx'] && M['panel.fbx'].mats, M['plain.obj'] && M['plain.obj'].mats]));
+    // the pictures as the page shows them: sampled from each texture's picture against the pixels it was made from
+    const pts = [[1, 2], [9, 14], [17, 5], [23, 22], [30, 30]];
+    const sample = (f, key) => ss(`(() => { const E = LIB.get(${JSON.stringify(f)}); let t = null; E.root.traverse(o => { for (const m of [].concat(o.material || [])) if (m[${JSON.stringify(key)}]) t = m[${JSON.stringify(key)}]; });
+      if (!t || !t.image) return null; const i = t.image, c = document.createElement('canvas'); c.width = i.naturalWidth || i.width; c.height = i.naturalHeight || i.height; const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+      return { w: c.width, pts: ${JSON.stringify(pts)}.filter(p => p[0] < c.width && p[1] < c.height).map(p => [p, [...x.getImageData(p[0], p[1], 1, 1).data]]) }; })()`);
+    for (const [f, key, px, tol, name] of [['crate.obj', 'map', PX.wood, 3, 'the TIFF (LZW)'], ['brick.obj', 'map', PX.brick, 4, 'the TIFF (PackBits, alpha) for a TGA name'], ['panel.fbx', 'map', PX.panel, 6, 'the PSD in the FBX'], ['stone.obj', 'map', PX.stone, 24, 'the DDS (DXT1)'], ['panel.fbx', 'normalMap', PX.bumps, 6, 'the DDS (BC5) normal map']]) {
+      const s = await sample(f, key);
+      if (!s || !s.pts.length) { bad.push(`${name}: no picture on ${f}'s ${key}`); continue; }
+      const worst = Math.max(...s.pts.map(([p, v]) => Math.max(...px(p[0], p[1]).map((c, k) => Math.abs(c - v[k])))));
+      if (worst > tol) bad.push(`${name}: its pixels are up to ${worst} off (${JSON.stringify(s.pts.map(([p, v]) => [p, v, px(p[0], p[1])]))})`);
+    }
+    // the cards
+    const cs = {};
+    for (const f of MODELS) cs[f] = await card(f);
+    const expect = [
+      ['brick.obj', /Texture brick\.tga: using brick\.tif, the same name as a TIFF\./], ['stone.obj', /Texture stone_diffuse\.jpg: using Stone-BaseColor\.dds, a picture of a similar name\./],
+      ['panel.fbx', /Texture Panel_Albedo\.PSD: read from its PSD \(Photoshop\) file in the page/], ['crate.obj', /Texture wood\.tif: read from its TIFF file/],
+      ['broken.obj', /Missing texture broken\.tif: a TIFF compressed with JPEG: save it as PNG\./], ['rust.obj', /Missing texture rust_old\.png: put it in the scene's folder, or pick a picture for it here\.Use paint\.png.*Choose a picture\.\.\./],
+      ['plain.obj', /TexturesAdd a texture\.\.\./],
+    ];
+    for (const [f, re] of expect) if (!re.test(cs[f])) bad.push(`${f}'s card: ${cs[f].slice(0, 500)}`);
+    if (/Texture .*: using|read from its/.test(cs['rust.obj'])) bad.push('the rust\'s card says it found what it did not: ' + cs['rust.obj'].slice(0, 300));
+    if (bad.length) errors.push(...bad.map(b => 'studio textures: ' + b));
+  });
+  await step('studio textures: the card\'s Use and Choose convert at once (a GLB with tex in its record, loading back textured, switched where it stands), Add a texture, roughness and metalness packed, a bump made a normal map', async () => {
+    const bad = [];
+    // Use: the rust's missing picture from the scene (no relay: the GLB downloaded)
+    await card('rust.obj');
+    let dl = txp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await ss('(STUDIO.lastGLB = null, 0)');
+    await txp.click('#pane-item [data-act="tex:use"][data-v*="paint.png"]');
+    let d = await dl;
+    await waitConv();
+    let g = await lastGLB();
+    if (!d || d.suggestedFilename() !== 'rust.glb' || !g || !g.ok || JSON.stringify(g.rec.tex) !== '[{"name":"rust_old.png","mat":"","slot":"","from":"paint.png","how":"chosen"}]' || !g.mats.length || !g.mats.every(m => m.map) || g.rec.from !== 'rust.obj')
+      bad.push('Use paint.png for rust_old.png: ' + JSON.stringify({ dl: d && d.suggestedFilename(), g: g && { ok: g.ok, why: g.why, rec: g.rec, mats: g.mats } }));
+    if (!/rust\.obj converted .* downloaded as rust\.glb/.test(await ss('CV.note'))) bad.push('the note after Use: ' + await ss('CV.note'));
+    // the GLB served as models/rust.glb, the placed rust switched to it, its corners where they were (1 mm)
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    await txp.route('**/scenes/textures/models/rust.glb*', route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    const rid = await idOf('rust.obj');
+    const corners = `(() => { const it = STU.items.get('${rid}'), b = it.E.info.box, M = new THREE.Matrix4().compose(new THREE.Vector3().fromArray(it.rec.p), new THREE.Quaternion().fromArray(it.rec.q), new THREE.Vector3().setScalar(it.rec.s)), out = [];
+      for (let k = 0; k < 8; k++) out.push(new THREE.Vector3(k & 1 ? b[1][0] : b[0][0], k & 2 ? b[1][1] : b[0][1], k & 4 ? b[1][2] : b[0][2]).applyMatrix4(M).toArray()); return out; })()`;
+    const c0 = await ss(corners);
+    await ss(`(setFiles(STU.files.concat({ path: 'models/rust.glb', bytes: ${bytes.length}, at: 9, kind: 'model' })), GLBREC.set('models/rust.glb', { at: 9, rec: CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } }), p: null }), switchToGLB('rust.obj', 'models/rust.glb', STUDIO.lastGLB.record))`);
+    if (!await until(`(() => { const it = STU.items.get('${rid}'); return it.rec.file === 'models/rust.glb' && it.E && it.E.state === 'ready' && !!it.model; })()`, 30000)) bad.push('the rust did not switch to its GLB');
+    else {
+      const c1 = await ss(corners), worst = Math.max(...c0.map(p => Math.min(...c1.map(q => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])))));
+      const rc = await card('models/rust.glb');
+      if (worst > 0.001 || !/Texture rust_old\.png: paint\.png, chosen by hand \(in this GLB\)\./.test(rc) || /Missing texture/.test(rc)) bad.push('switched: ' + JSON.stringify({ worst, card: rc.slice(0, 400) }));
+      const tx = await ss(`(() => { let n = 0; STU.items.get('${rid}').E.root.traverse(o => { if (o.isMesh && [].concat(o.material).some(m => m.map)) n++; }); return n; })()`);
+      if (!tx) bad.push('the switched rust shows no picture');
+    }
+    await ss('undo()');
+    await ss(`(setFiles(STU.files.filter(f => f.path !== 'models/rust.glb')), GLBREC.delete('models/rust.glb'), 0)`);
+    await txp.unroute('**/scenes/textures/models/rust.glb*');
+    // Choose a picture... (the chooser stubbed with a file from this computer): used from memory, recorded as originals/
+    await card('rust.obj');
+    await ss('(STUDIO.lastGLB = null, 0)');
+    dl = txp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    txp.once('filechooser', () => {});
+    await ss(`(act('tex:choose', JSON.stringify(['${rid}', 'rust_old.png'])), 0)`);
+    await txp.setInputFiles('#stuTex', T_DIR + 'tex/glass.dds');
+    d = await dl;
+    await waitConv();
+    g = await lastGLB();
+    if (!d || !g || !g.ok || JSON.stringify(g.rec.tex) !== '[{"name":"rust_old.png","mat":"","slot":"","from":"originals/glass.dds","how":"chosen"}]' || !g.mats.every(m => m.map)) bad.push('Choose a picture (glass.dds): ' + JSON.stringify(g && { ok: g.ok, why: g.why, rec: g.rec, mats: g.mats }));
+    // Add a texture on the plain box (texture coordinates, no material): a picture of the scene, its slot by its name
+    await card('plain.obj');
+    await txp.click('#pane-item [data-act="tex:add"]');
+    await txp.click('#pane-item [data-act="tex:pick"][data-v="tex/rough.tif"]');
+    await until(`X.texAdd && X.texAdd.slot === 'roughnessMap'`, 5000);
+    const pend = await txp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Adding rough\.tifOnmaterial 1AsColourNormalRoughnessMetalnessOcclusionGlowOpacityPacked \(ORM\)Add and convertCancel/.test(pend)) bad.push('the pending block: ' + pend.slice(0, 500));
+    if (await ss(`document.querySelector('#pane-item [data-act="tex:slot"][data-v="roughnessMap"]').getAttribute('aria-pressed')`) !== 'true') bad.push('Roughness is not preselected for rough.tif');
+    await txp.click('#pane-item [data-act="tex:slot"][data-v="map"]');
+    await ss('(STUDIO.lastGLB = null, 0)');
+    await txp.click('#pane-item [data-act="tex:go"]');
+    await waitConv();
+    g = await lastGLB();
+    if (!g || !g.ok || JSON.stringify(g.rec.tex) !== '[{"name":"","mat":0,"slot":"map","from":"tex/rough.tif","how":"chosen"}]' || !g.mats.every(m => m.map)) bad.push('Add a texture (Colour): ' + JSON.stringify(g && { ok: g.ok, why: g.why, rec: g.rec, mats: g.mats }));
+    // a picture on a model without texture coordinates is refused with its sentence (the converter's own words)
+    const nouv = await ss(`(() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3)); const root = new THREE.Group(); root.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: 'bare' }))); return CONV.addTextures(root, [{ mat: 'bare', slot: 'map', image: document.createElement('canvas') }], {}).why.join(); })()`);
+    if (nouv !== 'bare: it has no texture coordinates (UVs), so a picture cannot be laid on it') bad.push('no UVs: ' + nouv);
+    // roughness and metalness, two pictures, packed into one (green and blue), as glTF keeps them
+    const rm = await ss(`(async () => {
+      const root = new THREE.Group(), mt = new THREE.MeshPhongMaterial({ name: 'rm' }); root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mt));
+      const pic = p => CONV.picture(fileUrl(p, true), { ext: extOf(p) });
+      const d = CONV.addTextures(root, [{ mat: 'rm', slot: 'roughnessMap', image: await pic('tex/rough.tif') }, { mat: 'rm', slot: 'metalnessMap', image: await pic('tex/glass.dds') }], {});
+      const r = await CONV.toGLB({ root, clips: [], guess: { unit: 100, up: 1, sign: 1, read: true, gltf: true }, ext: 'glb', missing: [] }, { name: 'rm', from: 'rm.glb', maxTex: 512 });
+      const j = CONV.glbJSON(r.glb), back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(r.glb.slice(0), '', res, rej));
+      let m = null; back.scene.traverse(o => { if (o.isMesh) m = o.material; });
+      const i = m && m.roughnessMap && m.roughnessMap.image, c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d'); if (i) x.drawImage(i, 0, 0, 16, 16);
+      return { done: d.done, ok: r.ok, notes: r.notes.filter(n => /packed/.test(n)), def: j.materials[0].pbrMetallicRoughness, same: !!m && m.roughnessMap === m.metalnessMap, px: i ? [...x.getImageData(5, 3, 1, 1).data] : null };
+    })()`);
+    // (the GLB keeps the picture upside down, as glTF does for a model whose pictures three.js turns over: at (5, 3) is
+    // rough.tif's (5, 12); glass.dds's blue is 220 throughout)
+    if (!rm || rm.done !== 2 || !rm.ok || !rm.same || !rm.def.metallicRoughnessTexture || rm.def.metallicFactor !== 1 || rm.def.roughnessFactor !== 1 || !rm.notes.length || Math.abs(rm.px[1] - (PX.rough(5, 12)[0] >> 8)) > 12 || Math.abs(rm.px[2] - 220) > 14)
+      bad.push('roughness and metalness packed: ' + JSON.stringify(rm));
+    // the crate converted: its bump (MTL bump -bm 2) made a normal map
+    await card('crate.obj');
+    await ss('(STUDIO.lastGLB = null, 0)');
+    await txp.click('#pane-item [data-act="convert"]');
+    await waitConv();
+    g = await lastGLB();
+    if (!g || !g.ok || !g.mats.every(m => m.map && m.normal) || !g.notes.some(n => /bump map made a normal map/.test(n)) || !g.mdefs[0].normalTexture) bad.push('a bump made a normal map: ' + JSON.stringify(g && { ok: g.ok, why: g.why, notes: g.notes, mats: g.mats }));
+    await ss(`(select(''), X.texAdd = null, 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio textures: ' + b));
+  });
+  await step('studio textures: the Upload pane\'s plan (the only picture left over, another kind of picture, similar words, a picture dropped onto a row, Not this and Use) and its GLBs', async () => {
+    const bad = [];
+    await ss(`(X.tab = 'upload', renderPanes(), 0)`);
+    await ss(`(async () => { const get = async q => new File([await (await fetch(${JSON.stringify(T_DIR)} + q)).arrayBuffer()], q.split('/').pop());
+      upTake(await Promise.all(['rust.obj', 'rust.mtl', 'paint.png', 'brick.obj', 'brick.mtl', 'brick.tif', 'plain.obj', 'stone.obj', 'stone.mtl', 'Stone-BaseColor.dds'].map(async q => ({ path: 'drop/' + q, file: await get(q) })))); return 0; })()`);
+    if (!await until(`!UP.planning && UP.rows.length === 4`, 20000)) { errors.push('studio textures: no plan: ' + JSON.stringify(await ss('STUDIO.state().upload')).slice(0, 400)); return; }
+    let rows = await ss(`STUDIO.state().upload.rows.map(r => [r.title, r.src.join('+'), JSON.stringify(r.tex)])`);
+    const want = [['drop/rust.obj', 'drop/rust.obj+drop/rust.mtl+drop/paint.png', '[["rust_old.png","drop/paint.png","only"]]'], ['drop/brick.obj', 'drop/brick.obj+drop/brick.mtl+drop/brick.tif', '[["brick.tga","drop/brick.tif","ext"]]'],
+      ['drop/plain.obj', 'drop/plain.obj', '[]'], ['drop/stone.obj', 'drop/stone.obj+drop/stone.mtl+drop/Stone-BaseColor.dds', '[["stone_diffuse.jpg","drop/Stone-BaseColor.dds","similar"]]']];
+    if (JSON.stringify(rows) !== JSON.stringify(want)) bad.push('the plan: ' + JSON.stringify(rows));
+    await ss('(renderPanes(), 0)');
+    const plan = await txp.evaluate(() => document.querySelector('#pane-upload .stu-plan').textContent.replace(/\s+/g, ' '));
+    if (!/Texture rust_old\.png: drop\/paint\.png \(the only picture left over\)/.test(plan) || !/Texture brick\.tga: drop\/brick\.tif \(the same name as another kind of picture\)/.test(plan) || !/Texture stone_diffuse\.jpg: drop\/Stone-BaseColor\.dds \(a picture of a similar name\)/.test(plan)) bad.push('the plan\'s words: ' + plan.slice(0, 700));
+    // Not this: the rust's picture left over again (a row of its own), then Use it (by hand)
+    await txp.click('#pane-upload [data-act="up:unuse"]');
+    await until(`UP.rows.length === 5 && UP.rows[4].kind === 'keep'`, 5000);
+    await ss('(renderPanes(), 0)');
+    if (!/Texture rust_old\.png: not among the filesUse paint\.pngChoose a file\.\.\./.test(await txp.evaluate(() => document.querySelector('#pane-upload .stu-plan').textContent.replace(/\s+/g, ' ')))) bad.push('Not this: ' + JSON.stringify(await ss(`STUDIO.state().upload.rows.map(r => [r.kind, r.title, JSON.stringify(r.tex)])`)));
+    await txp.click('#pane-upload [data-act="up:use"]');
+    await until(`UP.rows.length === 4`, 5000);
+    // a picture dropped onto the plain box's row: laid on as its colour (by its name)
+    const ri = await ss(`UP.rows.findIndex(r => r.main.name === 'plain.obj')`);
+    await txp.evaluate(async ([ri, dir]) => { const f = new File([await (await fetch(dir + 'tex/wood.tif')).arrayBuffer()], 'wood.tif'); const dt = new DataTransfer(); dt.items.add(f); document.querySelector(`#pane-upload .stu-plan li[data-row="${ri}"]`).dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); }, [ri, T_DIR]);
+    await until(`UP.rows[${ri}].adds.length === 1`, 5000);
+    rows = await ss(`STUDIO.state().upload.rows.map(r => [r.title, r.src.join('+'), JSON.stringify(r.tex), JSON.stringify(r.adds), r.out.join('+')])`);
+    if (rows.length !== 4 || rows[0][2] !== '[["rust_old.png","drop/paint.png","chosen"]]' || rows[2][1] !== 'drop/plain.obj+wood.tif' || rows[2][3] !== '[["wood.tif","map"]]' || rows[2][4] !== 'models/plain.glb+originals/drop/plain.obj+originals/wood.tif') bad.push('Use, and a picture dropped onto a row: ' + JSON.stringify(rows));
+    // Convert (no relay): four GLBs, each with its pictures and its record
+    await txp.click('#pane-upload [data-act="up:run"]');
+    if (!await until(`!UP.busy && UP.ran`, 90000)) bad.push('converting did not finish');
+    const out = await ss(`(async () => { renderPanes(); const out = {}; for (const a of document.querySelectorAll('#pane-upload .stu-plan a[download]')) { const n = a.getAttribute('download'), b = await (await fetch(a.href)).arrayBuffer(), j = CONV.glbJSON(b); out[n] = [JSON.stringify(j.asset.extras.studio.tex), j.materials.every(m => m.pbrMetallicRoughness && m.pbrMetallicRoughness.baseColorTexture)]; } return out; })()`);
+    const wantOut = {
+      'rust.glb': ['[{"name":"rust_old.png","mat":"","slot":"","from":"originals/drop/paint.png","how":"chosen"}]', true], 'brick.glb': ['[{"name":"brick.tga","mat":"","slot":"","from":"originals/drop/brick.tif","how":"ext"}]', true],
+      'plain.glb': ['[{"name":"","mat":"*","slot":"map","from":"originals/wood.tif","how":"chosen"}]', true], 'stone.glb': ['[{"name":"stone_diffuse.jpg","mat":"","slot":"","from":"originals/drop/Stone-BaseColor.dds","how":"similar"}]', true],
+    };
+    if (JSON.stringify(out) !== JSON.stringify(wantOut)) bad.push('the GLBs made: ' + JSON.stringify(out));
+    await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio textures: ' + b));
+  });
+  await step('studio textures: no texture buttons and nothing converted for a visitor or with editing off', async () => {
+    const bad = [];
+    for (const how of ['visit', 'edit off']) {
+      const r = await ss(`(() => {
+        const was = OPT.visit;
+        if (${JSON.stringify(how)} === 'visit') OPT.visit = true; else setEdit(false);
+        const it = [...STU.items.values()].find(it => it.rec.file === 'rust.obj');
+        select(it.id); X.tab = 'item'; renderPanes();
+        const btns = document.querySelectorAll('#pane-item [data-act^="tex:"]').length;
+        STUDIO.lastGLB = null;
+        act('tex:use', JSON.stringify([it.id, 'rust_old.png', 'paint.png']));
+        act('tex:add', it.id);
+        const r = { btns, busy: CV.busy, adding: !!X.texAdd };
+        OPT.visit = was; setEdit(true); X.texAdd = null; renderPanes();
+        return r;
+      })()`);
+      if (r.btns || r.busy || r.adding) bad.push(how + ': ' + JSON.stringify(r));
+    }
+    if (bad.length) errors.push(...bad.map(b => 'studio textures: ' + b));
+  });
+  await step('studio textures: the headset\'s card says what is missing and to add a texture on a laptop, with no buttons of the page\'s', async () => {
+    const bad = await ss(`(() => {
+      const out = [], draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      setEdit(true); XR.on = true;
+      for (const f of ['rust.obj', 'plain.obj', 'stone.obj']) {
+        select([...STU.items.values()].find(it => it.rec.file === f).id); X.tab = 'item'; X.scroll = {}; draw();
+        const ids = XR.main.regions.map(r => r.id), txt = paneBlocks('item').filter(b => !b.page).map(b => b.p || '').join(' ');
+        if (ids.some(i => /^tex/.test(i) || i === 'convert')) out.push(f + ': the headset\\'s card has the page\\'s buttons: ' + ids.join(' '));
+        if (f !== 'stone.obj' && !/Add a texture on a laptop/.test(txt)) out.push(f + ': the headset\\'s card does not say to add a texture on a laptop: ' + txt.slice(0, 300));
+        if (f === 'rust.obj' && !/Missing texture rust_old\\.png: put it in the scene's folder\\./.test(txt)) out.push('the headset\\'s rust card: ' + txt.slice(0, 300));
+        if (f === 'stone.obj' && !/Texture stone_diffuse\\.jpg: using Stone-BaseColor\\.dds/.test(txt)) out.push('the headset\\'s stone card: ' + txt.slice(0, 300));
+      }
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio textures: ' + b));
+    await txp.close();
   });
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)

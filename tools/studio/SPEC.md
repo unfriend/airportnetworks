@@ -90,9 +90,11 @@ placed by itself).
   The add-ons are three.js r128's own, vendored in `tools/studio/vendor/` (see its README) and pasted into the built
   file by `build.mjs` with their licence lines (no extra file to load, works offline). Wrap them so their globals do not
   leak beyond `THREE.*` (fflate's UMD must not need `module` or `define`).
-- Textures a file names but does not hold are looked for in the scene's listing by their base name (case-insensitive;
-  the FBX's full path from the author's computer, `C:\Users\...\x.png`, is ignored), through the URL modifier. One not
-  found: the model shows untextured and its card says *Missing texture x.png: put it in the scene's folder*.
+- Textures a file names but does not hold are looked for in the scene's pictures by the ladder ("Textures: found, added,
+  converted" below: its path, its name in any case, the same name as another kind of picture, a name of the same words;
+  the FBX's full path from the author's computer, `C:\Users\...\x.png`, is ignored), through the URL modifier, and TIFF,
+  PSD and DDS pictures are read in the page. One not found: the model shows untextured and its card says *Missing texture
+  x.png: put it in the scene's folder*, and offers pictures for it.
 - Textures larger than 4,096 px on a side are drawn down to 4,096 (`&maxtex=` changes it, 512 to 8,192) before they go
   to the GPU, and the card says so: the atelier's 8,192 px JPEG alone would take about 340 MB of the headset's memory.
 - When a file is first placed its item gets the file's units and up axis as its starting scale and turn (stored in the
@@ -287,6 +289,108 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
   extras, has the same base name) stands for it: the original shows only under *Originals*; placing places the GLB. A
   placed original's card says *A converted GLB is in the scene: switch to it* (the same switch as after converting).
 
+## Textures: found, added, converted (the owner, 4 November 2026)
+
+The owner: "it needs a way to add textures to models in case they are missing, preferably with autoassign and direct
+convert to good formats". Three parts: the studio reads more kinds of picture, finds a texture under another name by
+itself, and lets a picture be given by hand, baked at once into the model's GLB. A picture laid on is **never stored in
+`layout.json` or `collab.state()`** (no `FORMAT` change, the records unchanged): it lives in the GLB and its record.
+
+- **Reading pictures** (`tools/studio/engine/images.js`, plain JavaScript, also loaded by `convert.mjs`'s page and the
+  Node test): the browser shows PNG, JPEG, WebP, GIF, BMP and AVIF; TGA goes through three.js's `TGALoader`; **TIFF**
+  (baseline, strips or tiles, none, LZW, PackBits or Deflate, the horizontal predictor, 1 to 16 bits, grey, RGB, palette
+  or CMYK, alpha associated or not, either byte order), **PSD and PSB** (the merged picture, raw, RLE or zipped, 1, 8 or
+  16 bits, RGB, grey, CMYK, palette, bitmap, duotone; the channel after the colours is transparency only when the file
+  says so (a negative layer count) or nothing names it (no layers and no named or numbered alpha channels: a saved
+  selection or mask is left out), and then the colours are un-blended from white as Photoshop keeps them; an empty one
+  says *save it with Maximise compatibility on*) and **DDS** (the largest picture: uncompressed
+  by its masks, DXT1/BC1, DXT3/BC2, DXT5/BC3, BC4 and BC5, a normal map's z rebuilt; the DX10 header for those) are
+  read in the page. Refused with a sentence: EXR and Radiance HDR (*an HDR picture (EXR): save it as PNG or JPEG*),
+  HEIC, KTX and KTX2, BC6H and BC7, a TIFF compressed with JPEG, CCITT and the like, 32-bit PSDs. A picture is told by its
+  bytes first, so a file named wrongly still reads. Broken or forged files are refused in words, quickly, before any
+  memory their headers claim is asked for: at most 64 million pixels (8,192 x 8,192); the data must be in the file (a
+  file too short for its size at the most its compression packs is *cut short*); strips or tiles of no size and counts
+  past the end refused; Deflate unpacked to at most the bytes a strip or channel needs (a small stream can unpack to
+  gigabytes); a reader's own error (out of range) said as *a TIFF cut short or damaged: save it again, or as PNG*.
+- **During a load** (the converter's `load`, which the viewer, Convert to GLB, the Upload pane and `convert.mjs` share):
+  the names a model gives (an FBX's texture names, an OBJ's MTL names, a glTF's image addresses) that stand for a TIFF,
+  PSD or DDS (or a TGA under another name) are fetched and read first, drawn down to the texture limit, and given to the
+  loader as a PNG (a blob address, revoked once loaded or once the load fails; kept by the address each name stands for,
+  so two pictures of one name in two folders stay two). A TGA name goes through a handler that reads whatever its bytes
+  are (the FBX loader sends `.tga` names to the TGA handler whatever the file turned out to be). three.js's FBX loader
+  makes an empty texture for any name ending in `.psd` without asking for it, so each such name in the FBX's bytes is
+  made `.ps~` first (the same length: binary, only string records that end there; ASCII, quoted strings) and back again
+  in the URL modifier. A picture that cannot be read counts as missing, with its sentence (`why`).
+- **The ladder** (`CONV.texFind(name, pictures, { dir })`, in `images.js`): `path` the path the model gives, from its
+  folder, then from the scene's top; `name` its file name in any case (the nearest: the model's own folder first);
+  `ext` its name with another picture's extension (`x.tga` for `x.png`; PNG, JPEG, WebP, TGA, BMP, TIFF, PSD, DDS in that
+  order); `similar` the same words but colour words (`diffuse`, `diff`, `albedo`, `basecolor`, `color`, `colour`, `col`,
+  `d`, `tex`, `texture`; split at separators and at a capital after a small letter), in the same slot, and only when
+  exactly one picture is so (one in two kinds counts once). Slot words are never dropped, so a normal map never stands
+  in for a colour one. `CONV.slotOf(name, mean)`: a colour word anywhere (`diffuse`, `diff`, `albedo`, `basecolor`,
+  `color`, `colour`, `col`, a last `_d`) makes it `map` (`Metal_Door_Albedo.jpg`, `Arm_Diffuse.png`); else only its last
+  word says the slot, sizes, numbers, `gl`, `dx` and `map` after it aside (`stone_rough_2k.png` is roughness,
+  `Rough_Stone.png` a colour picture): `orm`, `normalMap` (`normal`, `nrm`, `norm`, `nor`, `_n`), `roughnessMap`
+  (`rough`, `_r`), `metalnessMap` (`metal`, `metallic`, `_m`), `aoMap` (`ao`, `occlusion`), `emissiveMap` (`emissive`,
+  `emission`, `glow`, `_e`), `alphaMap` (`opacity`, `alpha`, `mask`), else `map`, unless its mean colour is a normal
+  map's bluish purple (and the slot was not chosen by hand meanwhile). `CONV.texRank` orders a scene's pictures for a
+  name: the ladder's hit, shared words, the same slot, the same folder, and ones no other model uses.
+- **The card** (an object's Item pane): each missing name in amber, with, on a page with editing on (never with
+  `&visit`), up to three of the scene's pictures as *Use <file>* (the likeliest first) and *Choose a picture...* (a file
+  from this computer: with a relay that takes uploads it goes to `originals/<file>` and is used from there; without one
+  it is used from memory and the GLB downloaded). A picture the reader refused says why. A texture found by `ext` or
+  `similar`, or read from a TIFF, PSD or DDS, has a faint line (*Texture x.tga: using brick.tif, the same name as a
+  TIFF*), and a GLB's own record its pictures laid on (*Texture x: paint.png, chosen by hand (in this GLB)*). *Add a
+  texture...* (a model whose materials have texture coordinates): a picture of the scene (the likeliest by name first) or
+  *Choose a picture...*, then the material (*On*, a press for the next when there are several) and the slot (*As*:
+  Colour, Normal, Roughness, Metalness, Occlusion, Glow, Opacity, Packed (ORM); chosen by the picture's name or a normal
+  map's colour until a slot is pressed),
+  *Add and convert* and *Cancel*. One press converts at once (*Adding x.png: converting...*, *...uploading
+  models/x.glb*), the result as Convert to GLB's. In a headset the card says what is missing and *Add a texture on a
+  laptop*, with no buttons for it.
+- **Baked in** (`texGo` and `convertFile` in `engine/e7b_upload.js`): the GLB is written by Convert to GLB's own path
+  (with a relay: `models/<name>.glb`, objects placed from the original switched to it where they stand; else downloaded)
+  with the pictures laid on, and its record lists them: `asset.extras.studio.tex = [{ name (the name the model gave, ''
+  for a slot added), mat (a material's name, its index when unnamed or shared, '*' every material lacking that slot),
+  slot, from (the picture's path in the scene), how ('path', 'name', 'ext', 'similar', 'only', 'stem' or 'chosen') }]`
+  (`glbRecord` passes it on, checked and at most 40). Converting the original again lays the ones chosen by hand on again
+  (read from the GLB made from it). An object on a GLB is fixed by making that GLB again: from its `from` original when
+  that is in the scene, else from the GLB itself (its glTF guess: scale 1, no turn), the old GLB first kept under
+  `originals/` when it is replaced where it is. A slot added on a GLB's material and laid on its original finds that
+  material there by its meshes' names, else its own name (one shared Phong material is one material per mesh in the GLB,
+  so their order and keys differ), and the record keeps the original's key; a record made again from itself keeps one
+  entry per name or material and slot (the newest). A picture chosen from this computer and uploaded stays in
+  `originals/` when the conversion does not run after all (the scene changed, editing went off, the story was locked),
+  and the note says so.
+- **`CONV.addTextures(root, list, o)`** lays a picture on a material that had none in that slot: it needs texture
+  coordinates (else *it has no texture coordinates (UVs), so a picture cannot be laid on it*); right way up for a model
+  through the glTF loader (`flipY` off), else turned over as three.js does; an occlusion picture gets a second set of
+  coordinates from the first (and the viewer gives one to an occlusion map that has none); an `orm` picture goes in
+  occlusion, roughness and metalness at once; a roughness or metalness picture sets its factor to 1; a glow picture makes
+  a black emissive colour white.
+- **In the GLB** (`toGLB`): separate roughness and metalness pictures are packed into one (roughness in green, metalness
+  in blue, as three.js reads them and glTF keeps them; r128's exporter drops them otherwise); a bump map (FBX's, an
+  MTL's `bump`) becomes a normal map from its slopes (a Sobel filter over its brightness, as steep as its `bumpScale`
+  says) instead of being left out; each note says so. Textures are still drawn down (2,048 For Quest, else 4,096) and
+  written as JPEG when opaque, PNG otherwise.
+- **The Upload pane**: a model's row lists each texture name it gives with what it will have and how it was found, or,
+  missing, the dropped pictures no model uses (likeliest first) as *Use <file>* and *Choose a file...*. Found by the
+  ladder against what was dropped, then `only`: exactly one model lacking exactly one texture and exactly one dropped
+  picture no model uses are put together (*the only picture left over*) when the picture's slot is the name's (a normal
+  map left over never stands in for a missing colour picture; it is still offered as *Use*). *Not this* takes a pairing made by hand or by
+  `only` back. A picture dropped onto a model's row is that row's: for a texture it lacks, else laid on as a slot of its
+  own (by its name or a normal map's colour; a press changes it). A picture a row uses goes to `originals/` as that row's
+  file, not as a row of its own. At convert time a model with no colour picture at all takes a left-over picture whose
+  words match the model's or a material's name (`stem`), and says so.
+- **`convert.mjs`**: `--texture <name>=<picture>` (a name the model gives), `--texture <material>:<slot>=<picture>` (a
+  slot added; the material's name, its number from 0, or `*`) and `--textures <dir>` (more pictures to look in, any
+  depth), by the same ladder; it prints what each texture was found as and writes `tex`.
+- **Formats in the relay's listing**: `.tif`, `.tiff`, `.psd`, `.psb`, `.dds` and `.avif` are images (`relay/scenes.mjs`),
+  served with their types (`image/tiff`, `image/vnd.adobe.photoshop`, `image/vnd-ms.dds`, `image/avif`).
+- Untested: real pictures from Photoshop, Substance and game engines beyond the generated ones and those ImageMagick and
+  Pillow write (checked by hand while building), a big TIFF or PSD's memory in a headset's browser (they are read on a
+  page), and how a bump made a normal map looks against the original.
+
 ## The upload page (the owner, 4 November 2026)
 
 The owner: "the relay should offer an upload page where everything gets converted into the right formats directly and
@@ -366,6 +470,13 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
+  `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,
+  DXT5 and BC5): OBJs and an ASCII FBX that name their pictures by each rung of the ladder, one that lacks its picture,
+  one whose picture is refused, and a box with no material. `node tools/studio/test-images.mjs` (seconds, no browser)
+  reads every picture back against the pixels it was made from (exact, or within the block format's error), more kinds
+  made in memory, the refusals, the ladder, `slotOf`, `texRank` and the `.psd` renaming. The smoke test's *studio
+  textures* steps and `tools/collab.mjs --studio`'s texture step: "Testing" in `AGENTS.md`.
 - `tools/studio/test/scenes/test/`: small files made by `tools/studio/test/make.mjs` (committed with what they make,
   under 200 KB together): an animated `box.glb` (two clips), an ASCII `figure.fbx` (a mesh with a material naming
   `figure.png` beside it, a take that turns it, Z up and in centimetres, so both guesses show), `figure.png`, a

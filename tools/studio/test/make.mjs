@@ -11,6 +11,20 @@
 //               as centimetres, 0.8 m) with its MTL naming its texture: an original to place, and to drop on the Upload
 //               pane in the smoke test (with figure.fbx and figure.png, tone.wav and sounds/long.wav)
 //   layout.json one object of each model, a cube showing the figure and the sound and hiding the box, and the sound
+// and the second test scene, tools/studio/test/scenes/textures/ (no layout: the tests place what they need), for the
+// textures a model names and the scene lacks or holds in a kind the browser cannot show (tools/studio/SPEC.md, "Textures:
+// found, added, converted"; the pictures from tools/studio/test/pictures.mjs, which tools/studio/test-images.mjs reads back):
+//   crate.obj + crate.mtl   its colour tex/wood.tif (a TIFF, LZW: the ladder's 'path'), its bump crate_height.png (made a
+//               normal map when converted)
+//   panel.fbx   an ASCII FBX naming C:\art\Panel_Albedo.PSD (panel_albedo.psd: 'name'; a PSD, which three.js's loader
+//               never asks for: renamed in its bytes) and panel_nrm.dds (BC5, a normal map: 'path')
+//   brick.obj + brick.mtl   brick.tga, not there: brick.tif ('ext'; PackBits, with alpha)
+//   stone.obj + stone.mtl   stone_diffuse.jpg, not there: Stone-BaseColor.dds ('similar'; DXT1)
+//   rust.obj + rust.mtl     rust_old.png, not there and nothing like it (the card's Use and Choose; the Upload pane's
+//               'only' with paint.png)
+//   broken.obj + broken.mtl broken.tif, a TIFF compressed with JPEG (refused, with a sentence)
+//   plain.obj   texture coordinates and no material (Add a texture)
+//   tex/rough.tif (16-bit grey, Deflate), tex/glass.dds (DXT5, see-through), paint.png: pictures to pick
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
 // usage (from the repository root): node tools/studio/test/make.mjs
@@ -20,6 +34,7 @@ import path from 'path';
 import zlib from 'zlib';
 import { execFileSync } from 'child_process';
 import { layoutText } from '../../../relay/scenes.mjs';
+import { scenePictures } from './pictures.mjs';
 const here = path.dirname(new URL(import.meta.url).pathname);
 
 // ---- index.json and files.json: what tools/studio/scan.mjs writes (the relay's own listing rules), run after the files
@@ -305,7 +320,138 @@ const files = {
 };
 let total = 0;
 for (const [f, b] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true }); fs.writeFileSync(path.join(out, f), b); total += b.length; }
+
+// ---- the textures scene
+const tout = path.join(here, 'scenes/textures');
+fs.rmSync(tout, { recursive: true, force: true });
+// a 1 m box (an OBJ gives no units: metres), its faces' texture coordinates whole
+function boxObj(mtl) {
+  const c = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]].map(p => [p[0] - 0.5, p[1], p[2] - 0.5]);
+  const faces = [[[4, 5, 6, 7], 1], [[1, 0, 3, 2], 2], [[5, 1, 2, 6], 3], [[0, 4, 7, 3], 4], [[7, 6, 2, 3], 5], [[0, 1, 5, 4], 6]];
+  const vn = ['0 0 1', '0 0 -1', '1 0 0', '-1 0 0', '0 1 0', '0 -1 0'];
+  return ['# The studio\'s texture test: a 1 m box', ...(mtl ? ['mtllib ' + mtl + '.mtl'] : []), 'o ' + (mtl || 'plain'), ...c.map(p => 'v ' + p.join(' ')), 'vt 0 0', 'vt 1 0', 'vt 1 1', 'vt 0 1', ...vn.map(n => 'vn ' + n),
+    ...(mtl ? ['usemtl ' + mtl] : []), ...faces.map(([q, n]) => 'f ' + q.map((v, k) => `${v + 1}/${k + 1}/${n}`).join(' ')), ''].join('\n');
+}
+const mtlText = (name, lines) => ['# a texture test material', 'newmtl ' + name, 'Kd 1 1 1', 'Ka 0 0 0', ...lines, ''].join('\n');
+// panel.fbx: a 1 m x 1 m panel 4 cm thick (centimetres, Y up), its colour named by an author's path to a PSD and its
+// normal map a DDS beside it
+function panelFbx() {
+  const W = 100, H = 100, D = 4, V = [], PI = [], NR = [], UV = [0, 0, 1, 0, 1, 1, 0, 1], UI = [];
+  for (const p of [[-W / 2, 0, -D / 2], [W / 2, 0, -D / 2], [W / 2, H, -D / 2], [-W / 2, H, -D / 2], [-W / 2, 0, D / 2], [W / 2, 0, D / 2], [W / 2, H, D / 2], [-W / 2, H, D / 2]]) V.push(...p);
+  const quads = [[[4, 5, 6, 7], [0, 0, 1]], [[1, 0, 3, 2], [0, 0, -1]], [[5, 1, 2, 6], [1, 0, 0]], [[0, 4, 7, 3], [-1, 0, 0]], [[7, 6, 2, 3], [0, 1, 0]], [[0, 1, 5, 4], [0, -1, 0]]];
+  for (const [q, n] of quads) q.forEach((v, k) => { PI.push(k === 3 ? -v - 1 : v); NR.push(...n); UI.push(k); });
+  const arr = (name, a, ind) => `${ind}${name}: *${a.length} {\n${ind}\ta: ${a.join(',')}\n${ind}}`, t = '\t', tt = '\t\t', ttt = '\t\t\t';
+  const tex = (id, name, file) => `${t}Texture: ${id}, "Texture::${name}", "" {\n${tt}Type: "TextureVideoClip"\n${tt}Version: 202\n${tt}TextureName: "Texture::${name}"\n${tt}FileName: "${file}"\n${tt}RelativeFilename: "${file}"\n${t}}\n` +
+    `${t}Video: ${id + 1000}, "Video::${name}", "Clip" {\n${tt}Type: "Clip"\n${tt}FileName: "${file}"\n${tt}RelativeFilename: "${file}"\n${t}}`;
+  return `; FBX 7.4.0 project file
+; The studio's texture test panel: Y up, in centimetres
+FBXHeaderExtension:  {
+${t}FBXHeaderVersion: 1003
+${t}FBXVersion: 7400
+${t}Creator: "tools/studio/test/make.mjs"
+}
+GlobalSettings:  {
+${t}Version: 1000
+${t}Properties70:  {
+${tt}P: "UpAxis", "int", "Integer", "",1
+${tt}P: "UpAxisSign", "int", "Integer", "",1
+${tt}P: "UnitScaleFactor", "double", "Number", "",1
+${t}}
+}
+Objects:  {
+${t}Geometry: 1001, "Geometry::panel", "Mesh" {
+${arr('Vertices', V, tt)}
+${arr('PolygonVertexIndex', PI, tt)}
+${tt}GeometryVersion: 124
+${tt}LayerElementNormal: 0 {
+${ttt}Version: 101
+${ttt}Name: ""
+${ttt}MappingInformationType: "ByPolygonVertex"
+${ttt}ReferenceInformationType: "Direct"
+${arr('Normals', NR, ttt)}
+${tt}}
+${tt}LayerElementUV: 0 {
+${ttt}Version: 101
+${ttt}Name: "map1"
+${ttt}MappingInformationType: "ByPolygonVertex"
+${ttt}ReferenceInformationType: "IndexToDirect"
+${arr('UV', UV, ttt)}
+${arr('UVIndex', UI, ttt)}
+${tt}}
+${tt}LayerElementMaterial: 0 {
+${ttt}Version: 101
+${ttt}Name: ""
+${ttt}MappingInformationType: "AllSame"
+${ttt}ReferenceInformationType: "IndexToDirect"
+${arr('Materials', [0], ttt)}
+${tt}}
+${tt}Layer: 0 {
+${ttt}Version: 100
+${ttt}LayerElement:  {
+${ttt}${t}Type: "LayerElementNormal"
+${ttt}${t}TypedIndex: 0
+${ttt}}
+${ttt}LayerElement:  {
+${ttt}${t}Type: "LayerElementMaterial"
+${ttt}${t}TypedIndex: 0
+${ttt}}
+${ttt}LayerElement:  {
+${ttt}${t}Type: "LayerElementUV"
+${ttt}${t}TypedIndex: 0
+${ttt}}
+${tt}}
+${t}}
+${t}Model: 2001, "Model::panel", "Mesh" {
+${tt}Version: 232
+${tt}Properties70:  {
+${ttt}P: "Lcl Translation", "Lcl Translation", "", "A",0,0,0
+${ttt}P: "Lcl Rotation", "Lcl Rotation", "", "A",0,0,0
+${ttt}P: "Lcl Scaling", "Lcl Scaling", "", "A",1,1,1
+${tt}}
+${tt}Shading: T
+${tt}Culling: "CullingOff"
+${t}}
+${t}Material: 3001, "Material::panel", "" {
+${tt}Version: 102
+${tt}ShadingModel: "phong"
+${tt}MultiLayer: 0
+${tt}Properties70:  {
+${ttt}P: "DiffuseColor", "Color", "", "A",1,1,1
+${ttt}P: "Shininess", "double", "Number", "",20
+${tt}}
+${t}}
+${tex(4001, 'panel', 'C:\\art\\Panel_Albedo.PSD')}
+${tex(4002, 'panel_nrm', 'panel_nrm.dds')}
+}
+Connections:  {
+${t}C: "OO",2001,0
+${t}C: "OO",1001,2001
+${t}C: "OO",3001,2001
+${t}C: "OP",4001,3001, "DiffuseColor"
+${t}C: "OP",4002,3001, "NormalMap"
+${t}C: "OO",5001,4001
+${t}C: "OO",5002,4002
+}
+`;
+}
+const panel = panelFbx();
+for (let i = 0, pos = 0; i < K.length; pos += ++i) if (panel[pos] === K[i]) throw new Error(`panel.fbx would read as binary (character ${pos})`);
+const tfiles = {
+  'crate.obj': boxObj('crate'), 'crate.mtl': mtlText('crate', ['map_Kd tex/wood.tif', 'bump -bm 2 crate_height.png']),
+  'panel.fbx': panel,
+  'brick.obj': boxObj('brick'), 'brick.mtl': mtlText('brick', ['map_Kd brick.tga']),
+  'stone.obj': boxObj('stone'), 'stone.mtl': mtlText('stone', ['map_Kd stone_diffuse.jpg']),
+  'rust.obj': boxObj('rust'), 'rust.mtl': mtlText('rust', ['map_Kd rust_old.png']),
+  'broken.obj': boxObj('broken'), 'broken.mtl': mtlText('broken', ['map_Kd broken.tif']),
+  'plain.obj': boxObj(''),
+};
+for (const [f, p] of Object.entries(scenePictures())) tfiles[f] = p.bytes;
+let ttotal = 0;
+for (const [f, b] of Object.entries(tfiles)) { fs.mkdirSync(path.dirname(path.join(tout, f)), { recursive: true }); fs.writeFileSync(path.join(tout, f), b); ttotal += Buffer.byteLength(b); }
+
 scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
+ttotal += fs.statSync(path.join(tout, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);
+console.log(`wrote tools/studio/test/scenes/textures/ (${Object.keys(tfiles).length} files): ${(ttotal / 1024).toFixed(1)} KB with its listing`);

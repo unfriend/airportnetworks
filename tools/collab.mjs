@@ -2698,6 +2698,8 @@ async function studioRound(dir) {
   const tmp = n => fs.mkdtempSync(path.join(os.tmpdir(), 'collab-' + n + '-'));
   const SC = tmp('scenes'), SC2 = tmp('scenes-pass'), logs = tmp('logs-pass'), TEST = path.join(root, 'tools', 'studio', 'test', 'scenes');
   fs.cpSync(TEST, SC, { recursive: true }); fs.cpSync(TEST, SC2, { recursive: true });
+  // (the textures test scene left out: the pages here list exactly two scenes; a model of it comes into test/ below)
+  for (const d of [SC, SC2]) fs.rmSync(path.join(d, 'textures'), { recursive: true, force: true });
   fs.mkdirSync(path.join(SC, 'quiet'));
   fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
   if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -2908,6 +2910,28 @@ async function studioRound(dir) {
     check(`studio: Convert to GLB on a page writes models/figure.glb through the relay (${cvT.toFixed(1)} s), every page's and the headset's figure switches to it where it stands (corners within 1 mm), and the Add list shows the FBX under Originals`,
       btn && cvDone && onDisk && sw.every(Boolean) && worst < 0.001 && lists && !!rec[0] && rec[0].from === 'figure.fbx',
       JSON.stringify({ btn, cvDone, onDisk, sw, worst, lists, rec, note: await sp(A, 'CV.note') }));
+
+    // ---- a texture added from a page's card: a model that lacks its picture (the textures scene's rust.obj names
+    // rust_old.png) copied into the scene and placed; its card's Use paint.png converts it at once, through the relay
+    for (const f of ['rust.obj', 'rust.mtl', 'paint.png']) fs.copyFileSync(path.join(TEST, 'textures', f), path.join(SC, 'test', f));
+    const rSeen = await sUntil(A, `STU.fileMap.has('rust.obj') && STU.fileMap.has('paint.png')`, 12000);
+    const rustId = rSeen ? await sp(A, `addModel('rust.obj')`) : '';
+    const rLoaded = [];
+    for (const p of [A, B, C, H]) rLoaded.push(!!rustId && await sUntil(p, `(() => { const it = STU.items.get('${rustId}'); return !!(it && it.E && it.E.state === 'ready' && it.E.missing.has('rust_old.png') && it.model); })()`, 30000));
+    const rBox = `(() => { const b = objBox(STU.items.get('${rustId}')); return b ? [...b.min.toArray(), ...b.max.toArray()] : null; })()`;
+    const rc0 = await sp(B, rBox);
+    await sp(A, `(setEdit(true), select('${rustId}'), X.tab = 'item', renderPanes(), 0)`);
+    const useBtn = await sUntil(A, `!!document.querySelector('#pane-item [data-act="tex:use"][data-v*="paint.png"]:not([disabled])')`, 8000);
+    if (useBtn) await click(A, '#pane-item [data-act="tex:use"][data-v*="paint.png"]');
+    const tDone = useBtn && await sUntil(A, `!CV.busy && CV.done.includes('models/rust.glb')`, 90000);
+    const tRec = (() => { try { const b = fs.readFileSync(path.join(SC, 'test', 'models', 'rust.glb')); return JSON.parse(b.toString('utf8', 20, 20 + b.readUInt32LE(12))).asset.extras.studio; } catch (e) { return null; } })();
+    const tsw = [];
+    for (const p of [A, B, C, H]) tsw.push(await sUntil(p, `(() => { const it = STU.items.get('${rustId}'), E = LIB.get('models/rust.glb'); let n = 0; if (it && it.model) for (const o of it.model.meshes || []) if ([].concat(o.material).some(m => m.map)) n++; return !!it && it.rec.file === 'models/rust.glb' && !!E && E.state === 'ready' && it.built === E.gen && n > 0; })()`, 30000));
+    const rc1 = await sp(B, rBox), tWorst = rc0 && rc1 ? Math.max(...rc0.map((v, i) => Math.abs(v - rc1[i]))) : Infinity;
+    check('studio: a texture added from a page\'s card (Use paint.png for the rust_old.png the model lacks) converts it at once: models/rust.glb through the relay, the picture in its record, and every page\'s and the headset\'s object switches to it, textured, where it stands',
+      rSeen && !!rustId && rLoaded.every(Boolean) && useBtn && tDone && !!tRec && JSON.stringify(tRec.tex) === '[{"name":"rust_old.png","mat":"","slot":"","from":"paint.png","how":"chosen"}]' && tsw.every(Boolean) && tWorst < 0.001,
+      JSON.stringify({ rSeen, rustId, rLoaded, useBtn, tDone, tRec, tsw, tWorst, note: await sp(A, 'CV.note') }));
+    await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));

@@ -15742,7 +15742,7 @@ const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && 
 const extOf = p => (/\.([^./\\]+)$/.exec(String(p)) || ['', ''])[1].toLowerCase();
 const baseName = p => String(p).split(/[\\/]/).pop();
 const stem = p => baseName(p).replace(/\.[^.]*$/, '');
-const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp'], data: ['bin'] };
+const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp', 'tif', 'tiff', 'psd', 'psb', 'dds', 'avif'], data: ['bin'] };
 const kindOf = p => { const e = extOf(p); for (const k in KINDS_EXT) if (KINDS_EXT[k].includes(e)) return k; return 'other'; };
 // timers that die with the studio (dispose clears them: a late one must not write into the next story's panes)
 const TIMERS = new Set();
@@ -16160,6 +16160,511 @@ function onScenesEvent(d) {
   chooseScene();
   dirty(true);
 }
+// ================================================================= IMAGES ==
+// Pictures and their names (tools/studio/SPEC.md, "Textures: found, added, converted"). Plain JavaScript, no page needed:
+// one module in three places, the studio (pasted into stories/studio.js before the converter by
+// tools/studio/build.mjs), tools/studio/convert.mjs's headless page and tools/studio/test-images.mjs (Node).
+// makeImages(z) gives, z being fflate (unzlibSync, inflateSync; Node's zlib in the test):
+//   decodeImage(ext, bytes)  a TIFF, PSD or DDS as { width, height, data: RGBA }, or an Error saying why not in words
+//   sniff(bytes), way(ext)   what a picture is by its first bytes, and how it is read ('browser', 'tga', 'decode', 'refuse')
+//   texFind(name, pictures, ctx)   the picture a model's texture name stands for: { path, how } or null (the ladder)
+//   texRank(name, pictures, ctx, n), slotOf(name, mean), normStem(name)   pictures by likeness, and what a picture is for
+//   renamePsd(bytes), psdBack(url)   an FBX's .psd names made .ps~ (its loader never asks for a .psd) and back again
+// The browser shows PNG, JPEG, WebP, GIF, BMP and AVIF itself; TGA goes to three.js's TGALoader; TIFF, PSD and DDS are
+// read here (the ones textures come in from Photoshop, Substance and game engines); HDR pictures and GPU-compressed
+// containers are refused with a sentence.
+function makeImages(z) {
+  const PIC = { browser: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'], tga: ['tga'], decode: ['tif', 'tiff', 'psd', 'psb', 'dds'], refuse: ['exr', 'hdr', 'heic', 'heif', 'ktx', 'ktx2'] };
+  const ALL = [].concat(PIC.browser, PIC.tga, PIC.decode, PIC.refuse);
+  // (the order a picture of the same name is taken in, when the one a model names is not there)
+  const PREFER = ['png', 'jpg', 'jpeg', 'webp', 'tga', 'bmp', 'tif', 'tiff', 'psd', 'dds'];
+  const FMT = { png: 'PNG', jpg: 'JPEG', jpeg: 'JPEG', webp: 'WebP', gif: 'GIF', bmp: 'BMP', avif: 'AVIF', tga: 'TGA', tif: 'TIFF', tiff: 'TIFF', psd: 'PSD (Photoshop)', psb: 'PSB (Photoshop)', dds: 'DDS (DirectX)', exr: 'EXR', hdr: 'HDR', heic: 'HEIC', heif: 'HEIF', ktx: 'KTX', ktx2: 'KTX2' };
+  const REFUSE = {
+    exr: 'an HDR picture (EXR): save it as PNG or JPEG', hdr: 'an HDR picture (Radiance HDR): save it as PNG or JPEG',
+    heic: 'a HEIC photo: save it as JPEG', heif: 'a HEIF photo: save it as JPEG',
+    ktx: 'a KTX texture (packed for one kind of GPU): save it as PNG', ktx2: 'a KTX2 texture (packed for one kind of GPU): save it as PNG',
+  };
+  const extOf = p => (/\.([^./\\?#]+)(?:[?#].*)?$/.exec(String(p)) || ['', ''])[1].toLowerCase();
+  const baseOf = p => String(p).split(/[?#]/)[0].split(/[\\/]/).pop();
+  const stemOf = p => baseOf(p).replace(/\.[^.]*$/, '');
+  const way = ext => { ext = String(ext).toLowerCase(); for (const k in PIC) if (PIC[k].includes(ext)) return k; return ''; };
+  const isPicture = p => ALL.includes(extOf(p));
+  const u8of = b => (b instanceof Uint8Array ? b : new Uint8Array(b.buffer ? b.buffer : b, b.byteOffset || 0, b.byteLength));
+  const fail = s => { throw Object.assign(new Error(s), { said: true }); };
+  // (at most 64 million pixels, 8,192 x 8,192: a picture is drawn down to the texture limit after it is read, but read
+  // whole first, 4 bytes a pixel)
+  const MAX_PX = 1 << 26, tooBig = (w, h, k) => w * h > MAX_PX && fail(`a ${k} too large to read here (more than 64 million pixels): save it smaller`);
+  // Deflate unpacked to at most cap bytes (more is left off: a small stream can unpack to gigabytes). fflate's streams,
+  // pushed a piece at a time and stopped once past cap; else (Node's zlib in the test) its own functions with the cap
+  const STOP = {};
+  function unzip(b, cap) {
+    if (!z) fail('a compressed picture, and no inflate here');
+    const zl = b.length > 1 && (b[0] & 15) === 8 && ((b[0] << 8) | b[1]) % 31 === 0;
+    if (!z.Inflate) {
+      try { return z.unzlibSync(b, cap).subarray(0, cap); } catch (e) { return z.inflateSync(b, cap).subarray(0, cap); }
+    }
+    const run = C => {
+      const parts = [];
+      let n = 0;
+      const s = new C(d => { const m = Math.min(d.length, cap - n); if (m > 0) parts.push(d.subarray(0, m)); n += m; if (n >= cap) throw STOP; });
+      try { for (let i = 0; i < b.length; i += 32768) s.push(b.subarray(i, i + 32768), i + 32768 >= b.length); } catch (e) { if (e !== STOP) throw e; }
+      const o = new Uint8Array(n);
+      let p = 0;
+      for (const q of parts) { o.set(q, p); p += q.length; }
+      return o;
+    };
+    if (zl && z.Unzlib) { try { return run(z.Unzlib); } catch (e) { /* not zlib after all */ } }
+    try { return run(z.Inflate); } catch (e) { fail('a picture whose packed data is damaged'); }
+  }
+
+  // ---- what a picture is, by its first bytes ('' unknown: a TGA has no mark)
+  function sniff(bytes) {
+    const u = u8of(bytes), s = String.fromCharCode.apply(null, u.subarray(0, 16));
+    if (u[0] === 0x89 && s.slice(1, 4) === 'PNG') return 'png';
+    if (u[0] === 0xff && u[1] === 0xd8) return 'jpg';
+    if (s.startsWith('GIF8')) return 'gif';
+    if (s.startsWith('RIFF') && s.slice(8, 12) === 'WEBP') return 'webp';
+    if (s.startsWith('BM')) return 'bmp';
+    if (s.slice(4, 12) === 'ftypavif') return 'avif';
+    if (s.slice(4, 12) === 'ftypheic' || s.slice(4, 12) === 'ftypmif1') return 'heic';
+    if ((s.startsWith('II') && u[2] === 42) || (s.startsWith('MM') && u[3] === 42) || (s.startsWith('II') && u[2] === 43) || (s.startsWith('MM') && u[3] === 43)) return 'tif';
+    if (s.startsWith('8BPS')) return 'psd';
+    if (s.startsWith('DDS ')) return 'dds';
+    if (u[0] === 0x76 && u[1] === 0x2f && u[2] === 0x31 && u[3] === 0x01) return 'exr';
+    if (s.startsWith('#?RADIANCE') || s.startsWith('#?RGBE')) return 'hdr';
+    if (s.slice(1, 7) === 'KTX 11') return 'ktx';
+    if (s.slice(1, 7) === 'KTX 20') return 'ktx2';
+    return '';
+  }
+  // a picture read here: by its bytes first (a file named wrongly still reads), else by its name
+  function decodeImage(ext, bytes) {
+    const u = u8of(bytes), k = sniff(u) || String(ext).toLowerCase();
+    // (a file cut short or damaged throws the reader's own error, out of range: said in words)
+    const safe = (f, n) => { try { return f(u); } catch (e) { if (e && e.said) throw e; fail(`a ${n} cut short or damaged: save it again, or as PNG`); } };
+    if (k === 'tif' || k === 'tiff') return safe(tiff, 'TIFF');
+    if (k === 'psd' || k === 'psb') return safe(psd, 'PSD');
+    if (k === 'dds') return safe(dds, 'DDS');
+    if (REFUSE[k]) fail(REFUSE[k]);
+    fail(`a ${FMT[k] || (k ? k.toUpperCase() : 'picture')} file this reader does not take (the browser reads PNG, JPEG, WebP, GIF and BMP)`);
+  }
+  const out = (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+
+  // ---- PackBits (TIFF and PSD): a count byte, then that many bytes as they are, or one byte repeated
+  function packbits(src, n, at, end) {
+    const o = new Uint8Array(n);
+    let i = at || 0, p = 0;
+    end = end === undefined ? src.length : Math.min(end, src.length);   // (a count past the file's end: only what is there)
+    while (i < end && p < n) {
+      const c = src[i++];
+      if (c < 128) { const m = Math.min(c + 1, n - p, end - i); o.set(src.subarray(i, i + m), p); i += c + 1; p += m; }
+      else if (c > 128) { const m = Math.min(257 - c, n - p); o.fill(src[i++], p, p + m); p += m; }
+    }
+    return { o, i };
+  }
+  // ---- TIFF's LZW: codes of 9 to 12 bits, first bit first, 256 clears and 257 ends, one bit wider a code early
+  function lzw(src, n) {
+    const o = new Uint8Array(n), pre = new Int32Array(4096), suf = new Uint8Array(4096), len = new Uint16Array(4096);
+    for (let i = 0; i < 256; i++) { pre[i] = -1; suf[i] = i; len[i] = 1; }
+    let next = 258, bits = 9, old = -1, pos = 0, p = 0;
+    const total = src.length * 8;
+    const put = c => { const L = len[c]; let q = c; for (let k = L - 1; k >= 0; k--) { if (p + k < n) o[p + k] = suf[q]; q = pre[q]; } p = Math.min(n, p + L); };
+    const first = c => { while (pre[c] >= 0) c = pre[c]; return suf[c]; };
+    while (pos + bits <= total && p < n) {
+      const b = pos >> 3, v = ((src[b] << 16) | ((src[b + 1] || 0) << 8) | (src[b + 2] || 0)) >>> (24 - bits - (pos & 7)) & ((1 << bits) - 1);
+      pos += bits;
+      if (v === 257) break;
+      if (v === 256) { next = 258; bits = 9; old = -1; continue; }
+      if (old < 0) { if (v > 255) break; put(v); old = v; }
+      else {
+        if (v < next) { put(v); if (next < 4096) { pre[next] = old; suf[next] = first(v); len[next] = len[old] + 1; next++; } }
+        else if (v === next && next < 4096) { pre[next] = old; suf[next] = first(old); len[next] = len[old] + 1; next++; put(v); }
+        else break;
+        old = v;
+      }
+      if (next + 1 >= (1 << bits) && bits < 12) bits++;
+    }
+    return o;
+  }
+
+  // ---- TIFF: baseline, in strips or tiles; none, LZW, PackBits or Deflate, the horizontal predictor; 1 to 16 bits;
+  // grey, RGB, palette and CMYK, with or without alpha; either byte order
+  const TIFF_COMP = { 2: 'CCITT', 3: 'CCITT fax', 4: 'CCITT fax', 6: 'JPEG', 7: 'JPEG', 34661: 'JBIG', 34712: 'JPEG 2000', 34887: 'LERC', 34925: 'LZMA', 50000: 'Zstandard', 50001: 'WebP', 50002: 'JPEG XL' };
+  function tiff(u) {
+    const dv = new DataView(u.buffer, u.byteOffset, u.byteLength), le = u[0] === 0x49;
+    const r16 = o => dv.getUint16(o, le), r32 = o => dv.getUint32(o, le);
+    if (r16(2) === 43) fail('a BigTIFF (over 4 GB in form): save it as PNG');
+    if (r16(2) !== 42) fail('not a TIFF file');
+    const SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
+    const ifd = r32(4), cnt = r16(ifd), T = {};
+    for (let i = 0; i < cnt; i++) {
+      const e = ifd + 2 + i * 12, tag = r16(e), type = r16(e + 2), n = r32(e + 4), sz = (SIZE[type] || 1) * n;
+      const at = sz <= 4 ? e + 8 : r32(e + 8);
+      if (at + sz > u.length || n > 1 << 24) continue;
+      const v = [];
+      for (let k = 0; k < n; k++) v.push(type === 3 ? r16(at + k * 2) : type === 4 ? r32(at + k * 4) : type === 8 ? dv.getInt16(at + k * 2, le) : type === 9 ? dv.getInt32(at + k * 4, le) : u[at + k]);
+      T[tag] = v;
+    }
+    const one = (t, d) => (T[t] ? T[t][0] : d);
+    const W = one(256, 0), H = one(257, 0), comp = one(259, 1), photo = one(262, 1), spp = one(277, 1), planar = one(284, 1), pred = one(317, 1), sfmt = one(339, 1);
+    const bps = T[258] || [1], bits = bps[0];
+    if (!W || !H) fail('a TIFF without its size');
+    tooBig(W, H, 'TIFF');
+    if (spp < 1 || spp > 16) fail(`a TIFF of ${spp} samples a pixel: save it as PNG`);
+    if (![1, 5, 8, 32773, 32946].includes(comp)) fail(`a TIFF compressed with ${TIFF_COMP[comp] || 'scheme ' + comp}: save it as PNG`);
+    if (sfmt === 3) fail('a TIFF of floating-point numbers (an HDR picture): save it as PNG or JPEG');
+    if (bps.some(b => b !== bits) || ![1, 2, 4, 8, 16].includes(bits) || (spp > 1 && bits < 8)) fail(`a TIFF of ${bps.join(', ')} bits a sample: save it as PNG`);
+    if (![0, 1, 2, 3, 5].includes(photo)) fail(photo === 6 ? 'a TIFF in YCbCr: save it as PNG' : `a TIFF in colour model ${photo}: save it as PNG`);
+    if (photo === 3 && (!T[320] || bits > 8)) fail('a palette TIFF without its palette: save it as PNG');
+    if (photo === 5 && spp < 4) fail('a CMYK TIFF without four inks: save it as PNG');
+    if (pred !== 1 && pred !== 2) fail('a TIFF with a floating-point predictor: save it as PNG');
+    if (pred === 2 && bits < 8) fail(`a TIFF of ${bits} bits a sample with a predictor: save it as PNG`);
+    const tiled = !!T[324], cw = tiled ? one(322, 0) : W, ch = tiled ? one(323, 0) : Math.min(one(278, H) || H, H);
+    const offs = tiled ? T[324] : T[273], lens = tiled ? T[325] : T[279];
+    if (!offs) fail('a TIFF without its picture data');
+    // (tiles or strips of no size would never end; tiles far bigger than the picture would ask for memory it never fills)
+    if (cw < 1 || ch < 1 || (tiled && (cw > W + 1024 || ch > H + 1024))) fail('a TIFF whose strips or tiles have no proper size: save it again, or as PNG');
+    const across = tiled ? Math.ceil(W / cw) : 1, down = Math.ceil(H / ch), per = across * down, planes = planar === 2 ? spp : 1;
+    if (per * planes > offs.length || per > 1 << 20) fail('a TIFF missing some of its strips or tiles: save it again, or as PNG');
+    const sp = planar === 2 ? 1 : spp, rowB = Math.ceil((cw * sp * bits) / 8), want = rowB * ch;
+    // the data there before any memory is asked for: each piece's bytes in the file, and enough of them for the picture
+    // at the most any compression here packs (none 1:1, PackBits 128, Deflate about 1,032, LZW about 2,730)
+    let have = 0;
+    for (let i = 0; i < per * planes; i++) { const at = offs[i], len = lens ? lens[i] : u.length - at; if (at >= u.length) continue; have += Math.min(len, u.length - at); }
+    const RATIO = { 1: 1, 32773: 128, 8: 1100, 32946: 1100, 5: 2800 };
+    if (have * RATIO[comp] < (W * H * spp * bits) / 8 * (comp === 1 ? 1 : 0.9)) fail('a TIFF cut short: save it again, or as PNG');
+    if (comp === 5 && offs.some((at, i) => i < per * planes && u[at] === 0 && u[at + 1] & 1)) fail('a TIFF in the old LZW of the 1980s: save it as PNG');
+    const S = new Uint8Array(W * H * spp), max = (1 << bits) - 1;
+    for (let plane = 0; plane < planes; plane++) {
+      for (let c = 0; c < per; c++) {
+        const idx = plane * per + c, at = offs[idx];
+        if (at === undefined || at >= u.length) continue;
+        const len = lens ? lens[idx] : u.length - at;
+        const raw = u.subarray(at, Math.min(u.length, at + len));
+        let b = comp === 1 ? raw : comp === 5 ? lzw(raw, want) : comp === 32773 ? packbits(raw, want).o : unzip(raw, want);
+        if (pred === 2) {   // (each sample the difference from the one before it in the row)
+          b = new Uint8Array(b);
+          for (let y = 0; y < ch; y++) {
+            const r0 = y * rowB;
+            if (bits === 8) for (let i = sp; i < cw * sp; i++) b[r0 + i] = (b[r0 + i] + b[r0 + i - sp]) & 255;
+            else if (bits === 16) for (let i = sp; i < cw * sp; i++) {
+              const a = r0 + i * 2, q = r0 + (i - sp) * 2, va = le ? b[a] | (b[a + 1] << 8) : (b[a] << 8) | b[a + 1], vq = le ? b[q] | (b[q + 1] << 8) : (b[q] << 8) | b[q + 1], v = (va + vq) & 65535;
+              if (le) { b[a] = v & 255; b[a + 1] = v >> 8; } else { b[a] = v >> 8; b[a + 1] = v & 255; }
+            }
+          }
+        }
+        const x0 = (c % across) * cw, y0 = Math.floor(c / across) * ch;
+        for (let y = 0; y < ch && y0 + y < H; y++) for (let x = 0; x < cw && x0 + x < W; x++) for (let s = 0; s < sp; s++) {
+          const k = x * sp + s, r0 = y * rowB;
+          let v;
+          if (bits === 8) v = b[r0 + k];
+          else if (bits === 16) { const a = r0 + k * 2; v = (le ? b[a + 1] : b[a]) | 0; }   // (the high byte)
+          else { const bit = k * bits; v = (b[r0 + (bit >> 3)] >> (8 - bits - (bit & 7))) & max; if (photo !== 3) v = Math.round((v * 255) / max); }
+          S[((y0 + y) * W + x0 + x) * spp + (planar === 2 ? plane : s)] = v === undefined ? 0 : v;
+        }
+      }
+    }
+    const R = out(W, H), d = R.data, extra = T[338] || [], cm = T[320], pn = 1 << bits;
+    const alphaAt = photo === 2 ? 3 : photo === 5 ? 4 : 1, hasA = spp > alphaAt, assoc = extra[0] === 1;
+    for (let i = 0, j = 0; i < W * H; i++, j += spp) {
+      let r, g, bl;
+      if (photo === 2) { r = S[j]; g = S[j + 1]; bl = S[j + 2]; }
+      else if (photo === 3) { const x = S[j]; r = cm[x] >> 8; g = cm[pn + x] >> 8; bl = cm[2 * pn + x] >> 8; }
+      else if (photo === 5) { const k = 255 - S[j + 3]; r = ((255 - S[j]) * k) / 255; g = ((255 - S[j + 1]) * k) / 255; bl = ((255 - S[j + 2]) * k) / 255; }
+      else { r = g = bl = photo === 0 ? 255 - S[j] : S[j]; }
+      let a = hasA ? S[j + alphaAt] : 255;
+      if (hasA && assoc && a > 0 && a < 255) { r = (r * 255) / a; g = (g * 255) / a; bl = (bl * 255) / a; }   // (premultiplied: undone)
+      d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = bl; d[i * 4 + 3] = a;
+    }
+    return R;
+  }
+
+  // ---- PSD (and PSB): the merged picture Photoshop keeps after the layers, raw, RLE or zipped; 1, 8 or 16 bits; grey,
+  // RGB, CMYK, palette, bitmap and duotone; alpha from the channel after the colours, when the file says it is the
+  // merged picture's transparency
+  function psd(u) {
+    const dv = new DataView(u.buffer, u.byteOffset, u.byteLength), ver = dv.getUint16(4);
+    if (ver !== 1 && ver !== 2) fail('not a PSD file');
+    const big = ver === 2, nch = dv.getUint16(12), H = dv.getUint32(14), W = dv.getUint32(18), depth = dv.getUint16(22), mode = dv.getUint16(24);
+    if (!W || !H) fail('a PSD without its size');
+    tooBig(W, H, 'PSD');
+    if (depth === 32) fail('a 32-bit PSD (an HDR picture): save it as 8 or 16 bits, or as PNG');
+    if (![1, 8, 16].includes(depth)) fail(`a PSD of ${depth} bits a channel: save it as PNG`);
+    if (![0, 1, 2, 3, 4, 8].includes(mode)) fail(mode === 9 ? 'a PSD in Lab colour: save it as RGB, or as PNG' : 'a PSD in multichannel mode: save it as RGB, or as PNG');
+    const need = mode === 3 || mode === 4 ? (mode === 3 ? 3 : 4) : 1;
+    if (nch < need) fail('a PSD with fewer channels than its colours need: save it again, or as PNG');
+    let o = 26;
+    const cmLen = dv.getUint32(o), cmAt = o + 4;
+    o += 4 + cmLen;
+    // image resources: alpha channels named or numbered (1006, 1045, 1053) are channels of their own, saved selections
+    // and masks, not transparency
+    const resLen = dv.getUint32(o), resEnd = o + 4 + resLen;
+    let named = false;
+    for (let r = o + 4; r + 12 <= Math.min(resEnd, u.length);) {
+      if (dv.getUint32(r) !== 0x3842494d) break;   // ('8BIM')
+      const id = dv.getUint16(r + 4), nl = u[r + 6], p = r + 6 + (((nl + 2) >> 1) << 1), len = dv.getUint32(p);
+      if (id === 1006 || id === 1045 || id === 1053) named = true;
+      r = p + 4 + len + (len & 1);
+    }
+    o = resEnd;
+    // layers and masks: a layer count below 0 says the first alpha channel holds the merged picture's transparency
+    const lmLen = big ? Number(dv.getBigUint64(o)) : dv.getUint32(o), lmAt = o + (big ? 8 : 4);
+    const liLen = lmLen ? (big ? Number(dv.getBigUint64(lmAt)) : dv.getUint32(lmAt)) : 0, layers = liLen >= 2 ? dv.getInt16(lmAt + (big ? 8 : 4)) : 0;
+    o = lmAt + lmLen;
+    // (with layers, only a negative count; without any, a fourth channel nothing names is the transparency, as an RGBA
+    // picture saved by most programs has it)
+    const clear = layers < 0 || (layers === 0 && !named);
+    if (o + 2 > u.length) fail('a PSD cut short');
+    const comp = dv.getUint16(o);
+    o += 2;
+    const rowB = Math.ceil((W * depth) / 8), use = Math.min(nch, need + (clear && mode !== 2 ? 1 : 0));
+    // the data there before any memory is asked for (RLE packs at most 128 to 1, zip about 1,032)
+    const left = u.length - o;
+    if ((comp === 0 && left < use * rowB * H) || (comp === 1 && left < nch * H * (big ? 4 : 2)) || (comp === 2 && left * 1100 < use * rowB * H)) fail('a PSD cut short');
+    const ch = [];   // each channel's rows as 8-bit samples
+    const take = (raw, c) => {
+      const q = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const r0 = y * rowB;
+        q[y * W + x] = depth === 8 ? raw[r0 + x] : depth === 16 ? raw[r0 + x * 2] : (raw[r0 + (x >> 3)] >> (7 - (x & 7))) & 1 ? 0 : 255;
+      }
+      ch[c] = q;
+    };
+    if (comp === 0) for (let c = 0; c < use; c++) take(u.subarray(o + c * rowB * H), c);
+    else if (comp === 1) {
+      const cb = big ? 4 : 2, counts = o;
+      let at = o + nch * H * cb;
+      for (let c = 0; c < use; c++) {   // (the channels after those used are not read at all)
+        let sum = 0;
+        for (let y = 0; y < H; y++) sum += big ? dv.getUint32(counts + (c * H + y) * 4) : dv.getUint16(counts + (c * H + y) * 2);
+        if (at + sum > u.length || sum * 128 < rowB * H) fail('a PSD cut short');
+        const raw = new Uint8Array(rowB * H);
+        for (let y = 0; y < H; y++) {
+          const k = c * H + y, n = big ? dv.getUint32(counts + k * 4) : dv.getUint16(counts + k * 2);
+          raw.set(packbits(u, rowB, at, at + n).o, y * rowB);
+          at += n;
+        }
+        take(raw, c);
+      }
+    } else if (comp === 2) {
+      const raw = unzip(u.subarray(o), use * rowB * H);
+      for (let c = 0; c < use; c++) take(raw.subarray(c * rowB * H), c);
+    } else fail('a PSD zipped with prediction: save it as PNG');
+    const R = out(W, H), d = R.data, pal = mode === 2 ? u.subarray(cmAt, cmAt + 768) : null;
+    let any = false;
+    for (let i = 0; i < W * H; i++) {
+      let r, g, b, a = 255;
+      if (mode === 3) { r = ch[0][i]; g = ch[1][i]; b = ch[2][i]; if (ch[3]) a = ch[3][i]; }   // (ch[need] only when it is transparency)
+      else if (mode === 4) { const k = ch[3][i]; r = (ch[0][i] * k) / 255; g = (ch[1][i] * k) / 255; b = (ch[2][i] * k) / 255; if (ch[4]) a = ch[4][i]; }   // (inks stored as 255 less the ink)
+      else if (mode === 2) { const x = ch[0][i]; r = pal[x]; g = pal[256 + x]; b = pal[512 + x]; }
+      else { r = g = b = ch[0][i]; if (ch[1] && mode !== 0) a = ch[1][i]; }
+      // (Photoshop keeps the merged colours of a see-through document blended over white: taken off again, as
+      // ImageMagick's reader does)
+      if (a > 0 && a < 255 && mode !== 2) { const k = 255 / a, wh = 255 - a; r = (r - wh) * k; g = (g - wh) * k; b = (b - wh) * k; }
+      d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = a;
+      if (r > 0 || g > 0 || b > 0 || a) any = true;
+    }
+    if (!any) fail('a PSD whose merged picture is empty: save it with Maximise compatibility on, or as PNG');
+    return R;
+  }
+
+  // ---- DDS: its largest picture only; uncompressed by its masks, DXT1/BC1, DXT3/BC2, DXT5/BC3, BC4 (ATI1), BC5 (ATI2, a
+  // normal map's x and y: its z rebuilt), also under the DX10 header
+  const DXGI = { 28: 'rgba', 29: 'rgba', 87: 'bgra', 91: 'bgra', 88: 'bgrx', 93: 'bgrx', 71: 'bc1', 72: 'bc1', 74: 'bc2', 75: 'bc2', 77: 'bc3', 78: 'bc3', 80: 'bc4', 81: 'bc4s', 83: 'bc5', 84: 'bc5s' };
+  const DXGI_NAME = { 94: 'BC6H (HDR)', 95: 'BC6H (HDR)', 96: 'BC6H (HDR)', 97: 'BC7', 98: 'BC7', 99: 'BC7', 2: '32-bit floats (HDR)', 10: '16-bit floats (HDR)' };
+  function dds(u) {
+    const dv = new DataView(u.buffer, u.byteOffset, u.byteLength), r32 = o => dv.getUint32(o, true);
+    if (u.length < 128 || r32(4) !== 124) fail('not a DDS file');
+    const H = r32(12), W = r32(16), pf = 76, flags = r32(pf + 4), cc = String.fromCharCode(u[pf + 8], u[pf + 9], u[pf + 10], u[pf + 11]);
+    if (!W || !H) fail('a DDS without its size');
+    tooBig(W, H, 'DDS');
+    let kind = '', at = 128;
+    if (flags & 4) {
+      if (cc === 'DX10') { if (u.length < 148) fail('a DDS cut short'); const f = r32(128); at = 148; kind = DXGI[f] || fail(`a DDS of ${DXGI_NAME[f] || 'DXGI format ' + f}: save it as PNG`); }
+      else kind = { DXT1: 'bc1', DXT2: 'bc2', DXT3: 'bc2', DXT4: 'bc3', DXT5: 'bc3', ATI1: 'bc4', BC4U: 'bc4', BC4S: 'bc4s', ATI2: 'bc5', BC5U: 'bc5', BC5S: 'bc5s' }[cc] || fail(`a DDS packed as ${cc.replace(/\0/g, '').trim() || 'an unknown kind'}: save it as PNG`);
+    }
+    // (the data there before the picture's memory is asked for)
+    const bsz = kind === 'bc1' || kind === 'bc4' || kind === 'bc4s' ? 8 : 16, bw = Math.ceil(W / 4), bh = Math.ceil(H / 4);
+    if (!kind || ['rgba', 'bgra', 'bgrx'].includes(kind)) {
+      // uncompressed: each colour by its mask (or the DX10 format's own order)
+      const bpp = kind ? 32 : r32(pf + 12), M = kind === 'rgba' ? [0xff, 0xff00, 0xff0000, 0xff000000] : kind ? [0xff0000, 0xff00, 0xff, kind === 'bgra' ? 0xff000000 : 0] : [r32(pf + 16), r32(pf + 20), r32(pf + 24), flags & 3 ? r32(pf + 28) : 0];
+      const lum = !kind && flags & 0x20000, by = bpp >> 3;
+      if (![8, 16, 24, 32].includes(bpp)) fail(`a DDS of ${bpp} bits a pixel: save it as PNG`);
+      const ch = M.map(m => { if (!m) return null; let s = 0; while (!((m >>> s) & 1)) s++; let n = 0; while ((m >>> (s + n)) & 1) n++; return { m, s, k: 255 / ((2 ** n) - 1) }; });
+      if (at + W * H * by > u.length) fail('a DDS cut short');
+      const R = out(W, H), d = R.data;
+      for (let i = 0; i < W * H; i++) {
+        const p = at + i * by;
+        let v = 0;
+        for (let k = 0; k < by; k++) v += u[p + k] * 2 ** (8 * k);
+        const g = c => (c ? Math.round((((v & c.m) >>> 0) / 2 ** c.s) * c.k) : 255);
+        const r = g(ch[0]);
+        d[i * 4] = r; d[i * 4 + 1] = lum ? r : g(ch[1]); d[i * 4 + 2] = lum ? r : g(ch[2]); d[i * 4 + 3] = g(ch[3]);
+      }
+      return R;
+    }
+    if (at + bw * bh * bsz > u.length) fail('a DDS cut short');
+    const R = out(W, H), d = R.data;
+    // (clamped arrays round the steps between the ends, as reference decoders do, where plain ones would floor them)
+    const pal = new Uint8ClampedArray(16), al = new Uint8ClampedArray(8), A = new Uint8Array(16), B = new Uint8Array(16);
+    const c565 = (v, o) => { pal[o] = ((v >> 11) & 31) * 255 / 31; pal[o + 1] = ((v >> 5) & 63) * 255 / 63; pal[o + 2] = (v & 31) * 255 / 31; pal[o + 3] = 255; };
+    // a BC4 block (8 bytes) as 16 values: two ends, then six or four steps between them (and 0 and 255)
+    const bc4 = (p, sg, q) => {
+      let a0 = u[p], a1 = u[p + 1];
+      if (sg) { a0 = ((a0 << 24) >> 24) + 128; a1 = ((a1 << 24) >> 24) + 128; }
+      al[0] = a0; al[1] = a1;
+      if (a0 > a1) for (let k = 1; k < 7; k++) al[k + 1] = ((7 - k) * a0 + k * a1) / 7;
+      else { for (let k = 1; k < 5; k++) al[k + 1] = ((5 - k) * a0 + k * a1) / 5; al[6] = 0; al[7] = 255; }
+      const lo = u[p + 2] | (u[p + 3] << 8) | (u[p + 4] << 16), hi = u[p + 5] | (u[p + 6] << 8) | (u[p + 7] << 16);
+      for (let k = 0; k < 16; k++) q[k] = al[k < 8 ? (lo >> (3 * k)) & 7 : (hi >> (3 * (k - 8))) & 7];
+    };
+    for (let by2 = 0; by2 < bh; by2++) for (let bx = 0; bx < bw; bx++) {
+      const p = at + (by2 * bw + bx) * bsz;
+      let colour = -1;
+      if (kind === 'bc1') colour = p;
+      else if (kind === 'bc2') { for (let k = 0; k < 16; k++) { const v = (u[p + (k >> 1)] >> ((k & 1) * 4)) & 15; A[k] = v * 17; } colour = p + 8; }
+      else if (kind === 'bc3') { bc4(p, false, A); colour = p + 8; }
+      else if (kind === 'bc4' || kind === 'bc4s') bc4(p, kind === 'bc4s', A);
+      else { bc4(p, kind === 'bc5s', A); bc4(p + 8, kind === 'bc5s', B); }
+      if (colour >= 0) {
+        const c0 = u[colour] | (u[colour + 1] << 8), c1 = u[colour + 2] | (u[colour + 3] << 8);
+        c565(c0, 0); c565(c1, 4);
+        const four = c0 > c1 || kind !== 'bc1';
+        for (let j = 0; j < 3; j++) {
+          pal[8 + j] = four ? (2 * pal[j] + pal[4 + j]) / 3 : (pal[j] + pal[4 + j]) / 2;
+          pal[12 + j] = four ? (pal[j] + 2 * pal[4 + j]) / 3 : 0;
+        }
+        pal[11] = 255; pal[15] = four ? 255 : 0;
+      }
+      for (let k = 0; k < 16; k++) {
+        const x = bx * 4 + (k & 3), y = by2 * 4 + (k >> 2);
+        if (x >= W || y >= H) continue;
+        const i = (y * W + x) * 4;
+        if (colour >= 0) {
+          const s = ((u[colour + 4 + (k >> 2)] >> ((k & 3) * 2)) & 3) * 4;
+          d[i] = pal[s]; d[i + 1] = pal[s + 1]; d[i + 2] = pal[s + 2]; d[i + 3] = kind === 'bc1' ? pal[s + 3] : A[k];
+        } else if (kind === 'bc4' || kind === 'bc4s') { d[i] = d[i + 1] = d[i + 2] = A[k]; d[i + 3] = 255; }
+        else {
+          const nx = A[k] / 127.5 - 1, ny = B[k] / 127.5 - 1, nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+          d[i] = A[k]; d[i + 1] = B[k]; d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
+        }
+      }
+    }
+    return R;
+  }
+
+  // ---- names: what a texture name stands for in a scene (the ladder), and what a picture is for
+  // (words taken apart at separators and at a capital after a small letter: Stone-BaseColor, stoneBaseColor and
+  // stone_base_color all read stone, basecolor)
+  const COLOUR = new Set(['diffuse', 'diff', 'albedo', 'basecolor', 'basecolour', 'color', 'colour', 'col', 'd', 'tex', 'texture']);
+  const SLOT_WORDS = [['orm', ['orm']], ['normalMap', ['normal', 'normals', 'nrm', 'norm', 'nor', 'nml', 'n']], ['roughnessMap', ['rough', 'roughness', 'rgh', 'r']],
+    ['metalnessMap', ['metal', 'metallic', 'metalness', 'mtl', 'm']], ['aoMap', ['ao', 'occlusion', 'ambientocclusion', 'occ']], ['emissiveMap', ['emissive', 'emission', 'glow', 'emit', 'e']], ['alphaMap', ['opacity', 'alpha', 'mask', 'transparency']]];
+  // (words that say a picture is a colour one: they win over a slot word elsewhere in the name, Metal_Door_Albedo)
+  const COLOUR_SAYS = new Set(['diffuse', 'diff', 'albedo', 'basecolor', 'basecolour', 'color', 'colour', 'col']);
+  // (words after the slot that say nothing of it: a size, a number, a normal map's handedness, 'map')
+  const TAIL = /^(\d+k?|gl|dx|ogl|opengl|directx|v\d+|map|tex|texture|img)$/;
+  const words = p => stemOf(p).replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/base[\s_.-]*colou?r/g, ' basecolor ').replace(/ambient[\s_.-]*occlusion/g, ' ao ').split(/[^a-z0-9]+/).filter(Boolean);
+  // (a one-letter word names a slot only last, after another: wood_n is a normal map, n.png is not)
+  const slotWord = (w, i, all) => w.length > 1 || (i === all.length - 1 && all.length > 1);
+  const normStem = p => { const w = words(p); return w.filter((x, i) => !(COLOUR.has(x) && slotWord(x, i, w))).join(' '); };
+  const isNormalColour = m => !!m && m[2] > 0.75 && Math.abs(m[0] - 0.5) < 0.1 && Math.abs(m[1] - 0.5) < 0.1;
+  // a picture's slot by the words of its name ('map' when none says): mean, its mean colour (0 to 1), when known, tells a
+  // normal map by its bluish purple
+  // Only the last word names a slot, sizes and numbers after it aside (Rough_Stone.png is a stone, stone_rough.png its
+  // roughness, stone_rough_2k.png too), and a colour word anywhere makes it a colour picture (Metal_Door_Albedo.jpg)
+  function slotOf(p, mean) {
+    const w = words(p);
+    while (w.length > 1 && TAIL.test(w[w.length - 1])) w.pop();
+    if (w.some((x, i) => COLOUR_SAYS.has(x) || (x === 'd' && i === w.length - 1 && i > 0))) return 'map';
+    const i = w.length - 1;
+    if (i >= 0) for (const [slot, list] of SLOT_WORDS) if (list.includes(w[i]) && slotWord(w[i], i, w)) return slot;
+    return isNormalColour(mean) ? 'normalMap' : 'map';
+  }
+  const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
+  // a relative path from a folder ('..' and '.' worked out; null when it leaves the scene)
+  function join(dir, rel) {
+    const out = [];
+    for (const s of (dir + rel).split('/')) { if (s === '' || s === '.') continue; if (s === '..') { if (!out.length) return null; out.pop(); } else out.push(s); }
+    return out.join('/');
+  }
+  // the nearest of several: in the model's own folder first, then the one sharing most of its path, then the shortest
+  const near = (list, dir) => list.slice().sort((a, b) => {
+    const sa = dirOf(a) === dir ? 1 : 0, sb = dirOf(b) === dir ? 1 : 0;
+    if (sa !== sb) return sb - sa;
+    const ca = common(a, dir), cb = common(b, dir);
+    return cb - ca || a.length - b.length || (a < b ? -1 : 1);
+  });
+  const common = (a, b) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+  // The ladder: 'path' the path it gives (from the model's folder, else the scene's top), 'name' its file name in any
+  // case (the nearest), 'ext' its name with another picture's extension (x.tga for x.png: PNG first, then JPEG...), and
+  // 'similar' the same words but colour words (diffuse, albedo, basecolor...) and in the same slot, only when exactly
+  // one picture is so. pictures: the scene's picture paths; ctx: { dir: the model's folder }
+  function texFind(name, pictures, ctx) {
+    const dir = (ctx && ctx.dir) || '';
+    let rel = String(name).split(/[?#]/)[0].replace(/\\/g, '/');
+    try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
+    rel = rel.replace(/^(\.\/)+/, '');
+    const L = pictures.filter(p => isPicture(p)), set = new Set(L);
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(rel) && !rel.startsWith('/')) {
+      for (const p of [join(dir, rel), join('', rel)]) if (p && set.has(p)) return { path: p, how: 'path' };
+    }
+    const b = baseOf(rel).toLowerCase();
+    if (!b) return null;
+    let c = L.filter(p => baseOf(p).toLowerCase() === b);
+    if (c.length) return { path: near(c, dir)[0], how: 'name' };
+    const st = stemOf(b), e0 = extOf(b);
+    c = L.filter(p => stemOf(p).toLowerCase() === st && extOf(p) !== e0 && PREFER.includes(extOf(p)));
+    // (the model's own folder first, as for 'name'; then PNG before JPEG...)
+    if (c.length) { const r = PREFER.indexOf.bind(PREFER), own = q => (dirOf(q) === dir ? 0 : 1); return { path: c.sort((x, y) => own(x) - own(y) || r(extOf(x)) - r(extOf(y)) || (near([x, y], dir)[0] === x ? -1 : 1))[0], how: 'ext' }; }
+    const ns = normStem(rel), slot = slotOf(rel);
+    if (!ns) return null;
+    c = L.filter(p => PREFER.includes(extOf(p)) && normStem(p) === ns && slotOf(p) === slot);
+    const stems = new Set(c.map(p => dirOf(p) + stemOf(p).toLowerCase()));
+    if (stems.size === 1) { const r = PREFER.indexOf.bind(PREFER); return { path: c.sort((x, y) => r(extOf(x)) - r(extOf(y)))[0], how: 'similar' }; }
+    return null;
+  }
+  // pictures by how likely they stand for a name: the ladder's rungs first, then shared words (colour words aside), the
+  // same slot and the model's folder, and ones no other model uses (ctx.used); at most n, best first (refused formats and
+  // ctx.not left out)
+  function texRank(name, pictures, ctx, n) {
+    const dir = (ctx && ctx.dir) || '', used = new Set((ctx && ctx.used) || []), hit = texFind(name, pictures, ctx), wn = new Set(normStem(name).split(' ').filter(Boolean)), slot = slotOf(name);
+    const score = p => {
+      if (hit && p === hit.path) return 1000;
+      const wp = new Set(normStem(p).split(' ').filter(Boolean));
+      let both = 0;
+      for (const x of wn) if (wp.has(x)) both++;
+      const jac = wn.size + wp.size ? both / (wn.size + wp.size - both) : 0;
+      return jac * 60 + (slotOf(p) === slot ? 10 : 0) + (dirOf(p) === dir ? 5 : 0) + (stemOf(p).toLowerCase() === stemOf(name).toLowerCase() ? 100 : 0) - (used.has(p) ? 20 : 0);
+    };
+    const L = pictures.filter(p => isPicture(p) && way(extOf(p)) !== 'refuse' && !(ctx && ctx.not && ctx.not.includes(p)));
+    return L.map(p => [p, score(p)]).sort((a, b) => b[1] - a[1] || (near([a[0], b[0]], dir)[0] === a[0] ? -1 : 1)).slice(0, n || 3).map(x => x[0]);
+  }
+
+  // ---- an FBX's .psd names: three.js's FBXLoader makes an empty texture for any name ending in .psd without asking for
+  // it, so each is made .ps~ (the same length: nothing else in the file moves) and the URL modifier makes it .psd again.
+  // Binary: only a string record ('S', its length, the string) that ends right there; ASCII: a quoted string. A copy
+  function renamePsd(bytes) {
+    const u = new Uint8Array(u8of(bytes)), n = u.length;
+    let s = '', count = 0;
+    for (let i = 0; i < n; i += 65536) s += String.fromCharCode.apply(null, u.subarray(i, Math.min(n, i + 65536)));
+    const bin = s.startsWith('Kaydara FBX Binary'), dv = new DataView(u.buffer);
+    const re = bin ? /\.psd/gi : /\.psd"/gi;
+    let m;
+    while ((m = re.exec(s))) {
+      const end = m.index + 4;
+      if (bin) {
+        let ok = false;
+        for (let p = m.index - 1; p >= Math.max(0, m.index - 2048) && !ok; p--) if (u[p] === 0x53 && p + 5 <= n && dv.getUint32(p + 1, true) === end - (p + 5)) ok = true;
+        if (!ok) continue;
+      }
+      u[m.index + 3] = 0x7e;   // ('~')
+      count++;
+    }
+    return { bytes: u.buffer, count };
+  }
+  const psdBack = url => String(url).replace(/\.(p)(s)(~|%7e)(?=$|[?#])/i, (m, p, q) => '.' + p + q + (q === 'S' ? 'D' : 'd'));   // (in the name's own case)
+
+  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits };
+}
 // ================================================================ CONVERT ==
 // The converter (tools/studio/SPEC.md, "GLB first, and converting"): one module in two places, the studio's page (its
 // Convert to GLB and the Upload pane; pasted into stories/studio.js by tools/studio/build.mjs) and
@@ -16168,7 +16673,11 @@ function onScenesEvent(d) {
 //   fbxGuess(buf)       an FBX's units and up axis, read from its bytes (three.js's loader ignores them)
 //   guessFor(g, size)   the scale and turn a model starts with (the studio's guess; a GLB has it baked in)
 //   namesIn(ext, buf), mtlNames(text)   the files a model names (textures, an OBJ's MTL, a glTF's buffers), unloaded
-//   load(o)             a model read: FBX, glTF/GLB, OBJ (with its MTL), PLY, STL -> { root, clips, guess, asset, missing }
+//   load(o)             a model read: FBX, glTF/GLB, OBJ (with its MTL), PLY, STL -> { root, clips, guess, asset, missing,
+//                       why, decoded }; the TIFF, PSD and DDS pictures it names read first (engine/images.js) and given
+//                       to its loader as PNG, a TGA name read whatever the file is
+//   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
+//   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up, loaded back and checked against it
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.renderer(w, h): a WebGL
@@ -16180,9 +16689,72 @@ function makeConverter(THREE, hooks) {
   const baseOf = p => String(p).split(/[?#]/)[0].split(/[\\/]/).pop();
   const MODEL_EXT = ['fbx', 'glb', 'gltf', 'obj', 'ply', 'stl'];
   const TEX_KEYS = ['map', 'normalMap', 'emissiveMap', 'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap', 'bumpMap', 'lightMap'];
+  // pictures and their names (engine/images.js; fflate unpacks a zipped TIFF or PSD: the studio's own copy, or the page's)
+  const IM = H.images || makeImages(typeof fflate !== 'undefined' ? fflate : null);
   // what a texture not found becomes while the model loads: a tiny white picture (3 x 1, so it is told apart), dropped after
   let missingUrl = '';
   const MISSING = () => missingUrl || (missingUrl = (() => { const c = document.createElement('canvas'); c.width = 3; c.height = 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 3, 1); return c.toDataURL(); })());
+
+  // ---- pictures: bytes made something to draw. The browser's own formats as an <img>, TGA through three.js's
+  // TGALoader, TIFF, PSD and DDS through engine/images.js; a refused one throws its sentence
+  const rgbaCanvas = (w, h, data) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    // (a browser keeps canvases under a size: 32,767 px a side in Chromium, less in all on an iPad)
+    const x = w <= 16384 && h <= 16384 && c.width === w && c.height === h ? c.getContext('2d') : null;
+    if (!x) throw new Error('a picture too large for this browser to draw: save it smaller');
+    x.putImageData(new ImageData(data instanceof Uint8ClampedArray ? data : new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), w, h), 0, 0);
+    return c;
+  };
+  async function toImage(buf, ext) {
+    const k = IM.sniff(buf) || String(ext || '').toLowerCase();
+    if (IM.way(k) === 'browser') {
+      const url = URL.createObjectURL(new Blob([buf])), img = new Image();
+      try { img.src = url; await img.decode(); } catch (e) { throw new Error(`a ${IM.FMT[k] || k} this browser could not read`); } finally { URL.revokeObjectURL(url); }
+      return img;
+    }
+    if (k === 'tga') {
+      if (!T.TGALoader) throw new Error('a TGA, and no TGA reader here');
+      let r;
+      try { r = new T.TGALoader().parse(buf); } catch (e) { throw new Error('a TGA that could not be read (' + String(e.message || e).replace(/^THREE\.TGALoader:\s*/, '') + ')'); }
+      return rgbaCanvas(r.width, r.height, r.data);
+    }
+    const r = IM.decodeImage(k, buf);
+    return rgbaCanvas(r.width, r.height, r.data);
+  }
+  // (drawn down to max px on its longer side when bigger)
+  const shrink = (img, max) => {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (!max || Math.max(w, h) <= max) return img;
+    const k = max / Math.max(w, h), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
+    return c;
+  };
+  // a picture at an address, drawn down to o.max (o.ext: its kind when the address does not say, as a blob's)
+  async function picture(url, o) {
+    o = o || {};
+    let r;
+    try { r = await fetch(url); } catch (e) { throw new Error('it could not be fetched'); }
+    if (!r.ok) throw Object.assign(new Error('it could not be fetched (HTTP ' + r.status + ')'), { status: r.status });
+    return shrink(await toImage(await r.arrayBuffer(), o.ext || (/^blob:/i.test(url) ? '' : IM.extOf(url))), o.max);
+  }
+  const pngUrl = img => new Promise((res, rej) => {
+    let c = img;
+    if (!(c instanceof HTMLCanvasElement)) { c = document.createElement('canvas'); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height; c.getContext('2d').drawImage(img, 0, 0); }
+    c.toBlob(b => (b ? res(URL.createObjectURL(b)) : rej(new Error('the picture could not be written'))), 'image/png');
+  });
+  // the mean colour of a picture (0 to 1; a small copy is enough): a normal map's bluish purple tells it apart
+  const meanOf = img => {
+    const c = document.createElement('canvas'), w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = Math.min(1, 64 / Math.max(w, h));
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, c.width, c.height);
+    const d = x.getImageData(0, 0, c.width, c.height).data, m = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) m[j] += d[i + j];
+    return m.map(v => v / (255 * (d.length / 4)));
+  };
 
   // ---- units and up axis
   // An FBX's GlobalSettings: UnitScaleFactor (cm per unit), UpAxis and UpAxisSign. Binary: each is a P record of four
@@ -16257,12 +16829,12 @@ function makeConverter(THREE, hooks) {
       const j = ext === 'glb' ? glbJSON(buf) : (() => { try { return JSON.parse(new TextDecoder().decode(u8)); } catch (e) { return null; } })();
       if (j) {
         for (const b of j.buffers || []) if (b && typeof b.uri === 'string' && !/^data:/i.test(b.uri)) add(out.buffers, decodeURIComponent(b.uri));
-        for (const im of j.images || []) if (im && typeof im.uri === 'string' && !/^data:/i.test(im.uri)) add(out.textures, decodeURIComponent(im.uri));
+        for (const im of j.images || []) if (im && typeof im.uri === 'string' && !/^data:/i.test(im.uri)) { let u = im.uri; try { u = decodeURIComponent(u); } catch (e) { /* as it is */ } if (!out.textures.some(x => x.toLowerCase() === u.toLowerCase())) out.textures.push(u); }   // (its path kept: the ladder's first rung)
       }
     }
     return out;
   }
-  // an MTL's textures (map_Kd, bump, norm...: the last of its words after the options)
+  // an MTL's textures (map_Kd, bump, norm...: the last of its words after the options), each with the path it gives
   const MTL_OPT = { '-bm': 1, '-blendu': 1, '-blendv': 1, '-boost': 1, '-cc': 1, '-clamp': 1, '-imfchan': 1, '-texres': 1, '-type': 1, '-mm': 2, '-o': 3, '-s': 3, '-t': 3 };
   function mtlNames(text) {
     const out = [];
@@ -16270,17 +16842,24 @@ function makeConverter(THREE, hooks) {
       const w = m[2].split(/\s+/);
       let i = 0;
       while (i < w.length && MTL_OPT[w[i].toLowerCase()] !== undefined) i += 1 + MTL_OPT[w[i].toLowerCase()];
-      const n = baseOf(w.slice(i).join(' '));
-      if (n && !out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n);
+      const n = w.slice(i).join(' ').replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+      if (baseOf(n) && !out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n);
     }
     return out;
   }
   const mtllibs = text => [...String(text).matchAll(/^[ \t]*mtllib[ \t]+(.+?)[ \t]*$/gim)].map(m => m[1]);
 
   // ---- a model read. o: { ext, data (ArrayBuffer), base (the address its names are relative to), url(name) -> an
-  // address or null (not found: it loads untextured and missing says so) }
+  // address or null (not found: it loads untextured and missing says so), maxTex (pictures read here drawn down to it) }.
+  // The pictures it names that the browser cannot show (TIFF, PSD, DDS; a TGA under another name) are read first and
+  // given to its loader as PNG (why: the sentence for one that could not be read; decoded: the ones read so)
   async function load(o) {
     const ext = String(o.ext).toLowerCase(), manager = new T.LoadingManager(), W = { n: 0, done: null }, missing = new Set();
+    // (pict: the address a name stands for -> a PNG's blob address, '' unread; byName: a name, lower case, -> that address,
+    // for the loader's names that resolve elsewhere (an FBX's full paths), null when two files of that name were read)
+    const pict = new Map(), byName = new Map(), why = {}, decoded = [], blobs = new Map();
+    const keyOf = u => { let b = baseOf(IM.psdBack(u)); try { b = decodeURIComponent(b); } catch (e) { /* as it is */ } return b.toLowerCase(); };
+    const nameOf = u => { let b = baseOf(IM.psdBack(u)); try { b = decodeURIComponent(b); } catch (e) { /* as it is */ } return b; };
     // what the model asks for (textures, a .gltf's buffers): it is ready once each has come or failed (the manager's own
     // counters are private)
     const s0 = manager.itemStart.bind(manager), e0 = manager.itemEnd.bind(manager);
@@ -16288,62 +16867,105 @@ function makeConverter(THREE, hooks) {
     manager.itemEnd = u => { e0(u); if (--W.n <= 0 && W.done) W.done(); };
     const named = u => {
       if (/^(blob|data):/i.test(u)) return u;
-      const r = o.url(u);
+      u = IM.psdBack(u);
+      const r = o.url(u), k = r && pict.has(r) ? r : byName.get(keyOf(u));
+      if (k && pict.has(k)) { if (pict.get(k)) return pict.get(k); missing.add(nameOf(u)); return MISSING(); }
       if (r) return r;
-      const n = baseOf(u);
+      const n = nameOf(u);
       if (n && n !== 'undefined') missing.add(n);   // (the FBX loader asks for 'undefined' when a texture names no image)
       return MISSING();
     };
     manager.setURLModifier(named);
-    if (T.TGALoader) manager.addHandler(/\.tga$/i, new T.TGALoader(manager));
+    // a name ending in .tga (the FBX loader sends those to the handler whatever they are, an MTL by its name): read as
+    // whatever its bytes are (a TGA, or the PNG another rung of the ladder found), the manager waiting for it
+    let tgaN = 0;
+    manager.addHandler(/\.tga$/i, {
+      setPath() { return this; }, setCrossOrigin() { return this; },
+      load(url, onLoad, onProgress, onError) {
+        const tex = new T.Texture(), key = 'tga:' + ++tgaN + ':' + url;
+        manager.itemStart(key);
+        fetch(manager.resolveURL(url)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+          .then(buf => toImage(buf, 'tga')).then(img => { tex.image = shrink(img, o.maxTex); tex.name = tex.name || nameOf(url); tex.needsUpdate = true; if (onLoad) onLoad(tex); })
+          .catch(e => { missing.add(nameOf(url)); if (onError) onError(e); }).finally(() => manager.itemEnd(key));
+        return tex;
+      },
+    });
+    // the pictures it names that its loader would not read (by the file each name stands for, its bytes first): read here
+    const prep = async names => {
+      for (const n of names) {
+        const r = o.url(n), nk = keyOf(n);
+        if (!r || /^data:/i.test(r)) continue;
+        if (byName.has(nk) && byName.get(nk) !== r) byName.set(nk, null); else if (!byName.has(nk)) byName.set(nk, r);
+        if (pict.has(r)) continue;
+        const k = r;
+        const fe = /^blob:/i.test(r) ? '' : IM.extOf(r);
+        if (fe ? !IM.way(fe) || IM.way(fe) === 'browser' : !IM.isPicture(n)) continue;
+        try {
+          const res = await fetch(r);
+          if (!res.ok) continue;
+          const buf = await res.arrayBuffer(), kind = IM.sniff(buf) || fe || IM.extOf(n), w = IM.way(kind);
+          if (w === 'browser') continue;   // (a PNG or JPEG under another name: the loader reads it)
+          const url = await pngUrl(shrink(await toImage(buf, kind), o.maxTex));
+          pict.set(k, url); blobs.set(url, nameOf(n));
+          if (w === 'decode') decoded.push({ name: nameOf(n), fmt: IM.FMT[kind] || kind.toUpperCase() });
+        } catch (e) { pict.set(k, ''); why[nameOf(n)] = String(e.message || e); missing.add(nameOf(n)); }
+      }
+    };
     const settle = () => new Promise(res => { if (W.n <= 0) res(); else { W.done = res; setTimeout(res, 60000); } });
     let root = null, clips = [], guess, asset = null;
     const u8 = new Uint8Array(o.data);
-    if (ext === 'fbx') {
-      guess = fbxGuess(o.data);
-      root = new T.FBXLoader(manager).parse(o.data, o.base);
-      clips = root.animations || [];
-    } else if (ext === 'glb' || ext === 'gltf') {
-      const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
-      root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
-      guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
-    } else if (ext === 'obj') {
-      const text = new TextDecoder().decode(u8), loader = new T.OBJLoader(manager);
-      // its materials: the MTL files it names, read through the same names (one creator for all of them)
-      let mtl = '';
-      for (const name of mtllibs(text)) {
-        const u = o.url(name);
-        if (!u) { missing.add(baseOf(name)); continue; }
-        try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); mtl += '\n' + await r.text(); } catch (e) { missing.add(baseOf(name)); }
-      }
-      if (mtl) { const mc = new T.MTLLoader(manager).parse(mtl, o.base); mc.preload(); loader.setMaterials(mc); }
-      root = loader.parse(text);
-      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: 'OBJ' };
-    } else if (ext === 'ply' || ext === 'stl') {
-      const geo = ext === 'ply' ? new T.PLYLoader().parse(o.data) : new T.STLLoader().parse(o.data);
-      const col = !!geo.attributes.color;
-      const m = new T.MeshStandardMaterial({ name: 'surface', color: col ? 0xffffff : 0xb8c2cf, vertexColors: col, roughness: 1, metalness: 0, transparent: geo.alpha !== undefined && geo.alpha < 1, opacity: geo.alpha !== undefined ? geo.alpha : 1 });
-      const mesh = new T.Mesh(geo, m);
-      mesh.name = o.name || ext;
-      root = new T.Group(); root.add(mesh);
-      guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: ext.toUpperCase() };
-    } else throw new Error('Unknown format: ' + ext);
-    if (!root) throw new Error('the file has no scene in it');
-    if (W.n > 0) await settle();
-    // pictures loaded but not yet decoded, decoded now (so the conversion and its times include them); the ones not found
-    // (the 3 x 1 stand-in) left out
-    const images = new Set();
-    root.traverse(n => {
-      for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) {
-        const t = m[k];
-        if (!t || !t.isTexture) continue;
-        const im = t.image;
-        if (im && im.width === 3 && im.height === 1 && missing.size) { m[k] = null; m.needsUpdate = true; continue; }
-        if (im) images.add(im);
-      }
-    });
-    for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
-    return { root, clips, guess, asset, missing: [...missing], ext };
+    // (the pictures read here given back whether the model loads or not: each may be as big as a texture)
+    try {
+      if (ext === 'fbx') {
+        guess = fbxGuess(o.data);
+        await prep(namesIn('fbx', o.data).textures);
+        const ren = IM.renamePsd(o.data);   // (its .psd names, which its loader never asks for, made .ps~: back in named)
+        root = new T.FBXLoader(manager).parse(ren.count ? ren.bytes : o.data, o.base);
+        clips = root.animations || [];
+      } else if (ext === 'glb' || ext === 'gltf') {
+        await prep(namesIn(ext, o.data).textures);
+        const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
+        root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
+        guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
+      } else if (ext === 'obj') {
+        const text = new TextDecoder().decode(u8), loader = new T.OBJLoader(manager);
+        // its materials: the MTL files it names, read through the same names (one creator for all of them)
+        let mtl = '';
+        for (const name of mtllibs(text)) {
+          const u = o.url(name);
+          if (!u) { missing.add(baseOf(name)); continue; }
+          try { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); mtl += '\n' + await r.text(); } catch (e) { missing.add(baseOf(name)); }
+        }
+        if (mtl) { await prep(mtlNames(mtl)); const mc = new T.MTLLoader(manager).parse(mtl, o.base); mc.preload(); loader.setMaterials(mc); }
+        root = loader.parse(text);
+        guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: 'OBJ' };
+      } else if (ext === 'ply' || ext === 'stl') {
+        const geo = ext === 'ply' ? new T.PLYLoader().parse(o.data) : new T.STLLoader().parse(o.data);
+        const col = !!geo.attributes.color;
+        const m = new T.MeshStandardMaterial({ name: 'surface', color: col ? 0xffffff : 0xb8c2cf, vertexColors: col, roughness: 1, metalness: 0, transparent: geo.alpha !== undefined && geo.alpha < 1, opacity: geo.alpha !== undefined ? geo.alpha : 1 });
+        const mesh = new T.Mesh(geo, m);
+        mesh.name = o.name || ext;
+        root = new T.Group(); root.add(mesh);
+        guess = { unit: 100, up: 1, sign: 1, read: false, free: true, format: ext.toUpperCase() };
+      } else throw new Error('Unknown format: ' + ext);
+      if (!root) throw new Error('the file has no scene in it');
+      if (W.n > 0) await settle();
+      // pictures loaded but not yet decoded, decoded now (so the conversion and its times include them); the ones not found
+      // (the 3 x 1 stand-in) left out
+      const images = new Set();
+      root.traverse(n => {
+        for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) {
+          const t = m[k];
+          if (!t || !t.isTexture) continue;
+          const im = t.image;
+          if (im && im.width === 3 && im.height === 1 && missing.size) { m[k] = null; m.needsUpdate = true; continue; }
+          if (im) images.add(im);
+          if (im && typeof im.src === 'string' && blobs.has(im.src)) t.name = t.name || blobs.get(im.src);   // (a picture read here: its own name)
+        }
+      });
+      for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+      return { root, clips, guess, asset, missing: [...missing], ext, why, decoded };
+    } finally { for (const u of blobs.keys()) URL.revokeObjectURL(u); }
   }
 
   // ---- a GLB's JSON chunk, a GLB with it changed, and the studio's record in it
@@ -16370,12 +16992,63 @@ function makeConverter(THREE, hooks) {
     out.set(rest, 20 + js.length + pad);
     return out.buffer;
   }
-  // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals }
+  // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
+  // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
+  // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }] }
+  const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
+  const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
+  const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
+    name: typeof x.name === 'string' ? x.name.slice(0, 160) : '', mat: Number.isInteger(x.mat) && x.mat >= 0 && x.mat < 1000 ? x.mat : typeof x.mat === 'string' ? x.mat.slice(0, 80) : '',
+    slot: SLOT_OK.includes(x.slot) ? x.slot : '', from: x.from.slice(0, 200), how: HOW_OK.includes(x.how) ? x.how : 'chosen' }));
   function glbRecord(j) {
     const r = j && j.asset && j.asset.extras && j.asset.extras.studio;
     if (!r || typeof r !== 'object') return null;
     const q = Array.isArray(r.q) && r.q.length === 4 && r.q.every(Number.isFinite) ? r.q : [0, 0, 0, 1];
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan };
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex) };
+  }
+
+  // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
+  // meshes have texture coordinates and the slots it has pictures in (key: its name when no other has it, else its index)
+  function matsOf(root) {
+    const out = [], seen = new Map();
+    root.traverse(n => {
+      if (!n.isMesh) return;
+      for (const m of [].concat(n.material || [])) {
+        let e = seen.get(m);
+        if (!e) { e = { m, name: m.name || '', uv: false, meshes: [] }; seen.set(m, e); out.push(e); }
+        e.meshes.push(n);
+        if (n.geometry && n.geometry.attributes.uv) e.uv = true;
+      }
+    });
+    out.forEach((e, i) => { e.i = i; e.key = e.name && out.filter(x => x.name === e.name).length === 1 ? e.name : i; e.slots = SLOT_OK.filter(k => k !== 'orm' && e.m[k] && e.m[k].isTexture); });
+    return out;
+  }
+  // list: [{ mat, slot, image, name }] (image a picture from picture()); o.gltf: the model came through glTF's loader
+  // (pictures the right way up: flipY off). An 'orm' picture (occlusion, roughness, metalness packed in red, green and
+  // blue) goes in all three. -> { done, why: [sentences] }
+  function addTextures(root, list, o) {
+    o = o || {};
+    const mats = matsOf(root), why = [];
+    let done = 0;
+    for (const x of list) {
+      const keys = x.slot === 'orm' ? ['aoMap', 'roughnessMap', 'metalnessMap'] : [x.slot];
+      const want = x.mat === '*' ? mats.filter(e => e.uv && !keys.some(k => e.m[k])) : mats.filter(e => e.key === x.mat || e.name === x.mat || e.i === x.mat).slice(0, 1);
+      if (!want.length) { if (x.mat !== '*') why.push(`${x.name || 'a picture'}: the model has no material ${JSON.stringify(x.mat)}`); continue; }
+      for (const e of want) {
+        if (!e.uv) { why.push(`${e.name || 'its material'}: it has no texture coordinates (UVs), so a picture cannot be laid on it`); continue; }
+        const t = new T.Texture(x.image);
+        t.name = x.name || ''; t.flipY = !o.gltf; t.wrapS = t.wrapT = T.RepeatWrapping; t.needsUpdate = true;
+        for (const k of keys) e.m[k] = t;
+        if (keys.includes('aoMap')) for (const n of e.meshes) { const g = n.geometry; if (g && g.attributes.uv && !g.attributes.uv2) g.setAttribute('uv2', g.attributes.uv); }
+        if (keys.includes('emissiveMap') && e.m.emissive && e.m.emissive.r + e.m.emissive.g + e.m.emissive.b === 0) e.m.emissive.setRGB(1, 1, 1);
+        if (keys.includes('alphaMap')) e.m.transparent = true;
+        if (keys.includes('roughnessMap') && 'roughness' in e.m) e.m.roughness = 1;   // (the picture says how rough: its factor is a multiplier)
+        if (keys.includes('metalnessMap') && 'metalness' in e.m) e.m.metalness = 1;
+        e.m.needsUpdate = true;
+        done++;
+      }
+    }
+    return { done, why };
   }
 
   // ---- numbers for both sides of the comparison
@@ -16449,12 +17122,67 @@ function makeConverter(THREE, hooks) {
       if (mt.isMeshStandardMaterial || mt.isMeshBasicMaterial || !mt.isMaterial) return mt;
       const spec = mt.specular ? (mt.specular.r + mt.specular.g + mt.specular.b) / 3 : 0;
       const rough = mt.isMeshLambertMaterial || spec < 0.05 ? 1 : Math.min(1, Math.max(0.25, Math.sqrt(2 / ((mt.shininess || 30) + 2))));
+      // (pictures laid on by hand in slots such a material does not use, roughness and metalness, carried over)
       const s = new T.MeshStandardMaterial({ name: mt.name, color: mt.color, map: mt.map, normalMap: mt.normalMap || null, emissive: mt.emissive, emissiveMap: mt.emissiveMap || null,
         emissiveIntensity: mt.emissiveIntensity ?? 1, aoMap: mt.aoMap || null, alphaMap: mt.alphaMap || null, opacity: mt.opacity, transparent: mt.transparent, alphaTest: mt.alphaTest,
-        side: mt.side, vertexColors: mt.vertexColors, skinning: mt.skinning, morphTargets: mt.morphTargets, morphNormals: mt.morphNormals, flatShading: mt.flatShading, metalness: 0, roughness: rough });
+        side: mt.side, vertexColors: mt.vertexColors, skinning: mt.skinning, morphTargets: mt.morphTargets, morphNormals: mt.morphNormals, flatShading: mt.flatShading,
+        roughnessMap: mt.roughnessMap || null, metalnessMap: mt.metalnessMap || null, metalness: mt.metalnessMap ? 1 : 0, roughness: mt.roughnessMap ? 1 : rough });
       if (mt.normalScale) s.normalScale.copy(mt.normalScale);
-      if (mt.bumpMap || mt.specularMap) notes.push(`${mt.name || 'a material'}: its ${[mt.bumpMap && 'bump', mt.specularMap && 'specular'].filter(Boolean).join(' and ')} map is left out (glTF has none)`);
+      // a bump map (FBX's and MTL's; glTF has none) made a normal map from its slopes, when the material has none
+      const bn = mt.bumpMap && !mt.normalMap ? bumpToNormal(mt.bumpMap, mt.bumpScale) : null;
+      if (bn) { s.normalMap = bn; notes.push(`${mt.name || 'a material'}: its bump map made a normal map (from its slopes: glTF has no bump maps)`); }
+      const left = [mt.bumpMap && !bn && 'bump', mt.specularMap && 'specular'].filter(Boolean);
+      if (left.length) notes.push(`${mt.name || 'a material'}: its ${left.join(' and ')} map is left out (glTF has none)`);
       return s;
+    };
+    // a height picture as a normal map: its slopes (a Sobel filter over its brightness), as steep as its bumpScale says;
+    // green up the picture as three.js reads a normal map the right way up (flipY), else down
+    const bumpToNormal = (t, scale) => {
+      const img = t.image, w0 = img && (img.naturalWidth || img.width), h0 = img && (img.naturalHeight || img.height);
+      if (!w0 || !h0) return null;
+      const k = Math.min(1, maxTex / Math.max(w0, h0)), w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+      const c = canvasOf(img, w, h), x = c.getContext('2d'), src = x.getImageData(0, 0, w, h).data, out = x.createImageData(w, h), d = out.data, L = new Float32Array(w * h);
+      for (let i = 0; i < w * h; i++) L[i] = (0.299 * src[i * 4] + 0.587 * src[i * 4 + 1] + 0.114 * src[i * 4 + 2]) / 255;
+      const at = (a, b) => L[Math.min(h - 1, Math.max(0, b)) * w + Math.min(w - 1, Math.max(0, a))];
+      const K = Math.min(20, Math.max(0.05, Math.abs(scale) || 1)), up = t.flipY === false ? -1 : 1;
+      for (let y = 0; y < h; y++) for (let q = 0; q < w; q++) {
+        const gx = at(q + 1, y - 1) + 2 * at(q + 1, y) + at(q + 1, y + 1) - at(q - 1, y - 1) - 2 * at(q - 1, y) - at(q - 1, y + 1);
+        const gy = at(q - 1, y + 1) + 2 * at(q, y + 1) + at(q + 1, y + 1) - at(q - 1, y - 1) - 2 * at(q, y - 1) - at(q + 1, y - 1);
+        let nx = -gx * K, ny = gy * K * up, nz = 1;
+        const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+        const i = (y * w + q) * 4;
+        d[i] = Math.round((nx * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
+      }
+      x.putImageData(out, 0, 0);
+      const n = new T.Texture(c);
+      n.flipY = t.flipY; n.wrapS = t.wrapS; n.wrapT = t.wrapT; n.name = (t.name || 'bump') + ' (normal)'; n.needsUpdate = true;
+      return n;
+    };
+    // roughness and metalness as glTF keeps them: one picture, roughness in its green and metalness in its blue (three.js
+    // reads them so too; its exporter writes them only when both slots hold the same picture, and drops them otherwise)
+    const packed = new Set();
+    const packRM = mt => {
+      const r = mt.roughnessMap, m = mt.metalnessMap;
+      if (packed.has(mt) || !(r || m) || r === m) return;
+      packed.add(mt);
+      const ims = [r, m].map(t => (t && t.image && (t.image.naturalWidth || t.image.width) ? t.image : null)), big = ims.filter(Boolean);
+      if (!big.length) { mt.roughnessMap = mt.metalnessMap = null; return; }
+      const w0 = Math.max(...big.map(i => i.naturalWidth || i.width)), h0 = Math.max(...big.map(i => i.naturalHeight || i.height)), k = Math.min(1, maxTex / Math.max(w0, h0));
+      const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k)), read = i => (i ? canvasOf(i, w, h).getContext('2d').getImageData(0, 0, w, h).data : null);
+      const R = read(ims[0]), M = read(ims[1]), c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d'), o2 = x.createImageData(w, h), d = o2.data;
+      // (the one without a picture written as its factor, which then becomes 1: a glTF material with no metallicFactor is
+      // fully metal by three.js's reading, and a roughness picture alone must not make it so)
+      const f = v => Math.round(255 * Math.min(1, Math.max(0, Number.isFinite(v) ? v : 1))), fr = f(mt.roughness), fm = f(mt.metalness);
+      for (let i = 0; i < w * h * 4; i += 4) { d[i] = 255; d[i + 1] = R ? R[i + 1] : fr; d[i + 2] = M ? M[i + 2] : fm; d[i + 3] = 255; }
+      if (!R) mt.roughness = 1;
+      if (!M) mt.metalness = 1;
+      x.putImageData(o2, 0, 0);
+      const t = new T.Texture(c), was = r || m;
+      t.flipY = was.flipY; t.wrapS = was.wrapS; t.wrapT = was.wrapT; t.name = 'roughness and metalness'; t.needsUpdate = true;
+      mt.roughnessMap = mt.metalnessMap = t;
+      notes.push(`${mt.name || 'a material'}: its ${r && m ? 'roughness and metalness pictures packed into one' : (r ? 'roughness' : 'metalness') + ' picture packed as glTF keeps it'} (roughness in green, metalness in blue)`);
     };
     const canvasOf = (img, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, w, h); return c; };
     const opaque = img => {   // any pixel that is not opaque (on a small copy: enough to tell)
@@ -16472,6 +17200,7 @@ function makeConverter(THREE, hooks) {
       // a material wholly see-through with nothing to see through it by (no alpha map) is an exporter's quirk, not a wish:
       // 3ds Max writes Opacity 0 for an opaque one (the owner's figure), and three.js's FBX loader would draw nothing at all
       if (ext === 'fbx') for (const mt of ms) if (mt.opacity <= 0.01 && !mt.alphaMap) { mt.opacity = 1; mt.transparent = false; clear.add(mt.name || 'a material'); }
+      for (const mt of ms) if (mt.isMeshStandardMaterial) packRM(mt);
       for (const mt of ms) for (const k of ['map', 'normalMap', 'emissiveMap', 'aoMap', 'alphaMap', 'roughnessMap', 'metalnessMap']) {
         const t = mt[k];
         if (!t || !t.isTexture) continue;
@@ -16585,6 +17314,7 @@ function makeConverter(THREE, hooks) {
     });
     const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
     if (!before.normals) record.scan = true;
+    if (o.tex && o.tex.length) record.tex = texList(o.tex);
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -16687,15 +17417,17 @@ function makeConverter(THREE, hooks) {
     return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) } };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, stats, disposeTree, MODEL_EXT };
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT,
+    IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }
 
 // ================================================================= MODELS ==
 // One entry per model file of the scene: fetched and parsed once (GLTF/GLB with three.js's GLTFLoader, FBX with its
 // FBXLoader), then cloned for every object that places it (SkeletonUtils for a rigged one), each clone with its own
 // materials (so each fades on its own) and its own AnimationMixer. Textures a file names but does not hold are looked
-// for in the scene's listing (the exact path, else the base name, case aside: an FBX's C:\Users\... path is ignored);
-// one not there leaves the model untextured and its card says so. Textures larger than OPT.maxtex (4,096 px) on a side
+// for in the scene's pictures by the ladder (engine/images.js: the path it gives, its file name in any case, the same name
+// as another kind of picture, a name of the same words; an FBX's C:\Users\... path is ignored), TIFF, PSD and DDS read
+// in the page; one not there leaves the model untextured and its card says so and offers pictures (Textures, below). Textures larger than OPT.maxtex (4,096 px) on a side
 // are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
@@ -16706,7 +17438,7 @@ const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', '
 function lib(path) {
   let E = LIB.get(path);
   if (!E) {
-    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), err: '', drop: 0, ms: null, auth: false };
+    E = { path, state: 'idle', p: 0, root: null, clips: [], info: null, guess: null, users: new Set(), gen: 0, texPaths: new Set(), missing: new Set(), found: new Map(), why: {}, decoded: [], mats: [], err: '', drop: 0, ms: null, auth: false };
     LIB.set(path, E);
   }
   if (E.drop) { unlater(E.drop); E.drop = 0; }
@@ -16761,11 +17493,11 @@ async function libLoad(E) {
     E.state = 'parsing'; libChanged(E);
     await new Promise(r => later(r, 60));   // (the grey box says "Reading" before parsing stalls the page)
     if (gen !== E.gen || scene !== STU.scene || GL.gone) return;
-    const t1 = performance.now(), missing = new Set(), texPaths = new Set();
-    const res = await parseModel(E, buf, missing, texPaths);
+    const t1 = performance.now(), missing = new Set(), texPaths = new Set(), found = new Map();
+    const res = await parseModel(E, buf, missing, texPaths, found);
     if (gen !== E.gen || scene !== STU.scene || GL.gone) { if (res && res.root) disposeTree(res.root, true); return; }
     const old = E.root;
-    E.missing = missing; E.texPaths = texPaths;
+    E.missing = missing; E.texPaths = texPaths; E.found = found; E.why = res.why || {}; E.decoded = res.decoded || [];
     E.auth = SRC.held && missing.size > 0;   // (its textures refused with the relay's password: fetched again once it has one)
     finishModel(E, res);
     E.ms = { fetch: Math.round(t1 - t0), parse: Math.round(performance.now() - t1) };
@@ -16792,20 +17524,31 @@ function whyFailed(e) {
   if (e && e.status === 401) return AUTH_NOTE;
   return 'It could not be read: ' + m.slice(0, 160);
 }
-function parseModel(E, buf, missing, texPaths) {
+function parseModel(E, buf, missing, texPaths, found) {
   const dir = E.path.includes('/') ? E.path.slice(0, E.path.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
-  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), url: u => resolveUrl(u, base, dir, texPaths) })
+  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), maxTex: OPT.maxtex, url: u => resolveUrl(u, base, dir, texPaths, found) })
     .then(res => { for (const m of res.missing) missing.add(m); return res; });
 }
-// what a model file names (a texture, a buffer), as a file of the scene: the path it gives (beside the model, or from the
-// scene's top), else any file of the scene with its base name; never anything outside the scene
-// (null: not found, which the converter's loader counts as missing and stands in for)
-function resolveUrl(u, base, dir, texPaths) {
+// the scene's pictures (every picture kind the ladder knows, refused ones too: one named exactly is said to be refused)
+let picMemo = [null, []];
+const scenePictures = () => (picMemo[0] === STU.files ? picMemo[1] : (picMemo = [STU.files, STU.files.filter(f => CONV.IM.isPicture(f.path)).map(f => f.path)])[1]);
+// what a model file names (a texture, a buffer), as a file of the scene: a picture by the ladder (CONV.texFind: its path,
+// its name in any case, the same name as another kind of picture, a name of the same words; found: name -> { path, how }),
+// anything else by the path it gives (beside the model, or from the scene's top), else any file with its base name; never
+// anything outside the scene (null: not found, which the converter's loader counts as missing and stands in for)
+function resolveUrl(u, base, dir, texPaths, found) {
   if (/^(blob|data):/i.test(u)) return u;
   if (SRC.held) return null;   // (a relay that refused the password: asked nothing more)
   let rel = (u.startsWith(base) ? u.slice(base.length) : u).split(/[?#]/)[0];
   try { rel = decodeURIComponent(rel); } catch (e) { /* as it is */ }
-  rel = rel.replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+  rel = CONV.IM.psdBack(rel.replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
+  if (CONV.IM.isPicture(rel)) {
+    const r = CONV.texFind(rel, scenePictures(), { dir });
+    if (!r) return null;
+    texPaths.add(r.path);
+    if (found) found.set(baseName(rel), r);
+    return fileUrl(r.path, true);
+  }
   let f = /^[a-z][a-z0-9+.-]*:/i.test(rel) || rel.startsWith('/') ? null : STU.fileMap.get(dir + rel) || STU.fileMap.get(rel);
   if (!f) { const b = baseName(rel).toLowerCase(); f = b ? STU.files.find(x => x.kind !== 'model' && baseName(x.path).toLowerCase() === b) : null; }
   if (f) { texPaths.add(f.path); return fileUrl(f.path, true); }
@@ -16858,6 +17601,10 @@ function finishModel(E, res) {
     if (m.isMeshStandardMaterial) m.needsUpdate = true;
   }
   for (const [img, p] of pics) if (p.cv && typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
+  // (an occlusion picture is read through a second set of texture coordinates: the first, when there is no second)
+  root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.uv && !o.geometry.attributes.uv2 && [].concat(o.material || []).some(m => m.aoMap)) o.geometry.setAttribute('uv2', o.geometry.attributes.uv); });
+  // the materials as Add a texture names them (CONV.matsOf: name or number, texture coordinates, the slots they fill)
+  E.mats = CONV.matsOf(root).map(e => ({ key: e.key, name: e.name, uv: e.uv, slots: e.slots, meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))].slice(0, 20) }));
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
   const size = box.getSize(new THREE.Vector3()), tl = [...texs.values()];
@@ -17835,7 +18582,7 @@ function studioEffect() { /* none */ }
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
 const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false };
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false, texAdd: null, texFor: null };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -18049,7 +18796,7 @@ function itemBlocks(it, B, ed) {
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
-    if (E) for (const m of E.missing) B.push({ p: `Missing texture ${m}: put it in the scene's folder.`, c: 'amber' });
+    if (E) texBlocks(it, E, B);
     if (info) {
       if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
       if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
@@ -18064,7 +18811,7 @@ function itemBlocks(it, B, ed) {
       else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
         { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${fmt(maxTexNow())} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
     }
-    if (CV.note && !XR.on && (CV.busy === r.file || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
+    if (CV.note && !XR.on && (CV.busy === r.file || CV.item === it.id || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
@@ -18099,10 +18846,99 @@ function itemBlocks(it, B, ed) {
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
+// ---- an object's textures (tools/studio/SPEC.md, "Textures: found, added, converted"): what is missing, each with
+// pictures of the scene to use (the ladder's and the likeliest by name) or one from this computer; what the ladder found
+// under another name or read from a TIFF, PSD or DDS; and Add a texture (a picture, a material, a slot). A press
+// converts at once (texGo): the pictures are baked into the model's GLB, never stored in the layout. Pages only: a
+// headset says to do it on a laptop
+const SLOT_NAME = { map: 'Colour', normalMap: 'Normal', roughnessMap: 'Roughness', metalnessMap: 'Metalness', aoMap: 'Occlusion', emissiveMap: 'Glow', alphaMap: 'Opacity', orm: 'Packed (ORM)' };
+const SLOTS_ADD = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
+const HOW_WORDS = { ext: f => `the same name as a ${CONV.IM.FMT[extOf(f)] || extOf(f).toUpperCase()}`, similar: () => 'a picture of a similar name', only: () => 'the only picture left over', chosen: () => 'chosen by hand', stem: () => 'its name matches the model\'s' };
+const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
+const matLabel = m => m.name || 'material ' + (Number(m.key) + 1);
+function texBlocks(it, E, B) {
+  const can = canConvert(it.rec.file) && !OPT.visit, busy = !!CV.busy, pics = scenePictures(), dir = dirOf(E.path);
+  let laptop = false;
+  for (const m of E.missing) {
+    const w = E.why && E.why[m];
+    B.push({ p: `Missing texture ${m}: ` + (w ? w + '.' : 'put it in the scene\'s folder' + (can ? ', or pick a picture for it here.' : '.')), c: 'amber' });
+    if (can) {
+      const f = E.found.get(m), used = [...LIB.values()].filter(x => x !== E).flatMap(x => [...x.texPaths]), cands = CONV.texRank(m, pics, { dir, not: f ? [f.path] : [], used }, 3);
+      B.push({ page: true, row: cands.map((q, i) => ({ id: 'texuse:' + m + ':' + q, label: 'Use ' + baseName(q), act: 'tex:use', v: JSON.stringify([it.id, m, q]), primary: i === 0, dis: busy }))
+        .concat({ id: 'texfile:' + m, label: 'Choose a picture...', act: 'tex:choose', v: JSON.stringify([it.id, m]), dis: busy }) });
+    } else laptop = true;
+  }
+  for (const [n, f] of E.found) if (HOW_WORDS[f.how]) B.push({ p: `Texture ${n}: using ${f.path}, ${HOW_WORDS[f.how](f.path)}.`, c: 'faint' });
+  for (const d of E.decoded || []) B.push({ p: `Texture ${d.name}: read from its ${d.fmt} file in the page (a browser cannot show it itself).`, c: 'faint' });
+  if (E.record) for (const x of E.record.tex || []) if (HOW_WORDS[x.how]) B.push({ p: `${x.name ? 'Texture ' + x.name : SLOT_NAME[x.slot] + ' picture'}: ${baseName(x.from)}, ${HOW_WORDS[x.how](x.from)} (in this GLB).`, c: 'faint' });
+  const uvs = (E.mats || []).filter(m => m.uv);
+  if (E.info && (E.mats || []).length) {
+    if (!can) laptop = laptop || !!uvs.length;
+    else if (!uvs.length) B.push({ page: true, p: 'Textures: it has no texture coordinates (UVs), so a picture cannot be laid on it.', c: 'faint' });
+    else {
+      const A = X.texAdd && X.texAdd.id === it.id ? X.texAdd : null;
+      if (!A) B.push({ page: true, label: 'Textures', row: [{ id: 'texadd', label: 'Add a texture...', act: 'tex:add', v: it.id, dis: busy }] });
+      else if (!A.pic) {
+        B.push({ page: true, label: 'Add a texture: pick a picture', row: CONV.texRank(stem(E.path), pics, { dir }, 12).map(q => ({ id: 'texpick:' + q, label: baseName(q), act: 'tex:pick', v: q }))
+          .concat({ id: 'texpickfile', label: 'Choose a picture...', act: 'tex:pickfile' }, { id: 'texcancel', label: 'Cancel', act: 'tex:cancel' }) });
+      } else {
+        const mat = uvs[A.mat % uvs.length];
+        B.push({ page: true, p: `Adding ${A.pic.name}` + (A.pic.why ? `: ${A.pic.why}.` : ''), c: A.pic.why ? 'red' : 'muted' },
+          { page: true, label: 'On', row: [{ id: 'texmat', label: matLabel(mat) + (uvs.length > 1 ? ' ▸' : ''), act: 'tex:mat', dis: uvs.length < 2 }] },
+          { page: true, label: 'As', row: SLOTS_ADD.map(k => ({ id: 'texslot:' + k, label: SLOT_NAME[k], act: 'tex:slot', v: k, on: A.slot === k })) });
+        if (mat.slots.includes(A.slot)) B.push({ page: true, p: `${matLabel(mat)} has a ${SLOT_NAME[A.slot].toLowerCase()} picture already: this one takes its place.`, c: 'faint' });
+        B.push({ page: true, row: [{ id: 'texgo', label: 'Add and convert', act: 'tex:go', primary: true, dis: busy || !!A.pic.why }, { id: 'texcancel', label: 'Cancel', act: 'tex:cancel' }] },
+          { page: true, p: `It is converted to a GLB with the picture in it at once (textures at most ${fmt(maxTexNow())} px)` + (canUpload() ? ': into models/, and what is placed from it switches to it.' : ': downloaded, to put in the scene\'s models/ folder.'), c: 'faint' });
+      }
+    }
+  }
+  if (laptop && XR.on) B.push({ p: 'Add a texture on a laptop: this card there offers pictures for what is missing, or lays a new one on, and makes the model a GLB with them.', c: 'faint' });
+}
+// a picture's mean colour, to tell a normal map that says nothing in its name (its bluish purple): the slot set again
+async function texMean(A) {
+  try {
+    const u = A.pic.file ? URL.createObjectURL(A.pic.file) : fileUrl(A.pic.path, true);
+    try {
+      const img = await CONV.picture(u, { max: 128, ext: extOf(A.pic.name) });
+      if (X.texAdd === A && A.slot === 'map' && !A.slotSet && CONV.slotOf(A.pic.name, CONV.meanOf(img)) === 'normalMap') A.slot = 'normalMap';
+    } finally { if (A.pic.file) URL.revokeObjectURL(u); }
+  } catch (e) { if (X.texAdd === A) A.pic.why = e.message; }
+  dirty(true);
+}
+// a picture from this computer (the card's chooser, #stuTex): for a missing name, for Add a texture, or for an Upload row
+function texFile(f) {
+  const F = X.texFor;
+  X.texFor = null;
+  if (!F || !f) return;
+  if (F.kind === 'up') { upGive(F.ri, [f], F.name); return; }
+  if (F.kind === 'add') { if (X.texAdd && X.texAdd.id === F.id) { X.texAdd.pic = { file: f, name: f.name }; X.texAdd.slot = CONV.slotOf(f.name); X.texAdd.slotSet = false; texMean(X.texAdd); } return; }
+  texGo(F.id, [{ name: F.name, mat: '', slot: '', from: '', file: f }]);
+}
+const chooseTex = F => { X.texFor = F; const i = $('#stuTex'); if (i) i.click(); };
+const TEX_ACT = {
+  'tex:use': v => { const [id, n, q] = JSON.parse(v); texGo(id, [{ name: n, mat: '', slot: '', from: q }]); },
+  'tex:choose': v => { const [id, n] = JSON.parse(v); chooseTex({ kind: 'card', id, name: n }); },
+  'tex:add': v => { X.texAdd = { id: v, pic: null, mat: 0, slot: 'map' }; },
+  'tex:pick': v => { if (X.texAdd) { X.texAdd.pic = { path: v, name: baseName(v) }; X.texAdd.slot = CONV.slotOf(v); X.texAdd.slotSet = false; texMean(X.texAdd); } },
+  'tex:pickfile': () => { if (X.texAdd) chooseTex({ kind: 'add', id: X.texAdd.id }); },
+  'tex:mat': () => { if (X.texAdd) X.texAdd.mat++; },
+  'tex:slot': v => { if (X.texAdd && SLOTS_ADD.includes(v)) { X.texAdd.slot = v; X.texAdd.slotSet = true; } },   // (chosen: its colour no longer changes it)
+  'tex:go': () => {
+    const A = X.texAdd, it = A && STU.items.get(A.id), uvs = it && it.E ? (it.E.mats || []).filter(m => m.uv) : [];
+    if (!A || !A.pic || !uvs.length || CV.busy || !canConvert(it.rec.file)) return;   // (kept as chosen until it can go)
+    X.texAdd = null;
+    // the material by its key here, and by its name and its meshes' names for the original a GLB is made again from
+    // (whose materials need not be the GLB's: one shared Phong material becomes one per mesh)
+    const m = uvs[A.mat % uvs.length];
+    texGo(A.id, [{ name: '', mat: m.key, mname: m.name, meshes: m.meshes || [], slot: A.slot, from: A.pic.path || '', file: A.pic.file }]);
+  },
+  'tex:cancel': () => { X.texAdd = null; },
+};
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
+  if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -18117,7 +18953,7 @@ function act(a, v) {
     download: () => downloadLayout(),
     upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
     add: () => addModel(glbFor().get(v) || v),
-    convert: () => convertFile(v),
+    convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
     switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
     orig: () => { X.orig = !X.orig; },
@@ -18135,7 +18971,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -18166,6 +19002,9 @@ function buildExplore() {
     .stu-plan li .t { word-break: break-all; }
     .stu-plan li .t small, .stu-plan li small { color: var(--muted); font-size: 12.5px; }
     .stu-plan li small.n { color: var(--amber); }
+    .stu-plan li small.x, .stu-plan li small.h { color: var(--muted); } .stu-plan li small.h { font-size: 12px; }
+    .stu-plan li .tx { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+    .stu-plan li .btn { font-size: 12.5px; padding: 2px 8px; }
     .stu-plan li small.m { color: var(--ink); }
     .stu-plan li.done { border-left-color: var(--green); } .stu-plan li.failed { border-left-color: var(--red); } .stu-plan li.failed small.m { color: var(--red); } .stu-plan li.working { border-left-color: var(--cyan); }
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
@@ -18176,6 +19015,7 @@ function buildExplore() {
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
     <input type="file" id="stuUpload" accept=".json,application/json" hidden>
+    <input type="file" id="stuTex" accept="image/*,.tga,.tif,.tiff,.psd,.psb,.dds" hidden>
     <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
@@ -18188,6 +19028,7 @@ function buildExplore() {
   $('#explore').addEventListener('change', ev => {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
+    if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
     if (t.dataset && t.dataset.act === 'tick') toggleLink(STU.sel, t.dataset.list, t.dataset.v);
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
@@ -18504,40 +19345,87 @@ function sceneLists() {
 // placed one is left alone), given the studio's guess, its textures at most 2,048 px (For Quest) or 4,096, written as a
 // GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
 // from this file before, else a free name) and every object placed from the original switches to it; else it is
-// downloaded. A failure changes nothing
-const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null };
+// downloaded. A failure changes nothing. Pictures laid on by hand (o.tex: [{ name, mat, slot, from, url }], "Textures:
+// found, added, converted" in tools/studio/SPEC.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
+// converting the original again lays them on again; o.into: the GLB to write (an object's own: replaced where it is,
+// the old one first kept under originals/ when it is made again from itself); o.label: the note's first words
+const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null, item: '' };
 const canConvert = p => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && !XR.on;
 const canUpload = () => SRC.kind === 'relay' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
 const maxTexNow = () => (UP.quest ? 2048 : 4096);
-async function convertFile(path) {
+// (only the pictures chosen by hand, or by the Upload pane's own rungs, are laid on again: the ladder finds the rest)
+const BY_HAND = ['chosen', 'only', 'stem'];
+async function convertFile(path, o = {}) {
   if (!canConvert(path) || CV.busy) return false;
-  const name = stem(path), scene = STU.scene, gen = STU.gen;
-  CV.busy = path; CV.note = `Converting ${baseName(path)}: reading it...`; CV.noteC = 'muted'; dirty(true);
+  const name = stem(path), scene = STU.scene, gen = STU.gen, lab = o.label || `Converting ${baseName(path)}`, self = o.into === path;
+  CV.busy = path; CV.note = `${lab}: reading it...`; CV.noteC = 'muted'; dirty(true);
   let ok = false;
   try {
+    // where it goes, and what was laid on before (the record of the GLB made from this file)
+    let out = o.into || 'models/' + safeSeg(name) + '.glb', replace = !!o.into, prev = null;
+    if (STU.fileMap.has(out)) {
+      prev = glbRec(out) || (await glbHead(out).then(j => CONV.glbRecord(j), () => null));
+      if (!o.into) { if (prev && prev.from === path) replace = true; else { out = freeName(out, p => STU.fileMap.has(p)); prev = null; } }
+    }
+    const keyT = x => (x.name ? 'n:' + x.name.toLowerCase() : 'm:' + x.mat + ':' + x.slot), tex = new Map();
+    if (prev && !self) for (const x of prev.tex || []) if (BY_HAND.includes(x.how) && STU.fileMap.has(x.from)) tex.set(keyT(x), x);
+    for (const x of o.tex || []) tex.set(keyT(x), Object.assign({ name: '', mat: '', slot: '', how: 'chosen' }, x));
+    const byName = new Map([...tex.values()].filter(x => x.name).map(x => [x.name.toLowerCase(), x])), urlOf = x => x.url || fileUrl(x.from, true);
     const buf = await getBytes(fileUrl(path));
-    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '', base = sceneUrl(scene) + encPath(dir);
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '', base = sceneUrl(scene) + encPath(dir), found = new Map();
     await new Promise(r => later(r, 30));
-    const m = await CONV.load({ ext: extOf(path), data: buf, base, name, url: u => resolveUrl(u, base, dir, new Set()) });
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: path, step: l => { CV.note = `Converting ${baseName(path)}: ${l.toLowerCase()}...`; dirty(); } });
+    const url = u => {
+      if (/^(blob|data):/i.test(u)) return u;
+      let b = baseName(CONV.IM.psdBack(u.split(/[?#]/)[0]));
+      try { b = decodeURIComponent(b); } catch (e) { /* as it is */ }
+      const x = byName.get(b.toLowerCase());
+      return x ? urlOf(x) : resolveUrl(u, base, dir, new Set(), found);
+    };
+    const m = await CONV.load({ ext: extOf(path), data: buf, base, name, maxTex: maxTexNow(), url });
+    // a slot added on a GLB's material, laid on its original: that material found there by its meshes' names, else its
+    // own name (the two need not have the same materials in the same order), the record then keyed as the original has it
+    if (!self) {
+      const ms = CONV.matsOf(m.root), again = new Map();
+      for (const [k, x] of tex) {
+        if (!x.name && ((x.meshes && x.meshes.length) || x.mname)) {
+          const hit = ms.find(e => x.meshes && e.meshes.some(n => x.meshes.includes(n.name)) && (!x.mname || e.name === x.mname)) || ms.find(e => x.meshes && e.meshes.some(n => x.meshes.includes(n.name))) || (x.mname ? ms.find(e => e.name === x.mname) : null);
+          if (hit) x.mat = hit.key;
+          delete x.meshes; delete x.mname;
+          again.delete(keyT(x)); again.set(keyT(x), x);
+        } else again.set(k, x);
+      }
+      tex.clear();
+      for (const [k, x] of again) tex.set(k, x);
+    }
+    // pictures laid on in slots: fetched, read and put on their materials (the GLB made again from itself has the earlier
+    // ones in it already)
+    const gltf = ['glb', 'gltf'].includes(extOf(path));
+    for (const x of (self ? o.tex || [] : [...tex.values()]).filter(q => !q.name)) {
+      CV.note = `${lab}: laying ${baseName(x.from)} on...`; dirty();
+      const image = await CONV.picture(urlOf(x), { max: maxTexNow(), ext: extOf(x.from) });
+      const r = CONV.addTextures(m.root, [{ mat: x.mat, slot: x.slot, image, name: baseName(x.from) }], { gltf });
+      if (!r.done) throw new Error(r.why[0] || 'it has no material to lay it on');
+    }
+    // (made again from itself: the old one kept under originals/, and the new one says so)
+    const keepOld = self && canUpload() && /^models\//i.test(path) ? freeName('originals/' + baseName(path), p => STU.fileMap.has(p)) : '';
+    const recTex = self ? [...new Map([...((prev && prev.tex) || []), ...(o.tex || [])].map(x => [keyT(x), x])).values()] : [...[...found].filter(([n]) => !m.missing.includes(n)).map(([n, f]) => ({ name: n, mat: '', slot: '', from: f.path, how: f.how })), ...tex.values()];
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
     const size = mb(r.glb.byteLength), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
     if (canUpload()) {
-      // (models/<base>.glb: replaced when it was made from this very file, else the next free name)
-      let out = 'models/' + safeSeg(name) + '.glb', replace = false;
-      if (STU.fileMap.has(out)) { const rec = glbRec(out) || (await glbHead(out).then(j => CONV.glbRecord(j), () => null)); if (rec && rec.from === path) replace = true; else out = freeName(out, p => STU.fileMap.has(p)); }
-      CV.note = `Converting ${baseName(path)}: uploading ${out} (${size})...`; dirty();
-      const j = await upSend(fileApi(scene, out, replace), new Blob([r.glb], { type: 'model/gltf-binary' }), p => { CV.note = `Converting ${baseName(path)}: uploading ${out} (${Math.round(p * 100)} %)...`; dirty(); });
+      if (keepOld) { CV.note = `${lab}: keeping the old one as ${keepOld}...`; dirty(); await upSend(fileApi(scene, keepOld, false), new Blob([buf], { type: 'model/gltf-binary' })); }
+      CV.note = `${lab}: uploading ${out} (${size})...`; dirty();
+      const j = await upSend(fileApi(scene, out, replace), new Blob([r.glb], { type: 'model/gltf-binary' }), p => { CV.note = `${lab}: uploading ${out} (${Math.round(p * 100)} %)...`; dirty(); });
       out = (j && j.path) || out;
       if (gen !== STU.gen) return false;
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
-      GLBREC.set(out, { at: f ? f.at : 0, rec: r.record, p: null });
-      const n = switchToGLB(path, out, r.record);
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + lost;
+      GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
+      const n = out === path ? 0 : switchToGLB(path, out, r.record);
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
     } else {
@@ -18552,6 +19440,43 @@ async function convertFile(path) {
     if (gen === STU.gen) { CV.note = `${baseName(path)} was not converted (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; }
   } finally { CV.busy = ''; dirty(true); }
   return ok;
+}
+// A texture added to an object (its card): a picture of the scene, or one from this computer (into originals/ with a
+// relay, else used from memory and the GLB downloaded), baked into the GLB at once. list: [{ name (a missing name) | mat
+// and slot (a slot added), from, file }]. An object on a GLB made from an original still in the scene is made again from
+// that original into the same GLB; a GLB that has none is made again from itself
+async function texGo(id, list) {
+  const it = STU.items.get(id);
+  if (!it || it.kind !== 'o' || CV.busy || !canConvert(it.rec.file)) return false;
+  const file = it.rec.file, x0 = list[0], pic = x0.file ? x0.file.name : baseName(x0.from), lab = `Adding ${pic}`, mem = [], gen = STU.gen;
+  CV.item = id;
+  try {
+    for (const x of list) {
+      x.how = 'chosen';
+      if (!x.file) continue;
+      if (canUpload()) {
+        const p = freeName('originals/' + safeSeg(x.file.name), q => STU.fileMap.has(q));
+        CV.busy = file; CV.note = `${lab}: uploading it to ${p}...`; CV.noteC = 'muted'; dirty(true);
+        const j = await upSend(fileApi(STU.scene, p, false), x.file);
+        x.from = (j && j.path) || p;
+        await refreshFiles(new Set([x.from]));
+        CV.busy = '';
+        // (the scene changed, editing went off or the story was locked meanwhile: the picture stays in originals/, said)
+        if (gen !== STU.gen) return false;
+        if (!canConvert(file)) { CV.note = `${pic} is in ${x.from}, but ${baseName(file)} was not converted: editing is off or this scene is locked. Use it from the card again.`; CV.noteC = 'amber'; dirty(true); return false; }
+      } else { x.url = URL.createObjectURL(x.file); mem.push(x.url); x.from = 'originals/' + safeSeg(x.file.name); }
+      delete x.file;
+    }
+    let src = file, into = '';
+    if (extOf(file) === 'glb') {
+      const r = glbRec(file) || (it.E && it.E.record);
+      if (r && r.from && r.from !== file && STU.fileMap.has(r.from) && MODEL_EXT.includes(extOf(r.from))) { src = r.from; into = file; } else if (/^models\//i.test(file)) into = file;
+    }
+    return await convertFile(src, { tex: list, into, label: lab });
+  } catch (e) {
+    CV.busy = ''; CV.note = `${pic} was not added (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; dirty(true);
+    return false;
+  } finally { for (const u of mem) later(() => URL.revokeObjectURL(u), 1000); }
 }
 // Convert every model (Add): each model to place that is not a GLB, one after another
 async function convertAll() {
@@ -18695,7 +19620,7 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set() };
+const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
@@ -18718,41 +19643,53 @@ function upTake(list) {
   X.tab = 'upload';
   upPlan();
 }
-// the plan: each model with the files it names (found by base name, case aside, anywhere in what was dropped: its
-// textures, an OBJ's MTL and the MTL's textures, a glTF's .bin), each sound on its own, and anything left kept as it is
+// the plan: each model with the files it names (an OBJ's MTL, a glTF's .bin: by name, case aside, anywhere in what was
+// dropped; its textures by the ladder, CONV.texFind: the path it gives, the name, another kind of picture of the same
+// name, a name of the same words), each sound on its own, and anything left kept as it is. Then the rung only the plan
+// has: exactly one model lacking exactly one texture, and exactly one picture no model uses, are put together ('only')
 async function upPlan() {
-  const gen = ++UP.gen, E = UP.entries, byName = new Map();
+  const gen = ++UP.gen, E = UP.entries, byName = new Map(), byPath = new Map(E.map(e => [e.path, e])), pics = E.filter(e => CONV.IM.isPicture(e.path)).map(e => e.path);
   UP.planning = true; upChanged();
   if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
   if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
   // (the nearest of several by that name: in the model's own folder first)
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
-  const used = new Set(), rows = [];
+  const rows = [];
   for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
-    const r = { kind: 'model', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
-    used.add(e);
+    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
     try {
       if (!e.buf) e.buf = await e.file.arrayBuffer();
       if (gen !== UP.gen) return;
       const N = CONV.namesIn(e.ext, e.buf), lost = [];
-      const attach = n => { const f = find(n, e); if (f) { if (!r.src.includes(f)) r.src.push(f); used.add(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
+      const dep = n => { const f = find(n, e); if (f) { if (!r.deps.includes(f)) r.deps.push(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
+      const tex = n => {
+        if (r.names.some(x => x.name.toLowerCase() === baseName(n).toLowerCase())) return;
+        if (!CONV.IM.isPicture(n)) { dep(n); return; }
+        const hit = CONV.texFind(n, pics, { dir: dirOf(e.path) });
+        r.names.push({ name: baseName(n), entry: hit ? byPath.get(hit.path) : null, how: hit ? hit.how : '' });
+      };
       for (const n of N.mtl) {
-        const f = attach(n);
-        if (f) { const txt = await f.file.text(); for (const t of CONV.mtlNames(txt)) attach(t); }
+        const f = dep(n);
+        if (f) { const txt = await f.file.text(); for (const t of CONV.mtlNames(txt)) tex(t); }
       }
-      for (const n of N.buffers) attach(n);
-      for (const n of N.textures) attach(n);
-      if (lost.length) r.notes.push(e.ext === 'fbx' ? `Names ${lost.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
-    } catch (err) { r.notes.push('It could not be read: ' + err.message); }
+      for (const n of N.buffers) dep(n);
+      for (const n of N.textures) tex(n);
+      if (lost.length) r.notes0.push(`Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
+    } catch (err) { r.notes0.push('It could not be read: ' + err.message); }
     finally { e.buf = null; }   // (read again when its row runs: a folder of large scans is never all in memory at once)
     rows.push(r);
   }
-  for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !used.has(x))) { used.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
-  for (const e of E.filter(x => !used.has(x))) rows.push({ kind: 'keep', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path });
+  const taken = new Set(rows.flatMap(r => [r.main, ...r.deps, ...r.names.map(x => x.entry).filter(Boolean)]));
+  for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
+  // ('only': one model lacking one texture, one picture left over)
+  const lacking = rows.filter(r => r.kind === 'model' && r.names.filter(x => !x.entry).length === 1), left = E.filter(x => CONV.IM.isPicture(x.path) && CONV.IM.way(x.ext) !== 'refuse' && !taken.has(x));
+  // (and of the same kind: a normal map left over never stands in for a missing colour picture; it is still offered)
+  const gap = lacking.length === 1 ? lacking[0].names.find(x => !x.entry) : null;
+  if (gap && left.length === 1 && CONV.slotOf(left[0].path) === CONV.slotOf(gap.name)) Object.assign(gap, { entry: left[0], how: 'only' });
   if (gen !== UP.gen) return;
   UP.rows = rows;
-  upNames();
+  upRebuild();
   UP.planning = false; upChanged();
   // the sounds' lengths and rates (an element's metadata, the header's first bytes), then the names again
   for (const r of rows.filter(x => x.kind === 'sound')) {
@@ -18761,6 +19698,51 @@ async function upPlan() {
     r.dur = dur; r.rate = rateOf(new Uint8Array(head)); r.msg = '';
     upNames(); upChanged();
   }
+}
+// each model's files (the model, what it needs, its pictures), and a row kept as it is for anything no row uses (a
+// picture a model takes goes to originals/ as that model's file, not on its own); its notes; the names again
+function upRebuild() {
+  const used = new Set();
+  for (const r of UP.rows) {
+    if (r.kind === 'sound') used.add(r.main);
+    if (r.kind !== 'model') continue;
+    if (r.state === 'plan') {
+      r.src = [r.main, ...r.deps];
+      for (const e of [...r.names.map(x => x.entry), ...r.adds.map(a => a.entry)]) if (e && !r.src.includes(e)) r.src.push(e);
+      const miss = r.names.filter(x => !x.entry).map(x => x.name);
+      r.notes = r.notes0.concat(miss.length ? [r.main.ext === 'fbx' ? `Names ${miss.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${miss.join(', ')}: converted without ${miss.length > 1 ? 'them' : 'it'}, unless you give ${miss.length > 1 ? 'them' : 'it'} a picture`] : []);
+    }
+    for (const e of r.src) used.add(e);
+  }
+  const keepOf = new Map(UP.rows.filter(r => r.kind === 'keep').map(r => [r.main, r]));
+  const keeps = UP.entries.filter(e => !used.has(e)).map(e => keepOf.get(e) || { kind: 'keep', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path });
+  UP.rows = UP.rows.filter(r => r.kind !== 'keep' || (r.state !== 'plan' && !keeps.includes(r))).concat(keeps);
+  upNames();
+}
+// the pictures no model uses (the Use buttons' choice, the convert-time rung)
+const upLeft = () => { const used = new Set(UP.rows.filter(r => r.kind !== 'keep').flatMap(r => r.src)); return UP.entries.filter(e => CONV.IM.isPicture(e.path) && CONV.IM.way(e.ext) !== 'refuse' && !used.has(e)); };
+// pictures given to a model row (dropped onto it, or Choose a file): for a texture it lacks (name, else the first), else
+// laid on as a slot of their own (by their name, or a normal map's colour; changeable on the row)
+function upGive(ri, files, name) {
+  const r = UP.rows[ri];
+  if (!r || r.kind !== 'model' || UP.busy || r.state !== 'plan') return;
+  for (const f of files) {
+    if (!CONV.IM.isPicture(f.name)) continue;
+    let p = f.name, k = 2;
+    while (UP.entries.some(x => x.path === p)) p = `added ${k++}/${f.name}`;
+    const e = { path: p, file: f, ext: extOf(f.name), name: f.name, buf: null };
+    UP.entries.push(e);
+    const miss = r.names.find(x => !x.entry && (!name || x.name === name)) || r.names.find(x => !x.entry);
+    if (miss) Object.assign(miss, { entry: e, how: 'chosen' });
+    else { const a = { entry: e, slot: CONV.slotOf(f.name), why: '' }; r.adds.push(a); upMean(a); }
+  }
+  upRebuild(); upChanged();
+}
+async function upMean(a) {
+  const u = URL.createObjectURL(a.entry.file);
+  try { const img = await CONV.picture(u, { max: 128, ext: a.entry.ext }); if (a.slot === 'map' && CONV.slotOf(a.entry.name, CONV.meanOf(img)) === 'normalMap') a.slot = 'normalMap'; }
+  catch (e) { a.why = e.message; }
+  finally { URL.revokeObjectURL(u); upChanged(); }
 }
 // where each row's files go in the scene, against what the scene holds (numbered unless Replace) and each other
 async function upHave() {
@@ -18779,6 +19761,7 @@ function upNames() {
   const taken = p => mine.has(p.toLowerCase()) || (!UP.replace && have.has(p.toLowerCase()));
   const claim = p => { const q = freeName(p, taken); mine.add(q.toLowerCase()); return q; };
   const orig = e => { if (!given.has(e)) given.set(e, claim(origPath(e.path))); return given.get(e); };
+  UP.given = given;   // (where each given file goes: a GLB's record names its pictures there)
   const relay = upRelay() && !!UP.scene;
   // a row already run (made, or failed and run again) keeps its names: what it made is not renamed, and what it sent is
   // not sent again under another name (the files this upload wrote are in the scene's listing by now)
@@ -18883,20 +19866,40 @@ async function upRow(r, relay, scene, sent) {
     const e = r.main, glbPath = r.out[0], urls = new Map();
     for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
     const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
+    // (a texture name the plan gave a picture: that picture, whatever its name)
+    const blobFor = f => { const u = urls.get(f.path.toLowerCase()); if (u) return u; const v = URL.createObjectURL(f.file); UP.blobs.push(v); urls.set(f.path.toLowerCase(), v); return v; };
+    const named = new Map(r.names.filter(x => x.entry).map(x => [x.name.toLowerCase(), x.entry]));
     const url = u => {
       let rel = u.startsWith(base) ? u.slice(base.length) : u;
       try { rel = decodeURIComponent(rel); } catch (err) { /* as it is */ }
-      rel = rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, '');
+      rel = CONV.IM.psdBack(rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
+      const x = named.get(baseName(rel).toLowerCase());
+      if (x) return blobFor(x);
       return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
     };
     r.msg = 'Reading it...'; r.p = 0.02; upChanged();
     if (!e.buf) e.buf = await e.file.arrayBuffer();
     await new Promise(res => later(res, 30));
     let res = null;
+    const op = f => (UP.given && UP.given.get(f)) || origPath(f.path), tex = r.names.filter(x => x.entry).map(x => ({ name: x.name, mat: '', slot: '', from: op(x.entry), how: x.how }));
     try {
-      const m = await CONV.load({ ext: e.ext, data: e.buf, base, name: e.name.replace(/\.[^.]*$/, ''), url });
-      res = await CONV.toGLB(m, { name: e.name.replace(/\.[^.]*$/, ''), maxTex: maxTexNow(), from: r.from, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: maxTexNow(), url }), gltf = ['glb', 'gltf'].includes(e.ext);
+      // pictures given as slots of their own, then (no colour picture at all) a left-over one whose name matches the
+      // model's or a material's
+      const lay = async (f, slot, how) => {
+        const image = await CONV.picture(blobFor(f), { max: maxTexNow(), ext: f.ext }), d = CONV.addTextures(m.root, [{ mat: '*', slot, image, name: f.name }], { gltf });
+        if (d.done) tex.push({ name: '', mat: '*', slot, from: op(f), how }); else r.notes.push(`${f.name} was not laid on: ${d.why[0] || 'every material has that picture already'}.`);
+        return d.done;
+      };
+      for (const a of r.adds) await lay(a.entry, a.slot, 'chosen');
+      const mats = CONV.matsOf(m.root);
+      if (mats.length && !mats.some(x => x.m.map)) {
+        const want = new Set([nm, ...mats.map(x => x.name)].map(x => CONV.normStem(x)).filter(Boolean)), c = upLeft().filter(f => want.has(CONV.normStem(f.name)) && CONV.slotOf(f.name) === 'map');
+        if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
+      }
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
+      for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
     e.buf = null;
     for (const m of res.missing || []) r.notes.push(`Converted without its texture ${m}.`);
@@ -19012,14 +20015,33 @@ function uploadBlocks(B) {
 function uploadHTML(b) {
   if (b.drop) return `<div class="stu-drop${b.dis ? ' off' : ''}" data-drop="1"><b>Drop files or folders here</b><span>or</span><div class="actions"><button class="btn" type="button" data-act="up:choose" data-v=""${b.dis ? ' disabled' : ''}>Choose files</button><button class="btn" type="button" data-act="up:folder" data-v=""${b.dis ? ' disabled' : ''}>Choose a folder</button></div></div>`;
   if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
-  if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map(r => {
+  if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
-    return `<li class="${st}" data-kind="${r.kind}"><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
-      <small class="w">${esc(rowPlan(r))}</small>${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+      <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
   return '';
+}
+// a model row's textures: each name it gives and the picture it will have (and how it was found), or for one it lacks
+// the pictures no model uses (likeliest first) and Choose a file; pictures laid on as slots of their own, their slot
+// changeable. (Drop a picture onto the row: the same as Choose a file)
+const UP_HOW = { path: 'by its path', name: 'by its name', ext: 'the same name as another kind of picture', similar: 'a picture of a similar name', only: 'the only picture left over', chosen: 'chosen by hand' };
+function texRows(r, ri) {
+  const can = r.state === 'plan' && !UP.busy, left = upLeft(), J = v => esc(JSON.stringify(v));
+  const btn = (act, v, label, primary) => `<button class="btn${primary ? ' primary' : ''}" type="button" data-act="${act}" data-v="${J(v)}"${can ? '' : ' disabled'}>${esc(label)}</button>`;
+  let h = '';
+  for (const x of r.names) {
+    if (x.entry) h += `<small class="x">Texture ${esc(x.name)}: ${esc(x.entry.path)}${x.how === 'path' || x.how === 'name' ? '' : ` (${esc(UP_HOW[x.how] || '')})`}${x.how === 'chosen' || x.how === 'only' ? ' ' + btn('up:unuse', [ri, x.name], 'Not this') : ''}</small>`;
+    else {
+      const c = CONV.texRank(x.name, left.map(e => e.path), { dir: dirOf(r.main.path) }, 3);
+      h += `<small class="n">Texture ${esc(x.name)}: not among the files</small><span class="tx">${c.map((q, i) => btn('up:use', [ri, x.name, q], 'Use ' + baseName(q), i === 0)).join('')}${btn('up:file', [ri, x.name], 'Choose a file...')}</span>`;
+    }
+  }
+  r.adds.forEach((a, i) => { h += `<small class="x">Laid on: ${esc(a.entry.name)} as ${btn('up:slot', [ri, i], SLOT_NAME[a.slot] + ' ▸')} ${btn('up:unadd', [ri, i], 'Not this')}${a.why ? ` <b class="n">${esc(a.why)}</b>` : ''}</small>`; });
+  if (r.state === 'plan') h += `<small class="h">Drop a picture on this row to lay it on${r.names.some(x => !x.entry) ? ' (it takes the missing texture first)' : ''}, or ${btn('up:file', [ri, ''], 'choose one...')}</small>`;
+  return h;
 }
 // the page's listeners: files dropped anywhere on the studio's page (the Upload pane opens with them), the file choosers,
 // the new scene's name as it is typed
@@ -19032,6 +20054,9 @@ function uploadBind() {
     if (!over(ev) || XR.on || OPT.visit) return;
     ev.preventDefault(); zone(false);
     if (UP.busy) return;
+    // (pictures dropped onto a model's row: that model's)
+    const li = ev.target && ev.target.closest && ev.target.closest('.stu-plan li[data-row]'), fl = [...((ev.dataTransfer && ev.dataTransfer.files) || [])];
+    if (li && fl.length && fl.every(f => CONV.IM.isPicture(f.name))) { upGive(+li.dataset.row, fl); return; }
     if (APP.mode !== 'explore') APP.enterExplore();
     readDropped(ev.dataTransfer).then(upTake);
   });
@@ -19056,6 +20081,11 @@ const UP_ACT = {
   'up:run': () => upRun(),
   'up:clear': () => upClear(),
   'up:open': () => upOpen(),
+  'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },
+  'up:unuse': v => { const [ri, n] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n); if (x && r.state === 'plan') { Object.assign(x, { entry: null, how: '' }); upRebuild(); upChanged(); } },
+  'up:file': v => { const [ri, n] = JSON.parse(v); chooseTex({ kind: 'up', ri, name: n }); },
+  'up:slot': v => { const [ri, i] = JSON.parse(v), a = UP.rows[ri] && UP.rows[ri].adds[i]; if (a) { a.slot = SLOTS_ADD[(SLOTS_ADD.indexOf(a.slot) + 1) % SLOTS_ADD.length]; upChanged(); } },
+  'up:unadd': v => { const [ri, i] = JSON.parse(v), r = UP.rows[ri]; if (r && r.adds[i] && r.state === 'plan') { r.adds.splice(i, 1); upRebuild(); upChanged(); } },
 };
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
@@ -20709,9 +21739,9 @@ const STUDIO = {
   state: () => ({
     src: SRC.kind, srcState: SRC.state, base: SRC.base, folder: SRC.folder, save: SRC.save, scenes: SRC.scenes.map(s => s.name), scene: STU.scene, listing: STU.listing,
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
-    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null }])),
+    models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null, found: Object.fromEntries(E.found || []), why: E.why || {}, decoded: E.decoded || [], mats: E.mats || [] }])),
     sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
-    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
   }),
   items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused) })),

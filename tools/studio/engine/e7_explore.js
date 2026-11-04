@@ -7,7 +7,7 @@
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
 const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false };
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false, texAdd: null, texFor: null };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -221,7 +221,7 @@ function itemBlocks(it, B, ed) {
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
-    if (E) for (const m of E.missing) B.push({ p: `Missing texture ${m}: put it in the scene's folder.`, c: 'amber' });
+    if (E) texBlocks(it, E, B);
     if (info) {
       if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
       if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
@@ -236,7 +236,7 @@ function itemBlocks(it, B, ed) {
       else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
         { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${fmt(maxTexNow())} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
     }
-    if (CV.note && !XR.on && (CV.busy === r.file || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
+    if (CV.note && !XR.on && (CV.busy === r.file || CV.item === it.id || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
@@ -271,10 +271,99 @@ function itemBlocks(it, B, ed) {
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
+// ---- an object's textures (tools/studio/SPEC.md, "Textures: found, added, converted"): what is missing, each with
+// pictures of the scene to use (the ladder's and the likeliest by name) or one from this computer; what the ladder found
+// under another name or read from a TIFF, PSD or DDS; and Add a texture (a picture, a material, a slot). A press
+// converts at once (texGo): the pictures are baked into the model's GLB, never stored in the layout. Pages only: a
+// headset says to do it on a laptop
+const SLOT_NAME = { map: 'Colour', normalMap: 'Normal', roughnessMap: 'Roughness', metalnessMap: 'Metalness', aoMap: 'Occlusion', emissiveMap: 'Glow', alphaMap: 'Opacity', orm: 'Packed (ORM)' };
+const SLOTS_ADD = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
+const HOW_WORDS = { ext: f => `the same name as a ${CONV.IM.FMT[extOf(f)] || extOf(f).toUpperCase()}`, similar: () => 'a picture of a similar name', only: () => 'the only picture left over', chosen: () => 'chosen by hand', stem: () => 'its name matches the model\'s' };
+const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
+const matLabel = m => m.name || 'material ' + (Number(m.key) + 1);
+function texBlocks(it, E, B) {
+  const can = canConvert(it.rec.file) && !OPT.visit, busy = !!CV.busy, pics = scenePictures(), dir = dirOf(E.path);
+  let laptop = false;
+  for (const m of E.missing) {
+    const w = E.why && E.why[m];
+    B.push({ p: `Missing texture ${m}: ` + (w ? w + '.' : 'put it in the scene\'s folder' + (can ? ', or pick a picture for it here.' : '.')), c: 'amber' });
+    if (can) {
+      const f = E.found.get(m), used = [...LIB.values()].filter(x => x !== E).flatMap(x => [...x.texPaths]), cands = CONV.texRank(m, pics, { dir, not: f ? [f.path] : [], used }, 3);
+      B.push({ page: true, row: cands.map((q, i) => ({ id: 'texuse:' + m + ':' + q, label: 'Use ' + baseName(q), act: 'tex:use', v: JSON.stringify([it.id, m, q]), primary: i === 0, dis: busy }))
+        .concat({ id: 'texfile:' + m, label: 'Choose a picture...', act: 'tex:choose', v: JSON.stringify([it.id, m]), dis: busy }) });
+    } else laptop = true;
+  }
+  for (const [n, f] of E.found) if (HOW_WORDS[f.how]) B.push({ p: `Texture ${n}: using ${f.path}, ${HOW_WORDS[f.how](f.path)}.`, c: 'faint' });
+  for (const d of E.decoded || []) B.push({ p: `Texture ${d.name}: read from its ${d.fmt} file in the page (a browser cannot show it itself).`, c: 'faint' });
+  if (E.record) for (const x of E.record.tex || []) if (HOW_WORDS[x.how]) B.push({ p: `${x.name ? 'Texture ' + x.name : SLOT_NAME[x.slot] + ' picture'}: ${baseName(x.from)}, ${HOW_WORDS[x.how](x.from)} (in this GLB).`, c: 'faint' });
+  const uvs = (E.mats || []).filter(m => m.uv);
+  if (E.info && (E.mats || []).length) {
+    if (!can) laptop = laptop || !!uvs.length;
+    else if (!uvs.length) B.push({ page: true, p: 'Textures: it has no texture coordinates (UVs), so a picture cannot be laid on it.', c: 'faint' });
+    else {
+      const A = X.texAdd && X.texAdd.id === it.id ? X.texAdd : null;
+      if (!A) B.push({ page: true, label: 'Textures', row: [{ id: 'texadd', label: 'Add a texture...', act: 'tex:add', v: it.id, dis: busy }] });
+      else if (!A.pic) {
+        B.push({ page: true, label: 'Add a texture: pick a picture', row: CONV.texRank(stem(E.path), pics, { dir }, 12).map(q => ({ id: 'texpick:' + q, label: baseName(q), act: 'tex:pick', v: q }))
+          .concat({ id: 'texpickfile', label: 'Choose a picture...', act: 'tex:pickfile' }, { id: 'texcancel', label: 'Cancel', act: 'tex:cancel' }) });
+      } else {
+        const mat = uvs[A.mat % uvs.length];
+        B.push({ page: true, p: `Adding ${A.pic.name}` + (A.pic.why ? `: ${A.pic.why}.` : ''), c: A.pic.why ? 'red' : 'muted' },
+          { page: true, label: 'On', row: [{ id: 'texmat', label: matLabel(mat) + (uvs.length > 1 ? ' ▸' : ''), act: 'tex:mat', dis: uvs.length < 2 }] },
+          { page: true, label: 'As', row: SLOTS_ADD.map(k => ({ id: 'texslot:' + k, label: SLOT_NAME[k], act: 'tex:slot', v: k, on: A.slot === k })) });
+        if (mat.slots.includes(A.slot)) B.push({ page: true, p: `${matLabel(mat)} has a ${SLOT_NAME[A.slot].toLowerCase()} picture already: this one takes its place.`, c: 'faint' });
+        B.push({ page: true, row: [{ id: 'texgo', label: 'Add and convert', act: 'tex:go', primary: true, dis: busy || !!A.pic.why }, { id: 'texcancel', label: 'Cancel', act: 'tex:cancel' }] },
+          { page: true, p: `It is converted to a GLB with the picture in it at once (textures at most ${fmt(maxTexNow())} px)` + (canUpload() ? ': into models/, and what is placed from it switches to it.' : ': downloaded, to put in the scene\'s models/ folder.'), c: 'faint' });
+      }
+    }
+  }
+  if (laptop && XR.on) B.push({ p: 'Add a texture on a laptop: this card there offers pictures for what is missing, or lays a new one on, and makes the model a GLB with them.', c: 'faint' });
+}
+// a picture's mean colour, to tell a normal map that says nothing in its name (its bluish purple): the slot set again
+async function texMean(A) {
+  try {
+    const u = A.pic.file ? URL.createObjectURL(A.pic.file) : fileUrl(A.pic.path, true);
+    try {
+      const img = await CONV.picture(u, { max: 128, ext: extOf(A.pic.name) });
+      if (X.texAdd === A && A.slot === 'map' && !A.slotSet && CONV.slotOf(A.pic.name, CONV.meanOf(img)) === 'normalMap') A.slot = 'normalMap';
+    } finally { if (A.pic.file) URL.revokeObjectURL(u); }
+  } catch (e) { if (X.texAdd === A) A.pic.why = e.message; }
+  dirty(true);
+}
+// a picture from this computer (the card's chooser, #stuTex): for a missing name, for Add a texture, or for an Upload row
+function texFile(f) {
+  const F = X.texFor;
+  X.texFor = null;
+  if (!F || !f) return;
+  if (F.kind === 'up') { upGive(F.ri, [f], F.name); return; }
+  if (F.kind === 'add') { if (X.texAdd && X.texAdd.id === F.id) { X.texAdd.pic = { file: f, name: f.name }; X.texAdd.slot = CONV.slotOf(f.name); X.texAdd.slotSet = false; texMean(X.texAdd); } return; }
+  texGo(F.id, [{ name: F.name, mat: '', slot: '', from: '', file: f }]);
+}
+const chooseTex = F => { X.texFor = F; const i = $('#stuTex'); if (i) i.click(); };
+const TEX_ACT = {
+  'tex:use': v => { const [id, n, q] = JSON.parse(v); texGo(id, [{ name: n, mat: '', slot: '', from: q }]); },
+  'tex:choose': v => { const [id, n] = JSON.parse(v); chooseTex({ kind: 'card', id, name: n }); },
+  'tex:add': v => { X.texAdd = { id: v, pic: null, mat: 0, slot: 'map' }; },
+  'tex:pick': v => { if (X.texAdd) { X.texAdd.pic = { path: v, name: baseName(v) }; X.texAdd.slot = CONV.slotOf(v); X.texAdd.slotSet = false; texMean(X.texAdd); } },
+  'tex:pickfile': () => { if (X.texAdd) chooseTex({ kind: 'add', id: X.texAdd.id }); },
+  'tex:mat': () => { if (X.texAdd) X.texAdd.mat++; },
+  'tex:slot': v => { if (X.texAdd && SLOTS_ADD.includes(v)) { X.texAdd.slot = v; X.texAdd.slotSet = true; } },   // (chosen: its colour no longer changes it)
+  'tex:go': () => {
+    const A = X.texAdd, it = A && STU.items.get(A.id), uvs = it && it.E ? (it.E.mats || []).filter(m => m.uv) : [];
+    if (!A || !A.pic || !uvs.length || CV.busy || !canConvert(it.rec.file)) return;   // (kept as chosen until it can go)
+    X.texAdd = null;
+    // the material by its key here, and by its name and its meshes' names for the original a GLB is made again from
+    // (whose materials need not be the GLB's: one shared Phong material becomes one per mesh)
+    const m = uvs[A.mat % uvs.length];
+    texGo(A.id, [{ name: '', mat: m.key, mname: m.name, meshes: m.meshes || [], slot: A.slot, from: A.pic.path || '', file: A.pic.file }]);
+  },
+  'tex:cancel': () => { X.texAdd = null; },
+};
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
+  if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -289,7 +378,7 @@ function act(a, v) {
     download: () => downloadLayout(),
     upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
     add: () => addModel(glbFor().get(v) || v),
-    convert: () => convertFile(v),
+    convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
     switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
     orig: () => { X.orig = !X.orig; },
@@ -307,7 +396,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -338,6 +427,9 @@ function buildExplore() {
     .stu-plan li .t { word-break: break-all; }
     .stu-plan li .t small, .stu-plan li small { color: var(--muted); font-size: 12.5px; }
     .stu-plan li small.n { color: var(--amber); }
+    .stu-plan li small.x, .stu-plan li small.h { color: var(--muted); } .stu-plan li small.h { font-size: 12px; }
+    .stu-plan li .tx { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+    .stu-plan li .btn { font-size: 12.5px; padding: 2px 8px; }
     .stu-plan li small.m { color: var(--ink); }
     .stu-plan li.done { border-left-color: var(--green); } .stu-plan li.failed { border-left-color: var(--red); } .stu-plan li.failed small.m { color: var(--red); } .stu-plan li.working { border-left-color: var(--cyan); }
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
@@ -348,6 +440,7 @@ function buildExplore() {
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
     <input type="file" id="stuUpload" accept=".json,application/json" hidden>
+    <input type="file" id="stuTex" accept="image/*,.tga,.tif,.tiff,.psd,.psb,.dds" hidden>
     <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
@@ -360,6 +453,7 @@ function buildExplore() {
   $('#explore').addEventListener('change', ev => {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
+    if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
     if (t.dataset && t.dataset.act === 'tick') toggleLink(STU.sel, t.dataset.list, t.dataset.v);
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
