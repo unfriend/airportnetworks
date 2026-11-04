@@ -1,10 +1,10 @@
 {
   "app": "networks",
-  "version": "networks-v112",
-  "format": "networks-30",
+  "version": "networks-v113",
+  "format": "networks-31",
   "shell": {
-    "n": 112,
-    "id": "f4e7f50a282354b4"
+    "n": 113,
+    "id": "78aa68b3558ec69a"
   },
   "list": "d408d01a2b1a5ff7",
   "stories": {
@@ -77,8 +77,8 @@
       "needs": 109
     },
     "studio": {
-      "fp": "45456b280d69c2da",
-      "needs": 112
+      "fp": "098e77d0a6a33bb0",
+      "needs": 113
     }
   }
 }

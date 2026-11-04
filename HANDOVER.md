@@ -43,6 +43,32 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v113 (4 November 2026; FORMAT networks-31, shell 113: running pages ask to reload, and every
+  device in a shared room needs v113), tested headlessly only: cut-outs in the studio.** The owner: "is it possible to
+  remove parts of a glb model nondestructive? like a door in a wall etc?", then "for the models i would just do parts that
+  are hidden, which i can draw on the models or remove with boolean ops like a cube, whatever is easier". The owner's
+  atelier scan is one mesh with one material, so hiding named parts would not work for it: a **cut-out** is a box that hides
+  whatever of one object's model lies inside it, without changing the model's file (`tools/studio/SPEC.md`, "Cut-outs").
+  - Made with *Cut out a part* on an object's card (a door-sized box, or a fifth of the model's size if smaller, where the
+    click or the trigger last met the model) or *Cut-out box* on the Add pane; sized per side or all together, turned,
+    stretched by its corners, carried by the grip, both grips to size it; *Move onto another object*, *Duplicate*,
+    *Delete*; *Preview: As seen / Cut / Whole* while editing (this device only). Not editing, nothing of the box is drawn,
+    only the hole. Up to 16 per object (the 16 lowest ids cut, the same on every device) and 100 per scene.
+  - It belongs to its object: kept in the object's frame (metres, turned but not scaled), so it stays on the same part of
+    the model when the object is moved, turned, resized or converted to a GLB. Deleting or duplicating an object takes its
+    cut-outs along (and a copy joins its original's trigger cube lists). A trigger cube can show or hide a cut-out: the
+    owner's example, a wall that opens as you walk up, is in the new test scene `tools/studio/test/scenes/cuts/`.
+  - How: once an object has a cut-out, each of its materials gets a few shader lines that drop every pixel inside one of
+    its boxes (the world position after skinning, the boxes as uniforms, so adding a box compiles nothing; the first one on
+    a model compiles its materials once). Each placed copy of a file has its own materials, so one copy can be cut and the
+    other whole. The hole's edges are open: you look into the model's thin surface, as a scan's walls are.
+  - Saved in `layout.json` (`cuts`), shared in a room (`x.<id>`, FORMAT networks-31). Built by one builder in its own
+    worktree, reviewed once (two Sonnet reviewers, eleven findings: one high, the pointer picking a cut-out behind a nearer
+    object; two medium, sizing an object past the limits refusing its cut-outs silently and a cut a cube hides never
+    previewable; eight low), ten fixed and one rejected (the first cut-out's one-off compile). Open: how holes look and
+    cost on a Quest with the 397,066-triangle scan and 16 boxes, the grips on real controllers, mobile GPUs' uniform budget
+    (48 more vec4), and the owner's own scenes (only the test scenes were cut).
+  - Tests: running (results follow in the next commit).
 - **Released as networks-v112 (4 November 2026; FORMAT networks-30, shell 112: running pages ask to reload, and every
   device in a shared room needs v112), tested headlessly only: textures for models, sounds that follow a model or a
   bone, and a test page for the room's geometry and depth on a Quest 3.**
@@ -755,6 +781,22 @@ Before handing over (or making anything more public), someone has to decide thes
      room's code alone no longer lets a stranger in; inside the relay's users the code still is the room's only key. Not
      yet deployed: what only Coolify can show is listed at the end of the guide. Once it is up, its address can become the
      app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
+   - **Free hosting instead** (the owner asked, 4 November 2026: "can we host the relay and its assets on free
+     cloudflare workers and r2 or similar?"; researched with Cloudflare's and the other hosts' own pages that day, the
+     numbers checked once more independently). Cloudflare's free plan could carry rooms (one Durable Object a room) and the
+     studio's files (R2: 10 GB free, no charge for downloads; a card probably needed), but: one two-hour event with ten
+     headsets and three laptops sends about 1.1 million messages, some 57 % of the free daily allowance (incoming
+     WebSocket messages billed 20 to 1 against 100,000 requests a day), so two such events on one day stop the room
+     syncing about 1.5 hours into the second, until 01:00 Vienna time, and anyone with the relay's address could use the
+     allowance up (the password does not stop that); the paid plan ($5 a month) removes the cap. It would mean rewriting
+     the relay for Workers (about 10 to 14 hours of agent work) and keeping two relays in step, and losing ffmpeg, Fresh
+     shared space (the relay serves the app), rooms without internet, and uploads over about 95 MB without more work. Hosts
+     that run the relay unchanged: the Coolify server (recommended), a small Hetzner server with Coolify (about EUR 6 a
+     month), Fly.io (about $4.50), Northflank's free Sandbox (no card, always on; disk and EU region unclear: worth a
+     trial), Oracle Always Free (card, reclaimed after 7 quiet days), Render free (rooms only, sleeps after 15 minutes).
+     Recommendation: keep Coolify, keep the laptop relay at events; later, only if the scenes outgrow its disk, the
+     studio's files on R2 with the rooms on Node. Open for the owner: the university's view of data on Cloudflare (a US
+     company), a card, and the busiest day's number of sessions.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;
