@@ -3581,7 +3581,9 @@ try {
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);   // stored before the headset's writes are counted
   const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] };
   await H.evaluate(() => HOST.room.sharedAlign(true));   // aligning from the shared space is off unless asked for
-  await H.evaluate(installXR, xrOpts);
+  // (away from the stations: at [0, 1.6, 0] it stands 0.54 m from the endotype story's spot, and a second there once
+  // aligned walked it in, now and then: that story then built in software and starved the night steps below)
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { head: [-6, 1.6, 6, 0] }));
   const q2 = (await roomInfo(code)).seq, hId0 = await H.evaluate(() => HOST.collab.id);
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
@@ -3708,12 +3710,15 @@ try {
   // asleep, two pages' measures differing by about a second on a machine drawing in software)
   await sleep(3000);
   const rewrote = await A.evaluate(f => { const v = Object.assign(f, { p: Math.round(HOST.collab.now()) }); return { sent: HOST.collab.publish([[HOST.room.frameKey('U1'), v]]), p: v.p, open: HOST.collab.status }; }, frameIn(NEWS, ROOM2, 'U1', aId, 'shared'));
-  await frames(H, 400);
+  // (stepped until it follows, 8 s at most: a page drawing in software may take a single step in 400 ms, before the
+  // write has reached it)
+  await until(H, p => { window.__xr.step(); return (HOST.collab.val(HOST.room.frameKey('U1')) || {}).p === p && !HOST.room.internals().wakeHold; }, rewrote.p, 8000);
   const fw2 = await H.evaluate(() => {
     const R = HOST.room.internals(), P = HOST.collab.val(HOST.room.frameKey('U1')) || {}, t = performance.now();
     return { src: HOST.room.src, o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice(), hold: !!R.wakeHold,
       why: { p: P.p, by: P.by === HOST.collab.id ? 'me' : P.by, slept: R.sleptRel, still: Math.round(t - R.stillSince), own: R.sharedOwn, blind: R.blind,
-        now: Math.round(HOST.collab.now()), log: window.__collabLog.slice(-12).filter(e => /wake|frame/.test(e.ev)).map(e => e.ev + (e.fresh !== undefined ? ' fresh ' + e.fresh : '')) } };
+        now: Math.round(HOST.collab.now()), log: window.__collabLog.slice(-12).filter(e => /wake|frame/.test(e.ev)).map(e => e.ev + (e.fresh !== undefined ? ' fresh ' + e.fresh : '')),
+        cur: HOST.curKey, zones: window.__collabLog.filter(e => /^(aligned|zone|station|switch)$/.test(e.ev)).slice(-6).map(e => e.ev + ' ' + (e.st || e.story || e.src || '')) } };
   }), [fo2, fx2] = inFloor(F8, ROOM2);
   fw2.wrote = rewrote; fw2.loads = hLoads;
   check('and follows the room\'s frame once its writer has written it into the space again', fw2.src === 'adopted' && !fw2.hold && near([fw2.o[0], fw2.o[2]], [fo2[0], fo2[2]], 2e-3) &&
@@ -3758,6 +3763,7 @@ try {
     // the shell says the headset is not away)
     const mid = P('GL.world.getWorldPosition(new THREE.Vector3())'), dir = mid.clone().sub(new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert())).normalize();
     const rad = 1.04 * P('GL.world.getWorldScale(new THREE.Vector3()).x') + 0.5, c = P('XR.ctrls')[0];
+    if (!c) return { noCtrls: true, key: HOST.curKey, mine: HOST.collab.mine() };   // (reported by the check below, so the run goes on)
     c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
     c.g.visible = true; c.g.matrix.compose(mid.clone().addScaledVector(dir, -rad), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), dir), new V(1, 1, 1));
     P('(XR.main.last = "", XR.main.t = -1e9)');
