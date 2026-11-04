@@ -1034,7 +1034,7 @@ async function nearby() {
     // rejoin by itself: the app opened again with no room in its link (a restart)
     await B.evaluate(() => HOST.collab.dialog(false));
     await reopen(B, at(HP, '#stories'));
-    const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, R1, 20000);
+    const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, R1, 40000);   // (a page drawing in software may take more than 20 s)
     // (the notice goes by itself after 20 s: a page busy drawing in software may answer later than that)
     const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t && window.__collabLog.some(e => e.ev === 'notice' && e.title === 'Back in room') ? t.textContent : ''; });
     if (shots) { await ready(B, 'airports', 40000); await B.evaluate(() => { const t = document.getElementById('shToast'); t.hidden = false; t.style.display = 'flex'; }); }   // (the picture: the Stories screen behind the notice)
@@ -3581,12 +3581,14 @@ try {
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);   // stored before the headset's writes are counted
   const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] };
   await H.evaluate(() => HOST.room.sharedAlign(true));   // aligning from the shared space is off unless asked for
-  // (away from the stations: at [0, 1.6, 0] it stands 0.54 m from the endotype story's spot, and a second there once
-  // aligned walked it in, now and then: that story then built in software and starved the night steps below)
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { head: [-6, 1.6, 6, 0] }));
+  await H.evaluate(installXR, xrOpts);
   const q2 = (await roomInfo(code)).seq, hId0 = await H.evaluate(() => HOST.collab.id);
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
+  // (then away from the stations, before it lines up: at [0, 1.6, 0] it stands 0.54 m from the endotype story's spot,
+  // and a second there once aligned walked it in now and then; that story then built in software and starved the night
+  // steps below. The story has placed its scene from where the head began, as the steps below expect)
+  await H.evaluate(() => window.__xr.head([-6, 1.6, 6, 0]));
   check('headset: waits for the shared space\'s id', await H.evaluate(() => HOST.room.state === 'shared-wait'), await H.evaluate(() => HOST.room.state));
   // the id arrives with the space's reset event, a moment later
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
