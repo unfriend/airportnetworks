@@ -1,0 +1,20 @@
+{
+  "studio": 1,
+  "scene": "cuts",
+  "saved": "2026-11-04T18:00:00.000Z",
+  "objects": [
+    {"id":"wal001","name":"Wall","file":"wall.obj","p":[0,0,-3],"q":[0,0,0,1],"s":1,"light":"lit","clip":"","anim":"loop","start":"always"},
+    {"id":"boxa01","name":"Box A","file":"box.glb","p":[-2.4,0.25,-2.6],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Spin","anim":"off","start":"always"},
+    {"id":"boxb01","name":"Box B","file":"box.glb","p":[-3.2,0.25,-2.6],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Spin","anim":"off","start":"always"},
+    {"id":"dan001","name":"Dancer","file":"dancer.glb","p":[2.3,0,-2.6],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Dance","anim":"loop","start":"always"},
+    {"id":"fig001","name":"Figure","file":"figure.fbx","p":[3.6,0,-2.6],"q":[-0.7071,0,0,0.7071],"s":0.01,"light":"lit","clip":"Take 001","anim":"off","start":"always"}
+  ],
+  "cubes": [
+    {"id":"cub001","name":"Doorway","p":[0.6,1,-1.9],"yaw":0,"size":[1.6,2,1.6],"mode":"while","show":["dor001"],"hide":[]}
+  ],
+  "sounds": [],
+  "cuts": [
+    {"id":"dor001","name":"Door","on":"wal001","p":[0.6,1,0],"q":[0,0,0,1],"size":[0.8,2,0.4]},
+    {"id":"hol001","name":"Hole","on":"boxa01","p":[0.2,0.2,0.2],"q":[0,0,0,1],"size":[0.3,0.3,0.3]}
+  ]
+}

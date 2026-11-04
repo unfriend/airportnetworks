@@ -477,13 +477,13 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     for (const t of b.list) {
       const ry = y + h;
       if (!dry && ry + rh > top && ry < bottom) {
-        const live = inView(ry, rh) && !t.dis;
-        vButton(ctx, P, t.id, x, ry, W, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
-        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + 4, ry + 8, 5, rh - 22); }
+        const live = inView(ry, rh) && !t.dis, ix = t.ind ? 34 : 0, w = W - ix;   // (a cut-out under its object: indented)
+        vButton(ctx, P, t.id, x + ix, ry, w, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
+        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + ix + 4, ry + 8, 5, rh - 22); }
         ctx.font = vfont(23, t.on ? 700 : 400); ctx.fillStyle = t.dis ? VC.faint : VC.ink;
         const sub = t.sub || '';
-        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), W * 0.6 - 24), x + 20, ry + 14);
-        ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, sub, W * 0.4 - 16), x + W - 14, ry + 17); ctx.textAlign = 'left';
+        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), w * 0.6 - 24), x + ix + 20, ry + 14);
+        ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, sub, w * 0.4 - 16), x + W - 14, ry + 17); ctx.textAlign = 'left';
       }
       h += rh;
     }
@@ -497,7 +497,7 @@ function sigFoot() {
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
 const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: walk. Right stick: turn.' : '') : 'Pick a scene on the panel.')
   : HOST.room && HOST.room.inRoom() && HOST.anchor.locked('globe') ? HOST.room.gripHint
-  : 'Trigger: select (pointing at nothing: none). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object; a cube\'s corner stretches it.' + (XR.clear ? ' Sticks: walk, turn.' : ''));
+  : 'Trigger: select (pointing at nothing: none). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object or a cut-out; a corner of a cube or a cut-out stretches it.' + (XR.clear ? ' Sticks: walk, turn.' : ''));
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
     const playing = APP.playing, bx = 28, by = 40;

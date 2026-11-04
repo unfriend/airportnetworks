@@ -37,6 +37,12 @@
 //   voice.wav   a short sung vowel (0.8 s, 8 kHz, 8-bit)
 //   layout.json the dancer, the box, a cube (Curtain) that hides the dancer, and Voice at her mouth, following her head
 //               by the name an FBX would give it (mixamorig:Head)
+// and the fourth, tools/studio/test/scenes/cuts/, for cut-outs (tools/studio/SPEC.md, "Cut-outs"):
+//   wall.obj + wall.mtl  a wall 3 m wide, 2.4 m high and 20 cm thick (an OBJ in metres, lit, a warm grey)
+//   dancer.glb, box.glb, figure.fbx, figure.png  as in the rig scene (a skinned figure; one file placed twice; a Z-up
+//               model in centimetres, whose GLB has a turn and a scale baked in)
+//   layout.json the wall with Door, a cut-out a cube (Doorway) in front of it shows (the wall opens as you walk up),
+//               two boxes of one file, the first with a Hole in a corner, the dancer and the figure
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
 // usage (from the repository root): node tools/studio/test/make.mjs
@@ -560,11 +566,46 @@ let rtotal = 0;
 fs.mkdirSync(rout, { recursive: true });
 for (const [f, b] of Object.entries(rfiles)) { fs.writeFileSync(path.join(rout, f), b); rtotal += b.length; }
 
+// ---- the cuts scene: cut-outs (a door a cube opens in a wall, a hole in one of two boxes of one file)
+const cout = path.join(here, 'scenes/cuts');
+fs.rmSync(cout, { recursive: true, force: true });
+// a wall 3 m wide (x), 2.4 m high and 20 cm thick, its foot's middle at its origin
+function wallObj() {
+  const c = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]].map(p => [(p[0] - 0.5) * 3, p[1] * 2.4, (p[2] - 0.5) * 0.2]);
+  const faces = [[[4, 5, 6, 7], 1], [[1, 0, 3, 2], 2], [[5, 1, 2, 6], 3], [[0, 4, 7, 3], 4], [[7, 6, 2, 3], 5], [[0, 1, 5, 4], 6]];
+  const vn = ['0 0 1', '0 0 -1', '1 0 0', '-1 0 0', '0 1 0', '0 -1 0'];
+  return ['# The studio\'s cut-out test: a wall 3 m wide, 2.4 m high, 20 cm thick', 'mtllib wall.mtl', 'o wall', ...c.map(p => 'v ' + p.map(v => +v.toFixed(4)).join(' ')), ...vn.map(n => 'vn ' + n),
+    'usemtl wall', ...faces.map(([q, n]) => 'f ' + q.map(v => `${v + 1}//${n}`).join(' ')), ''].join('\n');
+}
+const cutsLayout = {
+  studio: 1, scene: 'cuts', saved: '2026-11-04T18:00:00.000Z',
+  objects: [
+    { id: 'wal001', name: 'Wall', file: 'wall.obj', p: [0, 0, -3], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: '', anim: 'loop', start: 'always' },
+    { id: 'boxa01', name: 'Box A', file: 'box.glb', p: [-2.4, 0.25, -2.6], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Spin', anim: 'off', start: 'always' },
+    { id: 'boxb01', name: 'Box B', file: 'box.glb', p: [-3.2, 0.25, -2.6], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Spin', anim: 'off', start: 'always' },
+    { id: 'dan001', name: 'Dancer', file: 'dancer.glb', p: [2.3, 0, -2.6], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Dance', anim: 'loop', start: 'always' },
+    { id: 'fig001', name: 'Figure', file: 'figure.fbx', p: [3.6, 0, -2.6], q: [-0.7071, 0, 0, 0.7071], s: 0.01, light: 'lit', clip: 'Take 001', anim: 'off', start: 'always' },
+  ],
+  cubes: [{ id: 'cub001', name: 'Doorway', p: [0.6, 1, -1.9], yaw: 0, size: [1.6, 2, 1.6], mode: 'while', show: ['dor001'], hide: [] }],
+  sounds: [],
+  cuts: [
+    { id: 'dor001', name: 'Door', on: 'wal001', p: [0.6, 1, 0], q: [0, 0, 0, 1], size: [0.8, 2, 0.4] },
+    { id: 'hol001', name: 'Hole', on: 'boxa01', p: [0.2, 0.2, 0.2], q: [0, 0, 0, 1], size: [0.3, 0.3, 0.3] },
+  ],
+};
+const cfiles = { 'wall.obj': Buffer.from(wallObj()), 'wall.mtl': Buffer.from(['# The test wall\'s material', 'newmtl wall', 'Kd 0.82 0.76 0.68', 'Ka 0 0 0', ''].join('\n')),
+  'dancer.glb': rfiles['dancer.glb'], 'box.glb': files['box.glb'], 'figure.fbx': files['figure.fbx'], 'figure.png': files['figure.png'], 'layout.json': Buffer.from(layoutText(cutsLayout)) };
+let ctotal = 0;
+fs.mkdirSync(cout, { recursive: true });
+for (const [f, b] of Object.entries(cfiles)) { fs.writeFileSync(path.join(cout, f), b); ctotal += b.length; }
+
 scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 rtotal += fs.statSync(path.join(rout, 'files.json')).size;
+ctotal += fs.statSync(path.join(cout, 'files.json')).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
 ttotal += fs.statSync(path.join(tout, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);
 console.log(`wrote tools/studio/test/scenes/textures/ (${Object.keys(tfiles).length} files): ${(ttotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/scenes/rig/ (${Object.keys(rfiles).join(', ')}): ${(rtotal / 1024).toFixed(1)} KB with its listing`);
+console.log(`wrote tools/studio/test/scenes/cuts/ (${Object.keys(cfiles).join(', ')}): ${(ctotal / 1024).toFixed(1)} KB with its listing`);

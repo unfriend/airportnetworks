@@ -2,8 +2,8 @@
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
 // Editing: point at an item to light it, pull the trigger (or pinch) to select it, and grip it to carry it: it follows
-// your hand (and turns with it, moving freely), both grips size an object, the grip on a selected cube's corner
-// stretches the cube; let go, it stays. In VR the left stick walks you through the scene and the right stick turns you
+// your hand (and turns with it, moving freely), both grips size an object or a cut-out, the grip on a selected cube's
+// or cut-out's corner stretches it; let go, it stays. In VR the left stick walks you through the scene and the right stick turns you
 // (the scene moves, not you). The grip on the panel moves the panel. A/X plays and pauses the intro.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
@@ -297,6 +297,12 @@ function xrGrab(c, on) {
       const opp = new THREE.Vector3(-sg[0] * r.size[0] / 2, -sg[1] * r.size[1] / 2, -sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       const cor = new THREE.Vector3(sg[0] * r.size[0] / 2, sg[1] * r.size[1] / 2, sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       c.grab = { target: 'corner', id: it.id, sg, opp, off: cor.sub(GL.world.worldToLocal(c.o.clone())), at: 0 };
+    } else if (h.corner !== undefined && it.kind === 'x') {
+      // a cut-out's corner: as a cube's, its box turned as it is (a full turn), the turn kept while it stretches
+      const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], q = it.holder.quaternion.clone(), s = it.holder.scale, P = it.holder.position;
+      const opp = new THREE.Vector3(-sg[0] * s.x / 2, -sg[1] * s.y / 2, -sg[2] * s.z / 2).applyQuaternion(q).add(P);
+      const cor = new THREE.Vector3(sg[0] * s.x / 2, sg[1] * s.y / 2, sg[2] * s.z / 2).applyQuaternion(q).add(P);
+      c.grab = { target: 'corner', id: it.id, sg, opp, q, off: cor.sub(GL.world.worldToLocal(c.o.clone())), at: 0 };
     } else {
       c.grab = { target: 'item', id: it.id, q0, o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()), r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0 };
     }
@@ -340,6 +346,7 @@ function carryWrite(it, now) {
   const h = it.holder;
   if (it.kind === 'o') setObj(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: h.scale.x });   // (sized by both grips: its sounds keep their place on it)
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
+  else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset from where the hand puts it)
 }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
@@ -386,9 +393,9 @@ function xrResize(a, b) {
   XR.rot.copy(_gq).multiply(T.r0);
   XR.globeOff.copy(XR.globeBase).add(T.off0).sub(T.m0).applyQuaternion(_gq).add(_gv).sub(XR.globeBase);
 }
-// an item in the hand: where the hand puts it (an object, moving freely, turns with the hand as a real object would;
-// else, and a cube always, it stays upright and turns only about the vertical; a sound only moves); both hands on an
-// object size it (a twentieth to twenty times) and move it with their middle; the right stick pushes it away or pulls it in
+// an item in the hand: where the hand puts it (an object or a cut-out, moving freely, turns with the hand as a real object
+// would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands on an object or a
+// cut-out size it (a twentieth to twenty times) and move it with their middle; the right stick pushes it away or pulls it in
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
   const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
@@ -396,13 +403,14 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && it.kind === 'o') {
+  if (o && (it.kind === 'o' || it.kind === 'x')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
     const d = c.o.distanceTo(o.o);
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
-    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
+    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: it.kind === 'x' ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
-    it.holder.scale.setScalar(clamp(W.s0 * d / W.d0, W.s0 / 20, W.s0 * 20));
+    if (it.kind === 'x') it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
+    else it.holder.scale.setScalar(clamp(W.s0 * d / W.d0, W.s0 / 20, W.s0 * 20));
     carryWrite(it);
     return;
   }
@@ -416,7 +424,7 @@ function carryItem(c, dt) {
   it.holder.position.copy(GL.world.worldToLocal(_gv));
   if (it.kind !== 's') {
     let q;
-    if (XR.free && it.kind === 'o') q = _mq.copy(_gq).multiply(G.r0);
+    if (XR.free && (it.kind === 'o' || it.kind === 'x')) q = _mq.copy(_gq).multiply(G.r0);
     else { _me.setFromQuaternion(_gq, 'YXZ'); q = _mq.setFromAxisAngle(_xY, _me.y).multiply(G.r0); }
     it.holder.quaternion.copy(q.premultiply(_mi));
     if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
@@ -427,11 +435,22 @@ function carryItem(c, dt) {
 function stretchCube(c) {
   const G = c.grab, it = STU.items.get(G.id);
   if (!it) { c.grab = null; return; }
+  if (it.kind === 'x') { stretchCut(c, G, it); return; }
   GL.world.updateMatrixWorld(true);
   const r = it.rec, cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyAxisAngle(_xY, -r.yaw);
   const size = [0, 1, 2].map(i => Math.max(0.1, cor.getComponent(i) * G.sg[i]));
   const mid = new THREE.Vector3(G.sg[0] * size[0] / 2, G.sg[1] * size[1] / 2, G.sg[2] * size[2] / 2).applyAxisAngle(_xY, r.yaw).add(G.opp);
   it.holder.position.copy(mid); it.holder.scale.fromArray(size);
+  carryWrite(it);
+}
+// the grip on a selected cut-out's corner: the opposite corner stays, this one follows the hand, its turn kept (each side
+// at least 1 cm)
+function stretchCut(c, G, it) {
+  GL.world.updateMatrixWorld(true);
+  const iq = _mq.copy(G.q).invert(), cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyQuaternion(iq);
+  const size = [0, 1, 2].map(i => Math.max(0.01, cor.getComponent(i) * G.sg[i]));
+  it.holder.position.set(G.sg[0] * size[0] / 2, G.sg[1] * size[1] / 2, G.sg[2] * size[2] / 2).applyQuaternion(G.q).add(G.opp);
+  it.holder.quaternion.copy(G.q); it.holder.scale.fromArray(size);
   carryWrite(it);
 }
 // VR (not passthrough), nothing carried: the left stick walks you through the scene (it moves, not the rig), the right

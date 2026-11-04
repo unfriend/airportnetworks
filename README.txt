@@ -92,6 +92,10 @@ its circle at your feet, for everyone at it).
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth
   then moves and turns with her head, and is heard only while she is shown.
+- A cut-out hides part of a model without changing its file (a door in a scanned
+  wall): select the model, then Cut out a part on its card (or Cut-out box under
+  Add). A box appears where you pointed; move and size it over the part. A
+  trigger cube can show it, so the wall opens as people walk up.
 - Saving: Save writes the scene's layout.json in its folder on the laptop (the
   one before is kept in the scene's .history/, the last 20). With
   --scenes-readonly nothing is written: Download layout.json instead.

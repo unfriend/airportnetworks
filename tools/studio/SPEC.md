@@ -25,7 +25,8 @@ test checks them in every story and every `STORY_EXTRA` page). Words in the UI: 
   studio'`, `len: 'No story · your own scenes'`.
 - A **scene** is one folder of files: models, their textures, sounds, and `layout.json`, where everything placed stands.
   An **item** is one thing placed in a scene: an *object* (a model file placed once; one file may be placed many times),
-  a *trigger cube* or a *sound* (an emitter).
+  a *trigger cube*, a *sound* (an emitter) or a *cut-out* (a box that hides the part of one object's model inside it:
+  "Cut-outs" below).
 - Links: `#studio` (the last scene used on this device, else the only one, else the list), `#studio&scene=<name>`,
   `&visit` (no editing offered at all: a visitor's kiosk), `&edit` (start editing), `&scenes=<relative folder>` (a static
   folder of scenes instead of the relay's; only a relative path, no `//` or `..`: for tests and plain web hosting).
@@ -136,6 +137,9 @@ placed by itself).
       "loop": true, "start": "always" },
     { "id": "v7kq2m", "name": "Voice", "file": "sounds/voice.wav", "p": [0.4, 1.7, -2.6], "vol": 1, "r": 1,
       "loop": true, "start": "shown", "on": "k3f9qa", "bone": "mixamorigHead", "o": [0, -0.03, 0.14] }
+  ],
+  "cuts": [
+    { "id": "d0or01", "name": "Door", "on": "k3f9qa", "p": [1.6, 1, -3.55], "q": [0, 0, 0, 1], "size": [0.8, 2, 0.4] }
   ]
 }
 ```
@@ -158,10 +162,14 @@ placed by itself).
   `[0, 0, 0]`: none). A `bone` or an `o` without `on` is dropped, whatever it holds; with `on`, an `on` that is not an
   id, a `bone` that is not a string or an `o` that is not three numbers makes the record bad. `p` stays: where the sound
   stands when it follows nothing, or when what it follows is not in the scene. The layout's version stays `studio: 1`.
-- Limits: 300 objects, 100 cubes, 60 sounds; a `file` is a path in the scene's listing (at most 200 characters, no
+- A cut-out's `on` (required: the id of the object it cuts), `p`, `q` and `size` ("Cut-outs" below): in that object's
+  frame, turned but not scaled (metres), `p` to the mm, `q` a full turn (4 decimals), each side 1 cm to 50 m to the mm.
+  A layout without `cuts` (v112's) reads as before.
+- Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"); a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
   object the layout does not hold keeps its `on`, `bone` and `o` and stands at its `p` until that object is back, as with
-  a state from the room (so a save made meanwhile never loses what it followed). Anything else in a read layout is
+  a state from the room (so a save made meanwhile never loses what it followed); a cut-out whose object the layout does not
+hold is kept the same way, and cuts nothing until that object is back. Anything else in a read layout is
   ignored; a bad item is dropped and said once (*2 items in layout.json could not be read*).
 
 ## Trigger cubes
@@ -233,7 +241,9 @@ The panes (page HTML and headset canvas twins, the same content):
   loaded; *Load saved* (asks first: two presses); *Undo*; *Reset what I have seen* (the `stay` cubes); on a page
   *Download layout.json* and *Upload*; the relay's state (none: how to run one, with the command).
 - **Add** (editing): the scene's models (name, size on disk, a warning mark), its sounds, and *Trigger cube*. A press
-  places it 1.5 m in front of you on the floor (a model's lowest point on the floor, its middle there), selected.
+  places it 1.5 m in front of you on the floor (a model's lowest point on the floor, its middle there), selected. And
+  *Cut-out box* (*Cut-out box on Wall* while a model, or one of its cut-outs, is selected; else *Cut-out box: select a
+  model first*, greyed).
 - **Item** (one selected): its name; for an object its card (above), *Lit* / *As scanned*, the animation (clip, *Loop*
   / *Once* / *Off*, *Always* / *When shown*), *Turn 90 degrees* (about the vertical), *Stand up* (a quarter turn about
   x), *On the floor*, size steps (x0.5, x0.9, x1.1, x2), *Duplicate*, *Delete*; for a cube: size steps per axis (10 cm),
@@ -241,9 +251,10 @@ The panes (page HTML and headset canvas twins, the same content):
   (then pointing and pressing on items adds or removes them from that list until *Done*; the items drawn with a tick),
   *Delete*; for a sound: *Volume* steps, *Full volume within* steps, *Loop*, *Always* / *When shown*, *Follows* (*Follow
   an object...*, its bone choices, *Move onto it*, *Stop following*: "Sounds that follow a model"), *Delete*.
-- **Items**: every item in the scene (objects, cubes, sounds), what is selected lit, a press selects it; on a page also a
-  tick box per item in a selected cube's *Shows* and *Hides* columns. A sound that follows something says what (*→
-  Dancer · Head*).
+- **Items**: every item in the scene (objects, cubes, sounds, cut-outs), what is selected lit, a press selects it; on a
+  page also a tick box per item in a selected cube's *Shows* and *Hides* columns. A sound that follows something says what
+  (*→ Dancer · Head*). Each object's cut-outs are listed under it (indented, *✂ Door*); cut-outs whose object is not
+  here under a heading of their own.
 
 ## Shared rooms
 
@@ -252,7 +263,7 @@ The panes (page HTML and headset canvas twins, the same content):
   there; refused while the circles are locked; never by Arrange all). Its clock starts in explore mode. Everyone at the
   station sees one scene and one layout; triggers, editing, selection, Walk, the VR stick walk and sound are each
   device's own.
-- `state()`: `{ scene, 'o.<id>': {...}, 'c.<id>': {...}, 's.<id>': {...} }`: the scene's name (`''` none) and one top-level
+- `state()`: `{ scene, 'o.<id>': {...}, 'c.<id>': {...}, 's.<id>': {...}, 'x.<id>': {...} }`: the scene's name (`''` none) and one top-level
   field per item (its record as in `layout.json`, without `id`), so two people changing two items at once both keep
   theirs. An item absent from a state applied is removed there. `apply(state())` gives the same state back (records kept
   exactly as given, after the same checks as a read layout). Changing the scene clears the items and the device that
@@ -270,7 +281,8 @@ The panes (page HTML and headset canvas twins, the same content):
 - Saving writes what is placed now (the station's items) for everyone; another device's save shows as *Saved 22:41 by
   Anna* where the shell gives a name.
 - No `FORMAT` change came with the studio itself: a new page in `STORY_EXTRA` is a station an older device shows as *A
-  newer story*. Sounds that follow a model changed a sound's `state()` and so `FORMAT` (`networks-30`, v112).
+  newer story*. Sounds that follow a model changed a sound's `state()` and so `FORMAT` (`networks-30`, v112); cut-outs
+  added a kind of field (`x.<id>`) and so `FORMAT` again (`networks-31`, v113).
 - Outside a room: what is placed is kept on this device too (`studioDraft.<relay or folder>.<scene>`, written a second
   after each change); opening the scene with a draft newer than the saved layout and different from it offers *Your
   unsaved changes from <time>: Restore / Discard*.
@@ -548,6 +560,92 @@ voice stays at a dancer's head and her movement sounds at her chest as she moves
 - **Untested on a headset**: how a voice at a moving head sounds through HRTF, the pick by trigger and the bone pages on
   a real panel, and the owner's own figures (only the bone names of the rigged one were checked, locally).
 
+## Cut-outs (the owner, 4 November 2026)
+
+The owner: "is it possible to remove parts of a glb model nondestructive? like a door in a wall etc?", then "for the
+models i would just do parts that are hidden, which i can draw on the models or remove with boolean ops like a cube,
+whatever is easier". A box was easier, and it is the only way for a scan: the owner's atelier is one mesh with one
+material, so nothing in it can be hidden by name. A **cut-out** (*Cut-out box* on the Add pane) is a box placed over
+part of one object's model: whatever of that model lies inside the box is not drawn, for everyone at the scene. The
+model's file is never changed. The code: `engine/e6b_cuts.js` (record helpers, the per-frame step, the shader, the
+edits), its look `LOOKS.cut` in `sets/looks.js`.
+
+- **The record** (`layout.json`'s `cuts`, `state()`'s `x.<id>`): `{ name, on, p, q, size }`. `on` (required) is the id
+  of the object it cuts, and cuts only that object. `p` (its middle), `q` (its turn: a full turn, so a slanted part can
+  be cut) and `size` are in that object's frame **turned but not scaled** (metres), as a following sound's offset is: the
+  box stands at the object's place plus the object's turn times `p` (times the object's size shown over its record's,
+  `followK`, while both grips or a size from the room are on their way), turned by the object's turn times `q`. Checked as
+  the other kinds are (`norm`): `on` not an id, `p` not three numbers within 1,000, `q` not four numbers (or of no
+  length), `size` not three numbers: the record is bad; `p` to the mm, `q` normalised to 4 decimals, each side clamped to 1
+  cm to 50 m and kept to the mm; `name` (60 characters, *Cut-out* by default); other fields ignored. `apply(state())`
+  gives the same state back.
+- **It follows its object.** Moved or turned (the arrows, the grip, *Turn 90°*, *Stand up*, *On the floor*, a record from
+  the room), the object carries its cut-outs (they are in its frame). Sized here (its size steps, both grips, the arrows'
+  size), the object scales its cut-outs' `p` and `size` by the size's ratio since the change began, in the same change
+  (`setObj`, `scaleFollowers`, one Undo step), so a door stays a door; a record from the room carries the cut-outs' own
+  records, so nothing is scaled when one is applied. Switched to its GLB (`switchToGLB`: `s' = s / b`, `q' = q r^-1`), its
+  cut-outs are turned by the baked turn (`p' = r p`, `q' = r q`; sizes are metres, kept), so each hole stays exactly where
+  it was. Deleted, its cut-outs go with it in the same step (Undo brings them all back); duplicated, its cut-outs are
+  copied onto the copy (as many as the scene's 100 allows). A cut-out whose object is not in the scene (a layout or a
+  state from the room without it) is kept, cuts nothing and stands at its record in the scene's frame until the object is
+  back; the card and the Items pane say so.
+- **How it cuts** (the shader). Once an object has a cut-out its model's materials, lit and as scanned, each get a small
+  addition (`cutPatch`, `onBeforeCompile`; every kind three.js has: Standard and Physical, Basic, Lambert, Phong, Toon,
+  and the lines and points a model may hold): the vertex shader passes each vertex's place in the world, from three.js's
+  own `transformed` after skinning and morphs (and the instance matrix), through `modelMatrix`; the fragment shader drops
+  a fragment that lies within half a unit of the middle of any of the object's boxes on every axis, each box given as the
+  first three rows of the inverse of its world matrix (`uniform vec4 cutM[48]`, three a box) and their count (`uniform int
+  cutN`: a uniform, not a define, so a box added compiles nothing). One program for every patched material of a kind
+  (`customProgramCacheKey`: the original's key and `|studio-cut-1`), its uniforms the object's own: every object's
+  materials are its own clones (`libClone`), so two objects of one file never share a cut. The boxes are handed over as
+  the first of the object's meshes is drawn each frame (`cutUpload`, from `onBeforeRender`, once the scene's matrices are
+  that frame's: the scene moves in a headset), at most 16. A model with no cut-out keeps its materials as loaded; one
+  that has had one keeps the addition (with a count of 0 once none are left) until it is built again. No extra pass, no
+  change to its geometry, nothing written to its file. The hole's edges are open (you look into the thin surface): that
+  is expected.
+- **Limits**: 100 cut-outs in a scene, 16 on one object (the shader's array). Beyond them *Cut out a part*, *Cut-out
+  box*, *Duplicate* and *Move onto another object...* are refused in words (*16 cut-outs on Wall: the most one model
+  takes.*; *The scene has 100 cut-outs: the most it can hold.*). A layout or a room with more than 16 on one object: the
+  first 16 cutting now cut.
+- **Trigger cubes**: a cut-out is an item a cube can show or hide (its lists take it, the Items pane's ticks and *Pick
+  what it shows* too). Hidden for you, it cuts nothing (the model whole); shown, it cuts; it switches as its own 0.4 s fade
+  crosses one half (a cut cannot fade). A cut-out a cube shows waits for its cube, as any item: the owner's door, closed
+  until you walk up to the wall.
+- **Making one** (editing on, never with `&visit`, refused while the station's story is locked, as every edit): an
+  object's card has *Cut-outs (n)* with *Cut out a part* and the list of its cut-outs; the Add pane's *Cut-out box* does
+  the same for the selected model. The new box is 0.8 x 2 x 0.4 m, each side at most a fifth of the model's largest side as
+  placed (`cutAt`), upright, its middle where the pointer or the ray last met the model's own surface (the last ray that
+  found the object, `cutRay`, kept in the scene's frame, and the model's triangles looked for once, as the button is
+  pressed), its depth towards where that ray came from; with no such ray (or none that meets the model), at the model's
+  middle facing you. It is selected.
+- **Its card** (page and headset alike): *Cuts* (the object) and *Size*; *Move onto another object...* (a pick mode, as a
+  sound's *Follow an object...*: the trigger or a click on an object, or the card's list; it keeps its place in the scene,
+  re-expressed in the new object's frame; *Cancel*); *Size (5 cm a press)*, *x −* to *z +* (its middle stays); *Size,
+  every side* (×0.5, ×0.9, ×1.1, ×2); *Turn 90°* (about its own upright: its width and depth trade places); *Preview (this
+  device only, while editing)*, *Cut* / *Whole* (the model drawn whole here; never shared, never saved, gone when editing
+  goes off); *Duplicate* (a copy beside it on the same object, along its own width); *Delete*. Every change one Undo step.
+- **Drawn while editing** (`LOOKS.cut`): one warm red-orange for all cut-outs, its edges dashed (about seven dashes an
+  edge) where they are seen, a solid tick a fifth of each edge long at every corner over everything (so a box inside a
+  model still shows), a very faint fill, *✂ Door* over it (*· hidden for you*, *· whole*, *· cuts nothing*), brighter when
+  pointed at or selected, fainter while it cuts nothing; selected, a ball at each corner. The pointer finds it before the
+  object it lies in (its unseen box: the object's own unseen box would otherwise always be in front). Not editing,
+  nothing of it is drawn: only the hole.
+- **Moving it**: on a page the arrows move it, turn it (in its own frame) and size it per side (W, E, R); in a headset
+  the grip carries it (turning with the hand while free moving is on, else only about the upright), both grips size it
+  (every side alike, a twentieth to twenty times) and move it with their middle, the grip on a corner of a selected one
+  stretches it (the opposite corner stays, its turn kept, each side at least 1 cm). Let go, its record is written in its
+  object's frame (`cutRecOf`).
+- **Saving and sharing**: `layout.json`'s `cuts` (written always, `[]` when there are none; read when there), and one
+  top-level field per cut-out in `state()`, `x.<id>`, so two people changing two cut-outs at once both keep theirs. This
+  changed the state's shape: FORMAT `networks-31` (v113). Items from the room glide (0.25 s) in their object's frame, so a
+  box moved elsewhere slides along its object. *Preview* and what a cube shows you are each device's own.
+- **Tests**: the smoke test's *studio cuts* steps on the cuts test scene (`tools/studio/test/scenes/cuts/`: a wall with
+  *Door*, which the cube *Doorway* shows, two boxes of one file, the first with a *Hole*, the dancer and the figure), and a
+  step of `tools/collab.mjs --studio` ("Testing" in `AGENTS.md`).
+- **Untested on a headset**: how the holes look on a Quest (the open edges, a scan's thin walls), the shader's cost on a
+  Quest with a 400,000-triangle scan and 16 boxes, the grip, both grips and a corner on a real controller, and the one
+  raycast against a big scan as the button is pressed (a moment on a laptop; longer on a Quest).
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -573,6 +671,11 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   `figure.png`, a short `voice.wav`, and a `layout.json` with *Voice* following her head by an FBX's name for it
   (*mixamorig:Head*), and a cube (*Curtain*) that hides her. The smoke test's *studio follow* steps and `tools/collab.mjs
   --studio`'s step for it: "Testing" in `AGENTS.md`.
+- `tools/studio/test/scenes/cuts/` (about 30 KB): made by the same script: `wall.obj` and `wall.mtl` (a wall 3 m wide,
+  2.4 m high, 20 cm thick), copies of `dancer.glb`, `box.glb`, `figure.fbx` and `figure.png`, and a `layout.json` with
+  the wall and its cut-out *Door* (shown by the cube *Doorway* in front of it), two boxes of one file (*Box A* with a
+  cut-out *Hole* in a corner, *Box B* whole), the dancer and the figure. The smoke test's *studio cuts* steps and
+  `tools/collab.mjs --studio`'s step for cut-outs: "Testing" in `AGENTS.md`.
 - `tools/studio/test/scenes/test/`: small files made by `tools/studio/test/make.mjs` (committed with what they make,
   under 200 KB together): an animated `box.glb` (two clips), an ASCII `figure.fbx` (a mesh with a material naming
   `figure.png` beside it, a take that turns it, Z up and in centimetres, so both guesses show), `figure.png`, a

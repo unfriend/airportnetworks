@@ -2664,7 +2664,9 @@ async function tokenRound() {
 // headset's grip; Convert to GLB on a page writes models/figure.glb and every page's and the headset's figure switches to
 // it where it stands (corners within 1 mm), the FBX under Originals; a sound made on a page to follow the rig scene's
 // dancer's head (her model copied in): every page and the headset take it, each sound where its own dancer's head bone
-// puts it at one scene clock (within 1 cm), and the saved layout.json carries on, bone and o; a long sound streamed (an
+// puts it at one scene clock (within 1 cm), and the saved layout.json carries on, bone and o; a cut-out made on a page on
+// the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
+// it under cuts; a long sound streamed (an
 // element, no decoded buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
 // originals (sorted into models/, sounds/ and originals/; the GLBs loading with their records; a short sound as a mono
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
@@ -2701,9 +2703,9 @@ async function studioRound(dir) {
   const tmp = n => fs.mkdtempSync(path.join(os.tmpdir(), 'collab-' + n + '-'));
   const SC = tmp('scenes'), SC2 = tmp('scenes-pass'), logs = tmp('logs-pass'), TEST = path.join(root, 'tools', 'studio', 'test', 'scenes');
   fs.cpSync(TEST, SC, { recursive: true }); fs.cpSync(TEST, SC2, { recursive: true });
-  // (the textures and rig test scenes left out: the pages here list exactly two scenes; a model of each comes into test/
-  // below)
-  for (const d of [SC, SC2]) for (const n of ['textures', 'rig']) fs.rmSync(path.join(d, n), { recursive: true, force: true });
+  // (the textures, rig and cuts test scenes left out: the pages here list exactly two scenes; a model of each of the first
+  // two comes into test/ below)
+  for (const d of [SC, SC2]) for (const n of ['textures', 'rig', 'cuts']) fs.rmSync(path.join(d, n), { recursive: true, force: true });
   fs.mkdirSync(path.join(SC, 'quiet'));
   fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
   if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -2964,6 +2966,23 @@ async function studioRound(dir) {
         vSaved && !!vL && vL.on === danId && vL.bone === 'mixamorigHead' && Array.isArray(vL.o) && vL.o.length === 3,
       JSON.stringify({ dSeen, danId, dIn, vId, vTook, vs, vFar, vSaved, vL }));
     if (vId) await sp(A, `(deleteItem('${vId}'), deleteItem('${danId}'), select(''), 0)`);
+
+    // ---- a cut-out: made on a page on the test scene's box; every page and the headset take it (its box's corners in
+    // the scene's frame within 1 cm of the first page's on each, cutting there), and the layout saved from a page carries
+    // it under cuts
+    const xId = await sp(A, `(setEdit(true), addCut('box001'))`);
+    const xTook = [];
+    for (const p of [B, C, H]) xTook.push(!!xId && await sUntil(p, `(() => { const c = STUDIO.cut('${xId}'); return !!(c && c.on === 'box001' && c.cutting && c.list.includes('${xId}')); })()`, 15000));
+    const xs = [];
+    for (const p of [A, B, C, H]) { if (xId) await sUntil(p, `[...STU.items.values()].every(it => !it.gl)`, 5000); xs.push(xId ? await sp(p, `(itemsStep(0, performance.now()), [STUDIO.cut('${xId}').corners, JSON.stringify(STU.items.get('${xId}').rec)])`) : null); }
+    const xFar = xs.every(Boolean) ? Math.max(...xs.map(x => Math.max(...x[0].map((q, i) => Math.hypot(...q.map((v, k) => v - xs[0][0][i][k])))))) : Infinity;
+    await sp(A, 'saveLayout()');
+    const xSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const xL = ((layoutOf() || {}).cuts || []).find(x => x.id === xId);
+    check(`studio: a cut-out made on a page on the box is taken by every page and the headset, cutting there, its corners within ${(xFar * 100).toFixed(2)} cm of the first page's, and the saved layout.json carries it under cuts`,
+      !!xId && xTook.every(Boolean) && xs.every(x => x && x[1] === xs[0][1]) && xFar < 0.01 && xSaved && !!xL && xL.on === 'box001' && Array.isArray(xL.size) && xL.size.length === 3,
+      JSON.stringify({ xId, xTook, recs: xs.map(x => x && x[1]), xFar, xSaved, xL }));
+    if (xId) await sp(A, `(deleteItem('${xId}'), select(''), 0)`);
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));

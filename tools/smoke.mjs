@@ -1628,8 +1628,13 @@ await step('design: the intro ends at the table', async () => {
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
       setEdit(true); select('box001'); XR.on = true;
       for (const tab of Object.keys(want)) {
+        // (every button the pane draws, scrolled through: an object's card is taller than the panel since it lists its
+        // cut-outs)
         X.tab = tab; X.scroll = {}; draw();
-        const ids = XR.main.regions.map(r => r.id), miss = want[tab].filter(i => !ids.includes(i));
+        const seen = new Set();
+        for (let off = 0; off < 4000; off += 150) { X.scroll[tab] = off; draw(); for (const r of XR.main.regions) seen.add(r.id); }
+        X.scroll = {}; draw();
+        const ids = [...seen], miss = want[tab].filter(i => !ids.includes(i));
         if (miss.length) out.push('the headset\\'s ' + tab + ' pane lacks ' + miss.join(', ') + ' (' + ids.join(' ') + ')');
         if (ids.some(i => i === 'download' || i === 'upload' || i.startsWith('tc:'))) out.push('the headset\\'s ' + tab + ' pane has the page\\'s own buttons');
         if (ids.includes('exit')) out.push('Exit is on the panel (it belongs in the menu)');
@@ -2253,6 +2258,366 @@ await step('design: the intro ends at the table', async () => {
     if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
     bad('', out);
     await fop.close();
+  });
+}
+// The studio's cut-outs (tools/studio/SPEC.md, "Cut-outs"), on a page of its own: the fourth test scene,
+// tools/studio/test/scenes/cuts (made by tools/studio/test/make.mjs: a wall whose Door the cube Doorway shows, Box A with a
+// Hole and Box B of the same file, the dancer, the figure). Pixels read back from a render of the scene prove each cut (the
+// same frame drawn with the cut and without it: inside the box where the model was, something else; outside, the same):
+// the hole in Box A and none in Box B; the door shut for a head outside Doorway, open inside it, shut again outside; the
+// wall moved, turned and sized with the door on the same part of it; the dancer's posed head; Convert to GLB of the figure
+// keeping its box where it was; the shared state, bad records, a state without the wall, 16 on one model; layout.json; the
+// page's card, the Add pane, the Items pane and the arrows; a pretend headset's grips and a corner; the headset's card
+{
+  const cxp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  cxp.on('pageerror', e => errors.push('studio cuts: ' + (e.stack || e.message)));
+  cxp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio cuts: ' + m.text()); });
+  const ss = s => cxp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => cxp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const frames = async n => { const f0 = await cxp.evaluate(() => window.__frames || 0); await cxp.waitForFunction(f => window.__frames >= f, f0 + (n || 1), { timeout: 30000 }).catch(() => errors.push('studio cuts: the page drew no frames')); };
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio cuts: ' + b)); };
+  // (in the page: the scene drawn from a camera of its own (eye and target in the scene's frame) into a picture read back
+  // where scene points land, twice in one go: as it is, then with the cut-outs named cutting nothing (their fade at 0 for
+  // that drawing, so nothing else changes); a cut-out's corners in its object's own frame, its scale included)
+  const HELP = `window.__cx = window.__cx || {
+    two: (eye, tgt, pts, ids) => {
+      const W = 400, H = 250, r = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 200);
+      GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(...eye))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(...tgt))); cam.updateMatrixWorld();
+      const at = () => pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
+      // (what editing draws hidden for the picture: cubes, cut-outs' boxes, outlines, the arrows; only the models)
+      const looks = [...STU.items.values()].filter(i => i.kind === 'c' || i.kind === 'x').map(i => i.holder).concat([GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean));
+      const draw = () => { const keep = looks.map(o => o.visible); looks.forEach(o => { o.visible = false; }); r.setRenderTarget(rt); r.render(GL.scene, cam); const px = at(); r.setRenderTarget(null); looks.forEach((o, i) => { o.visible = keep[i]; }); return px; };
+      const now = performance.now(), keep = ids.map(id => STU.items.get(id).sa);
+      itemsStep(0, now); const on = draw();
+      ids.forEach(id => { STU.items.get(id).sa = 0; }); itemsStep(0, now); const off = draw();
+      ids.forEach((id, i) => { STU.items.get(id).sa = keep[i]; }); itemsStep(0, now);
+      rt.dispose();
+      return { on, off, cut: ids.map(id => !!STU.items.get(id).cutting) };
+    },
+    local: id => { const x = STU.items.get(id), ob = cutObj(x); x.holder.updateWorldMatrix(true, false); ob.holder.updateWorldMatrix(true, false); const m = ob.holder.matrixWorld.clone().invert().multiply(x.holder.matrixWorld); return [0, 1, 2, 3, 4, 5, 6, 7].map(k => new THREE.Vector3(k & 1 ? 0.5 : -0.5, k & 2 ? 0.5 : -0.5, k & 4 ? 0.5 : -0.5).applyMatrix4(m).toArray()); },
+    far: (a, b) => Math.max(...a.map((p, i) => Math.hypot(p[0] - b[i][0], p[1] - b[i][1], p[2] - b[i][2]))),
+    sc: sceneClock,
+  }`;
+  const dpx = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  // the pixels: the first point cut (another colour with the cut than without), the rest not (the same)
+  const proves = r => !!r && dpx(r.on[0], r.off[0]) > 40 && r.on.slice(1).every((p, i) => dpx(p, r.off[i + 1]) <= 6);
+
+  await step('studio cuts: the cuts scene loads with its cut-outs; the hole in Box A and none in Box B of the same file (pixels), only Box A\'s materials patched; nothing of a box drawn when not editing', async () => {
+    await cxp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=cuts&edit');
+    await cxp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && ['wal001', 'boxa01', 'boxb01', 'dan001', 'fig001'].every(id => STU.items.get(id) && STU.items.get(id).model)`, 120000)) { errors.push('studio cuts: the cuts scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 500)); return; }
+    await ss(`(${HELP}, 0)`);
+    const out = [];
+    const r0 = await ss(`(() => { const L = STUDIO.items(); return { n: ['o', 'c', 's', 'x'].map(k => L.filter(i => i.kind === k).length), dor: JSON.stringify(STU.items.get('dor001').rec), hol: JSON.stringify(STU.items.get('hol001').rec), bad: STU.bad, unsaved: unsaved() }; })()`);
+    if (r0.n.join() !== '5,1,0,2' || r0.dor !== '{"name":"Door","on":"wal001","p":[0.6,1,0],"q":[0,0,0,1],"size":[0.8,2,0.4]}' || r0.hol !== '{"name":"Hole","on":"boxa01","p":[0.2,0.2,0.2],"q":[0,0,0,1],"size":[0.3,0.3,0.3]}' || r0.bad || r0.unsaved) out.push('the layout read: ' + JSON.stringify(r0));
+    if (!await until(`STUDIO.cut('hol001').cutting && !STUDIO.cut('dor001').cutting`, 5000)) out.push('the hole does not cut, or the door (which its cube shows) cuts with nobody in the cube: ' + JSON.stringify(await ss(`[STUDIO.cut('hol001'), STUDIO.cut('dor001')]`)).slice(0, 300));
+    const pt = await ss(`[!!STU.items.get('boxa01').model.cut, !!STU.items.get('boxb01').model.cut, !!STU.items.get('dan001').model.cut, STUDIO.cut('hol001').n, STUDIO.cut('hol001').list.join()]`);
+    if (pt.join() !== 'true,false,false,1,hol001') out.push('patched: only Box A\'s model, its one box handed over: ' + JSON.stringify(pt));
+    // editing off: no box drawn (nor its corners or name), only the hole
+    await ss('(setEdit(false), 0)');
+    if (!await until(`['dor001', 'hol001'].every(id => !STU.items.get(id).holder.visible && !STU.items.get(id).look.deco.visible) && STUDIO.cut('hol001').cutting`, 5000)) out.push('editing off: a box still drawn, or the hole gone: ' + JSON.stringify(await ss(`STUDIO.items().filter(i => i.kind === 'x').map(i => [i.id, i.visible, i.cutting, i.a])`)));
+    // the top of each box, in its corner the hole is in (Box A) and the same place on Box B, and a place outside it
+    const px = await ss(`window.__cx.two([-2.8, 1.3, -1.2], [-2.8, 0.4, -2.6], [[-2.25, 0.5, -2.45], [-3.05, 0.5, -2.45], [-2.55, 0.5, -2.75], [-3.35, 0.5, -2.75]], ['hol001'])`);
+    if (!proves({ on: px.on.slice(0, 2), off: px.off.slice(0, 2) }) || !proves({ on: [px.on[0], ...px.on.slice(2)], off: [px.off[0], ...px.off.slice(2)] }) || !px.cut[0]) out.push('the hole in Box A and none in Box B (pixels with the cut and without: A\'s corner, B\'s, then outside the hole on each): ' + JSON.stringify(px));
+    // as scanned (its unlit materials, made now): cut as the lit ones were
+    const sc = await ss(`(setRec('boxa01', { light: 'scan' }), window.__cx.two([-2.8, 1.3, -1.2], [-2.8, 0.4, -2.6], [[-2.25, 0.5, -2.45], [-2.55, 0.5, -2.75]], ['hol001']))`);
+    await ss(`(setRec('boxa01', { light: 'lit' }), 0)`);
+    if (!proves(sc)) out.push('as scanned, Box A not cut (pixels): ' + JSON.stringify(sc));
+    await ss('(setEdit(true), 0)');
+    bad(out);
+  });
+
+  await step('studio cuts: the door a cube shows: the wall whole for a head outside Doorway, opened once its fade passes one half inside it, whole again outside (pixels)', async () => {
+    const out = [];
+    await ss('(setEdit(false), shownFor(null), 0)');
+    await until(`!STU.items.get('dor001').holder.visible && STU.items.get('dor001').sa < 0.01`, 5000);
+    const eye = [0.3, 1.3, 1.5], tgt = [0.3, 1.1, -3], pts = [[0.6, 1, -2.9], [-0.8, 1, -2.9]];
+    const shot = () => ss(`(() => { const r = window.__cx.two(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pts)}, []); return r.on; })()`);
+    const a = await shot();
+    const now0 = await ss(`(shownFor([0.6, 1.6, -1.9]), [STU.items.get('dor001').shown, STUDIO.cut('dor001').cutting])`);
+    const opened = await until(`STUDIO.cut('dor001').cutting`, 5000);
+    const b = await shot();
+    await ss('(shownFor([0.6, 1.6, 1.5]), 0)');
+    const shut = await until(`!STUDIO.cut('dor001').cutting && STU.items.get('dor001').sa < 0.01`, 5000);
+    const c = await shot();
+    if (!now0[0] || now0[1] || !opened || !shut || dpx(a[0], b[0]) <= 40 || dpx(a[1], b[1]) > 10 || dpx(a[0], c[0]) > 10)
+      out.push('the door: shown at once but cutting only past half its fade, open inside the cube, shut outside (the door\'s middle on the wall, then the wall beside it): ' + JSON.stringify({ now0, opened, shut, a, b, c }));
+    await ss('(STU.head = null, setEdit(true), 0)');
+    bad(out);
+  });
+
+  await step('studio cuts: the wall moved, turned and sized keeps the door on the same part of it (its corners in the wall\'s own frame), its record scaled with the size, one Undo step each; the hole still where the door is (pixels)', async () => {
+    const out = [];
+    await ss(`(shownFor([0.6, 1.6, -1.9]), 0)`);
+    await until(`STUDIO.cut('dor001').cutting`, 5000);
+    const r = await ss(`(() => {
+      const F = window.__cx, w = STU.items.get('wal001'), d = STU.items.get('dor001'), step = () => itemsStep(0, performance.now()), out = {}, l0 = F.local('dor001'), u0 = UNDO.length;
+      change(() => setObj('wal001', { p: [0.5, 0, -3.2] })); step(); out.move = [+F.far(F.local('dor001'), l0).toFixed(5), UNDO.length - u0];
+      itemAct('size', 2, 'wal001'); step(); out.size = [+F.far(F.local('dor001'), l0).toFixed(5), JSON.stringify(d.rec), w.rec.s, UNDO.length - u0];
+      // (the door's middle, inside the wall, and the wall 1.2 m to its side: a camera in front of them)
+      const c = d.holder.position.clone(), eye = [c.x, c.y + 0.2, c.z + 6], pts = [c.toArray(), [c.x - 2.4, c.y, c.z]];
+      out.px = F.two(eye, c.toArray(), pts, ['dor001']);
+      itemAct('turn', null, 'wal001'); step(); out.turn = [+F.far(F.local('dor001'), l0).toFixed(5), JSON.stringify(d.rec.q), UNDO.length - u0];
+      itemAct('stand', null, 'wal001'); step(); out.stand = [+F.far(F.local('dor001'), l0).toFixed(5), UNDO.length - u0];
+      for (let k = 0; k < 4; k++) undo();
+      step(); out.back = [JSON.stringify(d.rec), JSON.stringify(w.rec.p), w.rec.s, +F.far(F.local('dor001'), l0).toFixed(5)];
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    if (r.err || r.move[0] > 0.001 || r.move[1] !== 1 || r.size[0] > 0.001 || r.size[1] !== '{"name":"Door","on":"wal001","p":[1.2,2,0],"q":[0,0,0,1],"size":[1.6,4,0.8]}' || r.size[2] !== 2 || r.size[3] !== 2 ||
+      r.turn[0] > 0.001 || r.turn[1] !== '[0,0,0,1]' || r.turn[2] !== 3 || r.stand[0] > 0.001 || r.stand[1] !== 4 || r.back[0] !== '{"name":"Door","on":"wal001","p":[0.6,1,0],"q":[0,0,0,1],"size":[0.8,2,0.4]}' || r.back[1] !== '[0,0,-3]' || r.back[2] !== 1 || r.back[3] > 0.001)
+      out.push('moved, sized, turned, stood up and undone (the door\'s corners in the wall\'s own frame within 1 mm): ' + JSON.stringify(r).slice(0, 600));
+    if (!r.err && !proves(r.px)) out.push('sized and moved: the hole where the door is now, the wall beside it whole (pixels): ' + JSON.stringify(r.px));
+    await ss('(STU.head = null, 0)');
+    bad(out);
+  });
+
+  await step('studio cuts: the dancer cut at her posed head (her clip held where her head is far from her rest pose): the hole is where she is drawn, not where her rest pose would be (pixels)', async () => {
+    const r = await ss(`(() => {
+      const F = window.__cx, d = STU.items.get('dan001');
+      sceneClock = () => 0.5; itemsStep(0, performance.now());
+      const head = d.model.o.getObjectByName('mixamorigHead'); head.updateWorldMatrix(true, false);
+      const posed = GL.items.worldToLocal(head.localToWorld(new THREE.Vector3(0, 0.11, 0))), rest = new THREE.Vector3(2.3, 1.76, -2.6);
+      const hips = d.model.o.getObjectByName('mixamorigHips'); hips.updateWorldMatrix(true, false);
+      const body = GL.items.worldToLocal(hips.localToWorld(new THREE.Vector3(0, 0.1, 0.1)));
+      const id = newId();
+      change(() => putItem(id, 'x', norm('x', Object.assign({ name: 'Head', on: 'dan001' }, cutRecFrom(d, posed, new THREE.Quaternion(), new THREE.Vector3(0.36, 0.36, 0.36))))));
+      return { id, far: +posed.distanceTo(rest).toFixed(3), posed: posed.toArray(), body: body.toArray() };
+    })()`);
+    const out = [];
+    if (!await until(`STUDIO.cut('${r.id}').cutting && !!STU.items.get('dan001').model.cut`, 5000)) out.push('the cut on her head does not cut');
+    const p = r.posed, eye = [p[0], p[1] + 0.05, p[2] + 1.8];
+    const px = await ss(`window.__cx.two(${JSON.stringify(eye)}, ${JSON.stringify(p)}, ${JSON.stringify([p, r.body])}, ['${r.id}'])`);
+    if (r.far < 0.3 || !proves(px)) out.push('her posed head cut, her body not (pixels; her head ' + r.far + ' m from her rest pose): ' + JSON.stringify({ r, px }));
+    await ss(`(sceneClock = window.__cx.sc, undo(), 0)`);
+    if (await ss(`STU.items.has('${r.id}')`)) out.push('Undo did not take the cut-out away');
+    bad(out);
+  });
+
+  await step('studio cuts: Convert to GLB of the figure (a turn and a scale baked in) switches it with its cut-out where it was (corners within 1 mm), still cutting', async () => {
+    const out = [];
+    const id = await ss(`(() => {
+      const f = STU.items.get('fig001'), b = objBox(f), id = newId();
+      change(() => putItem(id, 'x', norm('x', Object.assign({ name: 'Slice', on: 'fig001' }, cutRecFrom(f, b.getCenter(new THREE.Vector3()), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 1, 0).normalize(), 0.4), new THREE.Vector3(0.5, 0.3, 0.5))))));
+      return id;
+    })()`);
+    await until(`STUDIO.cut('${id}').cutting`, 5000);
+    const c0 = await ss(`[STUDIO.cut('${id}').corners, JSON.stringify(STU.items.get('${id}').rec), UNDO.length]`);
+    await ss(`(STUDIO.lastGLB = null, convertFile('figure.fbx'), 0)`);
+    if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000) || !await ss('STUDIO.lastGLB.ok')) { out.push('figure.fbx was not converted: ' + await ss('CV.note')); bad(out); return; }
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    const pat = '**/scenes/cuts/models/figure.glb*';
+    await cxp.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record))`);
+    const sw = await until(`(() => { const f = STU.items.get('fig001'); return f.rec.file === 'models/figure.glb' && !!f.model && f.built === f.E.gen && STUDIO.cut('${id}').cutting && STUDIO.cut('${id}').patched; })()`, 30000);
+    await frames(2);
+    const c1 = await ss(`[STUDIO.cut('${id}').corners, JSON.stringify(STU.items.get('${id}').rec), UNDO.length, STUDIO.lastGLB.record]`);
+    const far = Math.max(...c0[0].map((p, i) => Math.hypot(...p.map((v, k) => v - c1[0][i][k]))));
+    if (!sw || far > 0.001 || c0[1] === c1[1] || c1[2] !== c0[2] + 1) out.push('switched to its GLB, the cut-out where it was (within 1 mm; its record turned, one Undo step): ' + JSON.stringify({ sw, far, before: c0[1], after: c1[1], undo: [c0[2], c1[2]], rec: c1[3] }));
+    while (await ss('UNDO.length')) await ss('undo()');
+    await ss(`(setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), 0)`);
+    await cxp.unroute(pat);
+    await until(`STU.items.get('fig001').rec.file === 'figure.fbx' && !!STU.items.get('fig001').model && STU.items.get('fig001').built === STU.items.get('fig001').E.gen`, 30000);
+    if (await ss('STU.items.size') !== 8 || await ss('unsaved()')) out.push('the layout did not come back after the GLB checks: ' + await ss('STU.items.size'));
+    bad(out);
+  });
+
+  await step('studio cuts: the shared state with x.<id> and back; bad records refused, unknown fields ignored; a state without the wall keeps its door, cutting nothing; 16 on one model and no more; layout.json with and without cuts', async () => {
+    const out = await ss(`(() => {
+      const out = [], J = x => JSON.stringify(x), same = () => { const a = J(collabState()); collabApply(JSON.parse(a)); return J(collabState()) === a; };
+      const s0 = collabState();
+      if (J(s0['x.dor001']) !== J(STU.items.get('dor001').rec) || !s0['x.hol001'] || !same()) out.push('the state with its cut-outs: ' + J(s0['x.dor001']));
+      const N = x => norm('x', Object.assign({ on: 'wal001', p: [0, 1, 0] }, x));
+      const cases = [
+        ['no object', norm('x', { p: [0, 1, 0] }), null], ['on not an id', N({ on: 'Wall!' }), null], ['p not three numbers', N({ p: [0, 1] }), null],
+        ['q of no length', N({ q: [0, 0, 0, 0] }), null], ['q not four numbers', N({ q: [0, 0, 1] }), null], ['size not three numbers', N({ size: [1, 2] }), null], ['size with a word', N({ size: [1, 'two', 1] }), null],
+        ['the defaults', J(N({})), '{"name":"Cut-out","on":"wal001","p":[0,1,0],"q":[0,0,0,1],"size":[0.8,2,0.4]}'],
+        ['clamped, rounded, normalised, unknown fields ignored', J(N({ name: '  Door  ', p: [0.12345, 1, -0.0004], q: [0, 2, 0, 0], size: [0.001, 120, 0.1234], colour: 'red', id: 'abcdef' })), '{"name":"Door","on":"wal001","p":[0.123,1,0],"q":[0,1,0,0],"size":[0.01,50,0.123]}'],
+      ];
+      for (const [n, got, want] of cases) if (got !== want) out.push(n + ': ' + J(got));
+      const once = N({ q: [0.1, 0.2, 0.3, 0.9], size: [0.5, 0.25, 3] });
+      if (J(norm('x', once)) !== J(once)) out.push('a checked record not given back the same');
+      // from the room: a bad cut-out record ignored (the item kept); a state without the wall: the door kept, cutting nothing
+      const was = J(collabState()), b = JSON.parse(was);
+      b['x.dor001'] = Object.assign({}, b['x.dor001'], { size: 'big' }); collabApply(b);
+      if (J(collabState()) !== was) out.push('a bad record from the room was taken');
+      const nw = JSON.parse(was); delete nw['o.wal001']; collabApply(nw); itemsStep(0, performance.now());
+      const c = STUDIO.cut('dor001');
+      if (!c || c.on !== null || c.cutting || STU.items.get('dor001').rec.on !== 'wal001') out.push('without the wall (a state from the room): ' + J(c));
+      X.tab = 'items'; renderPanes();
+      if (!/Cut-outs cutting nothing/.test(document.querySelector('#pane-items').textContent)) out.push('the Items pane does not list the door as cutting nothing');
+      collabApply(JSON.parse(was));
+      // (the same fields and records; the wall, put back, now comes last)
+      const K = v => J(Object.keys(v).sort().map(k => [k, v[k]]));
+      if (K(collabState()) !== K(JSON.parse(was))) out.push('the state did not come back');
+      // at most 16 on one model: the 17th refused, and said so on its card
+      const u0 = UNDO.length, made = [];
+      for (let k = 0; k < 20; k++) { const id = addCut('boxb01'); if (id) made.push(id); }
+      select('boxb01'); X.tab = 'item'; renderPanes();
+      const card = document.querySelector('#pane-item').textContent, dis = document.querySelector('#pane-item [data-act="i:cut"]').disabled;
+      if (made.length !== 16 || cutsOn('boxb01').length !== 16 || canCut(STU.items.get('boxb01')) || !/16 cut-outs on Box B: the most one model takes/.test(card) || !dis || UNDO.length - u0 !== 16) out.push('16 on one model: ' + J([made.length, cutsOn('boxb01').length, dis, UNDO.length - u0]));
+      while (UNDO.length > u0) undo();
+      select(''); X.tab = 'scene';
+      // layout.json: its cuts written, read back; a v112 layout (no cuts) read as before; a cut-out whose object the
+      // layout lacks kept; a bad one dropped and counted
+      const L = layoutOut();
+      if (!Array.isArray(L.cuts) || L.cuts.length !== 2 || J(L.cuts.find(x => x.id === 'dor001')) !== J(Object.assign({ id: 'dor001' }, STU.items.get('dor001').rec))) out.push('layout.json written: ' + J(L.cuts));
+      const back = readLayout(JSON.parse(J(L)));
+      if (back.bad || back.items.filter(x => x.kind === 'x').length !== 2) out.push('layout.json read back: ' + J(back).slice(0, 200));
+      const old = readLayout({ studio: 1, objects: L.objects, cubes: L.cubes, sounds: [] });
+      if (old.bad || old.items.length !== 6 || old.items.some(x => x.kind === 'x')) out.push('a layout without cuts: ' + J([old.bad, old.items.length]));
+      const odd = readLayout({ studio: 1, objects: [], cuts: [{ id: 'aaaaaa', on: 'nobody', p: [0, 1, 0] }, { id: 'bbbbbb', on: 'Wall!', p: [0, 1, 0] }, { id: 'cccccc', on: 'wal001', p: [0, 1, 0], size: 'big' }] });
+      if (odd.items.length !== 1 || odd.bad !== 2 || odd.items[0].rec.on !== 'nobody') out.push('readLayout: ' + J(odd));
+      return out;
+    })()`);
+    if (!await until(`!!STU.items.get('wal001').model && STUDIO.cut('dor001').on === 'wal001'`, 20000)) out.push('the wall did not come back from the room\'s state');
+    bad(out);
+  });
+
+  await step('studio cuts: the page\'s card: Cut out a part where the pointer met the wall, the size steps, Preview whole and cut, Delete and Undo; the Add pane; the Items pane; the arrows; deleting the wall takes its cut-outs, duplicating it copies them; Move onto another object keeps its place', async () => {
+    const out = [];
+    // the camera in front of the wall; the pointer over it, 1.4 m left of its middle, then a click selects it
+    await ss(`(setEdit(true), setView('orbit'), orbit.cur = [0, 8, 6, 0, 1.2, -3], orbit.to = null, select(''), 0)`);
+    await frames(3);
+    const sp = await ss(`(() => { GL.camera.updateMatrixWorld(); const v = GL.items.localToWorld(new THREE.Vector3(-1, 1.3, -2.9)).project(GL.camera); return [Math.round((v.x + 1) / 2 * innerWidth), Math.round((1 - v.y) / 2 * innerHeight)]; })()`);
+    await cxp.mouse.move(sp[0] - 20, sp[1]); await cxp.mouse.move(sp[0], sp[1]);
+    await cxp.mouse.click(sp[0], sp[1]);
+    const sel = await until(`STU.sel === 'wal001' && STU.ray && STU.ray.id === 'wal001'`, 5000);
+    await ss(`(X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    await cxp.click('#pane-item [data-act="i:cut"]');
+    const nc = await ss(`(() => { const x = STU.items.get(STU.sel); if (!x || x.kind !== 'x') return null; const c = x.holder.position; return { id: x.id, on: x.rec.on, size: x.rec.size, at: [c.x, c.y, c.z].map(v => +v.toFixed(3)), q: x.rec.q, undo: UNDO.length }; })()`);
+    if (!sel || !nc || nc.on !== 'wal001' || nc.size.join() !== '0.6,0.6,0.4' || Math.hypot(nc.at[0] + 1, nc.at[1] - 1.3, nc.at[2] + 2.9) > 0.05 || Math.abs(nc.q[1]) > 0.15 || nc.undo !== u0 + 1)
+      out.push('Cut out a part: where the pointer met the wall, a fifth of its 3 m, facing the camera, selected, one Undo step: ' + JSON.stringify({ sel, nc }));
+    if (nc) {
+      await until(`STUDIO.cut('${nc.id}').cutting`, 5000);
+      await ss('(renderPanes(), 0)');
+      await cxp.click('#pane-item [data-act="i:cgrow"][data-v="0:0.05"]');
+      await cxp.click('#pane-item [data-act="i:csize"][data-v="2"]');
+      const sz = await ss(`[STU.items.get('${nc.id}').rec.size.join(), UNDO.length]`);
+      if (sz[0] !== '1.3,1.2,0.8' || sz[1] !== u0 + 3) out.push('the size steps (x + 5 cm, then every side ×2), one Undo step each: ' + JSON.stringify(sz));
+      await cxp.click('#pane-item [data-act="i:preview"][data-v="whole"]');
+      await frames(2);
+      const pw = await ss(`[STU.whole.has('${nc.id}'), STUDIO.cut('${nc.id}').cutting, UNDO.length]`);
+      await ss('(renderPanes(), 0)');
+      await cxp.click('#pane-item [data-act="i:preview"][data-v="cut"]');
+      await frames(2);
+      const pc = await ss(`[STU.whole.has('${nc.id}'), STUDIO.cut('${nc.id}').cutting, UNDO.length]`);
+      if (!pw[0] || pw[1] || pw[2] !== u0 + 3 || pc[0] || !pc[1] || pc[2] !== u0 + 3) out.push('Preview: whole (this device, no Undo step), then cut: ' + JSON.stringify({ pw, pc }));
+      // the Items pane: each object's cut-outs under it, indented
+      await ss(`(X.tab = 'items', renderPanes(), 0)`);
+      const rows = await cxp.evaluate(() => [...document.querySelectorAll('#pane-items li')].map(li => [li.dataset.v, li.style.marginLeft || '']));
+      const wi = rows.findIndex(r => r[0] === 'wal001');
+      if (wi < 0 || !rows.slice(wi + 1, wi + 3).every(r => ['dor001', nc.id].includes(r[0]) && r[1] === '20px')) out.push('the Items pane: the wall\'s cut-outs under it: ' + JSON.stringify(rows));
+      // the arrows: sized per side and turned, in the wall's frame (the wall is not turned)
+      const tc = await ss(`(() => {
+        const x = STU.items.get('${nc.id}'), u = UNDO.length; select('${nc.id}'); tcSetMode('scale');
+        GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); x.holder.scale.set(1, 0.5, 0.2); GL.tc.dispatchEvent({ type: 'objectChange' }); GL.tc.dispatchEvent({ type: 'dragging-changed', value: false });
+        const a = x.rec.size.join();
+        tcSetMode('rotate');
+        GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); x.holder.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.5); GL.tc.dispatchEvent({ type: 'objectChange' }); GL.tc.dispatchEvent({ type: 'dragging-changed', value: false });
+        const q = x.rec.q.map(v => +v.toFixed(3)).join(), sp = GL.tc.space;
+        tcSetMode('translate');
+        return [a, q, sp, UNDO.length - u];
+      })()`);
+      if (tc[0] !== '1,0.5,0.2' || tc[1] !== '0.247,0,0,0.969' || tc[2] !== 'local' || tc[3] !== 2) out.push('the arrows: sized per side, turned in its own frame, one Undo step each: ' + JSON.stringify(tc));
+      // onto another object: where it stands kept
+      const mv = await ss(`(() => { const c0 = STUDIO.cut('${nc.id}').corners, u = UNDO.length; itemAct('cutPick', null, '${nc.id}'); const picking = STU.cutTo; pressItem('boxb01'); itemsStep(0, performance.now()); const c1 = STUDIO.cut('${nc.id}').corners;
+        return [picking, STU.items.get('${nc.id}').rec.on, +window.__cx.far(c0, c1).toFixed(5), UNDO.length - u, STU.cutTo]; })()`);
+      if (mv[0] !== nc.id || mv[1] !== 'boxb01' || mv[2] > 0.001 || mv[3] !== 1 || mv[4] !== '') out.push('Move onto another object (the click on Box B), where it stands kept: ' + JSON.stringify(mv));
+      await ss('undo()');
+      // Delete on its card, then Undo
+      await ss(`(select('${nc.id}'), X.tab = 'item', renderPanes(), 0)`);
+      const r0 = await ss(`JSON.stringify(STU.items.get('${nc.id}').rec)`);
+      await cxp.click('#pane-item [data-act="i:del"]');
+      const gone = await ss(`!STU.items.has('${nc.id}')`);
+      await ss('undo()');
+      const back = await ss(`STU.items.has('${nc.id}') && JSON.stringify(STU.items.get('${nc.id}').rec) === ${JSON.stringify(r0)}`);
+      if (!gone || !back) out.push('Delete on its card, then Undo: ' + JSON.stringify({ gone, back }));
+      // the wall deleted takes its cut-outs (and the cube's list loses its door), one Undo step brings all back; the wall
+      // duplicated copies them onto the copy
+      const dw = await ss(`(() => {
+        const u = UNDO.length; deleteItem('wal001');
+        const after = [STU.items.has('wal001'), STU.items.has('dor001'), STU.items.has('${nc.id}'), STU.items.get('cub001').rec.show.join(), UNDO.length - u];
+        undo();
+        const undone = [STU.items.has('wal001'), STU.items.has('dor001'), STU.items.has('${nc.id}'), STU.items.get('cub001').rec.show.join()];
+        const nid = duplicateItem('wal001'), copies = cutsOn(nid).map(x => [x.rec.name, JSON.stringify(x.rec.p), JSON.stringify(x.rec.size)]).sort();
+        const mine = cutsOn('wal001').map(x => [x.rec.name.replace(/ \\d+$/, ''), JSON.stringify(x.rec.p), JSON.stringify(x.rec.size)]).sort();
+        undo();
+        return { after, undone, copies: copies.map(c => c[1] + c[2]).join(), mine: mine.map(c => c[1] + c[2]).join(), n: copies.length, left: STU.items.size };
+      })()`);
+      if (dw.after.join() !== 'false,false,false,,1' || dw.undone.join() !== 'true,true,true,dor001' || dw.n !== 2 || dw.copies !== dw.mine) out.push('the wall deleted with its cut-outs (Undo), duplicated with them: ' + JSON.stringify(dw));
+      await ss(`(deleteItem('${nc.id}'), 0)`);
+    }
+    // the Add pane: nothing selected, the button says to select a model; the wall selected, a cut-out on it
+    const add = await ss(`(() => {
+      select(''); X.tab = 'add'; renderPanes();
+      const b0 = document.querySelector('#pane-add [data-act="cutbox"]'), a = [b0 && b0.textContent, b0 && b0.disabled];
+      select('wal001'); X.tab = 'add'; renderPanes();
+      const b1 = document.querySelector('#pane-add [data-act="cutbox"]'), n0 = cutsOn('wal001').length;
+      b1.click();
+      const r = [a[0], a[1], b1.textContent, b1.disabled, cutsOn('wal001').length - n0, STU.items.get(STU.sel).kind];
+      undo(); select('');
+      return r;
+    })()`);
+    if (add.join() !== 'Cut-out box: select a model first,true,Cut-out box on Wall,false,1,x') out.push('the Add pane\'s Cut-out box: ' + JSON.stringify(add));
+    if (await ss('unsaved()')) out.push('the layout did not come back after the card\'s checks: ' + JSON.stringify(await ss('keyOf()')).slice(0, 400));
+    bad(out);
+  });
+
+  await step('studio cuts: a pretend headset\'s grip carries a cut-out (turning with the hand, moving freely), both grips size it, a corner stretches it (the opposite corner kept); the headset\'s card has its rows', async () => {
+    const r = await ss(`(() => {
+      const out = {}, x = STU.items.get('dor001'), step = () => itemsStep(0, performance.now()), V = (a, b, c) => new THREE.Vector3(a, b, c);
+      setEdit(true); select('dor001'); step();
+      const free = XR.free; XR.on = true; XR.clear = true; XR.free = true; GL.world.updateMatrixWorld(true);
+      const [a, b] = XR.ctrls, ctl = (c, p, q) => { c.src = { targetRayMode: 'tracked-pointer', handedness: c === a ? 'right' : 'left', gamepad: null }; c.g.visible = true; c.g.matrix.compose(V(...p), q || new THREE.Quaternion(), V(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const pos = () => x.holder.getWorldPosition(V()), u0 = UNDO.length;
+      // held at its middle: carried 0.3 m to the side, then turned a quarter about the upright with the hand
+      const w0 = pos(); ctl(a, [w0.x, w0.y, w0.z]); a.hover = { kind: 'item', id: 'dor001' }; xrGrab(a, true);
+      ctl(a, [w0.x + 0.3, w0.y, w0.z]); carry(a, 0.016);
+      ctl(a, [w0.x + 0.3, w0.y, w0.z], new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2)); carry(a, 0.016);
+      xrGrab(a, false); step();
+      const yaw = 2 * Math.atan2(x.rec.q[1], x.rec.q[3]);
+      out.carry = [+(pos().x - w0.x).toFixed(3), +(pos().z - w0.z).toFixed(3), +yaw.toFixed(3), x.rec.size.join(), UNDO.length - u0];
+      undo(); step();
+      // both grips, 0.2 m apart, then 0.4: every side twice the size
+      const c = pos();
+      ctl(a, [c.x - 0.1, c.y, c.z + 0.5]); a.hover = { kind: 'item', id: 'dor001' }; xrGrab(a, true);
+      ctl(b, [c.x + 0.1, c.y, c.z + 0.5]); b.hover = { kind: 'item', id: 'dor001' }; xrGrab(b, true);
+      carry(a, 0.016); carry(b, 0.016);
+      ctl(a, [c.x - 0.2, c.y, c.z + 0.5]); ctl(b, [c.x + 0.2, c.y, c.z + 0.5]); carry(a, 0.016); carry(b, 0.016);
+      xrGrab(b, false); xrGrab(a, false); step();
+      out.two = [x.rec.size.join(), UNDO.length - u0];
+      undo(); step();
+      // a corner (its +x, +y, +z one): pulled 0.2 m out in x; the opposite corner stays
+      select('dor001'); step();
+      const C = () => STUDIO.cut('dor001').corners, opp0 = C()[0], k0 = C()[7], kw = GL.items.localToWorld(V(...k0));
+      ctl(a, [kw.x, kw.y, kw.z]); a.hover = { kind: 'item', id: 'dor001', corner: 7 }; xrGrab(a, true);
+      ctl(a, [kw.x + 0.2, kw.y, kw.z]); carry(a, 0.016); xrGrab(a, false); step();
+      const opp1 = C()[0];
+      out.corner = [x.rec.size.join(), +Math.hypot(...opp0.map((v, i) => v - opp1[i])).toFixed(5), UNDO.length - u0];
+      undo(); step();
+      // the headset's card: its rows, and Preview: whole pressed there
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('dor001'); X.tab = 'item'; X.scroll = {}; draw();
+      const I = ids(), want = ['cutto', 'cgrow:0:-', 'cgrow:2:+', 'csize:2', 'turn', 'preview:cut', 'preview:whole', 'dup', 'del'];
+      out.miss = want.filter(i => !I.has(i));
+      out.whole = [press('preview:whole'), STU.whole.has('dor001')];
+      press('preview:cut');
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; XR.free = free; select(''); X.tab = 'scene'; renderPanes();
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err || r.carry[0] !== 0.3 || Math.abs(r.carry[1]) > 0.002 || Math.abs(Math.abs(r.carry[2]) - Math.PI / 2) > 0.01 || r.carry[3] !== '0.8,2,0.4' || r.carry[4] !== 1) out.push('carried by the grip, turning with the hand: ' + JSON.stringify(r.carry || r));
+    else if (r.two[0] !== '1.6,4,0.8' || r.two[1] !== 1) out.push('both grips: every side twice: ' + JSON.stringify(r.two));
+    else if (r.corner[0] !== '1,2,0.4' || r.corner[1] > 0.001 || r.corner[2] !== 1) out.push('a corner stretched (x 0.2 m longer), the opposite corner kept: ' + JSON.stringify(r.corner));
+    if (!r.err && (r.miss.length || !r.whole[0] || !r.whole[1])) out.push('the headset\'s card: ' + JSON.stringify({ miss: r.miss, whole: r.whole }));
+    if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
+    bad(out);
+    await cxp.close();
   });
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)

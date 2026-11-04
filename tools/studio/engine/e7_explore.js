@@ -44,7 +44,7 @@ function frameScene(now) {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { const ob = objBox(it); if (ob) b.union(ob); else b.expandByPoint(_sv.fromArray(it.rec.p)); }
     else if (it.kind === 'c') { b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(-0.5)); b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(0.5)); }
-    else b.expandByPoint(_sv.fromArray(it.rec.p));
+    else if (it.kind === 's') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
   }
   if (b.isEmpty()) b.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
   const c = b.getCenter(new THREE.Vector3()), r = Math.max(1, b.getSize(new THREE.Vector3()).length() / 2);
@@ -143,7 +143,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select. Grip: carry (both grips size an object; a cube\'s corner stretches it). Left stick: walk; right stick: turn.' : 'Click: select. W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select. Grip: carry (both grips size an object or a cut-out; a corner of a cube or a cut-out stretches it). Left stick: walk; right stick: turn.' : 'Click: select. W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -170,8 +170,13 @@ function paneBlocks(tab) {
       if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
         { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
     }
-    B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects and sounds you pick for it.', c: 'faint' });
-    for (const k of ['o', 'c', 's']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+    B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
+    // a cut-out on the selected model (or the model of the selected cut-out)
+    const so = selModel();
+    B.push({ label: 'Cut-out box', row: [{ id: 'cutbox', label: so ? `Cut-out box on ${so.rec.name}` : 'Cut-out box: select a model first', act: 'cutbox', dis: !canCut(so) }] },
+      { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
+    if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'item') {
@@ -180,25 +185,28 @@ function paneBlocks(tab) {
     itemBlocks(it, B, ed);
   } else {
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them.`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
     const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
-    for (const [k, title] of [['o', 'Objects'], ['c', 'Trigger cubes'], ['s', 'Sounds']]) {
-      const L = all.filter(it => it.kind === k);
+    const rowOf = it => {
+      const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '';
+      const row = { id: 'sel:' + it.id, label: (inP ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + it.rec.name, sub: itemSub(it), act: P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP, col: it.kind !== 'o' ? it.look.col : '', ind: it.kind === 'x' && !!cutObj(it) };
+      if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
+      return row;
+    };
+    // (each object's cut-outs under it; cut-outs whose object is not here on their own)
+    for (const [k, title] of [['o', 'Objects'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
+      const L = all.filter(it => it.kind === k && (k !== 'x' || !cutObj(it)));
       if (!L.length) continue;
-      B.push({ label: title, list: L.map(it => {
-        const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '';
-        const row = { id: 'sel:' + it.id, label: (inP ? '✓ ' : '') + it.rec.name, sub: itemSub(it), act: P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP, col: it.kind !== 'o' ? it.look.col : '' };
-        if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
-        return row;
-      }) });
+      B.push({ label: title, list: L.flatMap(it => [rowOf(it)].concat(k === 'o' ? cutsOn(it.id).map(rowOf) : [])) });
     }
     if (selCube) B.push({ p: `Ticks: what ${selCube.rec.name} shows and hides.`, c: 'faint', page: true });
   }
   return B;
 }
 function itemSub(it) {
+  if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (!it.shown ? ' · hidden for you' : STU.whole.has(it.id) ? ' · previewed whole' : ''); }
   const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
@@ -245,6 +253,28 @@ function itemBlocks(it, B, ed) {
     }
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: dis || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis })) });
+    // its cut-outs (boxes that hide the part of the model inside them), and a new one
+    const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
+    B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
+    if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
+    B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
+  } else if (it.kind === 'x') {
+    const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), whole = STU.whole.has(it.id);
+    B.push({ h: r.name, sub: 'Cut-out' + (it.shown ? '' : ' · hidden for you now') },
+      { kv: [['Cuts', ob ? ob.rec.name : 'an object not in the scene'], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] },
+      { p: `It hides whatever of ${ob ? ob.rec.name : 'its object'} lies inside the box, for everyone here; the model's file is not changed. Not editing, only the hole shows.`, c: 'faint' });
+    if (!ob) B.push({ p: 'The object it cuts is not in the scene: it cuts nothing until that object is back.', c: 'amber' });
+    else if (!ob.model) B.push({ p: `${ob.rec.name}'s model is not here yet: it cuts once it is.`, c: 'faint' });
+    if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it.', c: 'muted' });
+    B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: dis || !objs.some(o => o.id !== r.on) }] });
+    if (picking) {
+      B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the box goes onto it, staying where it is.', c: 'amber' },
+        { list: objs.map(o => { const n = cutsOn(o.id).length; return { id: 'cuton:' + o.id, label: o.rec.name, sub: baseName(o.rec.file) + (n >= CUT_MAX && o.id !== r.on ? ` · ${CUT_MAX} cut-outs: full` : ''), act: 'i:cutOn', v: o.id, on: o.id === r.on, dis: dis || o.id === r.on || n >= CUT_MAX }; }) });
+    }
+    B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis }]) },
+      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis })) },
+      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
+      { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: !whole, dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: whole, dis }] });
   } else if (it.kind === 'c') {
     B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Shows', r.show.length ? r.show.map(nameOf).join(', ') : 'nothing'], ['Hides', r.hide.length ? r.hide.map(nameOf).join(', ') : 'nothing']] });
     B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
@@ -269,10 +299,15 @@ function itemBlocks(it, B, ed) {
         { id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] },
       { p: SOUND_NOTE, c: 'faint' });
   }
-  if (it.kind !== 's' || true) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
+  // (a cut-out's copy goes on its object: refused once that object has 16, or the scene 100)
+  const full = it.kind === 'x' && !canCut(cutObj(it));
+  if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
+  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
+// the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
+const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };
 const cmOrM = d => (d < 1 ? Math.max(1, Math.round(d * 100)) + ' cm' : metres(d));
 // ---- a sound's card: what it follows (tools/studio/SPEC.md, "Sounds that follow a model"): an object, picked by pointing
 // at it (or from a list), then one of its bones (the short list where the model has them, then every bone; a model with
@@ -419,6 +454,7 @@ function act(a, v) {
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
+    cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     sel: () => select(v === STU.sel ? '' : v),
     link: () => { if (STU.pick) toggleLink(STU.pick.id, STU.pick.list, v); },
     pickdone: () => { STU.pick = null; },
@@ -431,7 +467,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -508,7 +544,7 @@ function blockHTML(b) {
   if (b.kv) return `<dl class="stats">${b.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
   const lab = b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '';
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
-  if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col}` : ''}">
+  if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? 'margin-left:20px;' : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
   return '';
@@ -540,7 +576,7 @@ function updateExtraLabels() {
   if (!Lh) return;
   const ed = editOn(), h = ed && STU.hover !== STU.sel ? STU.items.get(STU.hover) : null, s = ed ? STU.items.get(STU.sel) : null;
   // (a sound that follows a model names it: "Voice → Dancer · Head")
-  const to = it => (it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : '');
+  const to = it => (it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : it.kind === 'x' ? 'cuts ' + (cutObj(it) ? cutObj(it).rec.name : 'nothing') : '');
   labelSet(Lh, h ? [h.rec.name, to(h) || KIND_NAME[h.kind]] : null);
   labelSet(Ls, s ? [s.rec.name, to(s) ? to(s) + ' · selected' : 'selected'] : null);
   Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
@@ -555,16 +591,20 @@ function pickables() {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
+    else if (it.kind === 'x') { if (it.holder.visible) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
     else if (it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }
   }
   return L;
 }
-// the nearest thing a ray finds: a corner first, then an object or a sound, a cube only when nothing else is hit
+// the nearest thing a ray finds: a corner first, then a cut-out (it lies within its model's unseen box), then an object
+// or a sound, a cube only when nothing else is hit. The last ray that finds an object is kept (cutRay): a new cut-out
+// goes where it met the model
 function rayPick(ray) {
   GL.world.updateMatrixWorld(true);
-  const hs = ray.intersectObjects(pickables(), false);
-  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const it = STU.items.get(h.object.userData.id); return it && it.kind !== 'c'; }) || hs[0];
+  const hs = ray.intersectObjects(pickables(), false), kind = h => { const it = STU.items.get(h.object.userData.id); return it ? it.kind : ''; };
+  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => kind(h) === 'x') || hs.find(h => kind(h) && kind(h) !== 'c') || hs[0];
   if (!c) return null;
+  if (kind(c) === 'o') cutRay(c.object.userData.id, ray.ray);
   return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance };
 }
 function pointerRay(mx, my) {
@@ -634,7 +674,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
-    if (k === 'escape' && (STU.pick || STU.follow || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.follow) STU.follow = ''; else select(''); dirty(true); return; }
+    if (k === 'escape' && (STU.pick || STU.follow || STU.cutTo || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
@@ -652,7 +692,7 @@ function clickAt(mx, my) {
     const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
     if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.follow) select('');
+  if (editOn() && !STU.pick && !STU.follow && !STU.cutTo) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected
 function pressItem(id) {
@@ -660,6 +700,7 @@ function pressItem(id) {
   if (!it || !editOn()) return;
   if (STU.pick && it.kind !== 'c' && id !== STU.pick.id) { toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
+  if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   select(id);
   sfxAct('pick', 'world', null);
 }
@@ -683,7 +724,7 @@ function walkStep(dt) {
 
 // -------------------------------------------------------- the page's arrows --
 // TransformControls on the selected item (page, editing): move, turn and size; a cube stays level and takes its size
-// per axis, a sound only moves, an object sizes as a whole. A drag is one change (Undo), and while it lasts the room's
+// per axis, a sound only moves, an object sizes as a whole, a cut-out turns freely and takes its size per axis. A drag is one change (Undo), and while it lasts the room's
 // records do not move the item here
 function tcSetup() {
   if (!THREE.TransformControls) return;
@@ -709,6 +750,9 @@ function tcRead(it) {
     const yaw = new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y;
     h.rotation.set(0, yaw, 0);
     setRec(it.id, { p: h.position.toArray(), yaw, size: h.scale.toArray().map(v => Math.max(0.05, Math.abs(v))) });
+  } else if (it.kind === 'x') {
+    h.scale.set(...h.scale.toArray().map(v => Math.max(0.01, Math.abs(v))));
+    setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   } else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
 function tcSetMode(m) {
@@ -723,7 +767,7 @@ function tcAttach() {
   if (!it || !editOn() || XR.on || APP.mode !== 'explore') { if (tc.object) tc.detach(); return; }
   const m = it.kind === 's' ? 'translate' : X.tcMode;
   tc.setMode(m);
-  tc.setSpace(it.kind === 'c' && m !== 'translate' ? 'local' : 'world');
+  tc.setSpace((it.kind === 'c' || it.kind === 'x') && m !== 'translate' ? 'local' : 'world');
   tc.showX = tc.showZ = !(it.kind === 'c' && m === 'rotate');
   tc.showY = true;
   if (tc.object !== it.holder) tc.attach(it.holder);

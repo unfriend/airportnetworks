@@ -228,7 +228,8 @@ async function convertAll() {
 // for everyone at a station). A GLB with no record is taken as the studio's own guess for the original made into metres
 // and Y up. A sound that follows such an object's whole model has its offset turned by r in the same change (o' = r o:
 // the holder's turn is q r^-1, so where it sounds stays put); one on a bone keeps its offset (the GLB's bones stand where
-// the original's did, and a name the loader tidied is still found)
+// the original's did, and a name the loader tidied is still found). Its cut-outs likewise: middle and turn turned by r
+// (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was
 function switchToGLB(orig, glb, rec) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
@@ -240,8 +241,11 @@ function switchToGLB(orig, glb, rec) {
     const ids = new Set(list.map(it => it.id)), r = new THREE.Quaternion().fromArray(g.q).normalize();
     const whole = f => { const ob = STU.items.get(f.rec.on); return !f.rec.bone || !!(ob && ob.model && !nodeOf(ob, f.rec.bone)); };
     const turn = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && whole(f));
+    // (and their cut-outs, in the object's frame turned but not scaled: turned the same way, so each stays where it was)
+    const cuts = [...STU.items.values()].filter(x => x.kind === 'x' && ids.has(x.rec.on));
     for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g));
     for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).toArray() });
+    for (const x of cuts) setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).toArray(), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray() });
   });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;

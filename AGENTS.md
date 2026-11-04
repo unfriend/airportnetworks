@@ -219,8 +219,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
   about 250 KB, committed; and `test/scenes/textures/`, about 20 KB: pictures in every kind the studio reads, from
   `test/pictures.mjs`, and models that name them by each rung of the ladder; and `test/scenes/rig/`, about 35 KB: a small
-  skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; `test/local/` is
-  git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; and
+  `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
+  and the figure, for cut-outs; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
   under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table` and the studio's
@@ -971,7 +972,8 @@ an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all'
 circle placed), below; networks-29 when the room's first All stories circle became the room's arc in v109: `st.all01`
 gains `arc` (`true` while it is the arc, `false` once it became a circle) and `allp` may carry `pg: 1` (the arc a page
 made, not yet moved by a headset), and a room now starts with the arc, below; networks-30 when a studio sound could
-follow an object or a bone in v112: a sound's record in the studio's `state()` gained `on`, `bone` and `o`). The plan is
+follow an object or a bone in v112: a sound's record in the studio's `state()` gained `on`, `bone` and `o`; networks-31
+when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1458,7 +1460,8 @@ follow an object or a bone in v112: a sound's record in the studio's `state()` g
   are locked; never Arrange all. Its clock starts in explore mode. Its scene is life size round the circle's spot
   (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
   scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
-  device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
+  device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30;
+  cut-outs added a field per cut-out, networks-31). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
   VR stick walk and sound are each device's own. With exactly one scene in the relay's listing every device at a station
   with none picks it and writes its saved layout (every device writes the same records, so nothing doubles); else
   *Pick a scene*. *Lock this story* refuses its editing for everyone at the circle ("The studio" below).
@@ -2103,7 +2106,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube) or `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk or sound | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk, sound or a cut-out's *Preview: whole* | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3061,11 +3064,13 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   cubes, sounds }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
   start: 'always' | 'shown' }`, a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
   ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
-  the object it follows, its bone's name, the offset in the target's frame; "Sounds" below). Metres in the scene's frame (the floor at y = 0, the origin
+  the object it follows, its bone's name, the offset in the target's frame; "Sounds" below), a cut-out `{ id, name, on,
+  p, q, size }` in `cuts` (the object it cuts, and its middle, a full turn and its size in that object's frame, turned
+  but not scaled; "Cut-outs" below; a layout without `cuts`, v112's, reads as before). Metres in the scene's frame (the floor at y = 0, the origin
   at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
-  2*). At most 300 objects, 100 cubes, 60 sounds; a `file` is a path in the scene's listing (200 characters, no `..`); a
+  2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object); a `file` is a path in the scene's listing (200 characters, no `..`); a
   cube's lists only name this scene's items. A bad item is dropped and said once (*2 items in layout.json could not be
   read*); anything else ignored.
 - **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
@@ -3116,6 +3121,37 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `start: 'shown'` from its beginning each time both are shown). While editing a faint line in its colour runs to what
   it follows, and its labels say so (*Voice → Dancer · Head*). Shared as its record (FORMAT networks-30, v112). Untested
   on a headset: how a voice at a moving head sounds, the pick by trigger and the bone pages on a real panel.
+- **Cut-outs** (the owner, 4 November 2026: "is it possible to remove parts of a glb model nondestructive? like a door in
+  a wall etc?", then "for the models i would just do parts that are hidden, which i can draw on the models or remove
+  with boolean ops like a cube, whatever is easier"; `tools/studio/SPEC.md`, "Cut-outs"; `engine/e6b_cuts.js`). A
+  cut-out (*Cut-out box* on the Add pane, *Cut out a part* on an object's card) is a box over part of one object's model
+  that hides whatever of that model lies inside it, for everyone, the model's file never changed (the owner's atelier is
+  one mesh with one material: nothing in it can be hidden by name). Its record `{ name, on, p, q, size }`: the object it
+  cuts and only that one (`on`, required), its middle, a full turn and its size in that object's frame, turned but not
+  scaled (metres; `p` and `size` to the mm, each side 1 cm to 50 m, `q` 4 decimals), so it stays on the same part of the
+  model when the object is moved or turned; sized here, the object scales its cut-outs' records in the same change
+  (`scaleFollowers`, `followK` between both grips' writes), and switched to its GLB they turn by the baked turn
+  (`p' = r p`, `q' = r q`). Deleting the object deletes its cut-outs in the same step (Undo brings all back); duplicating
+  it copies them onto the copy; a cut-out whose object is not here (a layout, the room) is kept and cuts nothing. How:
+  every material of an object with a cut-out (lit and as scanned) gets a small addition (`cutPatch`, `onBeforeCompile`;
+  `customProgramCacheKey` the original's plus `|studio-cut-1`): each fragment's world place, from three.js's own
+  `transformed` after skinning and morphs, is tested against the object's boxes (`uniform vec4 cutM[48]`, three rows of
+  each box's inverse matrix, and `uniform int cutN`, at most 16: a box added compiles nothing), and one inside any is
+  discarded; the boxes handed over as its first mesh is drawn each frame (`cutUpload`, `onBeforeRender`); each object's
+  materials are its own clones, so two copies of one file never share a cut; a model with none keeps its materials. No
+  extra pass, no change to the geometry; the hole's edges are open. Limits: 100 a scene, 16 an object, beyond them refused
+  in words. A trigger cube shows or hides a cut-out as any item: hidden for you, the model is whole; it switches as its
+  fade crosses one half (the owner's door: a cube in front of the wall shows the cut-out, so the wall opens as you walk
+  up). Made where the pointer or ray last met the model's surface (`cutRay`, one raycast as the button is pressed), 0.8 x
+  2 x 0.4 m (each side at most a fifth of the model), upright, facing you; else at the model's middle. Its card: what it
+  cuts and *Move onto another object...* (a pick mode, keeping its place), size steps per side (5 cm) and every side,
+  *Turn 90°*, *Preview: Cut / Whole* (this device only, while editing), *Duplicate* (beside it), *Delete*, every change one
+  Undo step. While editing its box is drawn in one warm red-orange, dashed edges, solid corner ticks over everything,
+  *✂ Door*, its corner balls when selected; the pointer finds it before the object it lies in; the page's arrows move,
+  turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
+  size it, a corner stretches it. Not editing, only the hole. The Items pane lists each object's cut-outs under it.
+  `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31, v113). Untested on a headset: how the holes look on a
+  Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -3389,7 +3425,21 @@ it from its beginning; the state with `on`, `bone` and `o` and back, bad values 
 Rigify's spine in the short list, the object it follows picked again changing nothing, a move while her model is not
 here writing its place only, both grips between their writes and a sound naming a bone the figure lacks turned with
 its GLB; the headset's card (its rows, a page of eight bones at a time, a
-bone she lacks refused, the list of objects and the trigger on her).
+bone she lacks refused, the list of objects and the trigger on her). Its *studio cuts* steps run on a fourth page, at
+`&scene=cuts` (the fourth test scene: a wall whose *Door* the cube *Doorway* shows, *Box A* with a *Hole* and *Box B* of
+the same file, the dancer, the figure): pixels read back from a render of the scene prove each cut (inside the box where
+the model was: what is behind it; outside: the model): the hole in *Box A* and none in *Box B* (one file, two objects, only
+the first's materials patched); the wall whole with your head outside *Doorway* and opened inside it, whole again outside;
+the wall moved, turned and sized (the door's corners in the wall's own frame unchanged, its record scaled with the size,
+one Undo step) and the hole still where the door is; the dancer's posed head (her clip held where it is far from her
+rest pose) cut by a box round it, her rest-pose place not; *Convert to GLB* of the figure (a turn and a scale baked in)
+switching with its cut-out's corners within 1 mm and still cutting; the state with `x.<id>` and back, bad records
+refused, unknown fields ignored, a state without the wall (the door kept, cutting nothing) and back; 16 on one object and
+no more; `layout.json` with and without `cuts`; the page's card (*Cut out a part* where the pointer met the wall, the
+size steps, *Preview: Whole* and *Cut*, Delete and Undo; deleting the wall taking its cut-outs and Undo bringing them
+back; duplicating it copying them; *Move onto another object...* keeping its place); the Add pane's button; the page's
+arrows; a pretend headset's grip carrying one, both grips sizing it and a corner stretching it; nothing of a box drawn
+when not editing (only the hole); the Items pane and the headset's card (its rows; Preview pressed there).
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -3751,7 +3801,9 @@ paint.png* on a page's card: `models/rust.glb` through the relay with the pictur
 switched to it, textured, where it stands; the rig scene's dancer copied in and placed on a page, a sound made there to
 follow her head taken by every page and the headset (each sound where its own dancer's head bone puts it at one held
 scene clock, within 1 cm of the first page's) and the saved `layout.json` carrying `on`, `bone` and `o` (that scene
-itself left out of the copy); a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+itself left out of the copy); a cut-out made on a page on the test scene's box reaching every page and the headset (its
+corners in the scene's frame within 1 cm of the first page's on each, cutting there) and the saved `layout.json` carrying
+it under `cuts` (the cuts scene left out of the copy); a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
 test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
 `ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`

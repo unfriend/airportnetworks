@@ -348,7 +348,15 @@ const STUDIO = {
     upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
   }),
-  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, heard: !!it.heard, a: it.a, sa: it.sa, fa: it.fa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused), at: it.holder.position.toArray() })),
+  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, heard: !!it.heard, a: it.a, sa: it.sa, fa: it.fa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused), at: it.holder.position.toArray(), cutting: !!it.cutting })),
+  // a cut-out: the object it cuts here (null: none), whether it cuts now, its box's corners in the scene's frame, and what
+  // its object's materials are handed (the boxes cutting now, by id; the count the shader takes)
+  cut: id => {
+    const x = STU.items.get(id);
+    if (!x || x.kind !== 'x') return null;
+    const ob = cutObj(x), U = ob && ob.cutU;
+    return { on: ob ? ob.id : null, cutting: !!x.cutting, corners: cutCorners(x), list: U ? U.list.map(c => c.id) : [], n: U ? U.cutN.value : 0, patched: !!(ob && ob.model && ob.model.cut) };
+  },
   // a sound that follows a model: the node it follows here (its name; '' the whole model), where that puts it now, where
   // it is, and how far apart (m); null: it follows nothing here
   follow: id => {

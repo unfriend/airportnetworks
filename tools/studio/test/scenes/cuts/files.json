@@ -1,0 +1,13 @@
+{
+  "name": "cuts",
+  "files": [
+    {"path":"box.glb","bytes":3208,"at":1793813629855,"kind":"model"},
+    {"path":"dancer.glb","bytes":15120,"at":1793813629855,"kind":"model"},
+    {"path":"figure.fbx","bytes":4108,"at":1793813629855,"kind":"model"},
+    {"path":"figure.png","bytes":6272,"at":1793813629855,"kind":"image"},
+    {"path":"wall.mtl","bytes":66,"at":1793813629855,"kind":"other"},
+    {"path":"wall.obj","bytes":406,"at":1793813629855,"kind":"other"}
+  ],
+  "layoutAt": 1793813629855,
+  "save": false
+}

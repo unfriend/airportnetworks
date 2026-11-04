@@ -1,14 +1,16 @@
 
 // ================================================================== ITEMS ==
-// What is placed in the scene: objects (a model file placed once; one file may be placed many times), trigger cubes
-// and sounds. Each has a record (as in layout.json, without its id), checked the same way wherever it comes from (the
-// layout, the room, an edit here), so a record taken and given back is the same. Records are never changed in place:
+// What is placed in the scene: objects (a model file placed once; one file may be placed many times), trigger cubes,
+// sounds and cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js). Each has a record (as in
+// layout.json, without its id), checked the same way wherever it comes from (the layout, the room, an edit here), so a
+// record taken and given back is the same. Records are never changed in place:
 // each change is a new record (the shared room keeps the old one to compare with).
 const STU = {
   scene: '', listing: 'none', files: [], fileMap: new Map(), items: new Map(),
   saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
+  cutTo: '', whole: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here; the last ray on an object)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -68,9 +70,24 @@ function norm(kind, x) {
     }
     return Object.values(r).includes(null) ? null : r;
   }
+  if (kind === 'x') {
+    // a cut-out: the object it cuts (on, required), and its middle, turn and size in that object's frame, turned but not
+    // scaled (metres): p to the mm, a full turn to 4 decimals, each side 1 cm to 50 m to the mm
+    if (!okId(x.on)) return null;
+    const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : [0.8, 2, 0.4];
+    if (!q || !sz) return null;
+    const r = { name: name('Cut-out'), on: x.on, p: P, q, size: sz.map(v => nz(r3(Math.min(50, Math.max(0.01, v))))) };
+    return Object.values(r).includes(null) ? null : r;
+  }
   return null;
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound' };
+// a turn as a record keeps it: four numbers, normalised, to 4 decimals (null: not a turn)
+function quatOf(a) {
+  const v = vecOf(a, 4, 2), n = v ? Math.hypot(...v) : 0;
+  if (!v || n < 1e-6) return null;
+  return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
+}
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out' };
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
@@ -106,6 +123,12 @@ function makeItem(id, kind) {
     it.look.fill.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'x') {
+    it.look = LOOKS.cut(id);
+    it.holder = it.look.body;
+    it.look.hit.userData.id = id;
+    for (const c of it.look.corners) c.userData.id = id;
+    GL.edit.add(it.look.deco);
   } else {
     it.look = LOOKS.speaker(id);
     it.holder = it.look.group;
@@ -129,6 +152,8 @@ function removeItem(id) {
   if (STU.sel === id) STU.sel = '';
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
+  if (STU.cutTo === id) STU.cutTo = '';
+  STU.whole.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
@@ -140,6 +165,7 @@ function poseOf(it) {
   _pp.fromArray(r.p);
   if (it.kind === 'o') { _pq.fromArray(r.q); _ps.setScalar(r.s); }
   else if (it.kind === 'c') { _pq.setFromAxisAngle(_yUp, r.yaw); _ps.fromArray(r.size); }
+  else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
@@ -151,6 +177,7 @@ function applyRec(it, was, glide) {
     if (!was || was.light !== r.light) applyLight(it);
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
   } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
+  else if (it.kind === 'x') it.look.name.userData.set('✂ ' + r.name, it.look.col, 0.075);
   else {
     it.look.name.userData.set(r.name, it.look.col, 0.07);
     if (!was || was.file !== r.file) { emitStop(it, true); itemFile(it); }
@@ -188,6 +215,7 @@ function buildModel(it) {
   it.proxy.position.set((b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2, (b[0][2] + b[1][2]) / 2);
   it.proxy.scale.set(Math.max(1e-4, b[1][0] - b[0][0]), Math.max(1e-4, b[1][1] - b[0][1]), Math.max(1e-4, b[1][2] - b[0][2]));
   applyLight(it);
+  if (cutsOn(it.id).length) cutPrep(it);   // (its cut-outs' addition to its materials, compiled with them below)
   warmModel(c.o);
   if (it.fresh) placeFresh(it, it.fresh);
 }
@@ -219,6 +247,7 @@ function applyLight(it) {
     if (mode === 'scan' && !m.userData.scan) m.userData.scan = Array.isArray(m.userData.lit) ? m.userData.lit.map(scanMat) : scanMat(m.userData.lit);
     m.material = mode === 'scan' ? m.userData.scan : m.userData.lit;
   }
+  if (it.model.cut) cutMats(it);   // (as scanned, made just now: cut as the lit ones are)
   it.light = mode; it.aSet = -1;
 }
 // an object's fade: its materials' own opacity times a (see-through and not hiding what is behind while it fades)
@@ -429,8 +458,9 @@ function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
   for (const it of STU.items.values()) {
-    // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep)
-    if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on)) {
+    // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
+    // cut-out, in the frame of the object it cuts: cutStep)
+    if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on) && it.kind !== 'x') {
       const k = smooth((now - it.gl.t0) / 250);
       poseOf(it);
       it.holder.position.lerpVectors(it.gl.p, _pp, k);
@@ -438,7 +468,7 @@ function itemsStep(dt, now) {
       it.holder.scale.lerpVectors(it.gl.s, _ps, k);
       if (k >= 1) it.gl = null;
     }
-    const tgt = it.kind === 'c' ? (editing ? 1 : 0) : it.shown ? 1 : editing && it.kind === 'o' ? 0.3 : 0;
+    const tgt = it.kind === 'c' || it.kind === 'x' ? (editing ? 1 : 0) : it.shown ? 1 : editing && it.kind === 'o' ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
@@ -464,7 +494,10 @@ function itemsStep(dt, now) {
       }
     }
   }
-  // the sounds, once every object's animation has stepped: a sound that follows a model goes where its bone is now
+  // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
+  // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
+  // model goes where its bone is now
+  cutsStep(editing, now);
   for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
   editStep(editing);
   emitStep(now);
@@ -568,6 +601,7 @@ function itemTopInto(it, out, mid) {
     _sb.copy(BOX1.boundingBox).applyMatrix4(_sm);
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
+  else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.14));
   return out;
 }
@@ -731,7 +765,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; select(''); }
+  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); select(''); }   // (Preview whole is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -778,20 +812,27 @@ function setRec(id, patch) {
   return rec ? putItem(id, it.kind, rec) : null;
 }
 // an object's record changed by an edit here (its size steps, both grips, the page's arrows): the sounds that follow it
-// keep their place on it as it is sized, their offsets scaled by its size's ratio since the change began (their records
-// as they were then join the change: one Undo step); never for a record from the room, which carries theirs
+// keep their place on it as it is sized, their offsets scaled by its size's ratio since the change began, and so do its
+// cut-outs (their middles and sizes; their records as they were then join the change: one Undo step); never for a record
+// from the room, which carries theirs
 function setObj(id, patch) {
   const it = STU.items.get(id), s0 = it ? it.rec.s : 0, r = setRec(id, patch);
   if (r && it.kind === 'o' && it.rec.s !== s0) scaleFollowers(it);
   return r;
 }
 function scaleFollowers(ob) {
-  const fs = [...STU.items.values()].filter(x => x.kind === 's' && x.rec.on === ob.id);
+  const fs = [...STU.items.values()].filter(x => (x.kind === 's' || x.kind === 'x') && x.rec.on === ob.id);
   if (!fs.length || !SNAP) return;
   beginChange(fs.map(x => x.id));
   const was = id => { const b = SNAP.before.get(id); return b && b[1] ? JSON.parse(b[1]) : null; }, b0 = was(ob.id);
   if (!b0 || !(b0.s > 0)) return;
-  for (const f of fs) { const fb = was(f.id); if (fb && fb.on === ob.id && fb.o) setRec(f.id, { o: fb.o.map(v => v * ob.rec.s / b0.s) }); }
+  const k = ob.rec.s / b0.s;
+  for (const f of fs) {
+    const fb = was(f.id);
+    if (!fb || fb.on !== ob.id) continue;
+    if (f.kind === 'x') setRec(f.id, { p: fb.p.map(v => v * k), size: fb.size.map(v => v * k) });
+    else if (fb.o) setRec(f.id, { o: fb.o.map(v => v * k) });
+  }
 }
 // a sound's place written from where it is now (p) and, following something there, its offset against it as it is now
 // (its bone's model not here yet: p alone, measureNode)
@@ -855,10 +896,12 @@ function addCube() {
 function deleteItem(id) {
   if (!editOn() || !STU.items.has(id)) return;
   change(() => {
-    for (const c of [...STU.items.values()]) if (c.kind === 'c' && (c.rec.show.includes(id) || c.rec.hide.includes(id))) setRec(c.id, { show: c.rec.show.filter(i => i !== id), hide: c.rec.hide.filter(i => i !== id) });
+    // (an object's cut-outs go with it, in the same step: Undo brings them all back)
+    const gone = new Set([id, ...cutsOn(id).map(x => x.id)]), out = l => l.filter(i => !gone.has(i));
+    for (const c of [...STU.items.values()]) if (c.kind === 'c' && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
     // (the sounds that follow it stay where they are, following nothing: Undo brings both back)
     for (const f of [...STU.items.values()]) if (f.kind === 's' && f.rec.on === id) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
-    removeItem(id);
+    for (const g of gone) removeItem(g);
   });
   if (STU.pick && STU.pick.id === id) STU.pick = null;
   sfxAct('snap', 'stage', 'centre');
@@ -866,11 +909,15 @@ function deleteItem(id) {
 function duplicateItem(id) {
   const it = STU.items.get(id);
   if (!it || !canAdd(it.kind)) return '';
+  if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   const nid = newId(), o = it.rec.o || [0, 0, 0];
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
-  // takes none of its sounds)
-  change(() => putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
-    it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {}))));
+  // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
+  change(() => {
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
+      it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
+    if (it.kind === 'o') for (const x of cutsOn(id)) if (countOf('x') < LIMITS.x) putItem(newId(), 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })));
+  });
   select(nid);
   sfxAct('place', 'world', null);
   return nid;
@@ -931,15 +978,16 @@ const ITEM_ACT = {
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage'];   // (the card's own state: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
   if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
   change(() => ITEM_ACT[act](it, v));
-  sfxAct(act === 'del' ? 'snap' : act === 'follow' ? 'link' : 'click', 'world', null);
+  sfxAct(act === 'del' ? 'snap' : act === 'follow' || act === 'cutOn' ? 'link' : 'click', 'world', null);
 }
 function turnAbout(it, q) {
+  if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -960,14 +1008,15 @@ function select(id) {
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
+  if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();
   dirty(true);
 }
 
 // --------------------------------------------------------- shared rooms --
-// What everyone at the station sees alike: the scene's name and one top-level field per item (its record), so two
-// people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
+// What everyone at the station sees alike: the scene's name and one top-level field per item (its record: o.<id>,
+// c.<id>, s.<id>, x.<id>), so two people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
@@ -979,9 +1028,9 @@ function collabState() {
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
   if (typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)) && v.scene !== STU.scene) openScene(v.scene, 'room');
-  const keep = new Set(), n = { o: 0, c: 0, s: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0 };
   for (const k of Object.keys(v)) {
-    const m = /^([ocs])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsx])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]), rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)

@@ -74,6 +74,25 @@ bone's name is kept as the studio reads it, and found again leniently (an FBX's 
 its GLB). The short list (*Head*, *Neck*, *Chest*, *Hips*, the hands and the feet) knows Mixamo, 3ds Max's Biped, Unreal,
 Rigify and VRM names.
 
+## Cut-outs: a door in a wall
+
+A cut-out is a box that hides the part of one model inside it, without changing the model's file. A scan of a room is
+one mesh, so you cannot hide its door by name; a box over the door hides it. With **Edit** on:
+
+1. Point at the wall where the door should be (or click it on a page), then on the wall's card press **Cut out a part**
+   (or **Cut-out box** under Add while the wall is selected). A box 0.8 m wide, 2 m high and 40 cm deep stands where you
+   pointed, facing you, and the wall inside it is gone.
+2. Move, turn and size the box: on a page the arrows (W, E, R; the size per side), on its card the size steps (5 cm a
+   side, or every side at once) and **Turn 90°**; in a headset the grip carries it, both grips size it and the grip on a
+   corner stretches it (the opposite corner stays).
+3. To open the door only as people walk up, make a trigger cube in front of the wall, **Pick what it shows** and press
+   the cut-out. Until someone stands in the cube the wall is whole for them; inside it, the door opens.
+
+**Preview: Whole** on its card shows the model whole on this device only (while editing). The box stays on the same part
+of the model when the model is moved, turned, sized or switched to its GLB. Not editing, nothing of the box is drawn:
+only the hole. The edges of a hole are open (you look into the thin surface): that is how it is meant to be. A model takes
+at most 16 cut-outs, a scene 100. **Move onto another object...** gives a box to another model, where it stands.
+
 ## Formats guide
 
 - **Models: GLB.** One file, its textures and animations inside. FBX works, but converted it loads faster and sits right
@@ -124,7 +143,7 @@ was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane.
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).
@@ -132,6 +151,7 @@ was found as and keeps it in the GLB's record.
   its MTL under `originals/`, under 250 KB), the textures scene `test/scenes/textures/` (about 20 KB: pictures from
   `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung), the rig scene
   `test/scenes/rig/` (about 35 KB: a small skinned dancer whose bones are named in mixed conventions, with a voice that
-  follows her head) and their listings;
+  follows her head), the cuts scene `test/scenes/cuts/` (about 30 KB: a wall with a door a cube opens, two boxes of one
+  file with a hole in one, the dancer and the figure) and their listings;
   `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).
