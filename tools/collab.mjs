@@ -66,6 +66,12 @@
 // starts the room and is kept; a second page joins by the link, which has no password; a pretend headset uses the menu's
 // keypad page and joins; the password in no log, address, room key or relay line; Forget the password; with --shots
 // token-*.png);
+// --studio only the studio in a room (studioRound, also in the main run: relays of its own from port 8790 up, with --scenes
+// on a temporary copy of tools/studio/test/scenes; three pages and a pretend headset at a studio station: Studio here, a
+// scene picked for all, two edits at once both kept, the headset's trigger cube, Save from the headset (.history/), a file
+// added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a long sound streamed, the
+// relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
+// COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; with --shots studio-*.png);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -286,6 +292,7 @@ const CODE_ONLY = argv.includes('--code');   // (only a room joined by its code 
 const ALL_ONLY = argv.includes('--all');   // (only the All stories and Back to the lobby circles: allRound, in a room of its own)
 const GUIDE_ONLY = argv.includes('--guide');   // (only the room setup guide and Touch the spot: guideRound, in a room of its own)
 const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: tokenRound, a relay of its own with COLLAB_TOKEN; not in the main run)
+const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: studioRound, relays of its own with --scenes)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -560,14 +567,16 @@ const goRoom = (p, x, y, z, yaw) => p.evaluate(([x, y, z, yaw]) => {
 }, [x, y, z, yaw]);
 // render what H sees from its head, looking at yaw (room) and pitch
 // (size [w, h]: drawn at twice that off screen and scaled down, instead of at the page's size)
-async function headView(H, file, yawRoom, pitch, size) {
-  const url = await H.evaluate(([yawRoom, pitch, size]) => {
+// (pre: code run in the story just before drawing, as HOST.cur.peek runs it)
+async function headView(H, file, yawRoom, pitch, size, pre) {
+  const url = await H.evaluate(([yawRoom, pitch, size, pre]) => {
     const X = window.__xr, R = HOST.room.internals(), r = HOST.renderer;
     const loop = HOST.cur.peek('frame');
     r.setAnimationLoop(null);
     // (placed as its frame places it in a headset: a story built from sets by its view, a life-size one round you)
     HOST.cur.peek('(typeof xrPlace === "function" && xrPlace(APP.mode === "story" ? storyCam(storyT(APP.t)) : orbit.cur), (APP.mode === "story" || typeof XS !== "undefined") && ' +
       'xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); }))');
+    if (pre) HOST.cur.peek(pre);
     HOST.collab.internals().pumpAt = 0;
     for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
     const hp = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
@@ -590,7 +599,7 @@ async function headView(H, file, yawRoom, pitch, size) {
     } else { r.render(sc, cam); u = r.domElement.toDataURL('image/png'); }
     r.setAnimationLoop(loop);
     return u;
-  }, [yawRoom, pitch, size || null]);
+  }, [yawRoom, pitch, size || null, pre || '']);
   fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
 }
 
@@ -2642,6 +2651,377 @@ async function tokenRound() {
   }
 }
 
+// ---- the studio in a room (--studio runs only this; also in the main run): a relay of its own (from port 8790 up) that
+// serves the app and, with --scenes, a temporary copy of tools/studio/test/scenes and a second scene (so none is picked by
+// itself: a station picks a scene only when the listing has exactly one); three pages and a pretend headset at a studio
+// station. The headset menu's Studio here puts the circle at its feet; the scene picked on one page reaches all; an
+// object moved by the arrows on one page and a cube added on another at once both kept; the headset inside the cube sees
+// the figure (and not the box) while a page walking outside it does not; Save from the headset's panel writes layout.json
+// (the old one in .history/, a second save a second), every page then saved by its name; a file copied into the scene's
+// folder appears in the Add lists within a few seconds; the station's story locked refuses a page's edits and the
+// headset's grip; Convert to GLB on a page writes models/figure.glb and every page's and the headset's figure switches to
+// it where it stands (corners within 1 mm), the FBX under Originals; a long sound streamed (an element, no decoded
+// buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
+// originals (sorted into models/, sounds/ and originals/; the GLBs loading with their records; a short sound as a mono
+// 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
+// COLLAB_TOKEN: a page without the password cannot list or save, one with it lists, saves and keeps a studio station in a
+// room; the password is in no page's log, address or room key, nor in the relay's lines, log files or the saved layout.
+// dir: pictures (studio-*.png)
+async function relayOn(args, env, from) {
+  for (let p = from; p < from + 20; p++) {
+    const R = { proc: null, port: 0, out: '' };
+    const ok = await new Promise(res => {
+      R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', ...args],
+        { cwd: root, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+      const t = setTimeout(() => res(false), 15000);
+      R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
+      R.proc.stderr.on('data', d => { R.out += d; });
+      R.proc.on('exit', () => { clearTimeout(t); res(false); });
+    });
+    if (ok) return R;
+    if (R.proc.exitCode === null) R.proc.kill();
+    if (!/EADDRINUSE/.test(R.out)) throw new Error('the relay did not start: ' + R.out);
+  }
+  throw new Error('no free port from ' + from);
+}
+const relayOff = R => new Promise(r => { if (!R || !R.proc || R.proc.exitCode !== null) return r(); R.proc.once('exit', r); R.proc.kill(); });
+// an MP3's first frame (past an ID3 tag): MPEG-1 layer III, 44.1 kHz, mono?
+function mp3Head(buf) {
+  let i = buf.toString('latin1', 0, 3) === 'ID3' ? 10 + ((buf[6] & 127) << 21 | (buf[7] & 127) << 14 | (buf[8] & 127) << 7 | (buf[9] & 127)) : 0;
+  for (; i < buf.length - 4; i++) if (buf[i] === 0xff && (buf[i + 1] & 0xe0) === 0xe0) break;
+  if (i >= buf.length - 4) return null;
+  const h = buf.readUInt32BE(i);
+  return { mpeg1: ((h >> 19) & 3) === 3, layer3: ((h >> 17) & 3) === 1, rate44: ((h >> 10) & 3) === 0, mono: ((h >> 6) & 3) === 3 };
+}
+async function studioRound(dir) {
+  const tmp = n => fs.mkdtempSync(path.join(os.tmpdir(), 'collab-' + n + '-'));
+  const SC = tmp('scenes'), SC2 = tmp('scenes-pass'), logs = tmp('logs-pass'), TEST = path.join(root, 'tools', 'studio', 'test', 'scenes');
+  fs.cpSync(TEST, SC, { recursive: true }); fs.cpSync(TEST, SC2, { recursive: true });
+  fs.mkdirSync(path.join(SC, 'quiet'));
+  fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
+  if (dir) fs.mkdirSync(dir, { recursive: true });
+  const pages = [];
+  let R = null, T = null;
+  // a page of its own (another device): its name in the room, and the relay's password kept for it when given
+  const sopen = async (url, o = {}) => {
+    const ctx = await browser.newContext({ viewport: o.size || { width: 640, height: 400 } });
+    await ctx.addInitScript(([n, k, t]) => { try { if (n) localStorage.setItem('collabName', n); if (t) localStorage.setItem('relayTokens', JSON.stringify({ [k]: t })); } catch (e) { /* storage blocked */ } }, [o.name || '', o.origin || '', o.token || '']);
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push('studio round: ' + (e.stack || e.message)));
+    page.on('console', m => { if (m.type() === 'error' && !/404|401|Failed to load resource|WebSocket connection/.test(m.text())) errors.push('studio round: ' + m.text()); });
+    await page.goto(url, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(page);
+    return page;
+  };
+  const sp = (p, s) => p.evaluate(s => HOST.cur.peek(s), s);
+  const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
+  const studioIn = (p, ms) => until(p, () => HOST.curKey === 'studio' && !!HOST.cur && !!HOST.cur.collab.scene(), null, ms || 60000);
+  const shot = async (p, f) => { if (dir) await p.screenshot({ path: path.join(dir, f) }); };
+  const click = (p, sel) => p.evaluate(sel => { const b = document.querySelector(sel); if (b && !b.disabled) { b.click(); return true; } return false; }, sel);
+  try {
+    R = await relayOn(['--static', '.', '--scenes', SC], {}, 8790);
+    const sb = `http://127.0.0.1:${R.port}/`;
+    const A = await sopen(sb + 'index.html#stories', { name: 'Anna' });
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 10000);
+    const rc = await A.evaluate(() => HOST.collab.code);
+    const B = await sopen(sb + 'index.html#s=' + rc, { name: 'Ben', size: { width: 900, height: 640 } }), C = await sopen(sb + 'index.html#s=' + rc, { name: 'Cleo' });
+    const H = await sopen(sb + 'index.html#s=' + rc, { name: 'Hana', size: { width: 320, height: 200 } });
+    for (const p of [B, C, H]) await until(p, c => HOST.collab.code === c && HOST.collab.status === 'open', rc, 20000);
+    await ready(H, 'airports');
+    // the pretend headset aligned through the shared space (as in the main run)
+    const aId = await A.evaluate(() => HOST.collab.id);
+    await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+    await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+    await H.evaluate(() => HOST.room.sharedAlign(true));
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 400);
+    await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    await frames(H, 300);
+    const al = await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted');
+
+    // ---- the menu's Studio here: the circle at the headset's feet, facing its way, for every page
+    const press = id => H.evaluate(async id => {
+      const X = window.__xr; X.step(); X.step();
+      const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn();
+      for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+      return !!(r && r.fn);
+    }, id);
+    await H.evaluate(() => HOST.collab.panelOpen(true));
+    const at = await H.evaluate(() => { window.__xr.step(); const R = HOST.room.internals(); return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw }; });
+    const ph = await press('studio');
+    let sid = '';
+    for (let k = 0; k < 30 && !sid; k++) { await frames(H, 100); sid = await H.evaluate(() => (HOST.collab.stations().find(s => s.story === 'studio') || {}).id || ''); }
+    const st = sid ? await H.evaluate(id => HOST.collab.station(id), sid) : null;
+    let seen = !!sid;
+    for (const p of [A, B, C]) seen = seen && await until(p, id => !!HOST.collab.station(id), sid, 5000);
+    const nSt = await A.evaluate(() => HOST.collab.stations().length);
+    const play = sid ? ((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys['st.' + sid + '.play'] || {}).v : null;
+    check('studio: the headset menu\'s Studio here puts the studio\'s circle at its feet, facing its way, for every page (its clock in explore mode)',
+      al && ph && !!st && Math.hypot(st.x - at.x, st.z - at.z) < 0.02 && angle(st.yaw, at.yaw) < 0.02 && seen && nSt === 1 && !!play && play.mode === 'explore', JSON.stringify({ al, ph, at, st, seen, nSt, play }));
+    await H.evaluate(() => HOST.collab.panelOpen(false));
+    // standing in it the headset takes it as its station (the studio opens there); the pages follow it
+    let inS = false;
+    for (let k = 0; k < 40 && !inS; k++) { await frames(H, 300); inS = await H.evaluate(() => HOST.curKey === 'studio'); }
+    inS = inS && await ready(H, 'studio', 60000);
+    if (inS) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 300); }
+    for (const p of [A, B, C]) await p.evaluate(i => HOST.collab.follow(i), sid);
+    for (const p of [A, B, C]) await ready(p, 'studio', 60000);
+    const lst = [];
+    for (const p of [A, B, C, H]) lst.push(await sUntil(p, `SRC.state === 'ok' && SRC.kind === 'relay' && atStation()`, 20000));
+    const s0 = await Promise.all([A, B, C, H].map(p => sp(p, `[SRC.scenes.map(s => s.name).join(), STU.scene, APP.mode, STU.items.size, editOn()]`)));
+    const mine = await H.evaluate(id => HOST.collab.mine() === id, sid);
+    check('studio: the headset standing in it takes it as its station and three pages follow it: each lists the relay\'s two scenes, none picked by itself, in explore mode, editing off',
+      inS && mine && lst.every(Boolean) && s0.every(s => s[0] === 'quiet,test' && s[1] === '' && s[2] === 'explore' && s[3] === 0 && !s[4]), JSON.stringify({ inS, mine, lst, s0 }));
+
+    // ---- the scene picked on one page reaches every page and the headset
+    await sUntil(A, `!!document.querySelector('#pane-scene [data-act="scene"][data-v="test"]')`, 10000);
+    const picked = await click(A, '#pane-scene [data-act="scene"][data-v="test"]');
+    const loaded = [];
+    for (const p of [A, B, C, H]) loaded.push(await sUntil(p, `STU.scene === 'test' && STU.items.size === 4 && STUDIO.ready()`, 60000));
+    check('studio: the scene picked on one page (its Scene pane) reaches every page and the headset, its four items and every model and sound in', picked && loaded.every(Boolean),
+      JSON.stringify({ picked, loaded, at: await Promise.all([A, B, C, H].map(p => sp(p, `[STU.scene, STU.listing, STU.items.size, STUDIO.ready(), Object.values(STUDIO.state().models).map(m => m.state).join()]`))) }));
+    // (a studio's station is no story this device lacks: nobody is asked to update or reload for it)
+    const asked = await Promise.all([A, B, C, H].map(p => p.evaluate(() => { const b = document.getElementById('livebar'); return b && !b.hidden ? b.textContent : ''; })));
+    check('studio: at a studio station no page and no headset is asked to update (the studio is a page the app knows, not a newer story)', asked.every(t => !t), JSON.stringify(asked));
+
+    // ---- an object moved on one page (the arrows) and a cube added on another, at the same moment: both kept
+    await sp(A, `(setEdit(true), setView('orbit'), select('box001'), 0)`);
+    await sp(B, `(setEdit(true), 0)`);
+    const tcOk = await sp(A, `!!(GL.tc && GL.tc.object === STU.items.get('box001').holder)`);
+    const [, nc] = await Promise.all([
+      sp(A, `(GL.tc && GL.tc.object ? (GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }), STU.items.get('box001').holder.position.x += 0.5, GL.tc.dispatchEvent({ type: 'objectChange' }), GL.tc.dispatchEvent({ type: 'dragging-changed', value: false })) : 0, 0)`),
+      sp(B, 'addCube()'),
+    ]);
+    const both = [];
+    for (const p of [A, B, C, H]) both.push(await sUntil(p, `JSON.stringify(STU.items.get('box001').rec.p) === '[-0.5,0.25,-2]' && STU.items.has('${nc}') && STU.items.size === 5`, 10000));
+    check('studio: an object moved by the arrows on one page and a cube added on another at the same moment are both kept, on every page and the headset', tcOk && !!nc && both.every(Boolean),
+      JSON.stringify({ tcOk, nc, both, A: await sp(A, 'Object.keys(collabState()).join()'), box: await sp(C, `STU.items.get('box001').rec.p`) }));
+
+    // ---- triggers are each device's own: the headset's head put at a point of the scene, then its items worked out as
+    // its frame does in a headset (the pretend session is not three.js's own: the renderer says it presents only then)
+    const hShown = p3 => H.evaluate(p3 => {
+      const X = window.__xr, xr = HOST.renderer.xr, P = s => HOST.cur.peek(s);
+      const live = fn => { xr.isPresenting = true; try { return fn(); } finally { xr.isPresenting = false; } };
+      X.step();
+      live(() => P('(xrPlace(orbit.cur), GL.world.updateMatrixWorld(true))'));
+      const w = P('GL.world').localToWorld(new THREE.Vector3(...p3)).applyMatrix4(X.W.local);
+      X.head([w.x, w.y, w.z, 0]);
+      X.step();
+      return live(() => P(`(xrPlace(orbit.cur), GL.world.updateMatrixWorld(true), itemsStep(0.5, performance.now()), itemsStep(0.5, performance.now()), {
+        head: headPoint(new THREE.Vector3()).toArray().map(v => +v.toFixed(3)), shown: Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c').map(it => [it.id, it.shown])),
+        inside: [...STU.items.values()].filter(it => it.kind === 'c' && it.inside).map(it => it.id) })`));
+    }, p3);
+    const hOut = await hShown([0, 1.6, 3]), hIn = await hShown([0, 1.6, 0]);
+    await sp(B, `(setView('walk'), WALK.pos.set(0, 1.6, 3), WALK.yaw = 0, WALK.pitch = -0.08, WALK.to = null, 0)`);
+    const bOut = await sUntil(B, `(() => { const h = headPoint(new THREE.Vector3()); return !!h && h.z > 2 && !STU.items.get('fig001').shown && STU.items.get('box001').shown && !STU.items.get('cube01').inside; })()`, 8000);
+    const aSees = await sp(A, `['fig001', 'box001', 'snd001'].map(i => STU.items.get(i).shown).join()`);
+    check('studio: the headset inside the Doorway cube sees the figure and its sound, not the box (outside it the reverse), while a page walking outside it and one in Orbit view see the box, not the figure',
+      !!hOut.shown && hOut.shown.fig001 === false && hOut.shown.box001 === true && hIn.inside.includes('cube01') && hIn.shown.fig001 === true && hIn.shown.snd001 === true && hIn.shown.box001 === false &&
+        bOut && aSees === 'false,true,false', JSON.stringify({ hOut, hIn, bOut, aSees }));
+    if (dir) {
+      await B.evaluate(() => HOST.collab.dialog(false));
+      await sleep(600);
+      await shot(B, 'studio-2-page-walking-outside.png');
+      await headView(H, path.join(dir, 'studio-3-headset-inside-cube.png'), st.yaw, -0.12, [640, 400],
+        '(HOST.renderer.xr.isPresenting = true, (() => { try { xrPlace(orbit.cur); GL.world.updateMatrixWorld(true); itemsStep(0.5, performance.now()); itemsStep(0.5, performance.now()); xrUpdate(XS); } finally { HOST.renderer.xr.isPresenting = false; } })())');
+    }
+    await sp(B, `(setView('orbit'), 0)`);
+
+    // ---- Save from the headset's panel: layout.json written (the old one in .history/), every page saved; a second
+    const hPanel = (tab, id) => sp(H, `(() => { X.tab = ${JSON.stringify(tab)}; X.scroll = {}; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+      const r = XR.main.regions.find(q => q.id === ${JSON.stringify(id)}); if (r && r.fn) { r.fn(); return true; } return false; })()`);
+    const layoutOf = () => { try { return JSON.parse(fs.readFileSync(path.join(SC, 'test', 'layout.json'), 'utf8')); } catch (e) { return null; } };
+    const hist = () => { try { return fs.readdirSync(path.join(SC, 'test', '.history')).length; } catch (e) { return 0; } };
+    const boxOf = L => (L && (L.objects || []).find(o => o.id === 'box001')) || {};
+    const e1 = await hPanel('scene', 'edit'), uH = await sp(H, 'editOn() && unsaved()');
+    const s1 = await hPanel('scene', 'save');
+    const saved1 = await sUntil(H, `!STU.saving && !unsaved() && !STU.saveNote && STU.savedAt > 0`, 10000);
+    const L1 = layoutOf(), h1 = hist();
+    const others = [];
+    for (const p of [A, B]) others.push(await sUntil(p, `!unsaved() && / by Hana/.test(savedLine())`, 10000));
+    await hPanel('items', 'sel:box001');
+    const t2 = await hPanel('item', 'turn');
+    await sUntil(H, 'unsaved()', 3000);
+    const s2 = await hPanel('scene', 'save');
+    const saved2 = await sUntil(H, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const L2 = layoutOf(), h2 = hist();
+    check('studio: Save from the headset\'s panel writes layout.json on the relay (what is placed now: the box moved, the new cube; by its name), the old one kept in .history/, and every page is then saved ("by Hana"); a second save keeps a second in .history/',
+      e1 && uH && s1 && saved1 && JSON.stringify(boxOf(L1).p) === '[-0.5,0.25,-2]' && !!L1 && L1.cubes.some(c => c.id === nc) && L1.by === 'Hana' && h1 === 1 && others.every(Boolean) &&
+        t2 && s2 && saved2 && h2 === 2 && JSON.stringify(boxOf(L2).q) !== JSON.stringify(boxOf(L1).q),
+      JSON.stringify({ e1, uH, s1, saved1, box1: boxOf(L1), cubes: L1 && L1.cubes.map(c => c.id), by: L1 && L1.by, h1, others, t2, s2, saved2, box2: boxOf(L2), h2, note: await sp(H, 'STU.saveNote') }));
+    await hPanel('items', 'sel:box001');   // (selected no more)
+    if (dir) { await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`); await sleep(800); await shot(A, 'studio-1-page-at-the-station.png'); }
+
+    // ---- a file copied into the scene's folder: in the Add lists within a few seconds (the relay's watch)
+    fs.mkdirSync(path.join(SC, 'test', 'models'), { recursive: true });
+    const tc0 = Date.now();
+    fs.copyFileSync(path.join(SC, 'test', 'box.glb'), path.join(SC, 'test', 'models', 'extra.glb'));
+    const addSeen = [];
+    for (const p of [A, B, H]) addSeen.push(await sUntil(p, `sceneLists().models.some(f => f.path === 'models/extra.glb')`, 12000));
+    const dtAdd = (Date.now() - tc0) / 1000;
+    const hAdd = await sp(H, `(() => { X.tab = 'add'; X.scroll = {}; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } return XR.main.regions.some(r => r.id === 'add:models/extra.glb'); })()`);
+    check(`studio: a file copied into the scene's folder appears in the Add lists of the pages and the headset (its panel's Add pane too) within a few seconds (${dtAdd.toFixed(1)} s)`,
+      addSeen.every(Boolean) && hAdd && dtAdd < 10, JSON.stringify({ addSeen, hAdd, dtAdd }));
+
+    // ---- the station's story locked (Lock this story): a page's edits and the headset's grip refused; unlocked, back
+    const hGrip = () => sp(H, `(() => { const a = XR.ctrls[0], it = STU.items.get('box001'), w = it.holder.getWorldPosition(new THREE.Vector3());
+      a.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; a.g.visible = true;
+      a.g.matrix.compose(w.clone().add(new THREE.Vector3(0, 0.2, 0.3)), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); a.o.setFromMatrixPosition(a.g.matrix);
+      a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); const took = !!(a.grab && a.grab.id === 'box001'); xrGrab(a, false);
+      a.hover = null; a.src = null; a.g.visible = false; return took; })()`);
+    await A.evaluate(id => HOST.collab.setStationLock(id, true), sid);
+    const lockSeen = [];
+    for (const p of [B, H]) lockSeen.push(await sUntil(p, 'editLocked() && !editOn()', 5000));
+    const r0 = await sp(B, `JSON.stringify(STU.items.get('box001').rec)`);
+    const lk = await sp(B, `(() => { itemAct('turn', null, 'box001'); const c = addCube(); X.tab = 'scene'; renderPanes(); const e = document.querySelector('#pane-scene [data-act="edit"]');
+      return { c, same: JSON.stringify(STU.items.get('box001').rec) === ${JSON.stringify(r0)}, n: STU.items.size, dis: !!(e && e.disabled), note: /locked/i.test(document.querySelector('#pane-scene').textContent) }; })()`);
+    const hLocked = await hGrip();
+    await A.evaluate(id => HOST.collab.setStationLock(id, false), sid);
+    const unl = [];
+    for (const p of [B, H]) unl.push(await sUntil(p, '!editLocked() && editOn()', 5000));
+    const hFree = await hGrip();
+    check('studio: with the station\'s story locked a page\'s edits are refused (turn, Add; Edit greyed, the pane says it is locked) and so is the headset\'s grip; unlocked, both work again',
+      lockSeen.every(Boolean) && lk.c === '' && lk.same && lk.n === 5 && lk.dis && lk.note && !hLocked && unl.every(Boolean) && hFree, JSON.stringify({ lockSeen, lk, hLocked, unl, hFree }));
+
+    // ---- Convert to GLB on a page: models/figure.glb through the relay, every figure switched where it stands
+    const corners = `(() => { const b = objBox(STU.items.get('fig001')); return b ? [...b.min.toArray(), ...b.max.toArray()] : null; })()`;
+    const cb0 = await sp(B, corners);
+    await sp(A, `(setEdit(true), select('fig001'), X.tab = 'item', renderPanes(), 0)`);
+    const btn = await sUntil(A, `!!document.querySelector('#pane-item [data-act="convert"][data-v="figure.fbx"]:not([disabled])')`, 5000);
+    const tcv = Date.now();
+    await click(A, '#pane-item [data-act="convert"][data-v="figure.fbx"]');
+    const cvDone = await sUntil(A, `!CV.busy && CV.done.includes('models/figure.glb')`, 90000);
+    const cvT = (Date.now() - tcv) / 1000, onDisk = fs.existsSync(path.join(SC, 'test', 'models', 'figure.glb'));
+    const sw = [];
+    for (const p of [A, B, C, H]) sw.push(await sUntil(p, `(() => { const it = STU.items.get('fig001'), E = LIB.get('models/figure.glb'); return it.rec.file === 'models/figure.glb' && !!E && E.state === 'ready' && !!it.model && it.built === E.gen; })()`, 30000));
+    const cb1 = await sp(B, corners);
+    const worst = cb0 && cb1 ? Math.max(...cb0.map((v, i) => Math.abs(v - cb1[i]))) : Infinity;
+    const lists = await sUntil(B, `(() => { const L = sceneLists(); return L.orig.some(f => f.path === 'figure.fbx') && L.models.some(f => f.path === 'models/figure.glb') && !L.models.some(f => f.path === 'figure.fbx'); })()`, 10000);
+    const rec = await sp(B, `[glbRec('models/figure.glb') || null, STU.items.get('fig001').rec]`);
+    check(`studio: Convert to GLB on a page writes models/figure.glb through the relay (${cvT.toFixed(1)} s), every page's and the headset's figure switches to it where it stands (corners within 1 mm), and the Add list shows the FBX under Originals`,
+      btn && cvDone && onDisk && sw.every(Boolean) && worst < 0.001 && lists && !!rec[0] && rec[0].from === 'figure.fbx',
+      JSON.stringify({ btn, cvDone, onDisk, sw, worst, lists, rec, note: await sp(A, 'CV.note') }));
+
+    // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
+    await B.evaluate(() => HOST.audio.mute(false));
+    await sp(B, `(X.tab = 'scene', renderPanes(), 0)`);
+    await B.click('#explore .tabs button[data-tab="scene"]', { timeout: 5000 }).catch(() => {});   // (a tap: the sound may start)
+    const lid = await sp(B, `addSound('sounds/long.wav')`);
+    const streamed = !!lid && await sUntil(B, `(() => { const it = STU.items.get('${lid}'); return !!(it && it.st && !it.st.el.paused && it.gt > 0); })()`, 20000);
+    const ls = await sp(B, `(() => { const F = SND.get('sounds/long.wav'), it = STU.items.get('${lid}'); return { F: F ? [F.state, F.stream, Math.round(F.dur), !!F.buf, !!F.bytes].join() : '', el: !!(it && it.st && it.st.el.src.includes('sounds/long.wav')) }; })()`);
+    const aQuiet = !!lid && await sUntil(A, `!!STU.items.get('${lid}')`, 5000) && await sp(A, `(() => { const it = STU.items.get('${lid}'); return HOST.audio.muted && !(it.st && !it.st.el.paused); })()`);
+    check('studio: a 25 s sound placed on a page is streamed there (an element, no decoded buffer, playing); it reaches the others, and a device with its sound off plays nothing',
+      streamed && ls.F === 'stream,true,25,false,false' && ls.el && aQuiet, JSON.stringify({ lid, streamed, ls, aQuiet }));
+    await B.evaluate(() => HOST.audio.mute(true));
+    await sp(B, `(deleteItem('${lid}'), 0)`);
+    for (const p of pages.splice(0)) await p.context().close().catch(() => {});
+
+    // ---- the relay's /upload: to the Upload pane, a new scene, the test originals converted and sorted into its folders
+    const red = await fetch(sb + 'upload', { redirect: 'manual' });
+    const loc = red.headers.get('location');
+    const U = await sopen(sb + 'upload', { name: 'Ulla', size: { width: 900, height: 640 } });
+    await studioIn(U);
+    const upTab = await sUntil(U, `X.tab === 'upload' && SRC.state === 'ok' && SRC.kind === 'relay' && SRC.upload && !!document.querySelector('#pane-upload [data-act="up:new"]')`, 20000);
+    const ff = await sp(U, 'SRC.ffmpeg');
+    check('studio: the relay\'s /upload redirects (302) to /#studio&upload, which opens the studio\'s Upload pane with a relay that takes uploads',
+      red.status === 302 && loc === '/#studio&upload' && upTab && /#studio&upload/.test(U.url()), JSON.stringify({ status: red.status, loc, upTab, url: U.url(), ff }));
+    await click(U, '#pane-upload [data-act="up:new"]');
+    await sUntil(U, `!!document.querySelector('#stuNewName')`, 5000);
+    await U.evaluate(() => { const i = document.querySelector('#stuNewName'); i.value = 'made'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+    await click(U, '#pane-upload [data-act="up:make"]');
+    const made = await sUntil(U, `UP.scene === 'made' && SRC.scenes.some(s => s.name === 'made')`, 10000) && fs.existsSync(path.join(SC, 'made'));
+    await U.setInputFiles('#stuFiles', ['figure.fbx', 'figure.png', 'originals/crate.obj', 'originals/crate.mtl', 'originals/crate.png', 'tone.wav', 'sounds/long.wav'].map(f => path.join(TEST, 'test', f)));
+    const planned = await sUntil(U, `!UP.planning && UP.rows.length > 0 && UP.rows.every(r => r.how !== 'measuring')`, 30000);
+    const plan = await sp(U, `UP.rows.map(r => [r.kind, r.src.map(e => e.path).join('+'), r.out.join('+'), r.how || ''])`);
+    const row = (kind, src) => plan.find(r => r[0] === kind && r[1] === src) || [];
+    const longOut = ff ? 'sounds/long.mp3' : 'sounds/long.wav';
+    const planOk = plan.length === 4 && row('model', 'figure.fbx+figure.png')[2] === 'models/figure.glb+originals/figure.fbx+originals/figure.png' &&
+      row('model', 'crate.obj+crate.mtl+crate.png')[2] === 'models/crate.glb+originals/crate.obj+originals/crate.mtl+originals/crate.png' &&
+      row('sound', 'tone.wav')[2] === 'sounds/tone.wav+originals/tone.wav' && row('sound', 'tone.wav')[3] === 'wav' &&
+      row('sound', 'long.wav')[2] === longOut + '+originals/long.wav' && row('sound', 'long.wav')[3] === (ff ? 'mp3' : 'wav22');
+    check('studio: the Upload pane makes a new scene on the relay, and the test originals dropped on it give the plan: each model with the files it names, each sound on its own, where each goes',
+      made && planned && planOk, JSON.stringify({ made, planned, plan, ff }));
+    if (dir) { await U.evaluate(() => { const p = document.querySelector('#panel'), pl = document.querySelector('#pane-upload .stu-plan'); if (p && pl) p.scrollTop = pl.offsetTop - 120; }); await sleep(400); await shot(U, 'studio-4-upload-plan.png'); }
+    const tr = Date.now();
+    await click(U, '#pane-upload [data-act="up:run"]');
+    const ran = await sUntil(U, `!UP.busy && UP.ran`, 180000);
+    const rows = await sp(U, `UP.rows.map(r => [r.kind, r.state, r.msg])`);
+    const M = path.join(SC, 'made'), want = ['models/figure.glb', 'models/crate.glb', 'sounds/tone.wav', longOut, 'originals/figure.fbx', 'originals/figure.png', 'originals/crate.obj',
+      'originals/crate.mtl', 'originals/crate.png', 'originals/tone.wav', 'originals/long.wav'];
+    const missing = want.filter(p => !fs.existsSync(path.join(M, p)));
+    const wav = fs.existsSync(path.join(M, 'sounds/tone.wav')) ? fs.readFileSync(path.join(M, 'sounds/tone.wav')) : Buffer.alloc(0);
+    const wavHead = wav.length > 44 ? [wav.toString('latin1', 0, 4), wav.readUInt16LE(20), wav.readUInt16LE(22), wav.readUInt16LE(34)].join() : '';
+    const lb = fs.existsSync(path.join(M, longOut)) ? fs.readFileSync(path.join(M, longOut)) : Buffer.alloc(0);
+    const longOk = ff ? (h => !!h && h.mpeg1 && h.layer3 && h.rate44 && h.mono)(mp3Head(lb)) : lb.length > 44 && lb.readUInt16LE(22) === 1;
+    if (dir) { await U.evaluate(() => { const p = document.querySelector('#panel'), pl = document.querySelector('#pane-upload .stu-plan'); if (p && pl) p.scrollTop = pl.offsetTop - 120; }); await sleep(400); await shot(U, 'studio-5-upload-done.png'); }
+    check(`studio: Convert and upload (${((Date.now() - tr) / 1000).toFixed(1)} s) sorts everything into the new scene: two GLBs in models/, the short sound a mono 16-bit WAV and the long one ${ff ? 'a mono 44.1 kHz MP3 made by the relay\'s ffmpeg' : 'a mono WAV (no ffmpeg on this machine)'} in sounds/, every given file in originals/`,
+      ran && rows.every(r => r[1] === 'done') && !missing.length && wavHead === 'RIFF,1,1,16' && longOk, JSON.stringify({ ran, rows, missing, wavHead, long: ff ? mp3Head(lb) : lb.length }));
+    await click(U, '#pane-upload [data-act="up:open"]');
+    const opened = await sUntil(U, `STU.scene === 'made' && STU.listing === 'ok' && X.tab === 'add' && editOn()`, 20000);
+    const L = await sp(U, `(() => { const L = sceneLists(); return [L.models.map(f => f.path).join(), L.sounds.map(f => f.path).join(), L.orig.map(f => f.path).join()]; })()`);
+    await sp(U, `[addModel('models/figure.glb'), addModel('models/crate.glb')]`);
+    const glbs = await sUntil(U, `['models/figure.glb', 'models/crate.glb'].every(p => { const E = LIB.get(p); return E && E.state === 'ready' && !!E.record; })`, 30000);
+    const recs = await sp(U, `['models/figure.glb', 'models/crate.glb'].map(p => { const E = LIB.get(p); return E ? [E.state, E.record && E.record.from, E.clips.map(c => c.name).join()] : null; })`);
+    check('studio: Open the scene shows the GLBs and sounds to place (the originals folded), and the GLBs load with their records naming the files they were made from',
+      opened && L[0] === 'models/crate.glb,models/figure.glb' && L[1] === `${longOut},sounds/tone.wav`.split(',').sort().join() && L[2].split(',').length === 7 && glbs &&
+        recs[0][1] === 'originals/figure.fbx' && recs[0][2] === 'Take 001' && recs[1][1] === 'originals/crate.obj', JSON.stringify({ opened, L, glbs, recs }));
+    for (const p of pages.splice(0)) await p.context().close().catch(() => {});
+    await relayOff(R); R = null;
+
+    // ---- a relay with a password (COLLAB_TOKEN): without it nothing is listed or saved; with it, and nowhere written
+    const PASS = 'studio' + Math.floor(1000 + Math.random() * 9000) + 'scenes';   // (made here: no password is kept in the repository)
+    T = await relayOn(['--static', '.', '--scenes', SC2, '--logs', logs], { COLLAB_TOKEN: PASS }, 8791);
+    const tb = `http://127.0.0.1:${T.port}/`, origin = `http://127.0.0.1:${T.port}`;
+    const P1 = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Pia' });
+    await studioIn(P1);
+    const held = await sUntil(P1, `SRC.state === 'auth' && SRC.held && STU.listing !== 'ok'`, 20000);
+    await sleep(500);
+    const p1 = await sp(P1, `[SRC.scenes.length, canSave(), STU.items.size, /needs its password/.test(document.querySelector('#pane-scene').textContent)]`);
+    const before = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
+    const raw = await P1.evaluate(async () => [(await fetch('/api/scenes')).status, (await fetch('/api/scenes/test/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studio: 1, scene: 'test', objects: [] }) })).status]);
+    const after = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
+    await shot(P1, 'studio-6-password-needed.png');
+    check('studio with a password: a page without it lists nothing and cannot save (the Scene pane says the relay needs its password; the API answers 401 and layout.json stays as it was)',
+      held && p1[0] === 0 && !p1[1] && p1[2] === 0 && p1[3] && raw.join() === '401,401' && before === after, JSON.stringify({ held, p1, raw, same: before === after }));
+    const P2 = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Paul', origin, token: PASS, size: { width: 900, height: 640 } });
+    await studioIn(P2);
+    const lists2 = await sUntil(P2, `SRC.state === 'ok' && SRC.kind === 'relay' && STU.scene === 'test' && STU.items.size === 4 && STUDIO.ready()`, 60000);
+    await sp(P2, `(setEdit(true), change(() => setRec('box001', { p: [-1.25, 0.25, -2] })), 0)`);
+    await sp(P2, 'saveLayout()');
+    const saved = await sUntil(P2, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const Ls = JSON.parse(fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8'));
+    // in a room on that relay, at a studio station (the scene and its items in the room's keys)
+    await P2.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    const open2 = await until(P2, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
+    const code2 = await P2.evaluate(() => HOST.collab.code);
+    const sid2 = await P2.evaluate(() => HOST.collab.add('studio', { x: 0, z: 0, yaw: 0 }));
+    await P2.evaluate(id => HOST.collab.follow(id), sid2);
+    await studioIn(P2);
+    await sUntil(P2, `atStation() && SRC.state === 'ok' && STU.scene === 'test' && STU.items.size === 4`, 30000);
+    await sp(P2, `(setEdit(true), change(() => setRec('box001', { p: [-1.5, 0.25, -2] })), 0)`);
+    let roomTxt = '';
+    for (let k = 0; k < 30; k++) {
+      roomTxt = await (await fetch(tb + 'api/rooms/' + code2, { headers: { Authorization: 'Bearer ' + PASS } })).text();
+      if (roomTxt.includes('box001') && roomTxt.includes('"scene":"test"')) break;
+      await sleep(300);
+    }
+    const leak = [];
+    for (const [n, p] of [['without', P1], ['with', P2]]) if (await p.evaluate(t => JSON.stringify(window.__collabLog || []).includes(t) || location.href.includes(t) || JSON.stringify([...HOST.collab.internals().keys]).includes(t), PASS)) leak.push(n);
+    const logTxt = fs.readdirSync(logs).map(f => fs.readFileSync(path.join(logs, f), 'utf8')).join('\n'), saveTxt = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
+    check('studio with a password: a page that has it lists the scenes, saves layout.json and keeps a studio station in a room on that relay; the password is in no page\'s log, address or room key, nor in the room the relay keeps, its lines, its log files or the saved layout',
+      lists2 && saved && JSON.stringify(boxOf(Ls).p) === '[-1.25,0.25,-2]' && open2 && !!sid2 && roomTxt.includes('box001') && roomTxt.includes('"scene":"test"') && !leak.length && !roomTxt.includes(PASS) &&
+        !T.out.includes(PASS) && !logTxt.includes(PASS) && !saveTxt.includes(PASS),
+      JSON.stringify({ lists2, saved, box: boxOf(Ls).p, open2, sid2, room: roomTxt.length, roomHas: roomTxt.includes('box001'), leak, out: T.out.includes(PASS), logs: logTxt.includes(PASS), save: saveTxt.includes(PASS) }));
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await relayOff(R); await relayOff(T);
+    for (const d of [SC, SC2, logs]) fs.rmSync(d, { recursive: true, force: true });
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -2656,6 +3036,7 @@ try {
   if (ALL_ONLY) { await allRound(); break main; }
   if (GUIDE_ONLY) { await guideRound(); break main; }
   if (TOKEN_ONLY) { await tokenRound(); break main; }
+  if (STUDIO_ONLY) { await studioRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -4926,6 +5307,8 @@ try {
   await allRound();
   // ------------------------------------------ the room setup guide and Touch the spot (a room of its own) --
   await guideRound();
+  // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
+  await studioRound(shots);
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -5006,8 +5389,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

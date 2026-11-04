@@ -2626,7 +2626,7 @@ HOST.live = (function () {
     put: (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const KEY = /^[a-z][a-z0-9-]{0,31}$/;
-  const known = key => HOST.list.some(m => m.key === key);
+  const known = key => !!HOST.meta(key);   // (a story, or a page that is not one: STORY_EXTRA's design room and studio)
   const title = key => { const m = HOST.meta(key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
   // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
   const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
