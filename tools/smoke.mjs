@@ -1592,6 +1592,7 @@ await step('design: the intro ends at the table', async () => {
     ];
     if (JSON.stringify(rows) !== JSON.stringify(want) || up.left.join() !== '.DS_Store') bad.push('the plan: ' + JSON.stringify({ rows, left: up.left }));
     if (!/figure_spec\.png/.test(up.rows[0].notes.join())) bad.push('the figure\'s row does not say what it names and was not dropped: ' + JSON.stringify(up.rows[0].notes));
+    await ss('(renderPanes(), 0)');   // (the pane as it is now: a slow machine draws it a moment later)
     const plan = await stp.evaluate(() => document.querySelector('#pane-upload .stu-plan').textContent.replace(/\s+/g, ' '));
     if (!/A short sound \(0\.6 s\): sounds\/tone\.wav, mono, 16-bit, 22\.05 kHz/.test(plan) || !/A long sound \(25 s\): sounds\/long\.wav, mono WAV at 8 kHz/.test(plan) || !/Kept as it is/.test(plan) || !/textures at most 2048 px|textures at most 2,048 px/.test(plan)) bad.push('the plan\'s words: ' + plan.slice(0, 600));
     // numbered names against each other: the same name twice
@@ -1603,6 +1604,7 @@ await step('design: the intro ends at the table', async () => {
     const ran = await ss(`STUDIO.state().upload.rows.map(r => [r.kind, r.state, r.dl.join()])`);
     if (JSON.stringify(ran) !== JSON.stringify([['model', 'done', 'figure.glb'], ['model', 'done', 'crate.glb'], ['sound', 'done', 'tone.wav'], ['sound', 'done', 'long.wav'], ['keep', 'done', '']])) bad.push('converted: ' + JSON.stringify(ran));
     const out = await ss(`(async () => {
+      renderPanes();
       const a = [...document.querySelectorAll('#pane-upload .stu-plan a[download]')].map(x => [x.getAttribute('download'), x.href]), get = async n => (await fetch(a.find(x => x[0] === n)[1])).arrayBuffer();
       const fig = CONV.glbJSON(await get('figure.glb')), wav = new DataView(await get('tone.wav')), lw = new DataView(await get('long.wav'));
       return { links: a.map(x => x[0]), from: fig && fig.asset.extras.studio.from, tone: [wav.getUint16(22, true), wav.getUint32(24, true), wav.getUint16(34, true)], long: [lw.getUint16(22, true), lw.getUint32(24, true), Math.round(lw.getUint32(40, true) / 2 / lw.getUint32(24, true))], note: UP.note };

@@ -18693,6 +18693,8 @@ function upTake(list) {
 async function upPlan() {
   const gen = ++UP.gen, E = UP.entries, byName = new Map();
   UP.planning = true; upChanged();
+  if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
+  if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
   // (the nearest of several by that name: in the model's own folder first)
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
