@@ -1349,6 +1349,15 @@ try {
     const got = [];
     for (const [p] of types) got.push((await sget('/scenes/' + p)).headers['content-type']);
     ok(got.every((t, i) => t === types[i][1]), 'types by extension, any case: ' + got.join(' '));
+    // a page, a script or a picture that can run script, kept in a scene (originals/ takes anything): plain bytes to save,
+    // never run on the relay's origin; every scene file sandboxed
+    const odd = ['page.html', 'x.svg', 'x.js'].map(n => path.join(S, 'alpha', n));
+    for (const f of odd) fs.writeFileSync(f, '<script>parent.QSECRETQ = 1</script>');
+    const inert = [];
+    for (const f of odd) inert.push((await sget('/scenes/alpha/' + path.basename(f))).headers);
+    for (const f of odd) fs.rmSync(f);
+    ok(inert.every(h => h['content-type'] === 'application/octet-stream' && h['content-disposition'] === 'attachment' && /sandbox/.test(h['content-security-policy'] || '') && h['x-content-type-options'] === 'nosniff') &&
+      /sandbox/.test(g.headers['content-security-policy'] || '') && !g.headers['content-disposition'], 'a page, an SVG or a script in a scene: octet-stream, attachment, sandboxed; a model sandboxed too, not an attachment');
     const r = await sget('/scenes/alpha/sounds/tone.wav', { headers: { Range: 'bytes=10-19' } }), suf = await sget('/scenes/alpha/sounds/tone.wav', { headers: { Range: 'bytes=-100' } });
     ok(r.status === 206 && r.headers['content-range'] === 'bytes 10-19/2000' && r.buf.equals(TONE.subarray(10, 20)) && suf.status === 206 && suf.buf.equals(TONE.subarray(1900)),
       'byte ranges: 206 with Content-Range, a suffix range');
@@ -1609,7 +1618,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
     const again = await make({ name: 'new one' }), top = await make({ name: 'afile' });
     ok(again.status === 409 && top.status === 409 && /scene \(or a file\)/.test(again.json().error), 'a scene of that name, or a file: 409');
     const before = tree(), bad = [];
-    for (const b of [{ name: 'bad!' }, { name: '.x' }, { name: ' x' }, { name: '-x' }, { name: 'watch' }, { name: '' }, { name: 'x'.repeat(65) }, { name: 'a/b' }, { name: '..' }, { name: 5 }, {}, [], 'not json', 'null', '"x"']) bad.push((await make(b)).status);
+    for (const b of [{ name: 'bad!' }, { name: '.x' }, { name: ' x' }, { name: '-x' }, { name: 'watch' }, { name: '' }, { name: 'x'.repeat(65) }, { name: 'a/b' }, { name: '..' }, { name: 'x.' }, { name: 'x ' }, { name: 'con' }, { name: 'Nul.x' }, { name: 5 }, {}, [], 'not json', 'null', '"x"']) bad.push((await make(b)).status);
     ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'names that cannot be a scene\'s, no name, not JSON: 400, nothing made (' + bad.join(' ') + ')');
     const big = await make({ name: 'x', pad: 'y'.repeat(20000) });
     ok(big.status === 413 && !fs.existsSync(path.join(U, 'x')), 'a body over 16 KB: 413');

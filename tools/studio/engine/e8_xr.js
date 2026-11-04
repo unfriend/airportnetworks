@@ -278,11 +278,14 @@ function xrRelease(c) {
   }
 }
 const _gw = new THREE.Vector3(), _gwq = new THREE.Quaternion();
+// the items move in the scene's own frame, never the rig: an anchored place (HOST.anchor.locked outside a room) leaves
+// them free to edit; in a shared room the room's word on the grip holds them (away from its station, its story locked)
+const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom() && HOST.room.gripLocked && HOST.room.gripLocked()); } catch (e) { return false; } };
 function xrGrab(c, on) {
   xrLetGo(c);
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
     if (!it || !editOn()) return;
@@ -319,7 +322,8 @@ function xrLetGo(c) {
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
   if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
-  endChange();
+  // (one Undo step for both hands: it ends once neither carries anything)
+  if (!XR.ctrls.some(k => k.grab && (k.grab.target === 'item' || k.grab.target === 'corner'))) endChange();
 }
 // a hand that holds an item alone again (the other let go) carries on from where it is now
 function xrRegrip(c) {
@@ -344,7 +348,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe') || ((G.target === 'item' || G.target === 'corner') && !editOn())) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if ((G.target === 'item' || G.target === 'corner') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;

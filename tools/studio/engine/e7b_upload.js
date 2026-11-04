@@ -194,7 +194,10 @@ function upSend(url, body, onP) {
 // a path part the relay takes as it is (no characters a common file system cannot keep, no dot at the start, none of
 // its device names, nothing that reads as a temporary file)
 function safeSeg(s) {
-  s = String(s).replace(/[\0-\x1f\x7f\\/:*?"<>|]/g, '_').replace(/^[. ]+/, m => '_'.repeat(m.length)).replace(/[. ]+$/, m => '_'.repeat(m.length)).slice(0, 90);
+  s = String(s).replace(/[\0-\x1f\x7f\\/:*?"<>|]/g, '_');
+  // (a long name shortened keeps its extension: what kind of file it is goes by it)
+  if (s.length > 90) { const dot = s.lastIndexOf('.'), ext = dot > 0 && s.length - dot <= 12 ? s.slice(dot) : ''; s = s.slice(0, 90 - ext.length) + ext; }
+  s = s.replace(/^[. ]+/, m => '_'.repeat(m.length)).replace(/[. ]+$/, m => '_'.repeat(m.length));
   if (/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(s)) s = '_' + s;
   if (/(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i.test(s)) s += '_';
   return s || '_';
@@ -266,7 +269,7 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [] };
+const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
@@ -282,7 +285,7 @@ function upTake(list) {
     if (out.length >= 2000) break;
     out.push({ path, file: x.file, ext: extOf(name), name, buf: null });
   }
-  UP.entries = out; UP.left = left; UP.ran = false; UP.note = '';
+  UP.entries = out; UP.left = left; UP.ran = false; UP.note = ''; UP.sent = new Set();
   for (const u of UP.blobs) URL.revokeObjectURL(u);
   UP.blobs = [];
   if (!UP.scene) UP.scene = STU.scene || (SRC.scenes.length === 1 ? SRC.scenes[0].name : '');
@@ -316,6 +319,7 @@ async function upPlan() {
       for (const n of N.textures) attach(n);
       if (lost.length) r.notes.push(e.ext === 'fbx' ? `Names ${lost.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
     } catch (err) { r.notes.push('It could not be read: ' + err.message); }
+    finally { e.buf = null; }   // (read again when its row runs: a folder of large scans is never all in memory at once)
     rows.push(r);
   }
   for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !used.has(x))) { used.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
@@ -350,7 +354,16 @@ function upNames() {
   const claim = p => { const q = freeName(p, taken); mine.add(q.toLowerCase()); return q; };
   const orig = e => { if (!given.has(e)) given.set(e, claim(origPath(e.path))); return given.get(e); };
   const relay = upRelay() && !!UP.scene;
+  // a row already run (made, or failed and run again) keeps its names: what it made is not renamed, and what it sent is
+  // not sent again under another name (the files this upload wrote are in the scene's listing by now)
   for (const r of UP.rows) {
+    if (r.state === 'plan') continue;
+    for (const p of r.out) mine.add(p.toLowerCase());
+    const kept = r.kind === 'model' ? r.src.map((e, i) => [e, r.out[i + 1]]) : [[r.main, r.out[r.out.length - 1]]];
+    for (const [e, p] of kept) if (p && !given.has(e)) given.set(e, p);
+  }
+  for (const r of UP.rows) {
+    if (r.state !== 'plan') continue;
     r.out = []; r.how = '';
     const st = safeSeg(r.main.name.replace(/\.[^.]*$/, ''));
     if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
@@ -388,7 +401,8 @@ function rowPlan(r) {
 // a new scene (POST /api/scenes): its folder made, then picked
 async function upMake() {
   const name = UP.newName.trim();
-  if (!okScene(name) || name === 'watch') { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -.'; dirty(true); return; }
+  // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName)
+  if (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)) { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).'; dirty(true); return; }
   if (!upRelay() || UP.making) return;
   UP.making = true; UP.newNote = ''; dirty(true);
   try {
@@ -406,7 +420,7 @@ async function upRun() {
   const relay = upRelay();
   if (relay && !UP.scene) { UP.note = 'Pick a scene first, or make a new one.'; dirty(true); return; }
   UP.busy = true; UP.ran = true; UP.note = ''; dirty(true);
-  const gen = UP.gen, scene = UP.scene, sent = new Set();
+  const gen = UP.gen, scene = UP.scene, sent = UP.sent;   // (what this upload has sent, across runs: a run again sends only the rest)
   try {
     if (relay) { await upHave(); upNames(); }
     for (const r of UP.rows) {
@@ -428,10 +442,11 @@ async function upRun() {
 async function upRow(r, relay, scene, sent) {
   const prog = (a, b) => f => { r.p = a + (b - a) * f; dirty(); };
   const keep = async (e, p) => {
-    if (!relay || !p || sent.has(p)) return;
-    sent.add(p);
+    const key = scene + '\0' + p;
+    if (!relay || !p || sent.has(key)) return;
     r.msg = `Uploading ${p}...`; upChanged();
     await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
+    sent.add(key);
   };
   if (r.kind === 'keep' || (r.kind === 'sound' && r.how === 'unread')) {
     if (relay) await keep(r.main, r.out[0]);
@@ -510,7 +525,7 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
-function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
+function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
   if (!name) return;

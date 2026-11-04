@@ -115,6 +115,7 @@ function removeItem(id) {
   if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
   if (STU.sel === id) STU.sel = '';
   if (STU.hover === id) STU.hover = '';
+  STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
 function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
@@ -156,6 +157,7 @@ function dropModel(it) {
   for (const m of it.model.meshes) {
     for (const k of ['lit', 'scan']) for (const mat of [].concat(m.userData[k] || [])) mat.dispose();
     m.userData.lit = m.userData.scan = null;
+    if (m.isSkinnedMesh && m.skeleton) m.skeleton.dispose();   // (a rigged clone's own bones' texture)
   }
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
@@ -442,7 +444,12 @@ const EM = { ctx: null, lis: false };
 const _ep = new THREE.Vector3(), _eq = new THREE.Quaternion(), _ef = new THREE.Vector3(), _eu = new THREE.Vector3();
 function emitStep(now) {
   const A = HOST.audio, ctx = A && A.fx ? A.fx() : null;
-  if (ctx !== EM.ctx) { emitAll(); sndForget(); EM.ctx = ctx; }
+  if (ctx !== EM.ctx) {
+    emitAll();
+    // (a new context: streamed sounds made on another one go now, heard or not; none: they wait, paused, for it to return)
+    if (ctx) for (const it of STU.items.values()) if (it.st && it.st.ctx !== ctx) streamDrop(it);
+    sndForget(); EM.ctx = ctx;
+  }
   if (!ctx) return;
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
   let any = false;
@@ -583,7 +590,14 @@ function setEdit(on) {
 let SNAP = null;
 const snapNow = ids => new Map((ids ? ids.map(id => [id, STU.items.get(id)]) : [...STU.items]).map(([id, it]) => [id, it ? [it.kind, JSON.stringify(it.rec)] : null]));
 // a change begins (a drag: only its items) and ends: what changed goes on the Undo list as one step
-function beginChange(ids) { if (!SNAP) SNAP = { ids: ids || null, before: snapNow(ids) }; }
+// (a change begun while another is open, the other hand carrying something else: its items join the open one)
+function beginChange(ids) {
+  if (!SNAP) { SNAP = { ids: ids || null, before: snapNow(ids) }; return; }
+  if (!SNAP.ids) return;
+  const more = (ids || [...STU.items.keys()]).filter(id => !SNAP.before.has(id));
+  for (const [id, b] of snapNow(more)) SNAP.before.set(id, b);
+  if (ids) SNAP.ids.push(...more); else SNAP.ids = null;
+}
 function endChange() {
   if (!SNAP) return;
   const { ids, before } = SNAP;
@@ -751,7 +765,7 @@ function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
   STU.sel = id;
-  if (STU.pick && !id) STU.pick = null;
+  if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();
   dirty(true);

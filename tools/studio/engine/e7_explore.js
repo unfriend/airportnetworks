@@ -504,7 +504,7 @@ function bindCanvas() {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
     if (k === 'escape' && (STU.pick || STU.sel)) { if (STU.pick) STU.pick = null; else select(''); dirty(true); return; }
-    if (!editOn()) return;
+    if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
     else if ({ w: 1, e: 1, r: 1 }[k]) tcSetMode({ w: 'translate', e: 'rotate', r: 'scale' }[k]);

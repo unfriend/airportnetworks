@@ -30,13 +30,18 @@ function libRelease(E, id) {
 }
 function libDrop(E) {
   E.gen++;
+  if (E.drop) { unlater(E.drop); E.drop = 0; }
   if (E.root) disposeTree(E.root, true);
   E.root = null; E.state = 'idle';
-  LIB.delete(E.path);
+  if (LIB.get(E.path) === E) LIB.delete(E.path);
 }
+// another scene: every model goes (a file of the same name there is another file; a load still under way here would
+// otherwise leave its entry 'loading' for good)
+function libClear() { for (const E of [...LIB.values()]) libDrop(E); }
 function disposeTree(root, textures) {
   const seen = new Set();
   root.traverse(o => {
+    if (o.isSkinnedMesh && o.skeleton && !seen.has(o.skeleton)) { seen.add(o.skeleton); o.skeleton.dispose(); }   // (its bones' texture)
     if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
     for (const m of [].concat(o.material || [])) {
       if (seen.has(m)) continue;
@@ -147,7 +152,9 @@ function finishModel(E, res) {
   // an FBX whose material says it is fully see-through with nothing to show where (opacity 0 and no alpha map: a habit
   // of 3ds Max's exports, which r128's loader takes at its word, so the model is not drawn at all): drawn solid
   if (extOf(E.path) === 'fbx') for (const m of mats) if (m.opacity <= 0.01 && !m.alphaMap) { m.opacity = 1; m.transparent = false; m.needsUpdate = true; solid++; }
-  const texs = new Map();
+  // (one picture may be several textures' own, a glTF's base colour and occlusion: drawn down once, and closed only once
+  // every texture has its drawn-down copy)
+  const texs = new Map(), pics = new Map();
   for (const m of mats) {
     for (const k of TEX_KEYS) {
       const t = m[k];
@@ -155,10 +162,11 @@ function finishModel(E, res) {
       const img = t.image;
       if (!img || !img.width || (img.width === 3 && img.height === 1 && E.missing.size)) { m[k] = null; m.needsUpdate = true; continue; }
       t.encoding = THREE.LinearEncoding;   // (drawn as the picture is: the renderer's output is linear)
-      if (!texs.has(t)) texs.set(t, capTexture(t));
+      if (!texs.has(t)) texs.set(t, capTexture(t, pics));
     }
     if (m.isMeshStandardMaterial) m.needsUpdate = true;
   }
+  for (const [img, p] of pics) if (p.cv && typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
   const size = box.getSize(new THREE.Vector3()), tl = [...texs.values()];
@@ -175,10 +183,13 @@ function finishModel(E, res) {
   E.guess = guessFor(res.guess, size);
 }
 // a texture larger than the cap on a side, drawn down to it (keeping its shape) before it reaches the GPU
-function capTexture(t) {
-  const img = t.image, w = img.width, h = img.height, cap = OPT.maxtex;
+// (pics: the pictures drawn down so far, each once, its canvas for the other textures that show it)
+function capTexture(t, pics) {
+  const img = t.image, w = img.width, h = img.height, cap = OPT.maxtex, was = pics.get(img);
+  if (was) { if (was.cv) { t.image = was.cv; t.needsUpdate = true; } return was.out; }
   const src = typeof img.src === 'string' && !/^(blob|data):/.test(img.src) ? baseName(img.src.split(/[?#]/)[0]) : '';
   const out = { name: t.name || src || 'inside the file', w, h, to: 0 };
+  pics.set(img, { cv: null, out });
   if (Math.max(w, h) <= cap) return out;
   const k = cap / Math.max(w, h), cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
   const cv = document.createElement('canvas');
@@ -186,7 +197,7 @@ function capTexture(t) {
   const x = cv.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(img, 0, 0, cw, ch);
-  if (typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
+  pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);
   return out;
@@ -306,7 +317,7 @@ function sndDecode(F, ctx) {
   let p;
   try { p = ctx.decodeAudioData(F.bytes.slice(0)); } catch (e) { p = Promise.reject(e); }
   Promise.resolve(p).then(buf => {
-    if (gen !== F.gen || F.ctx !== ctx || GL.gone) return;
+    if (gen !== F.gen || F.ctx !== ctx || GL.gone || SND.get(F.path) !== F) return;   // (another scene, or the file changed)
     const size = buf.length * buf.numberOfChannels * 4;
     if (sndTotal + size > SND_MAX) { F.state = 'over'; F.err = 'Not loaded: the scene\'s sounds would take more than 60 MB once decoded.'; dirty(); return; }
     sndTotal += size; F.size = size; F.buf = buf; F.dur = buf.duration; F.state = 'ready';

@@ -15913,6 +15913,7 @@ function openScene(name, how) {
   if (name === STU.scene && how !== 'again') return;
   draftNow();
   clearItems();
+  libClear();
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', t0: performance.now(), loadAsk: 0, upNote: '' });
   STU.seen.clear(); UNDO.length = 0;
@@ -16720,13 +16721,18 @@ function libRelease(E, id) {
 }
 function libDrop(E) {
   E.gen++;
+  if (E.drop) { unlater(E.drop); E.drop = 0; }
   if (E.root) disposeTree(E.root, true);
   E.root = null; E.state = 'idle';
-  LIB.delete(E.path);
+  if (LIB.get(E.path) === E) LIB.delete(E.path);
 }
+// another scene: every model goes (a file of the same name there is another file; a load still under way here would
+// otherwise leave its entry 'loading' for good)
+function libClear() { for (const E of [...LIB.values()]) libDrop(E); }
 function disposeTree(root, textures) {
   const seen = new Set();
   root.traverse(o => {
+    if (o.isSkinnedMesh && o.skeleton && !seen.has(o.skeleton)) { seen.add(o.skeleton); o.skeleton.dispose(); }   // (its bones' texture)
     if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
     for (const m of [].concat(o.material || [])) {
       if (seen.has(m)) continue;
@@ -16837,7 +16843,9 @@ function finishModel(E, res) {
   // an FBX whose material says it is fully see-through with nothing to show where (opacity 0 and no alpha map: a habit
   // of 3ds Max's exports, which r128's loader takes at its word, so the model is not drawn at all): drawn solid
   if (extOf(E.path) === 'fbx') for (const m of mats) if (m.opacity <= 0.01 && !m.alphaMap) { m.opacity = 1; m.transparent = false; m.needsUpdate = true; solid++; }
-  const texs = new Map();
+  // (one picture may be several textures' own, a glTF's base colour and occlusion: drawn down once, and closed only once
+  // every texture has its drawn-down copy)
+  const texs = new Map(), pics = new Map();
   for (const m of mats) {
     for (const k of TEX_KEYS) {
       const t = m[k];
@@ -16845,10 +16853,11 @@ function finishModel(E, res) {
       const img = t.image;
       if (!img || !img.width || (img.width === 3 && img.height === 1 && E.missing.size)) { m[k] = null; m.needsUpdate = true; continue; }
       t.encoding = THREE.LinearEncoding;   // (drawn as the picture is: the renderer's output is linear)
-      if (!texs.has(t)) texs.set(t, capTexture(t));
+      if (!texs.has(t)) texs.set(t, capTexture(t, pics));
     }
     if (m.isMeshStandardMaterial) m.needsUpdate = true;
   }
+  for (const [img, p] of pics) if (p.cv && typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
   const size = box.getSize(new THREE.Vector3()), tl = [...texs.values()];
@@ -16865,10 +16874,13 @@ function finishModel(E, res) {
   E.guess = guessFor(res.guess, size);
 }
 // a texture larger than the cap on a side, drawn down to it (keeping its shape) before it reaches the GPU
-function capTexture(t) {
-  const img = t.image, w = img.width, h = img.height, cap = OPT.maxtex;
+// (pics: the pictures drawn down so far, each once, its canvas for the other textures that show it)
+function capTexture(t, pics) {
+  const img = t.image, w = img.width, h = img.height, cap = OPT.maxtex, was = pics.get(img);
+  if (was) { if (was.cv) { t.image = was.cv; t.needsUpdate = true; } return was.out; }
   const src = typeof img.src === 'string' && !/^(blob|data):/.test(img.src) ? baseName(img.src.split(/[?#]/)[0]) : '';
   const out = { name: t.name || src || 'inside the file', w, h, to: 0 };
+  pics.set(img, { cv: null, out });
   if (Math.max(w, h) <= cap) return out;
   const k = cap / Math.max(w, h), cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
   const cv = document.createElement('canvas');
@@ -16876,7 +16888,7 @@ function capTexture(t) {
   const x = cv.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(img, 0, 0, cw, ch);
-  if (typeof img.close === 'function') img.close();   // (an ImageBitmap's memory back at once)
+  pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);
   return out;
@@ -16996,7 +17008,7 @@ function sndDecode(F, ctx) {
   let p;
   try { p = ctx.decodeAudioData(F.bytes.slice(0)); } catch (e) { p = Promise.reject(e); }
   Promise.resolve(p).then(buf => {
-    if (gen !== F.gen || F.ctx !== ctx || GL.gone) return;
+    if (gen !== F.gen || F.ctx !== ctx || GL.gone || SND.get(F.path) !== F) return;   // (another scene, or the file changed)
     const size = buf.length * buf.numberOfChannels * 4;
     if (sndTotal + size > SND_MAX) { F.state = 'over'; F.err = 'Not loaded: the scene\'s sounds would take more than 60 MB once decoded.'; dirty(); return; }
     sndTotal += size; F.size = size; F.buf = buf; F.dur = buf.duration; F.state = 'ready';
@@ -17130,6 +17142,7 @@ function removeItem(id) {
   if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
   if (STU.sel === id) STU.sel = '';
   if (STU.hover === id) STU.hover = '';
+  STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
 function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
@@ -17171,6 +17184,7 @@ function dropModel(it) {
   for (const m of it.model.meshes) {
     for (const k of ['lit', 'scan']) for (const mat of [].concat(m.userData[k] || [])) mat.dispose();
     m.userData.lit = m.userData.scan = null;
+    if (m.isSkinnedMesh && m.skeleton) m.skeleton.dispose();   // (a rigged clone's own bones' texture)
   }
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
@@ -17457,7 +17471,12 @@ const EM = { ctx: null, lis: false };
 const _ep = new THREE.Vector3(), _eq = new THREE.Quaternion(), _ef = new THREE.Vector3(), _eu = new THREE.Vector3();
 function emitStep(now) {
   const A = HOST.audio, ctx = A && A.fx ? A.fx() : null;
-  if (ctx !== EM.ctx) { emitAll(); sndForget(); EM.ctx = ctx; }
+  if (ctx !== EM.ctx) {
+    emitAll();
+    // (a new context: streamed sounds made on another one go now, heard or not; none: they wait, paused, for it to return)
+    if (ctx) for (const it of STU.items.values()) if (it.st && it.st.ctx !== ctx) streamDrop(it);
+    sndForget(); EM.ctx = ctx;
+  }
   if (!ctx) return;
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
   let any = false;
@@ -17598,7 +17617,14 @@ function setEdit(on) {
 let SNAP = null;
 const snapNow = ids => new Map((ids ? ids.map(id => [id, STU.items.get(id)]) : [...STU.items]).map(([id, it]) => [id, it ? [it.kind, JSON.stringify(it.rec)] : null]));
 // a change begins (a drag: only its items) and ends: what changed goes on the Undo list as one step
-function beginChange(ids) { if (!SNAP) SNAP = { ids: ids || null, before: snapNow(ids) }; }
+// (a change begun while another is open, the other hand carrying something else: its items join the open one)
+function beginChange(ids) {
+  if (!SNAP) { SNAP = { ids: ids || null, before: snapNow(ids) }; return; }
+  if (!SNAP.ids) return;
+  const more = (ids || [...STU.items.keys()]).filter(id => !SNAP.before.has(id));
+  for (const [id, b] of snapNow(more)) SNAP.before.set(id, b);
+  if (ids) SNAP.ids.push(...more); else SNAP.ids = null;
+}
 function endChange() {
   if (!SNAP) return;
   const { ids, before } = SNAP;
@@ -17766,7 +17792,7 @@ function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
   STU.sel = id;
-  if (STU.pick && !id) STU.pick = null;
+  if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();
   dirty(true);
@@ -18306,7 +18332,7 @@ function bindCanvas() {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
     if (k === 'escape' && (STU.pick || STU.sel)) { if (STU.pick) STU.pick = null; else select(''); dirty(true); return; }
-    if (!editOn()) return;
+    if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
     else if ({ w: 1, e: 1, r: 1 }[k]) tcSetMode({ w: 'translate', e: 'rotate', r: 'scale' }[k]);
@@ -18594,7 +18620,10 @@ function upSend(url, body, onP) {
 // a path part the relay takes as it is (no characters a common file system cannot keep, no dot at the start, none of
 // its device names, nothing that reads as a temporary file)
 function safeSeg(s) {
-  s = String(s).replace(/[\0-\x1f\x7f\\/:*?"<>|]/g, '_').replace(/^[. ]+/, m => '_'.repeat(m.length)).replace(/[. ]+$/, m => '_'.repeat(m.length)).slice(0, 90);
+  s = String(s).replace(/[\0-\x1f\x7f\\/:*?"<>|]/g, '_');
+  // (a long name shortened keeps its extension: what kind of file it is goes by it)
+  if (s.length > 90) { const dot = s.lastIndexOf('.'), ext = dot > 0 && s.length - dot <= 12 ? s.slice(dot) : ''; s = s.slice(0, 90 - ext.length) + ext; }
+  s = s.replace(/^[. ]+/, m => '_'.repeat(m.length)).replace(/[. ]+$/, m => '_'.repeat(m.length));
   if (/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(s)) s = '_' + s;
   if (/(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i.test(s)) s += '_';
   return s || '_';
@@ -18666,7 +18695,7 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [] };
+const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
@@ -18682,7 +18711,7 @@ function upTake(list) {
     if (out.length >= 2000) break;
     out.push({ path, file: x.file, ext: extOf(name), name, buf: null });
   }
-  UP.entries = out; UP.left = left; UP.ran = false; UP.note = '';
+  UP.entries = out; UP.left = left; UP.ran = false; UP.note = ''; UP.sent = new Set();
   for (const u of UP.blobs) URL.revokeObjectURL(u);
   UP.blobs = [];
   if (!UP.scene) UP.scene = STU.scene || (SRC.scenes.length === 1 ? SRC.scenes[0].name : '');
@@ -18716,6 +18745,7 @@ async function upPlan() {
       for (const n of N.textures) attach(n);
       if (lost.length) r.notes.push(e.ext === 'fbx' ? `Names ${lost.join(', ')}, not among the files (perhaps inside the FBX: the row says after converting)` : `Missing ${lost.join(', ')}: converted without ${lost.length > 1 ? 'them' : 'it'}`);
     } catch (err) { r.notes.push('It could not be read: ' + err.message); }
+    finally { e.buf = null; }   // (read again when its row runs: a folder of large scans is never all in memory at once)
     rows.push(r);
   }
   for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !used.has(x))) { used.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
@@ -18750,7 +18780,16 @@ function upNames() {
   const claim = p => { const q = freeName(p, taken); mine.add(q.toLowerCase()); return q; };
   const orig = e => { if (!given.has(e)) given.set(e, claim(origPath(e.path))); return given.get(e); };
   const relay = upRelay() && !!UP.scene;
+  // a row already run (made, or failed and run again) keeps its names: what it made is not renamed, and what it sent is
+  // not sent again under another name (the files this upload wrote are in the scene's listing by now)
   for (const r of UP.rows) {
+    if (r.state === 'plan') continue;
+    for (const p of r.out) mine.add(p.toLowerCase());
+    const kept = r.kind === 'model' ? r.src.map((e, i) => [e, r.out[i + 1]]) : [[r.main, r.out[r.out.length - 1]]];
+    for (const [e, p] of kept) if (p && !given.has(e)) given.set(e, p);
+  }
+  for (const r of UP.rows) {
+    if (r.state !== 'plan') continue;
     r.out = []; r.how = '';
     const st = safeSeg(r.main.name.replace(/\.[^.]*$/, ''));
     if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
@@ -18788,7 +18827,8 @@ function rowPlan(r) {
 // a new scene (POST /api/scenes): its folder made, then picked
 async function upMake() {
   const name = UP.newName.trim();
-  if (!okScene(name) || name === 'watch') { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -.'; dirty(true); return; }
+  // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName)
+  if (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)) { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).'; dirty(true); return; }
   if (!upRelay() || UP.making) return;
   UP.making = true; UP.newNote = ''; dirty(true);
   try {
@@ -18806,7 +18846,7 @@ async function upRun() {
   const relay = upRelay();
   if (relay && !UP.scene) { UP.note = 'Pick a scene first, or make a new one.'; dirty(true); return; }
   UP.busy = true; UP.ran = true; UP.note = ''; dirty(true);
-  const gen = UP.gen, scene = UP.scene, sent = new Set();
+  const gen = UP.gen, scene = UP.scene, sent = UP.sent;   // (what this upload has sent, across runs: a run again sends only the rest)
   try {
     if (relay) { await upHave(); upNames(); }
     for (const r of UP.rows) {
@@ -18828,10 +18868,11 @@ async function upRun() {
 async function upRow(r, relay, scene, sent) {
   const prog = (a, b) => f => { r.p = a + (b - a) * f; dirty(); };
   const keep = async (e, p) => {
-    if (!relay || !p || sent.has(p)) return;
-    sent.add(p);
+    const key = scene + '\0' + p;
+    if (!relay || !p || sent.has(key)) return;
     r.msg = `Uploading ${p}...`; upChanged();
     await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
+    sent.add(key);
   };
   if (r.kind === 'keep' || (r.kind === 'sound' && r.how === 'unread')) {
     if (relay) await keep(r.main, r.out[0]);
@@ -18910,7 +18951,7 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
-function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
+function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
   if (!name) return;
@@ -19296,11 +19337,14 @@ function xrRelease(c) {
   }
 }
 const _gw = new THREE.Vector3(), _gwq = new THREE.Quaternion();
+// the items move in the scene's own frame, never the rig: an anchored place (HOST.anchor.locked outside a room) leaves
+// them free to edit; in a shared room the room's word on the grip holds them (away from its station, its story locked)
+const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom() && HOST.room.gripLocked && HOST.room.gripLocked()); } catch (e) { return false; } };
 function xrGrab(c, on) {
   xrLetGo(c);
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
     if (!it || !editOn()) return;
@@ -19337,7 +19381,8 @@ function xrLetGo(c) {
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
   if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
-  endChange();
+  // (one Undo step for both hands: it ends once neither carries anything)
+  if (!XR.ctrls.some(k => k.grab && (k.grab.target === 'item' || k.grab.target === 'corner'))) endChange();
 }
 // a hand that holds an item alone again (the other let go) carries on from where it is now
 function xrRegrip(c) {
@@ -19362,7 +19407,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe') || ((G.target === 'item' || G.target === 'corner') && !editOn())) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if ((G.target === 'item' || G.target === 'corner') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
@@ -20696,6 +20741,7 @@ return {
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
+    try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);

@@ -1298,6 +1298,14 @@ await step('design: the intro ends at the table', async () => {
         resetSeen(); shownFor([3, 1.6, 3]); s = step(5);
         if (!(!s.fig001[0] && s.box001[0])) out.push('Reset what I have seen: ' + JSON.stringify(s));
         setRec('cube01', { mode: 'while' });
+        // two cubes, overlapping: one shows the figure and the other hides it; the one entered last decides, and leaving
+        // it hands back to the other (whichever was entered first)
+        putItem('cube02', 'c', norm('c', { name: 'Hall', p: [0.5, 1, 0], yaw: 0, size: [1.2, 2, 1.2], mode: 'while', show: [], hide: ['fig001'] }));
+        const F = (p, n) => { shownFor(p); return step(n || 3).fig001[0]; };
+        F([3, 1.6, 3]);
+        const two = [F([-0.4, 1.6, 0]), F([0.3, 1.6, 0]), F([-0.4, 1.6, 0]), F([3, 1.6, 3]), F([0.9, 1.6, 0]), F([0.3, 1.6, 0]), F([0.9, 1.6, 0])];
+        if (two.join() !== 'true,false,true,false,false,true,false') out.push('two cubes (first, both, first; out; second, both, second): ' + two.join());
+        removeItem('cube02'); F([3, 1.6, 3]);
         // editing: what a cube hides is drawn faint (0.3), so it can still be picked
         setEdit(true); shownFor([0, 1.6, 0]); s = step(5);
         if (!(s.box001.join() === 'false,0.3,true')) out.push('editing, the box the cube hides is not faint: ' + JSON.stringify(s));

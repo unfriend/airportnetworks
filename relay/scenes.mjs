@@ -25,6 +25,10 @@ export const TEMP = /(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/
 // a name a listing leaves out: dot files, temporary files, and names no URL path could carry back here
 const skip = n => n.startsWith('.') || TEMP.test(n) || /[\\/\0]/.test(n);
 export const validName = n => typeof n === 'string' && SCENE_NAME.test(n) && !RESERVED.has(n);
+// a new scene's name (POST /api/scenes) also keeps to the rule for uploaded names (below): no name ending in a space or a
+// dot and none of Windows' device names, so the folder can be copied to any computer (folders made by hand are listed as
+// before)
+export const newSceneName = n => validName(n) && !/[ .]$/.test(n) && !DEVICE.test(n);
 export const inside = (dir, real) => real === dir || real.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
 const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);   // (code units: the same order everywhere)
 
@@ -68,7 +72,13 @@ export async function sceneFiles(dir) {
   }
   await walk(dir, '', 0);
   out.sort(byPath);
-  return { files: out.slice(0, MAX_FILES), layout };
+  // (past MAX_FILES the files a scene places, models, sounds, pictures and data, are kept before originals/, which sort
+  // first but are only what was given)
+  if (out.length > MAX_FILES) {
+    const orig = f => f.path.startsWith(ORIGINALS + '/');
+    return { files: [...out.filter(f => !orig(f)), ...out.filter(orig)].slice(0, MAX_FILES).sort(byPath), layout };
+  }
+  return { files: out, layout };
 }
 // a file as the listing gives it (ino is the watch's own: a file replaced by another of the same size and time)
 export const fileOut = f => ({ path: f.path, bytes: f.bytes, at: f.at, kind: f.kind });

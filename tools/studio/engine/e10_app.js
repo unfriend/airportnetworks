@@ -375,6 +375,7 @@ return {
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
+    try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);

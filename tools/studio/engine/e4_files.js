@@ -189,6 +189,7 @@ function openScene(name, how) {
   if (name === STU.scene && how !== 'again') return;
   draftNow();
   clearItems();
+  libClear();
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', t0: performance.now(), loadAsk: 0, upNote: '' });
   STU.seen.clear(); UNDO.length = 0;

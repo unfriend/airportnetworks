@@ -27,7 +27,7 @@ import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf,
-  uploadPath, MAX_DEPTH, MAX_LAYOUT, MAX_SCENES, LAYOUT } from './scenes.mjs';
+  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, LAYOUT } from './scenes.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
@@ -939,8 +939,8 @@ async function serve(req, res, url) {
 // a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
 // text gzipped (squeeze: the app's files; a scene's are models, pictures and sounds, already packed)
-async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true, extra = {} } = {}) {
-  const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
+async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true, extra = {}, type = '' } = {}) {
+  type = type || TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
   const base = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
   const useRange = range && (range[1] || range[2]) && (!req.headers['if-range'] || req.headers['if-range'] === base);
@@ -1165,7 +1165,11 @@ async function sceneFile(req, res, url) {
   try { real = await fs.promises.realpath(file); st = await fs.promises.stat(real); } catch { return plain(res, 404, 'Not found'); }
   if (!inside(dir, real)) return refusedPath(res, raw, 'a link out of its folder');
   if (!st.isFile()) return plain(res, 404, 'Not found');
-  return sendFile(req, res, real, st, { squeeze: false, extra: { 'Access-Control-Expose-Headers': 'ETag, Content-Range, Accept-Ranges' } });
+  // (only a model's, picture's, sound's or data's own type: anything else, such as a page or a script kept in originals/,
+  // is plain bytes to save, never run on this origin, where the app and its password live; and nothing here runs anyway)
+  const k = kindOf(real), type = k === 'other' ? 'application/octet-stream' : TYPES[path.extname(real).toLowerCase()] || 'application/octet-stream';
+  return sendFile(req, res, real, st, { squeeze: false, type, extra: { 'Access-Control-Expose-Headers': 'ETag, Content-Range, Accept-Ranges',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", ...(k === 'other' ? { 'Content-Disposition': 'attachment' } : {}) } });
 }
 
 // POST /api/scenes/<name>/layout: layout.json written whole (a temporary file renamed over it, so it is never half
@@ -1173,18 +1177,13 @@ async function sceneFile(req, res, url) {
 // One save at a time per scene.
 const HISTORY = 20, SAVING = new Map();
 async function saveLayout(req, res, name) {
-  const early = (status, error) => { res.setHeader('Connection', 'close'); json(res, status, { error }); req.resume(); };
+  const early = (status, error) => answerEarly(req, res, status, { error }, { Connection: 'close' });
   if (!SAVE) return early(403, 'saving is off on this relay (--scenes-readonly): use Download layout.json');
   const dir = await sceneDir(SCENES, name);
   if (!dir) return early(404, 'no such scene');
   if (+req.headers['content-length'] > MAX_LAYOUT) return early(413, 'a layout is at most 2 MB');
-  const body = await new Promise(done => {
-    const parts = [];
-    let n = 0;
-    req.on('data', c => { if ((n += c.length) <= MAX_LAYOUT) parts.push(c); else if (!res.headersSent) { early(413, 'a layout is at most 2 MB'); done(null); } });
-    req.on('end', () => done(res.headersSent ? null : Buffer.concat(parts).toString()));
-    req.on('error', () => done(null));
-  });
+  // (as every small body: past its limit answered and the rest thrown away for a while, then the socket closed)
+  const body = await smallBody(req, res, MAX_LAYOUT, 'a layout is at most 2 MB');
   if (body === null) return;
   let v, text;
   try { v = JSON.parse(body); text = isLayout(v) ? layoutText(v) : ''; } catch { /* said below */ }
@@ -1252,12 +1251,13 @@ function answerEarly(req, res, status, body, extra) {
   req.resume();
 }
 // a small body (JSON) as text, or null when it was too big (answered) or cut short
-function smallBody(req, res, max) {
+function smallBody(req, res, max, error = 'body too big') {
   return new Promise(done => {
     const parts = [];
     let n = 0, over = false;
-    req.on('data', c => { if (over) return; if ((n += c.length) <= max) parts.push(c); else { over = true; answerEarly(req, res, 413, { error: 'body too big' }); done(null); } });
+    req.on('data', c => { if (over) return; if ((n += c.length) <= max) parts.push(c); else { over = true; answerEarly(req, res, 413, { error }); done(null); } });
     req.on('end', () => { if (!over) done(Buffer.concat(parts).toString()); });
+    req.on('error', () => done(null));
     req.on('close', () => { if (!req.complete) done(null); });
   });
 }
@@ -1271,8 +1271,10 @@ async function makeScene(req, res) {
   try { b = JSON.parse(text); } catch { /* said below */ }
   const name = b && typeof b === 'object' && !Array.isArray(b) ? b.name : undefined;
   if (typeof name !== 'string') return json(res, 400, { error: 'the body is { "name": "<the scene\'s name>" }' });
-  if (!validName(name)) return json(res, 400, { error: name === 'watch' ? 'watch is the change stream\'s name' : 'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -' });
-  if ((await allScenes(SCENES)).length >= MAX_SCENES) return json(res, 507, { error: `at most ${MAX_SCENES} scenes` });
+  if (!newSceneName(name)) return json(res, 400, { error: name === 'watch' ? 'watch is the change stream\'s name' : 'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a space or a dot, and not a device name (con, nul...)' });
+  // (the scene folders counted, not walked: a scene's files do not matter here)
+  const folders = (await fs.promises.readdir(SCENES, { withFileTypes: true }).catch(() => [])).filter(e => validName(e.name) && (e.isDirectory() || e.isSymbolicLink()));
+  if (folders.length >= MAX_SCENES) return json(res, 507, { error: `at most ${MAX_SCENES} scenes` });
   try { await fs.promises.mkdir(path.join(SCENES, name)); } catch (err) {
     if (err.code === 'EEXIST') return json(res, 409, { error: 'there is a scene (or a file) by that name' });
     log(`scenes: could not make the scene ${JSON.stringify(name)} (${err.code || err.message})`);
@@ -1300,8 +1302,16 @@ async function upload(req, res, url, name, sound) {
   if (there && !replace) return no(409, 'there is a file by that name (replace=1 replaces it)');
   if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
   // (two sounds at once at most: each conversion takes a core or two for seconds; the body says when to try again too,
-  // since a page on another origin cannot read Retry-After unless it is exposed)
+  // since a page on another origin cannot read Retry-After unless it is exposed. The slot is taken at once, before
+  // anything is awaited, so uploads that come together cannot all pass)
   if (sound && FF.running >= FF_MAX) return answerEarly(req, res, 429, { error: `${FF_MAX} sounds are being made already: try again in a few seconds`, retry: 5 }, { 'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After' });
+  if (sound) FF.running++;
+  try { await uploadInto(req, res, { name, dir, folder, dest, want, replace, there, sound }); } finally { if (sound) FF.running--; }
+}
+async function uploadInto(req, res, { name, dir, folder, dest, want, replace, there, sound }) {
+  const no = (status, error) => answerEarly(req, res, status, { error });
+  // a new file in a scene that has as many as a listing shows: refused, rather than taken and never listed
+  if (!there && (await sceneFiles(dir)).files.length >= MAX_FILES) return no(507, `a scene holds at most ${MAX_FILES} files: this one is full`);
   // the deepest folder of the path that is there already must be inside the scene: a link in the scene that leads out
   // refuses the path before anything is made outside
   for (let at = folder; ; at = path.dirname(at)) {
@@ -1317,9 +1327,7 @@ async function upload(req, res, url, name, sound) {
   // (answered once everything else is done: a page told 413 or 500 finds nothing of its upload left)
   const job = { tmp: '', inDir: '', made: undefined, placed: false };
   let answer = null;
-  if (sound) FF.running++;
   try { answer = await uploadJob(req, job, { name, dir, folder, dest, want, replace, there, sound }); } finally {
-    if (sound) FF.running--;
     if (job.tmp) await fs.promises.rm(job.tmp, { force: true }).catch(() => {});
     if (job.inDir) await fs.promises.rm(job.inDir, { recursive: true, force: true }).catch(() => {});
     if (!job.placed && job.made) await unmake(folder, job.made);
@@ -1372,6 +1380,9 @@ function receive(req, file) {
   return new Promise(done => {
     const open = fs.promises.open(file, 'wx');
     let n = 0, chain = open.then(() => {}), fin = false, idle = 0;
+    // (a file that cannot be made, as in a folder gone or not writable, is said by finish: never an unhandled rejection,
+    // which would end the relay and every room on it)
+    chain.catch(() => {});
     const finish = async r => {
       if (fin) return;
       fin = true; clearTimeout(idle);
@@ -1413,10 +1424,14 @@ async function place(tmp, dest, replace) {
 }
 // ffmpeg: the sound's first audio stream as a mono MP3, 96 kbit/s at 44.1 kHz (SPEC: mono places best; MP3 plays
 // everywhere, iPhones too), without the given file's tags or pictures. Never asks anything (-nostdin, stdin closed); stopped
-// after --ffmpeg-limit seconds. Its words stay here: the page is told only what went wrong, in ours
+// after --ffmpeg-limit seconds. Its words stay here: the page is told only what went wrong, in ours. Only sound and video
+// containers are read, and only from the file given: never a playlist (HLS, concat), which could name other files on
+// this computer or addresses on its network for ffmpeg to read into the MP3
+const FF_FORMATS = 'mp3,wav,w64,aiff,flac,ogg,mov,aac,matroska,caf,amr,ac3,eac3,dts,wv,ape,au,asf,avi,mpegts,mpeg,flv,tta,mpc,mpc8,voc';
 function ffmpeg(input, output) {
   return new Promise(done => {
-    const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-map', '0:a:0', '-vn', '-sn', '-dn', '-map_metadata', '-1',
+    const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file', '-format_whitelist', FF_FORMATS,
+      '-i', input, '-map', '0:a:0', '-vn', '-sn', '-dn', '-map_metadata', '-1',
       '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', '-f', 'mp3', output];
     let err = '', late = false, p;
     try { p = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true }); } catch (e) { return done({ ran: false, why: e.code || e.message }); }
@@ -1537,9 +1552,19 @@ async function sceneLook() {
   old.names = cur.names; old.scenes = cur.scenes;
 }
 
+// Node's limit on a whole request (5 minutes) is off where uploads are taken (server.requestTimeout below), for slow ones;
+// every other request keeps it here, so a body that never comes cannot hold a socket for ever
+const UPLOADING = /^\/api\/scenes\/[^/]+\/(file|sound)$/, REQ_LIMIT = 300000;
+function reqLimit(req) {
+  if (req.complete) return;
+  const t = setTimeout(() => { if (!req.complete) req.socket.destroy(); }, REQ_LIMIT);
+  const stop = () => clearTimeout(t);
+  req.once('end', stop); req.once('close', stop);
+}
 function request(req, res) {
   const url = parseUrl(req);
   if (!url) return plain(res, 400, 'Bad request');
+  if (SAVE && !UPLOADING.test(url.pathname)) reqLimit(req);
   const fail = err => { log('error', scrub(req.url), err.message); if (!res.headersSent) plain(res, 500, 'Internal error'); else res.destroy(); };
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) { try { return api(req, res, url); } catch (err) { return fail(err); } }
   if (PEER && (url.pathname === '/peerjs' || url.pathname.startsWith(PEER_PATH))) { try { return peerHttp(req, res, url); } catch (err) { return fail(err); } }
@@ -1596,6 +1621,8 @@ server.listen(OPT.port, OPT.host, () => {
   else if (PUB) console.log('No password (COLLAB_TOKEN): anyone who can reach the relay may use it');
   if ((per.length || PUB) && !OPT.proxy) console.log('No --proxy: behind a reverse proxy (Coolify\'s) every device would seem to be the proxy, one address for all (add --proxy 1)');
 });
+// a promise that failed with nobody to hear it (a slip in the code): said, never the end of the relay and every room on it
+process.on('unhandledRejection', err => log('error', 'unhandled:', scrub(String((err && err.message) || err)).slice(0, 300)));
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');

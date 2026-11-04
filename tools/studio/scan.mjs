@@ -1,8 +1,8 @@
 // node tools/studio/scan.mjs <folder> [--check]
 // The studio's scenes from a plain folder (tests, a web host without the relay; read only: tools/studio/SPEC.md, "From
-// a plain folder"). Writes <folder>/index.json, what the relay's GET /api/scenes answers (save: false), and
-// <folder>/<name>/files.json, what GET /api/scenes/<name> answers without its layout (the page fetches
-// <folder>/<name>/layout.json itself). The listing rules are the relay's own (relay/scenes.mjs: the same names, kinds,
+// a plain folder"). Writes <folder>/index.json, what the relay's GET /api/scenes answers (save: false; and no uploads:
+// upload and ffmpeg false, maxUpload 0), and <folder>/<name>/files.json, what GET /api/scenes/<name> answers without its
+// layout (the page fetches <folder>/<name>/layout.json itself). The listing rules are the relay's own (relay/scenes.mjs: the same names, kinds,
 // depth, order and files left out), so a page cannot tell the two apart. A file is written only when what it says has
 // changed: run it again and nothing changes. --check writes nothing and exits 1 when a file is not current (the files'
 // times aside: a fresh checkout gives every file a new one).
@@ -39,7 +39,7 @@ function put(file, obj, what) {
   fs.writeFileSync(file, text);
   console.log(`wrote ${rel} (${what})`);
 }
-put(path.join(root, INDEX), { scenes: all.map(summary), save: false }, `${all.length} scene${all.length === 1 ? '' : 's'}`);
+put(path.join(root, INDEX), { scenes: all.map(summary), save: false, upload: false, ffmpeg: false, maxUpload: 0 }, `${all.length} scene${all.length === 1 ? '' : 's'}`);
 for (const s of all) {
   put(path.join(s.dir, LISTING), { name: s.name, files: s.files.map(fileOut), layoutAt: layoutAt(s.layout), save: false },
     `${s.files.length} file${s.files.length === 1 ? '' : 's'}${s.layout ? ' and layout.json' : ', no layout.json'}`);
