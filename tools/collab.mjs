@@ -5180,6 +5180,8 @@ try {
   await Fp2.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
   await Fp2.evaluate(() => { HOST.landingVR = true; window.__xr.begin(); });   // (as Enter VR on the start screen)
   await frames(Fp2, 1200);
+  // (the room's frame comes through the shared space first: on a loaded machine the menu opens a few seconds in)
+  await until(Fp2, () => { window.__xr.step(); return HOST.collab.menu; }, null, 8000);
   const fXr = await Fp2.evaluate(() => { const L = window.__collabLog, s = L.filter(e => e.ev === 'session').pop() || {};
     return { told: L.some(e => e.ev === 'notice' && e.title === 'A fresh shared space'), page: s.page, sg: s.sg, search: s.search }; });
   // this room has no stations yet: entered from the start screen, the headset shows no Stories screen and no story, only
