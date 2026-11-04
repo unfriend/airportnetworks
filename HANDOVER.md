@@ -43,6 +43,50 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v112 (4 November 2026; FORMAT networks-30, shell 112: running pages ask to reload, and every
+  device in a shared room needs v112), tested headlessly only: textures for models, sounds that follow a model or a
+  bone, and a test page for the room's geometry and depth on a Quest 3.**
+  - **Textures** (the owner: "it needs a way to add textures to models in case they are missing, preferably with
+    autoassign and direct convert to good formats"). A picture a model names but the scene lacks is looked for by a
+    ladder: the path given, its name in any case, the same name as another kind of picture, then the same words in the
+    same role (colour, normal, roughness, metalness, occlusion, glow, opacity), only when exactly one picture fits. TIFF,
+    PSD/PSB and DDS are read in the page (`tools/studio/engine/images.js`; EXR, HDR, HEIC, KTX and BC6H/7 refused in a
+    sentence). Not found, an object's card offers *Use <picture>* and *Choose a picture...*, and *Add a texture...* lays
+    any picture on a material and slot; one press bakes them into the model's GLB (`models/<name>.glb`, its record
+    `asset.extras.studio.tex`), every placed copy switching where it stands; nothing of it goes into the layout or the
+    room. The Upload page pairs each model with the pictures dropped beside it. `convert.mjs` gains `--texture` and
+    `--textures`. The review found three ways a broken or forged picture could hang the page or run it out of memory
+    (strips of no size, run-length counts past the end, a Deflate strip unpacking to 64 MB): each is refused in words
+    now. Open: real Photoshop, Substance and game-engine files beyond the generated ones; a big TIFF or PSD's memory
+    on a Quest; BigTIFF, tiled and planar TIFFs (no test files); `slotOf` reads the last word only, so `normal_wood` is a
+    colour picture.
+  - **Sounds that follow a model** (the owner: "also sound should follow a model, sometimes i might also want to select
+    bones like the head for voice, breast for sounds she makes while moving etc"). A sound's card has *Follows*: *Follow
+    an object...* (a click or the trigger on it, or a list), then *Whole model* or a bone (Head, Neck, Chest, Hips, the
+    hands and feet by the usual rigs' names: Mixamo, 3ds Max Biped, Unreal, Rigify, VRM; *More bones...* for all of
+    them; a model without bones offers the parts its clips move). Where it stands from that point is kept: put it at her
+    mouth, attach it to Head, and it stays at her mouth while she dances, is moved, resized or converted to a GLB. It is
+    heard only while it and its object are both shown (a cube hiding her silences it). Saved in `layout.json` (`on`,
+    `bone`, `o`) and shared in a room (FORMAT networks-30). While editing a faint line runs to what it follows and its
+    label says so (*Voice → Dancer · Head*). The owner's rigged figure, checked locally only: 35 bones (3ds Max Biped),
+    every slot of the short list found. A rigged test scene (`tools/studio/test/scenes/rig/`, a generated dancer with
+    mixed bone names) runs in the smoke test and the shared-room round. The review (two Sonnet reviewers) found two
+    medium issues, both fixed: a sound carried while its bone's model was still loading on that device was measured
+    against the whole model but read against the bone elsewhere (it now writes only its place then), and Rigify's head
+    and neck were missing from the short list; and seven low ones, six fixed (a layout no longer drops what a sound
+    follows when its object is missing; picking the object it already follows changes nothing; the offset follows both
+    grips between their writes; a sound on a bone the original lacks turns with its GLB).
+  - **The room and depth test page** (`room-test/`, on the site and the relay; the owner chose to start the real-room
+    work with it). On a Quest 3 in AR, through our own renderer path, it asks for depth sensing and the room scan, says
+    what came back, and runs five modes with their cost measured (*Depth picture*, *Occlusion*, *Room*, *Room hides*,
+    *Nothing*); its report is copied, downloaded or sent to a relay that keeps logs. **For the owner:** open
+    `https://stories.lbi-netmed.com/room-test/` on the Quest 3 in the room, step through the modes, send the report, and
+    a Quest photo (Meta button and trigger) of *Occlusion* and *Room hides* with a hand in front. It settles whether the
+    Quest gives depth to our older kind of session at all, in what format, and which room labels it sends. The plan
+    after it (the owner, 4 November 2026) is in the deferred list below ("occlusion by the real world").
+  - Also: the smoke test's PET slideshow step waited 20 s for the next sound cue after Next, and failed on v111 too: the
+    PET scene draws about a frame a second headlessly and each frame moves the clock 0.1 s at most; it waits 60 s now.
+  - Tests: running (results follow in the next commit).
 - **Released as networks-v111 (4 November 2026; FORMAT networks-29 as before, shell 111: running pages ask to reload),
   tested headlessly only: the studio, a room for your own scenes.** The owner: "i actually need a room where i can place
   some fbx or other format files in a folder and then i have textured objects, in some case with animations and then i
@@ -730,6 +774,21 @@ Before handing over (or making anything more public), someone has to decide thes
      bump, tests with a local example circle. Office scale: "Add a circle here" where you stand and an office-sized
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
      passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
+   - **occlusion by the real world** (the owner, 4 November 2026: "i would really like to work with the real rooms
+     geometry as well as have people and object oclusions from the real world"; the plan agreed the same day, its first
+     step, the test page `room-test/`, built in v112). What a Quest gives a web page: the room from Space Setup (walls,
+     floor, ceiling, furniture boxes, a rough mesh; the app already asks for it in AR and the robots use it; it does not
+     move and needs Space Setup run), live depth from the front cameras on Quest 3 and 3S only (about 320 x 320 a eye,
+     0.2 to 5 m, AR only; three.js r128 predates it, so whether it comes to our kind of session is what the test page
+     finds out) and no camera image (so no recognising people). Next, once the test page's report is back:
+     (2) occlusion by the room's geometry, **for the whole app** (the owner: "we should do this once for the whole app so
+     that also circles etc get ocluded the way they should be"): stories, circles, cards and icons hidden behind real
+     walls and furniture, a Settings switch per device, never hiding the menu, the Stories screen or name tags (about 2
+     to 3 hours); (3) the studio's *Real room* look, later: a placed model that is the real room (the atelier scan), lined
+     up with the room's two spots, not drawn in AR but hiding what stands behind it, faint while editing, feeding step
+     2 once that exists (about 2 to 3 hours); (4) live depth occlusion of people and hands, once the test shows it works
+     (about 3 to 4 hours; hard edges first); (5) invisible stand-ins for other headset wearers: dropped (the owner: "we
+     wont need this if the regular occlusion works the way it should");
    - **rooms on this network**: built (see "Where things stand");
    - **follow a person**: built (see "Where things stand");
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
