@@ -43,6 +43,56 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v111 (4 November 2026; FORMAT networks-29 as before, shell 111: running pages ask to reload),
+  tested headlessly only: the studio, a room for your own scenes.** The owner: "i actually need a room where i can place
+  some fbx or other format files in a folder and then i have textured objects, in some case with animations and then i
+  can place them and somehow save where they are placed ... and i also need semi-transparent trigger cubes that i can use
+  to let the 3d objects appear and disapear depending on where the user goes"; then "run a relay and serve the fbx and glb
+  files from that and also save the json files directly. also add some spatial audio emitters and let me hide and show
+  multiple objects with each trigger cube"; "glb better than fbx and we can just convert it"; and "the relay should offer
+  an upload page where everything gets converted into the right formats directly and then sorted into a folder". The
+  studio (`#studio`, `stories/studio.js` from `tools/studio/`, a page like the design room in `STORY_EXTRA`; the contract
+  is `tools/studio/SPEC.md`):
+  - **Scenes from a folder on the relay**: `node relay/server.mjs --lan --scenes <folder>` (each subfolder a scene;
+    `--scenes-readonly`, `--max-upload`, `--ffmpeg`/`--no-ffmpeg`, `--app`); every scene request and file behind the
+    relay's password when it has one, `--public` refusing `--scenes` without one; scene files served inert (only models,
+    pictures, sounds and `.bin` by their own type, anything else as a download, sandboxed). A plain folder works read
+    only (`tools/studio/scan.mjs` writes its listing).
+  - **Models**: GLB/glTF, FBX, OBJ (with MTL), PLY and STL, three.js r128's own loaders vendored in
+    `tools/studio/vendor/`; units and the up axis guessed from the FBX's own settings, taken only when the size makes sense
+    (the owner's atelier scan is centimetres, 7.4 m wide; the figure says centimetres but is metres, 1.66 m, and is Z up),
+    stored in the item so a layout never changes; textures over 4,096 px drawn down (the scan's 8,192 px JPEG); the FBX
+    opacity-0 quirk of 3ds Max drawn solid; scans without normals shown as scanned; animations per object.
+  - **GLB first**: *Convert to GLB* (on a laptop page) and the **upload page** (`<relay>/upload`, the studio's Upload tab:
+    drop files or folders, a plan before anything happens, everything converted in the browser and sorted into `models/`,
+    `sounds/` and `originals/`; short sounds as mono WAV, long ones as mono MP3 by the relay's ffmpeg when it has one, now
+    in the relay's Docker image, 133 MB more). The owner's four files: both models to GLB (the scan parses in 0.3 s against
+    1.1 s as FBX; the figure's 955 bones and its 51 s take exact), `first_room.mp3` to a 4:16 mono MP3. Placed objects
+    switch to their GLB in place (within 1 mm).
+  - **Placing and saving**: editing per device (Edit; Undo; the page's arrows, Orbit and Walk views; in a headset the grip,
+    both grips to size, a cube's corners to stretch, the VR sticks to walk); the layout is the station's state in a room
+    (every item its own key, so two people's changes both keep) and `layout.json` in the scene's folder on Save (the
+    previous 20 kept in `.history/`); a draft kept on the device outside a room.
+  - **Trigger cubes**: see-through while editing, invisible to visitors; each shows and hides any number of objects and
+    sounds, for each person by where their own head is (*while inside* or *stays once entered*; the cube entered last
+    decides an item two cubes disagree on).
+  - **Sound emitters**: placed sounds through the shell's one audio context, HRTF in a headset, following the Sound
+    button only; sounds over 20 s streamed (the owner's track would be 98 MB decoded); loops start together in a room.
+  - The headset menu's Settings tab has *Studio* beside *Design room* (in a room *Studio here*); its circle's icon is a
+    new miniature (`studio.stage`). Fixed on the way: a station of a page that is not a story (the design room too) made
+    every device ask for an update (`HOST.live`'s `known()`); and `tools/update.mjs` now compares the narrations with
+    what the device held (since v109 only those played).
+  - Built by builders in lanes (relay, the page, the shell's hooks, converting and uploading), integrated with a shared-room
+    round (`tools/collab.mjs --studio`, 18 checks), reviewed once by three Sonnet reviewers (26 findings: one high, a
+    relay that a failed upload could stop, and eight medium: scene files served as pages, ffmpeg reading playlists, its two
+    at a time overrun, no request limits, models carried between scenes, a second upload run renaming, the grip refused with
+    Anchor on, the version not bumped; all real ones fixed, with most lows). Tests: relay 508 good; smoke 181
+    good (the studio block: loading, the guesses, triggers and the two-cube rule, editing, state, grips, streamed and
+    decoded sounds, converting, the upload pane); audio 59 good; sound cues all good; update all good (against v110); live
+    21 good; shared rooms COLLAB_RESULT. Untested: everything in a headset (the grips, the stick walk, objects on the
+    real floor in AR, emitters through HRTF, frame rate with the 397,066-triangle scan, the memory while its texture is
+    decoded), Safari and iPhone, a real folder dragged from a file manager, and the relay on Coolify with `--scenes`.
+    The owner's files stay outside the repository (`tools/studio/test/local` is ignored).
 - **Released as networks-v110 (3 November 2026; FORMAT networks-29 as v109, shell 110: running pages ask to reload),
   tested headlessly only: a password for the relay.** The owner: "i would like to add a secret to the relay like how this
   project does it (asdf10k-collab-backend) ... one word like networksofthefuture2037 that i can use and enter on each
