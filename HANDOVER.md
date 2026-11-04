@@ -86,7 +86,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     after it (the owner, 4 November 2026) is in the deferred list below ("occlusion by the real world").
   - Also: the smoke test's PET slideshow step waited 20 s for the next sound cue after Next, and failed on v111 too: the
     PET scene draws about a frame a second headlessly and each frame moves the clock 0.1 s at most; it waits 60 s now.
-  - Tests: running (results follow in the next commit).
+  - Tests: relay 510 good; the picture reader 109 good; every build and the test scenes' listings current; smoke 194
+    good (the studio's texture and follow blocks among them); audio 59 good; the room test page 22 good; update all good
+    (against v111). Shared rooms, the full run three times: twice it stopped at 218 good, where a pretend headset after a
+    night did not follow the room's frame once its writer had written it again (it kept holding) and the next step then
+    found its controllers gone; the third time (the same code, more of the headset's state logged at that step) that step
+    passed and the run went through: 487 good and 1 failing, a fingertip poke and a pinch on the ray within 0.7 s counted
+    twice (a timing check, the page drawing in software). That night step's code is unchanged since v111 (`shared.js`
+    differs only in `FORMAT`), and v111's own test passed it once today: flaky, and **open to investigate** (what ends
+    the pretend headset's controllers there; the test run stops at the next step when it fails, so it hides the rest).
 - **Released as networks-v111 (4 November 2026; FORMAT networks-29 as before, shell 111: running pages ask to reload),
   tested headlessly only: the studio, a room for your own scenes.** The owner: "i actually need a room where i can place
   some fbx or other format files in a folder and then i have textured objects, in some case with animations and then i
