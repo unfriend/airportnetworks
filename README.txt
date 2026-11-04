@@ -53,6 +53,49 @@ in a shared room, Design room here puts the table at your feet as a circle
 (Add a station on the page offers it too; Arrange all leaves it alone), and
 over every circle its story's small model turns, so circles tell apart.
 
+The studio (#studio, stories/studio.js; not on the Stories screen either) is
+for your own scenes: your models (textured, some animated), placed life size
+in the room, with see-through trigger cubes that show and hide them as people
+walk in and out, and sounds placed where they belong. A scene is one folder of
+files; the relay serves the folders and saves where everything stands. At an
+event, on the laptop on the headsets' Wi-Fi:
+
+  node relay/server.mjs --lan --scenes <folder>
+
+Each subfolder of <folder> is one scene. Open the address it prints followed by
+/upload on a laptop to add files, and #studio on every headset and screen (or
+Studio in the headset's menu, Settings tab; in a shared room Studio here puts
+its circle at your feet, for everyone at it).
+- Upload (<address>/upload, or the studio's Upload tab on a laptop or desktop):
+  pick a scene or New scene, drop files or whole folders, read the plan, then
+  Convert and upload. Models (FBX, OBJ with its MTL, glTF, GLB, PLY, STL) become
+  GLB files in the scene's models/ folder (metres, upright, textures made
+  smaller: For Quest, on by default, 2,048 px at most); sounds become mono, so
+  they come from one point (sounds/); everything you gave is also kept as it was
+  in originals/. Then Open the scene.
+- Formats, if you prepare files by hand: GLB for models (FBX works but loads
+  slower and may say the wrong size), JPEG textures (PNG only where see-through),
+  about 300,000 triangles a model and 500,000 a scene on a Quest; mono sounds,
+  WAV for short loops, MP3 for long ones. tools/studio/README.md has the details.
+- Editing: Edit on the studio's Scene pane. On a laptop click an item and drag
+  its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
+  where the trigger cubes act. In a headset point and pull the trigger to pick,
+  hold the grip to carry, both grips to size; in VR the sticks walk and turn.
+- Saving: Save writes the scene's layout.json in its folder on the laptop (the
+  one before is kept in the scene's .history/, the last 20). With
+  --scenes-readonly nothing is written: Download layout.json instead.
+- Password: with COLLAB_TOKEN=<word> before the command every device enters the
+  word once (the Shared dialog, or the headset menu's Circles tab); the scenes'
+  files need it too. On the internet (--public) the relay needs one for scenes.
+- ffmpeg on the laptop (brew install ffmpeg, sudo apt install ffmpeg, winget
+  install ffmpeg) makes long uploaded sounds mono MP3; without it they are kept
+  as given. The relay's Docker image has it.
+- In a shared room lock the studio's circle (Lock story in the Shared dialog, or
+  Lock this story in the menu there) so nobody moves things by accident, and give
+  visitors a link with &visit (#studio&visit: no editing at all).
+How a scene looks and feels in a headset (its size, the grips, the sounds) is
+not yet tried on one.
+
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
@@ -235,7 +278,7 @@ so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
 for every story; Sound, this headset's own on or off; the sound switches; the
-design room), Circles (the shared room: rooms to join, a
+design room and the studio), Circles (the shared room: rooms to join, a
 room by its code, Room setup, the stations, the locks, Show all rings, the people,
 your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
@@ -512,12 +555,12 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the sixteen stories, and list.js: the list of them),
+Files: index.html (the app), stories/ (the sixteen stories, the design room and the studio, and list.js: the list of them),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
-directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
+directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
@@ -536,7 +579,8 @@ tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js), tools/design/ (sources of the design room; node
-tools/design/build.mjs writes stories/design.js), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
+tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
+writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
 lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a
 synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), tools/release.mjs (writes version.json), tools/live.mjs
 (headless test of live updates), tools/icons.html (the stations' icons side by side),

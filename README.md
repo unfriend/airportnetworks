@@ -327,6 +327,7 @@ The protein data is meant for teaching, not research.
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
 | `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/soil.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the sixteen stories, with their data, explore modes and headset panels |
+| `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
 | `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
 | `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `AGENTS.md`, "Hot reload and live updates") |
 | `proteins.html`, `spatial.html` | forward old links to the app |
@@ -359,6 +360,7 @@ The protein data is meant for teaching, not research.
 | `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
+| `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |
 

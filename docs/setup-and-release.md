@@ -14,6 +14,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the data generators of the endotype story (3.11 or newer) the tissue topology and soil stories (3.10 or newer), see below |
 | `http-server` | any | optional: another way to serve the folder (`npx` fetches it) |
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
+| `ffmpeg` | any | optional, on the machine that runs the relay with `--scenes`: it makes long sounds uploaded to the studio mono MP3 (without it they are kept as given; `brew install ffmpeg`, `sudo apt install ffmpeg`, `winget install ffmpeg`; the relay's Docker image installs it). `relay/test.mjs` uses a real one when the machine has it, else a stand-in |
 | git | any | a checkout. The update test also needs a second, older checkout |
 
 ```sh
@@ -124,6 +125,7 @@ browser profiles (the plain server's page knows no relay, so its rooms run peer 
 | rooms between desktop pages on this machine | `node relay/server.mjs --static .` | `http://localhost:8787/` |
 | headsets on the same Wi-Fi | `node relay/server.mjs --lan` (HTTPS, with a certificate it makes itself) | the address it prints |
 | one headset over USB, no certificate | `node relay/server.mjs --static .`, then `adb reverse tcp:8787 tcp:8787` | `http://localhost:8787/` on the headset |
+| the studio with your own scenes (models, sounds, saved layouts, the upload page) | `node relay/server.mjs --static . --scenes <folder>` (each subfolder a scene; keep the owner's scenes outside the repository, or in the git-ignored `tools/studio/test/local/`) | `http://localhost:8787/#studio`, and `/upload` to add files. Without a relay, the committed test scene: `http://127.0.0.1:8123/#studio&scenes=tools/studio/test/scenes&scene=test&edit` |
 | your edits to show by themselves while you work (hot reload) | add `--watch` (and `--build` for the built stories) to any of these, for example `node relay/server.mjs --lan --watch --build` | the same address: a story you save is swapped in place on every page and headset showing it (its place kept), a source in `tools/<key>/` is built first, and a change to `index.html`, `shared.js`, `sw.js`, three.js or PeerJS reloads the pages with their place (a headset then shows Enter VR to continue) |
 
 The flags and troubleshooting are in [relay/README.md](../relay/README.md). The relay's introduction server for peer
@@ -143,15 +145,17 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
 | Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both |
-| Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds | the protocol changed, or the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`) |
+| Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds (the studio's scenes and uploads about 15 s more) | the protocol changed, the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`), or the studio's scenes, saving, watch, uploads, `ffmpeg` or `/upload` no longer answer as `relay/README.md` says |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
-| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks, `--token` only the relay's password (not in the main run); `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
+| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks, `--token` only the relay's password (not in the main run), `--studio` only the studio in a room, its saving, uploads and password, about 3 min; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
+| Studio listings | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | Node | after changing the studio's test scene (`node tools/studio/test/make.mjs` remakes it) or `relay/scenes.mjs` | under 1 s | the test scene's `index.json` or `files.json` is not what the relay would answer: run it without `--check` (or `make.mjs`) and commit them |
+| A model to GLB | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--shots <dir>]` | Playwright | not a routine test: to convert the owner's models in a batch, or to try the converter on real files after changing `tools/studio/engine/convert.js` | seconds a model | it says what did not come through (an animation, a skin, a texture) and writes nothing |
 | One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
@@ -185,15 +189,16 @@ only after the tests pass. No pull requests are used.
    micro, ovary, qubits, mutation, topo, soil, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
    `stories/spatial.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
    `tools/design/`) and the miniatures (`lowpoly.js` from `tools/lowpoly/`, which the design room's names come from:
-   rebuild the design room after changing them). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
+   rebuild the design room after changing them), and the studio (`stories/studio.js` from `tools/studio/`, with three.js
+   r128's own add-ons from `tools/studio/vendor/`, never edited). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
    stories. Some parts feed several stories:
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all thirteen built stories, the design room |
-   | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js`, the design room |
+   | `tools/lbi/kit.js` | all thirteen built stories, the design room, the studio |
+   | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js` (the studio's icon, `studio.stage`, too), the design room |
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
@@ -203,14 +208,14 @@ only after the tests pass. No pull requests are used.
    | `tools/topo/sets/look.js` | topo, soil |
 
    Rebuilding all of them takes a few seconds:
-   `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v98` now, so `networks-v99` next) after any change to a file the app
+   `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
+4. **Bump `VERSION` in `sw.js`** (`networks-v111` now, so `networks-v112` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-25` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-29` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.
@@ -302,6 +307,13 @@ saved settings and headset calibrations do not carry over from one address to an
   (as on the server). The image's health check asks `/api/health`, which needs no password.
   After touching the relay, run `node relay/test.mjs`, and after touching the password in `shared.js`,
   `node tools/collab.mjs --token` (a minute or two).
+- **The studio's scenes** (v111): the relay serves them from a folder with `--scenes <folder>` (relay/README.md, "Your
+  own scenes (the studio)"): at an event `node relay/server.mjs --lan --scenes <folder>`; on Coolify a *Persistent
+  Storage* volume the user `node` may write to (say at `/scenes`) and `--scenes /scenes` added to `RELAY_ARGS` (or
+  `COLLAB_SCENES=/scenes`). On the internet (`--public`) it refuses to start with scenes and no password
+  (`COLLAB_TOKEN`). The image installs `ffmpeg` for long uploaded sounds (a layer of about 133 MB; built only as a
+  scratch variant so far, not on Coolify). The owner's scene files never go into the repository. After touching the
+  scenes or uploads, run `node relay/test.mjs` and `node tools/collab.mjs --studio`.
   **TO FILL (owner):** whether a public relay will run, and where, at which address and run by whom.
 
 ## 6. Rolling back

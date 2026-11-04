@@ -31,9 +31,15 @@ Quest Browser, WebXR).
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
+Besides the stories, two pages that are not stories (`STORY_EXTRA`, on no Stories screen): the design room
+(`stories/design.js`, `#design`: a table with a small model of every prop) and the studio (`stories/studio.js`,
+`#studio`, v111: the owner's own models, trigger cubes and sounds placed life size in the room, served and saved by the
+relay, with an upload page that converts and sorts what is dropped on it).
+
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT) and `peerjs.min.js` (PeerJS 1.5.5,
-vendored, MIT, loaded only when a shared room runs peer to peer). The app is deployed by copying
+vendored, MIT, loaded only when a shared room runs peer to peer); the studio pastes three.js r128's own loaders and
+exporter (`tools/studio/vendor/`, MIT) into its built file. The app is deployed by copying
 the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 
 ## Layout
@@ -47,7 +53,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   card text, titles, loading line, length, `life`; optional `needs`),
   in the order of the Stories screen and Arrange all. Read before the shell's
   script and again while the app runs. `STORY_EXTRA` at its end holds pages that
-  are not stories (the design room), with the same fields: `HOST.meta(key)`
+  are not stories (the design room, then the studio), with the same fields: `HOST.meta(key)`
   finds a key in either list (start, load, swap, title), while everything that
   lists the stories sees only `STORY_LIST`.
 - `lowpoly.js` - the low-poly miniatures of every story's sets
@@ -76,7 +82,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   are already in a room), so offline a device has the narrations it has
   played. A new worker asks the server only about those it holds, with their
   ETag, and fetches only the ones that changed. Installing fetches straight
-  from the server (`cache: 'reload'`).
+  from the server (`cache: 'reload'`). The studio's scenes (any same-origin path with `/scenes/`: the relay's
+  `--scenes` and a static folder of them) are passed straight through, never cached (v111), by a rule before the
+  narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's; the upload page's
+  POSTs and the navigation to `<relay>/upload` are left to the browser.
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports,
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
@@ -99,7 +108,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   Wi-Fi that keeps their alignment logs in `relay/logs/`), its test (`test.mjs`)
   and Dockerfile; see its `README.md`. It is also an introduction server for peer
   to peer at `/peerjs` (PeerJS's server protocol; `--no-peer` turns it off), for
-  the tests and for an event that wants its own.
+  the tests and for an event that wants its own. With `--scenes <dir>` it serves the studio's scenes, saves their
+  layouts and takes uploads (v111; "The studio's scenes on the relay" under "Shared rooms"); `scenes.mjs` holds their
+  listing and upload path rules, which `tools/studio/scan.mjs` shares (in the Docker image, never served).
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
   syncing; `shared-spaces.md`: one room frame for several headsets), and
@@ -173,10 +184,24 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/design/` - the sources of `stories/design.js` (the design room: the props
   catalogue `props.json`, the table set, engine parts adapted from the flock's,
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.
+- `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
+  engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, one module shared
+  with `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB and the Upload pane), two sets (`stage`, the
+  floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes), `vendor/`
+  (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
+  `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
+  fflate 0.6.9, which the FBX loader needs; pasted into the built file with their licence lines, each wrapped so
+  nothing leaks but `THREE.*`, `GLTFExporter` last inside `exporterLoad()`, defined only when the studio first
+  converts: its `README.md`), the build (`build.mjs`, `--check`), `scan.mjs` (a plain folder of scenes for any web
+  host), `convert.mjs` (a model to GLB on a computer), and the test scene (`test/make.mjs` makes
+  `test/scenes/test/`: an animated `box.glb`, an ASCII `figure.fbx` in centimetres and Z up with `figure.png`, a short
+  `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
+  about 250 KB, committed; `test/local/` is git-ignored, for your own scenes); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
-  under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table`,
-  only its station icon, and, last, `all.stories` and `all.lobby`, the icons of the shell's two
+  under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table` and the studio's
+  `studio.stage` (870 triangles: a low stage, a small figure, a see-through cube's edges, a speaker on a post),
+  only their station icons, and, last, `all.stories` and `all.lobby`, the icons of the shell's two
   circles, All stories and Back to the lobby, not props either), their harnesses (`harness-a.html`,
   `harness-b.html`) and `build.mjs` (writes `lowpoly.js`; `--check`).
 
@@ -533,7 +558,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `HOST.session` when they start or adopt a headset session; the shell listens
   to its controller events (`select`, `squeeze`: Chromium counts them as taps,
   `selectstart` it does not) and its visibility. Never create or close an
-  `AudioContext` in a story. How it works, and why (the narration was silent on
+  `AudioContext` in a story. One exception, and only this one (v111): the studio's Upload pane decodes a short sound it
+  is given in an `OfflineAudioContext` (`monoWav` in `tools/studio/engine/e7b_upload.js`), to mix it to a mono WAV;
+  such a context opens no output and plays nothing. The studio's sounds placed in a scene play through the shell's
+  context (`HOST.audio.fx()`), as the effects do ("The studio" below). How it works, and why (the narration was silent on
   the Quest twice):
   - Two engines, unlocked by the first tap or click (Enter VR is one) and kept
     for the life of the page: Web Audio (first choice: one `AudioContext`,
@@ -676,6 +704,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     everything. Never in a story's `collab.state()`. *Try the sound effects* is
     on the menu's Sound check page; Sound check's report has a line for the
     effects (`HOST.sfx.line()`) and says when the narration is switched off.
+    Neither switch silences the studio's sound emitters (a scene's own sounds, not effects): they follow only the
+    Sound button, this device's mute (v111; the studio's Scene pane and a sound's card say so).
     How a room's switch sounds on a hall of headsets is untested on devices.
   - What plays when (all from the shell): a page button (any `button`, after its
     own handlers): a quiet click, or a switch's on or off sound by its new
@@ -698,7 +728,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - The background (a bed) of the story on show, chosen from its key, only for
     two stories since v100: the flock dusk air and distant birds (`dusk`), the
     pass story a deep sea hush with bubbles (`sea`), both as they were. Every
-    other story and the design room has none (`SFX_LIB.bedOf(key)` is `''`; the
+    other story, the design room and the studio have none (`SFX_LIB.bedOf(key)` is `''`; the
     calm tone, the robots' room tone and the soil story's wind went), and a new
     story gets none. Each made about -35 LUFS at full
     volume, some 20 dB under the narration (-13 to -16 LUFS), with no energy
@@ -739,7 +769,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     them), their short ones by their peak (-9 to -15 dBFS), the backgrounds -35
     integrated, the narration -13 to -16. Whether they sound good, and how loud
     they are on a headset, can only be judged by ear.
-  - Sounds inside the stories (phase 2; every story and the design room keep
+  - Sounds inside the stories (phase 2; every story, the design room and the studio keep
     the same lines, the flock's `tools/flock/engine/` and the airports' the
     references): the story's cues are set beside its keys in `buildStory`,
     `sfxCue(t, name, set, at, o)` (story time; a set and one of its anchors, or
@@ -870,7 +900,10 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   story*, "Update needed" (`shared.js`'s `meta` takes `HOST.unknown`), cannot be
   run here (`HOST.start` asks instead), and the question offers the update;
   Arrange all on such a device leaves that station where it is. So a new story
-  no longer needs a new `FORMAT`.
+  no longer needs a new `FORMAT`, nor does a new page in `STORY_EXTRA` (the studio came without one). `HOST.live`
+  knows a key by `HOST.meta` (`known`: a story, or a page in `STORY_EXTRA`, the design room or the studio); until v111
+  it looked at the stories only, so a station of the design room asked every page and headset to update, and a page
+  on its Stories screen reloaded itself.
 - Untested on a headset: a swap in place in a session (the story's `xrAdopt` as
   for a story change), the question's panel and its buttons, *Enter VR to
   continue*, `EventSource` in Quest Browser.
@@ -1387,10 +1420,22 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
   headset's menu has a *Design room* row (below the settings and Panels, above the shared room): outside a room it
   opens the design room (`HOST.go('design')`, the menu closing; greyed while you are there); in a room, *Design room
   here* puts the props table at your feet as a circle facing your way, or moves the room's one there when it has one
-  (one table, not a pile of them; `designHere`, `HOST.collab.design(b)`), refused while the circles are locked as Add
+  (one table, not a pile of them; `pageHere`, `HOST.collab.design(b)`), refused while the circles are locked as Add
   is (greyed). A new station of a page that is not a story starts its clock at its table, in explore mode (a story's at
   its start, paused). Standing at it (it is at your feet) the headset takes it as its station and the table stands
   life size in front of you (its middle 1.55 m ahead of the spot), shared like a story at its station.
+- The studio in a room (v111): a page that is not a story, placed and kept as the design room is. The page's Add and
+  the headset's Add here list it after the design room (`STORY_EXTRA`'s order, then All stories and Back to the lobby);
+  the menu's Settings tab has *Design room* and *Studio* side by side (`PAGE_ROW`, `pageRow`): outside a room *Studio*
+  opens the studio (`HOST.go('studio')`), in a room *Studio here* puts its circle at your feet facing your way, or moves
+  the room's one there (one studio, not a pile of them; `pageHere`, `HOST.collab.studio(b)`), refused while the circles
+  are locked; never Arrange all. Its clock starts in explore mode. Its scene is life size round the circle's spot
+  (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
+  scene's name and one field per item ("What each story shares" below; no `FORMAT` change: an older device shows the
+  station as *A newer story*). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
+  VR stick walk and sound are each device's own. With exactly one scene in the relay's listing every device at a station
+  with none picks it and writes its saved layout (every device writes the same records, so nothing doubles); else
+  *Pick a scene*. *Lock this story* refuses its editing for everyone at the circle ("The studio" below).
 - Moving a station by hand: in a headset the grip on a station's ring, icon or card
   picks it up (the shell hears the session's own `squeezestart` and
   `squeezeend`, controller i being `session.inputSources[i]` in three.js r128,
@@ -1489,9 +1534,9 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
     a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
     mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines
     too; a note beside it); *Sound effects: on/off* and *Narration: on/off* side by side (the two sound switches, for every story; in a room the room's: "The two sound switches"),
-    then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* (outside a room it
-    opens the design room; in a room *Design room here* puts its table at your feet: "The design room in a room"), a
-    note beside it.
+    then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* and *Studio* side by
+    side (outside a room each opens its page; in a room *Design room here* and *Studio here* put its circle at your
+    feet: "The design room in a room", "The studio in a room"), a note under each.
   - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
@@ -1859,6 +1904,37 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
   Back). It is case-sensitive, so the owner's word is lower-case letters and
   digits. Accepted once a call with it succeeds: the room that waited starts or
   joins. Untested on a headset and on Coolify.
+- The studio's scenes on the relay (v111; the owner, 3 November 2026: "the relay idea sounds good, then i can run a
+  relay and serve the fbx and glb files from that and also save the json files directly"; the reference is
+  `relay/README.md`, "Your own scenes (the studio)" and "Uploading (the upload page)"). `--scenes <dir>` (or
+  `COLLAB_SCENES`, or inside `RELAY_ARGS`): each subfolder of `<dir>` is a scene (a name of up to 64 letters, digits,
+  spaces and `_ . -`, not starting with a space, `.` or `-`, and not `watch`; others left out and said once in the
+  log), its files up to 4 folders deep, at most 2,000 listed (dot files, `.history/`, temporary files and the scene's
+  own `layout.json` and `files.json` left out; the rules in `relay/scenes.mjs`). `GET /api/scenes` (the scenes, and
+  `save`, `upload`, `ffmpeg`, `maxUpload`), `GET /api/scenes/<name>` (its files with their kinds, its parsed `layout`
+  and `layoutAt`), `GET /scenes/<name>/<path>` (the file: `ETag`, `no-cache`, 304, byte ranges, CORS; `..`,
+  backslashes, NUL, dot files and links out of the scene refused), `POST /api/scenes/<name>/layout` (writes
+  `layout.json` whole, the old one copied into `.history/layout-<time>.json`, the newest 20 kept), `GET
+  /api/scenes/watch` (Server-Sent Events: `hello`, `scene`, `layout`, `scenes`; the folder looked at every 2 s while
+  anyone listens, a change told once it has settled for 0.5 s), uploads (`POST /api/scenes` makes a scene, `POST
+  /api/scenes/<name>/file?path=` stores a file, at most `--max-upload` MB (512) counted as it streams, never over a
+  file without `replace=1`, written to a temporary dot file and moved into place, nothing left behind on a refusal;
+  `POST /api/scenes/<name>/sound?path=` has `ffmpeg` make a long sound a mono MP3 at 96 kbit/s and 44.1 kHz, two at
+  once, `--ffmpeg-limit` s each) and `GET /upload` (302 to `/#studio&upload` when the relay serves the app, else to
+  `--app <url>`, by default the `--origin`, else `https://stories.lbi-netmed.com/`, with `&relay=` its own `wss://`
+  address; no password needed to be sent on, and the query never passed on). `--scenes-readonly` writes nothing (no
+  saving, no uploads: 403; the studio offers *Download layout.json*). `ffmpeg` is looked for once at the start
+  (`ffmpeg -version` on the `PATH`; `--ffmpeg <path>` names one, which must run; `--no-ffmpeg` none), and the Docker
+  image installs it (`apk add --no-cache ffmpeg`, about 133 MB); without it long sounds are kept as given. With a
+  password every scene endpoint and file needs it, exactly as the API (wrong ones counted), and `--public` with
+  `--scenes` refuses to start without one (the files are the owner's own work). `/api/ping` says `scenes: true`. In the
+  shell (`shared.js`): `HOST.collab.relayFind()` gives the studio its relay, `{ base, token }` (the relay this page
+  knows, else the page's own server when `detect()` finds it a relay, asked at most 5 s; `token` the password kept for
+  it, '' none) or null, and `HOST.collab.relaySaw(base, status, sent, json)` passes what a studio call answered to
+  `authSaw`, so a 401 brings up the shell's own password prompts (the Shared dialog's field, the menu's *Relay
+  password* row) and an answer with a new password keeps it; a link `#studio&upload&relay=wss://...` sets the relay as a
+  link does before the studio reads its options. Untested behind Coolify's proxy (`X-Forwarded-Proto` for `/upload`'s
+  address, big uploads over slow links) and on Windows (finding `ffmpeg`, placing files by link and rename).
 - The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
   `enterStory` to publish the clock, polls `collab.state()` five times a second
   and publishes it when its value changed; a value from the room goes through
@@ -1913,7 +1989,7 @@ reference, `tools/flock/engine/`):
   `HOST.start` and `allPick`); the header's *Back to the story* and the pane's *Back* not drawn while `xrCards()`; and in
   `drawMain`, after the room's Stories line,
   `else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);`. The smoke test checks
-  the lines are in all sixteen stories and the design room.
+  the lines are in all sixteen stories and every page in `STORY_EXTRA` (the design room, the studio).
 - Recenter, next to `xrRecenter` (the story panel's Recenter button, and `recenter: xrRecenterAsk,` in the returned
   object after `caption`, for the menu's Recenter and Place again):
   `function xrRecenterAsk() { if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter(); if (HOST.anchor.on) HOST.anchor.again(); XR.needRecenter = true; return true; }`
@@ -2001,6 +2077,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube) or `s.<id>` (a sound): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk or sound | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -2137,7 +2214,7 @@ narration heard from out of the circle, the locks and the People toggle in use.
   above the bottom sheet (`0.21 * h`), and `GL.fit` stands the scene back to
   fit. In focus mode (v106, the shell's `HOST.focus()`: the 3D alone on a phone
   or tablet) `resize()` reads `GL.bare = !!(HOST.focus && HOST.focus());`
-  first (the same line in all sixteen and the design room; the shell sends a
+  first (the same line in all sixteen, the design room and the studio; the shell sends a
   `resize` when it changes) and then frames the scene for the whole page: no
   sideways offset, its middle at 0.45 of the height
   (`setViewOffset(w, h, 0, 0.05 * h, w, h)`), and `GL.fit` for the page between
@@ -2837,6 +2914,184 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   `design.table` (skipped by `tools/design/build.mjs`, as are the shell's circles' icons, `all.stories` and `all.lobby`:
   not props on the table).
 
+## The studio (`stories/studio.js`) is built the same way
+
+`stories/studio.js` (v111, *Your own scenes*) is generated from `tools/studio/` (`node tools/studio/build.mjs`,
+`--check` as for the tour): the tour's kit, three.js r128's own add-ons from `tools/studio/vendor/` (pasted with their
+licence lines, each wrapped so nothing leaks but `THREE.*`; `GLTFExporter` only inside `exporterLoad()`, defined when
+the studio first converts), two sets (`stage`, `looks`) and engine parts adapted from the design room's (the
+shared-room, headset-setting, subtitle, panels, recenter, framing and sound-effect lines as in every story: the smoke
+test checks them in every `STORY_EXTRA` page). `tools/studio/SPEC.md` is the contract; `tools/studio/README.md` the
+formats guide and the upload page; `relay/README.md` the relay's side.
+
+- **What it is** (the owner, 3 November 2026: "i actually need a room where i can place some fbx or other format files
+  in a folder and then i have textured objects, in some case with animations and then i can place them and somehow
+  save where they are placed ... and i also need semi-transparent trigger cubes that i can use to let the 3d objects
+  appear and disapear depending on where the user goes"; then "also add some spatial audio emitters and let me hide and
+  show multiple objects with each trigger cube"). Not one of the stories: its entry is in `STORY_EXTRA` after the
+  design room (kick *Studio*, title *Your own scenes*, colour `#e6d3b8`, icon `studio.stage`, `life: true`), so it is on
+  no Stories screen and not counted; `#studio`, the menu's *Studio* (Settings tab), a station or the relay's `/upload`
+  open it. No narration: one short intro (5 s: the scene from a little way off, then the walk up to it) for a new
+  wearer or Replay, then explore mode, the scene; its end never starts Repeat. The two files the owner sent as examples
+  (an atelier scan, binary FBX, 397,066 triangles, an 8,192 px JPEG inside, in centimetres; a rigged figure, binary
+  FBX, one 51 s take, its PNG beside it, Z up) are kept outside the repository, as every scene of the owner's is.
+- **Scenes.** A scene is one folder: models, their textures, sounds and `layout.json`, where everything placed stands.
+  An item is one thing placed: an object (a model file placed once; one file may be placed many times), a trigger cube
+  or a sound. What the studio makes goes into the scene's `models/` (GLB), `sounds/` and `originals/` (the files as they
+  were given, so a model can be converted again); files elsewhere in the scene work as well. The scenes come from the
+  relay (`--scenes <dir>`; `HOST.collab.relayFind()` finds it: "The studio's scenes on the relay" under "Shared rooms"),
+  else from a plain folder next to the app (`scenes`, or `&scenes=<relative folder>`: only a relative path, no `//` or
+  `..`) that `node tools/studio/scan.mjs <folder>` describes (`index.json` and `<name>/files.json`, what the relay's
+  API answers, by the same rules, `relay/scenes.mjs`; read only, so *Download layout.json* in place of Save). The scene
+  opened: the link's `&scene=`, else the last used here (`studioLast.<source>` in `localStorage`), else the only one,
+  else the list (*Pick a scene*). The relay's watch keeps it current: a changed file is fetched again and its items
+  rebuilt where they stand, a new file shows in the Add list, a scene that comes or goes changes the picker, and a
+  layout saved elsewhere updates *Saved* (it never replaces what is placed by itself). With a password the studio
+  fetches every file with it (the loaders through their `LoadingManager`'s `setURLModifier`, `?token=`; sounds and
+  JSON with `Authorization: Bearer`); the first 401 goes to the shell once (`HOST.collab.relaySaw`), which asks where it
+  always does, and the studio then asks nothing more of that relay until the shell holds another password (seen alike
+  twice, 2 s apart), when it lists the scenes again and fetches what was refused.
+- **Models.** GLB and glTF (`GLTFLoader`: PBR materials, every clip; no Draco, Meshopt or KTX2, which its card says),
+  FBX (binary or ASCII, version 7 and up), OBJ with its MTL, PLY (vertex colours) and STL. Textures a file names but
+  does not hold are found in the scene's listing by their file name (any case; the author's own path ignored); one not
+  found leaves the model untextured and its card says *Missing texture x.png: put it in the scene's folder*. Textures
+  over 4,096 px are drawn down before they reach the GPU (`&maxtex=` 512 to 8,192; the card says so: the atelier's 8,192
+  px JPEG alone would take about 340 MB of a Quest's memory). The units and up axis are guessed when a file is first
+  placed and then stored in the item (`s`, `q`), so a layout never changes when the guess does: an FBX's
+  `GlobalSettings` (`UnitScaleFactor`, `UpAxis`, `UpAxisSign`, read from the file's bytes, since the loader ignores
+  them), taken when they make the model's largest side 5 cm to 60 m, else 1 unit is 1 m if that does, else it is sized
+  to 1 m; glTF is metres and Y up; OBJ, PLY and STL say nothing, so metres, centimetres or millimetres, whichever fits.
+  The card's Scale line says what the file said and what was made of it. The atelier comes out 7.4 m wide (scale 0.01),
+  the figure 1.66 m tall (stood up from Z up). One file is loaded once and cloned per object (`SkeletonUtils.clone` when
+  rigged), each with its own `AnimationMixer`; a file no object uses any more is dropped and its GPU memory freed. Each
+  object is *lit* (a sky and ground light, one over your shoulder; glTF's PBR gets a soft room-like environment) or *as
+  scanned* (unlit, its own colours: photogrammetry has its light in its texture); a mesh without normals starts as
+  scanned, and lit it is shaded flat. An FBX material of opacity 0 with no alpha map (3ds Max's habit) is drawn solid,
+  and the card says so. The card: its file, size in metres as placed, triangles, textures and their sizes, clips and
+  warnings, with Quest budgets (shown, never refused): over 500,000 triangles in the scene, 300,000 in one model, more
+  than 6 textures over 2,048 px. A model loading (or one this device cannot find) is a grey box with a line of text
+  where it will stand: parsing a big FBX stalls the page for seconds (more on a headset).
+- **GLB first** (the owner, 4 November 2026: "maybe we should work with these and use a converter like you mentioned
+  glb better than fbx and we can just convert it"). One converter (`tools/studio/engine/convert.js`,
+  `makeConverter(THREE, hooks)`) serves the studio, its Upload pane and `tools/studio/convert.mjs`: it bakes the guess
+  in (metres, Y up), draws textures down (4,096 px, or 2,048 *For Quest*; opaque ones as JPEG, the rest PNG), makes
+  Phong and Lambert materials standard ones, fixes the opacity-0 quirk, welds repeated corners, keeps animations and
+  skins, and records what it did in `asset.extras.studio = { from, s, q, at, scan }` (`from` the original's path in the
+  scene, `s` and `q` the scale and turn baked in, `scan: true` for a mesh without normals). It turned the atelier's 14
+  MB FBX into an 11.4 MB GLB that parses in 0.3 to 0.7 s instead of 1 to 2 s, and the figure's 3.7 MB into 3.0 MB with
+  its skin and take exact, 0.03 s instead of 0.55 s. *Convert to GLB* (pages only, editing on; a headset says *Convert
+  on a laptop*) on an object's card, and *Convert every model* in the Add pane: with a relay that takes uploads the GLB
+  goes to `models/<name>.glb` and every object placed from the original switches to it where it stands (`s' = s / b`,
+  `q' = q * r^-1` for the baked scale `b` and turn `r`; one change, one Undo step, for everyone at a station); else it
+  is downloaded. The Add list shows `models/`, `sounds/` and everything outside `originals/`, with `originals/` folded
+  under *Originals*; a GLB whose record (read from its first bytes with a `Range` request) names another file of the
+  scene, or without one has its base name, stands for it, and a placed original's card offers *Switch to the GLB*.
+- **The upload page** (the owner, 4 November 2026: "the relay should offer an upload page where everything gets
+  converted into the right formats directly and then sorted into a folder if possible"). `<relay>/upload` sends the
+  browser to the studio's **Upload** tab (`#studio&upload`; pages only, none in a headset or with `&visit`): pick a
+  scene or *New scene*; drop files or whole folders (or *Choose files*, *Choose a folder*); the plan shows one row per
+  thing it will make before anything happens (a model with the files it names, wherever they were dropped: textures,
+  an OBJ's MTL and its textures, a glTF's `.bin`; each sound; anything left *kept as it is* into `originals/`, never
+  dropped; a missing texture said in its row); *For Quest* (on: 2,048 px; off: 4,096) and *Replace files with the
+  same name* (off: a name taken gets a number, `eva_001 2.glb`); *Convert and upload*, with progress per row; then *Open
+  the scene* (editing on). Models become `models/<name>.glb` by the converter (loaded back and checked; a row that fails
+  says why and makes nothing). Sounds become mono, so they place well: up to 20 s decoded in the page (an
+  `OfflineAudioContext`, the one exception to the sound rule: "How the shell and stories fit together") into a 16-bit
+  WAV at their own rate (at most 48 kHz), `sounds/<name>.wav` (gapless loops; OGG does not play on iPhones); longer ones
+  sent to the relay's `ffmpeg` for `sounds/<name>.mp3` (mono, 96 kbit/s, 44.1 kHz), and without it an MP3, M4A/AAC or
+  OGG kept as it is (played from one point) and anything else a mono 22.05 kHz WAV. Every given file also goes into
+  `originals/<the dropped folders>`. Without a relay that takes uploads the plan still shows and *Convert* offers each
+  GLB and WAV as a download.
+- **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
+  cubes, sounds }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
+  start: 'always' | 'shown' }`, a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
+  ids), a sound `{ id, name, file, p, vol, r, loop, start }`. Metres in the scene's frame (the floor at y = 0, the origin
+  at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
+  figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
+  `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
+  2*). At most 300 objects, 100 cubes, 60 sounds; a `file` is a path in the scene's listing (200 characters, no `..`); a
+  cube's lists only name this scene's items. A bad item is dropped and said once (*2 items in layout.json could not be
+  read*); anything else ignored.
+- **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
+  a page the camera in Walk view, never the orbit camera), `while` only then, `stay` from then on until the scene is
+  opened again or *Reset what I have seen*. For an item, of the cubes active for you, those listing it in `show` (S) and
+  in `hide` (H): shown if S has any and H none, hidden if H has any and S none, both: the one that became active last
+  decides; neither: hidden if any cube lists it in `show` (it waits for its cube), else shown. Shown and hidden fade
+  over 0.4 s; `start: 'shown'` starts an object's animation, or a sound, from its beginning each time it is shown (a
+  sound stops, fading, when hidden). Never shared, never in `state()`: ten headsets each see what their own place
+  reveals. While editing every cube is drawn see-through (its colour at about 0.18, brighter edges, its name, brighter
+  while you are in it), a selected cube's lines go green to what it shows and red to what it hides, and objects a cube
+  hides from you are drawn faint (about 0.3) so they can still be picked; not editing, cubes and sound markers are not
+  drawn at all.
+- **Sounds** (emitters): a sound file placed at a point, played through the shell's context (`HOST.audio.fx()`, never
+  one of its own), each through an HRTF `PannerNode` (inverse distance, full volume within `r`, `rolloff` 1,
+  `maxDistance` 50 m) and its own gain. The listener is the head in a headset (the shell's `HOST.sfx.listen`) and the
+  camera on a page (put back at the origin in `dispose`). Silent while `fx()` gives no context (before a tap, hidden,
+  the `<audio>` engine chosen) or the Sound button is off (`HOST.audio.muted`); not the Sound effects or Narration
+  switches, since an emitter is the scene's own sound, not an effect (the Scene pane and a sound's card say so). An
+  `always` loop starts at the same moment for everyone at a station (the room's time, `HOST.collab.now()`, modulo its
+  length; outside a room from when the scene opened). Sounds up to 20 s (`STREAM_S`) are decoded once per file, at most
+  60 MB decoded a scene (more: not loaded, said); longer ones (the owner's 4 min 16 s `first_room.mp3` would be about 98
+  MB decoded) are streamed: an `<audio>` element per emitter (`crossOrigin` anonymous, the password as `?token=`)
+  through `createMediaElementSource` into its panner and gain, its moment set by `currentTime`, paused (not torn down)
+  while there is no context or the device is muted, a new element on a new context (an element feeds one context
+  only). A stereo file is played from its point; the card says *mono files place best*. While editing: a small speaker
+  in the sound's colour and a faint ring on the floor at `r`.
+- **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
+  in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
+  there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
+  `&upload` in its link). *Undo* takes back this device's last 30 changes. In a headset the ray lights and names an
+  item and the trigger (or a pinch) selects it (nothing: clears); the grip carries an object or a sound as the design
+  room's miniatures (its offset from the hand kept, turning with the hand while free moving is on, else only about the
+  vertical; the right stick pushes it away or pulls it in) and a cube (level, only its yaw turns); both grips size an
+  object (a twentieth to twenty times) and move it with their middle; a selected cube's 8 corner balls stretch it (the
+  opposite corner stays); let go, it stays and its record is written. In VR, while nothing is carried, the left stick
+  walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
+  rig; per device, reset by Recenter, never written to the room); in AR you walk for real, and objects stand on the real
+  floor (the session's `local-floor`, its height in the renderer's space from `frame.getPose`; at a station the room's).
+  On a page a click selects, `TransformControls` move, turn and size the selection (W, E, R, or its card's buttons;
+  cubes take per-axis size from R; sounds only move), the views are *Orbit* (round the scene) and *Walk* (first person
+  at 1.6 m: W A S D or the arrows, drag to look, a click on the floor walks there: where cubes trigger on a page), and
+  Delete, Duplicate (D) and Undo (Ctrl+Z) work from the keyboard. New items go 1.5 m in front of you on the floor (a
+  model's lowest point on it), selected.
+- **The panes** (page HTML and headset canvas twins, the same content): **Scene** (the scene and the scenes to pick
+  from, a station's for everyone at it; *Edit*; *Save*, which says *Saved 22:41* (*by Anna* for another device's save)
+  or why not; *Unsaved changes* while what is placed differs from what was last saved or loaded; *Load saved*, two
+  presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one),
+  **Add** (editing: the scene's models with their size and a warning mark, its sounds, *Originals* folded, *Trigger
+  cube*, *Convert every model*), **Item** (the selection's card and its controls: lit or as scanned, the clip and
+  *Loop* / *Once* / *Off*, *Always* / *When shown*, *Turn 90°*, *Stand up*, *On the floor*, size steps,
+  *Duplicate*, *Delete*; a cube's size steps, *While inside* / *Stays once entered*, *Pick what it shows* and *Pick
+  what it hides*, pointing at items to add or remove them until *Done*; a sound's volume, reach, loop and start),
+  **Items** (every item; on a page a tick box per item in a selected cube's Shows and Hides columns) and **Upload**
+  (pages only). `&tab=scene|add|item|items|upload`, `&view=walk`.
+- **Saving**: *Save* writes what is placed now to the relay's `layout.json` (for everyone at a station); a read-only
+  source offers *Download layout.json*. Outside a room what is placed is also kept on this device
+  (`studioDraft.<source>.<scene>` in `localStorage`, a second after each change), and opening the scene with a draft
+  newer than the saved layout and different from it offers *Your unsaved changes from <time>: Restore / Discard*.
+- **Placement in a headset**: life size, as the design room's table. The scene's origin is the rig's floor point:
+  outside a room where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
+  Anchor is on, so an exhibit comes back at the same place in the real room); at a station its spot, so moving the
+  circle moves the scene, and a room calibrated on its spots keeps it put. The grip on nothing moves only the panel. In
+  VR a dark floor with a faint 1 m grid and a soft sky (`stage`); in passthrough none of it.
+- **Shared rooms**: "The studio in a room" under "Shared rooms"; `state()` in "What each story shares". Items from the
+  room glide there in 0.25 s unless carried here (the carry wins until let go); no effects; `view()` null; `place` and
+  `panel` as the design room's (only the panel moves). Its station's icon is its own miniature, `studio.stage`
+  (skipped by `tools/design/build.mjs`: not a prop).
+- For tests and the console: `HOST.cur.peek('STUDIO.state()')` (where things stand: the source, scenes, the scene, its
+  items, editing, the selection, unsaved changes, Saved).
+- **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
+  emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
+  397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
+  lit scan looks, *Studio here* and standing in the studio's circle, the visitor kiosk in a headset, *Convert on a
+  laptop* and the folded *Originals* on the headset panel, the Relay password row reached from a studio 401, and how
+  the `studio.stage` icon reads across a room. The pretend headset in `tools/collab.mjs` works the triggers out in the
+  page with the renderer told it presents for that moment, so the real per-frame headset path is untested on a device.
+  Unheard: the converted mono sounds and `first_room.mp3`. Untested anywhere but headless Chromium: a real folder
+  dragged from a desktop file manager (only a synthetic drop and *Choose files*), Safari, iPhone and Firefox
+  (`OfflineAudioContext` rates, `webkitdirectory`), uploads from GitHub Pages to a relay elsewhere, a streamed sound on
+  a renewed context or reaching its end without a loop, and a plain `.gltf` with an external `.bin` (no test file).
+
 ## Conventions
 
 - Match the surrounding style: 2-space indent, single quotes, semicolons,
@@ -2856,7 +3111,7 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   network standing in the room, things that move, grow or flow). The owner's
   rule, from the feedback on the PET story (October 2026).
 - External scripts: none beyond the vendored three.js and PeerJS (the latter
-  loaded only for a peer-to-peer room). Fonts come from Google Fonts (cached by
+  loaded only for a peer-to-peer room; three.js r128's own add-ons for the studio are pasted into its built file). Fonts come from Google Fonts (cached by
   the service worker).
 
 ## Things that are easy to forget
@@ -2903,7 +3158,14 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
   And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
-  `tris` exact: the harnesses mark a wrong count in red).
+  `tris` exact: the harnesses mark a wrong count in red). And `tools/studio/` and `stories/studio.js` (also after
+  changing `tools/lbi/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
+  scene's maker, `node tools/studio/test/make.mjs` (it runs `scan.mjs` too; `node tools/studio/scan.mjs
+  tools/studio/test/scenes --check` says whether its listings are current). A new page in `STORY_EXTRA` needs its icon
+  in `tools/lowpoly/` and its key in `ICONS` in `tools/design/build.mjs` (an icon, not a prop), as the studio has.
+- The owner's own scenes (models, textures, sounds, layouts: the atelier scan, the rigged figure, `first_room.mp3`)
+  never go into the repository: they live in the relay's `--scenes` folder outside it, or for local checks in
+  `tools/studio/test/local/` (git-ignored). The only scene committed is the generated test scene.
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
   `collab.state()` change shape (a room refuses another format). A story's
@@ -2915,7 +3177,7 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
-with its card as `props.json` has it, a pretend headset's grip, its shared state, Tidy), scrubs through it, plays it as a slideshow
+with its card as `props.json` has it, a pretend headset's grip, its shared state, Tidy; and the studio, below), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
@@ -2967,7 +3229,7 @@ explore mode (controls only: the foot bar alone, the text panel neither drawn
 nor pointable; hidden: neither, A or X still playing), cards hidden still
 hiding both and labels hidden neither, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
-opens, the panels and cards lines in all sixteen and the design room; the menu's Design room
+opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`; the menu's Design room
 button outside a room opening the design room, the menu closing and the button
 greyed there), the stories' sound effects (per story: its cue table, names the
 shell knows, places that resolve, times within the story; a paused scrub across
@@ -2978,7 +3240,8 @@ focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, a
 `HOST.focus()` true, the panel hidden, the slim bars, the subtitle strip's text the shell's caption for the line on show
 and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening
 the panel and closing it with a resize each time, explore's drawer closed by default, then open and closed; `#focus=off`
-giving today's layout; a desktop page unchanged; and the framing lines in all sixteen stories and the design room),
+giving today's layout; a desktop page unchanged; and the framing lines in all sixteen stories and every page in
+`STORY_EXTRA`),
 phones and tablets (v109: the top bar fitting at 320, 360, 390 and 430 px with a pretend AR and VR and Install, and on an
 iPad either way round, on the Stories screen, in a story with focus mode on and off and in explore mode, AR always in it;
 More's items, and More opening on the Stories screen without closing it; AR in focus mode's top bar only where a
@@ -3001,6 +3264,25 @@ WebGL runs in software (SwiftShader) headlessly, so frame rates are low;
 real-headset behaviour (controllers, session hand-over between stories,
 placement and comfort) can only be confirmed on a device - say so when you
 report results.
+
+The smoke test's studio block runs on a page of its own at
+`#studio&scenes=tools/studio/test/scenes&scene=test&edit` (the committed test scene, no relay): not on the Stories
+screen, in `STORY_EXTRA`; every file loaded with its sizes and the two guesses in the card's words (and one the studio
+refuses, and one sized to 1 m), the clips, the missing texture, the opacity-0 material drawn solid and a mesh without
+normals; the layout read; a pretend head moved into the cube showing the figure and the sound and hiding the box,
+fading over 0.4 s (stepped frame by frame), the figure's take from when it was shown, out again the reverse, a
+`stay` cube holding, the hidden box faint while editing; editing on the page (a click selecting, the arrows moving it,
+a cube grown, a link ticked, Add and Delete, Undo); the shared state and back (`apply(state())` the same), a state from
+the room taken, bad values ignored; a pretend headset's grip carrying an object, both grips sizing it, a corner
+stretching a cube, the VR stick walk (none in passthrough) and Recenter; the relay's watch (a scene added, a layout
+removed) and its password (one refusal told once, nothing more asked until another; a stubbed `fetch`); the emitter's
+HRTF panner at its place once shown, silent while muted; a sound longer than 20 s streamed through an element (no
+decoded buffer), a short one decoded, paused while muted; GLB first (the Add list's folders, an OBJ from `originals/`,
+*Convert to GLB* in the page offered as a download, its bytes a GLB whose record names the original and that loads back
+with the same triangles and clip, a placed figure switched to it keeping where it stands, its corners within 1 mm);
+the Upload pane with no relay (the test originals dropped: the plan's rows, grouping and names, converting offered as
+downloads, a mono WAV of each sound); the headset panels' panes and its Stories screen (no Upload tab and no Convert
+there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -3088,7 +3370,22 @@ room, log, watch, `/peerjs` and its ids without it or with a wrong one, `Authori
 preflight allowing `Authorization`, the app's files open, the socket's `error` and close 4401 before anything of a room,
 `/peerjs` with PeerJS's default key refused and with the password as key open, `/api/watch` with `?token=`, the
 Dockerfile's health check (`/api/health`), 20 wrong ones from an address then 429, 4429 and PeerJS's `ERROR`, none at all
-not counted, nor PeerJS's default key, nor unknown room codes asked with the password, and the password in no log line or file; no browser, seconds; `node tools/peer.mjs` links two pages of
+not counted, nor PeerJS's default key, nor unknown room codes asked with the password, and the password in no log line or file;
+the studio's scenes (`--scenes`, seven steps, about 15 s more: `/api/ping` saying so and none without it, the list and
+one scene by the listing rules, `tools/studio/scan.mjs` writing `index.json` and `files.json` as the API answers and
+nothing when run again, files with their types, `ETag` and 304, `no-cache`, byte ranges and CORS, `..`, dot files,
+backslashes, NUL and links out refused, a saved layout written whole with the old one in `.history/` (20 kept) and a
+bad, too big or unknown one refused, the watch's `hello`, a file added, changed and removed once settled, a saved
+layout and a new scene, nothing for `.history/` or temporary files, the password on every scene endpoint and file
+(Bearer or `?token=`, wrong ones counted, never in a log line) and `--public` refusing to start without one,
+`COLLAB_SCENES`, `RELAY_ARGS` and the options refused at the start) and its uploads (five steps: `GET /api/scenes`
+saying `upload`, `ffmpeg` and `maxUpload`, a scene made by `POST /api/scenes` (the name rule, 409, `--scenes-readonly`)
+and told at once, a file written whole where it goes with its folders, 409 unless `replace=1`, the paths and kinds
+taken and refused, the size counted as it streams and nothing left behind; the sound endpoint with a stand-in `ffmpeg`
+(one generated script under the names ok, fail, empty, hang and broken: its failures, its time limit, two at once, none
+at all) and, when the machine has one, a real `ffmpeg` making a generated stereo 48 kHz WAV a mono 96 kbit/s 44.1 kHz
+MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the relay's own app or `--app` with its
+`wss://` address, no password asked and the query never passed on); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -3332,6 +3629,24 @@ menu's *Relay password* row and its keypad page (26 letters and 10 digits, Use g
 Delete), then joining; the password in no page's `window.__collabLog`, address or room key, nor in the room the relay
 keeps, its lines or its log files; *Forget the password* asking for it again (with `--shots`: `token-1-field.png`,
 `token-2-wrong.png`, `token-3-keypad.png`).
+`--studio` runs only the studio in a room (`studioRound`, also in the main run, after the room setup guide's round;
+about three minutes): relays of its own from port 8790 up, `--static .` with `--scenes` on a temporary copy of
+`tools/studio/test/scenes` and a second scene (so none is picked by itself); three pages and a pretend headset: the
+menu's *Studio here* putting the circle at its feet, its clock in explore mode, the headset standing in it and the
+pages following, none asked to update; the scene picked on one page reaching all; a move by the arrows on one page and a
+cube added on another at once, both kept; the headset inside the cube seeing the figure and its sound and not the box,
+while a page walking outside and one in Orbit view see the box; *Save* from the headset's panel writing `layout.json`
+*by* its name, `.history/` holding 1 file and then 2, every page then *Saved*; a file copied into the folder in the Add
+lists within a few seconds; the story's lock refusing a page's edits and the headset's grip; *Convert to GLB* writing
+`models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a 25 s sound
+streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
+`ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
+page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`
+unchanged); a wrong password typed in the Shared dialog never sent by the studio; the right one opening the scene without
+a reload, every file and upload carrying it; save, upload and a studio station in a room working; the password in no
+page log, address, room key, relay line, log file or saved layout. With `--shots`: `studio-*.png`. The design and All
+stories rounds expect `STORY_EXTRA`'s pages (the design room, then the studio) after the stories in the pickers.
 `--follow` runs only following a person (a room of its own with two stations, a minute or two; with `--shots` the
 people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`
 and `follow-person-3-people-following.png`). The ten-headset round (`headsetRound`, also in the main run, after the
@@ -3378,6 +3693,17 @@ few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
 endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
 
+The studio's two tools: `node tools/studio/scan.mjs <folder> [--check]` writes a plain folder's `index.json` and
+`<name>/files.json` as the relay's API answers them (only what changed; `--check` exits 1 when one is not current, the
+files' times aside: run it on `tools/studio/test/scenes` after changing the test scene). `node tools/studio/convert.mjs
+<model> [out.glb] [--max-texture 4096] [--no-weld] [--shots <dir>]` (FBX, glTF, GLB, OBJ, PLY or STL; Playwright and
+Chromium, as the smoke test) converts one model with the studio's own converter in a headless page, then checks the GLB
+against the original (triangles, size, textures, clips, bones, where the bones and a sample of skinned corners are at
+four moments of each clip, and pictures from three sides) and writes nothing when something did not come through (exit
+1); it prints the record it wrote (`asset.extras.studio`). The default output is `<name>.glb` beside the input
+(`<name>-<max>.glb` for a GLB). It is both a tool for the owner's batches and the test of the converter on real files
+(the owner's two, outside the repository).
+
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
@@ -3409,7 +3735,12 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
-`view=group:pet` a story's plate, `&tab=all`, `&now`). In the console,
+`view=group:pet` a story's plate, `&tab=all`, `&now`), `#studio` (the studio: the last scene used here, else the only
+one, else the list), `#studio&scene=atelier` (a scene), `&edit` (editing on), `&visit` (a visitor's kiosk: no editing
+and no uploads at all), `&upload` (the Upload pane, where the relay's `/upload` sends people; `&relay=wss://...` with
+it for a relay elsewhere), `&tab=scene|add|item|items|upload`, `&view=walk`, `&scenes=tools/studio/test/scenes&scene=test`
+(a static folder of scenes instead of the relay's: a relative path only), `&maxtex=2048` (the texture limit, 512 to
+8,192; 4,096 by default). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
 

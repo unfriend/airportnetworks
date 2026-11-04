@@ -28,7 +28,12 @@
 - While developing, `node relay/server.mjs --lan --watch --build` (or
   `--static . --watch`) swaps a saved story in place on every page and headset.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories never
-  create or close an `AudioContext`. Keep both engines, the hum and the
+  create or close an `AudioContext`. The one exception: the studio's Upload pane
+  decodes a short sound it is given in an `OfflineAudioContext` (no output, it
+  plays nothing) to make it a mono WAV; keep it the only one. The studio's sounds
+  placed in a scene (emitters) play through `HOST.audio.fx()` and follow only the
+  Sound button (this device's mute), not the two switches below (they are the
+  scene's own sounds, not effects). Keep both engines, the hum and the
   watchdog (see the sound notes in `AGENTS.md`): each guards against a way the
   narration went silent on the Quest. After touching sound, run
   `node tools/audio.mjs` as well as the smoke test, and report audible output
@@ -47,7 +52,7 @@
   background, and `vacuum` is the only continuous sound (the owner, 30 October
   2026: the other backgrounds and the machines' hum went; never bring them back
   unasked). Stories ask for them through the same lines in all
-  sixteen and the design room (the sound effects block after the slideshow block,
+  sixteen, the design room and the studio (the sound effects block after the slideshow block,
   `sfxCue`/`sfxHold` beside the keys, `sfxAct` for explore actions, `sfxLive` in
   the live simulations; the flock and the airports are the references): keep them
   identical, and never put a sound in `collab.state()`. After changing a sound,
@@ -111,6 +116,19 @@
   `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
   (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
   `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
+  `stories/studio.js` (the studio, v111, the second page in `STORY_EXTRA`: the owner's own models, trigger cubes and
+  sounds, see "The studio" in `AGENTS.md` and `tools/studio/SPEC.md`) likewise from `tools/studio/`
+  (`node tools/studio/build.mjs`; its engine adapted from the design room's, with every story's shared-room,
+  headset-setting, subtitle, panels, recenter, framing and sound-effect lines; three.js r128's own loaders and exporter
+  pasted in from `tools/studio/vendor/`, never edited; its icon `studio.stage` in `tools/lowpoly/`). Its scenes come
+  from the relay (`--scenes <folder>`; `relay/scenes.mjs` holds the listing rules, shared with
+  `tools/studio/scan.mjs`), which also saves layouts and takes uploads (`/upload`, `ffmpeg` for long sounds): after
+  touching those, run `node relay/test.mjs` and `node tools/collab.mjs --studio`. Its test scene is generated
+  (`node tools/studio/test/make.mjs`, then `node tools/studio/scan.mjs tools/studio/test/scenes --check`). **The
+  owner's own model, texture, sound and layout files never go into the repository** (not even as test files: they stay
+  in the relay's scenes folder outside it, or in the git-ignored `tools/studio/test/local/`). How a scene, its grips,
+  the stick walk, the AR floor and the emitters (through HRTF, streamed ones too) look, feel and sound on a headset is
+  untested until tried there: report it so.
   `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
   from the authors' files via `tools/endo/data/gen_data.py`, which are not in the
   repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.

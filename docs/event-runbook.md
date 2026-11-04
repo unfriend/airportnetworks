@@ -10,9 +10,9 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first (nothing at the wrist; a note at the start says how to open it). Click either stick to open it (hand tracking: two quick pinches of the left hand while it points at nothing); it floats in front of you, about 80 cm away, the time in its header; the same, or **Close**, closes it, and it closes by itself after 20 s unused. Point at it and hold the grip to move it: it stays there and opens there next time (per headset) | Four tabs. **Story**: the story panel and play bar of the story on show, usable there (handy with Panels hidden). **Settings**: **Exit** (leaves VR or AR), **Recenter**, **Slideshow: on/off** (every story); **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Sound effects**, **Narration**, **Effects volume**; **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle). **Circles**: **Join**, **Start a room**, **Join with a code**; in a room **Another room**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), at an All stories circle **Own stories / With the room's circles** (its switch, for everyone there) and **Back to all stories**, **Show all rings** (this headset only), **On this network**, **Room setup** (the steps for lining up, how this headset lines up, **Check here**), the people, **Leave**. **Debug**: **Calibrate**, **Re-align**, **Check here** (Touch the spot), **Forget calibration**, **Shared space: on**, **Fresh shared space**, **People: same circle / everyone** (this headset only: whom it draws), **Sound check**, the version, the connection and the frame rate |
+| Menu (headset) | closed at first (nothing at the wrist; a note at the start says how to open it). Click either stick to open it (hand tracking: two quick pinches of the left hand while it points at nothing); it floats in front of you, about 80 cm away, the time in its header; the same, or **Close**, closes it, and it closes by itself after 20 s unused. Point at it and hold the grip to move it: it stays there and opens there next time (per headset) | Four tabs. **Story**: the story panel and play bar of the story on show, usable there (handy with Panels hidden). **Settings**: **Exit** (leaves VR or AR), **Recenter**, **Slideshow: on/off** (every story); **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Sound effects**, **Narration**, **Effects volume**; **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle) and **Studio** beside it (your own scenes, section 4; in a room **Studio here**). **Circles**: **Join**, **Start a room**, **Join with a code**; in a room **Another room**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), at an All stories circle **Own stories / With the room's circles** (its switch, for everyone there) and **Back to all stories**, **Show all rings** (this headset only), **On this network**, **Room setup** (the steps for lining up, how this headset lines up, **Check here**), the people, **Leave**. **Debug**: **Calibrate**, **Re-align**, **Check here** (Touch the spot), **Forget calibration**, **Shared space: on**, **Fresh shared space**, **People: same circle / everyone** (this headset only: whom it draws), **Sound check**, the version, the connection and the frame rate |
 | Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | Its title, **Back to the story** (when you came from one) and a card per story in two rows, the first half of the stories on top (the sound, **Sound check**, **Anchor**, **Recenter** or **Place again**, **Exit** and **Repeat** are in the menu) |
-| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, *Setting up a room* (how each headset lines up, and the steps), room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (after the stories: the design room, **All stories**, **Back to the lobby**), an All stories circle's story picker and **Own stories / With the room's circles**, **Lock circles**, **Fresh shared space**, **Copy link** |
+| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, *Setting up a room* (how each headset lines up, and the steps), room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (after the stories: the design room, the studio, **All stories**, **Back to the lobby**), an All stories circle's story picker and **Own stories / With the room's circles**, **Lock circles**, **Fresh shared space**, **Copy link** |
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
@@ -240,7 +240,44 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
   silences the narration and the effects together on that headset only.
 - **TO FILL (owner):** headset settings used for a kiosk (sleep, boundary), if any.
 
-## 4. When things go wrong
+## 4. The studio: your own scenes
+
+The studio (`#studio`) shows your own models, see-through trigger cubes that show and hide them as people walk in and
+out, and sounds placed in the room, life size; the relay on the laptop serves the files and saves where everything
+stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the formats) and
+[relay/README.md](../relay/README.md) ("Your own scenes").
+
+**Before the event**
+
+- [ ] A folder of scenes on the laptop, outside the repository (say `~/scenes`): each subfolder is one scene (a name of
+  letters, digits, spaces, `_ . -`).
+- [ ] Start the relay with it: `node relay/server.mjs --lan --scenes ~/scenes` (with a password:
+  `COLLAB_TOKEN=<word>` first, as in section 1; the scenes' files then need it too). It prints how many scenes it found.
+- [ ] Upload on a laptop or desktop, not a headset: open `https://<address>:8787/upload`, pick a scene or **New scene**,
+  drop the files or whole folders, read the plan (one row per thing it will make; a missing texture is said there), keep
+  **For Quest** on, **Convert and upload**, then **Open the scene**. Models become GLB in `models/`, sounds mono in
+  `sounds/`, and what you gave is kept in `originals/`. `ffmpeg` on the laptop makes long sounds mono MP3 (without it
+  they are kept as given).
+- [ ] Place things: **Edit** on the Scene pane (laptop: click, then the arrows, W E R; **Walk** to try the cubes; a
+  headset: trigger to pick, grip to carry, both grips to size). **Save** writes the scene's `layout.json` in its folder
+  (the one before goes into its `.history/`). Mind the cards' warnings: about 300,000 triangles a model and 500,000 a
+  scene are the most a Quest takes well.
+- [ ] Try it in one headset before the day: the scene's size, its sounds (the Sound button on), and the frame rate with
+  your biggest model.
+
+**On the day**
+
+- [ ] In a shared room: stand where the scene should be and press **Studio here** in the menu (Settings tab), or **Add a
+  station**, the studio, on a page; walk into its circle; everyone at it sees one scene and its layout. Arrange all
+  leaves it where it is.
+- [ ] Then lock it so nobody moves things by accident: **Lock this story** in the menu at its circle, or **Lock story**
+  on its row in the Shared dialog (editing is refused while locked; the circle itself: **Lock circles**).
+- [ ] A visitor's headset or screen on its own: the link `https://<address>:8787/#studio&scene=<name>&visit` (no
+  editing and no uploads at all), with `&anchor=on` to keep the scene at one spot in the real room.
+- [ ] Each person's trigger cubes are their own: what one headset's place reveals, another's may not.
+- [ ] The scene's sounds follow each device's **Sound** button only (not **Sound effects** or **Narration**).
+
+## 5. When things go wrong
 
 | Symptom | Try, in this order |
 | --- | --- |
@@ -259,7 +296,7 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 | The relay restarted | Rooms come back by themselves from any device that was in them. Calibrations stay if the laptop's address did not change; a new address means a new certificate and calibrating again. |
 | No page, or no **Enter VR** / **Enter AR** | `/api/ping` from the headset; the `https://` address on the Wi-Fi; devices kept apart by the network; the firewall. |
 
-## 5. After the event
+## 6. After the event
 
 - [ ] Headsets: **Exit**. Laptop: `Ctrl+C` in the relay window (it tells every device first).
 - [ ] Collect `relay/logs/` from the repository on the laptop: one file per headset, room and day
@@ -271,7 +308,7 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
   relay/README.md's advice to push them as a branch does not apply while the repository is public. Where they are kept:
   [data-and-permissions.md](data-and-permissions.md).
 
-## 6. Still untested on headsets
+## 7. Still untested on headsets
 
 Two Quest 3s were tried in one room several times: see [quest-shared-space-findings.md](quest-shared-space-findings.md)
 and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
@@ -298,6 +335,10 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - panels per station (**Panels: controls only** or **hidden** in the menu or the Shared dialog): whether a circle
   reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;
+- the studio (section 4): a scene's size and placement in AR and VR, carrying, sizing and stretching things with the
+  grips, the VR stick walk, objects on the real floor in AR, the trigger cubes as people walk, the scene's sounds through
+  the headset (streamed long ones too), the frame rate with a big scan (the 397,066-triangle atelier), **Studio here**
+  and standing in its circle, and a visitor's headset with `&visit`;
 - the room setup guide and its startup flow (v107, v109): whether it opens at the right moments (as every headset
   enters a room, at Check when it is lined up by the spots already; after a red check; not lined up 20 s in), whether it
   feels light for a headset already lined up (Check at A, the trigger, done), how its pages read, how accurately a
