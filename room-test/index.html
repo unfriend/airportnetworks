@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room and depth test</title>
+<!-- A test page, not part of the app: what a Meta Quest 3 in Quest Browser gives a WebXR page about the real room, through
+     the same renderer the app uses (three.js r128, its own WebXR path with a plain XRWebGLLayer). It asks for depth
+     sensing, the room scan's planes and meshes, records exactly what comes back, and tries four ways of using it: the
+     depth as a false-colour picture, virtual things hidden behind a real hand (the depth written into the depth buffer
+     before the scene), the room scan drawn, and the room scan hiding virtual things behind real furniture and walls.
+     Each way's frame time is measured. The report (JSON, no names) is kept on this device and can be copied,
+     downloaded or sent to a relay that keeps logs. The test is tools/room-test.mjs (a pretend headset in headless
+     Chromium). Untested on a real Quest. -->
+<style>
+  :root { --bg: #0b1424; --panel: #13203a; --ink: #e8eef8; --muted: #9fb0c8; --cyan: #46d9ff; --ok: #5fd38d; --warn: #ffb020;
+    --bad: #ff6b6b; --line: rgba(140, 170, 210, 0.25); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; }
+  h2 { font-size: 20px; margin: 26px 0 8px; }
+  p { margin: 6px 0; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  .muted, .small { color: var(--muted); }
+  .small { font-size: 14px; }
+  button { font: inherit; font-weight: 600; color: #04121c; background: var(--cyan); border: 0; border-radius: 8px; padding: 11px 18px; cursor: pointer; }
+  button.quiet { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .rows { display: grid; gap: 6px; }
+  .row { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 12px; padding: 10px 12px; background: var(--panel); border-radius: 8px; }
+  .row b { font-weight: 600; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  textarea { width: 100%; min-height: 220px; font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  canvas#xr { position: fixed; inset: 0; width: 100%; height: 100%; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; gap: 2px; } h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Room and depth test</h1>
+  <p>This page finds out what a Meta Quest 3 tells a web page about the real room around you, and whether our app could
+    use it: can a real hand or person hide virtual things, and can the room scan (walls, tables, sofas) hide them too?</p>
+  <p class="muted">It uses the same 3D engine as the app. In the headset a panel in front of you shows what came back;
+    point at its buttons with a controller or a hand and pull the trigger (or pinch).</p>
+  <ul class="muted">
+    <li><b>Depth picture</b>: what the headset measures, as colours over the room (near warm, far cool).</li>
+    <li><b>Occlusion</b>: test things (pillars at 1, 1.5, 2 and 3 m, a ball circling you, a big panel at 2.5 m); put a hand
+      or a person in front of them: they should hide them.</li>
+    <li><b>Room</b>: the room scan drawn, each part with its name.</li>
+    <li><b>Room hides</b>: the room scan hides the test things behind real walls and furniture (the hand does not).</li>
+    <li><b>Nothing</b>: the test things alone, no depth asked for, to compare the times with.</li>
+  </ul>
+  <p class="muted">Stay a few seconds in each mode: each one's frame time, and how long the headset's graphics chip takes over a frame, are measured. If a hand hides things in the
+    wrong places (beside it, or upside down), press <b>Depth as</b> on the panel to try another way of reading the depth,
+    and note which one looked right; <b>Draw with</b> switches between the 3D engine and plain WebGL.</p>
+
+  <div class="buttons"><button id="enterAR" type="button" disabled>Enter AR</button><button id="enterVR" class="quiet" type="button" disabled>Try VR too</button></div>
+  <p class="muted" id="xrNote">Checking for WebXR...</p>
+  <p class="small">Try VR too records whether depth sensing is on in VR as well. A Quest may leave VR at once when a page
+    asks for many features: if it does, that is an answer too.</p>
+
+  <h2>The last report</h2>
+  <div class="rows" id="summary"><p class="muted">No report yet: enter AR, try each mode, then Save report (it is also kept every few seconds and when you leave).</p></div>
+  <textarea id="report" readonly></textarea>
+  <div class="buttons"><button id="copy" class="quiet" type="button" disabled>Copy</button><button id="download" class="quiet" type="button" disabled>Download</button>
+    <button id="send" class="quiet" type="button" hidden>Send to the relay</button></div>
+  <p class="small" id="sendNote"></p>
+  <p>Please send the report back: paste it into the chat, or Download it and send the file. Also take a photo in the
+    headset (Meta button, then the trigger) of <b>Occlusion</b> and of <b>Room hides</b> with a hand in front of the test things.</p>
+
+  <p class="small" style="margin-top:24px">What the report holds: your browser's version (from its user agent), what the
+    headset gave (features, depth formats and sizes, a few depth values, the room scan's part names and sizes) and the
+    frame times. No names, no pictures, no positions of the room. It is kept on this device (until the next test) and
+    leaves it only when you copy, download or send it.</p>
+  <p class="small">This page is a test, not part of the app. It has been checked in a desktop browser with a pretend
+    headset only: it is untested on a real Quest.</p>
+</main>
+<canvas id="xr" hidden></canvas>
+<script src="../three.min.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const store = { get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } } };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const r3 = v => (typeof v === 'number' && isFinite(v) ? Math.round(v * 1000) / 1000 : v);
+const msg = e => (e && (e.name ? e.name + ': ' : '') + (e.message || '')) || String(e);
+const tally = (o, k) => { k = String(k).slice(0, 160); o[k] = (o[k] || 0) + 1; };
+const KEY = 'roomTestReport';
+const MODES = [['picture', 'Depth picture'], ['occlusion', 'Occlusion'], ['room', 'Room'], ['roomhide', 'Room hides'], ['nothing', 'Nothing']];
+const MODE_HINT = { picture: 'Near is warm, far is cool; clear where the headset has no depth.',
+  occlusion: 'Put a hand or a person in front of the test things: they should hide them.',
+  room: 'The room scan, each part with its name. Walk about: do the lines sit on the real walls and furniture?',
+  roomhide: 'Walk so a real wall, table or sofa stands between you and the test things: they should hide behind it.',
+  nothing: 'The test things alone, no depth asked for: the times to compare with.' };
+const INTERPS = ['auto', 'metres', 'metres-flip', 'window'];
+const INTERP_NAME = { auto: 'auto', metres: 'metres', 'metres-flip': 'metres, flipped', window: 'window depth (as three.js r158 reads it)' };
+const browserName = (ua = navigator.userAgent) => { const m = /OculusBrowser\/([\d.]+)/.exec(ua), c = /Chrome\/(\d+)/.exec(ua); return m ? 'Quest Browser ' + m[1] : c ? 'Chromium ' + c[1] : 'This browser'; };
+
+// ------------------------------------------------------------------------------------------------ the report
+// One report per session: everything the headset gave, summarised (counts, not every frame).
+let R = null;
+function freshReport(mode) {
+  return { page: 'room-test', v: 1, at: new Date().toISOString(), mode, ua: navigator.userAgent, webgl2: null, attempts: [],
+    session: null, depth: { asked: false, enabled: false, usage: null, format: null, depthType: null, binding: '', frames: 0,
+      validFrames: 0, firstValidS: null, eyes: [], errors: {}, fields: [], probe: null, sampler: '', interp: 'auto', used: '',
+      drawWith: 'three', glErrors: {}, threeProgram: '', rawProgram: '' },
+    room: { planesOn: false, meshesOn: false, planes: { count: 0, max: 0, labels: {}, orientations: {}, points: null, firstS: null, changes: 0 },
+      meshes: { count: 0, max: 0, labels: {}, vertices: 0, triangles: 0, firstS: null, changes: 0 }, errors: {}, capture: '' },
+    modes: {}, floor: null, errors: {}, seconds: 0, ended: '' };
+}
+// quiet: kept on the device only (the autosave while the session runs), the page's copy redrawn after it
+function saveReport(why, quiet) {
+  if (!R) return;
+  R.saved = why;
+  R.seconds = r3(S ? (performance.now() - S.t0) / 1000 : R.seconds);
+  for (const [k] of MODES) { const m = S && S.time[k]; if (m && (m.n || m.bn)) R.modes[k] = modeTimes(m); }
+  if (S && S.timer) R.gpuTimerDisjoint = S.timer.disjoint;
+  store.set(KEY, JSON.stringify(R));
+  if (!quiet) showReport();
+}
+// a mode's times (see onFrame); the budget is the session's frame rate's, else the mode's own frame gap
+function modeTimes(m) {
+  const ms = m.n ? m.sum / m.n : null, fr = S && +S.session.frameRate, budget = fr > 0 ? 1000 / fr : ms, busy = m.bn ? m.bsum / m.bn : null;
+  return { frames: m.n, ms: r3(ms), fps: ms ? r3(1000 / ms) : null, cpuMs: m.n ? r3(m.cpu / m.n) : null, depthMs: m.n ? r3(m.depth / m.n) : null,
+    busyMs: r3(busy), busyMaxMs: m.bn ? r3(m.bmax) : null, busyFrames: m.bn, budgetMs: r3(budget), headroomMs: busy !== null && budget ? r3(budget - busy) : null,
+    gpuMs: m.gn ? r3(m.gsum / m.gn) : null, gpuFrames: m.gn, seconds: r3(m.sum / 1000) };
+}
+
+// ------------------------------------------------------------------------------------------------ graphics
+// The renderer as the app makes it (index.html's HOST.makeRenderer, the stories' buildScene and xrStart): antialias,
+// alpha, high performance, xr enabled, the pixel ratio at most 2, the 'local' reference space (the origin where your
+// head was as the session began), the framebuffer scale three.js's own (1).
+let G = null;
+const FLOOR = -1.6;   // until local-floor says where the floor is
+function makeGraphics() {
+  if (G) return G;
+  const canvas = $('#xr');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.xr.enabled = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(800, 400, false);
+  renderer.xr.setReferenceSpaceType('local');
+  const gl = renderer.getContext();
+  const scene = new THREE.Scene(), top = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70, 2, 0.05, 100);
+  scene.add(new THREE.HemisphereLight(0xeef4ff, 0x334455, 1.0));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(0.5, 1, 0.4); scene.add(sun);
+  G = { renderer, gl, scene, top, camera, arr: null, things: makeThings(), room: new THREE.Group(), panel: null, ctrl: [], floor: FLOOR };
+  scene.add(G.things, G.room);
+  // the full-view passes (one quad, drawn once per eye): the depth written into the depth buffer before anything else,
+  // and the depth as colours over everything; materials made once the depth's kind is known (depthMaterial)
+  const quad = new THREE.PlaneGeometry(2, 2);
+  G.occl = new THREE.Mesh(quad, new THREE.MeshBasicMaterial()); G.occl.frustumCulled = false; G.occl.renderOrder = -1000; G.occl.visible = false;
+  G.pic = new THREE.Mesh(quad, new THREE.MeshBasicMaterial()); G.pic.frustumCulled = false; G.pic.renderOrder = 900; G.pic.visible = false;
+  for (const m of [G.occl, G.pic]) m.onBeforeRender = (r, s, cam) => eyeUniforms(m, cam);
+  scene.add(G.occl, G.pic);
+  scene.onBeforeRender = (r, s, cam) => { G.arr = cam; };
+  makePanel();
+  for (let i = 0; i < 2; i++) {
+    const c = renderer.xr.getController(i);
+    const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]),
+      new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.8, depthTest: false }));
+    ray.renderOrder = 1001; c.add(ray); c.userData.ray = ray;
+    c.addEventListener('select', () => press(i));
+    top.add(c); G.ctrl.push(c);
+  }
+  return G;
+}
+function labelSprite(text, colour, w) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+  const x = c.getContext('2d');
+  x.fillStyle = 'rgba(8,16,30,0.75)'; x.fillRect(0, 0, 512, 96);
+  x.fillStyle = colour || '#fff'; x.font = '600 52px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(String(text).slice(0, 22), 256, 50);
+  const t = new THREE.CanvasTexture(c);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true }));
+  s.scale.set(w || 0.32, (w || 0.32) * 96 / 512, 1);
+  return s;
+}
+// the test things, in front of where your head was (Bring here puts them in front again)
+function makeThings() {
+  const g = new THREE.Group();
+  const P = [[1, -0.35, 0xff5a5a], [1.5, 0.5, 0xffb020], [2, -1.1, 0x5fd38d], [3, 1.3, 0x46a8ff]];
+  g.userData.pillars = P.map(([d, x, c]) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2, 24), new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }));
+    m.position.set(x, FLOOR + 1, -d); g.add(m);
+    const l = labelSprite(d + ' m', '#' + c.toString(16).padStart(6, '0'), 0.22); l.position.set(x, FLOOR + 2.12, -d); g.add(l);
+    m.userData.label = l;
+    return m;
+  });
+  const tc = document.createElement('canvas'); tc.width = tc.height = 256;
+  const x = tc.getContext('2d');
+  x.fillStyle = '#8a5cff'; x.fillRect(0, 0, 256, 256); x.strokeStyle = '#d9c8ff'; x.lineWidth = 4;
+  for (let i = 0; i <= 256; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 256); x.moveTo(0, i); x.lineTo(256, i); x.stroke(); }
+  const tex = new THREE.CanvasTexture(tc); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 2.5);
+  g.userData.big = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+  g.userData.big.position.set(0, 0, -2.5); g.add(g.userData.big);
+  const bl = labelSprite('2.5 m', '#d9c8ff', 0.22); bl.position.set(0, 0.62, -2.5); g.add(bl);
+  g.userData.ball = new THREE.Mesh(new THREE.SphereGeometry(0.1, 24, 16), new THREE.MeshStandardMaterial({ color: 0xff4fd8, roughness: 0.4 }));
+  g.add(g.userData.ball);
+  return g;
+}
+function setFloor(y) {
+  G.floor = y;
+  for (const m of G.things.userData.pillars) { m.position.y = y + 1; m.userData.label.position.y = y + 2.12; }
+}
+
+// ------------------------------------------------------------------------------------------------ the depth passes
+// One fragment shader for every way: three.js's ShaderMaterial (GLSL3, the session's texture handed to three.js as an
+// external texture) and raw WebGL (our own program, drawn after three.js, the fallback). Values are read with
+// texelFetch, so the texture's filtering does not matter. Two readings of a value:
+//  metres: value x scale is the distance in metres; mapped through normDepthBufferFromNormView from the view's
+//    normalised coordinates (origin top left), and written as that eye's depth with its projection matrix;
+//  window: the value is a depth buffer's (0..1, for the depth information's depthNear/depthFar, else the session's) and
+//    lies over the view as it is (as three.js r158's WebXRDepthSensing reads it); turned back into metres and written
+//    with the eye's projection like the other.
+const FRAG_HEAD = `
+precision highp float; precision highp int;
+#ifdef ARR
+#ifdef INTT
+uniform highp usampler2DArray uDepth;
+#else
+uniform highp sampler2DArray uDepth;
+#endif
+#else
+#ifdef INTT
+uniform highp usampler2D uDepth;
+#else
+uniform highp sampler2D uDepth;
+#endif
+#endif
+uniform float uLayer;
+varying vec2 vUv;
+out highp vec4 fragColor;
+float rawAt(vec2 d) {
+#ifdef ARR
+  ivec2 sz = textureSize(uDepth, 0).xy;
+  ivec2 p = clamp(ivec2(d * vec2(sz)), ivec2(0), sz - 1);
+  vec4 v = vec4(texelFetch(uDepth, ivec3(p, int(uLayer + 0.5)), 0));
+#else
+  ivec2 sz = textureSize(uDepth, 0);
+  ivec2 p = clamp(ivec2(d * vec2(sz)), ivec2(0), sz - 1);
+  vec4 v = vec4(texelFetch(uDepth, p, 0));
+#endif
+#ifdef LA
+  return v.r * 255.0 + v.a * 65280.0;
+#else
+  return v.r;
+#endif
+}`;
+const FRAG_DEPTH = `
+uniform float uScale, uWin, uFlip, uNear, uFar, uOpacity;
+uniform mat4 uM;
+uniform mat4 projectionMatrix;
+vec3 ramp(float m) {
+  float t = clamp(log2(max(m, 0.01) / 0.25) / 5.0, 0.0, 1.0);   // 0.25 m .. 8 m
+  vec3 c0 = vec3(1.0, 0.18, 0.1), c1 = vec3(1.0, 0.85, 0.1), c2 = vec3(0.2, 0.9, 0.35), c3 = vec3(0.1, 0.8, 1.0), c4 = vec3(0.3, 0.3, 1.0);
+  if (t < 0.25) return mix(c0, c1, t * 4.0);
+  if (t < 0.5) return mix(c1, c2, t * 4.0 - 1.0);
+  if (t < 0.75) return mix(c2, c3, t * 4.0 - 2.0);
+  return mix(c3, c4, t * 4.0 - 3.0);
+}
+void main() {
+  vec2 d;
+  if (uWin > 0.5) d = vUv;
+  else {
+    d = (uM * vec4(vUv.x, 1.0 - vUv.y, 0.0, 1.0)).xy;
+    if (uFlip > 0.5) d.y = 1.0 - d.y;
+  }
+  if (d.x < 0.0 || d.y < 0.0 || d.x > 1.0 || d.y > 1.0) discard;
+  float raw = rawAt(d), m;
+  if (uWin > 0.5) {
+    // a depth buffer's value for the depth's own near and far (the depth information's, else the session's), back to
+    // metres, so it is right even when three.js's eyes use another near and far
+    if (!(raw > 0.0 && raw < 1.0)) discard;
+    float z = raw * 2.0 - 1.0;
+    m = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+  } else {
+    m = raw * uScale;
+    if (!(m > 0.0 && m < 1000.0)) discard;
+  }
+  vec4 c = projectionMatrix * vec4(0.0, 0.0, -m, 1.0);
+  float fd = clamp(c.z / c.w * 0.5 + 0.5, 0.0, 1.0);
+#ifdef PIC
+  fragColor = vec4(ramp(m), uOpacity);
+#else
+  gl_FragDepth = fd;
+  fragColor = vec4(0.0);
+#endif
+}`;
+// the probe: the raw value of a 16 x 16 grid over the depth buffer, its float's four bytes as a pixel (exact)
+const FRAG_PROBE = `
+void main() {
+  uint b = floatBitsToUint(rawAt(vUv));
+  fragColor = vec4(float(b & 255u), float((b >> 8) & 255u), float((b >> 16) & 255u), float(b >> 24)) / 255.0;
+}`;
+const VERT = `varying vec2 vUv;
+void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const defs = k => [k.arr ? '#define ARR' : '', k.int ? '#define INTT' : '', k.la ? '#define LA' : '', k.pic ? '#define PIC' : ''].join('\n');
+const kindKey = k => (k.arr ? 'A' : 'T') + (k.int ? 'I' : 'F') + (k.la ? 'L' : '');
+
+// the kind of depth texture this session gives: an array or one texture per eye, floats, integers or luminance-alpha
+let D = null;   // per session: { kind, ph: [placeholders], mats: {}, cpuTex: [], eyes: [{ info, tex, layer, scale, matrix }] }
+function placeholder(arr) {
+  const t = arr ? new THREE.DataTexture2DArray(null, 1, 1, 1) : new THREE.Texture();
+  t.version = 0;   // (never uploaded: three.js binds the __webglTexture we give it, as it is)
+  return t;
+}
+function depthMaterial(pic) {
+  const k = Object.assign({ pic }, D.kind), key = kindKey(k) + (pic ? 'P' : 'O');
+  if (D.mats[key]) return D.mats[key];
+  const m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: defs(k) + FRAG_HEAD + FRAG_DEPTH,
+    uniforms: { uDepth: { value: null }, uLayer: { value: 0 }, uScale: { value: 1 }, uWin: { value: 0 }, uFlip: { value: 0 }, uNear: { value: 0.1 },
+      uFar: { value: 1000 }, uOpacity: { value: 0.55 }, uM: { value: new THREE.Matrix4() } },
+    depthTest: !pic, depthWrite: !pic, colorWrite: !!pic, transparent: !!pic });
+  if (!pic) m.depthFunc = THREE.AlwaysDepth;
+  return (D.mats[key] = m);
+}
+// per eye, as three.js draws the ArrayCamera one sub-camera at a time: that eye's layer, texture and mapping. An eye with
+// no depth this frame gets a texture of zeros (all discarded), never the other eye's or an older frame's texture, which
+// the session may have taken back
+function eyeUniforms(mesh, cam) {
+  const u = mesh.material.uniforms;
+  if (!u || !D || !S) return;
+  const eye = G.arr && G.arr.cameras ? Math.max(0, G.arr.cameras.indexOf(cam)) : 0, E = D.eyes[eye];
+  if (E) setUniforms(u, E);
+  if (D.cpu) u.uDepth.value = E ? D.cpuTex[eye] : cpuZero();
+  else {
+    const ph = D.ph[eye] || (D.ph[eye] = placeholder(!!(D.kind && D.kind.arr)));
+    u.uDepth.value = ph;
+    const p = G.renderer.properties.get(ph); p.__webglTexture = E ? E.tex : D.zero[kindKey(D.kind)] || null; p.__webglInit = true;
+  }
+  mesh.material.uniformsNeedUpdate = true;
+}
+function setUniforms(u, E) {
+  const win = D.used === 'window', set = (k, v) => { if (u[k]) { if (u[k].value && u[k].value.fromArray) u[k].value.fromArray(v); else u[k].value = v; } };
+  set('uLayer', E.layer); set('uScale', E.scale); set('uWin', win ? 1 : 0); set('uFlip', D.used === 'metres-flip' ? 1 : 0);
+  set('uNear', E.near); set('uFar', E.far); set('uM', E.matrix);
+}
+// a WebGL call that binds a texture of its own, with three.js's idea of what is bound put back after it
+function keepBinding(target, fn) {
+  const gl = G.gl, prev = gl.getParameter(target === gl.TEXTURE_2D_ARRAY ? gl.TEXTURE_BINDING_2D_ARRAY : gl.TEXTURE_BINDING_2D);
+  try { return fn(); } finally { gl.bindTexture(target, prev); }
+}
+// a 1 x 1 texture of zeros of this kind (an eye without depth this frame: every pixel discarded)
+function zeroTex(k) {
+  const key = kindKey(k);
+  if (D.zero[key]) return D.zero[key];
+  const gl = G.gl, target = k.arr ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D;
+  return keepBinding(target, () => {
+    const fy = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL), pm = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    const t = gl.createTexture(); gl.bindTexture(target, t);
+    const [ifmt, fmt, type, data] = k.int ? [gl.R16UI, gl.RED_INTEGER, gl.UNSIGNED_SHORT, new Uint16Array(1)] : k.la ? [gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)] : [gl.R32F, gl.RED, gl.FLOAT, new Float32Array(1)];
+    if (k.arr) gl.texImage3D(target, 0, ifmt, 1, 1, 1, 0, fmt, type, data); else gl.texImage2D(target, 0, ifmt, 1, 1, 0, fmt, type, data);
+    gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, fy); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, pm);
+    return (D.zero[key] = t);
+  });
+}
+function cpuZero() { return D.cpuZero || (D.cpuZero = new THREE.DataTexture(new Float32Array(1), 1, 1, THREE.RedFormat, THREE.FloatType)); }
+
+// raw WebGL: our own programs (the probe always; the passes when three.js's way fails or is not chosen)
+function compile(fragBody, k) {
+  const gl = G.gl, sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'compile'); return s; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, '#version 300 es\n#define varying out\nin vec2 position;\n' + VERT));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, '#version 300 es\n#define varying in\n' + defs(k) + FRAG_HEAD + fragBody));
+  gl.bindAttribLocation(p, 0, 'position');
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'link');
+  const loc = {};
+  for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) { const a = gl.getActiveUniform(p, i); loc[a.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, a.name); }
+  return { p, loc };
+}
+function rawSetup() {
+  const gl = G.gl;
+  if (!G.vao) {
+    G.vao = gl.createVertexArray(); gl.bindVertexArray(G.vao);
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+  }
+  if (!G.probeFb) {
+    G.probeTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, G.probeTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 16, 16, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    G.probeFb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, G.probeFb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, G.probeTex, 0);
+  }
+}
+function rawProgram(which, k) {
+  G.progs = G.progs || {};
+  const key = which + kindKey(k);
+  if (!(key in G.progs)) {
+    try { G.progs[key] = compile(which === 'probe' ? FRAG_PROBE : FRAG_DEPTH, Object.assign({ pic: which === 'pic' }, k)); R.depth.rawProgram = 'ok'; }
+    catch (e) { G.progs[key] = null; R.depth.rawProgram = 'failed: ' + msg(e).slice(0, 300); tally(R.depth.errors, 'raw program ' + which + ': ' + msg(e).slice(0, 120)); }
+  }
+  return G.progs[key];
+}
+// a session texture made complete for texelFetch (nearest, no mipmaps: a new texture's default filter wants mipmaps it
+// does not have, and an incomplete texture reads as 0), every frame and every eye before anything draws, since the
+// session may hand out another texture object each frame; its errors looked at once a second (getError waits)
+function ready(tex, target) {
+  if (!tex) return;
+  const gl = G.gl;
+  keepBinding(target, () => {
+    gl.bindTexture(target, tex);
+    gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  });
+  if (S.check) { const e = gl.getError(); if (e) tally(R.depth.glErrors, 'setting the depth texture to nearest: ' + e); }
+}
+function bindDepth(E, k) {
+  const gl = G.gl, target = k.arr ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D;
+  gl.activeTexture(gl.TEXTURE0);
+  if (E.cpu) gl.bindTexture(gl.TEXTURE_2D, G.renderer.properties.get(D.cpuTex[E.i]).__webglTexture || null);
+  else gl.bindTexture(target, E.tex);
+}
+function rawEnd() {
+  const gl = G.gl;
+  gl.bindVertexArray(null); gl.useProgram(null);
+  G.renderer.resetState();   // three.js forgets what it thought was bound ...
+  G.renderer.state.bindXRFramebuffer(S.layer ? S.layer.framebuffer : null);   // ... and draws into the headset's framebuffer again
+}
+// the probe: each eye's 16 x 16 grid of raw values read back, so the report says what the numbers are
+function probe() {
+  const gl = G.gl, out = { at: r3((performance.now() - S.t0) / 1000), eyes: [] };
+  rawSetup();
+  for (const E of D.eyes) {
+    if (!E || E.cpu) continue;
+    let k = D.kind, prog = rawProgram('probe', k);
+    if (!prog) break;
+    gl.getError();
+    const draw = () => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, G.probeFb); gl.viewport(0, 0, 16, 16);
+      for (const c of [gl.BLEND, gl.DEPTH_TEST, gl.SCISSOR_TEST, gl.CULL_FACE, gl.STENCIL_TEST]) gl.disable(c);
+      gl.colorMask(true, true, true, true);
+      gl.useProgram(prog.p); gl.bindVertexArray(G.vao);
+      bindDepth(E, k);
+      gl.uniform1i(prog.loc.uDepth, 0); gl.uniform1f(prog.loc.uLayer, E.layer);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      return gl.getError();
+    };
+    let err = draw();
+    // an integer texture read through a float sampler is refused (INVALID_OPERATION): try an integer sampler
+    if (err === gl.INVALID_OPERATION && !k.int && !k.la) {
+      tally(R.depth.glErrors, 'probe with a float sampler: ' + err);
+      const k2 = Object.assign({}, k, { int: true }), p2 = rawProgram('probe', k2);
+      if (p2) { k = k2; prog = p2; err = draw(); if (!err) { D.kind = k2; D.mats = {}; R.depth.sampler = 'integer (a float sampler was refused)'; for (const X of D.eyes) if (X && !X.cpu) X.scale = X.rv; } }
+    }
+    if (err) { tally(R.depth.glErrors, 'probe: ' + err); continue; }
+    const px = new Uint8Array(16 * 16 * 4);
+    gl.readPixels(0, 0, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const f = new Float32Array(px.buffer);
+    out.eyes.push(Object.assign({ eye: E.i }, stats(f, E.scale, f[8 * 16 + 8])));
+  }
+  rawEnd();
+  return out;
+}
+function stats(a, scale, centre) {
+  const v = Array.from(a).filter(x => isFinite(x)), pos = v.filter(x => x > 0).sort((x, y) => x - y);
+  return { n: v.length, zero: v.filter(x => x === 0).length, min: r3(pos[0]), median: r3(pos[pos.length >> 1]), max: r3(pos[pos.length - 1]),
+    over1: pos.filter(x => x > 1).length, centre: r3(centre), metres: pos.length ? [r3(pos[0] * scale), r3(pos[pos.length >> 1] * scale), r3(pos[pos.length - 1] * scale)] : null };
+}
+// auto: metres unless every value is between 0 and 1 and they bunch near 1, as a depth buffer's do (with no scale to
+// metres, or with a near and far of the depth's own, which only a depth buffer needs); the reason kept in the report
+function decideInterp() {
+  if (R.depth.interp !== 'auto') { R.depth.autoWhy = 'chosen by hand'; return (D.used = R.depth.interp); }
+  const P = R.depth.probe, e = P && P.eyes[0], E = D.eyes.find(Boolean);
+  const buf = !!(e && e.n && !e.over1 && e.median > 0.9 && e.max < 1), plain = !!(E && (E.scale === 1 || E.ownRange));
+  D.used = buf && plain ? 'window' : 'metres';
+  R.depth.autoWhy = !e ? 'no values read yet' : buf ? (plain ? 'values 0 to 1 bunched near 1, as a depth buffer\'s' : 'values 0 to 1 near 1, but scaled to metres') : 'values not those of a depth buffer';
+  return D.used;
+}
+// raw WebGL drawing of the passes (per eye, into the headset's framebuffer)
+function rawPass(pic) {
+  const gl = G.gl, prog = rawProgram(pic ? 'pic' : 'occl', D.kind);
+  if (!prog) return false;
+  rawSetup();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, S.layer ? S.layer.framebuffer : null);
+  gl.useProgram(prog.p); gl.bindVertexArray(G.vao);
+  for (const c of [gl.SCISSOR_TEST, gl.CULL_FACE, gl.STENCIL_TEST]) gl.disable(c);
+  if (pic) { gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.colorMask(true, true, true, true); }
+  else { gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true); gl.colorMask(false, false, false, false); }
+  const views = S.views || [];
+  views.forEach((view, i) => {
+    const E = D.eyes[i];
+    if (!E) return;
+    const vp = S.layer ? S.layer.getViewport(view) : { x: 0, y: 0, width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+    gl.viewport(vp.x, vp.y, vp.width, vp.height);
+    bindDepth(E, D.kind);
+    gl.uniform1i(prog.loc.uDepth, 0);
+    const L = prog.loc, win = D.used === 'window';
+    gl.uniform1f(L.uLayer, E.layer); gl.uniform1f(L.uScale, E.scale); gl.uniform1f(L.uWin, win ? 1 : 0); gl.uniform1f(L.uFlip, D.used === 'metres-flip' ? 1 : 0);
+    gl.uniform1f(L.uNear, E.near); gl.uniform1f(L.uFar, E.far);
+    if (L.uOpacity) gl.uniform1f(L.uOpacity, 0.55);
+    gl.uniformMatrix4fv(L.uM, false, E.matrix); gl.uniformMatrix4fv(L.projectionMatrix, false, view.projectionMatrix);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  });
+  gl.colorMask(true, true, true, true); gl.depthFunc(gl.LEQUAL);
+  rawEnd();
+  return true;
+}
+
+// ------------------------------------------------------------------------------------------------ the room scan
+const LABEL_COLOURS = { floor: '#5fd38d', wall: '#46d9ff', ceiling: '#9fb0c8', table: '#ffb020', desk: '#ffb020', couch: '#ff6b9a', sofa: '#ff6b9a',
+  bed: '#c08bff', door: '#ffd36b', window: '#8fe3ff', screen: '#ffffff', lamp: '#fff28a', plant: '#7be07b', storage: '#d29b6b', shelf: '#d29b6b',
+  'global mesh': '#7f8fa8', other: '#b8c4d6' };
+const colourOf = l => LABEL_COLOURS[String(l || '').toLowerCase()] || '#' + ((Math.abs([...String(l)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)) % 0xaaaaaa) + 0x555555).toString(16).slice(0, 6);
+const labelOf = o => { try { const l = o.semanticLabel; return l === undefined || l === null || l === '' ? '(none)' : String(l); } catch (e) { return '(error)'; } };
+const DEPTH_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, side: THREE.DoubleSide });
+// what the summary needs (cheap, every frame in every mode)
+function roomInfo(o, kind) {
+  if (kind === 'plane') return { points: o.polygon ? o.polygon.length : 0, orientation: String(o.orientation || '(none)') };
+  return { vertices: o.vertices ? o.vertices.length / 3 : 0, triangles: o.indices ? o.indices.length / 3 : 0 };
+}
+// what is drawn (only while Room or Room hides shows: a big mesh's wireframe takes a while to make)
+function roomBuild(o, kind, label) {
+  const g = new THREE.Group(); g.matrixAutoUpdate = false;
+  const col = new THREE.Color(colourOf(label)), geo = new THREE.BufferGeometry();
+  let centre = new THREE.Vector3();
+  if (kind === 'plane') {
+    const pts = Array.from(o.polygon || []).map(p => new THREE.Vector3(p.x, p.y, p.z));
+    geo.setFromPoints(pts);
+    const idx = []; for (let i = 1; i + 1 < pts.length; i++) idx.push(0, i, i + 1);   // (the polygon is convex)
+    geo.setIndex(idx);
+    pts.forEach(p => centre.add(p)); if (pts.length) centre.divideScalar(pts.length);
+    g.userData.show = [new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col })),
+      new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }))];
+  } else {
+    const v = o.vertices, ix = o.indices;
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+    if (ix) geo.setIndex(new THREE.BufferAttribute(ix instanceof Uint32Array ? new Uint32Array(ix) : new Uint32Array(Array.from(ix)), 1));
+    geo.computeBoundingBox(); geo.boundingBox.getCenter(centre);
+    g.userData.show = [new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.7 }))];
+  }
+  const s = labelSprite(label, colourOf(label), 0.3); s.position.copy(centre); s.position.y += 0.05;
+  g.userData.show.push(s);
+  const hide = new THREE.Mesh(geo, DEPTH_ONLY); hide.renderOrder = -10;
+  g.userData.hide = hide;
+  for (const m of g.userData.show) g.add(m);
+  g.add(hide);
+  return g;
+}
+function roomDispose(e) {
+  if (!e.g) return;
+  G.room.remove(e.g);
+  e.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== DEPTH_ONLY) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+  e.g = null;
+}
+// need: Room or Room hides on show. Otherwise only the summary (no poses, nothing built); at most two parts built a
+// frame, and a frame that builds is left out of the times
+function roomSync(set, map, kind, frame, ref, t, need, budget) {
+  const st = R.room[kind === 'plane' ? 'planes' : 'meshes'], seen = new Set();
+  set.forEach(o => {
+    seen.add(o);
+    let e = map.get(o);
+    if (!e || e.changed !== o.lastChangedTime) {
+      if (e) { roomDispose(e); st.changes++; }
+      let info = null;
+      try { info = roomInfo(o, kind); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); return; }
+      e = { g: null, changed: o.lastChangedTime, info, label: labelOf(o) };
+      map.set(o, e);
+    }
+    if (!need) return;
+    if (!e.g) {
+      if (budget.n <= 0) return;
+      budget.n--; S.heavy = true;
+      try { e.g = roomBuild(o, kind, e.label); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); return; }
+      G.room.add(e.g);
+    }
+    let pose = null;
+    try { pose = frame.getPose(kind === 'plane' ? o.planeSpace : o.meshSpace, ref); } catch (err) { tally(R.room.errors, kind + ' pose: ' + msg(err)); }
+    if (pose) { e.g.matrix.fromArray(pose.transform.matrix); e.g.matrixWorldNeedsUpdate = true; }
+    e.g.visible = !!pose;
+  });
+  for (const [o, e] of map) if (!seen.has(o)) { roomDispose(e); map.delete(o); }
+  // the summary
+  st.count = map.size; st.max = Math.max(st.max, map.size);
+  if (map.size && st.firstS === null) st.firstS = r3(t);
+  st.labels = {};
+  if (kind === 'plane') {
+    st.orientations = {}; let lo = Infinity, hi = 0;
+    for (const e of map.values()) { tally(st.labels, e.label); tally(st.orientations, e.info.orientation); lo = Math.min(lo, e.info.points); hi = Math.max(hi, e.info.points); }
+    st.points = map.size ? [lo, hi] : null;
+  } else {
+    st.vertices = 0; st.triangles = 0;
+    for (const e of map.values()) { tally(st.labels, e.label); st.vertices += e.info.vertices; st.triangles += e.info.triangles; }
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ the panel in the headset
+const PW = 1024, PH = 1408, PANEL_W = 0.6;
+function makePanel() {
+  const c = document.createElement('canvas'); c.width = PW; c.height = PH;
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W, PANEL_W * PH / PW), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  m.renderOrder = 1000;
+  G.top.add(m);
+  G.panel = { mesh: m, canvas: c, ctx: c.getContext('2d'), tex, buttons: [], hover: [null, null], drawn: 0 };
+}
+function buttonsNow() {
+  const b = [['mode', 'Mode: ' + MODES[S.mode][1]], ['interp', 'Depth as: ' + R.depth.interp], ['draw', 'Draw with: ' + (R.depth.drawWith === 'raw' ? 'raw WebGL' : 'three.js')],
+    ['save', 'Save report'], ['here', 'Bring here'], ['exit', 'Exit']];
+  if (S.captureOffer && !R.room.capture) b.push(['capture', 'Set up the room']);
+  return b;
+}
+function drawPanel(now) {
+  const P = G.panel, x = P.ctx;
+  if (now - P.drawn < 250 && !P.dirty) return;
+  P.drawn = now; P.dirty = false;
+  x.clearRect(0, 0, PW, PH);
+  x.fillStyle = 'rgba(11, 20, 36, 0.92)'; x.beginPath(); x.roundRect ? x.roundRect(0, 0, PW, PH, 36) : x.rect(0, 0, PW, PH); x.fill();
+  let y = 70;
+  const line = (t, size, col, bold) => {
+    x.font = `${bold ? 700 : 400} ${size}px system-ui, sans-serif`; x.fillStyle = col || '#e8eef8';
+    let s = String(t); while (s.length > 4 && x.measureText(s).width > PW - 80) s = s.slice(0, -2);
+    if (s !== String(t)) s = s.slice(0, -1) + '…';
+    x.fillText(s, 40, y); y += size * 1.35;
+  };
+  // a few words wrapped onto at most three lines
+  const para = (t, size, col) => {
+    x.font = `400 ${size}px system-ui, sans-serif`;
+    const words = String(t).split(' '), rows = [];
+    let cur = '';
+    for (const w of words) { const n = cur ? cur + ' ' + w : w; if (x.measureText(n).width > PW - 80 && cur) { rows.push(cur); cur = w; } else cur = n; }
+    if (cur) rows.push(cur);
+    rows.slice(0, 3).forEach(r => line(r, size, col));
+  };
+  x.textBaseline = 'alphabetic';
+  line('Room and depth test', 46, '#46d9ff', true);
+  line(`${browserName()} · ${R.mode === 'immersive-ar' ? 'AR' : 'VR'} · ${Math.round((now - S.t0) / 1000)} s`, 28, '#9fb0c8');
+  line('Features: ' + (R.session && R.session.enabledFeatures ? R.session.enabledFeatures.join(', ') : 'not said'), 26, '#9fb0c8');
+  y += 6;
+  const Dp = R.depth;
+  if (!Dp.enabled) line('Depth: ' + (Dp.why || 'not enabled'), 30, '#ffb020', true);
+  else {
+    line(`Depth: ${Dp.usage}, ${Dp.format}${Dp.depthType ? ', ' + Dp.depthType : ''}`, 30, '#5fd38d', true);
+    Dp.eyes.forEach((e, i) => {
+      if (!e) return;
+      line(`${i ? 'Right' : 'Left'}: ${e.textureType || 'CPU'}${e.imageIndex !== undefined ? ' #' + e.imageIndex : ''}, ${e.width} x ${e.height}, raw to m ${e.rawValueToMeters}, valid ${Math.round(100 * (e.valid / Math.max(1, e.calls)))} %`, 26);
+    });
+    const P0 = Dp.probe && Dp.probe.eyes[0];
+    if (P0) line(`Values (left): ${P0.min} to ${P0.max}, median ${P0.median}; ${P0.zero} of ${P0.n} none`, 26, '#9fb0c8');
+    line(`Read as: ${INTERP_NAME[D && D.used] || 'not yet'}${Dp.interp === 'auto' ? ' (auto)' : ''} · drawn with ${Dp.drawWith === 'raw' ? 'raw WebGL' : 'three.js'}`, 26, '#9fb0c8');
+  }
+  y += 6;
+  const md = MODES[S.mode][0], tm = S.time[md];
+  line(`Mode: ${MODES[S.mode][1]}`, 34, '#ffffff', true);
+  para(MODE_HINT[md], 25, '#c8d6ea');
+  if (tm && tm.n) {
+    const M = modeTimes(tm);
+    line(`Frame ${M.ms.toFixed(1)} ms (${M.fps.toFixed(0)} fps), our code ${M.cpuMs.toFixed(1)} ms, ${(tm.sum / 1000).toFixed(0)} s measured`, 26, '#9fb0c8');
+    line(M.busyMs === null ? 'GPU: measuring...' : `With the GPU: ${M.busyMs.toFixed(1)} ms of ${M.budgetMs.toFixed(1)}, ${M.headroomMs.toFixed(1)} ms to spare${M.gpuMs !== null ? ', GPU timer ' + M.gpuMs.toFixed(1) + ' ms' : ''}`, 26, '#9fb0c8');
+  } else line('Frame time: measuring...', 26, '#9fb0c8');
+  y += 6;
+  const lab = o => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
+  const Rm = R.room;
+  line(`Planes: ${Rm.planesOn ? Rm.planes.count + ' (' + lab(Rm.planes.labels) + ')' : 'not enabled'}`, 26);
+  line(`Meshes: ${Rm.meshesOn ? Rm.meshes.count + ' (' + lab(Rm.meshes.labels) + '), ' + Rm.meshes.triangles + ' triangles' : 'not enabled'}`, 26);
+  if (Rm.capture) line('Room setup: ' + Rm.capture, 24, '#9fb0c8');
+  const errs = Object.entries(Object.assign({}, R.errors, Dp.errors, Rm.errors, Dp.glErrors)).slice(-3);
+  for (const [k, n] of errs) line(`${n} x ${k}`, 22, '#ff6b6b');
+  // the legend (the depth picture's colours)
+  if (md === 'picture') {
+    y += 8;
+    const lx = 40, lw = PW - 80;
+    for (let i = 0; i < lw; i++) { x.fillStyle = rampCss(i / lw); x.fillRect(lx + i, y, 1, 26); }
+    x.font = '22px system-ui, sans-serif'; x.fillStyle = '#e8eef8';
+    [0.25, 0.5, 1, 2, 4, 8].forEach(m => { const t = Math.log2(m / 0.25) / 5; x.fillText(m + ' m', lx + t * lw - (t > 0.95 ? 50 : 0), y + 54); });
+    y += 70;
+  }
+  // the buttons
+  const b = buttonsNow(), bw = (PW - 80 - 2 * 16) / 3, bh = 92;
+  let by = PH - 40 - Math.ceil(b.length / 3) * (bh + 16) + 16;
+  P.buttons = b.map(([id, text], i) => {
+    const bx = 40 + (i % 3) * (bw + 16), yy = by + Math.floor(i / 3) * (bh + 16), hot = P.hover.includes(id);
+    x.fillStyle = hot ? '#46d9ff' : 'rgba(70, 217, 255, 0.16)'; x.beginPath(); x.roundRect ? x.roundRect(bx, yy, bw, bh, 18) : x.rect(bx, yy, bw, bh); x.fill();
+    x.fillStyle = hot ? '#04121c' : '#e8eef8'; x.font = '600 26px system-ui, sans-serif'; x.textAlign = 'center';
+    let s = text; while (s.length > 4 && x.measureText(s).width > bw - 20) s = s.slice(0, -1);
+    x.fillText(s, bx + bw / 2, yy + bh / 2 + 9); x.textAlign = 'left';
+    return { id, x: bx, y: yy, w: bw, h: bh };
+  });
+  P.tex.needsUpdate = true;
+}
+function rampCss(t) {
+  const c = [[255, 46, 26], [255, 217, 26], [51, 230, 89], [26, 204, 255], [77, 77, 255]], s = Math.min(3.999, t * 4), i = Math.floor(s), f = s - i;
+  return `rgb(${c[i].map((v, j) => Math.round(v + (c[i + 1][j] - v) * f)).join(',')})`;
+}
+const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _rc = new THREE.Raycaster();
+// a ray at the panel: which button, if any
+function panelHit(o, d) {
+  _rc.set(o, d);
+  const h = _rc.intersectObject(G.panel.mesh, false)[0];
+  if (!h || !h.uv) return { hit: null, dist: 0 };
+  const px = h.uv.x * PW, py = (1 - h.uv.y) * PH, b = G.panel.buttons.find(b => px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h);
+  return { hit: b ? b.id : 'panel', dist: h.distance };
+}
+function pointStep() {
+  G.ctrl.forEach((c, i) => {
+    c.updateMatrixWorld(true);
+    const ray = c.userData.ray;
+    if (!c.visible) { G.panel.hover[i] = null; return; }
+    _o.setFromMatrixPosition(c.matrixWorld); _d.set(0, 0, -1).transformDirection(c.matrixWorld);
+    const h = panelHit(_o, _d), id = h.hit && h.hit !== 'panel' ? h.hit : null;
+    if (id !== G.panel.hover[i]) { G.panel.hover[i] = id; G.panel.dirty = true; }
+    ray.scale.z = h.hit ? h.dist : 2;
+  });
+}
+function press(i) { const id = G.panel.hover[i]; if (id) act(id); }
+function act(id) {
+  G.panel.dirty = true;
+  if (id === 'mode') setMode((S.mode + 1) % MODES.length);
+  else if (id === 'interp') { R.depth.interp = INTERPS[(INTERPS.indexOf(R.depth.interp) + 1) % INTERPS.length]; if (D) decideInterp(); }
+  else if (id === 'draw') { R.depth.drawWith = R.depth.drawWith === 'raw' ? 'three' : 'raw'; R.depth.drawChosen = true; }
+  else if (id === 'save') saveReport('pressed');
+  else if (id === 'here') S.bring = true;
+  else if (id === 'exit') { try { S.session.end(); } catch (e) { tally(R.errors, 'end: ' + msg(e)); } }
+  else if (id === 'capture' && S.session.initiateRoomCapture) {
+    R.room.capture = 'asked';
+    try { Promise.resolve(S.session.initiateRoomCapture()).then(() => { R.room.capture = 'done'; }, e => { R.room.capture = 'refused: ' + msg(e); }); }
+    catch (e) { R.room.capture = 'refused: ' + msg(e); }
+  }
+}
+function setMode(k) { S.mode = k; S.modeAt = performance.now(); G.panel.dirty = true; }
+// the panel and the test things in front of your head (yaw only, the panel 0.9 m ahead and a little below the eyes)
+function bringHere(head, q) {
+  const e = new THREE.Euler().setFromQuaternion(q, 'YXZ'), yaw = e.y;
+  G.panel.mesh.position.set(head.x - Math.sin(yaw) * 0.9, head.y - 0.42, head.z - Math.cos(yaw) * 0.9);
+  G.panel.mesh.rotation.set(-0.25, yaw, 0, 'YXZ');
+  G.things.position.set(head.x, 0, head.z); G.things.rotation.set(0, yaw, 0);
+}
+
+// ------------------------------------------------------------------------------------------------ the session
+let S = null, entering = false;
+async function enter(mode) {
+  if (S || entering || !navigator.xr) return;
+  entering = true;
+  try { await enterNow(mode); } finally { entering = false; }
+}
+async function enterNow(mode) {
+  R = freshReport(mode);
+  const ar = mode === 'immersive-ar';
+  // AR asks for the room as the app's AR does (less: no anchors, no shared space) plus depth sensing; VR for less
+  const feats = ar ? ['local-floor', 'hand-tracking', 'plane-detection', 'mesh-detection', 'depth-sensing'] : ['local-floor', 'hand-tracking', 'depth-sensing'];
+  const ladder = [['unsigned-short', 'luminance-alpha', 'float32'], ['luminance-alpha', 'float32'], null];
+  let session = null;
+  for (let i = 0; i < ladder.length && !session; i++) {
+    const fm = ladder[i], init = { optionalFeatures: fm ? feats : feats.filter(f => f !== 'depth-sensing') };
+    if (fm) init.depthSensing = { usagePreference: ['gpu-optimized', 'cpu-optimized'], dataFormatPreference: fm, matchDepthView: true };
+    // every rung is tried in turn, whatever the error (an enum the browser does not know is a TypeError; anything else may
+    // still be the formats or depth itself); whether the tap still counted is kept, since a SecurityError after it has
+    // lapsed says nothing about depth
+    const ua = navigator.userActivation, A = { features: init.optionalFeatures, formats: fm, tapActive: ua ? ua.isActive : null };
+    try { session = await navigator.xr.requestSession(mode, init); A.ok = true; }
+    catch (e) { A.error = msg(e); if (e && e.name === 'SecurityError') A.note = 'refused for want of a tap: says nothing about depth'; }
+    R.attempts.push(A);
+  }
+  if (!session) { R.ended = 'no session'; saveReport('no session'); $('#xrNote').textContent = 'The headset did not start ' + (ar ? 'AR' : 'VR') + ': ' + R.attempts.map(a => a.error).join('; '); return; }
+  makeGraphics();
+  R.webgl2 = G.renderer.capabilities.isWebGL2;
+  S = { session, xrMode: mode, t0: performance.now(), mode: 0, modeAt: performance.now(), time: {}, last: 0, rooms: { planes: new Map(), meshes: new Map() },
+    layer: null, views: null, bring: true, floorSpace: null, captureOffer: false, checkAt: 0, probeAt: -1e9, ended: false,
+    fcount: 0, skip: 0, heavy: false, savedAt: performance.now(), timer: null };
+  MODES.forEach(([k]) => { S.time[k] = { n: 0, sum: 0, cpu: 0, depth: 0, bn: 0, bsum: 0, bmax: 0, gn: 0, gsum: 0 }; });
+  { const ext = G.gl.getExtension('EXT_disjoint_timer_query_webgl2'); S.timer = ext ? { ext, pending: [], active: null, disjoint: 0 } : null; R.gpuTimer = ext ? 'EXT_disjoint_timer_query_webgl2' : 'not offered'; }
+  G.renderer.setClearColor(ar ? 0x000000 : 0x0b1424, ar ? 0 : 1);
+  session.addEventListener('end', finish);
+  try {
+    await G.renderer.xr.setSession(session);
+  } catch (e) {
+    tally(R.errors, 'setSession: ' + msg(e));
+    try { await session.end(); } catch (er) { /* gone */ }
+    finish(); return;
+  }
+  S.layer = session.renderState.baseLayer;
+  const sv = k => { try { return session[k] === undefined ? null : session[k]; } catch (e) { return 'error: ' + msg(e); } };
+  R.session = { enabledFeatures: sv('enabledFeatures') ? Array.from(session.enabledFeatures) : null, environmentBlendMode: sv('environmentBlendMode'),
+    depthNear: session.renderState.depthNear, depthFar: session.renderState.depthFar, layer: S.layer ? { width: S.layer.framebufferWidth, height: S.layer.framebufferHeight,
+      own: !!S.layer.framebuffer, antialias: S.layer.antialias } : null, binding: typeof XRWebGLBinding === 'function',
+    depthNames: names(session).filter(n => /depth/i.test(n)), roomCapture: typeof session.initiateRoomCapture === 'function',
+    frameRate: sv('frameRate'), supportedFrameRates: sv('supportedFrameRates') ? Array.from(session.supportedFrameRates) : null, visibility: {} };
+  session.addEventListener('visibilitychange', () => { tally(R.session.visibility, String(session.visibilityState)); if (session.visibilityState !== 'visible') saveReport('session ' + session.visibilityState, true); });
+  const F = R.session.enabledFeatures, has = f => (F ? F.includes(f) : null);
+  R.depth.asked = R.attempts.some(a => a.ok && a.formats);
+  R.depth.usage = sv('depthUsage'); R.depth.format = sv('depthDataFormat'); R.depth.depthType = sv('depthType');
+  R.depth.enabled = has('depth-sensing') === true || (F === null && !!R.depth.usage);
+  if (!R.depth.enabled) R.depth.why = R.depth.asked ? 'asked for, not enabled' : 'not asked for (the browser refused the request with it)';
+  R.room.planesOn = has('plane-detection') === true; R.room.meshesOn = has('mesh-detection') === true;
+  if (R.depth.enabled && R.depth.usage !== 'cpu-optimized') {
+    if (typeof XRWebGLBinding !== 'function') { R.depth.binding = 'missing'; R.depth.why = 'no XRWebGLBinding'; }
+    else try { S.binding = new XRWebGLBinding(session, G.gl); R.depth.binding = 'made'; } catch (e) { R.depth.binding = 'error: ' + msg(e); R.depth.why = 'XRWebGLBinding: ' + msg(e); }
+  }
+  try { S.floorSpace = await session.requestReferenceSpace('local-floor'); } catch (e) { R.floor = 'no local-floor: ' + msg(e); }
+  setTimeout(() => { if (S && S.session === session && !S.rooms.planes.size && !S.rooms.meshes.size && R.room.planesOn + R.room.meshesOn) { S.captureOffer = typeof session.initiateRoomCapture === 'function'; if (!S.captureOffer) R.room.capture = 'nothing came within 5 s, and the session has no initiateRoomCapture'; } }, 5000);
+  document.body.classList.add('xr');
+  G.renderer.setAnimationLoop(onFrame);
+}
+const names = o => { const n = []; for (let p = o; p && p !== Object.prototype; p = Object.getPrototypeOf(p)) n.push(...Object.getOwnPropertyNames(p)); return [...new Set(n)]; };
+function finish() {
+  if (!S || S.ended) return;
+  S.ended = true;
+  R.ended = R.ended || 'session ended';
+  saveReport('session ended');
+  try { G.renderer.setAnimationLoop(null); } catch (e) { /* gone */ }
+  for (const k of ['planes', 'meshes']) { for (const e of S.rooms[k].values()) roomDispose(e); S.rooms[k].clear(); }
+  for (const m of Object.values(D ? D.mats : {})) m.dispose();
+  G.occl.visible = G.pic.visible = false;
+  D = null; S = null;
+  document.body.classList.remove('xr');
+}
+
+// ------------------------------------------------------------------------------------------------ each frame
+// nothing may throw out of here: every WebXR call is in try/catch, and the frame itself too
+// What is measured, per mode, from 0.5 s after it was chosen:
+//  ms: the time between the headset's frames. While a mode fits in the frame it stays at the display's (13.9 ms at
+//    72 Hz, 11.1 at 90): it only says something once a mode drops frames.
+//  cpuMs: our own code's time in the frame (WebGL only queues commands, so the drawing itself is not in it); depthMs the
+//    part of it spent getting the depth.
+//  busyMs: every 12th frame the page waits (gl.finish) until the GPU has done that frame's drawing: from the frame's
+//    start to then. This is the GPU's cost too; headroomMs is the frame's budget less it. Frames that wait, read pixels
+//    back (the probe) or build the room's drawing are left out of ms and cpuMs, and so is the frame after them.
+//  gpuMs: the GPU's own time for the drawing, from a timer query, where the browser offers EXT_disjoint_timer_query_webgl2.
+const BUSY_EVERY = 12;
+function onFrame(time, frame) {
+  if (!S || !frame) return;   // (three.js r128 also runs the loop on the window's frames when it is set during a session)
+  const c0 = performance.now();
+  S.heavy = false; S.depthMs = 0;
+  S.measure = c0 - S.modeAt > 500;
+  S.busyNow = S.measure && !S.skip && ++S.fcount % BUSY_EVERY === 0;
+  try { step(time, frame, c0); } catch (e) { tally(R.errors, 'frame: ' + msg(e)); }
+  if (!S) return;
+  const T = S.time[MODES[S.mode][0]], c1 = performance.now();
+  if (S.busyNow) {
+    // the GPU's work for this frame done (gl.finish waits for it): from the frame's start
+    try { G.gl.finish(); const b = performance.now() - c0; T.bn++; T.bsum += b; T.bmax = Math.max(T.bmax, b); } catch (e) { tally(R.errors, 'finish: ' + msg(e)); }
+    S.heavy = true;
+  }
+  if (S.heavy) S.skip = 2;   // this frame's own time and the next frame's gap are not the mode's
+  if (S.last && S.measure && !S.skip) { const dt = time - S.last; if (dt > 0 && dt < 250) { T.n++; T.sum += dt; T.cpu += c1 - c0; T.depth += S.depthMs; } }
+  if (S.skip) S.skip--;
+  S.last = time;
+  // kept every 5 s while the session runs (a headset taken off may never send 'end')
+  if (c0 - S.savedAt > 5000) { S.savedAt = c0; saveReport('auto', true); }
+}
+// the GPU timer (EXT_disjoint_timer_query_webgl2), when offered: one query round the frame's drawing, read a few frames later
+function gpuBegin() {
+  const X = S.timer;
+  if (!X || X.active || !S.measure || X.pending.length >= 4) return;
+  try { const q = G.gl.createQuery(); G.gl.beginQuery(X.ext.TIME_ELAPSED_EXT, q); X.active = { q, mode: MODES[S.mode][0] }; } catch (e) { tally(R.errors, 'timer query: ' + msg(e)); S.timer = null; }
+}
+function gpuEnd() {
+  const X = S.timer, gl = G.gl;
+  if (!X) return;
+  if (X.active) { try { gl.endQuery(X.ext.TIME_ELAPSED_EXT); X.pending.push(X.active); } catch (e) { tally(R.errors, 'timer query: ' + msg(e)); } X.active = null; }
+  let disjoint = false;
+  try { disjoint = gl.getParameter(X.ext.GPU_DISJOINT_EXT); } catch (e) { /* */ }
+  while (X.pending.length) {
+    const P = X.pending[0];
+    if (!gl.getQueryParameter(P.q, gl.QUERY_RESULT_AVAILABLE)) break;
+    X.pending.shift();
+    if (!disjoint) { const T = S.time[P.mode]; T.gn++; T.gsum += gl.getQueryParameter(P.q, gl.QUERY_RESULT) / 1e6; } else X.disjoint++;
+    gl.deleteQuery(P.q);
+  }
+}
+const _h = new THREE.Vector3(), _hq = new THREE.Quaternion();
+function step(time, frame, now) {
+  const ref = G.renderer.xr.getReferenceSpace(), t = (now - S.t0) / 1000;
+  // once a second WebGL's errors are looked at (getError waits for the GPU's side): earlier ones drained first
+  S.check = now - S.checkAt > 1000;
+  if (S.check) { S.checkAt = now; for (let i = 0; i < 16 && G.gl.getError(); i++) { /* earlier errors, not this frame's */ } }
+  let pose = null;
+  try { pose = frame.getViewerPose(ref); } catch (e) { tally(R.errors, 'getViewerPose: ' + msg(e)); }
+  S.views = pose ? pose.views : null;
+  if (pose) {
+    const p = pose.transform.position, o = pose.transform.orientation;
+    _h.set(p.x, p.y, p.z); _hq.set(o.x, o.y, o.z, o.w);
+    if (S.bring) { S.bring = false; bringHere(_h, _hq); }
+  }
+  // the floor, once (local-floor's origin seen from local)
+  if (S.floorSpace && R.floor === null) {
+    try { const fp = frame.getPose(S.floorSpace, ref); if (fp) { R.floor = r3(fp.transform.position.y); setFloor(fp.transform.position.y); } } catch (e) { R.floor = 'error: ' + msg(e); }
+  }
+  // the test things: the ball circles you at chest height, 1.2 m away
+  const a = t * 0.8;
+  G.things.userData.ball.position.set(Math.sin(a) * 1.2, -0.35, -Math.cos(a) * 1.2);
+  // Nothing is the baseline: no depth asked for at all (its cost is in the other modes' depthMs)
+  const md = MODES[S.mode][0];
+  if (md !== 'nothing') { const d0 = performance.now(); depthStep(frame, t); S.depthMs = performance.now() - d0; }
+  else if (D) D.eyes = [];
+  roomStep(frame, ref, t, md === 'room' || md === 'roomhide');
+  // what each mode shows
+  const haveD = !!(D && D.eyes.length && D.eyes.some(Boolean));
+  const viaThree = R.depth.drawWith !== 'raw';
+  G.things.visible = md !== 'room';
+  G.room.visible = md === 'room' || md === 'roomhide';
+  for (const e of [...S.rooms.planes.values(), ...S.rooms.meshes.values()]) {
+    if (!e.g) continue;
+    for (const m of e.g.userData.show) m.visible = md === 'room';
+    e.g.userData.hide.visible = md === 'roomhide';
+  }
+  if (haveD) { G.occl.material = depthMaterial(false); G.pic.material = depthMaterial(true); }
+  G.occl.visible = haveD && viaThree && md === 'occlusion';
+  G.pic.visible = haveD && viaThree && md === 'picture';
+  pointStep();
+  drawPanel(now);
+  // draw: the scene (three.js; raw WebGL's depth first when it draws the occlusion), raw WebGL's picture over it, then
+  // the panel and the rays over everything
+  const r = G.renderer, check = S.check;
+  gpuBegin();
+  if (haveD && !viaThree && md === 'occlusion') {
+    // cleared as three.js's own render clears (its masks on: a depth mask left off would keep the old depth)
+    r.state.buffers.depth.setMask(true); r.state.buffers.color.setMask(true); r.setClearColor(r.getClearColor(_cc), r.getClearAlpha());
+    r.autoClear = false; r.clear();
+    if (!rawPass(false)) tally(R.depth.errors, 'raw occlusion pass not drawn');
+    r.render(G.scene, G.camera);
+  } else r.render(G.scene, G.camera);
+  if (check && haveD && (md === 'occlusion' || md === 'picture')) {
+    const e = G.gl.getError();
+    if (e) tally(R.depth.glErrors, `${md} with ${viaThree ? 'three.js' : 'raw WebGL'}: ${e}`);
+    if (viaThree) threeCheck(md, e);
+  }
+  if (haveD && !viaThree && md === 'picture' && !rawPass(true)) tally(R.depth.errors, 'raw picture pass not drawn');
+  r.autoClear = false; r.render(G.top, G.camera); r.autoClear = true;
+  gpuEnd();
+  // the depth range three.js gave the session (it sets it from the camera at its first render)
+  if (!R.session.rendered) R.session.rendered = { depthNear: S.session.renderState.depthNear, depthFar: S.session.renderState.depthFar };
+}
+const _cc = new THREE.Color();
+// three.js's way: its program compiled, and drawing gave no WebGL error; else raw WebGL from now on (unless chosen by
+// hand). A program that does not run switches at once; WebGL errors only when they come at three checks in a row (one
+// stray error from elsewhere must not decide it)
+function threeCheck(md, err) {
+  const m = md === 'occlusion' ? G.occl.material : G.pic.material, p = G.renderer.properties.get(m).program, dg = p && p.diagnostics;
+  const bad = !!(dg && !dg.runnable);
+  if (bad) R.depth.threeProgram = 'failed: ' + String(dg.programLog || (dg.fragmentShader && dg.fragmentShader.log) || '').slice(0, 300);
+  else if (p) R.depth.threeProgram = R.depth.threeProgram || 'ok';
+  S.threeErr = err ? (S.threeErr || 0) + 1 : 0;
+  if ((bad || S.threeErr >= 3) && !R.depth.drawChosen) { R.depth.drawWith = 'raw'; R.depth.switched = `three.js failed in ${md} (${bad ? 'program' : 'WebGL error ' + err + ' at three checks in a row'}): raw WebGL from ${r3((performance.now() - S.t0) / 1000)} s`; }
+}
+// the depth, each frame: what each eye gets (GPU through the binding, CPU from the frame), summarised
+function depthStep(frame, t) {
+  const Dp = R.depth;
+  if (D) D.eyes = [];   // (only this frame's depth is used: the session may take a texture back after its frame)
+  if (!Dp.enabled || !S.views) return;
+  const gpu = Dp.usage !== 'cpu-optimized';
+  if (gpu && !S.binding) return;
+  Dp.frames++;
+  let any = false;
+  if (!D) D = { kind: null, cpu: !gpu, ph: [], mats: {}, cpuTex: [], eyes: [], zero: {}, used: '' };
+  const rs = S.session.renderState;
+  S.views.forEach((view, i) => {
+    const ey = Dp.eyes[i] || (Dp.eyes[i] = { calls: 0, valid: 0 });
+    ey.calls++;
+    let info = null;
+    try { info = gpu ? S.binding.getDepthInformation(view) : frame.getDepthInformation(view); } catch (e) { tally(Dp.errors, (gpu ? 'getDepthInformation (GPU): ' : 'getDepthInformation (CPU): ') + msg(e)); }
+    if (!info || (gpu && !info.texture) || (!gpu && !info.data)) return;
+    ey.valid++; any = true;
+    const g = k => { try { return info[k]; } catch (e) { return undefined; } };
+    const mat = g('normDepthBufferFromNormView'), M = mat && mat.matrix ? Array.from(mat.matrix) : [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+    const first = ey.width === undefined;
+    const now = { textureType: g('textureType'), imageIndex: g('imageIndex'), width: g('width'), height: g('height'), rawValueToMeters: g('rawValueToMeters'),
+      matrix: M.map(r3), depthNear: g('depthNear'), depthFar: g('depthFar') };
+    if (g('projectionMatrix')) now.projectionMatrix = Array.from(g('projectionMatrix')).map(r3);
+    if (g('transform')) { try { now.transform = Array.from(info.transform.matrix).map(r3); } catch (e) { /* none */ } }
+    if (!gpu) { try { now.centreM = r3(info.getDepthInMeters(0.5, 0.5)); } catch (e) { tally(Dp.errors, 'getDepthInMeters: ' + msg(e)); } }
+    if (first) { Object.assign(ey, now); if (!Dp.fields.length) Dp.fields = names(info).filter(n => n !== 'constructor').slice(0, 40); }
+    else if (['width', 'height', 'textureType', 'imageIndex', 'rawValueToMeters'].some(k => ey[k] !== now[k])) { ey.changes = (ey.changes || 0) + 1; Object.assign(ey, now); }
+    else if (!gpu) ey.centreM = now.centreM;
+    const arr = g('textureType') === 'texture-array';
+    if (!D.kind) {
+      D.kind = gpu ? { arr, int: false, la: Dp.format === 'luminance-alpha' } : { arr: false, int: false, la: false };
+      Dp.sampler = Dp.sampler || (gpu ? (D.kind.la ? 'luminance-alpha (two bytes)' : 'float') : 'CPU data uploaded as metres');
+    }
+    const rv = +g('rawValueToMeters') || 1, dn = +g('depthNear'), df = +g('depthFar'), own = dn > 0 && df > dn;
+    const E = { i, info, rv, tex: gpu ? info.texture : null, layer: arr ? (+g('imageIndex') || 0) : 0, matrix: M, cpu: !gpu,
+      // a 16-bit value read through a float sampler comes as value / 65535
+      scale: !gpu ? 1 : (Dp.format === 'unsigned-short' && !D.kind.int ? rv * 65535 : rv),
+      // a depth buffer's near and far: the depth information's own when it gives them, else the session's
+      near: own ? dn : (rs.depthNear || 0.1), far: own ? df : (rs.depthFar || 1000), ownRange: own };
+    if (!gpu) cpuUpload(E, info, rv);
+    else { if (!D.ph[i]) D.ph[i] = placeholder(arr); ready(E.tex, arr ? G.gl.TEXTURE_2D_ARRAY : G.gl.TEXTURE_2D); }
+    D.eyes[i] = E;
+  });
+  Dp.windowRange = D.eyes.some(E => E && E.ownRange) ? 'the depth information\'s depthNear/depthFar' : 'the session\'s depthNear/depthFar';
+  if (any) {
+    Dp.validFrames++;
+    if (Dp.firstValidS === null) Dp.firstValidS = r3(t);
+    // the probe: once as the first depth comes, then every 2 s (it reads pixels back: the frame is left out of the times)
+    if (gpu && performance.now() - S.probeAt > 2000) { S.probeAt = performance.now(); S.heavy = true; try { Dp.probe = probe(); } catch (e) { tally(Dp.errors, 'probe: ' + msg(e)); try { rawEnd(); } catch (er) { /* */ } } }
+    if (!gpu && performance.now() - S.probeAt > 2000) { S.probeAt = performance.now(); Dp.probe = { at: r3(t), eyes: D.eyes.filter(Boolean).map(E => Object.assign({ eye: E.i }, stats(E.metres.filter((v, j) => j % 7 === 0), 1, E.metres[(E.metres.length >> 1)]))) }; }
+    decideInterp();
+    Dp.used = D.used;
+  }
+  if (gpu && D.kind && S.views.some((v, i) => !D.eyes[i])) zeroTex(D.kind);   // (made before anything draws)
+}
+// CPU depth: the eye's values as metres in a float texture of our own
+function cpuUpload(E, info, rv) {
+  const w = info.width, h = info.height, fmt = R.depth.format, buf = info.data;
+  const src = fmt === 'float32' ? new Float32Array(buf) : new Uint16Array(buf);
+  let tex = D.cpuTex[E.i];
+  if (!tex || tex.image.width !== w || tex.image.height !== h) {
+    if (tex) tex.dispose();
+    tex = D.cpuTex[E.i] = new THREE.DataTexture(new Float32Array(w * h), w, h, THREE.RedFormat, THREE.FloatType);
+  }
+  const dst = tex.image.data;
+  for (let j = 0; j < dst.length && j < src.length; j++) dst[j] = src[j] * rv;
+  tex.needsUpdate = true;
+  E.metres = dst;
+  G.renderer.initTexture(tex);   // (uploaded now, so raw WebGL finds it current too)
+}
+function roomStep(frame, ref, t, need) {
+  const budget = { n: 2 };
+  if (R.room.planesOn) { let s = null; try { s = frame.detectedPlanes; } catch (e) { tally(R.room.errors, 'detectedPlanes: ' + msg(e)); } if (s) roomSync(s, S.rooms.planes, 'plane', frame, ref, t, need, budget); }
+  if (R.room.meshesOn) { let s = null; try { s = frame.detectedMeshes; } catch (e) { tally(R.room.errors, 'detectedMeshes: ' + msg(e)); } if (s) roomSync(s, S.rooms.meshes, 'mesh', frame, ref, t, need, budget); }
+}
+
+// ------------------------------------------------------------------------------------------------ the 2D page
+function showReport() {
+  let r = null;
+  try { r = JSON.parse(store.get(KEY) || 'null'); } catch (e) { r = null; }
+  const has = !!r;
+  $('#copy').disabled = $('#download').disabled = !has; $('#send').disabled = !has;
+  $('#report').value = has ? JSON.stringify(r, null, 2) : '';
+  if (!has) return;
+  const rows = [];
+  const row = (k, v, cls) => rows.push(`<div class="row"><b>${esc(k)}</b><span class="${cls || ''}">${esc(v)}</span></div>`);
+  row('When', `${r.at.slice(0, 16).replace('T', ' ')} UTC, ${r.mode === 'immersive-ar' ? 'AR' : 'VR'}, ${Math.round(r.seconds || 0)} s`);
+  row('Browser', browserName(r.ua));
+  const d = r.depth;
+  if (d.enabled) {
+    const e = d.eyes.find(Boolean) || {};
+    row('Depth', `${d.usage}, ${d.format}; ${e.textureType || 'CPU'} ${e.width || '?'} x ${e.height || '?'}; valid in ${Math.round(100 * d.validFrames / Math.max(1, d.frames))} % of frames (first after ${d.firstValidS} s)`, d.validFrames ? 'ok' : 'warn');
+    row('Read as', `${INTERP_NAME[d.used] || 'nothing came'}; drawn with ${d.drawWith === 'raw' ? 'raw WebGL' : 'three.js'}${d.switched ? ' (' + d.switched + ')' : ''}`);
+  } else row('Depth', d.why || 'not enabled', 'warn');
+  const rm = r.room, lab = o => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
+  row('Planes', rm.planesOn ? `${rm.planes.max} at most (${lab(rm.planes.labels)})` : 'not enabled', rm.planesOn && rm.planes.max ? 'ok' : 'warn');
+  row('Meshes', rm.meshesOn ? `${rm.meshes.max} at most (${lab(rm.meshes.labels)}), ${rm.meshes.triangles} triangles` : 'not enabled', rm.meshesOn && rm.meshes.max ? 'ok' : 'warn');
+  row('Frame time', MODES.map(([k, n]) => r.modes[k] && r.modes[k].ms ? `${n} ${r.modes[k].ms} ms` : null).filter(Boolean).join(', ') || 'not measured');
+  row('With the GPU', MODES.map(([k, n]) => r.modes[k] && r.modes[k].busyMs !== null && r.modes[k].busyMs !== undefined ? `${n} ${r.modes[k].busyMs} ms` : null).filter(Boolean).join(', ') || 'not measured');
+  const errs = Object.keys(Object.assign({}, r.errors, d.errors, d.glErrors, rm.errors));
+  if (errs.length) row('Errors', errs.slice(0, 4).join('; '), 'bad');
+  $('#summary').innerHTML = rows.join('');
+}
+$('#copy').addEventListener('click', async () => {
+  const t = $('#report').value;
+  try { await navigator.clipboard.writeText(t); $('#copy').textContent = 'Copied'; }
+  catch (e) { $('#report').select(); document.execCommand && document.execCommand('copy'); $('#copy').textContent = 'Copied (selected)'; }
+  setTimeout(() => { $('#copy').textContent = 'Copy'; }, 2000);
+});
+$('#download').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([$('#report').value], { type: 'application/json' }));
+  a.download = 'room-test-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+// a relay that serves this page and keeps logs (--lan or --logs): the report as one log entry, as the headsets' alignment
+// logs are sent (shared.js); its password, if it has one, as this device keeps it for the app (relayTokens, by origin)
+const RELAY = new URL('../', location.href).href;
+function relayToken() { try { const o = JSON.parse(store.get('relayTokens') || '{}'); const t = o && o[location.origin]; return typeof t === 'string' ? t : ''; } catch (e) { return ''; } }
+const authH = () => { const t = relayToken(); return t ? { Authorization: 'Bearer ' + t } : {}; };
+function deviceId() { let id = store.get('roomTestId'); if (!/^[\w-]{8,64}$/.test(id)) { id = 'rt-' + Math.random().toString(36).slice(2, 12); store.set('roomTestId', id); } return id; }
+fetch(RELAY + 'api/ping', { cache: 'no-store', headers: authH() }).then(r => r.json().then(j => ({ r, j }))).then(({ r, j }) => {
+  if (r.ok && j && j.proto) $('#send').hidden = false;
+}, () => { /* not served by a relay */ });
+$('#send').addEventListener('click', async () => {
+  const note = $('#sendNote');
+  let report;
+  try { report = JSON.parse($('#report').value); } catch (e) { note.textContent = 'No report to send.'; return; }
+  note.textContent = 'Sending...';
+  try {
+    const r = await fetch(RELAY + 'api/log', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authH()),
+      body: JSON.stringify({ room: 'RTS', id: deviceId(), name: 'roomtest', kind: 'roomtest', entries: [{ type: 'room-test', report }] }) });
+    note.textContent = r.ok ? 'Sent: the relay keeps it in its logs folder.' : r.status === 404 ? 'This relay keeps no logs (start it with --lan or --logs): Copy or Download instead.'
+      : r.status === 401 ? 'This relay needs its password: enter it once in the app\'s Shared dialog on this device, then try again.' : 'The relay said ' + r.status + ': Copy or Download instead.';
+  } catch (e) { note.textContent = 'The relay did not answer: Copy or Download instead.'; }
+});
+// a headset taken off, the system menu or the browser closing the tab: the report kept first
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S) saveReport('page hidden', true); });
+window.addEventListener('pagehide', () => { if (S) saveReport('page closed', true); });
+$('#enterAR').addEventListener('click', () => enter('immersive-ar'));
+$('#enterVR').addEventListener('click', () => enter('immersive-vr'));
+if (navigator.xr && navigator.xr.isSessionSupported) {
+  $('#xrNote').textContent = 'Put on the headset after pressing Enter AR.';
+  navigator.xr.isSessionSupported('immersive-ar').then(ok => { $('#enterAR').disabled = !ok; if (!ok) $('#xrNote').textContent = 'This browser has no AR: open this page on a Quest 3 in Quest Browser.'; }).catch(() => {});
+  navigator.xr.isSessionSupported('immersive-vr').then(ok => { $('#enterVR').disabled = !ok; }).catch(() => {});
+} else $('#xrNote').textContent = 'This browser has no WebXR: open this page on a Quest 3 in Quest Browser.';
+showReport();
+// for tools/room-test.mjs
+window.RT = { get S() { return S; }, get R() { return R; }, get D() { return D; }, get G() { return G; }, act, setMode, makeGraphics, panelHit, MODES,
+  press: (o, d) => { const h = panelHit(new THREE.Vector3(...o), new THREE.Vector3(...d).normalize()); if (h.hit && h.hit !== 'panel') act(h.hit); return h.hit; } };
+</script>
+</body>
+</html>

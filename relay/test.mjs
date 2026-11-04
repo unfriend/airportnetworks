@@ -418,7 +418,8 @@ try {
     ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file('stories/flock.js')) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
     const types = { '/shared.js': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript',
       '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html', '/peerjs.min.js': 'text/javascript',
-      '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html' };
+      '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html',
+      '/room-test/': 'text/html', '/room-test/index.html': 'text/html' };
     for (const [p, t] of Object.entries(types)) { r = await req('HEAD', p); ok(r.status === 200 && r.headers['content-type'].startsWith(t), `${p} is ${t}`); }
     ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
     r = await req('GET', '/version.json');
@@ -1116,7 +1117,7 @@ try {
     const pre = await get('/api/ping', { method: 'OPTIONS', headers: { Origin: 'https://x.example', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' } });
     ok(pre.status === 204 && /Authorization/.test(pre.headers['access-control-allow-headers']), 'a preflight needs no password and allows the Authorization header');
     s = [];
-    for (const f of ['/', '/index.html', '/shared.js', '/stories/list.js', '/s/1/', '/p2p/']) s.push((await get(f)).status);
+    for (const f of ['/', '/index.html', '/shared.js', '/stories/list.js', '/s/1/', '/p2p/', '/room-test/']) s.push((await get(f)).status);
     ok(s.every(x => x === 200), 'the app\'s files stay open: ' + s.join(' '));
     // the room's socket: refused before anything of the room is sent
     for (const [q, what] of [['', 'without ?token='], ['&token=' + PASS + 'x', 'with a wrong one']]) {

@@ -370,3 +370,31 @@ their site data cleared). Note the time and headset for every step.
 | Restart Quest Browser, enter AR | *Lined up from the room's spots, found again*? crosses on the spots? **Check at A** green? |
 | A recentre (long press on the Meta button) | room still on the tape? |
 | Next morning, same headsets and address | lined up? crosses on the tape? |
+
+## 8. Room and depth test (one Quest 3)
+
+Before the app hides virtual things behind real hands, people, walls and furniture, this test page finds out what a
+Quest 3 gives a web page and how much it costs. One headset, about ten minutes. The page has been checked only in a
+desktop browser with a pretend headset: this is its first real try.
+
+- [ ] Before: the room scanned (Settings, Physical space, Space setup) and Quest Browser up to date.
+- [ ] In Quest Browser open `<site>/room-test/` (the app's address with `room-test/` after it, for example
+  `https://<the app's site>/room-test/`, or the relay's `https://<address>:8787/room-test/`).
+- [ ] Press **Enter AR** and allow what it asks. A panel 0.9 m in front of you shows what came back; point at its buttons
+  (controller or hand) and pull the trigger or pinch. **Bring here** puts it and the test things in front of you again.
+- [ ] Press **Mode** to go through the five modes, and stay at least 5 seconds in each (its frame time and the GPU's time are measured):
+  **Depth picture** (colours over the room: near warm, far cool), **Occlusion** (hold a hand in front of the pillars, the
+  ball and the purple panel, and let someone walk in front: they should hide them), **Room** (the room scan's parts with
+  their names), **Room hides** (walk so a wall, table or sofa stands between you and the test things: they should hide
+  behind it), **Nothing**.
+- [ ] Take a photo in the headset (Meta button, then the trigger) of **Occlusion** and of **Room hides** with a hand in
+  front of the test things.
+- [ ] If a hand hides things in the wrong place (beside it, or upside down), press **Depth as** and try each reading;
+  note which one looked right. **Draw with** switches between the 3D engine and plain WebGL: note whether both work.
+- [ ] If the panel offers **Set up the room** (no room scan came within 5 s), press it and follow the headset.
+- [ ] Press **Save report**, then **Exit**. (The report is also kept every few seconds, so if the headset is taken off
+  or the browser closes, the page still has it when you open it again.) On the page, press **Copy** and paste the report into the chat, or
+  **Download** it and send the file; served by the laptop relay, **Send to the relay** keeps it in `relay/logs/`.
+- [ ] If there is time, **Try VR too** (it records whether depth works in VR as well; if the headset leaves VR at once,
+  say so: that is an answer too).
+
