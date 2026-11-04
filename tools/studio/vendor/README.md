@@ -13,9 +13,10 @@ Copied unchanged from three.js r128 (`three@0.128.0`, `examples/js/`, MIT, the s
 | `NURBSCurve.js`, `NURBSUtils.js` | `examples/js/curves/` | NURBS curves in FBX files (the FBX loader asks for them) |
 | `SkeletonUtils.js` | `examples/js/utils/` | cloning a rigged model (one file placed several times) |
 | `TransformControls.js` | `examples/js/controls/` | the page's move, turn and size arrows |
-| `GLTFExporter.js` | `examples/js/exporters/` | the converter (the studio's *Convert to GLB* and `convert.mjs`) and the test models |
+| `GLTFExporter.js` | `examples/js/exporters/` | the converter (the studio's *Convert to GLB* and its Upload pane, and `convert.mjs`) and the test models |
 
 and `fflate.min.js` (fflate 0.6.9 by Arjun Barrett, MIT, <https://github.com/101arrowz/fflate>; the copy three.js r128
 ships in `examples/js/libs/`), which the FBX loader needs to unpack compressed binary FBX arrays.
 
-`tools/studio/build.mjs` pastes the app's ones into `stories/studio.js` with their licence lines; never edit them here.
+`tools/studio/build.mjs` pastes the app's ones into `stories/studio.js` with their licence lines (`GLTFExporter.js` last, inside
+`exporterLoad()`, so it is defined only when the studio first converts a model); never edit them here.

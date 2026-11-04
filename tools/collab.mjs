@@ -2707,6 +2707,7 @@ async function studioRound(dir) {
     const ctx = await browser.newContext({ viewport: o.size || { width: 640, height: 400 } });
     await ctx.addInitScript(([n, k, t]) => { try { if (n) localStorage.setItem('collabName', n); if (t) localStorage.setItem('relayTokens', JSON.stringify({ [k]: t })); } catch (e) { /* storage blocked */ } }, [o.name || '', o.origin || '', o.token || '']);
     const page = await ctx.newPage();
+    if (o.reqs) page.on('response', r => { const u = new URL(r.url()); if (/^\/(api\/scenes|scenes\/)/.test(u.pathname)) o.reqs.push([r.status(), decodeURIComponent(u.pathname), u.searchParams.has('token'), !!r.request().headers().authorization]); });
     page.on('pageerror', e => errors.push('studio round: ' + (e.stack || e.message)));
     page.on('console', m => { if (m.type() === 'error' && !/404|401|Failed to load resource|WebSocket connection/.test(m.text())) errors.push('studio round: ' + m.text()); });
     await page.goto(url, { timeout: 90000 });
@@ -2718,7 +2719,9 @@ async function studioRound(dir) {
   const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
   const studioIn = (p, ms) => until(p, () => HOST.curKey === 'studio' && !!HOST.cur && !!HOST.cur.collab.scene(), null, ms || 60000);
   const shot = async (p, f) => { if (dir) await p.screenshot({ path: path.join(dir, f) }); };
-  const click = (p, sel) => p.evaluate(sel => { const b = document.querySelector(sel); if (b && !b.disabled) { b.click(); return true; } return false; }, sel);
+  // a pane's button pressed once it is drawn and enabled (the panes are drawn again a few times a second)
+  const click = async (p, sel) => (await until(p, sel => { const b = document.querySelector(sel); return !!b && !b.disabled; }, sel, 8000)) &&
+    p.evaluate(sel => { const b = document.querySelector(sel); if (b && !b.disabled) { b.click(); return true; } return false; }, sel);
   try {
     R = await relayOn(['--static', '.', '--scenes', SC], {}, 8790);
     const sb = `http://127.0.0.1:${R.port}/`;
@@ -2971,50 +2974,76 @@ async function studioRound(dir) {
     for (const p of pages.splice(0)) await p.context().close().catch(() => {});
     await relayOff(R); R = null;
 
-    // ---- a relay with a password (COLLAB_TOKEN): without it nothing is listed or saved; with it, and nowhere written
+    // ---- a relay with a password (COLLAB_TOKEN): without it nothing is listed or saved and the studio asks it once; a
+    // wrong one typed in the Shared dialog is never sent by the studio; the right one opens the scene without a reload;
+    // then a save, an upload and a studio station in a room, and the password written nowhere
     const PASS = 'studio' + Math.floor(1000 + Math.random() * 9000) + 'scenes';   // (made here: no password is kept in the repository)
     T = await relayOn(['--static', '.', '--scenes', SC2, '--logs', logs], { COLLAB_TOKEN: PASS }, 8791);
-    const tb = `http://127.0.0.1:${T.port}/`, origin = `http://127.0.0.1:${T.port}`;
-    const P1 = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Pia' });
-    await studioIn(P1);
-    const held = await sUntil(P1, `SRC.state === 'auth' && SRC.held && STU.listing !== 'ok'`, 20000);
-    await sleep(500);
-    const p1 = await sp(P1, `[SRC.scenes.length, canSave(), STU.items.size, /needs its password/.test(document.querySelector('#pane-scene').textContent)]`);
+    const tb = `http://127.0.0.1:${T.port}/`, reqs = [];   // (the studio's calls: [status, path, ?token= carried, header carried]; never their addresses)
+    const P = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Pia', size: { width: 900, height: 700 }, reqs });
+    await studioIn(P);
+    const held = await sUntil(P, `SRC.state === 'auth' && SRC.held && STU.listing !== 'ok'`, 20000);
+    await sleep(7000);   // (and nothing more asked of the relay meanwhile)
+    const n401 = () => reqs.filter(r => r[0] === 401).length;
+    const p1 = await sp(P, `[SRC.scenes.length, canSave(), STU.items.size, /needs its password/.test(document.querySelector('#pane-scene').textContent)]`);
     const before = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
-    const raw = await P1.evaluate(async () => [(await fetch('/api/scenes')).status, (await fetch('/api/scenes/test/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studio: 1, scene: 'test', objects: [] }) })).status]);
+    const raw = [(await fetch(tb + 'api/scenes')).status, (await fetch(tb + 'api/scenes/test/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studio: 1, scene: 'test', objects: [] }) })).status];
     const after = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
-    await shot(P1, 'studio-6-password-needed.png');
-    check('studio with a password: a page without it lists nothing and cannot save (the Scene pane says the relay needs its password; the API answers 401 and layout.json stays as it was)',
-      held && p1[0] === 0 && !p1[1] && p1[2] === 0 && p1[3] && raw.join() === '401,401' && before === after, JSON.stringify({ held, p1, raw, same: before === after }));
-    const P2 = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Paul', origin, token: PASS, size: { width: 900, height: 640 } });
-    await studioIn(P2);
-    const lists2 = await sUntil(P2, `SRC.state === 'ok' && SRC.kind === 'relay' && STU.scene === 'test' && STU.items.size === 4 && STUDIO.ready()`, 60000);
-    await sp(P2, `(setEdit(true), change(() => setRec('box001', { p: [-1.25, 0.25, -2] })), 0)`);
-    await sp(P2, 'saveLayout()');
-    const saved = await sUntil(P2, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    await shot(P, 'studio-6-password-needed.png');
+    check('studio with a password: a page without it lists nothing and cannot save (one refused call, then nothing more for 7 s; the Scene pane says the relay needs its password; the API answers 401 and layout.json stays as it was)',
+      held && n401() === 1 && reqs.length === 1 && p1[0] === 0 && !p1[1] && p1[2] === 0 && p1[3] && raw.join() === '401,401' && before === after, JSON.stringify({ held, reqs, p1, raw, same: before === after }));
+    // a wrong one typed in the Shared dialog: the shell says so, the studio sends nothing with it
+    await P.evaluate(() => HOST.collab.dialog(true));
+    await until(P, () => { const d = document.querySelector('#shared .sh-pass'); return !!d && !d.hidden; }, null, 5000);
+    const n0 = reqs.length;
+    await P.fill('#shPass', 'not' + PASS.slice(6, 10) + 'it');
+    await P.click('[data-sh="pass"]');
+    const wrong = await until(P, () => /not this relay's password/.test(document.querySelector('#shared').textContent), null, 8000);
+    await sleep(4500);   // (the studio looks at the shell's password every 2 s)
+    const quiet = reqs.length === n0 && await sp(P, 'SRC.held');
+    // the right one: the scene opens, no reload, every file fetched with the password
+    await P.fill('#shPass', PASS);
+    await P.click('[data-sh="pass"]');
+    const t0 = Date.now();
+    const passOk = await sUntil(P, `SRC.state === 'ok' && !SRC.held && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready()`, 30000);
+    const tOpen = (Date.now() - t0) / 1000;
+    await P.evaluate(() => HOST.collab.dialog(false));
+    const files = reqs.filter(r => r[0] >= 200 && r[0] < 300 && /^\/scenes\/test\//.test(r[1]));
+    check(`studio with a password: a wrong one typed in the Shared dialog is refused and the studio sends nothing with it; the right one opens the scene without a reload (${tOpen.toFixed(1)} s), every file fetched with it (a header or ?token=), still one refusal in all`,
+      wrong && quiet && passOk && n401() === 1 && files.length >= 3 && files.every(r => r[2] || r[3]), JSON.stringify({ wrong, quiet, passOk, n401: n401(), files: files.length, bare: files.filter(r => !r[2] && !r[3]).map(r => r[1]) }));
+    // with it: a save, an upload (tone.wav into sounds/), a studio station in a room on that relay
+    await sp(P, `(setEdit(true), change(() => setRec('box001', { p: [-1.25, 0.25, -2] })), 0)`);
+    await sp(P, 'saveLayout()');
+    const saved = await sUntil(P, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
     const Ls = JSON.parse(fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8'));
-    // in a room on that relay, at a studio station (the scene and its items in the room's keys)
-    await P2.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
-    const open2 = await until(P2, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
-    const code2 = await P2.evaluate(() => HOST.collab.code);
-    const sid2 = await P2.evaluate(() => HOST.collab.add('studio', { x: 0, z: 0, yaw: 0 }));
-    await P2.evaluate(id => HOST.collab.follow(id), sid2);
-    await studioIn(P2);
-    await sUntil(P2, `atStation() && SRC.state === 'ok' && STU.scene === 'test' && STU.items.size === 4`, 30000);
-    await sp(P2, `(setEdit(true), change(() => setRec('box001', { p: [-1.5, 0.25, -2] })), 0)`);
+    await sp(P, `(pickTab('upload'), upPick('test'), 0)`);
+    await sUntil(P, `UP.scene === 'test' && !!UP.have`, 5000);
+    await P.setInputFiles('#stuFiles', [path.join(TEST, 'test', 'tone.wav')]);
+    await sUntil(P, `!UP.planning && UP.rows.length === 1 && UP.rows[0].how === 'wav'`, 20000);
+    await click(P, '#pane-upload [data-act="up:run"]');
+    const upDone = await sUntil(P, `!UP.busy && UP.ran && UP.rows.every(r => r.state === 'done')`, 30000);
+    const posts = reqs.filter(r => /^\/api\/scenes\/test\/(file|layout)$/.test(r[1]));
+    const upOk = upDone && fs.existsSync(path.join(SC2, 'test', 'sounds', 'tone.wav')) && fs.existsSync(path.join(SC2, 'test', 'originals', 'tone.wav'));
+    await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    const open2 = await until(P, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
+    const code2 = await P.evaluate(() => HOST.collab.code);
+    const sid2 = await P.evaluate(() => HOST.collab.add('studio', { x: 0, z: 0, yaw: 0 }));
+    await P.evaluate(id => HOST.collab.follow(id), sid2);
+    await studioIn(P);
+    await sUntil(P, `atStation() && SRC.state === 'ok' && STU.scene === 'test' && STU.items.size === 4`, 30000);
+    await sp(P, `(setEdit(true), change(() => setRec('box001', { p: [-1.5, 0.25, -2] })), 0)`);
     let roomTxt = '';
     for (let k = 0; k < 30; k++) {
       roomTxt = await (await fetch(tb + 'api/rooms/' + code2, { headers: { Authorization: 'Bearer ' + PASS } })).text();
       if (roomTxt.includes('box001') && roomTxt.includes('"scene":"test"')) break;
       await sleep(300);
     }
-    const leak = [];
-    for (const [n, p] of [['without', P1], ['with', P2]]) if (await p.evaluate(t => JSON.stringify(window.__collabLog || []).includes(t) || location.href.includes(t) || JSON.stringify([...HOST.collab.internals().keys]).includes(t), PASS)) leak.push(n);
+    const leak = await P.evaluate(t => JSON.stringify(window.__collabLog || []).includes(t) || location.href.includes(t) || JSON.stringify([...HOST.collab.internals().keys]).includes(t), PASS);
     const logTxt = fs.readdirSync(logs).map(f => fs.readFileSync(path.join(logs, f), 'utf8')).join('\n'), saveTxt = fs.readFileSync(path.join(SC2, 'test', 'layout.json'), 'utf8');
-    check('studio with a password: a page that has it lists the scenes, saves layout.json and keeps a studio station in a room on that relay; the password is in no page\'s log, address or room key, nor in the room the relay keeps, its lines, its log files or the saved layout',
-      lists2 && saved && JSON.stringify(boxOf(Ls).p) === '[-1.25,0.25,-2]' && open2 && !!sid2 && roomTxt.includes('box001') && roomTxt.includes('"scene":"test"') && !leak.length && !roomTxt.includes(PASS) &&
-        !T.out.includes(PASS) && !logTxt.includes(PASS) && !saveTxt.includes(PASS),
-      JSON.stringify({ lists2, saved, box: boxOf(Ls).p, open2, sid2, room: roomTxt.length, roomHas: roomTxt.includes('box001'), leak, out: T.out.includes(PASS), logs: logTxt.includes(PASS), save: saveTxt.includes(PASS) }));
+    check('studio with a password: with it a page saves layout.json, uploads (a sound into sounds/ and originals/, every upload with it) and keeps a studio station in a room on that relay; the password is in no page log, address or room key, nor in the room the relay keeps, its lines, its log files or the saved layout',
+      saved && JSON.stringify(boxOf(Ls).p) === '[-1.25,0.25,-2]' && upOk && posts.length >= 3 && posts.every(r => r[0] < 300 && r[3]) && open2 && !!sid2 && roomTxt.includes('box001') &&
+        roomTxt.includes('"scene":"test"') && !leak && !roomTxt.includes(PASS) && !T.out.includes(PASS) && !logTxt.includes(PASS) && !saveTxt.includes(PASS),
+      JSON.stringify({ saved, box: boxOf(Ls).p, upOk, posts, rows: await sp(P, 'UP.rows.map(r => [r.state, r.msg])'), open2, sid2, roomHas: roomTxt.includes('box001'), leak, out: T.out.includes(PASS), logs: logTxt.includes(PASS), save: saveTxt.includes(PASS) }));
   } finally {
     for (const p of pages) await p.context().close().catch(() => {});
     await relayOff(R); await relayOff(T);
