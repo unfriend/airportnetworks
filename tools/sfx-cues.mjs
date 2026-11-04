@@ -3,7 +3,7 @@
 // SFXQ.spans, filled by sfxCue and sfxHold in buildStory). Checked, per story:
 //  - every name is a sound or a continuous sound the shell knows (SFX_LIB.SOUNDS, SFX_LIB.DRONES);
 //  - every place resolves to finite numbers (the story's sfxPos), and every time lies within the story (0 to T_END);
-//  - how many cues: 6 to 60 (the tour up to 80; the life-size stories and the design room, whose sounds are mostly live
+//  - how many cues: 6 to 60 (the tour up to 80; the life-size stories, the design room and the studio, whose sounds are mostly live
 //    or explore's, at least 1);
 //  - density: no 3 s with more than 4 onsets, a marked sequence (seq: true in its options) aside, and no two cues of one
 //    sound closer than its minimum gap (the engine would drop the second);
@@ -22,9 +22,9 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const LIMITS = { min: 6, max: 60, window: 3, onsets: 4, voices: 6, drones: 2 };
-const FEW = new Set(['flock', 'robots', 'design']);   // life size or not a story: their sounds are mostly live or explore's
+const FEW = new Set(['flock', 'robots', 'design', 'studio']);   // life size or not a story: their sounds are mostly live or explore's
 const MANY = { lbi: 80 };
-// the keys: every story in the list and the pages that are not stories (the design room)
+// the keys: every story in the list and the pages that are not stories (the design room, the studio)
 let keys;
 {
   const p = await browser.newPage();

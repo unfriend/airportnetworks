@@ -81,6 +81,15 @@ await page.reload();
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && navigator.serviceWorker.controller, null, { timeout: 30000 });
 await wait(1500);
 console.log('older version installed and looking after the page');
+// what this device holds of the narrations before the update, in any cache: since v109 a narration is kept only once a
+// story has played it (until v108 every one was fetched at install), so two are played here first, through the older worker
+await page.evaluate(() => Promise.all(['narration-endo.mp3', 'narration-lbi.mp3'].map(f => fetch('audio/' + f).then(r => r.arrayBuffer()).catch(() => null))));
+await wait(1500);
+const before = await page.evaluate(async () => {
+  const names = new Set();
+  for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) { const m = /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(r.url); if (m) names.add(m[1]); }
+  return [...names].sort();
+});
 await stop(srv);
 srv = await serve(newDir);
 for (const visit of ['first visit after the update', 'next visit']) {
@@ -97,7 +106,7 @@ report('narration byte ranges from the cache', ranges.first.join() === '206,100'
 // the narrations keep a cache of their own (networks-narration): the new worker took over those the older version held,
 // fetched none that this device never played (the tour's and every other story's), and keeps one a story fetches to play
 const held = () => page.evaluate(async () => (await caches.has('networks-narration')) ? (await (await caches.open('networks-narration')).keys()).map(r => r.url.replace(/.*\/audio\//, '')).sort() : null);
-const oldHeld = fs.readdirSync(path.join(oldDir, 'audio')).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
+const oldHeld = before;   // (what the older version held on this device, not every file it shipped)
 const newAll = fs.readdirSync(path.join(newDir, 'audio')).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
 const kept = await held();
 const fresh = newAll.find(f => !oldHeld.includes(f));
