@@ -251,7 +251,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.follow && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -261,7 +261,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -338,9 +338,9 @@ function carryWrite(it, now) {
   if (!now && t - (it.wrote || 0) < 100) return;
   it.wrote = t;
   const h = it.holder;
-  if (it.kind === 'o') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: h.scale.x });
+  if (it.kind === 'o') setObj(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: h.scale.x });   // (sized by both grips: its sounds keep their place on it)
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
-  else setRec(it.id, { p: h.position.toArray() });
+  else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset from where the hand puts it)
 }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
 // the grabbed object keeps its offset from the controller, so moving or turning your hand carries it (moving freely,

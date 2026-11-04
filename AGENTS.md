@@ -218,8 +218,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `test/scenes/test/`: an animated `box.glb`, an ASCII `figure.fbx` in centimetres and Z up with `figure.png`, a short
   `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
   about 250 KB, committed; and `test/scenes/textures/`, about 20 KB: pictures in every kind the studio reads, from
-  `test/pictures.mjs`, and models that name them by each rung of the ladder; `test/local/` is git-ignored, for your own
-  scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  `test/pictures.mjs`, and models that name them by each rung of the ladder; and `test/scenes/rig/`, about 35 KB: a small
+  skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; `test/local/` is
+  git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
   under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table` and the studio's
@@ -969,7 +970,9 @@ an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all'
 `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`: the first headset's All stories
 circle placed), below; networks-29 when the room's first All stories circle became the room's arc in v109: `st.all01`
 gains `arc` (`true` while it is the arc, `false` once it became a circle) and `allp` may carry `pg: 1` (the arc a page
-made, not yet moved by a headset), and a room now starts with the arc, below). The plan is `docs/shared-space-plan.md`.
+made, not yet moved by a headset), and a room now starts with the arc, below; networks-30 when a studio sound could
+follow an object or a bone in v112: a sound's record in the studio's `state()` gained `on`, `bone` and `o`). The plan is
+`docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
   like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
@@ -1454,8 +1457,8 @@ made, not yet moved by a headset), and a room now starts with the arc, below). T
   the room's one there (one studio, not a pile of them; `pageHere`, `HOST.collab.studio(b)`), refused while the circles
   are locked; never Arrange all. Its clock starts in explore mode. Its scene is life size round the circle's spot
   (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
-  scene's name and one field per item ("What each story shares" below; no `FORMAT` change: an older device shows the
-  station as *A newer story*). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
+  scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
+  device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
   VR stick walk and sound are each device's own. With exactly one scene in the relay's listing every device at a station
   with none picks it and writes its saved layout (every device writes the same records, so nothing doubles); else
   *Pick a scene*. *Lock this story* refuses its editing for everyone at the circle ("The studio" below).
@@ -2100,7 +2103,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube) or `s.<id>` (a sound): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk or sound | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube) or `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk or sound | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3057,7 +3060,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
   start: 'always' | 'shown' }`, a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
-  ids), a sound `{ id, name, file, p, vol, r, loop, start }`. Metres in the scene's frame (the floor at y = 0, the origin
+  ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
+  the object it follows, its bone's name, the offset in the target's frame; "Sounds" below). Metres in the scene's frame (the floor at y = 0, the origin
   at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
@@ -3089,6 +3093,29 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   while there is no context or the device is muted, a new element on a new context (an element feeds one context
   only). A stereo file is played from its point; the card says *mono files place best*. While editing: a small speaker
   in the sound's colour and a faint ring on the floor at `r`.
+- **Sounds that follow a model** (the owner, 4 November 2026: "also sound should follow a model, sometimes i might also
+  want to select bones like the head for voice, breast for sounds she makes while moving etc"; `tools/studio/SPEC.md`,
+  "Sounds that follow a model"): a sound's optional `on` (an object's id), `bone` (a bone of its model, or for a model
+  with no bones a part its clips move, by name as three.js gives it; none: the whole model, the object's holder) and `o`
+  (an offset in metres in the target's frame, turned but not scaled, to the mm). Every frame, once every object's
+  animation has stepped, its holder goes to the target's place plus the target's turn times `o` (`soundStep`; the
+  speaker, labels, pointer and panner follow), not while a grip or the page's arrows carry it. A bone not found here: the
+  whole model; the object not in the scene: its own `p` (kept so, dangling, from the room and from `layout.json` alike,
+  until the object is back). Names are matched as given, then leniently (lower case, letters and digits only: an FBX's
+  *mixamorig:Head* is *mixamorigHead* once a GLB). Its card: *Follows* (*Follow an object...*,
+  a pick mode as *Pick what it shows*, the trigger or a click on an object, or the card's list of objects; *Move onto
+  it*; *Stop following*) and the bone choices: a short list where the model has such a bone (*Whole model*, *Head*,
+  *Neck*, *Chest*, *Hips*, the hands and the feet, by the end of the tidied name: Mixamo, Biped, Unreal, Rigify's
+  numbered `DEF-spine`, VRM), then *More bones...* (all on a page, eight at a time in a headset). Attaching, another
+  bone, a move by hand and *Stop following* keep it where it is (a move while its bone's model is still loading here
+  writes `p` only: `measureNode`); sizing the object (its size steps, both grips, the arrows) scales the offsets of what
+  follows it in the same change, and between the grips' writes by the size shown over the record's (`followK`);
+  switching the object to its GLB turns the offsets of what follows its whole model (or names a bone it lacks) by the
+  baked turn (`o' = r o`), bones keeping theirs; deleting it leaves its sounds where they are, following nothing (one
+  Undo step brings both back). Heard only while it and its object are both shown for you (its fade times its object's;
+  `start: 'shown'` from its beginning each time both are shown). While editing a faint line in its colour runs to what
+  it follows, and its labels say so (*Voice → Dancer · Head*). Shared as its record (FORMAT networks-30, v112). Untested
+  on a headset: how a voice at a moving head sounds, the pick by trigger and the bone pages on a real panel.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -3344,7 +3371,25 @@ its card then naming the picture; *Add a texture...* on a box with no material (
 name, Colour chosen); no UVs refused in words; roughness and metalness packed into one; the crate's bump made a normal
 map; the Upload pane's plan (`only`, `ext`, `similar`, *Not this* and *Use*, a picture dropped onto a row) and its four
 GLBs with their records; no texture buttons, and nothing converted, for a visitor (`&visit`) or with editing off; the
-headset's card (no texture buttons, *Add a texture on a laptop*).
+headset's card (no texture buttons, *Add a texture on a laptop*). Its *studio follow* steps run on a third page, at
+`&scene=rig` (the third test scene: a skinned dancer whose bones are named in mixed conventions, Bob's box, the Z-up
+figure, and *Voice* following her head by an FBX's name for it): the sound at her head bone plus its offset (worked out
+on its own from the bone's matrix, within 1 mm) every frame the page draws and every 1/30 s of her clip, and at three
+moments (her head through more than 0.5 m); the short list of bones and the lenient match (*mixamorig:Head*,
+*mixamorigHead*, *MIXAMORIG_HEAD*, *Bip01 L Hand*); a part of Bob's box rising with it and the whole model; attaching,
+another bone, *Move onto it* and *Stop following* each keeping it where it is (one Undo step each), and the page's card
+(the pick list, the bone row, *More bones*) and its label (*→ Dancer · Head*), and the line to her head; a pretend
+headset's grip carrying it (not following meanwhile, then following from there with a new offset); her size steps, both
+grips and the arrows' size scaling its offset (the same point on her, within 1 mm, one Undo step each); *Convert to GLB*
+of the figure (a turn baked in, a sound on its whole model) and of the dancer (*Voice* on her head bone) switching where
+they stand, both sounds within 1 mm; her deletion (the sound stays, following nothing; Undo brings both back) and a
+copy of *Voice*; a cube hiding her silencing *Voice* (its gain to 0 though it is shown) and showing her again starting
+it from its beginning; the state with `on`, `bone` and `o` and back, bad values refused or dropped, a state without her
+(the sound at its own place), `layout.json`'s rules (a sound whose object the layout lacks keeping what it follows),
+Rigify's spine in the short list, the object it follows picked again changing nothing, a move while her model is not
+here writing its place only, both grips between their writes and a sound naming a bone the figure lacks turned with
+its GLB; the headset's card (its rows, a page of eight bones at a time, a
+bone she lacks refused, the list of objects and the trigger on her).
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -3703,7 +3748,10 @@ lists within a few seconds; the story's lock refusing a page's edits and the hea
 `models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a model
 lacking its picture (the textures scene's `rust.obj`, copied in; that scene itself left out of the copy) given *Use
 paint.png* on a page's card: `models/rust.glb` through the relay with the picture in its record, every device's object
-switched to it, textured, where it stands; a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+switched to it, textured, where it stands; the rig scene's dancer copied in and placed on a page, a sound made there to
+follow her head taken by every page and the headset (each sound where its own dancer's head bone puts it at one held
+scene clock, within 1 cm of the first page's) and the saved `layout.json` carrying `on`, `bone` and `o` (that scene
+itself left out of the copy); a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
 test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
 `ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`

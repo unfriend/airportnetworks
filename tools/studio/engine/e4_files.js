@@ -258,7 +258,9 @@ async function refreshFiles(changed) {
 // ------------------------------------------------------------- the layout --
 // layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds }, each item
 // with its id and its record. Read: every item checked (bad ones dropped and counted, the limits kept), a cube's lists
-// naming only this scene's items
+// naming only this scene's items. A sound's on, bone and o (optional fields, so still studio: 1) are kept even when the
+// layout lacks its object, as a state from the room keeps them: it stands at its p until that object is back, and a
+// save never loses what it followed
 const LIMITS = { o: 300, c: 100, s: 60 };
 function readLayout(j) {
   const out = { items: [], bad: 0, at: 0, by: '' };

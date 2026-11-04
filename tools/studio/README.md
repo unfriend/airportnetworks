@@ -55,6 +55,25 @@ for it: placing the original places the GLB. An FBX (or OBJ, PLY, STL, glTF) obj
 Add has **Convert every model**: with a relay the GLB goes into `models/` and every object placed from the original
 switches to it where it stands; without one it is downloaded.
 
+## Sounds that follow a model
+
+A sound can follow an object, or one of its bones, so a voice stays at a dancer's head and the sounds of her moving at
+her chest. With **Edit** on:
+
+1. Place the sound (Add) and move it to her mouth.
+2. On its card, **Follow an object...**, then point at her and pull the trigger (or click her, or pick her name from the
+   card's list). The sound now follows her whole model from where it is.
+3. Under **Bone**, press **Head**. It stays where it is, and now turns and moves with her head. **More bones...** lists
+   every bone (a model with no bones offers the parts its animation moves instead).
+
+**Move onto it** puts the sound right on the bone; **Stop following** leaves it where it is now. Moving the sound by hand
+keeps it following from where you put it, sizing her keeps it at the same point on her, and switching her to a GLB keeps
+it where it was. It is heard only while she is shown to you (a cube that hides her hides her voice too); with **When
+shown** it starts from its beginning each time she appears. Everyone at a station hears it from the same bone. The
+bone's name is kept as the studio reads it, and found again leniently (an FBX's *mixamorig:Head* is *mixamorigHead* in
+its GLB). The short list (*Head*, *Neck*, *Chest*, *Hips*, the hands and the feet) knows Mixamo, 3ds Max's Biped, Unreal,
+Rigify and VRM names.
+
 ## Formats guide
 
 - **Models: GLB.** One file, its textures and animations inside. FBX works, but converted it loads faster and sits right
@@ -111,6 +130,8 @@ was found as and keeps it in the GLB's record.
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).
 - `test/make.mjs` makes the test scene `test/scenes/test/` (models, a texture, a short and a 25 s sound, and an OBJ with
   its MTL under `originals/`, under 250 KB), the textures scene `test/scenes/textures/` (about 20 KB: pictures from
-  `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung) and their listings;
+  `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung), the rig scene
+  `test/scenes/rig/` (about 35 KB: a small skinned dancer whose bones are named in mixed conventions, with a voice that
+  follows her head) and their listings;
   `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).

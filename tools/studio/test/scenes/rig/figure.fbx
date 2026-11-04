@@ -1,0 +1,159 @@
+; FBX 7.4.0 project file
+; The studio's test figure: Z up, in centimetres
+FBXHeaderExtension:  {
+	FBXHeaderVersion: 1003
+	FBXVersion: 7400
+	Creator: "tools/studio/test/make.mjs"
+}
+GlobalSettings:  {
+	Version: 1000
+	Properties70:  {
+		P: "UpAxis", "int", "Integer", "",2
+		P: "UpAxisSign", "int", "Integer", "",1
+		P: "FrontAxis", "int", "Integer", "",1
+		P: "FrontAxisSign", "int", "Integer", "",-1
+		P: "CoordAxis", "int", "Integer", "",0
+		P: "CoordAxisSign", "int", "Integer", "",1
+		P: "OriginalUnitScaleFactor", "double", "Number", "",1
+		P: "UnitScaleFactor", "double", "Number", "",1
+	}
+}
+Objects:  {
+	Geometry: 1001, "Geometry::figure", "Mesh" {
+		Vertices: *24 {
+			a: -20,-15,0,20,-15,0,20,15,0,-20,15,0,-20,-15,170,20,-15,170,20,15,170,-20,15,170
+		}
+		PolygonVertexIndex: *24 {
+			a: 0,3,2,-2,4,5,6,-8,0,1,5,-5,1,2,6,-6,2,3,7,-7,3,0,4,-8
+		}
+		GeometryVersion: 124
+		LayerElementNormal: 0 {
+			Version: 101
+			Name: ""
+			MappingInformationType: "ByPolygonVertex"
+			ReferenceInformationType: "Direct"
+			Normals: *72 {
+				a: 0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,-1,0,0,-1,0,0,-1,0,0,-1,0,1,0,0,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0
+			}
+		}
+		LayerElementUV: 0 {
+			Version: 101
+			Name: "map1"
+			MappingInformationType: "ByPolygonVertex"
+			ReferenceInformationType: "IndexToDirect"
+			UV: *8 {
+				a: 0,0,1,0,1,1,0,1
+			}
+			UVIndex: *24 {
+				a: 0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3
+			}
+		}
+		LayerElementMaterial: 0 {
+			Version: 101
+			Name: ""
+			MappingInformationType: "AllSame"
+			ReferenceInformationType: "IndexToDirect"
+			Materials: *1 {
+				a: 0
+			}
+		}
+		Layer: 0 {
+			Version: 100
+			LayerElement:  {
+				Type: "LayerElementNormal"
+				TypedIndex: 0
+			}
+			LayerElement:  {
+				Type: "LayerElementMaterial"
+				TypedIndex: 0
+			}
+			LayerElement:  {
+				Type: "LayerElementUV"
+				TypedIndex: 0
+			}
+		}
+	}
+	Model: 2001, "Model::figure", "Mesh" {
+		Version: 232
+		Properties70:  {
+			P: "Lcl Translation", "Lcl Translation", "", "A",0,0,0
+			P: "Lcl Rotation", "Lcl Rotation", "", "A",0,0,0
+			P: "Lcl Scaling", "Lcl Scaling", "", "A",1,1,1
+		}
+		Shading: T
+		Culling: "CullingOff"
+	}
+	Material: 3001, "Material::figure", "" {
+		Version: 102
+		ShadingModel: "phong"
+		MultiLayer: 0
+		Properties70:  {
+			P: "DiffuseColor", "Color", "", "A",0.8,0.8,0.8
+			P: "SpecularColor", "Color", "", "A",0.2,0.2,0.2
+			P: "Shininess", "double", "Number", "",20
+			P: "Opacity", "double", "Number", "",0
+		}
+	}
+	Texture: 4001, "Texture::figure", "" {
+		Type: "TextureVideoClip"
+		Version: 202
+		TextureName: "Texture::figure"
+		FileName: "C:\Users\artist\Desktop\figure.png"
+		RelativeFilename: "C:\Users\artist\Desktop\figure.png"
+	}
+	Texture: 4002, "Texture::figure_spec", "" {
+		Type: "TextureVideoClip"
+		Version: 202
+		TextureName: "Texture::figure_spec"
+		FileName: "textures/figure_spec.png"
+		RelativeFilename: "textures/figure_spec.png"
+	}
+	Video: 5001, "Video::figure", "Clip" {
+		Type: "Clip"
+		FileName: "C:\Users\artist\Desktop\figure.png"
+		RelativeFilename: "C:\Users\artist\Desktop\figure.png"
+	}
+	Video: 5002, "Video::figure_spec", "Clip" {
+		Type: "Clip"
+		FileName: "textures/figure_spec.png"
+		RelativeFilename: "textures/figure_spec.png"
+	}
+	AnimationStack: 8001, "AnimStack::Take 001", "" {
+		Properties70:  {
+			P: "LocalStop", "KTime", "Time", "",92372316000
+			P: "ReferenceStop", "KTime", "Time", "",92372316000
+		}
+	}
+	AnimationLayer: 7001, "AnimLayer::BaseLayer", "" {
+	}
+	AnimationCurveNode: 6001, "AnimCurveNode::R", "" {
+		Properties70:  {
+			P: "d|X", "Number", "", "A",0
+			P: "d|Y", "Number", "", "A",0
+			P: "d|Z", "Number", "", "A",0
+		}
+	}
+	AnimationCurve: 6101, "AnimCurve::", "" {
+		Default: 0
+		KeyVer: 4009
+		KeyTime: *3 {
+			a: 0,46186158000,92372316000
+		}
+		KeyValueFloat: *3 {
+			a: 0,180,360
+		}
+	}
+}
+Connections:  {
+	C: "OO",2001,0
+	C: "OO",1001,2001
+	C: "OO",3001,2001
+	C: "OP",4001,3001, "DiffuseColor"
+	C: "OP",4002,3001, "SpecularColor"
+	C: "OO",5001,4001
+	C: "OO",5002,4002
+	C: "OO",7001,8001
+	C: "OO",6001,7001
+	C: "OP",6001,2001, "Lcl Rotation"
+	C: "OP",6101,6001, "d|Z"
+}

@@ -1,6 +1,7 @@
 // The items' looks (not a set of its own: the engine's items use them). A trigger cube: a see-through box in its
 // colour with brighter edges, its name over it and, when selected, a ball at each corner to stretch it by. A sound: a
-// small speaker (a ball and a cone) in its colour and a faint ring on the floor where it stops being at full volume. A
+// small speaker (a ball and a cone) in its colour, a faint ring on the floor where it stops being at full volume and, for
+// a sound that follows a model, a faint line to what it follows. A
 // model still loading (or one this device cannot find): a grey box with a line of text over it. Each item's colour
 // comes from its id, so it is the same on every device.
 const LOOKS = (function () {
@@ -59,11 +60,13 @@ const LOOKS = (function () {
         fill.material.opacity = (o.inside ? 0.3 : 0.16) + (o.hot ? 0.08 : 0);
         line.material.opacity = o.selected || o.hot ? 1 : 0.75;
         for (const c of corners) { c.visible = !!o.selected; c.scale.setScalar(o.hotCorner === c.userData.corner ? 0.065 : 0.045); }
+        name.visible = !(o.hot || o.selected);   // (the engine's label names it then: the two overlapped)
       },
       drop() { fill.material.dispose(); line.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
     };
   }
-  // a sound: the speaker and its ring (the ring on the floor under it, sized to its full-volume distance)
+  // a sound: the speaker and its ring (the ring on the floor under it, sized to its full-volume distance), and a thin line
+  // from it to the origin of what it follows (a model or one of its bones: link.userData.set(from, to)), drawn over all
   function speaker(id) {
     const col = new THREE.Color(colOf(id)), g = new THREE.Group();
     const mat = new THREE.MeshBasicMaterial({ color: col });
@@ -76,10 +79,18 @@ const LOOKS = (function () {
     ring.renderOrder = 4;
     const name = tag(30);
     g.add(name); name.position.y = 0.12;
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+    const link = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.45, depthTest: false, depthWrite: false }));
+    link.renderOrder = 7; link.frustumCulled = false; link.visible = false;
+    link.userData.set = (a, z) => { const P = lg.attributes.position; P.setXYZ(0, a.x, a.y, a.z); P.setXYZ(1, z.x, z.y, z.z); P.needsUpdate = true; };
     return {
-      group: g, ring, hit, name, col: '#' + col.getHexString(),
-      look(o) { b.scale.setScalar(o.hot || o.selected ? 0.08 : 0.06); c.material.opacity = o.on ? 0.75 : 0.35; },
-      drop() { mat.dispose(); c.material.dispose(); ring.geometry.dispose(); ring.material.dispose(); name.userData.drop(); },
+      group: g, ring, hit, name, link, col: '#' + col.getHexString(),
+      look(o) {
+        b.scale.setScalar(o.hot || o.selected ? 0.08 : 0.06); c.material.opacity = o.on ? 0.75 : 0.35; link.material.opacity = o.hot || o.selected ? 0.8 : 0.45;
+        name.visible = !(o.hot || o.selected);   // (the engine's label names it then, and what it follows: the two overlapped)
+      },
+      drop() { mat.dispose(); c.material.dispose(); ring.geometry.dispose(); ring.material.dispose(); lg.dispose(); link.material.dispose(); name.userData.drop(); },
     };
   }
   // a model that is not here yet (loading, missing or unreadable): a grey box with a line of text over it

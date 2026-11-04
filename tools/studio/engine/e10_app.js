@@ -348,7 +348,15 @@ const STUDIO = {
     upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
   }),
-  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, a: it.a, sa: it.sa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused) })),
+  items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, heard: !!it.heard, a: it.a, sa: it.sa, fa: it.fa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused), at: it.holder.position.toArray() })),
+  // a sound that follows a model: the node it follows here (its name; '' the whole model), where that puts it now, where
+  // it is, and how far apart (m); null: it follows nothing here
+  follow: id => {
+    const it = STU.items.get(id), nd = it && followNode(it);
+    if (!nd) return null;
+    const p = followAt(it, nd, new THREE.Vector3());
+    return { node: nd === followOf(it).holder ? '' : nd.name, want: p.toArray(), at: it.holder.position.toArray(), d: p.distanceTo(it.holder.position) };
+  },
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },

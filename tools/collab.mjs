@@ -69,7 +69,8 @@
 // --studio only the studio in a room (studioRound, also in the main run: relays of its own from port 8790 up, with --scenes
 // on a temporary copy of tools/studio/test/scenes; three pages and a pretend headset at a studio station: Studio here, a
 // scene picked for all, two edits at once both kept, the headset's trigger cube, Save from the headset (.history/), a file
-// added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a long sound streamed, the
+// added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a texture added from a
+// card, a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
 // relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
 // COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; with --shots studio-*.png);
 // --port N runs the relay on port N (default: any free port).
@@ -2661,8 +2662,10 @@ async function tokenRound() {
 // (the old one in .history/, a second save a second), every page then saved by its name; a file copied into the scene's
 // folder appears in the Add lists within a few seconds; the station's story locked refuses a page's edits and the
 // headset's grip; Convert to GLB on a page writes models/figure.glb and every page's and the headset's figure switches to
-// it where it stands (corners within 1 mm), the FBX under Originals; a long sound streamed (an element, no decoded
-// buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
+// it where it stands (corners within 1 mm), the FBX under Originals; a sound made on a page to follow the rig scene's
+// dancer's head (her model copied in): every page and the headset take it, each sound where its own dancer's head bone
+// puts it at one scene clock (within 1 cm), and the saved layout.json carries on, bone and o; a long sound streamed (an
+// element, no decoded buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
 // originals (sorted into models/, sounds/ and originals/; the GLBs loading with their records; a short sound as a mono
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
 // COLLAB_TOKEN: a page without the password cannot list or save, one with it lists, saves and keeps a studio station in a
@@ -2698,8 +2701,9 @@ async function studioRound(dir) {
   const tmp = n => fs.mkdtempSync(path.join(os.tmpdir(), 'collab-' + n + '-'));
   const SC = tmp('scenes'), SC2 = tmp('scenes-pass'), logs = tmp('logs-pass'), TEST = path.join(root, 'tools', 'studio', 'test', 'scenes');
   fs.cpSync(TEST, SC, { recursive: true }); fs.cpSync(TEST, SC2, { recursive: true });
-  // (the textures test scene left out: the pages here list exactly two scenes; a model of it comes into test/ below)
-  for (const d of [SC, SC2]) fs.rmSync(path.join(d, 'textures'), { recursive: true, force: true });
+  // (the textures and rig test scenes left out: the pages here list exactly two scenes; a model of each comes into test/
+  // below)
+  for (const d of [SC, SC2]) for (const n of ['textures', 'rig']) fs.rmSync(path.join(d, n), { recursive: true, force: true });
   fs.mkdirSync(path.join(SC, 'quiet'));
   fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
   if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -2932,6 +2936,34 @@ async function studioRound(dir) {
       rSeen && !!rustId && rLoaded.every(Boolean) && useBtn && tDone && !!tRec && JSON.stringify(tRec.tex) === '[{"name":"rust_old.png","mat":"","slot":"","from":"paint.png","how":"chosen"}]' && tsw.every(Boolean) && tWorst < 0.001,
       JSON.stringify({ rSeen, rustId, rLoaded, useBtn, tDone, tRec, tsw, tWorst, note: await sp(A, 'CV.note') }));
     await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
+
+    // ---- a sound that follows a model: the rig scene's dancer copied into the scene and placed on a page, a sound there
+    // made to follow her head; every page and the headset take it (each poses its own dancer: at one scene clock, their
+    // sound where their own head bone and its offset put it, within 1 cm of the first page's), and the layout saved from a
+    // page carries what it follows (on, bone, o)
+    fs.copyFileSync(path.join(TEST, 'rig', 'dancer.glb'), path.join(SC, 'test', 'dancer.glb'));
+    const dSeen = await sUntil(A, `STU.fileMap.has('dancer.glb')`, 12000);
+    const danId = dSeen ? await sp(A, `(setEdit(true), addModel('dancer.glb'))`) : '';
+    const dIn = [];
+    for (const p of [A, B, C, H]) dIn.push(!!danId && await sUntil(p, `(() => { const it = STU.items.get('${danId}'); return !!(it && it.model && it.E && it.built === it.E.gen); })()`, 30000));
+    const vId = danId && dIn[0] ? await sp(A, `(() => { const sid = addSound('tone.wav'), d = STU.items.get('${danId}'); setRec(sid, { p: [d.rec.p[0], 1.8, d.rec.p[2] + 0.15] }); itemsStep(0, performance.now());
+      itemAct('follow', '${danId}', sid); itemAct('bone', 'mixamorigHead', sid); return sid; })()`) : '';
+    const vTook = [];
+    for (const p of [B, C, H]) vTook.push(!!vId && await sUntil(p, `(() => { const it = STU.items.get('${vId}'); return !!(it && it.rec.on === '${danId}' && it.rec.bone === 'mixamorigHead'); })()`, 10000));
+    // (the scene's clock held at 0.7 s on each, once the room's glides are done there, her own first placement too, which
+    // can reach the others with the sound: where its own dancer's head puts the sound)
+    const vAt = p => sp(p, `(() => { const sc = sceneClock, it = STU.items.get('${vId}'); if (!it) return null; sceneClock = () => 0.7; try { itemsStep(0, performance.now()); const f = STUDIO.follow('${vId}'); return f ? [f.node, it.holder.position.toArray(), f.d, JSON.stringify(it.rec)] : null; } finally { sceneClock = sc; } })()`);
+    const vs = [];
+    for (const p of [A, B, C, H]) { if (vId) await sUntil(p, `[...STU.items.values()].every(it => !it.gl)`, 5000); vs.push(vId ? await vAt(p) : null); }
+    const vFar = vs.every(Boolean) ? Math.max(...vs.map(v => Math.hypot(...v[1].map((x, i) => x - vs[0][1][i])))) : Infinity;
+    await sp(A, 'saveLayout()');
+    const vSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const vL = (layoutOf() || { sounds: [] }).sounds.find(x => x.id === vId);
+    check(`studio: a sound made on a page to follow the dancer's head (her model copied into the scene) is taken by every page and the headset, each with its sound where its own dancer's head bone and its offset put it at one scene clock (within ${(vFar * 100).toFixed(2)} cm of the first page's), and the saved layout.json carries on, bone and o`,
+      dSeen && !!danId && dIn.every(Boolean) && !!vId && vTook.every(Boolean) && vs.every(v => v && v[0] === 'mixamorigHead' && v[2] < 1e-6 && v[3] === vs[0][3]) && vFar < 0.01 &&
+        vSaved && !!vL && vL.on === danId && vL.bone === 'mixamorigHead' && Array.isArray(vL.o) && vL.o.length === 3,
+      JSON.stringify({ dSeen, danId, dIn, vId, vTook, vs, vFar, vSaved, vL }));
+    if (vId) await sp(A, `(deleteItem('${vId}'), deleteItem('${danId}'), select(''), 0)`);
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));

@@ -1892,6 +1892,369 @@ await step('design: the intro ends at the table', async () => {
     await txp.close();
   });
 }
+// The studio's sounds that follow a model or a bone (tools/studio/SPEC.md, "Sounds that follow a model"), on a page of its
+// own: the third test scene, tools/studio/test/scenes/rig (made by tools/studio/test/make.mjs: a skinned dancer whose bones
+// are named in mixed conventions, Bob's box, the Z-up figure, a short voice, and Voice following her head by an FBX's
+// name for it): the head bone plus its offset every frame of her clip and at three moments, the short list of bones, the
+// lenient match, Bob's moving part and the whole model; attaching, Move onto it, another bone and Stop following each
+// keeping it where it is (through the page's card too); carried by a pretend headset's grip; her size steps, both grips
+// and the arrows' size scaling its offset; the switch to a GLB (the figure, a turn baked in, its whole model; the dancer,
+// a bone) keeping it within 1 mm; her deletion (it stays, following nothing; Undo); a cube hiding her silencing it and
+// showing her again starting it from its beginning; the shared state with the new fields, bad values; the headset's card
+{
+  const fop = await browser.newPage({ viewport: { width: 900, height: 560 } });
+  fop.on('pageerror', e => errors.push('studio follow: ' + (e.stack || e.message)));
+  fop.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio follow: ' + m.text()); });
+  const ss = s => fop.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => fop.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const frames = async n => { const f0 = await fop.evaluate(() => window.__frames || 0); await fop.waitForFunction(f => window.__frames >= f, f0 + (n || 1), { timeout: 30000 }).catch(() => errors.push('studio follow: the page drew no frames')); };
+  const bad = (name, list) => { if (list.length) errors.push(...list.map(b => 'studio follow: ' + b)); };
+  // (in the page: where a node is in the scene's frame, and where a sound on it with offset o should be, worked out on
+  // their own from the node's matrix; the scene's clock held at a moment, or let go)
+  const HELP = `window.__fh = window.__fh || {
+    sc: sceneClock,
+    at: (nd, o) => { nd.updateWorldMatrix(true, false); const m = GL.items.matrixWorld.clone().invert().multiply(nd.matrixWorld), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return new THREE.Vector3().fromArray(o || [0, 0, 0]).applyQuaternion(q).add(p); },
+    head: () => STU.items.get('dan001').model.o.getObjectByName('mixamorigHead'),
+    pos: id => STU.items.get(id).holder.getWorldPosition(new THREE.Vector3()),
+  }`;
+  const hold = t => ss(`(${HELP}, sceneClock = ${t === null ? 'window.__fh.sc' : `() => ${t}`}, 0)`);
+
+  await step('studio follow: the rig scene loads; Voice, following the dancer\'s mixamorig:Head (mixamorigHead once loaded), sits at the head bone plus its offset every frame of her clip and at three moments; the short list of bones', async () => {
+    await fop.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await fop.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('dan001').model && !!STU.items.get('box001').model`, 120000)) { errors.push('studio follow: the rig scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 500)); return; }
+    await ss(`(${HELP}, 0)`);
+    const out = [];
+    const r0 = await ss(`(() => { const d = STU.items.get('dan001'), B = bonesOf(d.E); return { rigged: d.E.info.rigged, kind: B.kind, slots: B.slots, n: B.list.length, rec: STU.items.get('voi001').rec, f: STUDIO.follow('voi001') }; })()`);
+    if (!r0.rigged || r0.kind !== 'bone' || r0.n !== 8 || JSON.stringify(r0.slots) !== JSON.stringify([['Head', 'mixamorigHead'], ['Neck', 'mixamorigNeck'], ['Chest', 'mixamorigSpine2'], ['Hips', 'mixamorigHips'], ['Left hand', 'Bip01_L_Hand'], ['Right hand', 'Bip01_R_Hand'], ['Left foot', 'foot_l'], ['Right foot', 'foot_r']]))
+      out.push('her bones and the short list: ' + JSON.stringify(r0));
+    if (JSON.stringify(r0.rec) !== '{"name":"Voice","file":"voice.wav","p":[0,1.73,-1.86],"vol":1,"r":1,"loop":true,"start":"shown","on":"dan001","bone":"mixamorig:Head","o":[0,-0.03,0.14]}' || !r0.f || r0.f.node !== 'mixamorigHead') out.push('Voice as read from layout.json, and the head found by the lenient match: ' + JSON.stringify(r0));
+    // every frame the page draws for 2.5 s (her clip is 2 s; software drawing is slow), and every step of 1/30 s through
+    // her clip (the scene's clock held at each): the sound where her head bone and its offset put it, worked out on its own
+    await ss(`(() => { const F = window.__fh; F.log = []; F.keep = itemsStep; itemsStep = (dt, now) => { F.keep(dt, now); const w = F.at(F.head(), STU.items.get('voi001').rec.o); F.log.push([w.distanceTo(F.pos('voi001')), w.toArray()]); }; return 0; })()`);
+    await fop.waitForTimeout(2500);
+    const ev = await ss(`(() => {
+      const F = window.__fh, real = F.log.length, sc = sceneClock;
+      for (let k = 0; k <= 60; k++) { sceneClock = () => k / 30; itemsStep(1 / 30, performance.now()); }
+      sceneClock = sc; itemsStep = F.keep;
+      const L = F.log; let far = 0;
+      for (const a of L) for (const b of L) far = Math.max(far, Math.hypot(a[1][0] - b[1][0], a[1][1] - b[1][1], a[1][2] - b[1][2]));
+      return { real, n: L.length, worst: Math.max(...L.map(x => x[0])), far };
+    })()`);
+    if (ev.real < 1 || ev.n < 62 || ev.worst > 0.001 || ev.far < 0.5) out.push('every frame of her clip, the sound at her head bone plus its offset (within 1 mm; her head through 0.5 m or more): ' + JSON.stringify(ev));
+    // at three moments of her clip (the scene's clock held there): there, and her head through more than 0.5 m
+    const at3 = [];
+    for (const t of [0.5, 1, 1.5]) { await hold(t); await frames(2); at3.push(await ss(`(() => { const F = window.__fh, w = F.at(F.head(), STU.items.get('voi001').rec.o); return [w.distanceTo(F.pos('voi001')), F.at(F.head()).toArray()]; })()`)); }
+    await hold(null);
+    const span = Math.hypot(...at3[0][1].map((v, i) => v - at3[2][1][i]));
+    if (at3.some(x => x[0] > 0.001) || span < 0.5) out.push('at three moments of her clip (within 1 mm; her head through 0.5 m or more): ' + JSON.stringify({ at3, span }));
+    // the lenient match: an FBX's name, the loader's tidied one, other spellings; one she lacks is not found
+    const lm = await ss(`(() => { const d = STU.items.get('dan001'), h = F => nodeOf(d, F); return [h('mixamorig:Head') === h('mixamorigHead'), !!h('mixamorigHead') && h('mixamorigHead').name, h('MIXAMORIG_HEAD') === h('mixamorigHead'), h('Bip01 L Hand') && h('Bip01 L Hand').name, h('Bip01_L_Hand') === h('Bip01 L Hand'), h('mixamorig:Tail')]; })()`);
+    if (JSON.stringify(lm) !== '[true,"mixamorigHead",true,"Bip01_L_Hand",true,null]') out.push('the lenient match: ' + JSON.stringify(lm));
+    bad('', out);
+  });
+
+  await step('studio follow: Bob\'s box (no bones: the part its clip moves) and the whole model; attaching, Move onto it, another bone and Stop following each keep the sound where it is (the page\'s card too), each one Undo step', async () => {
+    await hold(0.7); await frames(2);
+    const out = [];
+    // a part of Bob's box, and the dancer's whole model
+    const bx = await ss(`(() => {
+      const F = window.__fh, sid = addSound('voice.wav'); setRec(sid, { p: [1.5, 0.9, -2] });
+      itemAct('follow', 'box001', sid); itemAct('bone', 'box', sid);
+      const B = bonesOf(STU.items.get('box001').E), r = STU.items.get(sid).rec;
+      return { sid, kind: B.kind, list: B.list, on: r.on, bone: r.bone, f: STUDIO.follow(sid) && STUDIO.follow(sid).node };
+    })()`);
+    if (bx.kind !== 'part' || bx.list.join() !== 'box' || bx.on !== 'box001' || bx.bone !== 'box' || bx.f !== 'box') out.push('Bob\'s box: its moving part offered and followed: ' + JSON.stringify(bx));
+    const yb = [];
+    for (const t of [0, 0.5]) { await hold(t); await frames(2); yb.push(await ss(`window.__fh.pos('${bx.sid}').y`)); }
+    if (Math.abs(yb[1] - yb[0] - 0.3) > 0.002) out.push('the sound on Bob\'s box did not rise with it (0.3 m): ' + JSON.stringify(yb));
+    await hold(0.7); await frames(2);
+    // attach (whole model), another bone, onto it, stop: each keeps its place (or, onto it, goes there), one Undo step each
+    const k = await ss(`(() => {
+      const F = window.__fh, sid = addSound('voice.wav'), it = STU.items.get(sid), out = {};
+      setRec(sid, { p: [0.3, 1.5, -1.7] }); itemsStep(0, performance.now());
+      const u0 = UNDO.length, w = () => F.pos(sid).toArray(), d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]), step = () => itemsStep(0, performance.now());
+      let a = w(); itemAct('follow', 'dan001', sid); step();
+      out.attach = [d(a, w()), it.rec.on, it.rec.bone || '', STUDIO.follow(sid).node];
+      a = w(); itemAct('bone', 'Bip01_L_Hand', sid); step();
+      out.bone = [d(a, w()), it.rec.bone, STUDIO.follow(sid).node];
+      itemAct('onto', null, sid); step();
+      out.onto = [d(w(), F.at(STU.items.get('dan001').model.o.getObjectByName('Bip01_L_Hand')).toArray()), it.rec.o || null, d(it.rec.p, w())];
+      a = w(); itemAct('unfollow', null, sid); step();
+      out.stop = [d(a, w()), JSON.stringify(it.rec), d(it.rec.p, w())];
+      out.undo = UNDO.length - u0;
+      undo(); step(); out.back = [it.rec.on, it.rec.bone];
+      out.sid = sid;
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    if (k.err || k.attach[0] > 0.001 || k.attach[1] !== 'dan001' || k.attach[2] !== '' || k.attach[3] !== '' || k.bone[0] > 0.001 || k.bone[1] !== 'Bip01_L_Hand' || k.bone[2] !== 'Bip01_L_Hand' ||
+      k.onto[0] > 1e-6 || k.onto[1] !== null || k.onto[2] > 0.001 || k.stop[0] > 0.001 || /"on"|"bone"|"o"/.test(k.stop[1]) || k.stop[2] > 0.001 || k.undo !== 4 || k.back[0] !== 'dan001' || k.back[1] !== 'Bip01_L_Hand')
+      out.push('attach, another bone, onto it, stop (each where it was, within 1 mm; one Undo step each): ' + JSON.stringify(k));
+    // the page's card: Follow an object..., her name in its list, then Head from the short list and More bones...
+    const sid = k.sid;
+    await ss(`(itemAct('unfollow', null, '${sid}'), select('${sid}'), X.tab = 'item', renderPanes(), 0)`);
+    const card0 = await fop.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    await fop.click('#pane-item [data-act="i:followPick"]');
+    const picking = await ss(`[STU.follow, (renderPanes(), !!document.querySelector('#pane-item li[data-act="i:follow"][data-v="dan001"]'))]`);
+    await fop.click('#pane-item li[data-act="i:follow"][data-v="dan001"]');
+    await ss('(renderPanes(), 0)');
+    const row = await fop.evaluate(() => [...document.querySelectorAll('#pane-item [data-act="i:bone"]')].map(b => b.textContent + '=' + b.dataset.v));
+    await fop.click('#pane-item button[data-act="i:bone"][data-v="mixamorigHead"]');
+    await fop.click('#pane-item [data-act="i:bones"]');
+    await ss('(renderPanes(), 0)');
+    const all = await fop.evaluate(() => [...document.querySelectorAll('#pane-item li[data-act="i:bone"]')].map(b => b.dataset.v));
+    const card1 = await fop.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    const lab = await ss(`(updateExtraLabels(), LBL.extra[1].txt && LBL.extra[1].txt.slice(0, 2).join(' '))`);
+    const rec = await ss(`STU.items.get('${sid}').rec`);
+    if (!/Follows ?nothing/.test(card0) || !/Follow an object\.\.\./.test(card0) || picking[0] !== sid || !picking[1] ||
+      row.join() !== 'Whole model=,Head=mixamorigHead,Neck=mixamorigNeck,Chest=mixamorigSpine2,Hips=mixamorigHips,Left hand=Bip01_L_Hand,Right hand=Bip01_R_Hand,Left foot=foot_l,Right foot=foot_r' ||
+      rec.on !== 'dan001' || rec.bone !== 'mixamorigHead' || all.length !== 8 || !/Follows ?Dancer · Head, \d+ cm from it/.test(card1) || !/Move onto it/.test(card1) || !/Stop following/.test(card1) || lab !== rec.name + ' → Dancer · Head · selected')
+      out.push('the page\'s card: ' + JSON.stringify({ card0: card0.slice(0, 200), picking, row, rec, all, card1: card1.slice(0, 400), lab }));
+    // the line from the speaker to her head, while editing
+    await frames(2);
+    const ln = await ss(`STU.items.get('${sid}').look.link.visible`);
+    if (!ln) out.push('no line from the sound to her head while editing');
+    await ss(`(select(''), STU.bones = '', 0)`);
+    while (await ss('UNDO.length')) await ss('undo()');
+    await hold(null);
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) out.push('the layout did not come back after these checks');
+    bad('', out);
+  });
+
+  await step('studio follow: carried by a pretend headset\'s grip it follows nothing until let go, then follows from where it was put; sizing her (the size steps, both grips, the page\'s arrows) keeps it at the same point on her, one Undo step each', async () => {
+    await hold(0.7); await frames(2);
+    const r = await ss(`(() => {
+      const F = window.__fh, out = {}, it = STU.items.get('voi001'), d = STU.items.get('dan001'), step = () => itemsStep(0, performance.now());
+      setEdit(true); step();
+      XR.on = true; XR.clear = true; GL.world.updateMatrixWorld(true);
+      const [a, b] = XR.ctrls, ctl = (c, p) => { c.src = { targetRayMode: 'tracked-pointer', handedness: c === a ? 'right' : 'left', gamepad: null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      // the grip: carried 0.3 m to the side (not following meanwhile); let go, it follows her head from there
+      const w0 = F.pos('voi001'), o0 = it.rec.o.slice(), u0 = UNDO.length;
+      ctl(a, [w0.x, w0.y + 0.2, w0.z + 0.3]); a.hover = { kind: 'item', id: 'voi001' }; xrGrab(a, true);
+      ctl(a, [w0.x + 0.3, w0.y + 0.2, w0.z + 0.3]); carry(a, 0.016); step();
+      const w1 = F.pos('voi001');
+      out.carried = [!!it.carry, +(w1.x - w0.x).toFixed(4), +(w1.y - w0.y).toFixed(4)];
+      xrGrab(a, false); step();
+      const w2 = F.pos('voi001');
+      out.let = [!it.carry, +w2.distanceTo(w1).toFixed(4), it.rec.on, it.rec.bone, JSON.stringify(it.rec.o) !== JSON.stringify(o0), +F.at(F.head(), it.rec.o).distanceTo(w2).toFixed(6), UNDO.length - u0];
+      undo(); step();
+      // where it is on her: in her head bone's own frame (in metres at her size now)
+      const on = () => { const h = F.head(); h.updateWorldMatrix(true, false); return F.pos('voi001').applyMatrix4(h.matrixWorld.clone().invert()); };
+      const size = (how, fn) => { const l0 = on(), s0 = d.rec.s, oo = it.rec.o.slice(), n0 = UNDO.length; fn(); step(); const l1 = on(), k = d.rec.s / s0;
+        out[how] = [k, JSON.stringify(it.rec.o) === JSON.stringify(oo.map(v => nz(r3(v * k)))) && JSON.stringify(it.rec.o) !== JSON.stringify(oo), +(l1.distanceTo(l0) * d.rec.s).toFixed(5), UNDO.length - n0];
+        undo(); step(); out[how].push(d.rec.s === s0 && JSON.stringify(it.rec.o) === JSON.stringify(oo)); };
+      size('steps', () => itemAct('size', 2, 'dan001'));
+      size('grips', () => {
+        const c = d.holder.getWorldPosition(new THREE.Vector3());
+        ctl(a, [c.x - 0.1, c.y + 1, c.z]); a.hover = { kind: 'item', id: 'dan001' }; xrGrab(a, true);
+        ctl(b, [c.x + 0.1, c.y + 1, c.z]); b.hover = { kind: 'item', id: 'dan001' }; xrGrab(b, true);
+        const m0 = on();
+        carry(a, 0.016); carry(b, 0.016);
+        ctl(a, [c.x - 0.2, c.y + 1, c.z]); ctl(b, [c.x + 0.2, c.y + 1, c.z]); carry(a, 0.016); carry(b, 0.016);
+        // (between the grips' writes, ten a second: her size shown ahead of her record's, the sound still on her)
+        step(); out.gripsMid = [+(on().distanceTo(m0) * d.holder.scale.x).toFixed(5), +(d.holder.scale.x / d.rec.s).toFixed(3)];
+        xrGrab(b, false); xrGrab(a, false);
+      });
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false;
+      size('arrows', () => {
+        select('dan001'); tcSetMode('scale');
+        GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); d.holder.scale.setScalar(1.5);
+        GL.tc.dispatchEvent({ type: 'objectChange' }); GL.tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      });
+      select(''); tcSetMode('translate');
+      // her model not here yet (still loading): a move of Voice, on her head, writes its place only (its offset would be
+      // measured against her feet and read against her head everywhere else); on her whole model, its offset as ever
+      const m = d.model, pv = new THREE.Vector3(0.5, 1.2, -1.5); d.model = null;
+      const wa = soundAt(it, pv), oldBone = it.rec.bone; it.rec.bone = undefined; const wb = soundAt(it, pv); it.rec.bone = oldBone; d.model = m;
+      out.loading = [JSON.stringify(wa), !!wb.o];
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err || !r.loading || r.loading[0] !== '{"p":[0.5,1.2,-1.5]}' || !r.loading[1]) out.push('moved while her model is not here (its place only on a bone, its offset on the whole model): ' + JSON.stringify(r.loading || r));
+    if (!r.err && (!r.gripsMid || r.gripsMid[0] > 0.001)) out.push('sized by both grips, between their writes: the sound off the point on her (m, her size shown over her record\'s): ' + JSON.stringify(r.gripsMid));
+    if (r.err || !r.carried[0] || Math.abs(r.carried[1] - 0.3) > 0.002 || Math.abs(r.carried[2]) > 0.002) out.push('carried by the grip (not following meanwhile): ' + JSON.stringify(r));
+    else if (!r.let[0] || r.let[1] > 0.001 || r.let[2] !== 'dan001' || r.let[3] !== 'mixamorig:Head' || !r.let[4] || r.let[5] > 1e-6 || r.let[6] !== 1) out.push('let go, it follows her head from where it was put (its offset changed, one Undo step): ' + JSON.stringify(r));
+    for (const [how, k] of [['steps', 2], ['grips', 2], ['arrows', 1.5]]) {
+      const x = r[how];
+      if (!x || Math.abs(x[0] - k) > 0.01 || !x[1] || x[2] > 0.001 || x[3] !== 1 || !x[4]) out.push(`sized by ${how}: the offset scaled with her (×${k}), the sound at the same point on her (within 1 mm), one Undo step that takes both back: ` + JSON.stringify(x));
+    }
+    await hold(null);
+    bad('', out);
+  });
+
+  await step('studio follow: switched to its GLB, a sound on the figure\'s whole model (a turn baked in), one naming a bone the figure lacks (so on its whole model too) and Voice on the dancer\'s head stay where they were (within 1 mm)', async () => {
+    const out = [];
+    await hold(0.7);
+    const fid = await ss(`addModel('figure.fbx')`);
+    if (!fid || !await until(`!!(STU.items.get('${fid}') && STU.items.get('${fid}').model)`, 30000)) { errors.push('studio follow: the figure was not placed'); return; }
+    const sF = await ss(`(() => { const sid = addSound('voice.wav'), f = STU.items.get('${fid}'); setRec(sid, { p: [f.rec.p[0] + 0.1, 1.2, f.rec.p[2] + 0.2] }); itemsStep(0, performance.now()); itemAct('follow', '${fid}', sid); return sid; })()`);
+    // (and one naming a bone the figure lacks: it follows the whole model too, so its offset turns as well)
+    const sG = await ss(`(() => { const sid = addSound('voice.wav'), f = STU.items.get('${fid}'); setRec(sid, { p: [f.rec.p[0] - 0.1, 1.4, f.rec.p[2] + 0.1] }); itemsStep(0, performance.now()); itemAct('follow', '${fid}', sid); setRec(sid, { bone: 'NoSuchBone' }); return sid; })()`);
+    await frames(2);
+    const pos = `[window.__fh.pos('${sF}').toArray(), window.__fh.pos('voi001').toArray(), STU.items.get('${sF}').rec.o, STU.items.get('voi001').rec.o, window.__fh.pos('${sG}').toArray(), STU.items.get('${sG}').rec.o]`;
+    const w0 = await ss(pos), u0 = await ss('UNDO.length');
+    const routes = [];
+    for (const [file, gl] of [['figure.fbx', 'models/figure.glb'], ['dancer.glb', 'models/dancer.glb']]) {
+      await ss(`(STUDIO.lastGLB = null, convertFile('${file}'), 0)`);
+      if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000)) { out.push(file + ' was not converted: ' + await ss('CV.note')); continue; }
+      const ok = await ss('[STUDIO.lastGLB.ok, STUDIO.lastGLB.why || ""]');
+      if (!ok[0]) { out.push(file + ' was not converted: ' + ok[1]); continue; }
+      const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+      const pat = '**/scenes/rig/' + gl + '*';
+      await fop.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' })); routes.push(pat);
+      await ss(`(setFiles(STU.files.concat({ path: '${gl}', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('${gl}', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('${file}', '${gl}', STUDIO.lastGLB.record))`);
+      if (!await until(`[...STU.items.values()].some(it => it.rec.file === '${gl}' && it.model && it.E && it.built === it.E.gen)`, 30000)) out.push(file + ': its objects did not switch to ' + gl);
+    }
+    await frames(2);
+    const w1 = await ss(pos), dist = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
+    const recs = await ss(`[STU.items.get('${fid}').rec.file, STU.items.get('dan001').rec.file, STUDIO.follow('voi001') && STUDIO.follow('voi001').node, UNDO.length]`);
+    if (dist(w0[0], w1[0]) > 0.001 || dist(w0[1], w1[1]) > 0.001 || JSON.stringify(w0[2]) === JSON.stringify(w1[2]) || JSON.stringify(w0[3]) !== JSON.stringify(w1[3]) ||
+      dist(w0[4], w1[4]) > 0.001 || JSON.stringify(w0[5]) === JSON.stringify(w1[5]) ||
+      recs[0] !== 'models/figure.glb' || recs[1] !== 'models/dancer.glb' || recs[2] !== 'mixamorigHead' || recs[3] !== u0 + 2)
+      out.push('switched to their GLBs: ' + JSON.stringify({ figure: [dist(w0[0], w1[0]), w0[2], w1[2]], noBone: [dist(w0[4], w1[4]), w0[5], w1[5]], voice: [dist(w0[1], w1[1]), w0[3], w1[3]], recs, u0 }));
+    while (await ss('UNDO.length')) await ss('undo()');
+    await ss(`(setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), GLBREC.delete('models/dancer.glb'), 0)`);
+    for (const pat of routes) await fop.unroute(pat);
+    await until(`!!STU.items.get('dan001').model && STU.items.get('dan001').rec.file === 'dancer.glb' && STU.items.get('dan001').built === STU.items.get('dan001').E.gen`, 30000);
+    await hold(null);
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) out.push('the layout did not come back after the GLB checks');
+    bad('', out);
+  });
+
+  await step('studio follow: her deletion leaves Voice where it is, following nothing (Undo brings both back, following again); a copy of Voice follows her too', async () => {
+    const r = await ss(`(() => {
+      const F = window.__fh, it = STU.items.get('voi001'), step = () => itemsStep(0, performance.now()), out = {};
+      setEdit(true); step();
+      const w = F.pos('voi001').toArray(), u0 = UNDO.length, rec0 = JSON.stringify(it.rec);
+      deleteItem('dan001'); step();
+      out.after = [STU.items.has('dan001'), 'on' in it.rec || 'bone' in it.rec || 'o' in it.rec, +Math.hypot(...it.rec.p.map((v, i) => v - w[i])).toFixed(5), +F.pos('voi001').distanceTo(new THREE.Vector3(...w)).toFixed(5), UNDO.length - u0];
+      undo();
+      out.back = [STU.items.has('dan001'), JSON.stringify(STU.items.get('voi001').rec) === rec0];
+      const nid = duplicateItem('voi001'), c = STU.items.get(nid).rec;
+      out.copy = [c.on, c.bone, JSON.stringify(c.o)];
+      undo();
+      return out;
+    })()`);
+    const back = await until(`(() => { const f = STUDIO.follow('voi001'); return !!STU.items.get('dan001').model && !!f && f.node === 'mixamorigHead' && f.d < 1e-6; })()`, 20000);
+    if (r.after[0] || r.after[1] || r.after[2] > 0.001 || r.after[3] > 0.001 || r.after[4] !== 1 || !r.back[0] || !r.back[1] || !back || JSON.stringify(r.copy) !== '["dan001","mixamorig:Head","[0.5,-0.03,0.14]"]')
+      errors.push('studio follow: deleting her, Undo, a copy: ' + JSON.stringify({ r, back }));
+  });
+
+  await step('studio follow: a cube hiding her silences Voice (heard no more, its gain going to 0, though the sound itself is shown), and showing her again starts it from its beginning', async () => {
+    const out = [];
+    await fop.evaluate(() => HOST.audio.mute(false));
+    await fop.click('#explore .tabs button[data-tab="scene"]');   // (a tap: the sound may start)
+    await ss('(shownFor([0, 1.6, 0]), 0)');
+    if (!await until(`(() => { const it = STU.items.get('voi001'); return !!(it.src && it.gt > 0.1 && it.heard); })()`, 15000)) out.push('Voice did not start: ' + JSON.stringify(await ss(`[!!HOST.audio.fx(), HOST.audio.muted, STUDIO.state().sounds, STU.items.get('voi001').heard]`)));
+    else {
+      await ss(`(window.__fh.src = STU.items.get('voi001').src, shownFor([0, 1.6, 2]), 0)`);
+      const hid = await until(`(() => { const it = STU.items.get('voi001'), d = STU.items.get('dan001'); return !d.shown && it.shown && !it.heard && it.gt === 0; })()`, 8000);
+      const gone = await until(`!STU.items.get('voi001').src`, 8000);
+      if (!hid || !gone) out.push('a cube hiding her did not silence Voice: ' + JSON.stringify(await ss(`(() => { const it = STU.items.get('voi001'); return [STU.items.get('dan001').shown, it.shown, it.heard, it.gt, it.fa, !!it.src]; })()`)));
+      const t1 = await ss('performance.now()');
+      await ss('(shownFor([0, 1.6, 0]), 0)');
+      if (!await until(`(() => { const it = STU.items.get('voi001'); return !!(it.src && it.src !== window.__fh.src && it.gt > 0.1 && it.heard && it.shownAt >= ${t1}); })()`, 8000))
+        out.push('showing her again did not start Voice from its beginning: ' + JSON.stringify(await ss(`(() => { const it = STU.items.get('voi001'); return [it.heard, it.gt, !!it.src, it.src === window.__fh.src, it.shownAt - ${t1}]; })()`)));
+    }
+    await ss('(shownFor(null), 0)');
+    await fop.evaluate(() => HOST.audio.mute(true));
+    bad('', out);
+  });
+
+  await step('studio follow: the shared state carries what a sound follows and gives it back; bad values refused or dropped; a state without her leaves Voice at its own place; layout.json\'s rules', async () => {
+    const out = await ss(`(() => {
+      const out = [], same = () => { const a = JSON.stringify(collabState()); collabApply(JSON.parse(a)); return JSON.stringify(collabState()) === a; };
+      const s0 = collabState(), v = s0['s.voi001'];
+      if (!v || v.on !== 'dan001' || v.bone !== 'mixamorig:Head' || JSON.stringify(v.o) !== '[0,-0.03,0.14]' || !same()) out.push('the state with the new fields: ' + JSON.stringify(v));
+      // a record's checks: bad ones refused, the rest dropped or rounded, and each given back the same
+      const N = x => norm('s', Object.assign({ file: 'voice.wav', p: [0, 1, 0] }, x)), J = x => JSON.stringify(x);
+      const cases = [
+        ['on not an id', N({ on: 'Dancer' }), null], ['bone not a string', N({ on: 'dan001', bone: 7 }), null], ['o not 3 numbers', N({ on: 'dan001', o: [1, 2] }), null],
+        ['o with a word', N({ on: 'dan001', o: [0, 'up', 0] }), null], ['o too far', N({ on: 'dan001', o: [0, 2000, 0] }), null],
+        ['o without on, dropped', J(N({ o: [0.1, 0, 0] })), J(N({}))], ['bone without on, dropped', J(N({ bone: 'mixamorigHead' })), J(N({}))],
+        ['a bone not a string without on, dropped', J(N({ bone: 7 })), J(N({}))], ['an o not 3 numbers without on, dropped', J(N({ o: 'up' })), J(N({}))],
+        ['[0, 0, 0] and an empty bone, dropped', J(N({ on: 'dan001', o: [0, 0, 0], bone: '' })), J(Object.assign(N({}), { on: 'dan001' }))],
+        ['the offset to the mm', J(N({ on: 'dan001', bone: 'mixamorigHead', o: [0.12345, -0.0004, 1] }).o), '[0.123,0,1]'],
+      ];
+      for (const [n, got, want] of cases) if (got !== want) out.push(n + ': ' + J(got));
+      const once = N({ on: 'dan001', bone: 'x', o: [0.1234, 0, 0] });
+      if (J(norm('s', once)) !== J(once)) out.push('a checked record not given back the same');
+      // from the room: a bad sound record ignored; a state without her: Voice keeps her id and stands at its own place
+      const was = J(collabState()), b = JSON.parse(was);
+      b['s.voi001'] = Object.assign({}, b['s.voi001'], { on: 'NOPE!!' }); collabApply(b);
+      if (J(collabState()) !== was) out.push('a bad record from the room was taken');
+      const nd = JSON.parse(was); delete nd['o.dan001']; collabApply(nd); itemsStep(0, performance.now());
+      const it = STU.items.get('voi001');
+      if (it.rec.on !== 'dan001' || STUDIO.follow('voi001') !== null || it.holder.position.distanceTo(new THREE.Vector3(...it.rec.p)) > 1e-6 || !it.heard) out.push('without her (a state from the room): ' + J([it.rec, it.holder.position.toArray(), it.heard]));
+      collabApply(JSON.parse(was));
+      if (J(collabState()) !== was) out.push('the state did not come back');
+      // layout.json: a sound following an object the layout lacks keeps what it follows (it stands at its place until the
+      // object is back, as with a state from the room, and a save never loses it); a bad on drops the item
+      const L = readLayout({ studio: 1, objects: [], sounds: [{ id: 'aaaaaa', file: 'voice.wav', p: [0, 1, 0], on: 'dan001', bone: 'x', o: [0, 1, 0] }, { id: 'bbbbbb', file: 'voice.wav', p: [0, 1, 0], on: 'Dancer' }] });
+      if (L.items.length !== 1 || L.bad !== 1 || L.items[0].rec.on !== 'dan001' || L.items[0].rec.bone !== 'x' || J(L.items[0].rec.o) !== '[0,1,0]') out.push('readLayout: ' + J(L));
+      // Rigify's DEF- spine in the short list (hips .000, chest .003, neck .004, head .006, as GLTFLoader names them), and
+      // another rig's spine006 never taken for a head
+      const rig = names => { const R = new THREE.Group(); let par = R; for (const n of names) { const b = new THREE.Bone(); b.name = n; par.add(b); par = b; } return bonesOf({ root: R, clips: [] }).slots.map(x => x.join('=')).join(); };
+      const rf = rig(['DEF-spine', 'DEF-spine001', 'DEF-spine002', 'DEF-spine003', 'DEF-spine004', 'DEF-spine005', 'DEF-spine006', 'DEF-handL', 'DEF-footR']), ro = rig(['Spine', 'Spine003', 'Spine006']);
+      if (rf !== 'Head=DEF-spine006,Neck=DEF-spine004,Chest=DEF-spine003,Hips=DEF-spine,Left hand=DEF-handL,Right foot=DEF-footR' || ro !== 'Chest=Spine003') out.push('the short list for Rigify: ' + J([rf, ro]));
+      // following the object it follows already: nothing changes (its bone kept, no Undo step)
+      const vr = J(STU.items.get('voi001').rec), un = UNDO.length;
+      itemAct('follow', 'dan001', 'voi001');
+      if (J(STU.items.get('voi001').rec) !== vr || UNDO.length !== un || STU.follow) out.push('the object it follows picked again: ' + J([STU.items.get('voi001').rec, UNDO.length - un]));
+      const lo = layoutOut().sounds.find(x => x.id === 'voi001');
+      if (!lo || lo.on !== 'dan001' || lo.bone !== 'mixamorig:Head' || J(lo.o) !== '[0,-0.03,0.14]') out.push('Download layout.json: ' + J(lo));
+      return out;
+    })()`);
+    if (!await until(`!!STU.items.get('dan001').model && !!STUDIO.follow('voi001')`, 20000)) out.push('she did not come back from the room\'s state');
+    bad('', out);
+  });
+
+  await step('studio follow: the headset\'s card has the same rows (Follows, the short list, More bones a page at a time), its buttons work, and the trigger on an object picks what a sound follows', async () => {
+    const out = await ss(`(() => {
+      const out = [], draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      // (every button the pane draws, scrolled through; a press scrolls to it first)
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      setEdit(true); select('voi001'); X.tab = 'item'; X.scroll = {}; XR.on = true; draw();
+      const it = STU.items.get('voi001'), u0 = UNDO.length;
+      let I = ids();
+      const want = ['follow', 'onto', 'unfollow', 'bone:', 'bone:Head', 'bone:Neck', 'bone:Chest', 'bone:Hips', 'bone:Left hand', 'bone:Right hand', 'bone:Left foot', 'bone:Right foot', 'bones'];
+      const miss = want.filter(i => !I.has(i));
+      if (miss.length) out.push('the card in the headset lacks ' + miss.join(', ') + ' (' + [...I].join(' ') + ')');
+      if (!press('bone:Neck') || it.rec.bone !== 'mixamorigNeck') out.push('Neck on the headset: ' + JSON.stringify(it.rec));
+      // More bones: a page of 8 at a time (here 18: hers and ten made up for the test), Next and Previous; a bone she lacks refused
+      const B = bonesOf(STU.items.get('dan001').E), keep = B.list;
+      B.list = keep.concat(Array.from({ length: 10 }, (_, i) => 'extra' + i));
+      press('bones'); I = ids();
+      const p1 = [...I].filter(i => i.startsWith('bonen:'));
+      if (p1.length !== 8 || !I.has('bonepg:+') || I.has('bonepg:-')) out.push('More bones, its first page: ' + [...I].join(' '));
+      press('bonepg:+'); I = ids();
+      const p2 = [...I].filter(i => i.startsWith('bonen:'));
+      if (p2.join() !== Array.from({ length: 8 }, (_, i) => 'bonen:extra' + i).join() || !I.has('bonepg:-') || !I.has('bonepg:+')) out.push('More bones, its second page: ' + [...I].join(' '));
+      const was = JSON.stringify(it.rec); press('bonen:extra3');
+      if (JSON.stringify(it.rec) !== was) out.push('a bone she lacks was taken');
+      B.list = keep; STU.bones = '';
+      // Follow another object...: a list of the objects (the box picked), then the trigger on her picks her back
+      press('follow');
+      I = ids();
+      if (STU.follow !== 'voi001' || !I.has('followon:dan001') || !I.has('followon:box001')) out.push('Follow another object...: ' + JSON.stringify([STU.follow, [...I]]));
+      press('followon:box001');
+      if (it.rec.on !== 'box001' || STU.follow) out.push('picked from the list in the headset: ' + JSON.stringify(it.rec));
+      press('follow');
+      const a = XR.ctrls[0]; a.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; a.g.visible = true; a.hover = { kind: 'item', id: 'dan001' }; xrPress(a);
+      if (it.rec.on !== 'dan001' || STU.follow || STU.sel !== 'voi001') out.push('the trigger on her while picking: ' + JSON.stringify([it.rec, STU.follow, STU.sel]));
+      a.src = null; a.g.visible = false; a.hover = null;
+      if (UNDO.length - u0 !== 3) out.push('the changes in the headset were not one Undo step each: ' + (UNDO.length - u0));
+      while (UNDO.length > u0) undo();
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return out;
+    })()`);
+    if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
+    bad('', out);
+    await fop.close();
+  });
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });

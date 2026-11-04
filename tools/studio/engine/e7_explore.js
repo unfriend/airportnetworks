@@ -199,9 +199,9 @@ function paneBlocks(tab) {
   return B;
 }
 function itemSub(it) {
-  const r = it.rec, me = it.kind !== 'c' ? (it.shown ? '' : ' · hidden for you') : '';
+  const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
   if (it.kind === 'o') return baseName(r.file) + me;
-  if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + me;
+  if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
 }
 function itemBlocks(it, B, ed) {
@@ -255,7 +255,9 @@ function itemBlocks(it, B, ed) {
     B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
   } else {
     const F = it.F;
-    B.push({ h: r.name, sub: 'Sound' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')]] });
+    B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
+      ['Follows', r.on ? followWords(it) + (r.o ? `, ${cmOrM(Math.hypot(...r.o))} from it` : ', on it') : 'nothing']] });
+    followBlocks(it, B, dis);
     if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
     else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory.`, c: 'faint' });
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
@@ -271,6 +273,39 @@ function itemBlocks(it, B, ed) {
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
+const cmOrM = d => (d < 1 ? Math.max(1, Math.round(d * 100)) + ' cm' : metres(d));
+// ---- a sound's card: what it follows (tools/studio/SPEC.md, "Sounds that follow a model"): an object, picked by pointing
+// at it (or from a list), then one of its bones (the short list where the model has them, then every bone; a model with
+// no bones offers the parts its animation moves), Move onto it and Stop following; each keeps the sound where it is now
+function followBlocks(it, B, dis) {
+  const r = it.rec, ob = followOf(it), picking = STU.follow === it.id, objs = [...STU.items.values()].filter(x => x.kind === 'o');
+  B.push({ row: [
+    { id: 'follow', label: picking ? 'Cancel' : r.on ? 'Follow another object...' : 'Follow an object...', act: 'i:followPick', on: picking, dis: dis || !objs.length },
+    r.on ? { id: 'onto', label: 'Move onto it', act: 'i:onto', dis: dis || !ob } : null,
+    r.on ? { id: 'unfollow', label: 'Stop following', act: 'i:unfollow', dis } : null,
+  ].filter(Boolean) });
+  if (!objs.length && !r.on) B.push({ p: 'A sound can follow an object placed here (a voice at a figure\'s head): place one first.', c: 'faint' });
+  if (picking) {
+    B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the sound follows it from where it is now.', c: 'amber' },
+      { list: objs.map(o => ({ id: 'followon:' + o.id, label: o.rec.name, sub: baseName(o.rec.file), act: 'i:follow', v: o.id, on: o.id === r.on, dis })) });
+  }
+  if (r.on && !ob) B.push({ p: 'The object it follows is not in the scene: it stands at its own place until the object is back.', c: 'amber' });
+  if (!ob) return;
+  const E = ob.E, Bn = bonesOf(E);
+  if (!E || !E.root || !ob.model) { B.push({ p: `${ob.rec.name}'s bones show once its model is in.`, c: 'faint' }); return; }
+  if (r.bone && !nodeOf(ob, r.bone)) B.push({ p: `${ob.rec.name} has no bone ${r.bone} here: the sound follows the whole model.`, c: 'amber' });
+  if (!Bn.list.length) { B.push({ p: `${ob.rec.name} has no bones and no moving parts: the sound follows the whole model.`, c: 'faint' }); return; }
+  const cur = r.bone ? boneKey(r.bone) : '', open = STU.bones === it.id, part = Bn.kind === 'part';
+  B.push({ label: part ? 'Moving part' : 'Bone', row: [{ id: 'bone:', label: 'Whole model', act: 'i:bone', v: '', on: !r.bone, dis }]
+    .concat(Bn.slots.map(([lab, n]) => ({ id: 'bone:' + lab, label: lab, act: 'i:bone', v: n, on: boneKey(n) === cur, dis })),
+      { id: 'bones', label: (part ? 'Moving parts' : 'More bones') + (open ? ' ▾' : '...'), act: 'i:bones', on: open, dis }) });
+  if (!open) return;
+  // every bone by name: all of them on a page, a page of 8 at a time in a headset
+  const all = Bn.list.map(n => ({ id: 'bonen:' + n, label: n, act: 'i:bone', v: n, on: boneKey(n) === cur, dis }));
+  const per = 8, pages = Math.ceil(all.length / per), pg = Math.min(STU.bonePage, pages - 1);
+  B.push({ page: true, list: all }, { xr: true, list: all.slice(pg * per, pg * per + per) });
+  if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(all.length, pg * per + per)} of ${all.length}`, row: [{ id: 'bonepg:-', label: '◂ Previous', act: 'i:bonePage', v: -1, dis: pg <= 0 }, { id: 'bonepg:+', label: 'Next ▸', act: 'i:bonePage', v: 1, dis: pg >= pages - 1 }] });
+}
 // ---- an object's textures (tools/studio/SPEC.md, "Textures: found, added, converted"): what is missing, each with
 // pictures of the scene to use (the ladder's and the likeliest by name) or one from this computer; what the ladder found
 // under another name or read from a TIFF, PSD or DDS; and Add a texture (a picture, a material, a slot). A press
@@ -396,7 +431,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -504,8 +539,10 @@ function updateExtraLabels() {
   const [Lh, Ls] = LBL.extra;
   if (!Lh) return;
   const ed = editOn(), h = ed && STU.hover !== STU.sel ? STU.items.get(STU.hover) : null, s = ed ? STU.items.get(STU.sel) : null;
-  labelSet(Lh, h ? [h.rec.name, KIND_NAME[h.kind]] : null);
-  labelSet(Ls, s ? [s.rec.name, 'selected'] : null);
+  // (a sound that follows a model names it: "Voice → Dancer · Head")
+  const to = it => (it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : '');
+  labelSet(Lh, h ? [h.rec.name, to(h) || KIND_NAME[h.kind]] : null);
+  labelSet(Ls, s ? [s.rec.name, to(s) ? to(s) + ' · selected' : 'selected'] : null);
   Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
 }
 
@@ -597,7 +634,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
-    if (k === 'escape' && (STU.pick || STU.sel)) { if (STU.pick) STU.pick = null; else select(''); dirty(true); return; }
+    if (k === 'escape' && (STU.pick || STU.follow || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.follow) STU.follow = ''; else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
@@ -615,13 +652,14 @@ function clickAt(mx, my) {
     const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
     if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick) select('');
+  if (editOn() && !STU.pick && !STU.follow) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected
 function pressItem(id) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
   if (STU.pick && it.kind !== 'c' && id !== STU.pick.id) { toggleLink(STU.pick.id, STU.pick.list, id); return; }
+  if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
   select(id);
   sfxAct('pick', 'world', null);
 }
@@ -666,12 +704,12 @@ function tcRead(it) {
   if (it.kind === 'o') {
     let s = it.rec.s;
     if (GL.tc.mode === 'scale') { const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - s)); s = Math.max(1e-4, v[d.indexOf(Math.max(...d))]); h.scale.setScalar(s); }
-    setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s });
+    setObj(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s });   // (the sounds that follow it keep their place on it)
   } else if (it.kind === 'c') {
     const yaw = new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y;
     h.rotation.set(0, yaw, 0);
     setRec(it.id, { p: h.position.toArray(), yaw, size: h.scale.toArray().map(v => Math.max(0.05, Math.abs(v))) });
-  } else setRec(it.id, { p: h.position.toArray() });
+  } else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
 function tcSetMode(m) {
   X.tcMode = m;

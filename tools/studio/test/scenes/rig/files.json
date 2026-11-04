@@ -1,0 +1,12 @@
+{
+  "name": "rig",
+  "files": [
+    {"path":"box.glb","bytes":3208,"at":1793807302963,"kind":"model"},
+    {"path":"dancer.glb","bytes":15120,"at":1793807302963,"kind":"model"},
+    {"path":"figure.fbx","bytes":4108,"at":1793807302963,"kind":"model"},
+    {"path":"figure.png","bytes":6272,"at":1793807302963,"kind":"image"},
+    {"path":"voice.wav","bytes":6444,"at":1793807302963,"kind":"audio"}
+  ],
+  "layoutAt": 1793807302963,
+  "save": false
+}

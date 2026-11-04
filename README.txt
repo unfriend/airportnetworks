@@ -88,6 +88,10 @@ its circle at your feet, for everyone at it).
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,
   hold the grip to carry, both grips to size; in VR the sticks walk and turn.
+- A sound can follow a model, or one of its bones: on the sound's card Follow
+  an object..., point at the figure (or click it), then pick a bone (Head,
+  Chest, a hand...; More bones... lists them all). A voice placed at her mouth
+  then moves and turns with her head, and is heard only while she is shown.
 - Saving: Save writes the scene's layout.json in its folder on the laptop (the
   one before is kept in the scene's .history/, the last 20). With
   --scenes-readonly nothing is written: Download layout.json instead.

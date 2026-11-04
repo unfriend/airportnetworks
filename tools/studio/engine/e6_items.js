@@ -8,6 +8,7 @@ const STU = {
   scene: '', listing: 'none', files: [], fileMap: new Map(), items: new Map(),
   saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
+  follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -51,8 +52,20 @@ function norm(kind, x) {
   }
   if (kind === 's') {
     if (!okFile(x.file) || (has('vol') && !fin(x.vol)) || (has('r') && !fin(x.r)) || (has('loop') && typeof x.loop !== 'boolean')) return null;
-    const r = { name: name(stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
+    // what it follows, kept only when set: an object (on: its id), a bone of its model (bone: its name, '' or none the
+    // whole model), at an offset (o: metres in the target's frame, turned but not scaled; [0, 0, 0] is none); a bone or
+    // an offset with no object is dropped, whatever it is (checked only with an object)
+    const on = has('on'), o = on && has('o') ? vecOf(x.o, 3, 1000) : null;
+    if (on && (!okId(x.on) || (has('bone') && typeof x.bone !== 'string') || (has('o') && !o))) return null;
+    const r ={ name: name(stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
       loop: has('loop') ? x.loop : true, start: one('start', ['always', 'shown'], 'always') };
+    if (on) {
+      r.on = x.on;
+      const bone = has('bone') ? x.bone.slice(0, 120) : '';
+      if (bone) r.bone = bone;
+      const O = o ? o.map(v => nz(r3(v))) : null;
+      if (O && O.some(v => v !== 0)) r.o = O;
+    }
     return Object.values(r).includes(null) ? null : r;
   }
   return null;
@@ -77,7 +90,7 @@ function putItem(id, kind, rec, o) {
   return it;
 }
 function makeItem(id, kind) {
-  const it = { id, kind, rec: null, holder: null, a: 0, sa: 0, shown: false, first: true, shownAt: performance.now(), gl: null, carry: false, act: false, since: 0, inside: false, ended: false };
+  const it = { id, kind, rec: null, holder: null, a: 0, sa: 0, fa: 0, shown: false, heard: false, first: true, shownAt: performance.now(), gl: null, carry: false, act: false, since: 0, inside: false, ended: false };
   if (kind === 'o') {
     it.holder = new THREE.Group();
     it.slot = new THREE.Group(); it.holder.add(it.slot);
@@ -97,7 +110,7 @@ function makeItem(id, kind) {
     it.look = LOOKS.speaker(id);
     it.holder = it.look.group;
     it.look.hit.userData.id = id;
-    GL.edit.add(it.look.ring);
+    GL.edit.add(it.look.ring); GL.edit.add(it.look.link);
   }
   it.holder.userData.id = id;
   GL.items.add(it.holder);
@@ -108,13 +121,14 @@ function removeItem(id) {
   if (!it) return;
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
-  else { it.look.drop(); if (it.look.deco) GL.edit.remove(it.look.deco); if (it.look.ring) GL.edit.remove(it.look.ring); }
+  else { it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.holder.parent) it.holder.parent.remove(it.holder);
   if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
   if (STU.sel === id) STU.sel = '';
   if (STU.hover === id) STU.hover = '';
+  if (STU.follow === id) STU.follow = '';
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
@@ -279,8 +293,16 @@ function triggerStep(now) {
   for (const it of STU.items.values()) {
     if (it.kind === 'c') continue;
     const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
-    if (shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; if (it.kind === 's' && it.rec.start === 'shown') emitStop(it); }
+    if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
     it.shown = shown; it.first = false;
+  }
+  // a sound is heard while it is shown for you and so is the object it follows (if any): one that starts 'shown' starts
+  // from its beginning each time that turns on (a voice line as she appears)
+  for (const it of STU.items.values()) {
+    if (it.kind !== 's') continue;
+    const ob = followOf(it), heard = it.shown && (!ob || ob.shown);
+    if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown') emitStop(it); }
+    it.heard = heard;
   }
 }
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
@@ -291,6 +313,115 @@ function shownFor(p) {
 }
 function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = false; dirty(true); }
 
+// ------------------------------------------------------ sounds that follow --
+// A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
+// bone of it, or for a model with no bones a part its animation moves (rec.bone: its name as three.js gives it), at an
+// offset (rec.o: metres in the target's frame, turned but not scaled). Every frame, once every object's animation has
+// stepped, the sound's holder is put at the target's place plus its turn times the offset (soundStep); not while it is
+// carried (the grip, the page's arrows). On this device a bone not found means the whole model, and an object not in the
+// scene the sound's own place (rec.p). Names are matched as given, then leniently (lower case, letters and digits only),
+// since three.js's loaders tidy them: "mixamorig:Head" is "mixamorigHead" once loaded, "Bip01 Head" "Bip01_Head"
+const boneKey = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+// the short list of bones offered first, each where the model has one: matched by the end of its tidied name (Mixamo,
+// 3ds Max's Biped, Unreal, Rigify's DEF-, VRM and Unity's humanoid), the first ending in that order of preference. Rigify
+// numbers its spine: DEF-spine is the hips, .003 the chest, .004 and .005 the neck, .006 the head (matched only with its
+// DEF- prefix: another rig's spine006 is not a head)
+const BONE_SLOTS = [['Head', ['head', 'defspine006']], ['Neck', ['neck', 'neck01', 'neck1', 'defspine004', 'defspine005']],
+  ['Chest', ['upperchest', 'chest', 'spine2', 'spine03', 'spine003']], ['Hips', ['hips', 'pelvis', 'defspine']],
+  ['Left hand', ['lefthand', 'handleft', 'lhand', 'handl']], ['Right hand', ['righthand', 'handright', 'rhand', 'handr']],
+  ['Left foot', ['leftfoot', 'footleft', 'lfoot', 'footl']], ['Right foot', ['rightfoot', 'footright', 'rfoot', 'footr']]];
+// the bones a model offers, by name as loaded (its file's, the same in every clone), or with none the nodes its clips
+// move ({ list, kind: 'bone' | 'part', depth, slots: [[label, name]] })
+function bonesOf(E) {
+  if (!E || !E.root) return { list: [], kind: 'bone', depth: new Map(), slots: [] };
+  if (E.bones && E.bones.root === E.root) return E.bones;
+  const list = [], depth = new Map();
+  const walk = (n, d) => { if (n.isBone && n.name && !depth.has(n.name)) { depth.set(n.name, d); list.push(n.name); } for (const c of n.children) walk(c, d + 1); };
+  walk(E.root, 0);
+  let kind = 'bone';
+  if (!list.length) {
+    kind = 'part';
+    for (const c of E.clips || []) for (const t of c.tracks) {
+      let nn = '';
+      try { nn = THREE.PropertyBinding.parseTrackName(t.name).nodeName; } catch (e) { continue; }
+      if (nn && !depth.has(nn) && E.root.getObjectByName(nn)) { depth.set(nn, 0); list.push(nn); }
+    }
+  }
+  const B = { root: E.root, list: list.slice(0, 400), kind, depth };
+  // (the nearest the root first, then the shortest name: a head, not a forehead)
+  B.slots = BONE_SLOTS.map(([lab, ends]) => {
+    for (const e of ends) {
+      const m = B.list.filter(nn => boneKey(nn).endsWith(e));
+      if (m.length) return [lab, m.sort((a, b) => depth.get(a) - depth.get(b) || boneKey(a).length - boneKey(b).length)[0]];
+    }
+    return [lab, ''];
+  }).filter(x => x[1]);
+  return (E.bones = B);
+}
+// a bone's name in the short list's words where it is one of them (Head), else as it is
+function boneLabel(ob, name) {
+  const k = boneKey(name), hit = bonesOf(ob.E).slots.find(x => boneKey(x[1]) === k);
+  return hit ? hit[0] : name;
+}
+// the node of an object's own clone (each clone has its own bones) by a bone's name, exactly or leniently; null: not found
+function nodeOf(ob, name) {
+  const M = ob && ob.model;
+  if (!M || !name) return null;
+  if (!M.names) {
+    M.names = new Map(); M.keys = new Map();
+    const put = nd => { if (!nd.name) return; if (!M.names.has(nd.name)) M.names.set(nd.name, nd); const k = boneKey(nd.name); if (k && !M.keys.has(k)) M.keys.set(k, nd); };
+    M.o.traverse(nd => { if (nd.isBone) put(nd); });   // (bones first: a mesh of the same name gives way)
+    M.o.traverse(nd => { if (!nd.isBone) put(nd); });
+  }
+  return M.names.get(name) || M.keys.get(boneKey(name)) || null;
+}
+// the object a sound follows (null: none, or not an object of this scene)
+const followOf = it => { const o = it.kind === 's' && it.rec.on ? STU.items.get(it.rec.on) : null; return o && o.kind === 'o' ? o : null; };
+// the node it follows now: its bone, else the object's holder (null: it follows nothing here)
+function followNode(it) {
+  const o = followOf(it);
+  return o ? (it.rec.bone && nodeOf(o, it.rec.bone)) || o.holder : null;
+}
+// the node to measure a following sound's offset against here: as it follows, but none while it names a bone and its
+// model is not here yet (where that bone stands is not known, so only p is written: an offset measured against the
+// holder would be read against the bone everywhere else). A model here without that bone lacks it everywhere (the same
+// file), so the whole model is what everyone follows and is measured against
+function measureNode(it) {
+  const o = followOf(it);
+  return !o || (it.rec.bone && !o.model) ? null : followNode(it);
+}
+// how much larger an object is shown than its record says: both grips write its size ten times a second, the room's
+// size glides in, so between those its followers' offsets are scaled by this (1 at rest)
+const followK = o => (o && o.rec.s > 0 && o.holder.scale.x > 0 ? o.holder.scale.x / o.rec.s : 1);
+// a node's place and turn in the scene's frame (the items' group's), its scale left out
+const _wm = new THREE.Matrix4(), _ws = new THREE.Vector3(), _wp = new THREE.Vector3(), _wq = new THREE.Quaternion();
+function nodePose(nd, p, q) {
+  nd.updateWorldMatrix(true, false);
+  _wm.copy(GL.items.matrixWorld).invert().multiply(nd.matrixWorld).decompose(p, q, _ws);
+}
+// where a sound on node nd with offset o is (the scene's frame)
+function followPoint(nd, o, out) {
+  nodePose(nd, _wp, _wq);
+  return out.fromArray(o || [0, 0, 0]).applyQuaternion(_wq).add(_wp);
+}
+// where a following sound on node nd stands now (its offset scaled by followK while its object is being sized)
+function followAt(it, nd, out) {
+  const k = followK(followOf(it)), o = it.rec.o;
+  return followPoint(nd, o && k !== 1 ? o.map(v => v * k) : o, out);
+}
+// the offset that keeps a sound at p (the scene's frame) on node nd, to the mm (k: its object shown k times its record's
+// size, followK, so the record's offset is the one shown divided by k)
+function offsetAt(nd, p, k) {
+  nodePose(nd, _wp, _wq);
+  return _ws.copy(p).sub(_wp).applyQuaternion(_wq.invert()).divideScalar(k || 1).toArray().map(v => nz(r3(v)));
+}
+// what a sound follows, in words: "Dancer · Head", "Dancer · Whole model" ('' nothing)
+function followWords(it) {
+  if (!it.rec.on) return '';
+  const o = followOf(it);
+  return o ? o.rec.name + ' · ' + (it.rec.bone ? boneLabel(o, it.rec.bone) : 'Whole model') : 'an object not in the scene';
+}
+
 // ----------------------------------------------------------- every frame --
 
 const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
@@ -298,8 +429,8 @@ function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
   for (const it of STU.items.values()) {
-    // a record from the room: it glides there (0.25 s), unless carried here
-    if (it.gl && !it.carry) {
+    // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep)
+    if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on)) {
       const k = smooth((now - it.gl.t0) / 250);
       poseOf(it);
       it.holder.position.lerpVectors(it.gl.p, _pp, k);
@@ -331,18 +462,35 @@ function itemsStep(dt, now) {
         L.fill.material.opacity *= it.a; L.line.material.opacity *= it.a;
         L.name.userData.set(r.name + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
       }
-    } else {
-      const L = it.look;
-      it.holder.visible = L.ring.visible = editing;
-      if (editing) {
-        L.ring.position.set(it.holder.position.x, 0.004, it.holder.position.z);
-        L.ring.scale.setScalar(it.rec.r);
-        L.look({ hot: STU.hover === it.id, selected: STU.sel === it.id, on: !!it.src && it.sa > 0.5 });
-      }
     }
   }
+  // the sounds, once every object's animation has stepped: a sound that follows a model goes where its bone is now
+  for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
   editStep(editing);
   emitStep(now);
+}
+// a sound: where it follows (gliding there from where it was when the room moved it), heard as far as it and what it
+// follows are shown for you (its fade times its object's, the 0.4 s fades), and while editing its speaker, its ring at
+// its full-volume distance and a faint line to what it follows (its labels, hovered or selected: "Voice → Dancer · Head")
+function soundStep(it, editing, now) {
+  const r = it.rec, L = it.look, ob = followOf(it), n = r.on ? followNode(it) : null;
+  if (r.on && !it.carry) {
+    if (n) followAt(it, n, _pp); else _pp.fromArray(r.p);
+    if (it.gl) { const k = smooth((now - it.gl.t0) / 250); it.holder.position.lerpVectors(it.gl.p, _pp, k); if (k >= 1) it.gl = null; }
+    else it.holder.position.copy(_pp);
+  }
+  it.fa = it.sa * (ob ? ob.sa : 1);
+  it.holder.visible = L.ring.visible = editing;
+  L.link.visible = false;
+  if (!editing) return;
+  L.ring.position.set(it.holder.position.x, 0.004, it.holder.position.z);
+  L.ring.scale.setScalar(r.r);
+  const hot = STU.hover === it.id, sel = STU.sel === it.id;
+  L.look({ hot, selected: sel, on: !!it.src && it.fa > 0.5 });   // (its labels, hovered or selected, say what it follows)
+  if (n) {
+    nodePose(n, _wp, _wq);
+    if (_wp.distanceTo(it.holder.position) > 0.005) { L.link.userData.set(it.holder.position, _wp); L.link.visible = true; }
+  }
 }
 // a model not here yet: its grey box where it will stand, with what is happening to it
 function greyStep(it) {
@@ -457,7 +605,7 @@ function emitStep(now) {
     if (it.kind !== 's') continue;
     const F = it.F;
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
-    const want = quiet ? 0 : it.sa * it.rec.vol;
+    const want = quiet ? 0 : it.fa * it.rec.vol;   // (its own fade times that of the object it follows)
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now);
     else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now);
     if (!it.src) continue;
@@ -583,7 +731,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; select(''); }
+  if (!STU.edit) { STU.pick = null; STU.follow = ''; select(''); }
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -626,8 +774,30 @@ function changed() { STU.rev++; draftSoon(); dirty(); }
 function setRec(id, patch) {
   const it = STU.items.get(id);
   if (!it) return null;
-  const rec = norm(it.kind, Object.assign({}, it.rec, patch));
+  const rec = norm(it.kind, Object.assign({}, it.rec, patch));   // (a field patched to undefined goes)
   return rec ? putItem(id, it.kind, rec) : null;
+}
+// an object's record changed by an edit here (its size steps, both grips, the page's arrows): the sounds that follow it
+// keep their place on it as it is sized, their offsets scaled by its size's ratio since the change began (their records
+// as they were then join the change: one Undo step); never for a record from the room, which carries theirs
+function setObj(id, patch) {
+  const it = STU.items.get(id), s0 = it ? it.rec.s : 0, r = setRec(id, patch);
+  if (r && it.kind === 'o' && it.rec.s !== s0) scaleFollowers(it);
+  return r;
+}
+function scaleFollowers(ob) {
+  const fs = [...STU.items.values()].filter(x => x.kind === 's' && x.rec.on === ob.id);
+  if (!fs.length || !SNAP) return;
+  beginChange(fs.map(x => x.id));
+  const was = id => { const b = SNAP.before.get(id); return b && b[1] ? JSON.parse(b[1]) : null; }, b0 = was(ob.id);
+  if (!b0 || !(b0.s > 0)) return;
+  for (const f of fs) { const fb = was(f.id); if (fb && fb.on === ob.id && fb.o) setRec(f.id, { o: fb.o.map(v => v * ob.rec.s / b0.s) }); }
+}
+// a sound's place written from where it is now (p) and, following something there, its offset against it as it is now
+// (its bone's model not here yet: p alone, measureNode)
+function soundAt(it, pos) {
+  const nd = it.rec.on ? measureNode(it) : null;
+  return nd ? { p: pos.toArray(), o: offsetAt(nd, pos, followK(followOf(it))) } : { p: pos.toArray() };
 }
 const newId = () => { let id; do { id = Array.from({ length: 6 }, () => '0123456789abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 36)]).join(''); } while (STU.items.has(id)); return id; };
 function nameFor(base) {
@@ -686,6 +856,8 @@ function deleteItem(id) {
   if (!editOn() || !STU.items.has(id)) return;
   change(() => {
     for (const c of [...STU.items.values()]) if (c.kind === 'c' && (c.rec.show.includes(id) || c.rec.hide.includes(id))) setRec(c.id, { show: c.rec.show.filter(i => i !== id), hide: c.rec.hide.filter(i => i !== id) });
+    // (the sounds that follow it stay where they are, following nothing: Undo brings both back)
+    for (const f of [...STU.items.values()]) if (f.kind === 's' && f.rec.on === id) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
     removeItem(id);
   });
   if (STU.pick && STU.pick.id === id) STU.pick = null;
@@ -694,8 +866,11 @@ function deleteItem(id) {
 function duplicateItem(id) {
   const it = STU.items.get(id);
   if (!it || !canAdd(it.kind)) return '';
-  const nid = newId();
-  change(() => putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] }))));
+  const nid = newId(), o = it.rec.o || [0, 0, 0];
+  // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
+  // takes none of its sounds)
+  change(() => putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
+    it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {}))));
   select(nid);
   sfxAct('place', 'world', null);
   return nid;
@@ -717,12 +892,12 @@ const ITEM_ACT = {
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
   floor: it => { const b = objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
-  // sizes about its foot (the middle of its lowest side stays where it is)
+  // sizes about its foot (the middle of its lowest side stays where it is); the sounds that follow it keep their place on it
   size: (it, k) => {
     const b0 = objBox(it), s = Math.min(1e4, Math.max(1e-4, it.rec.s * k));
-    if (!b0) { setRec(it.id, { s }); return; }
+    if (!b0) { setObj(it.id, { s }); return; }
     const b1 = objBox(it, null, s), dx = (b0.min.x + b0.max.x - b1.min.x - b1.max.x) / 2, dz = (b0.min.z + b0.max.z - b1.min.z - b1.max.z) / 2;
-    setRec(it.id, { s, p: [it.rec.p[0] + dx, it.rec.p[1] + b0.min.y - b1.min.y, it.rec.p[2] + dz] });
+    setObj(it.id, { s, p: [it.rec.p[0] + dx, it.rec.p[1] + b0.min.y - b1.min.y, it.rec.p[2] + dz] });
   },
   dup: it => duplicateItem(it.id),
   del: it => deleteItem(it.id),
@@ -738,13 +913,31 @@ const ITEM_ACT = {
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   loop: (it, v) => setRec(it.id, { loop: v === 'on' }),
+  // a sound: what it follows, from where it is now (an object, then one of its bones; the offset worked out here), onto
+  // it (no offset), or nothing (where it is now); picking the object by pointing (followPick), the card's list of bones
+  follow: (it, oid) => {
+    const o = STU.items.get(oid);
+    STU.follow = '';
+    // (the object it follows already: nothing changes, its bone kept; Whole model is one of the bone choices)
+    if (it.kind === 's' && o && o.kind === 'o' && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
+  },
+  bone: (it, name) => {
+    const o = followOf(it), nd = name ? nodeOf(o, name) : o && o.holder;
+    if (nd) setRec(it.id, { bone: name || undefined, o: offsetAt(nd, it.holder.position, followK(o)) });   // (a bone this model lacks: refused)
+  },
+  onto: it => { const nd = followNode(it); if (nd) setRec(it.id, { o: undefined, p: followPoint(nd, null, new THREE.Vector3()).toArray() }); },
+  unfollow: it => setRec(it.id, { on: undefined, bone: undefined, o: undefined, p: it.holder.position.toArray() }),
+  followPick: it => { if (it.kind === 's') STU.follow = STU.follow === it.id ? '' : it.id; },
+  bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
+  bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
 };
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage'];   // (the card's own state: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
-  if (act === 'pickFor') { ITEM_ACT.pickFor(it, v); dirty(true); return; }
+  if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
   change(() => ITEM_ACT[act](it, v));
-  sfxAct(act === 'del' ? 'snap' : 'click', 'world', null);
+  sfxAct(act === 'del' ? 'snap' : act === 'follow' ? 'link' : 'click', 'world', null);
 }
 function turnAbout(it, q) {
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
@@ -766,6 +959,7 @@ function select(id) {
   if (id === STU.sel) return;
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
+  if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();
   dirty(true);

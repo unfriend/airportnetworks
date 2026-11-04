@@ -133,7 +133,9 @@ placed by itself).
   ],
   "sounds": [
     { "id": "s0ab12", "name": "Birds", "file": "sounds/birds.mp3", "p": [0, 2, -3], "vol": 0.8, "r": 1.5,
-      "loop": true, "start": "always" }
+      "loop": true, "start": "always" },
+    { "id": "v7kq2m", "name": "Voice", "file": "sounds/voice.wav", "p": [0.4, 1.7, -2.6], "vol": 1, "r": 1,
+      "loop": true, "start": "shown", "on": "k3f9qa", "bone": "mixamorigHead", "o": [0, -0.03, 0.14] }
   ]
 }
 ```
@@ -149,9 +151,18 @@ placed by itself).
   time a cube shows it to you).
 - `id`: six characters `[a-z0-9]`, made when an item is placed, unique in the scene. `name`: at most 60 characters
   (the file's name without its extension, numbered when placed again: *eva_001 2*).
+- A sound's `on`, `bone` and `o` (optional, kept only when set; "Sounds that follow a model" below): `on` the id of an
+  object of this scene it follows; `bone` the name of a bone of that object's model (or, for a model with no bones, of
+  a part its animation moves) as three.js gives it, at most 120 characters (absent or `''`: the whole model); `o` the
+  offset `[x, y, z]` in metres in the target's frame, turned but not scaled, to the mm, each within 1,000 (absent or
+  `[0, 0, 0]`: none). A `bone` or an `o` without `on` is dropped, whatever it holds; with `on`, an `on` that is not an
+  id, a `bone` that is not a string or an `o` that is not three numbers makes the record bad. `p` stays: where the sound
+  stands when it follows nothing, or when what it follows is not in the scene. The layout's version stays `studio: 1`.
 - Limits: 300 objects, 100 cubes, 60 sounds; a `file` is a path in the scene's listing (at most 200 characters, no
-  `..`); a list of ids in a cube only names items of this scene (others dropped when read). Anything else in a read
-  layout is ignored; a bad item is dropped and said once (*2 items in layout.json could not be read*).
+  `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
+  object the layout does not hold keeps its `on`, `bone` and `o` and stands at its `p` until that object is back, as with
+  a state from the room (so a save made meanwhile never loses what it followed). Anything else in a read layout is
+  ignored; a bad item is dropped and said once (*2 items in layout.json could not be read*).
 
 ## Trigger cubes
 
@@ -186,6 +197,8 @@ placed by itself).
   (`HOST.collab.now()`) modulo the sound's length; outside a room from when the scene opened.
 - Decoded once per file (`decodeAudioData`), at most 60 MB of decoded sound per scene (more: the rest not loaded, said).
 - While editing: a small speaker marker (a ball and cone in the sound's colour) and a faint ring on the floor at `r`.
+- A sound may follow an object or one of its bones ("Sounds that follow a model" below): it is placed, heard and shown
+  where that puts it, and only while it and its object are both shown for you.
 
 ## Editing
 
@@ -226,9 +239,11 @@ The panes (page HTML and headset canvas twins, the same content):
   x), *On the floor*, size steps (x0.5, x0.9, x1.1, x2), *Duplicate*, *Delete*; for a cube: size steps per axis (10 cm),
   *While inside* / *Stays once entered*, *Shows n* and *Hides n* with *Pick what it shows* and *Pick what it hides*
   (then pointing and pressing on items adds or removes them from that list until *Done*; the items drawn with a tick),
-  *Delete*; for a sound: *Volume* steps, *Full volume within* steps, *Loop*, *Always* / *When shown*, *Delete*.
+  *Delete*; for a sound: *Volume* steps, *Full volume within* steps, *Loop*, *Always* / *When shown*, *Follows* (*Follow
+  an object...*, its bone choices, *Move onto it*, *Stop following*: "Sounds that follow a model"), *Delete*.
 - **Items**: every item in the scene (objects, cubes, sounds), what is selected lit, a press selects it; on a page also a
-  tick box per item in a selected cube's *Shows* and *Hides* columns.
+  tick box per item in a selected cube's *Shows* and *Hides* columns. A sound that follows something says what (*→
+  Dancer · Head*).
 
 ## Shared rooms
 
@@ -248,9 +263,14 @@ The panes (page HTML and headset canvas twins, the same content):
   pane.
 - Items glide to a record from the room (0.25 s), unless carried here (the carry wins until let go, as the design
   room's). No effects; `view()` null; `place` and `panel` as the design room's (only the panel moves).
+- A sound's record carries what it follows (`on`, `bone`, `o`), so following is shared exactly as placing is: everyone
+  at the station hears it from the same bone, each device posing its own model on the station's clock (with `start:
+  'shown'` from each person's own moment, as an object's animation). FORMAT `networks-30` (v112): an older device would
+  strip those fields and write the record back.
 - Saving writes what is placed now (the station's items) for everyone; another device's save shows as *Saved 22:41 by
   Anna* where the shell gives a name.
-- No `FORMAT` change: a new page in `STORY_EXTRA` is a station an older device shows as *A newer story*.
+- No `FORMAT` change came with the studio itself: a new page in `STORY_EXTRA` is a station an older device shows as *A
+  newer story*. Sounds that follow a model changed a sound's `state()` and so `FORMAT` (`networks-30`, v112).
 - Outside a room: what is placed is kept on this device too (`studioDraft.<relay or folder>.<scene>`, written a second
   after each change); opening the scene with a draft newer than the saved layout and different from it offers *Your
   unsaved changes from <time>: Restore / Discard*.
@@ -458,6 +478,76 @@ context (the shell's renew) makes its source again (an element can feed only one
 Shorter sounds are decoded as before (gapless loops). The 60 MB limit counts decoded sounds only. A stereo file is
 played from its point (the panner mixes it to that point); the Sound pane says *mono files place best*.
 
+## Sounds that follow a model (the owner, 4 November 2026)
+
+The owner: "also sound should follow a model, sometimes i might also want to select bones like the head for voice,
+breast for sounds she makes while moving etc". A sound may follow an object, the whole model or one of its bones, so a
+voice stays at a dancer's head and her movement sounds at her chest as she moves.
+
+- **The record** (`layout.json` and `state()` alike; "A scene's layout" above): `on` (the object's id), `bone` (a bone's
+  name, absent the whole model), `o` (the offset in metres in the target's frame, turned but not scaled; absent none),
+  each kept only when set, `p` as before. The target is the bone, else the object's holder (its place `p`, turn `q` and
+  size `s`; there from the first frame, before its model is in).
+- **Where it sounds.** Every frame, once every object's animation has stepped (two passes: objects first, then sounds:
+  `soundStep` in `engine/e6_items.js`), a following sound's holder is put at the target's place plus the target's turn
+  times `o`, both in the scene's frame (the target's world matrix updated first; a skinned model's bones posed by its
+  own mixer). The speaker, its ring, the labels, the pointer's hit and the panner follow (the emitter reads the
+  holder's place). A record from the room glides there (0.25 s) as any item's. While carried by a grip or dragged by the
+  page's arrows, the sound is where the hand or the arrows put it (no following until let go). Not found on this
+  device: a bone missing, the whole model; the object not in the scene (deleted elsewhere, a state from the room without
+  it), the sound's own `p`, until it is back.
+- **Bones** (`bonesOf`, `nodeOf`): a model's bones by name as its loader gives them (the file's, the same in each
+  clone; each object's own clone has its own bones, `SkeletonUtils.clone`, and the sound uses its object's); a model
+  with no bones offers the parts its clips move (the nodes their tracks name; the test box's Bob). A name is found
+  exactly, else leniently: lower case with everything but letters and digits taken out, since three.js's loaders tidy
+  names (spaces become underscores, `[ ] . : /` go): an FBX's *Bip01 Head* is *Bip01_Head*, *mixamorig:Head* is
+  *mixamorigHead*. A record keeps the name as this device's three.js gave it when chosen. The short list, each shown only
+  where the model has such a bone, by the end of its tidied name (Mixamo, 3ds Max's Biped, Unreal, Rigify's `DEF-`,
+  VRM and Unity's humanoid names; the bone nearest the root, then the shortest name): *Whole model*, *Head* (`head`,
+  `defspine006`), *Neck* (`neck`, `neck01`, `neck1`, `defspine004`, `defspine005`), *Chest* (`upperchest`, `chest`,
+  `spine2`, `spine03`, `spine003`, in that order of preference), *Hips* (`hips`, `pelvis`, `defspine`), *Left hand*
+  (`lefthand`, `handleft`, `lhand`, `handl`), *Right hand*, *Left foot*, *Right foot* (the same, mirrored). Rigify
+  numbers its spine (`DEF-spine` the hips, `.003` the chest, `.004` and `.005` the neck, `.006` the head), so those
+  endings carry its `def` prefix: another rig's `spine006` is not a head. Then *More bones...* (or *Moving parts...*):
+  every one by name, all on a page, eight at a time on the headset (*Previous*, *Next*). The owner's rigged figure (a 3ds
+  Max Biped, 35 bones, `Bip001_...` once loaded) finds all eight (its *Chest* is `Bip001_Spine2`).
+- **Attaching, moving, letting go** (each an ordinary change: one Undo step, written to the room, saved):
+  - A sound's card (page and headset alike): a *Follows* line (*nothing*, or *Dancer · Head, 0.12 m from it*) and row:
+    *Follow an object...* (a pick mode, as *Pick what it shows*: the trigger or a click on an object takes it, and the
+    card lists the scene's objects to press; *Cancel*), then, following, *Follow another object...*, *Move onto it* (no
+    offset; `p` there too) and *Stop following* (`p` where it is now; `on`, `bone` and `o` go), and the bone choices
+    (*Bone*, or *Moving part* for a model with none). Attaching keeps the sound where it is (`o` worked out on the device
+    that attaches, in the target's turned-not-scaled frame, to the mm); another bone keeps it where it is (`o` again).
+    Picking the object it follows already changes nothing (its bone stays; *Whole model* is one of the bone choices).
+  - Moved by hand (the grip, the arrows) it keeps following: at each write (and as it is let go) `p` and `o` are worked
+    out from where it was put against the target as it is then. While it names a bone and its object's model is not on
+    this device yet (still loading), only `p` is written (`measureNode`): an offset measured against the holder would be
+    read against the bone everywhere else, so here it goes back to where its offset puts it. A model here that lacks the
+    bone lacks it everywhere (the same file), so it is measured against the whole model, as everyone follows it.
+  - An object sized here (its size steps, both grips, the arrows' size; not *Stand up* or *Turn*) scales the offsets of
+    the sounds that follow it, bone or whole model, by the size's ratio since the change began, in the same change
+    (`setObj`, `scaleFollowers`), so a sound at her mouth stays at her mouth. A record from the room carries the sounds'
+    own records, so nothing is scaled when one is applied. Between writes (both grips write ten times a second; a size
+    from the room glides in over 0.25 s) the object is shown at another size than its record's, and its followers'
+    offsets are scaled by that ratio as they are placed (`followK`), so nothing slides off her meanwhile.
+  - Switched to its GLB (`switchToGLB`, `s' = s / b`, `q' = q r^-1`): the sounds that follow its whole model (also those
+    naming a bone its model lacks, which follow the whole model too) have their offsets turned by `r` (`o' = r o`) in the
+    same change; on a bone they keep theirs (the GLB's bones stand where the
+    original's did, to 1 mm, and a name the loader tidied is still found).
+  - An object deleted: the sounds that follow it stay where they are, following nothing, in the same Undo step (Undo
+    brings both back, following again). A sound duplicated follows the same (its offset nudged as the copy is, `o` + 0.5
+    m in x); an object duplicated takes none of its sounds.
+- **Hidden with its model.** A following sound is heard only while it and its object are both shown for you (the cubes,
+  each person's own): its fade is its own times its object's (the 0.4 s fades), and with `start: 'shown'` it starts from
+  its beginning each time that turns on (a voice line as she appears). The card and the Items pane say *hidden for you*
+  by that. Not following: as before.
+- **While editing** (each device's own): its speaker is drawn where it follows, with a faint line in its colour to the
+  target's origin (over everything), and hovered or selected its labels name what it follows (*Voice → Dancer · Head*).
+- **Shared rooms**: the record is the sound's field in `state()`, so following is shared as placing is; FORMAT
+  `networks-30` (v112). No new key, no effect.
+- **Untested on a headset**: how a voice at a moving head sounds through HRTF, the pick by trigger and the bone pages on
+  a real panel, and the owner's own figures (only the bone names of the rigged one were checked, locally).
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -477,6 +567,12 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   reads every picture back against the pixels it was made from (exact, or within the block format's error), more kinds
   made in memory, the refusals, the ladder, `slotOf`, `texRank` and the `.psd` renaming. The smoke test's *studio
   textures* steps and `tools/collab.mjs --studio`'s texture step: "Testing" in `AGENTS.md`.
+- `tools/studio/test/scenes/rig/` (about 35 KB): made by the same script: `dancer.glb` (a small skinned figure, two
+  materials, its bones named in mixed conventions, Mixamo's *mixamorig:Head*, 3ds Max's *Bip01 L Hand*, Unreal's
+  *foot_l*, and a 2 s clip, *Dance*, moving her head through about 0.7 m), copies of `box.glb`, `figure.fbx` and
+  `figure.png`, a short `voice.wav`, and a `layout.json` with *Voice* following her head by an FBX's name for it
+  (*mixamorig:Head*), and a cube (*Curtain*) that hides her. The smoke test's *studio follow* steps and `tools/collab.mjs
+  --studio`'s step for it: "Testing" in `AGENTS.md`.
 - `tools/studio/test/scenes/test/`: small files made by `tools/studio/test/make.mjs` (committed with what they make,
   under 200 KB together): an animated `box.glb` (two clips), an ASCII `figure.fbx` (a mesh with a material naming
   `figure.png` beside it, a take that turns it, Z up and in centimetres, so both guesses show), `figure.png`, a

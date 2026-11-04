@@ -1,0 +1,15 @@
+{
+  "studio": 1,
+  "scene": "rig",
+  "saved": "2026-11-04T12:00:00.000Z",
+  "objects": [
+    {"id":"dan001","name":"Dancer","file":"dancer.glb","p":[0,0,-2],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Dance","anim":"loop","start":"always"},
+    {"id":"box001","name":"Box","file":"box.glb","p":[1.5,0.25,-2],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Bob","anim":"loop","start":"always"}
+  ],
+  "cubes": [
+    {"id":"cube01","name":"Curtain","p":[0,1,2],"yaw":0,"size":[1.2,2,1.2],"mode":"while","show":[],"hide":["dan001"]}
+  ],
+  "sounds": [
+    {"id":"voi001","name":"Voice","file":"voice.wav","p":[0,1.73,-1.86],"vol":1,"r":1,"loop":true,"start":"shown","on":"dan001","bone":"mixamorig:Head","o":[0,-0.03,0.14]}
+  ]
+}

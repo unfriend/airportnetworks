@@ -226,13 +226,23 @@ async function convertAll() {
 // Every object placed from `orig` now placed from the GLB where it stands: the GLB holds the original turned by r and
 // scaled by b (its record), so the object's own scale and turn become s / b and q * r^-1 (one change, one Undo step,
 // for everyone at a station). A GLB with no record is taken as the studio's own guess for the original made into metres
-// and Y up
+// and Y up. A sound that follows such an object's whole model has its offset turned by r in the same change (o' = r o:
+// the holder's turn is q r^-1, so where it sounds stays put); one on a bone keeps its offset (the GLB's bones stand where
+// the original's did, and a name the loader tidied is still found)
 function switchToGLB(orig, glb, rec) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
   const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
   if (!list.length) return 0;
-  change(() => { for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g)); });
+  change(() => {
+    // (the sounds on its whole model, also those naming a bone its model here lacks, which follow the whole model too;
+    // told before the objects switch, while their models are still the original's; a model not here: taken as on its bone)
+    const ids = new Set(list.map(it => it.id)), r = new THREE.Quaternion().fromArray(g.q).normalize();
+    const whole = f => { const ob = STU.items.get(f.rec.on); return !f.rec.bone || !!(ob && ob.model && !nodeOf(ob, f.rec.bone)); };
+    const turn = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && whole(f));
+    for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g));
+    for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).toArray() });
+  });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;
 }

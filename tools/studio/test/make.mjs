@@ -25,6 +25,18 @@
 //   broken.obj + broken.mtl broken.tif, a TIFF compressed with JPEG (refused, with a sentence)
 //   plain.obj   texture coordinates and no material (Add a texture)
 //   tex/rough.tif (16-bit grey, Deflate), tex/glass.dds (DXT5, see-through), paint.png: pictures to pick
+// and the third, tools/studio/test/scenes/rig/, for sounds that follow a model or a bone (tools/studio/SPEC.md, "Sounds
+// that follow a model"):
+//   dancer.glb  a small skinned figure (1.87 m, two materials, about 13 KB), its bones named in mixed conventions so the
+//               lenient match is used (Mixamo's mixamorig:Hips, mixamorig:Spine2, mixamorig:Neck and mixamorig:Head,
+//               3ds Max's Bip01 L Hand and Bip01 R Hand, Unreal's foot_l and foot_r: three.js's loader tidies them to
+//               mixamorigHead, Bip01_L_Hand), and a 2 s clip, Dance, that sways her hips, bends her spine, turns her head
+//               and lifts her hands (the head moves through about 0.7 m)
+//   box.glb, figure.fbx, figure.png  as in the test scene (a moving part, Bob's box; a Z-up model in centimetres, whose
+//               GLB has a turn baked in)
+//   voice.wav   a short sung vowel (0.8 s, 8 kHz, 8-bit)
+//   layout.json the dancer, the box, a cube (Curtain) that hides the dancer, and Voice at her mouth, following her head
+//               by the name an FBX would give it (mixamorig:Head)
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
 // usage (from the repository root): node tools/studio/test/make.mjs
@@ -99,6 +111,88 @@ function glb() {
   const head = Buffer.alloc(12); head.write('glTF', 0, 'ascii'); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + js.length + 8 + bb.length, 8);
   const ch = (t, d) => { const b = Buffer.alloc(8); b.writeUInt32LE(d.length, 0); b.write(t, 4, 'ascii'); return Buffer.concat([b, d]); };
   return Buffer.concat([head, ch('JSON', js), ch('BIN\0', bb)]);
+}
+
+// ---- dancer.glb: a skinned figure, each part a box bound wholly to one bone, its bones named in mixed conventions
+function dancerGlb() {
+  // bones: [name, parent (an index here), translation from the parent at rest]
+  const B = [['mixamorig:Hips', -1, [0, 1, 0]], ['mixamorig:Spine2', 0, [0, 0.3, 0]], ['mixamorig:Neck', 1, [0, 0.25, 0]], ['mixamorig:Head', 2, [0, 0.1, 0]],
+    ['Bip01 L Hand', 1, [0.45, 0.15, 0]], ['Bip01 R Hand', 1, [-0.45, 0.15, 0]], ['foot_l', 0, [0.12, -0.9, 0]], ['foot_r', 0, [-0.12, -0.9, 0]]];
+  const W = []; B.forEach(([, par, t], i) => { W[i] = par < 0 ? t.slice() : W[par].map((v, k) => v + t[k]); });   // (at rest, where each stands)
+  // the parts: [bone, middle, half sizes, primitive (0 the body, 1 the head)]
+  const P = [[0, [0, 1.1, 0], [0.16, 0.12, 0.1], 0], [1, [0, 1.4, 0], [0.19, 0.15, 0.11], 0], [2, [0, 1.6, 0], [0.05, 0.05, 0.05], 0], [3, [0, 1.76, 0], [0.1, 0.12, 0.11], 1],
+    [3, [0, 1.75, 0.12], [0.02, 0.025, 0.03], 1], [4, [0.27, 1.45, 0], [0.2, 0.04, 0.04], 0], [5, [-0.27, 1.45, 0], [0.2, 0.04, 0.04], 0], [6, [0.12, 0.55, 0], [0.06, 0.45, 0.06], 0], [7, [-0.12, 0.55, 0], [0.06, 0.45, 0.06], 0]];
+  const faces = [[[1, 0, 0], [0, 0, -1], [0, 1, 0]], [[-1, 0, 0], [0, 0, 1], [0, 1, 0]], [[0, 1, 0], [1, 0, 0], [0, 0, -1]], [[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 0, 1], [1, 0, 0], [0, 1, 0]], [[0, 0, -1], [-1, 0, 0], [0, 1, 0]]];
+  const prims = [0, 1].map(() => ({ P: [], N: [], J: [], Wt: [], I: [] }));
+  for (const [j, c, h, pi] of P) {
+    const g = prims[pi];
+    for (const [n, u, v] of faces) {
+      const b = g.P.length / 3;
+      for (const [a, cc] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { g.P.push(...[0, 1, 2].map(i => c[i] + (n[i] + u[i] * a + v[i] * cc) * h[i])); g.N.push(...n); g.J.push(j, 0, 0, 0); g.Wt.push(1, 0, 0, 0); }
+      g.I.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+  }
+  const parts = [], views = [], acc = [];
+  let off = 0;
+  const add = (buf, target) => { const pad = (4 - (off % 4)) % 4; if (pad) { parts.push(Buffer.alloc(pad)); off += pad; } views.push(Object.assign({ buffer: 0, byteOffset: off, byteLength: buf.length }, target ? { target } : {})); parts.push(buf); off += buf.length; return views.length - 1; };
+  const f32 = a => Buffer.from(new Float32Array(a).buffer), u16 = a => Buffer.from(new Uint16Array(a).buffer), u8 = a => Buffer.from(new Uint8Array(a).buffer);
+  const mm = (a, n) => [0, 1, 2, 3].slice(0, n).map(i => a.filter((_, k) => k % n === i)).map(c => [Math.min(...c), Math.max(...c)]);
+  const accessor = (a, type, n, target, bounds) => { const v = add(f32(a), target); acc.push(Object.assign({ bufferView: v, componentType: 5126, count: a.length / n, type }, bounds ? { min: mm(a, n).map(x => x[0]), max: mm(a, n).map(x => x[1]) } : {})); return acc.length - 1; };
+  const primitives = prims.map((g, k) => {
+    const aP = accessor(g.P, 'VEC3', 3, 34962, true), aN = accessor(g.N, 'VEC3', 3, 34962), aW = accessor(g.Wt, 'VEC4', 4, 34962);
+    acc.push({ bufferView: add(u8(g.J), 34962), componentType: 5121, count: g.J.length / 4, type: 'VEC4' }); const aJ = acc.length - 1;
+    acc.push({ bufferView: add(u16(g.I), 34963), componentType: 5123, count: g.I.length, type: 'SCALAR' }); const aI = acc.length - 1;
+    return { attributes: { POSITION: aP, NORMAL: aN, JOINTS_0: aJ, WEIGHTS_0: aW }, indices: aI, material: k };
+  });
+  // each bone's inverse bind matrix (at rest the bones are not turned: a translation back from where it stands)
+  const aIBM = accessor(W.flatMap(w => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -w[0], -w[1], -w[2], 1]), 'MAT4', 16);
+  // Dance (2 s): the hips sway and rise, the spine bends about z, the head turns about y, the hands rise in turn
+  const T = [0, 0.5, 1, 1.5, 2], aT = accessor(T, 'SCALAR', 1, null, true);
+  const qz = a => [0, 0, Math.sin(a / 2), Math.cos(a / 2)], qy = a => [0, Math.sin(a / 2), 0, Math.cos(a / 2)];
+  const tracks = [
+    [0, 'translation', [[0, 1, 0], [0.45, 1, 0.2], [0, 1.06, 0], [-0.45, 1, -0.2], [0, 1, 0]]],
+    [1, 'rotation', [0, 0.5, 0, -0.5, 0].map(qz)],
+    [3, 'rotation', [0, 0.9, 0, -0.9, 0].map(qy)],
+    [4, 'translation', [[0.45, 0.15, 0], [0.4, 0.45, 0.15], [0.45, 0.15, 0], [0.4, 0.45, 0.15], [0.45, 0.15, 0]]],
+    [5, 'translation', [[-0.45, 0.15, 0], [-0.4, 0.15, 0], [-0.4, 0.45, 0.15], [-0.4, 0.15, 0], [-0.45, 0.15, 0]]],
+  ];
+  const samplers = [], channels = [];
+  for (const [b, path, vals] of tracks) {
+    samplers.push({ input: aT, output: accessor(vals.flat(), path === 'rotation' ? 'VEC4' : 'VEC3', path === 'rotation' ? 4 : 3), interpolation: 'LINEAR' });
+    channels.push({ sampler: samplers.length - 1, target: { node: 2 + b, path } });
+  }
+  const bin = Buffer.concat(parts), json = {
+    asset: { version: '2.0', generator: 'tools/studio/test/make.mjs' }, scene: 0, scenes: [{ nodes: [0] }],
+    nodes: [{ name: 'dancer', children: [1, 2] }, { name: 'body', mesh: 0, skin: 0 }, ...B.map(([name, par, t], i) => Object.assign({ name, translation: t }, B.some(x => x[1] === i) ? { children: B.map((x, k) => (x[1] === i ? 2 + k : -1)).filter(k => k >= 0) } : {}))],
+    meshes: [{ name: 'body', primitives }],
+    skins: [{ joints: B.map((_, i) => 2 + i), inverseBindMatrices: aIBM, skeleton: 2 }],
+    materials: [{ name: 'dress', pbrMetallicRoughness: { baseColorFactor: [0.86, 0.45, 0.7, 1], metallicFactor: 0, roughnessFactor: 0.7 } }, { name: 'face', pbrMetallicRoughness: { baseColorFactor: [0.95, 0.78, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.6 } }],
+    accessors: acc, bufferViews: views, buffers: [{ byteLength: bin.length + ((4 - (bin.length % 4)) % 4) }],
+    animations: [{ name: 'Dance', channels, samplers }],
+  };
+  let js = Buffer.from(JSON.stringify(json));
+  js = Buffer.concat([js, Buffer.alloc((4 - (js.length % 4)) % 4, 0x20)]);
+  const bb = Buffer.concat([bin, Buffer.alloc((4 - (bin.length % 4)) % 4)]);
+  const head = Buffer.alloc(12); head.write('glTF', 0, 'ascii'); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + js.length + 8 + bb.length, 8);
+  const ch = (t, d) => { const b = Buffer.alloc(8); b.writeUInt32LE(d.length, 0); b.write(t, 4, 'ascii'); return Buffer.concat([b, d]); };
+  return Buffer.concat([head, ch('JSON', js), ch('BIN\0', bb)]);
+}
+// ---- voice.wav (8-bit unsigned mono, 8,000 Hz, 0.8 s: a sung "ah", its pitch rising a little)
+function voiceWav() {
+  const rate = 8000, n = Math.round(rate * 0.8), b = Buffer.alloc(44 + n);
+  b.write('RIFF', 0, 'ascii'); b.writeUInt32LE(36 + n, 4); b.write('WAVE', 8, 'ascii'); b.write('fmt ', 12, 'ascii');
+  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34);
+  b.write('data', 36, 'ascii'); b.writeUInt32LE(n, 40);
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / rate, env = Math.min(1, i / 400, (n - i) / 600);
+    ph += 2 * Math.PI * (220 + 40 * t) / rate;
+    // (harmonics weighted towards an "ah": strong near 700 and 1,200 Hz)
+    let v = 0;
+    for (let k = 1; k <= 12; k++) { const f = k * (220 + 40 * t); v += Math.sin(k * ph) * (Math.exp(-(((f - 700) / 250) ** 2)) + 0.6 * Math.exp(-(((f - 1200) / 300) ** 2)) + 0.15 / k); }
+    b[44 + i] = 128 + Math.round(Math.max(-1, Math.min(1, v / 2.2)) * env * 0.6 * 127);
+  }
+  return b;
 }
 
 // ---- figure.fbx (ASCII, as three.js's FBXLoader reads it: tabs by depth, arrays on their own lines)
@@ -449,9 +543,28 @@ for (const [f, p] of Object.entries(scenePictures())) tfiles[f] = p.bytes;
 let ttotal = 0;
 for (const [f, b] of Object.entries(tfiles)) { fs.mkdirSync(path.dirname(path.join(tout, f)), { recursive: true }); fs.writeFileSync(path.join(tout, f), b); ttotal += Buffer.byteLength(b); }
 
+// ---- the rig scene: sounds that follow a model or a bone
+const rout = path.join(here, 'scenes/rig');
+fs.rmSync(rout, { recursive: true, force: true });
+const rigLayout = {
+  studio: 1, scene: 'rig', saved: '2026-11-04T12:00:00.000Z',
+  objects: [
+    { id: 'dan001', name: 'Dancer', file: 'dancer.glb', p: [0, 0, -2], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Dance', anim: 'loop', start: 'always' },
+    { id: 'box001', name: 'Box', file: 'box.glb', p: [1.5, 0.25, -2], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Bob', anim: 'loop', start: 'always' },
+  ],
+  cubes: [{ id: 'cube01', name: 'Curtain', p: [0, 1, 2], yaw: 0, size: [1.2, 2, 1.2], mode: 'while', show: [], hide: ['dan001'] }],
+  sounds: [{ id: 'voi001', name: 'Voice', file: 'voice.wav', p: [0, 1.73, -1.86], vol: 1, r: 1, loop: true, start: 'shown', on: 'dan001', bone: 'mixamorig:Head', o: [0, -0.03, 0.14] }],
+};
+const rfiles = { 'dancer.glb': dancerGlb(), 'box.glb': files['box.glb'], 'figure.fbx': files['figure.fbx'], 'figure.png': files['figure.png'], 'voice.wav': voiceWav(), 'layout.json': Buffer.from(layoutText(rigLayout)) };
+let rtotal = 0;
+fs.mkdirSync(rout, { recursive: true });
+for (const [f, b] of Object.entries(rfiles)) { fs.writeFileSync(path.join(rout, f), b); rtotal += b.length; }
+
 scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
+rtotal += fs.statSync(path.join(rout, 'files.json')).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
 ttotal += fs.statSync(path.join(tout, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);
 console.log(`wrote tools/studio/test/scenes/textures/ (${Object.keys(tfiles).length} files): ${(ttotal / 1024).toFixed(1)} KB with its listing`);
+console.log(`wrote tools/studio/test/scenes/rig/ (${Object.keys(rfiles).join(', ')}): ${(rtotal / 1024).toFixed(1)} KB with its listing`);
