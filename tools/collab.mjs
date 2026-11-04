@@ -1855,9 +1855,9 @@ async function allRound() {
   // pages still following it
   await A.evaluate(() => HOST.collab.dialog(true));
   await sleep(300);
-  const opts = await A.evaluate(() => [...document.querySelectorAll('#shAdd option')].map(o => o.value));
+  const [opts, extra] = await A.evaluate(() => [[...document.querySelectorAll('#shAdd option')].map(o => o.value), (self.STORY_EXTRA || []).map(m => m.key)]);
   await A.evaluate(() => HOST.collab.dialog(false));
-  check('all: the page\'s Add lists All stories and Back to the lobby after the design room', opts.slice(-3).join() === 'design,all,lobby', opts.join());
+  check('all: the page\'s Add lists All stories and Back to the lobby after the design room and the studio', opts.slice(-2 - extra.length).join() === extra.concat('all', 'lobby').join() && extra[0] === 'design', opts.join());
   const SP = { x: 3, z: -3.2, yaw: 0 };   // (the room's circle of the story picked later: for the switch)
   const SPid = await H.evaluate(([k, b]) => HOST.collab.add(k, b), [PK, SP]);
   const conv = await until(A, ([id, sp]) => !HOST.collab.arc() && !!HOST.collab.station(sp) && HOST.collab.val('st.' + id).arc === false, [AID, SPid], 5000) &&
