@@ -89,9 +89,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     Anchor on, the version not bumped; all real ones fixed, with most lows). Tests: relay 508 good; smoke 181
     good (the studio block: loading, the guesses, triggers and the two-cube rule, editing, state, grips, streamed and
     decoded sounds, converting, the upload pane); audio 59 good; sound cues all good; update all good (against v110); live
-    21 good; shared rooms COLLAB_RESULT. Untested: everything in a headset (the grips, the stick walk, objects on the
-    real floor in AR, emitters through HRTF, frame rate with the 397,066-triangle scan, the memory while its texture is
-    decoded), Safari and iPhone, a real folder dragged from a file manager, and the relay on Coolify with `--scenes`.
+    21 good; shared rooms: the full run 479 good and 7 failing, all under the long run's load (the
+    ten-headset round's story lock seen late by its headset, and six peer-to-peer checks); each part again on its own:
+    the ten-headset round all good, peer to peer 18 of 18 in three runs of four (once the old host, coming back, fell back
+    to a room on its own device: a flake worth watching), the studio round 18 good (in the full run too). Untested:
+    everything in a headset (the grips, the stick walk, objects on the real floor in AR, emitters through HRTF, frame
+    rate with the 397,066-triangle scan, the memory while its texture is decoded), Safari and iPhone, a real folder dragged from a file manager, and the relay on Coolify with `--scenes`.
     The owner's files stay outside the repository (`tools/studio/test/local` is ignored).
 - **Released as networks-v110 (3 November 2026; FORMAT networks-29 as v109, shell 110: running pages ask to reload),
   tested headlessly only: a password for the relay.** The owner: "i would like to add a secret to the relay like how this
