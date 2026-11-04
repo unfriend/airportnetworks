@@ -94,7 +94,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     the ten-headset round all good, peer to peer 18 of 18 in three runs of four (once the old host, coming back, fell back
     to a room on its own device: a flake worth watching), the studio round 18 good (in the full run too). Untested:
     everything in a headset (the grips, the stick walk, objects on the real floor in AR, emitters through HRTF, frame
-    rate with the 397,066-triangle scan, the memory while its texture is decoded), Safari and iPhone, a real folder dragged from a file manager, and the relay on Coolify with `--scenes`.
+    rate with the 397,066-triangle scan, the memory while its texture is decoded), Safari and iPhone, a real folder
+    dragged from a file manager, and the relay on Coolify with `--scenes`.
     The owner's files stay outside the repository (`tools/studio/test/local` is ignored).
 - **Released as networks-v110 (3 November 2026; FORMAT networks-29 as v109, shell 110: running pages ask to reload),
   tested headlessly only: a password for the relay.** The owner: "i would like to add a secret to the relay like how this
