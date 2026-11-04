@@ -79,7 +79,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - Tests: relay 510 good (once 509 and 1 failing, not repeated in a rerun and not identified); the picture reader 109
     good; every build and the test scenes' listings current; smoke 203 good (the studio's cut-out block among them); the
     shortened shared-room run twice to the away step, 220 good each; the full shared-room run 489 good and none
-    failing; update (against v112): running.
+    failing; update all good (against v112).
 - **Released as networks-v112 (4 November 2026; FORMAT networks-30, shell 112: running pages ask to reload, and every
   device in a shared room needs v112), tested headlessly only: textures for models, sounds that follow a model or a
   bone, and a test page for the room's geometry and depth on a Quest 3.**
