@@ -386,7 +386,7 @@ function draftDiscard() { STU.draft = null; draftDrop(); dirty(true); }
 // lists follow, a changed model or sound is fetched again and its items rebuilt in place, and another device's save
 // moves what Unsaved changes compares with (it never replaces what is placed)
 function watchStart() {
-  if (SRC.es || SRC.kind !== 'relay' || typeof EventSource === 'undefined' || GL.gone) return;
+  if (SRC.es || SRC.kind !== 'relay' || SRC.held || typeof EventSource === 'undefined' || GL.gone) return;
   let es;
   try { es = new EventSource(`${SRC.base}/api/scenes/watch` + (SRC.token ? '?token=' + encodeURIComponent(SRC.token) : '')); } catch (e) { return; }
   SRC.es = es;
@@ -394,7 +394,9 @@ function watchStart() {
   es.addEventListener('scene', ev => { const d = data(ev); if (d) onFileEvent(d); });
   es.addEventListener('layout', ev => { const d = data(ev); if (d) onLayoutEvent(d); });
   es.addEventListener('scenes', ev => { const d = data(ev); if (d) onScenesEvent(d); });
-  es.onerror = () => { if (es.readyState === 2 && SRC.es === es) { SRC.es = null; later(watchStart, 10000); } };
+  // closed (the relay gone, restarted, or refusing the password, which a stream cannot say): the scenes listed again
+  // 10 s later, which starts it again, or holds on a refusal (authHold) rather than sending a wrong password every 10 s
+  es.onerror = () => { if (es.readyState === 2 && SRC.es === es) { SRC.es = null; later(() => { if (!SRC.held && SRC.kind === 'relay') listScenes(SRC.gen); }, 10000); } };
 }
 function watchStop() { if (SRC.es) { try { SRC.es.close(); } catch (e) { /* closed */ } SRC.es = null; } }
 let fileT = 0, scenesT = 0;

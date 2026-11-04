@@ -3,7 +3,7 @@
 A small server that lets several headsets and desktop browsers share a room: each sees the same stations
 playing the same stories in step (the plan is [docs/shared-space-plan.md](../docs/shared-space-plan.md)). It keeps,
 per room, the latest value of every shared state key and passes ephemeral messages (pointer rays, effects) on
-without storing them. One file, `server.mjs` (and `scenes.mjs`, the studio's listing rules, which
+without storing them. One file, `server.mjs` (and `scenes.mjs`, the studio's listing and upload path rules, which
 `tools/studio/scan.mjs` shares): Node 18 or newer, no packages (its own minimal WebSocket code). It
 can serve the app as well (`--static .`), so the page and the relay share one address. It is also an introduction
 server for devices that link to each other directly (peer to peer, PeerJS's protocol at `/peerjs`; see
@@ -26,7 +26,7 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir>]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir> [--max-upload <MB>] [--ffmpeg <path>] [--app <url>]]
 COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the environment (better: not in a command)
 ```
 
@@ -47,7 +47,12 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
 | `--token <word>` | off | a shared password every client must bring ([The shared password](#the-shared-password-collab_token)); better set as `COLLAB_TOKEN` in the environment |
 | `--scenes <dir>` | off | the studio's scenes: each subfolder of `<dir>` is one scene (models, textures, sounds, its `layout.json`), served and its layout saved there ([Your own scenes](#your-own-scenes-the-studio)) |
-| `--scenes-readonly` | off | with `--scenes`: never write a layout (the studio offers *Download layout.json* instead) |
+| `--scenes-readonly` | off | with `--scenes`: never write a layout (the studio offers *Download layout.json* instead) and take no uploads |
+| `--max-upload <MB>` | 512 | with `--scenes`: one uploaded file at most this big ([Uploading](#uploading-the-upload-page)) |
+| `--ffmpeg <path>` | the PATH's | with `--scenes`: the `ffmpeg` that makes long sounds mono MP3 (looked for once at the start; a named one that does not run stops the start) |
+| `--no-ffmpeg` | off | never use `ffmpeg` (the studio then keeps long sounds as they are) |
+| `--ffmpeg-limit <s>` | 180 | one conversion may take this long, then it is stopped |
+| `--app <url>` | the `--origin`, else `https://stories.lbi-netmed.com/` | where `/upload` sends people when the relay does not serve the app itself |
 
 The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
 things; a flag given as well wins):
@@ -485,6 +490,8 @@ scenes/
     eva_001.fbx
     eva_001.png             a texture a model names but does not hold: anywhere in the scene, by its file name
     sounds/birds.mp3        sounds: .mp3 .ogg .oga .wav .m4a .aac .flac .opus .webm
+    models/eva_001.glb      what the studio's Upload pane (or Convert to GLB) makes goes into models/ and sounds/,
+    originals/eva/...       and the files as they were given into originals/
     layout.json             where everything stands (the studio's Save writes it)
     .history/               the layouts before the last 20 saves (the relay keeps them)
   garden/
@@ -514,11 +521,12 @@ password](#the-shared-password-collab_token)). The files are your own work, not 
 
 | request | answer |
 | --- | --- |
-| `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` false with `--scenes-readonly` |
+| `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save, upload, ffmpeg, maxUpload }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` and `upload` false with `--scenes-readonly`; `ffmpeg` whether long sounds are made MP3 here; `maxUpload` the most one upload may be, in bytes ([Uploading](#uploading-the-upload-page)) |
 | `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
 | `GET /scenes/<name>/<path>` | the file (also `HEAD`): its type by extension, `ETag` from its size and time (304 when it matches), `Cache-Control: no-cache`, single byte ranges (206, 416), CORS (`Access-Control-Expose-Headers: ETag, Content-Range, Accept-Ranges`). The path is decoded once; `..` (as sent or escaped), backslashes, NUL, dot files and folders (`.history/`), more than 4 folders deep, and anything whose real path (a link followed) leaves the scene's folder: 404, the refusals said in the log by their path (never their query), at most 20 lines a minute |
 | `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
 | `GET /api/scenes/watch` | Server-Sent Events (with a password `?token=`: an `EventSource` cannot send headers), below |
+| `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `GET /upload` | uploads: [Uploading](#uploading-the-upload-page) |
 
 **The watch.** `GET /api/scenes/watch` (`text/event-stream`, `retry: 2000`, a comment line every 20 s, at most 200
 pages) tells the pages what changes in the folder, so a file you save in Blender or drop in appears in the studio by
@@ -534,7 +542,8 @@ itself:
 The relay looks at the folder every 2 s while anyone listens, and not at all otherwise (not `fs.watch`: it differs by
 system and misses changes on shared folders), and tells a change once it has settled: the same for about 0.5 s (a copy
 in progress grows meanwhile, and is told once, after its last part). So a change shows within about 1 to 3 s. Never for
-anything the listing leaves out (`.history/`, dot files, temporary files).
+anything the listing leaves out (`.history/`, dot files, temporary files). What the relay writes itself (an upload, a
+new scene) is told at once, since it lands whole, and not again when the folder is looked at next.
 
 **Without the relay** (a plain web host, the tests; read only): `node tools/studio/scan.mjs <folder>` writes
 `<folder>/index.json` (what `GET /api/scenes` answers, `save: false`) and `<folder>/<name>/files.json` (what
@@ -542,6 +551,75 @@ anything the listing leaves out (`.history/`, dot files, temporary files).
 listing rules (`relay/scenes.mjs`, which both use). Run it again after changing the folder (it writes only what
 changed; `--check` exits 1 when something is not current, the files' times aside). The page then takes the folder
 with `&scenes=<relative folder>` in its link.
+
+### Uploading (the upload page)
+
+The owner (4 November 2026): "the relay should offer an upload page where everything gets converted into the right
+formats directly and then sorted into a folder if possible". The page is the studio's own **Upload** pane (a page in a
+browser, not a headset): open `<relay>/upload`, pick a scene or make one, drop files or whole folders, check the plan, and
+*Convert and upload*. Models are converted to GLB in the browser (the studio's own converter: metres, Y up, textures at
+most 2,048 px *for Quest* or 4,096), sounds made mono, and everything sorted into the scene's `models/`, `sounds/` and
+`originals/` (the files as they were given, kept so a model can be converted again). The relay only stores what the page
+sends, makes scenes, and has `ffmpeg` make long sounds MP3; the conversion of models is the page's
+(`tools/studio/SPEC.md`, "The upload page").
+
+```sh
+node relay/server.mjs --lan --scenes ~/scenes                       # then open https://<this machine>:8787/upload
+COLLAB_TOKEN=<word> node relay/server.mjs --lan --scenes ~/scenes   # the page asks for the password once per device
+```
+
+**`/upload`** sends the browser on (302, no password needed for that; any query, where a password could ride, is never
+passed on): to `/#studio&upload` when the relay serves the app (`--static`, `--lan`), else to the app's public address
+(`--app <url>`; by default the `--origin`, else `https://stories.lbi-netmed.com/`) with
+`#studio&upload&relay=<this relay>`: `wss://` and the request's `Host` when the page reached the relay over HTTPS (its
+own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th from the right as for
+`X-Forwarded-For`), else `ws://`. A `Host` that is not a host name or address: 400.
+
+**What the relay takes** (each with the password when there is one, exactly as every scene endpoint; refused with 403
+`{ error }` under `--scenes-readonly`; CORS as the API's, so a page on GitHub Pages may send them: the preflight allows
+`POST`, `Authorization` and `Content-Type`):
+
+| request | answer |
+| --- | --- |
+| `POST /api/scenes` `{ "name": "<name>" }` | 201 `{ ok: true, name }`: the scene's folder made (empty). 400 for a name that cannot be a scene's (the rule above, and not `watch`) or a body that is not `{ name }`; 409 when a scene, or a file, of that name is there; 413 over 16 KB; 507 at 200 scenes |
+| `POST /api/scenes/<name>/file?path=<path>[&replace=1]` | the body's bytes as the file at `path` in the scene: 200 `{ ok: true, path, bytes, at }` (`at` its time, as the listing says). The folders of the path are made as needed |
+| `POST /api/scenes/<name>/sound?path=<path>.mp3[&replace=1]` | a sound's bytes (any format `ffmpeg` reads: WAV, FLAC, AIFF, MP3, M4A, OGG...), written by `ffmpeg` as a mono MP3 at 96 kbit/s and 44.1 kHz at `path` (which must end in `.mp3`; the studio sends `sounds/<name>.mp3`): 200 `{ ok: true, path, bytes, at }`. 501 when the relay has no `ffmpeg`; 429 (`Retry-After: 5`, and `retry: 5` in the body, since a page on another origin cannot read the header otherwise) while two are being made already; 422 when `ffmpeg` could not make an MP3 of it (not a sound) or made an empty one; 500 when it took longer than `--ffmpeg-limit` (it is stopped) |
+
+**The paths** (`uploadPath` in `scenes.mjs`): relative, with `/`, at most 200 characters and 4 folders deep (so under
+`originals/` a dropped folder keeps 3 levels of its own), no empty part, no part starting with a dot (`..`,
+`.history/`, dot files) or named as a temporary file (`~`, `.tmp`, `.part`...: the listing would leave it out), no
+backslash, control character or `: * ? " < > |`, no part ending in a space or a dot and no Windows device name (`con`,
+`nul`, `com1`...), so a scene copied to another computer stays whole; never `layout.json`, `files.json` or `index.json`
+at the scene's top. Outside `originals/` only the listing's models, sounds, images and data (`.bin`); under
+`originals/` any file. A path through a link in the scene that leads out of it is refused before anything is made: 400,
+said in the log. 404 for no such scene; 405 for other methods.
+
+**Writing.** A file already there is replaced only with `replace=1`, else 409 `{ error }` (also when two uploads of one
+new name meet: the second is told 409); a folder of that name, or a file where a folder of the path should be: 409. The
+body is counted as it streams in: over `--max-upload` (512 MB; `maxUpload` in `GET /api/scenes`, so the page can say so
+before sending) it is 413, by its `Content-Length` at once or when the count passes it; the rest of the body is read and
+thrown away (at most 16 MB more, or 10 s) so the answer reaches the page. It goes into a temporary dot file beside where
+it goes (`.upload-<pid>-<random>.tmp`: the listing and the watch leave it out), onto the disk, then into place in one
+step (renamed over the old file with `replace=1`; else linked in, which fails when something is there; a file system
+without links, such as FAT, looked at, then renamed). Refused, too big, cut short (the page went, or sent nothing for 2
+minutes), or the disk full (507): nothing is left behind, nor the folders made for it, and the page is answered only once
+that is done. Node's 5-minute limit on a whole request is off where uploads are taken (512 MB over a slow Wi-Fi takes
+longer). The log says what was written (`scenes: atelier: wrote models/eva_001.glb (3.0 MB in 1.2 s)`) and what was cut
+short. The watch tells the pages at once.
+
+**ffmpeg.** Looked for once at the start where uploads are taken: `ffmpeg -version` on the `PATH`, or the one
+`--ffmpeg <path>` names (which must run, or the relay does not start); `--no-ffmpeg` uses none. The start line says
+which, and `GET /api/scenes` says `ffmpeg: true`. Without it the studio keeps an MP3, M4A/AAC or OGG as it is and makes
+other long sounds a mono WAV itself. Each conversion: the sound written to a temporary file of its own (in the OS's
+temporary folder), then `ffmpeg -nostdin -hide_banner -loglevel error -y -i <it> -map 0:a:0 -vn -sn -dn -map_metadata -1
+-ac 1 -ar 44100 -c:a libmp3lame -b:a 96k -f mp3 <a temporary dot file beside where it goes>`, its input closed, at most
+`--ffmpeg-limit` seconds (180) and two at once; the output must be there and not empty, then it is renamed into place.
+`ffmpeg`'s own words never reach the page (it gets ours: *ffmpeg could not make an MP3 of it*); the log gets its last
+line, short, with the temporary paths taken out and no query. The 4 min 16 s stereo MP3 the owner sent became a mono
+96 kbit/s MP3 of 3.1 MB in 2.3 s on the machine this was built on. Install it with `brew install ffmpeg` (macOS), `sudo apt
+install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). In the Docker image (`relay/Dockerfile`, Alpine)
+`ffmpeg` is there only when the image installs it (`apk add --no-cache ffmpeg`, before `USER node`); without it the relay
+runs as before and says so.
 
 ## HTTP API
 
@@ -563,6 +641,7 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
+| `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound` | with `--scenes`: uploads, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
@@ -863,7 +942,29 @@ nothing, `--scenes-readonly` 403), the watch (`hello`, a file added, changed and
 `layout`, a scene coming and going, a file written in parts told once after its last part, nothing for `.history/` or
 temporary files, `layout.json` removed, a second page), the password on every scene endpoint and file (Bearer and
 `?token=`, wrong ones counted to 429, never in a log line), `--public` with `--scenes` refused without a password,
-`COLLAB_SCENES`, `RELAY_ARGS`, a folder that is not there and `--scenes-readonly` alone. It exits 1 on a failure. The shared-room client in the app has
+`COLLAB_SCENES`, `RELAY_ARGS`, a folder that is not there and `--scenes-readonly` alone; and uploads (a folder of their own,
+and stand-in `ffmpeg` scripts, one script whose name says what it does): `GET /api/scenes`'s `upload`, `ffmpeg` and
+`maxUpload` (with the stand-in, with none on the `PATH`, `--scenes-readonly`); a scene made (201, listed, told on the
+watch at once and not again, 409 for one or a file of that name, names that cannot be a scene's and bodies that are not
+`{ name }` 400 with nothing made, over 16 KB 413, `--scenes-readonly` 403); files (written as sent with their folders,
+listed and served, told at once and not again, 409 then `replace=1`, the kinds and paths taken and the ones refused,
+each saying why and writing nothing, a link out of the scene refused with nothing made outside, a folder or a file in the
+way 409, no such scene 404, other methods 405, exactly 1 MB taken with `--max-upload 1`, past it 413 by
+`Content-Length` and counted while chunked, the answer arriving, no temporary file or folder left and a folder that was
+there kept, a page going mid-upload leaving nothing, two at once to one new name 200 and 409, the log, a preflight from
+another origin and the answer's CORS, `--scenes-readonly` 403); sounds through the stand-in (written in place, run with
+`-nostdin`, mono, 44.1 kHz, 96 kbit/s, its input the bytes sent in a temporary file of its own and gone after, its
+output a dot file beside where it goes; not `.mp3` 400, 409 then `replace=1`, too big 413; one that fails 422 in our
+words, logged shortly with no temporary path and no query; an empty MP3 422; one that never ends stopped after a
+shortened `--ffmpeg-limit` with 500, both processes gone and nothing left, a third at once 429 with `Retry-After`
+exposed and `retry` in the body; none on the `PATH` and `--no-ffmpeg` 501 while files are still taken;
+`--scenes-readonly` 403; a named `ffmpeg` that does not run, `--ffmpeg` without `--scenes` or with `--no-ffmpeg`,
+`--max-upload 0`, `--ffmpeg-limit 0` and an `--app` that is not http(s) refused at the start); a real `ffmpeg`, when the
+machine has one, making a generated stereo 48 kHz WAV a mono MP3 (its frames read by hand: MPEG-1 layer III, 96 kbit/s,
+44.1 kHz, mono); `/upload` (serving the app: `/#studio&upload`; not: the app's address with `ws://<Host>`;
+`X-Forwarded-Proto` only with `--proxy`, the `n`-th from the right; `--app` a folder or a page; the `--origin` by
+default; no password asked and the query never passed on; a bad `Host` 400; `POST` 405); and the password on making a
+scene, a file and a sound. It exits 1 on a failure. The shared-room client in the app has
 its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the

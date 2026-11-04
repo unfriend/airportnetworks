@@ -13,7 +13,8 @@
 //   COLLAB_TOKEN=<word> node relay/server.mjs ...   (or --token <word>: a shared password every client must bring, as
 //                                   asdf10k-collab-backend's COLLAB_TOKEN; COLLAB_PORT and COLLAB_HOST as there too)
 //   node relay/server.mjs --lan --scenes <dir>   (the studio's scenes: models, textures, sounds and layout.json, one
-//                                   subfolder each, served and their layouts saved; tools/studio/SPEC.md)
+//                                   subfolder each, served and their layouts saved; tools/studio/SPEC.md; files uploaded
+//                                   from the studio's Upload pane, at /upload, long sounds made MP3 by ffmpeg when found)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -22,19 +23,20 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import os from 'node:os';
-import { execFileSync, execFile } from 'node:child_process';
+import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf,
-  MAX_DEPTH, MAX_LAYOUT, LAYOUT } from './scenes.mjs';
+  uploadPath, MAX_DEPTH, MAX_LAYOUT, MAX_SCENES, LAYOUT } from './scenes.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
   // a public server (--public, or each rule on its own; -1: not given, so --public's default or off)
   public: false, origin: [], 'allow-no-origin': false, unlisted: false, guesses: -1, creates: -1, sockets: -1, store: -1, 'log-token': '',
   token: '',
-  // the studio's scenes (--scenes <dir>; --scenes-readonly: never written)
-  scenes: '', 'scenes-readonly': false };
+  // the studio's scenes (--scenes <dir>; --scenes-readonly: never written); uploads to them (MB), the app /upload sends
+  // people to when the relay does not serve it, and ffmpeg for long sounds (its path, off, a conversion's limit in s)
+  scenes: '', 'scenes-readonly': false, 'max-upload': 512, app: '', ffmpeg: '', 'no-ffmpeg': false, 'ffmpeg-limit': 180 };
 // the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
 // command's flags and RELAY_ARGS over it
 {
@@ -64,7 +66,11 @@ const HELP = `usage: node relay/server.mjs [options]
   --scenes <dir>   the studio's scenes (or COLLAB_SCENES): each subfolder of <dir> is one scene (models, their textures,
                    sounds, layout.json), listed at /api/scenes, its files at /scenes/<name>/<file>, its layout saved
                    there by the studio (the old one kept in its .history/, the newest 20); with a password, they need it
-  --scenes-readonly  with --scenes: layouts are never written (the studio offers Download instead)
+  --scenes-readonly  with --scenes: layouts are never written (the studio offers Download instead), nothing uploaded
+  --max-upload <MB>  with --scenes: one uploaded file at most this big (512)
+  --ffmpeg <path>  with --scenes: the ffmpeg that makes long sounds MP3 (found on the PATH by itself; --no-ffmpeg: none)
+  --ffmpeg-limit <s>  one conversion may take this long (180)
+  --app <url>      where /upload sends people when the relay does not serve the app (the --origin, else ${APP_ORIGIN}/)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
                    --logs only with a token, and --scenes only with a password
@@ -183,6 +189,36 @@ const SCENES = (() => {
   return real;
 })();
 const SAVE = !!SCENES && !OPT['scenes-readonly'];
+// uploads (the studio's Upload pane, SPEC "The upload page"): one file at most --max-upload MB, counted as it streams in
+if (!(OPT['max-upload'] > 0)) { console.log('--max-upload takes a size in MB, more than 0'); process.exit(1); }
+const MAX_UPLOAD = Math.floor(OPT['max-upload'] * (1 << 20));
+// /upload sends people to the studio's Upload pane: the relay's own app (--static), else the app's public address
+const APP_URL = (() => {
+  const v = String(OPT.app || '').trim();
+  if (!v) return (ORIGINS.size ? [...ORIGINS][0] : APP_ORIGIN) + '/';
+  let u = null;
+  try { u = new URL(v); } catch { /* said below */ }
+  if (!u || !/^https?:$/.test(u.protocol) || u.username || u.password) { console.log(`--app takes the app's address, such as ${APP_ORIGIN}/ (http or https): not ${JSON.stringify(v)}`); process.exit(1); }
+  // (a folder's address ends in /: a page that is a file, index.html, stays as it is)
+  return u.origin + (/\/$|\.html?$/i.test(u.pathname) ? u.pathname : u.pathname + '/');
+})();
+// ffmpeg, for long sounds (POST /api/scenes/<name>/sound): looked for once, at the start, and only where uploads are taken.
+// The PATH's when none is named (missing: the studio keeps such sounds as they are); a named one that does not run stops
+// the start, since it was asked for
+if (OPT.ffmpeg && OPT['no-ffmpeg']) { console.log('--ffmpeg and --no-ffmpeg: one or the other'); process.exit(1); }
+if (OPT.ffmpeg && !SCENES) { console.log('--ffmpeg goes with --scenes <dir>'); process.exit(1); }
+if (!(OPT['ffmpeg-limit'] > 0)) { console.log('--ffmpeg-limit takes seconds, more than 0'); process.exit(1); }
+const FFMPEG = (() => {
+  if (!SAVE || OPT['no-ffmpeg']) return '';
+  const bin = String(OPT.ffmpeg || 'ffmpeg');
+  try {
+    const out = execFileSync(bin, ['-hide_banner', '-version'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+    if (/ffmpeg version/i.test(out)) return bin;
+  } catch { /* said below */ }
+  if (OPT.ffmpeg) { console.log(`--ffmpeg ${OPT.ffmpeg}: it does not run as ffmpeg (ffmpeg -version said nothing of the kind)`); process.exit(1); }
+  return '';
+})();
+const FF_MAX = 2;   // conversions at once (each takes a core or two)
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -752,7 +788,7 @@ function api(req, res, url) {
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
-  if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, p);
+  if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
     const who = LIM.guesses ? clientOf(req) : null;
     if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
@@ -1072,17 +1108,24 @@ const sayBad = n => {
     'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -'})`);
 };
 const scenesOut = all => all.map(summary);
-function scenesApi(req, res, p) {
+function scenesApi(req, res, url) {
+  const p = url.pathname;
   const failed = err => { log('scenes: ' + err.message); if (!res.headersSent) json(res, 500, { error: 'internal error' }); else res.destroy(); };
+  const no = () => json(res, 405, { error: 'method not allowed' });
   if (!SCENES) return json(res, 404, { error: 'no scenes here (start the relay with --scenes <folder>)' });
-  if (p === '/api/scenes') return req.method === 'GET' ? allScenes(SCENES, sayBad).then(all => json(res, 200, { scenes: scenesOut(all), save: SAVE }), failed) : json(res, 405, { error: 'method not allowed' });
-  if (p === '/api/scenes/watch') return req.method === 'GET' ? scenesWatch(req, res).catch(failed) : json(res, 405, { error: 'method not allowed' });
-  const m = /^\/api\/scenes\/([^/]+)(\/layout)?$/.exec(p);
+  // (upload: this caller may upload, which the password above already said; ffmpeg: long sounds made MP3 here)
+  if (p === '/api/scenes') {
+    if (req.method === 'GET') return allScenes(SCENES, sayBad).then(all => json(res, 200, { scenes: scenesOut(all), save: SAVE, upload: SAVE, ffmpeg: !!FFMPEG, maxUpload: MAX_UPLOAD }), failed);
+    return req.method === 'POST' ? makeScene(req, res).catch(failed) : no();
+  }
+  if (p === '/api/scenes/watch') return req.method === 'GET' ? scenesWatch(req, res).catch(failed) : no();
+  const m = /^\/api\/scenes\/([^/]+)(?:\/(layout|file|sound))?$/.exec(p);
   let name = '';
   try { name = m ? decodeURIComponent(m[1]) : ''; } catch { /* a bad escape: no such scene */ }
   if (!m) return json(res, 404, { error: 'not found' });
-  if (m[2]) return req.method === 'POST' ? saveLayout(req, res, name).catch(failed) : json(res, 405, { error: 'method not allowed' });
-  if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+  if (m[2] === 'layout') return req.method === 'POST' ? saveLayout(req, res, name).catch(failed) : no();
+  if (m[2]) return req.method === 'POST' ? upload(req, res, url, name, m[2] === 'sound').catch(failed) : no();
+  if (req.method !== 'GET') return no();
   sceneOne(res, name).catch(failed);
 }
 async function sceneOne(res, name) {
@@ -1182,12 +1225,260 @@ async function writeLayout(dir, text) {
   return { at: Math.floor(st.mtimeMs), bytes: st.size };
 }
 
+// ---- uploads (the studio's Upload pane; tools/studio/SPEC.md, "The upload page"). POST /api/scenes makes a scene's
+// folder; POST /api/scenes/<name>/file?path=<path>[&replace=1] writes one file as it is sent; POST
+// /api/scenes/<name>/sound?path=<path>.mp3[&replace=1] has ffmpeg make a sound a mono MP3 first. A file is received into
+// a temporary dot file beside where it goes (the listing and the watch leave those out), counted against --max-upload as
+// it streams in, and renamed into place whole, so a page never sees half a file; anything refused or cut short leaves
+// nothing behind (nor the folders made for it, when they are empty). All behind the password, as every scene endpoint.
+const NO_SAVE = 'saving is off on this relay (--scenes-readonly): nothing is written';
+const TOO_BIG = `a file is at most ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB here (--max-upload)`;
+const UPLOAD_IDLE = 120000;   // an upload with no byte for this long is given up (server.requestTimeout is off for slow ones)
+const DRAIN = 16 << 20;
+const FF = { running: 0, procs: new Set() };
+const lstatOf = f => fs.promises.lstat(f).catch(() => null);
+const tmpName = () => `.upload-${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`;
+// an answer given before the body is read (or past its limit): the rest of the body read and thrown away, so the answer
+// reaches the page (a socket closed with unread data may lose it on the way), but not for ever
+function answerEarly(req, res, status, body, extra) {
+  if (!res.headersSent) json(res, status, body, extra);
+  if (req.complete || req.destroyed) return;
+  let n = 0;
+  const stop = () => { clearTimeout(t); req.socket.destroy(); };
+  const t = setTimeout(stop, 10000);
+  req.on('data', c => { if ((n += c.length) > DRAIN) stop(); });
+  req.on('end', () => clearTimeout(t));
+  req.on('close', () => clearTimeout(t));
+  req.resume();
+}
+// a small body (JSON) as text, or null when it was too big (answered) or cut short
+function smallBody(req, res, max) {
+  return new Promise(done => {
+    const parts = [];
+    let n = 0, over = false;
+    req.on('data', c => { if (over) return; if ((n += c.length) <= max) parts.push(c); else { over = true; answerEarly(req, res, 413, { error: 'body too big' }); done(null); } });
+    req.on('end', () => { if (!over) done(Buffer.concat(parts).toString()); });
+    req.on('close', () => { if (!req.complete) done(null); });
+  });
+}
+
+// POST /api/scenes { name }: a new scene, an empty folder (the scene name rule; 409 when there is one, or a file, by that name)
+async function makeScene(req, res) {
+  if (!SAVE) return answerEarly(req, res, 403, { error: NO_SAVE });
+  const text = await smallBody(req, res, 16384);
+  if (text === null) return;
+  let b = null;
+  try { b = JSON.parse(text); } catch { /* said below */ }
+  const name = b && typeof b === 'object' && !Array.isArray(b) ? b.name : undefined;
+  if (typeof name !== 'string') return json(res, 400, { error: 'the body is { "name": "<the scene\'s name>" }' });
+  if (!validName(name)) return json(res, 400, { error: name === 'watch' ? 'watch is the change stream\'s name' : 'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -' });
+  if ((await allScenes(SCENES)).length >= MAX_SCENES) return json(res, 507, { error: `at most ${MAX_SCENES} scenes` });
+  try { await fs.promises.mkdir(path.join(SCENES, name)); } catch (err) {
+    if (err.code === 'EEXIST') return json(res, 409, { error: 'there is a scene (or a file) by that name' });
+    log(`scenes: could not make the scene ${JSON.stringify(name)} (${err.code || err.message})`);
+    return json(res, 500, { error: 'cannot make its folder (' + (err.code || 'error') + ')' });
+  }
+  log(`scenes: made the scene ${JSON.stringify(name)}`);
+  sceneTold();
+  json(res, 201, { ok: true, name });
+}
+
+// POST /api/scenes/<name>/file and .../sound: the body's bytes as the file at ?path= (relay/scenes.mjs, uploadPath, says
+// which paths); sound: ffmpeg's mono MP3 of them
+async function upload(req, res, url, name, sound) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!SAVE) return no(403, NO_SAVE);
+  if (sound && !FFMPEG) return no(501, 'this relay has no ffmpeg to make sounds MP3 (install ffmpeg, or name it with --ffmpeg <path>)');
+  const dir = await sceneDir(SCENES, name);
+  if (!dir) return no(404, 'no such scene');
+  const want = uploadPath(url.searchParams.get('path'));
+  if (want.error) return no(400, want.error);
+  if (sound && !/\.mp3$/i.test(want.rel)) return no(400, 'a sound made here is an MP3: a path ending in .mp3 (sounds/<name>.mp3)');
+  const replace = url.searchParams.get('replace') === '1', dest = path.join(dir, ...want.segs), folder = path.dirname(dest);
+  const there = await lstatOf(dest);
+  if (there && there.isDirectory()) return no(409, 'there is a folder by that name');
+  if (there && !replace) return no(409, 'there is a file by that name (replace=1 replaces it)');
+  if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
+  // (two sounds at once at most: each conversion takes a core or two for seconds; the body says when to try again too,
+  // since a page on another origin cannot read Retry-After unless it is exposed)
+  if (sound && FF.running >= FF_MAX) return answerEarly(req, res, 429, { error: `${FF_MAX} sounds are being made already: try again in a few seconds`, retry: 5 }, { 'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After' });
+  // the deepest folder of the path that is there already must be inside the scene: a link in the scene that leads out
+  // refuses the path before anything is made outside
+  for (let at = folder; ; at = path.dirname(at)) {
+    let real = '';
+    try { real = await fs.promises.realpath(at); } catch (err) { if (err.code === 'ENOENT' && at !== dir) continue; throw err; }
+    if (!inside(dir, real)) { log(`scenes: refused an upload to ${JSON.stringify(name + '/' + want.rel)} (a folder of it leads out of the scene)`); return no(400, 'a folder of the path leads out of the scene'); }
+    break;
+  }
+  // (answered once everything else is done: a page told 413 or 500 finds nothing of its upload left)
+  const job = { tmp: '', inDir: '', made: undefined, placed: false };
+  let answer = null;
+  if (sound) FF.running++;
+  try { answer = await uploadJob(req, job, { name, dir, folder, dest, want, replace, there, sound }); } finally {
+    if (sound) FF.running--;
+    if (job.tmp) await fs.promises.rm(job.tmp, { force: true }).catch(() => {});
+    if (job.inDir) await fs.promises.rm(job.inDir, { recursive: true, force: true }).catch(() => {});
+    if (!job.placed && job.made) await unmake(folder, job.made);
+  }
+  if (answer) answerEarly(req, res, ...answer);
+}
+// an upload's work: [status, body] to answer, or null when the page has gone
+async function uploadJob(req, job, { name, dir, folder, dest, want, replace, there, sound }) {
+  try { job.made = await fs.promises.mkdir(folder, { recursive: true }); } catch { return [409, { error: 'a file stands where a folder of the path should be' }]; }
+  job.tmp = path.join(folder, tmpName());
+  let into = job.tmp;
+  if (sound) { job.inDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'relay-sound-')); into = path.join(job.inDir, 'in'); }
+  const t0 = Date.now(), got = await receive(req, into);
+  if (got.over) return [413, { error: TOO_BIG }];
+  if (got.cut) { log(`scenes: ${name}: an upload of ${want.rel} was cut short (${got.n} bytes came)`); return null; }
+  if (got.err) {
+    log(`scenes: ${name}: could not write ${want.rel} (${got.err.code || got.err.message})`);
+    return [got.err.code === 'ENOSPC' ? 507 : 500, { error: 'cannot write the file (' + (got.err.code || 'error') + ')' }];
+  }
+  let how = '';
+  if (sound) {
+    const t1 = Date.now(), r = await ffmpeg(into, job.tmp);
+    const size = (await lstatOf(job.tmp))?.size || 0, said = ffSaid(r.err, [into, job.tmp, job.inDir, folder, dir]);
+    const fail = (status, error, why) => { log(`scenes: ${name}: no MP3 for ${want.rel} (${why}${said ? ': ' + said : ''})`); return [status, { error }]; };
+    if (r.late) return fail(500, `making the MP3 took more than ${OPT['ffmpeg-limit']} s`, 'stopped after ' + OPT['ffmpeg-limit'] + ' s');
+    if (!r.ran) return fail(500, 'ffmpeg did not run', r.why);
+    if (r.code !== 0) return fail(422, 'ffmpeg could not make an MP3 of it (is it a sound?)', r.sig ? 'ffmpeg ended by ' + r.sig : 'ffmpeg exit ' + r.code);
+    if (!size) return fail(422, 'ffmpeg made nothing of it (is it a sound?)', 'an empty MP3');
+    how = ` as a mono MP3 (${mb(got.n)} given, ffmpeg ${((Date.now() - t1) / 1000).toFixed(1)} s)`;
+  }
+  if (!(job.placed = await place(job.tmp, dest, replace))) return [409, { error: 'there is a file by that name (replace=1 replaces it)' }];
+  job.tmp = '';
+  const st = await fs.promises.stat(dest);
+  log(`scenes: ${name}: wrote ${want.rel} (${mb(st.size)} in ${((Date.now() - t0) / 1000).toFixed(1)} s)${how}${there ? ', replacing it' : ''}`);
+  sceneTold(name, want.rel, dest);
+  return [200, { ok: true, path: want.rel, bytes: st.size, at: Math.floor(st.mtimeMs) }];
+}
+const mb = n => (n < 1e6 ? (n / 1e3).toFixed(1) + ' kB' : (n / 1e6).toFixed(1) + ' MB');
+// the folders made for an upload that did not land, from the deepest up to the first one made, while they are empty
+async function unmake(folder, made) {
+  for (let at = folder; ; at = path.dirname(at)) {
+    try { await fs.promises.rmdir(at); } catch { return; }
+    if (at === made || path.dirname(at) === at) return;
+  }
+}
+// the body into a new file (never one that is there): { n } once it is all written and on the disk, { over } past
+// --max-upload, { cut } when the page went (or sent nothing for 2 minutes), { err } when the disk would not take it.
+// One write at a time (the request paused meanwhile), so a slow disk holds the page back rather than filling memory
+function receive(req, file) {
+  return new Promise(done => {
+    const open = fs.promises.open(file, 'wx');
+    let n = 0, chain = open.then(() => {}), fin = false, idle = 0;
+    const finish = async r => {
+      if (fin) return;
+      fin = true; clearTimeout(idle);
+      try { await chain; } catch (err) { if (!r.over && !r.cut) r = { err }; }
+      const fh = await open.catch(() => null);
+      if (fh) {
+        try { if (!r.over && !r.cut && !r.err) await fh.sync(); } catch (err) { r = { err }; }
+        await fh.close().catch(() => {});
+      }
+      done({ n, ...r });
+    };
+    const wake = () => { clearTimeout(idle); idle = setTimeout(() => { finish({ cut: true }); req.socket.destroy(); }, UPLOAD_IDLE); };
+    wake();
+    req.on('data', c => {
+      if (fin) return;
+      wake();
+      if ((n += c.length) > MAX_UPLOAD) return finish({ over: true });
+      req.pause();
+      // (a failed write ends it from outside the chain: finish waits for the chain)
+      chain = chain.then(() => open).then(fh => fh.write(c)).then(() => { if (!fin) req.resume(); }, err => { queueMicrotask(() => finish({ err })); });
+    });
+    req.on('end', () => finish({}));
+    req.on('error', () => finish({ cut: true }));
+    req.on('close', () => { if (!req.complete) finish({ cut: true }); });
+  });
+}
+// a received file put where it goes in one step: renamed over what is there (replace=1), else linked in only while
+// nothing is (two uploads of one new name at once: the second is told 409), or on a file system without links (FAT, some
+// network shares) looked at, then renamed. False: something was there after all
+async function place(tmp, dest, replace) {
+  if (replace) { await fs.promises.rename(tmp, dest); return true; }
+  try { await fs.promises.link(tmp, dest); } catch (err) {
+    if (err.code === 'EEXIST' || (await lstatOf(dest))) return false;
+    await fs.promises.rename(tmp, dest);
+    return true;
+  }
+  await fs.promises.rm(tmp, { force: true });
+  return true;
+}
+// ffmpeg: the sound's first audio stream as a mono MP3, 96 kbit/s at 44.1 kHz (SPEC: mono places best; MP3 plays
+// everywhere, iPhones too), without the given file's tags or pictures. Never asks anything (-nostdin, stdin closed); stopped
+// after --ffmpeg-limit seconds. Its words stay here: the page is told only what went wrong, in ours
+function ffmpeg(input, output) {
+  return new Promise(done => {
+    const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-map', '0:a:0', '-vn', '-sn', '-dn', '-map_metadata', '-1',
+      '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', '-f', 'mp3', output];
+    let err = '', late = false, p;
+    try { p = spawn(FFMPEG, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true }); } catch (e) { return done({ ran: false, why: e.code || e.message }); }
+    FF.procs.add(p);
+    p.stderr.on('data', d => { if (err.length < 16384) err += d; });
+    const t = setTimeout(() => { late = true; p.kill('SIGKILL'); }, OPT['ffmpeg-limit'] * 1000);
+    p.on('error', e => { clearTimeout(t); FF.procs.delete(p); done({ ran: false, why: e.code || e.message }); });
+    p.on('close', (code, sig) => { clearTimeout(t); FF.procs.delete(p); done({ ran: true, code, sig, late, err }); });
+  });
+}
+// what ffmpeg said, for the log: its last line, short, the temporary files' and the scene's paths taken out and never a
+// query (where a password could ride)
+function ffSaid(text, paths) {
+  let line = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).pop() || '';
+  for (const p of paths.filter(Boolean).sort((a, b) => b.length - a.length)) line = line.split(p).join('…');
+  return scrub(line).replace(/\?[^\s'"]*/g, '?…').slice(0, 160);
+}
+
+// GET /upload: the studio's Upload pane. Sent there without a password (the pane asks for it, as for the API), and never
+// with the request's query (a password may ride in it): the relay's own app when it serves one, else the app's public
+// address with this relay's address (wss:// when the page reached it over HTTPS: its certificate, or behind --proxy the
+// proxy's X-Forwarded-Proto)
+function uploadPage(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return plain(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
+  const go = to => { res.writeHead(302, { Location: to, 'Cache-Control': 'no-store', 'Content-Length': 0 }); res.end(); };
+  if (ROOT) return go('/#studio&upload');
+  const host = String(req.headers.host || '').trim().toLowerCase();
+  if (!/^(?:[a-z0-9-]+\.)*[a-z0-9-]+(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/.test(host)) return plain(res, 400, 'Bad Host');
+  const fwd = OPT.proxy ? String(req.headers['x-forwarded-proto'] || '').split(',').map(s => s.trim()).filter(Boolean) : [];
+  const proto = fwd.length ? fwd[Math.max(0, fwd.length - OPT.proxy)].toLowerCase() : '';
+  const secure = proto ? proto === 'https' || proto === 'wss' : !!OPT.cert;
+  go(APP_URL + '#studio&upload&relay=' + encodeURIComponent((secure ? 'wss://' : 'ws://') + host));
+}
+
 // GET /api/scenes/watch: Server-Sent Events. hello { scenes } at once; scene { name, path, kind, gone } when a file is
 // added, changed or removed, layout { name, at } when a layout.json is (gone: true when removed), scenes { scenes } when a
 // scene comes or goes; a comment every 20 s. The folder is looked at every 2 s while anyone listens (not fs.watch, which
 // differs by system and misses changes on shared folders), and a change is told once it has settled: the same for about
 // 0.5 s (a copy in progress grows meanwhile). Never for .history/, dot or temporary files (the listing leaves them out).
-const SW = { clients: new Set(), known: null, first: null, pending: new Map(), timer: 0, busy: false, beat: 0 };
+const SW = { clients: new Set(), known: null, first: null, pending: new Map(), timer: 0, busy: false, beat: 0, q: Promise.resolve() };
+// the watch's looks and the relay's own writes, one at a time (each compares with what the watch knows, and changes it)
+const sceneSerial = fn => (SW.q = SW.q.then(fn).catch(err => log('scenes: watch: ' + err.message)));
+// a write of the relay's own, told at once (an upload is whole when it lands: nothing to wait for) and taken into what
+// the watch knows, so the next look does not tell it again: a file (name, rel, its path on the disk), or with no name a
+// scene made
+function sceneTold(name, rel, file) {
+  if (!SW.clients.size) return;
+  sceneSerial(async () => {
+    const old = SW.known;
+    if (!old) return;
+    if (!name) {
+      const cur = await sceneState();
+      if (SW.known !== old || cur.names === old.names) return;
+      tellScenes('scenes', { scenes: cur.scenes });
+      old.names = cur.names; old.scenes = cur.scenes;
+      return;
+    }
+    if (!old.names.split('\0').includes(name)) return;   // (a scene the watch has not seen yet: its next look tells it)
+    const st = await fs.promises.stat(file).catch(() => null), k = name + '\0' + rel;
+    if (!st || SW.known !== old) return;
+    const sig = `${st.size}:${Math.floor(st.mtimeMs)}:${st.ino}`;
+    if (old.sig.get(k) === sig) return;
+    old.sig.set(k, sig); SW.pending.delete(k);
+    tellScenes('scene', { name, path: rel, kind: kindOf(rel), gone: false });
+  });
+}
 async function sceneState() {
   const all = await allScenes(SCENES, sayBad), sig = new Map();
   for (const s of all) {
@@ -1218,7 +1509,7 @@ async function scenePoll() {
   SW.timer = 0;
   if (!SW.clients.size || !SW.known) return sceneQuiet();
   SW.busy = true;
-  try { await sceneLook(); } catch (err) { log('scenes: watch: ' + err.message); }
+  await sceneSerial(sceneLook);
   SW.busy = false;
   if (SW.clients.size && SW.known) SW.timer = setTimeout(scenePoll, SW.pending.size ? 500 : 2000);
   else sceneQuiet();
@@ -1249,6 +1540,7 @@ function request(req, res) {
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) { try { return api(req, res, url); } catch (err) { return fail(err); } }
   if (PEER && (url.pathname === '/peerjs' || url.pathname.startsWith(PEER_PATH))) { try { return peerHttp(req, res, url); } catch (err) { return fail(err); } }
   if (SCENES && url.pathname.startsWith('/scenes/')) return sceneFile(req, res, url).catch(fail);
+  if (url.pathname === '/upload' || url.pathname === '/upload/') { try { return uploadPage(req, res); } catch (err) { return fail(err); } }
   if (ROOT) return serve(req, res, url).catch(fail);
   if (url.pathname === '/') return plain(res, 200, 'Shared-room relay: the API is under /api/ (see relay/README.md).');
   plain(res, 404, 'Not found');
@@ -1256,6 +1548,9 @@ function request(req, res) {
 
 const server = OPT.cert ? https.createServer({ cert: fs.readFileSync(OPT.cert), key: fs.readFileSync(OPT.key) }, request) : http.createServer(request);
 server.on('upgrade', upgrade);
+// (Node gives a whole request 5 minutes; an upload of 512 MB over a slow Wi-Fi takes longer: each upload has its own limit
+// instead, 2 minutes without a byte)
+if (SAVE) server.requestTimeout = 0;
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
@@ -1280,7 +1575,9 @@ server.listen(OPT.port, OPT.host, () => {
   if (SCENES) allScenes(SCENES, sayBad).then(all => console.log(`Scenes for the studio (#studio) from ${SCENES}: ` +
     (all.length ? `${all.length} (${all.map(x => x.name).join(', ').slice(0, 300)})` : 'none yet (put one subfolder per scene there)') + '; ' +
     (SAVE ? 'the studio saves their layouts there (the old layout.json in each one\'s .history/)' : 'read only (--scenes-readonly): layouts are never written') +
-    (TOKEN ? '; they need the password' : '')));
+    (TOKEN ? '; they need the password' : '') +
+    (SAVE ? `\nUploads (the studio's Upload pane, at /upload): files up to ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB; ` +
+      (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : '')));
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +
     (OPT['allow-no-origin'] ? ' (and clients that send no Origin, such as scripts)' : ' (a client that sends no Origin gets no socket: --allow-no-origin)'));
@@ -1300,6 +1597,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     for (const res of [...W.clients, ...SW.clients]) res.end();
+    for (const p of FF.procs) p.kill('SIGKILL');   // (a conversion under way: never left running on its own)
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

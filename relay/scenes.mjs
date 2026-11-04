@@ -98,6 +98,31 @@ export const summary = s => ({ name: s.name, files: s.files.length, bytes: s.fil
   at: s.files.reduce((n, f) => Math.max(n, f.at), 0), layout: !!s.layout });
 export const layoutAt = st => (st ? Math.floor(st.mtimeMs) : null);
 
+// ---- uploads (SPEC "The upload page": POST /api/scenes/<name>/file and .../sound). A path the relay may write: inside the
+// scene by the listing's own rules, so whatever is written is listed (no dot or temporary names, at most 4 folders deep),
+// never the scene's own files at its top, and outside originals/ (where the files go as they were given) only a model,
+// sound, image or data file. Names a common file system could not keep as given are refused too (Windows' reserved
+// characters and device names, a name ending in a space or a dot), so a scene copied to another computer stays whole.
+export const ORIGINALS = 'originals', MAX_PATH = 200;
+const UPLOAD_KINDS = new Set(['model', 'audio', 'image', 'data']);
+const OWN = new Set([LAYOUT, LISTING, INDEX]);
+const BAD_CHAR = /[\0-\x1f\x7f\\:*?"<>|]/, DEVICE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+// { rel, segs, kind } or { error } (said to the page as it is)
+export function uploadPath(p) {
+  if (typeof p !== 'string' || !p) return { error: 'path=<the file\'s path in the scene> is needed' };
+  if (p.length > MAX_PATH) return { error: `a path is at most ${MAX_PATH} characters` };
+  const segs = p.split('/');
+  if (segs.some(s => !s)) return { error: 'a path has no empty parts (no // and no / at either end)' };
+  if (segs.some(s => s.startsWith('.'))) return { error: 'no part of a path may start with a dot (.., .history/, dot files)' };
+  if (segs.some(s => BAD_CHAR.test(s) || DEVICE.test(s) || /[ .]$/.test(s))) return { error: 'no backslashes, control characters or : * ? " < > |, no name ending in a space or a dot, no device names (con, nul...)' };
+  if (segs.some(s => TEMP.test(s))) return { error: 'not a temporary file\'s name (~ .tmp .part ...): the listing leaves those out' };
+  if (segs.length > MAX_DEPTH + 1) return { error: `at most ${MAX_DEPTH} folders deep` };
+  if (segs.length === 1 && OWN.has(p.toLowerCase())) return { error: `${p} is the scene's own (the studio's Save writes the layout)` };
+  const kind = kindOf(p);
+  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: 'outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin)' };
+  return { rel: p, segs, kind };
+}
+
 // a scene's layout.json, parsed (an object), or null (none, too big, not JSON, not an object)
 export async function readLayout(dir) {
   try {

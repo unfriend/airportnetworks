@@ -1312,7 +1312,7 @@ try {
     const s = [];
     for (const p of ['/api/scenes/nope', '/api/scenes/bad!', '/api/scenes/%2e%2e', '/api/scenes/alpha%2Fsounds', '/api/scenes/%E0%A4%A', '/api/scenes/alpha/x']) s.push((await sget(p)).status);
     ok(s.every(x => x === 404), 'no such scene, a name that cannot be one, .., an escaped slash, a bad escape, a path past it: 404 (' + s.join(' ') + ')');
-    ok((await sget('/api/scenes', { method: 'POST', body: {} })).status === 405 && (await sget('/api/scenes/alpha', { method: 'DELETE' })).status === 405 && (await sget('/api/scenes/alpha/layout')).status === 405,
+    ok((await sget('/api/scenes', { method: 'PUT', body: {} })).status === 405 && (await sget('/api/scenes/alpha', { method: 'DELETE' })).status === 405 && (await sget('/api/scenes/alpha/layout')).status === 405,
       'other methods: 405');
   });
 
@@ -1320,14 +1320,15 @@ try {
     const scan = (...a) => { try { return { code: 0, out: execFileSync(process.execPath, [path.join(REPO, 'tools/studio/scan.mjs'), ...a], { encoding: 'utf8' }) }; } catch (err) { return { code: err.status, out: String(err.stdout) }; } };
     const r1 = scan(S);
     ok(r1.code === 0 && /wrote .*index\.json \(3 scenes\)/.test(r1.out) && /wrote .*alpha[\\/]files\.json \(11 files and layout\.json\)/.test(r1.out) && /left out the folder "bad!"/.test(r1.out), 'scan.mjs: what it wrote');
-    const api = (await sget('/api/scenes')).json(), idx = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
-    ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }), 'index.json is GET /api/scenes with save: false');
+    // (a plain folder takes no uploads: index.json is the list without upload, ffmpeg and maxUpload, which a page reads as none)
+    const { upload: _u, ffmpeg: _f, maxUpload: _m, ...api } = (await sget('/api/scenes')).json(), idx = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
+    ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }), 'index.json is GET /api/scenes with save: false (and no upload fields)');
     for (const n of ['alpha', 'beta', 'with space']) {
       const one = (await sget('/api/scenes/' + encodeURIComponent(n))).json(), fj = JSON.parse(fs.readFileSync(path.join(S, n, 'files.json'), 'utf8'));
       delete one.layout;
       ok(JSON.stringify(fj) === JSON.stringify({ ...one, save: false }), `${n}/files.json is GET /api/scenes/${n} without layout, save: false`);
     }
-    ok(JSON.stringify((await sget('/api/scenes')).json()) === JSON.stringify(api), 'index.json and files.json are not listed themselves');
+    ok(JSON.stringify((await sget('/api/scenes')).json()) === JSON.stringify({ ...api, upload: _u, ffmpeg: _f, maxUpload: _m }), 'index.json and files.json are not listed themselves');
     const r2 = scan(S), r3 = scan(S, '--check');
     ok(r2.code === 0 && !/wrote/.test(r2.out) && (r2.out.match(/unchanged/g) || []).length === 4 && r3.code === 0 && !/NOT CURRENT/.test(r3.out), 'run again: unchanged; --check: current');
     const extra = put('beta/new.png', 'x');
@@ -1479,6 +1480,16 @@ try {
     const held = await tget('/scenes/alpha/model.glb?token=' + PASS, { ip: X });
     ok(s.every(x => x === 401) && held.status === 429 && (await tget('/api/scenes', { ip: X, headers: bearer() })).status === 429, '20 wrong ones for files from one address: 401 each, then 429 for files and the API');
     ok((await tget('/scenes/alpha/model.glb?token=' + PASS)).status === 200, 'another address is not held back');
+    // uploads (a scene made, a file, a sound) with it, as every scene endpoint; /upload sends people on without it
+    const upAsk = [['POST', '/api/scenes', { name: 'pw scene' }], ['POST', '/api/scenes/beta/file?path=pw.glb', 'x'], ['POST', '/api/scenes/beta/sound?path=pw.mp3', 'x']];
+    s = [];
+    for (const [m, p, b] of upAsk) { s.push(no(await tget(p, { method: m, body: b }))); s.push(no(await tget(p, { method: m, body: b, headers: bearer(PASS + 'x') }))); }
+    ok(s.every(Boolean) && !fs.existsSync(path.join(S, 'pw scene')) && !fs.existsSync(path.join(S, 'beta/pw.glb')), 'uploads without it or with a wrong one: 401, nothing written');
+    const mk = await tget('/api/scenes', { method: 'POST', headers: bearer(), body: { name: 'pw scene' } }), fl = await tget('/api/scenes/pw%20scene/file?path=a.glb&token=' + PASS, { method: 'POST', body: 'glb' });
+    ok(mk.status === 201 && fl.status === 200 && fs.readFileSync(path.join(S, 'pw scene', 'a.glb'), 'utf8') === 'glb', 'with it (Bearer, ?token=): a scene made, a file written');
+    const up = await tget('/upload?token=' + PASS);
+    ok(up.status === 302 && !up.headers.location.includes(PASS) && /#studio&upload&relay=/.test(up.headers.location), '/upload: sent on without the password, which is not passed on');
+    fs.rmSync(path.join(S, 'pw scene'), { recursive: true });
     await tget('/scenes/alpha/%2e%2e/beta/a.ogg?token=' + PASS);
     await sleep(300);
     ok(!T.out.includes(PASS) && /they need the password/.test(T.out) && /refused "\/scenes\/alpha\/%2e%2e\/beta\/a\.ogg"/.test(T.out), 'the password in no log line (a refused path said without its query); the start line says they need it');
@@ -1517,6 +1528,275 @@ try {
     const miss = await refused(['--scenes', path.join(SC, 'nope')]), ro = await refused(['--scenes-readonly']);
     ok(miss.code === 1 && /--scenes: there is no folder/.test(miss.out) && ro.code === 1 && /--scenes-readonly goes with --scenes/.test(ro.out), 'a folder that is not there, --scenes-readonly alone: refused');
   });
+
+  // ---- uploads (tools/studio/SPEC.md, "The upload page"): a scene made, files and sounds sent, /upload. A folder of scenes
+  // of its own, and stand-in ffmpegs: one script whose name says what it does (ok writes a known MP3 to its last argument;
+  // fail says something with a path and a query and exits 1; empty writes nothing; hang never ends; broken cannot say its
+  // version), each noting its arguments, its pid and what its input held
+  const U = path.join(SC, 'up'), FFD = path.join(SC, 'ff'), NOPATH = path.join(SC, 'nopath');
+  for (const d of [path.join(U, 'one'), FFD, NOPATH]) fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(U, 'afile'), 'a file at the top, not a scene');
+  const FF_OUT = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(61, 7)]);
+  const STAND = `#!${process.execPath}
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const a = process.argv.slice(2), me = path.basename(process.argv[1]), dir = path.dirname(process.argv[1]);
+if (a.includes('-version')) { if (me === 'broken') process.exit(1); console.log('ffmpeg version 0-stand-in'); process.exit(0); }
+const input = a[a.indexOf('-i') + 1], out = a[a.length - 1];
+fs.writeFileSync(path.join(dir, me + '-' + process.pid + '.json'), JSON.stringify({ args: a, pid: process.pid, input: crypto.createHash('sha256').update(fs.readFileSync(input)).digest('hex') }));
+if (me === 'ok') { fs.writeFileSync(out, Buffer.from('${FF_OUT.toString('base64')}', 'base64')); process.exit(0); }
+if (me === 'fail') { process.stderr.write('[in#0] Error opening input ' + input + '?token=QSECRETQ: Invalid data found when processing input\\n'); process.exit(1); }
+if (me === 'empty') process.exit(0);
+if (me === 'hang') setInterval(() => {}, 1000);
+`;
+  const ff = me => path.join(FFD, me);
+  for (const me of ['ok', 'fail', 'empty', 'hang', 'broken']) { fs.writeFileSync(ff(me), STAND); fs.chmodSync(ff(me), 0o755); }
+  const ffNotes = me => fs.readdirSync(FFD).filter(n => n.startsWith(me + '-') && n.endsWith('.json')).map(n => JSON.parse(fs.readFileSync(path.join(FFD, n), 'utf8')));
+  const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+  // the raw bytes of a request, in pieces (Content-Length unless chunked); the answer, or 'cut' when the socket went first
+  function send(at, p, body, { headers = {}, chunked = false, method = 'POST' } = {}) {
+    return new Promise(resolve => {
+      const h = { ...headers };
+      if (!chunked && body) h['Content-Length'] = body.length;
+      const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers: h }, res => {
+        const parts = [];
+        res.on('data', c => parts.push(c));
+        res.on('end', () => { const buf = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf, text: buf.toString(), json: () => JSON.parse(buf.toString()) }); });
+      });
+      r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+      if (body) for (let i = 0; i < body.length; i += 65536) r.write(body.subarray(i, i + 65536));
+      r.end();
+    });
+  }
+  // everything in the uploads' folder, and whether a temporary file of an upload is left anywhere
+  const tree = (d = U) => fs.readdirSync(d, { recursive: true }).map(String).sort();
+  const leftovers = () => tree().filter(n => /(^|[\\/])\.upload-/.test(n));
+  const startFails = (args, env = {}) => new Promise(resolve => {
+    const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+    procs.push(p);
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('exit', code => resolve({ code, out }));
+    setTimeout(() => { p.kill(); resolve({ code: 'still running', out }); }, 5000);
+  });
+  const UP = await start(['--scenes', U, '--ffmpeg', ff('ok'), '--max-upload', '1']);
+  const NOFF = await start(['--scenes', U, '--quiet'], { PATH: NOPATH });   // (no ffmpeg on its PATH)
+  const URO = await start(['--scenes', U, '--scenes-readonly', '--quiet', '--ffmpeg', ff('ok')]);
+  const MB = 1 << 20, upf = (p, body, o = {}) => send(o.at || UP.port, `/api/scenes/${o.scene || 'one'}/file?path=${encodeURIComponent(p)}${o.replace ? '&replace=1' : ''}`, body, o);
+  const snd = (p, body, o = {}) => send(o.at || UP.port, `/api/scenes/${o.scene || 'one'}/sound?path=${encodeURIComponent(p)}${o.replace ? '&replace=1' : ''}`, body, o);
+  const at = rel => path.join(U, 'one', ...rel.split('/'));
+
+  await step('uploads: GET /api/scenes says upload, ffmpeg and maxUpload; POST /api/scenes makes a scene (the name rule, 409, --scenes-readonly), told at once', async () => {
+    const l = (await req('GET', '/api/scenes', { at: UP.port })).json();
+    ok(l.save === true && l.upload === true && l.ffmpeg === true && l.maxUpload === MB, 'upload: true, ffmpeg: true (the stand-in, --ffmpeg) and maxUpload: 1 MB (--max-upload 1)');
+    const n = (await req('GET', '/api/scenes', { at: NOFF.port })).json(), ro = (await req('GET', '/api/scenes', { at: URO.port })).json();
+    ok(n.upload === true && n.ffmpeg === false && n.maxUpload === 512 * MB && ro.upload === false && ro.ffmpeg === false && ro.save === false,
+      'no ffmpeg on the PATH: ffmpeg false, maxUpload 512 MB by default; --scenes-readonly: upload and ffmpeg false');
+    ok(/Uploads \(the studio's Upload pane, at \/upload\): files up to 1 MB; long sounds made mono MP3 by ffmpeg/.test(UP.out) && /no ffmpeg found/.test(NOFF.out + await (async () => { const v = await start(['--scenes', U], { PATH: NOPATH }); v.kill(); return v.out; })()),
+      'the start line says uploads, their limit and whether ffmpeg was found');
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const make = (b, o = {}) => send(o.at || UP.port, '/api/scenes', Buffer.from(typeof b === 'string' ? b : JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const t0 = Date.now(), m = await make({ name: 'new one' });
+    ok(m.status === 201 && JSON.stringify(m.json()) === '{"ok":true,"name":"new one"}' && fs.statSync(path.join(U, 'new one')).isDirectory(), '201 { ok: true, name }, its folder made');
+    ok((await req('GET', '/api/scenes', { at: UP.port })).json().scenes.map(x => x.name).join('|') === 'new one|one', 'listed');
+    const told = await w.next(ev('scenes'), 3000);
+    ok(told && told.at - t0 < 1500 && told.data.scenes.some(x => x.name === 'new one'), `the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    await sleep(2600);
+    ok(!w.events.some(e => e.event === 'scenes'), 'and not again when it looks next');
+    w.close();
+    const again = await make({ name: 'new one' }), top = await make({ name: 'afile' });
+    ok(again.status === 409 && top.status === 409 && /scene \(or a file\)/.test(again.json().error), 'a scene of that name, or a file: 409');
+    const before = tree(), bad = [];
+    for (const b of [{ name: 'bad!' }, { name: '.x' }, { name: ' x' }, { name: '-x' }, { name: 'watch' }, { name: '' }, { name: 'x'.repeat(65) }, { name: 'a/b' }, { name: '..' }, { name: 5 }, {}, [], 'not json', 'null', '"x"']) bad.push((await make(b)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'names that cannot be a scene\'s, no name, not JSON: 400, nothing made (' + bad.join(' ') + ')');
+    const big = await make({ name: 'x', pad: 'y'.repeat(20000) });
+    ok(big.status === 413 && !fs.existsSync(path.join(U, 'x')), 'a body over 16 KB: 413');
+    const r = await make({ name: 'never' }, { at: URO.port });
+    ok(r.status === 403 && /--scenes-readonly/.test(r.json().error) && !fs.existsSync(path.join(U, 'never')), '--scenes-readonly: 403, nothing made');
+    ok((await send(UP.port, '/api/scenes', null, { method: 'DELETE' })).status === 405, 'other methods: 405');
+    ok(/scenes: made the scene "new one"/.test(UP.out), 'said in the log');
+  });
+
+  await step('uploads: POST /api/scenes/<name>/file: written whole where it goes (folders made), 409 unless replace=1, the paths and kinds taken, the size counted as it streams, nothing left behind', async () => {
+    const A = bytes(5000), B = bytes(3000);
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const t0 = Date.now(), r = await upf('models/a.glb', A), a = r.json();
+    ok(r.status === 200 && a.ok === true && a.path === 'models/a.glb' && a.bytes === 5000 && a.at === Math.floor(fs.statSync(at('models/a.glb')).mtimeMs) && fs.readFileSync(at('models/a.glb')).equals(A),
+      '200 { ok, path, bytes, at }: the bytes as sent, its folder made');
+    const told = await w.next(ev('scene', d => d.path === 'models/a.glb'), 3000);
+    ok(told && told.at - t0 < 1000 && JSON.stringify(told.data) === '{"name":"one","path":"models/a.glb","kind":"model","gone":false}', `the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    const one = (await req('GET', '/api/scenes/one', { at: UP.port })).json();
+    ok(one.files.some(f => f.path === 'models/a.glb' && f.kind === 'model' && f.bytes === 5000) && (await req('GET', '/scenes/one/models/a.glb', { at: UP.port })).buf.equals(A), 'listed, and served');
+    const again = await upf('models/a.glb', B);
+    ok(again.status === 409 && /replace=1/.test(again.json().error) && fs.readFileSync(at('models/a.glb')).equals(A), 'there already: 409, unchanged');
+    const rep = await upf('models/a.glb', B, { replace: true });
+    ok(rep.status === 200 && rep.json().bytes === 3000 && fs.readFileSync(at('models/a.glb')).equals(B), 'replace=1: replaced');
+    const changed = await w.next(ev('scene', d => d.path === 'models/a.glb'), 3000);
+    ok(!!changed, 'the watch told the replacement too');
+    await sleep(2600);
+    ok(!w.events.some(e => e.event === 'scene' && e.data.path === 'models/a.glb'), 'and neither again when it looks next');
+    w.close();
+    const fine = ['originals/eva/eva_001.FBX', 'originals/eva/202009181145140.png', 'originals/a/b/c/notes.txt', 'originals/x.obj', 'originals/x.mtl', 'originals/files.json', 'sounds/a.wav', 'tex/a.PNG',
+      'data.bin', 'models/b c.glb', 'a/b/c/d/deep.glb', 'models/é ü.glb'];
+    const got = [];
+    for (const p of fine) got.push((await upf(p, Buffer.from(p))).status);
+    ok(got.every(x => x === 200) && fine.every(p => fs.readFileSync(at(p), 'utf8') === p), 'models, sounds, images and data anywhere, any file under originals/, 4 folders deep, spaces and accents: 200 (' + got.join(' ') + ')');
+    const before = tree(), bad = [];
+    const refused = ['', '../x.glb', 'a/../x.glb', './x.glb', '.hidden.glb', '.history/x.glb', 'a\\b.glb', 'a//b.glb', '/a.glb', 'a/', 'x.glb.tmp', 'x.glb~', 'x.part', 'layout.json', 'LAYOUT.JSON',
+      'files.json', 'index.json', 'notes.txt', 'models/x.txt', 'models', 'originals', 'a:b.glb', 'a?b.glb', 'x.glb ', 'x.glb.', 'con.glb', 'a\u0001.glb', 'a\u0000.glb', 'a/b/c/d/e/f.glb',
+      'originals/a/b/c/d/x.txt', 'x'.repeat(197) + '.glb'];
+    for (const p of refused) bad.push((await upf(p, Buffer.from('x'))).status);
+    bad.push((await send(UP.port, '/api/scenes/one/file', Buffer.from('x'))).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'dot parts, .history/, backslashes, empty parts, temporary names, the scene\'s own files, other kinds outside originals/, Windows\' characters and names, too deep, too long, no path: 400, nothing written (' + bad.join(' ') + ')');
+    ok(/start with a dot/.test((await upf('.history/x.glb', Buffer.from('x'))).json().error) && /outside originals\//.test((await upf('notes.txt', Buffer.from('x'))).json().error), 'each says why');
+    // a folder in the scene that is a link out of it: refused before anything is made outside
+    fs.symlinkSync(OUT, at('out'));
+    const o1 = await upf('out/x.glb', Buffer.from('x')), o2 = await upf('out/new/x.glb', Buffer.from('x'));
+    ok(o1.status === 400 && o2.status === 400 && /leads out of the scene/.test(o1.json().error) && !fs.existsSync(path.join(OUT, 'x.glb')) && !fs.existsSync(path.join(OUT, 'new')), 'through a link out of the scene: 400, nothing made outside');
+    fs.rmSync(at('out'));
+    fs.mkdirSync(at('tex/dir.png'));
+    ok((await upf('tex/dir.png', Buffer.from('x'), { replace: true })).status === 409 && fs.statSync(at('tex/dir.png')).isDirectory(), 'a folder of that name: 409, even with replace=1');
+    ok((await upf('models/a.glb/x.glb', Buffer.from('x'))).status === 409 && fs.statSync(at('models/a.glb')).isFile(), 'a file where a folder of the path should be: 409');
+    const nf = [await upf('a.glb', Buffer.from('x'), { scene: 'nope' }), await upf('a.glb', Buffer.from('x'), { scene: 'bad!' }), await upf('a.glb', Buffer.from('x'), { scene: 'watch' }), await upf('a.glb', Buffer.from('x'), { scene: '%2e%2e' })];
+    ok(nf.every(x => x.status === 404), 'no such scene: 404 (' + nf.map(x => x.status).join(' ') + ')');
+    ok((await req('GET', '/api/scenes/one/file?path=a.glb', { at: UP.port })).status === 405 && (await req('PUT', '/api/scenes/one/sound?path=a.mp3', { at: UP.port })).status === 405, 'other methods: 405');
+    // the size: up to --max-upload exactly; past it 413, by Content-Length at once or counted as it streams in, the body read
+    // to its end (so the answer arrives), nothing left behind, nor the folders made for it
+    const exact = await upf('big/exact.bin', bytes(MB));
+    ok(exact.status === 200 && fs.statSync(at('big/exact.bin')).size === MB, 'exactly 1 MB: 200');
+    const b1 = await upf('big2/x.bin', bytes(MB + 1)), b2 = await upf('big3/x/y.bin', bytes(3 * MB), { chunked: true });
+    ok(b1.status === 413 && b2.status === 413 && /at most 1 MB/.test(b2.json().error) && !fs.existsSync(at('big2')) && !fs.existsSync(at('big3')) && !leftovers().length,
+      `past 1 MB: 413 by its Content-Length (${b1.status}) and counted while it streams (${b2.status}); no temporary file, no folder made for it`);
+    const b3 = await upf('big/x.bin', bytes(3 * MB), { chunked: true });
+    ok(b3.status === 413 && fs.statSync(at('big')).isDirectory() && !fs.existsSync(at('big/x.bin')) && !leftovers().length, 'a folder that was there stays');
+    // a page that goes in the middle: nothing left
+    const s = net.connect(UP.port, '127.0.0.1');
+    await new Promise(r => s.once('connect', r));
+    s.write(`POST /api/scenes/one/file?path=cut%2Fx.glb HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n`);
+    s.write(bytes(30000));
+    await sleep(300);
+    const mid = leftovers().length;
+    s.destroy();
+    await sleep(400);
+    ok(mid === 1 && !leftovers().length && !fs.existsSync(at('cut')), `cut short: its temporary file (${mid} while it came) and folder gone`);
+    ok(/scenes: one: an upload of cut\/x\.glb was cut short \(30000 bytes came\)/.test(UP.out), 'said in the log');
+    const [x1, x2] = await Promise.all([upf('race.glb', bytes(200000)), upf('race.glb', bytes(200000))]);
+    ok([x1.status, x2.status].sort().join() === '200,409' && fs.statSync(at('race.glb')).size === 200000 && !leftovers().length, `two at once to one new name: one 200, one 409 (${x1.status} ${x2.status})`);
+    ok(/scenes: one: wrote models\/a\.glb \(5\.0 kB/.test(UP.out) && /wrote models\/a\.glb \(3\.0 kB in [\d.]+ s\), replacing it/.test(UP.out), 'said in the log');
+    // another origin (GitHub Pages with &relay=): its preflight, and the answer's CORS
+    const pre = await req('OPTIONS', '/api/scenes/one/file?path=x.glb', { at: UP.port, headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization, content-type' } });
+    const pre2 = await req('OPTIONS', '/api/scenes', { at: UP.port, headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' } });
+    const cr = await upf('cors.glb', Buffer.from('x'), { headers: { Origin: 'https://x.github.io', Authorization: 'Bearer none', 'Content-Type': 'application/octet-stream' } });
+    ok(pre.status === 204 && /POST/.test(pre.headers['access-control-allow-methods']) && /Authorization/.test(pre.headers['access-control-allow-headers']) && /Content-Type/.test(pre.headers['access-control-allow-headers']) &&
+      pre2.status === 204 && cr.status === 200 && cr.headers['access-control-allow-origin'] === '*', 'a preflight from another origin allows POST, Authorization and Content-Type; the answer carries CORS');
+    const ro = await upf('ro.glb', Buffer.from('x'), { at: URO.port });
+    ok(ro.status === 403 && /--scenes-readonly/.test(ro.json().error) && !fs.existsSync(at('ro.glb')), '--scenes-readonly: 403, nothing written');
+  });
+
+  await step('uploads: POST /api/scenes/<name>/sound: ffmpeg (a stand-in) makes a mono MP3 at 96 kbit/s and 44.1 kHz; its failures, its limit, two at once, none at all', async () => {
+    const W = bytes(40000), r = await snd('sounds/a.mp3', W), a = r.json();
+    const note = ffNotes('ok').pop() || { args: [] }, args = note.args, input = args[args.indexOf('-i') + 1], out = args[args.length - 1];
+    ok(r.status === 200 && a.ok === true && a.path === 'sounds/a.mp3' && a.bytes === FF_OUT.length && fs.readFileSync(at('sounds/a.mp3')).equals(FF_OUT), '200 { ok, path, bytes, at }: what ffmpeg wrote, in place');
+    const has = (...x) => x.every(v => args.includes(v));
+    ok(has('-nostdin', '-i') && args.join(' ').includes('-ac 1') && args.join(' ').includes('-ar 44100') && args.join(' ').includes('-b:a 96k') && args.join(' ').includes('-c:a libmp3lame'),
+      'run with -nostdin, mono, 44.1 kHz, 96 kbit/s: ' + args.filter(x => !x.includes('/')).join(' '));
+    ok(note.input === sha(W) && !fs.existsSync(input) && !fs.existsSync(path.dirname(input)) && path.dirname(out) === at('sounds') && /^\.upload-.*\.tmp$/.test(path.basename(out)) && !leftovers().length,
+      'its input the bytes sent, in a temporary file of its own (gone after); its output a temporary dot file beside where it goes, renamed into place');
+    ok((await snd('sounds/a.wav', W)).status === 400 && (await snd('notes.mp3.txt', W)).status === 400 && (await snd('../a.mp3', W)).status === 400, 'a path that is not an MP3\'s, or not a scene\'s: 400');
+    ok((await snd('sounds/a.mp3', W)).status === 409 && (await snd('sounds/a.mp3', W, { replace: true })).status === 200, 'there already: 409; replace=1: 200');
+    const big = await snd('sounds/big.mp3', bytes(MB + 1));
+    ok(big.status === 413 && !fs.existsSync(at('sounds/big.mp3')) && !leftovers().length, 'past --max-upload: 413');
+    ok(/scenes: one: wrote sounds\/a\.mp3 \(64 B|scenes: one: wrote sounds\/a\.mp3 \(0\.1 kB in [\d.]+ s\) as a mono MP3 \(40\.0 kB given, ffmpeg [\d.]+ s\)/.test(UP.out), 'said in the log');
+    // ffmpeg fails: 422, its words never sent, logged shortly without the temporary paths or a query
+    const F = await start(['--scenes', U, '--ffmpeg', ff('fail')]);
+    const f = await snd('sounds/f.mp3', W, { at: F.port });
+    await sleep(100);
+    ok(f.status === 422 && /could not make an MP3/.test(f.json().error) && !/Invalid data|QSECRETQ|token/.test(f.text) && !fs.existsSync(at('sounds/f.mp3')) && !leftovers().length, 'ffmpeg exits 1: 422 in our words, nothing written');
+    ok(/no MP3 for sounds\/f\.mp3 \(ffmpeg exit 1: \[in#0\] Error opening input …\?… Invalid data found/.test(F.out) && !F.out.includes('QSECRETQ') && !/relay-sound-/.test(F.out), 'logged shortly: its last line, no temporary path, no query');
+    F.kill();
+    const E = await start(['--scenes', U, '--ffmpeg', ff('empty'), '--quiet']);
+    const e = await snd('sounds/e.mp3', W, { at: E.port });
+    ok(e.status === 422 && /made nothing/.test(e.json().error) && !fs.existsSync(at('sounds/e.mp3')) && !leftovers().length, 'an empty MP3: 422');
+    E.kill();
+    // one that never ends: stopped after --ffmpeg-limit (1 s here); at most two at once, a third 429 with Retry-After
+    const H = await start(['--scenes', U, '--ffmpeg', ff('hang'), '--ffmpeg-limit', '1', '--quiet']);
+    const t0 = Date.now(), two = [snd('sounds/h1.mp3', W, { at: H.port }), snd('sounds/h2.mp3', W, { at: H.port })];
+    await sleep(300);
+    const third = await snd('sounds/h3.mp3', W, { at: H.port, headers: { Origin: 'https://x.github.io' } });
+    ok(third.status === 429 && third.headers['retry-after'] === '5' && third.json().retry === 5 && /Retry-After/.test(third.headers['access-control-expose-headers'] || ''), 'a third at once: 429, Retry-After (exposed to another origin) and retry in the body');
+    const [h1, h2] = await Promise.all(two), took = Date.now() - t0;
+    const pids = ffNotes('hang').map(n => n.pid), alive = pids.filter(p => { try { process.kill(p, 0); return true; } catch { return false; } });
+    ok(h1.status === 500 && h2.status === 500 && /more than 1 s/.test(h1.json().error) && took >= 1000 && took < 4000, `past the limit: 500 (${took} ms)`);
+    ok(pids.length === 2 && !alive.length && !leftovers().length && !fs.existsSync(at('sounds/h1.mp3')), 'both ffmpegs stopped, nothing left behind');
+    ok((await snd('sounds/h4.mp3', W, { at: H.port })).status === 500, 'room again once they are done');
+    H.kill();
+    // none: 501 (no ffmpeg on the PATH, --no-ffmpeg); files still taken; --scenes-readonly 403
+    const N2 = await start(['--scenes', U, '--no-ffmpeg', '--quiet']);
+    const n1 = await snd('sounds/n.mp3', W, { at: NOFF.port }), n2 = await snd('sounds/n.mp3', W, { at: N2.port });
+    ok(n1.status === 501 && /no ffmpeg/.test(n1.json().error) && n2.status === 501 && (await req('GET', '/api/scenes', { at: N2.port })).json().ffmpeg === false, 'no ffmpeg (none on the PATH, --no-ffmpeg): 501');
+    ok((await upf('sounds/n.wav', W, { at: NOFF.port })).status === 200, 'files are still taken there');
+    N2.kill();
+    ok((await snd('sounds/r.mp3', W, { at: URO.port })).status === 403, '--scenes-readonly: 403');
+    // the options refused at the start
+    const fails = await Promise.all([startFails(['--scenes', U, '--ffmpeg', ff('broken')]), startFails(['--scenes', U, '--ffmpeg', path.join(FFD, 'nope')]), startFails(['--ffmpeg', ff('ok')]),
+      startFails(['--scenes', U, '--ffmpeg', ff('ok'), '--no-ffmpeg']), startFails(['--scenes', U, '--max-upload', '0']), startFails(['--scenes', U, '--ffmpeg-limit', '0']), startFails(['--app', 'ftp://x.example/'])]);
+    ok(fails.every(x => x.code === 1 && !/listening/.test(x.out)) && /does not run as ffmpeg/.test(fails[0].out) && /does not run as ffmpeg/.test(fails[1].out) && /--ffmpeg goes with --scenes/.test(fails[2].out) &&
+      /one or the other/.test(fails[3].out) && /--max-upload takes/.test(fails[4].out) && /--ffmpeg-limit takes/.test(fails[5].out) && /--app takes/.test(fails[6].out),
+      'refused at the start, saying why: a named ffmpeg that does not run, --ffmpeg without --scenes or with --no-ffmpeg, --max-upload 0, --ffmpeg-limit 0, --app not http(s)');
+  });
+
+  await step('uploads: a real ffmpeg makes a generated stereo 48 kHz WAV a mono MP3 at 96 kbit/s and 44.1 kHz', async () => {
+    let real = false;
+    try { real = /ffmpeg version/.test(execFileSync('ffmpeg', ['-hide_banner', '-version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })); } catch { /* none here */ }
+    if (!real) return console.log('  (no ffmpeg on this machine: skipped)');
+    const RF = await start(['--scenes', U, '--quiet']);
+    ok((await req('GET', '/api/scenes', { at: RF.port })).json().ffmpeg === true, 'found on the PATH');
+    const n = 72000, data = Buffer.alloc(n * 4);
+    for (let i = 0; i < n; i++) { data.writeInt16LE(Math.round(Math.sin(2 * Math.PI * 440 * i / 48000) * 12000), i * 4); data.writeInt16LE(Math.round(Math.sin(2 * Math.PI * 660 * i / 48000) * 12000), i * 4 + 2); }
+    const h = Buffer.alloc(44);
+    h.write('RIFF', 0); h.writeUInt32LE(36 + data.length, 4); h.write('WAVE', 8); h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(2, 22);
+    h.writeUInt32LE(48000, 24); h.writeUInt32LE(48000 * 4, 28); h.writeUInt16LE(4, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(data.length, 40);
+    const r = await snd('sounds/real.mp3', Buffer.concat([h, data]), { at: RF.port });
+    const mp3 = fs.existsSync(at('sounds/real.mp3')) ? fs.readFileSync(at('sounds/real.mp3')) : Buffer.alloc(0);
+    // its MPEG frames, read by hand (after an ID3v2 tag): version 1, layer III, bit rate, sample rate, channel mode
+    let i = mp3.subarray(0, 3).toString() === 'ID3' ? 10 + (((mp3[6] & 127) << 21) | ((mp3[7] & 127) << 14) | ((mp3[8] & 127) << 7) | (mp3[9] & 127)) : 0;
+    const BR = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320], SR = [44100, 48000, 32000], frames = [];
+    while (i + 4 <= mp3.length && mp3[i] === 0xff && (mp3[i + 1] & 0xe0) === 0xe0) {
+      const ver = (mp3[i + 1] >> 3) & 3, layer = (mp3[i + 1] >> 1) & 3, br = BR[mp3[i + 2] >> 4], sr = SR[(mp3[i + 2] >> 2) & 3];
+      if (ver !== 3 || layer !== 1 || !br || !sr) break;
+      frames.push({ br, sr, mono: mp3[i + 3] >> 6 === 3 });
+      i += Math.floor((144000 * br) / sr) + ((mp3[i + 2] >> 1) & 1);
+    }
+    ok(r.status === 200 && r.json().bytes === mp3.length && frames.length >= 55 && frames.every(f => f.br === 96 && f.sr === 44100 && f.mono),
+      `200, an MP3 of ${frames.length} frames (1.5 s), each MPEG-1 layer III, 96 kbit/s, 44.1 kHz, mono (${mp3.length} bytes)`);
+    RF.kill();
+  });
+
+  await step('uploads: GET /upload redirects to the studio\'s Upload pane (the relay\'s own app, else --app with this relay\'s wss:// address); no password asked, the query never passed on', async () => {
+    const loc = async (at, p = '/upload', headers = {}) => { const r = await req('GET', p, { at, headers }); return r.status === 302 ? r.headers.location : 'status ' + r.status; };
+    ok(await loc(port) === '/#studio&upload' && await loc(port, '/upload/') === '/#studio&upload' && await loc(port, '/upload?token=QSECRETQ') === '/#studio&upload', 'serving the app (--static): /#studio&upload (also /upload/; a query dropped)');
+    const enc = s => encodeURIComponent(s);
+    ok(await loc(UP.port) === `https://stories.lbi-netmed.com/#studio&upload&relay=${enc('ws://127.0.0.1:' + UP.port)}`, 'not serving it: the app\'s public address, with ws://<Host>');
+    ok(await loc(UP.port, '/upload', { Host: 'relay.example.org', 'X-Forwarded-Proto': 'https' }) === `https://stories.lbi-netmed.com/#studio&upload&relay=${enc('ws://relay.example.org')}`, 'without --proxy X-Forwarded-Proto is ignored');
+    const P = await start(['--scenes', U, '--quiet', '--proxy', '--app', 'https://x.github.io/app'], { COLLAB_TOKEN: 'uploadpass' + crypto.randomBytes(4).toString('hex') });
+    ok(await loc(P.port, '/upload?token=QSECRETQ', { Host: 'Relay.Example.org', 'X-Forwarded-Proto': 'https' }) === `https://x.github.io/app/#studio&upload&relay=${enc('wss://relay.example.org')}`,
+      '--app (a folder: /), behind --proxy its X-Forwarded-Proto https: wss://; with a password, none asked; the query dropped');
+    ok(await loc(P.port, '/upload', { Host: 'relay.example.org:8787', 'X-Forwarded-Proto': 'http' }) === `https://x.github.io/app/#studio&upload&relay=${enc('ws://relay.example.org:8787')}`, 'X-Forwarded-Proto http: ws://');
+    P.kill();
+    const P2 = await start(['--scenes', U, '--quiet', '--proxy', '2', '--origin', 'https://a.example', '--app', 'https://b.example/index.html']);
+    ok(await loc(P2.port, '/upload', { Host: 'r.example', 'X-Forwarded-Proto': 'https, http' }) === `https://b.example/index.html#studio&upload&relay=${enc('wss://r.example')}`, '--proxy 2: the second from the right; --app a page kept as it is');
+    P2.kill();
+    const P3 = await start(['--quiet', '--origin', 'https://a.example']);
+    ok((await loc(P3.port)).startsWith('https://a.example/#studio&upload&relay='), 'no --app: the --origin\'s address');
+    P3.kill();
+    const bad = [await loc(UP.port, '/upload', { Host: 'evil.example/x' }), await loc(UP.port, '/upload', { Host: 'a b' })];
+    ok(bad.every(x => x === 'status 400') && (await req('POST', '/upload', { at: UP.port })).status === 405, 'a Host that is not one: 400; POST: 405');
+  });
+
+  NOFF.kill(); URO.kill();
   fs.rmSync(SC, { recursive: true, force: true });
 
   await step('the log has a line per write and per refusal', async () => {
