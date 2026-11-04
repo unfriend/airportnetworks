@@ -18076,7 +18076,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
-  if (UP_ACT[a]) { if (!XR.on) UP_ACT[a](v); dirty(true); return; }
+  if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -18105,7 +18105,8 @@ function act(a, v) {
   }[a] || (() => {}))();
   dirty(true);
 }
-function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && XR.on)) return; X.tab = k; dirty(true); }
+// (a headset shows no Upload tab, and nor does a visitor's kiosk: &visit offers no editing and no uploads)
+function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
 function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act).join('')].join('|'); }
@@ -18146,7 +18147,7 @@ function buildExplore() {
     .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
-    <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
+    <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
     <input type="file" id="stuUpload" accept=".json,application/json" hidden>
     <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
@@ -20647,6 +20648,7 @@ function initEnd() {
   STU.edit = !OPT.visit && (OPT.edit || store.get('studioEdit') === '1');
   if (TABS.some(t => t[0] === hp.get('tab'))) X.tab = hp.get('tab');
   if (hp.has('upload')) X.tab = 'upload';   // (#studio&upload: the Upload pane, where the relay's /upload sends people)
+  if (X.tab === 'upload' && OPT.visit) X.tab = 'scene';   // (a visitor's kiosk takes no uploads)
   if (hp.get('view') === 'walk') X.view = 'walk';
   renderPanes();
   // where the scenes come from (a relay with --scenes, else a folder), then the scene

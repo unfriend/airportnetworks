@@ -327,6 +327,7 @@ function initEnd() {
   STU.edit = !OPT.visit && (OPT.edit || store.get('studioEdit') === '1');
   if (TABS.some(t => t[0] === hp.get('tab'))) X.tab = hp.get('tab');
   if (hp.has('upload')) X.tab = 'upload';   // (#studio&upload: the Upload pane, where the relay's /upload sends people)
+  if (X.tab === 'upload' && OPT.visit) X.tab = 'scene';   // (a visitor's kiosk takes no uploads)
   if (hp.get('view') === 'walk') X.view = 'walk';
   renderPanes();
   // where the scenes come from (a relay with --scenes, else a folder), then the scene
