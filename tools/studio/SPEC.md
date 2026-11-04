@@ -261,6 +261,53 @@ at the same place in the real room; at a station: the station's spot, so moving 
 scene calibrated to the room's spots stays put while the circle does). The grip on nothing moves only the panel. In VR a
 dark floor with a faint 1 m grid and a soft sky; in passthrough nothing of those.
 
+## GLB first, and converting (the owner, 4 November 2026)
+
+The owner: "maybe we should work with these and use a converter like you mentioned glb better than fbx and we can just
+convert it". GLB is the format to work with; FBX stays supported. The converter (`tools/studio/convert.mjs`) turned the
+owner's atelier (14 MB FBX) into an 11.4 MB GLB that parses in 0.3 to 0.7 s instead of 1 to 2 s, and the figure (3.7 MB)
+into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
+
+- **One converter, two places.** The conversion code is one module (`tools/studio/engine/convert.js`, or where it fits)
+  used by `convert.mjs` in its headless page and pasted into `stories/studio.js` (with `GLTFExporter`, now in the app,
+  loaded only when converting: see the vendor README). The GLB it writes is in metres and Y up, its textures at most
+  4,096 px (or 2,048: *for Quest*), and records what it baked in: `asset.extras.studio = { from: '<the original's path in
+  the scene>', s: <the scale applied>, q: [x, y, z, w] <the turn applied>, at: <ms> }`.
+- **Convert to GLB** (page only, editing on; a headset says *Convert on a laptop*): on an FBX object's Item card and as
+  *Convert every FBX* in the Add pane. It loads the file, converts it, then (relay) uploads it as `<same folder>/<same
+  base name>.glb` next to the original, or (no relay, or saving off) downloads it. Progress and the result are said;
+  a failure changes nothing. Once uploaded, every object placed from that FBX switches to the GLB where it stands: for
+  the baked scale b and turn r, `s' = s / b` and `q' = q * r^-1` (one change, one Undo step, for everyone at a station).
+- **The relay takes the upload.** `POST /api/scenes/<name>/file?path=<relative path>` with the raw bytes: only a
+  `.glb` path (case-insensitive) inside the scene, at most 512 MB (`--max-upload <MB>`), the password as for every scene
+  endpoint, refused with `--scenes-readonly` (403), an existing file only replaced with `&replace=1` (else 409);
+  written to a temporary dot file and renamed; the watch then reports it -> `{ ok, path, bytes, at }`. Covered in
+  `relay/test.mjs`.
+- **The Add list prefers GLB.** A model with a GLB of the same base name in the same folder shows once, as the GLB,
+  marked *converted* (the FBX still listed under *Originals*, folded); placing it places the GLB. A placed FBX's card
+  says *A converted GLB is in the folder: switch to it* (the same switch as after converting).
+
+## Long sounds are streamed
+
+The owner's `first_room.mp3` is 4 min 16 s of stereo at 48 kHz: about 98 MB decoded. A sound longer than 20 s (read
+from an `<audio>` element's metadata before anything is decoded) is streamed: an `<audio>` element per emitter
+(`crossOrigin = 'anonymous'`, the password as `?token=`, `preload = 'auto'`), through
+`createMediaElementSource` on the shell's context into the emitter's panner and gain; `loop` on the element; its start
+offset set by `currentTime` (the room's time modulo its length for `start: 'always'`); paused, not torn down, while
+`HOST.audio.fx()` gives no context or the device is muted, and set to the right moment again when it comes back; a new
+context (the shell's renew) makes its source again (an element can feed only one context: make a new element then).
+Shorter sounds are decoded as before (gapless loops). The 60 MB limit counts decoded sounds only. A stereo file is
+played from its point (the panner mixes it to that point); the Sound pane says *mono files place best*.
+
+## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
+
+Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
+guessing. Textures: JPEG for photos and scans, PNG only for see-through; at most 4,096 px, 2,048 safer on a Quest.
+Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as OGG or WAV (MP3 adds
+silence at its ends, so a loop clicks); long ones (more than 20 s, streamed) as MP3 or OGG at 96 to 128 kbit/s. Ready
+lines: `ffmpeg -i in.wav -ac 1 -c:a libvorbis -q:a 5 loop.ogg` (a loop), `ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3` (a
+long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer with Playwright).
+
 ## Tests
 
 - `tools/studio/test/scenes/test/`: small files made by `tools/studio/test/make.mjs` (committed with what they make,
@@ -276,7 +323,12 @@ dark floor with a faint 1 m grid and a soft sky; in passthrough nothing of those
   ignored; a pretend headset's grip carrying an object and both grips sizing it, a corner stretching a cube, the VR
   stick walk; the emitter's panner at its place (Web Audio running after a tap), silent while muted; the headset panels'
   panes; Download giving the layout; the `STORY_EXTRA` lines checks passing for the studio.
-- `node relay/test.mjs` (a scenes section): every endpoint above, listing rules, types, ETag and 304, ranges, traversal
+- Converting: the smoke block converts `figure.fbx` in the page (no relay: offered as a download; the bytes a GLB whose
+  extras name the original, loading back with the same triangles and clip), and a placed figure switching to a GLB keeps
+  where it stands (its corners within 1 mm); `tools/collab.mjs --studio` converts it through the relay (the GLB written
+  next to the FBX, every page's object switched, the Add list showing it as converted). A sound longer than 20 s (a
+  generated 25 s file in the test scene) is streamed (an element, no decoded buffer), a short one decoded.
+- `node relay/test.mjs` (a scenes section, also the upload): every endpoint above, listing rules, types, ETag and 304, ranges, traversal
   and symlinks refused, the password on every scene endpoint and file (and wrong ones counted), `--public` without a
   password refusing to start, `--scenes-readonly`, saving (the file written, the old one in `.history/`, 20 kept, a bad
   or too-big layout refused), the watch's events for an added, changed and removed file and a saved layout, the
