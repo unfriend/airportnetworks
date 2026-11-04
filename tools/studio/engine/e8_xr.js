@@ -260,7 +260,7 @@ function xrPress(c) {
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
-    pressItem(h.id); buzz(c, 0.4, 30);
+    pressItem(h.id, h.ray); buzz(c, 0.4, 30);
   } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow) select('');
 }
 function xrRelease(c) {
@@ -499,7 +499,7 @@ function xrPoint(c, dt) {
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
     const ih = editOn() ? rayPick(XR.raycaster) : null;
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point }; dist = ih.dist; }
+    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }

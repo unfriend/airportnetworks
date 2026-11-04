@@ -79,17 +79,19 @@ Rigify and VRM names.
 A cut-out is a box that hides the part of one model inside it, without changing the model's file. A scan of a room is
 one mesh, so you cannot hide its door by name; a box over the door hides it. With **Edit** on:
 
-1. Point at the wall where the door should be (or click it on a page), then on the wall's card press **Cut out a part**
-   (or **Cut-out box** under Add while the wall is selected). A box 0.8 m wide, 2 m high and 40 cm deep stands where you
-   pointed, facing you, and the wall inside it is gone.
+1. Select the wall by pointing at it where the door should be and pulling the trigger (or clicking it there on a page),
+   then on the wall's card press **Cut out a part** (or **Cut-out box** under Add while the wall is selected). A box 0.8 m
+   wide, 2 m high and 40 cm deep stands where you selected it, facing you, and the wall inside it is gone.
 2. Move, turn and size the box: on a page the arrows (W, E, R; the size per side), on its card the size steps (5 cm a
    side, or every side at once) and **Turn 90°**; in a headset the grip carries it, both grips size it and the grip on a
    corner stretches it (the opposite corner stays).
 3. To open the door only as people walk up, make a trigger cube in front of the wall, **Pick what it shows** and press
    the cut-out. Until someone stands in the cube the wall is whole for them; inside it, the door opens.
 
-**Preview: Whole** on its card shows the model whole on this device only (while editing). The box stays on the same part
-of the model when the model is moved, turned, sized or switched to its GLB. Not editing, nothing of the box is drawn:
+**Preview** on its card is for this device only, while editing: **As seen** (as the cubes say for you), **Cut** (the hole
+shown whatever the cubes say, so you can size a door its cube opens from anywhere) or **Whole** (the model whole). The
+box stays on the same part of the model when the model is moved, turned, sized or switched to its GLB; duplicating a
+box (or its model) puts the copy in the same cubes' lists. Not editing, nothing of the box is drawn:
 only the hole. The edges of a hole are open (you look into the thin surface): that is how it is meant to be. A model takes
 at most 16 cut-outs, a scene 100. **Move onto another object...** gives a box to another model, where it stands.
 

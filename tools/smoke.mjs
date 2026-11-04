@@ -2380,15 +2380,21 @@ await step('design: the intro ends at the table', async () => {
       const posed = GL.items.worldToLocal(head.localToWorld(new THREE.Vector3(0, 0.11, 0))), rest = new THREE.Vector3(2.3, 1.76, -2.6);
       const hips = d.model.o.getObjectByName('mixamorigHips'); hips.updateWorldMatrix(true, false);
       const body = GL.items.worldToLocal(hips.localToWorld(new THREE.Vector3(0, 0.1, 0.1)));
+      // (Cut out a part from a ray at her posed head: the box goes where the ray meets her as she is drawn, cutAt)
+      const eyeW = GL.items.localToWorld(posed.clone().add(new THREE.Vector3(0, 0.05, 1.8))), dirW = GL.items.localToWorld(posed.clone()).sub(eyeW).normalize();
+      cutRay('dan001', new THREE.Ray(eyeW, dirW));
+      const at = +cutAt(d).p.distanceTo(posed).toFixed(3);
+      STU.ray = null;
       const id = newId();
       change(() => putItem(id, 'x', norm('x', Object.assign({ name: 'Head', on: 'dan001' }, cutRecFrom(d, posed, new THREE.Quaternion(), new THREE.Vector3(0.36, 0.36, 0.36))))));
-      return { id, far: +posed.distanceTo(rest).toFixed(3), posed: posed.toArray(), body: body.toArray() };
+      return { id, far: +posed.distanceTo(rest).toFixed(3), posed: posed.toArray(), body: body.toArray(), at };
     })()`);
     const out = [];
     if (!await until(`STUDIO.cut('${r.id}').cutting && !!STU.items.get('dan001').model.cut`, 5000)) out.push('the cut on her head does not cut');
     const p = r.posed, eye = [p[0], p[1] + 0.05, p[2] + 1.8];
     const px = await ss(`window.__cx.two(${JSON.stringify(eye)}, ${JSON.stringify(p)}, ${JSON.stringify([p, r.body])}, ['${r.id}'])`);
     if (r.far < 0.3 || !proves(px)) out.push('her posed head cut, her body not (pixels; her head ' + r.far + ' m from her rest pose): ' + JSON.stringify({ r, px }));
+    if (!(r.at < 0.2)) out.push('Cut out a part from a ray at her posed head: the box where the ray met her as drawn (within 0.2 m of her head\'s middle), not her rest pose or her middle: ' + r.at);
     await ss(`(sceneClock = window.__cx.sc, undo(), 0)`);
     if (await ss(`STU.items.has('${r.id}')`)) out.push('Undo did not take the cut-out away');
     bad(out);
@@ -2503,7 +2509,11 @@ await step('design: the intro ends at the table', async () => {
       await cxp.click('#pane-item [data-act="i:preview"][data-v="cut"]');
       await frames(2);
       const pc = await ss(`[STU.whole.has('${nc.id}'), STUDIO.cut('${nc.id}').cutting, UNDO.length]`);
-      if (!pw[0] || pw[1] || pw[2] !== u0 + 3 || pc[0] || !pc[1] || pc[2] !== u0 + 3) out.push('Preview: whole (this device, no Undo step), then cut: ' + JSON.stringify({ pw, pc }));
+      await ss('(renderPanes(), 0)');
+      await cxp.click('#pane-item [data-act="i:preview"][data-v="seen"]');
+      await frames(2);
+      const pa = await ss(`[STU.whole.has('${nc.id}') || STU.cutF.has('${nc.id}'), STUDIO.cut('${nc.id}').cutting, UNDO.length]`);
+      if (!pw[0] || pw[1] || pw[2] !== u0 + 3 || pc[0] || !pc[1] || pc[2] !== u0 + 3 || pa[0] || !pa[1] || pa[2] !== u0 + 3) out.push('Preview: whole (this device, no Undo step), then cut, then as seen: ' + JSON.stringify({ pw, pc, pa }));
       // the Items pane: each object's cut-outs under it, indented
       await ss(`(X.tab = 'items', renderPanes(), 0)`);
       const rows = await cxp.evaluate(() => [...document.querySelectorAll('#pane-items li')].map(li => [li.dataset.v, li.style.marginLeft || '']));
@@ -2565,6 +2575,73 @@ await step('design: the intro ends at the table', async () => {
     bad(out);
   });
 
+  await step('studio cuts: the pointer finds a nearer object before a cut-out, a cut-out before its own object, and passes cut-outs in a pick; Preview Cut opens the door its cube hides; a new cut-out cuts at its first frame; 17 on one model: the 16 lowest ids; copies join their cubes; sizing held at the limits, said', async () => {
+    await ss(`(setEdit(true), STU.head = null, select(''), 0)`);
+    // (the wall and its door seen while editing: put back by the card's Undo just now, they fade in over 0.4 s)
+    await until(`STU.items.get('dor001').sa < 0.01 && !STUDIO.cut('dor001').cutting && STU.items.get('wal001').a > 0.99 && STU.items.get('dor001').a > 0.99 && !!STU.items.get('wal001').model`, 5000);
+    const r = await ss(`(() => {
+      const out = {}, V = (a, b, c) => new THREE.Vector3(a, b, c), step = () => itemsStep(0, performance.now()), u0 = UNDO.length;
+      step();
+      GL.world.updateMatrixWorld(true);
+      const pick = (o, d) => { const rc = new THREE.Raycaster(GL.items.localToWorld(V(...o)), V(...d).transformDirection(GL.items.matrixWorld)); const h = rayPick(rc); return h ? h.id : ''; };
+      // a thin box inside the wall (its faces behind the wall's): the ray meets the wall's unseen box first, then it
+      const tid = newId();
+      change(() => putItem(tid, 'x', norm('x', { name: 'Thin', on: 'wal001', p: [-0.8, 1, 0], size: [0.5, 0.5, 0.1] })));
+      STU.items.get(tid).a = 1; step();
+      out.tid = tid; out.own = pick([-0.8, 1, 1], [0, 0, -1]);
+      STU.cutTo = 'dor001'; out.pickMode = pick([-0.8, 1, 1], [0, 0, -1]); STU.cutTo = '';
+      // Box B moved in front of the door: found first; then the door through its own wall
+      const b = STU.items.get('boxb01'), bb = objBox(b).getCenter(V());
+      change(() => setObj('boxb01', { p: [b.rec.p[0] + 0.6 - bb.x, b.rec.p[1] + 1 - bb.y, b.rec.p[2] - 1.5 - bb.z] })); step();
+      out.front = pick([0.6, 1, 1], [0, 0, -1]);
+      undo(); step();
+      out.door = pick([0.6, 1, 1], [0, 0, -1]);
+      // Preview Cut: the door its cube hides from nobody's head cuts here while editing; As seen, it does not; editing
+      // off forgets it
+      out.hidden = [STU.items.get('dor001').shown, STUDIO.cut('dor001').cutting];
+      itemAct('preview', 'cut', 'dor001'); step(); out.forced = STUDIO.cut('dor001').cutting;
+      itemAct('preview', 'seen', 'dor001'); step(); out.seen = STUDIO.cut('dor001').cutting;
+      itemAct('preview', 'cut', 'dor001'); setEdit(false); step(); out.off = [STU.cutF.size, STUDIO.cut('dor001').cutting]; setEdit(true);
+      // a new cut-out cuts at its first frame (no half fade to wait for), and one put back by Undo too
+      const nid = addCut('boxb01'); step(); out.fresh = STUDIO.cut(nid).cutting;
+      deleteItem(nid); undo(); step(); out.back = STUDIO.cut(nid).cutting;
+      undo(); undo(); step();
+      // 17 on one model (as a room may bring), made in the reverse order of their ids: the 16 lowest cut, the 17th not
+      const ids = Array.from({ length: 17 }, (_, k) => 'qq' + String(16 - k).padStart(4, '0'));
+      change(() => { for (const id of ids) putItem(id, 'x', norm('x', { name: 'Many', on: 'boxb01', p: [0, 0.1, 0], size: [0.05, 0.05, 0.05] })); });
+      step();
+      const c = STUDIO.cut('qq0000'), top = STUDIO.cut('qq0016');
+      out.many = [c.list.length, c.list.join() === ids.slice().reverse().slice(0, 16).join(), top.cutting, !!STU.items.get('qq0016').over, cutWords(STU.items.get('qq0016'), STU.items.get('boxb01'))];
+      undo(); step();
+      // a cut-out's copy, and the wall's copy's door, in the cube's list as their originals are
+      const dc = duplicateCut(STU.items.get('dor001')); out.dup = STU.items.get('cub001').rec.show.includes(dc); undo();
+      const wc = duplicateItem('wal001'), wd = cutsOn(wc).find(x => /^Door/.test(x.rec.name));
+      out.dupWall = !!wd && STU.items.get('cub001').rec.show.includes(wd.id); undo(); step();
+      // sizing a model held at the limits: a cut-out of 30 m sides on Box B, Box B twice the size: 50 m, said on its card
+      const big = newId();
+      change(() => putItem(big, 'x', norm('x', { name: 'Big', on: 'boxb01', p: [0, 0.1, 0], size: [30, 30, 30] })));
+      itemAct('size', 2, 'boxb01'); step();
+      select('boxb01'); X.tab = 'item'; renderPanes();
+      out.held = [STU.items.get(big).rec.size.join(), /Big is held at the limit/.test(document.querySelector('#pane-item').textContent)];
+      undo(); undo(); select(''); X.tab = 'scene'; step();
+      out.left = [UNDO.length - u0, STU.cutF.size, STU.whole.size];
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err) out.push(r.err);
+    else {
+      if (r.own !== r.tid || r.pickMode !== 'wal001' || r.front !== 'boxb01' || r.door !== 'dor001') out.push('the pointer: a cut-out before its own wall, the wall in a pick, Box B in front of the door first, the door through its wall: ' + JSON.stringify([r.own, r.pickMode, r.front, r.door]));
+      if (r.hidden.join() !== 'false,false' || !r.forced || r.seen || r.off.join() !== '0,false') out.push('Preview Cut on the door its cube hides: ' + JSON.stringify([r.hidden, r.forced, r.seen, r.off]));
+      if (!r.fresh || !r.back) out.push('a new cut-out (and one put back by Undo) cuts at its first frame: ' + JSON.stringify([r.fresh, r.back]));
+      if (r.many[0] !== 16 || !r.many[1] || r.many[2] || !r.many[3] || !/16 at most/.test(r.many[4])) out.push('17 on one model: the 16 lowest ids cut, the 17th drawn as cutting nothing: ' + JSON.stringify(r.many));
+      if (!r.dup || !r.dupWall) out.push('a cut-out\'s copy (and the wall\'s copy\'s door) in the cube\'s list: ' + JSON.stringify([r.dup, r.dupWall]));
+      if (r.held[0] !== '50,50,50' || !r.held[1]) out.push('sizing held at the limit (50 m), said on the card: ' + JSON.stringify(r.held));
+      if (r.left[0] !== 0 || r.left[1] || r.left[2]) out.push('left behind: ' + JSON.stringify(r.left));
+    }
+    if (await ss('unsaved()')) out.push('the layout did not come back after these checks');
+    bad(out);
+  });
+
   await step('studio cuts: a pretend headset\'s grip carries a cut-out (turning with the hand, moving freely), both grips size it, a corner stretches it (the opposite corner kept); the headset\'s card has its rows', async () => {
     const r = await ss(`(() => {
       const out = {}, x = STU.items.get('dor001'), step = () => itemsStep(0, performance.now()), V = (a, b, c) => new THREE.Vector3(a, b, c);
@@ -2602,10 +2679,10 @@ await step('design: the intro ends at the table', async () => {
       const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
       const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       select('dor001'); X.tab = 'item'; X.scroll = {}; draw();
-      const I = ids(), want = ['cutto', 'cgrow:0:-', 'cgrow:2:+', 'csize:2', 'turn', 'preview:cut', 'preview:whole', 'dup', 'del'];
+      const I = ids(), want = ['cutto', 'cgrow:0:-', 'cgrow:2:+', 'csize:2', 'turn', 'preview:seen', 'preview:cut', 'preview:whole', 'dup', 'del'];
       out.miss = want.filter(i => !I.has(i));
       out.whole = [press('preview:whole'), STU.whole.has('dor001')];
-      press('preview:cut');
+      press('preview:seen');
       for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
       XR.on = false; XR.free = free; select(''); X.tab = 'scene'; renderPanes();
       return out;

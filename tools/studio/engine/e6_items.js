@@ -10,7 +10,7 @@ const STU = {
   saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
-  cutTo: '', whole: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here; the last ray on an object)
+  cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -153,7 +153,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
-  STU.whole.delete(id);
+  STU.whole.delete(id); STU.cutF.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
@@ -323,6 +323,7 @@ function triggerStep(now) {
     if (it.kind === 'c') continue;
     const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
     if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
+    if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
   }
   // a sound is heard while it is shown for you and so is the object it follows (if any): one that starts 'shown' starts
@@ -765,7 +766,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); select(''); }   // (Preview whole is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -800,6 +801,7 @@ function undo() {
   const list = UNDO.pop();
   if (!list) return;
   for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const it of STU.items.values()) if (it.cutNote) it.cutNote = '';   // (a cut-out held at a limit by a sizing: undone)
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   changed();
 }
@@ -820,19 +822,23 @@ function setObj(id, patch) {
   if (r && it.kind === 'o' && it.rec.s !== s0) scaleFollowers(it);
   return r;
 }
+// (each value kept within what a record takes, so the record is never refused: a cut-out's side 1 cm to 50 m, a place
+// or an offset within 1 km; one held at a limit is said on the object's card, cutNote, since sizing back cannot undo it)
 function scaleFollowers(ob) {
   const fs = [...STU.items.values()].filter(x => (x.kind === 's' || x.kind === 'x') && x.rec.on === ob.id);
+  ob.cutNote = '';
   if (!fs.length || !SNAP) return;
   beginChange(fs.map(x => x.id));
   const was = id => { const b = SNAP.before.get(id); return b && b[1] ? JSON.parse(b[1]) : null; }, b0 = was(ob.id);
   if (!b0 || !(b0.s > 0)) return;
-  const k = ob.rec.s / b0.s;
+  const k = ob.rec.s / b0.s, held = [], lim = (v, a, b, f) => { const c = clamp(v, a, b); if (c !== v && !held.includes(f.rec.name)) held.push(f.rec.name); return c; };
   for (const f of fs) {
     const fb = was(f.id);
     if (!fb || fb.on !== ob.id) continue;
-    if (f.kind === 'x') setRec(f.id, { p: fb.p.map(v => v * k), size: fb.size.map(v => v * k) });
-    else if (fb.o) setRec(f.id, { o: fb.o.map(v => v * k) });
+    if (f.kind === 'x') setRec(f.id, { p: fb.p.map(v => lim(v * k, -1000, 1000, f)), size: fb.size.map(v => lim(v * k, 0.01, 50, f)) });
+    else if (fb.o) setRec(f.id, { o: fb.o.map(v => lim(v * k, -1000, 1000, f)) });
   }
+  if (held.length) ob.cutNote = `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (a cut-out's side 1 cm to 50 m, within 1 km of the model): sizing back does not undo that; Undo does.`;
 }
 // a sound's place written from where it is now (p) and, following something there, its offset against it as it is now
 // (its bone's model not here yet: p alone, measureNode)
@@ -916,7 +922,8 @@ function duplicateItem(id) {
   change(() => {
     putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
-    if (it.kind === 'o') for (const x of cutsOn(id)) if (countOf('x') < LIMITS.x) putItem(newId(), 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })));
+    // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
+    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })))) cubeCopy(x.id, xid); }
   });
   select(nid);
   sfxAct('place', 'world', null);

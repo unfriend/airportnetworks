@@ -2106,7 +2106,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk, sound or a cut-out's *Preview: whole* | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk, sound or a cut-out's *Preview* | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3130,24 +3130,32 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   cuts and only that one (`on`, required), its middle, a full turn and its size in that object's frame, turned but not
   scaled (metres; `p` and `size` to the mm, each side 1 cm to 50 m, `q` 4 decimals), so it stays on the same part of the
   model when the object is moved or turned; sized here, the object scales its cut-outs' records in the same change
-  (`scaleFollowers`, `followK` between both grips' writes), and switched to its GLB they turn by the baked turn
-  (`p' = r p`, `q' = r q`). Deleting the object deletes its cut-outs in the same step (Undo brings all back); duplicating
-  it copies them onto the copy; a cut-out whose object is not here (a layout, the room) is kept and cuts nothing. How:
+  (`scaleFollowers`, `followK` between both grips' writes; a value past what a record takes held at the limit, never
+  refused, and said on the object's card), and switched to its GLB they turn by the baked turn (`p' = r p`, `q' = r q`;
+  scaled by `k = s' b / s` too where the new scale's 4 significant figures are not exact). Deleting the object deletes
+  its cut-outs in the same step (Undo brings all back); duplicating it copies them onto the copy, each copy in every cube
+  list its original is in; a cut-out whose object is not here (a layout, the room) is kept and cuts nothing. How:
   every material of an object with a cut-out (lit and as scanned) gets a small addition (`cutPatch`, `onBeforeCompile`;
   `customProgramCacheKey` the original's plus `|studio-cut-1`): each fragment's world place, from three.js's own
   `transformed` after skinning and morphs, is tested against the object's boxes (`uniform vec4 cutM[48]`, three rows of
-  each box's inverse matrix, and `uniform int cutN`, at most 16: a box added compiles nothing), and one inside any is
+  each box's inverse matrix, and `uniform int cutN`, at most 16: a model's first cut-out compiles its patched programs
+  once, a box added after that nothing; more than 16 from a room or a layout: the 16 lowest ids cut, the same on every
+  device), and one inside any is
   discarded; the boxes handed over as its first mesh is drawn each frame (`cutUpload`, `onBeforeRender`); each object's
   materials are its own clones, so two copies of one file never share a cut; a model with none keeps its materials. No
   extra pass, no change to the geometry; the hole's edges are open. Limits: 100 a scene, 16 an object, beyond them refused
   in words. A trigger cube shows or hides a cut-out as any item: hidden for you, the model is whole; it switches as its
-  fade crosses one half (the owner's door: a cube in front of the wall shows the cut-out, so the wall opens as you walk
-  up). Made where the pointer or ray last met the model's surface (`cutRay`, one raycast as the button is pressed), 0.8 x
-  2 x 0.4 m (each side at most a fifth of the model), upright, facing you; else at the model's middle. Its card: what it
-  cuts and *Move onto another object...* (a pick mode, keeping its place), size steps per side (5 cm) and every side,
-  *Turn 90°*, *Preview: Cut / Whole* (this device only, while editing), *Duplicate* (beside it), *Delete*, every change one
-  Undo step. While editing its box is drawn in one warm red-orange, dashed edges, solid corner ticks over everything,
-  *✂ Door*, its corner balls when selected; the pointer finds it before the object it lies in; the page's arrows move,
+  fade crosses one half, and one new here takes its state at once (the owner's door: a cube in front of the wall shows
+  the cut-out, so the wall opens as you walk up). Made where the click or trigger that selected the model met its surface
+  as drawn (`pressItem` keeps that ray, `cutRay`; one raycast as the button is pressed, `modelHits`, a skinned mesh's
+  triangles where its bones put them), 0.8 x 2 x 0.4 m (each side at most a fifth of the model), upright, facing you;
+  else at the model's middle. Its card: what it cuts and *Move onto another object...* (a pick mode, keeping its place),
+  size steps per side (5 cm) and every side, *Turn 90°*, *Preview: As seen / Cut / Whole* (this device only, while
+  editing; *Cut* cuts whatever the cubes say, so a door a cube opens can be sized with its hole in sight), *Duplicate*
+  (beside it, in its cubes' lists), *Delete*, every change one Undo step. While editing its box is drawn in one warm
+  red-orange, dashed edges, solid corner ticks over everything, *✂ Door*, its corner balls when selected; the pointer
+  finds the nearest object, sound or cut-out, passing over an object's unseen box when the ray goes on into one of its
+  own cut-outs (and over cut-outs while picking an object for a sound or a cut-out); the page's arrows move,
   turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
   size it, a corner stretches it. Not editing, only the hole. The Items pane lists each object's cut-outs under it.
   `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31, v113). Untested on a headset: how the holes look on a
@@ -3435,11 +3443,17 @@ one Undo step) and the hole still where the door is; the dancer's posed head (he
 rest pose) cut by a box round it, her rest-pose place not; *Convert to GLB* of the figure (a turn and a scale baked in)
 switching with its cut-out's corners within 1 mm and still cutting; the state with `x.<id>` and back, bad records
 refused, unknown fields ignored, a state without the wall (the door kept, cutting nothing) and back; 16 on one object and
-no more; `layout.json` with and without `cuts`; the page's card (*Cut out a part* where the pointer met the wall, the
-size steps, *Preview: Whole* and *Cut*, Delete and Undo; deleting the wall taking its cut-outs and Undo bringing them
-back; duplicating it copying them; *Move onto another object...* keeping its place); the Add pane's button; the page's
-arrows; a pretend headset's grip carrying one, both grips sizing it and a corner stretching it; nothing of a box drawn
-when not editing (only the hole); the Items pane and the headset's card (its rows; Preview pressed there).
+no more; `layout.json` with and without `cuts`; the page's card (*Cut out a part* where the click met the wall, the
+size steps, *Preview: Whole*, *Cut* and *As seen*, Delete and Undo; deleting the wall taking its cut-outs and Undo
+bringing them back; duplicating it copying them; *Move onto another object...* keeping its place); the Add pane's
+button; the page's arrows; the pointer (a thin cut-out inside the wall found through the wall's unseen box, the wall
+found in a pick, Box B moved in front of the door found first); *Preview: Cut* opening the door its cube hides, *As
+seen* shutting it, editing off forgetting it; a new cut-out (and one put back by Undo) cutting at its first frame; 17 on
+one object made in reverse id order (the 16 lowest cutting, the 17th said); a cut-out's copy and the wall's copy's door
+in the cube's list; Box B sized with a 30 m cut-out held at 50 m and said on its card; *Cut out a part* from a ray at the
+dancer's posed head landing on her as drawn; a pretend headset's grip carrying one, both grips sizing it and a corner
+stretching it; nothing of a box drawn when not editing (only the hole); the Items pane and the headset's card (its rows;
+Preview pressed there).
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict

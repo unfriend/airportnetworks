@@ -206,7 +206,7 @@ function paneBlocks(tab) {
   return B;
 }
 function itemSub(it) {
-  if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (!it.shown ? ' · hidden for you' : STU.whole.has(it.id) ? ' · previewed whole' : ''); }
+  if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (ob ? cutWords(it, ob).replace(' · whole', ' · previewed whole').replace(/^ · cut$/, ' · previewed cut') : ''); }
   const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
@@ -256,16 +256,18 @@ function itemBlocks(it, B, ed) {
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
     const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
     B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
+    if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
     if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
   } else if (it.kind === 'x') {
-    const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), whole = STU.whole.has(it.id);
+    const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), pv = STU.whole.has(it.id) ? 'whole' : STU.cutF.has(it.id) ? 'cut' : 'seen';
     B.push({ h: r.name, sub: 'Cut-out' + (it.shown ? '' : ' · hidden for you now') },
       { kv: [['Cuts', ob ? ob.rec.name : 'an object not in the scene'], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] },
       { p: `It hides whatever of ${ob ? ob.rec.name : 'its object'} lies inside the box, for everyone here; the model's file is not changed. Not editing, only the hole shows.`, c: 'faint' });
     if (!ob) B.push({ p: 'The object it cuts is not in the scene: it cuts nothing until that object is back.', c: 'amber' });
     else if (!ob.model) B.push({ p: `${ob.rec.name}'s model is not here yet: it cuts once it is.`, c: 'faint' });
-    if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it.', c: 'muted' });
+    if (it.over) B.push({ p: `${ob.rec.name} has more than ${CUT_MAX} cut-outs (from the room or a layout): the ${CUT_MAX} with the lowest ids cut, this one does not.`, c: 'amber' });
+    if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it' + (pv === 'cut' ? ' (Preview: Cut shows the hole here while you edit).' : ' (Preview: Cut shows the hole while you edit).'), c: 'muted' });
     B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: dis || !objs.some(o => o.id !== r.on) }] });
     if (picking) {
       B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the box goes onto it, staying where it is.', c: 'amber' },
@@ -274,7 +276,7 @@ function itemBlocks(it, B, ed) {
     B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis }]) },
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
-      { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: !whole, dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: whole, dis }] });
+      { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
     B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Shows', r.show.length ? r.show.map(nameOf).join(', ') : 'nothing'], ['Hides', r.hide.length ? r.hide.map(nameOf).join(', ') : 'nothing']] });
     B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
@@ -467,7 +469,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -596,16 +598,18 @@ function pickables() {
   }
   return L;
 }
-// the nearest thing a ray finds: a corner first, then a cut-out (it lies within its model's unseen box), then an object
-// or a sound, a cube only when nothing else is hit. The last ray that finds an object is kept (cutRay): a new cut-out
-// goes where it met the model
+// the nearest thing a ray finds: a corner first, then the nearest object, sound or cut-out, a cube only when nothing
+// else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
+// of the object's own cut-outs (a nearer object or sound is still found first); picking the object a sound follows or a
+// cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
+// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model
 function rayPick(ray) {
   GL.world.updateMatrixWorld(true);
-  const hs = ray.intersectObjects(pickables(), false), kind = h => { const it = STU.items.get(h.object.userData.id); return it ? it.kind : ''; };
-  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => kind(h) === 'x') || hs.find(h => kind(h) && kind(h) !== 'c') || hs[0];
+  const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
+  const objOnly = !!(STU.follow || STU.cutTo), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return null;
-  if (kind(c) === 'o') cutRay(c.object.userData.id, ray.ray);
-  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance };
+  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? ray.ray.clone() : null };
 }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
@@ -687,21 +691,23 @@ function bindCanvas() {
 // click on the floor walks there
 function clickAt(mx, my) {
   const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray) : null;
-  if (h) { pressItem(h.id); return; }
+  if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
     const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
     if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
   if (editOn() && !STU.pick && !STU.follow && !STU.cutTo) select('');
 }
-// the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected
-function pressItem(id) {
+// the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
+// ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
+function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
   if (STU.pick && it.kind !== 'c' && id !== STU.pick.id) { toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   select(id);
+  if (ray && it.kind === 'o') cutRay(id, ray);
   sfxAct('pick', 'world', null);
 }
 // Walk view: W A S D or the arrows walk (Shift faster), a click on the floor walks there; the camera at 1.6 m

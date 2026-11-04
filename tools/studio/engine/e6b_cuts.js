@@ -6,12 +6,14 @@
 // when the object is moved or turned; sized here, the object scales its cut-outs' records with it (scaleFollowers), and
 // switched to its GLB they are turned by the turn baked in (switchToGLB). An object's model takes a small addition to
 // its materials once it has a cut-out (cutPatch): each fragment's place in the world (after skinning and morphs) is
-// tested against the object's cut-outs cutting now (up to 16: CUT_MAX), and one inside any of them is not drawn. One
-// program per kind of material (the count a uniform, not a define: adding a box compiles nothing), each object's boxes
-// handed to its own materials as it is drawn (cutUpload, from onBeforeRender, once the scene's matrices are this
-// frame's: the scene moves in a headset). A trigger cube shows or hides a cut-out as any item: hidden for you, it cuts
-// nothing (the model whole), switching as its fade crosses one half (a cut cannot fade). While editing its box is drawn
-// (LOOKS.cut); else only the hole. Nothing is written to the model's file.
+// tested against the object's cut-outs cutting now (up to 16: CUT_MAX, the lowest ids, so every device cuts the same
+// ones), and one inside any of them is not drawn. One program per kind of material (the count a uniform, not a define:
+// the model's first cut-out compiles its patched programs once, the next boxes nothing), each object's boxes handed to
+// its own materials as it is drawn (cutUpload, from onBeforeRender, once the scene's matrices are this frame's: the scene
+// moves in a headset). A trigger cube shows or hides a cut-out as any item: hidden for you, it cuts nothing (the model
+// whole), switching as its fade crosses one half (a cut cannot fade; a cut-out new here takes its state at once). While
+// editing its box is drawn (LOOKS.cut), and Preview may show it cut or whole whatever the cubes say (this device only);
+// else only the hole. Nothing is written to the model's file.
 const CUT_MAX = 16, CUT_DEF = [0.8, 2, 0.4];
 // the object a cut-out cuts (null: none here, a dangling one: it is kept and cuts nothing), an object's cut-outs
 const cutObj = x => { const o = x && x.kind === 'x' ? STU.items.get(x.rec.on) : null; return o && o.kind === 'o' ? o : null; };
@@ -63,11 +65,20 @@ function cutCorners(x) {
 const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(), _cy = new THREE.Vector3(0, 1, 0);
 function cutsStep(editing, now) {
   for (const ob of STU.items.values()) if (ob.kind === 'o') ob.cutL = null;
-  for (const x of STU.items.values()) if (x.kind === 'x') cutStep(x, editing, now);
-  for (const ob of STU.items.values()) if (ob.kind === 'o' && ob.cutU) ob.cutU.list = ob.cutL || [];
+  for (const x of STU.items.values()) if (x.kind === 'x') cutPlace(x, editing, now);
+  // (more than 16 on one object, as a room or a layout may bring: the 16 with the lowest ids cut, the same on every
+  // device whatever order its items came in; the rest are drawn as cutting nothing)
+  for (const ob of STU.items.values()) {
+    if (ob.kind !== 'o') continue;
+    const l = ob.cutL || [];
+    if (l.length > CUT_MAX) { l.sort((a, b) => (a.id < b.id ? -1 : 1)); for (const x of l.splice(CUT_MAX)) { x.cutting = false; x.over = true; } }
+    if (ob.cutU) ob.cutU.list = l;
+  }
+  for (const x of STU.items.values()) if (x.kind === 'x') cutLook(x, editing);
 }
-function cutStep(x, editing, now) {
-  const ob = cutObj(x), L = x.look, r = x.rec;
+// where it stands, and whether it cuts now
+function cutPlace(x, editing, now) {
+  const ob = cutObj(x);
   if (!x.carry) {
     cutPose(x, _cp, _cq, _cs);
     if (x.gl) {
@@ -76,9 +87,16 @@ function cutStep(x, editing, now) {
       if (k >= 1) x.gl = null;
     } else { x.holder.position.copy(_cp); x.holder.quaternion.copy(_cq); x.holder.scale.copy(_cs); }
   }
-  // cutting now: its object here with its model, shown for you (past one half of its fade), not previewed whole here
-  x.cutting = !!(ob && ob.model) && x.sa > 0.5 && !(editing && STU.whole.has(x.id));
+  // cutting now: its object here with its model, shown for you (past one half of its fade) or previewed cut here, and
+  // not previewed whole here (the previews: while editing, this device only)
+  const pv = editing ? (STU.whole.has(x.id) ? 'whole' : STU.cutF.has(x.id) ? 'cut' : '') : '';
+  x.over = false;
+  x.cutting = !!(ob && ob.model) && pv !== 'whole' && (pv === 'cut' || x.sa > 0.5);
   if (ob && ob.model) { cutPrep(ob); if (x.cutting) (ob.cutL || (ob.cutL = [])).push(x); }
+}
+// while editing: its box, its corners, its name
+function cutLook(x, editing) {
+  const ob = cutObj(x), L = x.look, r = x.rec;
   x.holder.visible = L.deco.visible = x.a > 0.01;
   if (!L.deco.visible) return;
   L.deco.position.copy(x.holder.position); L.deco.quaternion.copy(x.holder.quaternion);
@@ -88,8 +106,11 @@ function cutStep(x, editing, now) {
   L.name.position.set(0, cutHalfHeight(x) + 0.04, 0).applyQuaternion(_cq.copy(x.holder.quaternion).invert());
   L.look({ selected: STU.sel === x.id && editing, hot: STU.hover === x.id, hotCorner: STU.hotCorner && STU.hotCorner.id === x.id ? STU.hotCorner.k : -1, off: !x.cutting });
   for (const m of [L.fill.material, L.line.material, L.ticks.material]) m.opacity *= x.a;
-  L.name.userData.set('✂ ' + r.name + (!ob ? ' · cuts nothing' : !x.shown ? ' · hidden for you' : STU.whole.has(x.id) ? ' · whole' : ''), L.col, 0.075);
+  L.name.userData.set('✂ ' + r.name + cutWords(x, ob), L.col, 0.075);
 }
+// what its label and the Items pane add: why it cuts nothing, or how it is previewed ('' cutting as it is)
+const cutWords = (x, ob) => (!ob ? ' · cuts nothing' : x.over ? ` · cuts nothing (${CUT_MAX} at most)` : STU.whole.has(x.id) ? ' · whole'
+  : STU.cutF.has(x.id) ? (x.shown ? ' · cut' : ' · hidden for you, previewed cut') : !x.shown ? ' · hidden for you' : '');
 
 // ------------------------------------------------------------ the shader --
 // Each material of an object with a cut-out: the fragment's place in the world (from three.js's own `transformed`,
@@ -173,12 +194,26 @@ function cutAt(ob) {
   if (R && R.id === ob.id && ob.model && performance.now() - R.at < 300000) {
     GL.world.updateMatrixWorld(true);
     const o = GL.items.localToWorld(new THREE.Vector3().fromArray(R.o)), d = new THREE.Vector3().fromArray(R.d).transformDirection(GL.items.matrixWorld);
-    const hs = new THREE.Raycaster(o, d, 0, 500).intersectObject(ob.model.o, true).filter(h => h.object.isMesh && h.object.visible);
+    const hs = modelHits(ob.model.o, new THREE.Raycaster(o, d, 0, 500)).filter(h => h.object.isMesh && h.object.visible);
     if (hs.length) { p = GL.items.worldToLocal(hs[0].point.clone()); from = new THREE.Vector3().fromArray(R.o); }
   }
   if (!p) { p = box ? box.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(ob.rec.p); from = viewerAt(); }
   const dx = from.x - p.x, dz = from.z - p.z;
   return { p, q: new THREE.Quaternion().setFromAxisAngle(_cy, Math.hypot(dx, dz) > 1e-6 ? Math.atan2(dx, dz) : 0), size };
+}
+// a model's triangles a ray meets, nearest first, as the model is drawn now: three.js r128 tests a skinned mesh's triangles
+// where its bones put them (its materials say skinning), but first against its rest pose's bounding sphere and box, which
+// a posed part may have left (a raised hand): those two set aside for a skinned mesh's test
+const BIG_S = new THREE.Sphere(new THREE.Vector3(), Infinity);
+function modelHits(o, rc) {
+  const out = [];
+  o.traverse(n => {
+    if (!n.isMesh) return;
+    const g = n.geometry, sk = !!n.isSkinnedMesh, bs = g.boundingSphere, bb = g.boundingBox;
+    if (sk) { g.boundingSphere = BIG_S; g.boundingBox = null; }
+    try { rc.intersectObject(n, false, out); } finally { if (sk) { g.boundingSphere = bs; g.boundingBox = bb; } }
+  });
+  return out.sort((a, b) => a.distance - b.distance);
 }
 // where you are, in the scene's frame: your head in a headset, the camera on a page
 function viewerAt() {
@@ -193,15 +228,24 @@ function cutRay(id, ray) {
   const m = GL.items.matrixWorld.clone().invert();
   STU.ray = { id, o: ray.origin.clone().applyMatrix4(m).toArray(), d: ray.direction.clone().transformDirection(m).toArray(), at: performance.now() };
 }
-// a copy beside it on the same object (along its own width), selected
+// a copy beside it on the same object (along its own width), selected; in every cube list the original is in (a door a
+// cube opens, copied, opens with it: cubeCopy)
 function duplicateCut(x) {
   const ob = cutObj(x);
   if (ob && cutsOn(ob.id).length >= CUT_MAX) return '';
   const nid = newId(), d = new THREE.Vector3(x.rec.size[0] * 1.25, 0, 0).applyQuaternion(new THREE.Quaternion().fromArray(x.rec.q));
-  change(() => putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) }))));
+  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) })))) cubeCopy(x.id, nid); });
   select(nid);
   sfxAct('place', 'world', null);
   return nid;
+}
+// a copy of a cut-out put in every cube's list (show or hide) its original is in (within the change that makes it)
+function cubeCopy(from, to) {
+  for (const c of [...STU.items.values()]) {
+    if (c.kind !== 'c') continue;
+    const sh = c.rec.show.includes(from), hi = c.rec.hide.includes(from);
+    if (sh || hi) setRec(c.id, { show: sh ? c.rec.show.concat(to) : c.rec.show, hide: hi ? c.rec.hide.concat(to) : c.rec.hide });
+  }
 }
 // a quarter turn about its own upright (its width and depth trade places)
 function cutTurn(x) { setRec(x.id, { q: new THREE.Quaternion().fromArray(x.rec.q).multiply(new THREE.Quaternion().setFromAxisAngle(_cy, Math.PI / 2)).toArray() }); }
@@ -218,8 +262,13 @@ Object.assign(ITEM_ACT, {
   // one side 5 cm more or less, or every side by a factor; its middle stays
   cgrow: (x, v) => { const [ax, d] = String(v).split(':'), i = +ax, size = x.rec.size.slice(); if (!(i >= 0 && i < 3)) return; size[i] = clamp(r3(size[i] + +d), 0.01, 50); setRec(x.id, { size }); },
   csize: (x, k) => { if (+k > 0) setRec(x.id, { size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) }); },
-  // this device's preview while editing (never shared): the model whole, as if it had no cut-out
-  preview: (x, v) => { if (x.kind !== 'x') return; if (v === 'whole') STU.whole.add(x.id); else STU.whole.delete(x.id); },
+  // this device's preview while editing (never shared): as seen (as the cubes say for you), cut (whatever they say: a door
+  // a cube opens, sized with its hole in sight) or whole (as if it had no cut-out)
+  preview: (x, v) => {
+    if (x.kind !== 'x') return;
+    STU.whole.delete(x.id); STU.cutF.delete(x.id);
+    if (v === 'whole') STU.whole.add(x.id); else if (v === 'cut') STU.cutF.add(x.id);
+  },
   cutPick: x => { if (x.kind === 'x') STU.cutTo = STU.cutTo === x.id ? '' : x.id; },
   cutOn: (x, oid) => cutOnto(x, oid),
 });

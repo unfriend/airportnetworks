@@ -583,10 +583,15 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   the room), the object carries its cut-outs (they are in its frame). Sized here (its size steps, both grips, the arrows'
   size), the object scales its cut-outs' `p` and `size` by the size's ratio since the change began, in the same change
   (`setObj`, `scaleFollowers`, one Undo step), so a door stays a door; a record from the room carries the cut-outs' own
-  records, so nothing is scaled when one is applied. Switched to its GLB (`switchToGLB`: `s' = s / b`, `q' = q r^-1`), its
-  cut-outs are turned by the baked turn (`p' = r p`, `q' = r q`; sizes are metres, kept), so each hole stays exactly where
-  it was. Deleted, its cut-outs go with it in the same step (Undo brings them all back); duplicated, its cut-outs are
-  copied onto the copy (as many as the scene's 100 allows). A cut-out whose object is not in the scene (a layout or a
+  records, so nothing is scaled when one is applied. Scaled past what a record takes, a value is held at the limit (a side
+  at 1 cm or 50 m, a middle within 1 km), never refused, and the object's card says which cut-outs were held (`cutNote`:
+  sizing back does not undo that, Undo does). Switched to its GLB (`switchToGLB`: `s' = s / b`, `q' = q r^-1`), its
+  cut-outs are turned by the baked turn (`p' = r p`, `q' = r q`; sizes are metres, kept), so each hole stays where it
+  was; `s'` is kept to 4 significant figures, so where `s / b` is not exact (`b` not a power of ten) the model is drawn
+  `k = s' b / s` times its old size and its cut-outs' middles and sizes (and its sounds' offsets) are scaled by `k` in
+  the same change. Deleted, its cut-outs go with it in the same step (Undo brings them all back); duplicated, its
+  cut-outs are copied onto the copy (as many as the scene's 100 allows), each copy in every cube list its original is in
+  (so a door a cube opens opens on the copy too). A cut-out whose object is not in the scene (a layout or a
   state from the room without it) is kept, cuts nothing and stands at its record in the scene's frame until the object is
   back; the card and the Items pane say so.
 - **How it cuts** (the shader). Once an object has a cut-out its model's materials, lit and as scanned, each get a small
@@ -595,7 +600,9 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   own `transformed` after skinning and morphs (and the instance matrix), through `modelMatrix`; the fragment shader drops
   a fragment that lies within half a unit of the middle of any of the object's boxes on every axis, each box given as the
   first three rows of the inverse of its world matrix (`uniform vec4 cutM[48]`, three a box) and their count (`uniform int
-  cutN`: a uniform, not a define, so a box added compiles nothing). One program for every patched material of a kind
+  cutN`: a uniform, not a define). A model's first cut-out compiles its patched programs once (a moment's pause on a
+  Quest, as the first switch of *Light* does; patching every model up front would change every model's shader for a
+  pause only the first cut-out costs, so it is not done), and from then on a box added compiles nothing. One program for every patched material of a kind
   (`customProgramCacheKey`: the original's key and `|studio-cut-1`), its uniforms the object's own: every object's
   materials are its own clones (`libClone`), so two objects of one file never share a cut. The boxes are handed over as
   the first of the object's meshes is drawn each frame (`cutUpload`, from `onBeforeRender`, once the scene's matrices are
@@ -605,31 +612,39 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   is expected.
 - **Limits**: 100 cut-outs in a scene, 16 on one object (the shader's array). Beyond them *Cut out a part*, *Cut-out
   box*, *Duplicate* and *Move onto another object...* are refused in words (*16 cut-outs on Wall: the most one model
-  takes.*; *The scene has 100 cut-outs: the most it can hold.*). A layout or a room with more than 16 on one object: the
-  first 16 cutting now cut.
+  takes.*; *The scene has 100 cut-outs: the most it can hold.*). A layout or a room with more than 16 on one object (two
+  people adding at once): of those cutting now the 16 with the lowest ids cut, the same on every device whatever order
+  its items came in; the rest are drawn as cutting nothing (*· cuts nothing (16 at most)*, and their card says why).
 - **Trigger cubes**: a cut-out is an item a cube can show or hide (its lists take it, the Items pane's ticks and *Pick
   what it shows* too). Hidden for you, it cuts nothing (the model whole); shown, it cuts; it switches as its own 0.4 s fade
-  crosses one half (a cut cannot fade). A cut-out a cube shows waits for its cube, as any item: the owner's door, closed
+  crosses one half (a cut cannot fade). A cut-out new here (made, put back by Undo, from the room, a scene opened) takes
+  its state at once, with no half fade to wait for. A cut-out a cube shows waits for its cube, as any item: the owner's door, closed
   until you walk up to the wall.
 - **Making one** (editing on, never with `&visit`, refused while the station's story is locked, as every edit): an
   object's card has *Cut-outs (n)* with *Cut out a part* and the list of its cut-outs; the Add pane's *Cut-out box* does
   the same for the selected model. The new box is 0.8 x 2 x 0.4 m, each side at most a fifth of the model's largest side as
-  placed (`cutAt`), upright, its middle where the pointer or the ray last met the model's own surface (the last ray that
-  found the object, `cutRay`, kept in the scene's frame, and the model's triangles looked for once, as the button is
-  pressed), its depth towards where that ray came from; with no such ray (or none that meets the model), at the model's
-  middle facing you. It is selected.
+  placed (`cutAt`), upright, its middle where the click or the trigger that selected the object met the model's own
+  surface (that ray, `cutRay`, kept in the scene's frame by `pressItem`, not the pointer's path since; the model's
+  triangles looked for once, as the button is pressed, as it is drawn now: a skinned mesh's where its bones put them,
+  its rest pose's bounds set aside for that test, `modelHits`), its depth towards where that ray came from; with no such
+  ray (or none that meets the model), at the model's middle facing you. It is selected.
 - **Its card** (page and headset alike): *Cuts* (the object) and *Size*; *Move onto another object...* (a pick mode, as a
   sound's *Follow an object...*: the trigger or a click on an object, or the card's list; it keeps its place in the scene,
   re-expressed in the new object's frame; *Cancel*); *Size (5 cm a press)*, *x −* to *z +* (its middle stays); *Size,
   every side* (×0.5, ×0.9, ×1.1, ×2); *Turn 90°* (about its own upright: its width and depth trade places); *Preview (this
-  device only, while editing)*, *Cut* / *Whole* (the model drawn whole here; never shared, never saved, gone when editing
-  goes off); *Duplicate* (a copy beside it on the same object, along its own width); *Delete*. Every change one Undo step.
+  device only, while editing)*, *As seen* (as the cubes say for you: the default), *Cut* (cut whatever the cubes say: a
+  door a cube opens, sized with its hole in sight from anywhere) or *Whole* (the model drawn whole here); never shared,
+  never saved, gone when editing goes off; *Duplicate* (a copy beside it on the same object, along its own width, in
+  every cube list it is in); *Delete*. Every change one Undo step.
 - **Drawn while editing** (`LOOKS.cut`): one warm red-orange for all cut-outs, its edges dashed (about seven dashes an
   edge) where they are seen, a solid tick a fifth of each edge long at every corner over everything (so a box inside a
-  model still shows), a very faint fill, *✂ Door* over it (*· hidden for you*, *· whole*, *· cuts nothing*), brighter when
-  pointed at or selected, fainter while it cuts nothing; selected, a ball at each corner. The pointer finds it before the
-  object it lies in (its unseen box: the object's own unseen box would otherwise always be in front). Not editing,
-  nothing of it is drawn: only the hole.
+  model still shows), a very faint fill, *✂ Door* over it (*· hidden for you*, *· hidden for you, previewed cut*, *· cut*,
+  *· whole*, *· cuts nothing*, *· cuts nothing (16 at most)*), brighter when pointed at or selected, fainter while it cuts
+  nothing; selected, a ball at each corner. The pointer (a click, a controller's ray) finds the nearest object, sound or
+  cut-out, but passes over an object's unseen box when the ray goes on into one of that object's own cut-outs (it lies
+  within that box, which would otherwise always be in front); a nearer object or sound is still found first. Picking the
+  object a sound follows or a cut-out cuts, cut-outs are passed through. Not editing, nothing of it is drawn: only the
+  hole.
 - **Moving it**: on a page the arrows move it, turn it (in its own frame) and size it per side (W, E, R); in a headset
   the grip carries it (turning with the hand while free moving is on, else only about the upright), both grips size it
   (every side alike, a twentieth to twenty times) and move it with their middle, the grip on a corner of a selected one

@@ -229,7 +229,9 @@ async function convertAll() {
 // and Y up. A sound that follows such an object's whole model has its offset turned by r in the same change (o' = r o:
 // the holder's turn is q r^-1, so where it sounds stays put); one on a bone keeps its offset (the GLB's bones stand where
 // the original's did, and a name the loader tidied is still found). Its cut-outs likewise: middle and turn turned by r
-// (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was
+// (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
+// figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
+// 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it
 function switchToGLB(orig, glb, rec) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
@@ -243,9 +245,16 @@ function switchToGLB(orig, glb, rec) {
     const turn = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && whole(f));
     // (and their cut-outs, in the object's frame turned but not scaled: turned the same way, so each stays where it was)
     const cuts = [...STU.items.values()].filter(x => x.kind === 'x' && ids.has(x.rec.on));
-    for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g));
-    for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).toArray() });
-    for (const x of cuts) setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).toArray(), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray() });
+    const bone = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && !turn.includes(f));
+    const K = new Map(), s0 = new Map(list.map(it => [it.id, it.rec.s]));
+    for (const it of list) { const ok = setRec(it.id, switchedRec(it.rec, glb, g)), k = ok ? it.rec.s * (g.s || 1) / s0.get(it.id) : 1; K.set(it.id, Math.abs(k - 1) > 1e-9 ? k : 1); }
+    const kOf = id => K.get(id) || 1, keep = (v, a) => clamp(v, -a, a);
+    for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).multiplyScalar(kOf(f.rec.on)).toArray().map(v => keep(v, 1000)) });
+    for (const f of bone) if (kOf(f.rec.on) !== 1) setRec(f.id, { o: f.rec.o.map(v => keep(v * kOf(f.rec.on), 1000)) });
+    for (const x of cuts) {
+      const k = kOf(x.rec.on);
+      setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).multiplyScalar(k).toArray().map(v => keep(v, 1000)), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray(), size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) });
+    }
   });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;

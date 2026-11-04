@@ -17851,7 +17851,7 @@ const STU = {
   saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
-  cutTo: '', whole: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here; the last ray on an object)
+  cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -17994,7 +17994,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
-  STU.whole.delete(id);
+  STU.whole.delete(id); STU.cutF.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
 }
@@ -18164,6 +18164,7 @@ function triggerStep(now) {
     if (it.kind === 'c') continue;
     const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
     if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
+    if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
   }
   // a sound is heard while it is shown for you and so is the object it follows (if any): one that starts 'shown' starts
@@ -18606,7 +18607,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); select(''); }   // (Preview whole is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -18641,6 +18642,7 @@ function undo() {
   const list = UNDO.pop();
   if (!list) return;
   for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const it of STU.items.values()) if (it.cutNote) it.cutNote = '';   // (a cut-out held at a limit by a sizing: undone)
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   changed();
 }
@@ -18661,19 +18663,23 @@ function setObj(id, patch) {
   if (r && it.kind === 'o' && it.rec.s !== s0) scaleFollowers(it);
   return r;
 }
+// (each value kept within what a record takes, so the record is never refused: a cut-out's side 1 cm to 50 m, a place
+// or an offset within 1 km; one held at a limit is said on the object's card, cutNote, since sizing back cannot undo it)
 function scaleFollowers(ob) {
   const fs = [...STU.items.values()].filter(x => (x.kind === 's' || x.kind === 'x') && x.rec.on === ob.id);
+  ob.cutNote = '';
   if (!fs.length || !SNAP) return;
   beginChange(fs.map(x => x.id));
   const was = id => { const b = SNAP.before.get(id); return b && b[1] ? JSON.parse(b[1]) : null; }, b0 = was(ob.id);
   if (!b0 || !(b0.s > 0)) return;
-  const k = ob.rec.s / b0.s;
+  const k = ob.rec.s / b0.s, held = [], lim = (v, a, b, f) => { const c = clamp(v, a, b); if (c !== v && !held.includes(f.rec.name)) held.push(f.rec.name); return c; };
   for (const f of fs) {
     const fb = was(f.id);
     if (!fb || fb.on !== ob.id) continue;
-    if (f.kind === 'x') setRec(f.id, { p: fb.p.map(v => v * k), size: fb.size.map(v => v * k) });
-    else if (fb.o) setRec(f.id, { o: fb.o.map(v => v * k) });
+    if (f.kind === 'x') setRec(f.id, { p: fb.p.map(v => lim(v * k, -1000, 1000, f)), size: fb.size.map(v => lim(v * k, 0.01, 50, f)) });
+    else if (fb.o) setRec(f.id, { o: fb.o.map(v => lim(v * k, -1000, 1000, f)) });
   }
+  if (held.length) ob.cutNote = `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (a cut-out's side 1 cm to 50 m, within 1 km of the model): sizing back does not undo that; Undo does.`;
 }
 // a sound's place written from where it is now (p) and, following something there, its offset against it as it is now
 // (its bone's model not here yet: p alone, measureNode)
@@ -18757,7 +18763,8 @@ function duplicateItem(id) {
   change(() => {
     putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
-    if (it.kind === 'o') for (const x of cutsOn(id)) if (countOf('x') < LIMITS.x) putItem(newId(), 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })));
+    // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
+    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })))) cubeCopy(x.id, xid); }
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -18891,12 +18898,14 @@ function studioEffect() { /* none */ }
 // when the object is moved or turned; sized here, the object scales its cut-outs' records with it (scaleFollowers), and
 // switched to its GLB they are turned by the turn baked in (switchToGLB). An object's model takes a small addition to
 // its materials once it has a cut-out (cutPatch): each fragment's place in the world (after skinning and morphs) is
-// tested against the object's cut-outs cutting now (up to 16: CUT_MAX), and one inside any of them is not drawn. One
-// program per kind of material (the count a uniform, not a define: adding a box compiles nothing), each object's boxes
-// handed to its own materials as it is drawn (cutUpload, from onBeforeRender, once the scene's matrices are this
-// frame's: the scene moves in a headset). A trigger cube shows or hides a cut-out as any item: hidden for you, it cuts
-// nothing (the model whole), switching as its fade crosses one half (a cut cannot fade). While editing its box is drawn
-// (LOOKS.cut); else only the hole. Nothing is written to the model's file.
+// tested against the object's cut-outs cutting now (up to 16: CUT_MAX, the lowest ids, so every device cuts the same
+// ones), and one inside any of them is not drawn. One program per kind of material (the count a uniform, not a define:
+// the model's first cut-out compiles its patched programs once, the next boxes nothing), each object's boxes handed to
+// its own materials as it is drawn (cutUpload, from onBeforeRender, once the scene's matrices are this frame's: the scene
+// moves in a headset). A trigger cube shows or hides a cut-out as any item: hidden for you, it cuts nothing (the model
+// whole), switching as its fade crosses one half (a cut cannot fade; a cut-out new here takes its state at once). While
+// editing its box is drawn (LOOKS.cut), and Preview may show it cut or whole whatever the cubes say (this device only);
+// else only the hole. Nothing is written to the model's file.
 const CUT_MAX = 16, CUT_DEF = [0.8, 2, 0.4];
 // the object a cut-out cuts (null: none here, a dangling one: it is kept and cuts nothing), an object's cut-outs
 const cutObj = x => { const o = x && x.kind === 'x' ? STU.items.get(x.rec.on) : null; return o && o.kind === 'o' ? o : null; };
@@ -18948,11 +18957,20 @@ function cutCorners(x) {
 const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(), _cy = new THREE.Vector3(0, 1, 0);
 function cutsStep(editing, now) {
   for (const ob of STU.items.values()) if (ob.kind === 'o') ob.cutL = null;
-  for (const x of STU.items.values()) if (x.kind === 'x') cutStep(x, editing, now);
-  for (const ob of STU.items.values()) if (ob.kind === 'o' && ob.cutU) ob.cutU.list = ob.cutL || [];
+  for (const x of STU.items.values()) if (x.kind === 'x') cutPlace(x, editing, now);
+  // (more than 16 on one object, as a room or a layout may bring: the 16 with the lowest ids cut, the same on every
+  // device whatever order its items came in; the rest are drawn as cutting nothing)
+  for (const ob of STU.items.values()) {
+    if (ob.kind !== 'o') continue;
+    const l = ob.cutL || [];
+    if (l.length > CUT_MAX) { l.sort((a, b) => (a.id < b.id ? -1 : 1)); for (const x of l.splice(CUT_MAX)) { x.cutting = false; x.over = true; } }
+    if (ob.cutU) ob.cutU.list = l;
+  }
+  for (const x of STU.items.values()) if (x.kind === 'x') cutLook(x, editing);
 }
-function cutStep(x, editing, now) {
-  const ob = cutObj(x), L = x.look, r = x.rec;
+// where it stands, and whether it cuts now
+function cutPlace(x, editing, now) {
+  const ob = cutObj(x);
   if (!x.carry) {
     cutPose(x, _cp, _cq, _cs);
     if (x.gl) {
@@ -18961,9 +18979,16 @@ function cutStep(x, editing, now) {
       if (k >= 1) x.gl = null;
     } else { x.holder.position.copy(_cp); x.holder.quaternion.copy(_cq); x.holder.scale.copy(_cs); }
   }
-  // cutting now: its object here with its model, shown for you (past one half of its fade), not previewed whole here
-  x.cutting = !!(ob && ob.model) && x.sa > 0.5 && !(editing && STU.whole.has(x.id));
+  // cutting now: its object here with its model, shown for you (past one half of its fade) or previewed cut here, and
+  // not previewed whole here (the previews: while editing, this device only)
+  const pv = editing ? (STU.whole.has(x.id) ? 'whole' : STU.cutF.has(x.id) ? 'cut' : '') : '';
+  x.over = false;
+  x.cutting = !!(ob && ob.model) && pv !== 'whole' && (pv === 'cut' || x.sa > 0.5);
   if (ob && ob.model) { cutPrep(ob); if (x.cutting) (ob.cutL || (ob.cutL = [])).push(x); }
+}
+// while editing: its box, its corners, its name
+function cutLook(x, editing) {
+  const ob = cutObj(x), L = x.look, r = x.rec;
   x.holder.visible = L.deco.visible = x.a > 0.01;
   if (!L.deco.visible) return;
   L.deco.position.copy(x.holder.position); L.deco.quaternion.copy(x.holder.quaternion);
@@ -18973,8 +18998,11 @@ function cutStep(x, editing, now) {
   L.name.position.set(0, cutHalfHeight(x) + 0.04, 0).applyQuaternion(_cq.copy(x.holder.quaternion).invert());
   L.look({ selected: STU.sel === x.id && editing, hot: STU.hover === x.id, hotCorner: STU.hotCorner && STU.hotCorner.id === x.id ? STU.hotCorner.k : -1, off: !x.cutting });
   for (const m of [L.fill.material, L.line.material, L.ticks.material]) m.opacity *= x.a;
-  L.name.userData.set('✂ ' + r.name + (!ob ? ' · cuts nothing' : !x.shown ? ' · hidden for you' : STU.whole.has(x.id) ? ' · whole' : ''), L.col, 0.075);
+  L.name.userData.set('✂ ' + r.name + cutWords(x, ob), L.col, 0.075);
 }
+// what its label and the Items pane add: why it cuts nothing, or how it is previewed ('' cutting as it is)
+const cutWords = (x, ob) => (!ob ? ' · cuts nothing' : x.over ? ` · cuts nothing (${CUT_MAX} at most)` : STU.whole.has(x.id) ? ' · whole'
+  : STU.cutF.has(x.id) ? (x.shown ? ' · cut' : ' · hidden for you, previewed cut') : !x.shown ? ' · hidden for you' : '');
 
 // ------------------------------------------------------------ the shader --
 // Each material of an object with a cut-out: the fragment's place in the world (from three.js's own `transformed`,
@@ -19058,12 +19086,26 @@ function cutAt(ob) {
   if (R && R.id === ob.id && ob.model && performance.now() - R.at < 300000) {
     GL.world.updateMatrixWorld(true);
     const o = GL.items.localToWorld(new THREE.Vector3().fromArray(R.o)), d = new THREE.Vector3().fromArray(R.d).transformDirection(GL.items.matrixWorld);
-    const hs = new THREE.Raycaster(o, d, 0, 500).intersectObject(ob.model.o, true).filter(h => h.object.isMesh && h.object.visible);
+    const hs = modelHits(ob.model.o, new THREE.Raycaster(o, d, 0, 500)).filter(h => h.object.isMesh && h.object.visible);
     if (hs.length) { p = GL.items.worldToLocal(hs[0].point.clone()); from = new THREE.Vector3().fromArray(R.o); }
   }
   if (!p) { p = box ? box.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(ob.rec.p); from = viewerAt(); }
   const dx = from.x - p.x, dz = from.z - p.z;
   return { p, q: new THREE.Quaternion().setFromAxisAngle(_cy, Math.hypot(dx, dz) > 1e-6 ? Math.atan2(dx, dz) : 0), size };
+}
+// a model's triangles a ray meets, nearest first, as the model is drawn now: three.js r128 tests a skinned mesh's triangles
+// where its bones put them (its materials say skinning), but first against its rest pose's bounding sphere and box, which
+// a posed part may have left (a raised hand): those two set aside for a skinned mesh's test
+const BIG_S = new THREE.Sphere(new THREE.Vector3(), Infinity);
+function modelHits(o, rc) {
+  const out = [];
+  o.traverse(n => {
+    if (!n.isMesh) return;
+    const g = n.geometry, sk = !!n.isSkinnedMesh, bs = g.boundingSphere, bb = g.boundingBox;
+    if (sk) { g.boundingSphere = BIG_S; g.boundingBox = null; }
+    try { rc.intersectObject(n, false, out); } finally { if (sk) { g.boundingSphere = bs; g.boundingBox = bb; } }
+  });
+  return out.sort((a, b) => a.distance - b.distance);
 }
 // where you are, in the scene's frame: your head in a headset, the camera on a page
 function viewerAt() {
@@ -19078,15 +19120,24 @@ function cutRay(id, ray) {
   const m = GL.items.matrixWorld.clone().invert();
   STU.ray = { id, o: ray.origin.clone().applyMatrix4(m).toArray(), d: ray.direction.clone().transformDirection(m).toArray(), at: performance.now() };
 }
-// a copy beside it on the same object (along its own width), selected
+// a copy beside it on the same object (along its own width), selected; in every cube list the original is in (a door a
+// cube opens, copied, opens with it: cubeCopy)
 function duplicateCut(x) {
   const ob = cutObj(x);
   if (ob && cutsOn(ob.id).length >= CUT_MAX) return '';
   const nid = newId(), d = new THREE.Vector3(x.rec.size[0] * 1.25, 0, 0).applyQuaternion(new THREE.Quaternion().fromArray(x.rec.q));
-  change(() => putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) }))));
+  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) })))) cubeCopy(x.id, nid); });
   select(nid);
   sfxAct('place', 'world', null);
   return nid;
+}
+// a copy of a cut-out put in every cube's list (show or hide) its original is in (within the change that makes it)
+function cubeCopy(from, to) {
+  for (const c of [...STU.items.values()]) {
+    if (c.kind !== 'c') continue;
+    const sh = c.rec.show.includes(from), hi = c.rec.hide.includes(from);
+    if (sh || hi) setRec(c.id, { show: sh ? c.rec.show.concat(to) : c.rec.show, hide: hi ? c.rec.hide.concat(to) : c.rec.hide });
+  }
 }
 // a quarter turn about its own upright (its width and depth trade places)
 function cutTurn(x) { setRec(x.id, { q: new THREE.Quaternion().fromArray(x.rec.q).multiply(new THREE.Quaternion().setFromAxisAngle(_cy, Math.PI / 2)).toArray() }); }
@@ -19103,8 +19154,13 @@ Object.assign(ITEM_ACT, {
   // one side 5 cm more or less, or every side by a factor; its middle stays
   cgrow: (x, v) => { const [ax, d] = String(v).split(':'), i = +ax, size = x.rec.size.slice(); if (!(i >= 0 && i < 3)) return; size[i] = clamp(r3(size[i] + +d), 0.01, 50); setRec(x.id, { size }); },
   csize: (x, k) => { if (+k > 0) setRec(x.id, { size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) }); },
-  // this device's preview while editing (never shared): the model whole, as if it had no cut-out
-  preview: (x, v) => { if (x.kind !== 'x') return; if (v === 'whole') STU.whole.add(x.id); else STU.whole.delete(x.id); },
+  // this device's preview while editing (never shared): as seen (as the cubes say for you), cut (whatever they say: a door
+  // a cube opens, sized with its hole in sight) or whole (as if it had no cut-out)
+  preview: (x, v) => {
+    if (x.kind !== 'x') return;
+    STU.whole.delete(x.id); STU.cutF.delete(x.id);
+    if (v === 'whole') STU.whole.add(x.id); else if (v === 'cut') STU.cutF.add(x.id);
+  },
   cutPick: x => { if (x.kind === 'x') STU.cutTo = STU.cutTo === x.id ? '' : x.id; },
   cutOn: (x, oid) => cutOnto(x, oid),
 });
@@ -19316,7 +19372,7 @@ function paneBlocks(tab) {
   return B;
 }
 function itemSub(it) {
-  if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (!it.shown ? ' · hidden for you' : STU.whole.has(it.id) ? ' · previewed whole' : ''); }
+  if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (ob ? cutWords(it, ob).replace(' · whole', ' · previewed whole').replace(/^ · cut$/, ' · previewed cut') : ''); }
   const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
@@ -19366,16 +19422,18 @@ function itemBlocks(it, B, ed) {
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
     const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
     B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
+    if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
     if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
   } else if (it.kind === 'x') {
-    const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), whole = STU.whole.has(it.id);
+    const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), pv = STU.whole.has(it.id) ? 'whole' : STU.cutF.has(it.id) ? 'cut' : 'seen';
     B.push({ h: r.name, sub: 'Cut-out' + (it.shown ? '' : ' · hidden for you now') },
       { kv: [['Cuts', ob ? ob.rec.name : 'an object not in the scene'], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] },
       { p: `It hides whatever of ${ob ? ob.rec.name : 'its object'} lies inside the box, for everyone here; the model's file is not changed. Not editing, only the hole shows.`, c: 'faint' });
     if (!ob) B.push({ p: 'The object it cuts is not in the scene: it cuts nothing until that object is back.', c: 'amber' });
     else if (!ob.model) B.push({ p: `${ob.rec.name}'s model is not here yet: it cuts once it is.`, c: 'faint' });
-    if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it.', c: 'muted' });
+    if (it.over) B.push({ p: `${ob.rec.name} has more than ${CUT_MAX} cut-outs (from the room or a layout): the ${CUT_MAX} with the lowest ids cut, this one does not.`, c: 'amber' });
+    if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it' + (pv === 'cut' ? ' (Preview: Cut shows the hole here while you edit).' : ' (Preview: Cut shows the hole while you edit).'), c: 'muted' });
     B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: dis || !objs.some(o => o.id !== r.on) }] });
     if (picking) {
       B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the box goes onto it, staying where it is.', c: 'amber' },
@@ -19384,7 +19442,7 @@ function itemBlocks(it, B, ed) {
     B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis }]) },
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
-      { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: !whole, dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: whole, dis }] });
+      { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
     B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Shows', r.show.length ? r.show.map(nameOf).join(', ') : 'nothing'], ['Hides', r.hide.length ? r.hide.map(nameOf).join(', ') : 'nothing']] });
     B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
@@ -19577,7 +19635,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting).join('')].join('|'); }
+function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -19706,16 +19764,18 @@ function pickables() {
   }
   return L;
 }
-// the nearest thing a ray finds: a corner first, then a cut-out (it lies within its model's unseen box), then an object
-// or a sound, a cube only when nothing else is hit. The last ray that finds an object is kept (cutRay): a new cut-out
-// goes where it met the model
+// the nearest thing a ray finds: a corner first, then the nearest object, sound or cut-out, a cube only when nothing
+// else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
+// of the object's own cut-outs (a nearer object or sound is still found first); picking the object a sound follows or a
+// cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
+// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model
 function rayPick(ray) {
   GL.world.updateMatrixWorld(true);
-  const hs = ray.intersectObjects(pickables(), false), kind = h => { const it = STU.items.get(h.object.userData.id); return it ? it.kind : ''; };
-  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => kind(h) === 'x') || hs.find(h => kind(h) && kind(h) !== 'c') || hs[0];
+  const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
+  const objOnly = !!(STU.follow || STU.cutTo), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return null;
-  if (kind(c) === 'o') cutRay(c.object.userData.id, ray.ray);
-  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance };
+  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? ray.ray.clone() : null };
 }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
@@ -19797,21 +19857,23 @@ function bindCanvas() {
 // click on the floor walks there
 function clickAt(mx, my) {
   const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray) : null;
-  if (h) { pressItem(h.id); return; }
+  if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
     const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
     if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
   if (editOn() && !STU.pick && !STU.follow && !STU.cutTo) select('');
 }
-// the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected
-function pressItem(id) {
+// the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
+// ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
+function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
   if (STU.pick && it.kind !== 'c' && id !== STU.pick.id) { toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   select(id);
+  if (ray && it.kind === 'o') cutRay(id, ray);
   sfxAct('pick', 'world', null);
 }
 // Walk view: W A S D or the arrows walk (Shift faster), a click on the floor walks there; the camera at 1.6 m
@@ -20113,7 +20175,9 @@ async function convertAll() {
 // and Y up. A sound that follows such an object's whole model has its offset turned by r in the same change (o' = r o:
 // the holder's turn is q r^-1, so where it sounds stays put); one on a bone keeps its offset (the GLB's bones stand where
 // the original's did, and a name the loader tidied is still found). Its cut-outs likewise: middle and turn turned by r
-// (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was
+// (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
+// figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
+// 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it
 function switchToGLB(orig, glb, rec) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
@@ -20127,9 +20191,16 @@ function switchToGLB(orig, glb, rec) {
     const turn = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && whole(f));
     // (and their cut-outs, in the object's frame turned but not scaled: turned the same way, so each stays where it was)
     const cuts = [...STU.items.values()].filter(x => x.kind === 'x' && ids.has(x.rec.on));
-    for (const it of list) setRec(it.id, switchedRec(it.rec, glb, g));
-    for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).toArray() });
-    for (const x of cuts) setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).toArray(), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray() });
+    const bone = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && !turn.includes(f));
+    const K = new Map(), s0 = new Map(list.map(it => [it.id, it.rec.s]));
+    for (const it of list) { const ok = setRec(it.id, switchedRec(it.rec, glb, g)), k = ok ? it.rec.s * (g.s || 1) / s0.get(it.id) : 1; K.set(it.id, Math.abs(k - 1) > 1e-9 ? k : 1); }
+    const kOf = id => K.get(id) || 1, keep = (v, a) => clamp(v, -a, a);
+    for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).multiplyScalar(kOf(f.rec.on)).toArray().map(v => keep(v, 1000)) });
+    for (const f of bone) if (kOf(f.rec.on) !== 1) setRec(f.id, { o: f.rec.o.map(v => keep(v * kOf(f.rec.on), 1000)) });
+    for (const x of cuts) {
+      const k = kOf(x.rec.on);
+      setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).multiplyScalar(k).toArray().map(v => keep(v, 1000)), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray(), size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) });
+    }
   });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;
@@ -20980,7 +21051,7 @@ function xrPress(c) {
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
-    pressItem(h.id); buzz(c, 0.4, 30);
+    pressItem(h.id, h.ray); buzz(c, 0.4, 30);
   } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow) select('');
 }
 function xrRelease(c) {
@@ -21219,7 +21290,7 @@ function xrPoint(c, dt) {
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
     const ih = editOn() ? rayPick(XR.raycaster) : null;
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point }; dist = ih.dist; }
+    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }
