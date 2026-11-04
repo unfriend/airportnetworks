@@ -273,19 +273,74 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
   loaded only when converting: see the vendor README). The GLB it writes is in metres and Y up, its textures at most
   4,096 px (or 2,048: *for Quest*), and records what it baked in: `asset.extras.studio = { from: '<the original's path in
   the scene>', s: <the scale applied>, q: [x, y, z, w] <the turn applied>, at: <ms> }`.
-- **Convert to GLB** (page only, editing on; a headset says *Convert on a laptop*): on an FBX object's Item card and as
-  *Convert every FBX* in the Add pane. It loads the file, converts it, then (relay) uploads it as `<same folder>/<same
-  base name>.glb` next to the original, or (no relay, or saving off) downloads it. Progress and the result are said;
-  a failure changes nothing. Once uploaded, every object placed from that FBX switches to the GLB where it stands: for
-  the baked scale b and turn r, `s' = s / b` and `q' = q * r^-1` (one change, one Undo step, for everyone at a station).
-- **The relay takes the upload.** `POST /api/scenes/<name>/file?path=<relative path>` with the raw bytes: only a
-  `.glb` path (case-insensitive) inside the scene, at most 512 MB (`--max-upload <MB>`), the password as for every scene
-  endpoint, refused with `--scenes-readonly` (403), an existing file only replaced with `&replace=1` (else 409);
-  written to a temporary dot file and renamed; the watch then reports it -> `{ ok, path, bytes, at }`. Covered in
-  `relay/test.mjs`.
-- **The Add list prefers GLB.** A model with a GLB of the same base name in the same folder shows once, as the GLB,
-  marked *converted* (the FBX still listed under *Originals*, folded); placing it places the GLB. A placed FBX's card
-  says *A converted GLB is in the folder: switch to it* (the same switch as after converting).
+- **A scene's folders.** What the studio makes goes into folders of the scene: `models/` (GLB), `sounds/` and
+  `originals/` (the files as they were given: an FBX and its textures, an OBJ and its MTL; kept so a model can be
+  converted again). Files at the scene's root or in other folders still work as before. The Add list shows `models/`,
+  `sounds/` and anything outside `originals/`; `originals/` is folded under *Originals*.
+- **Convert to GLB** (page only, editing on; a headset says *Convert on a laptop*): on an FBX (or OBJ, PLY, STL, glTF)
+  object's Item card and as *Convert every model* in the Add pane. It loads the file, converts it, then (relay) uploads
+  it as `models/<base name>.glb` (the original stays where it is), or (no relay, or saving off) downloads it. Progress
+  and the result are said; a failure changes nothing. Once uploaded, every object placed from that original switches to
+  the GLB where it stands: for the baked scale b and turn r, `s' = s / b` and `q' = q * r^-1` (one change, one Undo step,
+  for everyone at a station).
+- **The Add list prefers GLB.** A GLB whose `asset.extras.studio.from` names another file of the scene (or, without
+  extras, has the same base name) stands for it: the original shows only under *Originals*; placing places the GLB. A
+  placed original's card says *A converted GLB is in the scene: switch to it* (the same switch as after converting).
+
+## The upload page (the owner, 4 November 2026)
+
+The owner: "the relay should offer an upload page where everything gets converted into the right formats directly and
+then sorted into a folder if possible".
+
+- **Where.** `<relay>/upload` (no password needed to be redirected; everything after asks for it as the API does)
+  redirects (302) to the studio's upload pane: `/#studio&upload` when the relay serves the app (`--static`, `--lan`);
+  else to the app's public address (`--app <url>`, default the `--public` origin, `https://stories.lbi-netmed.com/`)
+  with `#studio&upload&relay=<this relay's wss:// address>` (from the request's Host and, behind `--proxy`,
+  `X-Forwarded-Proto`). It is the studio's own **Upload** pane (a tab beside Scene, Add, Item, Items; pages only: a
+  headset shows no Upload tab), so it shares the studio's loaders, converter, relay and password handling. Nothing is
+  uploaded without a relay that takes uploads (the pane says how to run one).
+- **What the person does.** Pick a scene or *New scene* (a name: `POST /api/scenes`); drop files or whole folders onto
+  the pane (or *Choose files*); the pane shows the plan, one row per thing it will make, before anything happens;
+  *Convert and upload*; progress per row; then *Open the scene* (the studio on that scene, editing on) and what was made.
+  *For Quest* (textures at most 2,048 px) is on by default; off, 4,096. *Replace files with the same name* is off by
+  default (a new name is numbered: `eva_001 2.glb`).
+- **Grouping.** A model file and the files it needs from what was dropped (the textures it names, found by base name,
+  case-insensitively, wherever they were in the dropped folders; an OBJ's MTL and the MTL's textures; a glTF's `.bin`
+  and textures) are one model. Each sound is one sound. Anything left (an image no model names, an unknown file) is
+  listed as *kept as it is* into `originals/`, never silently dropped. A model whose texture is missing says so in its
+  row (*converted without its texture x.png*), as the studio's card does.
+- **Models**, converted in the browser by the shared conversion module: FBX, OBJ (with MTL), glTF (with `.bin` and
+  textures), GLB, PLY (vertex colours kept) and STL, all to `models/<base name>.glb`: metres and Y up (the same guesses
+  as the studio's, baked in), textures drawn down to the limit and stored as JPEG (PNG where see-through), the FBX
+  opacity-0 quirk fixed, a mesh without normals marked to be shown as scanned, `asset.extras.studio` recorded (`from`:
+  `originals/<path>`). The given files go to `originals/<the dropped folder's structure>`. A GLB already in metres with
+  small textures is still passed through (it gains its record and the texture limit). Animations and skins kept; if the
+  exporter cannot keep them, the row fails and says why (convert.mjs's own check), and the original is still kept.
+  Add the r128 loaders this needs to `tools/studio/vendor/` (`OBJLoader.js`, `MTLLoader.js`, `PLYLoader.js`,
+  `STLLoader.js`, unchanged, MIT; update the vendor README); the studio may then load these formats directly too.
+- **Sounds**: mono, so they place well. Up to 20 s: decoded in the browser, mixed to mono and written as 16-bit WAV at
+  its own rate (at most 48 kHz) to `sounds/<base name>.wav` (gapless loops on every browser; OGG does not play on
+  iPhones). Longer: when the relay has ffmpeg (`GET /api/scenes` says `ffmpeg: true`), sent to it, which writes
+  `sounds/<base name>.mp3` (mono, 96 kbit/s, 44.1 kHz); without ffmpeg an MP3, M4A/AAC or OGG is kept as it is (*stereo:
+  played from one point*) and anything else (WAV, FLAC, AIFF) becomes a mono 22.05 kHz WAV. The given file goes to
+  `originals/` too.
+- **The relay's side** (all with the password; refused with `--scenes-readonly` (403); `GET /api/scenes` adds
+  `upload` (this caller may upload), `ffmpeg` and `maxUpload` (bytes)):
+  - `POST /api/scenes` with `{ "name": "<name>" }` makes the scene's folder (the scene name rule; 409 when it exists)
+    -> `{ ok, name }`.
+  - `POST /api/scenes/<name>/file?path=<relative path>[&replace=1]` with the raw bytes: a path inside the scene (the
+    listing's rules: at most 4 folders deep, no dot segments or backslashes), never `layout.json`, `files.json`,
+    `index.json` or anything under `.history/`; a model, sound, image or data kind anywhere, any file under
+    `originals/`; at most `--max-upload` MB (512), counted while it streams in (cut off at the limit with 413, nothing
+    left behind); an existing file only replaced with `replace=1` (else 409); folders made as needed; written to a
+    temporary dot file and renamed -> `{ ok, path, bytes, at }`.
+  - `POST /api/scenes/<name>/sound?path=sounds/<base name>.mp3[&replace=1]` with a sound's raw bytes: only when ffmpeg
+    was found at start (`ffmpeg -version`; `--ffmpeg <path>` names it, `--no-ffmpeg` turns it off; 501 without), run
+    with `-nostdin`, the input from a temporary file, mono, 96 kbit/s, 44.1 kHz, a 180 s limit, at most 2 at once (429
+    with Retry-After beyond), its output checked (ffprobe-free: the output exists and is not empty) and renamed into
+    place -> `{ ok, path, bytes, at }`. ffmpeg's messages are never sent to the page (logged shortly, no paths with
+    queries).
+  - `GET /upload` as above. The watch tells every studio page what was written.
 
 ## Long sounds are streamed
 
@@ -303,9 +358,10 @@ played from its point (the panner mixes it to that point); the Sound pane says *
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
 guessing. Textures: JPEG for photos and scans, PNG only for see-through; at most 4,096 px, 2,048 safer on a Quest.
-Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as OGG or WAV (MP3 adds
-silence at its ends, so a loop clicks); long ones (more than 20 s, streamed) as MP3 or OGG at 96 to 128 kbit/s. Ready
-lines: `ffmpeg -i in.wav -ac 1 -c:a libvorbis -q:a 5 loop.ogg` (a loop), `ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3` (a
+Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV (MP3 adds silence
+at its ends, so a loop clicks; OGG does not play on iPhones); long ones (more than 20 s, streamed) as MP3 at 96 to 128
+kbit/s. The upload page does all of this by itself; by hand: Ready
+lines: `ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav` (a loop), `ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3` (a
 long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer with Playwright).
 
 ## Tests
@@ -328,7 +384,13 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   where it stands (its corners within 1 mm); `tools/collab.mjs --studio` converts it through the relay (the GLB written
   next to the FBX, every page's object switched, the Add list showing it as converted). A sound longer than 20 s (a
   generated 25 s file in the test scene) is streamed (an element, no decoded buffer), a short one decoded.
-- `node relay/test.mjs` (a scenes section, also the upload): every endpoint above, listing rules, types, ETag and 304, ranges, traversal
+- The upload pane: the smoke block drops the test scene's originals (a test FBX with its PNG, an OBJ with its MTL, a
+  short and a long sound) onto the pane with no relay (the plan's rows, grouping and names checked; converting offered as
+  downloads); `tools/collab.mjs --studio` does it through the relay (a new scene made, the files sorted into `models/`,
+  `sounds/` and `originals/`, the GLBs loading with their records, a short sound as a mono WAV, a long one via ffmpeg
+  when the machine has it, else kept, `/upload` redirecting).
+- `node relay/test.mjs` (a scenes section, also the uploads, scene creation, the ffmpeg endpoint with a stand-in
+  ffmpeg script and without one, and `/upload`'s redirects): every endpoint above, listing rules, types, ETag and 304, ranges, traversal
   and symlinks refused, the password on every scene endpoint and file (and wrong ones counted), `--public` without a
   password refusing to start, `--scenes-readonly`, saving (the file written, the old one in `.history/`, 20 kept, a bad
   or too-big layout refused), the watch's events for an added, changed and removed file and a saved layout, the

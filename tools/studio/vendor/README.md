@@ -8,6 +8,8 @@ Copied unchanged from three.js r128 (`three@0.128.0`, `examples/js/`, MIT, the s
 | `GLTFLoader.js` | `examples/js/loaders/` | `.glb` and `.gltf` models (textures and animations inside) |
 | `FBXLoader.js` | `examples/js/loaders/` | `.fbx` models (binary and ASCII, version 7.0 and up) |
 | `TGALoader.js` | `examples/js/loaders/` | `.tga` textures an FBX file names |
+| `OBJLoader.js`, `MTLLoader.js` | `examples/js/loaders/` | `.obj` models and their `.mtl` materials (the upload page, the studio) |
+| `PLYLoader.js`, `STLLoader.js` | `examples/js/loaders/` | `.ply` scans (vertex colours) and `.stl` models (the upload page, the studio) |
 | `NURBSCurve.js`, `NURBSUtils.js` | `examples/js/curves/` | NURBS curves in FBX files (the FBX loader asks for them) |
 | `SkeletonUtils.js` | `examples/js/utils/` | cloning a rigged model (one file placed several times) |
 | `TransformControls.js` | `examples/js/controls/` | the page's move, turn and size arrows |
