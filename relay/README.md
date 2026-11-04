@@ -617,9 +617,8 @@ temporary folder), then `ffmpeg -nostdin -hide_banner -loglevel error -y -i <it>
 `ffmpeg`'s own words never reach the page (it gets ours: *ffmpeg could not make an MP3 of it*); the log gets its last
 line, short, with the temporary paths taken out and no query. The 4 min 16 s stereo MP3 the owner sent became a mono
 96 kbit/s MP3 of 3.1 MB in 2.3 s on the machine this was built on. Install it with `brew install ffmpeg` (macOS), `sudo apt
-install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). In the Docker image (`relay/Dockerfile`, Alpine)
-`ffmpeg` is there only when the image installs it (`apk add --no-cache ffmpeg`, before `USER node`); without it the relay
-runs as before and says so.
+install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). The Docker image (`relay/Dockerfile`, Alpine) installs it
+(`apk add --no-cache ffmpeg`); an image built without that line runs as before and says so.
 
 ## HTTP API
 

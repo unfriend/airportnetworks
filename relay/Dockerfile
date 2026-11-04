@@ -7,6 +7,9 @@
 # relay/README.md, "Public hosting on Coolify".
 FROM node:22-alpine
 WORKDIR /app
+# ffmpeg makes the studio's long sounds mono MP3 when they are uploaded (relay/README.md, "Uploading"); a relay without it
+# keeps them as they are and says so
+RUN apk add --no-cache ffmpeg
 # the app and the relay; .dockerignore leaves out the tools, their data and the git history
 COPY . .
 USER node
