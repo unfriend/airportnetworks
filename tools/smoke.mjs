@@ -1216,7 +1216,12 @@ await step('design: the intro ends at the table', async () => {
 // pane, Add and Delete, Undo); the shared state and back, the room's taken, bad values ignored; a pretend headset's grips
 // (carry, size, a corner) and the VR stick walk; the relay's watch (a scene added, a layout removed) and its password (one
 // refusal told to the shell once, nothing more asked until another password); the sound's panner at its place, silent when
-// muted; the headset panels' panes and its Stories screen; Download
+// muted; a sound longer than 20 s streamed (an element, no decoded buffer), a short one decoded; GLB first (the Add list's
+// folders and Originals, a GLB standing for its original, an OBJ from originals/ in centimetres, Convert to GLB in the page
+// with no relay: downloaded, a GLB whose record names the original, loading back with its triangles and take; a placed
+// figure switched to it keeping its corners within 1 mm, one Undo step); the Upload pane with no relay (the test scene's
+// originals dropped: the plan's rows, grouping and names, converting offered as downloads, #studio&upload opening it);
+// the headset panels' panes and its Stories screen (no Upload tab); Download
 {
   const stp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
   stp.on('pageerror', e => errors.push('studio: ' + (e.stack || e.message)));
@@ -1232,7 +1237,7 @@ await step('design: the intro ends at the table', async () => {
     if (!await until('STUDIO.ready()', 120000)) { errors.push('studio: the test scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 600)); return; }
     const s = await ss('STUDIO.state()'), M = s.models, B = M['box.glb'], F = M['figure.fbx'];
     const bad = [];
-    if (s.src !== 'folder' || s.scene !== 'test' || s.items !== 4 || s.bad || s.unsaved || s.files !== 4) bad.push(`the scene (its layout read from the folder): ${JSON.stringify([s.src, s.scene, s.items, s.files, s.bad, s.unsaved])}`);
+    if (s.src !== 'folder' || s.scene !== 'test' || s.items !== 4 || s.bad || s.unsaved || s.files !== 8) bad.push(`the scene (its layout read from the folder): ${JSON.stringify([s.src, s.scene, s.items, s.files, s.bad, s.unsaved])}`);
     if (!B || B.state !== 'ready' || B.guess.s !== 1 || B.guess.q.join() !== '0,0,0,1' || Math.abs(B.info.own[0] - 0.5) > 1e-3 || B.info.clips.map(c => c[0]).join() !== 'Spin,Bob' || B.info.textures.length !== 1 || B.info.solid) bad.push('box.glb: ' + JSON.stringify(B && { s: B.state, g: B.guess, own: B.info && B.info.own, clips: B.info && B.info.clips }));
     if (!F || F.state !== 'ready' || F.guess.s !== 0.01 || F.guess.how !== 'unit' || F.guess.q.join() !== '-0.7071,0,0,0.7071' || !F.guess.read || F.guess.up !== 2 || F.info.clips.map(c => c[0]).join() !== 'Take 001' || F.missing.join() !== 'figure_spec.png' || F.info.textures.length !== 1 || F.info.textures[0].w !== 64 || F.info.solid !== 1 || !F.info.normals || F.info.scan)
       bad.push('figure.fbx: ' + JSON.stringify(F && { s: F.state, g: F.guess, clips: F.info && F.info.clips, missing: F.missing, tex: F.info && F.info.textures, solid: F.info && F.info.solid }));
@@ -1468,6 +1473,144 @@ await step('design: the intro ends at the table', async () => {
     await ss(`(shownFor(null), 0)`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  await step('studio: a sound longer than 20 s is streamed through an element (no decoded buffer), a short one decoded; paused while muted', async () => {
+    const bad = [];
+    await stp.evaluate(() => HOST.audio.mute(false));
+    await stp.click('#explore .tabs button[data-tab="scene"]');   // (a tap)
+    const id = await ss(`(setEdit(true), addSound('sounds/long.wav'))`);
+    if (!id) { errors.push('studio: the long sound was not placed'); return; }
+    await until(`(() => { const it = STU.items.get('${id}'); return !!(it && it.st && !it.st.el.paused && it.gt > 0); })()`, 15000);
+    const r = await ss(`(() => { const it = STU.items.get('${id}'), F = SND.get('sounds/long.wav'), T = SND.get('tone.wav');
+      return { F: [F.state, F.stream, Math.round(F.dur), !!F.buf, F.size, !!F.bytes], T: [T.state, T.stream, !!T.buf], st: !!it.st, playing: !!(it.st && !it.st.el.paused), cross: it.st && it.st.el.crossOrigin,
+        pan: it.pan && [it.pan.panningModel, it.pan.refDistance], src: !!(it.st && it.st.el.src.includes('sounds/long.wav')), node: !!(it.st && it.st.node && it.st.node.mediaElement === it.st.el) }; })()`);
+    if (JSON.stringify(r.F) !== '["stream",true,25,false,0,false]') bad.push('the 25 s sound is not streamed (no fetch, no decoded buffer): ' + JSON.stringify(r.F));
+    if (JSON.stringify(r.T) !== '["ready",false,true]') bad.push('the short tone is not decoded: ' + JSON.stringify(r.T));
+    if (!r.st || !r.playing || r.cross !== 'anonymous' || !r.node || !r.src || !r.pan || r.pan[0] !== 'HRTF' || r.pan[1] !== 1.5) bad.push('the streamed sound\'s element and panner: ' + JSON.stringify(r));
+    await stp.evaluate(() => HOST.audio.mute(true));
+    if (!await until(`(() => { const it = STU.items.get('${id}'); return !!(it.st && it.st.el.paused && !it.src); })()`, 8000)) bad.push('muted, the streamed sound went on (or its element was torn down)');
+    await ss(`(deleteItem('${id}'), 0)`);
+    if (await ss(`!!STU.items.get('${id}')`)) bad.push('the long sound was not deleted');
+    while (await ss('UNDO.length')) await ss('undo()');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: GLB first: the Add list\'s folders, an OBJ from originals/, Convert to GLB in the page (downloaded), the switch keeping a placed figure where it stands', async () => {
+    const bad = [];
+    await ss(`(setEdit(true), X.tab = 'add', X.orig = false, renderPanes(), 0)`);
+    // the Add list: models/ and sounds/ and the scene's top (the originals folded), the long sound streamed
+    let L = await ss(`(() => { const L = sceneLists(); return { m: L.models.map(f => f.path), s: L.sounds.map(f => f.path), o: L.orig.map(f => f.path) }; })()`);
+    if (L.m.join() !== 'box.glb,figure.fbx' || L.s.join() !== 'sounds/long.wav,tone.wav' || L.o.join() !== 'originals/crate.mtl,originals/crate.obj,originals/crate.png') bad.push('the Add list: ' + JSON.stringify(L));
+    const ap = await stp.evaluate(() => document.querySelector('#pane-add').textContent.replace(/\s+/g, ' '));
+    if (!/Originals \(3\) ▸/.test(ap) || /crate\.obj/.test(ap) || !/Convert every model to GLB \(1\)/.test(ap)) bad.push('the Add pane (Originals folded, Convert every model): ' + ap.slice(0, 400));
+    await stp.click('#pane-add [data-act="orig"]');
+    if (!/crate\.obj/.test(await stp.evaluate(() => document.querySelector('#pane-add').textContent))) bad.push('Originals did not unfold');
+    // an OBJ (with its MTL and texture) from originals/: no units, so centimetres (80 units: 0.8 m)
+    const cid = await ss(`addModel('originals/crate.obj')`);
+    await until(`(() => { const E = LIB.get('originals/crate.obj'); return E && (E.state === 'ready' || E.state === 'failed'); })()`, 20000);
+    const cr = await ss(`(() => { const E = LIB.get('originals/crate.obj'), b = objBox(STU.items.get('${cid}')); return E.info ? [E.state, E.guess.how, E.guess.s, E.info.tris, E.info.textures.map(t => t.name + ' ' + t.w).join(), [...E.missing].join(), guessWords(E.guess), b && +b.getSize(new THREE.Vector3()).x.toFixed(3)] : [E.state, E.err]; })()`);
+    if (JSON.stringify(cr) !== JSON.stringify(['ready', 'cm', 0.01, 12, 'crate.png 8', '', 'the file gives no units: taken as centimetres', 0.8])) bad.push('the crate (an OBJ in centimetres): ' + JSON.stringify(cr));
+    await ss(`(deleteItem('${cid}'), 0)`);
+    // a GLB standing for its original: by its record's from, or (no record) by its base name; placing the original places it
+    const fake = await ss(`(() => {
+      const keep = STU.files.slice(), out = [];
+      setFiles(keep.concat({ path: 'models/figure.glb', bytes: 5000, at: 1, kind: 'model' }, { path: 'models/crate.glb', bytes: 3000, at: 1, kind: 'model' }));
+      GLBREC.set('models/figure.glb', { at: 1, rec: { from: 'figure.fbx', s: 0.01, q: [-0.707107, 0, 0, 0.707107], at: 1, scan: false }, p: null });
+      GLBREC.set('models/crate.glb', { at: 1, rec: null, p: null });
+      const L = sceneLists();
+      out.push(L.models.map(f => f.path).join(), L.orig.map(f => f.path).join(), JSON.stringify([...L.stands]));
+      X.tab = 'item'; select('fig001'); renderPanes(); out.push(document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ').includes('A converted GLB is in the scene (models/figure.glb): switch to it'));
+      select(''); setFiles(keep); GLBREC.delete('models/figure.glb'); GLBREC.delete('models/crate.glb');
+      return out;
+    })()`);
+    if (fake[0] !== 'box.glb,models/crate.glb,models/figure.glb' || fake[1] !== 'figure.fbx,originals/crate.mtl,originals/crate.obj,originals/crate.png' || fake[2] !== '[["figure.fbx","models/figure.glb"],["originals/crate.obj","models/crate.glb"]]' || fake[3] !== true)
+      bad.push('a GLB standing for its original (by its record, by its name): ' + JSON.stringify(fake));
+    // Convert to GLB on the figure's card: no relay, so downloaded; the GLB's record names the original; it loads back with
+    // its triangles and its take
+    await ss(`(X.tab = 'item', select('fig001'), renderPanes(), 0)`);
+    const card = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Convert to GLB/.test(card) || !/It is downloaded/.test(card)) bad.push('the figure\'s card has no Convert to GLB (downloaded without a relay): ' + card.slice(0, 300));
+    const dl = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await stp.click('#pane-item [data-act="convert"]');
+    const d = await dl;
+    if (!d || d.suggestedFilename() !== 'figure.glb') bad.push('Convert to GLB offered no figure.glb download: ' + (d && d.suggestedFilename()));
+    await until(`!CV.busy && !!STUDIO.lastGLB`, 60000);
+    const g = await ss(`(async () => {
+      const L = STUDIO.lastGLB, j = CONV.glbJSON(L.glb), back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej));
+      let tris = 0; back.scene.traverse(o => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+      return { ok: L.ok, why: L.why, from: j.asset.extras.studio.from, s: j.asset.extras.studio.s, q: j.asset.extras.studio.q, tris, clips: back.animations.map(c => c.name + ' ' + c.duration.toFixed(1)), images: (j.images || []).map(i => i.mimeType), note: CV.note, items: STU.items.size, file: STU.items.get('fig001').rec.file };
+    })()`);
+    if (!g.ok || g.from !== 'figure.fbx' || g.s !== 0.01 || JSON.stringify(g.q) !== '[-0.707107,0,0,0.707107]' || g.tris !== 12 || g.clips.join() !== 'Take 001 2.0' || g.images.join() !== 'image/jpeg' || g.file !== 'figure.fbx' || !/downloaded as figure\.glb/.test(g.note)) bad.push('the converted figure: ' + JSON.stringify(g));
+    // the switch: the GLB served as models/figure.glb, the placed figure switched to it, its corners where they were (1 mm)
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    await stp.route('**/scenes/test/models/figure.glb*', route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    const corners = `(() => { const it = STU.items.get('fig001'), E = it.E, b = E.info.box, M = new THREE.Matrix4().compose(new THREE.Vector3().fromArray(it.rec.p), new THREE.Quaternion().fromArray(it.rec.q), new THREE.Vector3().setScalar(it.rec.s)), out = [];
+      for (let k = 0; k < 8; k++) out.push(new THREE.Vector3(k & 1 ? b[1][0] : b[0][0], k & 2 ? b[1][1] : b[0][1], k & 4 ? b[1][2] : b[0][2]).applyMatrix4(M).toArray()); return out; })()`;
+    const c0 = await ss(corners), u0 = await ss('UNDO.length');
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), 0)`);
+    const n = await ss(`switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record)`);
+    if (!await until(`(() => { const it = STU.items.get('fig001'); return it.rec.file === 'models/figure.glb' && it.E && it.E.state === 'ready' && !!it.model; })()`, 30000)) bad.push('the figure did not switch to the GLB: ' + JSON.stringify(await ss(`[STU.items.get('fig001').rec, STU.items.get('fig001').E && STU.items.get('fig001').E.state]`)));
+    else {
+      const c1 = await ss(corners), worst = Math.max(...c0.map(p => Math.min(...c1.map(q => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])))));
+      const r = await ss(`[STU.items.get('fig001').rec, UNDO.length, LIB.get('models/figure.glb').record && LIB.get('models/figure.glb').record.from]`);
+      if (n !== 1 || worst > 0.001 || r[0].s !== 1 || JSON.stringify(r[0].q) !== '[0,0,0,1]' || r[1] !== u0 + 1 || r[2] !== 'figure.fbx') bad.push('the switch: ' + JSON.stringify({ n, worst, rec: r[0], undo: [u0, r[1]], from: r[2] }));
+    }
+    await ss('undo()');
+    if (await ss(`STU.items.get('fig001').rec.file`) !== 'figure.fbx') bad.push('Undo did not take the switch back');
+    await ss(`(setFiles(STU.files.filter(f => f.path !== 'models/figure.glb')), GLBREC.delete('models/figure.glb'), select(''), X.orig = false, X.tab = 'scene', renderPanes(), 0)`);
+    await stp.unroute('**/scenes/test/models/figure.glb*');
+    while (await ss('UNDO.length')) await ss('undo()');
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) bad.push('the layout did not come back after the GLB checks');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the Upload pane with no relay: the test originals dropped, the plan (rows, grouping, names), converting offered as downloads', async () => {
+    const bad = [];
+    await ss(`(X.tab = 'upload', renderPanes(), 0)`);
+    const pane0 = await stp.evaluate(() => document.querySelector('#pane-upload').textContent.replace(/\s+/g, ' '));
+    if (!/No relay that takes uploads/.test(pane0) || !/node relay\/server\.mjs --lan --scenes <folder>/.test(pane0) || !/Drop files or folders here/.test(pane0) || !/For Quest: on/.test(pane0)) bad.push('the Upload pane without a relay: ' + pane0.slice(0, 400));
+    // a drop of files onto the pane (the event, flat: as files are dropped from a desktop)
+    await stp.evaluate(async () => {
+      const get = async (p, name) => new File([await (await fetch('tools/studio/test/scenes/test/' + p)).arrayBuffer()], name || p.split('/').pop());
+      const dt = new DataTransfer();
+      for (const f of [await get('figure.fbx'), await get('figure.png'), await get('tone.wav'), new File(['hello'], 'notes.txt')]) dt.items.add(f);
+      document.querySelector('#pane-upload .stu-drop').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    if (!await until(`!UP.planning && UP.rows.length === 3 && UP.rows.every(r => r.how !== 'measuring')`, 20000)) bad.push('a drop of four files did not make a plan of three rows: ' + JSON.stringify(await ss('STUDIO.state().upload')).slice(0, 400));
+    // the test scene's originals as folders (their paths kept): models with what they name, sounds, the rest kept
+    await ss(`(async () => {
+      const get = async p => new File([await (await fetch('tools/studio/test/scenes/test/' + p)).arrayBuffer()], p.split('/').pop());
+      upTake([{ path: 'drop/figure.fbx', file: await get('figure.fbx') }, { path: 'drop/tex/figure.png', file: await get('figure.png') }, { path: 'drop/crate/crate.obj', file: await get('originals/crate.obj') },
+        { path: 'drop/crate/crate.mtl', file: await get('originals/crate.mtl') }, { path: 'drop/crate/crate.png', file: await get('originals/crate.png') }, { path: 'drop/tone.wav', file: await get('tone.wav') },
+        { path: 'drop/long.wav', file: await get('sounds/long.wav') }, { path: 'drop/notes.txt', file: new File(['hello'], 'notes.txt') }, { path: 'drop/.DS_Store', file: new File(['x'], '.DS_Store') }]);
+      return 0; })()`);
+    if (!await until(`!UP.planning && UP.rows.length === 5 && UP.rows.every(r => r.how !== 'measuring')`, 20000)) bad.push('the folders made no plan: ' + JSON.stringify(await ss('STUDIO.state().upload')).slice(0, 400));
+    const up = await ss('STUDIO.state().upload'), rows = up.rows.map(r => [r.kind, r.src.join('+'), r.out.join('+')]);
+    const want = [
+      ['model', 'drop/figure.fbx+drop/tex/figure.png', 'models/figure.glb+originals/drop/figure.fbx+originals/drop/tex/figure.png'],
+      ['model', 'drop/crate/crate.obj+drop/crate/crate.mtl+drop/crate/crate.png', 'models/crate.glb+originals/drop/crate/crate.obj+originals/drop/crate/crate.mtl+originals/drop/crate/crate.png'],
+      ['sound', 'drop/tone.wav', 'sounds/tone.wav+originals/drop/tone.wav'],
+      ['sound', 'drop/long.wav', 'sounds/long.wav+originals/drop/long.wav'],
+      ['keep', 'drop/notes.txt', 'originals/drop/notes.txt'],
+    ];
+    if (JSON.stringify(rows) !== JSON.stringify(want) || up.left.join() !== '.DS_Store') bad.push('the plan: ' + JSON.stringify({ rows, left: up.left }));
+    if (!/figure_spec\.png/.test(up.rows[0].notes.join())) bad.push('the figure\'s row does not say what it names and was not dropped: ' + JSON.stringify(up.rows[0].notes));
+    const plan = await stp.evaluate(() => document.querySelector('#pane-upload .stu-plan').textContent.replace(/\s+/g, ' '));
+    if (!/A short sound \(0\.6 s\): sounds\/tone\.wav, mono, 16-bit, 22\.05 kHz/.test(plan) || !/A long sound \(25 s\): sounds\/long\.wav, mono WAV at 8 kHz/.test(plan) || !/Kept as it is/.test(plan) || !/textures at most 2048 px|textures at most 2,048 px/.test(plan)) bad.push('the plan\'s words: ' + plan.slice(0, 600));
+    // numbered names against each other: the same name twice
+    const twice = await ss(`(() => { const r = UP.rows.slice(0, 1).map(x => Object.assign({}, x, { src: x.src.slice(), out: [] })); const keep = UP.rows; UP.rows = keep.concat(r.map(x => Object.assign(x, { main: Object.assign({}, x.main, { path: 'other/figure.fbx' }), src: [Object.assign({}, x.main, { path: 'other/figure.fbx' })] }))); upNames(); const o = UP.rows[UP.rows.length - 1].out[0]; UP.rows = keep; upNames(); return o; })()`);
+    if (twice !== 'models/figure 2.glb') bad.push('a second figure.fbx is not numbered: ' + twice);
+    // Convert (no relay): each GLB and WAV offered as a download, nothing uploaded
+    await stp.click('#pane-upload [data-act="up:run"]');
+    if (!await until(`!UP.busy && UP.ran`, 90000)) bad.push('converting did not finish');
+    const ran = await ss(`STUDIO.state().upload.rows.map(r => [r.kind, r.state, r.dl.join()])`);
+    if (JSON.stringify(ran) !== JSON.stringify([['model', 'done', 'figure.glb'], ['model', 'done', 'crate.glb'], ['sound', 'done', 'tone.wav'], ['sound', 'done', 'long.wav'], ['keep', 'done', '']])) bad.push('converted: ' + JSON.stringify(ran));
+    const out = await ss(`(async () => {
+      const a = [...document.querySelectorAll('#pane-upload .stu-plan a[download]')].map(x => [x.getAttribute('download'), x.href]), get = async n => (await fetch(a.find(x => x[0] === n)[1])).arrayBuffer();
+      const fig = CONV.glbJSON(await get('figure.glb')), wav = new DataView(await get('tone.wav')), lw = new DataView(await get('long.wav'));
+      return { links: a.map(x => x[0]), from: fig && fig.asset.extras.studio.from, tone: [wav.getUint16(22, true), wav.getUint32(24, true), wav.getUint16(34, true)], long: [lw.getUint16(22, true), lw.getUint32(24, true), Math.round(lw.getUint32(40, true) / 2 / lw.getUint32(24, true))], note: UP.note };
+    })()`);
+    if (out.links.join() !== 'figure.glb,crate.glb,tone.wav,long.wav' || out.from !== 'originals/drop/figure.fbx' || out.tone.join() !== '1,22050,16' || out.long.join() !== '1,8000,25' || !/nothing was uploaded/.test(out.note)) bad.push('what was made: ' + JSON.stringify(out));
+    await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
   await step('studio: the headset panels\' panes, its Stories screen, and Download', async () => {
     const bad = await ss(`(() => {
       const out = [], want = { scene: ['edit', 'scene:test', 'load'], add: ['add:box.glb', 'add:figure.fbx', 'adds:tone.wav', 'cube'], item: ['light:scan', 'anim:once', 'turn', 'stand', 'del'], items: ['sel:box001', 'sel:cube01', 'sel:snd001'] };
@@ -1479,6 +1622,7 @@ await step('design: the intro ends at the table', async () => {
         if (miss.length) out.push('the headset\\'s ' + tab + ' pane lacks ' + miss.join(', ') + ' (' + ids.join(' ') + ')');
         if (ids.some(i => i === 'download' || i === 'upload' || i.startsWith('tc:'))) out.push('the headset\\'s ' + tab + ' pane has the page\\'s own buttons');
         if (ids.includes('exit')) out.push('Exit is on the panel (it belongs in the menu)');
+        if (ids.includes('tab:upload') || ids.some(i => i === 'convert' || i === 'convertAll')) out.push('the headset\\'s ' + tab + ' pane has the Upload tab or Convert (the page\\'s own)');
       }
       // a button on the headset's pane works as the page's
       X.tab = 'item'; draw();
@@ -1495,6 +1639,11 @@ await step('design: the intro ends at the table', async () => {
     await stp.click('#pane-scene [data-act="download"]');
     const d = JSON.parse(await ss('STUDIO.download') || 'null');
     if (!d || d.studio !== 1 || d.scene !== 'test' || d.objects.length !== 2 || d.cubes.length !== 1 || d.sounds.length !== 1 || d.cubes[0].show.join() !== 'fig001,snd001') errors.push('studio: Download did not give the layout: ' + JSON.stringify(d).slice(0, 300));
+    // #studio&upload (where the relay's /upload sends people) opens the Upload pane
+    await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&upload');
+    await stp.reload();
+    await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`X.tab === 'upload' && !!document.querySelector('#pane-upload.on .stu-drop')`, 10000)) errors.push('studio: #studio&upload did not open the Upload pane: ' + await ss('X.tab'));
     await stp.close();
   });
 }
