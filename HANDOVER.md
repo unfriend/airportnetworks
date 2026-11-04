@@ -68,7 +68,18 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     previewable; eight low), ten fixed and one rejected (the first cut-out's one-off compile). Open: how holes look and
     cost on a Quest with the 397,066-triangle scan and 16 boxes, the grips on real controllers, mobile GPUs' uniform budget
     (48 more vec4), and the owner's own scenes (only the test scenes were cut).
-  - Tests: running (results follow in the next commit).
+  - The flaky step of v112's shared-room run, found (code read by two readers and a judge, then confirmed): the
+    pretend headset began 0.54 m from the endotype story's circle, and when it lined up early enough it stood there the
+    walk-in's second and walked in; that story then built in software for tens of seconds, starving the night steps and
+    leaving no controllers for the next step, which ended the run. The test now moves it away after its first frames
+    (the story's scene placed, before it lines up), waits for the frame to be followed (8 s at most) instead of 400 ms,
+    and reports a story without controllers instead of throwing; the rejoin step waits up to 40 s. The app is unchanged.
+    (A first try started the headset away from the circles, which also moved where its story placed the scene, and two
+    later steps failed: hence the second.)
+  - Tests: relay 510 good (once 509 and 1 failing, not repeated in a rerun and not identified); the picture reader 109
+    good; every build and the test scenes' listings current; smoke 203 good (the studio's cut-out block among them); the
+    shortened shared-room run twice to the away step, 220 good each; the full shared-room run 489 good and none
+    failing; update (against v112): running.
 - **Released as networks-v112 (4 November 2026; FORMAT networks-30, shell 112: running pages ask to reload, and every
   device in a shared room needs v112), tested headlessly only: textures for models, sounds that follow a model or a
   bone, and a test page for the room's geometry and depth on a Quest 3.**
@@ -119,8 +130,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     found its controllers gone; the third time (the same code, more of the headset's state logged at that step) that step
     passed and the run went through: 487 good and 1 failing, a fingertip poke and a pinch on the ray within 0.7 s counted
     twice (a timing check, the page drawing in software). That night step's code is unchanged since v111 (`shared.js`
-    differs only in `FORMAT`), and v111's own test passed it once today: flaky, and **open to investigate** (what ends
-    the pretend headset's controllers there; the test run stops at the next step when it fails, so it hides the rest).
+    differs only in `FORMAT`), and v111's own test passed it once today: flaky; found and fixed in the test in v113 (see
+    there).
 - **Released as networks-v111 (4 November 2026; FORMAT networks-29 as before, shell 111: running pages ask to reload),
   tested headlessly only: the studio, a room for your own scenes.** The owner: "i actually need a room where i can place
   some fbx or other format files in a folder and then i have textured objects, in some case with animations and then i
