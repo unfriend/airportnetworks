@@ -290,9 +290,9 @@ Installed copies play narrations from their offline copy, so a replaced narratio
 - **The main server and the test copy** (v115; the owner, 5 November 2026: "i would like to host the main branch from
   github on the coolify server and use that as stories.lbi-netmed.com while using the github dev branch hosted on github
   pages for testing with its own relay running on coolify too"): app 1 on Coolify (Hetzner), branch `main`, takes the
-  name `stories.lbi-netmed.com` and serves the app and its relay there (also as `networks.lab.lbi-netmed.com`); Pages
+  name `stories.lbi-netmed.com` and serves the app and its relay there (also as `stories.lab.lbi-netmed.com`); Pages
   publishes branch `dev` at `https://unfriend.github.io/airportnetworks/`, the test copy, whose relay is app 2 on
-  Coolify, branch `dev`, at `networks-test.lab.lbi-netmed.com` (offered by its Shared dialog: with its password a
+  Coolify, branch `dev`, at `stories-test.lab.lbi-netmed.com` (offered by its Shared dialog: with its password a
   device's rooms are there, without it peer to peer). The owner's steps, in an order that never takes the site down, are
   in [relay/README.md](../relay/README.md), "The main server and the test copy". Until the owner says it is done, this
   section describes Pages with the custom domain on `main`.

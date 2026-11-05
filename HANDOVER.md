@@ -51,9 +51,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   own relay running on coolify too"; asked in between, without the relay's password rooms run peer to peer, two Coolify
   apps rather than one, a branch `dev`, and the test copy's scenes apart from the real ones.
   - Where things go: app 1 on Coolify, branch `main`, at `https://stories.lbi-netmed.com/` (after the owner's switch;
-    first at `networks.lab.lbi-netmed.com`): the app with its relay and the studio's scenes (R2, `R2_PREFIX=main`).
+    first at `stories.lab.lbi-netmed.com`): the app with its relay and the studio's scenes (R2, `R2_PREFIX=main`).
     GitHub Pages, branch `dev`, at `https://unfriend.github.io/airportnetworks/`: the test copy. App 2 on Coolify,
-    branch `dev`, at `networks-test.lab.lbi-netmed.com`: the test copy's relay (R2, `R2_PREFIX=test`). Every name under
+    branch `dev`, at `stories-test.lab.lbi-netmed.com`: the test copy's relay (R2, `R2_PREFIX=test`). Every name under
     `lab.lbi-netmed.com` already points at the Coolify server (`178.104.76.48`) with a wildcard certificate, so the two
     lab names need no DNS; only `stories` moves (Namecheap). The owner's steps: `relay/README.md`, "The main server and
     the test copy".
@@ -71,7 +71,17 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - Tests: the relay test 609 good; the collab test's password round with the offered relay (shown while no relay is in
     use, a room peer to peer without it, a wrong password changing nothing, the right one making it the device's relay
     and a room start there, Forget giving the offer back, the studio's 401 asking for it and the password given there
-    taking it, a pretend headset's keypad) 13 good; the full run, smoke and the update test: TO FILL.
+    taking it, a pretend headset's keypad) 13 good; the relay test 612 good (with `RELAY_ARGS` in quote marks: the
+    owner's first Coolify app answered 502 Bad Gateway while it was being set up, and quote marks typed round
+    `--proxy 1 --public` would have stopped the relay with its usage, so the relay now drops them; that time the cause
+    was the port, *Ports Exposes* not 8787); the update test from v114 good; smoke 209 good and 1 failing, the studio
+    follow block's timing check (no frame drawn in 2.5 s under load, as in the groups builder's run; it passed alone
+    there); the full shared-room run 492 good and 7 failing: the same six peer-to-peer checks as in v114's run (a
+    guest's link back to connecting when the three were counted, the host change after it; that part passes alone) and
+    once the standby check (the room's height after waking read 0 instead of 0.15 m within 800 ms of frames; it passed in
+    v113's and v114's runs). None of that code changed in v115; reruns below. The test relay's name became
+    `stories-test.lab.lbi-netmed.com` (the owner named app 1 `stories.lab.lbi-netmed.com`), and `CNAME` went from the
+    working branch, so `dev` never claims the name for Pages (`main` keeps it until the owner's switch).
 - **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
   device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
   R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
@@ -894,7 +904,7 @@ Before handing over (or making anything more public), someone has to decide thes
    - **Decided** (the owner, 5 November 2026): the relay on Coolify on Hetzner, the studio's scenes in R2 (built in v114,
      `--scenes r2`), and (v115) branch `main` on Coolify as the main site at `stories.lbi-netmed.com`, branch `dev` on
      GitHub Pages as the test copy at `unfriend.github.io/airportnetworks/` with a relay of its own on Coolify
-     (`networks-test.lab.lbi-netmed.com`), offered by password, peer to peer without it. Work goes to `dev` first, then
+     (`stories-test.lab.lbi-netmed.com`), offered by password, peer to peer without it. Work goes to `dev` first, then
      `main` once the owner has tried it. The owner's steps: `relay/README.md`, "The main server and the test copy".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):

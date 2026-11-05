@@ -68,7 +68,7 @@
   // before, and Forget the password (out of a room) goes back to that. Keyed by the page's host, so never this machine, a
   // LAN or the tests (HOST.collab.homeRelay(url) offers one there). v114 had made the main server's relay the test copy's
   // default instead
-  const HOME_RELAY = { 'unfriend.github.io': 'https://networks-test.lab.lbi-netmed.com' };
+  const HOME_RELAY = { 'unfriend.github.io': 'https://stories-test.lab.lbi-netmed.com' };
   const HOME = { o: null, state: '' };   // o: a test's own offer (null: the table's); state: '', 'checking', 'wrong', 'limit', 'away'
   const homeRelay = () => { if (HOME.o !== null) return HOME.o; try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
   // listeners added here belong to the shell: a story change must not remove them

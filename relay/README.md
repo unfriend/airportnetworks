@@ -338,7 +338,7 @@ and why). Nothing here changes how it runs on a laptop.
 
 **Before you start:** a DNS name for it (here `rooms.lbi-netmed.com`; any subdomain will do), Coolify on a server
 with a public address and its proxy (Traefik or Caddy) running, and access to this repository from Coolify. At the
-institute every name under `lab.lbi-netmed.com` (`networks.lab.lbi-netmed.com`, `networks-test.lab.lbi-netmed.com`)
+institute every name under `lab.lbi-netmed.com` (`stories.lab.lbi-netmed.com`, `stories-test.lab.lbi-netmed.com`)
 already points at the Coolify server and has a certificate (a wildcard record and a wildcard certificate, checked 5
 November 2026): there, skip step 1, and the domain in step 5 works at once.
 
@@ -438,9 +438,9 @@ this is a matter of addresses and branches:
 
 | address | serves | branch | rooms |
 | --- | --- | --- | --- |
-| `https://stories.lbi-netmed.com/` (and `https://networks.lab.lbi-netmed.com/`) | Coolify, app 1: the relay serving the app | `main` | on its own relay (the password once per device) |
+| `https://stories.lbi-netmed.com/` (and `https://stories.lab.lbi-netmed.com/`) | Coolify, app 1: the relay serving the app | `main` | on its own relay (the password once per device) |
 | `https://unfriend.github.io/airportnetworks/` | GitHub Pages: the test copy | `dev` | peer to peer; with the password of app 2, on it |
-| `https://networks-test.lab.lbi-netmed.com/` | Coolify, app 2: the test copy's relay (and its own copy of `dev`) | `dev` | on its own relay |
+| `https://stories-test.lab.lbi-netmed.com/` | Coolify, app 2: the test copy's relay (and its own copy of `dev`) | `dev` | on its own relay |
 
 The test copy offers its relay rather than using it by default (v115: `HOME_RELAY` in `shared.js`, keyed by the page's
 host): its Shared dialog and the headset menu's *Relay password* row take app 2's password once per device, and from
@@ -458,18 +458,18 @@ change variables; ask whoever runs the instance). The lab names need no DNS. The
 (part D) needs the domain's DNS provider (for `lbi-netmed.com`: Namecheap, *Domain List* > *Manage* > *Advanced DNS* >
 *Host Records*) and the server's address, `178.104.76.48` (what the lab names point at, 5 November 2026).
 
-**A. App 1, the main site's relay (branch `main`), at `networks.lab.lbi-netmed.com`.** The guide above, steps 2 to 10,
-with branch **`main`**, *Domains* **`https://networks.lab.lbi-netmed.com`**, and `RELAY_ARGS` = `--proxy 1 --public`
-and `COLLAB_TOKEN` (locked). Check it at `https://networks.lab.lbi-netmed.com/api/health` and the app there (Shared,
+**A. App 1, the main site's relay (branch `main`), at `stories.lab.lbi-netmed.com`.** The guide above, steps 2 to 10,
+with branch **`main`**, *Domains* **`https://stories.lab.lbi-netmed.com`**, and `RELAY_ARGS` = `--proxy 1 --public`
+and `COLLAB_TOKEN` (locked). Check it at `https://stories.lab.lbi-netmed.com/api/health` and the app there (Shared,
 the password, Start a room on the relay).
 
 **B. The studio's scenes in R2** ([Scenes in Cloudflare R2](#scenes-in-cloudflare-r2), steps 1 to 5): one bucket for
 both apps, created in the EU jurisdiction; app 1's variables with `R2_PREFIX` = `main` and `RELAY_ARGS` = `--proxy 1
 --public --scenes r2`, then Redeploy and the start lines (and the upload page,
-`https://networks.lab.lbi-netmed.com/upload`, for a first scene).
+`https://stories.lab.lbi-netmed.com/upload`, for a first scene).
 
-**C. App 2, the test copy's relay (branch `dev`), at `networks-test.lab.lbi-netmed.com`.** The same once more, in the
-same project: branch **`dev`**, *Domains* **`https://networks-test.lab.lbi-netmed.com`**, the same `RELAY_ARGS` (with
+**C. App 2, the test copy's relay (branch `dev`), at `stories-test.lab.lbi-netmed.com`.** The same once more, in the
+same project: branch **`dev`**, *Domains* **`https://stories-test.lab.lbi-netmed.com`**, the same `RELAY_ARGS` (with
 `--scenes r2`) and R2 variables but `R2_PREFIX` = `test`, and `COLLAB_TOKEN` (the same word or another, for testers).
 Optional: *Auto Deploy* with a GitHub webhook (the guide's step 9), so app 2 follows every push to `dev` as the test copy
 on Pages does; else Redeploy by hand when the relay itself changed.
@@ -484,7 +484,7 @@ on Pages does; else Redeploy by hand when the relay itself changed.
    address (`dig +short stories.lbi-netmed.com @1.1.1.1`, or dnschecker.org). From now on devices with the new answer
    reach Coolify, which does not know the name yet (a page of its proxy or a certificate warning) until step 3; those
    with the old answer still get GitHub Pages. Keep this gap short.
-3. **Give app 1 the name.** *Domains*: `https://networks.lab.lbi-netmed.com,https://stories.lbi-netmed.com` (or *Add
+3. **Give app 1 the name.** *Domains*: `https://stories.lab.lbi-netmed.com,https://stories.lbi-netmed.com` (or *Add
    domain*), save, **Redeploy**. Coolify's proxy then asks Let's Encrypt for the name's certificate, which works only
    once the name points at the server: hence after step 2, and a failure is not answered by redeploying again and again
    (Let's Encrypt allows 5 failed checks of a name an hour; wait a few minutes and try once more). The lab names have a
@@ -509,9 +509,9 @@ on Pages does; else Redeploy by hand when the relay itself changed.
   says it is on the relay, with no `&relay=` in the room's link; `https://stories.lbi-netmed.com/upload` opens the
   studio's Upload pane.
 - The test copy at `https://unfriend.github.io/airportnetworks/`: **Shared** offers *The relay*
-  (`networks-test.lab.lbi-netmed.com`) with a password field; without it a room starts peer to peer; with app 2's
+  (`stories-test.lab.lbi-netmed.com`) with a password field; without it a room starts peer to peer; with app 2's
   password the device's rooms are on app 2.
-- `curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://unfriend.github.io' -H "Authorization: Bearer $COLLAB_TOKEN" https://networks-test.lab.lbi-netmed.com/api/ping`
+- `curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://unfriend.github.io' -H "Authorization: Bearer $COLLAB_TOKEN" https://stories-test.lab.lbi-netmed.com/api/ping`
   prints `200`; with `-H 'Origin: https://evil.example'` `403`.
 - In a headset on the main site: *Fresh shared space* is offered (the menu's Debug tab), since the relay serves the page.
 

@@ -913,6 +913,12 @@ try {
     ok(/Per address at most 7 lookups/.test(E.out) && /Behind a reverse proxy/.test(E.out) && (await req('GET', '/api/ping', { at: E.port })).json().unlisted === true,
       'RELAY_ARGS (the environment, as Coolify sets it) adds options after the command\'s own');
     E.kill();
+    for (const v of ['"--public --proxy 1 --guesses 7"', "'--public --proxy 1 --guesses 7'", '"--public" --proxy 1 \'--guesses\' 7']) {
+      const Q = await start(['--quiet'], { RELAY_ARGS: v });
+      for (const end = Date.now() + 2000; !/All rooms together/.test(Q.out) && Date.now() < end;) await sleep(20);
+      ok(/Per address at most 7 lookups/.test(Q.out) && /Behind a reverse proxy/.test(Q.out) && !/usage:/.test(Q.out), `RELAY_ARGS with quote marks typed in (${v}): taken as without them`);
+      Q.kill();
+    }
     // --allow-no-origin, and --origin on its own
     const N = await start(['--public', '--allow-no-origin', '--quiet']);
     w = await raw('/api/ws?room=ABC&id=n1', { at: N.port });

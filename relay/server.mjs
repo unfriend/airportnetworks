@@ -107,7 +107,10 @@ A shared password (as asdf10k-collab-backend's COLLAB_TOKEN; off unless given):
 The environment: RELAY_ARGS adds options after the command's own (RELAY_ARGS="--proxy 1 --public"); COLLAB_TOKEN,
 COLLAB_PORT, COLLAB_HOST and COLLAB_SCENES set --token, --port, --host and --scenes (the flags win).`;
 // the options: the command's, then RELAY_ARGS's (the environment's: Coolify sets it, so its start command needs no change)
-const ARGV = [...process.argv.slice(2), ...String(process.env.RELAY_ARGS || '').trim().split(/\s+/).filter(Boolean)];
+// (quote marks round the whole value or a word are dropped: a shell's habit typed into a settings field, as
+// RELAY_ARGS="--proxy 1 --public" read off a page, left the relay printing its usage and stopping, a 502 behind Coolify)
+const unquote = s => s.replace(/^(['"])([\s\S]*)\1$/, '$2');
+const ARGV = [...process.argv.slice(2), ...unquote(String(process.env.RELAY_ARGS || '').trim()).trim().split(/\s+/).map(unquote).filter(Boolean)];
 for (let i = 0; i < ARGV.length; i++) {
   const name = ARGV[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === ARGV[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }

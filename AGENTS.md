@@ -1901,11 +1901,11 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   for testing with its own relay running on coolify too"; `relay/README.md`, "The
   main server and the test copy", has the owner's steps): app 1 on Coolify, branch
   `main`, serves the app and its relay at `https://stories.lbi-netmed.com/` (and
-  `networks.lab.lbi-netmed.com`: every name under `lab.lbi-netmed.com` points at the
+  `stories.lab.lbi-netmed.com`: every name under `lab.lbi-netmed.com` points at the
   Coolify server with a wildcard certificate); GitHub Pages publishes branch `dev`
   at `https://unfriend.github.io/airportnetworks/` (no custom domain, no `CNAME`
   file on `dev`), whose relay is app 2 on Coolify, branch `dev`, at
-  `networks-test.lab.lbi-netmed.com`. The test copy offers that relay rather than
+  `stories-test.lab.lbi-netmed.com`. The test copy offers that relay rather than
   using it by default (`HOME_RELAY` in `shared.js`, keyed by the page's host, so
   never this machine, a LAN or the tests, where `HOST.collab.homeRelay(url)` offers
   one): while no relay is in use there (`homeOffer`), the Shared dialog has *The
