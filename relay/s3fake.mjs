@@ -6,7 +6,11 @@
 // continuation and start-after), GetObject and HeadObject (one byte range, ETag, If-None-Match: 304), PutObject (a signed
 // or UNSIGNED-PAYLOAD body, If-None-Match: * for no overwrite; a body cut short stores nothing), CopyObject, DeleteObject,
 // DeleteObjects (Content-MD5 checked), GetBucketCors, and CORS as a bucket's rules say (preflights and the answers).
-// ETags are MD5 as R2's are for one-part uploads, and times keep their milliseconds.
+// ETags are MD5 as R2's are for one-part uploads, and times keep their milliseconds. S.quirks, set by a test, makes it
+// answer as a store might that the tests cannot reach: refuseSigned (header names a presigned link may not sign: 403
+// SignatureDoesNotMatch), fail(method, key, query) (a status to answer instead: a 5xx, a 403), conflict409 (If-None-Match:
+// * refused with 409 BlobAlreadyExists, not 412), ignoreIfNoneMatch, dropReply(method, key) (a PUT stored, its answer
+// never sent: the connection closed).
 //   import { startFake } from './s3fake.mjs'; const S3 = await startFake({ bucket: 'scenes', keys: { ID: 'SECRET' }, cors });
 //   node relay/s3fake.mjs --port 8840 --bucket scenes --key ID:SECRET   (by hand: CORS for any origin)
 import http from 'node:http';
@@ -23,7 +27,7 @@ export const STUDIO_CORS = [{ origins: ['*'], methods: ['GET', 'HEAD', 'PUT'], h
   expose: ['ETag', 'Content-Length', 'Content-Range', 'Accept-Ranges'], maxAge: 3600 }];
 
 export function startFake({ port = 0, host = '127.0.0.1', bucket = 'scenes', keys = {}, cors = STUDIO_CORS, region = 'auto', maxBody = 700 << 20 } = {}) {
-  const S = { objects: new Map(), requests: [], cors, now: () => Date.now(), server: null, port: 0 };
+  const S = { objects: new Map(), requests: [], cors, now: () => Date.now(), server: null, port: 0, quirks: {} };
   const xml = (res, status, body, extra = {}) => { const b = Buffer.from('<?xml version="1.0" encoding="UTF-8"?>' + body); res.writeHead(status, { 'Content-Type': 'application/xml', 'Content-Length': b.length, ...extra }); res.end(b); };
   const fail = (res, status, code, message, extra) => xml(res, status, `<Error><Code>${code}</Code><Message>${xmlEsc(message)}</Message></Error>`, extra);
   const etagOf = b => crypto.createHash('md5').update(b).digest('hex');
@@ -75,6 +79,7 @@ export function startFake({ port = 0, host = '127.0.0.1', bucket = 'scenes', key
     if (reg !== region || svc !== 's3' || term !== 'aws4_request' || t.slice(0, 8) !== d8) return ['AuthorizationHeaderMalformed', 'the credential scope is wrong'];
     const names = signed.split(';');
     if (!names.includes('host') || names.join(';') !== [...names].sort().join(';')) return ['AuthorizationHeaderMalformed', 'SignedHeaders'];
+    if (!auth && (S.quirks.refuseSigned || []).some(n => names.includes(n))) return ['SignatureDoesNotMatch', 'The request signature we calculated does not match the signature you provided'];
     // the path as S3 normalises it: each part decoded, then encoded again
     let path;
     try { path = rawPath.split('/').map(p => uriEncode(decodeURIComponent(p))).join('/'); } catch { return ['InvalidURI', 'a bad escape']; }
@@ -115,6 +120,8 @@ export function startFake({ port = 0, host = '127.0.0.1', bucket = 'scenes', key
     const why = verify(req, rawPath, query, body ? sha256(body) : req.method === 'GET' || req.method === 'HEAD' || req.method === 'DELETE' ? sha256('') : null);
     if (why) return send(why[0] === 'InvalidAccessKeyId' || why[0] === 'SignatureDoesNotMatch' || why[0] === 'AccessDenied' || why[0] === 'ExpiredRequest' ? 403 : 400, why[0], why[1], ch);
     if (b !== bucket) return send(404, 'NoSuchBucket', 'The specified bucket does not exist', ch);
+    const qf = S.quirks.fail ? S.quirks.fail(req.method, key, q) : 0;
+    if (qf) return send(qf, qf >= 500 ? 'InternalError' : 'AccessDenied', 'a failure the test asked for', ch);
     if (key === null || key === '') {   // ---- the bucket
       if (req.method === 'GET' && q.has('cors')) {
         if (!S.cors || !S.cors.length) return send(404, 'NoSuchCORSConfiguration', 'The CORS configuration does not exist', ch);
@@ -183,9 +190,12 @@ export function startFake({ port = 0, host = '127.0.0.1', bucket = 'scenes', key
         rec.status = 200;
         return xml(res, 200, `<CopyObjectResult><LastModified>${new Date(at).toISOString()}</LastModified><ETag>&quot;${o.etag}&quot;</ETag></CopyObjectResult>`, ch);
       }
-      if (String(req.headers['if-none-match'] || '').trim() === '*' && obj) return send(412, 'PreconditionFailed', 'At least one of the pre-conditions you specified did not hold', ch);
+      if (String(req.headers['if-none-match'] || '').trim() === '*' && obj && !S.quirks.ignoreIfNoneMatch) {
+        return S.quirks.conflict409 ? send(409, 'BlobAlreadyExists', 'The object already exists', ch) : send(412, 'PreconditionFailed', 'At least one of the pre-conditions you specified did not hold', ch);
+      }
       const b2 = body || Buffer.alloc(0);
       S.objects.set(key, { body: b2, type: String(req.headers['content-type'] || 'application/octet-stream'), etag: etagOf(b2), at: S.now(), cache: String(req.headers['cache-control'] || '') });
+      if (S.quirks.dropReply && S.quirks.dropReply(req.method, key)) { rec.status = -1; return res.socket.destroy(); }
       rec.status = 200;
       res.writeHead(200, { ETag: `"${etagOf(b2)}"`, 'Content-Length': 0, ...ch });
       return res.end();

@@ -135,8 +135,8 @@ export class R2 {
     this.hostname = u.hostname.replace(/^\[|\]$/g, ''); this.port = u.port || (c.protocol === 'http:' ? 80 : 443);
   }
   path(key) { return '/' + uriEncode(this.c.bucket) + (key === null ? '' : '/' + uriEncode(key, true)); }
-  // one signed request: { status, headers, body } (body a Buffer, or with toFile the bytes written there). A 5xx or no
-  // answer is tried once more (bodies are a Buffer or a file, so they can be sent again)
+  // one signed request: { status, headers, body, tries } (body a Buffer, or with toFile the bytes written there). A 5xx or
+  // no answer is tried once more (bodies are a Buffer or a file, so they can be sent again); tries says how many it took
   async send(op, method, key, o = {}) {
     for (let attempt = 0; ; attempt++) {
       if (o.toFile) await fs.promises.rm(o.toFile, { force: true });   // (a download tried again starts afresh)
@@ -147,6 +147,7 @@ export class R2 {
         throw new R2Error(op, 0, err.code || 'network');
       }
       if (r.status >= 500 && attempt === 0) { await sleep(400); continue; }
+      r.tries = attempt + 1;
       return r;
     }
   }
@@ -245,7 +246,16 @@ export class R2 {
     if (cache) headers['cache-control'] = cache;
     if (ifNoneMatch) headers['if-none-match'] = '*';
     const r = await this.send('put', 'PUT', key, Buffer.isBuffer(src) ? { headers, body: src } : { headers, file: src, timeout: 120000 });
-    if (r.status === 412) return { exists: true };
+    // (one there: 412, as S3's and R2's documents say, or 409 as R2 has also been seen to answer (and S3 for a write in
+    // flight). Tried a second time, the first may have landed after all with its answer lost: then the object there is
+    // this one, by its MD5, and it went in)
+    if (ifNoneMatch && (r.status === 412 || r.status === 409)) {
+      if (r.tries > 1) {
+        const h = await this.head(key).catch(() => null), md5 = Buffer.isBuffer(src) ? crypto.createHash('md5').update(src).digest('hex') : await md5File(src.path);
+        if (h && h.etag === md5) return { etag: h.etag };
+      }
+      return { exists: true };
+    }
     if (r.status !== 200) throw this.fail('put', r);
     return { etag: String(r.headers.etag || '').replace(/"/g, '') };
   }
@@ -298,12 +308,27 @@ export class R2 {
     const s = presign({ method: 'GET', host: this.c.host, path: this.path(key), date: new Date(d), expires, region: this.c.region, id: this.c.id, secret: this.c.secret });
     return this.c.endpoint + this.path(key) + '?' + s.query;
   }
-  // a presigned PUT for a browser's upload: its type and length signed (the browser sends the length itself, and a body of
-  // another size is refused), and If-None-Match: * unless it may replace one. { url, headers }: the headers to send
-  putLink(key, { type, size, replace = false, expires = 3600, now = Date.now() }) {
+  // a presigned PUT for a browser's upload, If-None-Match: * sent unless it may replace one. sign 'all': its type, length
+  // and If-None-Match signed (the browser sends the length itself, and a body of another size is refused); 'type': only
+  // its type signed, as Cloudflare's own documents show (for a store that refuses the others signed: the relay's start
+  // tries which, and checks the size when told the file is there). { url, headers }: the headers to send
+  putLink(key, { type, size, replace = false, expires = 3600, now = Date.now(), sign = 'all' }) {
     const headers = { 'Content-Type': type, ...(replace ? {} : { 'If-None-Match': '*' }) };
-    const s = presign({ method: 'PUT', host: this.c.host, path: this.path(key), headers: { ...headers, 'Content-Length': String(size) }, date: new Date(now), expires,
-      region: this.c.region, id: this.c.id, secret: this.c.secret });
+    const s = presign({ method: 'PUT', host: this.c.host, path: this.path(key), headers: sign === 'type' ? { 'Content-Type': type } : { ...headers, 'Content-Length': String(size) },
+      date: new Date(now), expires, region: this.c.region, id: this.c.id, secret: this.c.secret });
     return { url: this.c.endpoint + this.path(key) + '?' + s.query, headers };
+  }
+  // a request by a presigned link, as a page would send it (the relay's own check of what the bucket says to its upload
+  // links): { status, code } (0: no answer)
+  byLink(method, url, headers = {}, body = null) {
+    return new Promise(resolve => {
+      const u = new URL(url);
+      const req = this.mod.request({ host: this.hostname, port: this.port, method, path: u.pathname + u.search, agent: this.agent,
+        headers: { host: this.c.host, ...headers, 'content-length': body ? body.length : 0 } });
+      req.setTimeout(15000, () => req.destroy());
+      req.on('error', err => resolve({ status: 0, code: err.code || 'network' }));
+      req.on('response', res => { const p = []; res.on('data', d => p.push(d)); res.on('end', () => resolve({ status: res.statusCode, code: xmlOne(Buffer.concat(p), 'Code') })); res.on('error', () => resolve({ status: 0, code: 'cut' })); });
+      req.end(body || undefined);
+    });
   }
 }

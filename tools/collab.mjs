@@ -2677,7 +2677,8 @@ async function tokenRound() {
 // Then the scenes in Cloudflare R2 (--scenes r2) against the stand-in S3 (relay/s3fake.mjs) on another port (from 8840
 // up): a page and the pretend headset open the test scene from the bucket (every file by its signed link, CORS, ranges
 // and crossOrigin exercised by the browser; a long sound streamed), Save writes layout.json and .history/ there, Convert
-// to GLB and the Upload pane send their files straight into the bucket (signed PUTs), and the password goes nowhere.
+// to GLB and the Upload pane send their files straight into the bucket (signed PUTs), a link the bucket refuses is read
+// again, an upload it refuses goes through the relay, and the password goes nowhere.
 // dir: pictures (studio-*.png)
 async function relayOn(args, env, from) {
   for (let p = from; p < from + 20; p++) {
@@ -3193,6 +3194,21 @@ async function studioRound(dir) {
     check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket (206, or 304 from its ETag)',
       gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gSaved2 && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
       JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, gGlbGets, note: await sp(G, 'CV.note') }));
+    // a signed link the bucket refuses (as one that lapsed while a headset was taken off): the listing read again and the
+    // file fetched by its new link; links past half their life read again before a file is used
+    const gRe = await sp(G, `(async () => {
+      const f = STU.fileMap.get('box.glb'), good = f.url, bad = good.replace(/X-Amz-Signature=[0-9a-f]{64}/, 'X-Amz-Signature=' + '0'.repeat(64));
+      f.url = bad;
+      const b = await getBytes(fileUrl('box.glb'));
+      const again = STU.fileMap.get('box.glb').url;
+      SRC.linksAt = Date.now() - 13 * 3600e3;
+      fileUrl('box.glb');
+      for (let i = 0; i < 100 && Date.now() - SRC.linksAt > 60000; i++) await new Promise(r => setTimeout(r, 50));
+      return { bytes: b.byteLength, again: again !== bad && /X-Amz-Signature=[0-9a-f]{64}/.test(again) && again.split('?')[0] === good.split('?')[0], fresh: Date.now() - SRC.linksAt < 60000 };
+    })()`);
+    const gRefused = fromPage().some(r => r.url.startsWith('/scenes/studio/test/box.glb?') && r.status === 403);
+    check('studio from R2: a link the bucket refuses (403) makes the page read the listing again and fetch the file by its new link; links past half their life are read again',
+      !!gRe && gRe.bytes > 1000 && gRe.again && gRe.fresh && gRefused, JSON.stringify({ gRe, gRefused }));
     // the Upload pane: a new scene, the test originals uploaded straight into the bucket (a long sound made MP3 by the
     // relay's ffmpeg from its original there, when this machine has ffmpeg)
     await sp(G, `(select(''), pickTab('upload'), 0)`);
@@ -3215,6 +3231,17 @@ async function studioRound(dir) {
     const gMp3 = gFf ? (h => !!h && h.mono)(mp3Head(S3r.objects.get('studio/made/sounds/long.mp3')?.body || Buffer.alloc(0))) && /wrote sounds\/long\.mp3 into the bucket .* from originals\/long\.wav/.test(Q.out) : true;
     check(`studio from R2: the Upload pane makes a scene in the bucket and sends the test originals straight into it (each by the page's signed PUT, none through the relay), the long sound ${gFf ? 'made a mono MP3 by the relay\'s ffmpeg from its original in the bucket (from=)' : 'a mono WAV (no ffmpeg here)'}`,
       gMade && gRan && gRows.every(r => r[1] === 'done') && !gMissing.length && gDirect && !gThrough && gMp3, JSON.stringify({ gMade, gRan, gRows, gMissing, gDirect, gThrough, gMp3, gFf }));
+    // the bucket refusing the page's upload (its CORS rule or a signed header it will not take, here a 403 for every
+    // presigned PUT): the file goes through the relay instead, and so does the next without trying the bucket
+    S3r.quirks.fail = (m, key, q) => (m === 'PUT' && q.has('X-Amz-Signature') ? 403 : 0);
+    const fb1 = await sp(G, `upSend(fileApi('made', 'originals/fallback.bin', false), new Blob(['fallback bytes'])).then(j => j && j.path, e => 'error: ' + e.message)`);
+    const fb2 = await sp(G, `upSend(fileApi('made', 'originals/fallback2.bin', false), new Blob(['two'])).then(j => j && j.path, e => 'error: ' + e.message)`);
+    S3r.quirks = {};
+    const fbPuts = p => fromPage().filter(r => r.method === 'PUT' && r.url.startsWith('/scenes/studio/made/' + p + '?')).map(r => r.status);
+    check('studio from R2: an upload the bucket refuses (403 for the page\'s signed PUT) goes through the relay instead, and the next one goes there without trying the bucket',
+      fb1 === 'originals/fallback.bin' && fb2 === 'originals/fallback2.bin' && S3r.objects.get('studio/made/originals/fallback.bin')?.body.toString() === 'fallback bytes' && !!S3r.objects.get('studio/made/originals/fallback2.bin') &&
+        /wrote originals\/fallback\.bin into the bucket/.test(Q.out) && /wrote originals\/fallback2\.bin into the bucket/.test(Q.out) && fbPuts('originals/fallback.bin').join() === '403' && !fbPuts('originals/fallback2.bin').length,
+      JSON.stringify({ fb1, fb2, puts1: fbPuts('originals/fallback.bin'), puts2: fbPuts('originals/fallback2.bin') }));
     // the pretend headset opens the scene from the bucket too
     const H2 = await sopen(qb + 'index.html#studio&scene=test', { name: 'Hal', size: { width: 320, height: 200 }, token: PASS3, origin: qo });
     await studioIn(H2);

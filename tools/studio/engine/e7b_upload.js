@@ -277,9 +277,13 @@ function saveFile(data, name, type) {
 const fileApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/file?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
 const soundApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/sound?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
 // one upload, with its progress (an XMLHttpRequest: fetch says nothing of what has gone); the password as a header, a
-// refusal told to the shell once (authHold, as every call)
+// refusal told to the shell once (authHold, as every call). R2: a file straight into the bucket, else through the relay
+// waiting while it is busy (e7c_direct.js)
 function upSend(url, body, onP) {
-  if (SRC.direct && /\/file\?path=/.test(url)) return upDirect(url, body, onP);   // (R2: straight into the bucket, e7c_direct.js)
+  if (SRC.linkTtl > 0 && /\/file\?path=/.test(url)) return upDirect(url, body, onP);
+  return upPost(url, body, onP);
+}
+function upPost(url, body, onP) {
   return new Promise((res, rej) => {
     if (SRC.held) { rej(AUTH_ERR()); return; }
     const x = new XMLHttpRequest();

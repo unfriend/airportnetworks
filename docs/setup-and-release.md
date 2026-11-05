@@ -324,8 +324,12 @@ saved settings and headset calibrations do not carry over from one address to an
   in R2): `--scenes r2` in `RELAY_ARGS`, the bucket and its keys as Coolify secrets (`R2_ACCOUNT_ID`,
   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_JURISDICTION=eu` for a bucket made in the EU), the
   bucket's CORS rule pasted from relay/README.md ("Scenes in Cloudflare R2", the owner's steps), no *Persistent Storage*
-  volume. The start lines say whether the keys work and how the CORS rule answers a browser; in the container's terminal
-  `node relay/server.mjs --scenes r2 --r2-check` checks the same and stops. Scenes move between the bucket and a folder
+  volume. The start lines say whether the keys work, how the CORS rule answers a browser and what the bucket says to an
+  upload link (`R2 upload links: ...`); in the container's terminal `node relay/server.mjs --scenes r2 --r2-check` checks
+  the same and stops. A bucket that does not answer at the start (R2 away for a moment) does not stop the relay: the
+  rooms work, the scenes answer 502 until it answers, and the log says when it does. With more than about 1,000 objects
+  in the bucket and a studio page left open, set `R2_POLL=15` or more (each listing costs one Class A operation per
+  1,000 objects). Scenes move between the bucket and a folder
   with `node tools/studio/r2sync.mjs` (`push ~/scenes --all` once to fill the bucket; `pull --all ~/scenes` before an
   event with no internet). After touching `relay/r2.mjs`, the store in `relay/server.mjs` or `r2sync.mjs`, run
   `node relay/test.mjs` (it runs `relay/test-r2.mjs`, the signer against AWS's published examples) and

@@ -7,8 +7,12 @@
 //    which checks every signature: listing (prefix, delimiter, continuation), get, head, put (signed body, UNSIGNED-PAYLOAD,
 //    a body other than the one signed refused, If-None-Match),
 //    copy, delete, delete many, CORS; presigned links accepted, and refused once expired, with their path changed or
-//    their body of another size; a wrong secret refused.
+//    their body of another size; a wrong secret refused; a link with only its type signed, a store that refuses a signed
+//    length, 409 for one there, and a PUT stored with its answer lost then tried again (taken by its MD5).
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { sign, presign, uriEncode, canonicalQuery, r2Config, R2, EMPTY_HASH } from './r2.mjs';
 import { startFake } from './s3fake.mjs';
 
@@ -121,6 +125,35 @@ try {
     `a presigned PUT: stored (${p1.status}); again: 412 (If-None-Match signed); another size or another type: 403 (${p3.status} ${p4.status})`);
   const pre = await fetch(link, { method: 'OPTIONS', headers: { Origin: 'https://app.example', 'Access-Control-Request-Method': 'PUT', 'Access-Control-Request-Headers': 'content-type, if-none-match' } });
   ok(pre.status === 200 && /PUT/.test(pre.headers.get('access-control-allow-methods')) && (await c.preflight(K, 'https://app.example', 'GET', 'range')).status === 200, 'preflights by the bucket\'s CORS rule');
+  // a link with only its type signed (for a store that refuses the others signed): another size taken, If-None-Match
+  // sent unsigned still honoured; byLink as the relay's start sends one
+  const T = c.putLink('a scene/t.glb', { type: 'model/gltf-binary', size: 4, sign: 'type' });
+  const t1 = await c.byLink('PUT', T.url, T.headers, Buffer.from('glTF, longer')), t2 = await c.byLink('PUT', T.url, T.headers, Buffer.from('glTF'));
+  ok(/X-Amz-SignedHeaders=content-type%3Bhost&/.test(T.url) && JSON.stringify(T.headers) === '{"Content-Type":"model/gltf-binary","If-None-Match":"*"}' && t1.status === 200 && t2.status === 412 && t2.code === 'PreconditionFailed' &&
+    (await c.get('a scene/t.glb')).toString() === 'glTF, longer', 'sign: type: only its type signed (another size taken), If-None-Match sent all the same (412 the second time); byLink');
+  S3.quirks.refuseSigned = ['content-length'];
+  const R = c.putLink('a scene/r.glb', { type: 'model/gltf-binary', size: 4 });
+  ok((await c.byLink('PUT', R.url, R.headers, Buffer.from('glTF'))).status === 403 && (await c.byLink('PUT', c.putLink('a scene/r.glb', { type: 'model/gltf-binary', size: 4, sign: 'type' }).url, R.headers, Buffer.from('glTF'))).status === 200,
+    'a store that refuses a signed length (the stand-in told to): the full link 403, the type-only one taken');
+  S3.quirks = {};
+  // one there answered 409 (as R2 has been seen to): exists, as 412; a PUT that landed with its answer lost, tried again:
+  // 412 then, and the object there is this one (its MD5): it went in
+  S3.quirks.conflict409 = true;
+  ok((await c.put(K, Buffer.from('y'), { ifNoneMatch: true })).exists === true && (await c.get(K)).equals(body), 'If-None-Match: * answered 409 BlobAlreadyExists: exists, unchanged');
+  S3.quirks = {};
+  let drops = 0;
+  S3.quirks.dropReply = (m, key) => m === 'PUT' && key === 'a scene/lost.glb' && drops++ === 0;
+  const lost = crypto.randomBytes(3000), lp = await c.put('a scene/lost.glb', lost, { ifNoneMatch: true });
+  S3.quirks.dropReply = (m, key) => m === 'PUT' && key === 'a scene/lost2.glb' && drops++ === 1;
+  const tmp = path.join(os.tmpdir(), 'r2test-' + crypto.randomBytes(4).toString('hex')), lost2 = crypto.randomBytes(2000);
+  fs.writeFileSync(tmp, lost2);
+  let lp2;
+  try { lp2 = await c.put('a scene/lost2.glb', { path: tmp, size: lost2.length }, { ifNoneMatch: true }); } finally { fs.rmSync(tmp, { force: true }); }
+  const md5 = b => crypto.createHash('md5').update(b).digest('hex');
+  ok(drops === 2 && !lp.exists && lp.etag === md5(lost) && (await c.get('a scene/lost.glb')).equals(lost) && !lp2.exists && lp2.etag === md5(lost2),
+    'a PUT stored with its answer lost: tried again (412), and taken as this one by its MD5 (a Buffer, a file)');
+  S3.quirks = {};
+  ok((await c.put('a scene/lost.glb', Buffer.from('other'), { ifNoneMatch: true })).exists === true, 'a first try refused (another file there): exists');
   ok(S3.requests.every(q => !JSON.stringify(q.headers).includes('test-secret-made-up') && !q.url.includes('test-secret-made-up')), 'the secret never sent');
 } finally { await S3.close(); }
 

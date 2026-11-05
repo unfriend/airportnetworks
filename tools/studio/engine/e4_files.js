@@ -34,12 +34,13 @@ const srcKey = () => (SRC.kind === 'relay' ? SRC.base : SRC.kind === 'folder' ? 
 const encPath = p => String(p).split('/').map(encodeURIComponent).join('/');
 const sceneUrl = name => (SRC.kind === 'relay' ? `${SRC.base}/scenes/${encodeURIComponent(name)}/` : `${SRC.folder}/${encodeURIComponent(name)}/`);
 // a file of the open scene: its address with its version (its time: a changed file is a new address, so no cache
-// keeps the old one), and the relay's password in it (never as a header: a relay that keeps its scenes in R2 sends the
-// page on to the bucket, where a header would be refused); a file in R2 by its own signed link (e7c_direct.js)
+// keeps the old one), and for the loaders and sound elements (which send no header) the relay's password; a file in R2
+// by its own signed link, which needs none (e7c_direct.js: links about to lapse are read again), and one without a link
+// there by an address with the password (its redirect to the bucket would lose a header)
 function fileUrl(p, loader) {
   const f = STU.fileMap.get(p), q = [];
-  if (f && f.url) return f.url;
-  if (SRC.kind === 'relay' && SRC.token) q.push('token=' + encodeURIComponent(SRC.token));
+  if (f && f.url) { if (linksOld()) linksFresh(); return f.url; }
+  if (SRC.kind === 'relay' && SRC.token && (loader || SRC.linkTtl > 0)) q.push('token=' + encodeURIComponent(SRC.token));
   if (f && f.at) q.push('v=' + f.at);
   return sceneUrl(STU.scene) + encPath(p) + (q.length ? '?' + q.join('&') : '');
 }
@@ -55,8 +56,15 @@ async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
   if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
+  // (R2: a file's signed link, read again first when it may have lapsed, and once more after the bucket refused it)
+  const signed = !relay && SRC.linkTtl > 0 && STU.files.some(f => f.url === url);
+  if (signed && !o.again && linksOld()) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   let r;
-  try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
+  try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) {
+    if (signed && !o.again) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
+    throw Object.assign(new Error(signed ? 'the scenes\' storage could not be reached (if it goes on: is the bucket\'s CORS rule in place? The relay\'s start log says)' : 'could not be reached'), { status: 0 });
+  }
+  if (!r.ok && signed && !o.again && r.status === 403) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   if (!r.ok) {
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }

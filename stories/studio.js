@@ -15822,12 +15822,13 @@ const srcKey = () => (SRC.kind === 'relay' ? SRC.base : SRC.kind === 'folder' ? 
 const encPath = p => String(p).split('/').map(encodeURIComponent).join('/');
 const sceneUrl = name => (SRC.kind === 'relay' ? `${SRC.base}/scenes/${encodeURIComponent(name)}/` : `${SRC.folder}/${encodeURIComponent(name)}/`);
 // a file of the open scene: its address with its version (its time: a changed file is a new address, so no cache
-// keeps the old one), and the relay's password in it (never as a header: a relay that keeps its scenes in R2 sends the
-// page on to the bucket, where a header would be refused); a file in R2 by its own signed link (e7c_direct.js)
+// keeps the old one), and for the loaders and sound elements (which send no header) the relay's password; a file in R2
+// by its own signed link, which needs none (e7c_direct.js: links about to lapse are read again), and one without a link
+// there by an address with the password (its redirect to the bucket would lose a header)
 function fileUrl(p, loader) {
   const f = STU.fileMap.get(p), q = [];
-  if (f && f.url) return f.url;
-  if (SRC.kind === 'relay' && SRC.token) q.push('token=' + encodeURIComponent(SRC.token));
+  if (f && f.url) { if (linksOld()) linksFresh(); return f.url; }
+  if (SRC.kind === 'relay' && SRC.token && (loader || SRC.linkTtl > 0)) q.push('token=' + encodeURIComponent(SRC.token));
   if (f && f.at) q.push('v=' + f.at);
   return sceneUrl(STU.scene) + encPath(p) + (q.length ? '?' + q.join('&') : '');
 }
@@ -15843,8 +15844,15 @@ async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
   if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
+  // (R2: a file's signed link, read again first when it may have lapsed, and once more after the bucket refused it)
+  const signed = !relay && SRC.linkTtl > 0 && STU.files.some(f => f.url === url);
+  if (signed && !o.again && linksOld()) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   let r;
-  try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
+  try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) {
+    if (signed && !o.again) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
+    throw Object.assign(new Error(signed ? 'the scenes\' storage could not be reached (if it goes on: is the bucket\'s CORS rule in place? The relay\'s start log says)' : 'could not be reached'), { status: 0 });
+  }
+  if (!r.ok && signed && !o.again && r.status === 403) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   if (!r.ok) {
     let j = null;
     try { j = await r.json(); } catch (e) { /* not JSON */ }
@@ -18560,7 +18568,7 @@ function emitStop(it, drop) {
 // a streamed sound: its element (made once per context) set to the moment it should be at, and played
 function streamStart(it, ctx, F, now) {
   let S = it.st;
-  if (S && S.ctx !== ctx) { streamDrop(it); S = null; }
+  if (S && (S.ctx !== ctx || S.url !== fileUrl(F.path, true))) { streamDrop(it); S = null; }   // (a new context, or R2's link read again)
   const off = emitOffset(it, F.dur || 1, now);
   if (off < 0) { it.ended = true; return; }
   if (!S) {
@@ -18572,8 +18580,11 @@ function streamStart(it, ctx, F, now) {
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
       el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop) it.ended = true; } });
-      el.src = fileUrl(F.path, true);
-      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path };
+      // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
+      el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
+      const url = fileUrl(F.path, true);
+      el.src = url;
+      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path, url };
     } catch (e) { it.ended = true; return; }
   }
   const el = S.el;
@@ -20229,9 +20240,13 @@ function saveFile(data, name, type) {
 const fileApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/file?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
 const soundApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURIComponent(scene)}/sound?path=${encodeURIComponent(p)}${replace ? '&replace=1' : ''}`;
 // one upload, with its progress (an XMLHttpRequest: fetch says nothing of what has gone); the password as a header, a
-// refusal told to the shell once (authHold, as every call)
+// refusal told to the shell once (authHold, as every call). R2: a file straight into the bucket, else through the relay
+// waiting while it is busy (e7c_direct.js)
 function upSend(url, body, onP) {
-  if (SRC.direct && /\/file\?path=/.test(url)) return upDirect(url, body, onP);   // (R2: straight into the bucket, e7c_direct.js)
+  if (SRC.linkTtl > 0 && /\/file\?path=/.test(url)) return upDirect(url, body, onP);
+  return upPost(url, body, onP);
+}
+function upPost(url, body, onP) {
   return new Promise((res, rej) => {
     if (SRC.held) { rej(AUTH_ERR()); return; }
     const x = new XMLHttpRequest();
@@ -20802,39 +20817,90 @@ const UP_ACT = {
 };
 // ============================================================== R2 (direct) ==
 // A relay that keeps its scenes in a Cloudflare R2 bucket (relay/README.md, "Scenes in Cloudflare R2") says so in its list
-// of scenes (direct: true, linkTtl). Its listing of a scene gives each file a signed link, which fileUrl hands the loaders
-// and the sound elements: the page fetches the file straight from the bucket, from its own origin (no password in it: the
-// link is the permission, for that one file, until it lapses). Those links live linkTtl seconds (R2_LINK_TTL, 12 hours by
-// default), so the listing is read again before half of that has passed (linksSoon). An upload goes straight into the
-// bucket too: upSend hands a .../file upload to upDirect, which asks the relay for a signed PUT (.../put, with the file's
-// size: the bucket refuses a body of another size), sends the file there with its progress, and tells the relay it is
-// there (.../done). The relay answers as for an upload through it ({ ok, path, bytes, at }; 409 for a name taken), so
-// the Upload pane, Convert to GLB and the texture buttons work the same either way.
-let linksT = 0;
+// of scenes (linkTtl, and direct: true while the bucket takes its upload links). Its listing of a scene gives each file a
+// signed link, which fileUrl hands the loaders and the sound elements: the page fetches the file straight from the
+// bucket, from its own origin (no password in it: the link is the permission, for that one file, until it lapses). Those
+// links live linkTtl seconds (R2_LINK_TTL, 12 hours by default) from the listing that gave them, so the listing is read
+// again once half of that has passed by the wall clock (a device asleep meanwhile, such as a headset taken off, reads it
+// as it wakes: looked at every minute, when the page shows again, before a file is fetched, and once more after a link
+// the bucket refused: linksFresh, linksAgain). An upload goes straight into the bucket too: upSend hands a .../file
+// upload to upDirect, which asks the relay for a signed PUT (.../put, with the file's size), sends the file there with
+// its progress, and tells the relay it is there (.../done). The relay answers as for an upload through it ({ ok, path,
+// bytes, at }; 409 for a name taken), so the Upload pane, Convert to GLB and the texture buttons work the same either
+// way. Should the bucket refuse the PUT (its CORS rule missing, a signed header it will not take) the file goes through
+// the relay instead, and so does every upload after it on this page (directOff).
+let linksT = 0, linksJob = null, directOff = false;
+const linksAge = () => Date.now() - (SRC.linksAt || 0);
+const linksOld = () => SRC.linkTtl > 0 && STU.files.some(f => f.url) && linksAge() > SRC.linkTtl * 500;
+// the listing just read (no ms) starts the watch over its links' age; ms: look again then
 function linksSoon(ms) {
   unlater(linksT); linksT = 0;
   if (!(SRC.linkTtl > 0)) return;
-  // (a listing that could not be read is asked again a minute later: setFiles, which calls this, did not run)
-  linksT = later(async () => { linksT = 0; await refreshFiles(new Set()); if (!linksT && STU.files.some(f => f.url)) linksSoon(60000); }, ms || Math.max(60, SRC.linkTtl / 2) * 1000);
+  if (!ms) SRC.linksAt = Date.now();
+  linksT = later(() => { linksT = 0; if (linksOld()) linksFresh(); else linksSoon(Math.min(60, SRC.linkTtl / 4) * 1000); }, ms || Math.min(60, SRC.linkTtl / 4) * 1000);
 }
+// the listing read again now (one at a time); a listing that cannot be read is asked again a minute later
+function linksFresh() {
+  if (!linksJob) {
+    linksJob = refreshFiles(new Set()).finally(() => { linksJob = null; if (linksOld()) linksSoon(60000); });
+  }
+  return linksJob;
+}
+// a signed link this page holds: the same file's link after reading the listing again (null: no other one came)
+async function linksAgain(url) {
+  const f = STU.files.find(x => x.url === url);
+  if (!f) return null;
+  await linksFresh();
+  const g = STU.fileMap.get(f.path);
+  return g && g.url && g.url !== url ? g.url : null;
+}
+// (the page shown again after a while: links that lapsed meanwhile read again at once)
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && linksOld()) linksFresh(); });
+
 // one upload straight into the bucket: url is the .../file address upSend was given (its scene, path and replace=1)
-function upDirect(url, body, onP) {
+async function upDirect(url, body, onP) {
+  if (!SRC.direct || directOff) return upVia(url, body, onP);
   const u = new URL(url, location.href), m = /\/api\/scenes\/([^/]+)\/file$/.exec(u.pathname);
-  if (!m || SRC.held) return Promise.reject(SRC.held ? AUTH_ERR() : new Error('not an upload'));
+  if (!m || SRC.held) throw SRC.held ? AUTH_ERR() : new Error('not an upload');
   const q = new URLSearchParams(u.search), size = body ? (body.size !== undefined ? body.size : body.byteLength || 0) : 0;
   const api = what => `${SRC.base}/api/scenes/${m[1]}/${what}?path=${encodeURIComponent(q.get('path') || '')}${q.get('replace') === '1' ? '&replace=1' : ''}&size=${size}`;
-  return getJSON(api('put'), { method: 'POST' })
-    .then(link => new Promise((res, rej) => {
-      const x = new XMLHttpRequest();
-      x.open('PUT', link.url);
-      for (const [k, v] of Object.entries((link && link.headers) || {})) x.setRequestHeader(k, v);
-      if (onP) x.upload.onprogress = e => { if (e.lengthComputable) onP(e.loaded / Math.max(1, e.total)); };
-      // (412: a file of that name came meanwhile, as the relay's 409)
-      x.onload = () => (x.status >= 200 && x.status < 300 ? res() : rej(Object.assign(new Error(x.status === 412 ? 'there is a file by that name' : 'the scenes\' storage refused it (HTTP ' + x.status + ')'), { status: x.status === 412 ? 409 : x.status })));
-      x.onerror = () => rej(Object.assign(new Error('the scenes\' storage could not be reached'), { status: 0 }));
-      x.send(body || null);
-    }))
-    .then(() => getJSON(api('done'), { method: 'POST' }));
+  let link;
+  try { link = await getJSON(api('put'), { method: 'POST' }); } catch (e) {
+    if (e.status !== 501) throw e;
+    return through(url, body, onP, 'the relay gives no upload links now');
+  }
+  const st = await new Promise(res => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', link.url);
+    for (const [k, v] of Object.entries((link && link.headers) || {})) x.setRequestHeader(k, v);
+    if (onP) x.upload.onprogress = e => { if (e.lengthComputable) onP(e.loaded / Math.max(1, e.total)); };
+    x.onload = () => res(x.status);
+    x.onerror = () => res(0);
+    x.send(body || null);
+  });
+  // (412, or 409 as R2 may say: a file of that name came meanwhile, as the relay's 409)
+  if (st === 412 || st === 409) throw Object.assign(new Error('there is a file by that name'), { status: 409 });
+  if (st < 200 || st >= 300) {
+    // (not reached (0: the bucket's CORS rule is the likely cause), or refused (400, 403, 501): through the relay)
+    if (st === 0 || st === 400 || st === 403 || st === 501) return through(url, body, onP, st ? `the bucket refused it (HTTP ${st})` : 'the bucket could not be reached (is its CORS rule in place? the relay\'s start log says)');
+    throw Object.assign(new Error('the scenes\' storage refused it (HTTP ' + st + ')'), { status: st });
+  }
+  return getJSON(api('done'), { method: 'POST' });
+}
+// the upload sent through the relay after the bucket refused it, and every one after it on this page
+function through(url, body, onP, why) {
+  directOff = true;
+  console.warn(`The studio sends its uploads through the relay from now on: ${why}.`);
+  return upVia(url, body, onP);
+}
+// through the relay, waiting while it has as many uploads on their way as it takes at once (429)
+async function upVia(url, body, onP) {
+  for (let k = 0; ; k++) {
+    try { return await upPost(url, body, onP); } catch (e) {
+      if (e.status !== 429 || k > 8) throw e;
+      await new Promise(res => later(res, 1000 * Math.max(2, e.retry || 3)));
+    }
+  }
 }
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side

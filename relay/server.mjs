@@ -41,7 +41,8 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // the studio's scenes (--scenes <dir>; --scenes-readonly: never written); uploads to them (MB), the app /upload sends
   // people to when the relay does not serve it, and ffmpeg for long sounds (its path, off, a conversion's limit in s)
   scenes: '', 'scenes-readonly': false, 'max-upload': 512, app: '', ffmpeg: '', 'no-ffmpeg': false, 'ffmpeg-limit': 180,
-  // --scenes r2: the bucket's settings from the environment (R2_*); --r2-check: check them and the bucket's CORS, then stop
+  // --scenes r2: the bucket's settings from the environment (R2_*); --r2-check: check them, the bucket's CORS and its
+  // upload links, then stop
   'r2-check': false };
 // the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
 // command's flags and RELAY_ARGS over it
@@ -75,7 +76,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --scenes r2      the same, kept in a Cloudflare R2 bucket: its settings only from the environment (R2_ACCOUNT_ID,
                    R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET; optional R2_PREFIX, R2_JURISDICTION, R2_LINK_TTL,
                    R2_POLL, R2_ENDPOINT); pages download and upload the files straight from and to it by signed links
-  --r2-check       with --scenes r2: check the settings, the keys and the bucket's CORS rule, say what is wrong, and stop
+  --r2-check       with --scenes r2: check the settings, the keys, the bucket's CORS rule and upload links, say what is
+                   wrong, and stop
   --scenes-readonly  with --scenes: layouts are never written (the studio offers Download instead), nothing uploaded
   --max-upload <MB>  with --scenes: one uploaded file at most this big (512)
   --ffmpeg <path>  with --scenes: the ffmpeg that makes long sounds MP3 (found on the PATH by itself; --no-ffmpeg: none)
@@ -1227,7 +1229,10 @@ async function saveLayout(req, res, name) {
     log(`scenes: ${name} saved its layout (${r.bytes} bytes)`);
     sceneTold(name, '', async () => r.sig);
     json(res, 200, { ok: true, at: r.at, bytes: r.bytes });
-  } catch (err) { log(`scenes: ${name} could not save its layout (${err.code || err.message})`); json(res, 500, { error: 'cannot write layout.json (' + (err.code || 'error') + ')' }); }
+  } catch (err) {
+    log(`scenes: ${name} could not save its layout (${err instanceof R2Error ? err.message : err.code || err.message})`);
+    if (err instanceof R2Error) json(res, 502, { error: storeSays(err) }); else json(res, 500, { error: 'cannot write layout.json (' + (err.code || 'error') + ')' });
+  }
 }
 async function writeLayout(dir, text) {
   const file = path.join(dir, LAYOUT), hist = path.join(dir, '.history');
@@ -1628,6 +1633,7 @@ const RX = R2C ? new R2(R2C) : null;
 const okey = (name, rel = '') => R2C.prefix + name + '/' + rel;
 const RC = { all: null, at: 0, gen: 0, job: null, jobGen: -1, warned: false, hist: '' };
 const R2_KEEP = 2000, R2_LIMIT = 50000, PUT_TTL = 3600;
+const UPR = { running: 0 }, UPR_MAX = 3;   // uploads through the relay at once (R2: each held in a temporary folder)
 const sigR2 = o => `${o.size}:${o.at}:${o.etag}`;
 async function r2All(fresh) {
   if (!fresh && RC.all && Date.now() - RC.at < R2_KEEP) return RC.all;
@@ -1669,7 +1675,7 @@ const r2Store = {
     return (await RX.list(okey(name), { max: 1 })).keys.length ? name : '';
   },
   send: r2Send, writeLayout: r2WriteLayout, make: r2Make,
-  says: one => (one ? { linkTtl: R2C.ttl } : { store: 'r2', direct: SAVE, linkTtl: R2C.ttl }),
+  says: one => (one ? { linkTtl: R2C.ttl } : { store: 'r2', direct: SAVE && DIRECT.sign !== 'off', linkTtl: R2C.ttl }),
 };
 const KEPT = R2C ? r2Store : folderStore;
 
@@ -1685,20 +1691,26 @@ async function r2Send(req, res, segs) {
   res.writeHead(302, { Location: RX.getLink(okey(name, rel), { at: f.at }), 'Cache-Control': 'no-store', 'Content-Length': 0 });
   res.end();
 }
-// a layout saved into the bucket: the old one copied into .history/ first (the newest 20 kept), then layout.json put whole
-// (an object lands whole: never half written)
+// a layout saved into the bucket: the old one copied into .history/ first (unless the newest copy there is it already: a
+// save that failed after copying, tried again, adds none), then layout.json put whole (an object lands whole: never half
+// written), and only once that went in the oldest copies past 20 deleted (a save that keeps failing never costs history)
 async function r2WriteLayout(name, text) {
   const key = okey(name, LAYOUT), old = await RX.stat(key);
+  let kept = [];
   if (old) {
-    let h = okey(name, `.history/layout-${new Date().toISOString().replace(/:/g, '-')}.json`);
-    if (h === RC.hist) { await new Promise(r => setTimeout(r, 2)); h = okey(name, `.history/layout-${new Date().toISOString().replace(/:/g, '-')}.json`); }
-    RC.hist = h;
-    await RX.copy(key, h);
-    const kept = (await RX.listAll(okey(name, '.history/'))).keys.map(o => o.key).filter(k => /\/\.history\/layout-[^/]+\.json$/.test(k)).sort();
-    if (kept.length > HISTORY) await RX.delMany(kept.slice(0, kept.length - HISTORY));
+    kept = (await RX.listAll(okey(name, '.history/'))).keys.filter(o => /\/\.history\/layout-[^/]+\.json$/.test(o.key)).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const last = kept[kept.length - 1];
+    if (!last || last.etag !== old.etag || last.size !== old.size) {
+      let h = okey(name, `.history/layout-${new Date().toISOString().replace(/:/g, '-')}.json`);
+      if (h === RC.hist) { await new Promise(r => setTimeout(r, 2)); h = okey(name, `.history/layout-${new Date().toISOString().replace(/:/g, '-')}.json`); }
+      RC.hist = h;
+      await RX.copy(key, h);
+      kept.push({ key: h });
+    }
   }
   await RX.put(key, Buffer.from(text), { type: 'application/json' });
   r2Forget();
+  if (kept.length > HISTORY) await RX.delMany(kept.slice(0, kept.length - HISTORY).map(o => o.key)).catch(err => log(`scenes: ${name}: the oldest layouts in .history/ stay for now (${err.message})`));
   const st = await RX.stat(key);
   return { at: st ? st.at : Date.now(), bytes: st ? st.size : Buffer.byteLength(text), sig: st ? sigR2(st) : '' };
 }
@@ -1741,12 +1753,17 @@ async function r2Upload(req, res, url, name, want, sound) {
     if (src.size > MAX_UPLOAD) return no(413, TOO_BIG);
   } else if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
   if (sound && FF.running >= FF_MAX) return answerEarly(req, res, 429, { error: `${FF_MAX} sounds are being made already: try again in a few seconds`, retry: 5 }, { 'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After' });
+  // (each upload through the relay is held whole in its temporary folder before it goes into the bucket: a few at once,
+  // so the container's disk is never filled by them; pages send most files straight into the bucket anyway)
+  if (UPR.running >= UPR_MAX) return answerEarly(req, res, 429, { error: `${UPR_MAX} uploads are on their way through the relay already: try again in a few seconds`, retry: 5 }, { 'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After' });
   if (sound) FF.running++;
+  UPR.running++;
   let tmp = '', answer = null;
   try {
     tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'relay-r2-'));
     answer = await r2UploadJob(req, { name, want, replace, there: L.rels.has(want.rel), sound, src, tmp });
   } finally {
+    UPR.running--;
     if (sound) FF.running--;
     if (tmp) await fs.promises.rm(tmp, { recursive: true, force: true }).catch(() => {});
   }
@@ -1795,15 +1812,21 @@ async function r2UploadJob(req, { name, want, replace, there, sound, src, tmp })
 
 // POST /api/scenes/<name>/put?path=&size=[&replace=1] (R2): a signed link for the page to upload that file straight into
 // the bucket, after the same checks as an upload through the relay: { url, headers, path, expires } (a PUT with exactly
-// those headers and a body of that size: its type, length and, unless replace=1, If-None-Match: * are signed). POST
-// .../done?path=[&size=]: the page says it has; the relay looks (there, of the size said, within --max-upload: else 400,
-// or 413 and it is removed), tells the watchers at once and answers as an upload does ({ ok, path, bytes, at })
-const PENDING = new Map();   // the links given (key -> { size, at }) for an hour, for a done without a size
+// those headers and a body of that size: its type, length and, unless replace=1, If-None-Match: * signed; or only its
+// type, when the bucket refused the others signed at the start: DIRECT). POST .../done?path=[&size=]: the page says it
+// has; the relay looks (there, of the size said, within --max-upload: else 400, or 413), tells the watchers at once and
+// answers as an upload does ({ ok, path, bytes, at }). An object past --max-upload is removed only when it came by a link
+// this relay gave for it, signed without its length (else it is left: it came another way, such as r2sync)
+const PENDING = new Map();   // the links given (key -> { size, at, sign }) for an hour
+// what the bucket does with the upload links (tried at the start: r2PutCheck): sign 'all' (type, length, If-None-Match),
+// 'type' (the type alone), 'off' (it refused both: pages send their files through the relay); said: the line it logged
+const DIRECT = { sign: 'all', said: '', inm: true };
 async function direct(req, res, url, name, what) {
   req.resume();   // (no body is wanted)
   const no = (status, error) => json(res, status, { error });
   if (!R2C) return no(501, 'uploads straight into the storage are for scenes kept in R2 (--scenes r2): send the file to .../file here');
   if (!SAVE) return no(403, NO_SAVE);
+  if (what === 'put' && DIRECT.sign === 'off') return no(501, 'the bucket refused this relay\'s upload links when it started: send the file to .../file here');
   if (!(await KEPT.where(name))) return no(404, 'no such scene');
   const want = uploadPath(url.searchParams.get('path'));
   if (want.error) return no(400, want.error);
@@ -1814,16 +1837,21 @@ async function direct(req, res, url, name, what) {
     if (size > MAX_UPLOAD) return no(413, TOO_BIG);
     const replace = url.searchParams.get('replace') === '1', stop = r2InTheWay(await r2Listing(name), want, replace);
     if (stop) return no(...stop);
-    const link = RX.putLink(key, { type: typeOf(want.rel), size, replace, expires: PUT_TTL }), now = Date.now();
+    const sign = DIRECT.sign === 'type' ? 'type' : 'all', link = RX.putLink(key, { type: typeOf(want.rel), size, replace, expires: PUT_TTL, sign }), now = Date.now();
     for (const [k, v] of PENDING) if (now - v.at > PUT_TTL * 1000 || PENDING.size > 10000) PENDING.delete(k);
-    PENDING.set(key, { size, at: now });
+    PENDING.set(key, { size, at: now, sign });
     return json(res, 200, { url: link.url, headers: link.headers, path: want.rel, expires: PUT_TTL });
   }
-  const st = await RX.stat(key), said = size !== null ? size : PENDING.get(key)?.size;
+  const st = await RX.stat(key), pend = PENDING.get(key), said = size !== null ? size : pend?.size;
   if (!st) return no(400, `nothing came to ${want.rel}`);
   if (st.size > MAX_UPLOAD) {
-    await RX.del(key); r2Forget();
-    log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket: more than --max-upload)`);
+    // (by a link of ours: given for this path within the hour, the object put since (R2's clock a little off allowed),
+    // its length not signed. A link with its length signed never lands a body past --max-upload: such an object came
+    // another way, and is not the relay's to remove)
+    if (pend && pend.sign === 'type' && st.at >= pend.at - 120000 && Date.now() - pend.at <= PUT_TTL * 1000) {
+      await RX.del(key); r2Forget(); PENDING.delete(key);
+      log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket by its link: more than --max-upload)`);
+    } else log(`scenes: ${name}: ${want.rel} in the bucket is ${mb(st.size)}, more than --max-upload: left there (it did not come by a link of this relay's)`);
     return no(413, TOO_BIG);
   }
   if (said !== undefined && st.size !== said) return no(400, `${want.rel} holds ${st.size} bytes, not the ${said} said`);
@@ -1833,8 +1861,13 @@ async function direct(req, res, url, name, what) {
   json(res, 200, { ok: true, path: want.rel, bytes: st.size, at: st.at });
 }
 
-// the start with R2: the keys must list the bucket (else the relay says what is wrong and stops); --r2-check also checks
-// the bucket's CORS rule and stops there
+// the start with R2: the keys must list the bucket. Settings that cannot work (keys refused, no such bucket, no such
+// address) stop it, saying what is wrong; a bucket that does not answer now (a 5xx, too many requests, no answer: R2 or
+// the way to it away for a moment) does not: the relay starts (its rooms never need the bucket), the scenes answer 502
+// until the bucket answers, and it is asked again in the background (R2UP), then checked as at a start. --r2-check also
+// checks the bucket's CORS rule and its upload links, and stops there
+const R2UP = { ok: false, t: 0, n: 0 };
+const r2Passing = err => !(err instanceof R2Error) || (!err.status ? err.code !== 'ENOTFOUND' : err.status >= 500 || err.status === 408 || err.status === 429);
 const r2Refused = err => {
   const b = R2C.bucket, code = err.code ? ' ' + err.code : '';
   if (!err.status) return `--scenes r2: could not reach ${R2C.host} (${err.code || 'no answer'}): check R2_ACCOUNT_ID (and R2_JURISDICTION for a bucket made in a jurisdiction), and that this machine reaches the internet`;
@@ -1843,12 +1876,66 @@ const r2Refused = err => {
   return `--scenes r2: the bucket ${b} answered ${err.status}${code}: try again in a moment`;
 };
 async function r2Ready() {
-  try { await RX.list(R2C.prefix, { max: 1 }); } catch (err) { console.log(r2Refused(err)); process.exit(1); }
+  try { await RX.list(R2C.prefix, { max: 1 }); R2UP.ok = true; } catch (err) {
+    if (OPT['r2-check'] || !r2Passing(err)) { console.log(r2Refused(err)); process.exit(1); }
+    console.log(r2Refused(err).replace(/: try again in a moment$/, '') + `\n--scenes r2: the relay starts all the same (its rooms do not need the bucket): the scenes answer 502 until the bucket answers, and it is asked again every 30 s`);
+    r2Again();
+    return;
+  }
   if (!OPT['r2-check']) return;
   console.log(`--r2-check: the keys may list the bucket ${R2C.bucket}${R2C.prefix ? ' (under ' + R2C.prefix + ')' : ''} at ${R2C.host}`);
-  const ok = await r2CorsCheck();
-  console.log(ok ? '--r2-check: all is well' : '--r2-check: see above');
-  process.exit(ok ? 0 : 1);
+  const ok = await r2CorsCheck(), ok2 = await r2PutCheck();
+  console.log(ok && ok2 ? '--r2-check: all is well' : '--r2-check: see above');
+  process.exit(ok && ok2 ? 0 : 1);
+}
+// the bucket asked again until it answers (after 5 s, then every 30 s; R2_RETRY seconds for the tests), then its CORS
+// rule and upload links checked as at a start; settings it refuses then are said and the asking stops
+function r2Again() {
+  clearTimeout(R2UP.t);
+  R2UP.t = setTimeout(async () => {
+    try { await RX.list(R2C.prefix, { max: 1 }); } catch (err) {
+      if (!r2Passing(err)) { log(r2Refused(err)); return; }
+      if (++R2UP.n === 1 || R2UP.n % 10 === 0) log(`scenes: the bucket ${R2C.bucket} still does not answer (${err.status ? err.status + (err.code ? ' ' + err.code : '') : err.code || 'no answer'}): asked again every 30 s`);
+      return r2Again();
+    }
+    R2UP.ok = true;
+    log(`scenes: the bucket ${R2C.bucket} answers now`);
+    r2Checks().catch(err => log('scenes: ' + err.message));
+  }, (R2UP.n ? 30 : 5) * 1000 * (+process.env.R2_RETRY > 0 ? +process.env.R2_RETRY / 30 : 1));
+  R2UP.t.unref?.();
+}
+const r2Checks = async () => { await r2CorsCheck(); await r2PutCheck(); };
+// what the bucket says to an upload link as the pages get one, tried on a hidden object at the top of the prefix (removed
+// again): a PUT with its type, length and If-None-Match: * signed, then the same again (refused: one is there). Taken:
+// the pages' links are so (DIRECT.sign 'all'). Refused (403, 400: a store that will not take those headers signed): a
+// link with only its type signed, as Cloudflare's own documents show ('type'; the relay then checks each upload's size
+// when told it is there). Both refused: pages send their files through the relay ('off'). A second PUT taken means the
+// bucket ignores If-None-Match (said: two uploads of one new name at the same moment could then overwrite each other).
+// No answer: left as it was. With --scenes-readonly there are no uploads to check. True when the pages' links work
+// (If-None-Match ignored is said, not counted: only two uploads of one name at one moment could meet it)
+async function r2PutCheck() {
+  if (!SAVE) return true;
+  const key = R2C.prefix + '.put-check-' + crypto.randomBytes(5).toString('hex'), body = Buffer.from('studio upload check'), type = 'application/octet-stream';
+  const tryLink = async sign => {
+    const l = RX.putLink(key, { type, size: body.length, sign, expires: 300 });
+    const a = await RX.byLink('PUT', l.url, l.headers, body);
+    const b = a.status >= 200 && a.status < 300 ? await RX.byLink('PUT', l.url, l.headers, body) : null;
+    return { a, b };
+  };
+  let r = await tryLink('all'), sign = 'all';
+  if (r.a.status === 403 || r.a.status === 400) { sign = 'type'; r = await tryLink('type'); }
+  await RX.del(key).catch(() => {});
+  const took = r.a.status >= 200 && r.a.status < 300, how = x => (x.status ? x.status + (x.code ? ' ' + x.code : '') : x.code || 'no answer');
+  let said;
+  if (!r.a.status || r.a.status >= 500) { said = `R2 upload links: not checked (the bucket answered ${how(r.a)}): pages upload straight into it, and through the relay if it refuses them`; }
+  else if (!took) { DIRECT.sign = 'off'; said = `R2 upload links: the bucket refused them (${how(r.a)}), even with only their type signed: pages send their files through the relay (each held in a temporary folder on the way)`; }
+  else {
+    DIRECT.sign = sign; DIRECT.inm = !(r.b && r.b.status >= 200 && r.b.status < 300);
+    said = `R2 upload links: ${sign === 'all' ? 'taken with their type, length and If-None-Match signed' : 'taken with only their type signed (the bucket refused their length and If-None-Match signed): the relay checks each upload\'s size when the page says it is there'}` +
+      (DIRECT.inm ? `; a second upload to the same new name refused (${how(r.b)})` : '; the bucket did NOT refuse a second upload to the same new name (If-None-Match ignored): two uploads of one new name at the same moment could overwrite each other');
+  }
+  if (said !== DIRECT.said) { DIRECT.said = said; console.log(said); }
+  return took;
 }
 // the bucket's CORS rule as a browser meets it: preflights (unsigned: any keys may ask) for a page at the app's origin that
 // downloads with a range and uploads, and for one sent through the relay's redirect from another origin (Origin: null);
@@ -1927,7 +2014,7 @@ server.listen(OPT.port, OPT.host, () => {
     (R2C ? `; pages fetch the files straight from the bucket by signed links (each lives ${+(R2C.ttl / 3600).toFixed(2)} h)` + (SAVE ? ' and upload big ones straight into it' : '') : '') +
     (TOKEN ? '; they need the password' : '') +
     (SAVE ? `\nUploads (the studio's Upload pane, at /upload): files up to ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB; ` +
-      (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C ? r2CorsCheck() : null))
+      (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C && R2UP.ok ? r2Checks() : null))
     .catch(err => log('scenes: ' + err.message));
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +

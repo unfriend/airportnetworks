@@ -72,11 +72,16 @@ Cloudflare R2"): the same endpoints, rules and answers, plus `store: 'r2'`, `dir
 and a signed link, `url`, for each file in `GET /api/scenes/<name>` (with `linkTtl`, its life in seconds, 12 hours by
 default). The page keeps each file's `url` (`setFiles`) and `fileUrl` gives it, so every file (models, textures,
 sounds, a streamed sound's element, the converter's reads) comes straight from the bucket, from the page's own origin,
-with no password in it; the listing is read again before half of `linkTtl` has passed (`linksSoon`,
-`engine/e7c_direct.js`). With `direct`, an upload to `.../file` (the Upload pane, Convert to GLB, the texture buttons:
+with no password in it; the listing is read again once half of `linkTtl` has passed by the wall clock (looked at every
+minute, `linksSoon`; when the page shows again; by `fileUrl` and before `call` fetches a signed link: `linksFresh`), and
+once more when the bucket refuses a link (403 or no answer: `call` reads the listing and fetches the file again by its
+new link, `linksAgain`; a streamed sound's element that fails is made again 2 s later), so a device that slept past its
+links (a headset taken off for the night) gets new ones as it wakes (`engine/e7c_direct.js`). With `direct`, an upload to `.../file` (the Upload pane, Convert to GLB, the texture buttons:
 `upSend`) goes straight into the bucket instead (`upDirect`: `POST .../put?path=&size=[&replace=1]` gives `{ url,
 headers }`, a PUT there with exactly those headers and its progress, then `POST .../done?path=&size=`; the answers as an
-upload's: `{ ok, path, bytes, at }`, 409 for a name taken), and a long sound for the relay's `ffmpeg` is sent as its
+upload's: `{ ok, path, bytes, at }`, 409 for a name taken; a PUT the bucket refuses (no answer, as with no CORS rule,
+or 400, 403, 501), or `.../put` answering 501, sends that file through the relay instead, and every one after it on
+this page, `directOff`; through the relay an upload waits while the relay answers 429, `upVia`), and a long sound for the relay's `ffmpeg` is sent as its
 original first (into `originals/`, straight into the bucket), then made MP3 from it there (`.../sound?from=<path>`).
 `GET /scenes/<name>/<path>` still works (a 302 to a signed link) for plain links and older studios.
 
@@ -94,9 +99,10 @@ trailing slash: the relay the page knows, else the page's own server when `detec
 `HOST.collab.relaySaw(base, status, sent)` tells the shell what a call answered (`authSaw`), so a 401 brings up the
 shell's own password prompts (the page's Shared dialog field, the headset menu's *Relay password* row) and the studio
 says *This relay needs its password: enter it under Shared (or in the menu's Circles tab)*. Files are fetched with the
-password: every scene file with `?token=` in its address (the loaders through their `LoadingManager`'s
-`setURLModifier`, sounds, the converter's fetches; v114: never as a header, which a browser drops after a redirect to
-another origin), the API's JSON with `Authorization: Bearer`. A changed file (the watch's `scene` event) is fetched
+password: the loaders (through their `LoadingManager`'s `setURLModifier`) and sound elements, which cannot send a
+header, with `?token=` in a file's address, every other fetch (the converter's, a GLB's record, decoded sounds) and the
+API's JSON with `Authorization: Bearer`; a file of an R2 relay by its signed link, which needs no password (one without
+a link there by `?token=`, since a header is dropped after the redirect to another origin). A changed file (the watch's `scene` event) is fetched
 again and its items rebuilt in place;
 a new file appears in the Add lists; `layout` from another device's save updates *Saved* (it never replaces what is
 placed by itself).

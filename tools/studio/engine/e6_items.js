@@ -713,7 +713,7 @@ function emitStop(it, drop) {
 // a streamed sound: its element (made once per context) set to the moment it should be at, and played
 function streamStart(it, ctx, F, now) {
   let S = it.st;
-  if (S && S.ctx !== ctx) { streamDrop(it); S = null; }
+  if (S && (S.ctx !== ctx || S.url !== fileUrl(F.path, true))) { streamDrop(it); S = null; }   // (a new context, or R2's link read again)
   const off = emitOffset(it, F.dur || 1, now);
   if (off < 0) { it.ended = true; return; }
   if (!S) {
@@ -725,8 +725,11 @@ function streamStart(it, ctx, F, now) {
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
       el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop) it.ended = true; } });
-      el.src = fileUrl(F.path, true);
-      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path };
+      // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
+      el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
+      const url = fileUrl(F.path, true);
+      el.src = url;
+      S = it.st = { el, node, gain: g, pan: p, ctx, file: F.path, url };
     } catch (e) { it.ended = true; return; }
   }
   const el = S.el;

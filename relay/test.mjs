@@ -1815,7 +1815,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
     let out = '', code = 0;
     try { out = execFileSync(process.execPath, [path.join(HERE, 'test-r2.mjs')], { encoding: 'utf8', timeout: 60000 }); } catch (err) { code = err.status; out = String(err.stdout); }
     const m = /(\d+) checks passed, (\d+) failed/.exec(out);
-    ok(code === 0 && m && +m[1] >= 30 && m[2] === '0', 'relay/test-r2.mjs: ' + (m ? m[0] : out.slice(-300)));
+    ok(code === 0 && m && +m[1] >= 36 && m[2] === '0', 'relay/test-r2.mjs: ' + (m ? m[0] : out.slice(-300)));
   });
   const { startFake, STUDIO_CORS } = await import('./s3fake.mjs');
   const { typeOf } = await import('./scenes.mjs');
@@ -1841,6 +1841,8 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok(await said(/Scenes for the studio \(#studio\) from the R2 bucket scenes, under studio\/: 3 \(alpha, beta, with space\); the studio saves their layouts there/) &&
       await said(/R2 CORS \(as a page at https:\/\/stories\.lbi-netmed\.com meets it\): download with a range yes, upload yes; a page sent there by the relay's redirect from another origin \(Origin: null\) yes; it exposes ETag/),
       'the start lines: the bucket, its scenes, and its CORS rule as a page meets it');
+    ok(await said(/R2 upload links: taken with their type, length and If-None-Match signed; a second upload to the same new name refused \(412 PreconditionFailed\)/) &&
+      !S3.keys().some(k => k.includes('.put-check-')), 'the start tries an upload link as a page gets one (and again: refused), and removes what it put');
     ok((await rget('/api/ping')).json().scenes === true, '/api/ping: scenes: true');
     const l = (await rget('/api/scenes')).json();
     ok(l.scenes.map(s => s.name).join('|') === 'alpha|beta|with space' && l.store === 'r2' && l.direct === true && l.linkTtl === 43200 && l.save === true && l.upload === true,
@@ -2002,7 +2004,8 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok((await api('done', 'path=odd.glb&size=4')).status === 400, 'done with another size than the bucket holds: 400');
     seed('new one/huge.bin', bytes(MB + 10));
     const hg = await api('done', 'path=huge.bin');
-    ok(hg.status === 413 && !obj('new one/huge.bin'), 'done for an object over --max-upload: 413, and it is removed');
+    ok(hg.status === 413 && !!obj('new one/huge.bin') && /huge\.bin in the bucket is .*left there \(it did not come by a link of this relay's\)/.test(RR.out),
+      'done for an object over --max-upload that no link of the relay\'s brought (put another way, such as r2sync): 413, and it is left there');
     ok((await req('POST', '/api/scenes/one/put?path=x.glb&size=1', { at: UP.port })).status === 501 && (await req('GET', '/api/scenes/new%20one/put?path=x.glb&size=1', { at: RR.port })).status === 405,
       'a relay whose scenes are a folder: 501; GET: 405');
     ok(noLeak(RR.out) && !(await req('POST', '/api/scenes/new%20one/put?path=..%2Fx&size=1', { at: RR.port })).text.includes('X-Amz'), 'no signed link in the log or in an error');
@@ -2050,19 +2053,99 @@ if (me === 'hang') setInterval(() => {}, 1000);
       startFails(['--scenes', 'r2'], { ...env0, R2_SECRET_ACCESS_KEY: 'SHOULDNOTSHOW' }),
       startFails(['--scenes', 'r2'], { ...R2ENV, R2_SECRET_ACCESS_KEY: 'not-the-secret-SHOULDNOTSHOW' }),
       startFails(['--scenes', 'r2'], { ...R2ENV, R2_BUCKET: 'other-bucket' }),
-      startFails(['--scenes', 'r2'], { ...R2ENV, R2_ENDPOINT: 'http://127.0.0.1:9' }),
+      startFails(['--scenes', 'r2'], { ...R2ENV, R2_ENDPOINT: 'https://nowhere.invalid' }),
       startFails(['--scenes', 'r2', '--public'], R2ENV),
       startFails(['--scenes', 'r2', '--r2-check'], R2ENV),
       startFails(['--r2-check'], {})]);
     ok(miss.code === 1 && /--scenes r2: missing R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_BUCKET in the environment/.test(miss.out) && !miss.out.includes('SHOULDNOTSHOW'), 'missing settings: refused, each named, no value shown: ' + miss.out.trim().slice(0, 160));
     ok(wrongKey.code === 1 && /R2 refused the keys \(403 SignatureDoesNotMatch\)/.test(wrongKey.out) && !wrongKey.out.includes('SHOULDNOTSHOW') && wrongBucket.code === 1 && /there is no bucket other-bucket/.test(wrongBucket.out) &&
-      away.code === 1 && /could not reach 127\.0\.0\.1:9/.test(away.out) && [wrongKey, wrongBucket, away].every(x => !/listening/.test(x.out)), 'a wrong secret, a bucket that is not there, no answer: refused before listening, saying which');
+      away.code === 1 && /could not reach nowhere\.invalid \(ENOTFOUND\)/.test(away.out) && [wrongKey, wrongBucket, away].every(x => !/listening/.test(x.out)), 'a wrong secret, a bucket that is not there, an address that is no one\'s: refused before listening, saying which');
     ok(pub.code === 1 && /--public with --scenes needs a password/.test(pub.out) && check.code === 0 && /--r2-check: the keys may list the bucket scenes \(under studio\/\)/.test(check.out) && /--r2-check: all is well/.test(check.out) &&
+      /R2 upload links: taken with their type, length and If-None-Match signed/.test(check.out) &&
       nocheck.code === 1 && /--r2-check goes with --scenes r2/.test(nocheck.out), '--public without a password refused; --r2-check: all is well (exit 0); --r2-check alone refused');
     const S3B = await startFake({ bucket: 'scenes', keys: { [R2KEY]: R2SECRET }, cors: [] });
     const bad = await startFails(['--scenes', 'r2', '--r2-check'], { ...R2ENV, R2_ENDPOINT: S3B.url });
     ok(bad.code === 1 && /download with a range NO, upload NO/.test(bad.out) && /the bucket has no CORS rule/.test(bad.out) && /paste the rule in relay\/README\.md/.test(bad.out), '--r2-check on a bucket with no CORS rule: says so (exit 1)');
     await S3B.close();
+  });
+  await step('R2: the start tries an upload link (all signed, only the type, refused, If-None-Match ignored); done removes past --max-upload only what its own link brought; a failed save costs no history; three uploads through the relay at once; a bucket that does not answer at the start', async () => {
+    const SQ = await startFake({ bucket: 'scenes', keys: { [R2KEY]: R2SECRET } }), envQ = { ...R2ENV, R2_ENDPOINT: SQ.url, R2_RETRY: '3' };
+    const sq = rel => SQ.objects.get(PFX + rel), sqKeys = () => SQ.keys().filter(k => !k.includes('.put-check-'));
+    SQ.put(PFX + 'q/a.glb', 'glTF', { type: 'model/gltf-binary' });
+    const waitFor = async (P, re, ms = 6000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(50)) if (re.test(P.out)) return true; return false; };
+    const qapi = (P, what, q) => req('POST', `/api/scenes/q/${what}?${q}`, { at: P.port });
+    // the bucket refuses a signed length: links with only their type signed; the size checked at done; one past
+    // --max-upload that its own link brought removed
+    SQ.quirks = { refuseSigned: ['content-length'] };
+    const QT = await start(['--scenes', 'r2', '--max-upload', '1'], envQ);
+    ok(await waitFor(QT, /R2 upload links: taken with only their type signed \(the bucket refused their length and If-None-Match signed\).*; a second upload to the same new name refused \(412/) &&
+      (await req('GET', '/api/scenes', { at: QT.port })).json().direct === true, 'a store that refuses a signed length: the start says links go with only their type signed (If-None-Match still honoured); direct uploads on');
+    const t = (await qapi(QT, 'put', 'path=t.glb&size=4')).json();
+    const tp = await fetch(t.url, { method: 'PUT', headers: t.headers, body: 'glTF' }), td = await qapi(QT, 'done', 'path=t.glb&size=4');
+    ok(/X-Amz-SignedHeaders=content-type%3Bhost&/.test(t.url) && tp.status === 200 && td.status === 200 && sq('q/t.glb').body.toString() === 'glTF', 'its link (type signed) taken, done: 200');
+    const b = (await qapi(QT, 'put', 'path=big.bin&size=10')).json();
+    const bp = await fetch(b.url, { method: 'PUT', headers: b.headers, body: bytes(MB + 10) }), bd = await qapi(QT, 'done', 'path=big.bin&size=10');
+    ok(bp.status === 200 && bd.status === 413 && !sq('q/big.bin') && /removed big\.bin \(.* came straight into the bucket by its link: more than --max-upload\)/.test(QT.out),
+      'a body past --max-upload through its own link (its length not signed): done 413, and it is removed');
+    const w = (await qapi(QT, 'put', 'path=w.glb&size=4')).json(), wp = await fetch(w.url, { method: 'PUT', headers: w.headers, body: 'glTF+' }), wd = await qapi(QT, 'done', 'path=w.glb&size=4');
+    ok(wp.status === 200 && wd.status === 400 && /holds 5 bytes, not the 4 said/.test(wd.json().error), 'another size than said (not signed, so taken by the bucket): done 400');
+    // a save that fails after the old layout went into .history/ costs nothing more each time it is tried again
+    SQ.put(PFX + 'q/layout.json', JSON.stringify({ studio: 1, scene: 'q', objects: [] }), { type: 'application/json' });
+    const hq = () => SQ.keys().filter(k => k.startsWith(PFX + 'q/.history/')).length, saveQ = n => req('POST', '/api/scenes/q/layout', { at: QT.port, body: { studio: 1, scene: 'q', n, objects: [] } });
+    SQ.quirks.fail = (m, key) => (m === 'PUT' && key === PFX + 'q/layout.json' ? 500 : 0);
+    const f1 = await saveQ(1), h1 = hq(), f2 = await saveQ(2), f3 = await saveQ(3);
+    ok(f1.status === 502 && /storage \(R2\) answered 500/.test(f1.json().error) && h1 === 1 && f2.status === 502 && f3.status === 502 && hq() === 1 && !('n' in JSON.parse(sq('q/layout.json').body)),
+      `layout.json refused by the bucket: 502, the old one kept in .history/ once, not again on each try (${h1}, ${hq()})`);
+    SQ.quirks.fail = null;
+    const s4 = await saveQ(4), h4 = hq(), n4 = JSON.parse(sq('q/layout.json').body).n, s5 = await saveQ(5);
+    ok(s4.status === 200 && h4 === 1 && n4 === 4 && s5.status === 200 && hq() === 2, 'then it goes in (the copy already there: none more); the next save copies as ever');
+    // three uploads through the relay at once, a fourth told to wait (429, Retry-After); the first three cut, then one goes
+    const held = [];
+    for (let i = 0; i < 3; i++) {
+      const so = net.connect(QT.port, '127.0.0.1');
+      await new Promise(x => so.once('connect', x));
+      so.write(`POST /api/scenes/q/file?path=hold${i}.bin HTTP/1.1\r\nHost: x\r\nContent-Length: 500000\r\n\r\n`); so.write(bytes(1000));
+      held.push(so);
+    }
+    await sleep(700);
+    const busy = await send(QT.port, '/api/scenes/q/file?path=four.bin', bytes(100));
+    ok(busy.status === 429 && busy.headers['retry-after'] === '5' && /3 uploads are on their way through the relay already/.test(busy.json().error) && !sq('q/four.bin'), 'a fourth upload through the relay at once: 429 with Retry-After');
+    for (const so of held) so.destroy();
+    await sleep(600);
+    ok((await send(QT.port, '/api/scenes/q/file?path=four.bin', bytes(100))).status === 200 && !!sq('q/four.bin'), 'once those went: taken');
+    QT.kill();
+    // done for an object it never gave a link for, past --max-upload: left there
+    SQ.quirks = {};
+    // both refused: no upload links (direct false, .../put 501); If-None-Match ignored: said
+    SQ.quirks = { refuseSigned: ['content-type'] };
+    const QO = await start(['--scenes', 'r2', '--quiet'], envQ);
+    ok(await waitFor(QO, /R2 upload links: the bucket refused them \(403 SignatureDoesNotMatch\), even with only their type signed: pages send their files through the relay/) &&
+      (await req('GET', '/api/scenes', { at: QO.port })).json().direct === false && (await qapi(QO, 'put', 'path=x.glb&size=1')).status === 501, 'a store that refuses both: direct false, .../put 501, pages send files through the relay');
+    QO.kill();
+    SQ.quirks = { ignoreIfNoneMatch: true };
+    const QI = await start(['--scenes', 'r2', '--quiet'], envQ);
+    ok(await waitFor(QI, /the bucket did NOT refuse a second upload to the same new name \(If-None-Match ignored\)/) && (await req('GET', '/api/scenes', { at: QI.port })).json().direct === true, 'If-None-Match ignored: said; direct uploads on');
+    QI.kill();
+    // a bucket that does not answer at the start (a 5xx; nothing at its address): the relay starts all the same, its
+    // rooms work, the scenes answer 502, and it is asked again until it answers
+    SQ.quirks = { fail: () => 503 };
+    const Q5 = await start(['--scenes', 'r2'], envQ);
+    const room5 = await req('POST', '/api/rooms', { at: Q5.port, body: { app: 'networks', version: 'v1' } }), sc5 = await req('GET', '/api/scenes', { at: Q5.port });
+    ok(/the bucket scenes answered 503 InternalError\n--scenes r2: the relay starts all the same/.test(Q5.out) && room5.status === 201 && sc5.status === 502 && /storage \(R2\) answered 503/.test(sc5.json().error),
+      'a 5xx at the start: listening anyway, a room made, the scenes 502');
+    SQ.quirks = {};
+    ok(await waitFor(Q5, /scenes: the bucket scenes answers now/, 8000) && (await req('GET', '/api/scenes', { at: Q5.port })).json().scenes.some(x => x.name === 'q') && await waitFor(Q5, /R2 upload links: taken/),
+      'once it answers: said, the scenes listed, its CORS rule and upload links checked');
+    Q5.kill();
+    const fp = await new Promise(r => { const sv = net.createServer().listen(0, '127.0.0.1', () => { const p = sv.address().port; sv.close(() => r(p)); }); });
+    const QN = await start(['--scenes', 'r2'], { ...envQ, R2_ENDPOINT: 'http://127.0.0.1:' + fp });
+    ok(/could not reach 127\.0\.0\.1:\d+ \(ECONNREFUSED\).*\n--scenes r2: the relay starts all the same/.test(QN.out) && (await req('GET', '/api/scenes', { at: QN.port })).status === 502, 'nothing at its address: listening anyway, the scenes 502');
+    const SN = await startFake({ port: fp, bucket: 'scenes', keys: { [R2KEY]: R2SECRET } });
+    SN.put(PFX + 'n/a.glb', 'glTF');
+    ok(await waitFor(QN, /scenes: the bucket scenes answers now/, 8000) && (await req('GET', '/api/scenes', { at: QN.port })).json().scenes.map(x => x.name).join() === 'n', 'a store there later: found by itself, its scenes listed');
+    QN.kill();
+    await SN.close(); await SQ.close();
+    ok(noLeak(QT.out + QO.out + QI.out + Q5.out + QN.out), 'no secret or signed link in their logs');
   });
   await step('R2: tools/studio/r2sync.mjs: list; pull onto a folder (scan.mjs then lists it as the relay does), again nothing; push what changed (--dry first), --delete, --history; settings refused', async () => {
     // (run as a process of its own, never synchronously: the stand-in answers from this one)
@@ -2102,6 +2185,26 @@ if (me === 'hang') setInterval(() => {}, 1000);
       ok(del.code === 0 && /delete alpha\/data\.bin/.test(del.out) && !obj('alpha/data.bin') && !!obj('alpha/.history/layout-old.json') && !!obj('alpha/files.json'), 'push --delete: removed there; .history/ and what the listing leaves out untouched');
       const h = await sync(['pull', 'alpha', L, '--history']);
       ok(h.code === 0 && fs.existsSync(Lp('alpha', '.history', 'layout-old.json')), 'pull --history: the layouts in .history/ too');
+      // a file newer where it would go is kept (and said) unless --force; a layout.json replaced on either side is first
+      // copied into that side's .history/
+      const lay = Lp('alpha', 'layout.json'), histB = () => S3.keys().filter(k => k.startsWith(PFX + 'alpha/.history/')).length, histL = () => fs.readdirSync(Lp('alpha', '.history'));
+      fs.writeFileSync(lay, JSON.stringify({ studio: 1, scene: 'alpha', objects: [], here: 1 }));   // (saved here since the pull)
+      const k1 = await sync(['pull', 'alpha', L]);
+      ok(k1.code === 0 && /^kept alpha\/layout\.json here: it is newer there .*--force replaces it$/m.test(k1.out) && /1 kept as it is \(newer where it would go/.test(k1.out) && JSON.parse(fs.readFileSync(lay, 'utf8')).here === 1,
+        'pull: a layout saved here since (newer here) kept, and said');
+      const hb0 = histB(), k2 = await sync(['push', L, 'alpha']);
+      ok(k2.code === 0 && JSON.parse(obj('alpha/layout.json').body).here === 1 && histB() === hb0 + 1 && /kept the bucket's old alpha\/layout\.json in its \.history\//.test(k2.out),
+        'push: the newer layout here put, the bucket\'s old one first copied into its .history/');
+      S3.put(PFX + 'alpha/layout.json', JSON.stringify({ studio: 1, scene: 'alpha', objects: [], there: 1 }), { type: 'application/json', at: Date.now() + 5000 });   // (saved there since)
+      const k3 = await sync(['push', L, 'alpha']);
+      ok(k3.code === 0 && /^kept alpha\/layout\.json in the bucket: it is newer there/m.test(k3.out) && JSON.parse(obj('alpha/layout.json').body).there === 1, 'push: a layout saved in the bucket since (newer there) kept, and said');
+      const hl0 = histL().length, k4 = await sync(['pull', 'alpha', L]);
+      ok(k4.code === 0 && JSON.parse(fs.readFileSync(lay, 'utf8')).there === 1 && histL().length === hl0 + 1 && histL().some(n => n !== 'layout-old.json' && JSON.parse(fs.readFileSync(Lp('alpha', '.history', n), 'utf8')).here === 1),
+        'pull: the newer layout there fetched, the one here first copied into .history/ here');
+      fs.writeFileSync(lay, JSON.stringify({ studio: 1, scene: 'alpha', objects: [], old: 1 })); fs.utimesSync(lay, new Date(), new Date(Date.now() - 3600e3));
+      const k5 = await sync(['push', L, 'alpha']), there5 = JSON.parse(obj('alpha/layout.json').body).there, k6 = await sync(['push', L, 'alpha', '--force']);
+      ok(/^kept alpha\/layout\.json in the bucket/m.test(k5.out) && there5 === 1 && k6.code === 0 && JSON.parse(obj('alpha/layout.json').body).old === 1 && /kept the bucket's old alpha\/layout\.json/.test(k6.out),
+        'an older layout here: kept back; --force puts it (the bucket\'s first copied into its .history/)');
       const e1 = await sync(['list'], { ...R2ENV, R2_BUCKET: '' }), e2 = await sync(['pull', 'nope', L]), e3 = await sync(['push']);
       ok(e1.code === 1 && /missing R2_BUCKET/.test(e1.out) && e2.code === 1 && /no scene "nope"/.test(e2.out) && e3.code === 1 && /usage/.test(e3.out) && !(e1.out + e2.out).includes(R2SECRET),
         'missing settings, no such scene, no folder: refused, saying why (no secret shown)');

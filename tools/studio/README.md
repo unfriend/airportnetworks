@@ -37,7 +37,10 @@ node tools/studio/r2sync.mjs push ~/scenes --all        # afterwards: what chang
 ```
 
 `r2sync.mjs` moves exactly the files the relay lists (and each `layout.json`; `.history/` with `--history`), only those
-that differ, deletes nothing without `--delete`, and `--dry` shows what it would do; `list` shows the bucket's scenes.
+that differ, deletes nothing without `--delete`, and `--dry` shows what it would do; `list` shows the bucket's scenes. A
+file newer where it would go (a layout saved there since) is kept and said, unless `--force`, and a `layout.json` it
+replaces on either side is first copied into that side's `.history/`. Should the bucket refuse a page's upload (its
+CORS rule missing, say), the studio sends the file through the relay instead.
 
 ## The upload page
 

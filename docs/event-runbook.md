@@ -256,6 +256,10 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
   of your own, never the repository): `node tools/studio/r2sync.mjs pull --all ~/scenes` (only what changed comes;
   `node tools/studio/r2sync.mjs list` shows what the bucket holds). The event then needs no internet. Afterwards push the
   layouts saved there back: `node tools/studio/r2sync.mjs push ~/scenes --all` (`--dry` first to see what it would send).
+  A file newer where it would go is never overwritten without `--force`: the line `kept <scene>/layout.json in the
+  bucket: it is newer there` means someone saved that scene on Coolify since the pull; decide which to keep (the pushed
+  one wins with `--force`, and the bucket's then stays in its `.history/`). Every `layout.json` replaced, here or there,
+  is copied into that side's `.history/` first.
   If the venue's internet is good, the headsets can use the relay on Coolify instead and the files come straight from
   Cloudflare: nothing to pull.
 - [ ] Start the relay with it: `node relay/server.mjs --lan --scenes ~/scenes` (with a password:
