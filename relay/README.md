@@ -392,7 +392,7 @@ with a public address and its proxy (Traefik or Caddy) running, and access to th
    relay listening on http://0.0.0.0:8787, serving /app (protocol 1)
    Introduction server for peer to peer (PeerJS) at /peerjs, key the password (--no-peer turns it off)
    Behind a reverse proxy: a client's address is the last one in X-Forwarded-For (rooms on this network)
-   Only pages from https://stories.lbi-netmed.com and the relay's own may open a socket or read the API (...)
+   Only pages from https://stories.lbi-netmed.com, https://unfriend.github.io and the relay's own may open a socket or read the API (...)
    No list of open rooms and no names in any answer: a room is joined by its code, a link or on its network
    Per address at most 30 lookups of unknown room codes a minute (a burst of 60), 10 new rooms a minute (...), 64 open sockets
    All rooms together hold at most 64 MB

@@ -900,7 +900,7 @@ try {
     for (const c of [a, own, pa]) c.ws.close();
     await sleep(400);
     ok(/sockets refused: origin not allowed \(\d+\)/.test(P.out) && /requests refused: origin not allowed \(\d+\)/.test(P.out), 'refusals counted in the log, a line a tick');
-    ok(new RegExp(`Only pages from ${APP} and the relay's own`).test(P.out) && /No list of open rooms/.test(P.out) &&
+    ok(P.out.includes(`Only pages from ${APP}, https://unfriend.github.io and the relay's own`) && /No list of open rooms/.test(P.out) &&
       /Per address at most 30 lookups of unknown room codes a minute \(a burst of 60\), 10 new rooms a minute \(a burst of 20\), 64 open sockets/.test(P.out) &&
       /All rooms together hold at most 64 MB/.test(P.out) && !/No --proxy/.test(P.out), 'the start lines say what --public allows');
     const H = await start(['--public', '--static', REPO, '--host', '0.0.0.0', '--quiet']);
