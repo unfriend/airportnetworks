@@ -88,7 +88,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     record, then Pages' custom domain off, in that order: `relay/README.md`, "The main server"); until the owner says it
     is done, the live site is still GitHub Pages and the `CNAME` file stays. Releases still go to `main`, which both copies
     publish.
-  - Tests: TO FILL after the run.
+  - Tests: relay 609 good, the R2 signer 38 good (AWS's examples byte for byte); every build and the test scenes' listings
+    current; the picture reader 109 good; smoke 210 good (groups, faces and the studio from R2 among them); the update
+    test from v113 good; the live-update test good. The shared-room run first stopped at once: the merge left the group
+    step and the R2 part declaring the same names in one scope of `tools/collab.mjs` (the group step is now a block of its
+    own). Run again: 493 good and 6 failing, all in the peer-to-peer part (one guest still connecting when the three were
+    first counted, and the host change steps after it, which follow from it); the studio's group, faces and R2 steps
+    passed. That part alone (`--p2p`) passed twice, 18 good each, and nothing in it changed since v113 (the only
+    `shared.js` change, `HOME_RELAY`, gives nothing on `127.0.0.1`): load on the machine, not the app, but worth a look if
+    it comes back.
 - **Released as networks-v113 (4 November 2026; FORMAT networks-31, shell 113: running pages ask to reload, and every
   device in a shared room needs v113), tested headlessly only: cut-outs in the studio.** The owner: "is it possible to
   remove parts of a glb model nondestructive? like a door in a wall etc?", then "for the models i would just do parts that
