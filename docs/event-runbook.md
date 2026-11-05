@@ -251,6 +251,13 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
 
 - [ ] A folder of scenes on the laptop, outside the repository (say `~/scenes`): each subfolder is one scene (a name of
   letters, digits, spaces, `_ . -`).
+- [ ] If the scenes live in the Cloudflare R2 bucket (the relay on Coolify with `--scenes r2`; relay/README.md, "Scenes
+  in Cloudflare R2"), pull them onto the laptop the day before, with the `R2_*` variables set in the shell (from a file
+  of your own, never the repository): `node tools/studio/r2sync.mjs pull --all ~/scenes` (only what changed comes;
+  `node tools/studio/r2sync.mjs list` shows what the bucket holds). The event then needs no internet. Afterwards push the
+  layouts saved there back: `node tools/studio/r2sync.mjs push ~/scenes --all` (`--dry` first to see what it would send).
+  If the venue's internet is good, the headsets can use the relay on Coolify instead and the files come straight from
+  Cloudflare: nothing to pull.
 - [ ] Start the relay with it: `node relay/server.mjs --lan --scenes ~/scenes` (with a password:
   `COLLAB_TOKEN=<word>` first, as in section 1; the scenes' files then need it too). It prints how many scenes it found.
 - [ ] Upload on a laptop or desktop, not a headset: open `https://<address>:8787/upload`, pick a scene or **New scene**,
@@ -299,6 +306,8 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
 ## 6. After the event
 
 - [ ] Headsets: **Exit**. Laptop: `Ctrl+C` in the relay window (it tells every device first).
+- [ ] Scenes kept in R2: push what was saved at the event back into the bucket (`node tools/studio/r2sync.mjs push
+  ~/scenes --all`; section 4).
 - [ ] Collect `relay/logs/` from the repository on the laptop: one file per headset, room and day
   (`<day>-<room>-<name>-<id>.jsonl`), written while the relay runs with `--lan`. Add a note: date, room code, headsets
   and their Quest Browser versions, and what you did when ("14:05 Ada's headset in standby for 10 minutes").

@@ -65,6 +65,21 @@ with `--scenes` refuses to start without a password.
 - `/api/ping` says `scenes: true` when it serves scenes.
 - The service worker never caches `/scenes/` (it passes it through, as it does `/api/`).
 
+### From an R2 bucket behind the relay (v114)
+
+`node relay/server.mjs --scenes r2`, the bucket and its keys from the environment (`relay/README.md`, "Scenes in
+Cloudflare R2"): the same endpoints, rules and answers, plus `store: 'r2'`, `direct` and `linkTtl` in `GET /api/scenes`
+and a signed link, `url`, for each file in `GET /api/scenes/<name>` (with `linkTtl`, its life in seconds, 12 hours by
+default). The page keeps each file's `url` (`setFiles`) and `fileUrl` gives it, so every file (models, textures,
+sounds, a streamed sound's element, the converter's reads) comes straight from the bucket, from the page's own origin,
+with no password in it; the listing is read again before half of `linkTtl` has passed (`linksSoon`,
+`engine/e7c_direct.js`). With `direct`, an upload to `.../file` (the Upload pane, Convert to GLB, the texture buttons:
+`upSend`) goes straight into the bucket instead (`upDirect`: `POST .../put?path=&size=[&replace=1]` gives `{ url,
+headers }`, a PUT there with exactly those headers and its progress, then `POST .../done?path=&size=`; the answers as an
+upload's: `{ ok, path, bytes, at }`, 409 for a name taken), and a long sound for the relay's `ffmpeg` is sent as its
+original first (into `originals/`, straight into the bucket), then made MP3 from it there (`.../sound?from=<path>`).
+`GET /scenes/<name>/<path>` still works (a 302 to a signed link) for plain links and older studios.
+
 ### From a plain folder (tests, other web hosts; read only)
 
 `node tools/studio/scan.mjs <folder>` writes `<folder>/index.json` (what `GET /api/scenes` answers, `save: false`) and
@@ -79,8 +94,10 @@ trailing slash: the relay the page knows, else the page's own server when `detec
 `HOST.collab.relaySaw(base, status, sent)` tells the shell what a call answered (`authSaw`), so a 401 brings up the
 shell's own password prompts (the page's Shared dialog field, the headset menu's *Relay password* row) and the studio
 says *This relay needs its password: enter it under Shared (or in the menu's Circles tab)*. Files are fetched with the
-password: loaders through their `LoadingManager`'s `setURLModifier` (adding `?token=`), sounds and JSON with
-`Authorization: Bearer`. A changed file (the watch's `scene` event) is fetched again and its items rebuilt in place;
+password: every scene file with `?token=` in its address (the loaders through their `LoadingManager`'s
+`setURLModifier`, sounds, the converter's fetches; v114: never as a header, which a browser drops after a redirect to
+another origin), the API's JSON with `Authorization: Bearer`. A changed file (the watch's `scene` event) is fetched
+again and its items rebuilt in place;
 a new file appears in the Add lists; `layout` from another device's save updates *Saved* (it never replaces what is
 placed by itself).
 

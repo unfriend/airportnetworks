@@ -22,6 +22,23 @@ headset menu's Circles tab).
 Without a relay, `node tools/studio/scan.mjs <folder>` describes a plain folder of scenes for any web host (read only;
 `#studio&scenes=<relative folder>`).
 
+### Scenes in Cloudflare R2
+
+A relay can keep the scenes in a Cloudflare R2 bucket instead of a folder (`--scenes r2`, the bucket and its keys from
+the environment: `relay/README.md`, "Scenes in Cloudflare R2"). Nothing changes in the studio's use: it fetches every
+file straight from the bucket by the signed link the relay's listing gives it, and its uploads (the Upload pane,
+**Convert to GLB**, the texture buttons) go straight into the bucket. To work with no internet, pull the scenes onto a
+laptop first and serve that folder:
+
+```sh
+node tools/studio/r2sync.mjs pull --all ~/scenes        # the R2_* variables set in this shell
+node relay/server.mjs --lan --scenes ~/scenes
+node tools/studio/r2sync.mjs push ~/scenes --all        # afterwards: what changed back into the bucket
+```
+
+`r2sync.mjs` moves exactly the files the relay lists (and each `layout.json`; `.history/` with `--history`), only those
+that differ, deletes nothing without `--delete`, and `--dry` shows what it would do; `list` shows the bucket's scenes.
+
 ## The upload page
 
 `<relay>/upload` (or the **Upload** tab in the studio, on a laptop or desktop; a headset has none) turns whatever you
@@ -147,7 +164,9 @@ was found as and keeps it in the GLB's record.
 
 - `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
-  in and the Upload pane.
+  in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
+  uploads straight into the bucket).
+- `r2sync.mjs` scenes between an R2 bucket and a folder (`list`, `pull`, `push`; the relay's `R2_*` variables).
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).
 - `test/make.mjs` makes the test scene `test/scenes/test/` (models, a texture, a short and a 25 s sound, and an OBJ with
   its MTL under `originals/`, under 250 KB), the textures scene `test/scenes/textures/` (about 20 KB: pictures from

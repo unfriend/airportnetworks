@@ -20811,10 +20811,11 @@ const UP_ACT = {
 // there (.../done). The relay answers as for an upload through it ({ ok, path, bytes, at }; 409 for a name taken), so
 // the Upload pane, Convert to GLB and the texture buttons work the same either way.
 let linksT = 0;
-function linksSoon() {
+function linksSoon(ms) {
   unlater(linksT); linksT = 0;
   if (!(SRC.linkTtl > 0)) return;
-  linksT = later(() => { linksT = 0; refreshFiles(new Set()); }, Math.max(60, SRC.linkTtl / 2) * 1000);
+  // (a listing that could not be read is asked again a minute later: setFiles, which calls this, did not run)
+  linksT = later(async () => { linksT = 0; await refreshFiles(new Set()); if (!linksT && STU.files.some(f => f.url)) linksSoon(60000); }, ms || Math.max(60, SRC.linkTtl / 2) * 1000);
 }
 // one upload straight into the bucket: url is the .../file address upSend was given (its scene, path and replace=1)
 function upDirect(url, body, onP) {
