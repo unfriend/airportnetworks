@@ -130,7 +130,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   to peer at `/peerjs` (PeerJS's server protocol; `--no-peer` turns it off), for
   the tests and for an event that wants its own. With `--scenes <dir>` it serves the studio's scenes, saves their
   layouts and takes uploads (v111; "The studio's scenes on the relay" under "Shared rooms"); `scenes.mjs` holds their
-  listing and upload path rules, which `tools/studio/scan.mjs` shares (in the Docker image, never served).
+  listing and upload path rules, which `tools/studio/scan.mjs` shares (in the Docker image, never served). With
+  `--scenes r2` (v114) it keeps them in a Cloudflare R2 bucket instead ("The studio's scenes in R2" under "Shared
+  rooms"): `r2.mjs` (AWS Signature Version 4 with `node:crypto`, signed requests and presigned links, the S3 client the
+  relay and `tools/studio/r2sync.mjs` share), `test-r2.mjs` (the signer against AWS's published examples, byte for byte)
+  and `s3fake.mjs` (a stand-in S3 for the tests that checks every signature; never served, not part of the app).
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
   syncing; `shared-spaces.md`: one room frame for several headsets), and
@@ -223,6 +227,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; and
   `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
   and the figure, for cut-outs; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
+  lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
+  `push`).
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
   under 1,200 triangles, `tris` exact; 48 props, the design room's own `design.table` and the studio's
@@ -1967,6 +1974,51 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   password* row) and an answer with a new password keeps it; a link `#studio&upload&relay=wss://...` sets the relay as a
   link does before the studio reads its options. Untested behind Coolify's proxy (`X-Forwarded-Proto` for `/upload`'s
   address, big uploads over slow links) and on Windows (finding `ffmpeg`, placing files by link and rename).
+- The studio's scenes in R2 (v114; the owner, 5 November 2026: "we have the coolify server going on hetzner so i guess i
+  will use that and the r2, also implement the r2 things right away"; the reference is `relay/README.md`, "Scenes in
+  Cloudflare R2"). The relay keeps running on Coolify; with `--scenes r2` (or `COLLAB_SCENES=r2`, or in `RELAY_ARGS`) the
+  scenes' files (models, textures, sounds, each `layout.json` and its `.history/`) live in a Cloudflare R2 bucket instead
+  of a folder; the rooms never touch it. The bucket and its keys come only from the environment (`R2_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`; optional `R2_PREFIX`, `R2_JURISDICTION` (`eu`: the endpoint
+  `<account>.eu.r2.cloudflarestorage.com`), `R2_LINK_TTL` (12 h), `R2_POLL` (5 s), `R2_ENDPOINT` (tests)): missing or
+  wrong ones stop the start with a sentence naming them (never a value), and the start lists the bucket (a sentence for
+  refused keys, no bucket, an address that is no one's; a bucket that only does not answer now, a 5xx, 408, 429 or no
+  answer, does not stop it: the relay starts, its rooms never need the bucket, the scenes answer 502 and it is asked
+  again after 5 s and then every 30 s, `R2UP`), checks its CORS rule as a browser meets it (preflights) and tries an
+  upload link as a page gets one (`r2PutCheck`: a PUT with its type, length and `If-None-Match` signed on a hidden
+  `.put-check-*` object, removed again; refused, links sign only their type and `.../done` checks the size; both
+  refused, `direct: false`; `If-None-Match` ignored is said); `--r2-check` does both and stops. Every scene endpoint goes through one store with two backends (`KEPT` in `server.mjs`: the folder's and
+  R2's), so the rules (`relay/scenes.mjs`: `scenesOf` applies the listing rules to object keys) and answers are the
+  same. With R2: `GET /api/scenes` adds `store: 'r2'`, `direct` and `linkTtl`; a scene's listing gives each file a
+  signed GET (`url`, dated from the hour or the file's own time, so it stays the same for an hour and a changed file gets
+  a new one), which the studio fetches straight from the bucket, from its own origin (`fileUrl`), and reads again once
+  half its life has passed by the wall clock (every minute, when the page shows again, before a fetch) and after the
+  bucket refuses one (403 or no answer: `linksAgain` in `call`; a streamed sound's element that fails gets a new one);
+  `GET /scenes/...` is a 302 to one (no-store, CORS); a save copies the old layout into `.history/` (none when the
+  newest copy is it already), puts the new one, and only then deletes past 20 (a save the bucket refuses answers 502 and
+  costs no history); uploads go through the relay as before (received into its temporary folder, then put whole,
+  `If-None-Match: *` unless `replace=1`; at most three at once, a fourth 429 with `Retry-After`) or straight into the
+  bucket (`POST .../put` gives a signed PUT with its type, length and `If-None-Match` signed, or its type alone when the
+  bucket refused the others at the start; `POST .../done` checks it and tells the watch, and removes an object past
+  `--max-upload` only when a link of its own without its length signed brought it); the studio's Upload pane, Convert to
+  GLB and texture buttons use them when `direct` (`tools/studio/engine/e7c_direct.js`), and send a file the bucket
+  refuses (no answer, 400, 403, 501) through the relay, as every one after it on that page (`directOff`, `upVia` waiting
+  on 429); `.../sound?from=<path>` makes the MP3 from a file already in
+  the bucket (the studio sends a long sound's original straight there first); the watch lists the bucket every
+  `R2_POLL` s while a page listens and tells a change at once (no settling: an object lands whole); a scene made empty
+  keeps a hidden marker, `.scene`. R2's unexpected answers become 502s of ours (one retry for a 5xx or no answer; a PUT
+  refused as `If-None-Match` says, 412 or 409, on its second try is taken as its own when the object's MD5 is what was
+  sent); no key or signed link in any log line. A file with a signed link needs no password; with a folder the studio
+  sends the password as a header, but in the address (`?token=`) for the loaders and sound elements, as before, and for
+  a file of an R2 relay without a link (its redirect to another origin would drop a header). `tools/studio/r2sync.mjs`
+  pulls scenes onto a laptop before an event and pushes them back (only what differs; a file newer where it would go
+  kept and said unless `--force`; a `layout.json` replaced on either side copied first into that side's `.history/`;
+  `--dry`, `--delete`, `--history`). No `FORMAT` change. Untested until tried with a real bucket: the signatures and CORS against R2 itself
+  (`Origin: null` after the redirect from another origin, signed `If-None-Match` and `Content-Length` on PUTs: the
+  start's check says, and both sides fall back; whether R2's 403s carry CORS headers), the EU endpoint, Quest Browser
+  fetching and streaming signed links (and new ones after a night asleep), big uploads straight to R2, the costs in
+  practice (a listing is a Class A operation per 1,000 objects: `R2_POLL=15` or more for a big bucket with a page left
+  open).
 - The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
   `enterStory` to publish the clock, polls `collab.state()` five times a second
   and publishes it when its value changed; a value from the room goes through
@@ -3636,7 +3688,18 @@ taken and refused, the size counted as it streams and nothing left behind; the s
 (one generated script under the names ok, fail, empty, hang and broken: its failures, its time limit, two at once, none
 at all) and, when the machine has one, a real `ffmpeg` making a generated stereo 48 kHz WAV a mono 96 kbit/s 44.1 kHz
 MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the relay's own app or `--app` with its
-`wss://` address, no password asked and the query never passed on); no browser, seconds; `node tools/peer.mjs` links two pages of
+`wss://` address, no password asked and the query never passed on), and the scenes in R2 (eleven steps against the stand-in
+S3 `relay/s3fake.mjs`, which checks every signature: `relay/test-r2.mjs` first (the signer against AWS's published
+Signature Version 4 examples, byte for byte, and the client), then the folder's steps again with `--scenes r2` (the
+start and its CORS check, the listing with a signed link per file, the redirect, saving with `.history/`, the watch from
+the relay's writes and from changes made straight in the bucket, uploads through the relay), direct uploads (`.../put`,
+a body of another size or type refused, `.../done`), `ffmpeg` with `from=`, the password everywhere and in no link, the
+start refusing missing settings (named, never a value), a wrong key or bucket and an address that is no one's,
+`--r2-check`, the start's upload-link check against the stand-in told (`quirks`) to refuse a signed length, both, or to
+ignore `If-None-Match`, `.../done` removing past `--max-upload` only what its own link brought, a save the bucket
+refuses costing no history, three uploads through the relay at once, a 5xx or nothing at the bucket's address at the
+start (listening anyway, found later), and `tools/studio/r2sync.mjs` with its conflicts and `.history/` copies); no
+browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -3906,7 +3969,16 @@ test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, an
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`
 unchanged); a wrong password typed in the Shared dialog never sent by the studio; the right one opening the scene without
 a reload, every file and upload carrying it; save, upload and a studio station in a room working; the password in no
-page log, address, room key, relay line, log file or saved layout. With `--shots`: `studio-*.png`. The design and All
+page log, address, room key, relay line, log file or saved layout. Then the scenes in R2 (v114): the stand-in S3
+(`relay/s3fake.mjs`) on another port (from 8840 up), so every file comes from another origin, and a relay with `--scenes
+r2` and a password: a page opens the test scene from it (every file by its signed link, straight from the bucket, CORS,
+none refused, none signed in a header), a 25 s sound streamed from it (an element with `crossOrigin`, its ranges 206),
+Save writing `layout.json` and `.history/` there, Convert to GLB sending `models/figure.glb` straight into it (a signed
+PUT, the record read with a range), a link the bucket refuses read again and the file fetched by its new one, links past
+half their life read again, the Upload pane making a scene and sending the test originals straight into it (the long
+sound made MP3 by the relay's `ffmpeg` from its original there), an upload the bucket refuses sent through the relay
+(and the next without trying the bucket), the pretend headset opening the scene from it, and the password in neither
+the bucket's requests nor a link, the relay's lines or a page. With `--shots`: `studio-*.png`. The design and All
 stories rounds expect `STORY_EXTRA`'s pages (the design room, then the studio) after the stories in the pickers.
 `--follow` runs only following a person (a room of its own with two stations, a minute or two; with `--shots` the
 people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`

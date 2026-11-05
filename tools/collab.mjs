@@ -72,7 +72,9 @@
 // added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a texture added from a
 // card, a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
 // relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
-// COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; with --shots studio-*.png);
+// COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; then the scenes in R2
+// (--scenes r2) against the stand-in S3 on another port (from 8840 up): files by signed links, Save, Convert to GLB and
+// the Upload pane straight into the bucket, the pretend headset, the password nowhere; with --shots studio-*.png);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -2674,6 +2676,11 @@ async function tokenRound() {
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
 // COLLAB_TOKEN: a page without the password cannot list or save, one with it lists, saves and keeps a studio station in a
 // room; the password is in no page's log, address or room key, nor in the relay's lines, log files or the saved layout.
+// Then the scenes in Cloudflare R2 (--scenes r2) against the stand-in S3 (relay/s3fake.mjs) on another port (from 8840
+// up): a page and the pretend headset open the test scene from the bucket (every file by its signed link, CORS, ranges
+// and crossOrigin exercised by the browser; a long sound streamed), Save writes layout.json and .history/ there, Convert
+// to GLB and the Upload pane send their files straight into the bucket (signed PUTs), a link the bucket refuses is read
+// again, an upload it refuses goes through the relay, and the password goes nowhere.
 // dir: pictures (studio-*.png)
 async function relayOn(args, env, from) {
   for (let p = from; p < from + 20; p++) {
@@ -2712,7 +2719,7 @@ async function studioRound(dir) {
   fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
   if (dir) fs.mkdirSync(dir, { recursive: true });
   const pages = [];
-  let R = null, T = null;
+  let R = null, T = null, Q = null, S3r = null;
   // a page of its own (another device): its name in the room, and the relay's password kept for it when given
   const sopen = async (url, o = {}) => {
     const ctx = await browser.newContext({ viewport: o.size || { width: 640, height: 400 } });
@@ -3143,9 +3150,139 @@ async function studioRound(dir) {
       saved && JSON.stringify(boxOf(Ls).p) === '[-1.25,0.25,-2]' && upOk && posts.length >= 3 && posts.every(r => r[0] < 300 && r[3]) && open2 && !!sid2 && roomTxt.includes('box001') &&
         roomTxt.includes('"scene":"test"') && !leak && !roomTxt.includes(PASS) && !T.out.includes(PASS) && !logTxt.includes(PASS) && !saveTxt.includes(PASS),
       JSON.stringify({ saved, box: boxOf(Ls).p, upOk, posts, rows: await sp(P, 'UP.rows.map(r => [r.state, r.msg])'), open2, sid2, roomHas: roomTxt.includes('box001'), leak, out: T.out.includes(PASS), logs: logTxt.includes(PASS), save: saveTxt.includes(PASS) }));
+
+    // ---- the scenes in Cloudflare R2 (--scenes r2; relay/README.md, "Scenes in Cloudflare R2"), against the stand-in S3
+    // (relay/s3fake.mjs, which checks every signature) on another port, so every file comes from another origin, as from
+    // Cloudflare: a page and the pretend headset open the test scene from it (its models, a texture, a decoded and a
+    // streamed sound: CORS, ranges and crossOrigin exercised by the browser), Save writes layout.json and .history/ there,
+    // Convert to GLB and the Upload pane send their files straight into it, and the password goes nowhere
+    for (const p of pages.splice(0)) await p.context().close().catch(() => {});
+    await relayOff(T); T = null;
+    const { startFake } = await import(new URL('../relay/s3fake.mjs', import.meta.url));
+    const { typeOf } = await import(new URL('../relay/scenes.mjs', import.meta.url));
+    const R2K = 'COLLABTESTKEYID', R2S = 'collab-made-up-secret-' + Math.floor(Math.random() * 1e9);
+    for (let p = 8840; p < 8860 && !S3r; p++) S3r = await startFake({ port: p, bucket: 'scenes', keys: { [R2K]: R2S } }).catch(() => null);
+    const walk = (d, rel = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]));
+    for (const rel of walk(path.join(TEST, 'test'))) S3r.put('studio/test/' + rel, fs.readFileSync(path.join(TEST, 'test', rel)), { type: typeOf(rel) });
+    const PASS3 = 'rtwo' + Math.floor(1000 + Math.random() * 9000) + 'scenes';
+    Q = await relayOn(['--static', '.', '--scenes', 'r2'], { R2_ENDPOINT: S3r.url, R2_ACCESS_KEY_ID: R2K, R2_SECRET_ACCESS_KEY: R2S, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', COLLAB_TOKEN: PASS3 }, 8792);
+    const qb = `http://127.0.0.1:${Q.port}/`, qo = `http://127.0.0.1:${Q.port}`, s3o = S3r.url;
+    const fromPage = () => S3r.requests.filter(r => r.origin === qo);   // (what the page's browser asked of the bucket itself)
+    const G = await sopen(qb + 'index.html#studio&scene=test&edit', { name: 'Gus', size: { width: 900, height: 700 }, token: PASS3, origin: qo });
+    await studioIn(G);
+    const gOk = await sUntil(G, `SRC.state === 'ok' && SRC.direct && SRC.linkTtl > 0 && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready()`, 60000);
+    const gs = await sp(G, `({ links: STU.files.every(f => f.url && f.url.startsWith(${JSON.stringify(s3o)} + '/scenes/studio/test/')), models: Object.values(STUDIO.state().models).map(m => m.state).join(),
+      tex: !!(LIB.get('figure.fbx') && LIB.get('figure.fbx').texPaths.has('figure.png')), tone: (SND.get('tone.wav') || {}).state })`);   // (its figure_spec.png is missing on purpose)
+    const got = fromPage().filter(r => r.method === 'GET');
+    const gotPaths = ['box.glb', 'figure.fbx', 'figure.png', 'tone.wav'].map(n => got.some(r => r.url.startsWith('/scenes/studio/test/' + n + '?') && r.auth === 'query' && r.status < 400));
+    check('studio from R2: a page opens the test scene from the bucket (another origin): every file by its signed link, the models with their texture and the short sound in, each fetched by the browser straight from the bucket (query-signed, CORS), none refused, no request signed in a header',
+      gOk && gs.links && /^(ready,?)+$/.test(gs.models) && gs.tex && ['bytes', 'ready'].includes(gs.tone) && gotPaths.every(Boolean) && fromPage().every(r => r.status < 400 && r.auth !== 'header'),
+      JSON.stringify({ gOk, gs, gotPaths, bad: fromPage().filter(r => r.status >= 400 || r.auth === 'header').map(r => [r.method, r.url.split('?')[0], r.status, r.auth]) }));
+    // a long sound streamed straight from the bucket: an element with crossOrigin, its ranges from the bucket
+    await G.evaluate(() => HOST.audio.mute(false));
+    await G.click('#explore .tabs button[data-tab="scene"]', { timeout: 5000 }).catch(() => {});
+    const gl = await sp(G, `addSound('sounds/long.wav')`);
+    const gStream = !!gl && await sUntil(G, `(() => { const it = STU.items.get('${gl}'); return !!(it && it.st && !it.st.el.paused && it.gt > 0); })()`, 20000);
+    const gEl = gl ? await sp(G, `(() => { const it = STU.items.get('${gl}'); return !!(it && it.st && it.st.el.src.startsWith(${JSON.stringify(s3o)}) && it.st.el.crossOrigin === 'anonymous'); })()`) : false;
+    const ranged = fromPage().some(r => r.url.startsWith('/scenes/studio/test/sounds/long.wav?') && r.status === 206);
+    check('studio from R2: a 25 s sound placed there is streamed straight from the bucket (an element with crossOrigin anonymous, playing; its byte ranges answered 206 by the bucket)',
+      gStream && gEl && ranged, JSON.stringify({ gl, gStream, gEl, ranged }));
+    await G.evaluate(() => HOST.audio.mute(true));
+    if (gl) await sp(G, `(deleteItem('${gl}'), 0)`);
+    // Save: layout.json into the bucket, the old one into .history/
+    await sp(G, `(setEdit(true), change(() => setRec('box001', { p: [-0.75, 0.25, -2] })), 0)`);
+    await sp(G, 'saveLayout()');
+    const gSaved = await sUntil(G, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const lay = S3r.objects.get('studio/test/layout.json'), gHist = S3r.keys().filter(k => k.startsWith('studio/test/.history/layout-'));
+    const gL = lay ? JSON.parse(lay.body.toString()) : null;
+    check('studio from R2: Save writes layout.json into the bucket (the box where it was moved, application/json), the old one kept in .history/',
+      gSaved && !!gL && JSON.stringify(boxOf(gL).p) === '[-0.75,0.25,-2]' && lay.type === 'application/json' && gHist.length === 1, JSON.stringify({ gSaved, box: gL && boxOf(gL), hist: gHist.length, note: await sp(G, 'STU.saveNote') }));
+    // Convert to GLB: models/figure.glb straight into the bucket (a signed PUT from the page), the figure switched
+    await sp(G, `(setEdit(true), select('fig001'), X.tab = 'item', renderPanes(), 0)`);
+    const gBtn = await sUntil(G, `!!document.querySelector('#pane-item [data-act="convert"][data-v="figure.fbx"]:not([disabled])')`, 5000);
+    if (gBtn) await click(G, '#pane-item [data-act="convert"][data-v="figure.fbx"]');
+    const gCv = gBtn && await sUntil(G, `!CV.busy && CV.done.includes('models/figure.glb')`, 90000);
+    const gGlb = S3r.objects.get('studio/test/models/figure.glb');
+    const gSw = await sUntil(G, `(() => { const it = STU.items.get('fig001'), E = LIB.get('models/figure.glb'); return it.rec.file === 'models/figure.glb' && !!E && E.state === 'ready' && !!it.model; })()`, 30000);
+    await sp(G, 'saveLayout()');   // (so the headset below opens the scene as it is now)
+    const gSaved2 = await sUntil(G, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    // (the record as the Add list reads it for a GLB not loaded here: its first bytes, a range of the file in the bucket)
+    await sp(G, `(GLBREC.delete('models/figure.glb'), glbRec('models/figure.glb'), 0)`);
+    await sUntil(G, `!!glbRec('models/figure.glb')`, 10000);
+    const gPut = fromPage().some(r => r.method === 'PUT' && r.auth === 'query' && r.url.startsWith('/scenes/studio/test/models/figure.glb?') && r.status === 200);
+    // (a range asked of the bucket: 206, or 304 when the browser holds the file already from loading it and only checks
+    // its ETag with the bucket: R2's ETag and 304 at work, the range then cut from the browser's copy)
+    const gGlbGets = fromPage().filter(r => r.method === 'GET' && r.url.startsWith('/scenes/studio/test/models/figure.glb?')).map(r => [r.status, r.headers.range || '']);
+    const gHead = gGlbGets.some(([st, range]) => /^bytes=0-/.test(range) && (st === 206 || st === 304));
+    check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket (206, or 304 from its ETag)',
+      gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gSaved2 && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
+      JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, gGlbGets, note: await sp(G, 'CV.note') }));
+    // a signed link the bucket refuses (as one that lapsed while a headset was taken off): the listing read again and the
+    // file fetched by its new link; links past half their life read again before a file is used
+    const gRe = await sp(G, `(async () => {
+      const f = STU.fileMap.get('box.glb'), good = f.url, bad = good.replace(/X-Amz-Signature=[0-9a-f]{64}/, 'X-Amz-Signature=' + '0'.repeat(64));
+      f.url = bad;
+      const b = await getBytes(fileUrl('box.glb'));
+      const again = STU.fileMap.get('box.glb').url;
+      SRC.linksAt = Date.now() - 13 * 3600e3;
+      fileUrl('box.glb');
+      for (let i = 0; i < 100 && Date.now() - SRC.linksAt > 60000; i++) await new Promise(r => setTimeout(r, 50));
+      return { bytes: b.byteLength, again: again !== bad && /X-Amz-Signature=[0-9a-f]{64}/.test(again) && again.split('?')[0] === good.split('?')[0], fresh: Date.now() - SRC.linksAt < 60000 };
+    })()`);
+    const gRefused = fromPage().some(r => r.url.startsWith('/scenes/studio/test/box.glb?') && r.status === 403);
+    check('studio from R2: a link the bucket refuses (403) makes the page read the listing again and fetch the file by its new link; links past half their life are read again',
+      !!gRe && gRe.bytes > 1000 && gRe.again && gRe.fresh && gRefused, JSON.stringify({ gRe, gRefused }));
+    // the Upload pane: a new scene, the test originals uploaded straight into the bucket (a long sound made MP3 by the
+    // relay's ffmpeg from its original there, when this machine has ffmpeg)
+    await sp(G, `(select(''), pickTab('upload'), 0)`);
+    await click(G, '#pane-upload [data-act="up:new"]');
+    await sUntil(G, `!!document.querySelector('#stuNewName')`, 5000);
+    await G.evaluate(() => { const i = document.querySelector('#stuNewName'); i.value = 'made'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+    await click(G, '#pane-upload [data-act="up:make"]');
+    const gMade = await sUntil(G, `UP.scene === 'made' && SRC.scenes.some(s => s.name === 'made')`, 10000) && !!S3r.objects.get('studio/made/.scene');
+    await G.setInputFiles('#stuFiles', ['figure.fbx', 'figure.png', 'tone.wav', 'sounds/long.wav'].map(f => path.join(TEST, 'test', f)));
+    await sUntil(G, `!UP.planning && UP.rows.length === 3 && UP.rows.every(r => r.how !== 'measuring')`, 30000);
+    const gFf = await sp(G, 'SRC.ffmpeg');
+    await click(G, '#pane-upload [data-act="up:run"]');
+    const gRan = await sUntil(G, `!UP.busy && UP.ran`, 180000);
+    const gRows = await sp(G, `UP.rows.map(r => [r.kind, r.state, r.msg])`);
+    const gLong = gFf ? 'sounds/long.mp3' : 'sounds/long.wav';
+    const gWant = ['models/figure.glb', 'sounds/tone.wav', gLong, 'originals/figure.fbx', 'originals/figure.png', 'originals/tone.wav', 'originals/long.wav'];
+    const gMissing = gWant.filter(p => !S3r.objects.get('studio/made/' + p));
+    const gDirect = ['models/figure.glb', 'sounds/tone.wav', 'originals/figure.fbx', 'originals/long.wav'].every(p => fromPage().some(r => r.method === 'PUT' && r.url.startsWith('/scenes/studio/made/' + p + '?') && r.status === 200));
+    const gThrough = /scenes: made: wrote (models|originals|sounds\/tone)/.test(Q.out);
+    const gMp3 = gFf ? (h => !!h && h.mono)(mp3Head(S3r.objects.get('studio/made/sounds/long.mp3')?.body || Buffer.alloc(0))) && /wrote sounds\/long\.mp3 into the bucket .* from originals\/long\.wav/.test(Q.out) : true;
+    check(`studio from R2: the Upload pane makes a scene in the bucket and sends the test originals straight into it (each by the page's signed PUT, none through the relay), the long sound ${gFf ? 'made a mono MP3 by the relay\'s ffmpeg from its original in the bucket (from=)' : 'a mono WAV (no ffmpeg here)'}`,
+      gMade && gRan && gRows.every(r => r[1] === 'done') && !gMissing.length && gDirect && !gThrough && gMp3, JSON.stringify({ gMade, gRan, gRows, gMissing, gDirect, gThrough, gMp3, gFf }));
+    // the bucket refusing the page's upload (its CORS rule or a signed header it will not take, here a 403 for every
+    // presigned PUT): the file goes through the relay instead, and so does the next without trying the bucket
+    S3r.quirks.fail = (m, key, q) => (m === 'PUT' && q.has('X-Amz-Signature') ? 403 : 0);
+    const fb1 = await sp(G, `upSend(fileApi('made', 'originals/fallback.bin', false), new Blob(['fallback bytes'])).then(j => j && j.path, e => 'error: ' + e.message)`);
+    const fb2 = await sp(G, `upSend(fileApi('made', 'originals/fallback2.bin', false), new Blob(['two'])).then(j => j && j.path, e => 'error: ' + e.message)`);
+    S3r.quirks = {};
+    const fbPuts = p => fromPage().filter(r => r.method === 'PUT' && r.url.startsWith('/scenes/studio/made/' + p + '?')).map(r => r.status);
+    check('studio from R2: an upload the bucket refuses (403 for the page\'s signed PUT) goes through the relay instead, and the next one goes there without trying the bucket',
+      fb1 === 'originals/fallback.bin' && fb2 === 'originals/fallback2.bin' && S3r.objects.get('studio/made/originals/fallback.bin')?.body.toString() === 'fallback bytes' && !!S3r.objects.get('studio/made/originals/fallback2.bin') &&
+        /wrote originals\/fallback\.bin into the bucket/.test(Q.out) && /wrote originals\/fallback2\.bin into the bucket/.test(Q.out) && fbPuts('originals/fallback.bin').join() === '403' && !fbPuts('originals/fallback2.bin').length,
+      JSON.stringify({ fb1, fb2, puts1: fbPuts('originals/fallback.bin'), puts2: fbPuts('originals/fallback2.bin') }));
+    // the pretend headset opens the scene from the bucket too
+    const H2 = await sopen(qb + 'index.html#studio&scene=test', { name: 'Hal', size: { width: 320, height: 200 }, token: PASS3, origin: qo });
+    await studioIn(H2);
+    await H2.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await H2.evaluate(() => window.__xr.begin());
+    await frames(H2, 300);
+    const hR2 = await sUntil(H2, `XR.on && SRC.state === 'ok' && STU.scene === 'test' && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready() && STU.files.every(f => f.url)`, 60000);
+    const hModel = await sp(H2, `STU.items.get('fig001').rec.file`);
+    check('studio from R2: the pretend headset (in VR) opens the scene from the bucket too, the figure as last saved there (its GLB)', hR2 && hModel === 'models/figure.glb', JSON.stringify({ hR2, hModel }));
+    // the password nowhere: not in what reached the bucket, the relay's lines, a signed link, or a page's log or address
+    const leak3 = [];
+    for (const p of [G, H2]) leak3.push(await p.evaluate(t => JSON.stringify(window.__collabLog || []).includes(t) || location.href.includes(t) || JSON.stringify(HOST.cur.peek('STU.files')).includes(t), PASS3));
+    check('studio from R2: the password reached neither the bucket nor any signed link, nor the relay\'s lines or a page\'s log or address; the bucket\'s secret is in no line of the relay',
+      !JSON.stringify(S3r.requests).includes(PASS3) && !Q.out.includes(PASS3) && !Q.out.includes(R2S) && !/X-Amz-Signature/.test(Q.out) && leak3.every(x => !x), JSON.stringify({ leak3 }));
   } finally {
     for (const p of pages) await p.context().close().catch(() => {});
-    await relayOff(R); await relayOff(T);
+    await relayOff(R); await relayOff(T); await relayOff(Q);
+    if (S3r) await S3r.close();
     for (const d of [SC, SC2, logs]) fs.rmSync(d, { recursive: true, force: true });
   }
 }

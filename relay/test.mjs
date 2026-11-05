@@ -1808,6 +1808,412 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok(bad.every(x => x === 'status 400') && (await req('POST', '/upload', { at: UP.port })).status === 405, 'a Host that is not one: 400; POST: 405');
   });
 
+  // ---- the scenes in Cloudflare R2 (--scenes r2; relay/README.md, "Scenes in Cloudflare R2"): the same steps as the
+  // folder's above, against the stand-in S3 (relay/s3fake.mjs: it checks every signature, so a broken signer fails here)
+  // on another port, so every signed link is another origin's. First relay/test-r2.mjs: the signer against AWS's examples
+  await step('R2: the signer against AWS\'s published Signature Version 4 examples, byte for byte, and the client against the stand-in (relay/test-r2.mjs)', async () => {
+    let out = '', code = 0;
+    try { out = execFileSync(process.execPath, [path.join(HERE, 'test-r2.mjs')], { encoding: 'utf8', timeout: 60000 }); } catch (err) { code = err.status; out = String(err.stdout); }
+    const m = /(\d+) checks passed, (\d+) failed/.exec(out);
+    ok(code === 0 && m && +m[1] >= 36 && m[2] === '0', 'relay/test-r2.mjs: ' + (m ? m[0] : out.slice(-300)));
+  });
+  const { startFake, STUDIO_CORS } = await import('./s3fake.mjs');
+  const { typeOf } = await import('./scenes.mjs');
+  const R2KEY = 'RELAYTESTKEYID', R2SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+  const S3 = await startFake({ bucket: 'scenes', keys: { [R2KEY]: R2SECRET } });
+  const R2ENV = { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: R2KEY, R2_SECRET_ACCESS_KEY: R2SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1',
+    R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' };
+  const PFX = 'studio/', obj = rel => S3.objects.get(PFX + rel), seed = (rel, data) => S3.put(PFX + rel, data, { type: typeOf(rel) });
+  for (const [rel, data] of [['alpha/model.glb', GLB], ['alpha/Model2.GLTF', '{"asset":{"version":"2.0"}}'], ['alpha/rig.FBX', bytes(300)], ['alpha/tex/wall.PNG', bytes(40)],
+    ['alpha/tex/photo.jpeg', bytes(50)], ['alpha/sounds/tone.wav', TONE], ['alpha/sounds/birds.MP3', bytes(70)], ['alpha/data.bin', bytes(16)], ['alpha/notes.txt', 'notes'],
+    ['alpha/deep/a/b/c/ok.glb', bytes(10)], ['alpha/deep/a/b/c/d/too-deep.glb', bytes(10)], ['alpha/layout.json', JSON.stringify(ALPHA)], ['alpha/files.json', '{"stale":true}'],
+    ['alpha/.hidden', 'x'], ['alpha/.history/layout-old.json', '{}'], ['alpha/x.tmp', 'x'], ['alpha/y~', 'x'], ['alpha/z.part', 'x'], ['alpha/a//b.glb', 'x'], ['beta/a.ogg', bytes(30)],
+    ['with space/x.webm', bytes(20)], ['bad!/x.glb', 'x'], ['-dash/x.glb', 'x'], ['watch/x.glb', 'x'], ['.git/x', 'x'], ['readme.txt', 'x']]) seed(rel, data);
+  S3.put('elsewhere/x.glb', 'not under the prefix');
+  const R2_FILES = ALPHA_FILES.filter(([p]) => p !== 'link.wav');
+  const RR = await start(['--scenes', 'r2', '--ffmpeg', ff('ok'), '--max-upload', '1'], R2ENV);
+  const rget = (p, o = {}) => req(o.method || 'GET', p, { at: RR.port, headers: o.headers || {}, body: o.body });
+  const r2tmp = () => fs.readdirSync(os.tmpdir()).filter(n => n.startsWith('relay-r2-')).length, tmp0 = r2tmp();
+  const said = async (re, ms = 5000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(50)) if (re.test(RR.out)) return true; return false; };
+  const noLeak = out => !out.includes(R2SECRET) && !/X-Amz-(Signature|Credential)/.test(out);
+
+  await step('R2 (--scenes r2): the start lists the bucket and checks its CORS rule; /api/ping, the list and one scene by the same listing rules, each file with its signed link', async () => {
+    ok(await said(/Scenes for the studio \(#studio\) from the R2 bucket scenes, under studio\/: 3 \(alpha, beta, with space\); the studio saves their layouts there/) &&
+      await said(/R2 CORS \(as a page at https:\/\/stories\.lbi-netmed\.com meets it\): download with a range yes, upload yes; a page sent there by the relay's redirect from another origin \(Origin: null\) yes; it exposes ETag/),
+      'the start lines: the bucket, its scenes, and its CORS rule as a page meets it');
+    ok(await said(/R2 upload links: taken with their type, length and If-None-Match signed; a second upload to the same new name refused \(412 PreconditionFailed\)/) &&
+      !S3.keys().some(k => k.includes('.put-check-')), 'the start tries an upload link as a page gets one (and again: refused), and removes what it put');
+    ok((await rget('/api/ping')).json().scenes === true, '/api/ping: scenes: true');
+    const l = (await rget('/api/scenes')).json();
+    ok(l.scenes.map(s => s.name).join('|') === 'alpha|beta|with space' && l.store === 'r2' && l.direct === true && l.linkTtl === 43200 && l.save === true && l.upload === true,
+      'GET /api/scenes: alpha, beta and "with space" (bad!, -dash, watch, .git, a key at the top and one outside the prefix left out); store r2, direct, linkTtl 12 h: ' + JSON.stringify({ ...l, scenes: l.scenes.map(s => s.name) }));
+    const a = l.scenes[0], b = l.scenes[1];
+    ok(Object.keys(a).sort().join() === 'at,bytes,files,layout,name' && a.files === R2_FILES.length && a.layout === true && b.layout === false && b.files === 1 && b.bytes === 30 &&
+      a.bytes === R2_FILES.reduce((n, [p]) => n + obj('alpha/' + p).body.length, 0) && a.at === Math.max(...R2_FILES.map(([p]) => obj('alpha/' + p).at)), 'each { name, files, bytes, at, layout }, as a folder\'s');
+    ok((RR.out.match(/left out the folder "bad!"/g) || []).length === 1 && /left out the folder "-dash"/.test(RR.out) && /left out the folder "watch"/.test(RR.out), 'a name that cannot be a scene\'s said once');
+    const one = (await rget('/api/scenes/alpha')).json();
+    ok(Object.keys(one).join() === 'name,files,layout,layoutAt,save,linkTtl' && JSON.stringify(one.files.map(f => [f.path, f.kind])) === JSON.stringify(R2_FILES),
+      'GET /api/scenes/alpha: its files sorted with their kinds (not layout.json, files.json, dot files, .history/, temporary files, an empty part, too deep): ' + one.files.map(f => f.path).join(' '));
+    ok(one.files.every(f => Object.keys(f).join() === 'path,bytes,at,kind,url' && f.bytes === obj('alpha/' + f.path).body.length && f.at === obj('alpha/' + f.path).at && f.url.startsWith(S3.url + '/scenes/studio/alpha/') && /X-Amz-Signature=[0-9a-f]{64}$/.test(f.url)) &&
+      JSON.stringify(one.layout) === JSON.stringify(ALPHA) && one.layoutAt === obj('alpha/layout.json').at, 'each file { path, bytes, at, kind, url } (a signed link to the stand-in); the layout parsed, layoutAt its time');
+    const g = one.files.find(f => f.path === 'model.glb'), t = one.files.find(f => f.path === 'sounds/tone.wav');
+    const gr = await fetch(g.url, { headers: { Origin: 'https://x.github.io' } }), rr = await fetch(t.url, { headers: { Range: 'bytes=10-19' } });
+    ok(gr.status === 200 && Buffer.from(await gr.arrayBuffer()).equals(GLB) && gr.headers.get('content-type') === 'model/gltf-binary' && gr.headers.get('access-control-allow-origin') === '*' &&
+      rr.status === 206 && Buffer.from(await rr.arrayBuffer()).equals(TONE.subarray(10, 20)) && (await fetch(g.url, { headers: { 'If-None-Match': gr.headers.get('etag') } })).status === 304,
+      'a link fetched from the stand-in: its bytes and type, CORS, a range (206), its ETag (304)');
+    const sp = (await rget('/api/scenes/with%20space')).json();
+    ok(sp.files[0].kind === 'audio' && (await fetch(sp.files[0].url)).status === 200 && (await rget('/api/scenes/beta')).json().layout === null, 'a name with a space (its link works), a scene without layout.json');
+    const s = [];
+    for (const p of ['/api/scenes/nope', '/api/scenes/bad!', '/api/scenes/%2e%2e', '/api/scenes/alpha%2Fsounds', '/api/scenes/%E0%A4%A', '/api/scenes/alpha/x']) s.push((await rget(p)).status);
+    ok(s.every(x => x === 404), 'no such scene and the rest: 404 (' + s.join(' ') + ')');
+  });
+
+  await step('R2: GET /scenes/<name>/<path> redirects (302, no-store, CORS) to a signed link the stand-in takes; the same refusals; no link in any log line', async () => {
+    const r = await rget('/scenes/alpha/model.glb?v=1', { headers: { Origin: 'https://x.github.io' } }), loc = r.headers.location || '';
+    ok(r.status === 302 && loc.startsWith(S3.url + '/scenes/studio/alpha/model.glb?X-Amz-Algorithm=') && r.headers['cache-control'] === 'no-store' && r.headers['access-control-allow-origin'] === '*',
+      '302 to the file\'s signed link, Cache-Control: no-store, CORS');
+    const f = await fetch(loc);
+    ok(f.status === 200 && Buffer.from(await f.arrayBuffer()).equals(GLB), 'the link: the file\'s bytes');
+    const h = await rget('/scenes/alpha/sounds/tone.wav', { method: 'HEAD' }), lay = await rget('/scenes/alpha/layout.json'), sp = await rget('/scenes/with%20space/x.webm');
+    ok(h.status === 302 && lay.status === 302 && JSON.parse(await (await fetch(lay.headers.location)).text()).studio === 1 && sp.status === 302 && (await fetch(sp.headers.location)).status === 200,
+      'HEAD, the scene\'s layout.json (as a folder serves it) and a name with a space: 302 to links that work');
+    const s = [];
+    for (const p of ['/scenes/alpha/../beta/a.ogg', '/scenes/alpha/%2e%2e/beta/a.ogg?token=QSECRETQ', '/scenes/alpha/sounds%5Ctone.wav', '/scenes/alpha/tone%00.wav', '/scenes/alpha/.hidden', '/scenes/alpha/.history/layout-old.json',
+      '/scenes/alpha/deep/a/b/c/d/too-deep.glb', '/scenes/alpha/x.tmp', '/scenes/alpha/files.json', '/scenes/bad!/x.glb', '/scenes/nope/x.glb', '/scenes/alpha/', '/scenes/alpha/tex', '/scenes/alpha/nothing.glb']) s.push((await rget(p)).status);
+    ok(s.every(x => x === 404), '.., backslashes, NUL, dot files, .history/, too deep, temporary files, files.json, no such scene, a folder, no such file: 404 (' + s.join(' ') + ')');
+    ok((await rget('/scenes/alpha/model.glb', { method: 'POST', body: 'x' })).status === 405, 'POST to a file: 405');
+    await sleep(100);
+    ok(noLeak(RR.out) && /refused "\/scenes\/alpha\/\.\.\/beta\/a\.ogg" \(out of its folder\)/.test(RR.out) && !RR.out.includes('QSECRETQ'), 'refusals said by their path; no signed link, no secret in the log');
+  });
+
+  await step('R2: POST /api/scenes/<name>/layout writes layout.json into the bucket, the old one into .history/ (20 kept); bad, too big, unknown refused; --scenes-readonly', async () => {
+    const save = (name, body, at = RR.port) => req('POST', `/api/scenes/${encodeURIComponent(name)}/layout`, { at, body, headers: { 'Content-Type': 'application/json' } });
+    const L = n => ({ studio: 1, scene: 'beta', saved: new Date().toISOString(), n, objects: [{ id: 'a' + n, name: 'X', file: 'a.ogg', p: [n, 0, 0] }], cubes: [], sounds: [] });
+    const hist = () => S3.keys().filter(k => k.startsWith(PFX + 'beta/.history/'));
+    const r1 = await save('beta', L(1)), a1 = r1.json(), o1 = obj('beta/layout.json');
+    ok(r1.status === 200 && a1.ok === true && a1.bytes === o1.body.length && a1.at === o1.at && o1.type === 'application/json' && !hist().length &&
+      /^\{\n  "studio": 1,\n[\s\S]*\n  "objects": \[\n    \{"id":"a1",/.test(o1.body.toString()), 'the first save: { ok, at, bytes }, laid out a field a line, application/json, no history yet');
+    const r2 = await save('beta', L(2)), h1 = hist();
+    ok(r2.status === 200 && h1.length === 1 && /\/\.history\/layout-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d\.\d{3}Z\.json$/.test(h1[0]) && JSON.parse(S3.objects.get(h1[0]).body).n === 1, 'the second: the first copied into .history/layout-<time>.json');
+    const one = (await rget('/api/scenes/beta')).json();
+    ok(one.layout.n === 2 && one.layoutAt === r2.json().at, 'GET gives the saved layout and its time (the listing\'s, as the save said)');
+    for (let n = 3; n <= 24; n++) await save('beta', L(n));
+    const ns = hist().map(k => JSON.parse(S3.objects.get(k).body).n).sort((x, y) => x - y);
+    ok(ns.length === 20 && ns[0] === 4 && ns[19] === 23 && JSON.parse(obj('beta/layout.json').body).n === 24, '24 saves: the newest 20 before the last kept (' + ns[0] + ' to ' + ns[19] + ')');
+    const all = await Promise.all([25, 26, 27, 28, 29].map(n => save('beta', L(n))));
+    ok(all.every(x => x.status === 200) && JSON.parse(obj('beta/layout.json').body).n >= 25 && hist().length === 20, 'five at once: one at a time');
+    const before = obj('beta/layout.json').body.toString(), bad = [];
+    for (const b of ['not json', '[1]', '{"studio":2}', '{}', 'null']) bad.push((await save('beta', b)).status);
+    let tb;
+    try { tb = (await save('beta', JSON.stringify({ studio: 1, pad: 'x'.repeat(2 << 20) }))).status; } catch { tb = 'cut'; }
+    ok(bad.every(x => x === 400) && tb === 413 && (await save('nope', L(1))).status === 404 && (await save('bad!', L(1))).status === 404 && obj('beta/layout.json').body.toString() === before,
+      'not a layout: 400; over 2 MB: 413; no such scene: 404; nothing changed (' + bad.join(' ') + ' ' + tb + ')');
+    const RO = await start(['--scenes', 'r2', '--scenes-readonly', '--quiet'], R2ENV);
+    const ro = await save('beta', L(99), RO.port);
+    ok(ro.status === 403 && /--scenes-readonly/.test(ro.json().error) && obj('beta/layout.json').body.toString() === before && (await req('GET', '/api/scenes', { at: RO.port })).json().direct === false,
+      '--scenes-readonly: 403, nothing written, no direct uploads');
+    RO.kill();
+  });
+
+  await step('R2: the watch: hello; a change made straight in the bucket told within R2_POLL (no settling: an object lands whole); a saved layout and an upload at once; a new scene; nothing for .history/, dot or temporary files', async () => {
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready;
+    const hello = await w.next(ev('hello'), 3000);
+    ok(w.status === 200 && hello?.data.scenes.map(s => s.name).join('|') === 'alpha|beta|with space', 'hello { scenes } at once');
+    await sleep(300);
+    const t0 = Date.now();
+    seed('beta/new.glb', 'x'); seed('beta/a.ogg', bytes(40)); S3.del(PFX + 'alpha/notes.txt'); seed('beta/.x.tmp', 'x'); seed('beta/y.part', 'x'); seed('beta/.history/extra.json', 'x');
+    const [e1, e2, e3] = await Promise.all([w.next(ev('scene', d => d.path === 'new.glb')), w.next(ev('scene', d => d.path === 'a.ogg')), w.next(ev('scene', d => d.path === 'notes.txt'))]);
+    ok(JSON.stringify(e1?.data) === '{"name":"beta","path":"new.glb","kind":"model","gone":false}' && JSON.stringify(e2?.data) === '{"name":"beta","path":"a.ogg","kind":"audio","gone":false}' &&
+      JSON.stringify(e3?.data) === '{"name":"alpha","path":"notes.txt","kind":"other","gone":true}' && e1.at - t0 < 3000, `added, changed and removed in the bucket: scene { name, path, kind, gone } within R2_POLL (1 s here; ${e1 ? e1.at - t0 : '-'} ms)`);
+    const t1 = Date.now(), s = await req('POST', '/api/scenes/beta/layout', { at: RR.port, body: { studio: 1, scene: 'beta', objects: [] } }), lay = await w.next(ev('layout'));
+    ok(JSON.stringify(lay?.data) === JSON.stringify({ name: 'beta', at: s.json().at }) && lay.at - t1 < 900, `a save: layout { name, at } at once (${lay ? lay.at - t1 : '-'} ms)`);
+    seed('gamma/g.mp3', 'x');
+    const sc = await w.next(ev('scenes')), g = await w.next(ev('scene', d => d.name === 'gamma'));
+    ok(sc?.data.scenes.map(x => x.name).join('|') === 'alpha|beta|gamma|with space' && g?.data.path === 'g.mp3', 'a new scene: scenes { scenes }, and its file');
+    S3.del(PFX + 'beta/layout.json');
+    const gone = await w.next(ev('layout'));
+    ok(gone?.data.name === 'beta' && gone.data.gone === true && gone.data.at === null, 'layout.json removed: layout { name, at: null, gone: true }');
+    S3.del(PFX + 'gamma/g.mp3');
+    ok((await w.next(ev('scenes')))?.data.scenes.length === 3, 'a scene emptied: scenes { scenes } without it');
+    await sleep(1500);
+    ok(!w.events.some(e => e.event === 'scene' && /(^|\/)\.|\.part$|\.tmp$/.test(e.data.path)), 'nothing for .history/, dot files or temporary files');
+    w.close();
+  });
+
+  await step('R2: uploads through the relay: a scene made (a hidden marker keeps it), files put into the bucket (409 unless replace=1, the path rules, the size counted as it streams), told at once; nothing left behind', async () => {
+    const make = (b, at = RR.port) => send(at, '/api/scenes', Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const m = await make({ name: 'new one' });
+    ok(m.status === 201 && JSON.stringify(m.json()) === '{"ok":true,"name":"new one"}' && !!obj('new one/.scene') && (await rget('/api/scenes/new%20one')).json().files.length === 0, '201, its marker (.scene, never listed) in the bucket');
+    ok(!!(await w.next(ev('scenes', d => d.scenes.some(x => x.name === 'new one')), 3000)), 'the watch told');
+    seed('afile', 'x');
+    ok((await make({ name: 'new one' })).status === 409 && (await make({ name: 'afile' })).status === 409 && (await make({ name: 'bad!' })).status === 400, 'a scene of that name, or an object at the top by it: 409; a bad name: 400');
+    const upr = (p, body, o = {}) => send(o.at || RR.port, `/api/scenes/${o.scene || 'new%20one'}/file?path=${encodeURIComponent(p)}${o.replace ? '&replace=1' : ''}`, body, o);
+    const A = bytes(5000), B = bytes(3000), t0 = Date.now(), r = await upr('models/a.glb', A), a = r.json();
+    ok(r.status === 200 && a.ok === true && a.path === 'models/a.glb' && a.bytes === 5000 && a.at === obj('new one/models/a.glb').at && obj('new one/models/a.glb').body.equals(A) &&
+      obj('new one/models/a.glb').type === 'model/gltf-binary', '200 { ok, path, bytes, at }: the bytes into the bucket, with its type');
+    const told = await w.next(ev('scene', d => d.path === 'models/a.glb'), 3000);
+    ok(told && told.at - t0 < 1000, `the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    ok((await upr('models/a.glb', B)).status === 409 && obj('new one/models/a.glb').body.equals(A) && (await upr('models/a.glb', B, { replace: true })).status === 200 && obj('new one/models/a.glb').body.equals(B), 'there: 409; replace=1: replaced');
+    seed('new one/tex/dir.png/x.png', 'x');
+    ok((await upr('tex/dir.png', Buffer.from('x'), { replace: true })).status === 409 && (await upr('models/a.glb/x.glb', Buffer.from('x'))).status === 409, 'a folder of that name, or a file where a folder of the path should be: 409');
+    const bad = [];
+    for (const p of ['', '../x.glb', '.hidden.glb', '.history/x.glb', 'a\\b.glb', 'a//b.glb', 'x.glb.tmp', 'layout.json', 'notes.txt', 'con.glb', 'a/b/c/d/e/f.glb']) bad.push((await upr(p, Buffer.from('x'))).status);
+    ok(bad.every(x => x === 400) && (await upr('a.glb', Buffer.from('x'), { scene: 'nope' })).status === 404, 'the path rules: 400; no such scene: 404 (' + bad.join(' ') + ')');
+    const keys0 = S3.keys().length, exact = await upr('big/exact.bin', bytes(MB)), b1 = await upr('big2/x.bin', bytes(MB + 1)), b2 = await upr('big3/x.bin', bytes(3 * MB), { chunked: true });
+    ok(exact.status === 200 && obj('new one/big/exact.bin').body.length === MB && b1.status === 413 && b2.status === 413 && S3.keys().length === keys0 + 1, `exactly 1 MB: 200; past it 413 by Content-Length (${b1.status}) and as it streams (${b2.status}); nothing of those in the bucket`);
+    const s = net.connect(RR.port, '127.0.0.1');
+    await new Promise(x => s.once('connect', x));
+    s.write('POST /api/scenes/new%20one/file?path=cut%2Fx.glb HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n');
+    s.write(bytes(30000));
+    await sleep(300); s.destroy(); await sleep(500);
+    ok(!obj('new one/cut/x.glb') && r2tmp() === tmp0 && /an upload of cut\/x\.glb was cut short \(30000 bytes came\)/.test(RR.out), 'cut short: nothing in the bucket, its temporary folder gone, said in the log');
+    const [x1, x2] = await Promise.all([upr('race.glb', bytes(200000)), upr('race.glb', bytes(200000))]);
+    ok([x1.status, x2.status].sort().join() === '200,409', `two at once to one new name: one 200, one 409 (${x1.status} ${x2.status})`);
+    ok(/scenes: new one: wrote models\/a\.glb into the bucket \(5\.0 kB/.test(RR.out) && r2tmp() === tmp0, 'said in the log; no temporary folder left');
+    w.close();
+  });
+
+  await step('R2: direct uploads: .../put gives a signed PUT (its type, length and If-None-Match signed) the stand-in takes from a page\'s origin; .../done looks and tells the watch at once; the checks; a folder relay answers 501', async () => {
+    const api = (what, q, at = RR.port, scene = 'new%20one') => req('POST', `/api/scenes/${scene}/${what}?${q}`, { at });
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const p = await api('put', 'path=models%2Fb.glb&size=4'), pj = p.json();
+    ok(p.status === 200 && pj.url.startsWith(S3.url + '/scenes/studio/new%20one/models/b.glb?') && JSON.stringify(pj.headers) === '{"Content-Type":"model/gltf-binary","If-None-Match":"*"}' && pj.path === 'models/b.glb' && pj.expires === 3600,
+      'put: { url, headers (its type, If-None-Match: *), path, expires }');
+    const pre = await fetch(pj.url, { method: 'OPTIONS', headers: { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'PUT', 'Access-Control-Request-Headers': 'content-type,if-none-match' } });
+    const up = await fetch(pj.url, { method: 'PUT', headers: { ...pj.headers, Origin: 'https://x.github.io' }, body: Buffer.from('glTF') });
+    ok(pre.status === 200 && up.status === 200 && up.headers.get('access-control-allow-origin') === '*' && obj('new one/models/b.glb').body.toString() === 'glTF' && obj('new one/models/b.glb').type === 'model/gltf-binary',
+      'the page\'s preflight and its PUT, straight into the bucket');
+    const t0 = Date.now(), d = await api('done', 'path=models%2Fb.glb&size=4'), told = await w.next(ev('scene', x => x.path === 'models/b.glb'), 3000);
+    ok(d.status === 200 && JSON.stringify(Object.keys(d.json())) === '["ok","path","bytes","at"]' && d.json().bytes === 4 && d.json().at === obj('new one/models/b.glb').at && told && told.at - t0 < 1000,
+      `done: { ok, path, bytes, at }; the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    const again = await api('put', 'path=models%2Fb.glb&size=4'), rep = (await api('put', 'path=models%2Fb.glb&size=5&replace=1')).json();
+    const up2 = await fetch(rep.url, { method: 'PUT', headers: rep.headers, body: Buffer.from('glTF2') });
+    ok(again.status === 409 && !('If-None-Match' in rep.headers) && up2.status === 200 && obj('new one/models/b.glb').body.toString() === 'glTF2', 'there: 409; replace=1: a link without If-None-Match, which replaces it');
+    const big = (await api('put', 'path=models%2Fc.glb&size=4')).json();
+    const wrongSize = await fetch(big.url, { method: 'PUT', headers: big.headers, body: Buffer.from('glTF and more') }), wrongType = await fetch(big.url, { method: 'PUT', headers: { ...big.headers, 'Content-Type': 'text/html' }, body: Buffer.from('glTF') });
+    const nothing = await api('done', 'path=models%2Fc.glb');
+    ok(wrongSize.status === 403 && wrongType.status === 403 && !obj('new one/models/c.glb') && nothing.status === 400 && /nothing came/.test(nothing.json().error), 'a body of another size or type: refused by the bucket (403); done then: 400');
+    const s = [await api('put', 'path=x.glb&size=' + (MB + 1)), await api('put', 'path=x.glb'), await api('put', 'path=..%2Fx.glb&size=1'), await api('put', 'path=notes.txt&size=1'), await api('put', 'path=x.glb&size=-1'),
+      await api('put', 'path=x.glb&size=1', RR.port, 'nope'), await api('done', 'path=x.glb', RR.port, 'nope')];
+    ok(s.map(x => x.status).join() === '413,400,400,400,400,404,404', 'over --max-upload: 413; no size, a bad path or kind, a bad size: 400; no such scene: 404 (' + s.map(x => x.status).join() + ')');
+    seed('new one/odd.glb', 'abc');
+    ok((await api('done', 'path=odd.glb&size=4')).status === 400, 'done with another size than the bucket holds: 400');
+    seed('new one/huge.bin', bytes(MB + 10));
+    const hg = await api('done', 'path=huge.bin');
+    ok(hg.status === 413 && !!obj('new one/huge.bin') && /huge\.bin in the bucket is .*left there \(it did not come by a link of this relay's\)/.test(RR.out),
+      'done for an object over --max-upload that no link of the relay\'s brought (put another way, such as r2sync): 413, and it is left there');
+    ok((await req('POST', '/api/scenes/one/put?path=x.glb&size=1', { at: UP.port })).status === 501 && (await req('GET', '/api/scenes/new%20one/put?path=x.glb&size=1', { at: RR.port })).status === 405,
+      'a relay whose scenes are a folder: 501; GET: 405');
+    ok(noLeak(RR.out) && !(await req('POST', '/api/scenes/new%20one/put?path=..%2Fx&size=1', { at: RR.port })).text.includes('X-Amz'), 'no signed link in the log or in an error');
+    w.close();
+  });
+
+  await step('R2: POST .../sound: ffmpeg (a stand-in) makes the MP3 from the body, or (from=) from a file already in the bucket; it goes into the bucket; failures and the rules; nothing left behind', async () => {
+    const W = bytes(40000), r = await send(RR.port, '/api/scenes/new%20one/sound?path=sounds%2Fa.mp3', W);
+    ok(r.status === 200 && r.json().bytes === FF_OUT.length && obj('new one/sounds/a.mp3').body.equals(FF_OUT) && obj('new one/sounds/a.mp3').type === 'audio/mpeg' &&
+      ffNotes('ok').some(n => n.input === sha(W)), 'from the body: 200, ffmpeg\'s MP3 in the bucket (audio/mpeg)');
+    const W2 = bytes(30000);
+    seed('new one/originals/long.wav', W2);
+    const f = await send(RR.port, '/api/scenes/new%20one/sound?from=originals%2Flong.wav&path=sounds%2Flong.mp3', null);
+    ok(f.status === 200 && obj('new one/sounds/long.mp3').body.equals(FF_OUT) && ffNotes('ok').some(n => n.input === sha(W2)) && /wrote sounds\/long\.mp3 into the bucket .* from originals\/long\.wav/.test(RR.out),
+      'from=originals/long.wav: ffmpeg given the file fetched from the bucket, the MP3 put there');
+    const s = [await send(RR.port, '/api/scenes/new%20one/sound?from=originals%2Fnope.wav&path=sounds%2Fn.mp3', null), await send(RR.port, '/api/scenes/new%20one/sound?from=..%2Fx&path=sounds%2Fn.mp3', null),
+      await send(RR.port, '/api/scenes/new%20one/sound?path=sounds%2Fa.mp3', W), await send(RR.port, '/api/scenes/new%20one/file?from=originals%2Flong.wav&path=x.glb', null),
+      await send(UP.port, '/api/scenes/one/sound?from=originals%2Fx.wav&path=sounds%2Fn.mp3', null)];
+    ok(s.map(x => x.status).join() === '400,400,409,400,400', 'from= a file not there or not a scene\'s: 400; the MP3 there: 409; from= with .../file, or on a folder relay: 400 (' + s.map(x => x.status).join() + ')');
+    const F = await start(['--scenes', 'r2', '--ffmpeg', ff('fail'), '--quiet'], R2ENV);
+    const ff1 = await send(F.port, '/api/scenes/new%20one/sound?path=sounds%2Ff.mp3', W);
+    ok(ff1.status === 422 && !obj('new one/sounds/f.mp3') && r2tmp() === tmp0, 'ffmpeg failing: 422, nothing in the bucket, no temporary folder left');
+    F.kill();
+  });
+
+  await step('R2 with a password: every endpoint needs it, the signed links do not (they are the permission); no password in a link or in what reached the bucket; the start refuses missing settings (named, never a value), a wrong key or bucket, no answer; --r2-check; --public needs a password', async () => {
+    const PASS = 'r2pass' + crypto.randomBytes(5).toString('hex');
+    const T = await start(['--scenes', 'r2', '--proxy'], { ...R2ENV, COLLAB_TOKEN: PASS });
+    let n = 0;
+    const tget = (p, o = {}) => req(o.method || 'GET', p, { at: T.port, headers: { 'X-Forwarded-For': '198.51.100.' + (++n), ...(o.headers || {}) }, body: o.body });
+    const asks = [['GET', '/api/scenes'], ['GET', '/api/scenes/alpha'], ['GET', '/scenes/alpha/model.glb'], ['POST', '/api/scenes/beta/layout'], ['POST', '/api/scenes/beta/put?path=x.glb&size=1'],
+      ['POST', '/api/scenes/beta/done?path=x.glb'], ['POST', '/api/scenes/beta/file?path=x.glb'], ['GET', '/api/scenes/watch']];
+    const st = [];
+    for (const [m, p] of asks) st.push((await tget(p, { method: m, body: m === 'POST' ? '{}' : undefined })).status);
+    ok(st.every(x => x === 401), 'without it: 401 for each (' + st.join(' ') + ')');
+    const one = (await tget('/api/scenes/alpha', { headers: { Authorization: 'Bearer ' + PASS } })).json(), red = await tget('/scenes/alpha/model.glb?token=' + PASS);
+    ok(one.files.length === R2_FILES.length - 1 && one.files.every(f => !f.url.includes(PASS)) && (await fetch(one.files[0].url)).status === 200 && red.status === 302 && !red.headers.location.includes(PASS) && (await fetch(red.headers.location)).status === 200,
+      'with it: the listing\'s links and the redirect\'s carry no password, and work without one');
+    const put = (await tget('/api/scenes/beta/put?path=pw.glb&size=2', { method: 'POST', headers: { Authorization: 'Bearer ' + PASS } })).json();
+    ok(!!put.url && !put.url.includes(PASS) && (await fetch(put.url, { method: 'PUT', headers: put.headers, body: 'ab' })).status === 200, 'a put link with it, no password in it');
+    ok(S3.requests.every(q => !JSON.stringify(q).includes(PASS)) && !T.out.includes(PASS) && noLeak(T.out), 'the password never reached the bucket, nor any log line; no secret or signed link logged');
+    T.kill();
+    const env0 = { R2_ENDPOINT: '', R2_ACCOUNT_ID: '', R2_ACCESS_KEY_ID: '', R2_SECRET_ACCESS_KEY: '', R2_BUCKET: '', R2_PREFIX: '' };
+    const [miss, wrongKey, wrongBucket, away, pub, check, nocheck] = await Promise.all([
+      startFails(['--scenes', 'r2'], { ...env0, R2_SECRET_ACCESS_KEY: 'SHOULDNOTSHOW' }),
+      startFails(['--scenes', 'r2'], { ...R2ENV, R2_SECRET_ACCESS_KEY: 'not-the-secret-SHOULDNOTSHOW' }),
+      startFails(['--scenes', 'r2'], { ...R2ENV, R2_BUCKET: 'other-bucket' }),
+      startFails(['--scenes', 'r2'], { ...R2ENV, R2_ENDPOINT: 'https://nowhere.invalid' }),
+      startFails(['--scenes', 'r2', '--public'], R2ENV),
+      startFails(['--scenes', 'r2', '--r2-check'], R2ENV),
+      startFails(['--r2-check'], {})]);
+    ok(miss.code === 1 && /--scenes r2: missing R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_BUCKET in the environment/.test(miss.out) && !miss.out.includes('SHOULDNOTSHOW'), 'missing settings: refused, each named, no value shown: ' + miss.out.trim().slice(0, 160));
+    ok(wrongKey.code === 1 && /R2 refused the keys \(403 SignatureDoesNotMatch\)/.test(wrongKey.out) && !wrongKey.out.includes('SHOULDNOTSHOW') && wrongBucket.code === 1 && /there is no bucket other-bucket/.test(wrongBucket.out) &&
+      away.code === 1 && /could not reach nowhere\.invalid \(ENOTFOUND\)/.test(away.out) && [wrongKey, wrongBucket, away].every(x => !/listening/.test(x.out)), 'a wrong secret, a bucket that is not there, an address that is no one\'s: refused before listening, saying which');
+    ok(pub.code === 1 && /--public with --scenes needs a password/.test(pub.out) && check.code === 0 && /--r2-check: the keys may list the bucket scenes \(under studio\/\)/.test(check.out) && /--r2-check: all is well/.test(check.out) &&
+      /R2 upload links: taken with their type, length and If-None-Match signed/.test(check.out) &&
+      nocheck.code === 1 && /--r2-check goes with --scenes r2/.test(nocheck.out), '--public without a password refused; --r2-check: all is well (exit 0); --r2-check alone refused');
+    const S3B = await startFake({ bucket: 'scenes', keys: { [R2KEY]: R2SECRET }, cors: [] });
+    const bad = await startFails(['--scenes', 'r2', '--r2-check'], { ...R2ENV, R2_ENDPOINT: S3B.url });
+    ok(bad.code === 1 && /download with a range NO, upload NO/.test(bad.out) && /the bucket has no CORS rule/.test(bad.out) && /paste the rule in relay\/README\.md/.test(bad.out), '--r2-check on a bucket with no CORS rule: says so (exit 1)');
+    await S3B.close();
+  });
+  await step('R2: the start tries an upload link (all signed, only the type, refused, If-None-Match ignored); done removes past --max-upload only what its own link brought; a failed save costs no history; three uploads through the relay at once; a bucket that does not answer at the start', async () => {
+    const SQ = await startFake({ bucket: 'scenes', keys: { [R2KEY]: R2SECRET } }), envQ = { ...R2ENV, R2_ENDPOINT: SQ.url, R2_RETRY: '3' };
+    const sq = rel => SQ.objects.get(PFX + rel), sqKeys = () => SQ.keys().filter(k => !k.includes('.put-check-'));
+    SQ.put(PFX + 'q/a.glb', 'glTF', { type: 'model/gltf-binary' });
+    const waitFor = async (P, re, ms = 6000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(50)) if (re.test(P.out)) return true; return false; };
+    const qapi = (P, what, q) => req('POST', `/api/scenes/q/${what}?${q}`, { at: P.port });
+    // the bucket refuses a signed length: links with only their type signed; the size checked at done; one past
+    // --max-upload that its own link brought removed
+    SQ.quirks = { refuseSigned: ['content-length'] };
+    const QT = await start(['--scenes', 'r2', '--max-upload', '1'], envQ);
+    ok(await waitFor(QT, /R2 upload links: taken with only their type signed \(the bucket refused their length and If-None-Match signed\).*; a second upload to the same new name refused \(412/) &&
+      (await req('GET', '/api/scenes', { at: QT.port })).json().direct === true, 'a store that refuses a signed length: the start says links go with only their type signed (If-None-Match still honoured); direct uploads on');
+    const t = (await qapi(QT, 'put', 'path=t.glb&size=4')).json();
+    const tp = await fetch(t.url, { method: 'PUT', headers: t.headers, body: 'glTF' }), td = await qapi(QT, 'done', 'path=t.glb&size=4');
+    ok(/X-Amz-SignedHeaders=content-type%3Bhost&/.test(t.url) && tp.status === 200 && td.status === 200 && sq('q/t.glb').body.toString() === 'glTF', 'its link (type signed) taken, done: 200');
+    const b = (await qapi(QT, 'put', 'path=big.bin&size=10')).json();
+    const bp = await fetch(b.url, { method: 'PUT', headers: b.headers, body: bytes(MB + 10) }), bd = await qapi(QT, 'done', 'path=big.bin&size=10');
+    ok(bp.status === 200 && bd.status === 413 && !sq('q/big.bin') && /removed big\.bin \(.* came straight into the bucket by its link: more than --max-upload\)/.test(QT.out),
+      'a body past --max-upload through its own link (its length not signed): done 413, and it is removed');
+    const w = (await qapi(QT, 'put', 'path=w.glb&size=4')).json(), wp = await fetch(w.url, { method: 'PUT', headers: w.headers, body: 'glTF+' }), wd = await qapi(QT, 'done', 'path=w.glb&size=4');
+    ok(wp.status === 200 && wd.status === 400 && /holds 5 bytes, not the 4 said/.test(wd.json().error), 'another size than said (not signed, so taken by the bucket): done 400');
+    // a save that fails after the old layout went into .history/ costs nothing more each time it is tried again
+    SQ.put(PFX + 'q/layout.json', JSON.stringify({ studio: 1, scene: 'q', objects: [] }), { type: 'application/json' });
+    const hq = () => SQ.keys().filter(k => k.startsWith(PFX + 'q/.history/')).length, saveQ = n => req('POST', '/api/scenes/q/layout', { at: QT.port, body: { studio: 1, scene: 'q', n, objects: [] } });
+    SQ.quirks.fail = (m, key) => (m === 'PUT' && key === PFX + 'q/layout.json' ? 500 : 0);
+    const f1 = await saveQ(1), h1 = hq(), f2 = await saveQ(2), f3 = await saveQ(3);
+    ok(f1.status === 502 && /storage \(R2\) answered 500/.test(f1.json().error) && h1 === 1 && f2.status === 502 && f3.status === 502 && hq() === 1 && !('n' in JSON.parse(sq('q/layout.json').body)),
+      `layout.json refused by the bucket: 502, the old one kept in .history/ once, not again on each try (${h1}, ${hq()})`);
+    SQ.quirks.fail = null;
+    const s4 = await saveQ(4), h4 = hq(), n4 = JSON.parse(sq('q/layout.json').body).n, s5 = await saveQ(5);
+    ok(s4.status === 200 && h4 === 1 && n4 === 4 && s5.status === 200 && hq() === 2, 'then it goes in (the copy already there: none more); the next save copies as ever');
+    // three uploads through the relay at once, a fourth told to wait (429, Retry-After); the first three cut, then one goes
+    const held = [];
+    for (let i = 0; i < 3; i++) {
+      const so = net.connect(QT.port, '127.0.0.1');
+      await new Promise(x => so.once('connect', x));
+      so.write(`POST /api/scenes/q/file?path=hold${i}.bin HTTP/1.1\r\nHost: x\r\nContent-Length: 500000\r\n\r\n`); so.write(bytes(1000));
+      held.push(so);
+    }
+    await sleep(700);
+    const busy = await send(QT.port, '/api/scenes/q/file?path=four.bin', bytes(100));
+    ok(busy.status === 429 && busy.headers['retry-after'] === '5' && /3 uploads are on their way through the relay already/.test(busy.json().error) && !sq('q/four.bin'), 'a fourth upload through the relay at once: 429 with Retry-After');
+    for (const so of held) so.destroy();
+    await sleep(600);
+    ok((await send(QT.port, '/api/scenes/q/file?path=four.bin', bytes(100))).status === 200 && !!sq('q/four.bin'), 'once those went: taken');
+    QT.kill();
+    // done for an object it never gave a link for, past --max-upload: left there
+    SQ.quirks = {};
+    // both refused: no upload links (direct false, .../put 501); If-None-Match ignored: said
+    SQ.quirks = { refuseSigned: ['content-type'] };
+    const QO = await start(['--scenes', 'r2', '--quiet'], envQ);
+    ok(await waitFor(QO, /R2 upload links: the bucket refused them \(403 SignatureDoesNotMatch\), even with only their type signed: pages send their files through the relay/) &&
+      (await req('GET', '/api/scenes', { at: QO.port })).json().direct === false && (await qapi(QO, 'put', 'path=x.glb&size=1')).status === 501, 'a store that refuses both: direct false, .../put 501, pages send files through the relay');
+    QO.kill();
+    SQ.quirks = { ignoreIfNoneMatch: true };
+    const QI = await start(['--scenes', 'r2', '--quiet'], envQ);
+    ok(await waitFor(QI, /the bucket did NOT refuse a second upload to the same new name \(If-None-Match ignored\)/) && (await req('GET', '/api/scenes', { at: QI.port })).json().direct === true, 'If-None-Match ignored: said; direct uploads on');
+    QI.kill();
+    // a bucket that does not answer at the start (a 5xx; nothing at its address): the relay starts all the same, its
+    // rooms work, the scenes answer 502, and it is asked again until it answers
+    SQ.quirks = { fail: () => 503 };
+    const Q5 = await start(['--scenes', 'r2'], envQ);
+    const room5 = await req('POST', '/api/rooms', { at: Q5.port, body: { app: 'networks', version: 'v1' } }), sc5 = await req('GET', '/api/scenes', { at: Q5.port });
+    ok(/the bucket scenes answered 503 InternalError\n--scenes r2: the relay starts all the same/.test(Q5.out) && room5.status === 201 && sc5.status === 502 && /storage \(R2\) answered 503/.test(sc5.json().error),
+      'a 5xx at the start: listening anyway, a room made, the scenes 502');
+    SQ.quirks = {};
+    ok(await waitFor(Q5, /scenes: the bucket scenes answers now/, 8000) && (await req('GET', '/api/scenes', { at: Q5.port })).json().scenes.some(x => x.name === 'q') && await waitFor(Q5, /R2 upload links: taken/),
+      'once it answers: said, the scenes listed, its CORS rule and upload links checked');
+    Q5.kill();
+    const fp = await new Promise(r => { const sv = net.createServer().listen(0, '127.0.0.1', () => { const p = sv.address().port; sv.close(() => r(p)); }); });
+    const QN = await start(['--scenes', 'r2'], { ...envQ, R2_ENDPOINT: 'http://127.0.0.1:' + fp });
+    ok(/could not reach 127\.0\.0\.1:\d+ \(ECONNREFUSED\).*\n--scenes r2: the relay starts all the same/.test(QN.out) && (await req('GET', '/api/scenes', { at: QN.port })).status === 502, 'nothing at its address: listening anyway, the scenes 502');
+    const SN = await startFake({ port: fp, bucket: 'scenes', keys: { [R2KEY]: R2SECRET } });
+    SN.put(PFX + 'n/a.glb', 'glTF');
+    ok(await waitFor(QN, /scenes: the bucket scenes answers now/, 8000) && (await req('GET', '/api/scenes', { at: QN.port })).json().scenes.map(x => x.name).join() === 'n', 'a store there later: found by itself, its scenes listed');
+    QN.kill();
+    await SN.close(); await SQ.close();
+    ok(noLeak(QT.out + QO.out + QI.out + Q5.out + QN.out), 'no secret or signed link in their logs');
+  });
+  await step('R2: tools/studio/r2sync.mjs: list; pull onto a folder (scan.mjs then lists it as the relay does), again nothing; push what changed (--dry first), --delete, --history; settings refused', async () => {
+    // (run as a process of its own, never synchronously: the stand-in answers from this one)
+    const sync = (args, env = R2ENV) => new Promise(resolve => {
+      const p = spawn(process.execPath, [path.join(REPO, 'tools/studio/r2sync.mjs'), ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
+      let out = '';
+      p.stdout.on('data', d => { out += d; }); p.stderr.on('data', d => { out += d; });
+      const t = setTimeout(() => p.kill(), 60000);
+      p.on('exit', code => { clearTimeout(t); resolve({ code, out }); });
+    });
+    const L = fs.mkdtempSync(path.join(os.tmpdir(), 'r2sync-')), Lp = (...p) => path.join(L, ...p);
+    try {
+      const l = await sync(['list']);
+      ok(l.code === 0 && /scenes? in the bucket scenes \(under studio\/\)/.test(l.out) && /  alpha: \d+ files, .*layout\.json/.test(l.out) && /  new one: /.test(l.out), 'list: the bucket\'s scenes with their files');
+      const p1 = await sync(['pull', '--all', L]);
+      const one = (await rget('/api/scenes/alpha')).json();
+      const pulledSame = one.files.every(f => fs.existsSync(Lp('alpha', ...f.path.split('/'))) && fs.readFileSync(Lp('alpha', ...f.path.split('/'))).equals(obj('alpha/' + f.path).body));
+      ok(p1.code === 0 && pulledSame && fs.existsSync(Lp('alpha', 'layout.json')) && !fs.existsSync(Lp('alpha', '.history')) && !fs.existsSync(Lp('alpha', '.hidden')) && !fs.existsSync(Lp('alpha', 'x.tmp')) &&
+        !fs.existsSync(Lp('alpha', 'deep', 'a', 'b', 'c', 'd')) && fs.existsSync(Lp('with space', 'x.webm')) && !fs.existsSync(Lp('bad!')) && /fetched/.test(p1.out),
+        'pull --all: every listed file and layout.json, byte for byte; not .history/, dot or temporary files, too deep, or names that are not a scene\'s');
+      execFileSync(process.execPath, [path.join(REPO, 'tools/studio/scan.mjs'), L], { encoding: 'utf8' });
+      const fj = JSON.parse(fs.readFileSync(Lp('alpha', 'files.json'), 'utf8')), api = { name: one.name, files: one.files.map(({ url, ...f }) => f), layoutAt: one.layoutAt };
+      ok(JSON.stringify({ name: fj.name, files: fj.files, layoutAt: fj.layoutAt }) === JSON.stringify(api), 'scan.mjs on the pulled folder lists alpha exactly as the relay does from the bucket (paths, sizes, kinds and times)');
+      const p2 = await sync(['pull', 'alpha', L]);
+      ok(p2.code === 0 && /^dry run|0 fetched/m.test(p2.out) && !/^get /m.test(p2.out), 'pull again: nothing fetched, everything the same');
+      fs.writeFileSync(Lp('alpha', 'model.glb'), 'changed here'); fs.mkdirSync(Lp('alpha', 'more'), { recursive: true }); fs.writeFileSync(Lp('alpha', 'more', 'new.png'), 'png');
+      const keys0 = S3.keys().join();
+      const d = await sync(['push', L, 'alpha', '--dry']);
+      ok(d.code === 0 && /would put alpha\/model\.glb/.test(d.out) && /would put alpha\/more\/new\.png/.test(d.out) && (d.out.match(/^would put /mg) || []).length === 2 && S3.keys().join() === keys0 && obj('alpha/model.glb').body.equals(GLB),
+        'push --dry: says the two that differ, changes nothing');
+      const u = await sync(['push', L, 'alpha']);
+      ok(u.code === 0 && obj('alpha/model.glb').body.toString() === 'changed here' && obj('alpha/more/new.png').type === 'image/png' && /2 put/.test(u.out) && /2 put/.test(u.out) && !/^put /m.test((await sync(['push', L, 'alpha'])).out),
+        'push: the two put (with their types), and again: nothing');
+      fs.rmSync(Lp('alpha', 'data.bin'));
+      ok((await sync(['push', L, 'alpha'])).code === 0 && !!obj('alpha/data.bin'), 'a file gone here: kept in the bucket without --delete');
+      const del = await sync(['push', L, 'alpha', '--delete']);
+      ok(del.code === 0 && /delete alpha\/data\.bin/.test(del.out) && !obj('alpha/data.bin') && !!obj('alpha/.history/layout-old.json') && !!obj('alpha/files.json'), 'push --delete: removed there; .history/ and what the listing leaves out untouched');
+      const h = await sync(['pull', 'alpha', L, '--history']);
+      ok(h.code === 0 && fs.existsSync(Lp('alpha', '.history', 'layout-old.json')), 'pull --history: the layouts in .history/ too');
+      // a file newer where it would go is kept (and said) unless --force; a layout.json replaced on either side is first
+      // copied into that side's .history/
+      const lay = Lp('alpha', 'layout.json'), histB = () => S3.keys().filter(k => k.startsWith(PFX + 'alpha/.history/')).length, histL = () => fs.readdirSync(Lp('alpha', '.history'));
+      fs.writeFileSync(lay, JSON.stringify({ studio: 1, scene: 'alpha', objects: [], here: 1 }));   // (saved here since the pull)
+      const k1 = await sync(['pull', 'alpha', L]);
+      ok(k1.code === 0 && /^kept alpha\/layout\.json here: it is newer there .*--force replaces it$/m.test(k1.out) && /1 kept as it is \(newer where it would go/.test(k1.out) && JSON.parse(fs.readFileSync(lay, 'utf8')).here === 1,
+        'pull: a layout saved here since (newer here) kept, and said');
+      const hb0 = histB(), k2 = await sync(['push', L, 'alpha']);
+      ok(k2.code === 0 && JSON.parse(obj('alpha/layout.json').body).here === 1 && histB() === hb0 + 1 && /kept the bucket's old alpha\/layout\.json in its \.history\//.test(k2.out),
+        'push: the newer layout here put, the bucket\'s old one first copied into its .history/');
+      S3.put(PFX + 'alpha/layout.json', JSON.stringify({ studio: 1, scene: 'alpha', objects: [], there: 1 }), { type: 'application/json', at: Date.now() + 5000 });   // (saved there since)
+      const k3 = await sync(['push', L, 'alpha']);
+      ok(k3.code === 0 && /^kept alpha\/layout\.json in the bucket: it is newer there/m.test(k3.out) && JSON.parse(obj('alpha/layout.json').body).there === 1, 'push: a layout saved in the bucket since (newer there) kept, and said');
+      const hl0 = histL().length, k4 = await sync(['pull', 'alpha', L]);
+      ok(k4.code === 0 && JSON.parse(fs.readFileSync(lay, 'utf8')).there === 1 && histL().length === hl0 + 1 && histL().some(n => n !== 'layout-old.json' && JSON.parse(fs.readFileSync(Lp('alpha', '.history', n), 'utf8')).here === 1),
+        'pull: the newer layout there fetched, the one here first copied into .history/ here');
+      fs.writeFileSync(lay, JSON.stringify({ studio: 1, scene: 'alpha', objects: [], old: 1 })); fs.utimesSync(lay, new Date(), new Date(Date.now() - 3600e3));
+      const k5 = await sync(['push', L, 'alpha']), there5 = JSON.parse(obj('alpha/layout.json').body).there, k6 = await sync(['push', L, 'alpha', '--force']);
+      ok(/^kept alpha\/layout\.json in the bucket/m.test(k5.out) && there5 === 1 && k6.code === 0 && JSON.parse(obj('alpha/layout.json').body).old === 1 && /kept the bucket's old alpha\/layout\.json/.test(k6.out),
+        'an older layout here: kept back; --force puts it (the bucket\'s first copied into its .history/)');
+      const e1 = await sync(['list'], { ...R2ENV, R2_BUCKET: '' }), e2 = await sync(['pull', 'nope', L]), e3 = await sync(['push']);
+      ok(e1.code === 1 && /missing R2_BUCKET/.test(e1.out) && e2.code === 1 && /no scene "nope"/.test(e2.out) && e3.code === 1 && /usage/.test(e3.out) && !(e1.out + e2.out).includes(R2SECRET),
+        'missing settings, no such scene, no folder: refused, saying why (no secret shown)');
+    } finally { fs.rmSync(L, { recursive: true, force: true }); }
+  });
+  RR.kill();
+  await S3.close();
+  ok(noLeak(RR.out), 'R2: no secret or signed link in the R2 relay\'s log');
+
   NOFF.kill(); URO.kill();
   fs.rmSync(SC, { recursive: true, force: true });
 

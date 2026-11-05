@@ -14,7 +14,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the data generators of the endotype story (3.11 or newer) the tissue topology and soil stories (3.10 or newer), see below |
 | `http-server` | any | optional: another way to serve the folder (`npx` fetches it) |
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
-| `ffmpeg` | any | optional, on the machine that runs the relay with `--scenes`: it makes long sounds uploaded to the studio mono MP3 (without it they are kept as given; `brew install ffmpeg`, `sudo apt install ffmpeg`, `winget install ffmpeg`; the relay's Docker image installs it). `relay/test.mjs` uses a real one when the machine has it, else a stand-in |
+| `ffmpeg` | any | optional, on the machine that runs the relay with `--scenes` (a folder or `r2`): it makes long sounds uploaded to the studio mono MP3 (without it they are kept as given; `brew install ffmpeg`, `sudo apt install ffmpeg`, `winget install ffmpeg`; the relay's Docker image installs it). `relay/test.mjs` uses a real one when the machine has it, else a stand-in |
 | git | any | a checkout. The update test also needs a second, older checkout |
 
 ```sh
@@ -320,6 +320,21 @@ saved settings and headset calibrations do not carry over from one address to an
   (`COLLAB_TOKEN`). The image installs `ffmpeg` for long uploaded sounds (a layer of about 133 MB; built only as a
   scratch variant so far, not on Coolify). The owner's scene files never go into the repository. After touching the
   scenes or uploads, run `node relay/test.mjs` and `node tools/collab.mjs --studio`.
+- **The studio's scenes in Cloudflare R2** (v114; the owner, 5 November 2026: the relay on Coolify on Hetzner, the scenes
+  in R2): `--scenes r2` in `RELAY_ARGS`, the bucket and its keys as Coolify secrets (`R2_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_JURISDICTION=eu` for a bucket made in the EU), the
+  bucket's CORS rule pasted from relay/README.md ("Scenes in Cloudflare R2", the owner's steps), no *Persistent Storage*
+  volume. The start lines say whether the keys work, how the CORS rule answers a browser and what the bucket says to an
+  upload link (`R2 upload links: ...`); in the container's terminal `node relay/server.mjs --scenes r2 --r2-check` checks
+  the same and stops. A bucket that does not answer at the start (R2 away for a moment) does not stop the relay: the
+  rooms work, the scenes answer 502 until it answers, and the log says when it does. With more than about 1,000 objects
+  in the bucket and a studio page left open, set `R2_POLL=15` or more (each listing costs one Class A operation per
+  1,000 objects). Scenes move between the bucket and a folder
+  with `node tools/studio/r2sync.mjs` (`push ~/scenes --all` once to fill the bucket; `pull --all ~/scenes` before an
+  event with no internet). After touching `relay/r2.mjs`, the store in `relay/server.mjs` or `r2sync.mjs`, run
+  `node relay/test.mjs` (it runs `relay/test-r2.mjs`, the signer against AWS's published examples) and
+  `node tools/collab.mjs --studio` (its R2 part runs against the stand-in S3, `relay/s3fake.mjs`). Untested with a
+  real bucket until the owner's is set up.
   **TO FILL (owner):** whether a public relay will run, and where, at which address and run by whom.
 
 ## 6. Rolling back

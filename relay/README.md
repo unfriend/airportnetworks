@@ -26,7 +26,7 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir> [--max-upload <MB>] [--ffmpeg <path>] [--app <url>]]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir>|r2 [--max-upload <MB>] [--ffmpeg <path>] [--app <url>]]
 COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the environment (better: not in a command)
 ```
 
@@ -47,6 +47,8 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
 | `--token <word>` | off | a shared password every client must bring ([The shared password](#the-shared-password-collab_token)); better set as `COLLAB_TOKEN` in the environment |
 | `--scenes <dir>` | off | the studio's scenes: each subfolder of `<dir>` is one scene (models, textures, sounds, its `layout.json`), served and its layout saved there ([Your own scenes](#your-own-scenes-the-studio)) |
+| `--scenes r2` | off | the same, the scenes kept in a Cloudflare R2 bucket, its settings from the environment only (`R2_*`): [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2). A folder named `r2` is `./r2` |
+| `--r2-check` | off | with `--scenes r2`: check the settings, the keys, the bucket's CORS rule and its upload links, say what is wrong, and stop |
 | `--scenes-readonly` | off | with `--scenes`: never write a layout (the studio offers *Download layout.json* instead) and take no uploads |
 | `--max-upload <MB>` | 512 | with `--scenes`: one uploaded file at most this big ([Uploading](#uploading-the-upload-page)) |
 | `--ffmpeg <path>` | the PATH's | with `--scenes`: the `ffmpeg` that makes long sounds mono MP3 (looked for once at the start; a named one that does not run stops the start) |
@@ -62,7 +64,8 @@ things; a flag given as well wins):
 | `COLLAB_TOKEN` | (none) | the shared password (`--token`); empty or unset: none, everything open as before |
 | `COLLAB_PORT` | 8787 | `--port` |
 | `COLLAB_HOST` | 0.0.0.0 | `--host` |
-| `COLLAB_SCENES` | (none) | `--scenes` |
+| `COLLAB_SCENES` | (none) | `--scenes` (`r2` for a bucket) |
+| `R2_*` | (none) | the bucket for `--scenes r2`: [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (only from the environment) |
 | `RELAY_ARGS` | (none) | more options, added after the command's own (Coolify: `--proxy 1 --public`) |
 | `RELAY_LOG_TOKEN` | (none) | the log token (`--log-token`) |
 
@@ -517,7 +520,8 @@ and the page offers *Download layout.json*.
 `Authorization` to sounds and JSON), and wrong ones count towards the 20 a minute from an address ([The shared
 password](#the-shared-password-collab_token)). The files are your own work, not the app's, so `--public` with
 `--scenes` refuses to start without a password. On Coolify: a *Persistent Storage* volume the user `node` may write to
-(say at `/scenes`), and `--scenes /scenes` added to `RELAY_ARGS` (or `COLLAB_SCENES=/scenes`).
+(say at `/scenes`), and `--scenes /scenes` added to `RELAY_ARGS` (or `COLLAB_SCENES=/scenes`); or, with no volume, the
+scenes in a Cloudflare R2 bucket (`--scenes r2`: [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2)).
 
 | request | answer |
 | --- | --- |
@@ -527,6 +531,10 @@ password](#the-shared-password-collab_token)). The files are your own work, not 
 | `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
 | `GET /api/scenes/watch` | Server-Sent Events (with a password `?token=`: an `EventSource` cannot send headers), below |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `GET /upload` | uploads: [Uploading](#uploading-the-upload-page) |
+
+With the scenes in a Cloudflare R2 bucket (`--scenes r2`) the requests and answers are the same, with a signed link
+(`url`) for each file in a scene's listing, a redirect to one for a file, and uploads straight into the bucket besides:
+[Scenes in Cloudflare R2](#scenes-in-cloudflare-r2).
 
 **The watch.** `GET /api/scenes/watch` (`text/event-stream`, `retry: 2000`, a comment line every 20 s, at most 200
 pages) tells the pages what changes in the folder, so a file you save in Blender or drop in appears in the studio by
@@ -620,6 +628,208 @@ line, short, with the temporary paths taken out and no query. The 4 min 16 s ste
 install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). The Docker image (`relay/Dockerfile`, Alpine) installs it
 (`apk add --no-cache ffmpeg`); an image built without that line runs as before and says so.
 
+## Scenes in Cloudflare R2
+
+The owner (5 November 2026): "we have the coolify server going on hetzner so i guess i will use that and the r2, also
+implement the r2 things right away". The relay keeps running on Coolify (on Hetzner); only the studio's scene files
+(models, textures, sounds, each scene's `layout.json` and its `.history/`) can live in a Cloudflare R2 bucket instead of
+a folder. The rooms never touch R2.
+
+Why: the relay's machine keeps no scenes and needs no *Persistent Storage* volume on Coolify (a redeploy deletes the
+container's own files; only an upload that goes through the relay is held in its temporary folder on the way, at most
+three at once); the files are downloaded straight from Cloudflare (R2 charges nothing for downloads, and the relay's
+bandwidth is not used); big uploads go straight into the bucket, not through Coolify's proxy. A folder of scenes
+(`--scenes <dir>`) works as before: the laptop at an event with no internet pulls the scenes first (below).
+
+**How it works** (`--scenes r2`; the same endpoints, answers and listing rules as a folder, `relay/scenes.mjs`):
+
+- **Listing.** The relay lists everything under the bucket's prefix in one go (at most 50,000 objects), keeps it 2 s,
+  and lists again at once after a write of its own. A scene is a first-level folder with any object in it; a scene made
+  empty keeps a hidden marker object (`<scene>/.scene`, never listed). `GET /api/scenes` adds `store: 'r2'`, `direct`
+  and `linkTtl`; `GET /api/scenes/<name>` gives each file a signed link, `url`, and adds `linkTtl`.
+- **Downloads.** The studio fetches each file by its `url`, straight from the bucket, from its own origin (models,
+  textures, sounds, a long sound streamed by an `<audio>` element with `crossOrigin`). A link is dated from the start of
+  the hour (or from the file's own time, when the file changed since) and lives until `R2_LINK_TTL` (12 hours by
+  default) after the end of that hour, so a file has the same link all hour (the browser's cache, R2's `ETag` and 304
+  work), a changed file gets a new link, and every link lives at least `R2_LINK_TTL` from the listing that gave it. The
+  studio reads the listing again once half that time has passed by the wall clock (looked at every minute, when the
+  page shows again and before a file is fetched, so a device that slept, such as a headset taken off for the night,
+  gets new links as it wakes), and once more when the bucket refuses a link (403, or no answer), fetching the file again
+  by its new one; a streamed sound whose element fails gets a new element.
+  `GET /scenes/<name>/<path>` (with the password, as ever) answers 302 to a fresh signed link (`Cache-Control:
+  no-store`, CORS): for plain links and older studios. A file with a signed link needs no password; one without (never
+  in a listing from R2) goes by its address with `?token=`, since after a redirect to another origin a browser drops a
+  header. With a folder the studio sends the password as a header, except for the loaders and sound elements, which
+  cannot send one.
+- **Saving.** `POST /api/scenes/<name>/layout` copies the old `layout.json` into `.history/layout-<time>.json` (unless
+  the newest copy there is it already: a save that failed after copying and is tried again adds none), then puts the
+  new one whole (`application/json`; an object is never half written), and only then deletes the copies past the
+  newest 20: a save the bucket keeps refusing never costs history. Refused, it answers 502 as below.
+- **Uploads.** Through the relay, unchanged (`.../file`, `.../sound`: the body is received into the relay's temporary
+  folder, counted against `--max-upload`, then put into the bucket whole; nothing is left behind), so an older studio
+  still uploads; at most three at once (each is held whole on the way), a fourth answered 429 with `Retry-After`, which
+  the studio waits for. And straight into the bucket (`direct: true`): the page asks `POST .../put?path=&size=` for a
+  signed PUT, sends the file there with its progress, and tells the relay with `POST .../done?path=&size=`. The Upload
+  pane, *Convert to GLB* and the texture buttons do so whenever the relay offers it (`tools/studio/engine/e7c_direct.js`);
+  when the bucket refuses the page's PUT (no answer, which a missing CORS rule looks like, or 400, 403, 501) that file
+  goes through the relay instead, and so does every upload after it on that page.
+- **The upload links checked at the start.** Cloudflare's documents show only `Content-Type` signed on a presigned PUT;
+  the relay signs its type, length and `If-None-Match: *` (a body of another size refused by the bucket itself, and no
+  file replaced by a link that was not asked to). At every start (and with `--r2-check`) it tries one such link on a
+  hidden object at the top of the prefix (`.put-check-<random>`, removed again), twice: taken, then refused (one is
+  there). The bucket refusing a signed length or `If-None-Match` (400 or 403): its links sign only their type, sending
+  `If-None-Match` all the same, and `.../done` checks the size (an object past `--max-upload` that such a link brought
+  is removed; one that came another way, such as `r2sync.mjs`, is never the relay's to remove: 413, left there). Both
+  refused: `direct: false`, and pages send their files through the relay. A second PUT taken (the bucket ignoring
+  `If-None-Match`) is said: two uploads of one new name at the same moment could then overwrite each other. One line in
+  the start's log says which (`R2 upload links: ...`).
+- **Long sounds.** `ffmpeg` runs on the relay as before: from the body, or with `?from=<path>` from a file already in
+  the bucket (the studio sends the original straight into the bucket first, then asks for the MP3 from it). The relay
+  fetches it to a temporary file, runs `ffmpeg` (its time limit, two at once), puts the MP3 into the bucket and removes
+  its temporary files.
+- **The watch.** While a page listens, the relay lists the bucket every `R2_POLL` seconds (5) and tells what changed
+  (key, size, ETag, time) at once (an object lands whole: nothing to settle); its own writes (a save, an upload, a
+  scene made) are told at once. A comment line every 20 s keeps proxies from closing the stream.
+- **Errors.** What R2 answers that is not expected (403, 404, 5xx, no answer) becomes a short answer of the relay's own
+  (502 `{ error: "the scenes' storage (R2) answered 503" }`), tried once more first for a 5xx or no answer. A PUT that
+  is refused as `If-None-Match` says (412, or 409 as R2 has been seen to answer) on its second try is looked at: when
+  the object there is the one sent (its MD5), the first try landed with its answer lost, and it went in. Never R2's
+  body, a signed link or a key in an answer or a log line.
+- **The start.** Settings that cannot work stop it with a sentence (missing ones named, keys refused, no such bucket, an
+  address that is no one's). A bucket that does not answer now (a 5xx, 408, 429, no answer: R2 or the way to it away for
+  a moment, as during a redeploy) does not: the relay starts (its rooms never need the bucket), says so, the scenes
+  answer 502 until the bucket answers, and it is asked again after 5 s and then every 30 s; once it answers the log says
+  `scenes: the bucket ... answers now`, and its CORS rule and upload links are checked as at a start.
+
+### The owner's steps
+
+1. **The bucket.** Cloudflare dashboard, **R2 Object Storage**, **Create bucket**: a name (lower-case letters, digits
+   and `-`, such as `lbi-scenes`). *Location*: leave it automatic, or choose the **European Union** jurisdiction if the
+   files must stay in the EU: **this cannot be changed later** (a bucket made so needs `R2_JURISDICTION=eu`). Default
+   storage class: Standard.
+2. **An API token.** R2's overview, **Manage API tokens** (in *Account details*), **Create API token** (an *Account*
+   token, or a *User* token): permission **Object Read & Write**, **Apply to specific buckets only**: the bucket above.
+   Create, then copy the **Access Key ID** and the **Secret Access Key** (shown once) somewhere safe, and the **Account
+   ID** (R2's overview, *Account details*; it is also in the S3 address shown there,
+   `https://<account id>.r2.cloudflarestorage.com`).
+3. **The CORS rule.** The bucket, **Settings**, **CORS Policy**, **Add CORS policy** (or Edit), the JSON tab, paste:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["*"],
+       "AllowedMethods": ["GET", "HEAD", "PUT"],
+       "AllowedHeaders": ["Content-Type", "If-None-Match", "Range"],
+       "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   `"*"` opens nothing: every request needs its own signed link, which only someone with the relay's password gets.
+   (Listing the app's origins instead, `https://stories.lbi-netmed.com` and `https://rooms.lbi-netmed.com`, works for
+   the studio; a page that follows the relay's redirect from another origin arrives with `Origin: null`, which only
+   `"*"` lets in.) Pictures for WebGL and sounds for the sound engine need CORS; uploads need `PUT` and the two headers.
+   A change can take 30 s to show.
+4. **Coolify.** The relay's resource, *Environment Variables*, each a runtime variable (not needed at build time):
+   `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all three marked **Is Secret**), `R2_BUCKET`, and if
+   wanted `R2_JURISDICTION` (`eu`), `R2_PREFIX` (a folder in the bucket, such as `scenes`), `R2_LINK_TTL`, `R2_POLL`.
+   Then `RELAY_ARGS` = **`--proxy 1 --public --scenes r2`**, and `COLLAB_TOKEN` (the password: `--public` with scenes
+   refuses to start without one). No *Persistent Storage* is needed for scenes. Never put the keys in a command or the
+   repository: process lists and build logs show commands.
+5. **Deploy and check.** The start lines should include
+   ```
+   Scenes for the studio (#studio) from the R2 bucket lbi-scenes: none yet (...); the studio saves their layouts there (...); pages fetch the files straight from the bucket by signed links (each lives 12 h) and upload big ones straight into it; they need the password
+   R2 CORS (as a page at https://stories.lbi-netmed.com meets it): download with a range yes, upload yes; a page sent there by the relay's redirect from another origin (Origin: null) yes; the rule itself cannot be read with these keys: ...
+   ```
+   (an Object Read & Write token may not read the rule itself; the line then checks it as a browser would, by
+   preflights, and asks you to look at the exposed headers in the dashboard), and
+   `R2 upload links: taken with their type, length and If-None-Match signed; a second upload to the same new name refused (412 ...)`
+   (or which of the fallbacks above it took). With wrong settings the relay does not start, and says why:
+   `--scenes r2: missing R2_BUCKET in the environment`, `R2 refused the keys (403 SignatureDoesNotMatch): check
+   R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY ...`, `there is no bucket lbi-scenes there (... R2_JURISDICTION=eu)`,
+   `could not reach ... (ENOTFOUND)`; a bucket that only does not answer for now does not stop it (above). In the
+   container's terminal (Coolify, *Terminal*), `node relay/server.mjs --scenes r2 --r2-check` checks the settings, the
+   keys, the CORS rule and the upload links, prints what it found and stops (exit 0 when all is well).
+6. **Moving scenes there, and an event.** On a computer of your own, with the same variables set in the shell (from a
+   file of your own, never in the repository, such as `set -a; . ~/r2.env; set +a`):
+
+   ```sh
+   node tools/studio/r2sync.mjs list                           # the bucket's scenes
+   node tools/studio/r2sync.mjs push ~/scenes --all --dry      # what it would send; then without --dry
+   node tools/studio/r2sync.mjs pull --all ~/scenes            # before an event: everything onto the laptop
+   node relay/server.mjs --lan --scenes ~/scenes               # the event, with no internet
+   node tools/studio/r2sync.mjs push ~/scenes --all            # after: the layouts saved there back into the bucket
+   ```
+
+   It moves exactly the files the relay lists (and each `layout.json`; `.history/` only with `--history`), only those
+   that differ (by size, then MD5 where the bucket's ETag is one, else by time; a pulled file takes the object's time),
+   never deletes unless `--delete`, and `--dry` changes nothing. A file that differs goes only from the newer side: one
+   newer where it would go (a layout saved on the laptop's relay since the pull, or by the relay on Coolify since) is
+   kept, and said (`kept <scene>/layout.json in the bucket: it is newer there ...; --force replaces it`), unless
+   `--force`. A `layout.json` replaced on either side is first copied into that side's `.history/` (the newest 20 kept),
+   as the relay keeps one it saves over, so nothing saved is lost. Both changed (saved at the event and on Coolify):
+   the newer wins and the other is in `.history/`; pull before you push. `node tools/studio/scan.mjs ~/scenes` works on
+   a pulled folder as on any other.
+7. **Costs** (Cloudflare's prices as of November 2026; check its R2 pricing page): every month, 10 GB stored, 1 million
+   Class A operations (writes and listings) and 10 million Class B operations (reads) are free; downloads are always
+   free. Beyond that $0.015 per GB a month, $4.50 per million Class A, $0.36 per million Class B. What the relay uses:
+   a listing is one Class A operation per 1,000 objects under the prefix (every scene's files and their `.history/`
+   copies count; a page opening a scene: one or two listings; a save: about five operations, with its history; an
+   upload: two or three; each start: about five, for its checks); the watch lists the whole bucket every `R2_POLL`
+   seconds while at least one page listens: 720 listings an hour at 5 s, so a page left open around the clock for a month
+   costs about 520,000 operations for a bucket of up to 1,000 objects, within the free million, but twice that at 2,000
+   objects and three times at 3,000 (operations = pages of 1,000 x listings). For a bucket of more than about 1,000
+   objects with a page left open, set `R2_POLL=15` or more (a third, or less); changes then show up to 15 s later. Every
+   file a browser fetches is a Class B operation (a streamed sound a few, one per range). A typical studio fits the free
+   tier many times over.
+
+**Security.** The keys are read from the environment only, never from the command line, and never written to a log or
+an answer. A signed link works for anyone who has it, for that one file, until it lapses (`R2_LINK_TTL`, 12 hours;
+60 s to 7 days): it cannot list the bucket, read another file or write. Only someone with the relay's password gets
+links (the listing and the redirect need it), so the password still guards who sees the scenes. A signed PUT is for one
+path, of one type (and one size, where the bucket takes the length signed), for an hour, and cannot replace a file
+unless the page asked to and was allowed (`replace=1`). The API token is Object Read & Write on that one bucket only. The files are served from Cloudflare's own
+address, not the app's, so a page or a script kept in `originals/` cannot reach the app or its password. `--public` with
+`--scenes r2` still needs the password.
+
+| variable | default | meaning |
+| --- | --- | --- |
+| `R2_ACCOUNT_ID` | (needed) | the account's 32-character ID |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | (needed) | the API token's keys (Object Read & Write, that bucket) |
+| `R2_BUCKET` | (needed) | the bucket's name |
+| `R2_PREFIX` | none | a folder in the bucket that holds the scenes (`scenes`, `studio/scenes`) |
+| `R2_JURISDICTION` | none | `eu` for a bucket made in the EU jurisdiction (`https://<account>.eu.r2.cloudflarestorage.com`) |
+| `R2_LINK_TTL` | 43200 (12 h) | how long a signed download link lives, in seconds (60 to 604800) |
+| `R2_POLL` | 5 | how often the watch lists the bucket while a page listens, in seconds (1 to 300) |
+| `R2_ENDPOINT` | from the account | another S3 address (tests, an S3-compatible store); `http://` only for `127.0.0.1` or `localhost` |
+
+| request (R2 only) | answer |
+| --- | --- |
+| `POST /api/scenes/<name>/put?path=<path>&size=<bytes>[&replace=1]` | 200 `{ url, headers, path, expires }`: a signed PUT for that file (`expires`: 3600 s): send the body with exactly those headers (its `Content-Type`; `If-None-Match: *` unless `replace=1`); its length and `If-None-Match` are signed too (a body of another size refused by the bucket), unless the bucket refused those signed at the start (then only its type: the size is checked at `.../done`). The checks of an upload through the relay first: the path and kind rules (400), `size` needed and at most `--max-upload` (400, 413), 409 for a file there (unless `replace=1`), a folder by that name or a file in the path, 507 for a full scene, 404 for no such scene, 403 with `--scenes-readonly`. A relay with a folder, or one whose bucket refused its upload links at the start, answers 501 (send the file to `.../file`) |
+| `POST /api/scenes/<name>/done?path=<path>[&size=<bytes>]` | 200 `{ ok, path, bytes, at }` as an upload's: the relay looks at the object (400 when nothing came, or it is not of the size said; 413 past `--max-upload`, the object removed only when a link of this relay's without its length signed brought it, else left there) and tells the watch at once |
+| `POST /api/scenes/<name>/sound?from=<path>&path=<path>.mp3[&replace=1]` | as `.../sound`, the sound taken from a file already in the scene (400 for none, 413 past `--max-upload`) instead of the body |
+
+**Tests.** `node relay/test-r2.mjs` checks the signer byte for byte against AWS's published Signature Version 4
+examples (`relay/test.mjs` runs it too), and `relay/test.mjs` runs the folder's scene and upload steps against a
+stand-in S3 (`relay/s3fake.mjs`, tests only, never served: it checks every signature, header and link, so a broken
+signer fails), plus the redirect, direct uploads, `from=`, the watch from changes made straight in the bucket, the
+start's refusals, `--r2-check`, the upload links checked at the start against a stand-in told to answer as another
+store might (`s3fake.mjs`'s `quirks`: a signed length refused, both refused, `If-None-Match` ignored, 409 for one there,
+a PUT's answer lost, a 5xx or nothing at the start), a save the bucket refuses, three uploads through the relay at once,
+and `tools/studio/r2sync.mjs` (its conflicts and `.history/` copies too); `node tools/collab.mjs --studio` opens, saves,
+converts and uploads from a real browser against the stand-in on another port, including a link the bucket refuses
+(read again) and an upload it refuses (sent through the relay).
+
+**Untested until tried with a real bucket:** the signatures against R2 itself (checked against AWS's examples and a
+stand-in that checks them as S3 does), R2's CORS answers to the studio's preflights and on signed links, a page sent
+through the redirect from another origin (`Origin: null`), `If-None-Match: *` and a signed `Content-Length` on a signed
+PUT (the start's check says which R2 takes, and the relay and the studio fall back), whether R2 sends CORS headers on
+its 403s (else a lapsed link reads as no answer, which the studio also treats as a lapsed link), R2's ETags (a copy's
+the same as its original's) and the milliseconds of its listing's times, `GetBucketCors` with an Object Read & Write token, the EU
+endpoint, Quest Browser fetching and streaming from signed links, uploads of hundreds of MB from a page straight into the
+bucket, and the costs in practice.
+
 ## HTTP API
 
 All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
@@ -641,6 +851,7 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound` | with `--scenes`: uploads, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
+| `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
@@ -963,8 +1174,17 @@ machine has one, making a generated stereo 48 kHz WAV a mono MP3 (its frames rea
 44.1 kHz, mono); `/upload` (serving the app: `/#studio&upload`; not: the app's address with `ws://<Host>`;
 `X-Forwarded-Proto` only with `--proxy`, the `n`-th from the right; `--app` a folder or a page; the `--origin` by
 default; no password asked and the query never passed on; a bad `Host` 400; `POST` 405); and the password on making a
-scene, a file and a sound. It exits 1 on a failure. The shared-room client in the app has
-its own test (`tools/collab.mjs`).
+scene, a file and a sound; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
+every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the
+bucket listed, its CORS rule as a browser meets it), the list and a scene by the same rules with a signed link per file
+(its bytes, type, CORS, a range, 304), the redirect for a file and the same refusals, saving with `.history/` (20 kept),
+the watch from the relay's writes at once and from changes made straight in the bucket within `R2_POLL`, uploads through
+the relay (a scene's marker, 409, the path rules, the size counted, a page going mid-upload, two at once), direct
+uploads (the signed PUT, a body of another size or type refused by the bucket, `done` and its checks, 501 with a
+folder), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
+no key or signed link in a log line, the start refusing missing settings (named, no value shown), a wrong key or bucket
+and no answer, `--r2-check`, and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`). It exits
+1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks
