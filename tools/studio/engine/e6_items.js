@@ -598,7 +598,7 @@ function editStep(editing) {
   FB.visible = !!fl;
   if (fl) {
     if (fl.kind === 'o') { const t = fl.model ? fl.proxy : fl.greyHit; t.updateWorldMatrix(true, false); FB.matrix.copy(t.matrixWorld); }
-    else { const b = _fb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fs.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fs).max(_fm); FB.matrix.compose(_sw, _fq, _fs); }
+    else { const b = _flb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fls.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fls).max(_flm); FB.matrix.compose(_sw, _flq, _fls); }
     FB.matrixWorldNeedsUpdate = true;
     const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
     FB.material.color.setHex(hid ? 0xff5a4b : 0x3ee08f);
@@ -632,7 +632,7 @@ function editStep(editing) {
   }
 }
 // what editing draws: the selected and the pointed-at object's outlines (over everything), a cube's lines
-const FLASH_MS = 1600, _fb = new THREE.Box3(), _fs = new THREE.Vector3(), _fm = new THREE.Vector3(0.05, 0.05, 0.05), _fq = new THREE.Quaternion();
+const FLASH_MS = 1600, _flb = new THREE.Box3(), _fls = new THREE.Vector3(), _flm = new THREE.Vector3(0.05, 0.05, 0.05), _flq = new THREE.Quaternion();
 function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
   for (const [k, col, o] of [['selBox', 0x46d9ff, 0.95], ['hoverBox', 0x9fe8ff, 0.5], ['flashBox', 0x3ee08f, 1]]) {
