@@ -59,6 +59,12 @@
 
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+  // A copy of the app that uses another server's relay by default (v114; the owner, 5 November 2026: the main server on
+  // Coolify serves the app and the relay, and "the testserver could then use the same relay"): the test copy on GitHub
+  // Pages joins the main server's rooms. A link's &relay=, a relay typed in or one kept on this device goes first; cleared,
+  // it is this again after a reload. Keyed by the page's host, so never for this machine, a LAN or the tests
+  const HOME_RELAY = { 'unfriend.github.io': 'https://stories.lbi-netmed.com' };
+  const homeRelay = () => { try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
   // listeners added here belong to the shell: a story change must not remove them
   const quiet = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const J = v => JSON.stringify(v === undefined ? null : v);
@@ -117,7 +123,7 @@
 
   // -------------------------------------------------------------- session --
   const C = {
-    id: rid(12), relay: get('collabRelay') || '', linked: false, served: null, detecting: null,
+    id: rid(12), relay: get('collabRelay') || homeRelay(), linked: false, served: null, detecting: null,
     code: '', ws: null, status: 'off', note: '', want: false, welcomed: false, refill: null, tries: 0, timer: 0, heard: 0, pingAt: 0,
     local: false, probeAt: 0, probing: false, openTimer: 0, creating: false,   // a room on this device (no relay reached): see LocalSocket
     // how the room runs: 'relay', 'peer' (peer to peer: see PeerSocket) or 'local' (C.local: this device only); peer: the
