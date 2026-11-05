@@ -104,7 +104,8 @@ try {
   const r = await fetch(link, { headers: { Range: 'bytes=10-19' } }), etag = g.headers.get('etag');
   ok(r.status === 206 && (await fetch(link, { headers: { 'If-None-Match': etag } })).status === 304 && c.getLink(K, { at: st.at }) === link, 'a range (206), its ETag (304), and the same link asked again within the hour');
   const h0 = Math.floor(Date.now() / 3600e3) * 3600e3, l1 = c.getLink(K, { at: h0 - 5000, now: h0 + 9000 }), l2 = c.getLink(K, { at: h0 + 5000, now: h0 + 9000 });
-  ok(l1 === c.getLink(K, { at: 0, now: h0 + 9000 }) && l2 !== l1 && /X-Amz-Expires=43209&/.test(l1) && /X-Amz-Expires=43204&/.test(l2), 'a link dated from the hour, or from a file changed since: then another link; each lives 12 h from now');
+  ok(l1 === c.getLink(K, { at: 0, now: h0 + 9000 }) && l2 !== l1 && /X-Amz-Expires=46800&/.test(l1) && /X-Amz-Expires=46795&/.test(l2) && c.getLink(K, { at: h0 + 5000, now: h0 + 3599000 }) === l2,
+    'a link dated from the hour, or from a file changed since: then another link; each the same all hour, living until 12 h after its end');
   const moved = link.replace('/a%20scene/', '/b/');
   ok((await fetch(moved)).status === 403, 'a link with its path changed: 403');
   const old = c.getLink(K, { at: 0, now: Date.now() - 8 * 86400e3, ttl: 3600 });

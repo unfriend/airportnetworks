@@ -647,10 +647,11 @@ relay's bandwidth is not used); big uploads go straight into the bucket, not thr
   empty keeps a hidden marker object (`<scene>/.scene`, never listed). `GET /api/scenes` adds `store: 'r2'`, `direct`
   and `linkTtl`; `GET /api/scenes/<name>` gives each file a signed link, `url`, and adds `linkTtl`.
 - **Downloads.** The studio fetches each file by its `url`, straight from the bucket, from its own origin (models,
-  textures, sounds, a long sound streamed by an `<audio>` element with `crossOrigin`). A link lives `R2_LINK_TTL` (12
-  hours by default) from the listing that gave it; it is dated from the start of the hour (or from the file's own time,
-  when the file changed since), so a file has the same link for an hour and the browser's cache, R2's `ETag` and 304
-  work, and a changed file gets a new link. The studio reads the listing again before half that time has passed.
+  textures, sounds, a long sound streamed by an `<audio>` element with `crossOrigin`). A link is dated from the start of
+  the hour (or from the file's own time, when the file changed since) and lives until `R2_LINK_TTL` (12 hours by
+  default) after the end of that hour, so a file has the same link all hour (the browser's cache, R2's `ETag` and 304
+  work), a changed file gets a new link, and every link lives at least `R2_LINK_TTL` from the listing that gave it. The
+  studio reads the listing again before half that time has passed.
   `GET /scenes/<name>/<path>` (with the password, as ever) answers 302 to a fresh signed link (`Cache-Control:
   no-store`, CORS): for plain links and older studios. The studio sends the password in a file's address (`?token=`)
   and never as a header: after a redirect to another origin a browser drops the header, and the bucket would refuse it.

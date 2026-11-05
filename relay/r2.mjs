@@ -287,12 +287,14 @@ export class R2 {
     });
   }
   // a presigned GET for a file, for a browser. Its date is the start of the current hour, or the file's own time when that
-  // is later, so the link stays the same for an hour (the browser's cache can keep the file, R2's ETag and 304 work) and a
-  // file changed is a new link; it lives at least ttl seconds from now (at most 7 days in all)
+  // is later, and it lives until ttl seconds after the end of that hour, so the link is the same all hour (the browser's
+  // cache can keep the file, R2's ETag and 304 work), a file changed is a new link, and every link lives at least ttl
+  // seconds from now (at most 7 days: a ttl that long gets a link from now, not the same all hour)
   getLink(key, { at = 0, now = Date.now(), ttl = this.c.ttl } = {}) {
-    let d = Math.max(Math.floor(now / 3600e3) * 3600e3, Math.min(Math.floor(now / 1000) * 1000, Math.floor((at || 0) / 1000) * 1000));
-    if (now - d + ttl * 1000 > MAX_EXPIRES * 1000) d = Math.floor(now / 1000) * 1000;
-    const expires = Math.min(MAX_EXPIRES, Math.ceil((now - d) / 1000) + ttl);
+    const hour = Math.floor(now / 3600e3) * 3600e3;
+    let d = Math.max(hour, Math.min(Math.floor(now / 1000) * 1000, Math.floor((at || 0) / 1000) * 1000));
+    let expires = Math.ceil((hour + 3600e3 - d) / 1000) + ttl;
+    if (expires > MAX_EXPIRES) { d = Math.floor(now / 1000) * 1000; expires = Math.min(MAX_EXPIRES, ttl); }
     const s = presign({ method: 'GET', host: this.c.host, path: this.path(key), date: new Date(d), expires, region: this.c.region, id: this.c.id, secret: this.c.secret });
     return this.c.endpoint + this.path(key) + '?' + s.query;
   }
