@@ -97,6 +97,15 @@ its circle at your feet, for everyone at it).
   Add). A box appears where you selected the model; move and size it over the
   part. A trigger cube can show it, so the wall opens as people walk up
   (Preview: Cut on its card shows the hole while you edit).
+- Groups move things together: on an item's card Make a group..., then point
+  at (or click) the others, Done. A click on a member selects the group (a faint
+  box round it), a second click that member alone. The arrows, Turn 90°, the
+  size steps and On the floor move, turn and size the group; in a headset the
+  grip on a member carries it and both grips size it. Duplicate, Ungroup and
+  Delete on its card.
+- Faces on a model's card: As in the file, Both sides (walls and leaves seen
+  from behind too), or Inside out (a model whose faces point the wrong way, or a
+  room to see from inside). Each placed copy has its own; the file is unchanged.
 - Saving: Save writes the scene's layout.json in its folder on the laptop (the
   one before is kept in the scene's .history/, the last 20). With
   --scenes-readonly nothing is written: Download layout.json instead.

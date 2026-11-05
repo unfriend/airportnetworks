@@ -25,8 +25,8 @@ test checks them in every story and every `STORY_EXTRA` page). Words in the UI: 
   studio'`, `len: 'No story · your own scenes'`.
 - A **scene** is one folder of files: models, their textures, sounds, and `layout.json`, where everything placed stands.
   An **item** is one thing placed in a scene: an *object* (a model file placed once; one file may be placed many times),
-  a *trigger cube*, a *sound* (an emitter) or a *cut-out* (a box that hides the part of one object's model inside it:
-  "Cut-outs" below).
+  a *trigger cube*, a *sound* (an emitter), a *cut-out* (a box that hides the part of one object's model inside it:
+  "Cut-outs" below) or a *group* (objects, sounds and cubes that move together: "Groups" below).
 - Links: `#studio` (the last scene used on this device, else the only one, else the list), `#studio&scene=<name>`,
   `&visit` (no editing offered at all: a visitor's kiosk), `&edit` (start editing), `&scenes=<relative folder>` (a static
   folder of scenes instead of the relay's; only a relative path, no `//` or `..`: for tests and plain web hosting).
@@ -126,7 +126,7 @@ placed by itself).
   "saved": "2026-11-03T22:40:00.000Z",
   "objects": [
     { "id": "k3f9qa", "name": "Atelier", "file": "annette.fbx", "p": [0, 0, 0], "q": [0, 0, 0, 1], "s": 0.01,
-      "light": "scan", "clip": "", "anim": "loop", "start": "always" }
+      "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" }
   ],
   "cubes": [
     { "id": "c81mzt", "name": "Doorway", "p": [1.2, 1, -2], "yaw": 0, "size": [1.2, 2, 1.2], "mode": "while",
@@ -140,6 +140,9 @@ placed by itself).
   ],
   "cuts": [
     { "id": "d0or01", "name": "Door", "on": "k3f9qa", "p": [1.6, 1, -3.55], "q": [0, 0, 0, 1], "size": [0.8, 2, 0.4] }
+  ],
+  "groups": [
+    { "id": "g7lamp", "name": "Lamp", "items": ["s0ab12", "c81mzt"] }
   ]
 }
 ```
@@ -165,7 +168,10 @@ placed by itself).
 - A cut-out's `on` (required: the id of the object it cuts), `p`, `q` and `size` ("Cut-outs" below): in that object's
   frame, turned but not scaled (metres), `p` to the mm, `q` a full turn (4 decimals), each side 1 cm to 50 m to the mm.
   A layout without `cuts` (v112's) reads as before.
-- Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"); a `file` is a path in the scene's listing (at most 200 characters, no
+- An object's `faces` (optional, kept only when set: `'both'` or `'inside'`; "Faces" below). A group's `name` and `items`
+  (its members' ids: this layout's objects, sounds and cubes only; one left with fewer than 2 is dropped and counted;
+  "Groups" below). A layout without `groups` (v113's) reads as before.
+- Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
   object the layout does not hold keeps its `on`, `bone` and `o` and stands at its `p` until that object is back, as with
   a state from the room (so a save made meanwhile never loses what it followed); a cut-out whose object the layout does not
@@ -245,13 +251,16 @@ The panes (page HTML and headset canvas twins, the same content):
   *Cut-out box* (*Cut-out box on Wall* while a model, or one of its cut-outs, is selected; else *Cut-out box: select a
   model first*, greyed).
 - **Item** (one selected): its name; for an object its card (above), *Lit* / *As scanned*, the animation (clip, *Loop*
-  / *Once* / *Off*, *Always* / *When shown*), *Turn 90 degrees* (about the vertical), *Stand up* (a quarter turn about
-  x), *On the floor*, size steps (x0.5, x0.9, x1.1, x2), *Duplicate*, *Delete*; for a cube: size steps per axis (10 cm),
+  / *Once* / *Off*, *Always* / *When shown*), *Faces* (*As in the file* / *Both sides* / *Inside out*: "Faces"), *Turn 90
+  degrees* (about the vertical), *Stand up* (a quarter turn about x), *On the floor*, size steps (x0.5, x0.9, x1.1, x2),
+  *Make a group...*, *Duplicate*, *Delete*; for a cube: size steps per axis (10 cm),
   *While inside* / *Stays once entered*, *Shows n* and *Hides n* with *Pick what it shows* and *Pick what it hides*
   (then pointing and pressing on items adds or removes them from that list until *Done*; the items drawn with a tick),
   *Delete*; for a sound: *Volume* steps, *Full volume within* steps, *Loop*, *Always* / *When shown*, *Follows* (*Follow
-  an object...*, its bone choices, *Move onto it*, *Stop following*: "Sounds that follow a model"), *Delete*.
-- **Items**: every item in the scene (objects, cubes, sounds, cut-outs), what is selected lit, a press selects it; on a
+  an object...*, its bone choices, *Move onto it*, *Stop following*: "Sounds that follow a model"), *Delete*; an
+  object, a cube or a sound in a group says so at the top (*In group ...*, *Select the group*); for a group its card
+  ("Groups").
+- **Items**: every item in the scene (groups first, each with its members under it; objects, cubes, sounds, cut-outs), what is selected lit, a press selects it; on a
   page also a tick box per item in a selected cube's *Shows* and *Hides* columns. A sound that follows something says what
   (*→ Dancer · Head*). Each object's cut-outs are listed under it (indented, *✂ Door*); cut-outs whose object is not
   here under a heading of their own.
@@ -263,7 +272,7 @@ The panes (page HTML and headset canvas twins, the same content):
   there; refused while the circles are locked; never by Arrange all). Its clock starts in explore mode. Everyone at the
   station sees one scene and one layout; triggers, editing, selection, Walk, the VR stick walk and sound are each
   device's own.
-- `state()`: `{ scene, 'o.<id>': {...}, 'c.<id>': {...}, 's.<id>': {...}, 'x.<id>': {...} }`: the scene's name (`''` none) and one top-level
+- `state()`: `{ scene, 'o.<id>': {...}, 'c.<id>': {...}, 's.<id>': {...}, 'x.<id>': {...}, 'g.<id>': {...} }`: the scene's name (`''` none) and one top-level
   field per item (its record as in `layout.json`, without `id`), so two people changing two items at once both keep
   theirs. An item absent from a state applied is removed there. `apply(state())` gives the same state back (records kept
   exactly as given, after the same checks as a read layout). Changing the scene clears the items and the device that
@@ -282,7 +291,8 @@ The panes (page HTML and headset canvas twins, the same content):
   Anna* where the shell gives a name.
 - No `FORMAT` change came with the studio itself: a new page in `STORY_EXTRA` is a station an older device shows as *A
   newer story*. Sounds that follow a model changed a sound's `state()` and so `FORMAT` (`networks-30`, v112); cut-outs
-  added a kind of field (`x.<id>`) and so `FORMAT` again (`networks-31`, v113).
+  added a kind of field (`x.<id>`) and so `FORMAT` again (`networks-31`, v113); groups (`g.<id>`) and an object's
+  `faces` changed it once more (`networks-32`, v114).
 - Outside a room: what is placed is kept on this device too (`studioDraft.<relay or folder>.<scene>`, written a second
   after each change); opening the scene with a draft newer than the saved layout and different from it offers *Your
   unsaved changes from <time>: Restore / Discard*.
@@ -661,6 +671,101 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   Quest with a 400,000-triangle scan and 16 boxes, the grip, both grips and a corner on a real controller, and the one
   raycast against a big scan as the button is pressed (a moment on a laptop; longer on a Quest).
 
+## Groups (the owner, 5 November 2026)
+
+The owner: "grouping things (models, sounds, etc) in studio mode so that they move together". A **group** is a named set of
+items that move, turn and size as one. The code: `engine/e6c_groups.js` (membership, the pivot, moving, the pick mode,
+duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
+
+- **The record** (`layout.json`'s `groups`, `state()`'s `g.<id>`): `{ name, items }`. `name` at most 60 characters, *Group*
+  by default, numbered as any item's (*Group 2*); `items` the members' ids in order (an array: anything else makes the
+  record bad; entries that are not ids dropped, repeats once; at most 460). Members are this scene's objects, sounds and
+  trigger cubes; a cut-out belongs to its object and moves with it, so it is never a member (picking one picks its
+  object). No groups inside groups. At most 50 groups a scene. `apply(state())` gives the same state back.
+- **One group an item.** Where two groups name one id (two people at once, a layout written by hand), the group with the
+  lower id keeps it (`groupOf`, worked out from the records, the same on every device whatever order its keys came in);
+  ids of items not here are passed over. Read from `layout.json`, a group's members are only that layout's objects,
+  sounds and cubes, and one left with fewer than 2 is dropped and counted (*n items could not be read*). A layout without
+  `groups` (v113's) reads as before.
+- **Making one** (editing on, never with `&visit`, refused while the station's story is locked, as every edit): an
+  item's card has *Make a group...* (*Make a new group...* for an item in one), which makes a group of that item, selects
+  it and starts its pick mode: a click, the trigger or a pinch on an item (Ctrl- and Shift-click as a click; its name
+  under Items) puts it in, or takes it out if it is in; one in another group moves into this one (one change; that group,
+  left with fewer than 2, goes in it). The group's card has *Add or remove items...* for the same mode; *Done* (or another
+  selection, Escape, editing off) ends it. A group made just now and left with its one item when picking ends is taken
+  back as if never made (its Undo step too); another left with fewer than 2 goes in a step of its own. While it picks, a
+  group may have one member.
+- **Selecting.** A click (the trigger, a pinch) on a member selects its group (its card); a second one on the same member
+  while its group is selected selects that member alone (its own card, with *In group Group 2: it moves with it. Selected
+  on its own, it moves alone.* and *Select the group*); one more on it keeps it. The group's card lists its members (a
+  press selects one alone). The Items pane lists groups first (*▣ Group 2*, *n items*), each with its members indented
+  under it (an object's cut-outs under that, further in); the other sections list what is in no group. Hover labels
+  name the group (*Group 2 · Dancer*); the selection's label says *group of 6 · selected*, or *in Group 2 · selected*
+  for a member on its own.
+- **Moving.** A selected group moves, turns and sizes as one about its **pivot**: the middle of the box round its members
+  as they are shown (an object's own box, a cube's, a sound's point), on the floor (y = 0). A move by `t`, a turn `th` and
+  a size `k` put a member's place `x` at `P + t + turn(k (x - P))`. Turns are about the vertical only: an object's own turn
+  gains the yaw (`q' = yaw(th) q`), a cube's `yaw` gains it (it stays level). Sizes are alike on every axis: places scale
+  about the pivot (so what stands on the floor stays on it), an object's `s` (its cut-outs' records and the offsets of the
+  sounds that follow it with it, through `setObj` and `scaleFollowers`, as for an object sized alone), a cube's `size`, a
+  sound's `r`. A value past what its record takes is held at the limit (an object's `s` 1/10,000 to 10,000, a cube's side
+  5 cm to 100 m, a sound's `r` 0.1 to 20 m) and the group's card says which (sizing back does not undo that; Undo does).
+  A sound in the group that follows an object in the group simply follows (its own record keeps its offset); one that
+  follows an object outside the group moves as when carried by hand (its `p` and `o` written against its target where
+  the move puts it, `soundAt`). Every move is one change: one Undo step, every member's record written together (so it
+  reaches a room in one state). Refused, as every edit, while the station's story is locked or for visitors.
+  - On a page: the arrows (`TransformControls`) on the pivot: move (any way), turn (the vertical ring only), size (the
+    largest change of any axis taken as the size); the card's *Turn 90°*, size steps (×0.5, ×0.9, ×1.1, ×2) and *On the
+    floor* (the group's lowest point onto the floor). While a drag lasts its members are carried (the room's records wait).
+  - In a headset: the grip on any member (unless that member is selected on its own: then it alone) carries the whole
+    group, its members keeping their places about the hand; it stays level and takes only a yaw from the hand's turn,
+    and only while free moving is on; the right stick pushes it away or pulls it in. Both grips (on members of the same
+    group) size it about its pivot, a twentieth to twenty times, and move it with their middle. The members are shown
+    where the hand puts them each frame and their records written ten times a second and as it is let go; a group gone
+    meanwhile (from the room) lets its members go.
+- **Its card**: its name, *Members* (how many of each kind) and *Size*, *Add or remove items...* and the members' list,
+  *Place* (*Turn 90°*, *On the floor*), *Size* steps, *Duplicate*, *Ungroup* (the group goes, its members stay),
+  *Delete* (every member, an object's cut-outs with it, and the group; the cubes outside the group let them go, a sound
+  outside it that followed a deleted object stays where it is, following nothing; one Undo step brings all back), and on
+  a page the arrows' modes. A group with fewer than 2 members (picking, or by Undo) says so.
+- **Duplicate** copies every member as a new group (*Group 2*, its members *Box 2*, ...) beside it: along x, past the
+  group's width plus 0.5 m. An object's cut-outs come with its copy; a sound that follows an object of the group follows
+  that object's copy (the same bone and offset); a sound that follows an object outside it follows that object from beside
+  where it was; a cube of the group shows and hides the copies of what it listed in the group (and what it listed outside
+  the group as it was), its original left alone; each copy (cut-outs too) joins the lists of the cubes outside the group
+  its original is in, as `cubeCopy` does. Refused in words when the scene has no room for every copy (`groupDupWhy`).
+- **Deleting a member** (or its being deleted from the room) takes it out of its group in the same change; a group left
+  with fewer than 2 members goes too (not one picking its members now). Undo brings both back.
+- **Trigger cubes**: in a cube's *Pick what it shows* / *Pick what it hides*, pointing at a grouped item (a cube of the
+  group too) puts all of its group's members (not its cubes) in the list, or takes them all out when all are in it (one
+  change); under Items the group's name does the same. The lists still name the members one by one.
+- **Drawn while editing**: a selected group as a faint dashed box in its colour round all its members (`LOOKS.group`,
+  over everything), its name in the selection's label. Not editing, nothing of it is drawn.
+- **Shared rooms**: the group's record is its field in `state()` (`g.<id>`), and a move writes its members' records in the
+  same state, so a room sees the whole group move at once; who picks, what is selected and a drag's carry are each
+  device's own. FORMAT `networks-32`.
+- **Untested on a headset**: the grip carrying a group and both grips sizing it on real controllers, the pick mode by
+  trigger, how the faint box reads.
+
+## Faces (the owner, 5 November 2026)
+
+The owner: "double sided and flip inside out settings per model?". Each placed object chooses which of its faces are drawn.
+
+- **The record**: an object's optional `faces`: absent (*As in the file*: each material's own side as loaded, such as a
+  glTF's `doubleSided`), `'both'` (*Both sides*: every material double sided) or `'inside'` (*Inside out*: every material
+  drawn from behind only; three.js turns the normals of back faces, so the light follows). Kept only when set; any other
+  value makes the record bad. The model's file is never changed: Convert to GLB makes the file as it is, and the switch to
+  a GLB keeps the record's `faces`.
+- **Per placed object**: on the object's own materials (each object's clones, `libClone`, as cut-outs need them), lit and
+  as scanned (an as-scanned material is made from the side as loaded, `side0`), so two copies of one file may differ. Set
+  again whenever its model is built (a file changed on the relay, a GLB switch: `buildModel`, through `applyLight`), and
+  with its cut-outs' addition: a new side compiles its programs again, the addition with them.
+- **Its row** on the object's card (page and headset alike): *Faces: As in the file / Both sides / Inside out*, with *Inside
+  out: for a model whose faces point the wrong way, or to see a room from inside. Both sides: thin walls and leaves seen
+  from behind too.* One change (one Undo step), shared (`o.<id>`) and saved.
+- **Untested on a headset**: how a scan inside out looks from within it, and the cost of double-sided materials on a
+  big scan on a Quest.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -724,6 +829,10 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   test scenes; three pages and a pretend headset at a studio station: the scene picked on one reaching all, an object
   moved on one page and a cube added on another both kept, the headset inside the cube seeing the figure while a page
   outside does not, a save from the headset writing `layout.json` (and `.history/` on the second), a file dropped into
-  the scene's folder appearing in the Add list within a few seconds, the station's story locked refusing edits.
+  the scene's folder appearing in the Add list within a few seconds, the station's story locked refusing edits; a group
+  made and moved on a page reaching every device (each member within 1 cm), a Faces setting from another page reaching
+  every device's materials, the saved layout carrying `groups` and `faces`.
+- Groups and Faces: the smoke test's *studio groups* and *studio faces* steps, on the rig test scene ("Testing" in
+  `AGENTS.md`).
 - How it looks and feels on a headset (the scan's size, frame rate with a 400k-triangle scan, the grips, the stick walk,
   how the emitters sound through HRTF) is untested until tried on one.

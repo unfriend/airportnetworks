@@ -95,6 +95,35 @@ box (or its model) puts the copy in the same cubes' lists. Not editing, nothing 
 only the hole. The edges of a hole are open (you look into the thin surface): that is how it is meant to be. A model takes
 at most 16 cut-outs, a scene 100. **Move onto another object...** gives a box to another model, where it stands.
 
+## Groups: things that move together
+
+A group is a named set of objects, sounds and trigger cubes that move, turn and size as one (a model's cut-outs, and
+the sounds that follow it, come with it anyway). With **Edit** on:
+
+1. Select one of them and press **Make a group...** on its card. Then point at the others and pull the trigger (or click
+   them on a page; Ctrl- or Shift-click work too, as do their names under Items) to put them in; again to take one out.
+   **Done** ends it. An item is in one group at most: picked for another, it moves into that one.
+2. A click (or the trigger) on a member selects its group: the group's card, and a faint box round all its members. A
+   second click on the same member selects that member alone (its card says *In group ...* and has **Select the
+   group**); selected on its own, it moves alone.
+3. Move the group: on a page the arrows (W move, E turn, R size), on its card **Turn 90°**, the size steps and **On the
+   floor**; in a headset the grip on any member carries the whole group (it turns with your hand only while Moving is
+   *free*), both grips size it. It turns about the vertical only (cubes stay level) and sizes alike on every side, about
+   its middle on the floor. Every move is one Undo step.
+
+**Duplicate** copies every member as a new group beside it (a copied sound follows the copy of its model; a copied cube
+shows and hides the copies of what it showed and hid in the group). **Ungroup** keeps the members and drops the group;
+**Delete** deletes every member. A group left with fewer than two members goes by itself. A trigger cube's **Pick what it
+shows** (or hides) takes a whole group when you point at one of its members.
+
+## Faces: both sides, or inside out
+
+Each placed object's card has **Faces**: **As in the file** (as the model says), **Both sides** (thin walls, leaves and
+cloth seen from behind too) or **Inside out** (only the inner side drawn: for a model whose faces point the wrong way, or
+a room you want to see from inside, as walls that vanish from outside). It is the object's own setting, so two copies of
+one file may differ; the file is never changed, and the setting stays when the model is converted to a GLB, switched to
+it or changed on the relay. It is shared in a room and saved in `layout.json`.
+
 ## Formats guide
 
 - **Models: GLB.** One file, its textures and animations inside. FBX works, but converted it loads faster and sits right
@@ -145,7 +174,7 @@ was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane.
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).

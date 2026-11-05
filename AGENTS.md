@@ -207,7 +207,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
   engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
   `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
-  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane), two sets (`stage`, the
+  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e6b_cuts.js` the
+  cut-outs; `engine/e6c_groups.js` the groups), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -973,7 +974,9 @@ circle placed), below; networks-29 when the room's first All stories circle beca
 gains `arc` (`true` while it is the arc, `false` once it became a circle) and `allp` may carry `pg: 1` (the arc a page
 made, not yet moved by a headset), and a room now starts with the arc, below; networks-30 when a studio sound could
 follow an object or a bone in v112: a sound's record in the studio's `state()` gained `on`, `bone` and `o`; networks-31
-when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`). The plan is
+when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`; networks-32 when the studio's
+groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`, and an object's record an optional
+`faces`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1461,7 +1464,7 @@ when the studio's cut-outs came in v113: its `state()` gained a field per cut-ou
   (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
   scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
   device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30;
-  cut-outs added a field per cut-out, networks-31). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
+  cut-outs added a field per cut-out, networks-31; groups a field per group and Faces an object's `faces`, networks-32). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
   VR stick walk and sound are each device's own. With exactly one scene in the relay's listing every device at a station
   with none picks it and writes its saved layout (every device writes the same records, so nothing doubles); else
   *Pick a scene*. *Lock this story* refuses its editing for everyone at the circle ("The studio" below).
@@ -2106,7 +2109,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame): its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, Walk, the stick walk, sound or a cut-out's *Preview* | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids); an object's record carries its `faces` when set: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound or a cut-out's *Preview* | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3061,16 +3064,18 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `originals/<the dropped folders>`. Without a relay that takes uploads the plan still shows and *Convert* offers each
   GLB and WAV as a download.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
-  cubes, sounds }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown' }`, a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
+  cubes, sounds, cuts, groups }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
+  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
   ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
   the object it follows, its bone's name, the offset in the target's frame; "Sounds" below), a cut-out `{ id, name, on,
   p, q, size }` in `cuts` (the object it cuts, and its middle, a full turn and its size in that object's frame, turned
-  but not scaled; "Cut-outs" below; a layout without `cuts`, v112's, reads as before). Metres in the scene's frame (the floor at y = 0, the origin
+  but not scaled; "Cut-outs" below; a layout without `cuts`, v112's, reads as before), a group `{ id, name, items }` in
+  `groups` (its members' ids, this layout's objects, sounds and cubes only, one left with fewer than 2 dropped and counted;
+  "Groups" below; a layout without `groups`, v113's, reads as before). Metres in the scene's frame (the floor at y = 0, the origin
   at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
-  2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object); a `file` is a path in the scene's listing (200 characters, no `..`); a
+  2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object), 50 groups; a `file` is a path in the scene's listing (200 characters, no `..`); a
   cube's lists only name this scene's items. A bad item is dropped and said once (*2 items in layout.json could not be
   read*); anything else ignored.
 - **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
@@ -3160,6 +3165,38 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   size it, a corner stretches it. Not editing, only the hole. The Items pane lists each object's cut-outs under it.
   `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31, v113). Untested on a headset: how the holes look on a
   Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
+- **Groups** (the owner, 5 November 2026: "grouping things (models, sounds, etc) in studio mode so that they move together";
+  `tools/studio/SPEC.md`, "Groups"; `engine/e6c_groups.js`). A group (`{ name, items }`, kind `g`) is a named set of objects,
+  sounds and trigger cubes (a cut-out belongs to its object, so never a member); an item is in one group at most (an id
+  two groups name stays in the one with the lower id, `groupOf`, the same on every device), no groups in groups, 50 a
+  scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
+  an item puts it in or takes it out, Ctrl- and Shift-click as a click, names under Items too; one in another group moves
+  into this one; *Done*); *Add or remove items...* on the group's card the same. A click on a member selects its group (its
+  card, a faint dashed box round its members while editing, `LOOKS.group`), a second one on the same member that member
+  alone (*In group ...*, *Select the group*; selected alone it moves alone); hover labels say *Group 2 · Dancer*; the
+  Items pane lists groups first with their members indented. A selected group moves, turns and sizes as one about its
+  pivot (the middle of the box round its members, on the floor): turns about the vertical only (an object's turn and a
+  cube's yaw gain it), sizes alike on every axis (places, an object's `s` with its cut-outs and its sounds' offsets through
+  `scaleFollowers`, a cube's size, a sound's reach; a value past its limit held there and said on the card); a sound in
+  the group that follows an object in it simply follows, one that follows an object outside it moves as carried by hand
+  (`soundAt`). On a page the arrows on the pivot (Y ring only), *Turn 90°*, size steps, *On the floor*; in a headset the
+  grip on any member (unless selected alone) carries the group (a yaw from the hand only while free moving is on), both
+  grips size it about its pivot. Every move one change (one Undo step, every member written in one state). *Duplicate*
+  (every member copied as a new group beside it: a following sound's copy follows its object's copy, a cube of the group
+  lists the copies, each copy joins the lists of the cubes outside the group its original is in, cut-outs with their
+  objects), *Ungroup*, *Delete* (every member). A group left with fewer than 2 members goes in the same change (not one
+  picking now); one made and left with its one item when picking ends is taken back as never made. A cube's *Pick what it
+  shows* / *hides* on a grouped item toggles all of its group's members. `layout.json`'s `groups`, `state()`'s `g.<id>`
+  (FORMAT networks-32, v114). Untested on a headset: the grips carrying and sizing a group on real controllers, the pick
+  mode by trigger, how the box reads.
+- **Faces** (the owner, 5 November 2026: "double sided and flip inside out settings per model?"; `tools/studio/SPEC.md`,
+  "Faces"). An object's optional `faces`: absent (*As in the file*, each material's own side as loaded), `'both'` (*Both
+  sides*: `DoubleSide`) or `'inside'` (*Inside out*: `BackSide`, three.js turning the normals so the light follows), on the
+  object's own materials (its clones, lit and as scanned, `applyFaces`; the side as loaded kept as `side0`), so two copies
+  of one file may differ; set again whenever its model is built (a file changed on the relay, a GLB switch, which keeps the
+  record's `faces`), and with its cut-outs' addition. A row on the object's card (page and headset): *Faces: As in the file
+  / Both sides / Inside out*, one Undo step, shared and saved (FORMAT networks-32). The file is never changed. Untested on
+  a headset: a scan inside out seen from within, the cost of double sides on a big scan.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -3207,7 +3244,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
   lit scan looks, *Studio here* and standing in the studio's circle, the visitor kiosk in a headset, *Convert on a
-  laptop* and the folded *Originals* on the headset panel, the Relay password row reached from a studio 401, and how
+  laptop* and the folded *Originals* on the headset panel, the Relay password row reached from a studio 401, a group
+  carried and sized by real grips, a model inside out seen from within on a Quest, and how
   the `studio.stage` icon reads across a room. The pretend headset in `tools/collab.mjs` works the triggers out in the
   page with the renderer told it presents for that moment, so the real per-frame headset path is untested on a device.
   Unheard: the converted mono sounds and `first_room.mp3`. Untested anywhere but headless Chromium: a real folder
@@ -3453,7 +3491,35 @@ one object made in reverse id order (the 16 lowest cutting, the 17th said); a cu
 in the cube's list; Box B sized with a 30 m cut-out held at 50 m and said on its card; *Cut out a part* from a ray at the
 dancer's posed head landing on her as drawn; a pretend headset's grip carrying one, both grips sizing it and a corner
 stretching it; nothing of a box drawn when not editing (only the hole); the Items pane and the headset's card (its rows;
-Preview pressed there).
+Preview pressed there). Its *studio groups* steps run on a fifth page, at `&scene=rig` (with, put in for them, the figure,
+a sound *Free*, a sound *Out* following the figure, a cut-out *Hole* on the box and a cube *Lamp* outside the group):
+*Make a group...* on the box's card and its pick mode (the dancer Ctrl-clicked and *Free* Shift-clicked in the scene,
+*Voice*, *Out* and *Curtain* by their names under Items, *Done*: one Undo step each); a click on a member selecting the
+group, again the member alone (*In group*, *Select the group*); hover naming the group (*Group · Dancer*); its box only while
+selected and editing; the Items pane (the group, its members under it, the hole under the box); *Make a group...* then
+*Done* with one item leaving no step; the arrows' move, turn (the vertical ring only; a tilt given dropped) and size about
+the pivot moving every member exactly (places, turns, sizes, the cube's size and yaw, the sounds' reach; the hole on the
+box and *Voice* on her head bone and *Out* on the figure outside the group, within 1 mm), one Undo step each, and Undo
+bringing the state back; the card's *Turn 90°*, ×2 and *On the floor* (lifted 0.4 m first); ×20 holding two sounds' reach
+at 20 m, said on the card; *Duplicate* (a new group of the six copies and the hole's copy, the box's copy beside it,
+*Voice*'s copy on the dancer's copy, *Out*'s still on the figure beside it, *Curtain*'s copy hiding the dancer's copy,
+the copies in *Lamp*'s list, one step), *Ungroup* and *Delete* (every member and the hole, *Lamp* letting them go) with
+Undo; *Free* moved into the figure's own group, the figure then deleted and its group, left with one, going in the same
+step (*Out* left following nothing), Undo bringing both back; *Lamp*'s pick toggling the group's members (a member, a cube
+of the group, the group's name under Items); the state with `g.<id>` and back, `norm`'s rules, a bad group from the room
+ignored, an id two groups name staying in the lower id's in either order of the keys; `layout.json` with and without
+`groups`, and groups naming items the layout lacks; a pretend headset's trigger (the group, then the member), its grip
+carrying the group (one step), turning with the hand only while moving freely, both grips doubling its size about the
+pivot, a member selected alone carried alone, and the headset's cards (the group's rows, *Add or remove items...* pressed
+twice; a member's *Select the group*, *Make a new group...* and Faces). Its *studio faces* steps run on a sixth page, at
+`&scene=rig` (the box still, and *Twin*, a copy of its file): pixels read back from renders, each with the object drawn
+and not: from inside a box *As in the file* shows nothing of it and *Inside out* and *Both sides* show it, two copies of
+one file each as set (their materials' sides too); from outside *As in the file* and *Both sides* its near side, *Inside
+out* its far inner side, which a cut-out taking the far half away removes (and leaves *As in the file*'s near side); with
+a cut-out in its near side *Both sides* showing its far inner side through the hole and *As in the file* nothing, lit and
+as scanned; *Inside out* kept through a rebuild of its file (`fileChanged`) and the figure's *Both sides* through *Convert
+to GLB* and the switch; the state and `layout.json` with `faces` (other values refused); the page's Faces row (one Undo
+step each) and the headset's.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -3817,7 +3883,10 @@ follow her head taken by every page and the headset (each sound where its own da
 scene clock, within 1 cm of the first page's) and the saved `layout.json` carrying `on`, `bone` and `o` (that scene
 itself left out of the copy); a cut-out made on a page on the test scene's box reaching every page and the headset (its
 corners in the scene's frame within 1 cm of the first page's on each, cutting there) and the saved `layout.json` carrying
-it under `cuts` (the cuts scene left out of the copy); a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+it under `cuts` (the cuts scene left out of the copy); a group made on a page (the box, the figure, Tone and Doorway),
+turned and sized on its card there, taken by every page and the headset (each member within 1 cm of the first page's, the
+records the same), a Faces setting (the box inside out) from another page reaching every device's materials, and the
+saved `layout.json` carrying `groups` and `faces`; a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
 test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
 `ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`
