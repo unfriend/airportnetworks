@@ -75,7 +75,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     instead of 0.15 m over the moved floor, its note empty), failing in v115's run too though it passed in v114's and
     nothing of the room's alignment changed since (the changes are the relay offer's, all in the password code). The
     height comes back from the shared space and goes when the space's id changes on waking, so a race in the test's
-    pretend headset is the likeliest reading; the check now prints the room's log trail, and a rerun is under way.
+    pretend headset is the likeliest reading; the check now prints the room's log trail. A second full run: 497 good,
+    the standby checks all good, and 2 failing that had passed in every earlier run: a station's card brought up by
+    pointing at its icon (not shown within 10 s, though read just after it was there, at 0.97) and a silent host
+    replaced (42 s instead of about 6, and the newest guest took the room rather than the longest in it). Both parts
+    alone right after: the ten-headset round 17 good, peer to peer 18 good (6.2 s). So the full run's failures change
+    from run to run and none comes back alone: timing under load (three pages drawing in software), not the release.
 - **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
   device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
   R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
