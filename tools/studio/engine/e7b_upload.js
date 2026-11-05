@@ -279,6 +279,7 @@ const soundApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURICompo
 // one upload, with its progress (an XMLHttpRequest: fetch says nothing of what has gone); the password as a header, a
 // refusal told to the shell once (authHold, as every call)
 function upSend(url, body, onP) {
+  if (SRC.direct && /\/file\?path=/.test(url)) return upDirect(url, body, onP);   // (R2: straight into the bucket, e7c_direct.js)
   return new Promise((res, rej) => {
     if (SRC.held) { rej(AUTH_ERR()); return; }
     const x = new XMLHttpRequest();
@@ -610,8 +611,9 @@ async function upRow(r, relay, scene, sent) {
     const key = scene + '\0' + p;
     if (!relay || !p || sent.has(key)) return;
     r.msg = `Uploading ${p}...`; upChanged();
-    await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
+    const j = await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
     sent.add(key);
+    return (j && j.path) || p;   // (where it went: a name taken gets a number)
   };
   if (r.kind === 'keep' || (r.kind === 'sound' && r.how === 'unread')) {
     if (relay) await keep(r.main, r.out[0]);
@@ -680,8 +682,11 @@ async function upRow(r, relay, scene, sent) {
   if (r.how === 'mp3') {
     r.msg = `The relay's ffmpeg is making ${out}...`; r.p = 0.1; upChanged();
     let j = null;
+    // (R2: the original goes straight into the bucket first, then the relay makes the MP3 from it there: from=)
+    const from = SRC.direct && r.out[1] ? await keep(e, r.out[1]) : '';
+    if (from) { r.msg = `The relay's ffmpeg is making ${out} from ${from}...`; upChanged(); }
     for (let k = 0; ; k++) {
-      try { j = await upSend(soundApi(scene, out, UP.replace), e.file, prog(0.1, 0.7)); break; }
+      try { j = await upSend(soundApi(scene, out, UP.replace) + (from ? '&from=' + encodeURIComponent(from) : ''), from ? null : e.file, prog(0.1, 0.7)); break; }
       catch (err) { if (err.status !== 429 || k > 8) throw err; await new Promise(res => later(res, 1000 * Math.max(2, err.retry || 3))); }
     }
     r.out[0] = (j && j.path) || out;

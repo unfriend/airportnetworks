@@ -20,10 +20,22 @@ const KINDS = {
 };
 const KIND = new Map(Object.entries(KINDS).flatMap(([k, exts]) => exts.map(e => [e, k])));
 export const kindOf = p => KIND.get(path.extname(String(p)).toLowerCase()) || 'other';
+// a scene's file's type as it is served (from the folder, or stored in R2): a model's, picture's, sound's or data's own;
+// anything else (a page or a script kept in originals/) plain bytes to save, never run
+export const SCENE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.fbx': 'application/octet-stream', '.bin': 'application/octet-stream', '.tga': 'image/x-tga',
+  '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds',
+  '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
+export const typeOf = p => (kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
 // an editor's or a download's temporary file (a copy in progress, a swap file): never listed, never told
 export const TEMP = /(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i;
 // a name a listing leaves out: dot files, temporary files, and names no URL path could carry back here
 const skip = n => n.startsWith('.') || TEMP.test(n) || /[\\/\0]/.test(n);
+// a file's path in a scene that a listing shows (an object's key in R2, by the same rules as a folder's walk): no empty
+// part, none left out by name, at most 4 folders deep
+export const listable = rel => { const segs = String(rel).split('/'); return segs.length <= MAX_DEPTH + 1 && segs.every(n => n && !skip(n)); };
+// R2's own: the hidden object that keeps a scene made empty in the listing (a dot file: never listed as a file)
+export const MARKER = '.scene';
 export const validName = n => typeof n === 'string' && SCENE_NAME.test(n) && !RESERVED.has(n);
 // a new scene's name (POST /api/scenes) also keeps to the rule for uploaded names (below): no name ending in a space or a
 // dot and none of Windows' device names, so the folder can be copied to any computer (folders made by hand are listed as
@@ -71,6 +83,10 @@ export async function sceneFiles(dir) {
     }
   }
   await walk(dir, '', 0);
+  return finishListing(out, layout);
+}
+// a scene's files sorted by path, at most MAX_FILES (the folder's walk and R2's listing alike)
+export function finishListing(out, layout) {
   out.sort(byPath);
   // (past MAX_FILES the files a scene places, models, sounds, pictures and data, are kept before originals/, which sort
   // first but are only what was given)
@@ -79,6 +95,36 @@ export async function sceneFiles(dir) {
     return { files: [...out.filter(f => !orig(f)), ...out.filter(orig)].slice(0, MAX_FILES).sort(byPath), layout };
   }
   return { files: out, layout };
+}
+// the scenes in a list of objects (R2: { key, size, etag, at } under a prefix), by the same rules as allScenes: a scene is
+// a first-level name with any object under it (MARKER keeps an empty one); its files by listable, its layout.json and
+// files.json at its top said apart; said(name) hears each name that cannot be a scene's. [{ name, files, layout }]
+export function scenesOf(objs, prefix, said = () => {}) {
+  const by = new Map();
+  for (const o of objs) {
+    const rest = o.key.slice(prefix.length), i = rest.indexOf('/');
+    if (!o.key.startsWith(prefix) || i <= 0) continue;   // (an object at the top is not a scene)
+    const name = rest.slice(0, i);
+    if (!by.has(name)) by.set(name, []);
+    by.get(name).push({ ...o, rel: rest.slice(i + 1) });
+  }
+  const out = [];
+  for (const name of [...by.keys()].sort()) {
+    if (name.startsWith('.') || out.length >= MAX_SCENES) continue;
+    if (!validName(name)) { said(name); continue; }
+    const files = [];
+    let layout = null, seen = 0;
+    for (const o of by.get(name)) {
+      if (seen >= MAX_WALK) break;
+      if (!listable(o.rel)) continue;
+      seen++;
+      if (o.rel === LAYOUT) { layout = { size: o.size, mtimeMs: o.at, etag: o.etag }; continue; }
+      if (o.rel === LISTING) continue;
+      files.push({ path: o.rel, bytes: o.size, at: o.at, kind: kindOf(o.rel), etag: o.etag });
+    }
+    out.push({ name, ...finishListing(files, layout) });
+  }
+  return out;
 }
 // a file as the listing gives it (ino is the watch's own: a file replaced by another of the same size and time)
 export const fileOut = f => ({ path: f.path, bytes: f.bytes, at: f.at, kind: f.kind });

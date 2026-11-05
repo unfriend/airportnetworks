@@ -15822,10 +15822,12 @@ const srcKey = () => (SRC.kind === 'relay' ? SRC.base : SRC.kind === 'folder' ? 
 const encPath = p => String(p).split('/').map(encodeURIComponent).join('/');
 const sceneUrl = name => (SRC.kind === 'relay' ? `${SRC.base}/scenes/${encodeURIComponent(name)}/` : `${SRC.folder}/${encodeURIComponent(name)}/`);
 // a file of the open scene: its address with its version (its time: a changed file is a new address, so no cache
-// keeps the old one), and for the loaders the relay's password
+// keeps the old one), and the relay's password in it (never as a header: a relay that keeps its scenes in R2 sends the
+// page on to the bucket, where a header would be refused); a file in R2 by its own signed link (e7c_direct.js)
 function fileUrl(p, loader) {
   const f = STU.fileMap.get(p), q = [];
-  if (loader && SRC.kind === 'relay' && SRC.token) q.push('token=' + encodeURIComponent(SRC.token));
+  if (f && f.url) return f.url;
+  if (SRC.kind === 'relay' && SRC.token) q.push('token=' + encodeURIComponent(SRC.token));
   if (f && f.at) q.push('v=' + f.at);
   return sceneUrl(STU.scene) + encPath(p) + (q.length ? '?' + q.join('&') : '');
 }
@@ -15840,7 +15842,7 @@ const AUTH_ERR = () => Object.assign(new Error(AUTH_NOTE), { status: 401 });
 async function call(url, o = {}) {
   const relay = SRC.kind === 'relay' && url.startsWith(SRC.base), headers = Object.assign({}, o.headers || {});
   if (relay && SRC.held) throw AUTH_ERR();
-  if (relay && SRC.token) headers.Authorization = 'Bearer ' + SRC.token;
+  if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) { throw Object.assign(new Error('could not be reached'), { status: 0 }); }
   if (!r.ok) {
@@ -15935,6 +15937,8 @@ async function listScenes(gen) {
     SRC.save = SRC.kind === 'relay' && !!(j && j.save);
     // (uploads: this caller may upload, the relay has ffmpeg for long sounds, one file's limit in bytes)
     SRC.upload = SRC.kind === 'relay' && !!(j && j.upload); SRC.ffmpeg = SRC.upload && !!(j && j.ffmpeg); SRC.maxUpload = +(j && j.maxUpload) || 0;
+    // (R2: uploads straight into the bucket, and how long a file's link lives, s: e7c_direct.js)
+    SRC.direct = SRC.upload && !!(j && j.direct); SRC.linkTtl = SRC.kind === 'relay' ? +(j && j.linkTtl) || 0 : 0;
     SRC.state = 'ok'; SRC.note = '';
     if (SRC.kind === 'relay') watchStart();
   } catch (e) {
@@ -16020,8 +16024,10 @@ function setFiles(list) {
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path) });
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
+      ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
+  if (out.some(f => f.url)) linksSoon();
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
 }
@@ -20225,6 +20231,7 @@ const soundApi = (scene, p, replace) => `${SRC.base}/api/scenes/${encodeURICompo
 // one upload, with its progress (an XMLHttpRequest: fetch says nothing of what has gone); the password as a header, a
 // refusal told to the shell once (authHold, as every call)
 function upSend(url, body, onP) {
+  if (SRC.direct && /\/file\?path=/.test(url)) return upDirect(url, body, onP);   // (R2: straight into the bucket, e7c_direct.js)
   return new Promise((res, rej) => {
     if (SRC.held) { rej(AUTH_ERR()); return; }
     const x = new XMLHttpRequest();
@@ -20556,8 +20563,9 @@ async function upRow(r, relay, scene, sent) {
     const key = scene + '\0' + p;
     if (!relay || !p || sent.has(key)) return;
     r.msg = `Uploading ${p}...`; upChanged();
-    await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
+    const j = await upFile(scene, p, e.file, prog(r.p, Math.min(1, r.p + 0.15)));
     sent.add(key);
+    return (j && j.path) || p;   // (where it went: a name taken gets a number)
   };
   if (r.kind === 'keep' || (r.kind === 'sound' && r.how === 'unread')) {
     if (relay) await keep(r.main, r.out[0]);
@@ -20626,8 +20634,11 @@ async function upRow(r, relay, scene, sent) {
   if (r.how === 'mp3') {
     r.msg = `The relay's ffmpeg is making ${out}...`; r.p = 0.1; upChanged();
     let j = null;
+    // (R2: the original goes straight into the bucket first, then the relay makes the MP3 from it there: from=)
+    const from = SRC.direct && r.out[1] ? await keep(e, r.out[1]) : '';
+    if (from) { r.msg = `The relay's ffmpeg is making ${out} from ${from}...`; upChanged(); }
     for (let k = 0; ; k++) {
-      try { j = await upSend(soundApi(scene, out, UP.replace), e.file, prog(0.1, 0.7)); break; }
+      try { j = await upSend(soundApi(scene, out, UP.replace) + (from ? '&from=' + encodeURIComponent(from) : ''), from ? null : e.file, prog(0.1, 0.7)); break; }
       catch (err) { if (err.status !== 429 || k > 8) throw err; await new Promise(res => later(res, 1000 * Math.max(2, err.retry || 3))); }
     }
     r.out[0] = (j && j.path) || out;
@@ -20789,6 +20800,41 @@ const UP_ACT = {
   'up:slot': v => { const [ri, i] = JSON.parse(v), a = UP.rows[ri] && UP.rows[ri].adds[i]; if (a) { a.slot = SLOTS_ADD[(SLOTS_ADD.indexOf(a.slot) + 1) % SLOTS_ADD.length]; upChanged(); } },
   'up:unadd': v => { const [ri, i] = JSON.parse(v), r = UP.rows[ri]; if (r && r.adds[i] && r.state === 'plan') { r.adds.splice(i, 1); upRebuild(); upChanged(); } },
 };
+// ============================================================== R2 (direct) ==
+// A relay that keeps its scenes in a Cloudflare R2 bucket (relay/README.md, "Scenes in Cloudflare R2") says so in its list
+// of scenes (direct: true, linkTtl). Its listing of a scene gives each file a signed link, which fileUrl hands the loaders
+// and the sound elements: the page fetches the file straight from the bucket, from its own origin (no password in it: the
+// link is the permission, for that one file, until it lapses). Those links live linkTtl seconds (R2_LINK_TTL, 12 hours by
+// default), so the listing is read again before half of that has passed (linksSoon). An upload goes straight into the
+// bucket too: upSend hands a .../file upload to upDirect, which asks the relay for a signed PUT (.../put, with the file's
+// size: the bucket refuses a body of another size), sends the file there with its progress, and tells the relay it is
+// there (.../done). The relay answers as for an upload through it ({ ok, path, bytes, at }; 409 for a name taken), so
+// the Upload pane, Convert to GLB and the texture buttons work the same either way.
+let linksT = 0;
+function linksSoon() {
+  unlater(linksT); linksT = 0;
+  if (!(SRC.linkTtl > 0)) return;
+  linksT = later(() => { linksT = 0; refreshFiles(new Set()); }, Math.max(60, SRC.linkTtl / 2) * 1000);
+}
+// one upload straight into the bucket: url is the .../file address upSend was given (its scene, path and replace=1)
+function upDirect(url, body, onP) {
+  const u = new URL(url, location.href), m = /\/api\/scenes\/([^/]+)\/file$/.exec(u.pathname);
+  if (!m || SRC.held) return Promise.reject(SRC.held ? AUTH_ERR() : new Error('not an upload'));
+  const q = new URLSearchParams(u.search), size = body ? (body.size !== undefined ? body.size : body.byteLength || 0) : 0;
+  const api = what => `${SRC.base}/api/scenes/${m[1]}/${what}?path=${encodeURIComponent(q.get('path') || '')}${q.get('replace') === '1' ? '&replace=1' : ''}&size=${size}`;
+  return getJSON(api('put'), { method: 'POST' })
+    .then(link => new Promise((res, rej) => {
+      const x = new XMLHttpRequest();
+      x.open('PUT', link.url);
+      for (const [k, v] of Object.entries((link && link.headers) || {})) x.setRequestHeader(k, v);
+      if (onP) x.upload.onprogress = e => { if (e.lengthComputable) onP(e.loaded / Math.max(1, e.total)); };
+      // (412: a file of that name came meanwhile, as the relay's 409)
+      x.onload = () => (x.status >= 200 && x.status < 300 ? res() : rej(Object.assign(new Error(x.status === 412 ? 'there is a file by that name' : 'the scenes\' storage refused it (HTTP ' + x.status + ')'), { status: x.status === 412 ? 409 : x.status })));
+      x.onerror = () => rej(Object.assign(new Error('the scenes\' storage could not be reached'), { status: 0 }));
+      x.send(body || null);
+    }))
+    .then(() => getJSON(api('done'), { method: 'POST' }));
+}
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.

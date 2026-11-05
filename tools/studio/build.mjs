@@ -12,6 +12,9 @@ const SET_FILES = ['stage', 'looks'];
 // (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that
 // tools/studio/convert.mjs loads in its headless page too)
 const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'e5_models', 'e6_items', 'e6b_cuts', 'e7_explore', 'e7b_upload', 'e8_xr', 'e9_panels', 'e10_app'];
+// (a relay that keeps its scenes in R2: signed links and uploads straight into the bucket; after the Upload pane, whose
+// uploads it takes over: e7c_direct.js. Added on its own line, so other changes to the list above merge without it)
+ENGINE.splice(ENGINE.indexOf('e7b_upload') + 1, 0, 'e7c_direct');
 // the app's add-ons, in the order they need each other (the NURBS curve before the FBX loader that asks for it); the
 // GLTFExporter last, inside a function the converter calls the first time it converts (exporterLoad)
 const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'OBJLoader', 'MTLLoader', 'PLYLoader', 'STLLoader', 'SkeletonUtils', 'TransformControls'];
