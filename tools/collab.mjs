@@ -3148,7 +3148,7 @@ async function studioRound(dir) {
     await studioIn(G);
     const gOk = await sUntil(G, `SRC.state === 'ok' && SRC.direct && SRC.linkTtl > 0 && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready()`, 60000);
     const gs = await sp(G, `({ links: STU.files.every(f => f.url && f.url.startsWith(${JSON.stringify(s3o)} + '/scenes/studio/test/')), models: Object.values(STUDIO.state().models).map(m => m.state).join(),
-      tex: !!(LIB.get('figure.fbx') && LIB.get('figure.fbx').texPaths.has('figure.png') && !LIB.get('figure.fbx').missing.size), tone: (SND.get('tone.wav') || {}).state })`);
+      tex: !!(LIB.get('figure.fbx') && LIB.get('figure.fbx').texPaths.has('figure.png')), tone: (SND.get('tone.wav') || {}).state })`);   // (its figure_spec.png is missing on purpose)
     const got = fromPage().filter(r => r.method === 'GET');
     const gotPaths = ['box.glb', 'figure.fbx', 'figure.png', 'tone.wav'].map(n => got.some(r => r.url.startsWith('/scenes/studio/test/' + n + '?') && r.auth === 'query' && r.status < 400));
     check('studio from R2: a page opens the test scene from the bucket (another origin): every file by its signed link, the models with their texture and the short sound in, each fetched by the browser straight from the bucket (query-signed, CORS), none refused, no request signed in a header',
@@ -3180,12 +3180,16 @@ async function studioRound(dir) {
     const gCv = gBtn && await sUntil(G, `!CV.busy && CV.done.includes('models/figure.glb')`, 90000);
     const gGlb = S3r.objects.get('studio/test/models/figure.glb');
     const gSw = await sUntil(G, `(() => { const it = STU.items.get('fig001'), E = LIB.get('models/figure.glb'); return it.rec.file === 'models/figure.glb' && !!E && E.state === 'ready' && !!it.model; })()`, 30000);
+    await sp(G, 'saveLayout()');   // (so the headset below opens the scene as it is now)
+    const gSaved2 = await sUntil(G, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    // (the record as the Add list reads it for a GLB not loaded here: its first bytes, a range of the file in the bucket)
+    await sp(G, `(GLBREC.delete('models/figure.glb'), glbRec('models/figure.glb'), 0)`);
     await sUntil(G, `!!glbRec('models/figure.glb')`, 10000);
     const gPut = fromPage().some(r => r.method === 'PUT' && r.auth === 'query' && r.url.startsWith('/scenes/studio/test/models/figure.glb?') && r.status === 200);
     const gHead = fromPage().some(r => r.method === 'GET' && r.url.startsWith('/scenes/studio/test/models/figure.glb?') && r.status === 206);
     check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket',
-      gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
-      JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gPut, gHead, note: await sp(G, 'CV.note') }));
+      gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gSaved2 && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
+      JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, note: await sp(G, 'CV.note') }));
     // the Upload pane: a new scene, the test originals uploaded straight into the bucket (a long sound made MP3 by the
     // relay's ffmpeg from its original there, when this machine has ffmpeg)
     await sp(G, `(select(''), pickTab('upload'), 0)`);
