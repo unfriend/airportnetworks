@@ -43,6 +43,52 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
+  device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
+  R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
+  faces; R2) and one change set by the integrator:
+  - **Groups** (the owner: "grouping things (models, sounds, etc) in studio mode so that they move together"): *Make a
+    group...* on an item's card, then the other items picked (click, trigger, pinch, Ctrl- or Shift-click, or their rows
+    under Items), *Done*. A click on a member selects its group, a second the member alone. The group moves, turns (about
+    the vertical) and sizes as one about its pivot (the average of its members' middles, on the floor): the page's
+    arrows, *Turn 90°*, the size steps, *On the floor* (its models' lowest point), the grip and both grips; its objects
+    keep their cut-outs and what follows them, cubes stay level, every move one Undo step. *Duplicate*, *Ungroup*,
+    *Delete* (every member), *Add or remove items...*; a cube's *Pick what it shows/hides* takes a group's members at
+    once. A group with fewer than two members goes. Kind `g`, `{ name, items }`, in `layout.json`'s `groups` and the
+    room's `g.<id>` (`tools/studio/engine/e6c_groups.js`; `tools/studio/SPEC.md`, "Groups").
+  - **Faces** (the owner: "double sided and flip inside out settings per model?"): an object's *Faces*, *As in the file*,
+    *Both sides* or *Inside out* (a box made a room seen from inside), on that object's own materials only, the file
+    unchanged; kept through a rebuild, a GLB switch and its cut-outs. `faces` in the object's record (absent: as in the
+    file), FORMAT networks-32.
+  - Groups and faces: one builder, one review (two Sonnet reviewers, twelve findings: four medium, a group removed while
+    held leaving the change open, Undo while picking leaving a one-member group (twice), the pivot moving after an odd turn;
+    eight low), eleven fixed, one rejected (two devices putting one item into two groups at once: the same result on every
+    device, and tidying it in `apply()` would break `apply(state())`). Open for the owner: whether a duplicated member
+    should join its group, whether a cube's pick on a group should take its objects' cut-outs too, and whether the pivot
+    is right.
+  - **The studio's scenes in Cloudflare R2** (the owner: "ok we have the coolify server going on hetzner so i guess i will
+    use that and the r2, also implement the r2 things right away please"): `--scenes r2` keeps them in a bucket instead
+    of a folder, the rooms unchanged. `relay/r2.mjs` signs with `node:crypto` (AWS's Signature Version 4, checked byte for
+    byte against AWS's own examples); pages fetch files straight from the bucket by signed links (12 h, the same all
+    hour, so caching works) and upload big files straight into it; layouts and their `.history/` there too; the watch
+    lists the bucket every 5 s while a page listens; the start checks the keys, the CORS rule and which signed headers
+    R2 takes, and falls back (uploads through the relay) where it does not. `tools/studio/r2sync.mjs` copies scenes
+    between the bucket and a folder (an event without internet: pull before, push after; the newer side wins, the other
+    kept in `.history/`). Keys only in the environment (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+    `R2_BUCKET`, `R2_JURISDICTION`), never logged. One builder, one review (fifteen findings, thirteen distinct, all
+    fixed: among them `done` deleting objects it had not brought, r2sync overwriting a newer file, the relay stopping on
+    a passing R2 failure, a failed save eating `.history/`). The owner's steps, the CORS rule to paste and the costs:
+    `relay/README.md`, "Scenes in Cloudflare R2". Untested against a real bucket: everything R2 itself answers.
+  - **The main server** (the owner: "could i make the coolify server also serve the whole app and make that my main server
+    while keeping the github pages setup for dev and tests?", then "yes do that, the testserver could then use the same
+    relay, for now stay on main here, i will let you know once the setup is done"): the relay already serves the app, so
+    the code change is small. The test copy on GitHub Pages (`unfriend.github.io`) uses `wss://stories.lbi-netmed.com` by
+    itself (`HOME_RELAY` in `shared.js`, by the page's host, so never a laptop or the tests), and `--public` lets its
+    pages in (`TEST_ORIGIN` beside `APP_ORIGIN` in `relay/server.mjs`). The owner moves the name (Coolify's domain, the DNS
+    record, then Pages' custom domain off, in that order: `relay/README.md`, "The main server"); until the owner says it
+    is done, the live site is still GitHub Pages and the `CNAME` file stays. Releases still go to `main`, which both copies
+    publish.
+  - Tests: TO FILL after the run.
 - **Released as networks-v113 (4 November 2026; FORMAT networks-31, shell 113: running pages ask to reload, and every
   device in a shared room needs v113), tested headlessly only: cut-outs in the studio.** The owner: "is it possible to
   remove parts of a glb model nondestructive? like a door in a wall etc?", then "for the models i would just do parts that
@@ -790,8 +836,8 @@ Before handing over (or making anything more public), someone has to decide thes
      `COLLAB_TOKEN` the relay is open as before (a laptop at an event). What matches asdf10k-collab-backend and what still
      differs (protocol, routes, persistence) is in `relay/README.md`, "Compared with asdf10k-collab-backend". With it, a
      room's code alone no longer lets a stranger in; inside the relay's users the code still is the room's only key. Not
-     yet deployed: what only Coolify can show is listed at the end of the guide. Once it is up, its address can become the
-     app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
+     yet deployed: what only Coolify can show is listed at the end of the guide. Since v114 the test copy on GitHub Pages
+     uses it with no setup (`HOME_RELAY` in `shared.js`), and it can be the app's main server (below).
    - **Free hosting instead** (the owner asked, 4 November 2026: "can we host the relay and its assets on free
      cloudflare workers and r2 or similar?"; researched with Cloudflare's and the other hosts' own pages that day, the
      numbers checked once more independently). Cloudflare's free plan could carry rooms (one Durable Object a room) and the
@@ -808,6 +854,11 @@ Before handing over (or making anything more public), someone has to decide thes
      Recommendation: keep Coolify, keep the laptop relay at events; later, only if the scenes outgrow its disk, the
      studio's files on R2 with the rooms on Node. Open for the owner: the university's view of data on Cloudflare (a US
      company), a card, and the busiest day's number of sessions.
+   - **Decided** (the owner, 5 November 2026): the relay on Coolify on Hetzner, the studio's scenes in R2 (built in v114,
+     `--scenes r2`), and the Coolify server as the app's main server at `stories.lbi-netmed.com`, with GitHub Pages as a
+     test copy at `unfriend.github.io/airportnetworks/` using the same relay (code in v114; the owner's DNS, Coolify and
+     Pages steps in `relay/README.md`, "The main server"). Releases stay on `main` for now; a test branch for Pages later,
+     only on the owner's word.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;
