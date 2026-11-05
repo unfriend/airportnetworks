@@ -3878,7 +3878,9 @@ try {
   const held6 = await sleepWake(F6, JUNK);
   await spaceBack(SHARED);
   await frames(H, 800);
-  const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null }));
+  const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
+    // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
+    trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
   const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
     near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));

@@ -66,7 +66,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     and stop). `--public`'s default origin is the main site's again (v114 had added `unfriend.github.io`).
   - The release flow: work goes to `dev` first (the test place updates by itself), then `main` once the owner has tried it
     (`docs/setup-and-release.md`, section 4).
-  - Tests: TO FILL.
+  - Set up and checked the same day: the owner's Coolify app runs `dev` at `stories.lab.lbi-netmed.com` (v116 served,
+    `/api/health` open, the API refused without the password and to other sites' pages, `/upload` to the studio's
+    Upload pane, no relay offered on the main site), and "R2 works" (the owner).
+  - Tests: the relay test 611 good (quote marks round `RELAY_ARGS` among them); the collab test's password round with a
+    relay offered (the test hook) 13 good; smoke 210 good; peer to peer on its own 18 good; the update test from v114
+    good; the full shared-room run 498 good and 1 failing: the headset's height after standby (the room's origin 0 m
+    instead of 0.15 m over the moved floor, its note empty), failing in v115's run too though it passed in v114's and
+    nothing of the room's alignment changed since (the changes are the relay offer's, all in the password code). The
+    height comes back from the shared space and goes when the space's id changes on waking, so a race in the test's
+    pretend headset is the likeliest reading; the check now prints the room's log trail, and a rerun is under way.
 - **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
   device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
   R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
