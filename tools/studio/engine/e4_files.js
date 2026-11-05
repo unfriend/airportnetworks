@@ -256,13 +256,14 @@ async function refreshFiles(changed) {
 }
 
 // ------------------------------------------------------------- the layout --
-// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts }, each
-// item with its id and its record. Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
-// lists naming only this scene's items. A sound's on, bone and o (optional fields, so still studio: 1) are kept even when
+// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts, groups },
+// each item with its id and its record. Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
+// lists naming only this scene's items, and a group's members only this layout's objects, sounds and cubes (one left with
+// fewer than 2 dropped and counted). A sound's on, bone and o (optional fields, so still studio: 1) are kept even when
 // the layout lacks its object, as a state from the room keeps them: it stands at its p until that object is back, and a
 // save never loses what it followed; so is a cut-out's on (it cuts nothing until its object is back). A layout without
-// cuts (v112's) reads as before
-const LIMITS = { o: 300, c: 100, s: 60, x: 100 };
+// cuts (v112's) or without groups (v113's) reads as before
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50 };
 function readLayout(j) {
   const out = { items: [], bad: 0, at: 0, by: '' };
   if (!j || typeof j !== 'object') return out;
@@ -270,7 +271,7 @@ function readLayout(j) {
   out.at = Date.parse(j.saved) || 0;
   out.by = typeof j.by === 'string' ? j.by.slice(0, 40) : '';
   const ids = new Set();
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts]]) {
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
@@ -282,6 +283,14 @@ function readLayout(j) {
     }
   }
   for (const x of out.items) if (x.kind === 'c') { x.rec.show = x.rec.show.filter(i => ids.has(i)); x.rec.hide = x.rec.hide.filter(i => ids.has(i)); }
+  const kinds = new Map(out.items.map(x => [x.id, x.kind]));
+  out.items = out.items.filter(x => {
+    if (x.kind !== 'g') return true;
+    x.rec.items = x.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i)));
+    if (x.rec.items.length >= 2) return true;
+    out.bad++;
+    return false;
+  });
   return out;
 }
 // what is placed now, as layout.json
@@ -290,7 +299,7 @@ function layoutOut() {
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const list = k => [...STU.items.values()].filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
-  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x');
+  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g');
   return L;
 }
 // a list of items (or what is placed) as one string, to tell whether two are the same

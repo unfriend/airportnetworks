@@ -254,6 +254,7 @@ function libClone(E) {
       const c = m.clone();
       if (c.isMeshStandardMaterial && !c.envMap && env) { c.envMap = env; c.envMapIntensity = 0.8; }
       c.userData.base = { t: c.transparent, o: c.opacity, d: c.depthWrite };
+      c.userData.side0 = c.side;   // (its side as in the file: an object's Faces, applyFaces, may change it)
       return c;
     };
     n.material = Array.isArray(n.material) ? n.material.map(one) : one(n.material);
@@ -264,11 +265,13 @@ function libClone(E) {
 }
 // as scanned: unlit, its own colours (photogrammetry, whose light is in its texture)
 function scanMat(m) {
+  const side = m.userData.side0 !== undefined ? m.userData.side0 : m.side;   // (as in the file, whatever its Faces made the lit one)
   const c = new THREE.MeshBasicMaterial({
-    map: m.map || null, color: m.map ? 0xffffff : (m.color || new THREE.Color(1, 1, 1)), vertexColors: !!m.vertexColors, side: m.side,
+    map: m.map || null, color: m.map ? 0xffffff : (m.color || new THREE.Color(1, 1, 1)), vertexColors: !!m.vertexColors, side,
     transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest || 0, skinning: !!m.skinning, morphTargets: !!m.morphTargets,
   });
   c.userData.base = { t: c.transparent, o: c.opacity, d: c.depthWrite };
+  c.userData.side0 = side;
   return c;
 }
 // the card's numbers for an object as placed: its size in metres (its box turned and scaled), its triangles

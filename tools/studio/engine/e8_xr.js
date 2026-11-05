@@ -251,7 +251,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.follow && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -261,7 +261,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow && !STU.gpick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -291,6 +291,9 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
+    // (a group's member, unless it is selected on its own: its whole group)
+    const grp = h.corner === undefined && GROUP_KINDS.includes(it.kind) && STU.sel !== it.id ? groupOf(it.id) : null;
+    if (grp) { groupGrab(c, grp, q0); return; }
     if (h.corner !== undefined && it.kind === 'c') {
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], r = it.rec;
       // the opposite corner stays where it is (the scene's frame); the hand keeps its offset from the corner it took
@@ -323,13 +326,40 @@ function xrGrab(c, on) {
 function xrLetGo(c) {
   const G = c.grab;
   c.grab = null;
+  if (G && G.target === 'group') { groupLetGo(c, G); return; }
   if (!G || (G.target !== 'item' && G.target !== 'corner')) return;
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.id === G.id);
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
   if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
-  if (!XR.ctrls.some(k => k.grab && (k.grab.target === 'item' || k.grab.target === 'corner'))) endChange();
+  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+}
+// the grip on a group's member: the whole group, taken where it stands (its members carried, one change); the other hand
+// on a member of the same group joins it (both size it about its pivot)
+function groupGrab(c, g, q0) {
+  const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === g.id);
+  if (!o) groupHold(g);
+  const B = g.base, P = GL.items.localToWorld(B.P.clone().add(g.T.t));
+  c.grab = { target: 'group', id: g.id, q0, o0: c.o.clone(), p0: P, reach: 1, th0: g.T.th, at: 0, base: B };
+  select(g.id);
+  buzz(c, 0.4, 25); sfxAct('grab', 'world', P.toArray());
+}
+// one hand lets go of a group: the other, if it holds the group too, carries on from there; else it stays where it is
+// (every member's record written), and the change ends once nothing is carried
+function groupLetGo(c, G) {
+  const g = STU.items.get(G.id), o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === G.id);
+  if (o) { groupRegrip(o); return; }
+  if (g && g.kind === 'g' && g.base) { groupMove(g.base, g.T.t, g.T.th, g.T.k, true); sfxAct('drop', 'world', GL.items.localToWorld(g.base.P.clone().add(g.T.t)).toArray()); groupRelease(g); }
+  else groupRelease(null, G.base);
+  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+}
+// a hand that holds a group alone again carries on from where it is now
+function groupRegrip(c) {
+  const G = c.grab, g = STU.items.get(G.id);
+  if (!g || !g.base) return;
+  G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1; G.th0 = g.T.th;
+  G.p0.copy(GL.items.localToWorld(g.base.P.clone().add(g.T.t)));
 }
 // a hand that holds an item alone again (the other let go) carries on from where it is now
 function xrRegrip(c) {
@@ -355,8 +385,9 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
   if (G.target === 'item') { carryItem(c, dt); return; }
+  if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
   if (o) { if (c.i > o.i) xrResize(o, c); return; }
@@ -430,6 +461,36 @@ function carryItem(c, dt) {
     if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
   }
   carryWrite(it);
+}
+// a group in the hand: its pivot where the hand puts it, its members keeping their places about it; level, taking only a
+// yaw from the hand's turn while free moving is on; both hands size it about its pivot (a twentieth to twenty times) and
+// move it with their middle; the right stick pushes it away or pulls it in. Records written ten times a second (and as
+// it is let go: groupLetGo), the members shown where the hand puts them meanwhile
+function carryGroup(c, dt) {
+  const G = c.grab, g = STU.items.get(G.id), gp = c.src.gamepad;
+  if (!g || g.kind !== 'g' || !g.base) { c.grab = null; groupLetGo(c, G); return; }   // (gone meanwhile, as from the room: its members let go)
+  const T = g.T, o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === G.id && k.src && k.g.visible);
+  GL.world.updateMatrixWorld(true);
+  if (o) {
+    if (c.i < o.i) return;   // (once a frame, by the second hand)
+    const d = c.o.distanceTo(o.o);
+    _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
+    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), m0: GL.items.worldToLocal(_mv.clone()), t0: T.t.clone(), k0: T.k });
+    T.k = clamp(W.k0 * d / W.d0, 1 / 20, 20);
+    T.t.copy(W.t0).add(GL.items.worldToLocal(_mv.clone())).sub(W.m0);
+  } else {
+    if (G.two) groupRegrip(c);
+    if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.2) G.reach = clamp(G.reach * Math.exp(-gp.axes[3] * dt * 1.5), 0.15, 8);
+    _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);   // the hand's turn since it took hold
+    _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
+    if (_gv.length() > 30) _gv.setLength(30);
+    _gv.applyQuaternion(_gq).add(c.o);
+    T.t.copy(GL.items.worldToLocal(_gv)).sub(g.base.P);
+    T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y : 0);
+  }
+  const t = performance.now(), write = t - (g.wrote || 0) >= 100;
+  if (write) g.wrote = t;
+  groupMove(g.base, T.t, T.th, T.k, write);
 }
 // the grip on a selected cube's corner: the opposite corner stays, this one follows the hand (each side at least 10 cm)
 function stretchCube(c) {

@@ -2666,7 +2666,9 @@ async function tokenRound() {
 // dancer's head (her model copied in): every page and the headset take it, each sound where its own dancer's head bone
 // puts it at one scene clock (within 1 cm), and the saved layout.json carries on, bone and o; a cut-out made on a page on
 // the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
-// it under cuts; a long sound streamed (an
+// it under cuts; a group made on a page (the box, the figure, Tone and Doorway) and turned and sized there, taken by every
+// page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
+// the saved layout.json carrying groups and faces; a long sound streamed (an
 // element, no decoded buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
 // originals (sorted into models/, sounds/ and originals/; the GLBs loading with their records; a short sound as a mono
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
@@ -2983,6 +2985,27 @@ async function studioRound(dir) {
       !!xId && xTook.every(Boolean) && xs.every(x => x && x[1] === xs[0][1]) && xFar < 0.01 && xSaved && !!xL && xL.on === 'box001' && Array.isArray(xL.size) && xL.size.length === 3,
       JSON.stringify({ xId, xTook, recs: xs.map(x => x && x[1]), xFar, xSaved, xL }));
     if (xId) await sp(A, `(deleteItem('${xId}'), select(''), 0)`);
+
+    // ---- a group: made on a page (the box, the figure, Tone and Doorway), then turned a quarter and sized ×1.5 on its card
+    // there; every page and the headset take it (each member where the first page has it, within 1 cm, once the room's
+    // glides are done); Faces set on another page (the box inside out) reaches every device (its own materials' side); the
+    // layout saved from a page carries groups and faces
+    const gId = await sp(A, `(() => { setEdit(true); select('box001'); itemAct('mkgroup'); const g = STU.gpick && STU.gpick.id; if (!g) return ''; for (const id of ['fig001', 'snd001', 'cube01']) groupToggle(g, id); gpickEnd(); select(g); itemAct('turn'); itemAct('size', 1.5); select(''); return g; })()`);
+    const gAt = p => sp(p, `(() => { itemsStep(0, performance.now()); const g = STU.items.get('${gId}'); return g ? [JSON.stringify(g.rec), members(g).map(m => [m.id, m.holder.position.toArray(), JSON.stringify(m.rec)])] : null; })()`);
+    const gs = [];
+    for (const p of [A, B, C, H]) { if (gId) await sUntil(p, `(() => { const g = STU.items.get('${gId}'); return !!g && members(g).length === 4 && [...STU.items.values()].every(it => !it.gl); })()`, 15000); gs.push(gId ? await gAt(p) : null); }
+    const gFar = gs.every(Boolean) ? Math.max(...gs.map(g => Math.max(...g[1].map(([, q], i) => Math.hypot(...q.map((v, k) => v - gs[0][1][i][1][k])))))) : Infinity;
+    await sp(B, `(setEdit(true), itemAct('faces', 'inside', 'box001'), 0)`);
+    const fIn = [];
+    for (const p of [A, B, C, H]) fIn.push(await sUntil(p, `(() => { const it = STU.items.get('box001'); return !!it && it.rec.faces === 'inside' && !!it.model && it.model.meshes.every(m => [].concat(m.material).every(x => x.side === THREE.BackSide)); })()`, 10000));
+    await sp(A, 'saveLayout()');
+    const gSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const gL = layoutOf() || {}, gLg = (gL.groups || []).find(x => x.id === gId), gLb = (gL.objects || []).find(x => x.id === 'box001');
+    check(`studio: a group made on a page (the box, the figure, Tone and Doorway), turned and sized there, is taken by every page and the headset, every member within ${(gFar * 100).toFixed(2)} cm of the first page's; Faces (the box inside out) set on another page reaches every device's materials; the saved layout.json carries groups and faces`,
+      !!gId && gs.every(g => g && g[0] === gs[0][0] && g[1].length === 4 && g[1].every((m, i) => m[2] === gs[0][1][i][2])) && gFar < 0.01 && fIn.every(Boolean) && gSaved &&
+        !!gLg && JSON.stringify(gLg.items) === JSON.stringify(['box001', 'fig001', 'snd001', 'cube01']) && !!gLb && gLb.faces === 'inside',
+      JSON.stringify({ gId, recs: gs.map(g => g && g[0]), gFar, fIn, gSaved, gLg, faces: gLb && gLb.faces }));
+    if (gId) await sp(A, `(itemAct('faces', 'file', 'box001'), select('${gId}'), itemAct('ungroup'), select(''), 0)`);
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));

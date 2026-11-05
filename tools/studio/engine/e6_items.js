@@ -1,7 +1,8 @@
 
 // ================================================================== ITEMS ==
 // What is placed in the scene: objects (a model file placed once; one file may be placed many times), trigger cubes,
-// sounds and cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js). Each has a record (as in
+// sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js) and groups (objects, sounds
+// and cubes that move together: e6c_groups.js). Each has a record (as in
 // layout.json, without its id), checked the same way wherever it comes from (the layout, the room, an edit here), so a
 // record taken and given back is the same. Records are never changed in place:
 // each change is a new record (the shared room keeps the old one to compare with).
@@ -11,6 +12,7 @@ const STU = {
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
+  gpick: null,   // (a group picking its members: { id, made, step })
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -24,10 +26,17 @@ const vecOf = (a, n, lim) => (Array.isArray(a) && a.length === n && a.every(v =>
 function norm(kind, x) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const has = k => x[k] !== undefined;
+  const name = d => (!has('name') ? d : typeof x.name === 'string' && x.name.trim() ? words(x.name, 60) : null);
+  if (kind === 'g') {
+    // a group: its name and its members by id (this scene's objects, sounds and cubes; ids that are not ids dropped, as a
+    // cube's lists drop them; which of them are here, and in which group, is worked out where it is used: groupOf)
+    if (!Array.isArray(x.items)) return null;
+    const r = { name: name('Group'), items: [...new Set(x.items.filter(okId))].slice(0, GROUP_ITEMS) };
+    return Object.values(r).includes(null) ? null : r;
+  }
   const p = vecOf(x.p, 3, 1000);
   if (!p) return null;
   const P = p.map(v => nz(r3(v)));
-  const name = d => (!has('name') ? d : typeof x.name === 'string' && x.name.trim() ? words(x.name, 60) : null);
   const one = (k, list, d) => (!has(k) ? d : list.includes(x[k]) ? x[k] : null);
   if (kind === 'o') {
     if (!okFile(x.file)) return null;
@@ -41,6 +50,8 @@ function norm(kind, x) {
     const s = has('s') ? +Math.min(1e4, Math.max(1e-4, x.s)).toPrecision(4) : 1;
     const r = { name: name(stem(x.file)), file: x.file, p: P, q, s, light: one('light', ['lit', 'scan'], 'lit'), clip: !has('clip') ? '' : typeof x.clip === 'string' ? x.clip.slice(0, 120) : null,
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
+    // its faces, kept only when set: both sides, or inside out (absent: as in its file)
+    if (has('faces')) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
     return Object.values(r).includes(null) ? null : r;
   }
   if (kind === 'c') {
@@ -87,7 +98,9 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group' };
+// what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
+const GROUP_KINDS = ['o', 's', 'c'], GROUP_ITEMS = 460;
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
@@ -129,6 +142,12 @@ function makeItem(id, kind) {
     it.look.hit.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'g') {
+    // a group: its pivot (the page's arrows hold it; the middle of its members, on the floor) and its box, drawn while
+    // it is selected (e6c_groups.js)
+    it.look = LOOKS.group(id);
+    it.holder = new THREE.Group();
+    GL.edit.add(it.look.deco);
   } else {
     it.look = LOOKS.speaker(id);
     it.holder = it.look.group;
@@ -153,6 +172,8 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
+  if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
+  if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
   for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
@@ -169,12 +190,14 @@ function poseOf(it) {
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
+  if (it.kind === 'g') return;   // (a group has no place of its own: its members have theirs)
   if (glide && !it.carry) it.gl = { p: it.holder.position.clone(), q: it.holder.quaternion.clone(), s: it.holder.scale.clone(), t0: performance.now() };
   else if (!it.carry) { it.gl = null; poseOf(it); it.holder.position.copy(_pp); it.holder.quaternion.copy(_pq); it.holder.scale.copy(_ps); }
   const r = it.rec;
   if (it.kind === 'o') {
     if (!was || was.file !== r.file) itemFile(it);
     if (!was || was.light !== r.light) applyLight(it);
+    else if (was.faces !== r.faces) applyFaces(it);
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
   } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + r.name, it.look.col, 0.075);
@@ -248,7 +271,22 @@ function applyLight(it) {
     m.material = mode === 'scan' ? m.userData.scan : m.userData.lit;
   }
   if (it.model.cut) cutMats(it);   // (as scanned, made just now: cut as the lit ones are)
+  applyFaces(it);   // (and drawn on the sides its record says)
   it.light = mode; it.aSet = -1;
+}
+// its faces (rec.faces): as in its file (each material's own side, as loaded: side0), both sides, or inside out (only the
+// back faces drawn, three.js turning their normals, so the light follows): on its own materials (each object's clones,
+// libClone; lit and as scanned), so two objects of one file may differ; kept through a rebuild (buildModel, through
+// applyLight) and with its cut-outs' addition (a new side compiles its program again, the addition with it)
+const FACES = { both: THREE.DoubleSide, inside: THREE.BackSide };
+function applyFaces(it) {
+  if (!it.model) return;
+  const f = FACES[it.rec.faces];
+  for (const m of it.model.meshes) for (const k of ['lit', 'scan']) for (const mat of [].concat(m.userData[k] || [])) {
+    if (mat.userData.side0 === undefined) mat.userData.side0 = mat.side;
+    const want = f !== undefined ? f : mat.userData.side0;
+    if (mat.side !== want) { mat.side = want; mat.needsUpdate = true; }
+  }
 }
 // an object's fade: its materials' own opacity times a (see-through and not hiding what is behind while it fades)
 function setObjAlpha(it, a) {
@@ -320,7 +358,7 @@ function triggerStep(now) {
     for (const i of c.rec.hide) H.set(i, Math.max(H.get(i) || 0, c.since));
   }
   for (const it of STU.items.values()) {
-    if (it.kind === 'c') continue;
+    if (it.kind === 'c' || it.kind === 'g') continue;
     const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
     if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
@@ -339,7 +377,7 @@ function triggerStep(now) {
 function shownFor(p) {
   STU.head = p ? p.slice(0, 3) : null;
   triggerStep(performance.now());
-  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c').map(it => [it.id, it.shown]));
+  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
 function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = false; dirty(true); }
 
@@ -459,6 +497,7 @@ function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
   for (const it of STU.items.values()) {
+    if (it.kind === 'g') continue;   // (groups once their members have their places: groupsStep)
     // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
     // cut-out, in the frame of the object it cuts: cutStep)
     if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on) && it.kind !== 'x') {
@@ -500,6 +539,7 @@ function itemsStep(dt, now) {
   // model goes where its bone is now
   cutsStep(editing, now);
   for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
+  groupsStep(editing);
   editStep(editing);
   emitStep(now);
 }
@@ -566,7 +606,7 @@ function editStep(editing) {
   // ticks over what a cube's list holds while picking for it
   const P = editing && STU.pick ? STU.items.get(STU.pick.id) : null;
   for (const it of STU.items.values()) {
-    if (it.kind === 'c') continue;
+    if (it.kind === 'c' || it.kind === 'g') continue;
     const on = !!P && (P.rec.show.includes(it.id) || P.rec.hide.includes(it.id));
     if (on && !it.tick) { it.tick = LOOKS.tag(30); GL.edit.add(it.tick); }
     if (!it.tick) continue;
@@ -603,6 +643,7 @@ function itemTopInto(it, out, mid) {
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
+  else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
   else out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.14));
   return out;
 }
@@ -766,7 +807,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -800,9 +841,14 @@ function undo() {
   if (SNAP) return;
   const list = UNDO.pop();
   if (!list) return;
-  for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
-  for (const it of STU.items.values()) if (it.cutNote) it.cutNote = '';   // (a cut-out held at a limit by a sizing: undone)
+  undoList(list);
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
+}
+// a step taken back: each item's record as it was, what was added removed, what was deleted put back
+function undoList(list) {
+  if (STU.gpick && list.some(u => u.id === STU.gpick.id)) STU.gpick = null;   // (picking for a group this takes back: done)
+  for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
   changed();
 }
 // what changed here: the panes (soon), the draft (a second later)
@@ -900,22 +946,35 @@ function addCube() {
   return id;
 }
 function deleteItem(id) {
-  if (!editOn() || !STU.items.has(id)) return;
-  change(() => {
-    // (an object's cut-outs go with it, in the same step: Undo brings them all back)
-    const gone = new Set([id, ...cutsOn(id).map(x => x.id)]), out = l => l.filter(i => !gone.has(i));
-    for (const c of [...STU.items.values()]) if (c.kind === 'c' && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
-    // (the sounds that follow it stay where they are, following nothing: Undo brings both back)
-    for (const f of [...STU.items.values()]) if (f.kind === 's' && f.rec.on === id) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
-    for (const g of gone) removeItem(g);
-  });
-  if (STU.pick && STU.pick.id === id) STU.pick = null;
+  const it = STU.items.get(id);
+  if (!editOn() || !it) return;
+  // (a group: every member with it, in the same step)
+  const list = it.kind === 'g' ? members(it).map(m => m.id).concat(id) : [id];
+  let gone = new Set();
+  change(() => { gone = deleteItems(list); });
+  if (STU.pick && gone.has(STU.pick.id)) STU.pick = null;
   sfxAct('snap', 'stage', 'centre');
+}
+// items deleted together (within a change): an object's cut-outs go with it; the cubes that list them let them go; the
+// sounds that follow a deleted object and stay stand where they are, following nothing; the groups that hold them let them
+// go, and one left with fewer than 2 members goes too (not the one picking its members now). Undo brings all back
+function deleteItems(list) {
+  const gone = new Set();
+  for (const id of list) { gone.add(id); for (const x of cutsOn(id)) gone.add(x.id); }
+  const out = l => l.filter(i => !gone.has(i));
+  for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
+  for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
+  const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
+  for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
+  for (const g of gone) removeItem(g);
+  groupTidy(gs);
+  return gone;
 }
 function duplicateItem(id) {
   const it = STU.items.get(id);
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
+  if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
   const nid = newId(), o = it.rec.o || [0, 0, 0];
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
@@ -942,12 +1001,17 @@ const ITEM_ACT = {
   anim: (it, v) => setRec(it.id, { anim: v }),
   start: (it, v) => setRec(it.id, { start: v }),
   clip: it => { const cl = it.E && it.E.clips ? it.E.clips.map(c => c.name) : []; if (!cl.length) return; const i = cl.indexOf(it.rec.clip); setRec(it.id, { clip: cl[(i + 1) % cl.length] }); },
-  // a quarter turn about the vertical, or about x (standing up a model lying on its back), about its middle
+  // a quarter turn about the vertical, or about x (standing up a model lying on its back), about its middle (a group:
+  // about its pivot, the vertical only)
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
-  floor: it => { const b = objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
+  faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
   // sizes about its foot (the middle of its lowest side stays where it is); the sounds that follow it keep their place on it
+  // (a group: every member, about its pivot)
   size: (it, k) => {
+    if (it.kind === 'g') { if (+k > 0) groupMove(groupBase(it), new THREE.Vector3(), 0, +k, true); return; }
     const b0 = objBox(it), s = Math.min(1e4, Math.max(1e-4, it.rec.s * k));
     if (!b0) { setObj(it.id, { s }); return; }
     const b1 = objBox(it, null, s), dx = (b0.min.x + b0.max.x - b1.min.x - b1.max.x) / 2, dz = (b0.min.z + b0.max.z - b1.min.z - b1.max.z) / 2;
@@ -985,27 +1049,33 @@ const ITEM_ACT = {
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
   if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
+  if (act === 'mkgroup' && STU.gpick) gpickEnd();   // (another group's picking ends first, in a step of its own)
   change(() => ITEM_ACT[act](it, v));
-  sfxAct(act === 'del' ? 'snap' : act === 'follow' || act === 'cutOn' ? 'link' : 'click', 'world', null);
+  if (act === 'mkgroup' && STU.gpick && STU.gpick.made && !STU.gpick.step) STU.gpick.step = UNDO[UNDO.length - 1];   // (the step that made it: Done with one member takes it back)
+  sfxAct(act === 'del' ? 'snap' : act === 'follow' || act === 'cutOn' || act === 'mkgroup' ? 'link' : 'click', 'world', null);
 }
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
+  if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
   setRec(it.id, { q: nq.toArray(), p: p.toArray() });
 }
 // a cube's list (show or hide) with an item in it, or out of it (in one list of a cube at most)
-function toggleLink(cubeId, list, id) {
+function toggleLink(cubeId, list, id) { toggleLinks(cubeId, list, [id]); }
+// several at once (a group's members): out of the list when all of them are in it, else all in it (one change)
+function toggleLinks(cubeId, list, ids) {
   const c = STU.items.get(cubeId);
-  if (!c || c.kind !== 'c' || !STU.items.has(id) || id === cubeId || STU.items.get(id).kind === 'c' || !editOn()) return;
-  const other = list === 'show' ? 'hide' : 'show', on = c.rec[list].includes(id);
-  change(() => setRec(cubeId, { [list]: on ? c.rec[list].filter(i => i !== id) : c.rec[list].concat(id), [other]: c.rec[other].filter(i => i !== id) }));
+  ids = ids.filter(i => i !== cubeId && STU.items.has(i) && STU.items.get(i).kind !== 'c' && STU.items.get(i).kind !== 'g');
+  if (!c || c.kind !== 'c' || !ids.length || !editOn()) return;
+  const other = list === 'show' ? 'hide' : 'show', on = ids.every(i => c.rec[list].includes(i)), not = l => l.filter(i => !ids.includes(i));
+  change(() => setRec(cubeId, { [list]: on ? not(c.rec[list]) : not(c.rec[list]).concat(ids), [other]: not(c.rec[other]) }));
   sfxAct(on ? 'snap' : 'link', 'world', null);
 }
 // select an item (its card), or none
@@ -1016,6 +1086,7 @@ function select(id) {
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
+  if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();
   dirty(true);
@@ -1023,7 +1094,7 @@ function select(id) {
 
 // --------------------------------------------------------- shared rooms --
 // What everyone at the station sees alike: the scene's name and one top-level field per item (its record: o.<id>,
-// c.<id>, s.<id>, x.<id>), so two people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
+// c.<id>, s.<id>, x.<id>, g.<id>), so two people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
@@ -1035,9 +1106,9 @@ function collabState() {
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
   if (typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)) && v.scene !== STU.scene) openScene(v.scene, 'room');
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0 };
   for (const k of Object.keys(v)) {
-    const m = /^([ocsx])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxg])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]), rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)

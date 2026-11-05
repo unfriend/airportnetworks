@@ -2,9 +2,10 @@
 // colour with brighter edges, its name over it and, when selected, a ball at each corner to stretch it by. A sound: a
 // small speaker (a ball and a cone) in its colour, a faint ring on the floor where it stops being at full volume and, for
 // a sound that follows a model, a faint line to what it follows. A cut-out: a box with dashed red-orange edges and solid
-// ticks at its corners (never a cube's see-through fill and solid edges). A model still loading (or one this device
-// cannot find): a grey box with a line of text over it. Each item's colour comes from its id, so it is the same on every
-// device (a cut-out's is one for all).
+// ticks at its corners (never a cube's see-through fill and solid edges). A group (selected, while editing): a faint
+// dashed box round all its members, in its colour (its name is the selection's label). A model still loading (or one this
+// device cannot find): a grey box with a line of text over it. Each item's colour comes from its id, so it is the same on
+// every device (a cut-out's is one for all).
 const LOOKS = (function () {
   const PAL = ['#46d9ff', '#ffb43b', '#3ee08f', '#ff5ad9', '#9db4ff', '#ff7a59', '#c3e85a', '#c08cff', '#5fe0c8', '#ffe066'];
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
@@ -146,6 +147,15 @@ const LOOKS = (function () {
       drop() { hit.material.dispose(); fill.material.dispose(); line.material.dispose(); ticks.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
     };
   }
+  // a group: a faint dashed box (about seven dashes an edge, whatever its size) round its members, over everything, in its
+  // colour; `deco` is placed at the box's middle and `box` scaled to its size
+  function group(id) {
+    const col = new THREE.Color(colOf(id)), deco = new THREE.Group();
+    const box = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col.clone().lerp(new THREE.Color(1, 1, 1), 0.25), dashSize: 0.05, gapSize: 0.06, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
+    box.renderOrder = 7; box.frustumCulled = false;
+    deco.add(box); deco.visible = false;
+    return { deco, box, col: '#' + col.getHexString(), drop() { box.material.dispose(); } };
+  }
   // a model that is not here yet (loading, missing or unreadable): a grey box with a line of text over it
   function grey() {
     const g = new THREE.Group();
@@ -157,5 +167,5 @@ const LOOKS = (function () {
     g.add(name);
     return { group: g, body, fill, name, drop() { fill.material.dispose(); line.material.dispose(); name.userData.drop(); } };
   }
-  return { colOf, cube, speaker, cut, grey, tag, CUT_COL, dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); } };
+  return { colOf, cube, speaker, cut, group, grey, tag, CUT_COL, dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); } };
 })();

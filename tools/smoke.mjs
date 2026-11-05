@@ -2697,6 +2697,487 @@ await step('design: the intro ends at the table', async () => {
     await cxp.close();
   });
 }
+// The studio's groups (tools/studio/SPEC.md, "Groups"), on a page of its own: the rig test scene (tools/studio/test/scenes/rig:
+// the dancer, the box, Voice following her head, the cube Curtain) with, put in for these steps, the figure, a sound Free
+// (following nothing), a sound Out following the figure, a cut-out Hole on the box and a cube Lamp showing the box and its
+// hole. Make a group... and its pick mode (clicks in the scene, Ctrl and Shift too, names under Items); a click on a member
+// selects the group, again the member alone; hover names the group; the Items pane; the arrows' move, turn (about the
+// vertical only) and size moving every member exactly (places, turns, sizes, a cube's size, the sounds' reach, the hole on
+// the box and the sounds on what they follow, within 1 mm), one Undo step each; the card's Turn 90°, size steps, On the
+// floor and a size past the limits; Duplicate, Ungroup, Delete and Undo; an item moving into another group, a group left
+// with one member going; a cube's pick toggling a whole group; the state and layout.json; a pretend headset's trigger and
+// grips, and the headset's cards
+{
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => errors.push('studio groups: ' + (e.stack || e.message)));
+  gp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio groups: ' + m.text()); });
+  const ss = s => gp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => gp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio groups: ' + b)); };
+  // (in the page: every item's record and where it is shown, in the scene's frame; what a move about a pivot should give
+  // each member and what it did; a point on the canvas where the pointer finds an item)
+  const HELP = `window.__gr = window.__gr || {
+    gid: () => { const g = [...STU.items.values()].find(i => i.kind === 'g' && i.rec.name === 'Group'); return g ? g.id : ''; },
+    at: () => { itemsStep(0, performance.now()); const o = {}; for (const it of STU.items.values()) o[it.id] = { kind: it.kind, rec: JSON.parse(JSON.stringify(it.rec)), pos: it.holder.position.toArray(), q: it.holder.quaternion.toArray(), corners: it.kind === 'x' ? cutCorners(it) : null, d: it.kind === 's' && STUDIO.follow(it.id) ? STUDIO.follow(it.id).d : 0 }; return o; },
+    tf: (x, P, t, th, k) => new THREE.Vector3(...x).sub(new THREE.Vector3(...P)).multiplyScalar(k).applyAxisAngle(new THREE.Vector3(0, 1, 0), th).add(new THREE.Vector3(...P)).add(new THREE.Vector3(...t)).toArray(),
+    far: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]),
+    // each member (and the hole on the box) where the move says, the others where they were: what is wrong ([] none)
+    check: (a0, a1, P, t, th, k) => {
+      const G = window.__gr, out = [], ids = ['box001', 'dan001', 'fre001', 'voi001', 'out001', 'cube01'], mm = 0.0011;
+      const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), th);
+      for (const id of Object.keys(a0)) {
+        const b = a0[id], c = a1[id];
+        if (!c) { out.push(id + ' gone'); continue; }
+        if (b.kind === 'g') continue;
+        if (!ids.includes(id) && id !== 'hol001') { if (G.far(b.pos, c.pos) > 1e-6 || JSON.stringify(b.rec) !== JSON.stringify(c.rec)) out.push(id + ' (not a member) moved'); continue; }
+        const want = G.tf(b.pos, P, t, th, k);
+        if (b.kind === 'x') { const far = Math.max(...b.corners.map((p, i) => G.far(G.tf(p, P, t, th, k), c.corners[i]))); if (far > mm) out.push(id + "'s corners " + far.toFixed(4) + ' m out'); continue; }
+        if (G.far(want, c.pos) > mm) out.push(id + ' at ' + c.pos.map(v => v.toFixed(3)) + ', not ' + want.map(v => v.toFixed(3)));
+        if (b.kind === 'o') {
+          const q = qy.clone().multiply(new THREE.Quaternion(...b.rec.q).normalize()), ang = q.angleTo(new THREE.Quaternion(...c.rec.q).normalize());
+          if (ang > 2e-3) out.push(id + ' turned ' + ang.toFixed(4) + ' rad off');
+          if (Math.abs(c.rec.s - b.rec.s * k) > b.rec.s * k * 1e-3) out.push(id + ' sized ' + c.rec.s + ', not ' + b.rec.s * k);
+        } else if (b.kind === 'c') {
+          const dy = Math.atan2(Math.sin(c.rec.yaw - b.rec.yaw - th), Math.cos(c.rec.yaw - b.rec.yaw - th));
+          if (Math.abs(dy) > 2e-4) out.push(id + ' yaw ' + c.rec.yaw);
+          if (c.rec.size.some((v, i) => Math.abs(v - b.rec.size[i] * k) > mm)) out.push(id + ' size ' + c.rec.size);
+        } else {
+          if (Math.abs(c.rec.r - Math.round(b.rec.r * k * 100) / 100) > 0.0051) out.push(id + ' reach ' + c.rec.r + ', not ' + b.rec.r * k);
+          if (c.rec.on && c.d > 1e-6) out.push(id + ' not where what it follows puts it (' + c.d + ')');
+          if (id === 'voi001' && (c.rec.on !== 'dan001' || c.rec.bone !== b.rec.bone)) out.push('Voice no longer follows her head');
+          if (id === 'voi001' && b.rec.o && c.rec.o.some((v, i) => Math.abs(v - b.rec.o[i] * k) > mm)) out.push('Voice offset ' + c.rec.o);
+          if (id === 'out001' && c.rec.on !== 'fig001') out.push('Out no longer follows the figure');
+        }
+      }
+      return out;
+    },
+    // a point on the canvas where the pointer finds the item (its middle, or a little above or below it), null: none
+    screen: id => {
+      const it = STU.items.get(id), m = itemTopInto(it, new THREE.Vector3(), true);
+      GL.world.updateMatrixWorld(true); GL.camera.updateMatrixWorld();
+      for (const dy of [0, 0.15, -0.15, 0.3, -0.3, 0.45]) for (const dx of [0, 0.1, -0.1]) {
+        const v = GL.items.localToWorld(m.clone().add(new THREE.Vector3(dx, dy, 0))).project(GL.camera), x = Math.round((v.x + 1) / 2 * innerWidth), y = Math.round((1 - v.y) / 2 * innerHeight);
+        if (x < 5 || y < 5 || x > innerWidth - 5 || y > innerHeight - 5 || document.elementFromPoint(x, y) !== GL.canvas) continue;
+        const h = rayPick(pointerRay(x, y));
+        if (h && h.id === id) return [x, y];
+      }
+      return null;
+    },
+  }`;
+
+  await step('studio groups: Make a group... on the box\'s card and its pick mode (clicks in the scene, Ctrl and Shift too, names under Items); a click on a member selects the group, again the member alone (In group, Select the group); hover names the group; its box while selected; the Items pane', async () => {
+    await gp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await gp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && ['dan001', 'box001'].every(id => STU.items.get(id).model)`, 120000)) { errors.push('studio groups: the rig scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 400)); return; }
+    // (the scene as these steps need it, not as changes: still models, the figure, two more sounds, a hole in the box and a
+    // cube outside the group showing the box and its hole)
+    await ss(`(${HELP}, setRec('box001', { anim: 'off' }), setRec('dan001', { anim: 'off' }),
+      putItem('fig001', 'o', norm('o', { name: 'Figure', file: 'figure.fbx', p: [3, 0, -2], q: [-0.7071, 0, 0, 0.7071], s: 0.01, clip: 'Take 001', anim: 'off' })),
+      putItem('fre001', 's', norm('s', { name: 'Free', file: 'voice.wav', p: [0.8, 1.5, -2.6], r: 2 })),
+      putItem('out001', 's', norm('s', { name: 'Out', file: 'voice.wav', p: [3, 1.2, -1.7], r: 1.5, on: 'fig001', o: [0, 0.3, 0.2] })),
+      putItem('hol001', 'x', norm('x', { name: 'Hole', on: 'box001', p: [0.15, 0.15, 0.15], size: [0.2, 0.2, 0.2] })),
+      putItem('lmp001', 'c', norm('c', { name: 'Lamp', p: [-2.5, 1, 0], show: ['box001', 'hol001'] })), X.view = 'orbit', frameScene(false), 0)`);
+    if (!await until(`STUDIO.ready() && !!STU.items.get('fig001').model`, 60000)) { errors.push('studio groups: the figure did not load'); return; }
+    const out = [], u0 = await ss('UNDO.length');
+    // Make a group... on the box's card: a group of the box, picking
+    await ss(`(select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    await gp.click('#pane-item [data-act="i:mkgroup"]');
+    const g0 = await ss(`[!!STU.gpick, STU.gpick && STU.items.get(STU.gpick.id).rec.items.join(), STU.sel === (STU.gpick && STU.gpick.id), window.__gr.gid()]`);
+    if (!g0[0] || g0[1] !== 'box001' || !g0[2] || !g0[3]) out.push('Make a group... made no group of the box, picking: ' + JSON.stringify(g0));
+    // the dancer (Ctrl-click) and Free (Shift-click) in the scene
+    await gp.waitForTimeout(300);
+    for (const [id, key] of [['dan001', 'Control'], ['fre001', 'Shift']]) {
+      const xy = await ss(`window.__gr.screen('${id}')`);
+      if (!xy) { out.push(`no point on the canvas finds ${id}`); continue; }
+      await gp.keyboard.down(key); await gp.mouse.click(xy[0], xy[1]); await gp.keyboard.up(key);
+    }
+    // Voice, Out and Curtain by their names under Items, then Done
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    for (const id of ['voi001', 'out001', 'cube01']) await gp.click(`#pane-items li[data-act="gtog"][data-v="${id}"]`);
+    await gp.click('#pane-items [data-act="gpickdone"]');
+    const g1 = await ss(`(() => { const g = STU.items.get(window.__gr.gid()); return [JSON.stringify(g.rec), STU.gpick, STU.sel === g.id, UNDO.length]; })()`);
+    if (g1[0] !== '{"name":"Group","items":["box001","dan001","fre001","voi001","out001","cube01"]}' || g1[1] || !g1[2] || g1[3] - u0 !== 6) out.push('the group picked (one Undo step each): ' + JSON.stringify(g1));
+    // a click on a member: the group; again: that member alone, its card saying so; Select the group
+    await ss(`(select(''), X.tab = 'scene', renderPanes(), 0)`);
+    const xy = await ss(`window.__gr.screen('dan001')`);
+    if (xy) {
+      await gp.mouse.click(xy[0], xy[1]);
+      const s1 = await ss('STU.sel');
+      await gp.waitForTimeout(250);
+      await gp.mouse.click(xy[0], xy[1]);
+      const s2 = await ss('STU.sel');
+      await ss(`(X.tab = 'item', renderPanes(), 0)`);
+      const card = await gp.textContent('#pane-item');
+      await gp.click('#pane-item [data-act="sel"][data-v="' + await ss('window.__gr.gid()') + '"]');
+      const s3 = await ss('STU.sel'), gid = await ss('window.__gr.gid()');
+      if (s1 !== gid || s2 !== 'dan001' || !/In group Group/.test(card) || !/Select the group/.test(card) || !/Make a new group/.test(card) || s3 !== gid) out.push('a click on a member, then again, then Select the group: ' + JSON.stringify([s1, s2, s3, gid, card.slice(0, 160)]));
+      // hover (nothing selected, so no arrows in the way): the group's name and the member's
+      await ss(`(select(''), 0)`);
+      await gp.mouse.move(xy[0] + 1, xy[1] + 1);
+      if (!await until(`STU.hover === 'dan001' && /Group · Dancer/.test(LBL.extra[0].el.textContent)`, 5000)) out.push('hovering the dancer does not name her group: ' + await ss('[STU.hover, LBL.extra[0].el.textContent]'));
+    } else out.push('no point on the canvas finds the dancer');
+    // its box while selected and editing; nothing of it with editing off
+    const box = await ss(`(() => { const g = STU.items.get(window.__gr.gid()); select(g.id); itemsStep(0, performance.now()); const on = g.look.deco.visible, s = g.look.box.scale.toArray(); setEdit(false); itemsStep(0, performance.now()); const off = g.look.deco.visible; setEdit(true); select(g.id); itemsStep(0, performance.now()); return [on, off, s.every(v => v > 0.3)]; })()`);
+    if (!box[0] || box[1] || !box[2]) out.push('its box: shown selected, not with editing off: ' + JSON.stringify(box));
+    // the Items pane: the group, its members under it, the box's hole under the box
+    const rows = await ss(`(X.tab = 'items', renderPanes(), [...document.querySelectorAll('#pane-items li')].map(li => li.dataset.id + '@' + (li.style.marginLeft || '0')).join(' '))`);
+    const gid = await ss('window.__gr.gid()');
+    if (!rows.startsWith(`sel:${gid}@0 sel:box001@20px sel:hol001@40px sel:dan001@20px sel:fre001@20px sel:voi001@20px sel:out001@20px sel:cube01@20px`) || /sel:dan001@0/.test(rows)) out.push('the Items pane: ' + rows);
+    if (!/Groups/.test(await gp.textContent('#pane-items'))) out.push('the Items pane has no Groups heading');
+    // Make a group... then Done with only that item: as if never pressed (its step taken back)
+    const one = await ss(`(() => { const u = UNDO.length; select('fig001'); itemAct('mkgroup'); const made = !!STU.gpick; gpickEnd(); return [made, UNDO.length - u, [...STU.items.values()].filter(i => i.kind === 'g').length]; })()`);
+    if (!one[0] || one[1] !== 0 || one[2] !== 1) out.push('Make a group... and Done with one item: ' + JSON.stringify(one));
+    await ss(`(select(''), X.tab = 'scene', renderPanes(), 0)`);
+    bad(out);
+  });
+
+  await step('studio groups: the arrows move, turn (about the vertical only) and size the group about its pivot: every member exactly (places, turns, sizes, the cube, the sounds\' reach; the hole on the box, Voice on her head, Out on the figure outside the group), one Undo step each; Turn 90°, ×2 and On the floor on its card; a size past the limits said', async () => {
+    const r = await ss(`(() => {
+      const G = window.__gr, gid = G.gid(), g = STU.items.get(gid), out = {};
+      select(gid); tcSetMode('translate');
+      const P = groupBase(g).P.toArray();
+      const drag = f => { const u = UNDO.length; GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); f(g.holder); GL.tc.dispatchEvent({ type: 'objectChange' }); GL.tc.dispatchEvent({ type: 'dragging-changed', value: false }); return UNDO.length - u; };
+      out.attached = GL.tc.object === g.holder;
+      const a0 = G.at(), s0 = JSON.stringify(collabState());
+      out.move = [drag(h => h.position.add(new THREE.Vector3(0.5, 0.2, -0.3))), G.check(a0, G.at(), P, [0.5, 0.2, -0.3], 0, 1)];
+      undo(); out.back1 = JSON.stringify(collabState()) === s0;
+      tcSetMode('rotate'); out.yOnly = [GL.tc.showX, GL.tc.showY, GL.tc.showZ];
+      out.turn = [drag(h => h.quaternion.setFromEuler(new THREE.Euler(0.3, 0.6, 0.2, 'YXZ'))), G.check(a0, G.at(), P, [0, 0, 0], 0.6, 1)];
+      undo(); out.back2 = JSON.stringify(collabState()) === s0;
+      tcSetMode('scale');
+      out.size = [drag(h => h.scale.set(1.5, 1, 1)), G.check(a0, G.at(), P, [0, 0, 0], 0, 1.5)];
+      undo(); out.back3 = JSON.stringify(collabState()) === s0;
+      tcSetMode('translate');
+      // the card: Turn 90°, ×2, then On the floor (lifted first)
+      X.tab = 'item'; renderPanes();
+      document.querySelector('#pane-item [data-act="i:turn"]').click(); out.c90 = G.check(a0, G.at(), P, [0, 0, 0], Math.PI / 2, 1); undo();
+      document.querySelector('#pane-item [data-act="i:size"][data-v="2"]').click(); out.c2 = G.check(a0, G.at(), P, [0, 0, 0], 0, 2); undo();
+      drag(h => h.position.y += 0.4); const lo = groupBox(g, new THREE.Box3()).min.y; renderPanes();
+      document.querySelector('#pane-item [data-act="i:floor"]').click(); out.floor = [+lo.toFixed(3), +groupBox(g, new THREE.Box3()).min.y.toFixed(4), UNDO.length]; undo(); undo();
+      out.back4 = JSON.stringify(collabState()) === s0;
+      // past the limits: ×20 holds Free's and Out's reach at 20 m, and the card says so
+      itemAct('size', 20); out.lim = [STU.items.get('fre001').rec.r, STU.items.get('out001').rec.r, STU.items.get('voi001').rec.r, g.note]; renderPanes(); out.limCard = /held at the limit/.test(document.querySelector('#pane-item').textContent); undo();
+      out.back5 = JSON.stringify(collabState()) === s0 && !g.note;
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err) { bad(['the arrows: ' + r.err]); return; }
+    if (!r.attached) out.push('the arrows are not on the group\'s pivot');
+    for (const k of ['move', 'turn', 'size']) if (r[k][0] !== 1 || r[k][1].length) out.push(`${k} with the arrows (one Undo step, every member exactly): ` + JSON.stringify(r[k]));
+    if (JSON.stringify(r.yOnly) !== '[false,true,false]') out.push('turning shows the vertical ring only: ' + JSON.stringify(r.yOnly));
+    if (r.c90.length || r.c2.length) out.push('the card\'s Turn 90° and ×2: ' + JSON.stringify([r.c90, r.c2]));
+    if (Math.abs(r.floor[0] - 0.4) > 0.002 || Math.abs(r.floor[1]) > 0.001) out.push('On the floor (lifted 0.4 m first): ' + JSON.stringify(r.floor));
+    if (r.lim[0] !== 20 || r.lim[1] !== 20 || r.lim[2] !== 20 || !/Free/.test(r.lim[3]) || !/Out/.test(r.lim[3]) || /Voice/.test(r.lim[3]) || !r.limCard) out.push('×20: the reach held at 20 m and said: ' + JSON.stringify(r.lim));
+    if (!r.back1 || !r.back2 || !r.back3 || !r.back4 || !r.back5) out.push('Undo did not bring the scene back: ' + JSON.stringify([r.back1, r.back2, r.back3, r.back4, r.back5]));
+    bad(out);
+  });
+
+  await step('studio groups: Duplicate (copies beside it, Voice\'s copy on the dancer\'s copy, Out\'s still on the figure, Curtain\'s copy hiding the dancer\'s copy, the copies in Lamp\'s list, the hole\'s copy on the box\'s copy), Ungroup, Delete and Undo; one moving into another group; a group left with one member going', async () => {
+    const r = await ss(`(() => {
+      const G = window.__gr, gid = G.gid(), g = STU.items.get(gid), out = {}, s0 = JSON.stringify(collabState()), K = v => JSON.stringify(Object.keys(v).sort().map(k => [k, v[k]]));
+      const k0 = K(collabState()), n0 = STU.items.size, a0 = G.at(), b = groupBox(g, new THREE.Box3()), dx = r3(b.max.x - b.min.x + 0.5), u0 = UNDO.length;
+      select(gid); X.tab = 'item'; renderPanes();
+      document.querySelector('#pane-item [data-act="i:dup"]').click();
+      const nid = STU.sel, ng = STU.items.get(nid), ms = members(ng), by = n => ms.find(m => m.rec.name === n);
+      const bx = by('Box 2'), dn = by('Dancer 2'), vo = by('Voice 2'), ou = by('Out 2'), cu = by('Curtain 2'), fr = by('Free 2');
+      out.dup = [ng && ng.kind, ng && ng.rec.name, ms.length, STU.items.size - n0, UNDO.length - u0];
+      if (bx && dn && vo && ou && cu && fr) {
+        const hc = cutsOn(bx.id)[0];
+        itemsStep(0, performance.now());
+        out.copies = [
+          G.far(bx.rec.p, [a0.box001.rec.p[0] + dx, a0.box001.rec.p[1], a0.box001.rec.p[2]]) < 1e-6, !!hc && hc.rec.on === bx.id && JSON.stringify(hc.rec.size) === JSON.stringify(a0.hol001.rec.size),
+          vo.rec.on === dn.id && vo.rec.bone === a0.voi001.rec.bone && JSON.stringify(vo.rec.o) === JSON.stringify(a0.voi001.rec.o),
+          ou.rec.on === 'fig001' && G.far(ou.holder.position.toArray(), [a0.out001.pos[0] + dx, a0.out001.pos[1], a0.out001.pos[2]]) < 0.0011,
+          JSON.stringify(cu.rec.hide) === JSON.stringify([dn.id]), G.far(fr.rec.p, [a0.fre001.rec.p[0] + dx, a0.fre001.rec.p[1], a0.fre001.rec.p[2]]) < 1e-6,
+          STU.items.get('lmp001').rec.show.includes(bx.id) && !!hc && STU.items.get('lmp001').rec.show.includes(hc.id), STU.items.get('cube01').rec.hide.join() === 'dan001',
+        ];
+      }
+      undo(); out.back1 = K(collabState()) === k0;
+      // Ungroup: the group goes, its members stay; Undo brings it back
+      select(gid); renderPanes(); document.querySelector('#pane-item [data-act="i:ungroup"]').click();
+      out.ungroup = [STU.items.has(gid), STU.items.size, n0];
+      undo(); out.back2 = K(collabState()) === k0;
+      // Delete: every member (and the hole) with it; Lamp lets them go; Undo brings all back
+      select(gid); renderPanes(); document.querySelector('#pane-item [data-act="i:del"]').click();
+      out.del = [STU.items.size, ['box001', 'dan001', 'fre001', 'voi001', 'out001', 'cube01', 'hol001', gid].filter(id => STU.items.has(id)).length, STU.items.get('lmp001').rec.show.join()];
+      undo(); out.back3 = K(collabState()) === k0;
+      // the figure in a group of its own, Free moved into it from the first; the figure deleted: that group, left with one,
+      // goes in the same step (Out, which followed her, stays where it is); Undo brings all back
+      const u1 = UNDO.length;
+      select('fig001'); itemAct('mkgroup'); const g2 = STU.gpick.id; groupToggle(g2, 'fre001'); gpickEnd();
+      out.moved = [members(STU.items.get(g2)).map(m => m.id).join(), members(STU.items.get(gid)).map(m => m.id).join(), UNDO.length - u1];
+      deleteItem('fig001');
+      out.gone = [STU.items.has(g2), STU.items.has('fre001'), !!groupOf('fre001'), STU.items.get('out001').rec.on || '', UNDO.length - u1];
+      undo(); out.back4 = [STU.items.has(g2), members(STU.items.get(g2)).length, STU.items.get('out001').rec.on];
+      undo(); undo(); out.back5 = K(collabState()) === k0;
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err) { bad(['duplicate etc.: ' + r.err]); return; }
+    if (JSON.stringify(r.dup) !== '["g","Group 2",6,8,1]') out.push('Duplicate: a new group of 6 copies and the hole\'s copy, one step: ' + JSON.stringify(r.dup));
+    if (!r.copies || r.copies.some(x => !x)) out.push('the copies (box beside it, hole on its copy, Voice on the dancer\'s copy, Out on the figure beside, Curtain\'s copy hiding the dancer\'s copy, Free beside, in Lamp\'s list, Curtain unchanged): ' + JSON.stringify(r.copies));
+    if (r.ungroup[0] || r.ungroup[1] !== r.ungroup[2] - 1) out.push('Ungroup: ' + JSON.stringify(r.ungroup));
+    if (r.del[1] || r.del[2] !== '') out.push('Delete (every member, the hole, Lamp\'s list): ' + JSON.stringify(r.del));
+    if (r.moved[0] !== 'fig001,fre001' || r.moved[1] !== 'box001,dan001,voi001,out001,cube01' || r.moved[2] !== 2) out.push('Free moved into the figure\'s group (one step each): ' + JSON.stringify(r.moved));
+    if (r.gone[0] || !r.gone[1] || r.gone[2] || r.gone[3] || r.gone[4] !== 3) out.push('the figure deleted: its group, left with one, goes in the same step: ' + JSON.stringify(r.gone));
+    if (!r.back4[0] || r.back4[1] !== 2 || r.back4[2] !== 'fig001') out.push('Undo brought the figure\'s group back: ' + JSON.stringify(r.back4));
+    if (!r.back1 || !r.back2 || !r.back3 || !r.back5) out.push('Undo did not bring the scene back: ' + JSON.stringify([r.back1, r.back2, r.back3, r.back5]));
+    bad(out);
+  });
+
+  await step('studio groups: a cube\'s pick toggles a whole group (a member pointed at, a cube in the group too, the group\'s name under Items); the state with g.<id> and back, bad records refused, an id two groups name staying in the lower id\'s; layout.json with and without groups', async () => {
+    const r = await ss(`(() => {
+      const G = window.__gr, gid = G.gid(), out = {}, J = x => JSON.stringify(x), K = v => J(Object.keys(v).sort().map(k => [k, v[k]])), k0 = K(collabState()), L = () => STU.items.get('lmp001').rec.show.slice().sort().join();
+      select('lmp001'); itemAct('pickFor', 'show');
+      const u = UNDO.length;
+      pressItem('dan001'); out.add = L();
+      pressItem('box001'); out.rem = L();
+      pressItem('cube01'); out.cube = [L(), STU.sel];
+      X.tab = 'items'; renderPanes(); document.querySelector('#pane-items li[data-act="linkg"][data-v="' + gid + '"]').click(); out.row = L();
+      out.steps = UNDO.length - u;
+      STU.pick = null; while (UNDO.length > u) undo(); select(''); X.tab = 'scene';
+      // the state
+      const s0 = collabState(), same = () => { const a = J(collabState()); collabApply(JSON.parse(a)); return J(collabState()) === a; };
+      out.state = [J(s0['g.' + gid]), same()];
+      const N = x => norm('g', x);
+      out.norm = [N({}), N({ items: 'box001' }), N({ items: [], name: ' ' }), J(N({ items: ['box001', 'Bad!', 'box001', 7, 'dan001'] })), J(N({ name: '  Lamps   and   things  '.repeat(5), items: ['dan001'], colour: 'red', id: 'zzz' }))];
+      const was = J(collabState()), b = JSON.parse(was);
+      b['g.' + gid] = { name: 'Group', items: 'everything' }; collabApply(b); out.badRoom = J(collabState()) === was;
+      // two more groups from the room naming the box and the dancer: the box stays in this group (a lower id than zzzzzz,
+      // which keeps Lamp), the dancer goes to 000000 (a lower id than this group's); in any order of the keys
+      const two = Object.assign(JSON.parse(was), { 'g.zzzzzz': { name: 'Z', items: ['box001', 'lmp001'] }, 'g.000000': { name: 'A', items: ['dan001', 'fig001'] } });
+      collabApply(two); const w1 = [groupOf('box001').id === gid, groupOf('dan001').id, members(STU.items.get('zzzzzz')).map(m => m.id).join(), members(STU.items.get('000000')).map(m => m.id).join()];
+      collabApply(JSON.parse(was));
+      const rev = {}; for (const k of Object.keys(two).reverse()) rev[k] = two[k];
+      collabApply(rev); const w2 = [groupOf('box001').id === gid, groupOf('dan001').id, members(STU.items.get('zzzzzz')).map(m => m.id).join(), members(STU.items.get('000000')).map(m => m.id).join()];
+      out.two = [w1, w2];
+      collabApply(JSON.parse(was)); out.back = K(collabState()) === k0;
+      // layout.json: groups written and read back; v113's (no groups) as before; a group naming items the layout lacks
+      // keeps those it has, one left with fewer than 2 dropped and counted
+      const Lo = layoutOut(), back = readLayout(JSON.parse(J(Lo)));
+      out.lay = [Array.isArray(Lo.groups) && Lo.groups.length === 1 && J(Lo.groups[0]) === J(Object.assign({ id: gid }, STU.items.get(gid).rec)), back.bad, back.items.filter(x => x.kind === 'g').length];
+      const old = readLayout({ studio: 1, objects: Lo.objects, cubes: Lo.cubes, sounds: Lo.sounds, cuts: Lo.cuts });
+      out.old = [old.bad, old.items.length, old.items.some(x => x.kind === 'g')];
+      const odd = readLayout({ studio: 1, objects: Lo.objects, groups: [{ id: 'aaaaaa', items: ['box001', 'nobody', 'dan001', 'hol001'] }, { id: 'bbbbbb', items: ['box001', 'gone01'] }, { id: 'cccccc', items: 'box001' }] });
+      out.odd = [odd.bad, odd.items.filter(x => x.kind === 'g').map(x => x.id + ':' + x.rec.items.join('+')).join()];
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err) { bad(['cube pick and state: ' + r.err]); return; }
+    if (r.add !== 'box001,dan001,fre001,hol001,out001,voi001' || r.rem !== 'hol001' || r.cube[0] !== r.add || r.cube[1] !== 'lmp001' || r.row !== 'hol001' || r.steps !== 4) out.push('a cube\'s pick toggling the group\'s members: ' + JSON.stringify(r));
+    if (!r.state[1] || !/"items":\["box001","dan001","fre001","voi001","out001","cube01"\]/.test(r.state[0])) out.push('the state with the group: ' + JSON.stringify(r.state));
+    if (r.norm[0] !== null || r.norm[1] !== null || r.norm[2] !== null || r.norm[3] !== '{"name":"Group","items":["box001","dan001"]}' || !/^\{"name":"Lamps and things Lamps and things[^"]*","items":\["dan001"\]\}$/.test(r.norm[4]) || JSON.parse(r.norm[4]).name.length > 60) out.push('norm: ' + JSON.stringify(r.norm));
+    if (!r.badRoom) out.push('a bad group record from the room was taken');
+    if (JSON.stringify(r.two[0]) !== JSON.stringify([true, '000000', 'lmp001', 'dan001,fig001']) || JSON.stringify(r.two[1]) !== JSON.stringify(r.two[0])) out.push('an id two groups name: ' + JSON.stringify(r.two));
+    if (!r.back) out.push('the state did not come back');
+    if (!r.lay[0] || r.lay[1] || r.lay[2] !== 1) out.push('layout.json written and read: ' + JSON.stringify(r.lay));
+    if (r.old[0] || r.old[2]) out.push('a layout without groups: ' + JSON.stringify(r.old));
+    if (r.odd[0] !== 2 || r.odd[1] !== 'aaaaaa:box001+dan001') out.push('a layout\'s groups naming items it lacks: ' + JSON.stringify(r.odd));
+    bad(out);
+  });
+
+  await step('studio groups: a pretend headset: the trigger on a member selects the group, again the member; the grip carries the group (turning with the hand only while moving freely), both grips size it about its pivot, one Undo step each; a member selected alone moves alone; the headset\'s cards', async () => {
+    const r = await ss(`(() => {
+      const G = window.__gr, gid = G.gid(), g = STU.items.get(gid), out = {}, V = (a, b, c) => new THREE.Vector3(a, b, c), K = v => JSON.stringify(Object.keys(v).sort().map(k => [k, v[k]])), k0 = K(collabState());
+      const free = XR.free; XR.on = true; XR.clear = true; XR.free = true; GL.world.updateMatrixWorld(true);
+      const [a, b] = XR.ctrls, ctl = (c, p, q) => { c.src = { targetRayMode: 'tracked-pointer', handedness: c === a ? 'right' : 'left', gamepad: null }; c.g.visible = true; c.g.matrix.compose(V(...p), q || new THREE.Quaternion(), V(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      select('');
+      // the trigger: the group, then the dancer alone
+      ctl(a, [0, 1.6, 0]); a.hover = { kind: 'item', id: 'dan001' }; xrPress(a); const s1 = STU.sel; xrPress(a); out.sel = [s1 === gid, STU.sel];
+      // the grip on the box (the group selected): the whole group, carried 0.3 m along x
+      select(gid);
+      const P = groupBase(g).P.toArray(), pw = GL.items.localToWorld(V(...P)), a0 = G.at(), u = UNDO.length;
+      ctl(a, [pw.x, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); out.target = a.grab && a.grab.target;
+      ctl(a, [pw.x + 0.3, pw.y, pw.z]); carry(a, 0.016); xrGrab(a, false);
+      out.carry = [G.check(a0, G.at(), P, [0.3, 0, 0], 0, 1), UNDO.length - u];
+      undo();
+      // held at the pivot and turned a quarter about the upright with the hand: moving freely it turns, else not
+      const quarter = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2);
+      ctl(a, [pw.x, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); ctl(a, [pw.x, pw.y, pw.z], quarter); carry(a, 0.016); xrGrab(a, false);
+      out.turnFree = G.check(a0, G.at(), P, [0, 0, 0], Math.PI / 2, 1); undo();
+      XR.free = false;
+      ctl(a, [pw.x, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); ctl(a, [pw.x, pw.y, pw.z], quarter); carry(a, 0.016); xrGrab(a, false);
+      out.turnFixed = G.check(a0, G.at(), P, [0, 0, 0], 0, 1); undo();
+      XR.free = true;
+      // both grips, 0.2 m apart about the pivot, then 0.4: twice the size about it
+      ctl(a, [pw.x - 0.1, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      ctl(b, [pw.x + 0.1, pw.y, pw.z]); b.hover = { kind: 'item', id: 'dan001' }; xrGrab(b, true);
+      carry(a, 0.016); carry(b, 0.016);
+      ctl(a, [pw.x - 0.2, pw.y, pw.z]); ctl(b, [pw.x + 0.2, pw.y, pw.z]); carry(a, 0.016); carry(b, 0.016);
+      xrGrab(b, false); xrGrab(a, false);
+      out.two = [G.check(a0, G.at(), P, [0, 0, 0], 0, 2), UNDO.length - u];
+      undo();
+      // the box selected on its own: the grip carries the box alone
+      select('box001');
+      const bw = STU.items.get('box001').holder.getWorldPosition(V());
+      ctl(a, [bw.x, bw.y, bw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); out.alone = a.grab && a.grab.target;
+      ctl(a, [bw.x + 0.3, bw.y, bw.z]); carry(a, 0.016); xrGrab(a, false);
+      out.aloneMoved = [+(STU.items.get('box001').rec.p[0] - a0.box001.rec.p[0]).toFixed(3), +(STU.items.get('dan001').rec.p[0] - a0.dan001.rec.p[0]).toFixed(3)];
+      undo();
+      // the headset's cards: the group's (its rows, Add or remove items... pressed and pressed again) and a member's
+      const draw = () => { for (const P2 of XR.panels) { P2.last = ''; P2.t = -1e9; panelTick(P2, performance.now() + 1e6); } };
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) seen.add(q.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select(gid); X.tab = 'item'; X.scroll = {}; draw();
+      const I = ids();
+      out.gmiss = ['gpick', 'sel:box001', 'sel:cube01', 'turn', 'floor', 'size:0.5', 'size:2', 'dup', 'ungroup', 'del'].filter(i => !I.has(i));
+      out.gpick = [press('gpick'), !!STU.gpick, press('gpick'), !!STU.gpick];
+      select('dan001'); X.tab = 'item'; draw();
+      const M = ids();
+      out.mmiss = ['selgroup', 'mkgroup', 'faces:file', 'faces:both', 'faces:inside'].filter(i => !M.has(i));
+      out.selg = [press('selgroup'), STU.sel === gid];
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; XR.free = free; select(''); X.tab = 'scene'; renderPanes();
+      out.back = K(collabState()) === k0;
+      return out;
+    })()`).catch(e => ({ err: e.message }));
+    const out = [];
+    if (r.err) { bad(['the headset: ' + r.err]); return; }
+    if (!r.sel[0] || r.sel[1] !== 'dan001') out.push('the trigger on a member: the group, then the member: ' + JSON.stringify(r.sel));
+    if (r.target !== 'group' || r.carry[0].length || r.carry[1] !== 1) out.push('the grip carries the group (one step): ' + JSON.stringify([r.target, r.carry]));
+    if (r.turnFree.length) out.push('turned with the hand, moving freely: ' + JSON.stringify(r.turnFree));
+    if (r.turnFixed.length) out.push('the hand\'s turn with free moving off (the group only moves): ' + JSON.stringify(r.turnFixed));
+    if (r.two[0].length || r.two[1] !== 1) out.push('both grips: twice the size about the pivot: ' + JSON.stringify(r.two));
+    if (r.alone !== 'item' || r.aloneMoved[0] !== 0.3 || r.aloneMoved[1] !== 0) out.push('a member selected alone moves alone: ' + JSON.stringify([r.alone, r.aloneMoved]));
+    if (r.gmiss.length || JSON.stringify(r.gpick) !== '[true,true,true,false]') out.push('the headset\'s group card: ' + JSON.stringify({ miss: r.gmiss, gpick: r.gpick }));
+    if (r.mmiss.length || !r.selg[0] || !r.selg[1]) out.push('the headset\'s member card: ' + JSON.stringify({ miss: r.mmiss, selg: r.selg }));
+    if (!r.back) out.push('the scene did not come back after the headset\'s checks');
+    bad(out);
+    await gp.close();
+  });
+}
+// The studio's faces (tools/studio/SPEC.md, "Faces"), on a page of its own: the rig test scene's box (a closed 0.5 m box,
+// single sided as its file has it) and Twin, a copy of the same file elsewhere. Pixels read back from a render of the scene
+// prove each setting (the same view drawn with an object and without it): seen from inside, As in the file shows nothing of
+// a box, Inside out and Both sides show it, and the two copies take their own settings; from outside As in the file and
+// Both sides show its near side, Inside out its far inner side (gone when a cut-out takes the far half away, which leaves
+// the near side As in the file); Both sides through a cut-out in its near side shows its far inner side, As in the file
+// nothing (lit and as scanned); kept through a rebuild of its file and the figure's switch to its GLB; the state and
+// layout.json; the cards' rows (page and headset)
+{
+  const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  fp.on('pageerror', e => errors.push('studio faces: ' + (e.stack || e.message)));
+  fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio faces: ' + m.text()); });
+  const ss = s => fp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => fp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio faces: ' + b)); };
+  // (in the page: the scene drawn from a camera of its own (eye and target in the scene's frame) and read back where scene
+  // points land, with the objects named hidden for that drawing and nothing of editing drawn; each material's side)
+  const HELP = `window.__fc = window.__fc || {
+    shot: (eye, tgt, pts, hide) => {
+      const W = 320, H = 200, r = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(60, W / H, 0.02, 200);
+      itemsStep(0, performance.now()); GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(...eye))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(...tgt))); cam.updateMatrixWorld();
+      const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o' || (hide || []).includes(i.id)).map(i => i.holder));
+      const keep = hid.map(o => o.visible);
+      hid.forEach(o => { o.visible = false; });
+      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
+      r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
+      return px;
+    },
+    sides: id => { const it = STU.items.get(id), out = []; for (const m of it.model.meshes) for (const k of ['lit', 'scan']) for (const mat of [].concat(m.userData[k] || [])) out.push(k + ':' + mat.side); return out.join(); },
+  }`;
+  const dpx = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  const shot = (set, eye, tgt, pts, hide) => ss(`(${set}, window.__fc.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pts)}, ${JSON.stringify(hide)}))`);
+  const faces = (id, f) => `setRec('${id}', { faces: ${f ? `'${f}'` : 'undefined'} })`;
+  // (from outside, the box's near side's middle)
+  const oEye = [1.5, 0.3, -0.6], oTgt = [1.5, 0.25, -2], oPt = [[1.5, 0.25, -1.75]];
+
+  await step('studio faces: pixels: from inside a box As in the file shows nothing of it, Inside out and Both sides show it, two copies of one file each as set; from outside As in the file and Both sides show its near side, Inside out its far inner side (gone with its far half cut away)', async () => {
+    await fp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await fp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio faces: the rig scene did not load'); return; }
+    // (the box still; Twin, a copy of its file 2.5 m behind it; editing off: nothing of editing drawn)
+    await ss(`(${HELP}, setRec('box001', { anim: 'off' }), putItem('twn001', 'o', norm('o', { name: 'Twin', file: 'box.glb', p: [1.5, 0.25, -4.5], clip: 'Bob', anim: 'off' })), setEdit(false), 0)`);
+    if (!await until(`!!STU.items.get('twn001').model && STU.items.get('twn001').a > 0.99`, 30000)) { errors.push('studio faces: Twin did not load'); return; }
+    const out = [];
+    // from inside each box (the eye in its middle, looking at its far side), drawn and not: the box in each setting, Twin
+    // Inside out throughout; then Twin As in the file with the box Inside out
+    const inside = (c, id) => ({ eye: [c[0], 0.3, c[2] + 0.05], tgt: [c[0], 0.3, c[2] - 1], pts: [[c[0], 0.3, c[2] - 0.25], [c[0] + 0.05, 0.35, c[2] - 0.25]], id });
+    const B = inside([1.5, 0, -2], 'box001'), T = inside([1.5, 0, -4.5], 'twn001');
+    const seen = async (set, V) => { const a = await shot(set, V.eye, V.tgt, V.pts, []), b = await shot(set, V.eye, V.tgt, V.pts, [V.id]); return a.some((p, i) => dpx(p, b[i]) > 40) ? 'seen' : a.every((p, i) => dpx(p, b[i]) <= 6) ? 'nothing' : 'unclear ' + JSON.stringify([a, b]); };
+    const got = [];
+    for (const f of ['', 'inside', 'both']) { const set = `(${faces('box001', f)}, ${faces('twn001', 'inside')})`; got.push([f || 'file', await seen(set, B), await seen(set, T)]); }
+    const set2 = `(${faces('box001', 'inside')}, ${faces('twn001', '')})`;
+    got.push(['inside, Twin file', await seen(set2, B), await seen(set2, T)]);
+    if (JSON.stringify(got) !== JSON.stringify([['file', 'nothing', 'seen'], ['inside', 'seen', 'seen'], ['both', 'seen', 'seen'], ['inside, Twin file', 'seen', 'nothing']])) out.push('from inside (each box drawn and not): ' + JSON.stringify(got));
+    const sides = await ss(`[window.__fc.sides('box001'), window.__fc.sides('twn001')]`);
+    if (!/^lit:1(,|$)/.test(sides[0]) || /lit:[02]/.test(sides[0]) || !/^lit:0(,|$)/.test(sides[1]) || /lit:[12]/.test(sides[1])) out.push('two copies of one file set differently (BackSide 1, FrontSide 0): ' + JSON.stringify(sides));
+    // from outside at the near side's middle: the box drawn, not drawn, and drawn with a cut-out taking its far half away
+    const cut = `putItem('bck001', 'x', norm('x', { name: 'Back', on: 'box001', p: [0, 0, -0.15], size: [0.6, 0.6, 0.3] }))`;
+    const o = {};
+    for (const f of ['', 'inside', 'both']) {
+      const set = `(${faces('box001', f)}, removeItem('bck001'))`;
+      o[f || 'file'] = [(await shot(set, oEye, oTgt, oPt, []))[0], (await shot(set, oEye, oTgt, oPt, ['box001']))[0], (await shot(`(${faces('box001', f)}, ${cut})`, oEye, oTgt, oPt, []))[0]];
+    }
+    await ss(`(removeItem('bck001'), ${faces('box001', '')}, 0)`);
+    if (dpx(o.file[0], o.file[1]) <= 40 || dpx(o.file[0], o.file[2]) > 6) out.push('from outside, As in the file: its near side (kept with the far half cut away): ' + JSON.stringify(o.file));
+    if (dpx(o.both[0], o.both[1]) <= 40) out.push('from outside, Both sides: its near side: ' + JSON.stringify(o.both));
+    if (dpx(o.inside[0], o.inside[1]) <= 40 || dpx(o.inside[2], o.inside[1]) > 6) out.push('from outside, Inside out: its far inner side (gone with the far half cut away): ' + JSON.stringify(o.inside));
+    bad(out);
+  });
+
+  await step('studio faces: with a cut-out in its near side Both sides shows its far inner side through the hole, As in the file nothing (lit and as scanned); kept through a rebuild of its file and the figure\'s switch to its GLB; the state and layout.json; the cards\' rows (page and headset), one Undo step', async () => {
+    const out = [];
+    await ss(`(putItem('win001', 'x', norm('x', { name: 'Window', on: 'box001', p: [0, 0, 0.25], size: [0.2, 0.2, 0.2] })), 0)`);
+    for (const light of ['lit', 'scan']) {
+      const set = f => `setRec('box001', { faces: ${f ? `'${f}'` : 'undefined'}, light: '${light}' })`;
+      const f0 = (await shot(set(''), oEye, oTgt, oPt, []))[0], f1 = (await shot(set(''), oEye, oTgt, oPt, ['box001']))[0], b0 = (await shot(set('both'), oEye, oTgt, oPt, []))[0], b1 = (await shot(set('both'), oEye, oTgt, oPt, ['box001']))[0];
+      if (dpx(f0, f1) > 6 || dpx(b0, b1) <= 40) out.push(`${light}: through the hole As in the file shows nothing, Both sides its far inner side: ` + JSON.stringify({ f0, f1, b0, b1 }));
+    }
+    const pt = await ss(`[STUDIO.cut('win001').cutting, STUDIO.cut('win001').patched, window.__fc.sides('box001')]`);
+    if (!pt[0] || !pt[1] || !/^lit:2,scan:2/.test(pt[2])) out.push('the cut-out\'s addition and Both sides on lit and as scanned: ' + JSON.stringify(pt));
+    await ss(`(setRec('box001', { light: 'lit' }), removeItem('win001'), 0)`);
+    // a rebuild of its file (as when the relay says it changed): the setting kept
+    await ss(`(setRec('box001', { faces: 'inside' }), STUDIO.gen0 = STU.items.get('box001').built, fileChanged('box.glb'), 0)`);
+    if (!await until(`STU.items.get('box001').built !== STUDIO.gen0 && !!STU.items.get('box001').model && STU.items.get('box001').built === STU.items.get('box001').E.gen`, 30000) || !/^lit:1/.test(await ss(`window.__fc.sides('box001')`))) out.push('a rebuild of its file did not keep Inside out: ' + await ss(`window.__fc.sides('box001')`));
+    // the figure, Both sides, converted to a GLB and switched to it: kept (the record and the new model's materials)
+    await ss(`(putItem('fig001', 'o', norm('o', { name: 'Figure', file: 'figure.fbx', p: [3, 0, -2], q: [-0.7071, 0, 0, 0.7071], s: 0.01, clip: 'Take 001', anim: 'off', faces: 'both' })), setEdit(true), 0)`);
+    if (!await until(`!!STU.items.get('fig001').model`, 60000)) { out.push('the figure did not load'); bad(out); return; }
+    const fs0 = await ss(`window.__fc.sides('fig001')`);
+    await ss(`(STUDIO.lastGLB = null, convertFile('figure.fbx'), 0)`);
+    if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000) || !await ss('STUDIO.lastGLB.ok')) { out.push('figure.fbx was not converted: ' + await ss('CV.note')); bad(out); return; }
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    const pat = '**/scenes/rig/models/figure.glb*';
+    await fp.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record))`);
+    const sw = await until(`(() => { const f = STU.items.get('fig001'); return f.rec.file === 'models/figure.glb' && !!f.model && f.built === f.E.gen; })()`, 30000);
+    const fs1 = await ss(`[STU.items.get('fig001').rec.faces, window.__fc.sides('fig001')]`);
+    if (!/^lit:2/.test(fs0) || !sw || fs1[0] !== 'both' || !/^lit:2/.test(fs1[1]) || /lit:[01]/.test(fs1[1])) out.push('the figure switched to its GLB keeps Both sides: ' + JSON.stringify({ fs0, sw, fs1 }));
+    await ss(`(undo(), setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), 0)`);
+    await fp.unroute(pat);
+    // the state and layout.json: faces kept only when set, given back as given; other values refused
+    const st = await ss(`(() => {
+      const J = x => JSON.stringify(x), s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const N = x => norm('o', Object.assign({ file: 'box.glb', p: [0, 0, 0] }, x));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      return [s['o.box001'].faces, J(collabState()) === a, N({}).faces === undefined, N({ faces: 'both' }).faces, N({ faces: 'outside' }), N({ faces: '' }), N({ faces: 1 }),
+        L.objects.find(o => o.id === 'box001').faces, back.items.find(x => x.id === 'box001').rec.faces, back.bad, 'faces' in L.objects.find(o => o.id === 'dan001')];
+    })()`);
+    if (JSON.stringify(st) !== '["inside",true,true,"both",null,null,null,"inside","inside",0,false]') out.push('the state and layout.json with faces: ' + JSON.stringify(st));
+    // the cards: the page's Faces row (one Undo step each), the headset's row pressed
+    await ss(`(select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    await fp.click('#pane-item [data-act="i:faces"][data-v="both"]');
+    const pg = await ss(`[STU.items.get('box001').rec.faces, UNDO.length, renderPanes() || document.querySelector('#pane-item [data-act="i:faces"][data-v="both"]').getAttribute('aria-pressed'), /see a room from inside/.test(document.querySelector('#pane-item').textContent), window.__fc.sides('box001').startsWith('lit:2')]`);
+    await fp.click('#pane-item [data-act="i:faces"][data-v="file"]');
+    const pg2 = await ss(`['faces' in STU.items.get('box001').rec, UNDO.length, window.__fc.sides('box001').startsWith('lit:0')]`);
+    if (pg[0] !== 'both' || pg[1] !== u0 + 1 || pg[2] !== 'true' || !pg[3] || !pg[4] || pg2[0] || pg2[1] !== u0 + 2 || !pg2[2]) out.push('the page\'s Faces row: ' + JSON.stringify([pg, pg2]));
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('box001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('faces:inside'), STU.items.get('box001').rec.faces, window.__fc.sides('box001').startsWith('lit:1')];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (!xr[0] || xr[1] !== 'inside' || !xr[2]) out.push('the headset\'s Faces row: ' + JSON.stringify(xr));
+    bad(out);
+    await fp.close();
+  });
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
