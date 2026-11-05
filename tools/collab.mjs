@@ -3186,10 +3186,13 @@ async function studioRound(dir) {
     await sp(G, `(GLBREC.delete('models/figure.glb'), glbRec('models/figure.glb'), 0)`);
     await sUntil(G, `!!glbRec('models/figure.glb')`, 10000);
     const gPut = fromPage().some(r => r.method === 'PUT' && r.auth === 'query' && r.url.startsWith('/scenes/studio/test/models/figure.glb?') && r.status === 200);
-    const gHead = fromPage().some(r => r.method === 'GET' && r.url.startsWith('/scenes/studio/test/models/figure.glb?') && r.status === 206);
-    check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket',
+    // (a range asked of the bucket: 206, or 304 when the browser holds the file already from loading it and only checks
+    // its ETag with the bucket: R2's ETag and 304 at work, the range then cut from the browser's copy)
+    const gGlbGets = fromPage().filter(r => r.method === 'GET' && r.url.startsWith('/scenes/studio/test/models/figure.glb?')).map(r => [r.status, r.headers.range || '']);
+    const gHead = gGlbGets.some(([st, range]) => /^bytes=0-/.test(range) && (st === 206 || st === 304));
+    check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket (206, or 304 from its ETag)',
       gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gSaved2 && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
-      JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, note: await sp(G, 'CV.note') }));
+      JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, gGlbGets, note: await sp(G, 'CV.note') }));
     // the Upload pane: a new scene, the test originals uploaded straight into the bucket (a long sound made MP3 by the
     // relay's ffmpeg from its original there, when this machine has ffmpeg)
     await sp(G, `(select(''), pickTab('upload'), 0)`);
