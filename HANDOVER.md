@@ -55,6 +55,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     list (one Undo step). Page and headset (the same blocks). Smoke checks the buttons, the flash and its end, the card
     and ✕ with Undo.
   - Untested on a headset: the card's buttons and the flash there.
+  - Tests: smoke 210 good (its first run caught a name the built studio declared twice, which stopped the studio
+    loading: fixed); the update test from v116 good. No shared-room code changed (the shared-room run not repeated).
   - **The owner's decisions on their list (5 November), queued for the next batch (v118, started after their token
     reset):** each studio scene as its own circle (*Studio: atelier* under Add, several studio circles in a room) and
     *New scene* from the headset with the shell's keypad; selecting a model from inside its box when nothing else is
