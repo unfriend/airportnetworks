@@ -2997,6 +2997,7 @@ async function studioRound(dir) {
     // there; every page and the headset take it (each member where the first page has it, within 1 cm, once the room's
     // glides are done); Faces set on another page (the box inside out) reaches every device (its own materials' side); the
     // layout saved from a page carries groups and faces
+    {
     const gId = await sp(A, `(() => { setEdit(true); select('box001'); itemAct('mkgroup'); const g = STU.gpick && STU.gpick.id; if (!g) return ''; for (const id of ['fig001', 'snd001', 'cube01']) groupToggle(g, id); gpickEnd(); select(g); itemAct('turn'); itemAct('size', 1.5); select(''); return g; })()`);
     const gAt = p => sp(p, `(() => { itemsStep(0, performance.now()); const g = STU.items.get('${gId}'); return g ? [JSON.stringify(g.rec), members(g).map(m => [m.id, m.holder.position.toArray(), JSON.stringify(m.rec)])] : null; })()`);
     const gs = [];
@@ -3013,6 +3014,7 @@ async function studioRound(dir) {
         !!gLg && JSON.stringify(gLg.items) === JSON.stringify(['box001', 'fig001', 'snd001', 'cube01']) && !!gLb && gLb.faces === 'inside',
       JSON.stringify({ gId, recs: gs.map(g => g && g[0]), gFar, fIn, gSaved, gLg, faces: gLb && gLb.faces }));
     if (gId) await sp(A, `(itemAct('faces', 'file', 'box001'), select('${gId}'), itemAct('ungroup'), select(''), 0)`);
+    }   // (a block of its own: the R2 part below names its own gs and gSaved)
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));
@@ -3171,13 +3173,13 @@ async function studioRound(dir) {
     const G = await sopen(qb + 'index.html#studio&scene=test&edit', { name: 'Gus', size: { width: 900, height: 700 }, token: PASS3, origin: qo });
     await studioIn(G);
     const gOk = await sUntil(G, `SRC.state === 'ok' && SRC.direct && SRC.linkTtl > 0 && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready()`, 60000);
-    const gs = await sp(G, `({ links: STU.files.every(f => f.url && f.url.startsWith(${JSON.stringify(s3o)} + '/scenes/studio/test/')), models: Object.values(STUDIO.state().models).map(m => m.state).join(),
+    const gst = await sp(G, `({ links: STU.files.every(f => f.url && f.url.startsWith(${JSON.stringify(s3o)} + '/scenes/studio/test/')), models: Object.values(STUDIO.state().models).map(m => m.state).join(),
       tex: !!(LIB.get('figure.fbx') && LIB.get('figure.fbx').texPaths.has('figure.png')), tone: (SND.get('tone.wav') || {}).state })`);   // (its figure_spec.png is missing on purpose)
     const got = fromPage().filter(r => r.method === 'GET');
     const gotPaths = ['box.glb', 'figure.fbx', 'figure.png', 'tone.wav'].map(n => got.some(r => r.url.startsWith('/scenes/studio/test/' + n + '?') && r.auth === 'query' && r.status < 400));
     check('studio from R2: a page opens the test scene from the bucket (another origin): every file by its signed link, the models with their texture and the short sound in, each fetched by the browser straight from the bucket (query-signed, CORS), none refused, no request signed in a header',
-      gOk && gs.links && /^(ready,?)+$/.test(gs.models) && gs.tex && ['bytes', 'ready'].includes(gs.tone) && gotPaths.every(Boolean) && fromPage().every(r => r.status < 400 && r.auth !== 'header'),
-      JSON.stringify({ gOk, gs, gotPaths, bad: fromPage().filter(r => r.status >= 400 || r.auth === 'header').map(r => [r.method, r.url.split('?')[0], r.status, r.auth]) }));
+      gOk && gst.links && /^(ready,?)+$/.test(gst.models) && gst.tex && ['bytes', 'ready'].includes(gst.tone) && gotPaths.every(Boolean) && fromPage().every(r => r.status < 400 && r.auth !== 'header'),
+      JSON.stringify({ gOk, gs: gst, gotPaths, bad: fromPage().filter(r => r.status >= 400 || r.auth === 'header').map(r => [r.method, r.url.split('?')[0], r.status, r.auth]) }));
     // a long sound streamed straight from the bucket: an element with crossOrigin, its ranges from the bucket
     await G.evaluate(() => HOST.audio.mute(false));
     await G.click('#explore .tabs button[data-tab="scene"]', { timeout: 5000 }).catch(() => {});
