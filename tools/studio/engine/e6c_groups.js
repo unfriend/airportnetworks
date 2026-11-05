@@ -5,7 +5,7 @@
 // members' ids). An item is in one group at most: an id two groups name stays in the one with the lower id (groupOf, the
 // same on every device); no groups in groups; 50 a scene. A click (the trigger, a pinch) on a member selects its group,
 // a second one on the same member, its group selected, that member alone (pressItem, e7_explore.js). A selected group
-// moves, turns and sizes as one about its pivot (the middle of the box round its members, on the floor): turns about the
+// moves, turns and sizes as one about its pivot (the mean of its members' middles, on the floor): turns about the
 // vertical only (a cube stays level, an object's own turn and a cube's yaw gain it), sizes alike on every axis (places,
 // an object's size with its cut-outs and the offsets of the sounds following it, a cube's size, a sound's reach). A
 // sound in the group that follows an object in it simply follows; one that follows an object outside it moves as when
@@ -28,14 +28,16 @@ function members(g) { return g && g.kind === 'g' ? g.rec.items.map(id => STU.ite
 
 // ------------------------------------------------------------ the pivot --
 // the box round a group's members as they are shown now (the scene's frame): an object's own box (its unseen one; a model
-// not here yet, the grey box's 0.4 m), a cube's, a sound's point
+// not here yet, the grey box's 0.4 m), a cube's, a sound's point; solid: its objects' only (On the floor: a cube is a
+// volume to walk into and a sound a point, neither stands on the floor), all of them when it has none
 const _gb = new THREE.Box3(), _gm = new THREE.Matrix4(), _gm2 = new THREE.Matrix4(), _gp = new THREE.Vector3(), _gsb = new THREE.Box3();
-function groupBox(g, out) {
+function groupBox(g, out, solid) {
   out.makeEmpty();
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  for (const it of members(g)) {
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o') : [];
+  for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
@@ -50,12 +52,30 @@ function soundPoint(it, out) {
   const nd = it.carry || it.gl || !it.rec.on ? null : followNode(it);
   return nd ? followAt(it, nd, out) : it.carry || it.gl ? out.copy(it.holder.position) : out.fromArray(it.rec.p);
 }
-const pivotOf = b => (b.isEmpty() ? new THREE.Vector3() : new THREE.Vector3((b.min.x + b.max.x) / 2, 0, (b.min.z + b.max.z) / 2));
+// the pivot: the mean of its members' middles as they are shown (an object's own box's middle, or its place while its model
+// is not here; a cube's middle; a sound's point), on the floor (y = 0). A move, a turn about the vertical and a size about
+// it carry every middle with its member, so the pivot stays where the group was turned or sized about (the middle of the
+// box round them would not: after a turn that is not a quarter it moves, and the next turn or size about it shifted the
+// group sideways)
+function groupPivot(g, out) {
+  const ms = members(g);
+  out.set(0, 0, 0);
+  if (!ms.length) return out;
+  GL.items.updateWorldMatrix(true, false);
+  _gm.copy(GL.items.matrixWorld).invert();
+  for (const it of ms) {
+    if (it.kind === 's') soundPoint(it, _gp);
+    else if (it.kind === 'o' && it.model) { it.proxy.updateWorldMatrix(true, false); _gp.setFromMatrixPosition(_gm2.multiplyMatrices(_gm, it.proxy.matrixWorld)); }
+    else _gp.copy(it.holder.position);
+    out.add(_gp);
+  }
+  return out.divideScalar(ms.length).setY(0);
+}
 // where a move begins: the pivot, and each member as it stands (its record, and where it is shown: a sound that follows
 // something sounds where that puts it); a sound that follows an object of the group rides with it
 function groupBase(g) {
   const ms = members(g), ids = new Set(ms.map(m => m.id));
-  return { id: g.id, P: pivotOf(groupBox(g, new THREE.Box3())), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
+  return { id: g.id, P: groupPivot(g, new THREE.Vector3()), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
     pos: m.kind === 's' ? soundPoint(m, new THREE.Vector3()) : m.holder.position.clone(), rides: m.kind === 's' && !!m.rec.on && ids.has(m.rec.on) && !!followOf(m) })) };
 }
 
@@ -64,38 +84,41 @@ function groupBase(g) {
 // and a size k, about the pivot (x' = P + t + turn(k (x - P))). With write their records take it (setObj: an object's
 // cut-outs and the sounds following it keep their place on it as it is sized); a member being carried (the arrows, a
 // grip) is shown there at once, its record written at most ten times a second and as it is let go. A value past what
-// a record takes is held at the limit and said on the group's card (sizing back does not undo that; Undo does)
+// a record takes is held at the limit and said on the group's card (sizing back does not undo that; Undo does): a place
+// too, within 1 km of the scene's origin (a record past it would be refused, and that member left behind unsaid)
 const _gpy = new THREE.Vector3(0, 1, 0), _gpq = new THREE.Quaternion(), _gpv = new THREE.Vector3();
 function groupAt(B, x, t, th, k, out) { return out.copy(x).sub(B.P).multiplyScalar(k).applyAxisAngle(_gpy, th).add(B.P).add(t); }
 function groupMove(B, t, th, k, write) {
   const g = STU.items.get(B.id), held = [];
   if (!g || g.kind !== 'g') return;
   const lim = (v, a, b, it) => { const c = clamp(v, a, b); if (Math.abs(c - v) > 1e-9 && !held.includes(it.rec.name)) held.push(it.rec.name); return c; };
+  const at = (x, it) => { const p = groupAt(B, x, t, th, k, new THREE.Vector3()); return p.set(lim(p.x, -1000, 1000, it), lim(p.y, -1000, 1000, it), lim(p.z, -1000, 1000, it)); };
   _gpq.setFromAxisAngle(_gpy, th);
   for (const m of B.list) {
     const it = STU.items.get(m.id), r = m.rec;
     if (!it || it.kind !== m.kind) continue;
     if (m.kind === 'o') {
-      const p = groupAt(B, _gpv.fromArray(r.p), t, th, k, new THREE.Vector3()), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), s = lim(r.s * k, 1e-4, 1e4, it);
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), s = lim(r.s * k, 1e-4, 1e4, it);
       if (write) setObj(it.id, { p: p.toArray(), q: q.toArray(), s });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(s); }
     } else if (m.kind === 'c') {
-      const p = groupAt(B, _gpv.fromArray(r.p), t, th, k, new THREE.Vector3()), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
+      const p = at(_gpv.fromArray(r.p), it), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
       if (write) setRec(it.id, { p: p.toArray(), yaw, size });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.setFromAxisAngle(_gpy, yaw); it.holder.scale.fromArray(size); }
     } else {
       const rr = lim(r.r * k, 0.1, 20, it);
       if (m.rides) { if (write) setRec(it.id, { r: rr }); continue; }   // (carried by its object)
-      const p = groupAt(B, m.pos, t, th, k, new THREE.Vector3());
+      const p = at(m.pos, it);
       if (write) setRec(it.id, Object.assign(soundAt(it, p), { r: rr }));
       if (it.carry) it.holder.position.copy(p);
     }
   }
-  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m): sizing back does not undo that; Undo does.` : '';
+  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
 }
-// the group's lowest point onto the floor
+// the group's lowest point onto the floor: its objects' (a cube's volume and a sound's point stand on nothing; a group of
+// cubes and sounds alone, theirs)
 function groupFloor(g) {
-  const b = groupBox(g, new THREE.Box3());
+  const b = groupBox(g, new THREE.Box3(), true);
   if (!b.isEmpty() && Math.abs(b.min.y) > 5e-4) groupMove(groupBase(g), new THREE.Vector3(0, -b.min.y, 0), 0, 1, true);
 }
 // a move by hand begins (the page's arrows, a grip): the members as they stand, carried until it ends (the room's records
@@ -126,6 +149,20 @@ function groupRelease(g, B) {
 // the one picking its members now: it may take more)
 function groupTidy(gs) {
   for (const h of gs) if (STU.items.get(h.id) === h && members(h).length < 2 && !(STU.gpick && STU.gpick.id === h.id)) removeItem(h.id);
+}
+// after an Undo (undoList): a group it left with one member was picking its members before that step (Done, or one taken
+// out while picking): it picks again (selected, its card in the pick mode; made just now when the step below makes it, so
+// Done with that one item still takes it back as if never made); any other group it touched (itself or a member) left
+// with fewer than 2 goes (not one picking; one left so by the room alone stays, as after any room state)
+function groupUndone(list) {
+  const ids = new Set(list.map(u => u.id));
+  const low = [...STU.items.values()].filter(h => h.kind === 'g' && (ids.has(h.id) || h.rec.items.some(i => ids.has(i))) && members(h).length < 2 && !(STU.gpick && STU.gpick.id === h.id));
+  const back = !STU.gpick && editOn() ? low.find(h => members(h).length === 1 && list.some(u => u.id === h.id)) : null;
+  for (const h of low) if (h !== back) removeItem(h.id);
+  if (!back) return;
+  const top = UNDO[UNDO.length - 1], made = !!top && top.some(u => u.id === back.id && !u.before);
+  select(back.id);
+  STU.gpick = { id: back.id, made, step: made ? top : null };
 }
 // an item out of every group that names it (but except)
 function groupLeave(id, except) {
@@ -223,8 +260,9 @@ function groupsStep(editing) {
     if (g.kind !== 'g') continue;
     const sel = editing && STU.sel === g.id, L = g.look;
     if (!sel && !g.carry) { L.deco.visible = false; continue; }
+    if (!g.carry) { groupPivot(g, g.holder.position); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
+    if (!sel) { L.deco.visible = false; continue; }
     const b = groupBox(g, _gsb);
-    if (!g.carry) { g.holder.position.copy(pivotOf(b)); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
     L.deco.visible = sel && !b.isEmpty();
     if (!L.deco.visible) continue;
     const m = 0.04;   // (a little outside its members)

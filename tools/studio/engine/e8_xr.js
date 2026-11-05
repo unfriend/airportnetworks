@@ -6,7 +6,7 @@
 // or cut-out's corner stretches it; let go, it stays. In VR the left stick walks you through the scene and the right stick turns you
 // (the scene moves, not you). The grip on the panel moves the panel. A/X plays and pauses the intro.
 const XR = {
-  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
+  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
@@ -291,8 +291,12 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
-    // (a group's member, unless it is selected on its own: its whole group)
-    const grp = h.corner === undefined && GROUP_KINDS.includes(it.kind) && STU.sel !== it.id ? groupOf(it.id) : null;
+    // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
+    // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
+    // never the group round what that hand holds)
+    const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
+    const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
+    const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
     if (grp) { groupGrab(c, grp, q0); return; }
     if (h.corner !== undefined && it.kind === 'c') {
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], r = it.rec;
@@ -333,7 +337,16 @@ function xrLetGo(c) {
   const it = STU.items.get(G.id);
   if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
-  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+  if (!xrHeld()) endChange();
+}
+// a hand's hold taken from it (what it held removed, here or from the room: removeItem; gone as it was carried): its
+// change ends once nothing else is held, so Undo and Unsaved changes work again at once (its grip coming up finds nothing
+// to let go). Once a frame, after the hands, never inside a change
+function xrHeld() { return XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target)); }
+function xrLost() {
+  if (!XR.lost) return;
+  XR.lost = false;
+  if (SNAP && !xrHeld() && !X.tcDrag) endChange();
 }
 // the grip on a group's member: the whole group, taken where it stands (its members carried, one change); the other hand
 // on a member of the same group joins it (both size it about its pivot)
@@ -352,7 +365,7 @@ function groupLetGo(c, G) {
   if (o) { groupRegrip(o); return; }
   if (g && g.kind === 'g' && g.base) { groupMove(g.base, g.T.t, g.T.th, g.T.k, true); sfxAct('drop', 'world', GL.items.localToWorld(g.base.P.clone().add(g.T.t)).toArray()); groupRelease(g); }
   else groupRelease(null, G.base);
-  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+  if (!xrHeld()) endChange();
 }
 // a hand that holds a group alone again carries on from where it is now
 function groupRegrip(c) {
@@ -430,7 +443,7 @@ function xrResize(a, b) {
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
   const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
-  if (!it) { c.grab = null; return; }
+  if (!it) { c.grab = null; XR.lost = true; return; }
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
@@ -495,7 +508,7 @@ function carryGroup(c, dt) {
 // the grip on a selected cube's corner: the opposite corner stays, this one follows the hand (each side at least 10 cm)
 function stretchCube(c) {
   const G = c.grab, it = STU.items.get(G.id);
-  if (!it) { c.grab = null; return; }
+  if (!it) { c.grab = null; XR.lost = true; return; }
   if (it.kind === 'x') { stretchCut(c, G, it); return; }
   GL.world.updateMatrixWorld(true);
   const r = it.rec, cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyAxisAngle(_xY, -r.yaw);
@@ -629,6 +642,7 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
+  xrLost();
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
   if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
@@ -764,6 +778,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; xrLetGo(c); c.wantPress = false; }
+  xrLost();
   // in a shared room the story and its place stay (at its station the room's clock and state go on applying; away from
   // one a new wearer walks up to a station: no Stories screen in a room)
   if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }
@@ -806,6 +821,7 @@ function xrEnded() {
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
   for (const P of XR.panels) P.mesh.visible = false;
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
+  xrLost();
   STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);

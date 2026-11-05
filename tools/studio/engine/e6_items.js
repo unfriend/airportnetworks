@@ -50,8 +50,8 @@ function norm(kind, x) {
     const s = has('s') ? +Math.min(1e4, Math.max(1e-4, x.s)).toPrecision(4) : 1;
     const r = { name: name(stem(x.file)), file: x.file, p: P, q, s, light: one('light', ['lit', 'scan'], 'lit'), clip: !has('clip') ? '' : typeof x.clip === 'string' ? x.clip.slice(0, 120) : null,
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
-    // its faces, kept only when set: both sides, or inside out (absent: as in its file)
-    if (has('faces')) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
+    if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
     return Object.values(r).includes(null) ? null : r;
   }
   if (kind === 'c') {
@@ -176,7 +176,9 @@ function removeItem(id) {
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
-  for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
+  // (a hand holding it lets go: its change ends in the next headset frame, once nothing else is held, xrLost; the
+  // page's arrows end theirs as the pointer comes up, TransformControls firing dragging-changed even when detached)
+  for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) { c.grab = null; XR.lost = true; }
 }
 function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
 // where a record puts its item: its place, turn and scale (a cube's scale is its size; it stays level)
@@ -844,11 +846,13 @@ function undo() {
   undoList(list);
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
 }
-// a step taken back: each item's record as it was, what was added removed, what was deleted put back
+// a step taken back: each item's record as it was, what was added removed, what was deleted put back (a group picking its
+// members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
+// (groupUndone, e6c_groups.js)
 function undoList(list) {
-  if (STU.gpick && list.some(u => u.id === STU.gpick.id)) STU.gpick = null;   // (picking for a group this takes back: done)
   for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
+  groupUndone(list);
   changed();
 }
 // what changed here: the panes (soon), the draft (a second later)

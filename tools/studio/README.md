@@ -109,12 +109,14 @@ the sounds that follow it, come with it anyway). With **Edit** on:
 3. Move the group: on a page the arrows (W move, E turn, R size), on its card **Turn 90°**, the size steps and **On the
    floor**; in a headset the grip on any member carries the whole group (it turns with your hand only while Moving is
    *free*), both grips size it. It turns about the vertical only (cubes stay level) and sizes alike on every side, about
-   its middle on the floor. Every move is one Undo step.
+   its middle on the floor (the middle of its members, which stays put as it turns). **On the floor** puts its models'
+   lowest point on the floor (its cubes and sounds do not count). Every move is one Undo step.
 
 **Duplicate** copies every member as a new group beside it (a copied sound follows the copy of its model; a copied cube
 shows and hides the copies of what it showed and hid in the group). **Ungroup** keeps the members and drops the group;
-**Delete** deletes every member. A group left with fewer than two members goes by itself. A trigger cube's **Pick what it
-shows** (or hides) takes a whole group when you point at one of its members.
+**Delete** deletes every member. A group left with fewer than two members goes by itself (Undo back to one member leaves
+it picking its members again, as it was then; a group still picking is not saved until it has two). A trigger cube's
+**Pick what it shows** (or hides) takes a whole group when you point at one of its members.
 
 ## Faces: both sides, or inside out
 

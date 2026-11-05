@@ -3175,22 +3175,30 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   card, a faint dashed box round its members while editing, `LOOKS.group`), a second one on the same member that member
   alone (*In group ...*, *Select the group*; selected alone it moves alone); hover labels say *Group 2 · Dancer*; the
   Items pane lists groups first with their members indented. A selected group moves, turns and sizes as one about its
-  pivot (the middle of the box round its members, on the floor): turns about the vertical only (an object's turn and a
-  cube's yaw gain it), sizes alike on every axis (places, an object's `s` with its cut-outs and its sounds' offsets through
-  `scaleFollowers`, a cube's size, a sound's reach; a value past its limit held there and said on the card); a sound in
+  pivot (the mean of its members' middles, on the floor, `groupPivot`: a turn or a size carries every middle with its
+  member, so the pivot stays put; the middle of their box shifted after a turn that was not a quarter, and the next turn
+  hopped): turns about the vertical only (an object's turn and a cube's yaw gain it), sizes alike on every axis (places,
+  an object's `s` with its cut-outs and its sounds' offsets through `scaleFollowers`, a cube's size, a sound's reach; a
+  value past its limit held there, a place within 1 km of the scene's origin too, and said on the card); a sound in
   the group that follows an object in it simply follows, one that follows an object outside it moves as carried by hand
-  (`soundAt`). On a page the arrows on the pivot (Y ring only), *Turn 90°*, size steps, *On the floor*; in a headset the
-  grip on any member (unless selected alone) carries the group (a yaw from the hand only while free moving is on), both
-  grips size it about its pivot. Every move one change (one Undo step, every member written in one state). *Duplicate*
+  (`soundAt`). On a page the arrows on the pivot (Y ring only), *Turn 90°*, size steps, *On the floor* (the lowest point
+  of its objects: cubes and sounds stand on nothing); in a headset the grip on any member (unless selected alone) carries
+  the group (a yaw from the hand only while free moving is on), both grips size it about its pivot; the other hand
+  carrying the group, a grip on a member joins it; the other hand carrying a member alone, a grip on another member
+  carries that one alone. An item removed while a hand holds it (a group gone from the room too) ends that hand's change
+  in the next frame (`XR.lost`, `xrLost`). Every move one change (one Undo step, every member written in one state). *Duplicate*
   (every member copied as a new group beside it: a following sound's copy follows its object's copy, a cube of the group
   lists the copies, each copy joins the lists of the cubes outside the group its original is in, cut-outs with their
   objects), *Ungroup*, *Delete* (every member). A group left with fewer than 2 members goes in the same change (not one
-  picking now); one made and left with its one item when picking ends is taken back as never made. A cube's *Pick what it
-  shows* / *hides* on a grouped item toggles all of its group's members. `layout.json`'s `groups`, `state()`'s `g.<id>`
+  picking now); one made and left with its one item when picking ends is taken back as never made. Undo while picking
+  picks on; an Undo that leaves a group with one member leaves it picking again (as before that step), any other group
+  it touched and leaves with fewer than 2 goes (`groupUndone`). A group with fewer than 2 of the items placed is never written to `layout.json`,
+  the draft or *Unsaved changes* (`placedItems`). A cube's *Pick what it shows* / *hides* on a grouped item toggles all
+  of its group's members (a cube in a group of cubes alone selects as any cube does). `layout.json`'s `groups`, `state()`'s `g.<id>`
   (FORMAT networks-32, v114). Untested on a headset: the grips carrying and sizing a group on real controllers, the pick
   mode by trigger, how the box reads.
 - **Faces** (the owner, 5 November 2026: "double sided and flip inside out settings per model?"; `tools/studio/SPEC.md`,
-  "Faces"). An object's optional `faces`: absent (*As in the file*, each material's own side as loaded), `'both'` (*Both
+  "Faces"). An object's optional `faces`: absent or `null` (*As in the file*, each material's own side as loaded), `'both'` (*Both
   sides*: `DoubleSide`) or `'inside'` (*Inside out*: `BackSide`, three.js turning the normals so the light follows), on the
   object's own materials (its clones, lit and as scanned, `applyFaces`; the side as loaded kept as `side0`), so two copies
   of one file may differ; set again whenever its model is built (a file changed on the relay, a GLB switch, which keeps the
@@ -3497,20 +3505,26 @@ a sound *Free*, a sound *Out* following the figure, a cut-out *Hole* on the box 
 *Voice*, *Out* and *Curtain* by their names under Items, *Done*: one Undo step each); a click on a member selecting the
 group, again the member alone (*In group*, *Select the group*); hover naming the group (*Group · Dancer*); its box only while
 selected and editing; the Items pane (the group, its members under it, the hole under the box); *Make a group...* then
-*Done* with one item leaving no step; the arrows' move, turn (the vertical ring only; a tilt given dropped) and size about
+*Done* with one item leaving no step; a group picking its one member left out of `layout.json` and *Unsaved changes*;
+Undo of the pick that gave a group its second member, after *Done* and while picking, leaving it picking again (*Done*
+then taking it back as never made, no step left over); the arrows' move, turn (the vertical ring only; a tilt given dropped) and size about
 the pivot moving every member exactly (places, turns, sizes, the cube's size and yaw, the sounds' reach; the hole on the
 box and *Voice* on her head bone and *Out* on the figure outside the group, within 1 mm), one Undo step each, and Undo
-bringing the state back; the card's *Turn 90°*, ×2 and *On the floor* (lifted 0.4 m first); ×20 holding two sounds' reach
-at 20 m, said on the card; *Duplicate* (a new group of the six copies and the hole's copy, the box's copy beside it,
+bringing the state back; the pivot staying within 2 mm after a turn of 0.6 rad, a quarter turn more and a size; the
+card's *Turn 90°*, ×2 and *On the floor* (lifted 0.4 m first, *Curtain* centred on the floor not counted); ×20 holding
+two sounds' reach at 20 m, said on the card; ×400 holding a place at 1 km (every member written, none left behind); *Duplicate* (a new group of the six copies and the hole's copy, the box's copy beside it,
 *Voice*'s copy on the dancer's copy, *Out*'s still on the figure beside it, *Curtain*'s copy hiding the dancer's copy,
 the copies in *Lamp*'s list, one step), *Ungroup* and *Delete* (every member and the hole, *Lamp* letting them go) with
 Undo; *Free* moved into the figure's own group, the figure then deleted and its group, left with one, going in the same
 step (*Out* left following nothing), Undo bringing both back; *Lamp*'s pick toggling the group's members (a member, a cube
-of the group, the group's name under Items); the state with `g.<id>` and back, `norm`'s rules, a bad group from the room
+of the group, the group's name under Items; a cube in a group of cubes alone selecting its group, ending the pick); the
+state with `g.<id>` and back, `norm`'s rules, a bad group from the room
 ignored, an id two groups name staying in the lower id's in either order of the keys; `layout.json` with and without
 `groups`, and groups naming items the layout lacks; a pretend headset's trigger (the group, then the member), its grip
 carrying the group (one step), turning with the hand only while moving freely, both grips doubling its size about the
-pivot, a member selected alone carried alone, and the headset's cards (the group's rows, *Add or remove items...* pressed
+pivot, a member selected alone carried alone, the box carried alone and the other grip on the dancer carrying her alone
+(one step), the group held and then gone from the room ending its change in the next frame (Undo working at once), and
+the headset's cards (the group's rows, *Add or remove items...* pressed
 twice; a member's *Select the group*, *Make a new group...* and Faces). Its *studio faces* steps run on a sixth page, at
 `&scene=rig` (the box still, and *Twin*, a copy of its file): pixels read back from renders, each with the object drawn
 and not: from inside a box *As in the file* shows nothing of it and *Inside out* and *Both sides* show it, two copies of
@@ -3518,7 +3532,7 @@ one file each as set (their materials' sides too); from outside *As in the file*
 out* its far inner side, which a cut-out taking the far half away removes (and leaves *As in the file*'s near side); with
 a cut-out in its near side *Both sides* showing its far inner side through the hole and *As in the file* nothing, lit and
 as scanned; *Inside out* kept through a rebuild of its file (`fileChanged`) and the figure's *Both sides* through *Convert
-to GLB* and the switch; the state and `layout.json` with `faces` (other values refused); the page's Faces row (one Undo
+to GLB* and the switch; the state and `layout.json` with `faces` (`null` read as absent, other values refused); the page's Faces row (one Undo
 step each) and the headset's.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.

@@ -168,9 +168,11 @@ placed by itself).
 - A cut-out's `on` (required: the id of the object it cuts), `p`, `q` and `size` ("Cut-outs" below): in that object's
   frame, turned but not scaled (metres), `p` to the mm, `q` a full turn (4 decimals), each side 1 cm to 50 m to the mm.
   A layout without `cuts` (v112's) reads as before.
-- An object's `faces` (optional, kept only when set: `'both'` or `'inside'`; "Faces" below). A group's `name` and `items`
-  (its members' ids: this layout's objects, sounds and cubes only; one left with fewer than 2 is dropped and counted;
-  "Groups" below). A layout without `groups` (v113's) reads as before.
+- An object's `faces` (optional, kept only when set: `'both'` or `'inside'`; `null` reads as absent; "Faces" below). A
+  group's `name` and `items` (its members' ids: this layout's objects, sounds and cubes only; one left with fewer than 2
+  is dropped and counted; "Groups" below). A group naming fewer than 2 of the items placed (one picking its members now)
+  is not written (nor kept in the draft, nor counted by *Unsaved changes*), so a saved layout reads back as it was saved.
+  A layout without `groups` (v113's) reads as before.
 - Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
   object the layout does not hold keeps its `on`, `bone` and `o` and stands at its `p` until that object is back, as with
@@ -694,7 +696,13 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   left with fewer than 2, goes in it). The group's card has *Add or remove items...* for the same mode; *Done* (or another
   selection, Escape, editing off) ends it. A group made just now and left with its one item when picking ends is taken
   back as if never made (its Undo step too); another left with fewer than 2 goes in a step of its own. While it picks, a
-  group may have one member.
+  group may have one member (shared so in a room, but never written to `layout.json`).
+- **Undo and picking.** Undo while a group picks its members keeps it picking (unless it takes back the step that made
+  it). An Undo that leaves a group with one member (the pick that gave it its second, or the step in which picking ended
+  and it went) leaves it picking again: selected, its card in the pick mode, as it was before that step; when the step
+  below is the one that made it, *Done* with that one item still takes it back as if never made (`groupUndone`). Any
+  other group the step touched (the group or one of its members) that the Undo leaves with fewer than 2 members goes
+  with it (no Undo step of its own); a group left so by the room alone stays, as after any room state.
 - **Selecting.** A click (the trigger, a pinch) on a member selects its group (its card); a second one on the same member
   while its group is selected selects that member alone (its own card, with *In group Group 2: it moves with it. Selected
   on its own, it moves alone.* and *Select the group*); one more on it keeps it. The group's card lists its members (a
@@ -702,27 +710,37 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   under it (an object's cut-outs under that, further in); the other sections list what is in no group. Hover labels
   name the group (*Group 2 · Dancer*); the selection's label says *group of 6 · selected*, or *in Group 2 · selected*
   for a member on its own.
-- **Moving.** A selected group moves, turns and sizes as one about its **pivot**: the middle of the box round its members
-  as they are shown (an object's own box, a cube's, a sound's point), on the floor (y = 0). A move by `t`, a turn `th` and
+- **Moving.** A selected group moves, turns and sizes as one about its **pivot**: the mean of its members' middles as
+  they are shown (an object's own box's middle, or its place while its model is not here; a cube's middle; a sound's
+  point), on the floor (y = 0) (`groupPivot`). A move, a turn about the vertical and a size about it carry every middle
+  with its member, so the pivot stays where the group was turned or sized about (the middle of the box round them did
+  not: after a turn that is not a quarter it moved, and the next turn or size shifted the group). A move by `t`, a turn `th` and
   a size `k` put a member's place `x` at `P + t + turn(k (x - P))`. Turns are about the vertical only: an object's own turn
   gains the yaw (`q' = yaw(th) q`), a cube's `yaw` gains it (it stays level). Sizes are alike on every axis: places scale
   about the pivot (so what stands on the floor stays on it), an object's `s` (its cut-outs' records and the offsets of the
   sounds that follow it with it, through `setObj` and `scaleFollowers`, as for an object sized alone), a cube's `size`, a
   sound's `r`. A value past what its record takes is held at the limit (an object's `s` 1/10,000 to 10,000, a cube's side
-  5 cm to 100 m, a sound's `r` 0.1 to 20 m) and the group's card says which (sizing back does not undo that; Undo does).
+  5 cm to 100 m, a sound's `r` 0.1 to 20 m, a place within 1 km of the scene's origin, so no member's record is refused
+  and left behind) and the group's card says which (sizing back does not undo that; Undo does).
   A sound in the group that follows an object in the group simply follows (its own record keeps its offset); one that
   follows an object outside the group moves as when carried by hand (its `p` and `o` written against its target where
   the move puts it, `soundAt`). Every move is one change: one Undo step, every member's record written together (so it
   reaches a room in one state). Refused, as every edit, while the station's story is locked or for visitors.
   - On a page: the arrows (`TransformControls`) on the pivot: move (any way), turn (the vertical ring only), size (the
     largest change of any axis taken as the size); the card's *Turn 90°*, size steps (×0.5, ×0.9, ×1.1, ×2) and *On the
-    floor* (the group's lowest point onto the floor). While a drag lasts its members are carried (the room's records wait).
+    floor* (the lowest point of the group's objects onto the floor: a cube is a volume to walk into and a sound a point,
+    so neither counts, unless the group has no object). While a drag lasts its members are carried (the room's records
+    wait); a group gone meanwhile (from the room) lets them go, and its change ends as the pointer comes up.
   - In a headset: the grip on any member (unless that member is selected on its own: then it alone) carries the whole
     group, its members keeping their places about the hand; it stays level and takes only a yaw from the hand's turn,
     and only while free moving is on; the right stick pushes it away or pulls it in. Both grips (on members of the same
-    group) size it about its pivot, a twentieth to twenty times, and move it with their middle. The members are shown
-    where the hand puts them each frame and their records written ten times a second and as it is let go; a group gone
-    meanwhile (from the room) lets its members go.
+    group) size it about its pivot, a twentieth to twenty times, and move it with their middle; while one hand carries the
+    group the other's grip on any member (a corner too) joins it, and while one hand carries a member on its own the
+    other's grip on another member of that group carries that one on its own too (never the group round what the first
+    hand holds). The members are shown where the hand puts them each frame and their records written ten times a second
+    and as it is let go; a group gone meanwhile (from the room) lets its members go, and the hand's change ends in the
+    next frame (`xrLost`: Undo and *Unsaved changes* work at once, not only after the next grip), as for any item
+    removed while held.
 - **Its card**: its name, *Members* (how many of each kind) and *Size*, *Add or remove items...* and the members' list,
   *Place* (*Turn 90°*, *On the floor*), *Size* steps, *Duplicate*, *Ungroup* (the group goes, its members stay),
   *Delete* (every member, an object's cut-outs with it, and the group; the cubes outside the group let them go, a sound
@@ -738,12 +756,17 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   with fewer than 2 members goes too (not one picking its members now). Undo brings both back.
 - **Trigger cubes**: in a cube's *Pick what it shows* / *Pick what it hides*, pointing at a grouped item (a cube of the
   group too) puts all of its group's members (not its cubes) in the list, or takes them all out when all are in it (one
-  change); under Items the group's name does the same. The lists still name the members one by one.
+  change); under Items the group's name does the same. The lists still name the members one by one. A cube in a group of
+  cubes alone (nothing a cube can list) is selected as an ungrouped cube is (its group, as a click on any member), which
+  ends the pick.
 - **Drawn while editing**: a selected group as a faint dashed box in its colour round all its members (`LOOKS.group`,
   over everything), its name in the selection's label. Not editing, nothing of it is drawn.
 - **Shared rooms**: the group's record is its field in `state()` (`g.<id>`), and a move writes its members' records in the
   same state, so a room sees the whole group move at once; who picks, what is selected and a drag's carry are each
-  device's own. FORMAT `networks-32`.
+  device's own. FORMAT `networks-32`. Two people putting one item into two groups at once leave the group with the higher
+  id with that member passed over; if that leaves it fewer than 2, it stays (its card says so and offers *Ungroup*):
+  applying a state never changes what it is given (`apply(state())` gives the same state back), and the result is the
+  same on every device.
 - **Untested on a headset**: the grip carrying a group and both grips sizing it on real controllers, the pick mode by
   trigger, how the faint box reads.
 
@@ -751,7 +774,7 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
 
 The owner: "double sided and flip inside out settings per model?". Each placed object chooses which of its faces are drawn.
 
-- **The record**: an object's optional `faces`: absent (*As in the file*: each material's own side as loaded, such as a
+- **The record**: an object's optional `faces`: absent or `null` (*As in the file*: each material's own side as loaded, such as a
   glTF's `doubleSided`), `'both'` (*Both sides*: every material double sided) or `'inside'` (*Inside out*: every material
   drawn from behind only; three.js turns the normals of back faces, so the light follows). Kept only when set; any other
   value makes the record bad. The model's file is never changed: Convert to GLB makes the file as it is, and the switch to

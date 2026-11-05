@@ -753,7 +753,11 @@ function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(id) : null;
-  if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || g)) { if (g) toggleLinks(STU.pick.id, STU.pick.list, members(g).map(m => m.id)); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
+  // (a cube picking what it shows or hides: an item in a group puts in all of its group's members a cube can list (not its
+  // cubes); a cube in a group of cubes alone, nothing to list, is selected as an ungrouped cube is (its group, as a click
+  // on any member), which ends the pick)
+  const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
+  if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)

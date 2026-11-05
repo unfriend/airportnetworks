@@ -16091,18 +16091,24 @@ function readLayout(j) {
   });
   return out;
 }
+// what is placed now as a layout keeps it: a group naming fewer than 2 of these objects, sounds and cubes (one picking
+// its members, a group made just now) left out, as readLayout would drop it (so a saved layout reads back as it was saved)
+function placedItems() {
+  const all = [...STU.items.values()], kinds = new Map(all.map(it => [it.id, it.kind]));
+  return all.filter(it => it.kind !== 'g' || it.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i))).length >= 2);
+}
 // what is placed now, as layout.json
 function layoutOut() {
   const L = { studio: 1, scene: STU.scene, saved: new Date().toISOString() };
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
-  const list = k => [...STU.items.values()].filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
+  const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g');
   return L;
 }
 // a list of items (or what is placed) as one string, to tell whether two are the same
 function keyOf(items) {
-  const L = items ? items.map(x => [x.id, x.kind, x.rec]) : [...STU.items.values()].map(it => [it.id, it.kind, it.rec]);
+  const L = (items || placedItems()).map(x => [x.id, x.kind, x.rec]);
   L.sort((a, b) => (a[0] < b[0] ? -1 : 1));
   return JSON.stringify(L);
 }
@@ -16180,7 +16186,7 @@ function draftNow() {
   unlater(draftT); draftT = 0;
   if (!STU.scene || STU.listing !== 'ok' || atStation() || OPT.visit) return;
   if (!unsaved()) { draftDrop(); return; }
-  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: [...STU.items.values()].map(it => [it.id, it.kind, it.rec]) }));
+  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]) }));
 }
 function draftDrop() { if (STU.scene) store.set(draftKey(), null); }
 function offerDraft() {
@@ -17913,8 +17919,8 @@ function norm(kind, x) {
     const s = has('s') ? +Math.min(1e4, Math.max(1e-4, x.s)).toPrecision(4) : 1;
     const r = { name: name(stem(x.file)), file: x.file, p: P, q, s, light: one('light', ['lit', 'scan'], 'lit'), clip: !has('clip') ? '' : typeof x.clip === 'string' ? x.clip.slice(0, 120) : null,
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
-    // its faces, kept only when set: both sides, or inside out (absent: as in its file)
-    if (has('faces')) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
+    if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
     return Object.values(r).includes(null) ? null : r;
   }
   if (kind === 'c') {
@@ -18039,7 +18045,9 @@ function removeItem(id) {
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
   STU.seen.delete(id);   // (a staying cube put back by Undo waits to be entered again)
-  for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) c.grab = null;
+  // (a hand holding it lets go: its change ends in the next headset frame, once nothing else is held, xrLost; the
+  // page's arrows end theirs as the pointer comes up, TransformControls firing dragging-changed even when detached)
+  for (const c of XR.ctrls || []) if (c.grab && c.grab.id === id) { c.grab = null; XR.lost = true; }
 }
 function clearItems() { for (const id of [...STU.items.keys()]) removeItem(id); emitAll(true); sndClear(); }
 // where a record puts its item: its place, turn and scale (a cube's scale is its size; it stays level)
@@ -18707,11 +18715,13 @@ function undo() {
   undoList(list);
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
 }
-// a step taken back: each item's record as it was, what was added removed, what was deleted put back
+// a step taken back: each item's record as it was, what was added removed, what was deleted put back (a group picking its
+// members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
+// (groupUndone, e6c_groups.js)
 function undoList(list) {
-  if (STU.gpick && list.some(u => u.id === STU.gpick.id)) STU.gpick = null;   // (picking for a group this takes back: done)
   for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
+  groupUndone(list);
   changed();
 }
 // what changed here: the panes (soon), the draft (a second later)
@@ -19264,7 +19274,7 @@ Object.assign(ITEM_ACT, {
 // members' ids). An item is in one group at most: an id two groups name stays in the one with the lower id (groupOf, the
 // same on every device); no groups in groups; 50 a scene. A click (the trigger, a pinch) on a member selects its group,
 // a second one on the same member, its group selected, that member alone (pressItem, e7_explore.js). A selected group
-// moves, turns and sizes as one about its pivot (the middle of the box round its members, on the floor): turns about the
+// moves, turns and sizes as one about its pivot (the mean of its members' middles, on the floor): turns about the
 // vertical only (a cube stays level, an object's own turn and a cube's yaw gain it), sizes alike on every axis (places,
 // an object's size with its cut-outs and the offsets of the sounds following it, a cube's size, a sound's reach). A
 // sound in the group that follows an object in it simply follows; one that follows an object outside it moves as when
@@ -19287,14 +19297,16 @@ function members(g) { return g && g.kind === 'g' ? g.rec.items.map(id => STU.ite
 
 // ------------------------------------------------------------ the pivot --
 // the box round a group's members as they are shown now (the scene's frame): an object's own box (its unseen one; a model
-// not here yet, the grey box's 0.4 m), a cube's, a sound's point
+// not here yet, the grey box's 0.4 m), a cube's, a sound's point; solid: its objects' only (On the floor: a cube is a
+// volume to walk into and a sound a point, neither stands on the floor), all of them when it has none
 const _gb = new THREE.Box3(), _gm = new THREE.Matrix4(), _gm2 = new THREE.Matrix4(), _gp = new THREE.Vector3(), _gsb = new THREE.Box3();
-function groupBox(g, out) {
+function groupBox(g, out, solid) {
   out.makeEmpty();
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  for (const it of members(g)) {
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o') : [];
+  for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
@@ -19309,12 +19321,30 @@ function soundPoint(it, out) {
   const nd = it.carry || it.gl || !it.rec.on ? null : followNode(it);
   return nd ? followAt(it, nd, out) : it.carry || it.gl ? out.copy(it.holder.position) : out.fromArray(it.rec.p);
 }
-const pivotOf = b => (b.isEmpty() ? new THREE.Vector3() : new THREE.Vector3((b.min.x + b.max.x) / 2, 0, (b.min.z + b.max.z) / 2));
+// the pivot: the mean of its members' middles as they are shown (an object's own box's middle, or its place while its model
+// is not here; a cube's middle; a sound's point), on the floor (y = 0). A move, a turn about the vertical and a size about
+// it carry every middle with its member, so the pivot stays where the group was turned or sized about (the middle of the
+// box round them would not: after a turn that is not a quarter it moves, and the next turn or size about it shifted the
+// group sideways)
+function groupPivot(g, out) {
+  const ms = members(g);
+  out.set(0, 0, 0);
+  if (!ms.length) return out;
+  GL.items.updateWorldMatrix(true, false);
+  _gm.copy(GL.items.matrixWorld).invert();
+  for (const it of ms) {
+    if (it.kind === 's') soundPoint(it, _gp);
+    else if (it.kind === 'o' && it.model) { it.proxy.updateWorldMatrix(true, false); _gp.setFromMatrixPosition(_gm2.multiplyMatrices(_gm, it.proxy.matrixWorld)); }
+    else _gp.copy(it.holder.position);
+    out.add(_gp);
+  }
+  return out.divideScalar(ms.length).setY(0);
+}
 // where a move begins: the pivot, and each member as it stands (its record, and where it is shown: a sound that follows
 // something sounds where that puts it); a sound that follows an object of the group rides with it
 function groupBase(g) {
   const ms = members(g), ids = new Set(ms.map(m => m.id));
-  return { id: g.id, P: pivotOf(groupBox(g, new THREE.Box3())), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
+  return { id: g.id, P: groupPivot(g, new THREE.Vector3()), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
     pos: m.kind === 's' ? soundPoint(m, new THREE.Vector3()) : m.holder.position.clone(), rides: m.kind === 's' && !!m.rec.on && ids.has(m.rec.on) && !!followOf(m) })) };
 }
 
@@ -19323,38 +19353,41 @@ function groupBase(g) {
 // and a size k, about the pivot (x' = P + t + turn(k (x - P))). With write their records take it (setObj: an object's
 // cut-outs and the sounds following it keep their place on it as it is sized); a member being carried (the arrows, a
 // grip) is shown there at once, its record written at most ten times a second and as it is let go. A value past what
-// a record takes is held at the limit and said on the group's card (sizing back does not undo that; Undo does)
+// a record takes is held at the limit and said on the group's card (sizing back does not undo that; Undo does): a place
+// too, within 1 km of the scene's origin (a record past it would be refused, and that member left behind unsaid)
 const _gpy = new THREE.Vector3(0, 1, 0), _gpq = new THREE.Quaternion(), _gpv = new THREE.Vector3();
 function groupAt(B, x, t, th, k, out) { return out.copy(x).sub(B.P).multiplyScalar(k).applyAxisAngle(_gpy, th).add(B.P).add(t); }
 function groupMove(B, t, th, k, write) {
   const g = STU.items.get(B.id), held = [];
   if (!g || g.kind !== 'g') return;
   const lim = (v, a, b, it) => { const c = clamp(v, a, b); if (Math.abs(c - v) > 1e-9 && !held.includes(it.rec.name)) held.push(it.rec.name); return c; };
+  const at = (x, it) => { const p = groupAt(B, x, t, th, k, new THREE.Vector3()); return p.set(lim(p.x, -1000, 1000, it), lim(p.y, -1000, 1000, it), lim(p.z, -1000, 1000, it)); };
   _gpq.setFromAxisAngle(_gpy, th);
   for (const m of B.list) {
     const it = STU.items.get(m.id), r = m.rec;
     if (!it || it.kind !== m.kind) continue;
     if (m.kind === 'o') {
-      const p = groupAt(B, _gpv.fromArray(r.p), t, th, k, new THREE.Vector3()), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), s = lim(r.s * k, 1e-4, 1e4, it);
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), s = lim(r.s * k, 1e-4, 1e4, it);
       if (write) setObj(it.id, { p: p.toArray(), q: q.toArray(), s });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(s); }
     } else if (m.kind === 'c') {
-      const p = groupAt(B, _gpv.fromArray(r.p), t, th, k, new THREE.Vector3()), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
+      const p = at(_gpv.fromArray(r.p), it), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
       if (write) setRec(it.id, { p: p.toArray(), yaw, size });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.setFromAxisAngle(_gpy, yaw); it.holder.scale.fromArray(size); }
     } else {
       const rr = lim(r.r * k, 0.1, 20, it);
       if (m.rides) { if (write) setRec(it.id, { r: rr }); continue; }   // (carried by its object)
-      const p = groupAt(B, m.pos, t, th, k, new THREE.Vector3());
+      const p = at(m.pos, it);
       if (write) setRec(it.id, Object.assign(soundAt(it, p), { r: rr }));
       if (it.carry) it.holder.position.copy(p);
     }
   }
-  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m): sizing back does not undo that; Undo does.` : '';
+  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
 }
-// the group's lowest point onto the floor
+// the group's lowest point onto the floor: its objects' (a cube's volume and a sound's point stand on nothing; a group of
+// cubes and sounds alone, theirs)
 function groupFloor(g) {
-  const b = groupBox(g, new THREE.Box3());
+  const b = groupBox(g, new THREE.Box3(), true);
   if (!b.isEmpty() && Math.abs(b.min.y) > 5e-4) groupMove(groupBase(g), new THREE.Vector3(0, -b.min.y, 0), 0, 1, true);
 }
 // a move by hand begins (the page's arrows, a grip): the members as they stand, carried until it ends (the room's records
@@ -19385,6 +19418,20 @@ function groupRelease(g, B) {
 // the one picking its members now: it may take more)
 function groupTidy(gs) {
   for (const h of gs) if (STU.items.get(h.id) === h && members(h).length < 2 && !(STU.gpick && STU.gpick.id === h.id)) removeItem(h.id);
+}
+// after an Undo (undoList): a group it left with one member was picking its members before that step (Done, or one taken
+// out while picking): it picks again (selected, its card in the pick mode; made just now when the step below makes it, so
+// Done with that one item still takes it back as if never made); any other group it touched (itself or a member) left
+// with fewer than 2 goes (not one picking; one left so by the room alone stays, as after any room state)
+function groupUndone(list) {
+  const ids = new Set(list.map(u => u.id));
+  const low = [...STU.items.values()].filter(h => h.kind === 'g' && (ids.has(h.id) || h.rec.items.some(i => ids.has(i))) && members(h).length < 2 && !(STU.gpick && STU.gpick.id === h.id));
+  const back = !STU.gpick && editOn() ? low.find(h => members(h).length === 1 && list.some(u => u.id === h.id)) : null;
+  for (const h of low) if (h !== back) removeItem(h.id);
+  if (!back) return;
+  const top = UNDO[UNDO.length - 1], made = !!top && top.some(u => u.id === back.id && !u.before);
+  select(back.id);
+  STU.gpick = { id: back.id, made, step: made ? top : null };
 }
 // an item out of every group that names it (but except)
 function groupLeave(id, except) {
@@ -19482,8 +19529,9 @@ function groupsStep(editing) {
     if (g.kind !== 'g') continue;
     const sel = editing && STU.sel === g.id, L = g.look;
     if (!sel && !g.carry) { L.deco.visible = false; continue; }
+    if (!g.carry) { groupPivot(g, g.holder.position); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
+    if (!sel) { L.deco.visible = false; continue; }
     const b = groupBox(g, _gsb);
-    if (!g.carry) { g.holder.position.copy(pivotOf(b)); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
     L.deco.visible = sel && !b.isEmpty();
     if (!L.deco.visible) continue;
     const m = 0.04;   // (a little outside its members)
@@ -20254,7 +20302,11 @@ function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(id) : null;
-  if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || g)) { if (g) toggleLinks(STU.pick.id, STU.pick.list, members(g).map(m => m.id)); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
+  // (a cube picking what it shows or hides: an item in a group puts in all of its group's members a cube can list (not its
+  // cubes); a cube in a group of cubes alone, nothing to list, is selected as an ungrouped cube is (its group, as a click
+  // on any member), which ends the pick)
+  const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
+  if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
@@ -21194,7 +21246,7 @@ const UP_ACT = {
 // or cut-out's corner stretches it; let go, it stays. In VR the left stick walks you through the scene and the right stick turns you
 // (the scene moves, not you). The grip on the panel moves the panel. A/X plays and pauses the intro.
 const XR = {
-  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
+  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
@@ -21479,8 +21531,12 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
-    // (a group's member, unless it is selected on its own: its whole group)
-    const grp = h.corner === undefined && GROUP_KINDS.includes(it.kind) && STU.sel !== it.id ? groupOf(it.id) : null;
+    // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
+    // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
+    // never the group round what that hand holds)
+    const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
+    const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
+    const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
     if (grp) { groupGrab(c, grp, q0); return; }
     if (h.corner !== undefined && it.kind === 'c') {
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], r = it.rec;
@@ -21521,7 +21577,16 @@ function xrLetGo(c) {
   const it = STU.items.get(G.id);
   if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
-  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+  if (!xrHeld()) endChange();
+}
+// a hand's hold taken from it (what it held removed, here or from the room: removeItem; gone as it was carried): its
+// change ends once nothing else is held, so Undo and Unsaved changes work again at once (its grip coming up finds nothing
+// to let go). Once a frame, after the hands, never inside a change
+function xrHeld() { return XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target)); }
+function xrLost() {
+  if (!XR.lost) return;
+  XR.lost = false;
+  if (SNAP && !xrHeld() && !X.tcDrag) endChange();
 }
 // the grip on a group's member: the whole group, taken where it stands (its members carried, one change); the other hand
 // on a member of the same group joins it (both size it about its pivot)
@@ -21540,7 +21605,7 @@ function groupLetGo(c, G) {
   if (o) { groupRegrip(o); return; }
   if (g && g.kind === 'g' && g.base) { groupMove(g.base, g.T.t, g.T.th, g.T.k, true); sfxAct('drop', 'world', GL.items.localToWorld(g.base.P.clone().add(g.T.t)).toArray()); groupRelease(g); }
   else groupRelease(null, G.base);
-  if (!XR.ctrls.some(k => k.grab && ['item', 'corner', 'group'].includes(k.grab.target))) endChange();
+  if (!xrHeld()) endChange();
 }
 // a hand that holds a group alone again carries on from where it is now
 function groupRegrip(c) {
@@ -21618,7 +21683,7 @@ function xrResize(a, b) {
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
   const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
-  if (!it) { c.grab = null; return; }
+  if (!it) { c.grab = null; XR.lost = true; return; }
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
@@ -21683,7 +21748,7 @@ function carryGroup(c, dt) {
 // the grip on a selected cube's corner: the opposite corner stays, this one follows the hand (each side at least 10 cm)
 function stretchCube(c) {
   const G = c.grab, it = STU.items.get(G.id);
-  if (!it) { c.grab = null; return; }
+  if (!it) { c.grab = null; XR.lost = true; return; }
   if (it.kind === 'x') { stretchCut(c, G, it); return; }
   GL.world.updateMatrixWorld(true);
   const r = it.rec, cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyAxisAngle(_xY, -r.yaw);
@@ -21817,6 +21882,7 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
+  xrLost();
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
   if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
@@ -21952,6 +22018,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; xrLetGo(c); c.wantPress = false; }
+  xrLost();
   // in a shared room the story and its place stay (at its station the room's clock and state go on applying; away from
   // one a new wearer walks up to a station: no Stories screen in a room)
   if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }
@@ -21994,6 +22061,7 @@ function xrEnded() {
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
   for (const P of XR.panels) P.mesh.visible = false;
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
+  xrLost();
   STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);

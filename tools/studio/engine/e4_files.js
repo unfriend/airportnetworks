@@ -293,18 +293,24 @@ function readLayout(j) {
   });
   return out;
 }
+// what is placed now as a layout keeps it: a group naming fewer than 2 of these objects, sounds and cubes (one picking
+// its members, a group made just now) left out, as readLayout would drop it (so a saved layout reads back as it was saved)
+function placedItems() {
+  const all = [...STU.items.values()], kinds = new Map(all.map(it => [it.id, it.kind]));
+  return all.filter(it => it.kind !== 'g' || it.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i))).length >= 2);
+}
 // what is placed now, as layout.json
 function layoutOut() {
   const L = { studio: 1, scene: STU.scene, saved: new Date().toISOString() };
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
-  const list = k => [...STU.items.values()].filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
+  const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g');
   return L;
 }
 // a list of items (or what is placed) as one string, to tell whether two are the same
 function keyOf(items) {
-  const L = items ? items.map(x => [x.id, x.kind, x.rec]) : [...STU.items.values()].map(it => [it.id, it.kind, it.rec]);
+  const L = (items || placedItems()).map(x => [x.id, x.kind, x.rec]);
   L.sort((a, b) => (a[0] < b[0] ? -1 : 1));
   return JSON.stringify(L);
 }
@@ -382,7 +388,7 @@ function draftNow() {
   unlater(draftT); draftT = 0;
   if (!STU.scene || STU.listing !== 'ok' || atStation() || OPT.visit) return;
   if (!unsaved()) { draftDrop(); return; }
-  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: [...STU.items.values()].map(it => [it.id, it.kind, it.rec]) }));
+  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]) }));
 }
 function draftDrop() { if (STU.scene) store.set(draftKey(), null); }
 function offerDraft() {

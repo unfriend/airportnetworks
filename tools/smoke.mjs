@@ -2827,6 +2827,24 @@ await step('design: the intro ends at the table', async () => {
     // Make a group... then Done with only that item: as if never pressed (its step taken back)
     const one = await ss(`(() => { const u = UNDO.length; select('fig001'); itemAct('mkgroup'); const made = !!STU.gpick; gpickEnd(); return [made, UNDO.length - u, [...STU.items.values()].filter(i => i.kind === 'g').length]; })()`);
     if (!one[0] || one[1] !== 0 || one[2] !== 1) out.push('Make a group... and Done with one item: ' + JSON.stringify(one));
+    // a group picking its one member is left out of layout.json and of Unsaved changes (a saved layout reads back as it was
+    // saved); Undo of the pick that gave it its second member, after Done or while picking, leaves it picking again (made
+    // just now: Done then takes it back as if never made), never a lone group left behind
+    const und = await ss(`(() => {
+      const u = UNDO.length, gs = () => [...STU.items.values()].filter(i => i.kind === 'g'), k0 = keyOf(), out = {};
+      select('fig001'); itemAct('mkgroup'); const g2 = STU.gpick.id;
+      const Lo = layoutOut(); out.lone = [Lo.groups.length, keyOf() === k0, readLayout(JSON.parse(JSON.stringify(Lo))).bad];
+      groupToggle(g2, 'lmp001'); gpickEnd();
+      out.done = [members(STU.items.get(g2)).length, !!STU.gpick];
+      undo(); const G = STU.gpick;
+      out.after = [STU.items.has(g2), members(STU.items.get(g2) || {}).length, !!G && G.id === g2 && G.made && G.step === UNDO[UNDO.length - 1], STU.sel === g2];
+      gpickEnd(); out.gone = [STU.items.has(g2), gs().length, UNDO.length - u];
+      select('fig001'); itemAct('mkgroup'); const g3 = STU.gpick.id; groupToggle(g3, 'lmp001'); undo();
+      out.picking = [!!STU.gpick && STU.gpick.id === g3, members(STU.items.get(g3) || {}).length];
+      gpickEnd(); out.gone2 = [STU.items.has(g3), gs().length, UNDO.length - u, keyOf() === k0];
+      return out;
+    })()`);
+    if (JSON.stringify(und.lone) !== '[1,true,0]' || JSON.stringify(und.done) !== '[2,false]' || JSON.stringify(und.after) !== '[true,1,true,true]' || JSON.stringify(und.gone) !== '[false,1,0]' || JSON.stringify(und.picking) !== '[true,1]' || JSON.stringify(und.gone2) !== '[false,1,0,true]') out.push('a lone group in the layout, and Undo of a pick: ' + JSON.stringify(und));
     await ss(`(select(''), X.tab = 'scene', renderPanes(), 0)`);
     bad(out);
   });
@@ -2843,21 +2861,32 @@ await step('design: the intro ends at the table', async () => {
       undo(); out.back1 = JSON.stringify(collabState()) === s0;
       tcSetMode('rotate'); out.yOnly = [GL.tc.showX, GL.tc.showY, GL.tc.showZ];
       out.turn = [drag(h => h.quaternion.setFromEuler(new THREE.Euler(0.3, 0.6, 0.2, 'YXZ'))), G.check(a0, G.at(), P, [0, 0, 0], 0.6, 1)];
+      // (the pivot stays where it was turned about: the next turn or size goes about the same point)
+      out.piv = [groupBase(g).P.distanceTo(new THREE.Vector3(...P))];
+      itemAct('turn'); out.piv.push(groupBase(g).P.distanceTo(new THREE.Vector3(...P))); undo();
       undo(); out.back2 = JSON.stringify(collabState()) === s0;
       tcSetMode('scale');
       out.size = [drag(h => h.scale.set(1.5, 1, 1)), G.check(a0, G.at(), P, [0, 0, 0], 0, 1.5)];
+      out.piv.push(groupBase(g).P.distanceTo(new THREE.Vector3(...P)));
       undo(); out.back3 = JSON.stringify(collabState()) === s0;
       tcSetMode('translate');
       // the card: Turn 90°, ×2, then On the floor (lifted first)
       X.tab = 'item'; renderPanes();
       document.querySelector('#pane-item [data-act="i:turn"]').click(); out.c90 = G.check(a0, G.at(), P, [0, 0, 0], Math.PI / 2, 1); undo();
       document.querySelector('#pane-item [data-act="i:size"][data-v="2"]').click(); out.c2 = G.check(a0, G.at(), P, [0, 0, 0], 0, 2); undo();
-      drag(h => h.position.y += 0.4); const lo = groupBox(g, new THREE.Box3()).min.y; renderPanes();
-      document.querySelector('#pane-item [data-act="i:floor"]').click(); out.floor = [+lo.toFixed(3), +groupBox(g, new THREE.Box3()).min.y.toFixed(4), UNDO.length]; undo(); undo();
+      // (Curtain centred on the floor first: On the floor goes by the group's objects, not a cube's volume)
+      change(() => setRec('cube01', { p: [0, 0, 2] })); const m0 = groupBox(g, new THREE.Box3(), true).min.y;
+      drag(h => h.position.y += 0.4); const lo = groupBox(g, new THREE.Box3(), true).min.y; renderPanes();
+      document.querySelector('#pane-item [data-act="i:floor"]').click(); out.floor = [+(lo - m0).toFixed(3), +groupBox(g, new THREE.Box3(), true).min.y.toFixed(4), +(STU.items.get('cube01').rec.p[1] + m0).toFixed(4)]; undo(); undo(); undo();
       out.back4 = JSON.stringify(collabState()) === s0;
       // past the limits: ×20 holds Free's and Out's reach at 20 m, and the card says so
       itemAct('size', 20); out.lim = [STU.items.get('fre001').rec.r, STU.items.get('out001').rec.r, STU.items.get('voi001').rec.r, g.note]; renderPanes(); out.limCard = /held at the limit/.test(document.querySelector('#pane-item').textContent); undo();
       out.back5 = JSON.stringify(collabState()) === s0 && !g.note;
+      // ×400: a place past 1 km is held there (Curtain), so every member is written (none left behind), and said
+      itemAct('size', 20); itemAct('size', 20);
+      const R = id => STU.items.get(id).rec;
+      out.far = [R('dan001').s, R('box001').s, R('cube01').size[0], Math.max(...['box001', 'dan001', 'fre001', 'out001', 'cube01'].map(id => Math.max(...R(id).p.map(Math.abs)))), /1 km/.test(g.note) && /Curtain/.test(g.note)];
+      undo(); undo(); out.back6 = JSON.stringify(collabState()) === s0;
       return out;
     })()`).catch(e => ({ err: e.message }));
     const out = [];
@@ -2866,7 +2895,9 @@ await step('design: the intro ends at the table', async () => {
     for (const k of ['move', 'turn', 'size']) if (r[k][0] !== 1 || r[k][1].length) out.push(`${k} with the arrows (one Undo step, every member exactly): ` + JSON.stringify(r[k]));
     if (JSON.stringify(r.yOnly) !== '[false,true,false]') out.push('turning shows the vertical ring only: ' + JSON.stringify(r.yOnly));
     if (r.c90.length || r.c2.length) out.push('the card\'s Turn 90° and ×2: ' + JSON.stringify([r.c90, r.c2]));
-    if (Math.abs(r.floor[0] - 0.4) > 0.002 || Math.abs(r.floor[1]) > 0.001) out.push('On the floor (lifted 0.4 m first): ' + JSON.stringify(r.floor));
+    if (Math.abs(r.floor[0] - 0.4) > 0.002 || Math.abs(r.floor[1]) > 0.001 || Math.abs(r.floor[2]) > 0.002) out.push('On the floor (lifted 0.4 m first, Curtain centred on the floor): ' + JSON.stringify(r.floor));
+    if (r.piv.length !== 3 || r.piv.some(d => d > 0.002)) out.push('the pivot after a turn of 0.6 rad, a quarter turn more and a size (kept where it was turned about): ' + JSON.stringify(r.piv));
+    if (r.far[0] !== 400 || r.far[1] !== 400 || r.far[2] !== 100 || r.far[3] !== 1000 || !r.far[4] || !r.back6) out.push('×400: every member written, a place held at 1 km and said: ' + JSON.stringify([r.far, r.back6]));
     if (r.lim[0] !== 20 || r.lim[1] !== 20 || r.lim[2] !== 20 || !/Free/.test(r.lim[3]) || !/Out/.test(r.lim[3]) || /Voice/.test(r.lim[3]) || !r.limCard) out.push('×20: the reach held at 20 m and said: ' + JSON.stringify(r.lim));
     if (!r.back1 || !r.back2 || !r.back3 || !r.back4 || !r.back5) out.push('Undo did not bring the scene back: ' + JSON.stringify([r.back1, r.back2, r.back3, r.back4, r.back5]));
     bad(out);
@@ -2936,6 +2967,14 @@ await step('design: the intro ends at the table', async () => {
       X.tab = 'items'; renderPanes(); document.querySelector('#pane-items li[data-act="linkg"][data-v="' + gid + '"]').click(); out.row = L();
       out.steps = UNDO.length - u;
       STU.pick = null; while (UNDO.length > u) undo(); select(''); X.tab = 'scene';
+      // a cube in a group of cubes alone (nothing a cube can list): pointed at while picking, its group is selected (as a
+      // click on any member selects its group), which ends the pick, as pointing at an ungrouped cube does
+      putItem('pad001', 'c', norm('c', { name: 'Pad', p: [-4, 1, 0] })); putItem('pad002', 'c', norm('c', { name: 'Pad 2', p: [-4, 1, 2] }));
+      putItem('pads01', 'g', norm('g', { name: 'Pads', items: ['pad001', 'pad002'] }));
+      select('lmp001'); itemAct('pickFor', 'show'); const sh0 = L(); pressItem('pad001');
+      out.pads = [STU.sel, !!STU.pick, L() === sh0];
+      for (const id of ['pads01', 'pad001', 'pad002']) removeItem(id);
+      select('');
       // the state
       const s0 = collabState(), same = () => { const a = J(collabState()); collabApply(JSON.parse(a)); return J(collabState()) === a; };
       out.state = [J(s0['g.' + gid]), same()];
@@ -2965,6 +3004,7 @@ await step('design: the intro ends at the table', async () => {
     const out = [];
     if (r.err) { bad(['cube pick and state: ' + r.err]); return; }
     if (r.add !== 'box001,dan001,fre001,hol001,out001,voi001' || r.rem !== 'hol001' || r.cube[0] !== r.add || r.cube[1] !== 'lmp001' || r.row !== 'hol001' || r.steps !== 4) out.push('a cube\'s pick toggling the group\'s members: ' + JSON.stringify(r));
+    if (JSON.stringify(r.pads) !== '["pads01",false,true]') out.push('a cube in a group of cubes alone, pointed at while picking: its group selected, the pick ended: ' + JSON.stringify(r.pads));
     if (!r.state[1] || !/"items":\["box001","dan001","fre001","voi001","out001","cube01"\]/.test(r.state[0])) out.push('the state with the group: ' + JSON.stringify(r.state));
     if (r.norm[0] !== null || r.norm[1] !== null || r.norm[2] !== null || r.norm[3] !== '{"name":"Group","items":["box001","dan001"]}' || !/^\{"name":"Lamps and things Lamps and things[^"]*","items":\["dan001"\]\}$/.test(r.norm[4]) || JSON.parse(r.norm[4]).name.length > 60) out.push('norm: ' + JSON.stringify(r.norm));
     if (!r.badRoom) out.push('a bad group record from the room was taken');
@@ -2986,7 +3026,9 @@ await step('design: the intro ends at the table', async () => {
       ctl(a, [0, 1.6, 0]); a.hover = { kind: 'item', id: 'dan001' }; xrPress(a); const s1 = STU.sel; xrPress(a); out.sel = [s1 === gid, STU.sel];
       // the grip on the box (the group selected): the whole group, carried 0.3 m along x
       select(gid);
-      const P = groupBase(g).P.toArray(), pw = GL.items.localToWorld(V(...P)), a0 = G.at(), u = UNDO.length;
+      // (the pivot once every model is built: G.at() steps the items, and the dancer, put back by the last step's Undo, is
+      // built only then; until it is, her middle is her place)
+      const a0 = G.at(), P = groupBase(g).P.toArray(), pw = GL.items.localToWorld(V(...P)), u = UNDO.length;
       ctl(a, [pw.x, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true); out.target = a.grab && a.grab.target;
       ctl(a, [pw.x + 0.3, pw.y, pw.z]); carry(a, 0.016); xrGrab(a, false);
       out.carry = [G.check(a0, G.at(), P, [0.3, 0, 0], 0, 1), UNDO.length - u];
@@ -3014,6 +3056,25 @@ await step('design: the intro ends at the table', async () => {
       ctl(a, [bw.x + 0.3, bw.y, bw.z]); carry(a, 0.016); xrGrab(a, false);
       out.aloneMoved = [+(STU.items.get('box001').rec.p[0] - a0.box001.rec.p[0]).toFixed(3), +(STU.items.get('dan001').rec.p[0] - a0.dan001.rec.p[0]).toFixed(3)];
       undo();
+      // the box carried alone by one hand, the other's grip on the dancer: the dancer alone too (never the group round the
+      // box in the first hand), each where its hand puts it, one Undo step
+      const u2 = UNDO.length;
+      ctl(a, [bw.x, bw.y, bw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      const dw = STU.items.get('dan001').holder.getWorldPosition(V());
+      ctl(b, [dw.x, dw.y, dw.z]); b.hover = { kind: 'item', id: 'dan001' }; xrGrab(b, true);
+      out.solo = [a.grab && a.grab.target, b.grab && b.grab.target];
+      ctl(b, [dw.x, dw.y, dw.z + 0.2]); carry(a, 0.016); carry(b, 0.016); xrGrab(b, false); xrGrab(a, false);
+      const R2 = id => STU.items.get(id).rec;
+      out.soloMoved = [+(R2('dan001').p[2] - a0.dan001.rec.p[2]).toFixed(3), +(R2('box001').p[0] - a0.box001.rec.p[0]).toFixed(3), JSON.stringify(R2('fre001')) === JSON.stringify(a0.fre001.rec), UNDO.length - u2];
+      undo();
+      // the group held, then gone from the room: its change ends in the next frame (Undo works at once), nothing held
+      select(gid);
+      ctl(a, [pw.x, pw.y, pw.z]); a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      ctl(a, [pw.x + 0.2, pw.y, pw.z]); carry(a, 0.016);
+      const st = JSON.parse(JSON.stringify(collabState())); delete st['g.' + gid]; collabApply(st);
+      const open = SNAP !== null; xrLost();
+      out.lost = [open, a.grab, SNAP, STU.items.has(gid), STU.items.get('box001').carry];
+      xrGrab(a, false); undo(); out.lostBack = [STU.items.has(gid), K(collabState()) === k0];
       // the headset's cards: the group's (its rows, Add or remove items... pressed and pressed again) and a member's
       const draw = () => { for (const P2 of XR.panels) { P2.last = ''; P2.t = -1e9; panelTick(P2, performance.now() + 1e6); } };
       const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) seen.add(q.id); } X.scroll = {}; draw(); return seen; };
@@ -3039,6 +3100,8 @@ await step('design: the intro ends at the table', async () => {
     if (r.turnFixed.length) out.push('the hand\'s turn with free moving off (the group only moves): ' + JSON.stringify(r.turnFixed));
     if (r.two[0].length || r.two[1] !== 1) out.push('both grips: twice the size about the pivot: ' + JSON.stringify(r.two));
     if (r.alone !== 'item' || r.aloneMoved[0] !== 0.3 || r.aloneMoved[1] !== 0) out.push('a member selected alone moves alone: ' + JSON.stringify([r.alone, r.aloneMoved]));
+    if (JSON.stringify(r.solo) !== '["item","item"]' || r.soloMoved[0] !== 0.2 || r.soloMoved[1] !== 0 || !r.soloMoved[2] || r.soloMoved[3] !== 1) out.push('the box carried alone, the other grip on the dancer: the dancer alone: ' + JSON.stringify([r.solo, r.soloMoved]));
+    if (JSON.stringify(r.lost) !== '[true,null,null,false,false]' || JSON.stringify(r.lostBack) !== '[true,true]') out.push('the group gone from the room while held: its change ends, Undo works: ' + JSON.stringify([r.lost, r.lostBack]));
     if (r.gmiss.length || JSON.stringify(r.gpick) !== '[true,true,true,false]') out.push('the headset\'s group card: ' + JSON.stringify({ miss: r.gmiss, gpick: r.gpick }));
     if (r.mmiss.length || !r.selg[0] || !r.selg[1]) out.push('the headset\'s member card: ' + JSON.stringify({ miss: r.mmiss, selg: r.selg }));
     if (!r.back) out.push('the scene did not come back after the headset\'s checks');
@@ -3153,9 +3216,9 @@ await step('design: the intro ends at the table', async () => {
       const N = x => norm('o', Object.assign({ file: 'box.glb', p: [0, 0, 0] }, x));
       const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
       return [s['o.box001'].faces, J(collabState()) === a, N({}).faces === undefined, N({ faces: 'both' }).faces, N({ faces: 'outside' }), N({ faces: '' }), N({ faces: 1 }),
-        L.objects.find(o => o.id === 'box001').faces, back.items.find(x => x.id === 'box001').rec.faces, back.bad, 'faces' in L.objects.find(o => o.id === 'dan001')];
+        L.objects.find(o => o.id === 'box001').faces, back.items.find(x => x.id === 'box001').rec.faces, back.bad, 'faces' in L.objects.find(o => o.id === 'dan001'), !!N({ faces: null }) && !('faces' in N({ faces: null }))];
     })()`);
-    if (JSON.stringify(st) !== '["inside",true,true,"both",null,null,null,"inside","inside",0,false]') out.push('the state and layout.json with faces: ' + JSON.stringify(st));
+    if (JSON.stringify(st) !== '["inside",true,true,"both",null,null,null,"inside","inside",0,false,true]') out.push('the state and layout.json with faces: ' + JSON.stringify(st));
     // the cards: the page's Faces row (one Undo step each), the headset's row pressed
     await ss(`(select('box001'), X.tab = 'item', renderPanes(), 0)`);
     const u0 = await ss('UNDO.length');
