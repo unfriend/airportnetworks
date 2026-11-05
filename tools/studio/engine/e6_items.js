@@ -331,8 +331,9 @@ function sceneClock(now) {
 // Each person's own (never shared): a cube is active for you while your head is inside it (the headset's head; on a
 // page the camera in Walk view; nobody in Orbit view); a 'stay' cube, once entered, until the scene opens again or
 // Reset what I have seen. For an item: the active cubes that list it in show (S) and in hide (H): shown if S has any and
-// H none, hidden if H has any and S none, both: the one that became active last decides; neither: hidden if any cube
-// shows it (it waits for its cube), else shown
+// H none, hidden if H has any and S none, both: the one entered last decides (a 'stay' cube walked into again counts as
+// entered again: the owner's show and hide pair of stay cubes works every time); neither: hidden if any cube shows it
+// (it waits for its cube), else shown
 const _hp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
@@ -353,8 +354,8 @@ function triggerStep(now) {
     c.inside = !!hp && inCube(c.rec, hp);
     if (c.inside && c.rec.mode === 'stay') STU.seen.add(c.id);
     const act = c.inside || (c.rec.mode === 'stay' && STU.seen.has(c.id));
-    if (act && !c.act) c.since = ++STU.act;
-    c.act = act;
+    if ((act && !c.act) || (c.inside && !c.wasIn)) c.since = ++STU.act;   // (entered, also again while it stays active)
+    c.act = act; c.wasIn = c.inside;
     if (!act) continue;
     for (const i of c.rec.show) S.set(i, Math.max(S.get(i) || 0, c.since));
     for (const i of c.rec.hide) H.set(i, Math.max(H.get(i) || 0, c.since));
@@ -381,7 +382,7 @@ function shownFor(p) {
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
-function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = false; dirty(true); }
+function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -592,6 +593,17 @@ function editStep(editing) {
     t.updateWorldMatrix(true, false);
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
+  // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it
+  const fl = editing && STU.flash && performance.now() - STU.flash.at < FLASH_MS ? STU.items.get(STU.flash.id) : null, FB = GL.flashBox;
+  FB.visible = !!fl;
+  if (fl) {
+    if (fl.kind === 'o') { const t = fl.model ? fl.proxy : fl.greyHit; t.updateWorldMatrix(true, false); FB.matrix.copy(t.matrixWorld); }
+    else { const b = _fb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fs.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fs).max(_fm); FB.matrix.compose(_sw, _fq, _fs); }
+    FB.matrixWorldNeedsUpdate = true;
+    const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
+    FB.material.color.setHex(hid ? 0xff5a4b : 0x3ee08f);
+    FB.material.opacity = 0.35 + 0.65 * Math.abs(Math.cos((performance.now() - STU.flash.at) / FLASH_MS * Math.PI * 4));
+  } else if (STU.flash && !editing) STU.flash = null;
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
@@ -620,9 +632,10 @@ function editStep(editing) {
   }
 }
 // what editing draws: the selected and the pointed-at object's outlines (over everything), a cube's lines
+const FLASH_MS = 1600, _fb = new THREE.Box3(), _fs = new THREE.Vector3(), _fm = new THREE.Vector3(0.05, 0.05, 0.05), _fq = new THREE.Quaternion();
 function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
-  for (const [k, col, o] of [['selBox', 0x46d9ff, 0.95], ['hoverBox', 0x9fe8ff, 0.5]]) {
+  for (const [k, col, o] of [['selBox', 0x46d9ff, 0.95], ['hoverBox', 0x9fe8ff, 0.5], ['flashBox', 0x3ee08f, 1]]) {
     const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: o, depthTest: false, depthWrite: false }));
     B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
     GL.scene.add(B); GL[k] = B;
@@ -1034,6 +1047,10 @@ const ITEM_ACT = {
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
   pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; },
+  // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
+  flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
+  open: (it, id) => { if (STU.items.has(id)) select(id); },
+  unlist: (it, v) => { const [l, id] = v.split(':'); if (l === 'show' || l === 'hide') setRec(it.id, { [l]: it.rec[l].filter(x => x !== id) }); },
   // a sound: its volume and its full-volume distance in steps, looping or not
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
@@ -1056,7 +1073,7 @@ const ITEM_ACT = {
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;

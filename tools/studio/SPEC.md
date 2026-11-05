@@ -211,8 +211,8 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
 - `mode`: `'while'` (active while you are inside) or `'stay'` (once you have been inside it stays active for you until
   the scene is opened again or *Reset what I have seen* is pressed).
 - `show` and `hide`: any number of objects and sounds each. For an item: the cubes now active for you that list it in
-  `show` (S) and in `hide` (H). Shown if S has any and H none; hidden if H has any and S none; both: the one that became
-  active most recently decides. Neither: hidden if any cube lists it in `show` (it waits for its cube), else shown.
+  `show` (S) and in `hide` (H). Shown if S has any and H none; hidden if H has any and S none; both: the one entered most
+  recently decides (a `'stay'` cube walked into again counts as entered again, v117). Neither: hidden if any cube lists it in `show` (it waits for its cube), else shown.
 - Shown and hidden fade over 0.4 s (opacity, then `visible` off; a sound's gain). An object shown with `start:
   'shown'` starts its animation from the beginning; a sound with `start: 'shown'` plays from the start each time it is
   shown, and stops (fading) when hidden. Items in no list are unaffected.

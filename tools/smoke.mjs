@@ -1306,6 +1306,12 @@ await step('design: the intro ends at the table', async () => {
         F([3, 1.6, 3]);
         const two = [F([-0.4, 1.6, 0]), F([0.3, 1.6, 0]), F([-0.4, 1.6, 0]), F([3, 1.6, 3]), F([0.9, 1.6, 0]), F([0.3, 1.6, 0]), F([0.9, 1.6, 0])];
         if (two.join() !== 'true,false,true,false,false,true,false') out.push('two cubes (first, both, first; out; second, both, second): ' + two.join());
+        // both staying once entered (the owner's pair, 5 November 2026: one shows the figure, the other hides it): walking
+        // into the one that shows it again shows it again, every time (the one entered last decides)
+        setRec('cube01', { mode: 'stay' }); putItem('cube02', 'c', norm('c', { name: 'Hall', p: [0.5, 1, 0], yaw: 0, size: [1.2, 2, 1.2], mode: 'stay', show: [], hide: ['fig001'] })); resetSeen();
+        const stay = [F([3, 1.6, 3]), F([-0.4, 1.6, 0]), F([0.9, 1.6, 0]), F([3, 1.6, 3]), F([-0.4, 1.6, 0]), F([3, 1.6, 3]), F([0.9, 1.6, 0]), F([-0.4, 1.6, 0])];
+        if (stay.join() !== 'false,true,false,false,true,true,false,true') out.push('two staying cubes (out; shows; hides; out; shows again; out; hides again; shows again): ' + stay.join());
+        setRec('cube01', { mode: 'while' }); resetSeen();
         removeItem('cube02'); F([3, 1.6, 3]);
         // editing: what a cube hides is drawn faint (0.3), so it can still be picked
         setEdit(true); shownFor([0, 1.6, 0]); s = step(5);
@@ -1346,6 +1352,26 @@ await step('design: the intro ends at the table', async () => {
     if (c3.show.includes('box001') || !c3.hide.includes('box001')) bad.push('Undo did not take the link back: ' + JSON.stringify(c3));
     await ss('(undo(), undo(), 0)');
     if (JSON.stringify(await ss(`STU.items.get('box001').rec.p`)) !== '[-1,0.25,-2]' || await ss(`STU.items.get('cube01').rec.size.join()`) !== '1.2,2,1.2' || await ss('unsaved()')) bad.push('Undo did not bring the layout back: ' + JSON.stringify(await ss('collabState()')));
+    // a cube's card (v117): what it shows and hides as buttons; one flashes the item in the scene (red: hidden by it),
+    // Its card opens that item's card, ✕ takes it off the list (one change, Undo)
+    await ss(`(select('cube01'), X.tab = 'item', renderPanes(), 0)`);
+    const cardB = await ss(`[...document.querySelectorAll('#pane-item button[data-act^="i:"]')].map(b => b.dataset.act + '=' + b.dataset.v).filter(t => /flash|open|unlist/.test(t)).join()`);
+    if (cardB !== 'i:flash=fig001,i:open=fig001,i:unlist=show:fig001,i:flash=snd001,i:open=snd001,i:unlist=show:snd001,i:flash=box001,i:open=box001,i:unlist=hide:box001') bad.push('the cube\'s card lists: ' + cardB);
+    await stp.click('#pane-item button[data-act="i:flash"][data-v="box001"]');
+    const fl = await ss(`(editStep(true), [STU.flash && STU.flash.id, GL.flashBox.visible, GL.flashBox.material.color.getHex()])`);
+    if (!(fl[0] === 'box001' && fl[1] && fl[2] === 0xff5a4b)) bad.push('a press on the box in the cube\'s list did not flash it (red): ' + JSON.stringify(fl));
+    await ss(`(STU.flash.at -= 2000, editStep(true), 0)`);
+    if (await ss('GL.flashBox.visible')) bad.push('the flash did not end after 1.6 s');
+    await stp.click('#pane-item button[data-act="i:open"][data-v="snd001"]');
+    if (await ss('STU.sel') !== 'snd001' || await ss('X.tab') !== 'item') bad.push('Its card did not open the sound\'s card: ' + await ss('STU.sel'));
+    await ss(`(select('cube01'), X.tab = 'item', renderPanes(), 0)`);
+    const u1 = await ss('UNDO.length');
+    await stp.click('#pane-item button[data-act="i:unlist"][data-v="hide:box001"]');
+    const c5 = await ss(`STU.items.get('cube01').rec`);
+    if (c5.hide.includes('box001') || await ss('UNDO.length') !== u1 + 1) bad.push('✕ did not take the box off the cube\'s Hides as one change: ' + JSON.stringify(c5));
+    await ss('undo()');
+    if (!(await ss(`STU.items.get('cube01').rec.hide`)).includes('box001')) bad.push('Undo did not put the box back on the cube\'s Hides');
+    await ss(`(select(''), 0)`);
     // added and deleted: a cube, a sound and an object, each selected; Delete takes it off every cube's lists
     const ids = await ss(`[addCube(), addSound('tone.wav'), addModel('box.glb')]`);
     if (ids.some(i => !i) || await ss('STU.items.size') !== 7) bad.push('Add did not place a cube, a sound and a box: ' + JSON.stringify(ids));

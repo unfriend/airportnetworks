@@ -293,7 +293,15 @@ function itemBlocks(it, B, ed) {
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
       { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
-    B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Shows', r.show.length ? r.show.map(nameOf).join(', ') : 'nothing'], ['Hides', r.hide.length ? r.hide.map(nameOf).join(', ') : 'nothing']] });
+    B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
+    // what it shows and hides, each a button (it flashes in the scene), its card, and ✕ (off the list) (the owner, 5 November 2026)
+    for (const [l, word] of [['show', 'Shows'], ['hide', 'Hides']]) {
+      if (!r[l].length) { B.push({ kv: [[word, 'nothing']] }); continue; }
+      r[l].forEach((id, k) => B.push({ label: k ? '' : `${word} (${r[l].length})`, row: [
+        { id: `flash:${l}:${id}`, label: (l === 'show' ? '✓ ' : '✕ ') + nameOf(id), act: 'i:flash', v: id, col: l === 'hide' ? 'red' : undefined },
+        { id: `open:${l}:${id}`, label: 'Its card', act: 'i:open', v: id, dis: !STU.items.has(id) },
+        { id: `unlist:${l}:${id}`, label: '✕', act: 'i:unlist', v: l + ':' + id, dis }] }));
+    }
     B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
       { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },

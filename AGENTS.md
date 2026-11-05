@@ -3158,8 +3158,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
 - **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
   a page the camera in Walk view, never the orbit camera), `while` only then, `stay` from then on until the scene is
   opened again or *Reset what I have seen*. For an item, of the cubes active for you, those listing it in `show` (S) and
-  in `hide` (H): shown if S has any and H none, hidden if H has any and S none, both: the one that became active last
-  decides; neither: hidden if any cube lists it in `show` (it waits for its cube), else shown. Shown and hidden fade
+  in `hide` (H): shown if S has any and H none, hidden if H has any and S none, both: the one entered last decides (a
+  `stay` cube walked into again counts as entered again, v117: before, it counted only the first time, so with a `stay`
+  cube showing an item and another hiding it the item stayed hidden after the first round, the owner's report of 5
+  November 2026); neither: hidden if any cube lists it in `show` (it waits for its cube), else shown. Shown and hidden fade
   over 0.4 s; `start: 'shown'` starts an object's animation, or a sound, from its beginning each time it is shown (a
   sound stops, fading, when hidden). Never shared, never in `state()`: ten headsets each see what their own place
   reveals. While editing every cube is drawn see-through (its colour at about 0.18, brighter edges, its name, brighter
@@ -3307,7 +3309,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   cube*, *Convert every model*), **Item** (the selection's card and its controls: lit or as scanned, the clip and
   *Loop* / *Once* / *Off*, *Always* / *When shown*, *Turn 90°*, *Stand up*, *On the floor*, size steps,
   *Duplicate*, *Delete*; a cube's size steps, *While inside* / *Stays once entered*, *Pick what it shows* and *Pick
-  what it hides*, pointing at items to add or remove them until *Done*; a sound's volume, reach, loop and start),
+  what it hides*, pointing at items to add or remove them until *Done*, and what it shows and hides as buttons (v117:
+  one flashes the item's box in the scene for 1.6 s while editing, green if the cube shows it and red if it hides it;
+  *Its card* opens the item's card; ✕ takes it off the list, one Undo step); a sound's volume, reach, loop and start),
   **Items** (every item; on a page a tick box per item in a selected cube's Shows and Hides columns) and **Upload**
   (pages only). `&tab=scene|add|item|items|upload`, `&view=walk`.
 - **Saving**: *Save* writes what is placed now to the relay's `layout.json` (for everyone at a station); a read-only

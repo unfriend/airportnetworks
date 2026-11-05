@@ -43,6 +43,33 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v117 (5 November 2026; FORMAT networks-32 unchanged, shell 116: only the studio changed, so running pages
+  swap it in), on `dev` first: two small studio fixes from the owner's list.**
+  - Trigger cubes: the cube entered last decides, and a *Stays once entered* cube walked into again counts as entered
+    again. Before, it counted only the first time, so with a staying cube showing an item and another hiding it the
+    item stayed hidden after the first round (the owner's report; both their cubes were on *Stays once entered*).
+    `triggerStep` in `tools/studio/engine/e6_items.js` (`c.wasIn`); a smoke case walks out, into the one that shows,
+    the one that hides, out, back into the one that shows (shown again) and on.
+  - A cube's card lists what it shows and hides as buttons: one flashes the item's box in the scene for 1.6 s while
+    editing (green if the cube shows it, red if it hides it), *Its card* opens that item's card, ✕ takes it off the
+    list (one Undo step). Page and headset (the same blocks). Smoke checks the buttons, the flash and its end, the card
+    and ✕ with Undo.
+  - Untested on a headset: the card's buttons and the flash there.
+  - **The owner's decisions on their list (5 November), queued for the next batch (v118, started after their token
+    reset):** each studio scene as its own circle (*Studio: atelier* under Add, several studio circles in a room) and
+    *New scene* from the headset with the shell's keypad; selecting a model from inside its box when nothing else is
+    under the ray, and *Hold it* on a selected item's card; stick up and down scrolling the headset panel the ray points
+    at (the left stick's walk paused meanwhile), on every headset panel; a frame-rate counter as a headset setting
+    beside Subtitles (each headset's own; in the studio also triangles and draw calls); *Add from another scene*
+    (copies a file in, so each scene stays self-contained); and entering circles by clicking, a room setting (in `look`,
+    a FORMAT bump): with it on, walking in does nothing, a press on a circle's card or icon asks *Go in* / *Not now* on a
+    small panel for 10 s, the story stays at its circle, the lobby the same. Waiting on the owner: the invisible
+    rigged dancer (they look into it; no code cause found: textures not found, units, or a cube showing it are the
+    likely ones), which app makes their scans (before decimating or tiles), the room test's report (the page's Send
+    does not work on their relay: Save report, then Copy or Download). Not now: lights (as they are), cube timers,
+    deleting files and scenes (the owner deletes in Cloudflare), compressed textures (KTX2, later), iPad, iPhone and
+    Vision Pro (estimates given: no WebXR on iPhone and iPad; Vision Pro's Safari has VR only), a relay for the main
+    site (the mechanism is in v116; a second Coolify app when wanted).
 - **networks-v116 (5 November 2026; FORMAT networks-32 unchanged, shell 116), on `dev` first: the test place on
   Coolify, as the owner settled it that day.** The owner went through three plans in an afternoon (v114's: the main site
   on Coolify and a test copy on Pages using its relay; then Coolify as the test place; then the main site on Coolify and
