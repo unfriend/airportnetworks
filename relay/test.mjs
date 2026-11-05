@@ -843,6 +843,9 @@ try {
       'ping with no Origin (the health check, the relay\'s own page): answered, unlisted: true, Vary: Origin, no CORS needed');
     r = await get('/api/ping', { Origin: APP });
     ok(r.status === 200 && r.headers['access-control-allow-origin'] === APP && /Origin/.test(r.headers.vary), `the app's origin (${APP}): CORS for it alone (echoed)`);
+    r = await get('/api/ping', { Origin: 'https://unfriend.github.io' });
+    ok(r.status === 200 && r.headers['access-control-allow-origin'] === 'https://unfriend.github.io', 'the test copy on GitHub Pages (https://unfriend.github.io): allowed too, CORS for it');
+    ok((await get('/api/ping', { Origin: 'https://other.github.io' })).status === 403, 'another GitHub Pages site: 403');
     for (const o of [EVIL, 'null', 'https://stories.lbi-netmed.com.evil.example', 'http://stories.lbi-netmed.com']) {
       r = await get('/api/ping', { Origin: o });
       ok(r.status === 403 && !r.headers['access-control-allow-origin'], `another origin is refused: ${o} (403, no CORS)`);

@@ -895,7 +895,8 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   `shots/`, `gen/`, `data/`), one build at a time, a moment after the last
   change; a failed build shows in the page's bar. A page served by a watching
   relay does not ask for `version.json`.
-- **On the live site** (GitHub Pages, the relay on Coolify): `version.json`,
+- **On the live site** (GitHub Pages, the relay on Coolify; since v114 the relay on Coolify can be the main server,
+  with GitHub Pages as the test copy): `version.json`,
   written by `node tools/release.mjs` (a release step), is asked for 3 s after
   the start, about once a minute, when the page comes back into view and when a
   new service worker takes over (always the server's: `?t=` and `no-store`, and
@@ -1894,6 +1895,17 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   on the same Wi-Fi as the headsets and serves the app itself
   (`node relay/server.mjs --lan`, see `relay/README.md`); GitHub Pages serves
   everything else, and a copy there can join a relay elsewhere with `&relay=`.
+  The main server (v114; the owner, 5 November 2026: "make that my main server
+  while keeping the github pages setup for dev and tests", and "the testserver
+  could then use the same relay"): the relay on Coolify serves the app at
+  `https://stories.lbi-netmed.com/` (once the owner has moved the name from GitHub
+  Pages: `relay/README.md`, "The main server"), and the test copy on GitHub Pages
+  (`https://unfriend.github.io/airportnetworks/`) joins its rooms with no setup:
+  `HOME_RELAY` in `shared.js` gives a page on that host `wss://stories.lbi-netmed.com`
+  as its relay unless a link, a relay typed in or one kept on the device says
+  otherwise (keyed by the page's host: never this machine, a LAN or the tests),
+  and `--public`'s default origins are the app's and the test copy's
+  (`APP_ORIGIN`, `TEST_ORIGIN` in `relay/server.mjs`).
   On a public server (the owner's Coolify) it runs with `--public` (3 November
   2026; `RELAY_ARGS="--proxy 1 --public"` in its environment; `relay/README.md`,
   "Public hosting on Coolify"): only the app's pages and its own may open a

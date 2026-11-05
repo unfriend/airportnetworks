@@ -53,7 +53,10 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   OPT.token = String(e.COLLAB_TOKEN || '').trim();
   OPT.scenes = String(e.COLLAB_SCENES || '').trim();
 }
-const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // where the app lives (GitHub Pages): --public's origin unless --origin says
+const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // the app's main address (since v114 this relay on Coolify can serve it
+// there; GitHub Pages before): --public's first origin unless --origin says
+const TEST_ORIGIN = 'https://unfriend.github.io';   // the test copy on GitHub Pages, which joins this relay's rooms
+// (shared.js, HOME_RELAY): --public's second origin
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
@@ -84,8 +87,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --ffmpeg-limit <s>  one conversion may take this long (180)
   --app <url>      where /upload sends people when the relay does not serve the app (the --origin, else ${APP_ORIGIN}/)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
-  --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
-                   --logs only with a token, and --scenes only with a password
+  --public         --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64, --logs only with a token, --scenes
+                   only with a password, and --origin ${APP_ORIGIN},${TEST_ORIGIN} (the app and its test copy)
   --origin <list>  only pages from these origins (comma separated, may be repeated) and the relay's own pages may open
                    a socket or read the API (CORS for them alone; other origins 403)
   --allow-no-origin  with --origin or --public: also sockets that send no Origin (not a browser: tools, scripts)
@@ -133,7 +136,7 @@ for (const o of OPT.origin.map(s => s.trim()).filter(Boolean)) {
   }
   ORIGINS.add(u.origin);
 }
-if (PUB && !ORIGINS.size) ORIGINS.add(APP_ORIGIN);
+if (PUB && !ORIGINS.size) { ORIGINS.add(APP_ORIGIN); ORIGINS.add(TEST_ORIGIN); }
 const ORIGIN_RULE = ORIGINS.size > 0;
 const UNLISTED = PUB || OPT.unlisted;
 const orPublic = (v, dflt) => (v >= 0 ? v : PUB ? dflt : 0);

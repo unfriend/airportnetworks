@@ -281,6 +281,15 @@ Installed copies play narrations from their offline copy, so a replaced narratio
   owner); the github.io address redirects there (301). Everything a browser keeps (the installed app, settings, an
   anchored place, calibrations and their anchors, rooms kept on a device, Quest's shared space) belongs to the address,
   so it started afresh at the new one.
+- **Moving to the main server** (v114; the owner, 5 November 2026: "make that my main server while keeping the github
+  pages setup for dev and tests"): the relay on Coolify (Hetzner) takes the name `stories.lbi-netmed.com` and serves the
+  app there, and Pages keeps a test copy at `https://unfriend.github.io/airportnetworks/` once the custom domain is
+  taken off it. The owner's steps, in an order that never takes the site down, are in
+  [relay/README.md](../relay/README.md), "The main server: the app and the relay at one address". Until the owner says
+  it is done, this section describes Pages with the custom domain. Both copies publish `main` for now; the test copy
+  joins the main server's rooms by itself (`HOME_RELAY` in `shared.js`). After the switch, a release is live on the main
+  server once Coolify has deployed it (auto deploy, or Deploy by hand; off during an event), and on the test copy once
+  Pages has.
 - Pages publishes **everything** on main, not only the app. `tools/` and `docs/` can be downloaded from the live site
   too (and `ikerdata/` could, until it was removed from the repository on 3 November 2026). The relay, and its Docker image, serve only the app's files.
 - Pages sends `Cache-Control: max-age=600` and ETags (tags that let a browser ask whether a file changed). The update
@@ -300,7 +309,8 @@ saved settings and headset calibrations do not carry over from one address to an
 - **For an event**, see [relay/README.md](../relay/README.md) ("A session on one Wi-Fi, step by step") and
   [event-runbook.md](event-runbook.md). The relay serves the app from its own checkout. Bring it up to date with
   `git pull` before an event, not during one.
-- **The Pages copy** runs its rooms peer to peer (PeerJS's public introduction server and Cloudflare's STUN server; see
+- **The Pages copy** at `unfriend.github.io` uses `wss://stories.lbi-netmed.com` by itself (v114, `HOME_RELAY` in
+  `shared.js`), and the relay's `--public` lets its pages in. Any other copy on Pages (a fork) runs its rooms peer to peer (PeerJS's public introduction server and Cloudflare's STUN server; see
   [data-and-permissions.md](data-and-permissions.md) for what they see), or joins a relay somewhere else
   (`&relay=wss://...` in the room link). Both must have the same `FORMAT`. It cannot use a relay, or a relay's
   introduction server (`&peer=`), with a self-signed certificate.

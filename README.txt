@@ -340,7 +340,11 @@ own, which the others see in that person's colour. The robots move separately on
 machine on the same Wi-Fi as the headsets and serves the app itself (node
 relay/server.mjs --lan prints the https:// address to open on each headset; see
 relay/README.md). GitHub Pages serves everything else; a copy there can join a
-relay elsewhere with &relay=wss://... in the room link. #s=XYZ in a link joins
+relay elsewhere with &relay=wss://... in the room link. Since v114 the relay on
+the owner's server can be the main server (the app at
+https://stories.lbi-netmed.com/), and the test copy on GitHub Pages
+(https://unfriend.github.io/airportnetworks/) joins its rooms by itself; the
+steps are in relay/README.md, "The main server". #s=XYZ in a link joins
 room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
 device enters it once, in the Shared dialog or, in a headset, under the menu's
 Circles, Relay password (a keypad of lower-case letters and digits). The device
