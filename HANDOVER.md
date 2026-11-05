@@ -43,6 +43,35 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v115 (5 November 2026; FORMAT networks-32 unchanged, shell 115), on `dev` first: the main server and the
+  test copy, as the owner settled them that day.** The owner, after v114's plan (the main site moving to Coolify, the
+  test copy on Pages using its relay): first "i want the coolify to be the test place", then "all our pages on coolify
+  are served from lab.lbi-netmed.com", and last "i would like to host the main branch from github on the coolify server
+  and use that as stories.lbi-netmed.com while using the github dev branch hosted on github pages for testing with its
+  own relay running on coolify too"; asked in between, without the relay's password rooms run peer to peer, two Coolify
+  apps rather than one, a branch `dev`, and the test copy's scenes apart from the real ones.
+  - Where things go: app 1 on Coolify, branch `main`, at `https://stories.lbi-netmed.com/` (after the owner's switch;
+    first at `networks.lab.lbi-netmed.com`): the app with its relay and the studio's scenes (R2, `R2_PREFIX=main`).
+    GitHub Pages, branch `dev`, at `https://unfriend.github.io/airportnetworks/`: the test copy. App 2 on Coolify,
+    branch `dev`, at `networks-test.lab.lbi-netmed.com`: the test copy's relay (R2, `R2_PREFIX=test`). Every name under
+    `lab.lbi-netmed.com` already points at the Coolify server (`178.104.76.48`) with a wildcard certificate, so the two
+    lab names need no DNS; only `stories` moves (Namecheap). The owner's steps: `relay/README.md`, "The main server and
+    the test copy".
+  - The code: the test copy offers its relay instead of using it by default (`HOME_RELAY` in `shared.js`, by the page's
+    host; `homeOffer`, `homeTry`): its Shared dialog's *The relay* takes the password, and the headset menu's Circles tab
+    a *Relay password* row; the studio asks the offered relay for its scenes, so a 401 there asks for the password
+    too; accepted, the device keeps it and uses that relay; without it rooms run peer to peer; *Forget the password*
+    (out of a room) goes back. On the main site the relay serves the page, so it is used as any relay with a password
+    (asked once per device; rooms wait for it). `--public`'s default origins stay the main site's and the test copy's
+    (v114's), so both apps take the same `RELAY_ARGS`. v114's default relay for the test copy went.
+  - The release flow: work goes to `dev` first (the test copy updates by itself; `dev` has no `CNAME` file), then
+    `main` once the owner has tried it, and the main site takes it when the owner presses Redeploy on app 1
+    (`docs/setup-and-release.md`, section 4). Until the owner's switch, Pages still publishes `main` with the custom
+    domain, and the main site is v114 there.
+  - Tests: the relay test 609 good; the collab test's password round with the offered relay (shown while no relay is in
+    use, a room peer to peer without it, a wrong password changing nothing, the right one making it the device's relay
+    and a room start there, Forget giving the offer back, the studio's 401 asking for it and the password given there
+    taking it, a pretend headset's keypad) 13 good; the full run, smoke and the update test: TO FILL.
 - **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
   device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
   R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
@@ -85,7 +114,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     the code change is small. The test copy on GitHub Pages (`unfriend.github.io`) uses `wss://stories.lbi-netmed.com` by
     itself (`HOME_RELAY` in `shared.js`, by the page's host, so never a laptop or the tests), and `--public` lets its
     pages in (`TEST_ORIGIN` beside `APP_ORIGIN` in `relay/server.mjs`). The owner moves the name (Coolify's domain, the DNS
-    record, then Pages' custom domain off, in that order: `relay/README.md`, "The main server"); until the owner says it
+    record, then Pages' custom domain off, in that order; v115 changed the plan: `relay/README.md`, "The main server and the test copy"); until the owner says it
     is done, the live site is still GitHub Pages and the `CNAME` file stays. Releases still go to `main`, which both copies
     publish.
   - Tests: relay 609 good, the R2 signer 38 good (AWS's examples byte for byte); every build and the test scenes' listings
@@ -863,10 +892,10 @@ Before handing over (or making anything more public), someone has to decide thes
      studio's files on R2 with the rooms on Node. Open for the owner: the university's view of data on Cloudflare (a US
      company), a card, and the busiest day's number of sessions.
    - **Decided** (the owner, 5 November 2026): the relay on Coolify on Hetzner, the studio's scenes in R2 (built in v114,
-     `--scenes r2`), and the Coolify server as the app's main server at `stories.lbi-netmed.com`, with GitHub Pages as a
-     test copy at `unfriend.github.io/airportnetworks/` using the same relay (code in v114; the owner's DNS, Coolify and
-     Pages steps in `relay/README.md`, "The main server"). Releases stay on `main` for now; a test branch for Pages later,
-     only on the owner's word.
+     `--scenes r2`), and (v115) branch `main` on Coolify as the main site at `stories.lbi-netmed.com`, branch `dev` on
+     GitHub Pages as the test copy at `unfriend.github.io/airportnetworks/` with a relay of its own on Coolify
+     (`networks-test.lab.lbi-netmed.com`), offered by password, peer to peer without it. Work goes to `dev` first, then
+     `main` once the owner has tried it. The owner's steps: `relay/README.md`, "The main server and the test copy".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;

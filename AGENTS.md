@@ -895,8 +895,8 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   `shots/`, `gen/`, `data/`), one build at a time, a moment after the last
   change; a failed build shows in the page's bar. A page served by a watching
   relay does not ask for `version.json`.
-- **On the live site** (GitHub Pages, the relay on Coolify; since v114 the relay on Coolify can be the main server,
-  with GitHub Pages as the test copy): `version.json`,
+- **On the live site** (GitHub Pages until the owner's switch; since v115 the relay on Coolify serves `main` as the
+  main site, and GitHub Pages `dev` as the test copy): `version.json`,
   written by `node tools/release.mjs` (a release step), is asked for 3 s after
   the start, about once a minute, when the page comes back into view and when a
   new service worker takes over (always the server's: `?t=` and `no-store`, and
@@ -1895,17 +1895,32 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   on the same Wi-Fi as the headsets and serves the app itself
   (`node relay/server.mjs --lan`, see `relay/README.md`); GitHub Pages serves
   everything else, and a copy there can join a relay elsewhere with `&relay=`.
-  The main server (v114; the owner, 5 November 2026: "make that my main server
-  while keeping the github pages setup for dev and tests", and "the testserver
-  could then use the same relay"): the relay on Coolify serves the app at
-  `https://stories.lbi-netmed.com/` (once the owner has moved the name from GitHub
-  Pages: `relay/README.md`, "The main server"), and the test copy on GitHub Pages
-  (`https://unfriend.github.io/airportnetworks/`) joins its rooms with no setup:
-  `HOME_RELAY` in `shared.js` gives a page on that host `wss://stories.lbi-netmed.com`
-  as its relay unless a link, a relay typed in or one kept on the device says
-  otherwise (keyed by the page's host: never this machine, a LAN or the tests),
-  and `--public`'s default origins are the app's and the test copy's
-  (`APP_ORIGIN`, `TEST_ORIGIN` in `relay/server.mjs`).
+  The main server and the test copy (v115; the owner, 5 November 2026: "i would
+  like to host the main branch from github on the coolify server and use that as
+  stories.lbi-netmed.com while using the github dev branch hosted on github pages
+  for testing with its own relay running on coolify too"; `relay/README.md`, "The
+  main server and the test copy", has the owner's steps): app 1 on Coolify, branch
+  `main`, serves the app and its relay at `https://stories.lbi-netmed.com/` (and
+  `networks.lab.lbi-netmed.com`: every name under `lab.lbi-netmed.com` points at the
+  Coolify server with a wildcard certificate); GitHub Pages publishes branch `dev`
+  at `https://unfriend.github.io/airportnetworks/` (no custom domain, no `CNAME`
+  file on `dev`), whose relay is app 2 on Coolify, branch `dev`, at
+  `networks-test.lab.lbi-netmed.com`. The test copy offers that relay rather than
+  using it by default (`HOME_RELAY` in `shared.js`, keyed by the page's host, so
+  never this machine, a LAN or the tests, where `HOST.collab.homeRelay(url)` offers
+  one): while no relay is in use there (`homeOffer`), the Shared dialog has *The
+  relay* (a password field, `homeTry`) and the headset menu's Circles tab a *Relay
+  password* row opening the keypad page; the password accepted (there, or in *This
+  relay needs its password* after a 401 of the studio's, which asks the offered
+  relay for its scenes through `relayFind`), the device keeps it and uses that relay
+  from then on (`setRelay`, kept as one typed in); without it rooms run peer to peer
+  as on GitHub Pages before; *Forget the password*, out of a room, takes both off the
+  device and the offer is back. `--public`'s default origins are the main site's and
+  the test copy's (`APP_ORIGIN`, `TEST_ORIGIN` in `relay/server.mjs`), so both apps
+  take the same `RELAY_ARGS`; each keeps its scenes under its own `R2_PREFIX`
+  (`main`, `test`). Releases: work goes to `dev` (the test copy updates by itself),
+  then `main` once the owner has tried it, and app 1 takes it when the owner presses
+  Redeploy (v114 had planned the test copy on the main server's relay by default).
   On a public server (the owner's Coolify) it runs with `--public` (3 November
   2026; `RELAY_ARGS="--proxy 1 --public"` in its environment; `relay/README.md`,
   "Public hosting on Coolify"): only the app's pages and its own may open a

@@ -53,10 +53,10 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   OPT.token = String(e.COLLAB_TOKEN || '').trim();
   OPT.scenes = String(e.COLLAB_SCENES || '').trim();
 }
-const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // the app's main address (since v114 this relay on Coolify can serve it
-// there; GitHub Pages before): --public's first origin unless --origin says
-const TEST_ORIGIN = 'https://unfriend.github.io';   // the test copy on GitHub Pages, which joins this relay's rooms
-// (shared.js, HOME_RELAY): --public's second origin
+const APP_ORIGIN = 'https://stories.lbi-netmed.com';   // the app's main address (since v115 served by this relay on Coolify
+// from main; GitHub Pages before): --public's first origin unless --origin says
+const TEST_ORIGIN = 'https://unfriend.github.io';   // the test copy on GitHub Pages (branch dev), whose relay is a second one
+// on Coolify (shared.js, HOME_RELAY): --public's second origin, so one setting serves both relays
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>

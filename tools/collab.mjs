@@ -2648,6 +2648,83 @@ async function tokenRound() {
     check('password: Forget the password in the dialog\'s relay part takes it off this device, and the field asks for it again', fb && forgot && !(await kept(A)),
       JSON.stringify({ fb, forgot, a: await auth(A) }));
     await H.evaluate(() => window.__xr.end()).catch(() => {});
+    // ---- the relay a page offers (v115, HOME_RELAY: the main site on GitHub Pages offers the Coolify relay): a page whose
+    // own server is no relay (the main test relay's /api turned away for it, as GitHub Pages has none), offered this
+    // relay by the test hook. Without the password its rooms are not on the relay (here, with &peer=off, on this device);
+    // a wrong one changes nothing; the right one makes it this device's relay (kept), and a room then starts there;
+    // Forget the password, out of a room, gives the offer back. A pretend headset takes it through the menu's keypad
+    const hopen = async (hash, o = {}) => {
+      const ctx = await browser.newContext({ viewport: o.size || { width: 900, height: 700 } });
+      await ctx.route(base() + 'api/**', r => r.abort());   // (the page's own server is no relay here)
+      const page = await ctx.newPage();
+      page.on('pageerror', e => errors.push(e.stack || e.message));
+      page.on('console', m => { if (m.type() === 'error' && !/404|401|Failed to load resource|ERR_FAILED|WebSocket connection/.test(m.text())) errors.push(m.text()); });
+      await page.goto(base() + 'index.html' + hash, { timeout: 90000 });
+      await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+      pages.push(page);
+      return page;
+    };
+    const O = await hopen('#stories&peer=' + `127.0.0.1:${port}/peerjs`);   // (peer to peer through the test relay's introduction server, never the internet)
+    const offered = await O.evaluate(async u => { await HOST.collab.detect(); const o = HOST.collab.homeRelay(u); HOST.collab.dialog(true); return o; }, tb);
+    const box = () => O.evaluate(() => { const d = document.querySelector('#shared .sh-home'); return !!d && !d.hidden && getComputedStyle(d).display !== 'none' && !d.closest('[hidden]'); });
+    for (const p of [A, B, H]) await p.context().close().catch(() => {});   // (three pages drawing in software slow the next one down)
+    const shown0 = await until(O, () => { const d = document.querySelector('#shared .sh-home'); return !!d && !d.hidden; }, null, 15000);
+    const said = await O.evaluate(() => [document.querySelector('#shared .sh-homewhat').textContent, document.querySelector('#shared .sh-status').textContent]);
+    await O.evaluate(() => HOST.collab.create());
+    const local = await until(O, () => !!HOST.collab.code && HOST.collab.via === 'peer' && HOST.collab.status === 'open', null, 20000);
+    const o0 = await O.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, relay: HOST.collab.relay }));
+    await O.evaluate(() => { HOST.collab.leave(); HOST.collab.dialog(true); });
+    check('the relay a page offers: shown in the Shared dialog while no relay is in use (out of a room), saying rooms run peer to peer without it; a room started then is not on the relay',
+      offered === tb.replace(/\/$/, '') && shown0 && await box() && /peer to peer/.test(said[0]) && /relay's password/.test(said[1]) && local && o0.via === 'peer' && !o0.relay,
+      JSON.stringify({ offered, shown0, box: await box(), said, o0 }));
+    await O.fill('#shHome', 'wrong' + PASS.slice(5, 9));
+    await O.click('[data-sh="home"]');
+    const oWrong = await until(O, () => HOST.collab.auth().home === 'wrong' && /not the relay's password/.test(document.querySelector('#shared .sh-homenote').textContent), null, 8000);
+    const oStill = await O.evaluate(() => ({ relay: HOST.collab.relay, offer: HOST.collab.auth().offer }));
+    check('the relay a page offers: a wrong password is refused and said so; the device keeps no password and no relay, and the offer stays',
+      oWrong && !oStill.relay && !!oStill.offer && !(await kept(O)), JSON.stringify({ oWrong, oStill }));
+    await O.fill('#shHome', PASS);
+    await O.press('#shHome', 'Enter');
+    const oOk = await until(O, o => HOST.collab.relay === o && !HOST.collab.auth().offer && document.querySelector('#shared .sh-home').hidden, origin, 10000);
+    const oKept = await kept(O), oStored = await O.evaluate(() => localStorage.getItem('collabRelay'));
+    await O.evaluate(() => HOST.collab.create());
+    const oRoom = await until(O, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
+    check('the relay a page offers: the right password makes it this device\'s relay (kept, as one typed in, with its password), the offer goes, and a room then starts on it',
+      oOk && oKept === PASS && oStored === origin && oRoom, JSON.stringify({ oOk, kept: oKept === PASS, oStored, oRoom, a: await auth(O) }));
+    await O.evaluate(() => { HOST.collab.leave(); HOST.collab.dialog(true); });
+    await O.click('[data-sh="forget"]');
+    const oBack = await until(O, () => !HOST.collab.relay && !!HOST.collab.auth().offer && !document.querySelector('#shared .sh-home').hidden && document.querySelector('#shared .sh-pass').hidden, null, 8000);
+    check('the relay a page offers: Forget the password, out of a room, takes the password and the relay off this device, and the offer is back',
+      oBack && !(await kept(O)) && !(await O.evaluate(() => localStorage.getItem('collabRelay'))), JSON.stringify({ oBack, a: await auth(O), relay: await O.evaluate(() => HOST.collab.relay) }));
+    // the studio asks the offered relay for its scenes (relayFind gives it, with no password yet); its 401 brings up This
+    // relay needs its password (the offer's own box giving way to it), and the password given there makes it this device's
+    const rf = await O.evaluate(() => HOST.collab.relayFind());
+    await O.evaluate(b => { HOST.collab.relaySaw(b, 401, '', { error: 'missing or wrong token' }); HOST.collab.dialog(true); }, rf && rf.base);
+    const asked = await until(O, () => !document.querySelector('#shared .sh-pass').hidden && document.querySelector('#shared .sh-home').hidden, null, 8000);
+    await O.fill('#shPass', PASS);
+    await O.click('[data-sh="pass"]');
+    const viaPass = await until(O, o => HOST.collab.relay === o && !HOST.collab.auth().state, origin, 10000);
+    check('the relay a page offers: the studio asks it for its scenes (relayFind gives it, no password yet); a 401 there brings up This relay needs its password in place of the offer, and the password given there makes it this device\'s relay',
+      !!rf && rf.base === tb.replace(/\/$/, '') && !rf.token && asked && viaPass && (await kept(O)) === PASS, JSON.stringify({ rf, asked, viaPass, a: await auth(O) }));
+    // a pretend headset: the menu's Circles tab offers it (Relay password), its keypad takes the password
+    const G = await hopen('#airports&peer=off', { size: { width: 320, height: 200 } });
+    await ready(G, 'airports');
+    await G.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await G.evaluate(async u => { window.__xr.begin(); await HOST.collab.detect(); HOST.collab.homeRelay(u); HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); }, tb);
+    await frames(G, 300);
+    const gtap = id => G.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
+      for (let k = 0; k < 2; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } return ok; }, id);
+    const ghas = id => G.evaluate(id => { const r = HOST.collab.menuFind(id); return r ? !!r.fn : null; }, id);
+    const gRow = await ghas('homepass'), gPage = await gtap('homepass'), gKeys = await ghas('pk:a');
+    let gTyped = true;
+    for (const ch of PASS) gTyped = (await gtap('pk:' + ch)) && gTyped;
+    await gtap('pass:use');
+    const gOk = await until(G, o => HOST.collab.relay === o && !HOST.collab.auth().offer, origin, 10000);
+    await frames(G, 200);
+    const gGone = await ghas('homepass');
+    check('the relay a page offers: a pretend headset\'s menu (Circles) has a Relay password row for it; its keypad takes the password, and the headset uses the relay from then on (the row gone)',
+      gRow === true && gPage && gKeys === true && gTyped && gOk && gGone === null && (await kept(G)) === PASS, JSON.stringify({ gRow, gPage, gKeys, gTyped, gOk, gGone, a: await auth(G) }));
+    await G.evaluate(() => window.__xr.end()).catch(() => {});
   } finally {
     for (const p of pages) await p.context().close().catch(() => {});
     await new Promise(r => { T.proc.once('exit', r); T.proc.kill(); });

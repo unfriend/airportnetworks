@@ -59,12 +59,18 @@
 
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
-  // A copy of the app that uses another server's relay by default (v114; the owner, 5 November 2026: the main server on
-  // Coolify serves the app and the relay, and "the testserver could then use the same relay"): the test copy on GitHub
-  // Pages joins the main server's rooms. A link's &relay=, a relay typed in or one kept on this device goes first; cleared,
-  // it is this again after a reload. Keyed by the page's host, so never for this machine, a LAN or the tests
-  const HOME_RELAY = { 'unfriend.github.io': 'https://stories.lbi-netmed.com' };
-  const homeRelay = () => { try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
+  // A copy of the app that offers another server's relay (v115; the owner, 5 November 2026: the main branch on the
+  // Coolify server as stories.lbi-netmed.com, "while using the github dev branch hosted on github pages for testing with
+  // its own relay running on coolify too", and without the relay's password rooms run peer to peer): on these hosts, while
+  // no relay is in use here, the Shared dialog and the headset menu offer it (homeOffer), and the studio asks it for its
+  // scenes (relayFind). Its password entered and accepted (there, or where a 401 of its asked for it), this device keeps
+  // it and uses that relay from then on, as a relay typed in (homeTry, authSaw); without it rooms run peer to peer as
+  // before, and Forget the password (out of a room) goes back to that. Keyed by the page's host, so never this machine, a
+  // LAN or the tests (HOST.collab.homeRelay(url) offers one there). v114 had made the main server's relay the test copy's
+  // default instead
+  const HOME_RELAY = { 'unfriend.github.io': 'https://networks-test.lab.lbi-netmed.com' };
+  const HOME = { o: null, state: '' };   // o: a test's own offer (null: the table's); state: '', 'checking', 'wrong', 'limit', 'away'
+  const homeRelay = () => { if (HOME.o !== null) return HOME.o; try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
   // listeners added here belong to the shell: a story change must not remove them
   const quiet = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const J = v => JSON.stringify(v === undefined ? null : v);
@@ -123,7 +129,7 @@
 
   // -------------------------------------------------------------- session --
   const C = {
-    id: rid(12), relay: get('collabRelay') || homeRelay(), linked: false, served: null, detecting: null,
+    id: rid(12), relay: get('collabRelay') || '', linked: false, served: null, detecting: null,
     code: '', ws: null, status: 'off', note: '', want: false, welcomed: false, refill: null, tries: 0, timer: 0, heard: 0, pingAt: 0,
     local: false, probeAt: 0, probing: false, openTimer: 0, creating: false,   // a room on this device (no relay reached): see LocalSocket
     // how the room runs: 'relay', 'peer' (peer to peer: see PeerSocket) or 'local' (C.local: this device only); peer: the
@@ -227,7 +233,9 @@
     if (status < 200 || status >= 300) return;
     const t = sent && AUTH.tryT === sent && AUTH.tryAt === o ? sent : '';
     if (t) tokenKeep(o, t);   // (accepted: kept for this relay)
+    const ho = t ? homeOffer() : '';   // (the relay this page offers, its password given where its 401 asked: used from now on)
     Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });
+    if (ho && originOf(ho) === o) setRelay(ho, 'offered');
     log('relay password', { state: t ? 'accepted' : 'not needed' });
     if (PNL.page === 'pass') { PNL.page = 'main'; PNL.pass = ''; }
     const f = document.getElementById('shPass');
@@ -249,13 +257,48 @@
         () => { if (AUTH.tryT === t) { Object.assign(AUTH, { tryT: '', state: 'away' }); changed(); } });
     return true;
   }
-  // Forget the password (the dialog's relay part): this device asks for it again
+  // the relay this page offers (HOME_RELAY), its address without a trailing slash, while no relay is in use here (none
+  // known, none serving the page); '' otherwise
+  const homeOffer = () => (!C.relay && !C.served && homeRelay() ? norm(homeRelay()) : '');
+  const homeLine = () => ({ wrong: 'That is not the relay\'s password.', limit: 'Too many wrong passwords from this network: wait a minute, then try again.',
+    checking: 'Checking...', away: 'The relay did not answer: try again in a moment. Rooms run peer to peer meanwhile.' }[HOME.state] || '');
+  // the offered relay's password typed in (the dialog's field, the menu's keypad): tried on its /api/ping; accepted, this
+  // device keeps it for that relay and uses the relay from now on (setRelay, kept as a relay typed in is); else it says why
+  // and rooms stay peer to peer. A room joined meanwhile stays as it runs (a peer-to-peer room never moves to a relay)
+  function homeTry(t) {
+    t = String(t || '').trim();
+    const base = homeOffer();
+    if (!t || !base || HOME.state === 'checking') return false;
+    const ab = new AbortController(), to = setTimeout(() => ab.abort(), 8000);
+    HOME.state = 'checking';
+    log('relay password', { state: 'checking', offered: true });
+    changed();
+    fetch(base + '/api/ping', { cache: 'no-store', headers: { Authorization: 'Bearer ' + t }, signal: ab.signal }).finally(() => clearTimeout(to))
+      .then(async r => {
+        let j = null;
+        try { j = await r.json(); } catch (e) { /* not JSON */ }
+        if (r.ok && j && j.proto) {
+          tokenKeep(originOf(base), t);
+          HOME.state = '';
+          log('relay password', { state: 'accepted', offered: true });
+          const f = document.getElementById('shHome');
+          if (f) f.value = '';
+          if (PNL.page === 'pass') { PNL.page = 'main'; PNL.pass = ''; PNL.home = false; }
+          setRelay(base, 'offered');
+        } else HOME.state = r.status === 401 ? 'wrong' : r.status === 429 ? 'limit' : 'away';
+        changed();
+      }, () => { HOME.state = 'away'; changed(); });
+    return true;
+  }
+  // Forget the password (the dialog's relay part): this device asks for it again; for the offered relay, out of a room,
+  // it also stops using it (rooms peer to peer again, the offer back)
   function authForget() {
     const o = originOf(C.relay) || AUTH.at;
     if (!o) return false;
     tokenKeep(o, '');
     Object.assign(AUTH, { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 });
     log('relay password', { state: 'forgotten' });
+    if (!C.code && C.relay && homeRelay() && C.relay === norm(homeRelay()) && !C.served) { C.linked = false; setRelay('', 'forget'); }
     if (!C.code && C.relay) { listRooms(); nearFind('forget'); }
     changed();
     return true;
@@ -343,7 +386,7 @@
       if (C.served === false && !C.relay) C.detecting = null;
       await Promise.race([detect(), new Promise(r => setTimeout(r, 5000))]);
     }
-    const base = C.relay ? norm(C.relay) : '';
+    const base = C.relay ? norm(C.relay) : homeOffer();   // (the relay this page offers: a 401 there asks for its password)
     return base ? { base, token: tokenFor(base) } : null;
   }
   // what a call to that relay answered (the studio's scenes and their files: they want the password when the API does), so
@@ -3260,7 +3303,7 @@
   // the menu carried by the grip (MG): the controller it follows, how far along its ray it was taken, and where the
   // menu's top edge was from that point
   const MG = { src: null, i: -1, dist: 0, off: new THREE.Vector3(), at: 0 };
-  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', pass: '', tab: tab0(), used: 0, self: false, gs: 0 };   // (code: the letters typed on its keypad page; pass: the relay's password typed on its own; gs: the room setup guide's page)
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', pass: '', home: false, tab: tab0(), used: 0, self: false, gs: 0 };   // (code: the letters typed on its keypad page; pass: the relay's password typed on its own, home: for the relay offered; gs: the room setup guide's page)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   function menuOpen(on, why) {
     on = !!on;
@@ -3270,7 +3313,7 @@
       const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.pos.d).applyQuaternion(HD.q).add(HD.p) : null;
       sfx(on ? 'open' : 'close', at);
     }
-    PNL.open = on; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
+    PNL.open = on; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
     if (!on && MG.src) menuPut();   // (closed while carried)
     PNL.self = on && /^(question|empty|guide)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
     if (PNL.self) PNL.tab = 'circles';
@@ -3278,7 +3321,7 @@
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
   // the tabs, and the one it opens on: the one used last (kept on this headset)
-  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; put('xrMenuTab', t); }
+  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; put('xrMenuTab', t); }
   // where a press on the open menu sounds from (a headset; null on a screen)
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // how the menu opens, for the notices, and how it closes, for its header
@@ -3328,7 +3371,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, AUTH.state, AUTH.at, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -3377,17 +3420,19 @@
   // type, and the password is case-sensitive: whoever runs the relay picks a lower-case word with digits), Delete, Use
   // (greyed while nothing is typed) and Back; a refusal is said here. Kept on this headset once the relay accepts it
   function passPage(S, x, y, w) {
-    const ctx = S.ctx, t = PNL.pass || '', bw = (w - 16) / 2, checking = AUTH.state === 'checking';
+    // (the offered relay's, while no relay wants one: PNL.home; homeTry instead of authTry)
+    const home = !!PNL.home && !authAsk() && !!homeOffer(), at = home ? homeOffer() : AUTH.at;
+    const ctx = S.ctx, t = PNL.pass || '', bw = (w - 16) / 2, checking = home ? HOME.state === 'checking' : AUTH.state === 'checking';
     ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText('The relay\'s password', x, y); y += 42;
     ctx.font = FONT(21); ctx.fillStyle = MUTED;
-    y += wrapText(ctx, 'Lower-case letters and digits, as whoever runs the relay gave it. This headset keeps it for ' + (AUTH.at.replace(/^https?:\/\//, '') || 'this relay') + ', so it is entered once.', x, y, w, 28, 3) + 14;
+    y += wrapText(ctx, 'Lower-case letters and digits, as whoever runs the relay gave it. This headset keeps it for ' + (at.replace(/^https?:\/\//, '') || 'this relay') + ', so it is entered once' + (home ? ', and its rooms run on that relay.' : '.'), x, y, w, 28, 3) + 14;
     rr(ctx, x, y, w, 80, 12); ctx.fillStyle = 'rgba(70,217,255,0.12)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = CYAN; ctx.stroke();
     ctx.textBaseline = 'middle';
     if (t) { ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, t, w - 40), x + 20, y + 42); }
     else { ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText('Type it below', x + 20, y + 42); }
     ctx.textBaseline = 'top';
     y += 96;
-    const note = AUTH.state === 'need' ? '' : authLine();
+    const note = home ? homeLine() : AUTH.state === 'need' ? '' : authLine();
     if (note) { ctx.font = FONT(23, 700); ctx.fillStyle = checking ? MUTED : '#ffb43b'; y += wrapText(ctx, note, x, y, w, 30, 2) + 10; }
     const keys = 'abcdefghijklmnopqrstuvwxyz0123456789', kw = (w - 80) / 9, kh = 64;   // nine keys to a row
     for (let i = 0; i < keys.length; i++) {
@@ -3397,9 +3442,9 @@
     y += 4 * (kh + 10) + 8;
     const ok = !!t && !checking;
     button(S, 'pass:del', x, y, bw, 60, 'Delete', t ? () => { PNL.pass = t.slice(0, -1); } : null);
-    button(S, 'pass:use', x + bw + 16, y, bw, 60, checking ? 'Checking...' : 'Use', ok ? () => authTry(t) : null, { primary: ok });
+    button(S, 'pass:use', x + bw + 16, y, bw, 60, checking ? 'Checking...' : 'Use', ok ? () => (home ? homeTry(t) : authTry(t)) : null, { primary: ok });
     y += 76;
-    button(S, 'pass:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.pass = ''; }, { px: 23 });
+    button(S, 'pass:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.pass = ''; PNL.home = false; }, { px: 23 });
     return y + 58 + 24;
   }
   // the room setup guide (the owner, 2 November 2026: a group starts a shared room from zero and knows whether the headsets
@@ -3761,7 +3806,7 @@
     // Circles: a room's code typed in (a keypad: headsets cannot type), in place of the rest of the tab
     if (PNL.page === 'code') { finish(codePage(S, x, y, w)); return; }
     // the relay's password likewise (while the relay wants one)
-    if (PNL.page === 'pass') { if (authAsk()) { finish(passPage(S, x, y, w)); return; } PNL.page = 'main'; PNL.pass = ''; }
+    if (PNL.page === 'pass') { if (authAsk() || (PNL.home && homeOffer())) { finish(passPage(S, x, y, w)); return; } PNL.page = 'main'; PNL.pass = ''; PNL.home = false; }
     // the room setup guide's pages, likewise (only for a headset in the room with the others: else the tab as ever)
     if (PNL.page === 'guide') { if (guideOn()) { finish(guidePage(S, x, y, w)); return; } PNL.page = 'main'; }
     // the shared room: its code, how many are in it, the connection
@@ -3778,7 +3823,14 @@
     if (authAsk()) {
       ctx.font = FONT(23); ctx.fillStyle = AUTH.state === 'need' || AUTH.state === 'checking' ? INK : '#ffb43b';
       y += wrapText(ctx, AUTH_TEXT + ' ' + (AUTH.state === 'need' ? 'Enter it once on this headset.' : authLine()), x, y, w, 31, 2) + 10;
-      button(S, 'pass', x, y, w, 62, 'Relay password', () => { PNL.page = 'pass'; PNL.pass = ''; }, { primary: true, px: 25 });
+      button(S, 'pass', x, y, w, 62, 'Relay password', () => { PNL.page = 'pass'; PNL.pass = ''; PNL.home = false; }, { primary: true, px: 25 });
+      y += 78;
+    } else if (!C.code && homeOffer()) {
+      // the relay this page offers (the main site's), out of a room while no relay is in use: its password, once
+      const bad = !!HOME.state && HOME.state !== 'checking';
+      ctx.font = FONT(23); ctx.fillStyle = bad ? '#ffb43b' : INK;
+      y += wrapText(ctx, bad ? homeLine() : 'Rooms run peer to peer here. With the relay\'s password they run on the relay.', x, y, w, 31, 2) + 10;
+      button(S, 'homepass', x, y, w, 62, 'Relay password', () => { PNL.page = 'pass'; PNL.pass = ''; PNL.home = true; }, { px: 25 });
       y += 78;
     }
     if (!C.code) {
@@ -6160,7 +6212,7 @@
     $('#shName').value = C.name;
     detect().then(() => { if (!C.code) { listRooms(); nearFind('dialog'); } renderDialog(); });
     renderDialog();
-    setTimeout(() => { const f = $(C.code ? '[data-sh="close"]' : C.relay ? '[data-sh="start"]' : '#shRelay'); if (f) f.focus(); }, 50);
+    setTimeout(() => { const f = $(C.code ? '[data-sh="close"]' : C.relay ? '[data-sh="start"]' : homeOffer() ? '#shHome' : '#shRelay'); if (f) f.focus(); }, 50);
   }
   function bindDialog() {
     DLG.bound = true;
@@ -6173,6 +6225,7 @@
       else if (act === 'relay') typed($('#shRelay').value);
       else if (act === 'pass') { const f = $('#shPass'); if (f && f.value.trim()) authTry(f.value); }
       else if (act === 'forget') authForget();
+      else if (act === 'home') { const f = $('#shHome'); if (f && f.value.trim()) homeTry(f.value); }
       else if (act === 'relay2') { const v = $('#shRelay2') && $('#shRelay2').value; if (v) { setRelay(v, 'typed'); probe(performance.now(), true); } }
       else if (act === 'refresh') { listRooms(); nearFind('refresh'); }
       else if (act === 'start') create();
@@ -6207,6 +6260,7 @@
     $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
     $('#shPass').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) authTry(ev.target.value); });
+    $('#shHome').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) homeTry(ev.target.value); });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
     DLG.map.style.touchAction = 'none';
@@ -6279,8 +6333,9 @@
       C.via === 'peer' ? `Room ${C.code} · ${connLine()} · ${people} The devices talk to each other directly.${hosting() && IS_HEADSET ? ' A laptop or desktop page that joins takes the room over: a headset sleeps when taken off.' : ' Best hosted by a laptop or desktop page that stays awake, not a headset.'}${back}` :
         `Room ${C.code}: ${connLine()}. ${people}${back}`) :
       C.relay ? (C.served ? 'This page comes from the relay, so it knows where the rooms are.' : 'Rooms on ' + host() + '.') :
-        peerOn() ? `No relay known: a room you start runs peer to peer. The devices talk to each other directly; ${peerServer().name} only introduces them. Start the room on a laptop or desktop page that stays awake, and send the others its link. Or enter a relay's address.` :
-          'Shared rooms need a relay: a small server on your network that keeps a room in step. Enter its address. Without one (peer to peer is off), a room works on this device alone.');
+        peerOn() ? `No relay known: a room you start runs peer to peer. The devices talk to each other directly; ${peerServer().name} only introduces them. Start the room on a laptop or desktop page that stays awake, and send the others its link. ${homeOffer() ? 'With the relay\'s password (below), rooms run on the relay instead.' : 'Or enter a relay\'s address.'}` :
+          (homeOffer() ? 'Shared rooms need a relay: enter the relay\'s password below, or another relay\'s address. Without one (peer to peer is off), a room works on this device alone.' :
+            'Shared rooms need a relay: a small server on your network that keeps a room in step. Enter its address. Without one (peer to peer is off), a room works on this device alone.'));
     st.classList.toggle('warn', !!C.note);
     // the relay's password: asked for while the relay wants one (in a room too: it waits for it); Forget the password in the
     // relay's part while this device keeps one for it
@@ -6291,6 +6346,17 @@
       if (pn) { pn.textContent = authLine(); pn.classList.toggle('warn', bad); }
       const pb = $('[data-sh="pass"]');
       if (pb) pb.disabled = AUTH.state === 'checking';
+    }
+    // the relay this page offers (HOME_RELAY): its password, out of a room while no relay is in use here
+    const ho = homeOffer(), hb = $('.sh-home');
+    if (hb) {
+      hb.hidden = !ho || joined || authAsk();   // (a 401 of its asked already: This relay needs its password, above)
+      const hw = $('.sh-homewhat');
+      if (hw) hw.textContent = `Have the password for ${ho.replace(/^https?:\/\//, '')}? Enter it once, and this device's rooms run on that relay (people elsewhere can join, and the studio's scenes are there). Without it, rooms run ${peerOn() ? 'peer to peer' : 'on this device alone'}.`;
+      const hn = $('.sh-homenote');
+      if (hn) { hn.textContent = homeLine(); hn.classList.toggle('warn', /^(wrong|limit|away)$/.test(HOME.state)); }
+      const hk = $('[data-sh="home"]');
+      if (hk) hk.disabled = HOME.state === 'checking';
     }
     $('.sh-relay').hidden = !!C.served && !C.note && !kept;
     const fg = $('[data-sh="forget"]');
@@ -6547,7 +6613,10 @@
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
     // the relay's password: whether one is wanted ({ state, at, kept: one kept here for this relay }), one tried, forgotten
-    auth: () => ({ state: AUTH.state, at: AUTH.at, kept: !!(C.relay && tokens()[originOf(C.relay)]), waiting: C.status === 'auth', create: !!C.wantCreate }),
+    auth: () => ({ state: AUTH.state, at: AUTH.at, kept: !!(C.relay && tokens()[originOf(C.relay)]), waiting: C.status === 'auth', create: !!C.wantCreate, home: HOME.state, offer: homeOffer() }),
+    // the relay this page offers (HOME_RELAY), for tests: homeRelay(url) offers another (null: the table's again); its
+    // address while offered, else ''
+    homeRelay(u) { if (u !== undefined) { HOME.o = u === null ? null : String(u); HOME.state = ''; changed(); } return homeOffer(); },
     authTry: t => authTry(t), authForget: () => authForget(),
     notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
