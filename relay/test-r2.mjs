@@ -4,7 +4,8 @@
 //    with AWS's example keys (AKIAIOSFODNN7EXAMPLE, wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY): the canonical requests,
 //    the strings to sign and the signatures, byte for byte.
 // 2. The encoding of keys with spaces, unicode, + and ~, and the client against the stand-in S3 (relay/s3fake.mjs),
-//    which checks every signature: listing (prefix, delimiter, continuation), get, put (signed body, If-None-Match),
+//    which checks every signature: listing (prefix, delimiter, continuation), get, head, put (signed body, UNSIGNED-PAYLOAD,
+//    a body other than the one signed refused, If-None-Match),
 //    copy, delete, delete many, CORS; presigned links accepted, and refused once expired, with their path changed or
 //    their body of another size; a wrong secret refused.
 import crypto from 'node:crypto';
@@ -80,6 +81,13 @@ try {
   const st = await c.stat(K), lst = await c.list('a scene/', { delimiter: '/' }), page = await c.list('a scene/many/', { max: 3 }), all = await c.listAll('a scene/');
   ok(st && st.size === 5000 && st.etag === crypto.createHash('md5').update(body).digest('hex') && st.at > 0 && (await c.stat('a scene/sounds/é')) === null, 'stat: size, ETag (MD5) and time; none for a prefix of a key');
   ok(JSON.stringify(lst.prefixes) === '["a scene/many/","a scene/sounds/"]' && page.keys.length === 3 && !!page.next && all.keys.length === 8 && !all.more, 'list: a delimiter\'s prefixes, a page of 3 with a continuation token, all 8 over pages');
+  const hd = await c.head(K);
+  ok(hd && hd.size === 5000 && hd.etag === st.etag && hd.type === 'audio/wav' && (await c.head('a scene/none.wav')) === null, 'head: size, ETag and type; none for a key that is not there');
+  // a header-signed PUT with UNSIGNED-PAYLOAD (taken), and one whose body is not the one signed (refused)
+  const host = new URL(S3.url).host, put = (body, payload) => { const s = sign({ method: 'PUT', host, path: '/scenes/u.bin', payload, headers: { 'x-amz-content-sha256': payload }, id: 'TESTKEYID', secret: 'test-secret-made-up' });
+    const { host: _h, ...headers } = s.headers; return fetch(S3.url + '/scenes/u.bin', { method: 'PUT', headers, body }); };
+  const u1 = await put('unsigned body', 'UNSIGNED-PAYLOAD'), u2 = await put('another body', crypto.createHash('sha256').update('the signed body').digest('hex'));
+  ok(u1.status === 200 && (await c.get('u.bin')).toString() === 'unsigned body' && u2.status === 400 && /XAmzContentSHA256Mismatch/.test(await u2.text()), 'a PUT signed with UNSIGNED-PAYLOAD: taken; a body other than the one signed: 400 XAmzContentSHA256Mismatch');
   await c.copy(K, 'a scene/.history/copy.wav');
   ok((await c.get('a scene/.history/copy.wav')).equals(body), 'copy');
   await c.delMany(['a scene/many/0.glb', 'a scene/many/1.glb']); await c.del('a scene/many/2.glb');

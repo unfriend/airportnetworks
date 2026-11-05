@@ -216,6 +216,13 @@ export class R2 {
     const o = r.keys[0];
     return o && o.key === key ? o : null;
   }
+  // HeadObject: { size, etag, type } or null (its time only to the second: stat gives the listing's, to the ms)
+  async head(key) {
+    const r = await this.send('head', 'HEAD', key);
+    if (r.status === 404) return null;
+    if (r.status !== 200) throw new R2Error('head', r.status, '');
+    return { size: +r.headers['content-length'] || 0, etag: String(r.headers.etag || '').replace(/"/g, ''), type: String(r.headers['content-type'] || '') };
+  }
   async get(key) {
     const r = await this.send('get', 'GET', key);
     if (r.status === 404) return null;
