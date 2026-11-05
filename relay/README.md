@@ -446,34 +446,54 @@ that uses the same rooms. What it costs: the app is down when the server is (Git
 restarts it (rooms empty and come back from the pages within seconds), so turn **Auto Deploy** off before an event and
 on again after. Both copies publish `main` for now: the release flow stays as it is.
 
+**Before you start:** in Coolify your team role must be *Admin* or *Owner* (a *Member* can look but not create,
+deploy or change variables; ask whoever runs the instance), you need the Hetzner server's public IPv4 address (Coolify,
+*Servers*, or ask them) and the login of the domain's DNS provider (for `lbi-netmed.com`: Namecheap, *Domain List* >
+*Manage* > *Advanced DNS* > *Host Records*).
+
 **The order matters, so the site never goes away** (do each step only when the one before has worked):
 
 1. **Check the relay's own copy.** Open its current address (`https://rooms.lbi-netmed.com/`) in a browser: the
    Stories screen, a story playing, **Shared** > the password > **Start a room** saying it is on the relay. That is
-   exactly what `stories.lbi-netmed.com` will serve.
-2. **Lower the DNS record's lifetime (TTL), a day ahead.** With the domain's DNS provider, find the record for
-   `stories` (today a `CNAME` to `unfriend.github.io`, GitHub Pages' custom domain). Write down what it says, so it
-   can be put back, and set its TTL to 300 s (5 minutes). Wait at least the old TTL (often an hour, sometimes a day)
-   before step 4, so no device still holds the old answer for long.
-3. **Give the Coolify resource the name.** The relay's resource > *Domains*: add `https://stories.lbi-netmed.com`
-   beside the one it has, comma separated (`https://rooms.lbi-netmed.com,https://stories.lbi-netmed.com`), save,
-   **Redeploy** (Coolify writes its proxy's rules at a deploy). `RELAY_ARGS` stays `--proxy 1 --public` (plus
-   `--scenes r2` once the bucket is set up, [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2)): with v114 `--public`
-   allows both the app's address and the test copy's. If `RELAY_ARGS` names its own `--origin` list, add
+   exactly what `stories.lbi-netmed.com` will serve. With the studio's scenes in R2, set them up and check them here
+   too ([Scenes in Cloudflare R2](#scenes-in-cloudflare-r2)), so the main name never depends on something untried.
+2. **Lower the DNS record's lifetime (TTL), well ahead.** With the domain's DNS provider, find the record for
+   `stories` (today a `CNAME` to `unfriend.github.io`, GitHub Pages' custom domain). Write down what it says (type,
+   value, TTL), so it can be put back, and set its TTL to 5 minutes (Namecheap: the TTL list, *5 min*; its *Automatic*
+   is about 30 minutes). Wait at least the old TTL before step 3 (for *Automatic*, an hour is plenty), so no
+   resolver still holds the old answer for long.
+3. **Point the name at the server, at a quiet time.** Replace the `stories` `CNAME` with an `A` record to the Hetzner
+   server's public IPv4 address (the same address `rooms` points at; an `AAAA` only if the server is reachable over
+   IPv6), TTL 5 minutes: a name cannot have a `CNAME` and an `A` record at once, so delete the one and add the other in
+   one sitting (Namecheap: the bin on the `CNAME` row, *Add New Record*, *A Record*, host `stories`, the address,
+   then the green tick). Wait until a public resolver gives the new address (`dig +short stories.lbi-netmed.com
+   @1.1.1.1`, or dnschecker.org). From now on devices that get the new answer reach Coolify, which does not know the
+   name yet (a page of Coolify's proxy or a certificate warning) until step 4 is done; those with the old answer still
+   get GitHub Pages. Keep this gap short.
+4. **Give the Coolify resource the name.** The relay's resource > *Domains*: add `https://stories.lbi-netmed.com`
+   beside the one it has (comma separated, `https://rooms.lbi-netmed.com,https://stories.lbi-netmed.com`, or *Add
+   domain* in newer versions), save, **Redeploy** (Coolify writes its proxy's rules at a deploy). Its proxy then asks
+   Let's Encrypt for the name's certificate over port 80, which works only once the name points at the server: that is
+   why this comes after step 3, and why a failure should not be answered by redeploying again and again (Let's Encrypt
+   allows 5 failed checks of a name an hour; wait a few minutes and try once more). Then
+   `curl -s https://stories.lbi-netmed.com/api/health` answers `{"ok":true,...}` with a valid certificate.
+   `RELAY_ARGS` stays as it is (`--proxy 1 --public`, plus `--scenes r2` with R2): with v114 `--public` allows both
+   the app's address and the test copy's. If `RELAY_ARGS` names its own `--origin` list, add
    `https://unfriend.github.io` to it.
-4. **Point the name at the server.** Replace the `stories` `CNAME` with an `A` record to the Hetzner server's public
-   IPv4 address (the same address `rooms` points at; an `AAAA` too if the server has IPv6), TTL 300 s. Wait until
-   `dig +short stories.lbi-netmed.com` shows the server's address, then until
-   `curl -s https://stories.lbi-netmed.com/api/health` answers `{"ok":true,...}` (Coolify's proxy asks Let's Encrypt
-   for the certificate once the name points at it: a minute or two; if it says the certificate is not valid, wait and
-   try again, or redeploy). Meanwhile GitHub Pages still serves the name to anyone whose DNS has the old answer.
-5. **Then, and only then, take the name off GitHub Pages.** Wait the old TTL once more after step 4. Then the
-   repository's **Settings** > **Pages** > *Custom domain*: clear it, **Save**. GitHub may remove the `CNAME` file at
-   the repository's root with a commit of its own; if the file stays, it is removed in the next release (a `CNAME`
-   file there would claim the name for Pages again). The test copy is then at
-   `https://unfriend.github.io/airportnetworks/` (Pages takes a minute or two). Doing this before step 4 has worked
-   takes the site down.
+5. **Then, and only then, take the name off GitHub Pages.** Wait 5 minutes more (the new TTL), so nobody still reaches
+   Pages by the old answer. Then the repository's **Settings** > **Pages** > *Custom domain*: **Remove**. A `CNAME` file
+   at the repository's root still naming the domain would claim it for Pages again at the next build: it is removed from
+   `main` right after (if GitHub has not removed it itself), and nothing else is pushed to `main` in between. The test
+   copy is then at `https://unfriend.github.io/airportnetworks/` (Pages takes a minute or two). Doing this before step 4
+   has worked takes the site down. Optionally verify the domain for GitHub Pages (your GitHub *Settings* > *Pages* >
+   *Add a domain*, a `TXT` record), so nobody else could ever claim a name of it that still pointed at GitHub.
 6. **Check both** (below), and say so: the docs then say what is live.
+
+**Releases afterwards.** With the repository public and no webhook set up, Coolify does not deploy by itself: the test
+copy on Pages takes every push to `main` within minutes, and the main server takes a release when you press
+**Redeploy** (not during an event: a redeploy restarts the relay, and open rooms come back from the pages within
+seconds). That is a good split for now. *Auto Deploy* with a webhook (the step-by-step guide above, step 9) makes the
+main server follow every push too.
 
 **Check it:**
 
