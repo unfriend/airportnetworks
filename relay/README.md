@@ -75,7 +75,7 @@ turns on all of them, with the defaults in the second column (a value given on i
 | flag | with `--public` | meaning |
 | --- | --- | --- |
 | `--public` | | all of the below, and `--logs` only with a log token; no addresses to open on a LAN in the start lines |
-| `--origin <list>` | `https://stories.lbi-netmed.com,https://unfriend.github.io` (the app and its test copy on GitHub Pages, v114) | only pages from these origins (comma separated, the flag may be repeated; a scheme, a host and an optional port, no path) and the relay's own pages may open a socket (`/api/ws`, `/peerjs`) or use the API and the introduction server over HTTP. The relay's own pages: an `Origin` whose host is the one the request was sent to (`Host`, or with `--proxy` also `X-Forwarded-Host`). Another origin: 403, before any socket. CORS names the allowed origin (`Vary: Origin`) instead of `*`. A request with no `Origin` (the relay's own page asking with GET, the health check, curl) is answered; a socket with none is refused unless `--allow-no-origin` |
+| `--origin <list>` | `https://stories.lbi-netmed.com` | only pages from these origins (comma separated, the flag may be repeated; a scheme, a host and an optional port, no path) and the relay's own pages may open a socket (`/api/ws`, `/peerjs`) or use the API and the introduction server over HTTP. The relay's own pages: an `Origin` whose host is the one the request was sent to (`Host`, or with `--proxy` also `X-Forwarded-Host`). Another origin: 403, before any socket. CORS names the allowed origin (`Vary: Origin`) instead of `*`. A request with no `Origin` (the relay's own page asking with GET, the health check, curl) is answered; a socket with none is refused unless `--allow-no-origin` |
 | `--allow-no-origin` | off | with an origin rule: also sockets that send no `Origin` (not a browser: tools, scripts) |
 | `--unlisted` | on | no list of open rooms (`GET /api/rooms` answers `[]`), no member's name in any answer (`/api/near`: code, people, stations, version; `/api/rooms/<code>`: people as a count) or log line; `/api/ping` says `unlisted: true`. A room's own members still see each other's names (its people list) |
 | `--guesses <n>` | 30 | per address, at most `n` lookups a minute of room codes that do not exist (a burst of `2n`): a socket for an unknown room, `GET /api/rooms/<code>` answered 404, `POST /api/rooms` with a code that is taken (409). Past that, every lookup of a code from that address is refused, a known one too (or the answers would say which codes exist), until the budget fills again: 429 with `Retry-After`, or on a socket `error` `limit` and close 4429 (4029 until v109; the app takes both). A member coming back (its id still in the room) is let in |
@@ -329,16 +329,15 @@ certificate if you have one.
 ## Public hosting on Coolify
 
 The relay can run on the owner's Coolify server as well as on a laptop at an event: then shared rooms work wherever
-web pages do (eduroam, a hotspot, at home), and the copies of the app elsewhere can use it. Since v115 it is the app's
-main server, serving branch `main` at `https://stories.lbi-netmed.com/`, and a second one on the same Coolify is the
-relay of the test copy, branch `dev` on GitHub Pages:
-[The main server and the test copy](#the-main-server-and-the-test-copy) after these steps. Peer to peer stays the
-fallback when it is down. On the internet anyone can reach it, so it runs with `--public` (below: what that changes
+web pages do (eduroam, a hotspot, at home), and the copies of the app elsewhere can use it. Since v116 the owner's
+Coolify runs the test place this way, branch `dev` at `https://stories.lab.lbi-netmed.com/` with the studio's scenes in
+R2, while the main site stays on GitHub Pages: [The test place on Coolify](#the-test-place-on-coolify) after these steps.
+Peer to peer stays the fallback when it is down. On the internet anyone can reach it, so it runs with `--public` (below: what that changes
 and why). Nothing here changes how it runs on a laptop.
 
 **Before you start:** a DNS name for it (here `rooms.lbi-netmed.com`; any subdomain will do), Coolify on a server
 with a public address and its proxy (Traefik or Caddy) running, and access to this repository from Coolify. At the
-institute every name under `lab.lbi-netmed.com` (`stories.lab.lbi-netmed.com`, `stories-test.lab.lbi-netmed.com`)
+institute every name under `lab.lbi-netmed.com` (such as `stories.lab.lbi-netmed.com`)
 already points at the Coolify server and has a certificate (a wildcard record and a wildcard certificate, checked 5
 November 2026): there, skip step 1, and the domain in step 5 works at once.
 
@@ -396,7 +395,7 @@ November 2026): there, skip step 1, and the domain in step 5 works at once.
    relay listening on http://0.0.0.0:8787, serving /app (protocol 1)
    Introduction server for peer to peer (PeerJS) at /peerjs, key the password (--no-peer turns it off)
    Behind a reverse proxy: a client's address is the last one in X-Forwarded-For (rooms on this network)
-   Only pages from https://stories.lbi-netmed.com, https://unfriend.github.io and the relay's own may open a socket or read the API (...)
+   Only pages from https://stories.lbi-netmed.com and the relay's own may open a socket or read the API (...)
    No list of open rooms and no names in any answer: a room is joined by its code, a link or on its network
    Per address at most 30 lookups of unknown room codes a minute (a burst of 60), 10 new rooms a minute (...), 64 open sockets
    All rooms together hold at most 64 MB
@@ -428,106 +427,41 @@ November 2026): there, skip step 1, and the domain in step 5 works at once.
       it as at an event, with a real certificate this time).
     - In a headset: the same link in Quest Browser, then Enter VR or AR, and two headsets in one room.
 
-### The main server and the test copy
+### The test place on Coolify
 
-The owner (5 November 2026): "could i make the coolify server also serve the whole app and make that my main server
-while keeping the github pages setup for dev and tests?", and then "i would like to host the main branch from github on
-the coolify server and use that as stories.lbi-netmed.com while using the github dev branch hosted on github pages for
-testing with its own relay running on coolify too". The relay already serves the app (`--static .` in the image), so
-this is a matter of addresses and branches:
+The owner, 5 November 2026, after weighing the main site on Coolify: "i decided that the main page will stay on github
+pages, deployed from main and works as it always worked and i will add the dev branch with a hook to the app1 on coolify
+that is at stories.lab.lbi-netmed.com and saves models to cloudflare r2", and "the github page then also does not need a
+hosted relay for now, if it needs one i will add that later on, for now its a good place to test the peer to peer
+functionality".
 
 | address | serves | branch | rooms |
 | --- | --- | --- | --- |
-| `https://stories.lbi-netmed.com/` (and `https://stories.lab.lbi-netmed.com/`) | Coolify, app 1: the relay serving the app | `main` | on its own relay (the password once per device) |
-| `https://unfriend.github.io/airportnetworks/` | GitHub Pages: the test copy | `dev` | peer to peer; with the password of app 2, on it |
-| `https://stories-test.lab.lbi-netmed.com/` | Coolify, app 2: the test copy's relay (and its own copy of `dev`) | `dev` | on its own relay |
+| `https://stories.lbi-netmed.com/` | GitHub Pages, the main site, as ever | `main` | peer to peer (no relay offered) |
+| `https://stories.lab.lbi-netmed.com/` | Coolify, the test place: the relay serving the app | `dev` | on its relay (its password once per device); the studio's scenes in R2 |
 
-The test copy offers its relay rather than using it by default (v115: `HOME_RELAY` in `shared.js`, keyed by the page's
-host): its Shared dialog and the headset menu's *Relay password* row take app 2's password once per device, and from
-then on that device's rooms and the studio's scenes are there; without it rooms run peer to peer, as on GitHub Pages
-before; *Forget the password* (out of a room) goes back to that. Each app keeps its studio's scenes in its own folder of
-one R2 bucket (`R2_PREFIX`: `main`, `test`), so a save on the test copy never touches a real layout. Both apps take the
-same `RELAY_ARGS` (`--public` allows `https://stories.lbi-netmed.com` and `https://unfriend.github.io`, and each its own
-pages). What this brings: one address for the app, its rooms and the studio's uploads, *Fresh shared space* on the main
-site (it needs the relay to serve the page), and a test copy that updates by itself on every push to `dev`. What it
-costs: the main site is down when the server is (GitHub Pages was not), and a redeploy restarts its relay (rooms empty
-and come back from the pages within seconds), so it is pressed by hand, not during an event.
+Every name under `lab.lbi-netmed.com` points at the Coolify server (`178.104.76.48`) with a wildcard certificate, so the
+lab name needs no DNS. The app on Coolify is set up as in the guide above (steps 2 to 10) with branch **`dev`**,
+*Domains* **`https://stories.lab.lbi-netmed.com`**, *Ports Exposes* **`8787`** (Coolify fills in `3000`: with it the
+proxy answers 502 Bad Gateway though the relay runs, as it did at first), `RELAY_ARGS` = `--proxy 1 --public --scenes r2`
+(no quote marks; since v116 the relay drops them anyway), `COLLAB_TOKEN` (locked) and the R2 variables
+([Scenes in Cloudflare R2](#scenes-in-cloudflare-r2), with `R2_PREFIX` as chosen, such as `main`). A GitHub webhook
+with *Auto Deploy* (step 9) makes it follow every push to `dev` within a minute or two (the image's layers with Node and
+ffmpeg stay cached; each deploy restarts the relay, and open rooms come back from the pages within seconds).
 
-**Before you start:** your Coolify team role must be *Admin* or *Owner* (a *Member* can look but not create, deploy or
-change variables; ask whoever runs the instance). The lab names need no DNS. The switch of `stories.lbi-netmed.com`
-(part D) needs the domain's DNS provider (for `lbi-netmed.com`: Namecheap, *Domain List* > *Manage* > *Advanced DNS* >
-*Host Records*) and the server's address, `178.104.76.48` (what the lab names point at, 5 November 2026).
+**Releases.** Work goes to `dev` first: the test place takes it by itself. Once the owner has tried it there, `main` moves
+forward to it and GitHub Pages publishes it, as before. The main site keeps its `CNAME` file and custom domain; it runs
+its rooms peer to peer, so it is where peer to peer is tried.
 
-**A. App 1, the main site's relay (branch `main`), at `stories.lab.lbi-netmed.com`.** The guide above, steps 2 to 10,
-with branch **`main`**, *Domains* **`https://stories.lab.lbi-netmed.com`**, and `RELAY_ARGS` = `--proxy 1 --public`
-and `COLLAB_TOKEN` (locked). Check it at `https://stories.lab.lbi-netmed.com/api/health` and the app there (Shared,
-the password, Start a room on the relay).
-
-**B. The studio's scenes in R2** ([Scenes in Cloudflare R2](#scenes-in-cloudflare-r2), steps 1 to 5): one bucket for
-both apps, created in the EU jurisdiction; app 1's variables with `R2_PREFIX` = `main` and `RELAY_ARGS` = `--proxy 1
---public --scenes r2`, then Redeploy and the start lines (and the upload page,
-`https://stories.lab.lbi-netmed.com/upload`, for a first scene).
-
-**C. App 2, the test copy's relay (branch `dev`), at `stories-test.lab.lbi-netmed.com`.** The same once more, in the
-same project: branch **`dev`**, *Domains* **`https://stories-test.lab.lbi-netmed.com`**, the same `RELAY_ARGS` (with
-`--scenes r2`) and R2 variables but `R2_PREFIX` = `test`, and `COLLAB_TOKEN` (the same word or another, for testers).
-Optional: *Auto Deploy* with a GitHub webhook (the guide's step 9), so app 2 follows every push to `dev` as the test copy
-on Pages does; else Redeploy by hand when the relay itself changed.
-
-**D. The switch, at a quiet time** (do each step only when the one before has worked):
-
-1. **Lower the `stories` record's lifetime (TTL), well ahead.** Write down what it says (`CNAME` to
-   `unfriend.github.io`, its TTL), so it can be put back, and set its TTL to 5 minutes (Namecheap's *Automatic* is about
-   30). Wait at least the old TTL (for *Automatic*, an hour is plenty).
-2. **Point the name at the server.** Delete the `stories` `CNAME` and add an `A` record, host `stories`, value
-   `178.104.76.48`, TTL 5 minutes, in one sitting (a name cannot have both). Wait until a public resolver gives the new
-   address (`dig +short stories.lbi-netmed.com @1.1.1.1`, or dnschecker.org). From now on devices with the new answer
-   reach Coolify, which does not know the name yet (a page of its proxy or a certificate warning) until step 3; those
-   with the old answer still get GitHub Pages. Keep this gap short.
-3. **Give app 1 the name.** *Domains*: `https://stories.lab.lbi-netmed.com,https://stories.lbi-netmed.com` (or *Add
-   domain*), save, **Redeploy**. Coolify's proxy then asks Let's Encrypt for the name's certificate, which works only
-   once the name points at the server: hence after step 2, and a failure is not answered by redeploying again and again
-   (Let's Encrypt allows 5 failed checks of a name an hour; wait a few minutes and try once more). The lab names have a
-   wildcard certificate that does not cover `stories`: if no certificate comes within ten minutes, ask whoever runs the
-   Coolify instance how its proxy gets certificates (a DNS challenge for `lab.lbi-netmed.com` alone would not cover it).
-   Then `curl -s https://stories.lbi-netmed.com/api/health` answers `{"ok":true,...}` with a valid certificate, and the
-   app there is the same address as before: installed copies, settings and the headsets' calibrations stay; each device
-   enters the relay's password once (the relay now serves the page).
-4. **Then take the name off GitHub Pages and give it the test branch.** Wait 5 minutes more (the new TTL). The
-   repository's **Settings** > **Pages**: *Custom domain* **Remove**, then *Build and deployment* > *Branch*: **`dev`**,
-   folder `/ (root)`, **Save**. `dev` has no `CNAME` file (a `CNAME` naming the domain would claim it for Pages again at
-   the next build: it is removed from `main` too, right after). The test copy is then at
-   `https://unfriend.github.io/airportnetworks/` (Pages takes a minute or two). Doing this before step 3 has worked takes
-   the site down. Optionally verify the domain for GitHub Pages (your GitHub *Settings* > *Pages* > *Add a domain*, a
-   `TXT` record), so nobody else could ever claim a name of it that still pointed at GitHub.
-5. **Check both** (below), and say so: the docs then say what is live.
-
-**Check it:**
-
-- `curl -s https://stories.lbi-netmed.com/api/health` answers `{"ok":true,"protocol":1,"rooms":...}`; the app at
-  `https://stories.lbi-netmed.com/` plays, **Shared** asks for the password once on each device and **Start a room**
-  says it is on the relay, with no `&relay=` in the room's link; `https://stories.lbi-netmed.com/upload` opens the
-  studio's Upload pane.
-- The test copy at `https://unfriend.github.io/airportnetworks/`: **Shared** offers *The relay*
-  (`stories-test.lab.lbi-netmed.com`) with a password field; without it a room starts peer to peer; with app 2's
-  password the device's rooms are on app 2.
-- `curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://unfriend.github.io' -H "Authorization: Bearer $COLLAB_TOKEN" https://stories-test.lab.lbi-netmed.com/api/ping`
-  prints `200`; with `-H 'Origin: https://evil.example'` `403`.
-- In a headset on the main site: *Fresh shared space* is offered (the menu's Debug tab), since the relay serves the page.
-
-**Going back** (if app 1 has to go away for a while): put the `stories` record back as written down in step 1, and in
-**Settings** > **Pages** the branch `main` and the custom domain again (and the `CNAME` file back on `main`); the app is
-then GitHub Pages' again, its rooms peer to peer.
-
-**Releases.** Work goes to `dev` first: the test copy on Pages takes every push within minutes (and app 2 with a
-webhook). Once the owner has tried it there, `main` moves forward to it, and the main site takes it when the owner
-presses **Redeploy** on app 1 (not during an event). *Auto Deploy* with a webhook on app 1 would make the main site follow
-every push to `main` instead.
+**A relay for the main site later** (not now): give the page's host a relay to offer in `HOME_RELAY` in `shared.js`
+(v116: while no relay is in use, the Shared dialog and the headset menu offer it with a password field; with the password
+a device's rooms and the studio's scenes are on it, without it rooms stay peer to peer). The relay's `--public` already
+allows `https://stories.lbi-netmed.com`.
 
 **What `--public` changes, and why** (each flag on its own in [Running it](#running-it)):
 
-- **Only the app's pages may connect** (`--origin`, by default `https://stories.lbi-netmed.com` and, since v114, its
-  test copy's `https://unfriend.github.io`, plus the relay's own pages). Without it any web page anywhere could use the relay from its visitors' browsers: open rooms, fill them,
+- **Only the app's pages may connect** (`--origin`, by default `https://stories.lbi-netmed.com`, plus the relay's own
+  pages). Without it any web page anywhere could use the relay from its visitors' browsers: open rooms, fill them,
   use the introduction server. A browser always says which page a socket or a cross-origin request comes from, and a
   page cannot lie about it; a socket with no `Origin` (not a browser) is refused too, unless `--allow-no-origin`. This
   keeps other web pages off, not determined people: a script can send any header it likes, which is what the limits

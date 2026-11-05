@@ -43,45 +43,30 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **networks-v115 (5 November 2026; FORMAT networks-32 unchanged, shell 115), on `dev` first: the main server and the
-  test copy, as the owner settled them that day.** The owner, after v114's plan (the main site moving to Coolify, the
-  test copy on Pages using its relay): first "i want the coolify to be the test place", then "all our pages on coolify
-  are served from lab.lbi-netmed.com", and last "i would like to host the main branch from github on the coolify server
-  and use that as stories.lbi-netmed.com while using the github dev branch hosted on github pages for testing with its
-  own relay running on coolify too"; asked in between, without the relay's password rooms run peer to peer, two Coolify
-  apps rather than one, a branch `dev`, and the test copy's scenes apart from the real ones.
-  - Where things go: app 1 on Coolify, branch `main`, at `https://stories.lbi-netmed.com/` (after the owner's switch;
-    first at `stories.lab.lbi-netmed.com`): the app with its relay and the studio's scenes (R2, `R2_PREFIX=main`).
-    GitHub Pages, branch `dev`, at `https://unfriend.github.io/airportnetworks/`: the test copy. App 2 on Coolify,
-    branch `dev`, at `stories-test.lab.lbi-netmed.com`: the test copy's relay (R2, `R2_PREFIX=test`). Every name under
-    `lab.lbi-netmed.com` already points at the Coolify server (`178.104.76.48`) with a wildcard certificate, so the two
-    lab names need no DNS; only `stories` moves (Namecheap). The owner's steps: `relay/README.md`, "The main server and
-    the test copy".
-  - The code: the test copy offers its relay instead of using it by default (`HOME_RELAY` in `shared.js`, by the page's
-    host; `homeOffer`, `homeTry`): its Shared dialog's *The relay* takes the password, and the headset menu's Circles tab
-    a *Relay password* row; the studio asks the offered relay for its scenes, so a 401 there asks for the password
+- **networks-v116 (5 November 2026; FORMAT networks-32 unchanged, shell 116), on `dev` first: the test place on
+  Coolify, as the owner settled it that day.** The owner went through three plans in an afternoon (v114's: the main site
+  on Coolify and a test copy on Pages using its relay; then Coolify as the test place; then the main site on Coolify and
+  the test copy on Pages with a relay of its own, v115, which reached only `dev`) and settled on: "the main page will stay
+  on github pages, deployed from main and works as it always worked and i will add the dev branch with a hook to the
+  app1 on coolify that is at stories.lab.lbi-netmed.com and saves models to cloudflare r2", and "the github page then
+  also does not need a hosted relay for now, if it needs one i will add that later on, for now its a good place to test
+  the peer to peer functionality".
+  - Where things are: the main site, GitHub Pages from `main` at `https://stories.lbi-netmed.com/` (the `CNAME` stays),
+    its rooms peer to peer. The test place, the owner's Coolify app running branch `dev` at
+    `https://stories.lab.lbi-netmed.com/` (every name under `lab.lbi-netmed.com` points at the Coolify server,
+    `178.104.76.48`, with a wildcard certificate: no DNS step), served by its relay with a password, the studio's
+    scenes in R2, a webhook deploying each push to `dev`. Set up by the owner that day (it answered 502 Bad Gateway at
+    first, with the relay running: *Ports Exposes* was not 8787). `relay/README.md`, "The test place on Coolify".
+  - The code kept from v115: a page can offer a relay of its own (`HOME_RELAY` in `shared.js`, by the page's host;
+    `homeOffer`, `homeTry`): its Shared dialog's *The relay* takes the password, the headset menu's Circles tab has a
+    *Relay password* row, and the studio asks the offered relay for its scenes, so a 401 there asks for the password
     too; accepted, the device keeps it and uses that relay; without it rooms run peer to peer; *Forget the password*
-    (out of a room) goes back. On the main site the relay serves the page, so it is used as any relay with a password
-    (asked once per device; rooms wait for it). `--public`'s default origins stay the main site's and the test copy's
-    (v114's), so both apps take the same `RELAY_ARGS`. v114's default relay for the test copy went.
-  - The release flow: work goes to `dev` first (the test copy updates by itself; `dev` has no `CNAME` file), then
-    `main` once the owner has tried it, and the main site takes it when the owner presses Redeploy on app 1
-    (`docs/setup-and-release.md`, section 4). Until the owner's switch, Pages still publishes `main` with the custom
-    domain, and the main site is v114 there.
-  - Tests: the relay test 609 good; the collab test's password round with the offered relay (shown while no relay is in
-    use, a room peer to peer without it, a wrong password changing nothing, the right one making it the device's relay
-    and a room start there, Forget giving the offer back, the studio's 401 asking for it and the password given there
-    taking it, a pretend headset's keypad) 13 good; the relay test 612 good (with `RELAY_ARGS` in quote marks: the
-    owner's first Coolify app answered 502 Bad Gateway while it was being set up, and quote marks typed round
-    `--proxy 1 --public` would have stopped the relay with its usage, so the relay now drops them; that time the cause
-    was the port, *Ports Exposes* not 8787); the update test from v114 good; smoke 209 good and 1 failing, the studio
-    follow block's timing check (no frame drawn in 2.5 s under load, as in the groups builder's run; it passed alone
-    there); the full shared-room run 492 good and 7 failing: the same six peer-to-peer checks as in v114's run (a
-    guest's link back to connecting when the three were counted, the host change after it; that part passes alone) and
-    once the standby check (the room's height after waking read 0 instead of 0.15 m within 800 ms of frames; it passed in
-    v113's and v114's runs). None of that code changed in v115; reruns below. The test relay's name became
-    `stories-test.lab.lbi-netmed.com` (the owner named app 1 `stories.lab.lbi-netmed.com`), and `CNAME` went from the
-    working branch, so `dev` never claims the name for Pages (`main` keeps it until the owner's switch).
+    (out of a room) goes back. The table is empty: nothing offered anywhere, the main site exactly as before; a relay
+    for it later is one line there. The relay drops quote marks typed round `RELAY_ARGS` (they made it print its usage
+    and stop). `--public`'s default origin is the main site's again (v114 had added `unfriend.github.io`).
+  - The release flow: work goes to `dev` first (the test place updates by itself), then `main` once the owner has tried it
+    (`docs/setup-and-release.md`, section 4).
+  - Tests: TO FILL.
 - **Released as networks-v114 (5 November 2026; FORMAT networks-32, shell 114: running pages ask to reload, and every
   device in a shared room needs v114), tested headlessly only: groups and faces in the studio, its scenes in Cloudflare
   R2, and the code for the main server.** Three requests from the owner, built in two worktrees at once (groups and
@@ -124,9 +109,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     the code change is small. The test copy on GitHub Pages (`unfriend.github.io`) uses `wss://stories.lbi-netmed.com` by
     itself (`HOME_RELAY` in `shared.js`, by the page's host, so never a laptop or the tests), and `--public` lets its
     pages in (`TEST_ORIGIN` beside `APP_ORIGIN` in `relay/server.mjs`). The owner moves the name (Coolify's domain, the DNS
-    record, then Pages' custom domain off, in that order; v115 changed the plan: `relay/README.md`, "The main server and the test copy"); until the owner says it
-    is done, the live site is still GitHub Pages and the `CNAME` file stays. Releases still go to `main`, which both copies
-    publish.
+    record, then Pages' custom domain off, in that order); until the owner says it is done, the live site is still GitHub
+    Pages and the `CNAME` file stays. Releases still go to `main`, which both copies publish. (Superseded the same day:
+    the main site stays on GitHub Pages and Coolify runs `dev` as the test place, v116 above.)
   - Tests: relay 609 good, the R2 signer 38 good (AWS's examples byte for byte); every build and the test scenes' listings
     current; the picture reader 109 good; smoke 210 good (groups, faces and the studio from R2 among them); the update
     test from v113 good; the live-update test good. The shared-room run first stopped at once: the merge left the group
@@ -901,11 +886,10 @@ Before handing over (or making anything more public), someone has to decide thes
      Recommendation: keep Coolify, keep the laptop relay at events; later, only if the scenes outgrow its disk, the
      studio's files on R2 with the rooms on Node. Open for the owner: the university's view of data on Cloudflare (a US
      company), a card, and the busiest day's number of sessions.
-   - **Decided** (the owner, 5 November 2026): the relay on Coolify on Hetzner, the studio's scenes in R2 (built in v114,
-     `--scenes r2`), and (v115) branch `main` on Coolify as the main site at `stories.lbi-netmed.com`, branch `dev` on
-     GitHub Pages as the test copy at `unfriend.github.io/airportnetworks/` with a relay of its own on Coolify
-     (`stories-test.lab.lbi-netmed.com`), offered by password, peer to peer without it. Work goes to `dev` first, then
-     `main` once the owner has tried it. The owner's steps: `relay/README.md`, "The main server and the test copy".
+   - **Decided** (the owner, 5 November 2026): the main site stays on GitHub Pages from `main`, its rooms peer to peer
+     (no relay offered for now); the test place is branch `dev` on the owner's Coolify (Hetzner) at
+     `stories.lab.lbi-netmed.com`, deployed by a webhook, with the studio's scenes in R2 (built in v114, `--scenes r2`).
+     Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;

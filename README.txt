@@ -340,13 +340,11 @@ own, which the others see in that person's colour. The robots move separately on
 machine on the same Wi-Fi as the headsets and serves the app itself (node
 relay/server.mjs --lan prints the https:// address to open on each headset; see
 relay/README.md). GitHub Pages serves everything else; a copy there can join a
-relay elsewhere with &relay=wss://... in the room link. Since v115 the relay on
-the owner's Coolify server is the main site (branch main, the app at
-https://stories.lbi-netmed.com/), and GitHub Pages hosts the test copy (branch
-dev, https://unfriend.github.io/airportnetworks/) with a relay of its own on
-Coolify, offered by its Shared dialog: with that relay's password a device's rooms
-run on it, without it peer to peer; the steps are in relay/README.md, "The main
-server and the test copy". #s=XYZ in a link joins
+relay elsewhere with &relay=wss://... in the room link. Since v116 the owner's
+Coolify server runs the test place (branch dev, the app and its relay at
+https://stories.lab.lbi-netmed.com/, the studio's scenes in Cloudflare R2), while
+the main site stays on GitHub Pages from main, its rooms peer to peer; see
+relay/README.md, "The test place on Coolify". #s=XYZ in a link joins
 room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
 device enters it once, in the Shared dialog or, in a headset, under the menu's
 Circles, Relay password (a keypad of lower-case letters and digits). The device

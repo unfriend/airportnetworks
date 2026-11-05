@@ -185,14 +185,13 @@ shared spaces, and whether sound comes out. Report those as untested. What two Q
 
 ## 4. Release checklist
 
-`main` is what visitors get: GitHub Pages publishes it until the owner's switch, and then the main server on Coolify
-runs it (section 5). Since v115 work goes first to **`dev`**, the test copy (GitHub Pages publishes `dev` once the switch
-is done, at `https://unfriend.github.io/airportnetworks/`, with its own relay on Coolify): the tested working branch is
-pushed there (`git push origin HEAD:dev`, a fast-forward, as for `main`), the owner tries it, and only then does `main`
-move forward to it (step 9) and the owner press **Redeploy** on the main server's Coolify app. Work happens on one
-working branch. `main` and `dev` only move forward by fast-forwards (they take the branch's commits as they are, with no
-merge commit), and only after the tests pass. No pull requests are used. `dev` has no `CNAME` file (Pages publishes it
-without a custom domain); never merge `main`'s `CNAME` into it.
+`main` is what visitors get, because GitHub Pages publishes it (section 5). Since v116 work goes first to **`dev`**,
+the test place: the owner's Coolify builds it at `https://stories.lab.lbi-netmed.com/` with every push (a webhook),
+served by its relay, with the studio's scenes in R2. The tested working branch is pushed there (`git push origin
+HEAD:dev`, a fast-forward, as for `main`), the owner tries it, and only then does `main` move forward to it (step 9).
+Work happens on one working branch. `main` and `dev` only move forward by fast-forwards (they take the branch's commits
+as they are, with no merge commit), and only after the tests pass. No pull requests are used. The `CNAME` file stays: it
+is GitHub Pages' custom domain for `main`.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
@@ -220,7 +219,7 @@ without a custom domain); never merge `main`'s `CNAME` into it.
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v115` now, so `networks-v116` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v116` now, so `networks-v117` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
@@ -254,10 +253,9 @@ without a custom domain); never merge `main`'s `CNAME` into it.
    ```
 
    Never push to main with `--force`.
-10. **Check the live copy.** Until the switch: after about a minute, the repository's Actions tab shows a finished
-    "pages build and deployment" run, and `curl -s https://stories.lbi-netmed.com/sw.js | sed -n 3p` shows the new
-    `VERSION`. After it: the test copy (`https://unfriend.github.io/airportnetworks/sw.js`) once `dev` is pushed, and
-    the main site once the owner has pressed Redeploy on app 1.
+10. **Check the live copy.** After about a minute, the repository's Actions tab shows a finished "pages build and
+    deployment" run, and `curl -s https://stories.lbi-netmed.com/sw.js | sed -n 3p` shows the new `VERSION`. The test
+    place shows `dev`'s at `https://stories.lab.lbi-netmed.com/sw.js` a minute or two after `dev` is pushed.
 
 **What visitors and headsets then get** (see `sw.js`, and `HOST.live` and `HOST.reloadIfUpdated` in `index.html`;
 AGENTS.md "Hot reload and live updates"):
@@ -287,15 +285,10 @@ Installed copies play narrations from their offline copy, so a replaced narratio
   owner); the github.io address redirects there (301). Everything a browser keeps (the installed app, settings, an
   anchored place, calibrations and their anchors, rooms kept on a device, Quest's shared space) belongs to the address,
   so it started afresh at the new one.
-- **The main server and the test copy** (v115; the owner, 5 November 2026: "i would like to host the main branch from
-  github on the coolify server and use that as stories.lbi-netmed.com while using the github dev branch hosted on github
-  pages for testing with its own relay running on coolify too"): app 1 on Coolify (Hetzner), branch `main`, takes the
-  name `stories.lbi-netmed.com` and serves the app and its relay there (also as `stories.lab.lbi-netmed.com`); Pages
-  publishes branch `dev` at `https://unfriend.github.io/airportnetworks/`, the test copy, whose relay is app 2 on
-  Coolify, branch `dev`, at `stories-test.lab.lbi-netmed.com` (offered by its Shared dialog: with its password a
-  device's rooms are there, without it peer to peer). The owner's steps, in an order that never takes the site down, are
-  in [relay/README.md](../relay/README.md), "The main server and the test copy". Until the owner says it is done, this
-  section describes Pages with the custom domain on `main`.
+- **The test place** (v116; the owner, 5 November 2026: the main site "will stay on github pages, deployed from main and
+  works as it always worked", and branch `dev` goes to the owner's Coolify, at `stories.lab.lbi-netmed.com`, with a
+  webhook, saving the studio's models to Cloudflare R2): see [relay/README.md](../relay/README.md), "The test place on
+  Coolify". The main site's rooms run peer to peer (no relay offered: `HOME_RELAY` in `shared.js` is empty for now).
 - Pages publishes **everything** on main, not only the app. `tools/` and `docs/` can be downloaded from the live site
   too (and `ikerdata/` could, until it was removed from the repository on 3 November 2026). The relay, and its Docker image, serve only the app's files.
 - Pages sends `Cache-Control: max-age=600` and ETags (tags that let a browser ask whether a file changed). The update
@@ -315,8 +308,7 @@ saved settings and headset calibrations do not carry over from one address to an
 - **For an event**, see [relay/README.md](../relay/README.md) ("A session on one Wi-Fi, step by step") and
   [event-runbook.md](event-runbook.md). The relay serves the app from its own checkout. Bring it up to date with
   `git pull` before an event, not during one.
-- **The Pages copy** at `unfriend.github.io` uses `wss://stories.lbi-netmed.com` by itself (v114, `HOME_RELAY` in
-  `shared.js`), and the relay's `--public` lets its pages in. Any other copy on Pages (a fork) runs its rooms peer to peer (PeerJS's public introduction server and Cloudflare's STUN server; see
+- **The Pages copy** (the main site) runs its rooms peer to peer (PeerJS's public introduction server and Cloudflare's STUN server; see
   [data-and-permissions.md](data-and-permissions.md) for what they see), or joins a relay somewhere else
   (`&relay=wss://...` in the room link). Both must have the same `FORMAT`. It cannot use a relay, or a relay's
   introduction server (`&peer=`), with a self-signed certificate.

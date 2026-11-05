@@ -843,9 +843,7 @@ try {
       'ping with no Origin (the health check, the relay\'s own page): answered, unlisted: true, Vary: Origin, no CORS needed');
     r = await get('/api/ping', { Origin: APP });
     ok(r.status === 200 && r.headers['access-control-allow-origin'] === APP && /Origin/.test(r.headers.vary), `the app's origin (${APP}): CORS for it alone (echoed)`);
-    r = await get('/api/ping', { Origin: 'https://unfriend.github.io' });
-    ok(r.status === 200 && r.headers['access-control-allow-origin'] === 'https://unfriend.github.io', 'the test copy on GitHub Pages (https://unfriend.github.io): allowed too, CORS for it');
-    ok((await get('/api/ping', { Origin: 'https://other.github.io' })).status === 403, 'another GitHub Pages site: 403');
+    ok((await get('/api/ping', { Origin: 'https://unfriend.github.io' })).status === 403, 'a GitHub Pages address that is not the app\'s (unfriend.github.io: Pages sends it on to the app\'s own name): 403');
     for (const o of [EVIL, 'null', 'https://stories.lbi-netmed.com.evil.example', 'http://stories.lbi-netmed.com']) {
       r = await get('/api/ping', { Origin: o });
       ok(r.status === 403 && !r.headers['access-control-allow-origin'], `another origin is refused: ${o} (403, no CORS)`);
@@ -900,7 +898,7 @@ try {
     for (const c of [a, own, pa]) c.ws.close();
     await sleep(400);
     ok(/sockets refused: origin not allowed \(\d+\)/.test(P.out) && /requests refused: origin not allowed \(\d+\)/.test(P.out), 'refusals counted in the log, a line a tick');
-    ok(P.out.includes(`Only pages from ${APP}, https://unfriend.github.io and the relay's own`) && /No list of open rooms/.test(P.out) &&
+    ok(P.out.includes(`Only pages from ${APP} and the relay's own`) && /No list of open rooms/.test(P.out) &&
       /Per address at most 30 lookups of unknown room codes a minute \(a burst of 60\), 10 new rooms a minute \(a burst of 20\), 64 open sockets/.test(P.out) &&
       /All rooms together hold at most 64 MB/.test(P.out) && !/No --proxy/.test(P.out), 'the start lines say what --public allows');
     const H = await start(['--public', '--static', REPO, '--host', '0.0.0.0', '--quiet']);

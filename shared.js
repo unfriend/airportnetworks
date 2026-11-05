@@ -59,16 +59,17 @@
 
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
-  // A copy of the app that offers another server's relay (v115; the owner, 5 November 2026: the main branch on the
-  // Coolify server as stories.lbi-netmed.com, "while using the github dev branch hosted on github pages for testing with
-  // its own relay running on coolify too", and without the relay's password rooms run peer to peer): on these hosts, while
-  // no relay is in use here, the Shared dialog and the headset menu offer it (homeOffer), and the studio asks it for its
-  // scenes (relayFind). Its password entered and accepted (there, or where a 401 of its asked for it), this device keeps
-  // it and uses that relay from then on, as a relay typed in (homeTry, authSaw); without it rooms run peer to peer as
-  // before, and Forget the password (out of a room) goes back to that. Keyed by the page's host, so never this machine, a
-  // LAN or the tests (HOST.collab.homeRelay(url) offers one there). v114 had made the main server's relay the test copy's
-  // default instead
-  const HOME_RELAY = { 'unfriend.github.io': 'https://stories-test.lab.lbi-netmed.com' };
+  // A copy of the app that offers a relay of its own (v116): on a host listed here, while no relay is in use, the Shared
+  // dialog and the headset menu offer it (homeOffer), and the studio asks it for its scenes (relayFind); its password
+  // entered and accepted (there, or where a 401 of its asked for it), this device keeps it and uses that relay from then
+  // on, as a relay typed in (homeTry, authSaw); without it rooms run peer to peer, and Forget the password (out of a room)
+  // goes back to that. Keyed by the page's host, so never this machine, a LAN or the tests (HOST.collab.homeRelay(url)
+  // offers one there). None for now (the owner, 5 November 2026: the main site stays on GitHub Pages from main, "works as
+  // it always worked", and "does not need a hosted relay for now, if it needs one i will add that later on, for now its a
+  // good place to test the peer to peer functionality"; the test place is branch dev on Coolify, served by its own relay).
+  // To offer one later: its host and address here, e.g. { 'stories.lbi-netmed.com': 'https://<relay>' }, and the page's
+  // origin in that relay's --origin (its --public allows https://stories.lbi-netmed.com already)
+  const HOME_RELAY = {};
   const HOME = { o: null, state: '' };   // o: a test's own offer (null: the table's); state: '', 'checking', 'wrong', 'limit', 'away'
   const homeRelay = () => { if (HOME.o !== null) return HOME.o; try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
   // listeners added here belong to the shell: a story change must not remove them
