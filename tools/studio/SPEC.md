@@ -186,7 +186,9 @@ placed by itself).
       "colour": "#c9d1dc", "look": "hide", "locked": true }
   ],
   "empties": [
-    { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1] }
+    { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1],
+      "path": { "k": [[0, 0, 0, 0, 0, 0, 0, 1], [1.5, 0.6, 0.2, 0, 0, 0.3827, 0, 0.9239], [3, 1.2, 0, -0.4, 0, 0.7071, 0, 0.7071]],
+        "play": "bounce", "start": "always", "speed": 1 } }
   ],
   "settings": { "others": "hidden", "real": "device" }
 }
@@ -228,6 +230,12 @@ placed by itself).
   axis, start }`, `kind` one of `'spin'`, `'wobble'`, `'bob'`, `'pulse'`, `'orbit'` and `'sway'` (required), the rest taking
   the kind's own when left out; `null` reads as absent, anything else that is not such a motion makes the record bad. A
   layout without it (v119's) reads as before.
+- An object's, a shape's, an empty's or a sound's `path` (optional, kept only when set; "Recorded paths" below): `{ k, play,
+  start, speed }`, `k` 2 to 600 keys `[t, dx, dy, dz, qx, qy, qz, qw]` (the first `t` 0, strictly increasing, the last at
+  most 120), `play` `'loop'` (the default), `'once'` or `'bounce'`, `start` `'always'` (the default) or `'shown'`, `speed`
+  0.25 to 4 (1 by default); `null` reads as absent, anything else that is not such a path makes the record bad, and an
+  item whose path would take the layout's paths past 6,000 keys is dropped and counted. A layout without it reads as
+  before.
 - Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups, 200 shapes, 100
   empties; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
@@ -993,7 +1001,7 @@ return. Untested on a headset.
 ## Motions (the owner, 6 November 2026)
 
 The owner: "Add little animations like spin and wobble etc for models?", then "animations do 1 and 2" (1: simple motions,
-this section; 2: a recorder of paths, to come; curves later). `engine/e6e_motion.js`.
+this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6e_motion.js`.
 
 - **The record** (an object's, a shape's or an empty's; `layout.json` and `state()` alike): `motion: { kind, speed, amount,
   axis, start }`, kept only when set (no motion: absent). `kind`: `'spin'` (turns about the axis through its middle),
@@ -1022,8 +1030,8 @@ this section; 2: a recorder of paths, to come; curves later). `engine/e6e_motion
 - **One pose pipeline** (`drawnPose(it, now, clockS, out)`, the drawn pose of an item at a time, in the scene's frame), so
   what comes later builds on it: (1) its placed pose, its holder's place, turn and scale (its record, a glide from the
   room, a carry, the arrows), or what a behaviour gives instead (`POSE.base(it, now, clockS, out)`, returning false when it
-  gives nothing for this item; none yet); (2) a path (`POSE.path(it, now, clockS, out)`, a recorder's, changing the pose
-  it is given; none yet); (3) its motion (`motionDelta`), premultiplied. `poseStep` (every frame in `itemsStep`, once the
+  gives nothing for this item; none yet); (2) its recorded path (`POSE.path(it, now, clockS, out)`, "Recorded paths" below,
+  changing the pose it is given); (3) its motion (`motionDelta`), premultiplied. `poseStep` (every frame in `itemsStep`, once the
   placed pose is this frame's) writes the drawn pose into the holder's matrix (`matrixAutoUpdate` off while it moves), so
   everything under it comes along: the model, the pointer's unseen box, its labels, a sound following it or one of its
   bones (a pulse grows an object's followers' offsets with it, `motionK`); its cut-outs take the same change on their own
@@ -1046,6 +1054,78 @@ this section; 2: a recorder of paths, to come; curves later). `engine/e6e_motion
   from the room's clock on every device. FORMAT networks-35 (v120).
 - **Untested on a headset**: how the motions look and feel life size (a spinning scan around you, a fast orbit), their
   phase across real headsets at a station, the cost of many moving items on a Quest.
+
+## Recorded paths (the owner, 6 November 2026)
+
+The owner: "just animate objects by dragging them? Animation recorder?", then "animations do 1 and 2" (2: this section).
+`engine/e6f_path.js`.
+
+- **The record** (an object's, a shape's, an empty's or a sound's; `layout.json` and `state()` alike): `path: { k, play,
+  start, speed }`, kept only when set. A group has none (its members each keep their own and move with it; its card says
+  so), nor do cubes and cut-outs (a cut-out goes with its object's path).
+  - `k`: its keys, each `[t, dx, dy, dz, qx, qy, qz, qw]`: `t` seconds from 0 (to the ms; the first 0, strictly
+    increasing, the last at most 120), then its pose relative to its placed pose: `(dx, dy, dz)` metres in its placed
+    frame, turned but not scaled (to the mm, each within 1,000), and `(qx, qy, qz, qw)` a turn after its placed turn (a
+    turn of length 0 is bad; normalised when it is more than 2e-3 off unit length, 4 decimals). A sound only moves (its
+    turn is kept but not used). 2 to 600 keys an item, and 6,000 in a scene (in a layout's or a state's order, an item
+    past them is bad); so the station's state, one value at the relay (256 KB at most), stays under it: a recording that
+    would take the state past 224 KB is refused, and so is a copy (Duplicate, a group's) that would pass either limit.
+  - `play`: `'loop'` (from its start again), `'once'` (to its last key, then held there) or `'bounce'` (back and forth).
+  - `start`: `'always'` (on the scene's clock: at a station the room's, `HOST.collab.now()`, so everyone there sees the
+    same moment; outside a room since the scene opened) or `'shown'` (from when it was last shown here: a cube showing it to
+    you; a sound, heard). *Once* with *Always* plays once from when the scene opened (at a station the room's clock has
+    long passed it, so it stands at its end): *Once* is meant with *When shown*.
+  - `speed`: 0.25 to 4 (2 decimals), how fast it plays.
+  - A key that is not 8 finite numbers, times out of order or past 120 s, fewer than 2 or more than 600 keys, or a `play`,
+    `start` or `speed` of the wrong kind make the record bad (the layout counts it; the room's record is ignored and the
+    item kept); a `speed` out of range is held at its limit; `null` reads as absent.
+- **Playing** (`pathTime`, `pathAt`): its time (the clock above) times its speed, then looped (`u mod D`), held
+  (`min(u, D)`) or back and forth (`u mod 2D`, mirrored past `D`), `D` its last key's time; between the two keys round it
+  the place in a straight line and the turn by slerp (the shortest way, normalised). Drawn by the pose pipeline
+  ("Motions": `POSE.path`, after the placed pose and before a motion, which adds on top): the placed place plus its turn
+  times `d`, its turn times `q`. So moving or turning the item moves or turns its whole path, sizing it does not size the
+  path, its record's place stays where it is placed, and what follows it comes along (a sound following it or one of its
+  bones, its cut-outs). A sound that follows something moves with that: its own path waits (kept) until it follows nothing.
+  Switched to its GLB (which holds its model turned by `r`), an object's keys are turned so it moves as before:
+  `d' = r d`, `q' = r q r^-1` (`pathTurned`, in `switchedRec`).
+- **Resting**: as a motion, it rests at its placed pose while this device carries it or, editing, has it selected (or its
+  group...), except just after it was recorded, or with *Play it here* on its card (`STU.recPlay`: it plays though
+  selected, without the page's arrows, until something else is selected or it is carried).
+- **Recording** (`REC`, this device's own: nothing goes into its record or to the room while it runs):
+  - In a headset: *Record its movement* on its card arms it (`XR.rec`, as *Hold it*: one disarms the other; another
+    selection, editing off or the session's end disarm it). The next grip of either hand, on it or anywhere (not at a
+    panel, the shell's menu or a station), carries it as usual, from where it stands, and its holder's pose is sampled 30
+    times a second (`recSample`, right after each carry) until it is let go. The sticks turn it and push it meanwhile, and
+    that is recorded; they do not size it, nor does a second hand (a grip of the other hand on it is refused while it
+    records): a path has no size. At 120 s it ends as if let go.
+  - On a page: *Record* on its card starts it and *Stop* keeps it (*Cancel* drops it); meanwhile the arrows (Move, Turn:
+    `TransformControls`) and its card's buttons (*Turn 90°*, *On the floor*...) move it as usual, with their real timing
+    (sampled every frame, 30 times a second at most); its size steps and the Size arrows are off. From Record to Stop is one
+    change (the arrows' drags and the card's presses inside it). Selecting something else keeps it as Stop does; editing
+    off (or the station's story locked) cancels it. At 120 s it stops by itself.
+  - Then (`recPath`): the samples relative to where it stood as the recording began, simplified (`pathSimplify`, splitting
+    where the straight line and slerp between two kept keys stray most from a sample, while any strays by more than 5 mm at
+    its middle, an object's model's box's middle, or 1 degree: 4 mm and 0.9 degrees there, the rest left for rounding to
+    the mm, 4 decimals and the ms), and the path written into its record, its place and turn as they were when the
+    recording began: one change, one Undo step. *Record again* keeps the old path's `play`, `start` and `speed` (a first
+    one: loop, always, 1). It plays at once (`STU.recPlay`), and its card says *Recorded 3.0 s in 27 keys (from 91
+    samples)*.
+  - Refused in words on its card: too short (under 0.1 s), not moved (no key 5 mm or 1 degree from where it began), more
+    than 600 keys once simplified, the scene's 6,000, the shared state's 224 KB; a locked item (*Lock in place*: refused as
+    a move is, with a knock), a sound that follows something (*Stop following to record its own path*), a group (*record
+    its members one by one*). A refused recording changes nothing.
+- **Its rows** on the card of an object, a shape, an empty and a sound (page and headset, editing on): *Recorded path* (with
+  its length and keys) and *Record* / *Record again* (page; *Stop* and *Cancel* while it records) or *Record its
+  movement* (headset; *Now press a grip (again: cancel)* while armed); with a path *Plays: Loop / Once / Back and forth*,
+  *Starts: Always / When shown*, *Speed: ×1* (*Slower*, *Faster* through ×0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4), *Play it
+  here* (this device's) and *Delete recording*; one Undo step each but Play it here. How it plays is not refused by a lock
+  (its place stays, as with a motion). Its sub-line in lists says *recorded path*. `RECLAST` (the last recording, with its
+  samples) and `recClock` (the recorder's clock, ms) are for tests.
+- **Shared rooms**: the path is part of its item's record, so it is shared as placing is; `'always'` takes its phase from
+  the room's clock on every device. FORMAT networks-35 (v120, with the motions).
+- **Untested on a headset**: recording with real grips and sticks (the pose sampled from a real carry at the headset's
+  frame rate), how a path plays back life size, its phase across real headsets at a station, the stall of simplifying a
+  long recording on a Quest (a 120 s one is 3,600 samples), the cost of many items on paths.
 
 ## Fewer triangles (the owner, 6 November 2026)
 
@@ -1156,6 +1236,9 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
 - Motions (v120): the smoke test's *studio motions* steps (on the test scene, with a shape, an empty, a sound and a cut-out
   put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `AGENTS.md`.
+- Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
+  in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
+  "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

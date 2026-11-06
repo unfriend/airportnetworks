@@ -177,6 +177,31 @@ trigger cube shows it to you). It is drawn over where the thing stands: its plac
 and Undo work as ever. While you have it selected (editing) or carry it, it rests where it stands so you can place it;
 the others still see it move. A sound on it, or a cut-out, moves with it. Shared in a room and saved in `layout.json`.
 
+## Recorded paths: the recorder
+
+An object, a shape, an empty or a sound can play back a movement you make with it (a group cannot: record its members
+one by one; each plays its own and moves with the group).
+
+- **In a headset**: select it, press **Record its movement** on its card, then press a grip (on it, or anywhere, as with
+  Hold it) and carry it as you want it to move: swing it, turn it, push it away or pull it in with the right stick, turn
+  it with the left stick. Let go and the movement is kept. The sticks do not size it while it records, nor does your
+  other hand (a path has no size).
+- **On a page**: select it, press **Record** on its card, then move it with its arrows (Move, Turn) or its card's buttons
+  (Turn 90°, On the floor...), taking your time: the pauses are recorded too. **Stop** keeps it, **Cancel** drops it.
+- Up to 120 s (it stops there by itself and keeps what it has). The recording is thinned out to the keys that matter (a key
+  wherever leaving it out would move it more than 5 mm or turn it more than 1 degree) and kept in its record as one
+  change: Undo takes it back. It then plays at once, even while it is selected (**Play it here** turns that off and on);
+  selected again or carried, it rests where it stands so you can place it.
+- It plays from where the thing stands: move it or turn it (arrows, grips, Turn 90°, its group) and its whole path moves
+  with it. **Plays**: **Loop**, **Once** (then it stays at the end) or **Back and forth**; **Starts**: **Always** (on the
+  room's clock, so everyone at a circle sees the same moment) or **When shown** (from when a trigger cube shows it to
+  you; *Once* goes with *When shown*: with *Always* it has long played at a circle); **Slower** and **Faster** (a quarter
+  to four times); **Delete recording**. A motion (Spin, Bob...) is added on top, and a sound or a cut-out on it comes
+  along. **Record again** keeps how it plays.
+- Limits, said on its card when a recording is refused: 600 keys a path (a long, shaky movement may need more: record a
+  shorter or calmer one), 6,000 in a scene, and a scene small enough to share in a room. A locked item cannot be
+  recorded, nor can a sound that follows something (stop following first). Shared in a room and saved in `layout.json`.
+
 ## In a headset: from the inside, Hold it, the sticks
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
@@ -279,7 +304,7 @@ was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby, `e6e_motion.js` the motions and how an item's pose is drawn), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby, `e6e_motion.js` the motions and how an item's pose is drawn, `e6f_path.js` the recorded paths and the recorder), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
