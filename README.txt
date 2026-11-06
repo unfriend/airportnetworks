@@ -316,7 +316,7 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate, this headset's own; Sound, this headset's own on or
+for every story; Frame rate and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
 Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
@@ -344,7 +344,13 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. Panels, a fifth
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. Real world
+hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off in a link):
+room and people (the default), room, people or nothing. Real things in front of a scene
+hide it as they would a real object: the walls and furniture of the room scan (run Space
+Setup on the Quest) and people, hands and anything moving, from the headset's depth. The
+menu, the notices, the subtitles and whatever is set on top are never hidden; a studio
+scene may ask for its own, until the next story. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
 under the panel, good with subtitles) or hidden (A or X still plays); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also
@@ -606,7 +612,7 @@ Files: index.html (the app), stories/ (the sixteen stories, the design room and 
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
+shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
 directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),

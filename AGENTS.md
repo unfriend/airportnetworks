@@ -98,6 +98,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   board), loaded by `index.html` just before `shared.js` (see the sound notes under
   "How the shell and stories fit together"). `tools/sfx.html` is its sound board and
   `tools/sfx-render.mjs` renders every sound to MP3 files for listening.
+- `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded by `index.html` after `sfx.js` and before
+  `shared.js` (see "Real-world occlusion" below).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
   links of a peer-to-peer room, loaded by `shared.js` only then. `p2p/` - a test
   page (not part of the app) for checking a network before an event: do two
@@ -394,10 +396,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   find (another room) is kept for the next session while things hold where
   they are. Each request carries a generation number, so one that settles
   after Place again, Anchor off or the end of the session is thrown away.
-  What a session asks for comes from the shell (`HOST.xr.features(mode)`, in
-  every story's `xrStart`): AR asks for `local-floor`, `hand-tracking`,
-  `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room) and
-  `shared` (the shared space), all optional; VR only for `local-floor`,
+  What a session asks for comes from the shell (`HOST.xr.request(mode)`, in
+  every story's `xrStart` since v119: `session = await (HOST.xr.request ? HOST.xr.request(mode) :
+  navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));`, the same line in all sixteen,
+  the design room and the studio; `HOST.xr.features(mode)` is still the list): AR asks for `local-floor`, `hand-tracking`,
+  `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room and real-world occlusion) and
+  `shared` (the shared space), and `depth-sensing` (real-world occlusion: below), all optional; VR only for `local-floor`,
   `hand-tracking` and `anchors`, since a Quest 3 left VR for its home at once
   with the full list (October 2026; AR was fine there, and VR on a Pico) and
   started VR on the first try with these three (which of the other three was
@@ -461,6 +465,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     in the story's scene, rings, icons, the menu and the read-out itself, are in the numbers; each second's means as
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
+  - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
+    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under Frame rate), only in AR;
+    see "Real-world occlusion" below.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -885,6 +892,64 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     headsets at one station (open-ear speakers may let neighbours hear a slight
     flam) is unheard and untested until tried.
 
+## Real-world occlusion (`HOST.occlusion`, `occlusion.js`)
+
+In an AR session (passthrough) real things hide what stands behind them, as they would a real object (v119; the owner,
+6 November 2026: "also plan for adding the occlusions", "occlusion should be on by default"). The way it is done was
+proven on a Quest 3 (Quest Browser 154) with the room test page (`room-test/`), whose depth pass, reading, `ready`,
+probe, `roomSync` and `shapeSig` it reuses.
+
+- **The request.** `HOST.xr.request(mode)` (in `HOST.xr`, `index.html`): VR exactly as before (`{ optionalFeatures:
+  HOST.xr.features(mode) }`, its ladder kept); AR adds `depth-sensing` to the optional features with `depthSensing: {
+  usagePreference: ['gpu-optimized', 'cpu-optimized'], dataFormatPreference: ['unsigned-short', 'luminance-alpha',
+  'float32'], matchDepthView: true }`, and the room test's ladder: a `TypeError` naming one of those values (a browser
+  that does not know `'unsigned-short'`) asks again without it, any other refusal asks again without depth at all.
+- **The setting.** `HOST.occlusion.own()`, `set(m)`, `next(m)`, `mode()`: `'both'` (the default: room and people),
+  `'room'`, `'depth'` (people, hands, anything moving) or `'off'`; this headset's own (`xrOccl` in `localStorage`,
+  `#occl=both|room|depth|off` in a link), never a room's, never in `collab.state()` (no `FORMAT` change). The menu's
+  Settings row *Real world hides: room and people* -> *room* -> *people* -> *nothing* (each press the next) with a note.
+  A story may ask for its own (`HOST.occlusion.scene(mode)`, also `true` for `'both'` and `false` for `'off'`; `null`
+  gives the headset's own back): the studio, for a scene that says always or never; cleared when the story changes
+  (`detach`, from `HOST.teardown`), and the menu's note says so while it holds.
+- **Each frame.** `HOST.loading.wrap` wraps the story's frame function in `HOST.occlusion.wrap` (inside `HOST.perf`'s, so
+  the read-out counts it): before the story draws, in an AR session with the story built (`collab.scene()`), its
+  objects (`O.root`, a `THREE.Group` with `renderOrder` -1e9, so its group order puts them before everything of the
+  story's) are hung in the story's scene (its root is the renderer's reference space), taken out in `HOST.teardown`
+  before the story is disposed and hung in the next story's on its first frame, so they survive a story change in a
+  session. Nothing at all happens outside an AR session or on a frame with no `XRFrame` (three.js r128 also runs the
+  loop on the window's frames).
+- **Depth (people).** Each frame, for each view, `XRWebGLBinding.getDepthInformation(view)` (CPU depth, a phone's:
+  `frame.getDepthInformation(view)`, uploaded as metres). A full-view quad drawn first (opaque, `renderOrder` -2 in the
+  group, `depthFunc` Always, no colour, not culled) writes each eye's real depth as `gl_FragDepth` with that eye's
+  projection (`onBeforeRender` per eye: three.js's left camera is on layer 1, its right on 2), the session's texture
+  handed to three.js as an external texture (a stand-in whose `__webglTexture` is the session's), set to nearest every
+  frame; an eye without depth that frame gets a texture of zeros (unoccluded). Readings: window (a depth buffer's value
+  for the depth's own near and far: `near / (1 - v)` with no far plane, as a Quest 3 gives it; the usual formula for a
+  finite far) or metres (the value times `rawValueToMeters`, through `normDepthBufferFromNormView`): window until the
+  probe has looked when the depth gives its own range, else metres; the probe (the room test's auto reading: a 16 x 16
+  grid of raw values read back, a few times at most a session until it has values, an integer texture refused by a
+  float sampler tried with an integer one) decides once. The depth's own view is taken as the eye's (on the Quest it
+  matched to 0 cm and 0.03 degrees). Depth sensing is paused while unused (`pauseDepthSensing`, `resumeDepthSensing`,
+  where offered).
+- **Room.** `frame.detectedPlanes` and `detectedMeshes` (when the session enabled them) drawn depth-only in the story's
+  scene, each part posed every frame by `frame.getPose(its space, renderer.xr.getReferenceSpace())`, built again only
+  when its shape really changes (`shapeSig`: a plane by its corners, a mesh by its sizes and a sample of its values,
+  the same arrays as last time taken as the same; a Quest 3 marked them changed about 56 times a second with nothing
+  changed), the old drawing kept until the new one is built, at most two built a frame.
+- **A little behind.** A thing must be a little further than a real surface to be hidden by it (`BIAS`: 4 cm for the
+  depth, which is noisier, 2 cm for the room, each along the view), so a robot's trail on the floor, a line along a
+  wall's foot, a studio model standing on the floor or a button under a fingertip is not hidden by what it stands on.
+- **What it hides.** Everything depth-tested drawn after it: the scenes, cards in 3D (the story panels, station cards,
+  name tags), the circles' rings and icons. Never: what is drawn over everything (`depthTest` false: the menu, the
+  notices, the subtitles, the frame-rate read-out, labels and cards set on top, the loading card, the calibration
+  crosses).
+- For tests and the Debug tab: `HOST.occlusion.state()` (the mode, the session's depth: usage, format, reading, eyes,
+  the probe; the room's parts), `line()` (the Debug tab's *Real world hides* line), `parts()`, `sig()`.
+- **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
+  room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
+  the floor), the cost with a big room scan and depth together in a heavy story, `pauseDepthSensing` on Quest Browser,
+  CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
+
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (the owner said go, 29 October 2026; it is
@@ -914,7 +979,7 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   `shell`, `build`; protocol in `relay/README.md`). A story file changed swaps
   in place at once on every page showing it (also mid-chapter) and is fetched
   fresh next time on the others; the list is read again (cards appear or change,
-  no reload); a shell file (`index.html`, `shared.js`, `sw.js`, `three.min.js`,
+  no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `three.min.js`,
   `peerjs.min.js`) reloads the page with its place kept. `--build` also runs a
   built story's `tools/<key>/build.mjs` when its sources change (the folders its
   build names, `../lbi/` and the like, and the story files it cuts from; not
@@ -2291,7 +2356,7 @@ reference, `tools/flock/engine/`):
 - The panel footer: `if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', ...)`;
   `xrResize` and the two-hand branch at the top of `carry`; `XR.size` in
   `xrPlace` (scene stories), `xrRecenter` and `xrAdopt`.
-- The session's optional features from `HOST.xr.features(mode)` (AR asks for `'shared'`; VR does not).
+- The session asked for through the shell: `session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));` (v119; AR asks for `'shared'` and depth sensing; VR does not).
 - `xrFreshStart`: `if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }`: a
   headset taken off in a room keeps its story and place (no Stories screen
   for a new wearer); at a station the room's clock and state go on applying.
@@ -3655,6 +3720,14 @@ shell knows, places that resolve, times within the story; a paused scrub across
 cues playing none; a stretch played asking for exactly the cues it crosses; one
 explore action's sound, `SFX_PICK`; a pretend headset's press on a story panel
 button clicking; at a slideshow stop no cue past it until Next, then the next),
+real-world occlusion (v119: a pretend AR headset driven through three.js r128's own WebXR path, its depth a real WebGL2
+texture array made in the page each frame, window depth with no far plane, and a pretend room scan; a magenta test plane
+read back from the layer's framebuffer hidden where the real world is nearer and drawn where it is farther, in both
+eyes, also the other way round, an eye without depth unoccluded, the real world 2 cm nearer not hiding it; the room's
+wall hiding what stands behind it with depth paused; off; both; the menu never hidden; the default *room and people*
+and the menu's row going round, kept; a story's own cleared by a story change and the objects hung in the next story's
+scene; nothing drawn after the session ends; CPU depth; `#occl=off`; `HOST.xr.request`'s ladder (a TypeError naming
+`'unsigned-short'`, another refusal) and VR as ever; the session line in every story),
 focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, and an iPad, 1180 x 820, with touch:
 `HOST.focus()` true, the panel hidden, the slim bars, the subtitle strip's text the shell's caption for the line on show
 and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening
