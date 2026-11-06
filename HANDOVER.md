@@ -43,6 +43,60 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v119 (6 November 2026; FORMAT networks-34, shell 119: running pages ask before reloading), on `dev` first:
+  the owner's batch of 6 November (lighter models, textures, studio items, the lobby, the check by eye, real-world
+  occlusion).**
+  - Fewer triangles in the studio (meshoptimizer's simplifier 1.3.0, MIT, pasted in from `tools/studio/vendor/` and
+    made only the first time it is asked for): every mesh down to the same share of its triangles, texture seams and
+    the joins between parts kept, tiny loose pieces dropped first, skins kept, shape keys left alone, the error said.
+    20 % by default everywhere (the owner). On an object's card (page and headset, editing only): *Fewer triangles...*
+    previews on this device only (a slider on a page; −5 %, +5 %, 10, 20 and 50 % in a headset), *Save* makes its GLB
+    again (from its original when the scene still has it, so a model made too light can come back up), every object of
+    that file switching where it stands; the GLB's record keeps `tris: { from, to, keep }`. The Upload pane: each model
+    row has *Triangles kept* (20 %), its count read from the file's bytes, and a two-picture preview. `convert.mjs
+    --keep 0.2`. Measured in headless Chromium: 400,512 triangles to 80,101 in about 1 s.
+  - *Change texture...* on an object's card (page and headset): its materials and slots, the scene's pictures (a file
+    from the computer on a page), shown at once on that object, *Save* bakes them into its GLB (as v112's textures),
+    *Cancel* puts it back.
+  - Studio items: shapes (cube, sphere, cylinder, plane; coloured, or *hide*: drawn into the depth only, so whatever is
+    behind it is hidden and the room or the stage shows through; `p.<id>`, at most 200) and empties (a point to hang
+    sounds on, drawn only while editing; `e.<id>`, at most 100); both in groups, cube lists and as a sound's target.
+    *Lock in place* on every item and group (`locked`): grips, arrows, Delete and the card's buttons refused, said in
+    plain words. The scene's settings (`settings` in `layout.json` and the state, for everyone at its circle): *Other
+    circles: shown / hidden* (hidden: in a room, while you are at this studio circle the other circles' rings, cards
+    and icons go, `HOST.collab.hideOthers`) and *Real world hides the scene: as each headset has it / always / never*
+    (`HOST.occlusion.scene`). FORMAT networks-34.
+  - The lobby: with circles asked first, no ring at all (the lobby's too) unless *Show all rings* is on; the cards and
+    icons stay, they are what you press. Back to the lobby stays walk-in even then (it stands where the headsets
+    charge), and every trip there calls the loaded story's `lobby()`: the studio forgets what this headset has seen
+    (this headset only, the owner's choice), so its scene starts afresh the next time.
+  - The check by eye: in AR, in a room with its two spots, whenever alignment could have slipped (a session's start,
+    waking, a reset of the floor, Re-align, the spots' anchors lost or found, the room's frame jumping), the orange
+    crosses show where this headset puts the spots and a small panel asks *Are both crosses on your spots?* *Yes*
+    counts as a check (*checked by eye* in the laptop's list); *No, calibrate again* opens the guide at Line up. It
+    waits 3 s after the last reason (at most 10 s), and not over the menu, a calibration or a check.
+  - Frame rate on a double press of B or Y (`buttons[5]`, within 0.4 s), with a notice.
+  - Real-world occlusion in AR, on by default (the owner): the room scan (planes and meshes, depth only) and the
+    headset's depth (people, hands) hide what stands behind them, from the room test's code (`occlusion.js`, a new shell
+    file; `HOST.occlusion`). Every story asks for its session through `HOST.xr.request(mode)` (VR as before; AR adds
+    depth sensing with the room test's ladder, then without depth). *Real world hides: room and people / room / people
+    / nothing* on the menu's Settings tab (each headset's own, `xrOccl`, `#occl=`); a story may ask for its own (the
+    studio's setting). Never hidden: anything drawn on top (the menu, notices, subtitles, on-top labels and cards). A
+    thing must be 4 cm behind the depth (2 cm behind the room) to be hidden, so things on a surface stay.
+  - Fixed at integration: the studio asks again for its hidden circles at another studio circle (the shell lets it lapse
+    when the station changes); the room's occluders ordered first inside their own group; the crosses drawn under the
+    menu and the panels (they covered the Yes/No buttons).
+  - Known limits: a sound following a shape keeps its offset when the shape is sized; two people changing two scene
+    settings at the same moment, one wins; making a big scan lighter stalls the headset's frames for some seconds (it
+    runs on the page's thread); a declined AR permission is asked once more without depth.
+  - Untested on a headset: all of real-world occlusion in the app (the room test proved its depth pass and room alone,
+    not inside the stories: edges of people and hands against scenes, the 4 cm and 2 cm margins, its cost in a heavy
+    story, `pauseDepthSensing` on Quest Browser, the ladder on the first try); the check by eye (how the panel and the
+    crosses read, whether the reasons fire at the right moments, how often it asks); B or Y twice; no rings with circles
+    asked first and the lobby walked into where the headsets charge; the studio's lighter models life size, the pause
+    while a scan is made lighter, saving a GLB from a Quest, Change texture there, shapes that hide against the real
+    room, empties, the lock's refusal, the scene's settings with the shell, the lobby hook.
+  - Tests: TESTS119
 - **The room and depth test page, 6 November 2026, on `dev` (the page is not part of the app: no release).** The owner's
   first two reports from a Quest 3 (Quest Browser 154): depth every frame for both eyes (GPU only, 320 x 320 an eye), 39
   planes and 11 meshes (31,299 triangles) of the room scan within 0.4 s, every mode's GPU work done in 2 to 4.6 ms of an
@@ -51,8 +105,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   value thrown away: nothing drawn) or as window depth with a far plane (NaN), so no depth mode worked; Room and Room
   hides blinked and lagged because Quest marked the planes changed about 45 times a second and the page rebuilt them
   each time. Fixed: no far plane read as such, the depth followed into its own view (*Depth seen from*), the room rebuilt
-  only on a real change, and the report says each. `tools/room-test.mjs` passed (23 steps). Untested on the Quest until
-  the owner runs it again.
+  only on a real change, and the report says each. `tools/room-test.mjs` passed (23 steps). The owner's third report (the
+  same day) confirmed it: every mode drew, the depth view lined up with each eye (0 cm, at most 0.03 degrees), nothing
+  rebuilt in 4,758 ticks with the planes marked changed, 1.7 ms for the depth and about 3 ms for the room of an 11 ms
+  frame at 86 to 90 frames a second. v119 took its code into the app.
 - **networks-v118 (6 November 2026; FORMAT networks-33, shell 118: running pages ask before reloading), on `dev` first:
   the owner's batch of 5 November, all but compressed textures.**
   - Circles asked first, a room setting (`ask` in `look`; FORMAT networks-33). *Circles: walk in* / *Circles: ask first*
