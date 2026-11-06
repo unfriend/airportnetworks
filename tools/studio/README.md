@@ -146,6 +146,25 @@ a room you want to see from inside, as walls that vanish from outside). It is th
 one file may differ; the file is never changed, and the setting stays when the model is converted to a GLB, switched to
 it or changed on the relay. It is shared in a room and saved in `layout.json`.
 
+## Shapes, empties, locks and the scene's settings
+
+- **Shapes** (Add, *Shapes*: Cube, Sphere, Cylinder, Plane): plain shapes in a colour, or ones that **hide things**: on
+  the card, *Look: Hides things* makes it invisible, hiding whatever of the scene stands behind it. In AR your room shows
+  through it, so a box the size of a real table hides the virtual things behind that table, as the table would. While
+  editing it shows as a see-through fill so you can find it. Size it per side (the card's steps, the page's arrows, a
+  cube's corners in a headset) and pick its colour from the swatches.
+- **Empties** (Add, *Empty*): a point you only see while editing (a small cross). Put a sound on it: on the sound's card,
+  *Follow an object...*, then point at the empty. Move the empty and the sound goes with it; a trigger cube that hides
+  the empty silences the sound.
+- **Lock in place** (every card, by *Duplicate* and *Delete*): a locked thing cannot be moved, turned, sized or deleted
+  by any hand, page or headset, until *Unlock*. A locked group holds all its members; a group with a locked member does
+  not move and says which. It is shared and saved.
+- **The scene's settings** (Scene, while editing): *Other circles: Hidden* hides the other circles' rings, cards and icons
+  for everyone at this studio's circle in a shared room; *Real world hides the scene* sets whether real things hide the
+  scene in AR (*As each headset has it*, *Always* or *Never*). Both are saved with the scene.
+- **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
+  studio, so the scene starts afresh for the next person who puts it on.
+
 ## In a headset: from the inside, Hold it, the sticks on a card
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
@@ -243,7 +262,7 @@ was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
