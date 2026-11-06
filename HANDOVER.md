@@ -43,6 +43,57 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v120 (7 November 2026; FORMAT networks-35, shell 120: running pages ask before reloading), on `dev` first:
+  the owner's batch after trying v119.**
+  - The black patches on lighter scans (the owner: "The reduction works really well but leaves black artifacts in the
+    textured models"): a scan's texture is an atlas of many pieces with black between them, and making a model lighter
+    straightens each piece's outline in the picture, so at 10 % triangles sample the black at the seams. Measured on the
+    atelier scan with its margins blacked out: the wedges at 10 %, none once every texel no triangle uses is filled with
+    the nearest piece's colours, which also took away the thin dark seams the unreduced scan had from mipmapping
+    (locking the seams' corners stopped the wedges but kept those). Every GLB the studio makes now fills its pictures'
+    gaps (`IM.cover`, `IM.fillGaps`, `CONV.fillModel`, in `toGLB`; the record's `fill`; `convert.mjs --no-fill`), only
+    for pictures used within 0 to 1 and under 95 % used, each slot with its own values; the Fewer triangles preview
+    shows it. The atelier's 4,096 px picture: 1.4 s in `convert.mjs`'s page, 5.6 s in the studio's preview page. A GLB
+    made too light before v120 is fixed by making it again from its original.
+  - The Add pane as a grid of cards with pictures (256 px, made with every GLB, kept as `previews/<path>.jpg` in the
+    scene, which the relay takes and lists apart; *Make pictures* on a page for older models); sounds stay a list. No 3D
+    previews (the owner: "leave 3d models for now").
+  - Circles ask first by default (the owner: "Circles should be ask first by default for everyone"): a room that never
+    wrote `look`'s `ask` asks first; the switch still turns a room to walk in. FORMAT networks-35, so v119 and v120 never
+    share a room. The tests keep walking in with `collabAskDefault` = `walk`.
+  - The main site's relay: `HOME_RELAY` offers `https://main.lab.lbi-netmed.com` on `stories.lbi-netmed.com` (the owner's
+    Coolify runs branch `main` there, a clone of the test place's resource with its domain, branch and `R2_PREFIX`
+    changed, redeployed). Learnt on 6 November: the proxy there makes certificates by a DNS challenge through Hetzner,
+    which answers the `lab` names, so `stories.lbi-netmed.com` (Namecheap) got none; a domain changed in Coolify needs a
+    redeploy. `relay/README.md` has both.
+  - *My menu: my circle* (the owner: "the menu window of each person should optionally be visible for everyone so that
+    i can explain it easier", then "in my circle"): a headset setting, off by default; while on and the menu open at a
+    station, its picture (a JPEG under 47 KB, when it changes, at most every 1.5 s) and where it floats go to the others
+    at that circle as a quiet effect, who draw it there with the person's name; never pointable, nothing stored.
+  - In the studio:
+    - the sticks while carrying (the owner's mapping): the left stick's up and down size it, left and right turn it; the
+      right stick's up and down push it away or pull it in, left and right turn it;
+    - simple motions on objects, shapes and empties (spin, wobble, bob, pulse, orbit, sway; speed, amount, axis; always
+      on the room's clock, or from when shown), drawn by one pose pipeline (`e6e_motion.js`) that never changes the record;
+    - the recorder (`e6f_path.js`): *Record its movement*, then carry it; letting go stops; played as a loop, once or
+      back and forth, always or when shown, its keys relative to where it stands (moving it moves its path); on a page
+      Record and Stop with the arrows; limits 600 keys an item, 6,000 a scene;
+    - behaviours (`e6g_behave.js`; the owner: "shared for each headset so only react to one headset, example closest
+      or first player who walks close"): look at, follow, keep away (within an area of its place) and follow an item;
+      the nearest headset in range or the first to come close; that headset drives it and sends where it put it ten
+      times a second (`beh`), the others draw it 120 ms behind; nobody in range, it goes home on every device.
+    FORMAT networks-35 (`motion`, `path`, `behaviour` in the studio's records). Drawing curves by hand is left for later
+    (the owner).
+  - Fixed at integration: the hidden circles walked into (released here); the merge of the four chains (the build list,
+    the test's rounds and AGENTS.md kept from both sides).
+  - Known limits: a sound following a shape keeps its offset when the shape is sized; a recorded path is not sized with
+    its item; a GLB made too light before v120 keeps its wedges unless made from its original; a shared menu's picture
+    goes to every member of the room (the relay sends an effect to all), drawn only at its circle.
+  - Untested on a headset: the fill's look on a Quest; the Add pane's grid and pictures there; a picture drawn in a
+    session; circles asked first by default in a real room; the main site's relay offer and password on a Quest; how a
+    shared menu reads and costs; the sticks, the motions, recording with real grips and paths playing life size;
+    behaviours over real Wi-Fi (who is picked, the hand-over, how 120 ms behind looks).
+  - Tests: TESTS120
 - **networks-v119 (6 November 2026; FORMAT networks-34, shell 119: running pages ask before reloading), on `dev` first:
   the owner's batch of 6 November (lighter models, textures, studio items, the lobby, the check by eye, real-world
   occlusion).**
@@ -98,7 +149,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     asked first and the lobby walked into where the headsets charge; the studio's lighter models life size, the pause
     while a scan is made lighter, saving a GLB from a Quest, Change texture there, shapes that hide against the real
     room, empties, the lock's refusal, the scene's settings with the shell, the lobby hook.
-  - Tests: TESTS119
+  - Tests: the smoke test (235 checks), the relay's (631), R2's signer (39), the picture reader (109), the room test, the
+    update test from v118, the live test and the sound test all passed on the merged tree. The full shared-room run: 533
+    passed, 3 failed, all timing checks that have failed before on a loaded machine (peer to peer's silent host, the
+    cards following Cards waiting 3 s, the standby height); run alone, `--ask` (17), `--circles` (17) and `--p2p` (18)
+    passed, and `--quick` passed but for the standby height check again and a pointing card's 3.5 s window. No alignment
+    code changed in v119 (checked line by line); that check failed before in v113, v115 and v116 too. A review of where
+    the two chains meet found the hidden circles still walked into: fixed, with its check, and released in v120.
 - **The room and depth test page, 6 November 2026, on `dev` (the page is not part of the app: no release).** The owner's
   first two reports from a Quest 3 (Quest Browser 154): depth every frame for both eyes (GPU only, 320 x 320 an eye), 39
   planes and 11 meshes (31,299 triangles) of the room scan within 0.4 s, every mode's GPU work done in 2 to 4.6 ms of an
