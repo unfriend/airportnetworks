@@ -201,6 +201,7 @@ function behaveStep(dt, pn) {
     const it = STU.items.get(id), b = it && it.rec.behaviour;
     if (!b || b.kind !== B.kind) { behStop(id, B); BEH.st.delete(id); }
   }
+  for (const id of BEH.heard.keys()) if (!STU.items.has(id)) BEH.heard.delete(id);   // (samples of items gone: another scene)
   // (in a room or not: the times are the relay's or this page's, so who came when starts again)
   const base = behStation() ? 'room' : 'here';
   if (BEH.base !== base) { BEH.base = base; BEH.heard.clear(); for (const B of BEH.st.values()) { B.inAt.clear(); B.who = ''; B.drive = false; } }

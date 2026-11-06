@@ -21481,6 +21481,7 @@ function behaveStep(dt, pn) {
     const it = STU.items.get(id), b = it && it.rec.behaviour;
     if (!b || b.kind !== B.kind) { behStop(id, B); BEH.st.delete(id); }
   }
+  for (const id of BEH.heard.keys()) if (!STU.items.has(id)) BEH.heard.delete(id);   // (samples of items gone: another scene)
   // (in a room or not: the times are the relay's or this page's, so who came when starts again)
   const base = behStation() ? 'room' : 'here';
   if (BEH.base !== base) { BEH.base = base; BEH.heard.clear(); for (const B of BEH.st.values()) { B.inAt.clear(); B.who = ''; B.drive = false; } }
@@ -25947,8 +25948,8 @@ return {
   lobby: () => studioLobby(),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each (no
-  // effects)
+  // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each; one
+  // effect, a behaviour's driver's samples (studioEffect, e6g_behave.js)
   collab: {
     APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: v => { SFXQ.quiet++; try { return collabApply(v); } finally { SFXQ.quiet--; } }, view: collabView, setView: collabSetView,
     effect: studioEffect,

@@ -399,8 +399,8 @@ return {
   lobby: () => studioLobby(),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each (no
-  // effects)
+  // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each; one
+  // effect, a behaviour's driver's samples (studioEffect, e6g_behave.js)
   collab: {
     APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: v => { SFXQ.quiet++; try { return collabApply(v); } finally { SFXQ.quiet--; } }, view: collabView, setView: collabSetView,
     effect: studioEffect,

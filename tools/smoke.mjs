@@ -4122,9 +4122,10 @@ await step('design: the intro ends at the table', async () => {
       const want = B.drawn('bhf001').multiply(B.placed('bhf001').invert()).multiply(B.placed('bhi001')), got = B.drawn('bhi001');
       if (B.far(want, got) > 0.01) o.push('the item following the ball: ' + B.far(want, got));
       setRec('bhf001', { motion: { kind: 'spin', speed: 30 } });
+      B.run(1, 1 / 30);
       const t0 = B.drawn('bhi001'), f0 = B.front('bhf001');
-      B.run(15, 1 / 30);
-      if (B.far(B.drawn('bhi001'), t0) > 1e-3 || B.ang(B.front('bhf001'), f0) < 0.3) o.push('the ball spinning: its tail moved, or the ball did not spin: ' + [B.far(B.drawn('bhi001'), t0), B.front('bhf001'), f0]);
+      B.run(15, 1 / 30);   // (half a second: a quarter turn)
+      if (B.far(B.drawn('bhi001'), t0) > 1e-3 || Math.abs(B.ang(B.front('bhf001'), f0) - Math.PI / 2) > 0.01) o.push('the ball spinning: its tail moved, or the ball did not spin: ' + [B.far(B.drawn('bhi001'), t0), B.front('bhf001'), f0]);
       setRec('bhf001', { motion: undefined });
       // keep away: the head 0.36 m from its place: it goes to 1.5 m from the head, never more than 2 m from its place
       const am = B.run(240, 1 / 30, [-2.3, 1.6, -2.2, 0]).bha001, aw = B.mid('bha001'), h = B.V(-2.3, aw.y, -2.2), home = B.V(-2, aw.y, -2);
