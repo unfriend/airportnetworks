@@ -165,6 +165,18 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
   studio, so the scene starts afresh for the next person who puts it on.
 
+## Motions: spin, wobble, bob, pulse, orbit, sway
+
+An object, a shape or an empty can move on its own: on its card, **Motion** picks **Spin** (turns round its axis),
+**Wobble** (tilts and the tilt goes round), **Bob** (up and down), **Pulse** (grows and shrinks a little), **Orbit**
+(goes round a small circle, still facing its way) or **Sway** (swings to and fro), or **None**. **Slower** and **Faster**
+set how many a minute (*The other way* turns a spin or an orbit round), **Less** and **More** how far (degrees, metres,
+or a share of its size for a pulse), **Axis** which way (upright, side to side, front to back), and **Starts** whether it
+runs **Always** (on the room's clock: everyone at a circle sees it at the same moment) or **When shown** (from when a
+trigger cube shows it to you). It is drawn over where the thing stands: its place is not changed, so moving it, saving it
+and Undo work as ever. While you have it selected (editing) or carry it, it rests where it stands so you can place it;
+the others still see it move. A sound on it, or a cut-out, moves with it. Shared in a room and saved in `layout.json`.
+
 ## In a headset: from the inside, Hold it, the sticks
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
@@ -267,7 +279,7 @@ was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby, `e6e_motion.js` the motions and how an item's pose is drawn), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload

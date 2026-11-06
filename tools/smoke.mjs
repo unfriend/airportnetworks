@@ -4061,6 +4061,210 @@ await step('design: the intro ends at the table', async () => {
     await sp.close();
   });
 }
+// The studio's motions (tools/studio/SPEC.md, "Motions"), on pages of their own at the test scene, with a shape (turned and
+// sized per axis), an empty, a sound following the empty and a cut-out on the box put in for these steps: each kind's
+// drawn pose at two moments its formula (about its middle, in the scene's axes) over its placed pose, which stays as its
+// record puts it; 'always' the same on two pages at one room time, 'shown' from its showing; the sound following the
+// empty, the box's cut-out and a sound on the pulsing box coming along; resting while selected (or its group, or a sound on it) and while carried;
+// the cards' rows (page and headset), one Undo step each; the state and layout.json, bad values refused
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } }), mp2 = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  for (const p of [mp, mp2]) {
+    p.on('pageerror', e => errors.push('studio motions: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio motions: ' + m.text()); });
+  }
+  const ss = (s, p) => (p || mp).evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms, p) => (p || mp).waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio motions: ' + b)); };
+  // (in the page: the items these steps need; an item drawn at a scene clock T (and now); what each kind's formula says
+  // its drawn middle, turn and scale are, from its record and its own middle, worked out here on its own)
+  const PUT = `(putItem('mot001', 'p', norm('p', { name: 'Turned', shape: 'cube', p: [2, 0.5, -1], q: [0, 0.3827, 0, 0.9239], size: [0.4, 0.6, 0.2] })),
+    putItem('emp001', 'e', norm('e', { name: 'Point', p: [0, 1.2, -1] })),
+    putItem('sfl001', 's', norm('s', { name: 'Hum', file: 'tone.wav', p: [0, 1.4, -1], on: 'emp001', o: [0, 0.2, 0] })),
+    putItem('cut001', 'x', norm('x', { name: 'Notch', on: 'box001', p: [0.1, 0.1, 0.25], size: [0.2, 0.2, 0.2] })), 0)`;
+  const HELP = `window.__mo = window.__mo || {
+    V: (...a) => new THREE.Vector3(...a),
+    at: (id, T, now) => { const sc = sceneClock; sceneClock = () => T; try { itemsStep(0, now === undefined ? performance.now() : now); } finally { sceneClock = sc; } const H = STU.items.get(id).holder; H.updateWorldMatrix(true, false); return H; },
+    // [drawn middle, turn, scale] and [placed (from its record)] for its own middle m (its holder's local frame)
+    pose: (it, mat) => { const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); mat.decompose(p, q, s); return { mid: window.__mo.m(it).applyMatrix4(mat), q, s }; },
+    m: it => (it.kind === 'o' && it.model ? it.proxy.position.clone() : new THREE.Vector3()),
+    placed: it => { const r = it.rec, q = new THREE.Quaternion(...r.q), s = it.kind === 'o' ? new THREE.Vector3(r.s, r.s, r.s) : it.kind === 'p' ? new THREE.Vector3(...r.size) : new THREE.Vector3(1, 1, 1); return new THREE.Matrix4().compose(new THREE.Vector3(...r.p), q, s); },
+    // what the formula says at T
+    want: (it, T) => {
+      const M = window.__mo, mo = it.rec.motion, A = M.V(...{ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[mo.axis]), u = M.V(...{ x: [0, 1, 0], y: [0, 0, 1], z: [1, 0, 0] }[mo.axis]);
+      const ph = 2 * Math.PI * mo.speed / 60 * T, sn = Math.sin(ph), P = M.pose(it, M.placed(it)), R = (ax, a) => new THREE.Quaternion().setFromAxisAngle(ax, a);
+      const w = { mid: P.mid.clone(), q: P.q.clone(), s: P.s.clone() }, deg = Math.PI / 180;
+      if (mo.kind === 'spin') w.q.premultiply(R(A, ph));
+      if (mo.kind === 'sway') w.q.premultiply(R(A, mo.amount * deg * sn));
+      if (mo.kind === 'wobble') w.q.premultiply(R(u.clone().applyQuaternion(R(A, ph)), mo.amount * deg));
+      if (mo.kind === 'bob') w.mid.addScaledVector(A, mo.amount * sn);
+      if (mo.kind === 'pulse') w.s.multiplyScalar(1 + mo.amount * sn);
+      if (mo.kind === 'orbit') w.mid.add(u.clone().applyQuaternion(R(A, ph)).multiplyScalar(mo.amount));
+      return w;
+    },
+    // how far the drawn pose is from the formula's: [m, rad, scale]
+    off: (it, T) => { const M = window.__mo, H = M.at(it.id, T), d = M.pose(it, H.matrixAutoUpdate ? M.placed(it) : H.matrix), w = M.want(it, T); return [d.mid.distanceTo(w.mid), d.q.angleTo(w.q), d.s.distanceTo(w.s)]; },
+  }`;
+  await step('studio motions: each kind\'s drawn pose at two moments is its formula (about its middle, in the scene\'s axes) over its placed pose, which stays as its record puts it; the empty\'s sound and the box\'s cut-out come along', async () => {
+    for (const p of [mp, mp2]) {
+      await p.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+      await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    }
+    for (const p of [mp, mp2]) if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000, p)) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, ${PUT}, select(''), 0)`);
+    const r = await ss(`(() => {
+      const M = window.__mo, out = [], T = [1.25, 7.3];
+      const cases = [['mot001', { kind: 'spin', speed: 6 }], ['mot001', { kind: 'wobble', speed: 20, amount: 10, axis: 'x' }], ['mot001', { kind: 'bob', speed: 15, amount: 0.3, axis: 'z' }],
+        ['mot001', { kind: 'pulse', speed: 30, amount: 0.2 }], ['mot001', { kind: 'orbit', speed: -4, amount: 0.5 }], ['mot001', { kind: 'sway', speed: 15, amount: 20, axis: 'z' }],
+        ['box001', { kind: 'spin', speed: 12 }], ['box001', { kind: 'orbit', speed: 3, amount: 1, axis: 'x' }], ['emp001', { kind: 'bob', speed: 15, amount: 0.3 }], ['emp001', { kind: 'sway', speed: 9, amount: 30, axis: 'x' }]];
+      for (const [id, mo] of cases) {
+        const it = STU.items.get(id), rec0 = JSON.stringify(Object.assign({}, it.rec, { motion: undefined }));
+        setRec(id, { motion: mo });
+        for (const t of T) {
+          const o = M.off(it, t);
+          if (o[0] > 1e-5 || o[1] > 1e-4 || o[2] > 1e-5) out.push(id + ' ' + mo.kind + ' at ' + t + ' s: ' + o.map(v => v.toExponential(2)));
+          // (its placed pose: its holder's place, turn and scale stay what its record puts)
+          if (M.V().copy(it.holder.position).distanceTo(M.V(...it.rec.p)) > 1e-6) out.push(id + ' ' + mo.kind + ': its holder moved');
+        }
+        if (it.holder.matrixAutoUpdate) out.push(id + ' ' + mo.kind + ' is not drawn moving');
+        if (JSON.stringify(Object.assign({}, it.rec, { motion: undefined })) !== rec0) out.push(id + ' ' + mo.kind + ': its record changed');
+      }
+      // the empty bobbing: the sound following it goes with it (where its offset puts it on the drawn empty)
+      setRec('emp001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } });
+      M.at('emp001', 1);
+      const want = 1.2 + 0.3 * Math.sin(2 * Math.PI * 15 / 60 * 1) + 0.2, f = STUDIO.follow('sfl001');
+      if (!f || f.d > 1e-6 || Math.abs(STU.items.get('sfl001').holder.position.y - want) > 1e-5) out.push('the sound on the empty did not go with it: ' + JSON.stringify(f) + ' ' + want);
+      // the box spinning: its cut-out comes along (its corners where the box's change puts its placed ones)
+      setRec('box001', { motion: { kind: 'spin', speed: 12 } });
+      const B = M.at('box001', 2), x = STU.items.get('cut001'), D = B.matrix.clone().multiply(M.placed(STU.items.get('box001')).invert());
+      const pl = new THREE.Matrix4().compose(x.holder.position, x.holder.quaternion, x.holder.scale), cs = STUDIO.cut('cut001').corners;
+      const far = Math.max(...cs.map((c, k) => M.V(k & 1 ? 0.5 : -0.5, k & 2 ? 0.5 : -0.5, k & 4 ? 0.5 : -0.5).applyMatrix4(pl).applyMatrix4(D).distanceTo(M.V(...c))));
+      if (!(far < 1e-5) || x.holder.matrixAutoUpdate) out.push('the cut-out did not come along with the box: ' + far);
+      // the box pulsing: a sound on its whole model goes where the box's change puts it at rest (its offset grown with it)
+      const sb = addSound('tone.wav'); setRec(sb, { p: [0.4, 1.1, -1.6] }); setRec('box001', { motion: undefined }); M.at('box001', 2); itemAct('follow', 'box001', sb); select('');   // (a sound on it selected: it would rest)
+      const r0 = STU.items.get(sb).holder.position.clone();
+      setRec('box001', { motion: { kind: 'pulse', speed: 30, amount: 0.4 } });
+      const P2 = M.at('box001', 0.5), D2 = P2.matrix.clone().multiply(M.placed(STU.items.get('box001')).invert()), dp = STU.items.get(sb).holder.position.distanceTo(r0.clone().applyMatrix4(D2));
+      if (!(dp < 1e-5) || !(Math.abs(Math.cbrt(D2.determinant()) - 1.4) < 1e-6)) out.push('the sound on the pulsing box did not go with it: ' + dp);
+      deleteItem(sb);
+      // none: at rest, drawn where its record puts it
+      setRec('box001', { motion: undefined }); M.at('box001', 2);
+      if (!STU.items.get('box001').holder.matrixAutoUpdate || !STU.items.get('cut001').holder.matrixAutoUpdate) out.push('with no motion the box (or its cut-out) was still drawn moving');
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio motions: \'always\' the same on two pages at one room time, \'shown\' from its showing (again from its beginning when shown again)', async () => {
+    const out = [];
+    await ss(`(${HELP}, ${PUT}, 0)`, mp2);
+    const T = 1700000123.456, now = `(() => {
+      const it = STU.items.get('mot001'), a = atStation, n = HOST.collab.now;
+      setRec('mot001', { motion: { kind: 'wobble', speed: 17, amount: 25, axis: 'z' } });
+      atStation = () => true; HOST.collab.now = () => ${T * 1000};
+      try { itemsStep(0, performance.now()); return [it.holder.matrix.toArray(), window.__mo.off(it, sceneClock(performance.now()))[1]]; } finally { atStation = a; HOST.collab.now = n; }
+    })()`;
+    const [a, b] = [await ss(now), await ss(now, mp2)];
+    const d = Math.max(...a[0].map((v, i) => Math.abs(v - b[0][i])));
+    if (!(d < 1e-9) || !(a[1] < 1e-4)) out.push('always at one room time: the two pages differ by ' + d + ', the formula by ' + a[1]);
+    const sh = await ss(`(() => {
+      const M = window.__mo, it = STU.items.get('mot001'), c = STU.items.get('cube01'), o = [];
+      setRec('cube01', { show: c.rec.show.concat('mot001') });
+      setRec('mot001', { motion: { kind: 'spin', speed: 6, start: 'shown' } });
+      shownFor(null);
+      if (it.shown) o.push('not hidden before its cube');
+      shownFor([0, 1, 0]);
+      const t0 = it.shownAt, yaw = now => { M.at('mot001', 999, now); const q = new THREE.Quaternion(); it.holder.matrix.decompose(M.V(), q, M.V()); return new THREE.Euler().setFromQuaternion(q, 'YXZ').y; };
+      const y0 = yaw(t0), y1 = yaw(t0 + 2500), base = Math.PI / 4;
+      if (Math.abs(y0 - base) > 1e-3 || Math.abs(y1 - (base + Math.PI / 2)) > 1e-3) o.push('shown: not from its showing ' + [y0, y1]);
+      it.shownAt = t0 - 5000;   // (as if shown five seconds before)
+      shownFor(null); shownFor([0, 1, 0]);
+      const t1 = it.shownAt, y2 = yaw(t1 + 1250);
+      if (!(t1 >= t0) || Math.abs(y2 - (base + Math.PI / 4)) > 1e-3) o.push('shown again: not from its beginning ' + [t0, t1, y2]);
+      shownFor(null); STU.head = null;
+      return o;
+    })()`);
+    bad(out.concat(sh));
+  });
+  await step('studio motions: resting while selected (editing), its group selected, a sound on it selected, and while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
+    const out = await ss(`(() => {
+      const M = window.__mo, o = [], mv = id => !STU.items.get(id).holder.matrixAutoUpdate, step = () => M.at('mot001', 3.3);
+      setEdit(true); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } }); setRec('emp001', { motion: { kind: 'orbit', speed: 8, amount: 0.4 } }); select(''); step();
+      if (!mv('mot001') || !mv('emp001')) o.push('not moving at first');
+      select('mot001'); step();
+      if (mv('mot001') || !mv('emp001')) o.push('selected, it did not rest (or the empty rested too)');
+      const ex = new THREE.Matrix4().compose(STU.items.get('mot001').holder.position, STU.items.get('mot001').holder.quaternion, STU.items.get('mot001').holder.scale);
+      if (STU.items.get('mot001').holder.matrix.elements.some((v, i) => Math.abs(v - ex.elements[i]) > 1e-9)) o.push('resting, it was not drawn at its placed pose');
+      select(''); step();
+      if (!mv('mot001')) o.push('not moving again once not selected');
+      select('sfl001'); step();
+      if (mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty did not rest');
+      change(() => putItem('grpmo1', 'g', norm('g', { name: 'Two', items: ['mot001', 'emp001'] }))); select('grpmo1'); step();
+      if (mv('mot001') || mv('emp001')) o.push('their group selected: they did not rest');
+      undo(); select(''); step();
+      setEdit(false); select('mot001'); step();
+      if (!mv('mot001')) o.push('editing off, it rested');
+      setEdit(true); select('');
+      // carried by a pretend headset's grip: rests while held, moves again let go (once not selected)
+      XR.on = true; GL.world.updateMatrixWorld(true);
+      const c = XR.ctrls[0], w = STU.items.get('mot001').holder.getWorldPosition(M.V());
+      c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.makeTranslation(w.x, w.y + 0.2, w.z + 0.4); c.o.setFromMatrixPosition(c.g.matrix);
+      c.hover = { kind: 'item', id: 'mot001' }; xrGrab(c, true); select('emp001'); step();
+      if (mv('mot001') || !STU.items.get('mot001').carry) o.push('carried, it did not rest');
+      xrGrab(c, false); select(''); step();
+      if (!mv('mot001')) o.push('let go, it did not move again');
+      c.src = null; c.g.visible = false; c.hover = null; XR.on = false;
+      return o;
+    })()`);
+    // the page's card: a shape with no motion given one, its speed, how far, its axis and when it starts, then none
+    await ss(`(setRec('mot001', { motion: undefined }), select('mot001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length'), seq = [['motion:wobble', '{"kind":"wobble","speed":20,"amount":10,"axis":"y","start":"always"}'], ['mspeed:+', '"speed":30'], ['mamount:-', '"amount":5'],
+      ['maxis:x', '"axis":"x"'], ['mstart:shown', '"start":"shown"'], ['motion:spin', '{"kind":"spin","speed":6,"amount":0,"axis":"x","start":"shown"}'], ['mrev', '"speed":-6']];
+    for (const [id, want] of seq) {
+      await ss('renderPanes()');
+      await mp.click(`#pane-item [data-id="${id}"]`);
+      const got = await ss(`JSON.stringify(STU.items.get('mot001').rec.motion)`);
+      if (!got || !got.includes(want)) out.push('the page\'s card ' + id + ': ' + got);
+    }
+    await ss('renderPanes()');
+    const said = await ss(`[/rests where it stands/.test(document.querySelector('#pane-item').textContent), itemSub(STU.items.get('mot001'))]`);
+    await mp.click('#pane-item [data-id="motion:none"]');
+    const pg = await ss(`['motion' in STU.items.get('mot001').rec, UNDO.length]`).then(a => a.concat(said));
+    if (pg[0] || pg[1] !== u0 + seq.length + 1 || !pg[2] || !/spins/.test(pg[3])) out.push('the page\'s Motion rows (one Undo step each, the rest said): ' + JSON.stringify([pg, u0]));
+    // the headset's card: its rows pressed
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('emp001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('motion:pulse'), JSON.stringify(STU.items.get('emp001').rec.motion), press('mamount:+'), JSON.stringify(STU.items.get('emp001').rec.motion), press('motion:none'), 'motion' in STU.items.get('emp001').rec];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (!xr[0] || !/"kind":"pulse","speed":30,"amount":0.1/.test(xr[1]) || !xr[2] || !/"amount":0.15/.test(xr[3]) || !xr[4] || xr[5]) out.push('the headset\'s Motion rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio motions: the state and layout.json carry a motion and give it back; a record without one as before; bad values refused, out of range held', async () => {
+    const r = await ss(`(() => {
+      const J = x => JSON.stringify(x), out = [];
+      setRec('mot001', { motion: { kind: 'orbit', speed: -4.5, amount: 0.75, axis: 'z', start: 'shown' } }); setRec('box001', { motion: { kind: 'spin' } }); setRec('emp001', { motion: { kind: 'bob', amount: 0.05 } });
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      if (J(collabState()) !== a || J(s['p.mot001'].motion) !== '{"kind":"orbit","speed":-4.5,"amount":0.75,"axis":"z","start":"shown"}' || J(s['o.box001'].motion) !== '{"kind":"spin","speed":6,"amount":0,"axis":"y","start":"always"}') out.push('the state: ' + J([s['p.mot001'], s['o.box001']]));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const got = id => J(back.items.find(x => x.id === id).rec.motion);
+      if (back.bad || got('mot001') !== J(s['p.mot001'].motion) || got('emp001') !== '{"kind":"bob","speed":15,"amount":0.05,"axis":"y","start":"always"}' || 'motion' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('mot001'), got('emp001')]));
+      const N = (k, m) => norm(k, Object.assign(k === 'o' ? { file: 'box.glb' } : {}, { p: [0, 0, 0], motion: m }));
+      const res = [N('o', null) && !('motion' in N('o', null)), N('p', { kind: 'twirl' }), N('e', { kind: 'bob', speed: 'fast' }), N('o', { kind: 'bob', axis: 'w' }), N('p', { kind: 'spin', start: 'later' }), N('e', 'spin'),
+        J(N('o', { kind: 'bob', amount: 99, speed: 0 }).motion), J(N('p', { kind: 'pulse', amount: -1, speed: -700 }).motion), J(N('e', { kind: 'wobble', amount: 12.345, speed: 7.777 }).motion), J(N('o', { kind: 'spin', amount: 5 }).motion), norm('c', { p: [0, 0, 0], motion: { kind: 'spin' } }).motion];
+      const want = [true, null, null, null, null, null, '{"kind":"bob","speed":0.1,"amount":10,"axis":"y","start":"always"}', '{"kind":"pulse","speed":-600,"amount":0,"axis":"y","start":"always"}', '{"kind":"wobble","speed":7.78,"amount":12.3,"axis":"y","start":"always"}', '{"kind":"spin","speed":6,"amount":0,"axis":"y","start":"always"}', undefined];
+      if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
+      const bl = readLayout({ studio: 1, shapes: [{ id: 'bbb222', p: [0, 0, 0], motion: { kind: 'spin' } }, { id: 'bbb333', p: [0, 0, 0], motion: { kind: 'jump' } }] });
+      if (bl.bad !== 1 || bl.items.length !== 1) out.push('a bad motion in a layout: ' + J(bl));
+      return out;
+    })()`);
+    bad(r);
+    await mp.close(); await mp2.close();
+  });
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });

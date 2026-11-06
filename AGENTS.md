@@ -226,7 +226,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
   Fewer triangles and Change texture on a card and the Upload pane's share and picture; `engine/e6b_cuts.js` the
   cut-outs; `engine/e6c_groups.js` the groups; `engine/e6d_shapes.js` the shapes, empties, locks, the scene's settings and the
-  lobby hook), two sets (`stage`, the
+  lobby hook; `engine/e6e_motion.js` the motions and the pose pipeline that draws an item), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -1083,7 +1083,8 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
 would drop, and in the same round a studio circle made for a scene its record's `sc: true`; networks-34 when the studio's
 shapes, empties, locks and scene settings came in v119: its `state()` gained a field per shape, `p.<id>`, and per empty,
 `e.<id>`, every item's and group's record an optional `locked`, a sound's `on` an empty or a shape too, and the scene's
-`settings`). The plan is
+`settings`; networks-35 (v120) when the studio's motions came: an object's, a shape's and an empty's record in its
+`state()` gained an optional `motion`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -2401,7 +2402,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview* or what the lobby made this device forget | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, an object's, a shape's and an empty's its `motion` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview* or what the lobby made this device forget | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3385,7 +3386,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   'cylinder' | 'plane', p, q, size, colour: '#rrggbb', look: 'colour' | 'hide' }` in `shapes` and an empty `{ id, name, p,
   q }` in `empties` ("Shapes and empties" below), any item or group with `locked: true` (kept only when set; "Locked in
   place" below), and the scene's `settings` `{ others: 'shown' | 'hidden', real: 'device' | 'always' | 'never' }` ("The
-  scene's settings" below; a layout without them, v118's, reads as before, a new scene's; bad ones counted). Metres in the scene's frame (the floor at y = 0, the origin
+  scene's settings" below; a layout without them, v118's, reads as before, a new scene's; bad ones counted), and an object's,
+  a shape's or an empty's `motion` `{ kind: 'spin' | 'wobble' | 'bob' | 'pulse' | 'orbit' | 'sway', speed, amount, axis:
+  'x' | 'y' | 'z', start: 'always' | 'shown' }` (kept only when set; "Motions" below; a layout without it, v119's, reads as
+  before). Metres in the scene's frame (the floor at y = 0, the origin
   at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
@@ -3572,6 +3576,30 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     the depth's precision against the room's occlusion), the empty's cross in a headset, the lock's buzz, the circles
     hidden at a studio's circle and the occlusion setting with the shell's real-world occlusion, the lobby hook as a
     headset walks into the lobby.
+- **Motions** (v120; the owner, 6 November 2026: "Add little animations like spin and wobble etc for models?", then
+  "animations do 1 and 2", 1 simple motions, 2 a recorder of paths to come, curves later; `tools/studio/SPEC.md`,
+  "Motions"; `engine/e6e_motion.js`). An object, a shape or an empty may have a `motion` in its record: `spin` (turns about
+  the axis through its middle), `wobble` (tilts `amount` degrees, the tilt going round the axis), `bob` (along the axis by
+  `amount` metres), `pulse` (grows and shrinks about its middle by `amount`, a share; no axis), `orbit` (round a circle of
+  `amount` metres across the axis, its facing kept) or `sway` (swings `amount` degrees each way about the axis); `speed`
+  turns or swings a minute (0.1 to 600, negative the other way), `axis` the scene's `'y'` (default), `'x'` or `'z'`,
+  `start` `'always'` (on the scene's clock: at a station the room's, `HOST.collab.now()`, so everyone there sees the same
+  phase; outside a room since the scene opened) or `'shown'` (from when it was last shown here, per device, as animations
+  and sounds started when shown); the kind's own speed and amount when left out, out of range held, a bad one making the
+  record bad. One pose pipeline draws it (`drawnPose(it, now, clockS, out)`: the placed pose, or what a behaviour gives
+  instead, `POSE.base`; then a path, `POSE.path`, a recorder's to come; then the motion, `motionDelta`, about its middle in
+  the scene's frame), written each frame into the holder's matrix (`poseStep`, `matrixAutoUpdate` off while it moves), so
+  the model, its unseen box, its labels and a sound following it or one of its bones come along (a pulse grows an
+  object's followers' offsets, `motionK`), its cut-outs take the same change (`poseCut`); the holder's place, turn and
+  scale stay the placed pose, so **the record never changes**, and a group's members move only by their own. It rests at
+  its placed pose while this device carries it (a grip, its group, the page's arrows) or, editing, has it selected (or its
+  group, a sound or a cut-out on it, a group holding such a sound), so it can be placed; what is measured against it
+  (attaching a sound, a bone, a group's move) is measured there (`poseRest`). Its card (page and headset, editing on, not
+  refused by a lock): *Motion: None / Spin / Wobble / Bob / Pulse / Orbit / Sway*, *Speed* (*Slower*, *Faster*, *The other
+  way* for a spin and an orbit), *How far* (*Less*, *More*), *Axis*, *Starts: Always / When shown*, and a line saying it
+  rests while selected or carried; one Undo step each, shared and saved. `STUDIO.pose(id)` for tests. FORMAT networks-35
+  (v120). Untested on a headset: how the motions look and feel life size, their phase across real headsets at a station,
+  the cost of many moving items on a Quest.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -3994,7 +4022,17 @@ lobby hook forgetting a cube that stays and starting a `shown` animation again, 
 `e.<id>`, `locked` and `settings` and back, the room's records taken (colour lower-cased, `locked: false` dropped), bad
 ones and bad settings ignored, a state without settings a new scene's, 200 shapes at most from the room, `layout.json`
 with shapes, empties and settings read back the same, an older layout read as before, bad settings and a bad shape
-counted, a group of a shape and an empty; and the hooks off as the studio goes.
+counted, a group of a shape and an empty; and the hooks off as the studio goes. Its *studio motions* steps run on two pages
+of their own at `&scene=test` (v120, with a shape turned and sized per axis, an empty, a sound following the empty and a
+cut-out on the box put in for them): each kind's drawn pose at two moments its formula (about its middle, in the scene's
+axes, for the shape, the box and the empty), its holder and record unchanged; the sound on the bobbing empty, the cut-out
+on the spinning box and a sound on the pulsing box (its offset grown with it) coming along; no motion, at rest; `always`
+drawn alike on both pages at one room time (a pretend station, `HOST.collab.now` stubbed), `shown` from its showing and
+from its beginning when shown again; resting while selected (editing), its group selected and a sound on it selected, not
+with editing off, and while a pretend headset's grip carries it, moving again after; the page's Motion rows (a kind,
+Faster, Less, an axis, When shown, another kind, The other way, None: one Undo step each, the resting line, the list's
+*spins*) and the headset's (Pulse, More, None); the state and `layout.json` carrying motions and giving them back, `norm`'s
+rules (bad kinds, values, axes and starts refused, out of range held, a cube's ignored), a bad motion in a layout counted.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -4388,7 +4426,9 @@ saved `layout.json` carrying `groups` and `faces`; a shape that hides things and
 a page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the same
 records, the sound at the empty), a third page's card refused by the lock, the headset at the circle telling its shell
 (the hook recorded) to hide the other circles, the saved `layout.json` carrying `shapes`, `empties` and `settings` (v119);
-a 25 s sound streamed; From another scene (v118: a scene `shelf` made in
+motions (v120: a wobble set on the box on one page and an orbit on the figure on another reaching every page and the
+headset, each drawing both in the same phase at one room time held on each, within 1 mm, and the saved `layout.json`
+carrying them); a 25 s sound streamed; From another scene (v118: a scene `shelf` made in
 the folder with an FBX naming its picture and an OBJ with its MTL and picture: copied into the open scene from a page's
 Add pane with the picture at the same paths and the same bytes, placed, one Undo step, taken by every page and the
 headset with its picture; the OBJ and what it names under `originals/`, its model in; a second copy of the FBX a new name,

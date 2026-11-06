@@ -87,6 +87,7 @@ function cutPlace(x, editing, now) {
       if (k >= 1) x.gl = null;
     } else { x.holder.position.copy(_cp); x.holder.quaternion.copy(_cq); x.holder.scale.copy(_cs); }
   }
+  poseCut(x, ob);   // (its object's motion on it: e6e_motion.js)
   // cutting now: its object here with its model, shown for you (past one half of its fade) or previewed cut here, and
   // not previewed whole here (the previews: while editing, this device only)
   const pv = editing ? (STU.whole.has(x.id) ? 'whole' : STU.cutF.has(x.id) ? 'cut' : '') : '';
@@ -99,11 +100,11 @@ function cutLook(x, editing) {
   const ob = cutObj(x), L = x.look, r = x.rec;
   x.holder.visible = L.deco.visible = x.a > 0.01;
   if (!L.deco.visible) return;
-  L.deco.position.copy(x.holder.position); L.deco.quaternion.copy(x.holder.quaternion);
+  decoAt(x.holder, L.deco);   // (where it is drawn: its object's motion carries it)
   const sz = x.holder.scale;
   L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
   // (its name over the box's top, upright in the scene whatever the box's turn)
-  L.name.position.set(0, cutHalfHeight(x) + 0.04, 0).applyQuaternion(_cq.copy(x.holder.quaternion).invert());
+  L.name.position.set(0, cutHalfHeight(x) + 0.04, 0).applyQuaternion(_cq.copy(L.deco.quaternion).invert());
   L.look({ selected: STU.sel === x.id && editing, hot: STU.hover === x.id, hotCorner: STU.hotCorner && STU.hotCorner.id === x.id ? STU.hotCorner.k : -1, off: !x.cutting });
   for (const m of [L.fill.material, L.line.material, L.ticks.material]) m.opacity *= x.a;
   L.name.userData.set('✂ ' + r.name + cutWords(x, ob), L.col, 0.075);

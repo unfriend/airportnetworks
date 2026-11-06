@@ -160,7 +160,10 @@ placed by itself).
   "saved": "2026-11-03T22:40:00.000Z",
   "objects": [
     { "id": "k3f9qa", "name": "Atelier", "file": "annette.fbx", "p": [0, 0, 0], "q": [0, 0, 0, 1], "s": 0.01,
-      "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" }
+      "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" },
+    { "id": "f4n001", "name": "Fan", "file": "models/fan.glb", "p": [2, 2.4, -1], "q": [0, 0, 0, 1], "s": 1,
+      "light": "lit", "clip": "", "anim": "loop", "start": "always",
+      "motion": { "kind": "spin", "speed": 30, "amount": 0, "axis": "y", "start": "always" } }
   ],
   "cubes": [
     { "id": "c81mzt", "name": "Doorway", "p": [1.2, 1, -2], "yaw": 0, "size": [1.2, 2, 1.2], "mode": "while",
@@ -221,6 +224,10 @@ placed by itself).
   anything else makes the record bad; "Locked in place" below). The scene's `settings`: `{ others: 'shown' | 'hidden', real:
   'device' | 'always' | 'never' }` ("The scene's settings" below; absent: `shown` and `device`; a bad one is counted and read
   so). A layout without `shapes`, `empties` or `settings` (v118's) reads as before. A group's `items` may name shapes and empties.
+- An object's, a shape's or an empty's `motion` (optional, kept only when set; "Motions" below): `{ kind, speed, amount,
+  axis, start }`, `kind` one of `'spin'`, `'wobble'`, `'bob'`, `'pulse'`, `'orbit'` and `'sway'` (required), the rest taking
+  the kind's own when left out; `null` reads as absent, anything else that is not such a motion makes the record bad. A
+  layout without it (v119's) reads as before.
 - Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups, 200 shapes, 100
   empties; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
@@ -983,6 +990,63 @@ it is shown (an animation or a sound that starts when shown, a sound that plays 
 nothing of the scene is shown for that device and no cube is entered (`triggerStep`), so it all starts afresh on its
 return. Untested on a headset.
 
+## Motions (the owner, 6 November 2026)
+
+The owner: "Add little animations like spin and wobble etc for models?", then "animations do 1 and 2" (1: simple motions,
+this section; 2: a recorder of paths, to come; curves later). `engine/e6e_motion.js`.
+
+- **The record** (an object's, a shape's or an empty's; `layout.json` and `state()` alike): `motion: { kind, speed, amount,
+  axis, start }`, kept only when set (no motion: absent). `kind`: `'spin'` (turns about the axis through its middle),
+  `'wobble'` (tilts `amount` degrees away from the axis, the tilt going round it), `'bob'` (up and down along the axis by
+  `amount` metres), `'pulse'` (grows and shrinks about its middle by `amount`, a share of its size; no axis), `'orbit'`
+  (goes round a circle of `amount` metres about where it stands, across the axis, keeping its own facing) or `'sway'`
+  (swings about the axis through its middle by `amount` degrees each way). `speed`: turns, wobbles, bobs, pulses or swings
+  a minute, 0.1 to 600 in size to 2 decimals, a negative one going the other way. `amount`: 0 to the kind's largest
+  (wobble 60°, sway 90°, bob 10 m, orbit 50 m, pulse 0.9; degrees to 0.1, metres to the mm, a share to 2 decimals; a
+  spin's is 0). `axis`: `'y'` (upright, the default), `'x'` (side to side) or `'z'` (front to back), the scene's axes.
+  `start`: `'always'` (the default) or `'shown'`. Left out, `speed` and `amount` take the kind's own (spin 6 a minute;
+  wobble 20 and 10°; bob 15 and 10 cm; pulse 30 and 10 %; orbit 4 and 50 cm; sway 15 and 15°), `axis` `'y'`, `start`
+  `'always'`. A kind it does not know, a value that is not a number, another axis or start makes the record bad (the layout
+  counts it; the room's record is ignored and the item kept); a value out of range is held at its limit. Cubes, sounds,
+  cut-outs and groups have none (a group's members each keep their own).
+- **The formulas** (time `t` in seconds, `c = speed / 60 * t` the count so far, its phase `ph = 2π (c - floor c)`, `A` the
+  axis and `u` the way across it, `(0, 0, 1)` for `y`, `(1, 0, 0)` for `z`, `(0, 1, 0)` for `x`), each a change in the
+  scene's frame applied over the placed pose, about the item's middle (an object's: its model's box's middle; a shape's
+  and an empty's: its place): spin a turn by `ph` about `A`; sway a turn by `amount° × sin ph` about `A`; wobble a turn by
+  `amount°` about `u` turned by `ph` about `A`; pulse a scale of `1 + amount × sin ph`; bob a move of `amount × sin ph`
+  along `A`; orbit a move of `amount` along `u` turned by `ph` about `A`.
+- **The clock**: `'always'` runs on the scene's clock (`sceneClock`: at a station the room's, `HOST.collab.now()`, so
+  everyone at a circle sees the same moment of it; outside a room since the scene opened), `'shown'` from when it was last
+  shown here (a cube showing it to you; this device's own, as an animation or a sound started when shown, and from its
+  beginning again after the lobby).
+- **One pose pipeline** (`drawnPose(it, now, clockS, out)`, the drawn pose of an item at a time, in the scene's frame), so
+  what comes later builds on it: (1) its placed pose, its holder's place, turn and scale (its record, a glide from the
+  room, a carry, the arrows), or what a behaviour gives instead (`POSE.base(it, now, clockS, out)`, returning false when it
+  gives nothing for this item; none yet); (2) a path (`POSE.path(it, now, clockS, out)`, a recorder's, changing the pose
+  it is given; none yet); (3) its motion (`motionDelta`), premultiplied. `poseStep` (every frame in `itemsStep`, once the
+  placed pose is this frame's) writes the drawn pose into the holder's matrix (`matrixAutoUpdate` off while it moves), so
+  everything under it comes along: the model, the pointer's unseen box, its labels, a sound following it or one of its
+  bones (a pulse grows an object's followers' offsets with it, `motionK`); its cut-outs take the same change on their own
+  placed poses (`poseCut`), so they stay on the same part of the model. The holder's place, turn and scale stay the
+  placed pose, which every edit reads and writes: **the record never changes**. A group's members move only by their own
+  motions. `STUDIO.pose(id)` gives the drawn and placed matrices (tests).
+- **Resting**: while this device carries it (a grip, its group carried, the page's arrows on it) or, editing, has it
+  selected (or its group, or a sound or a cut-out on it, or a group holding such a sound), it is drawn at its placed pose,
+  so it can be placed; what is measured against it (a sound attached, a bone picked, a group's move) is measured there
+  (`poseRest`). Others at the station still see it move.
+- **Its rows** on the card of an object, a shape and an empty (page and headset alike, editing on, not refused by a lock:
+  a motion does not move its place): *Motion: None / Spin / Wobble / Bob / Pulse / Orbit / Sway* (a kind its own speed and
+  amount, the axis and start kept), *Speed* (*Slower* / *Faster* through 0.5, 1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 45, 60, 90,
+  120 a minute; *The other way* for a spin and an orbit), *How far* (a wobble's and a sway's degrees, a bob's metres; *By*
+  for a pulse, *Round a circle of* for an orbit; *Less* / *More* through each kind's steps; none for a spin), *Axis*
+  (*Upright (y)*, *Side to side (x)*, *Front to back (z)*; none for a pulse), *Starts: Always / When shown*, and a line
+  that it is drawn over where it stands, its place not changed, and rests while selected or carried. One Undo step each,
+  shared (its field in `state()`) and saved. Its sub-line in lists says so (*spins*, *wobbles*...).
+- **Shared rooms**: the record is its item's field, so a motion is shared as placing is; the phase of `'always'` comes
+  from the room's clock on every device. FORMAT networks-35 (v120).
+- **Untested on a headset**: how the motions look and feel life size (a spinning scan around you, a fast orbit), their
+  phase across real headsets at a station, the cost of many moving items on a Quest.
+
 ## Fewer triangles (the owner, 6 November 2026)
 
 The owner: "models need to be way less triangles"; meshoptimizer approved; "needs a percentage and should be adjustable
@@ -1090,6 +1154,8 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,
   empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
+- Motions (v120): the smoke test's *studio motions* steps (on the test scene, with a shape, an empty, a sound and a cut-out
+  put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

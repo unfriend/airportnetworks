@@ -254,7 +254,7 @@ function fromBlocks(B, full) {
 function itemSub(it) {
   if (it.kind === 'g') { const n = members(it).length; return `${n} item${n === 1 ? '' : 's'}` + (STU.gpick && STU.gpick.id === it.id ? ' · picking' : ''); }
   if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (ob ? cutWords(it, ob).replace(' · whole', ' · previewed whole').replace(/^ · cut$/, ' · previewed cut') : ''); }
-  const r = it.rec, me = (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
+  const r = it.rec, me = (r.motion ? ' · ' + MOTION[r.motion.kind].does : '') + (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
@@ -315,6 +315,7 @@ function itemBlocks(it, B, ed) {
     if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
     if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
+    motionBlocks(it, B, dis);   // (a motion drawn over where it stands: e6e_motion.js)
   } else if (it.kind === 'x') {
     const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), pv = STU.whole.has(it.id) ? 'whole' : STU.cutF.has(it.id) ? 'cut' : 'seen';
     B.push({ h: r.name, sub: 'Cut-out' + (it.shown ? '' : ' · hidden for you now') },
@@ -361,6 +362,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: mv })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
     if (r.shape === 'plane') B.push({ p: 'A plane stands upright: its z size is not used.', c: 'faint' });
+    motionBlocks(it, B, dis);
   } else if (it.kind === 'e') {
     // an empty (e6d_shapes.js): where it is, the sounds that follow it, its place
     const fs = followersOf(it.id);
@@ -368,6 +370,7 @@ function itemBlocks(it, B, ed) {
       { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
     if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
+    motionBlocks(it, B, dis);   // (the sounds that follow it move with it)
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],

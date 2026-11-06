@@ -77,6 +77,7 @@ function groupPivot(g, out) {
 // something sounds where that puts it); a sound that follows an object of the group rides with it
 function groupBase(g) {
   const ms = members(g), ids = new Set(ms.map(m => m.id));
+  for (const m of ms) poseRest(m);   // (measured where they stand, not where their motions draw them: e6e_motion.js)
   return { id: g.id, P: groupPivot(g, new THREE.Vector3()), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
     pos: m.kind === 's' ? soundPoint(m, new THREE.Vector3()) : m.holder.position.clone(), rides: m.kind === 's' && !!m.rec.on && ids.has(m.rec.on) && !!followOf(m) })) };
 }

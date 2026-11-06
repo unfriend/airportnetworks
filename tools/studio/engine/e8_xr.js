@@ -292,6 +292,8 @@ function xrGrab(c, on) {
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
     if (!it || !editOn()) return;
+    // (taken where it stands, not where its motion draws it; a sound or a cut-out with what it is on: e6e_motion.js)
+    poseRest(it); if ((it.kind === 's' || it.kind === 'x') && STU.items.get(it.rec.on)) poseRest(STU.items.get(it.rec.on));
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
     // (locked in place: refused, with a short buzz and a knock, and said on its card; e6d_shapes.js)

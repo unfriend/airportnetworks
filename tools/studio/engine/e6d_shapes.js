@@ -48,9 +48,9 @@ function shapeStep(it, editing) {
   L.look({ a: it.a, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
   L.deco.visible = editing && H.visible;
   if (!L.deco.visible) return;
-  L.deco.position.copy(H.position); L.deco.quaternion.copy(H.quaternion);
+  decoAt(H, L.deco);   // (where it is drawn: a motion; e6e_motion.js)
   const sz = H.scale, b = shapeBox(it, _shb);
-  L.name.position.set(0, b.max.y - H.position.y + 0.04, 0).applyQuaternion(_shi.copy(H.quaternion).invert());   // (over it, whichever way it is turned)
+  L.name.position.set(0, b.max.y - L.deco.position.y + 0.04, 0).applyQuaternion(_shi.copy(L.deco.quaternion).invert());   // (over it, whichever way it is turned)
   L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
 }
 

@@ -370,6 +370,14 @@ const STUDIO = {
     const p = followAt(it, nd, new THREE.Vector3());
     return { node: nd === followOf(it).holder ? '' : nd.name, want: p.toArray(), at: it.holder.position.toArray(), d: p.distanceTo(it.holder.position) };
   },
+  // an object's, a shape's or an empty's pose: drawn (its holder's matrix: its motion), placed (its holder's place, turn and
+  // scale: its record), whether it moves now and whether it rests (e6e_motion.js)
+  pose: id => {
+    const it = STU.items.get(id);
+    if (!it) return null;
+    const H = it.holder;
+    return { drawn: H.matrixAutoUpdate ? null : H.matrix.toArray(), placed: new THREE.Matrix4().compose(H.position, H.quaternion, H.scale).toArray(), moving: !H.matrixAutoUpdate, rests: motionRests(it) };
+  },
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
