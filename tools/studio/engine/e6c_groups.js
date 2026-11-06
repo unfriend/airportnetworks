@@ -223,7 +223,7 @@ function groupDupWhy(g) {
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
-  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : '';
+  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : pathCopyWhy(ms.map(m => m.rec));   // (and its members' recorded paths: e6f_path.js)
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the

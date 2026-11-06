@@ -287,7 +287,9 @@ async function refreshFiles(changed) {
 // the layout lacks its object, as a state from the room keeps them: it stands at its p until that object is back, and a
 // save never loses what it followed; so is a cut-out's on (it cuts nothing until its object is back). A layout without
 // cuts (v112's), without groups (v113's) or without shapes, empties and settings (v118's) reads as before (its settings a
-// new scene's: other circles shown, the real world hiding it as each headset has it); bad settings are counted and taken so
+// new scene's: other circles shown, the real world hiding it as each headset has it); bad settings are counted and taken so.
+// An object's, a shape's, an empty's and a sound's recorded path (v120, e6f_path.js) is part of its record: a bad one makes
+// its item bad, and so does one that would take the scene's paths past 6,000 keys
 const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
 function readLayout(j) {
   const out = { items: [], bad: 0, at: 0, by: '', settings: normSettings() };
@@ -298,14 +300,15 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
+  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one)
   for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
     for (const x of list) {
       const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
-      if (!rec) { out.bad++; continue; }
-      ids.add(id); n++;
+      if (!rec || (rec.path && keys + rec.path.k.length > PATH_MAX.scene)) { out.bad++; continue; }
+      ids.add(id); n++; if (rec.path) keys += rec.path.k.length;
       out.items.push({ id, kind, rec });
     }
   }

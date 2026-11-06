@@ -91,7 +91,8 @@ function lockNames(it, del) {
 }
 const lockWhy = (it, del) => lockNames(it, del).join(', ');
 // the card's actions a lock refuses (Ungroup only the group's own lock: its members keep theirs)
-const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold'];
+// (recording a path carries it: refused too; how a path plays is not refused, as a motion is not: its place stays)
+const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold', 'rec', 'recArm'];
 const lockStops = (it, act) => (act === 'del' ? !!lockWhy(it, true) : act === 'ungroup' ? !!(it.kind === 'g' && it.rec.locked) : MOVE_ACTS.includes(act) && !!lockWhy(it));
 // a refusal: said on its card for a moment, and a knock
 function lockRefused(it) {

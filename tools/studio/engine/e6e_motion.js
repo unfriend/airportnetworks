@@ -16,13 +16,14 @@
 // How an item is drawn is one pipeline (drawnPose), so what comes later builds on it:
 //   1. its placed pose: its holder's place, turn and scale (its record, a glide from the room, a carry, the arrows); a
 //      behaviour may give this part instead (POSE.base: none yet);
-//   2. a path (a recorder's: POSE.path, none yet), changing the pose it is given;
+//   2. its recorded path (POSE.path, e6f_path.js; a sound may have one too), changing the pose it is given;
 //   3. its motion (motionDelta), a change in the scene's frame about its middle.
 // The holder keeps the placed pose (what every edit reads and writes, so the record never changes); what is drawn goes
 // into its matrix (matrixAutoUpdate off while it moves), so everything under it comes along (the model, the pointer's
 // unseen box, its labels, a sound following it or one of its bones); its cut-outs take the same change on their own
 // placed poses (poseCut). While this device carries it (a grip, a group carried, the page's arrows) or, editing, has it
-// selected (or its group, or a sound or a cut-out on it) it rests at its placed pose, so it can be placed.
+// selected (or its group, or a sound or a cut-out on it) it rests at its placed pose, so it can be placed (a path just
+// recorded, or Play it here on its card, plays while it is selected: STU.recPlay).
 const MOTION_KINDS = ['spin', 'wobble', 'bob', 'pulse', 'orbit', 'sway'], MOTION_ITEMS = ['o', 'p', 'e'];
 // each kind as it starts (speed and amount), its amount's unit, largest value and steps on the card, and its words
 const MOTION = {
@@ -49,8 +50,8 @@ function normMotion(x) {
 }
 
 // ----------------------------------------------------------- the pipeline --
-// later stages: a behaviour that gives the placed part, a path that changes it (each (it, now, clockS, m) -> m changed,
-// base returning false when it gives nothing for this item); none yet
+// later stages: a behaviour that gives the placed part (none yet), a recorded path that changes it (e6f_path.js) (each
+// (it, now, clockS, m) -> m changed, base returning false when it gives nothing for this item)
 const POSE = { base: null, path: null };
 const MAXIS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, MCROSS = { x: [0, 1, 0], y: [0, 0, 1], z: [1, 0, 0] };   // (each axis, and the way across it a wobble tilts and an orbit starts)
 const D2R_M = Math.PI / 180;
@@ -79,13 +80,14 @@ function motionDelta(it, mo, t, m, out) {
 }
 // whether it rests at its placed pose now: carried here (a grip, its group carried, the page's arrows on it) or, editing,
 // selected (or its group, or a sound or a cut-out on it, or a group holding such a sound: what is placed on it holds
-// still too)
+// still too), unless it plays here though selected (a path just recorded, or Play it here: STU.recPlay)
 function motionRests(it) {
   if (it.carry || (GL.tc && GL.tc.object === it.holder)) return true;
   if (!editOn()) return false;
   const s = STU.items.get(STU.sel);
   if (!s) return false;
-  if (s === it || ((s.kind === 's' || s.kind === 'x') && s.rec.on === it.id)) return true;
+  if (s === it) return STU.recPlay !== it.id;
+  if ((s.kind === 's' || s.kind === 'x') && s.rec.on === it.id) return true;
   // (its group, or a group with a sound on it: a group's move measures what its sounds follow where it stands)
   return s.kind === 'g' && (groupOf(it.id) === s || members(s).some(m => m.kind === 's' && m.rec.on === it.id));
 }
@@ -101,7 +103,8 @@ function drawnPose(it, now, clockS, out) {
 }
 // how much bigger its motion draws it now (a pulse), for an object's followers' offsets (followAt): 1 at rest
 const motionK = it => (it && it.mX ? Math.cbrt(Math.abs(it.mX.determinant())) : 1);
-const poseLive = it => MOTION_ITEMS.includes(it.kind) && !!(it.rec && (it.rec.motion || POSE.base || POSE.path));
+// (drawn by the pipeline: an object, a shape or an empty with a motion, or anything with a recorded path that plays here)
+const poseLive = it => !!it.rec && ((MOTION_ITEMS.includes(it.kind) && !!(it.rec.motion || POSE.base)) || !!(POSE.path && pathOf(it)));
 // back to its placed pose at once (resting, a grab, a measure taken where it stands), and its cut-outs
 function poseRest(it) {
   const rest = H => { if (!H.matrixAutoUpdate) { H.matrixAutoUpdate = true; H.updateMatrix(); H.matrixWorldNeedsUpdate = true; } };

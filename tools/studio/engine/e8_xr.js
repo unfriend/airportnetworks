@@ -6,7 +6,8 @@
 // or cut-out's corner stretches it; let go, it stays. While something is carried the sticks steer it (holdSticks): the
 // left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
 // stick walks you through the scene and the right stick turns you (the scene moves, not you). The grip on the panel
-// moves the panel. A/X plays and pauses the intro.
+// moves the panel. A/X plays and pauses the intro. Record its movement (an item's card, e6f_path.js) arms the next grip as
+// Hold it does, and what it carries is recorded until it is let go.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -16,6 +17,7 @@ const XR = {
   rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
   walk: { x: 0, z: 0, yaw: 0 }, floorSpace: null, floorY: null, atSt: false, turnArm: true,
   hold: '',   // (Hold it: the selected item the next grip carries, wherever it points)
+  rec: '',   // (Record its movement: the selected item the next grip carries and records, as Hold it; e6f_path.js)
 };
 const _xd = new THREE.Vector3(), _xp = new THREE.Vector3(), _xq = new THREE.Quaternion();
 const _xq2 = new THREE.Quaternion(), _xm = new THREE.Matrix4(), _xinv = new THREE.Matrix4();
@@ -303,6 +305,7 @@ function xrGrab(c, on) {
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
     const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
+    if (REC && REC.id === it.id) { buzz(c, 0.15, 12); return; }   // (recording its path: one hand carries it, a path has no size)
     const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
     const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
     if (grp) { if (lockWhy(grp)) refuse(grp); else groupGrab(c, grp, q0); return; }
@@ -327,6 +330,9 @@ function xrGrab(c, on) {
     beginChange([it.id]);
     it.carry = true; it.gl = null;
     select(it.id);
+    STU.recPlay = '';   // (carried, it rests where it stands, its path too)
+    // (Record its movement armed: what this hand carries is recorded until it lets go, unless the other hand holds it too)
+    if (h.rec && c.grab.target === 'item' && !other.some(k => k.grab.id === it.id)) recBegin(it, 'xr', c);
     buzz(c, 0.4, 25); sfxAct('grab', 'world', c.grab.p0 || null);   // (sound effects: picked up)
     return;
   }
@@ -341,15 +347,19 @@ function xrGrab(c, on) {
 // point at (a room scan you stand in) can be carried; once, then disarmed. Not at the shell's menu or a station (the
 // shell takes those grips itself) or at the studio's own panel (the grip moves it): it stays armed then. Disarmed by
 // another selection, editing off, or the session's end
+// (Record its movement, XR.rec, arms it the same way, and what it carries is recorded: rec)
 function holdHover(c) {
-  const h = c.hover, id = XR.hold;
+  const h = c.hover, rec = !!XR.rec, id = XR.rec || XR.hold;
   if (!id || (h && (h.kind === 'shell' || h.kind === 'panel' || h.menu))) return h;   // (the grip on a panel moves the panel)
-  XR.hold = '';
+  XR.hold = XR.rec = '';
   dirty(true);
   const it = STU.items.get(id);
-  return it && id === STU.sel && editOn() ? { kind: 'item', id, hold: true } : h;
+  return it && id === STU.sel && editOn() ? { kind: 'item', id, hold: true, rec } : h;
 }
-const holdStep = () => { if (XR.hold && (XR.hold !== STU.sel || !editOn() || !XR.on)) { XR.hold = ''; dirty(true); } };
+const holdStep = () => {
+  if (XR.hold && (XR.hold !== STU.sel || !editOn() || !XR.on)) { XR.hold = ''; dirty(true); }
+  if (XR.rec && (XR.rec !== STU.sel || !editOn() || !XR.on)) { XR.rec = ''; dirty(true); }
+};
 // let go of an item (the grip up, the controller gone, or locked meanwhile): it stays where it is (its record written),
 // unless the other hand still holds it
 function xrLetGo(c) {
@@ -360,7 +370,8 @@ function xrLetGo(c) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.id === G.id);
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
-  if (it) { carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  // (recording its path: kept, its place as it was; e6f_path.js. Else where the hand left it)
+  if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
 }
@@ -535,7 +546,8 @@ function carryItem(c, dt) {
   }
   if (o) { if (c.i < o.i) return; }
   if (G.two) xrRegrip(c);
-  holdSticks(c, G, dt, ...holdRange(it, G));
+  const rec = !!REC && REC.id === it.id;   // (recording its path: the sticks turn and push it, never size it; e6f_path.js)
+  holdSticks(c, G, dt, ...(rec ? [1, 1] : holdRange(it, G)));
   _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);   // the hand's turn since it took hold
   _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
   if (_gv.length() > 30) _gv.setLength(30);
@@ -549,7 +561,7 @@ function carryItem(c, dt) {
   }
   holdApply(it, G);
   if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
-  carryWrite(it);
+  if (rec) recStep(); else carryWrite(it);   // (recording: nothing written until it is let go, its pose sampled now)
 }
 // a group in the hand: its pivot where the hand puts it, its members keeping their places about it; level, taking only a
 // yaw from the hand's turn while free moving is on; both hands size it about its pivot (a twentieth to twenty times) and
@@ -924,7 +936,7 @@ function xrEnded() {
   for (const P of XR.panels) P.mesh.visible = false;
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
   xrLost();
-  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false; XR.hold = '';
+  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false; XR.hold = XR.rec = '';
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
