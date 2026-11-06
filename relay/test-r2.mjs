@@ -93,7 +93,13 @@ try {
   const u1 = await put('unsigned body', 'UNSIGNED-PAYLOAD'), u2 = await put('another body', crypto.createHash('sha256').update('the signed body').digest('hex'));
   ok(u1.status === 200 && (await c.get('u.bin')).toString() === 'unsigned body' && u2.status === 400 && /XAmzContentSHA256Mismatch/.test(await u2.text()), 'a PUT signed with UNSIGNED-PAYLOAD: taken; a body other than the one signed: 400 XAmzContentSHA256Mismatch');
   await c.copy(K, 'a scene/.history/copy.wav');
-  ok((await c.get('a scene/.history/copy.wav')).equals(body), 'copy');
+  const cq = S3.requests.filter(q => q.method === 'PUT' && q.headers['x-amz-copy-source']).pop();
+  ok((await c.get('a scene/.history/copy.wav')).equals(body) && !!cq && cq.auth === 'header' && /SignedHeaders=[^,]*x-amz-copy-source/.test(cq.headers.authorization) && cq.status === 200,
+    'copy: CopyObject, its x-amz-copy-source signed');
+  // a copy whose x-amz-copy-source is sent but not signed: refused (S3 signs every x-amz-* header of such a request)
+  const cs = sign({ method: 'PUT', host, path: '/scenes/b/copied.glb', payload: crypto.createHash('sha256').update('').digest('hex'), headers: { 'x-amz-content-sha256': crypto.createHash('sha256').update('').digest('hex') }, id: 'TESTKEYID', secret: 'test-secret-made-up' });
+  const { host: _ch, ...ch } = cs.headers, cu = await fetch(S3.url + '/scenes/b/copied.glb', { method: 'PUT', headers: { ...ch, 'x-amz-copy-source': '/scenes/b/x.glb' } });
+  ok(cu.status === 403 && /x-amz-copy-source/.test(await cu.text()) && (await c.get('b/copied.glb')) === null, 'a copy with its x-amz-copy-source unsigned: 403, nothing copied');
   await c.delMany(['a scene/many/0.glb', 'a scene/many/1.glb']); await c.del('a scene/many/2.glb');
   ok((await c.listAll('a scene/many/')).keys.length === 4 && (await c.get('a scene/many/0.glb')) === null, 'delete many, delete one');
   const cr = await c.cors();

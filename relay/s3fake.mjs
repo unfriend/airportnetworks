@@ -4,7 +4,8 @@
 // signature, a link past its time, a changed path, a body whose SHA-256 is not the one signed: refused with S3's error XML.
 // So a broken signer fails the tests. What the relay and the studio use: ListObjectsV2 (prefix, delimiter, max-keys,
 // continuation and start-after), GetObject and HeadObject (one byte range, ETag, If-None-Match: 304), PutObject (a signed
-// or UNSIGNED-PAYLOAD body, If-None-Match: * for no overwrite; a body cut short stores nothing), CopyObject, DeleteObject,
+// or UNSIGNED-PAYLOAD body, If-None-Match: * for no overwrite; a body cut short stores nothing), CopyObject (its
+// x-amz-copy-source signed, as every x-amz-* header of a request signed in its header must be), DeleteObject,
 // DeleteObjects (Content-MD5 checked), GetBucketCors, and CORS as a bucket's rules say (preflights and the answers).
 // ETags are MD5 as R2's are for one-part uploads, and times keep their milliseconds. S.quirks, set by a test, makes it
 // answer as a store might that the tests cannot reach: refuseSigned (header names a presigned link may not sign: 403
@@ -85,6 +86,9 @@ export function startFake({ port = 0, host = '127.0.0.1', bucket = 'scenes', key
     try { path = rawPath.split('/').map(p => uriEncode(decodeURIComponent(p))).join('/'); } catch { return ['InvalidURI', 'a bad escape']; }
     const head = n => { const v = req.headers[n]; return v === undefined ? null : Array.isArray(v) ? v.join(',') : v; };
     if (names.some(n => head(n) === null)) return ['AccessDenied', 'a signed header is missing'];
+    // (S3's rule for a request signed in its header: every x-amz-* header it carries is signed, x-amz-copy-source too)
+    const loose = auth ? Object.keys(req.headers).filter(n => n.startsWith('x-amz-') && !names.includes(n)) : [];
+    if (loose.length) return ['AccessDenied', 'x-amz-* headers must be signed: ' + loose.join(', ')];
     const text = [req.method, path, cq, names.map(n => n + ':' + norm(head(n))).join('\n') + '\n', signed, payload].join('\n');
     const sts = ['AWS4-HMAC-SHA256', t, scope, sha256(text)].join('\n');
     const want = hmac(hmac(hmac(hmac(hmac('AWS4' + secret, d8), reg), 's3'), 'aws4_request'), sts).toString('hex');

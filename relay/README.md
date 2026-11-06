@@ -625,6 +625,7 @@ own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th
 | `POST /api/scenes` `{ "name": "<name>" }` | 201 `{ ok: true, name }`: the scene's folder made (empty). 400 for a name that cannot be a scene's (the rule above, and not `watch`) or a body that is not `{ name }`; 409 when a scene, or a file, of that name is there; 413 over 16 KB; 507 at 200 scenes |
 | `POST /api/scenes/<name>/file?path=<path>[&replace=1]` | the body's bytes as the file at `path` in the scene: 200 `{ ok: true, path, bytes, at }` (`at` its time, as the listing says). The folders of the path are made as needed |
 | `POST /api/scenes/<name>/sound?path=<path>.mp3[&replace=1]` | a sound's bytes (any format `ffmpeg` reads: WAV, FLAC, AIFF, MP3, M4A, OGG...), written by `ffmpeg` as a mono MP3 at 96 kbit/s and 44.1 kHz at `path` (which must end in `.mp3`; the studio sends `sounds/<name>.mp3`): 200 `{ ok: true, path, bytes, at }`. 501 when the relay has no `ffmpeg`; 429 (`Retry-After: 5`, and `retry: 5` in the body, since a page on another origin cannot read the header otherwise) while two are being made already; 422 when `ffmpeg` could not make an MP3 of it (not a sound) or made an empty one; 500 when it took longer than `--ffmpeg-limit` (it is stopped) |
+| `POST /api/scenes/<name>/copy` `{ "from": "<scene>", "path": "<its path there>", "as": "<its path here>", "replace": true }` (v118; `as` and `replace` optional) | one file of another scene copied into this one (the studio's Add pane, *From another scene...*: each scene keeps its own copy): 200 `{ ok: true, path, bytes, at }`, as an upload. The source must be a file the scene `from` lists (not its `layout.json` or `files.json`, no dot file, nothing in `.history/`; a link out of its folder is no file), at most `--max-upload` (413); where it goes (`as`, else the same path) keeps to the upload's rules below, 409 when a file (or a folder) is there unless `replace: true`, 507 when the scene is full. 404 for no such scene (either one) or file; 400 for a bad body, a source no listing shows, a target the rules refuse, or the file onto itself. A folder's copy goes into a temporary dot file beside where it goes and into place in one step, as an upload's; with R2 the bucket copies the object itself (CopyObject: nothing passes through the relay; see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2)). The log says `scenes: <name>: copied <path> from <scene>/<path>` |
 
 **The paths** (`uploadPath` in `scenes.mjs`): relative, with `/`, at most 200 characters and 4 folders deep (so under
 `originals/` a dropped folder keeps 3 levels of its own), no empty part, no part starting with a dot (`..`,
@@ -716,6 +717,12 @@ bandwidth is not used); big uploads go straight into the bucket, not through Coo
   refused: `direct: false`, and pages send their files through the relay. A second PUT taken (the bucket ignoring
   `If-None-Match`) is said: two uploads of one new name at the same moment could then overwrite each other. One line in
   the start's log says which (`R2 upload links: ...`).
+- **Copies from another scene** (v118, `POST .../copy`): the bucket copies the object itself (S3's CopyObject, its
+  `x-amz-copy-source` signed in the request's header as every `x-amz-*` header is; the type and metadata go with it),
+  after the same checks as an upload through the relay (what stands where it goes; the source a listed object of the
+  other scene, at most `--max-upload`). Nothing passes through the relay or the page. The bucket is not asked to refuse an
+  object already there (conditions on a copy differ from store to store): of two copies to one new name at the same
+  moment, the second may replace the first.
 - **Long sounds.** `ffmpeg` runs on the relay as before: from the body, or with `?from=<path>` from a file already in
   the bucket (the studio sends the original straight into the bucket first, then asks for the MP3 from it). The relay
   fetches it to a temporary file, runs `ffmpeg` (its time limit, two at once), puts the MP3 into the bucket and removes
@@ -883,7 +890,7 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
-| `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound` | with `--scenes`: uploads, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
+| `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
@@ -1206,15 +1213,21 @@ exposed and `retry` in the body; none on the `PATH` and `--no-ffmpeg` 501 while 
 machine has one, making a generated stereo 48 kHz WAV a mono MP3 (its frames read by hand: MPEG-1 layer III, 96 kbit/s,
 44.1 kHz, mono); `/upload` (serving the app: `/#studio&upload`; not: the app's address with `ws://<Host>`;
 `X-Forwarded-Proto` only with `--proxy`, the `n`-th from the right; `--app` a folder or a page; the `--origin` by
-default; no password asked and the query never passed on; a bad `Host` 400; `POST` 405); and the password on making a
-scene, a file and a sound; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
+default; no password asked and the query never passed on; a bad `Host` 400; `POST` 405); copies from another scene
+(`POST .../copy`: the same bytes at the same path or `as`, its folders made, told at once, 409 then `replace: true`, an
+OBJ refused outside `originals/` and taken there, sources no listing shows, targets the upload's rules refuse, the file
+onto itself and bad bodies 400 with nothing written, no such scene, file or a folder 404, a link out of its scene 404 and
+said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log); and the password on
+making a scene, a file, a sound and a copy; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
 every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the
 bucket listed, its CORS rule as a browser meets it), the list and a scene by the same rules with a signed link per file
 (its bytes, type, CORS, a range, 304), the redirect for a file and the same refusals, saving with `.history/` (20 kept),
 the watch from the relay's writes at once and from changes made straight in the bucket within `R2_POLL`, uploads through
 the relay (a scene's marker, 409, the path rules, the size counted, a page going mid-upload, two at once), direct
 uploads (the signed PUT, a body of another size or type refused by the bucket, `done` and its checks, 501 with a
-folder), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
+folder), copies from another scene by the bucket's CopyObject (its `x-amz-copy-source` signed in the header, the
+stand-in refusing one unsigned; nothing fetched by the relay; 409 then `replace: true`, the kinds and paths, a source not
+there), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
 no key or signed link in a log line, the start refusing missing settings (named, no value shown), a wrong key or bucket
 and no answer, `--r2-check`, and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`). It exits
 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).

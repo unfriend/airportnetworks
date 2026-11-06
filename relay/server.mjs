@@ -30,7 +30,7 @@ import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf,
-  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER } from './scenes.mjs';
+  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 
 const PROTO = 1;
@@ -1150,12 +1150,13 @@ function scenesApi(req, res, url) {
     return req.method === 'POST' ? makeScene(req, res).catch(failed) : no();
   }
   if (p === '/api/scenes/watch') return req.method === 'GET' ? scenesWatch(req, res).catch(failed) : no();
-  const m = /^\/api\/scenes\/([^/]+)(?:\/(layout|file|sound|put|done))?$/.exec(p);
+  const m = /^\/api\/scenes\/([^/]+)(?:\/(layout|file|sound|put|done|copy))?$/.exec(p);
   let name = '';
   try { name = m ? decodeURIComponent(m[1]) : ''; } catch { /* a bad escape: no such scene */ }
   if (!m) return json(res, 404, { error: 'not found' });
   if (m[2] === 'layout') return req.method === 'POST' ? saveLayout(req, res, name).catch(failed) : no();
   if (m[2] === 'put' || m[2] === 'done') return req.method === 'POST' ? direct(req, res, url, name, m[2]).catch(failed) : no();
+  if (m[2] === 'copy') return req.method === 'POST' ? copyFile(req, res, name).catch(failed) : no();
   if (m[2]) return req.method === 'POST' ? upload(req, res, url, name, m[2] === 'sound').catch(failed) : no();
   if (req.method !== 'GET') return no();
   sceneOne(res, name).catch(failed);
@@ -1357,22 +1358,27 @@ async function upload(req, res, url, name, sound) {
   if (sound) FF.running++;
   try { await uploadInto(req, res, { name, dir, folder, dest, want, replace, there, sound }); } finally { if (sound) FF.running--; }
 }
-async function uploadInto(req, res, { name, dir, folder, dest, want, replace, there, sound }) {
-  const no = (status, error) => answerEarly(req, res, status, { error });
-  // a new file in a scene that has as many as a listing shows: refused, rather than taken and never listed
-  if (!there && (await sceneFiles(dir)).files.length >= MAX_FILES) return no(507, `a scene holds at most ${MAX_FILES} files: this one is full`);
-  // the deepest folder of the path that is there already must be inside the scene: a link in the scene that leads out
-  // refuses the path before anything is made outside
+// where a new file of a scene's folder may go (an upload's, a copy's): [status, error] when it may not, else null. A new
+// file in a scene that has as many as a listing shows is refused, rather than taken and never listed; and the deepest
+// folder of the path that is there already must be inside the scene: a link in the scene that leads out refuses the path
+// before anything is made outside
+async function folderRoom(dir, folder, there, what) {
+  if (!there && (await sceneFiles(dir)).files.length >= MAX_FILES) return [507, `a scene holds at most ${MAX_FILES} files: this one is full`];
   for (let at = folder; ; at = path.dirname(at)) {
     let real = '';
     try { real = await fs.promises.realpath(at); } catch (err) {
       if (err.code === 'ENOENT' && at !== dir) continue;
-      if (err.code === 'ENOTDIR') return no(409, 'a file stands where a folder of the path should be');
+      if (err.code === 'ENOTDIR') return [409, 'a file stands where a folder of the path should be'];
       throw err;
     }
-    if (!inside(dir, real)) { log(`scenes: refused an upload to ${JSON.stringify(name + '/' + want.rel)} (a folder of it leads out of the scene)`); return no(400, 'a folder of the path leads out of the scene'); }
-    break;
+    if (!inside(dir, real)) { log(`scenes: refused ${what} (a folder of it leads out of the scene)`); return [400, 'a folder of the path leads out of the scene']; }
+    return null;
   }
+}
+async function uploadInto(req, res, { name, dir, folder, dest, want, replace, there, sound }) {
+  const no = (status, error) => answerEarly(req, res, status, { error });
+  const stop = await folderRoom(dir, folder, there, `an upload to ${JSON.stringify(name + '/' + want.rel)}`);
+  if (stop) return no(...stop);
   // (answered once everything else is done: a page told 413 or 500 finds nothing of its upload left)
   const job = { tmp: '', inDir: '', made: undefined, placed: false };
   let answer = null;
@@ -1421,6 +1427,83 @@ async function unmake(folder, made) {
     try { await fs.promises.rmdir(at); } catch { return; }
     if (at === made || path.dirname(at) === at) return;
   }
+}
+// POST /api/scenes/<name>/copy { from, path, as?, replace? } (the studio's Add pane, From another scene...): one file of
+// another scene copied into this one, so each scene keeps its own files. The source: a file of the scene from that its
+// listing shows (not its layout.json or files.json, no dot file, nothing in .history/), at most --max-upload. Where it
+// goes: as (else the same path), by an upload's rules (uploadPath: its path and kind), 409 when a file is there unless
+// replace, 507 when the scene is full. A folder's copy is written to a temporary dot file beside where it goes and put in
+// place whole (place: never half written, never over a file that came meanwhile); R2's is CopyObject (the bucket copies
+// it: nothing passes through the relay). Answered as an upload is ({ ok, path, bytes, at }), the watch told at once
+async function copyFile(req, res, name) {
+  if (!SAVE) return answerEarly(req, res, 403, { error: NO_SAVE });
+  const text = await smallBody(req, res, 16384);
+  if (text === null) return;
+  let b = null;
+  try { b = JSON.parse(text); } catch { /* said below */ }
+  const str = v => typeof v === 'string';
+  if (!b || typeof b !== 'object' || Array.isArray(b) || !str(b.from) || !str(b.path) || (b.as !== undefined && !str(b.as)) || (b.replace !== undefined && typeof b.replace !== 'boolean')) {
+    return json(res, 400, { error: 'the body is { "from": "<the scene it is in>", "path": "<its path there>", "as": "<its path here>" (optional), "replace": true (optional) }' });
+  }
+  const dir = await KEPT.where(name);
+  if (!dir) return json(res, 404, { error: 'no such scene' });
+  const fromDir = await KEPT.where(b.from);
+  if (!fromDir) return json(res, 404, { error: 'no such scene to copy from' });
+  if (b.path.length > MAX_PATH || !listable(b.path) || b.path === LAYOUT || b.path === LISTING) return json(res, 400, { error: 'path: a file the scene lists (not its layout.json or files.json, no dot files or .history/, at most 4 folders deep)' });
+  const want = uploadPath(b.as === undefined ? b.path : b.as);
+  if (want.error) return json(res, 400, { error: want.error });
+  if (b.from === name && want.rel === b.path) return json(res, 400, { error: 'that is the file itself' });
+  const job = { name, dir, from: b.from, fromDir, src: b.path, want, replace: b.replace === true };
+  const [status, body] = R2C ? await r2Copy(job) : await folderCopy(job);
+  json(res, status, body);
+}
+async function folderCopy({ name, dir, from, fromDir, src, want, replace }) {
+  const file = path.join(fromDir, ...src.split('/'));
+  let real = '', st = null;
+  try { real = await fs.promises.realpath(file); st = await fs.promises.stat(real); } catch { /* none */ }
+  if (!st || !st.isFile()) return [404, { error: `there is no file ${src} in ${from}` }];
+  if (!inside(fromDir, real)) { log(`scenes: refused a copy from ${JSON.stringify(from + '/' + src)} (a link out of its folder)`); return [404, { error: `there is no file ${src} in ${from}` }]; }
+  if (st.size > MAX_UPLOAD) return [413, { error: TOO_BIG }];
+  const dest = path.join(dir, ...want.segs), folder = path.dirname(dest), there = await lstatOf(dest);
+  if (there && there.isDirectory()) return [409, { error: 'there is a folder by that name' }];
+  if (there && !replace) return [409, { error: 'there is a file by that name (replace: true replaces it)' }];
+  const stop = await folderRoom(dir, folder, there, `a copy to ${JSON.stringify(name + '/' + want.rel)}`);
+  if (stop) return [stop[0], { error: stop[1] }];
+  let made, tmp = '', placed = false;
+  try {
+    try { made = await fs.promises.mkdir(folder, { recursive: true }); } catch { return [409, { error: 'a file stands where a folder of the path should be' }]; }
+    tmp = path.join(folder, tmpName());
+    try { await fs.promises.copyFile(real, tmp, fs.constants.COPYFILE_EXCL); } catch (err) {
+      log(`scenes: ${name}: could not copy ${from}/${src} (${err.code || err.message})`);
+      return [err.code === 'ENOSPC' ? 507 : 500, { error: 'cannot write the file (' + (err.code || 'error') + ')' }];
+    }
+    if (!(placed = await place(tmp, dest, replace))) return [409, { error: 'there is a file by that name (replace: true replaces it)' }];
+    tmp = '';
+  } finally {
+    if (tmp) await fs.promises.rm(tmp, { force: true }).catch(() => {});
+    if (!placed && made) await unmake(folder, made);
+  }
+  const at = await fs.promises.stat(dest);
+  log(`scenes: ${name}: copied ${want.rel} from ${from}/${src} (${mb(at.size)})${there ? ', replacing it' : ''}`);
+  sceneTold(name, want.rel, () => fs.promises.stat(dest).then(x => `${x.size}:${Math.floor(x.mtimeMs)}:${x.ino}`, () => null));
+  return [200, { ok: true, path: want.rel, bytes: at.size, at: Math.floor(at.mtimeMs) }];
+}
+// R2: the bucket copies the object (CopyObject, signed with its x-amz-copy-source), after the same checks as an upload's
+// (r2InTheWay: what stands where it goes). The bucket is not asked to refuse an object there (conditions on a copy differ
+// from store to store): of two copies to one new name at once, the second may replace the first, as a save would
+async function r2Copy({ name, from, src, want, replace }) {
+  const S = (await r2Listing(from)).rels.get(src);
+  if (!S) return [404, { error: `there is no file ${src} in ${from}` }];
+  if (S.size > MAX_UPLOAD) return [413, { error: TOO_BIG }];
+  const L = await r2Listing(name), stop = r2InTheWay(L, want, replace);
+  if (stop) return [stop[0], { error: stop[0] === 409 && /replace=1/.test(stop[1]) ? 'there is a file by that name (replace: true replaces it)' : stop[1] }];
+  const key = okey(name, want.rel);
+  await RX.copy(S.key, key);
+  r2Forget();
+  const st = await RX.stat(key);
+  log(`scenes: ${name}: copied ${want.rel} from ${from}/${src} in the bucket (${mb(st ? st.size : S.size)})${L.rels.has(want.rel) ? ', replacing it' : ''}`);
+  if (st) sceneTold(name, want.rel, async () => sigR2(st));
+  return [200, { ok: true, path: want.rel, bytes: st ? st.size : S.size, at: st ? st.at : Date.now() }];
 }
 // the body into a new file (never one that is there): { n } once it is all written and on the disk, { over } past
 // --max-upload, { cut } when the page went (or sent nothing for 2 minutes), { err } when the disk would not take it.

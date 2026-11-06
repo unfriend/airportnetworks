@@ -1499,10 +1499,14 @@ try {
     ok(s.every(x => x === 401) && held.status === 429 && (await tget('/api/scenes', { ip: X, headers: bearer() })).status === 429, '20 wrong ones for files from one address: 401 each, then 429 for files and the API');
     ok((await tget('/scenes/alpha/model.glb?token=' + PASS)).status === 200, 'another address is not held back');
     // uploads (a scene made, a file, a sound) with it, as every scene endpoint; /upload sends people on without it
-    const upAsk = [['POST', '/api/scenes', { name: 'pw scene' }], ['POST', '/api/scenes/beta/file?path=pw.glb', 'x'], ['POST', '/api/scenes/beta/sound?path=pw.mp3', 'x']];
+    const upAsk = [['POST', '/api/scenes', { name: 'pw scene' }], ['POST', '/api/scenes/beta/file?path=pw.glb', 'x'], ['POST', '/api/scenes/beta/sound?path=pw.mp3', 'x'],
+      ['POST', '/api/scenes/beta/copy', { from: 'alpha', path: 'model.glb', as: 'pwcopy.glb' }]];
     s = [];
     for (const [m, p, b] of upAsk) { s.push(no(await tget(p, { method: m, body: b }))); s.push(no(await tget(p, { method: m, body: b, headers: bearer(PASS + 'x') }))); }
-    ok(s.every(Boolean) && !fs.existsSync(path.join(S, 'pw scene')) && !fs.existsSync(path.join(S, 'beta/pw.glb')), 'uploads without it or with a wrong one: 401, nothing written');
+    ok(s.every(Boolean) && !fs.existsSync(path.join(S, 'pw scene')) && !fs.existsSync(path.join(S, 'beta/pw.glb')) && !fs.existsSync(path.join(S, 'beta/pwcopy.glb')), 'uploads and copies without it or with a wrong one: 401, nothing written');
+    const pc = await tget('/api/scenes/beta/copy', { method: 'POST', headers: bearer(), body: { from: 'alpha', path: 'model.glb', as: 'pwcopy.glb' } });
+    ok(pc.status === 200 && fs.readFileSync(path.join(S, 'beta/pwcopy.glb')).equals(GLB), 'a copy with it');
+    fs.rmSync(path.join(S, 'beta/pwcopy.glb'));
     const mk = await tget('/api/scenes', { method: 'POST', headers: bearer(), body: { name: 'pw scene' } }), fl = await tget('/api/scenes/pw%20scene/file?path=a.glb&token=' + PASS, { method: 'POST', body: 'glb' });
     ok(mk.status === 201 && fl.status === 200 && fs.readFileSync(path.join(S, 'pw scene', 'a.glb'), 'utf8') === 'glb', 'with it (Bearer, ?token=): a scene made, a file written');
     const up = await tget('/upload?token=' + PASS);
@@ -1713,6 +1717,46 @@ if (me === 'hang') setInterval(() => {}, 1000);
       pre2.status === 204 && cr.status === 200 && cr.headers['access-control-allow-origin'] === '*', 'a preflight from another origin allows POST, Authorization and Content-Type; the answer carries CORS');
     const ro = await upf('ro.glb', Buffer.from('x'), { at: URO.port });
     ok(ro.status === 403 && /--scenes-readonly/.test(ro.json().error) && !fs.existsSync(at('ro.glb')), '--scenes-readonly: 403, nothing written');
+  });
+
+  await step('copies: POST /api/scenes/<name>/copy copies a file of another scene (the same path, or as), written whole, told at once; 409 unless replace, an upload\'s paths and kinds, the source a file its scene lists, a link out, --max-upload, --scenes-readonly', async () => {
+    const cp = (scene, b, o = {}) => send(o.at || UP.port, `/api/scenes/${scene}/copy`, Buffer.from(typeof b === 'string' ? b : JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const nw = rel => path.join(U, 'new one', ...rel.split('/'));
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const t0 = Date.now(), r = await cp('new%20one', { from: 'one', path: 'models/b c.glb' }), a = r.json();
+    ok(r.status === 200 && a.ok === true && a.path === 'models/b c.glb' && a.bytes === fs.statSync(at('models/b c.glb')).size && fs.readFileSync(nw('models/b c.glb')).equals(fs.readFileSync(at('models/b c.glb'))) &&
+      a.at === Math.floor(fs.statSync(nw('models/b c.glb')).mtimeMs), '200 { ok, path, bytes, at }: the same bytes at the same path in the other scene, its folder made');
+    const told = await w.next(ev('scene', d => d.name === 'new one' && d.path === 'models/b c.glb'), 3000);
+    ok(told && told.at - t0 < 1000 && told.data.kind === 'model' && told.data.gone === false, `the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    const as = await cp('new%20one', { from: 'one', path: 'tex/a.PNG', as: 'pictures/wall.png' });
+    ok(as.status === 200 && as.json().path === 'pictures/wall.png' && fs.readFileSync(nw('pictures/wall.png')).equals(fs.readFileSync(at('tex/a.PNG'))), 'as: to another path');
+    const again = await cp('new%20one', { from: 'one', path: 'models/b c.glb' }), rp = await cp('new%20one', { from: 'one', path: 'data.bin', as: 'models/b c.glb', replace: true });
+    ok(again.status === 409 && /replace: true/.test(again.json().error) && rp.status === 200 && fs.readFileSync(nw('models/b c.glb')).equals(fs.readFileSync(at('data.bin'))), 'there: 409; replace: true replaces it');
+    const ob = await cp('new%20one', { from: 'one', path: 'originals/x.obj', as: 'x.obj' }), oo = await cp('new%20one', { from: 'one', path: 'originals/x.obj' });
+    ok(ob.status === 400 && /outside originals/.test(ob.json().error) && oo.status === 200 && fs.existsSync(nw('originals/x.obj')) && !fs.existsSync(nw('x.obj')), 'a kind an upload takes only under originals/ (an OBJ): 400 elsewhere, 200 there');
+    const before = tree(), bad = [];
+    for (const b of [{ from: 'one', path: '../one/data.bin' }, { from: 'one', path: '.history/x.json' }, { from: 'one', path: 'layout.json' }, { from: 'one', path: 'files.json' }, { from: 'one', path: 'a\\b.glb' },
+      { from: 'one', path: 'x.glb.tmp' }, { from: 'one', path: 'data.bin', as: '.hidden.bin' }, { from: 'one', path: 'data.bin', as: '../x.bin' }, { from: 'one', path: 'data.bin', as: 'layout.json' },
+      { from: 'one', path: 'data.bin', as: 'notes.txt' }, { from: 'one', path: 'data.bin', as: 'a/b/c/d/e/f.bin' }, { from: 'one' }, { path: 'data.bin' }, { from: 5, path: 'data.bin' },
+      { from: 'one', path: 'data.bin', as: 7 }, { from: 'one', path: 'data.bin', replace: 'yes' }, { from: 'new one', path: 'models/b c.glb' }, 'not json', '[]', 'null']) bad.push((await cp('new%20one', b)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'a source no listing shows, a target an upload may not have, the file onto itself, a bad body: 400, nothing written (' + bad.join(' ') + ')');
+    const nf = [await cp('nope', { from: 'one', path: 'data.bin' }), await cp('new%20one', { from: 'nope', path: 'data.bin' }), await cp('new%20one', { from: 'bad!', path: 'data.bin' }), await cp('new%20one', { from: 'one', path: 'none.glb' }), await cp('new%20one', { from: 'one', path: 'models', as: 'm.glb' })];
+    ok(nf.every(x => x.status === 404) && JSON.stringify(tree()) === JSON.stringify(before), 'no such scene (either), no such file, a folder: 404 (' + nf.map(x => x.status).join(' ') + ')');
+    // a file of the scene that is a link out of its folder: not copied
+    fs.writeFileSync(path.join(OUT, 'secret.bin'), 'secret'); fs.symlinkSync(path.join(OUT, 'secret.bin'), at('leak.bin'));
+    const lk = await cp('new%20one', { from: 'one', path: 'leak.bin' });
+    ok(lk.status === 404 && !fs.existsSync(nw('leak.bin')) && /refused a copy from "one\/leak\.bin" \(a link out of its folder\)/.test(UP.out), 'a link out of its scene: 404, nothing copied, said in the log');
+    fs.rmSync(at('leak.bin'));
+    fs.writeFileSync(at('huge.bin'), bytes(MB + 1));
+    const hg = await cp('new%20one', { from: 'one', path: 'huge.bin' });
+    ok(hg.status === 413 && !fs.existsSync(nw('huge.bin')), 'a file over --max-upload: 413');
+    fs.rmSync(at('huge.bin'));
+    ok(!leftovers().length && (await cp('new%20one', { from: 'one', path: 'data.bin' }, { at: URO.port })).status === 403 && !fs.existsSync(nw('data.bin')), 'no temporary file left; --scenes-readonly: 403, nothing written');
+    ok((await req('GET', '/api/scenes/new%20one/copy', { at: UP.port })).status === 405, 'GET: 405');
+    ok(/scenes: new one: copied models\/b c\.glb from one\/models\/b c\.glb/.test(UP.out) && /copied models\/b c\.glb from one\/data\.bin \([\d.]+ kB\), replacing it/.test(UP.out), 'said in the log');
+    w.close();
   });
 
   await step('uploads: POST /api/scenes/<name>/sound: ffmpeg (a stand-in) makes a mono MP3 at 96 kbit/s and 44.1 kHz; its failures, its limit, two at once, none at all', async () => {
@@ -1980,6 +2024,31 @@ if (me === 'hang') setInterval(() => {}, 1000);
     const [x1, x2] = await Promise.all([upr('race.glb', bytes(200000)), upr('race.glb', bytes(200000))]);
     ok([x1.status, x2.status].sort().join() === '200,409', `two at once to one new name: one 200, one 409 (${x1.status} ${x2.status})`);
     ok(/scenes: new one: wrote models\/a\.glb into the bucket \(5\.0 kB/.test(RR.out) && r2tmp() === tmp0, 'said in the log; no temporary folder left');
+    w.close();
+  });
+
+  await step('R2: POST .../copy copies a file of another scene inside the bucket (CopyObject, its x-amz-copy-source signed in the header: nothing passes through the relay), told at once; 409 unless replace, an upload\'s paths and kinds, a source not there', async () => {
+    const cp = (scene, b) => send(RR.port, `/api/scenes/${scene}/copy`, Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const n0 = S3.requests.length, t0 = Date.now(), r = await cp('new%20one', { from: 'alpha', path: 'tex/wall.PNG' }), a = r.json(), mine = S3.requests.slice(n0);
+    const cq = mine.find(q => q.method === 'PUT' && q.headers['x-amz-copy-source']);
+    ok(r.status === 200 && a.ok === true && a.path === 'tex/wall.PNG' && !!obj('new one/tex/wall.PNG') && obj('new one/tex/wall.PNG').body.equals(obj('alpha/tex/wall.PNG').body) && a.bytes === 40 &&
+      a.at === obj('new one/tex/wall.PNG').at && obj('new one/tex/wall.PNG').type === obj('alpha/tex/wall.PNG').type, '200 { ok, path, bytes, at }: the object copied in the bucket, with its type');
+    ok(!!cq && cq.auth === 'header' && /SignedHeaders=[^,]*x-amz-copy-source/.test(cq.headers.authorization) && cq.status === 200 && cq.headers['x-amz-copy-source'] === '/scenes/studio/alpha/tex/wall.PNG' &&
+      !mine.some(q => q.method === 'GET' && q.url.startsWith('/scenes/studio/alpha/tex/wall.PNG')), 'by CopyObject, its x-amz-copy-source signed in the header; nothing of it fetched by the relay');
+    const told = await w.next(ev('scene', d => d.name === 'new one' && d.path === 'tex/wall.PNG'), 3000);
+    ok(told && told.at - t0 < 1000, `the watch told at once (${told ? told.at - t0 : '-'} ms)`);
+    const again = await cp('new%20one', { from: 'alpha', path: 'tex/wall.PNG' }), rp = await cp('new%20one', { from: 'alpha', path: 'tex/photo.jpeg', as: 'tex/wall.PNG', replace: true });
+    ok(again.status === 409 && rp.status === 200 && obj('new one/tex/wall.PNG').body.equals(obj('alpha/tex/photo.jpeg').body), 'there: 409; replace: true replaces it');
+    const nt = await cp('new%20one', { from: 'alpha', path: 'tex/photo.jpeg', as: 'pic.txt' }), no2 = await cp('new%20one', { from: 'alpha', path: 'tex/photo.jpeg', as: 'originals/pic.txt' });
+    ok(nt.status === 400 && /outside originals/.test(nt.text) && no2.status === 200 && !!obj('new one/originals/pic.txt') && obj('new one/originals/pic.txt').body.equals(obj('alpha/tex/photo.jpeg').body),
+      'a kind an upload takes only under originals/ (by the path it goes to): 400 elsewhere, 200 there (' + nt.status + ' ' + no2.status + ')');
+    const keys0 = S3.keys().length, st = [];
+    for (const b of [{ from: 'alpha', path: 'layout.json' }, { from: 'alpha', path: '.history/layout-old.json' }, { from: 'alpha', path: 'x.tmp' }, { from: 'alpha', path: 'data.bin', as: '../x.bin' }]) st.push((await cp('new%20one', b)).status);
+    for (const [sc, b] of [['nope', { from: 'alpha', path: 'data.bin' }], ['new%20one', { from: 'nope', path: 'data.bin' }], ['new%20one', { from: 'alpha', path: 'none.glb' }]]) st.push((await cp(sc, b)).status);
+    ok(st.join() === '400,400,400,400,404,404,404' && S3.keys().length === keys0, 'what no listing shows, a target an upload may not have: 400; no such scene or file: 404; nothing copied (' + st.join() + ')');
+    ok(/scenes: new one: copied tex\/wall\.PNG from alpha\/tex\/wall\.PNG in the bucket/.test(RR.out) && noLeak(RR.out), 'said in the log, no signed link or key in it');
     w.close();
   });
 
