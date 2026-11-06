@@ -1,4 +1,4 @@
-// node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--shots <dir>]
+// node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--shots <dir>]
 //                                [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]
 // A model made lighter for a headset (tools/studio/SPEC.md, "GLB first, and converting"), in headless Chromium with the
 // studio's own converter (tools/studio/engine/convert.js, the same module the studio's Convert to GLB and Upload pane
@@ -8,6 +8,9 @@
 // since the loader ignores them; OBJ, PLY and STL say none: metres, centimetres or millimetres, whichever makes it 5 cm
 // to 60 m); draws its textures down to --max-texture px on their longer side (4,096 by default); welds its triangles'
 // shared corners into an index (an FBX's loader repeats every corner: three times the vertices; --no-weld keeps them);
+// with --keep <share> (0.02 to 1) makes it lighter, every mesh down to that share of its triangles with meshoptimizer's
+// simplifier (vendor/meshopt_simplifier.js; its normals and texture coordinates weighed, so its textures stay put; shared
+// corners locked, tiny pieces pruned; a mesh with shape keys left as it is; the record then holds tris: { from, to, keep });
 // draws an FBX material of opacity 0 (3ds Max's habit) solid; and writes one binary glTF with GLTFExporter (animations
 // and skins kept, opaque textures as JPEG, the rest as PNG). The guess goes into the file (its root node's scale and
 // turn), so the GLB is in metres and Y up, as glTF is, and asset.extras.studio records it ({ from: the original's file
@@ -31,13 +34,14 @@ import { sceneFiles } from '../../relay/scenes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '../..');
 const EXTS = ['.fbx', '.glb', '.gltf', '.obj', '.ply', '.stl'];
-const USAGE = 'usage: node tools/studio/convert.mjs <in.fbx|.glb|.gltf|.obj|.ply|.stl> [out.glb] [--max-texture 4096] [--no-weld] [--shots <dir>]\n' +
+const USAGE = 'usage: node tools/studio/convert.mjs <in.fbx|.glb|.gltf|.obj|.ply|.stl> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--shots <dir>]\n' +
   '       [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]';
 const SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
 const args = process.argv.slice(2), pos = [], given = [];
-let maxTex = 4096, weld = true, shots = '', texDir = '';
+let maxTex = 4096, weld = true, shots = '', texDir = '', keep = 1;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--max-texture') { maxTex = Number(args[++i]); continue; }
+  if (args[i] === '--keep') { keep = Number(args[++i]); if (!(keep >= 0.02 && keep <= 1)) { console.log(`--keep: a share of the triangles kept, 0.02 to 1 (0.2: a fifth)\n${USAGE}`); process.exit(1); } continue; }
   if (args[i] === '--textures') { texDir = path.resolve(args[++i] || ''); if (!args[i] || !fs.existsSync(texDir) || !fs.statSync(texDir).isDirectory()) { console.log(`--textures: no folder ${texDir}\n${USAGE}`); process.exit(1); } continue; }
   if (args[i] === '--texture') {
     const m = /^(.+?)=(.+)$/.exec(args[++i] || ''), file = m && path.resolve(m[2]);
@@ -84,12 +88,14 @@ try {
   const logs = [];
   page.on('console', m => { const t = m.text(); if (m.type() === 'warning' || m.type() === 'error') logs.push(t); });
   page.on('pageerror', e => logs.push('page error: ' + e.message));
-  const LIBS = ['fflate.min.js', 'NURBSUtils.js', 'NURBSCurve.js', 'TGALoader.js', 'FBXLoader.js', 'GLTFLoader.js', 'OBJLoader.js', 'MTLLoader.js', 'PLYLoader.js', 'STLLoader.js', 'GLTFExporter.js', 'SkeletonUtils.js'];
+  const LIBS = ['fflate.min.js', 'NURBSUtils.js', 'NURBSCurve.js', 'TGALoader.js', 'FBXLoader.js', 'GLTFLoader.js', 'OBJLoader.js', 'MTLLoader.js', 'PLYLoader.js', 'STLLoader.js', 'GLTFExporter.js', 'SkeletonUtils.js', 'meshopt_simplifier.js'];
   let glb = null;
   await page.route('http://convert.local/**', async route => {
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname);
     if (p === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><title>convert</title>' +
-      ['three.min.js', ...LIBS, 'images.js', 'convert.js'].map(f => `<script src="/lib/${f}"></script>`).join('') });
+      ['three.min.js', ...LIBS.filter(f => !f.startsWith('meshopt')), 'images.js', 'convert.js'].map(f => `<script src="/lib/${f}"></script>`).join('') +
+      // (meshoptimizer's simplifier is an ES module: imported as one, for the converter's reduce)
+      '<script type="module">import { MeshoptSimplifier } from "/lib/meshopt_simplifier.js"; window.MeshoptSimplifier = MeshoptSimplifier;</script>' });
     if (p === '/lib/three.min.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(REPO, 'three.min.js')) });
     if (p.startsWith('/lib/') && LIBS.includes(p.slice(5))) return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'vendor', p.slice(5))) });
     if (p === '/lib/convert.js' || p === '/lib/images.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'engine', p.slice(5))) });
@@ -100,7 +106,8 @@ try {
     return route.fulfill({ status: 404, body: 'not found' });
   });
   await page.goto('http://convert.local/');
-  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
+  await page.waitForFunction(() => !!window.MeshoptSimplifier, null, { timeout: 30000 });
+  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, keep, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
     console.log(`${path.basename(input)}: could not be read or written (${String(err.message).split('\n')[0].replace(/^page\.evaluate: /, '')})`);
     if (logs.length) console.log(logs.slice(0, 8).map(t => '  ' + t.slice(0, 200)).join('\n'));
     process.exitCode = 1;
@@ -167,6 +174,11 @@ if (A) {
   if (out.record) row('its record', '', `asset.extras.studio: ${JSON.stringify(out.record)}`);
   row('with its textures', `${(A.ready / 1000).toFixed(2)} s`, B.parse !== undefined ? `${(B.parse / 1000).toFixed(2)} s` : undefined);
   if (out.check) console.log(`\n  checked: ${out.check}`);
+  // (made lighter: as far down as asked, or how far it came; its seams and borders may hold some back)
+  if (out.reduced) {
+    const R = out.reduced, got = R.to / Math.max(1, R.from);
+    console.log(`  fewer triangles: ${int(R.from)} became ${int(R.to)}: ${(got * 100).toFixed(1)} % kept, ${(R.keep * 100).toFixed(0)} % asked (${(R.ms / 1000).toFixed(2)} s)` + (got > R.keep * 1.25 ? ': not as far as asked (seams, borders or small parts held it back)' : ''));
+  }
   if (out.look) console.log(`  looks: ${out.look}${out.sheetFile ? ` (the pictures: ${out.sheetFile}; the original above, the GLB below)` : ''}`);
 }
 // (the missing textures' 404s are said above, as missing textures)
@@ -179,7 +191,7 @@ console.log('(times in headless Chromium on this machine, drawing in software: a
 
 // ---- in the page: the studio's converter (engine/convert.js) loads it, gives it the guess, lightens and exports it, loads
 // it back and compares; the file names it gives are found beside it (by its path, else by name, case aside)
-async function convertInPage({ file, ext, listing, labels, maxTex, weld, given }) {
+async function convertInPage({ file, ext, listing, labels, maxTex, weld, keep, given }) {
   const T = THREE, have = new Set(listing), lower = new Map(listing.map(p => [p.slice(p.lastIndexOf('/') + 1).toLowerCase(), p]));
   const enc = p => '/in/' + p.split('/').map(encodeURIComponent).join('/');
   const C = makeConverter(T, { renderer: (w, h) => { const r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(w, h, false); return r; } });
@@ -211,9 +223,9 @@ async function convertInPage({ file, ext, listing, labels, maxTex, weld, given }
     if (!d.done) throw new Error(d.why[0] || `no material ${JSON.stringify(g.mat)} to lay ${g.path.split('/').pop()} on`);
     tex.push({ name: '', mat: g.mat, slot: g.slot, from: lab(g.path), how: 'chosen' });
   }
-  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, from: file, look: true, tex });
+  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, keep, from: file, look: true, tex });
   r.before.parse = r.before.ready = ready;
-  const out = { ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, check: r.check, look: r.look, sheet: r.sheet, record: r.record, format: m.guess.format || ext, tex, why2: m.why };
+  const out = { ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, check: r.check, look: r.look, sheet: r.sheet, record: r.record, format: m.guess.format || ext, tex, why2: m.why, reduced: r.reduced };
   if (r.ok) await fetch('/out', { method: 'POST', body: r.glb });
   return out;
 }

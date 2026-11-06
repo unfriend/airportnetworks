@@ -18086,7 +18086,7 @@ function makeConverter(THREE, hooks) {
     keep = Math.min(1, Math.max(KEEP_MIN, +keep || 1));
     const S = await simplifier(), notes = [], geos = new Map(), work = new Map();
     root.updateMatrixWorld(true);
-    let from = 0, morph = 0, err = 0, short = 0;
+    let from = 0, morph = 0, err = 0, short = 0, pruned = 0;
     const meshes = [];
     root.traverse(n => { if (n.isMesh && n.geometry && n.geometry.attributes.position) meshes.push(n); });
     for (const n of meshes) {
@@ -18163,16 +18163,20 @@ function makeConverter(THREE, hooks) {
       if (uv) { floats(uv, 2, A, nrm ? 3 : 0, k); W.push(1, 1); }
       const out = [], gout = [];
       for (const gr of w.groups) {
-        const sub = ix.slice(gr.start, gr.start + gr.count - (gr.count % 3)), tris = sub.length / 3;
-        let res = sub;
+        let sub = ix.slice(gr.start, gr.start + gr.count - (gr.count % 3)), res = sub;
+        const tris = sub.length / 3;
         if (tris >= 16) {
-          const target = Math.max(3, Math.round(tris * keep) * 3), fl = ['Prune'].concat(sub.length * 2 < n ? ['Sparse'] : []);
+          // (tiny loose pieces first, under a hundredth of its size: crumbs of a scan; never with the looser limits below,
+          // which would take whole arms off a figure made of separate parts)
+          const pr = S.simplifyPrune(sub, pos, 3, 0.01);
+          if (pr.length >= 3 && pr.length < sub.length) { pruned += (sub.length - pr.length) / 3; sub = pr; }
+          const target = Math.max(3, Math.round(tris * keep) * 3), fl = sub.length * 2 < n ? ['Sparse'] : [];
           let r = null;
           for (const e of [0.01, 0.1, 1]) {
-            r = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, target, e, fl);
+            r = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, Math.min(target, sub.length), e, fl);
             if (r[0].length <= target * 1.1) break;
           }
-          if (r[0].length > target * 1.25 && !uv) { const p = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, target, 1, fl.concat('Permissive')); if (p[0].length < r[0].length) r = p; }
+          if (r[0].length > target * 1.25 && !uv) { const p = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, Math.min(target, sub.length), 1, fl.concat('Permissive')); if (p[0].length < r[0].length) r = p; }
           if (r[0].length > target * 1.25) short++;
           if (r[0].length >= 3) { res = r[0]; err = Math.max(err, r[1]); }
         }
@@ -18207,6 +18211,8 @@ function makeConverter(THREE, hooks) {
     to = Math.round(to);
     const pc = v => (v * 100 >= 10 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
     notes.push(`fewer triangles: ${from.toLocaleString('en-GB')} became ${to.toLocaleString('en-GB')} (${pc(to / Math.max(1, from))}; ${pc(keep)} asked)`);
+    if (pruned) notes.push(`${Math.round(pruned).toLocaleString('en-GB')} triangles of tiny loose pieces left out`);
+    if (err > 0.02) notes.push(`its surface moved by up to ${(err * 100).toFixed(err < 0.1 ? 1 : 0)} % of its size to come down this far: look at it before keeping it`);
     if (short) notes.push(`${short} part${short === 1 ? '' : 's'} could not come down as far as asked (seams and borders kept)`);
     if (morph) notes.push(`${morph} mesh${morph === 1 ? '' : 'es'} with shape keys (morph targets) left as ${morph === 1 ? 'it is' : 'they are'}`);
     return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
@@ -18624,8 +18630,9 @@ function makeConverter(THREE, hooks) {
 // are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
-// turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter)
-const CONV = makeConverter(THREE, { exporter: () => exporterLoad() });
+// turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter; and the
+// simplifier for Fewer triangles only when first asked: meshoptLoad, from the vendored meshopt_simplifier.js)
+const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad() });
 const MODEL_EXT = CONV.MODEL_EXT;
 const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap', 'lightMap', 'displacementMap'];
 function lib(path) {
