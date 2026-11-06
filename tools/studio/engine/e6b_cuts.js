@@ -234,7 +234,7 @@ function duplicateCut(x) {
   const ob = cutObj(x);
   if (ob && cutsOn(ob.id).length >= CUT_MAX) return '';
   const nid = newId(), d = new THREE.Vector3(x.rec.size[0] * 1.25, 0, 0).applyQuaternion(new THREE.Quaternion().fromArray(x.rec.q));
-  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) })))) cubeCopy(x.id, nid); });
+  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)), locked: undefined })))) cubeCopy(x.id, nid); });
   select(nid);
   sfxAct('place', 'world', null);
   return nid;

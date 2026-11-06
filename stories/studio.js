@@ -15947,9 +15947,12 @@ SETS.stage = function (K) {
 // small speaker (a ball and a cone) in its colour, a faint ring on the floor where it stops being at full volume and, for
 // a sound that follows a model, a faint line to what it follows. A cut-out: a box with dashed red-orange edges and solid
 // ticks at its corners (never a cube's see-through fill and solid edges). A group (selected, while editing): a faint
-// dashed box round all its members, in its colour (its name is the selection's label). A model still loading (or one this
-// device cannot find): a grey box with a line of text over it. Each item's colour comes from its id, so it is the same on
-// every device (a cut-out's is one for all).
+// dashed box round all its members, in its colour (its name is the selection's label). A shape: a cube, a ball, a
+// cylinder or a plane, lit in its colour, or (hiding things) drawn into the depth only, so it hides what stands behind it
+// and is otherwise invisible (while editing a see-through fill and its edges show where it is). An empty: a small axis
+// cross and its name, drawn only while editing. A model still loading (or one this device cannot find): a grey box with a
+// line of text over it. Each item's colour comes from its id, so it is the same on every device (a cut-out's is one for
+// all; a shape's is its record's).
 const LOOKS = (function () {
   const PAL = ['#46d9ff', '#ffb43b', '#3ee08f', '#ff5ad9', '#9db4ff', '#ff7a59', '#c3e85a', '#c08cff', '#5fe0c8', '#ffe066'];
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
@@ -16100,6 +16103,101 @@ const LOOKS = (function () {
     deco.add(box); deco.visible = false;
     return { deco, box, col: '#' + col.getHexString(), drop() { box.material.dispose(); } };
   }
+  // a shape: its body (scaled to its size, turned as it is: the item's holder) holds the drawn mesh, a see-through fill
+  // and its edges (editing); `deco` (not scaled, following its place and turn) its name and, for a cube, the corner balls
+  // to stretch it by. Lit in its colour, or hiding things: drawn into the depth alone (no colour), before the items
+  // (renderOrder -1: after the stage's floor and sky, so in VR the stage shows where it stands and in AR the room) so
+  // what stands behind it is hidden; a closed shape from its outside only (from inside it hides nothing), a plane both
+  // ways. The geometries are shared (unit sized: a 1 m box, a ball and a cylinder 1 m across, a 1 m square upright,
+  // facing +z)
+  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1) };
+  const SHAPE_EDGE = {};
+  const shapeEdges = k => SHAPE_EDGE[k] || (SHAPE_EDGE[k] = new THREE.EdgesGeometry(SHAPE_GEO[k], 20));   // (a ball: none)
+  function shape(id) {
+    const body = new THREE.Group(), deco = new THREE.Group();
+    const lit = new THREE.MeshStandardMaterial({ color: 0xc9d1dc, roughness: 0.75, metalness: 0 });
+    const hide = new THREE.MeshBasicMaterial({ colorWrite: false });
+    const mesh = new THREE.Mesh(box, lit);
+    const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xc9d1dc, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
+    fill.renderOrder = 5;
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false }));
+    line.renderOrder = 6;
+    body.add(mesh, fill, line);
+    const name = tag(30);
+    deco.add(name);
+    const corners = [];
+    for (let k = 0; k < 8; k++) {
+      const c = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: 0xe8eef8, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
+      c.scale.setScalar(0.04); c.renderOrder = 9; c.userData.corner = k; c.visible = false;
+      deco.add(c); corners.push(c);
+    }
+    let kind = '', col = '', hides = false, a = -1;
+    const S = {
+      body, deco, mesh, fill, line, name, corners, col: '#c9d1dc',
+      // its record's shape, colour and look
+      set(r) {
+        if (r.shape !== kind) {
+          kind = r.shape;
+          mesh.geometry = fill.geometry = SHAPE_GEO[kind] || box;
+          line.geometry = shapeEdges(kind);
+          lit.side = kind === 'plane' ? THREE.DoubleSide : THREE.FrontSide; hide.side = lit.side;
+          lit.needsUpdate = hide.needsUpdate = true;
+        }
+        if (r.colour !== col) {
+          col = r.colour; S.col = col;
+          lit.color.set(col); fill.material.color.set(col);
+          line.material.color.set(col).lerp(new THREE.Color(1, 1, 1), 0.35);
+          for (const c of corners) c.material.color.set(col).lerp(new THREE.Color(1, 1, 1), 0.5);
+        }
+        if ((r.look === 'hide') !== hides) { hides = r.look === 'hide'; mesh.material = hides ? hide : lit; mesh.renderOrder = hides ? -1 : 0; a = -1; }
+      },
+      // a: its fade (shown or hidden for you: a colour fades, what hides things switches at one half); editing: its fill and
+      // edges for one that hides things (the edges also when pointed at or selected), its corners when selected (a cube)
+      look(o) {
+        if (Math.abs(o.a - a) > 1e-3) {
+          a = o.a;
+          if (hides) mesh.visible = a > 0.5;
+          else {
+            mesh.visible = a > 0.002;
+            const full = a >= 0.999;
+            lit.transparent = !full; lit.opacity = full ? 1 : a; lit.depthWrite = full;
+          }
+        }
+        fill.visible = !!o.editing && hides;
+        fill.material.opacity = (o.hot ? 0.24 : 0.14) * (hides ? 1 : 0) * Math.max(0.35, o.a);
+        line.visible = !!o.editing && (hides || o.hot || o.selected) && kind !== 'sphere';
+        line.material.opacity = o.selected || o.hot ? 1 : 0.6;
+        for (const c of corners) { c.visible = !!o.selected && kind === 'cube'; c.scale.setScalar(o.hotCorner === c.userData.corner ? 0.06 : 0.04); }
+        name.visible = !!o.editing && hides && !(o.hot || o.selected);   // (one you cannot see; the engine's label names it when pointed at)
+      },
+      hides: () => hides,
+      drop() { lit.dispose(); hide.dispose(); fill.material.dispose(); line.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
+    };
+    return S;
+  }
+  // an empty: a point with a turn, seen only while editing: a small axis cross (x red, y green, z blue, drawn over
+  // everything so it shows inside a model), a ball in its colour, its name, and an unseen ball round it for the pointer
+  const axGeo = (function () {
+    const g = new THREE.BufferGeometry(), L = 0.16;
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, L, 0, 0, 0, 0, 0, 0, L, 0, 0, 0, 0, 0, 0, L], 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute([1, 0.35, 0.29, 1, 0.35, 0.29, 0.24, 0.88, 0.56, 0.24, 0.88, 0.56, 0.27, 0.85, 1, 0.27, 0.85, 1], 3));
+    return g;
+  })();
+  function empty(id) {
+    const col = new THREE.Color(colOf(id)), g = new THREE.Group();
+    const axes = new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+    axes.renderOrder = 8; axes.frustumCulled = false;
+    const dot = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false }));
+    dot.scale.setScalar(0.025); dot.renderOrder = 8;
+    const hit = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ visible: false })); hit.scale.setScalar(0.12);
+    const name = tag(30); name.position.y = 0.2;
+    g.add(axes, dot, hit, name);
+    return {
+      group: g, hit, name, col: '#' + col.getHexString(),
+      look(o) { dot.scale.setScalar(o.hot || o.selected ? 0.04 : 0.025); axes.material.opacity = o.hot || o.selected ? 1 : 0.75; name.visible = !(o.hot || o.selected); },
+      drop() { axes.material.dispose(); dot.material.dispose(); hit.material.dispose(); name.userData.drop(); },
+    };
+  }
   // a model that is not here yet (loading, missing or unreadable): a grey box with a line of text over it
   function grey() {
     const g = new THREE.Group();
@@ -16111,7 +16209,8 @@ const LOOKS = (function () {
     g.add(name);
     return { group: g, body, fill, name, drop() { fill.material.dispose(); line.material.dispose(); name.userData.drop(); } };
   }
-  return { colOf, cube, speaker, cut, group, grey, tag, CUT_COL, dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); } };
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, CUT_COL,
+    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); axGeo.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();
 
 
@@ -16686,7 +16785,8 @@ function openScene(name, how, again) {
   libClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '' });
+    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
@@ -16711,8 +16811,8 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad;
-    if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); }
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad;
+    if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
   } catch (e) {
@@ -16759,22 +16859,25 @@ async function refreshFiles(changed) {
 }
 
 // ------------------------------------------------------------- the layout --
-// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts, groups },
-// each item with its id and its record. Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
+// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts, groups,
+// shapes, empties, settings }, each item with its id and its record, and the scene's settings (e6d_shapes.js). Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
 // lists naming only this scene's items, and a group's members only this layout's objects, sounds and cubes (one left with
 // fewer than 2 dropped and counted). A sound's on, bone and o (optional fields, so still studio: 1) are kept even when
 // the layout lacks its object, as a state from the room keeps them: it stands at its p until that object is back, and a
 // save never loses what it followed; so is a cut-out's on (it cuts nothing until its object is back). A layout without
-// cuts (v112's) or without groups (v113's) reads as before
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50 };
+// cuts (v112's), without groups (v113's) or without shapes, empties and settings (v118's) reads as before (its settings a
+// new scene's: other circles shown, the real world hiding it as each headset has it); bad settings are counted and taken so
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, at: 0, by: '' };
+  const out = { items: [], bad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
   out.by = typeof j.by === 'string' ? j.by.slice(0, 40) : '';
+  const S = normSettings(j.settings);
+  if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups]]) {
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
@@ -16808,22 +16911,25 @@ function layoutOut() {
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
-  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g');
+  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  L.settings = Object.assign({}, STU.settings);
   return L;
 }
-// a list of items (or what is placed) as one string, to tell whether two are the same
-function keyOf(items) {
+// a list of items (or what is placed) and the scene's settings as one string, to tell whether two are the same
+function keyOf(items, settings) {
   const L = (items || placedItems()).map(x => [x.id, x.kind, x.rec]);
   L.sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  return JSON.stringify(L);
+  return JSON.stringify(L) + JSON.stringify(settings || (items ? normSettings() : STU.settings));
 }
 const unsaved = () => STU.listing === 'ok' && keyOf() !== STU.saved;
-// the items of a layout in place of what is placed (Load saved, Upload, Restore), as one change Undo takes back
-function putLayout(items) {
+// the items of a layout (and its settings) in place of what is placed (Load saved, Upload, Restore), as one change Undo
+// takes back
+function putLayout(items, settings) {
   change(() => {
     const keep = new Set(items.map(x => x.id));
     for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
     for (const x of items) putItem(x.id, x.kind, x.rec);
+    if (settings) putSettings(settings);
   });
 }
 
@@ -16856,8 +16962,8 @@ async function loadSaved() {
     const layout = SRC.kind === 'relay' ? (await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`)).layout : await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`);
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
-    putLayout(L.items);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad;
+    putLayout(L.items, L.settings);
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -16876,7 +16982,7 @@ function uploadLayout(text) {
   try { j = JSON.parse(text); } catch (e) { j = null; }
   if (!j || j.studio !== 1) { STU.upNote = 'That file is not a studio layout (layout.json with "studio": 1).'; dirty(true); return; }
   const L = readLayout(j);
-  putLayout(L.items);
+  putLayout(L.items, L.settings);
   STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
 }
@@ -17018,7 +17124,7 @@ function draftNow() {
   unlater(draftT); draftT = 0;
   if (!STU.scene || STU.listing !== 'ok' || atStation() || OPT.visit) return;
   if (!unsaved()) { draftDrop(); return; }
-  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]) }));
+  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]), settings: STU.settings }));
 }
 function draftDrop() { if (STU.scene) store.set(draftKey(), null); }
 function offerDraft() {
@@ -17026,11 +17132,11 @@ function offerDraft() {
   try { d = JSON.parse(store.get(draftKey()) || 'null'); } catch (e) { d = null; }
   if (!d || !Array.isArray(d.items) || !(d.at > STU.savedAt)) return;
   const items = d.items.filter(x => Array.isArray(x) && okId(x[0]) && LIMITS[x[1]]).map(x => ({ id: x[0], kind: x[1], rec: norm(x[1], x[2]) })).filter(x => x.rec);
-  const k = keyOf(items);
+  const settings = normSettings(d.settings) || normSettings(), k = keyOf(items, settings);
   if (k === STU.saved || k === keyOf()) return;
-  STU.draft = { at: d.at, items };
+  STU.draft = { at: d.at, items, settings };
 }
-function draftRestore() { const d = STU.draft; STU.draft = null; if (d) putLayout(d.items); dirty(true); }
+function draftRestore() { const d = STU.draft; STU.draft = null; if (d) putLayout(d.items, d.settings); dirty(true); }
 function draftDiscard() { STU.draft = null; draftDrop(); dirty(true); }
 
 // ------------------------------------------------------------------- watch --
@@ -17072,7 +17178,7 @@ async function onLayoutEvent(d) {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
-    STU.saved = keyOf(L.items); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
   dirty(true);
 }
@@ -18981,8 +19087,10 @@ function sndClear() { SND.clear(); sndTotal = 0; }
 
 // ================================================================== ITEMS ==
 // What is placed in the scene: objects (a model file placed once; one file may be placed many times), trigger cubes,
-// sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js) and groups (objects, sounds
-// and cubes that move together: e6c_groups.js). Each has a record (as in
+// sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js), groups (items that move
+// together: e6c_groups.js), shapes (a cube, a ball, a cylinder or a plane, in a colour or hiding what is behind it) and
+// empties (a point to place sounds at, seen only while editing: e6d_shapes.js). Any of them may be locked in place, and
+// the scene has its settings (e6d_shapes.js). Each has a record (as in
 // layout.json, without its id), checked the same way wherever it comes from (the layout, the room, an edit here), so a
 // record taken and given back is the same. Records are never changed in place:
 // each change is a new record (the shared room keeps the old one to compare with).
@@ -18994,6 +19102,7 @@ const STU = {
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
+  settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -19013,7 +19122,7 @@ function norm(kind, x) {
     // cube's lists drop them; which of them are here, and in which group, is worked out where it is used: groupOf)
     if (!Array.isArray(x.items)) return null;
     const r = { name: name('Group'), items: [...new Set(x.items.filter(okId))].slice(0, GROUP_ITEMS) };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   const p = vecOf(x.p, 3, 1000);
   if (!p) return null;
@@ -19033,7 +19142,7 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 'c') {
     const sz = has('size') ? vecOf(x.size, 3, 1000) : [1.2, 2, 1.2];
@@ -19042,7 +19151,7 @@ function norm(kind, x) {
     if (Math.abs(yaw) > 3.1416) yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
     const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(okId))].slice(0, 400) : null);
     const r = { name: name('Cube'), p: P, yaw: nz(r4(yaw)), size: sz.map(v => r3(Math.min(100, Math.max(0.05, v)))), mode: one('mode', ['while', 'stay'], 'while'), show: ids('show'), hide: ids('hide') };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 's') {
     if (!okFile(x.file) || (has('vol') && !fin(x.vol)) || (has('r') && !fin(x.r)) || (has('loop') && typeof x.loop !== 'boolean')) return null;
@@ -19060,7 +19169,7 @@ function norm(kind, x) {
       const O = o ? o.map(v => nz(r3(v))) : null;
       if (O && O.some(v => v !== 0)) r.o = O;
     }
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 'x') {
     // a cut-out: the object it cuts (on, required), and its middle, turn and size in that object's frame, turned but not
@@ -19069,9 +19178,33 @@ function norm(kind, x) {
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : [0.8, 2, 0.4];
     if (!q || !sz) return null;
     const r = { name: name('Cut-out'), on: x.on, p: P, q, size: sz.map(v => nz(r3(Math.min(50, Math.max(0.01, v))))) };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
+  }
+  if (kind === 'p') {
+    // a shape: cube, sphere, cylinder or plane, a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
+    // kept but unused), its colour (#rrggbb, lower case) and its look: in its colour, or hiding what is behind it
+    const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : null;
+    if (!q || (has('size') && !sz) || (has('colour') && !(typeof x.colour === 'string' && /^#[0-9a-f]{6}$/i.test(x.colour)))) return null;
+    const shape = one('shape', SHAPE_KINDS, 'cube');
+    const r = { name: name('Shape'), shape, p: P, q, size: (sz || SHAPE_SIZE[shape] || [0.5, 0.5, 0.5]).map(v => nz(r3(Math.min(100, Math.max(0.01, v))))),
+      colour: has('colour') ? x.colour.toLowerCase() : SHAPE_COL, look: one('look', ['colour', 'hide'], 'colour') };
+    return lockOf(x, r);
+  }
+  if (kind === 'e') {
+    // an empty: a point and a full turn
+    const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
+    if (!q) return null;
+    return lockOf(x, { name: name('Empty'), p: P, q });
   }
   return null;
+}
+// a record's lock, kept only when set (locked: true; absent, false or null: not locked; anything else makes it bad), last
+// of its fields; and the record itself checked (null when a field was bad)
+function lockOf(x, r) {
+  if (Object.values(r).includes(null)) return null;
+  if (x.locked !== undefined && x.locked !== null && typeof x.locked !== 'boolean') return null;
+  if (x.locked === true) r.locked = true;
+  return r;
 }
 // a turn as a record keeps it: four numbers, normalised, to 4 decimals (null: not a turn)
 function quatOf(a) {
@@ -19079,9 +19212,15 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c'], GROUP_ITEMS = 460;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
+// what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
+const FOLLOW_KINDS = ['o', 'p', 'e'];
+// shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
+// plane 1 m square, upright), and the colour one starts in
+const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
@@ -19129,6 +19268,17 @@ function makeItem(id, kind) {
     it.look = LOOKS.group(id);
     it.holder = new THREE.Group();
     GL.edit.add(it.look.deco);
+  } else if (kind === 'p') {
+    // a shape: its body is its holder (scaled to its size, turned as it is); its name and corners follow it (deco)
+    it.look = LOOKS.shape(id);
+    it.holder = it.look.body;
+    it.look.mesh.userData.id = it.look.fill.userData.id = id;
+    for (const c of it.look.corners) c.userData.id = id;
+    GL.edit.add(it.look.deco);
+  } else if (kind === 'e') {
+    it.look = LOOKS.empty(id);
+    it.holder = it.look.group;
+    it.look.hit.userData.id = id;
   } else {
     it.look = LOOKS.speaker(id);
     it.holder = it.look.group;
@@ -19170,6 +19320,8 @@ function poseOf(it) {
   if (it.kind === 'o') { _pq.fromArray(r.q); _ps.setScalar(r.s); }
   else if (it.kind === 'c') { _pq.setFromAxisAngle(_yUp, r.yaw); _ps.fromArray(r.size); }
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
+  else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
+  else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
@@ -19182,10 +19334,12 @@ function applyRec(it, was, glide) {
     if (!was || was.light !== r.light) applyLight(it);
     else if (was.faces !== r.faces) applyFaces(it);
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
-  } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
-  else if (it.kind === 'x') it.look.name.userData.set('✂ ' + r.name, it.look.col, 0.075);
+  } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
+  else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
+  else if (it.kind === 'p') { it.look.set(r); it.look.name.userData.set(tagName(r) + ' · hides things', it.look.col, 0.075); }
+  else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
-    it.look.name.userData.set(r.name, it.look.col, 0.07);
+    it.look.name.userData.set(tagName(r), it.look.col, 0.07);
     if (!was || was.file !== r.file) { emitStop(it, true); itemFile(it); }
     if (!was || was.loop !== r.loop || was.start !== r.start) { emitStop(it); it.ended = false; }
   }
@@ -19318,6 +19472,7 @@ function sceneClock(now) {
 const _hp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
+  if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
   if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateMatrixWorld(true); return GL.world.worldToLocal(out.copy(XR.head)); }
   if (APP.mode === 'explore' && X.view === 'walk') return out.copy(WALK.pos);
   return null;
@@ -19328,7 +19483,7 @@ function inCube(r, p) {
 }
 const LISTS = { rev: -1, shown: new Set() };
 function triggerStep(now) {
-  const hp = headPoint(_hp), S = new Map(), H = new Map();
+  const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
   if (LISTS.rev !== STU.rev) { LISTS.rev = STU.rev; LISTS.shown = new Set(); for (const c of STU.items.values()) if (c.kind === 'c') for (const i of c.rec.show) LISTS.shown.add(i); }
   for (const c of STU.items.values()) {
     if (c.kind !== 'c') continue;
@@ -19343,7 +19498,8 @@ function triggerStep(now) {
   }
   for (const it of STU.items.values()) {
     if (it.kind === 'c' || it.kind === 'g') continue;
-    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
+    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back)
+    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = !away && (s || h ? s >= h : !LISTS.shown.has(it.id));
     if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
@@ -19428,11 +19584,12 @@ function nodeOf(ob, name) {
   return M.names.get(name) || M.keys.get(boneKey(name)) || null;
 }
 // the object a sound follows (null: none, or not an object of this scene)
-const followOf = it => { const o = it.kind === 's' && it.rec.on ? STU.items.get(it.rec.on) : null; return o && o.kind === 'o' ? o : null; };
+// (or a shape or an empty: its place and turn)
+const followOf = it => { const o = it.kind === 's' && it.rec.on ? STU.items.get(it.rec.on) : null; return o && FOLLOW_KINDS.includes(o.kind) ? o : null; };
 // the node it follows now: its bone, else the object's holder (null: it follows nothing here)
 function followNode(it) {
   const o = followOf(it);
-  return o ? (it.rec.bone && nodeOf(o, it.rec.bone)) || o.holder : null;
+  return o ? (it.rec.bone && o.kind === 'o' && nodeOf(o, it.rec.bone)) || o.holder : null;
 }
 // the node to measure a following sound's offset against here: as it follows, but none while it names a bone and its
 // model is not here yet (where that bone stands is not known, so only p is written: an offset measured against the
@@ -19440,11 +19597,12 @@ function followNode(it) {
 // file), so the whole model is what everyone follows and is measured against
 function measureNode(it) {
   const o = followOf(it);
-  return !o || (it.rec.bone && !o.model) ? null : followNode(it);
+  return !o || (it.rec.bone && o.kind === 'o' && !o.model) ? null : followNode(it);
 }
 // how much larger an object is shown than its record says: both grips write its size ten times a second, the room's
 // size glides in, so between those its followers' offsets are scaled by this (1 at rest)
-const followK = o => (o && o.rec.s > 0 && o.holder.scale.x > 0 ? o.holder.scale.x / o.rec.s : 1);
+// (an object only: a shape's size is per axis, and its followers' offsets stay as they are)
+const followK = o => (o && o.kind === 'o' && o.rec.s > 0 && o.holder.scale.x > 0 ? o.holder.scale.x / o.rec.s : 1);
 // a node's place and turn in the scene's frame (the items' group's), its scale left out
 const _wm = new THREE.Matrix4(), _ws = new THREE.Vector3(), _wp = new THREE.Vector3(), _wq = new THREE.Quaternion();
 function nodePose(nd, p, q) {
@@ -19471,7 +19629,7 @@ function offsetAt(nd, p, k) {
 function followWords(it) {
   if (!it.rec.on) return '';
   const o = followOf(it);
-  return o ? o.rec.name + ' · ' + (it.rec.bone ? boneLabel(o, it.rec.bone) : 'Whole model') : 'an object not in the scene';
+  return !o ? 'an object not in the scene' : o.kind !== 'o' ? o.rec.name : o.rec.name + ' · ' + (it.rec.bone ? boneLabel(o, it.rec.bone) : 'Whole model');
 }
 
 // ----------------------------------------------------------- every frame --
@@ -19492,7 +19650,7 @@ function itemsStep(dt, now) {
       it.holder.scale.lerpVectors(it.gl.s, _ps, k);
       if (k >= 1) it.gl = null;
     }
-    const tgt = it.kind === 'c' || it.kind === 'x' ? (editing ? 1 : 0) : it.shown ? 1 : editing && it.kind === 'o' ? 0.3 : 0;
+    const tgt = it.kind === 'c' || it.kind === 'x' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
@@ -19514,9 +19672,10 @@ function itemsStep(dt, now) {
         L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
         L.look({ inside: it.inside, selected: STU.sel === it.id && editing, hot: STU.hover === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
         L.fill.material.opacity *= it.a; L.line.material.opacity *= it.a;
-        L.name.userData.set(r.name + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
+        L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
       }
-    }
+    } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
+    else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
@@ -19567,10 +19726,10 @@ const _sb = new THREE.Box3(), _sv = new THREE.Vector3(), _sw = new THREE.Vector3
 function editStep(editing) {
   const sel = editing ? STU.items.get(STU.sel) : null, hov = editing && STU.hover !== STU.sel ? STU.items.get(STU.hover) : null;
   for (const [B, it] of [[GL.selBox, sel], [GL.hoverBox, hov]]) {
-    const ok = it && it.kind === 'o' && (it.model ? it.proxy : it.grey.group.visible);
+    const ok = it && ((it.kind === 'o' && (it.model ? it.proxy : it.grey.group.visible)) || (it.kind === 'p' && it.holder.visible));
     B.visible = !!ok;
     if (!ok) continue;
-    const t = it.model ? it.proxy : it.greyHit;
+    const t = it.kind === 'p' ? it.holder : it.model ? it.proxy : it.greyHit;
     t.updateWorldMatrix(true, false);
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
@@ -19638,6 +19797,8 @@ function itemTopInto(it, out, mid) {
     _sb.copy(BOX1.boundingBox).applyMatrix4(_sm);
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
+  else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'e') out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.2));
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
   else out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.14));
@@ -19811,13 +19972,16 @@ function setEdit(on) {
   dirty(true);
 }
 let SNAP = null;
-const snapNow = ids => new Map((ids ? ids.map(id => [id, STU.items.get(id)]) : [...STU.items]).map(([id, it]) => [id, it ? [it.kind, JSON.stringify(it.rec)] : null]));
+// (the scene's settings are in a change as one more entry, SET_ID: Undo takes them back as it does an item's record)
+const SET_ID = '@set';
+const snapOne = id => { if (id === SET_ID) return ['set', JSON.stringify(STU.settings)]; const it = STU.items.get(id); return it ? [it.kind, JSON.stringify(it.rec)] : null; };
+const snapNow = ids => new Map((ids || [...STU.items.keys(), SET_ID]).map(id => [id, snapOne(id)]));
 // a change begins (a drag: only its items) and ends: what changed goes on the Undo list as one step
 // (a change begun while another is open, the other hand carrying something else: its items join the open one)
 function beginChange(ids) {
   if (!SNAP) { SNAP = { ids: ids || null, before: snapNow(ids) }; return; }
   if (!SNAP.ids) return;
-  const more = (ids || [...STU.items.keys()]).filter(id => !SNAP.before.has(id));
+  const more = (ids || [...STU.items.keys(), SET_ID]).filter(id => !SNAP.before.has(id));
   for (const [id, b] of snapNow(more)) SNAP.before.set(id, b);
   if (ids) SNAP.ids.push(...more); else SNAP.ids = null;
 }
@@ -19827,6 +19991,7 @@ function endChange() {
   SNAP = null;
   const list = [];
   for (const [id, b] of before) {
+    if (id === SET_ID) { if (JSON.stringify(STU.settings) !== b[1]) list.push({ id, kind: 'set', before: JSON.parse(b[1]) }); continue; }
     const it = STU.items.get(id);
     if (!b) { if (it) list.push({ id, kind: it.kind, before: null }); continue; }
     if (!it || it.kind !== b[0] || JSON.stringify(it.rec) !== b[1]) list.push({ id, kind: b[0], before: JSON.parse(b[1]) });
@@ -19847,7 +20012,7 @@ function undo() {
 // members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
 // (groupUndone, e6c_groups.js)
 function undoList(list) {
-  for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const u of list.slice().reverse()) { if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
   groupUndone(list);
   changed();
@@ -19949,6 +20114,7 @@ function addCube() {
 function deleteItem(id) {
   const it = STU.items.get(id);
   if (!editOn() || !it) return;
+  if (lockWhy(it, true)) { lockRefused(it); return; }   // (locked in place: e6d_shapes.js)
   // (a group: every member with it, in the same step)
   const list = it.kind === 'g' ? members(it).map(m => m.id).concat(id) : [id];
   let gone = new Set();
@@ -19980,10 +20146,11 @@ function duplicateItem(id) {
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
+    // (a copy is never locked: it is new, to be put where it goes)
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
-    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })))) cubeCopy(x.id, xid); }
+    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -20006,7 +20173,7 @@ const ITEM_ACT = {
   // about its pivot, the vertical only)
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
-  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
   // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
   faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
   // sizes about its foot (the middle of its lowest side stays where it is); the sounds that follow it keep their place on it
@@ -20036,13 +20203,14 @@ const ITEM_ACT = {
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   loop: (it, v) => setRec(it.id, { loop: v === 'on' }),
-  // a sound: what it follows, from where it is now (an object, then one of its bones; the offset worked out here), onto
-  // it (no offset), or nothing (where it is now); picking the object by pointing (followPick), the card's list of bones
+  // a sound: what it follows, from where it is now (an object, then one of its bones; a shape or an empty; the offset
+  // worked out here), onto it (no offset), or nothing (where it is now); picking it by pointing (followPick), the card's
+  // list of bones
   follow: (it, oid) => {
     const o = STU.items.get(oid);
     STU.follow = '';
     // (the object it follows already: nothing changes, its bone kept; Whole model is one of the bone choices)
-    if (it.kind === 's' && o && o.kind === 'o' && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
+    if (it.kind === 's' && o && FOLLOW_KINDS.includes(o.kind) && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
   },
   bone: (it, name) => {
     const o = followOf(it), nd = name ? nodeOf(o, name) : o && o.holder;
@@ -20060,6 +20228,7 @@ const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'pre
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
+  if (lockStops(it, act)) { lockRefused(it); return; }   // (locked in place: it does not move, turn, size or go; e6d_shapes.js)
   if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
   if (act === 'mkgroup' && STU.gpick) gpickEnd();   // (another group's picking ends first, in a step of its own)
   change(() => ITEM_ACT[act](it, v));
@@ -20069,6 +20238,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
+  if (it.kind === 'p' || it.kind === 'e') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -20100,13 +20270,14 @@ function select(id) {
 }
 
 // --------------------------------------------------------- shared rooms --
-// What everyone at the station sees alike: the scene's name and one top-level field per item (its record: o.<id>,
-// c.<id>, s.<id>, x.<id>, g.<id>), so two people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
+// What everyone at the station sees alike: the scene's name, its settings and one top-level field per item (its record:
+// o.<id>, c.<id>, s.<id>, x.<id>, g.<id>, p.<id>, e.<id>), so two people changing two items at once both keep theirs.
+// Never the camera, triggers, editing, the selection or sound.
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
 function collabState() {
-  const s = { scene: STU.scene };
+  const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   return s;
 }
@@ -20115,7 +20286,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxg]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpe]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -20124,9 +20295,12 @@ function collabApply(v) {
   const ok = typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)), fresh = ok && !!v.scene && !items;
   if (ok && (v.scene !== STU.scene || (moved && fresh))) openScene(v.scene, fresh ? 'fresh' : 'room', true);
   else if (items && STU.write && STU.fresh) STU.write = false;
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0 };
+  // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
+  // until the saved layout is read; a bad value: ignored, kept as they are)
+  if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0 };
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxg])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpe])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]), rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
@@ -20374,7 +20548,7 @@ function duplicateCut(x) {
   const ob = cutObj(x);
   if (ob && cutsOn(ob.id).length >= CUT_MAX) return '';
   const nid = newId(), d = new THREE.Vector3(x.rec.size[0] * 1.25, 0, 0).applyQuaternion(new THREE.Quaternion().fromArray(x.rec.q));
-  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)) })))) cubeCopy(x.id, nid); });
+  change(() => { if (putItem(nid, 'x', norm('x', Object.assign({}, x.rec, { name: nameFor(x.rec.name.replace(/ \d+$/, '')), p: x.rec.p.map((v, i) => v + d.getComponent(i)), locked: undefined })))) cubeCopy(x.id, nid); });
   select(nid);
   sfxAct('place', 'world', null);
   return nid;
@@ -20414,8 +20588,8 @@ Object.assign(ITEM_ACT, {
 });
 
 // ================================================================= GROUPS ==
-// A group is a named set of items that move together (tools/studio/SPEC.md, "Groups"): objects, sounds and trigger
-// cubes (a cut-out belongs to its object and moves with it, so it is never a member). Its record: { name, items } (the
+// A group is a named set of items that move together (tools/studio/SPEC.md, "Groups"): objects, sounds, trigger cubes,
+// shapes and empties (a cut-out belongs to its object and moves with it, so it is never a member). Its record: { name, items } (the
 // members' ids). An item is in one group at most: an id two groups name stays in the one with the lower id (groupOf, the
 // same on every device); no groups in groups; 50 a scene. A click (the trigger, a pinch) on a member selects its group,
 // a second one on the same member, its group selected, that member alone (pressItem, e7_explore.js). A selected group
@@ -20450,9 +20624,11 @@ function groupBox(g, out, solid) {
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o') : [];
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p') : [];
   for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
+    if (it.kind === 'e') { out.expandByPoint(it.holder.position); continue; }
+    if (it.kind === 'p') { out.union(shapeBox(it, _gb)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
     t.updateWorldMatrix(true, false);
@@ -20519,6 +20695,11 @@ function groupMove(B, t, th, k, write) {
       const p = at(_gpv.fromArray(r.p), it), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
       if (write) setRec(it.id, { p: p.toArray(), yaw, size });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.setFromAxisAngle(_gpy, yaw); it.holder.scale.fromArray(size); }
+    } else if (m.kind === 'p' || m.kind === 'e') {
+      // (a shape: its place, its turn and its size per axis; an empty: its place and turn)
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), size = m.kind === 'p' ? r.size.map(v => lim(v * k, 0.01, 100, it)) : null;
+      if (write) setRec(it.id, Object.assign({ p: p.toArray(), q: q.toArray() }, size ? { size } : {}));
+      if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); if (size) it.holder.scale.fromArray(size); }
     } else {
       const rr = lim(r.r * k, 0.1, 20, it);
       if (m.rides) { if (write) setRec(it.id, { r: rr }); continue; }   // (carried by its object)
@@ -20527,10 +20708,10 @@ function groupMove(B, t, th, k, write) {
       if (it.carry) it.holder.position.copy(p);
     }
   }
-  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
+  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a shape's 1 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
 }
-// the group's lowest point onto the floor: its objects' (a cube's volume and a sound's point stand on nothing; a group of
-// cubes and sounds alone, theirs)
+// the group's lowest point onto the floor: its objects' and shapes' (a cube's volume, a sound's and an empty's point stand
+// on nothing; a group of those alone, theirs)
 function groupFloor(g) {
   const b = groupBox(g, new THREE.Box3(), true);
   if (!b.isEmpty() && Math.abs(b.min.y) > 5e-4) groupMove(groupBase(g), new THREE.Vector3(0, -b.min.y, 0), 0, 1, true);
@@ -20625,11 +20806,11 @@ function gpickEnd() {
 // --------------------------------------------------------- duplicate --
 // why a group cannot be copied now ('' it can): the scene's limits, its copies and its objects' cut-outs counted
 function groupDupWhy(g) {
-  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1 };
+  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0 };
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
-  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_NAME[k]}s at most.` : '';
+  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : '';
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the
@@ -20642,14 +20823,16 @@ function duplicateGroup(g) {
   const map = new Map(), base = n => nameFor(n.replace(/ \d+$/, '')), nid = fresh();
   change(() => {
     for (const m of ms) { map.set(m.id, fresh()); if (m.kind === 'o') for (const x of cutsOn(m.id)) map.set(x.id, fresh()); }
+    // (copies are never locked: they are new, to be put where they go)
     for (const m of ms) if (m.kind === 'o') {
-      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p) })));
-      for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name) })));
+      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
+      for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide) })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
-      const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p) });
+      const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
       else if (r.on) { const nd = measureNode(m), at = m.holder.position.clone().add(d); nr.p = at.toArray(); if (nd) nr.o = offsetAt(nd, at, followK(followOf(m))); }   // (what it followed, beside where it is)
       putItem(map.get(m.id), 's', norm('s', nr));
@@ -20692,6 +20875,211 @@ Object.assign(ITEM_ACT, {
   gpick: g => { if (g.kind !== 'g') return; if (STU.gpick && STU.gpick.id === g.id) gpickEnd(); else STU.gpick = { id: g.id, made: false, step: null }; },
   ungroup: g => { if (g.kind === 'g') removeItem(g.id); },
 });
+// ========================================================== SHAPES, EMPTIES, LOCKS, THE SCENE'S SETTINGS ==
+// The owner, 6 November 2026 (tools/studio/SPEC.md, "Shapes and empties", "Locked in place", "The scene's settings"):
+// "Needs invisible occlusion cubes and other primitives to hide things and just in general"; "Needs empty objects for
+// example to place sounds in space"; "There should be an option to lock things in space so we cannot accidentally move
+// them"; "there should be an option to hide all other icons and circles in studio mode" (a setting saved with each scene,
+// for everyone at that studio's circle); and real-world occlusion, on by default for every headset in AR (the shell's,
+// HOST.occlusion), which a scene may set to always or never.
+
+// ---------------------------------------------------------------- shapes --
+// A shape (kind p): { name, shape, p, q, size, colour, look, locked? }: a cube, a ball, a cylinder or a plane (upright,
+// facing +z), a full turn, its size per axis, in its colour (lit, as an object), or hiding what stands behind it: drawn
+// into the depth alone, so the scene's own things behind it are not drawn there (in AR the real room shows through it; in
+// VR the stage), seen only as a see-through fill and its edges while editing. It moves, turns and sizes as the others do
+// (the page's arrows, the grips, both grips; a cube's corners stretch it per axis), and a cube can show or hide it, a
+// group hold it and a sound follow it
+const SHAPE_NAME = { cube: 'Box', sphere: 'Ball', cylinder: 'Cylinder', plane: 'Plane' };
+const SHAPE_WORD = { cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder', plane: 'Plane' };
+// the colours on its card (lower case, as a record keeps them)
+const SHAPE_COLS = [['#c9d1dc', 'Light grey'], ['#ffffff', 'White'], ['#5c6878', 'Dark grey'], ['#1b2230', 'Black'], ['#46d9ff', 'Cyan'], ['#3ee08f', 'Green'], ['#ffb43b', 'Amber'], ['#ff5a4b', 'Red'], ['#c08cff', 'Violet'], ['#8a5a3c', 'Brown']];
+function addShape(kind) {
+  if (!canAdd('p') || !SHAPE_KINDS.includes(kind)) return '';
+  const at = frontAt(), id = newId(), sz = SHAPE_SIZE[kind];
+  change(() => putItem(id, 'p', norm('p', { name: nameFor(SHAPE_NAME[kind]), shape: kind, p: [at[0], sz[1] / 2, at[1]], size: sz })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
+// its box in the scene's frame: as shown now (its holder: carried, gliding), or as its record puts it (rec), each exact
+// for its shape (a ball's and a cylinder's extents as turned, a plane with no thickness)
+const _sh4 = new THREE.Matrix4(), _shq = new THREE.Quaternion(), _shp = new THREE.Vector3(), _shs = new THREE.Vector3();
+function shapeBox(it, out, rec) {
+  const r = it.rec;
+  if (rec) _sh4.compose(_shp.fromArray(r.p), _shq.fromArray(r.q), _shs.fromArray(r.size));
+  else { GL.items.updateWorldMatrix(true, false); it.holder.updateWorldMatrix(true, false); _sh4.copy(GL.items.matrixWorld).invert().multiply(it.holder.matrixWorld); }
+  const e = _sh4.elements, k = r.shape, h = [0, 1, 2].map(j => {
+    const a = e[j], b = e[4 + j], d = e[8 + j];
+    return 0.5 * (k === 'sphere' ? Math.hypot(a, b, d) : k === 'cylinder' ? Math.abs(b) + Math.hypot(a, d) : k === 'plane' ? Math.abs(a) + Math.abs(b) : Math.abs(a) + Math.abs(b) + Math.abs(d));
+  });
+  out.min.set(e[12] - h[0], e[13] - h[1], e[14] - h[2]); out.max.set(e[12] + h[0], e[13] + h[1], e[14] + h[2]);
+  return out;
+}
+// every frame: its fade (a colour fades; one that hides things switches at one half), and while editing its fill, edges,
+// name and (a cube, selected) corners
+const _shb = new THREE.Box3(), _shi = new THREE.Quaternion();
+function shapeStep(it, editing) {
+  const L = it.look, H = it.holder;
+  H.visible = it.a > 0.002 || editing;
+  L.look({ a: it.a, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
+  L.deco.visible = editing && H.visible;
+  if (!L.deco.visible) return;
+  L.deco.position.copy(H.position); L.deco.quaternion.copy(H.quaternion);
+  const sz = H.scale, b = shapeBox(it, _shb);
+  L.name.position.set(0, b.max.y - H.position.y + 0.04, 0).applyQuaternion(_shi.copy(H.quaternion).invert());   // (over it, whichever way it is turned)
+  L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
+}
+
+// ---------------------------------------------------------------- empties --
+// An empty (kind e): { name, p, q, locked? }: a point with a turn, seen only while editing (a small axis cross and its
+// name), to place sounds at (a sound follows it as it follows an object: on, its id), to move with a group, to be shown
+// or hidden by a cube (a sound following it is heard only while it is shown for you)
+function addEmpty() {
+  if (!canAdd('e')) return '';
+  const at = frontAt(), id = newId();
+  change(() => putItem(id, 'e', norm('e', { name: nameFor('Empty'), p: [at[0], 1.2, at[1]] })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
+// the sounds that follow an item
+const followersOf = id => [...STU.items.values()].filter(f => f.kind === 's' && f.rec.on === id);
+
+// ----------------------------------------------------------- locked in place --
+// Any item's record (an object, a cube, a sound, a cut-out, a shape, an empty) and a group's may say locked: true. A
+// locked item does not move, turn, size or go, whichever way is tried: the page's arrows (not attached), the grips, both
+// grips, a corner, its card's buttons, the Delete key, Hold it; a group's member is held by its group's lock too, and a
+// group by its own and by any member's (it does not move, and says which). Deleting an object is refused while one of its
+// cut-outs is locked. Lock and Unlock on its card, one Undo step, shared and saved like the rest of its record. A copy is
+// never locked. What the room or Undo writes is never refused (the room's record wins, and Undo takes back what was done)
+const tagName = r => (r.locked ? '🔒 ' : '') + r.name;
+// what holds it: its own lock, its group's, a group's members', and for deleting an object (or a group's) its cut-outs'
+function lockNames(it, del) {
+  const L = [];
+  if (!it) return L;
+  const add = x => { if (x && x.rec.locked && !L.includes(x.rec.name)) L.push(x.rec.name); };
+  add(it);
+  if (GROUP_KINDS.includes(it.kind)) add(groupOf(it.id));
+  const ms = it.kind === 'g' ? members(it) : [it];
+  if (it.kind === 'g') ms.forEach(add);
+  if (del) for (const m of ms) if (m.kind === 'o') cutsOn(m.id).forEach(add);
+  return L;
+}
+const lockWhy = (it, del) => lockNames(it, del).join(', ');
+// the card's actions a lock refuses (Ungroup only the group's own lock: its members keep theirs)
+const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold'];
+const lockStops = (it, act) => (act === 'del' ? !!lockWhy(it, true) : act === 'ungroup' ? !!(it.kind === 'g' && it.rec.locked) : MOVE_ACTS.includes(act) && !!lockWhy(it));
+// a refusal: said on its card for a moment, and a knock
+function lockRefused(it) {
+  STU.lockSaid = { id: it.id, at: performance.now() };
+  sfxAct('knock', 'world', null, { gain: 0.5 });
+  later(() => dirty(true), 4100);
+  dirty(true);
+}
+// the line on its card ('' none)
+function lockLine(it, del) {
+  const n = lockNames(it, del), mine = !!it.rec.locked, rest = n.filter(x => x !== it.rec.name);
+  if (!n.length) return '';
+  if (it.kind === 'g') return mine && !rest.length ? 'Locked in place: the group does not move, turn, size or go until it is unlocked.'
+    : `${n.join(', ')} ${n.length > 1 ? 'are' : 'is'} locked in place: the group does not move, turn, size or go until ${n.length > 1 ? 'they are' : mine ? 'it is' : 'that is'} unlocked.`;
+  if (mine && !rest.length) return 'Locked in place: it does not move, turn, size or go until it is unlocked.';
+  if (!mine && n.length && !del) return `Its group ${n.join(', ')} is locked in place: unlock the group to move it.`;
+  return `${n.join(', ')} ${n.length > 1 ? 'are' : 'is'} locked in place: ${mine ? 'it does not move or go' : 'it cannot be deleted'} until ${n.length > 1 ? 'they are' : 'that is'} unlocked.`;
+}
+// the lock's blocks on a card: Lock in place / Unlock, and what it holds now (also a refusal just made)
+function lockBlocks(it, B, dis) {
+  const on = !!it.rec.locked, line = lockLine(it, true), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  B.push({ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] });
+  if (line) B.push({ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' });
+  else B.push({ p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+}
+
+// ---------------------------------------------------------- the card's actions --
+Object.assign(ITEM_ACT, {
+  lock: it => setRec(it.id, { locked: it.rec.locked ? undefined : true }),
+  // a shape: its kind (its size kept), its colour and its look
+  shape: (it, v) => { if (it.kind === 'p' && SHAPE_KINDS.includes(v)) setRec(it.id, { shape: v }); },
+  colour: (it, v) => { if (it.kind === 'p' && /^#[0-9a-f]{6}$/.test(v)) setRec(it.id, { colour: v }); },
+  look: (it, v) => { if (it.kind === 'p' && (v === 'colour' || v === 'hide')) setRec(it.id, { look: v }); },
+  // a shape's size: 10 cm more or less on one side (a cube's foot stays on its height), or every side by a factor (its
+  // middle stays)
+  pgrow: (it, v) => {
+    const [ax, d] = String(v).split(':'), i = +ax;
+    if (it.kind !== 'p' || !(i >= 0 && i < 3)) return;
+    const size = it.rec.size.slice();
+    size[i] = clamp(r3(size[i] + +d), 0.01, 100);
+    setRec(it.id, { size });
+  },
+  psize: (it, k) => { if (it.kind === 'p' && +k > 0) setRec(it.id, { size: it.rec.size.map(v => clamp(v * k, 0.01, 100)) }); },
+});
+
+// ------------------------------------------------------- the scene's settings --
+// Saved with the scene (layout.json's settings) and, at a station, in the state for everyone at that studio's circle:
+// - others: 'shown' | 'hidden': hidden, while this device is at this studio's circle the shell draws no other circle's
+//   ring, card or icon (HOST.collab.hideOthers(true); false again away from it, for another scene, on dispose)
+// - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
+//   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
+//   ('off'), while this scene shows here (null again otherwise, on dispose)
+const SETTINGS0 = { others: 'shown', real: 'device' };
+function normSettings(x) {
+  if (x === undefined || x === null) return Object.assign({}, SETTINGS0);
+  if (typeof x !== 'object' || Array.isArray(x)) return null;
+  const one = (k, list) => (x[k] === undefined ? SETTINGS0[k] : list.includes(x[k]) ? x[k] : null);
+  const r = { others: one('others', ['shown', 'hidden']), real: one('real', ['device', 'always', 'never']) };
+  return Object.values(r).includes(null) ? null : r;
+}
+function putSettings(S) {
+  if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
+  STU.settings = S; STU.rev++;
+}
+// a row pressed: 'others:hidden', 'real:always'... (one change: Undo takes it back; for everyone at a station)
+function setSetting(v) {
+  if (!editOn()) return;
+  const i = String(v).indexOf(':'), S = i > 0 ? normSettings(Object.assign({}, STU.settings, { [String(v).slice(0, i)]: String(v).slice(i + 1) })) : null;
+  if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
+  change(() => putSettings(S), [SET_ID]);
+  sfxAct('click', 'world', null);
+}
+function settingsBlocks(B, st) {
+  const S = STU.settings, who = st ? ' (for everyone at this circle)' : '';
+  B.push({ label: 'Other circles' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:others:' + v, label: n, act: 'setting', v: 'others:' + v, on: S.others === v })) },
+    { p: 'Hidden: in a shared room, while you are at this studio\'s circle the other circles\' rings, cards and icons are not shown. Saved with the scene.', c: 'faint' },
+    { label: 'Real world hides the scene' + who, row: [['device', 'As each headset has it'], ['always', 'Always'], ['never', 'Never']].map(([v, n]) => ({ id: 'set:real:' + v, label: n, act: 'setting', v: 'real:' + v, on: S.real === v })) },
+    { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' });
+}
+// the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
+const HOOK = { hide: false, occ: null };
+const OCC = { device: null, always: 'both', never: 'off' };
+function hookCall(k, v) {
+  try {
+    if (k === 'hide') { if (HOST.collab && HOST.collab.hideOthers) HOST.collab.hideOthers(v); }
+    else if (HOST.occlusion && HOST.occlusion.scene) HOST.occlusion.scene(v);
+  } catch (e) { /* an older shell */ }
+}
+function settingsStep() {
+  const here = !!STU.scene && !GL.gone && !xrAway() && !XR.stories && !HOST.picking;
+  const hide = here && atStation() && STU.settings.others === 'hidden', occ = here ? OCC[STU.settings.real] : null;
+  if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', hide); }
+  if (occ !== HOOK.occ) { HOOK.occ = occ; hookCall('occ', occ); }
+}
+function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false); hookCall('occ', null); }
+
+// -------------------------------------------------------------- the lobby --
+// Walking into the room's Back to the lobby circle (the shell calls HOST.cur.lobby(), where the headsets charge): this
+// device forgets what it has seen, as Reset what I have seen does, and more: the cubes that stay once entered, and
+// everything that starts when shown (animations, sounds) or once (a sound that does not loop) starts from its beginning
+// the next time it is shown. This device only: nothing is written to the room
+function studioLobby() {
+  resetSeen();
+  STU.t0 = performance.now();
+  for (const it of STU.items.values()) {
+    it.first = true; it.ended = false; it.heard = false;
+    if (it.kind === 's') emitStop(it);
+  }
+  STU.lobbyAt = Date.now();
+  dirty(true);
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -20738,7 +21126,8 @@ function frameScene(now) {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { const ob = objBox(it); if (ob) b.union(ob); else b.expandByPoint(_sv.fromArray(it.rec.p)); }
     else if (it.kind === 'c') { b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(-0.5)); b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(0.5)); }
-    else if (it.kind === 's') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
+    else if (it.kind === 's' || it.kind === 'e') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
+    else if (it.kind === 'p') b.union(shapeBox(it, new THREE.Box3(), true));
   }
   if (b.isEmpty()) b.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
   const c = b.getCenter(new THREE.Vector3()), r = Math.max(1, b.getSize(new THREE.Vector3()).length() / 2);
@@ -20825,6 +21214,7 @@ function paneBlocks(tab) {
       if (STU.saveNote) B.push({ p: STU.saveNote, c: 'red' });
     }
     if (STU.draft) B.push({ p: `Your unsaved changes from ${hhmm(STU.draft.at)}:`, c: 'amber' }, { row: [{ id: 'restore', label: 'Restore', act: 'restore', primary: true }, { id: 'discard', label: 'Discard', act: 'discard' }] });
+    if (STU.scene && ed && STU.listing === 'ok') settingsBlocks(B, st);   // (the scene's settings, saved with it: e6d_shapes.js)
     if (STU.scene) {
       B.push({ row: [
         { id: 'seen', label: 'Reset what I have seen', act: 'seen', dis: !STU.seen.size },
@@ -20872,12 +21262,17 @@ function paneBlocks(tab) {
     }
     fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
+    // shapes and empties (e6d_shapes.js)
+    B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
+      { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
+      { label: 'Empty', row: [{ id: 'empty', label: 'Empty', act: 'empty', dis: full('e') }] },
+      { p: 'A point seen only while editing: a sound can follow it (a voice in mid-air), and it moves and groups as anything else.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
     const so = selModel();
     B.push({ label: 'Cut-out box', row: [{ id: 'cutbox', label: so ? `Cut-out box on ${so.rec.name}` : 'Cut-out box: select a model first', act: 'cutbox', dis: !canCut(so) }] },
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'item') {
@@ -20886,14 +21281,14 @@ function paneBlocks(tab) {
     itemBlocks(it, B, ed);
   } else {
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
     const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
     const rowOf = (it, ind) => {
       const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
-      const row = { id: 'sel:' + it.id, label: (inP || inG ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + it.rec.name, sub: itemSub(it), act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP || inG, col: it.kind !== 'o' ? it.look.col : '', ind: ind || (it.kind === 'x' && !!cutObj(it)) };
+      const row = { id: 'sel:' + it.id, label: (inP || inG ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + tagName(it.rec), sub: itemSub(it), act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP || inG, col: it.kind !== 'o' ? it.look.col : '', ind: ind || (it.kind === 'x' && !!cutObj(it)) };
       if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
       return row;
     };
@@ -20904,10 +21299,10 @@ function paneBlocks(tab) {
     if (gs.length) B.push({ label: 'Groups', list: gs.flatMap(g => {
       const ms = members(g), inAll = !!P && ms.some(m => m.kind !== 'c') && ms.filter(m => m.kind !== 'c').every(m => P.rec.show.includes(m.id) || P.rec.hide.includes(m.id));
       for (const m of ms) grouped.add(m.id);
-      return [{ id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + g.rec.name, sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), col: g.look.col }].concat(ms.flatMap(m => withCuts(m, 1)));
+      return [{ id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + tagName(g.rec), sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), col: g.look.col }].concat(ms.flatMap(m => withCuts(m, 1)));
     }) });
     // (each object's cut-outs under it; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
+    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (!L.length) continue;
       B.push({ label: title, list: L.flatMap(it => (k === 'o' ? withCuts(it) : [rowOf(it)])) });
@@ -20941,13 +21336,16 @@ function fromBlocks(B, full) {
 function itemSub(it) {
   if (it.kind === 'g') { const n = members(it).length; return `${n} item${n === 1 ? '' : 's'}` + (STU.gpick && STU.gpick.id === it.id ? ' · picking' : ''); }
   if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (ob ? cutWords(it, ob).replace(' · whole', ' · previewed whole').replace(/^ · cut$/, ' · previewed cut') : ''); }
-  const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
+  const r = it.rec, me = (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
   if (it.kind === 'o') return baseName(r.file) + me;
+  if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
+  if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
 }
 function itemBlocks(it, B, ed) {
-  const r = it.rec, dis = !ed;
+  // (locked in place: what moves, turns, sizes or deletes it is greyed, mv and dl; e6d_shapes.js)
+  const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
@@ -20989,8 +21387,8 @@ function itemBlocks(it, B, ed) {
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
     }
-    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: dis || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !info }] },
-      { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis })) });
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
+      { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: mv })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
@@ -21008,14 +21406,14 @@ function itemBlocks(it, B, ed) {
     else if (!ob.model) B.push({ p: `${ob.rec.name}'s model is not here yet: it cuts once it is.`, c: 'faint' });
     if (it.over) B.push({ p: `${ob.rec.name} has more than ${CUT_MAX} cut-outs (from the room or a layout): the ${CUT_MAX} with the lowest ids cut, this one does not.`, c: 'amber' });
     if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it' + (pv === 'cut' ? ' (Preview: Cut shows the hole here while you edit).' : ' (Preview: Cut shows the hole while you edit).'), c: 'muted' });
-    B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: dis || !objs.some(o => o.id !== r.on) }] });
+    B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: mv || !objs.some(o => o.id !== r.on) }] });
     if (picking) {
       B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the box goes onto it, staying where it is.', c: 'amber' },
         { list: objs.map(o => { const n = cutsOn(o.id).length; return { id: 'cuton:' + o.id, label: o.rec.name, sub: baseName(o.rec.file) + (n >= CUT_MAX && o.id !== r.on ? ` · ${CUT_MAX} cut-outs: full` : ''), act: 'i:cutOn', v: o.id, on: o.id === r.on, dis: dis || o.id === r.on || n >= CUT_MAX }; }) });
     }
-    B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis }]) },
-      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis })) },
-      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
+    B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis: mv }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis: mv }]) },
+      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis: mv })) },
+      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] },
       { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
     B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
@@ -21027,12 +21425,31 @@ function itemBlocks(it, B, ed) {
         { id: `open:${l}:${id}`, label: 'Its card', act: 'i:open', v: id, dis: !STU.items.has(id) },
         { id: `unlist:${l}:${id}`, label: '✕', act: 'i:unlist', v: l + ':' + id, dis }] }));
     }
-    B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
+    B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis: mv }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis: mv }]) },
       { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
     B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
+  } else if (it.kind === 'p') {
+    // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
+    const hides = r.look === 'hide';
+    B.push({ h: r.name, sub: 'Shape' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
+      { label: 'Shape', row: SHAPE_KINDS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) },
+      { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
+      { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
+      { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
+      { label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `pgrow:${i}:-`, label: n + ' −', act: 'i:pgrow', v: i + ':-0.1', dis: mv }, { id: `pgrow:${i}:+`, label: n + ' +', act: 'i:pgrow', v: i + ':0.1', dis: mv }]) },
+      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: mv })) },
+      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
+    if (r.shape === 'plane') B.push({ p: 'A plane stands upright: its z size is not used.', c: 'faint' });
+  } else if (it.kind === 'e') {
+    // an empty (e6d_shapes.js): where it is, the sounds that follow it, its place
+    const fs = followersOf(it.id);
+    B.push({ h: r.name, sub: 'Empty' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Place', r.p.map(v => v.toFixed(2)).join(', ') + ' (x, height, z, m)'], ['Followed by', fs.length ? fs.map(f => f.rec.name).join(', ') : 'nothing yet']] },
+      { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
+    if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -21059,9 +21476,13 @@ function itemBlocks(it, B, ed) {
     if (grp) B.splice(1, 0, { p: `In group ${grp.rec.name}: it moves with it. Selected on its own, it moves alone.`, c: 'muted' }, { row: [{ id: 'selgroup', label: 'Select the group', act: 'sel', v: grp.id }] });
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
-  holdBlocks(it, B, dis);
-  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
-  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
+  holdBlocks(it, B, mv);
+  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
+  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') })) });
+  // Lock in place, at the card's top (e6d_shapes.js)
+  const LB = [];
+  lockBlocks(it, LB, dis);
+  B.splice(1, 0, ...LB);
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -21075,7 +21496,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // or remove items... (a pick mode), its place and size (about its pivot, the middle of its members on the floor),
 // Duplicate, Ungroup and Delete (every member)
 function groupBlocks(g, B, dis, ed) {
-  const ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = groupBox(g, new THREE.Box3()), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
+  const mv = dis || !!lockWhy(g), dl = dis || !!lockWhy(g, true), ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = groupBox(g, new THREE.Box3()), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
   const n = k => ms.filter(m => m.kind === k).length, parts = [['o', 'object'], ['s', 'sound'], ['c', 'cube']].filter(([k]) => n(k)).map(([k, w]) => `${n(k)} ${w}${n(k) > 1 ? 's' : ''}`);
   B.push({ h: g.rec.name, sub: 'Group' }, { kv: [['Members', ms.length ? `${ms.length}: ${parts.join(', ')}` : 'none here']].concat(sz ? [['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`]] : []) },
     { p: 'Its members move, turn and size together, about the middle of the group on the floor. A click on a member selects the group; a second click on it selects that member alone.', c: 'faint' });
@@ -21083,15 +21504,18 @@ function groupBlocks(g, B, dis, ed) {
   if (picking) B.push({ p: (XR.on ? 'Point at objects, sounds and cubes and pull the trigger' : 'Click objects, sounds and cubes, or their names under Items') + ' to put them in or take them out; Done when finished. One in another group moves into this one.', c: 'amber' });
   if (ms.length) B.push({ list: ms.map(m => ({ id: (picking ? 'gout:' : 'sel:') + m.id, label: (picking ? '✓ ' : '') + m.rec.name, sub: KIND_NAME[m.kind] + (picking ? ' · press to take it out' : ''), act: picking ? 'gtog' : 'sel', v: m.id, col: m.kind !== 'o' ? m.look.col : '' })) });
   if (ms.length < 2 && !picking) B.push({ p: 'A group needs two items or more: add some (Add or remove items...), or Ungroup.', c: 'amber' });
-  B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: dis || !ms.length }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !ms.length }] },
-    { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: dis || !ms.length })) });
+  B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv || !ms.length }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !ms.length }] },
+    { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: mv || !ms.length })) });
   if (g.note) B.push({ p: g.note, c: 'amber' });
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
-  holdBlocks(g, B, dis || !ms.length);
-  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] },
+  holdBlocks(g, B, mv || !ms.length);
+  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis: dis || !!g.rec.locked }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
-  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m })) });
+  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m, dis: mv })) });
+  const LB = [];
+  lockBlocks(g, LB, dis);
+  B.splice(1, 0, ...LB);
 }
 // the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
 const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };
@@ -21100,19 +21524,19 @@ const cmOrM = d => (d < 1 ? Math.max(1, Math.round(d * 100)) + ' cm' : metres(d)
 // at it (or from a list), then one of its bones (the short list where the model has them, then every bone; a model with
 // no bones offers the parts its animation moves), Move onto it and Stop following; each keeps the sound where it is now
 function followBlocks(it, B, dis) {
-  const r = it.rec, ob = followOf(it), picking = STU.follow === it.id, objs = [...STU.items.values()].filter(x => x.kind === 'o');
+  const r = it.rec, ob = followOf(it), picking = STU.follow === it.id, objs = [...STU.items.values()].filter(x => FOLLOW_KINDS.includes(x.kind));
   B.push({ row: [
     { id: 'follow', label: picking ? 'Cancel' : r.on ? 'Follow another object...' : 'Follow an object...', act: 'i:followPick', on: picking, dis: dis || !objs.length },
-    r.on ? { id: 'onto', label: 'Move onto it', act: 'i:onto', dis: dis || !ob } : null,
+    r.on ? { id: 'onto', label: 'Move onto it', act: 'i:onto', dis: dis || !ob || !!lockWhy(it) } : null,
     r.on ? { id: 'unfollow', label: 'Stop following', act: 'i:unfollow', dis } : null,
   ].filter(Boolean) });
-  if (!objs.length && !r.on) B.push({ p: 'A sound can follow an object placed here (a voice at a figure\'s head): place one first.', c: 'faint' });
+  if (!objs.length && !r.on) B.push({ p: 'A sound can follow an object, a shape or an empty placed here (a voice at a figure\'s head, or in mid-air): place one first.', c: 'faint' });
   if (picking) {
-    B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the sound follows it from where it is now.', c: 'amber' },
-      { list: objs.map(o => ({ id: 'followon:' + o.id, label: o.rec.name, sub: baseName(o.rec.file), act: 'i:follow', v: o.id, on: o.id === r.on, dis })) });
+    B.push({ p: (XR.on ? 'Point at an object, a shape or an empty and pull the trigger' : 'Click an object, a shape or an empty, or pick it here') + ': the sound follows it from where it is now.', c: 'amber' },
+      { list: objs.map(o => ({ id: 'followon:' + o.id, label: o.rec.name, sub: o.kind === 'o' ? baseName(o.rec.file) : KIND_NAME[o.kind], act: 'i:follow', v: o.id, on: o.id === r.on, dis })) });
   }
   if (r.on && !ob) B.push({ p: 'The object it follows is not in the scene: it stands at its own place until the object is back.', c: 'amber' });
-  if (!ob) return;
+  if (!ob || ob.kind !== 'o') return;   // (a shape or an empty: where it is, no bones)
   const E = ob.E, Bn = bonesOf(E);
   if (!E || !E.root || !ob.model) { B.push({ p: `${ob.rec.name}'s bones show once its model is in.`, c: 'faint' }); return; }
   if (r.bone && !nodeOf(ob, r.bone)) B.push({ p: `${ob.rec.name} has no bone ${r.bone} here: the sound follows the whole model.`, c: 'amber' });
@@ -21243,6 +21667,9 @@ function act(a, v) {
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
+    shape: () => addShape(v),
+    empty: () => addEmpty(),
+    setting: () => setSetting(v),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
     scenemake: () => sceneMake(NS.name),
@@ -21278,6 +21705,7 @@ function buildExplore() {
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
     #explore .actions .btn.red { color: var(--red); }
@@ -21341,7 +21769,7 @@ function blockHTML(b) {
   if (b.xr) return '';
   if (b.drop || b.input || b.plan) return uploadHTML(b);
   if (b.label && b.p !== undefined) return `<p class="stu-l">${esc(b.label)}</p><p class="${b.c || ''}">${esc(b.p)}</p>`;
-  const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`;
+  const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${x.sw ? `<i class="stu-sw" style="background:${esc(x.sw)}"></i>` : ''}${esc(x.label)}</button>`;
   if (b.h !== undefined) return `${b.sub ? `<p class="stu-k">${esc(b.sub)}</p>` : ''}<h3>${esc(b.h)}</h3>`;
   if (b.p !== undefined) return `<p class="${b.c || ''}">${esc(b.p)}</p>`;
   if (b.code !== undefined) return `<code class="stu-code">${esc(b.code)}</code>`;
@@ -21371,7 +21799,7 @@ function renderPanes() {
 }
 let paneLast = '';
 function paneStep(now) {
-  if (GL.tc && GL.tc.object && !editOn()) tcAttach();   // (a lock or the end of editing: the arrows go)
+  if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
   const s = paneSig();
@@ -21386,8 +21814,8 @@ function updateExtraLabels() {
   // (a sound that follows a model names it: "Voice → Dancer · Head"; a group's member its group: "Group 2 · Dancer")
   const to = it => (it.kind === 'g' ? `group of ${members(it).length}` : it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : it.kind === 'x' ? 'cuts ' + (cutObj(it) ? cutObj(it).rec.name : 'nothing') : '');
   const gOf = it => (GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null), hg = h && gOf(h), sg = s && gOf(s);
-  labelSet(Lh, h ? [hg ? hg.rec.name + ' · ' + h.rec.name : h.rec.name, to(h) || KIND_NAME[h.kind]] : null);
-  labelSet(Ls, s ? [s.rec.name, (to(s) ? to(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + 'selected'] : null);
+  labelSet(Lh, h ? [hg ? tagName(hg.rec) + ' · ' + tagName(h.rec) : tagName(h.rec), to(h) || KIND_NAME[h.kind] + (h.kind === 'p' && h.rec.look === 'hide' ? ' · hides things' : '')] : null);
+  labelSet(Ls, s ? [tagName(s.rec), (to(s) ? to(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + (s.rec.locked ? 'locked · ' : '') + 'selected'] : null);
   Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
 }
 
@@ -21402,6 +21830,8 @@ function pickables() {
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
     else if (it.kind === 'x') { if (it.holder.visible) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
+    else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
+    else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
   }
   return L;
 }
@@ -21538,7 +21968,7 @@ function pressItem(id, ray) {
   // on any member), which ends the pick)
   const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
   if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
-  if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
+  if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
@@ -21609,7 +22039,11 @@ function tcRead(it) {
   } else if (it.kind === 'x') {
     h.scale.set(...h.scale.toArray().map(v => Math.max(0.01, Math.abs(v))));
     setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
-  } else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
+  } else if (it.kind === 'p') {
+    h.scale.set(...h.scale.toArray().map(v => clamp(Math.abs(v), 0.01, 100)));
+    setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray() });
+  } else if (it.kind === 'e') { h.scale.set(1, 1, 1); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() }); }
+  else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
 function tcSetMode(m) {
   X.tcMode = m;
@@ -21620,10 +22054,10 @@ function tcAttach() {
   const tc = GL.tc;
   if (!tc) return;
   const it = STU.items.get(STU.sel);
-  if (!it || !editOn() || XR.on || APP.mode !== 'explore') { if (tc.object) tc.detach(); return; }
-  const m = it.kind === 's' ? 'translate' : X.tcMode;
+  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }   // (locked in place: no arrows)
+  const m = it.kind === 's' || (it.kind === 'e' && X.tcMode === 'scale') ? 'translate' : X.tcMode;
   tc.setMode(m);
-  tc.setSpace((it.kind === 'c' || it.kind === 'x') && m !== 'translate' ? 'local' : 'world');
+  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
   tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
   tc.showY = true;
   if (tc.object !== it.holder) tc.attach(it.holder);
@@ -23284,22 +23718,26 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
-    if (it.kind === 'g') { groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
+    // (locked in place: refused, with a short buzz and a knock, and said on its card; e6d_shapes.js)
+    const refuse = x => { buzz(c, 0.15, 12); lockRefused(x); };
+    if (it.kind === 'g') { if (lockWhy(it)) refuse(it); else groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
     // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
     const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
     const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
     const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
-    if (grp) { groupGrab(c, grp, q0); return; }
+    if (grp) { if (lockWhy(grp)) refuse(grp); else groupGrab(c, grp, q0); return; }
+    if (lockWhy(it)) { refuse(it); return; }
     if (h.corner !== undefined && it.kind === 'c') {
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], r = it.rec;
       // the opposite corner stays where it is (the scene's frame); the hand keeps its offset from the corner it took
       const opp = new THREE.Vector3(-sg[0] * r.size[0] / 2, -sg[1] * r.size[1] / 2, -sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       const cor = new THREE.Vector3(sg[0] * r.size[0] / 2, sg[1] * r.size[1] / 2, sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       c.grab = { target: 'corner', id: it.id, sg, opp, off: cor.sub(GL.world.worldToLocal(c.o.clone())), at: 0 };
-    } else if (h.corner !== undefined && it.kind === 'x') {
-      // a cut-out's corner: as a cube's, its box turned as it is (a full turn), the turn kept while it stretches
+    } else if (h.corner !== undefined && (it.kind === 'x' || it.kind === 'p')) {
+      // a cut-out's corner (or a shape's, a cube): as a cube's, its box turned as it is (a full turn), the turn kept while it
+      // stretches
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], q = it.holder.quaternion.clone(), s = it.holder.scale, P = it.holder.position;
       const opp = new THREE.Vector3(-sg[0] * s.x / 2, -sg[1] * s.y / 2, -sg[2] * s.z / 2).applyQuaternion(q).add(P);
       const cor = new THREE.Vector3(sg[0] * s.x / 2, sg[1] * s.y / 2, sg[2] * s.z / 2).applyQuaternion(q).add(P);
@@ -23398,6 +23836,8 @@ function carryWrite(it, now) {
   if (it.kind === 'o') setObj(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: h.scale.x });   // (sized by both grips: its sounds keep their place on it)
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
+  else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
+  else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset from where the hand puts it)
 }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
@@ -23406,7 +23846,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
@@ -23445,9 +23885,10 @@ function xrResize(a, b) {
   XR.rot.copy(_gq).multiply(T.r0);
   XR.globeOff.copy(XR.globeBase).add(T.off0).sub(T.m0).applyQuaternion(_gq).add(_gv).sub(XR.globeBase);
 }
-// an item in the hand: where the hand puts it (an object or a cut-out, moving freely, turns with the hand as a real object
-// would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands on an object or a
-// cut-out size it (a twentieth to twenty times) and move it with their middle; the right stick pushes it away or pulls it in
+// an item in the hand: where the hand puts it (an object, a cut-out, a shape or an empty, moving freely, turns with the
+// hand as a real object would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands
+// on an object, a cut-out or a shape size it (a twentieth to twenty times; a cut-out and a shape every side alike) and move
+// it with their middle; the right stick pushes it away or pulls it in
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
   const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
@@ -23455,13 +23896,13 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && (it.kind === 'o' || it.kind === 'x')) {
+  if (o && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
-    const d = c.o.distanceTo(o.o);
+    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
-    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: it.kind === 'x' ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
+    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
-    if (it.kind === 'x') it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
+    if (vec) it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
     else it.holder.scale.setScalar(clamp(W.s0 * d / W.d0, W.s0 / 20, W.s0 * 20));
     carryWrite(it);
     return;
@@ -23476,7 +23917,7 @@ function carryItem(c, dt) {
   it.holder.position.copy(GL.world.worldToLocal(_gv));
   if (it.kind !== 's') {
     let q;
-    if (XR.free && (it.kind === 'o' || it.kind === 'x')) q = _mq.copy(_gq).multiply(G.r0);
+    if (XR.free && it.kind !== 'c') q = _mq.copy(_gq).multiply(G.r0);
     else { _me.setFromQuaternion(_gq, 'YXZ'); q = _mq.setFromAxisAngle(_xY, _me.y).multiply(G.r0); }
     it.holder.quaternion.copy(q.premultiply(_mi));
     if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
@@ -23517,7 +23958,7 @@ function carryGroup(c, dt) {
 function stretchCube(c) {
   const G = c.grab, it = STU.items.get(G.id);
   if (!it) { c.grab = null; XR.lost = true; return; }
-  if (it.kind === 'x') { stretchCut(c, G, it); return; }
+  if (it.kind === 'x' || it.kind === 'p') { stretchCut(c, G, it); return; }   // (a shape's corners: a cube's)
   GL.world.updateMatrixWorld(true);
   const r = it.rec, cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyAxisAngle(_xY, -r.yaw);
   const size = [0, 1, 2].map(i => Math.max(0.1, cor.getComponent(i) * G.sg[i]));
@@ -24364,11 +24805,17 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     const bh = 54;
     for (const t of b.row.filter(q => !q.page)) {
       ctx.font = vfont(22, t.on || t.primary ? 700 : 400);
-      const w = Math.min(W, Math.max(110, Math.ceil(ctx.measureText(t.label).width) + 40));
+      const w = Math.min(W, Math.max(110, Math.ceil(ctx.measureText(t.label).width) + 40 + (t.sw ? 34 : 0)));
       if (cx + w > x + W && cx > x) { cx = x; cy += bh + 10; }
       if (!dry) {
-        const live = inView(cy, bh) && !t.dis;
-        vButton(ctx, P, t.id, cx, cy, w, bh, t.label, live ? () => act(t.act, t.v) : null, { on: t.on, primary: t.primary && !t.dis, px: 22, color: t.dis ? VC.faint : t.col === 'red' ? VC.red : t.warn ? VC.amber : undefined });
+        const live = inView(cy, bh) && !t.dis, color = t.dis ? VC.faint : t.col === 'red' ? VC.red : t.warn ? VC.amber : undefined;
+        vButton(ctx, P, t.id, cx, cy, w, bh, t.sw ? '' : t.label, live ? () => act(t.act, t.v) : null, { on: t.on, primary: t.primary && !t.dis, px: 22, color });
+        // (a colour's button: its swatch, then its name)
+        if (t.sw) {
+          swatch(ctx, cx + 14, cy + 15, 24, t.sw); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(232,238,248,0.55)'; ctx.stroke();
+          ctx.font = vfont(22, t.on ? 700 : 400); ctx.fillStyle = color || VC.ink; ctx.textBaseline = 'middle';
+          ctx.fillText(fitText(ctx, t.label, w - 62), cx + 48, cy + bh / 2 + 1); ctx.textBaseline = 'top';
+        }
       }
       cx += w + 10;
     }
@@ -24648,6 +25095,7 @@ function frame(now, xrFrame) {
   updateSets(S, tSet, dt);
   GL.world.updateMatrixWorld(true);
   itemsStep(dt, performance.now());
+  settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   if (!STU.framed && APP.mode === 'explore' && !xr && STU.listing === 'ok' && [...STU.items.values()].every(it => it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed'))) { STU.framed = true; if (STU.items.size && X.view === 'orbit') frameScene(true); }
   updateExtraLabels();
   paneStep(performance.now());
@@ -24785,6 +25233,7 @@ const STUDIO = {
     upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
+    settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
   tris: id => trisOf(id),
@@ -24817,6 +25266,9 @@ return {
   caption: xrCaption,
   recenter: xrRecenterAsk,
   panels: () => (XR.main && XR.foot ? { main: XR.main, foot: XR.foot } : null),   // (for the shell's menu, its Story tab)
+  // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
+  // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
+  lobby: () => studioLobby(),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each (no
@@ -24838,6 +25290,7 @@ return {
     for (const t of TIMERS) clearTimeout(t);
     TIMERS.clear();
     watchStop();
+    try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }

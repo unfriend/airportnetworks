@@ -211,6 +211,7 @@ function frame(now, xrFrame) {
   updateSets(S, tSet, dt);
   GL.world.updateMatrixWorld(true);
   itemsStep(dt, performance.now());
+  settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   if (!STU.framed && APP.mode === 'explore' && !xr && STU.listing === 'ok' && [...STU.items.values()].every(it => it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed'))) { STU.framed = true; if (STU.items.size && X.view === 'orbit') frameScene(true); }
   updateExtraLabels();
   paneStep(performance.now());
@@ -348,6 +349,7 @@ const STUDIO = {
     upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
+    settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
   tris: id => trisOf(id),
@@ -380,6 +382,9 @@ return {
   caption: xrCaption,
   recenter: xrRecenterAsk,
   panels: () => (XR.main && XR.foot ? { main: XR.main, foot: XR.foot } : null),   // (for the shell's menu, its Story tab)
+  // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
+  // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
+  lobby: () => studioLobby(),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each (no
@@ -401,6 +406,7 @@ return {
     for (const t of TIMERS) clearTimeout(t);
     TIMERS.clear();
     watchStop();
+    try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }

@@ -11,7 +11,7 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
 // (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that
 // tools/studio/convert.mjs loads in its headless page too)
-const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e8_xr', 'e9_panels', 'e10_app'];
+const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e8_xr', 'e9_panels', 'e10_app'];
 // (e7c_direct: a relay that keeps its scenes in R2, signed links and uploads straight into the bucket; after the Upload
 // pane, whose uploads it takes over. e7d_lite: an object's Fewer triangles and Change texture, and the Upload pane's
 // share and preview per model)

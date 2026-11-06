@@ -44,7 +44,8 @@ function frameScene(now) {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { const ob = objBox(it); if (ob) b.union(ob); else b.expandByPoint(_sv.fromArray(it.rec.p)); }
     else if (it.kind === 'c') { b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(-0.5)); b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(0.5)); }
-    else if (it.kind === 's') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
+    else if (it.kind === 's' || it.kind === 'e') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
+    else if (it.kind === 'p') b.union(shapeBox(it, new THREE.Box3(), true));
   }
   if (b.isEmpty()) b.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
   const c = b.getCenter(new THREE.Vector3()), r = Math.max(1, b.getSize(new THREE.Vector3()).length() / 2);
@@ -131,6 +132,7 @@ function paneBlocks(tab) {
       if (STU.saveNote) B.push({ p: STU.saveNote, c: 'red' });
     }
     if (STU.draft) B.push({ p: `Your unsaved changes from ${hhmm(STU.draft.at)}:`, c: 'amber' }, { row: [{ id: 'restore', label: 'Restore', act: 'restore', primary: true }, { id: 'discard', label: 'Discard', act: 'discard' }] });
+    if (STU.scene && ed && STU.listing === 'ok') settingsBlocks(B, st);   // (the scene's settings, saved with it: e6d_shapes.js)
     if (STU.scene) {
       B.push({ row: [
         { id: 'seen', label: 'Reset what I have seen', act: 'seen', dis: !STU.seen.size },
@@ -178,12 +180,17 @@ function paneBlocks(tab) {
     }
     fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
+    // shapes and empties (e6d_shapes.js)
+    B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
+      { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
+      { label: 'Empty', row: [{ id: 'empty', label: 'Empty', act: 'empty', dis: full('e') }] },
+      { p: 'A point seen only while editing: a sound can follow it (a voice in mid-air), and it moves and groups as anything else.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
     const so = selModel();
     B.push({ label: 'Cut-out box', row: [{ id: 'cutbox', label: so ? `Cut-out box on ${so.rec.name}` : 'Cut-out box: select a model first', act: 'cutbox', dis: !canCut(so) }] },
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_NAME[k]}s: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'item') {
@@ -192,14 +199,14 @@ function paneBlocks(tab) {
     itemBlocks(it, B, ed);
   } else {
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
     const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
     const rowOf = (it, ind) => {
       const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
-      const row = { id: 'sel:' + it.id, label: (inP || inG ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + it.rec.name, sub: itemSub(it), act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP || inG, col: it.kind !== 'o' ? it.look.col : '', ind: ind || (it.kind === 'x' && !!cutObj(it)) };
+      const row = { id: 'sel:' + it.id, label: (inP || inG ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + tagName(it.rec), sub: itemSub(it), act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP || inG, col: it.kind !== 'o' ? it.look.col : '', ind: ind || (it.kind === 'x' && !!cutObj(it)) };
       if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
       return row;
     };
@@ -210,10 +217,10 @@ function paneBlocks(tab) {
     if (gs.length) B.push({ label: 'Groups', list: gs.flatMap(g => {
       const ms = members(g), inAll = !!P && ms.some(m => m.kind !== 'c') && ms.filter(m => m.kind !== 'c').every(m => P.rec.show.includes(m.id) || P.rec.hide.includes(m.id));
       for (const m of ms) grouped.add(m.id);
-      return [{ id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + g.rec.name, sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), col: g.look.col }].concat(ms.flatMap(m => withCuts(m, 1)));
+      return [{ id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + tagName(g.rec), sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), col: g.look.col }].concat(ms.flatMap(m => withCuts(m, 1)));
     }) });
     // (each object's cut-outs under it; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
+    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (!L.length) continue;
       B.push({ label: title, list: L.flatMap(it => (k === 'o' ? withCuts(it) : [rowOf(it)])) });
@@ -247,13 +254,16 @@ function fromBlocks(B, full) {
 function itemSub(it) {
   if (it.kind === 'g') { const n = members(it).length; return `${n} item${n === 1 ? '' : 's'}` + (STU.gpick && STU.gpick.id === it.id ? ' · picking' : ''); }
   if (it.kind === 'x') { const ob = cutObj(it); return (ob ? 'cuts ' + ob.rec.name : 'cuts nothing') + ` · ${it.rec.size.map(metres).join(' × ')}` + (ob ? cutWords(it, ob).replace(' · whole', ' · previewed whole').replace(/^ · cut$/, ' · previewed cut') : ''); }
-  const r = it.rec, me = it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '';
+  const r = it.rec, me = (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
   if (it.kind === 'o') return baseName(r.file) + me;
+  if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
+  if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
 }
 function itemBlocks(it, B, ed) {
-  const r = it.rec, dis = !ed;
+  // (locked in place: what moves, turns, sizes or deletes it is greyed, mv and dl; e6d_shapes.js)
+  const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
@@ -295,8 +305,8 @@ function itemBlocks(it, B, ed) {
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
     }
-    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: dis || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !info }] },
-      { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis })) });
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
+      { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: mv })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
@@ -314,14 +324,14 @@ function itemBlocks(it, B, ed) {
     else if (!ob.model) B.push({ p: `${ob.rec.name}'s model is not here yet: it cuts once it is.`, c: 'faint' });
     if (it.over) B.push({ p: `${ob.rec.name} has more than ${CUT_MAX} cut-outs (from the room or a layout): the ${CUT_MAX} with the lowest ids cut, this one does not.`, c: 'amber' });
     if (!it.shown) B.push({ p: 'A trigger cube hides it from you now: the model is whole until a cube shows it' + (pv === 'cut' ? ' (Preview: Cut shows the hole here while you edit).' : ' (Preview: Cut shows the hole while you edit).'), c: 'muted' });
-    B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: dis || !objs.some(o => o.id !== r.on) }] });
+    B.push({ label: 'Cuts', row: [{ id: 'cutto', label: picking ? 'Cancel' : 'Move onto another object...', act: 'i:cutPick', on: picking, dis: mv || !objs.some(o => o.id !== r.on) }] });
     if (picking) {
       B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the box goes onto it, staying where it is.', c: 'amber' },
         { list: objs.map(o => { const n = cutsOn(o.id).length; return { id: 'cuton:' + o.id, label: o.rec.name, sub: baseName(o.rec.file) + (n >= CUT_MAX && o.id !== r.on ? ` · ${CUT_MAX} cut-outs: full` : ''), act: 'i:cutOn', v: o.id, on: o.id === r.on, dis: dis || o.id === r.on || n >= CUT_MAX }; }) });
     }
-    B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis }]) },
-      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis })) },
-      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }] },
+    B.push({ label: 'Size (5 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `cgrow:${i}:-`, label: n + ' −', act: 'i:cgrow', v: i + ':-0.05', dis: mv }, { id: `cgrow:${i}:+`, label: n + ' +', act: 'i:cgrow', v: i + ':0.05', dis: mv }]) },
+      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'csize:' + k, label: '×' + k, act: 'i:csize', v: k, dis: mv })) },
+      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] },
       { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
     B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
@@ -333,12 +343,31 @@ function itemBlocks(it, B, ed) {
         { id: `open:${l}:${id}`, label: 'Its card', act: 'i:open', v: id, dis: !STU.items.has(id) },
         { id: `unlist:${l}:${id}`, label: '✕', act: 'i:unlist', v: l + ':' + id, dis }] }));
     }
-    B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis }]) },
+    B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis: mv }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis: mv }]) },
       { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
     B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
+  } else if (it.kind === 'p') {
+    // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
+    const hides = r.look === 'hide';
+    B.push({ h: r.name, sub: 'Shape' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
+      { label: 'Shape', row: SHAPE_KINDS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) },
+      { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
+      { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
+      { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
+      { label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `pgrow:${i}:-`, label: n + ' −', act: 'i:pgrow', v: i + ':-0.1', dis: mv }, { id: `pgrow:${i}:+`, label: n + ' +', act: 'i:pgrow', v: i + ':0.1', dis: mv }]) },
+      { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: mv })) },
+      { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
+    if (r.shape === 'plane') B.push({ p: 'A plane stands upright: its z size is not used.', c: 'faint' });
+  } else if (it.kind === 'e') {
+    // an empty (e6d_shapes.js): where it is, the sounds that follow it, its place
+    const fs = followersOf(it.id);
+    B.push({ h: r.name, sub: 'Empty' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Place', r.p.map(v => v.toFixed(2)).join(', ') + ' (x, height, z, m)'], ['Followed by', fs.length ? fs.map(f => f.rec.name).join(', ') : 'nothing yet']] },
+      { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
+    if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -365,9 +394,13 @@ function itemBlocks(it, B, ed) {
     if (grp) B.splice(1, 0, { p: `In group ${grp.rec.name}: it moves with it. Selected on its own, it moves alone.`, c: 'muted' }, { row: [{ id: 'selgroup', label: 'Select the group', act: 'sel', v: grp.id }] });
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
-  holdBlocks(it, B, dis);
-  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
-  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
+  holdBlocks(it, B, mv);
+  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
+  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') })) });
+  // Lock in place, at the card's top (e6d_shapes.js)
+  const LB = [];
+  lockBlocks(it, LB, dis);
+  B.splice(1, 0, ...LB);
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -381,7 +414,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // or remove items... (a pick mode), its place and size (about its pivot, the middle of its members on the floor),
 // Duplicate, Ungroup and Delete (every member)
 function groupBlocks(g, B, dis, ed) {
-  const ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = groupBox(g, new THREE.Box3()), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
+  const mv = dis || !!lockWhy(g), dl = dis || !!lockWhy(g, true), ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = groupBox(g, new THREE.Box3()), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
   const n = k => ms.filter(m => m.kind === k).length, parts = [['o', 'object'], ['s', 'sound'], ['c', 'cube']].filter(([k]) => n(k)).map(([k, w]) => `${n(k)} ${w}${n(k) > 1 ? 's' : ''}`);
   B.push({ h: g.rec.name, sub: 'Group' }, { kv: [['Members', ms.length ? `${ms.length}: ${parts.join(', ')}` : 'none here']].concat(sz ? [['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`]] : []) },
     { p: 'Its members move, turn and size together, about the middle of the group on the floor. A click on a member selects the group; a second click on it selects that member alone.', c: 'faint' });
@@ -389,15 +422,18 @@ function groupBlocks(g, B, dis, ed) {
   if (picking) B.push({ p: (XR.on ? 'Point at objects, sounds and cubes and pull the trigger' : 'Click objects, sounds and cubes, or their names under Items') + ' to put them in or take them out; Done when finished. One in another group moves into this one.', c: 'amber' });
   if (ms.length) B.push({ list: ms.map(m => ({ id: (picking ? 'gout:' : 'sel:') + m.id, label: (picking ? '✓ ' : '') + m.rec.name, sub: KIND_NAME[m.kind] + (picking ? ' · press to take it out' : ''), act: picking ? 'gtog' : 'sel', v: m.id, col: m.kind !== 'o' ? m.look.col : '' })) });
   if (ms.length < 2 && !picking) B.push({ p: 'A group needs two items or more: add some (Add or remove items...), or Ungroup.', c: 'amber' });
-  B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: dis || !ms.length }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !ms.length }] },
-    { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: dis || !ms.length })) });
+  B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv || !ms.length }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !ms.length }] },
+    { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: mv || !ms.length })) });
   if (g.note) B.push({ p: g.note, c: 'amber' });
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
-  holdBlocks(g, B, dis || !ms.length);
-  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] },
+  holdBlocks(g, B, mv || !ms.length);
+  B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis: dis || !!g.rec.locked }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
-  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m })) });
+  if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m, dis: mv })) });
+  const LB = [];
+  lockBlocks(g, LB, dis);
+  B.splice(1, 0, ...LB);
 }
 // the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
 const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };
@@ -406,19 +442,19 @@ const cmOrM = d => (d < 1 ? Math.max(1, Math.round(d * 100)) + ' cm' : metres(d)
 // at it (or from a list), then one of its bones (the short list where the model has them, then every bone; a model with
 // no bones offers the parts its animation moves), Move onto it and Stop following; each keeps the sound where it is now
 function followBlocks(it, B, dis) {
-  const r = it.rec, ob = followOf(it), picking = STU.follow === it.id, objs = [...STU.items.values()].filter(x => x.kind === 'o');
+  const r = it.rec, ob = followOf(it), picking = STU.follow === it.id, objs = [...STU.items.values()].filter(x => FOLLOW_KINDS.includes(x.kind));
   B.push({ row: [
     { id: 'follow', label: picking ? 'Cancel' : r.on ? 'Follow another object...' : 'Follow an object...', act: 'i:followPick', on: picking, dis: dis || !objs.length },
-    r.on ? { id: 'onto', label: 'Move onto it', act: 'i:onto', dis: dis || !ob } : null,
+    r.on ? { id: 'onto', label: 'Move onto it', act: 'i:onto', dis: dis || !ob || !!lockWhy(it) } : null,
     r.on ? { id: 'unfollow', label: 'Stop following', act: 'i:unfollow', dis } : null,
   ].filter(Boolean) });
-  if (!objs.length && !r.on) B.push({ p: 'A sound can follow an object placed here (a voice at a figure\'s head): place one first.', c: 'faint' });
+  if (!objs.length && !r.on) B.push({ p: 'A sound can follow an object, a shape or an empty placed here (a voice at a figure\'s head, or in mid-air): place one first.', c: 'faint' });
   if (picking) {
-    B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': the sound follows it from where it is now.', c: 'amber' },
-      { list: objs.map(o => ({ id: 'followon:' + o.id, label: o.rec.name, sub: baseName(o.rec.file), act: 'i:follow', v: o.id, on: o.id === r.on, dis })) });
+    B.push({ p: (XR.on ? 'Point at an object, a shape or an empty and pull the trigger' : 'Click an object, a shape or an empty, or pick it here') + ': the sound follows it from where it is now.', c: 'amber' },
+      { list: objs.map(o => ({ id: 'followon:' + o.id, label: o.rec.name, sub: o.kind === 'o' ? baseName(o.rec.file) : KIND_NAME[o.kind], act: 'i:follow', v: o.id, on: o.id === r.on, dis })) });
   }
   if (r.on && !ob) B.push({ p: 'The object it follows is not in the scene: it stands at its own place until the object is back.', c: 'amber' });
-  if (!ob) return;
+  if (!ob || ob.kind !== 'o') return;   // (a shape or an empty: where it is, no bones)
   const E = ob.E, Bn = bonesOf(E);
   if (!E || !E.root || !ob.model) { B.push({ p: `${ob.rec.name}'s bones show once its model is in.`, c: 'faint' }); return; }
   if (r.bone && !nodeOf(ob, r.bone)) B.push({ p: `${ob.rec.name} has no bone ${r.bone} here: the sound follows the whole model.`, c: 'amber' });
@@ -549,6 +585,9 @@ function act(a, v) {
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
+    shape: () => addShape(v),
+    empty: () => addEmpty(),
+    setting: () => setSetting(v),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
     scenemake: () => sceneMake(NS.name),
@@ -584,6 +623,7 @@ function buildExplore() {
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
     #explore .actions .btn.red { color: var(--red); }
@@ -647,7 +687,7 @@ function blockHTML(b) {
   if (b.xr) return '';
   if (b.drop || b.input || b.plan) return uploadHTML(b);
   if (b.label && b.p !== undefined) return `<p class="stu-l">${esc(b.label)}</p><p class="${b.c || ''}">${esc(b.p)}</p>`;
-  const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`;
+  const btn = x => `<button class="btn${x.primary ? ' primary' : ''}${x.col === 'red' ? ' red' : ''}${x.warn ? ' warn' : ''}" type="button" data-act="${x.act}" data-v="${esc(x.v === undefined ? '' : x.v)}"${typeof x.v === 'number' ? ' data-n="1"' : ''} aria-pressed="${!!x.on}"${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${x.sw ? `<i class="stu-sw" style="background:${esc(x.sw)}"></i>` : ''}${esc(x.label)}</button>`;
   if (b.h !== undefined) return `${b.sub ? `<p class="stu-k">${esc(b.sub)}</p>` : ''}<h3>${esc(b.h)}</h3>`;
   if (b.p !== undefined) return `<p class="${b.c || ''}">${esc(b.p)}</p>`;
   if (b.code !== undefined) return `<code class="stu-code">${esc(b.code)}</code>`;
@@ -677,7 +717,7 @@ function renderPanes() {
 }
 let paneLast = '';
 function paneStep(now) {
-  if (GL.tc && GL.tc.object && !editOn()) tcAttach();   // (a lock or the end of editing: the arrows go)
+  if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
   const s = paneSig();
@@ -692,8 +732,8 @@ function updateExtraLabels() {
   // (a sound that follows a model names it: "Voice → Dancer · Head"; a group's member its group: "Group 2 · Dancer")
   const to = it => (it.kind === 'g' ? `group of ${members(it).length}` : it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : it.kind === 'x' ? 'cuts ' + (cutObj(it) ? cutObj(it).rec.name : 'nothing') : '');
   const gOf = it => (GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null), hg = h && gOf(h), sg = s && gOf(s);
-  labelSet(Lh, h ? [hg ? hg.rec.name + ' · ' + h.rec.name : h.rec.name, to(h) || KIND_NAME[h.kind]] : null);
-  labelSet(Ls, s ? [s.rec.name, (to(s) ? to(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + 'selected'] : null);
+  labelSet(Lh, h ? [hg ? tagName(hg.rec) + ' · ' + tagName(h.rec) : tagName(h.rec), to(h) || KIND_NAME[h.kind] + (h.kind === 'p' && h.rec.look === 'hide' ? ' · hides things' : '')] : null);
+  labelSet(Ls, s ? [tagName(s.rec), (to(s) ? to(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + (s.rec.locked ? 'locked · ' : '') + 'selected'] : null);
   Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
 }
 
@@ -708,6 +748,8 @@ function pickables() {
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
     else if (it.kind === 'x') { if (it.holder.visible) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
+    else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
+    else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
   }
   return L;
 }
@@ -844,7 +886,7 @@ function pressItem(id, ray) {
   // on any member), which ends the pick)
   const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
   if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
-  if (STU.follow && id !== STU.follow) { if (it.kind === 'o') itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object)
+  if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
@@ -915,7 +957,11 @@ function tcRead(it) {
   } else if (it.kind === 'x') {
     h.scale.set(...h.scale.toArray().map(v => Math.max(0.01, Math.abs(v))));
     setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
-  } else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
+  } else if (it.kind === 'p') {
+    h.scale.set(...h.scale.toArray().map(v => clamp(Math.abs(v), 0.01, 100)));
+    setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray() });
+  } else if (it.kind === 'e') { h.scale.set(1, 1, 1); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() }); }
+  else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
 function tcSetMode(m) {
   X.tcMode = m;
@@ -926,10 +972,10 @@ function tcAttach() {
   const tc = GL.tc;
   if (!tc) return;
   const it = STU.items.get(STU.sel);
-  if (!it || !editOn() || XR.on || APP.mode !== 'explore') { if (tc.object) tc.detach(); return; }
-  const m = it.kind === 's' ? 'translate' : X.tcMode;
+  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }   // (locked in place: no arrows)
+  const m = it.kind === 's' || (it.kind === 'e' && X.tcMode === 'scale') ? 'translate' : X.tcMode;
   tc.setMode(m);
-  tc.setSpace((it.kind === 'c' || it.kind === 'x') && m !== 'translate' ? 'local' : 'world');
+  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
   tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
   tc.showY = true;
   if (tc.object !== it.holder) tc.attach(it.holder);

@@ -464,11 +464,17 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     const bh = 54;
     for (const t of b.row.filter(q => !q.page)) {
       ctx.font = vfont(22, t.on || t.primary ? 700 : 400);
-      const w = Math.min(W, Math.max(110, Math.ceil(ctx.measureText(t.label).width) + 40));
+      const w = Math.min(W, Math.max(110, Math.ceil(ctx.measureText(t.label).width) + 40 + (t.sw ? 34 : 0)));
       if (cx + w > x + W && cx > x) { cx = x; cy += bh + 10; }
       if (!dry) {
-        const live = inView(cy, bh) && !t.dis;
-        vButton(ctx, P, t.id, cx, cy, w, bh, t.label, live ? () => act(t.act, t.v) : null, { on: t.on, primary: t.primary && !t.dis, px: 22, color: t.dis ? VC.faint : t.col === 'red' ? VC.red : t.warn ? VC.amber : undefined });
+        const live = inView(cy, bh) && !t.dis, color = t.dis ? VC.faint : t.col === 'red' ? VC.red : t.warn ? VC.amber : undefined;
+        vButton(ctx, P, t.id, cx, cy, w, bh, t.sw ? '' : t.label, live ? () => act(t.act, t.v) : null, { on: t.on, primary: t.primary && !t.dis, px: 22, color });
+        // (a colour's button: its swatch, then its name)
+        if (t.sw) {
+          swatch(ctx, cx + 14, cy + 15, 24, t.sw); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(232,238,248,0.55)'; ctx.stroke();
+          ctx.font = vfont(22, t.on ? 700 : 400); ctx.fillStyle = color || VC.ink; ctx.textBaseline = 'middle';
+          ctx.fillText(fitText(ctx, t.label, w - 62), cx + 48, cy + bh / 2 + 1); ctx.textBaseline = 'top';
+        }
       }
       cx += w + 10;
     }
