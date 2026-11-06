@@ -1713,14 +1713,17 @@
   // height), at most every MSH.poseMs while it moves, once more as it comes to rest and every MSH.beat while still; a
   // picture of what it shows (the drawn part of its canvas, the Story tab's copies of the story's panels drawn in) as a
   // JPEG, made smaller and coarser step by step (MSH.steps) until it fits MSH.max (the relay refuses effects over 64 KB),
-  // only when what is drawn changed and at most every MSH.picMs; and 'closed' once when the menu closes, the setting goes
-  // off, the station changes or the session ends. A headset at the station that lacks the picture a pose names asks for it
-  // ('want', at most every MSH.ask) and gets it again without its being made again. Drawn by drawMenus; pages draw nothing
-  // (the Shared dialog's people list says who shows their menu)
-  const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 500, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
+  // only when what it shows changed and at most every MSH.picMs, or when only the light of the button pointed at changed
+  // at most every MSH.hovMs (a ray moving over the buttons redraws the menu all the time, and the relay sends every
+  // effect to everyone in the room: about 45 KB each); and 'closed' once when the menu closes, the setting goes off, the
+  // station changes or the session ends. A headset at the station that lacks the picture a pose names asks for it
+  // ('want', at most every MSH.ask) and gets the last one made without its being made again (also when a newer one did
+  // not fit). Only a headset at that station keeps a picture (the others ask once they come). Drawn by drawMenus; pages
+  // draw nothing (the Shared dialog's people list says who shows their menu)
+  const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 1500, hovMs: 4000, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
     steps: [[540, 0.75], [480, 0.66], [420, 0.58], [360, 0.5], [300, 0.42], [240, 0.35], [180, 0.3]],
-    st: '', sig: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
-    sent: { pics: 0, poses: 0, closed: 0, most: 0, at: [] }, got: 0 };   // (got: pictures taken from others, for tests)
+    st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
+    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [] }, got: 0 };   // (got: pictures taken from others, for tests)
   const MENUS = new Map();   // others' menus shown to their circle, by member: { code, st, at, n, nWant, img, dec, buf, pose, o, ... }
   const menuShareOn = () => MSH.on;
   function setMenuShare(on) { MSH.on = !!on; put('xrMenuShare', MSH.on ? 'circle' : null); log('menu share', { on: MSH.on }); changed(); }
@@ -1732,7 +1735,7 @@
   }
   function menuOut(st, data) {
     const v = { type: MSH.type, data, q: 1 }, n = J(v).length;
-    MSH.sent.most = Math.max(MSH.sent.most, n);
+    MSH.sent.most = Math.max(MSH.sent.most, n); MSH.sent.bytes += n;
     return fx('e.' + st, v);
   }
   // the menu's pose in room coordinates: its top edge's middle, its turn, its width and height (m)
@@ -1742,10 +1745,11 @@
     _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(G.quaternion);
     return { p: [r3(_v.x), r3(_v.y), r3(_v.z)], q: qOut([_q.x, _q.y, _q.z, _q.w]), w: r3(OV.panel.mw * G.scale.x), h: r3(menuH()) };
   }
-  // what the menu shows now: its canvas as drawn, the part shown, and the Story tab's copies of the story's panels
+  // what the menu shows now: its canvas as drawn (cver: the light of what is pointed at aside, drawPanel), the part
+  // shown, and the Story tab's copies of the story's panels
   function menuSig() {
     const ms = Object.values(OV.mirror).map(m => (m.visible && m.material.map ? m.material.map.uuid + ':' + m.material.map.version : ''));
-    return OV.panel.tex.version + '|' + OV.panel.vis + '|' + ms.join('|');
+    return (OV.panel.cver || 0) + '|' + OV.panel.vis + '|' + ms.join('|');
   }
   // each frame (the shell's tick, after the overlay is drawn, so the menu stands where it shows): the pose, the picture,
   // or 'closed'
@@ -1755,18 +1759,20 @@
     if (MSH.st && MSH.st !== to) menuShareEnd(!MSH.on ? 'off' : !PNL.open ? 'closed' : PNL.page === 'pass' ? 'password' : 'station');
     if (!to) return;
     if (!MSH.st) { MSH.st = to; MSH.want = !!MSH.img; MSH.poseAt = 0; MSH.last = null; MSH.moving = false; log('menu share', { to }); }
-    // the picture: what is drawn changed (or someone at the station lacks it), at most every picMs
-    const sig = menuSig();
+    // the picture: what it shows changed, at most every picMs, or only what is lit where a ray points, at most every
+    // hovMs (full: as drawn, with that light); or someone at the station lacks it
+    const sig = menuSig(), full = sig + '|' + OV.panel.tex.version;
     if (!MSH.busy && t - MSH.picAt >= MSH.picMs) {
-      if (sig === MSH.sig && MSH.want && MSH.img) { picOut(); return; }   // (asked for again: the one made already)
-      if (sig !== MSH.sig && sig !== MSH.failed) {
+      const due = sig !== MSH.sig || (full !== MSH.full && t - MSH.picAt >= MSH.hovMs);
+      if (due && full !== MSH.failed) {
         menuPicture().then(P => {
-          if (!P) { MSH.failed = sig; return; }
-          MSH.n++; MSH.img = P; MSH.sig = sig;
+          if (!P) { MSH.failed = full; return; }
+          MSH.n++; MSH.img = P; MSH.sig = sig; MSH.full = full;
           if (MSH.st && menuShareTo() === MSH.st) picOut();
         });
         return;
       }
+      if (MSH.want && MSH.img) { picOut(); return; }   // (asked for again: the last one made, also when a newer one did not fit)
     }
     // the pose: while it moves at most every poseMs (held), once more as it comes to rest, and now and then while still
     const ps = menuPose(), L = MSH.last;
@@ -1846,7 +1852,9 @@
     E.pose = { p: d.p.slice(), q: d.q.slice(), w: d.w, h: d.h };
     if (Number.isFinite(d.ts)) bufPush(E.buf, d.ts, E.pose, d.m === 1); else E.buf.s.length = 0;
     if (Number.isInteger(d.n)) E.nWant = d.n;
-    if (d.k === 'pic' && Number.isInteger(d.n) && typeof d.img === 'string' && d.img.startsWith('data:image/jpeg;base64,') && d.img.length <= 64 * 1024) {
+    // (the picture kept only by a headset at that station, which draws it: drawMenus; one that comes later asks for it)
+    const L = liveSt();
+    if (d.k === 'pic' && Number.isInteger(d.n) && typeof d.img === 'string' && d.img.startsWith('data:image/jpeg;base64,') && d.img.length <= 64 * 1024 && HOST.session && L && L.id === st) {
       E.n = d.n; E.img = d.img; E.pics++; E.bytes = d.img.length; MSH.got++;
     }
   }
@@ -3652,8 +3660,9 @@
       m.visible = true;
     }
   }
-  function panelSig() {
-    return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
+  // (hov: what is pointed at, lit; null: the same without it, what the menu shows to your circle goes by: menuSig)
+  function panelSig(hov = OV.panel.hover) {
+    return J([C.code, C.status, C.note, PNL.open, PNL.page, hov, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
@@ -3968,6 +3977,7 @@
     const S = OV.panel, sig = panelSig();
     if (sig === S.sig) return;
     S.sig = sig;
+    { const c = S.hover ? panelSig(null) : sig; if (c !== S.csig) { S.csig = c; S.cver = (S.cver || 0) + 1; } }   // (what it shows, the light of what is pointed at aside)
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -7313,7 +7323,7 @@
     // holds (lit: the share of a sample of the picture's pixels that are not dark, low: below its top quarter and inside
     // its edges; hit: pointable, which they never are; full: each picture as a PNG too, url)
     menuShot: master => menuPicture().then(u => (master && MSH.master ? MSH.master.toDataURL('image/png') : u)),   // (the picture as made now; master: before the JPEG)
-    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, at: MSH.sent.at.slice(), got: MSH.got }),
+    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), got: MSH.got }),
     menus: full => [...MENUS].map(([id, E]) => {
       const o = E.o, g = o && o.g;
       let lit = 0, low = 0;

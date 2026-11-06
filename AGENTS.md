@@ -487,12 +487,15 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     ... }`, the pose too: the drawn part of its canvas, only the height the tab uses, with the Story tab's copies of the
     story's panels drawn in where they show, on a dark ground) as a JPEG data URL, made smaller and coarser step by step
     (`MSH.steps`, 540 px wide at quality 0.75 down to 180 at 0.3; the next starts at the step that fitted, a step finer
-    when it came well under) until it is under 47 KB (the relay refuses effects over 64 KB), sent only when what is
-    drawn changed (`menuSig`: the canvas's and the mirrored panels' texture versions and the height shown) and at most
-    every 500 ms, encoded with `toBlob` off the frame; and `{ k: 'closed' }` once when the menu closes, the setting goes
-    off, the station changes or the session ends (`menuShareEnd`). A headset at that station whose latest picture is
-    older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every 1.5 s) and gets the one made already.
-    Every other headset at the same live station draws it (`drawMenus`, `MENUS`) as a plane at that pose in the room
+    when it came well under) until it is under 47 KB (the relay refuses effects over 64 KB), sent only when what it
+    shows changed (`menuSig`: the menu's content, `cver`, counted by `drawPanel` with the light of the button pointed at
+    left out, the mirrored panels' texture versions and the height shown) and at most every 1.5 s (`MSH.picMs`), or when
+    only that light changed at most every 4 s (`MSH.hovMs`: a ray moving over the buttons redraws the menu all the time,
+    and every picture goes to everyone in the room), encoded with `toBlob` off the frame; and `{ k: 'closed' }` once
+    when the menu closes, the setting goes off, the station changes or the session ends (`menuShareEnd`). A headset at
+    that station whose latest picture is older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every
+    1.5 s) and gets the last one made (also when a newer one did not fit); only a headset at that station keeps a
+    picture (`menuIn`), so one that walks in later asks. Every other headset at the same live station draws it (`drawMenus`, `MENUS`) as a plane at that pose in the room
     (`OV.room`), smoothed as others' moves are (`bufAt` with `MIX.menu`), the picture's own shape, its corners cut
     round, two faces back to back so it reads the right way round from either side (from behind, left and right are
     swapped against the person's ray), depth-tested so what stands in front hides it, `renderOrder` 49.5 on its meshes
@@ -502,8 +505,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     sample (`menusExpire`) or at once on `closed`. Pages draw nothing; the Shared dialog's people list says *showing
     their menu*. `HOST.collab.menuShare(on)`, `menuSent()`, `menus(full)` and `menuShot(master)` (the picture as it
     would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
-    made in the page up to twice a second, about 45 KB to everyone in the room each time; the relay sends every effect
-    to every member), and Quest Browser's `toBlob`.
+    made in the page at most every 1.5 s, about 45 KB to everyone in the room each time: the relay, and a peer-to-peer
+    room's host, send every effect to every member, so with the Story tab of a playing story shown, its clock changing
+    every second, about 30 KB a second to each of them), and Quest Browser's `toBlob`.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -4490,8 +4494,9 @@ drawing nothing; A's *My menu: my circle* (Settings) pressed: B draws a plane wh
 its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows), its picture A's menu
 (its pixels not dark), depth-tested, `renderOrder` between 49 and 50 (its group's 0), never pointable, A's name on its tag; C draws none
 of it; the page's Shared dialog says *showing their menu*; A's tabs changed four times a second for 4 s: at least 2
-pictures and at most 2 a second, each 490 ms or more after the last, every effect under 48 KB, B taking every one (its
-`got`); the Story tab's picture (its shape that tab's, lit below its top quarter where the story's panels are drawn in; a
+pictures and at most one every 1.5 s, each 1,490 ms or more after the last, every effect under 48 KB, B taking every one
+(its `got`); a pretend controller's ray moving over A's buttons for 4.5 s (only their light changing, at least three
+buttons lit): at most 2 pictures and under 24 KB a second sent; the Story tab's picture (its shape that tab's, lit below its top quarter where the story's panels are drawn in; a
 pretend headset's step does not draw the story's panels, so the round draws them once first); A's head turned 69
 degrees, its menu gliding back in front: B's plane following (at most 5 poses a second) and ending where A's stands; A
 silent (no frames, as a headset taken off): gone on B after a few seconds with nothing closed, and back once A goes on (B
