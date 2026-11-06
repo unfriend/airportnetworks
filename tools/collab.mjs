@@ -307,6 +307,7 @@ const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: to
 const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: studioRound, relays of its own with --scenes)
 const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: askRound, in a room of its own)
 const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
+const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -3937,6 +3938,45 @@ async function studioRound(dir) {
   }
 }
 
+// ---- the relay the main site offers (homeRound, v120; --home runs only it, also in the main run, a minute): HOME_RELAY in
+// shared.js, by the page's host. A browser of its own takes the main site's name (stories.lbi-netmed.com) and the test
+// place's (stories.lab.lbi-netmed.com) for this machine, the page served by the test relay (as http: the offer goes by the
+// host alone), its /api turned away as GitHub Pages has none, and nothing let out to any other address (the offered
+// relay's real one included). As the main site the page offers https://main.lab.lbi-netmed.com (homeRelay(), the Shared
+// dialog's box naming it) and sends it nothing before a password is typed; as the test place's name and on 127.0.0.1 it
+// offers none
+async function homeRound() {
+  const SITE = 'stories.lbi-netmed.com', LAB = 'stories.lab.lbi-netmed.com', OFFER = 'https://main.lab.lbi-netmed.com';
+  const b2 = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: [...LAUNCH_ARGS, `--host-resolver-rules=MAP ${SITE} 127.0.0.1, MAP ${LAB} 127.0.0.1`] });
+  // the page at host: { host, offer: homeRelay(), box: the dialog's offer shown, what: its words, sent: what it tried
+  // to reach that was turned away (its own /api, any other address) }
+  const look = async host => {
+    const ctx = await b2.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' }), sent = [];
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.route(u => u.hostname !== host || u.port !== String(port) || /^\/api\//.test(u.pathname), r => { sent.push(r.request().url()); return r.abort(); });
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    try {
+      await page.goto(`http://${host}:${port}/index.html#stories&peer=off&net=home`, { timeout: 90000 });
+      await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+      const r = await page.evaluate(async () => {
+        await HOST.collab.detect(); HOST.collab.dialog(true); await new Promise(res => setTimeout(res, 400));
+        const d = document.querySelector('#shared .sh-home'), w = document.querySelector('#shared .sh-homewhat');
+        return { host: location.hostname, offer: HOST.collab.homeRelay(), served: HOST.collab.relay || '', box: !!d && !d.hidden && !d.closest('[hidden]') && getComputedStyle(d).display !== 'none', what: w ? w.textContent : '' };
+      });
+      return Object.assign(r, { sent: sent.filter(u => !/fonts\.(googleapis|gstatic)\.com/.test(u)) });
+    } finally { await ctx.close(); }
+  };
+  try {
+    const m = await look(SITE);
+    check(`home relay: the main site (${SITE}) offers ${OFFER} in the Shared dialog while no relay is in use, and sends it nothing before a password is typed`,
+      m.host === SITE && m.offer === OFFER && !m.served && m.box && m.what.includes(OFFER.replace('https://', '')) && !m.sent.some(u => new URL(u).hostname !== SITE), JSON.stringify(m));
+    const l = await look(LAB), h = await look('127.0.0.1');
+    check(`home relay: the test place's name (${LAB}) and this machine (127.0.0.1) offer none`, l.host === LAB && !l.offer && !l.box && h.host === '127.0.0.1' && !h.offer && !h.box,
+      JSON.stringify({ l, h }));
+  } finally { await b2.close(); }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -3954,6 +3994,7 @@ try {
   if (STUDIO_ONLY) { await studioRound(shots); break main; }
   if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
   if (SCENES_ONLY) { await scenesRound(); break main; }
+  if (HOME_ONLY) { await homeRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -6245,6 +6286,8 @@ try {
   await studioRound(shots);
   // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
   await scenesRound();
+  // ------------------- the relay the main site offers (HOME_RELAY, by the page's host; a browser of its own) --
+  await homeRound();
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -6325,8 +6368,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

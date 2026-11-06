@@ -2120,12 +2120,15 @@ behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an 
   and saves models to cloudflare r2", and the main site "does not need a hosted relay
   for now ... a good place to test the peer to peer functionality"; `relay/README.md`,
   "The test place on Coolify"): the main site is GitHub Pages from `main` at
-  `https://stories.lbi-netmed.com/` (its `CNAME`), its rooms peer to peer; the
-  owner's Coolify runs branch `dev` at `https://stories.lab.lbi-netmed.com/` (every
-  name under `lab.lbi-netmed.com` points at the Coolify server with a wildcard
-  certificate), served by its relay, with the studio's scenes in R2 and a webhook
-  deploying every push to `dev`. Work goes to `dev` first, then `main` once the
-  owner has tried it. A page can offer a relay of its own (`HOME_RELAY` in
+  `https://stories.lbi-netmed.com/` (its `CNAME`); the owner's Coolify runs branch
+  `dev` at `https://stories.lab.lbi-netmed.com/` (every name under
+  `lab.lbi-netmed.com` points at the Coolify server with a wildcard certificate),
+  served by its relay, with the studio's scenes in R2 and a webhook deploying every
+  push to `dev`, and since v120 (the owner, 6 November 2026) branch `main` as well,
+  as the main site's relay at `https://main.lab.lbi-netmed.com/` (a clone of the test
+  place's resource with its domain, branch and `R2_PREFIX` changed:
+  `--proxy 1 --public --scenes r2` and a password), which the main site offers.
+  Work goes to `dev` first, then `main` once the owner has tried it. A page can offer a relay of its own (`HOME_RELAY` in
   `shared.js`, keyed by the page's host, so never this machine, a LAN or the tests,
   where `HOST.collab.homeRelay(url)` offers one): while no relay is in use there
   (`homeOffer`), the Shared dialog has *The relay* (a password field, `homeTry`) and
@@ -2134,9 +2137,11 @@ behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an 
   studio's, which asks the offered relay for its scenes through `relayFind`), the
   device keeps it and uses that relay from then on (`setRelay`, kept as one typed
   in); without it rooms run peer to peer; *Forget the password*, out of a room, takes
-  both off the device and the offer is back. The table is empty for now (no relay
-  offered anywhere), ready for a relay for the main site later; `--public` allows
-  `https://stories.lbi-netmed.com` already (`APP_ORIGIN`). v114 and v115 had planned
+  both off the device and the offer is back. The table has one entry since v120,
+  `'stories.lbi-netmed.com': 'https://main.lab.lbi-netmed.com'` (empty from v116 to
+  v119, the main site's rooms peer to peer; without the password they still are);
+  `--public` allows `https://stories.lbi-netmed.com` (`APP_ORIGIN`), so the main
+  relay needs no `--origin`; its test is `node tools/collab.mjs --home`. v114 and v115 had planned
   the main site on Coolify and a test copy on Pages (v115 only reached `dev`).
   On a public server (the owner's Coolify) it runs with `--public` (3 November
   2026; `RELAY_ARGS="--proxy 1 --public"` in its environment; `relay/README.md`,
@@ -4452,6 +4457,12 @@ values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: 
 titled *Studio: <scene>* in every page's dialog; *Studio here* adding a plain studio circle beside them and then moving
 that one; a scene picked at that plain circle (its state naming it, its title *Studio: <scene>*) and *Studio here* still
 moving it (no fourth circle); a scene circle moved keeping its `sc`, and *Studio here* then still moving the plain one.
+The relay the main site offers (`homeRound`, v120, also in the main run after the scenes round; `--home` runs only it,
+under a minute): a browser of its own that takes `stories.lbi-netmed.com` and `stories.lab.lbi-netmed.com` for this
+machine (`--host-resolver-rules`), the page served there by the test relay as plain http (the offer goes by the host
+alone), its `/api` turned away as GitHub Pages has none and nothing let out to any other address: as the main site it
+offers `https://main.lab.lbi-netmed.com` (`HOST.collab.homeRelay()`, the Shared dialog's box naming it) and sends that
+address nothing before a password is typed; as the test place's name and on `127.0.0.1` it offers none (`HOME_RELAY`).
 Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
 `--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes

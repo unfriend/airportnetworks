@@ -368,7 +368,11 @@ relay/README.md). GitHub Pages serves everything else; a copy there can join a
 relay elsewhere with &relay=wss://... in the room link. Since v116 the owner's
 Coolify server runs the test place (branch dev, the app and its relay at
 https://stories.lab.lbi-netmed.com/, the studio's scenes in Cloudflare R2), while
-the main site stays on GitHub Pages from main, its rooms peer to peer; see
+the main site stays on GitHub Pages from main. Since v120 Coolify runs main too,
+as the main site's relay (https://main.lab.lbi-netmed.com/), and the main site
+offers it: the Shared dialog (or the headset menu's Circles, Relay password)
+asks once for its password, and that device's rooms and the studio's scenes are
+then on it; without the password rooms run peer to peer, as before; see
 relay/README.md, "The test place on Coolify". #s=XYZ in a link joins
 room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
 device enters it once, in the Shared dialog or, in a headset, under the menu's

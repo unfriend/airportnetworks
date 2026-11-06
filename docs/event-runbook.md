@@ -17,7 +17,7 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
 
-## Two ways to run a room
+## Three ways to run a room
 
 - **Peer to peer** (no laptop relay): the devices open the live copy (GitHub Pages), a page starts a room and the
   others open its link. A public server only introduces them (PeerJS's, `0.peerjs.com`; Cloudflare's STUN server tells
@@ -25,7 +25,13 @@ space** shows only on a page that comes from the relay.
   devices reach each other directly: **bring your own router** (eduroam and guest networks keep devices apart).
   Calibrations, Anchor places and shared spaces belong to the live copy's address. **Fresh shared space** and the
   headsets' logs need the relay, so they are not there.
-- **The laptop relay** (section 2): the fallback when peer to peer does not work on the network, and the way to collect
+- **The main site's relay** (since v120): the live copy (GitHub Pages) offers the owner's relay at
+  `main.lab.lbi-netmed.com` in its Shared dialog (in a headset the menu's **Circles** > **Relay password**). With its
+  password, entered once per device, that device's rooms run there: devices need not reach each other directly, so a
+  network that keeps them apart (eduroam, a guest network, a hotspot) may do (untested there so far). Without the password the live copy runs rooms peer to peer,
+  as above. **Fresh shared space** shows only on the relay's own copy (`https://main.lab.lbi-netmed.com/`), and the
+  headsets' logs are not kept there.
+- **The laptop relay** (section 2): the fallback when neither works on the network, and the way to collect
   the headsets' alignment logs. A page that comes from the relay always uses it.
 
 Peer to peer, one page **hosts** the room: the first that started it, and later the one longest in it. **Start the room
