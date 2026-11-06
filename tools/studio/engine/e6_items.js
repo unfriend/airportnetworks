@@ -13,6 +13,7 @@ const STU = {
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
+  stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -1072,8 +1073,10 @@ const ITEM_ACT = {
   followPick: it => { if (it.kind === 's') STU.follow = STU.follow === it.id ? '' : it.id; },
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
+  // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
+  hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -1127,9 +1130,20 @@ function collabState() {
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   return s;
 }
+// A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
+// or one whose scene was just picked elsewhere): every device there opens the scene and writes its saved layout alike
+// (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
+// already at another station or outside the room; items from the room before that layout is read here are the room's
+// (STU.fresh: no layout written over them)
+const ITEM_KEY = /^[ocsxg]\.[a-z0-9]{6}$/;
+const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
-  if (typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)) && v.scene !== STU.scene) openScene(v.scene, 'room');
+  const items = Object.keys(v).some(k => ITEM_KEY.test(k)), sid = stationId(), moved = sid !== STU.stId;
+  STU.stId = sid;
+  const ok = typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)), fresh = ok && !!v.scene && !items;
+  if (ok && (v.scene !== STU.scene || (moved && fresh))) openScene(v.scene, fresh ? 'fresh' : 'room', true);
+  else if (items && STU.write && STU.fresh) STU.write = false;
   const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0 };
   for (const k of Object.keys(v)) {
     const m = /^([ocsxg])\.([a-z0-9]{6})$/.exec(k);

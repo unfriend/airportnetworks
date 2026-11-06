@@ -15993,16 +15993,20 @@ function atStation() {
 // ------------------------------------------------------------- the scene --
 // Open a scene: what was placed goes, its listing and saved layout are read. how: 'pick' (by hand) or 'auto' (by
 // itself) write the saved layout as the items; 'room' (the station's scene, from the room) does not: the room's state
-// carries the items, and only the device that changed the scene writes them
-function openScene(name, how) {
+// carries the items, and only the device that changed the scene writes them; 'fresh' (a station whose state names a scene
+// and holds no item yet: a circle made for that scene, collabApply) writes it as 'auto' does, on every device there alike,
+// unless the room's items come first (STU.fresh: collabApply then takes theirs)
+function openScene(name, how, again) {
   name = okScene(name) ? name : '';
-  if (name === STU.scene && how !== 'again') return;
+  if (name === STU.scene && how !== 'again' && !again) return;
   draftNow();
   clearItems();
   libClear();
+  STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', t0: performance.now(), loadAsk: 0, upNote: '' });
+    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '' });
   STU.seen.clear(); UNDO.length = 0;
+  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
   dirty(true);
@@ -16036,8 +16040,8 @@ async function loadScene() {
   }
   dirty(true);
 }
-// the scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
-function setFiles(list) {
+// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
+function filesOf(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
@@ -16045,8 +16049,13 @@ function setFiles(list) {
     out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
-  if (out.some(f => f.url)) linksSoon();
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return out;
+}
+// the open scene's listing
+function setFiles(list) {
+  const out = filesOf(list);
+  if (out.some(f => f.url)) linksSoon();
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
 }
 // the listing again (a file added, changed or gone: the watch), then what uses a changed file loaded again
@@ -16188,6 +16197,133 @@ function uploadLayout(text) {
   putLayout(L.items);
   STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
+}
+
+// ------------------------------------------------- a new scene; a copy in --
+// New scene (the Scene pane: a page types its name in a field, a headset on the shell's keypad, HOST.collab.keypad): made
+// on the relay (POST /api/scenes, the relay's name rule) and opened as a scene picked by hand is (at a station: for
+// everyone there), editing on. From another scene... (the Add pane): a model or a sound of another of the relay's scenes
+// copied into this one (POST /api/scenes/<this>/copy, one file at a time) at the same path (a new name, as uploads
+// number them, when that is taken here), for a model that is not a GLB with the files it names that its scene has (its
+// MTL and their pictures, a glTF's .bin, the pictures by the ladder), then placed as Add places it (one Undo step). Each
+// scene keeps its own copy. Neither without a relay that takes uploads, on a read-only source, for a visitor (&visit) or
+// while the scene is locked (Lock this story); a headset makes a scene only when the shell has its keypad
+const canWrite = () => SRC.kind === 'relay' && SRC.state === 'ok' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
+const canMake = () => canWrite() && !editLocked() && (!XR.on || !!(HOST.collab && HOST.collab.keypad));
+const canCopy = () => canWrite() && editOn() && STU.listing === 'ok' && SRC.scenes.some(s => s.name !== STU.scene);
+const NS = { open: false, name: '', making: false, asking: false, note: '' };
+// (the relay's rule for a new scene: relay/scenes.mjs, newSceneName) why a name cannot be one, or ''
+const sceneNameWhy = name => (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)
+  ? 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).' : '');
+async function sceneMake(name) {
+  name = String(name || '').trim();
+  const why = sceneNameWhy(name);
+  if (why) { NS.note = why; dirty(true); return false; }
+  if (!canMake() || NS.making) return false;
+  NS.making = true; NS.note = ''; dirty(true);
+  try {
+    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    NS.open = false; NS.name = '';
+    await listScenes(SRC.gen);
+    if (GL.gone || editLocked()) return true;   // (locked meanwhile: made, not opened)
+    openScene(name, 'pick');
+    if (!STU.edit) setEdit(true);
+    sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 });
+    return true;
+  } catch (e) {
+    NS.note = e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
+    return false;
+  } finally { NS.making = false; dirty(true); }
+}
+// New scene pressed: on a page its field opens (or closes); in a headset the shell's keypad asks for the name
+async function sceneAsk() {
+  if (!canMake() || NS.making || NS.asking) return;
+  if (!XR.on) { NS.open = !NS.open; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
+  NS.asking = true; NS.note = ''; dirty(true);
+  let name = null;
+  try { name = await HOST.collab.keypad({ title: 'New scene', hint: 'Its name: letters, digits, spaces, _ . or -', value: '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
+  if (GL.gone || typeof name !== 'string' || !name.trim()) return;
+  await sceneMake(name);
+}
+const FROM = { open: false, scene: '', files: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
+// another scene's listing, for its list of models and sounds
+async function fromScene(name) {
+  if (!okScene(name) || name === STU.scene || FROM.busy) return;
+  const gen = ++FROM.gen;
+  Object.assign(FROM, { scene: name, files: null, loading: true, note: '', orig: false });
+  dirty(true);
+  try {
+    const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`);
+    if (gen === FROM.gen) FROM.files = filesOf(j && j.files);
+  } catch (e) { if (gen === FROM.gen) { FROM.note = `The files of ${name} could not be read: ` + e.message; FROM.noteC = 'red'; } }
+  finally { if (gen === FROM.gen) FROM.loading = false; dirty(true); }
+}
+// its models and sounds as the Add lists show this scene's: models/ and sounds/ first, its originals folded
+function fromLists(files) {
+  const first = pre => (a, b) => { const x = a.path.startsWith(pre), y = b.path.startsWith(pre); return x !== y ? (x ? -1 : 1) : a.path < b.path ? -1 : a.path > b.path ? 1 : 0; };
+  const models = [], sounds = [], orig = [];
+  for (const f of files || []) if (f.kind === 'model' || f.kind === 'audio') (inOriginals(f.path) ? orig : f.kind === 'model' ? models : sounds).push(f);
+  return { models: models.sort(first('models/')), sounds: sounds.sort(first('sounds/')), orig };
+}
+// a file of another scene: its signed link (R2), else its address on the relay (call adds the password)
+const fromUrl = (from, f) => f.url || `${SRC.base}/scenes/${encodeURIComponent(from)}/${encPath(f.path)}` + (f.at ? '?v=' + f.at : '');
+// what a copy of f brings with it: for a model that is not a GLB the files it names that its scene has (deps), found as the
+// Upload pane's plan finds them (an MTL or a .bin: the nearest of that name; a picture: by the ladder), and the names it
+// gives that are not there (lost)
+async function copySet(from, f, files) {
+  const deps = [], lost = [], ext = extOf(f.path);
+  if (!['gltf', 'fbx', 'obj'].includes(ext)) return { deps, lost };
+  const dir = dirOf(f.path), pics = files.filter(x => x.kind === 'image').map(x => x.path);
+  const near = n => { const b = baseName(n).toLowerCase(), L = files.filter(x => baseName(x.path).toLowerCase() === b); return L.find(x => x.path === dir + baseName(n)) || L.find(x => x.path.startsWith(dir)) || L[0] || null; };
+  const dep = n => { const x = near(n); if (x) { if (x.path !== f.path && !deps.includes(x.path)) deps.push(x.path); } else if (!lost.includes(baseName(n))) lost.push(baseName(n)); return x; };
+  const tex = n => { const h = CONV.texFind(n, pics, { dir }); if (h) { if (!deps.includes(h.path)) deps.push(h.path); } else if (!lost.includes(baseName(n))) lost.push(baseName(n)); };
+  const N = CONV.namesIn(ext, await getBytes(fromUrl(from, f)));
+  for (const n of N.mtl) { const x = dep(n); if (x) for (const t of CONV.mtlNames(await (await call(fromUrl(from, x), { cache: 'no-cache' })).text())) tex(t); }
+  for (const n of N.buffers) dep(n);
+  for (const n of N.textures) tex(n);
+  return { deps, lost };
+}
+const copyOne = (scene, from, path, as) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, path, as }) });
+// what this scene may hold where (an upload's rule: relay/scenes.mjs, uploadPath): models (GLB, glTF, FBX), sounds,
+// pictures and data anywhere, any other kind (an OBJ, its MTL) only under originals/
+const mayHold = q => inOriginals(q) || ['glb', 'gltf', 'fbx'].includes(extOf(q)) || ['audio', 'image', 'data'].includes(kindOf(q));
+// a press on a file of the other scene: copied in with what it brings (each at the same path; under originals/ when this
+// scene may hold it only there, the files it names with it; a file it names whose path is taken here is not copied: this
+// scene's own of that name stays, and the model finds it), the file itself under a new name when its path is taken, then
+// placed. Copied files stay when the placing cannot be (the scene full)
+async function copyIn(p) {
+  const from = FROM.scene, f = FROM.files && FROM.files.find(x => x.path === p);
+  if (!f || FROM.busy || !canCopy()) return;
+  const gen = STU.gen, scene = STU.scene;
+  FROM.busy = p; FROM.note = `Copying ${baseName(p)} from ${from}...`; FROM.noteC = 'muted'; dirty(true);
+  try {
+    const S = await copySet(from, f, FROM.files);
+    if (gen !== STU.gen) return;
+    const pre = mayHold(p) ? '' : 'originals/', dest = q => (mayHold(pre + q) ? pre + q : 'originals/' + pre + q), kept = [], copied = [];
+    for (const q of S.deps) {
+      const d = dest(q);
+      if (STU.fileMap.has(d)) { kept.push(d); continue; }
+      try { await copyOne(scene, from, q, d); copied.push(d); } catch (e) { if (e.status === 409) kept.push(d); else throw e; }
+      if (gen !== STU.gen) return;
+    }
+    let to = freeName(dest(p), q => STU.fileMap.has(q)), done = '';
+    for (let k = 0; k < 6 && !done; k++) {
+      try { done = (await copyOne(scene, from, p, to)).path || to; } catch (e) { if (e.status !== 409) throw e; const was = to; to = freeName(to, q => q === was || STU.fileMap.has(q)); }
+      if (gen !== STU.gen) return;
+    }
+    if (!done) throw new Error('no free name for ' + baseName(p));
+    await refreshFiles(new Set());
+    if (gen !== STU.gen) return;
+    const id = kindOf(done) === 'audio' ? addSound(done) : addModel(done);
+    FROM.note = `Copied ${done}` + (copied.length ? ` with ${copied.length} file${copied.length === 1 ? '' : 's'} it names` : '') + (kept.length ? `; this scene's own ${kept.map(baseName).join(', ')} kept` : '')
+      + (S.lost.length ? `; ${from} lacks ${S.lost.join(', ')}` : '') + (id ? ', and placed it in front of you.' : ': it is under Add (the scene is full, nothing placed).');
+    FROM.noteC = id ? 'green' : 'amber';
+    STUDIO.copied = { path: done, copied, kept, lost: S.lost, id };
+  } catch (e) {
+    if (gen !== STU.gen) return;
+    FROM.note = 'Not copied: ' + (e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'this relay writes nothing (--scenes-readonly).' : e.status === 413 ? 'it is bigger than this relay takes (--max-upload).' : e.message);
+    FROM.noteC = 'red';
+  } finally { if (FROM.busy === p) FROM.busy = ''; dirty(true); }
 }
 
 // ------------------------------------------------------------------ drafts --
@@ -17896,6 +18032,7 @@ const STU = {
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
+  stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -18955,8 +19092,10 @@ const ITEM_ACT = {
   followPick: it => { if (it.kind === 's') STU.follow = STU.follow === it.id ? '' : it.id; },
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
+  // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
+  hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -19010,9 +19149,20 @@ function collabState() {
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   return s;
 }
+// A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
+// or one whose scene was just picked elsewhere): every device there opens the scene and writes its saved layout alike
+// (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
+// already at another station or outside the room; items from the room before that layout is read here are the room's
+// (STU.fresh: no layout written over them)
+const ITEM_KEY = /^[ocsxg]\.[a-z0-9]{6}$/;
+const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
-  if (typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)) && v.scene !== STU.scene) openScene(v.scene, 'room');
+  const items = Object.keys(v).some(k => ITEM_KEY.test(k)), sid = stationId(), moved = sid !== STU.stId;
+  STU.stId = sid;
+  const ok = typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)), fresh = ok && !!v.scene && !items;
+  if (ok && (v.scene !== STU.scene || (moved && fresh))) openScene(v.scene, fresh ? 'fresh' : 'room', true);
+  else if (items && STU.write && STU.fresh) STU.write = false;
   const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0 };
   for (const k of Object.keys(v)) {
     const m = /^([ocsxg])\.([a-z0-9]{6})$/.exec(k);
@@ -19590,7 +19740,7 @@ Object.assign(ITEM_ACT, {
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
 const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false, texAdd: null, texFor: null };
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, scrollMax: {}, scrollView: 0, scrollF: { tab: '', v: 0, at: -1 }, orig: false, texAdd: null, texFor: null };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -19690,6 +19840,12 @@ function paneBlocks(tab) {
       if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
       else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
       if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+      // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
+      if (canMake()) {
+        B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
+        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? 'Making...' : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+      }
+      if (NS.note) B.push({ p: NS.note, c: 'red' });
     }
     if (['none', 'error', 'auth'].includes(SRC.state)) B.push({ row: [{ id: 'again', label: 'Look again', act: 'again' }] });
     if (STU.listing === 'loading' || STU.listing === 'waiting') B.push({ p: 'Reading the scene...', c: 'faint' });
@@ -19726,7 +19882,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it). Left stick: walk; right stick: turn.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -19753,6 +19909,7 @@ function paneBlocks(tab) {
       if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
         { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
     }
+    fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
     const so = selModel();
@@ -19797,6 +19954,28 @@ function paneBlocks(tab) {
     if (selCube) B.push({ p: `Ticks: what ${selCube.rec.name} shows and hides.`, c: 'faint', page: true });
   }
   return B;
+}
+// From another scene... (the Add pane, page and headset): the relay's other scenes, then the one picked's models and sounds
+// (models/ and sounds/ first, its originals folded); a press copies one in and places it (copyIn, e4_files.js)
+function fromBlocks(B, full) {
+  const F = FROM, others = SRC.scenes.filter(s => s.name !== STU.scene);
+  if (!canCopy()) { F.open = false; return; }
+  B.push({ label: 'From another scene', row: [{ id: 'from', label: F.open ? 'From another scene ▾' : 'From another scene...', act: 'from', on: F.open }] });
+  if (!F.open) { B.push({ p: 'A model or a sound of another of the relay\'s scenes, copied into this one and placed.', c: 'faint' }); return; }
+  B.push({ row: others.map(s => ({ id: 'froms:' + s.name, label: s.name, act: 'fromScene', v: s.name, on: s.name === F.scene, dis: !!F.busy })) });
+  if (!F.scene) B.push({ p: 'Pick the scene to copy from.', c: 'muted' });
+  else if (F.loading) B.push({ p: `Reading ${F.scene}...`, c: 'faint' });
+  else if (F.files) {
+    const L = fromLists(F.files), row = (f, orig) => ({ id: 'fromf:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes),
+      act: 'fromFile', v: f.path, on: F.busy === f.path, dis: !!F.busy || full(f.kind === 'audio' ? 's' : 'o') });
+    B.push({ label: `Models in ${F.scene} (${L.models.length})`, list: L.models.map(f => row(f)) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
+    if (L.orig.length) {
+      B.push({ row: [{ id: 'fromorig', label: `Its originals (${L.orig.length}) ${F.orig ? '▾' : '▸'}`, act: 'fromOrig', on: F.orig }] });
+      if (F.orig) B.push({ list: L.orig.map(f => row(f, true)) });
+    }
+  }
+  if (F.note) B.push({ p: F.note, c: F.noteC });
+  B.push({ p: 'A press copies the file into this scene at the same path (a new name when that is taken), with the files a model names (its MTL, textures, a glTF\'s .bin), and places it 1.5 m in front of you. Each scene keeps its own copy.', c: 'faint' });
 }
 function itemSub(it) {
   if (it.kind === 'g') { const n = members(it).length; return `${n} item${n === 1 ? '' : 's'}` + (STU.gpick && STU.gpick.id === it.id ? ' · picking' : ''); }
@@ -19917,8 +20096,16 @@ function itemBlocks(it, B, ed) {
     if (grp) B.splice(1, 0, { p: `In group ${grp.rec.name}: it moves with it. Selected on its own, it moves alone.`, c: 'muted' }, { row: [{ id: 'selgroup', label: 'Select the group', act: 'sel', v: grp.id }] });
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
+  holdBlocks(it, B, dis);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
+}
+// Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
+// it points (holdHover in e8_xr.js); pressed again, not
+function holdBlocks(it, B, dis) {
+  const on = XR.hold === it.id;
+  B.push({ xr: true, label: 'Carry it', row: [{ id: 'hold', label: on ? 'Now press a grip (again: cancel)' : 'Hold it', act: 'i:hold', on, dis }] },
+    { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
 // ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
@@ -19938,6 +20125,7 @@ function groupBlocks(g, B, dis, ed) {
   if (g.note) B.push({ p: g.note, c: 'amber' });
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
+  holdBlocks(g, B, dis || !ms.length);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m })) });
@@ -20091,6 +20279,12 @@ function act(a, v) {
     adds: () => addSound(v),
     cube: () => addCube(),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
+    newscene: () => sceneAsk(),
+    scenemake: () => sceneMake(NS.name),
+    from: () => { FROM.open = !FROM.open && canCopy(); const o = SRC.scenes.filter(s => s.name !== STU.scene); if (FROM.open && !FROM.scene && o.length === 1) fromScene(o[0].name); },
+    fromScene: () => fromScene(v),
+    fromFile: () => copyIn(v),
+    fromOrig: () => { FROM.orig = !FROM.orig; },
     sel: () => select(v === STU.sel ? '' : v),
     link: () => { if (STU.pick) toggleLink(STU.pick.id, STU.pick.list, v); },
     linkg: () => { const g = STU.items.get(v); if (STU.pick && g) toggleLinks(STU.pick.id, STU.pick.list, members(g).map(m => m.id)); },
@@ -20106,7 +20300,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -20194,9 +20388,9 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const fo = document.activeElement && document.activeElement.id === 'stuNewName' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && ['stuNewName', 'stuSceneName'].includes(ae.id) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
-  if (fo) { const i = $('#stuNewName'); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
+  if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
   const vb = $('#viewctl [data-ctl="view"]');
   if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));
@@ -20240,14 +20434,34 @@ function pickables() {
 // else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
 // of the object's own cut-outs (a nearer object or sound is still found first); picking the object a sound follows or a
 // cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
-// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model
-function rayPick(ray) {
+// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model. o.inside: when the
+// ray finds nothing at all and starts inside an object's unseen box (you stand in a room scan: its box's faces point away
+// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick)
+function rayPick(ray, o) {
   GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
   const objOnly = !!(STU.follow || STU.cutTo || STU.gpick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
-  if (!c) return null;
+  if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? ray.ray.clone() : null };
+}
+// the object whose unseen box holds the ray's origin (the controller, or a page's camera in Walk view), the smallest if
+// several (a figure standing in a room scan: the figure); the point where the ray leaves that box (the pointer's dot)
+const _ib = new THREE.Matrix4(), _ir = new THREE.Ray(), _iv = new THREE.Vector3(), UNIT = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(0.5, 0.5, 0.5));
+function insidePick(r) {
+  let best = null, bv = Infinity;
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'o' || !it.model || !it.holder.visible) continue;
+    const m = it.proxy.matrixWorld;
+    _iv.copy(r.origin).applyMatrix4(_ib.copy(m).invert());
+    if (Math.abs(_iv.x) > 0.5 || Math.abs(_iv.y) > 0.5 || Math.abs(_iv.z) > 0.5) continue;
+    const v = Math.abs(m.determinant());   // (the box's volume)
+    if (v < bv) { bv = v; best = it; }
+  }
+  if (!best) return null;
+  const m = best.proxy.matrixWorld, p = _ir.copy(r).applyMatrix4(_ib.copy(m).invert()).intersectBox(UNIT, new THREE.Vector3());
+  const point = p ? p.applyMatrix4(m) : r.origin.clone();
+  return { id: best.id, corner: undefined, point, dist: point.distanceTo(r.origin), ray: r.clone(), inside: true };
 }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
@@ -20269,7 +20483,7 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
-        const h = rayPick(pointerRay(ev.clientX, ev.clientY));
+        const ray = pointerRay(ev.clientX, ev.clientY), h = rayPick(ray, { inside: walkInside(ray) });
         STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
       }
       return;
@@ -20328,11 +20542,11 @@ function bindCanvas() {
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
 function clickAt(mx, my) {
-  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray) : null;
+  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray, { inside: walkInside(ray) }) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
-    const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
-    if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
+    const p = walkFloor(ray);
+    if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
   if (editOn() && !STU.pick && !STU.follow && !STU.cutTo && !STU.gpick) select('');
 }
@@ -20356,6 +20570,10 @@ function pressItem(id, ray) {
   if (ray && it.kind === 'o') cutRay(id, ray);
   sfxAct('pick', 'world', null);
 }
+// Walk view: where a click on the floor walks to (within 60 m), or null; standing inside a model's unseen box (a room
+// scan), a click that finds nothing and not the floor selects that model (rayPick's inside: the floor is for walking)
+function walkFloor(ray) { const p = ray.ray.intersectPlane(_rp, new THREE.Vector3()); return p && p.distanceTo(WALK.pos) < 60 ? p : null; }
+const walkInside = ray => X.view === 'walk' && !walkFloor(ray);
 // Walk view: W A S D or the arrows walk (Shift faster), a click on the floor walks there; the camera at 1.6 m
 function walkStep(dt) {
   const f = (KEYS.has('w') || KEYS.has('arrowup') ? 1 : 0) - (KEYS.has('s') || KEYS.has('arrowdown') ? 1 : 0);
@@ -21007,9 +21225,8 @@ function rowPlan(r) {
 }
 // a new scene (POST /api/scenes): its folder made, then picked
 async function upMake() {
-  const name = UP.newName.trim();
-  // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName)
-  if (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)) { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).'; dirty(true); return; }
+  const name = UP.newName.trim(), why = sceneNameWhy(name);   // (the relay's rule for a new scene)
+  if (why) { UP.newNote = why; dirty(true); return; }
   if (!upRelay() || UP.making) return;
   UP.making = true; UP.newNote = ''; dirty(true);
   try {
@@ -21262,8 +21479,14 @@ function uploadBind() {
     if (APP.mode !== 'explore') APP.enterExplore();
     readDropped(ev.dataTransfer).then(upTake);
   });
-  ex.addEventListener('input', ev => { if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); } });
-  ex.addEventListener('keydown', ev => { if (ev.target.id === 'stuNewName' && ev.key === 'Enter') { ev.preventDefault(); upMake(); } });
+  ex.addEventListener('input', ev => {
+    if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); }
+    if (ev.target.id === 'stuSceneName') { NS.name = ev.target.value; const b = ex.querySelector('[data-act="scenemake"]'); if (b) b.disabled = NS.making || !NS.name.trim(); }   // (the Scene pane's New scene)
+  });
+  ex.addEventListener('keydown', ev => {
+    if (ev.target.id === 'stuNewName' && ev.key === 'Enter') { ev.preventDefault(); upMake(); }
+    if (ev.target.id === 'stuSceneName' && ev.key === 'Enter') { ev.preventDefault(); sceneMake(NS.name); }
+  });
   ex.addEventListener('change', ev => {
     const t = ev.target;
     if (t.id !== 'stuFiles' && t.id !== 'stuFolder') return;
@@ -21391,6 +21614,7 @@ const XR = {
   kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from',
   rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
   walk: { x: 0, z: 0, yaw: 0 }, floorSpace: null, floorY: null, atSt: false, turnArm: true,
+  hold: '',   // (Hold it: the selected item the next grip carries, wherever it points)
 };
 const _xd = new THREE.Vector3(), _xp = new THREE.Vector3(), _xq = new THREE.Quaternion();
 const _xq2 = new THREE.Quaternion(), _xm = new THREE.Matrix4(), _xinv = new THREE.Matrix4();
@@ -21661,7 +21885,7 @@ const _gw = new THREE.Vector3(), _gwq = new THREE.Quaternion();
 const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom() && HOST.room.gripLocked && HOST.room.gripLocked()); } catch (e) { return false; } };
 function xrGrab(c, on) {
   xrLetGo(c);
-  const h = c.hover;
+  const h = on ? holdHover(c) : c.hover;
   if (!on || !h) return;
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
@@ -21669,6 +21893,7 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
+    if (it.kind === 'g') { groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
     // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
@@ -21703,6 +21928,19 @@ function xrGrab(c, on) {
     o0: c.o.clone(), p0, reach: 1, r0: XR.panelGroup.quaternion.clone() };
   buzz(c, 0.4, 25);
 }
+// Hold it (a selected item's card, in a headset): the next grip of either hand, wherever it points, carries the selected
+// item as a grip on it would (from where it stands: it keeps its offset from the hand), so a thing too big or too far to
+// point at (a room scan you stand in) can be carried; once, then disarmed. Not at the shell's menu or a station (the
+// shell takes those grips itself): it stays armed then. Disarmed by another selection, editing off, or the session's end
+function holdHover(c) {
+  const h = c.hover, id = XR.hold;
+  if (!id || (h && (h.kind === 'shell' || h.menu))) return h;
+  XR.hold = '';
+  dirty(true);
+  const it = STU.items.get(id);
+  return it && id === STU.sel && editOn() ? { kind: 'item', id, hold: true } : h;
+}
+const holdStep = () => { if (XR.hold && (XR.hold !== STU.sel || !editOn() || !XR.on)) { XR.hold = ''; dirty(true); } };
 // let go of an item (the grip up, the controller gone, or locked meanwhile): it stays where it is (its record written),
 // unless the other hand still holds it
 function xrLetGo(c) {
@@ -21905,11 +22143,32 @@ function stretchCut(c, G, it) {
   it.holder.quaternion.copy(G.q); it.holder.scale.fromArray(size);
   carryWrite(it);
 }
+// a stick pushed up or down while its ray is on the studio's panel (its own, or its copy on the menu's Story tab) scrolls
+// the pane there when it is taller than the panel: up shows what is above. A dead zone, then faster the further it is
+// pushed, and faster still the longer it is held (from a third of the speed to all of it in 0.8 s); held at the ends as
+// Up and More are. Never by a hand that carries something (its stick pushes and pulls what it holds)
+const SCROLL = { dz: 0.2, slow: 0.25, fast: 1.6, ramp: 0.8 };   // (speeds in the pane's heights a second)
+function stickScroll(c, gp, dt) {
+  const h = c.hover, y = gp && gp.axes.length >= 4 ? gp.axes[3] : 0;
+  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.stories || APP.mode !== 'explore' || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
+  const tab = X.tab, max = X.scrollMax[tab] || 0, view = X.scrollView || 1000;
+  if (!(max > 0)) { c.scrollT = 0; return; }
+  c.scrollT = (c.scrollT || 0) + dt;
+  const m = (Math.abs(y) - SCROLL.dz) / (1 - SCROLL.dz), ramp = Math.min(1, 1 / 3 + c.scrollT / SCROLL.ramp * 2 / 3);
+  const v = (SCROLL.slow + (SCROLL.fast - SCROLL.slow) * m * m) * ramp * view;
+  // (the stick's fraction kept between frames; Up or More pressed meanwhile: from where they put it)
+  const F = X.scrollF;
+  if (F.tab !== tab || F.at !== (X.scroll[tab] || 0)) { F.tab = tab; F.v = X.scroll[tab] || 0; }
+  F.v = clamp(F.v + Math.sign(y) * v * dt, 0, max);
+  F.at = X.scroll[tab] = Math.round(F.v);
+}
 // VR (not passthrough), nothing carried: the left stick walks you through the scene (it moves, not the rig), the right
-// stick turns you 30 degrees a flick, about where you stand
+// stick turns you 30 degrees a flick, about where you stand. Not a stick whose ray is on the studio's panel (it scrolls
+// there: stickScroll); a turn held there waits for the stick to come back to the middle
 function stickWalk(c, gp, dt) {
   if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
   const ax = gp.axes[2], ay = gp.axes[3], hand = c.src.handedness;
+  if (c.hover && c.hover.kind === 'panel') { if (hand === 'right' && Math.abs(ax) >= 0.3) XR.turnArm = false; return; }
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);
     if (m < 0.15) return;
@@ -21950,8 +22209,9 @@ function xrPoint(c, dt) {
     dist = h.distance;
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
-    const ih = editOn() ? rayPick(XR.raycaster) : null;
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray }; dist = ih.dist; }
+    // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
+    const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
+    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }
@@ -21971,6 +22231,7 @@ function xrPoint(c, dt) {
     const b4 = !!(gp.buttons[4] && gp.buttons[4].pressed);
     if (b4 && !c.b4 && APP.mode === 'story') APP.togglePlay();
     c.b4 = b4;
+    stickScroll(c, gp, dt);
     stickWalk(c, gp, dt);
   }
   c.ray.scale.z = dist;
@@ -22021,6 +22282,7 @@ function xrBegin(frame, dt) {
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
+  holdStep();
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
   if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
@@ -22200,7 +22462,7 @@ function xrEnded() {
   for (const P of XR.panels) P.mesh.visible = false;
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
   xrLost();
-  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false;
+  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false; XR.hold = '';
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
@@ -22641,7 +22903,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 
 // explore: the Scene, Add, Item and Items panes, drawn from the same blocks as the page's (paneBlocks), without the
-// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More
+// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More,
+// or a stick pushed up or down while pointing at it (stickScroll)
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
   if (X.tab === 'upload') X.tab = 'scene';   // (Upload is the page's: a headset has no files to drop)
@@ -22653,6 +22916,7 @@ function drawExplorePane(ctx, P, x, y, W) {
   const more = total > bottom - y;
   if (more) bottom -= 72;
   const max = Math.max(0, total - (bottom - y)), off = X.scroll[X.tab] = clamp(X.scroll[X.tab] || 0, 0, max);
+  X.scrollMax[X.tab] = max; X.scrollView = bottom - y;   // (how far the sticks may scroll it: stickScroll)
   ctx.save(); ctx.beginPath(); ctx.rect(x - 10, y - 4, W + 20, bottom - y + 8); ctx.clip();
   let yy = y - off;
   for (const b of blocks) yy += drawBlock(ctx, P, b, x, yy, W, y - 4, bottom + 4, false);
@@ -22743,7 +23007,7 @@ function sigFoot() {
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
 const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: walk. Right stick: turn.' : '') : 'Pick a scene on the panel.')
   : HOST.room && HOST.room.inRoom() && HOST.anchor.locked('globe') ? HOST.room.gripHint
-  : 'Trigger: select (pointing at nothing: none; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (XR.clear ? ' Sticks: walk, turn.' : ''));
+  : 'Trigger: select (pointing at nothing: none, or the model you stand in; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (XR.clear ? ' Sticks: walk, turn (on the panel: scroll).' : ' A stick on the panel scrolls it.'));
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
     const playing = APP.playing, bx = 28, by = 40;

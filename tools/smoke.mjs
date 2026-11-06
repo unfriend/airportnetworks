@@ -1215,7 +1215,11 @@ await step('design: the intro ends at the table', async () => {
 // stepped frame by frame), the figure's take from when it was shown, out again the reverse, a cube that stays, editing's
 // faint hidden box; editing (a click selecting, the page's arrows moving, a cube stretched, a link added from the Items
 // pane, Add and Delete, Undo); the shared state and back, the room's taken, bad values ignored; a pretend headset's grips
-// (carry, size, a corner) and the VR stick walk; the relay's watch (a scene added, a layout removed) and its password (one
+// (carry, size, a corner) and the VR stick walk; inside a model's unseen box, pointing at nothing, that model (a headset's
+// controller, a page's camera in Walk view, whose floor still walks; an item in front wins), Hold it on a headset's card
+// (the next grip on nothing carries it, one Undo step), a stick scrolling the pane its ray is on (held at the ends, the walk
+// paused there); New scene (a page's field, a headset's keypad, the name rules) and From another scene offered only with a
+// relay that takes uploads (stubbed), a circle made for one scene opened to write its saved layout; the relay's watch (a scene added, a layout removed) and its password (one
 // refusal told to the shell once, nothing more asked until another password); the sound's panner at its place, silent when
 // muted; a sound longer than 20 s streamed (an element, no decoded buffer), a short one decoded; GLB first (the Add list's
 // folders and Originals, a GLB standing for its original, an OBJ from originals/ in centimetres, Convert to GLB in the page
@@ -1454,6 +1458,206 @@ await step('design: the intro ends at the table', async () => {
       for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
       XR.on = false; STU.hover = ''; GL.rig.position.set(0, 0, 0); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity();
       while (UNDO.length) undo();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: in a headset, inside a model and pointing at nothing it is pointed at (another item in front wins; outside, nothing); in Walk view the same, the floor still walking; Hold it carries it with a grip on nothing (one Undo step)', async () => {
+    await until(`[...STU.items.values()].every(it => !it.gl) && STUDIO.ready()`, 10000);
+    await frames(4);
+    const bad = await ss(`(() => {
+      const out = [], fig = STU.items.get('fig001'), [a, b] = XR.ctrls;
+      setEdit(true); select(''); XR.on = true; XR.clear = true; XR.hold = '';
+      GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity(); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1); GL.world.updateMatrixWorld(true);
+      const ctl = (c, p, q, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand || 'right', gamepad: axes ? { axes, buttons: [] } : null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), q || new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const aim = (from, to) => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), to.clone().sub(from).normalize());
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      // the controller inside the figure's unseen box, high in it (clear of its sound), pointing up and back at nothing
+      const fb = new THREE.Box3().setFromObject(fig.proxy), c0 = fb.getCenter(new THREE.Vector3()), pin = new THREE.Vector3(c0.x, fb.max.y - 0.12, c0.z);
+      const away = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 1).normalize());
+      ctl(a, pin.toArray(), away); xrPoint(a, 0.016);
+      const h1 = a.hover && { kind: a.hover.kind, id: a.hover.id, inside: !!a.hover.inside, d: a.hover.point && fb.distanceToPoint(a.hover.point) };
+      if (!h1 || h1.kind !== 'item' || h1.id !== 'fig001' || !h1.inside || h1.d > 1e-3) out.push('pointing at nothing from inside the figure\\'s box: not the figure, its dot on its box: ' + JSON.stringify(h1));
+      xrPress(a);
+      if (STU.sel !== 'fig001') out.push('the trigger there did not select the figure: ' + STU.sel);
+      // from there at the box: the box (something hit wins over the box you stand in)
+      const bw = STU.items.get('box001').holder.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.05, 0));
+      ctl(a, pin.toArray(), aim(pin, bw)); xrPoint(a, 0.016);
+      if (!a.hover || a.hover.id !== 'box001' || a.hover.inside) out.push('pointing at the box from inside the figure\\'s box: not the box: ' + JSON.stringify(a.hover && [a.hover.kind, a.hover.id, a.hover.inside]));
+      // outside every box, pointing at nothing: nothing (and the trigger clears the selection, as before)
+      ctl(a, [0, 2.6, 3], away); xrPoint(a, 0.016);
+      if (a.hover && a.hover.kind === 'item') out.push('outside every box, pointing at nothing: an item: ' + a.hover.id);
+      xrPress(a);
+      if (STU.sel) out.push('the trigger at nothing outside every box kept the selection');
+      // editing off: nothing pointed at, inside or not
+      setEdit(false); ctl(a, pin.toArray(), away); xrPoint(a, 0.016);
+      if (a.hover && a.hover.kind === 'item') out.push('editing off, inside the figure: it was pointed at');
+      setEdit(true);
+      // Hold it on the figure's headset card: the next grip of the other hand, on nothing, carries it from where it stands
+      select('fig001'); X.tab = 'item'; X.scroll = {}; draw();
+      let hr = null;
+      for (let off = 0; off < 4000 && !hr; off += 150) { X.scroll.item = off; draw(); hr = XR.main.regions.find(q => q.id === 'hold'); }
+      if (!hr) out.push('the figure\\'s headset card has no Hold it');
+      else hr.fn();
+      if (XR.hold !== 'fig001') out.push('Hold it did not arm: ' + XR.hold);
+      if (paneBlocks('item').filter(b => !b.xr).some(x => (x.row || []).some(r => r.id === 'hold'))) out.push('Hold it is on the page\\'s card too');
+      const u0 = UNDO.length, w0 = fig.holder.getWorldPosition(new THREE.Vector3()), p0 = JSON.stringify(fig.rec.p);
+      ctl(b, [3, 1, 3], away); b.hover = null; xrGrab(b, true);
+      if (!b.grab || b.grab.id !== 'fig001' || b.grab.target !== 'item' || XR.hold) out.push('a grip on nothing after Hold it did not take the figure: ' + JSON.stringify(b.grab && [b.grab.target, b.grab.id]) + ' ' + XR.hold);
+      ctl(b, [3.4, 1.2, 3], away); carry(b, 0.016);
+      const w1 = fig.holder.getWorldPosition(new THREE.Vector3());
+      if (Math.abs(w1.x - w0.x - 0.4) > 1e-3 || Math.abs(w1.y - w0.y - 0.2) > 1e-3 || Math.abs(w1.z - w0.z) > 1e-3) out.push('the figure did not follow the hand from where it stood: moved ' + w1.clone().sub(w0).toArray().map(v => v.toFixed(3)));
+      xrGrab(b, false);
+      if (UNDO.length !== u0 + 1 || JSON.stringify(fig.rec.p) === p0) out.push('the carry was not one change for Undo: ' + (UNDO.length - u0));
+      undo();
+      if (JSON.stringify(fig.rec.p) !== p0) out.push('Undo did not put the figure back');
+      // without it, a grip on nothing takes nothing; armed, another selection or editing off disarms it
+      b.hover = null; xrGrab(b, true);
+      if (b.grab) out.push('a grip on nothing took something without Hold it');
+      xrGrab(b, false);
+      select('fig001'); itemAct('hold'); select('box001'); holdStep();
+      if (XR.hold) out.push('another selection did not disarm Hold it');
+      select('fig001'); itemAct('hold'); itemAct('hold');
+      if (XR.hold) out.push('Hold it pressed again did not disarm it');
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; STU.hover = ''; select(''); X.tab = 'scene'; X.scroll = {};
+      // Walk view on a page: the camera inside the figure's box, looking up: a click selects it; down at the floor it walks
+      setView('walk'); WALK.pos.set(c0.x, 1.6, c0.z); WALK.yaw = 0; WALK.pitch = 1.1; WALK.to = null; walkStep(0); GL.camera.updateMatrixWorld(true);
+      const inFig = fb.containsPoint(GL.camera.position);
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2, hv = rayPick(pointerRay(cx, cy), { inside: walkInside(pointerRay(cx, cy)) });
+      clickAt(cx, cy);
+      if (!inFig || !hv || hv.id !== 'fig001' || STU.sel !== 'fig001' || WALK.to) out.push('Walk view inside the figure\\'s box, a click on nothing: ' + JSON.stringify({ inFig, hv: hv && hv.id, sel: STU.sel, to: !!WALK.to }));
+      WALK.pitch = -1.1; walkStep(0); GL.camera.updateMatrixWorld(true); clickAt(cx, cy);
+      if (!WALK.to || STU.sel !== 'fig001') out.push('Walk view inside the figure\\'s box, a click on the floor did not walk there: ' + JSON.stringify({ to: !!WALK.to, sel: STU.sel }));
+      WALK.to = null;
+      setView('orbit'); select('');
+      while (UNDO.length) undo();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: a headset\'s stick scrolls the pane its ray is on (up and down, held at the ends; not while it carries something), and walks again pointing away', async () => {
+    const bad = await ss(`(() => {
+      const out = [], [a] = XR.ctrls;
+      setEdit(true); XR.on = true; XR.clear = true; select('fig001'); X.tab = 'item'; X.scroll = {};
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ctl = (c, p, q, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand || 'left', gamepad: axes ? { axes, buttons: [] } : null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), q || new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      draw();
+      const max = X.scrollMax.item || 0;
+      if (!(max > 0)) out.push('the figure\\'s headset card does not overflow the panel: ' + max);
+      // the ray on the panel (its mesh shown, the controller 0.6 m in front of it), the left stick pushed down: it scrolls
+      XR.main.mesh.visible = true; GL.rig.updateMatrixWorld(true);
+      const m = XR.main.mesh, pw = m.getWorldPosition(new THREE.Vector3()), pn = new THREE.Vector3(0, 0, 1).applyQuaternion(m.getWorldQuaternion(new THREE.Quaternion()));
+      const from = pw.clone().addScaledVector(pn, 0.6), face = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), pn.clone().negate());
+      XR.walk.x = XR.walk.z = XR.walk.yaw = 0; XR.head.set(0, 1.6, 0); XR.headQ.identity();
+      ctl(a, from.toArray(), face, 'left', [0, 0, 0, 0.9]);
+      xrPoint(a, 0.1);
+      if (!a.hover || a.hover.kind !== 'panel' || a.hover.P !== XR.main) out.push('the ray in front of the panel is not on it: ' + (a.hover && a.hover.kind));
+      const s1 = X.scroll.item || 0;
+      for (let k = 0; k < 6; k++) xrPoint(a, 0.1);
+      const s2 = X.scroll.item || 0;
+      if (!(s1 > 0 && s2 > s1)) out.push('the stick pushed down did not scroll the pane: ' + [s1, s2]);
+      if (XR.walk.x || XR.walk.z) out.push('the left stick walked while its ray was on the panel: ' + JSON.stringify(XR.walk));
+      for (let k = 0; k < 80; k++) xrPoint(a, 0.1);
+      if (X.scroll.item !== max) out.push('held down, it did not stop at the pane\\'s end: ' + X.scroll.item + ' of ' + max);
+      // in the dead zone nothing; pushed up it scrolls back to the top and stops there
+      a.src.gamepad.axes[3] = 0.12; const s3 = X.scroll.item; xrPoint(a, 0.1);
+      if (X.scroll.item !== s3) out.push('a stick within its dead zone scrolled');
+      a.src.gamepad.axes[3] = -1; for (let k = 0; k < 80; k++) xrPoint(a, 0.1);
+      if (X.scroll.item !== 0) out.push('pushed up it did not scroll back to the top: ' + X.scroll.item);
+      // a ramp: held longer, faster (from a third of the speed)
+      a.src.gamepad.axes[3] = 0; xrPoint(a, 0.05);
+      a.src.gamepad.axes[3] = 0.6; xrPoint(a, 0.05); const v1 = X.scroll.item; for (let k = 0; k < 12; k++) xrPoint(a, 0.05); const t0 = X.scroll.item; xrPoint(a, 0.05); const v2 = X.scroll.item - t0;
+      if (!(v2 > v1 * 1.5)) out.push('held, the scroll did not speed up: ' + [v1, v2]);
+      // the right stick on the panel neither turns nor scrolls sideways; carrying something, no scroll
+      const yaw0 = XR.walk.yaw; ctl(XR.ctrls[1], from.toArray(), face, 'right', [0, 0, 1, 0]); xrPoint(XR.ctrls[1], 0.1); xrPoint(XR.ctrls[1], 0.1);
+      if (XR.walk.yaw !== yaw0) out.push('the right stick turned while its ray was on the panel');
+      XR.ctrls[1].src = null; XR.ctrls[1].g.visible = false; XR.ctrls[1].hover = null;
+      a.grab = { target: 'panel', q0: new THREE.Quaternion(), o0: a.o.clone(), p0: a.o.clone(), reach: 1, r0: new THREE.Quaternion() };
+      const s4 = X.scroll.item; a.src.gamepad.axes[3] = 1; stickScroll(a, a.src.gamepad, 0.5);
+      if (X.scroll.item !== s4) out.push('a hand carrying something scrolled');
+      a.grab = null;
+      // pointing away from the panel: the left stick walks again, and nothing scrolls
+      const up = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0));
+      ctl(a, [0, 1.2, 0], up, 'left', [0, 0, 0, -1]); const s5 = X.scroll.item;
+      xrPoint(a, 0.5);
+      if (!(XR.walk.z > 0.5) || X.scroll.item !== s5) out.push('pointing away, the left stick did not walk (or still scrolled): ' + JSON.stringify([XR.walk, X.scroll.item, s5]));
+      xrRecenter(); XR.turnArm = true;
+      XR.main.mesh.visible = false;
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; STU.hover = ''; select(''); X.tab = 'scene'; X.scroll = {}; GL.rig.position.set(0, 0, 0); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: New scene (the page\'s field, a headset\'s keypad, its rules) and From another scene only with a relay that takes uploads; a circle made for one scene writes its saved layout', async () => {
+    const bad = await ss(`(async () => {
+      const out = [], keep = { fetch: window.fetch, src: Object.assign({}, SRC), kp: HOST.collab.keypad, ls: listScenes, os: openScene, el: editLocked, live: HOST.collab.live, edit: STU.edit, ri: removeItem, pi: putItem };
+      const opened = [], posts = [], asked = [], has = (tab, id) => paneBlocks(tab).some(b => (b.row || []).some(x => x.id === id) || (b.list || []).some(x => x.id === id));
+      const wait = async (f, ms) => { for (const end = performance.now() + (ms || 3000); performance.now() < end; await new Promise(r => setTimeout(r, 30))) if (f()) return true; return false; };
+      try {
+        setEdit(true);
+        // the folder of scenes (read only): neither
+        if (has('scene', 'newscene')) out.push('New scene offered with a folder of scenes');
+        if (has('add', 'from')) out.push('From another scene offered with a folder of scenes');
+        // a relay that takes uploads (stubbed): New scene on the page, through its field
+        Object.assign(SRC, { kind: 'relay', base: 'http://relay.test', token: '', state: 'ok', save: true, upload: true, held: false, scenes: [{ name: 'test' }, { name: 'other' }] });
+        HOST.collab.keypad = undefined;
+        listScenes = async () => {};
+        openScene = (n, how) => { opened.push([n, how]); };
+        window.fetch = async (u, o) => {
+          u = String(u);
+          if (o && o.method === 'POST' && u === 'http://relay.test/api/scenes') {
+            const n = JSON.parse(o.body).name; posts.push(n);
+            return n === 'taken' ? new Response('{"error":"there is a scene (or a file) by that name"}', { status: 409 }) : new Response(JSON.stringify({ ok: true, name: n }), { status: 201 });
+          }
+          return new Response('{"error":"not here"}', { status: 404 });
+        };
+        if (!has('scene', 'newscene') || !has('add', 'from')) out.push('a relay that takes uploads: New scene or From another scene not offered: ' + [has('scene', 'newscene'), has('add', 'from')]);
+        X.tab = 'scene'; act('newscene'); renderPanes();
+        const inp = document.querySelector('#stuSceneName');
+        if (!inp) out.push('New scene on the page did not open its field');
+        else {
+          inp.value = 'Made here'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+          document.querySelector('#pane-scene [data-act="scenemake"]').click();
+          if (!await wait(() => opened.length)) out.push('Make it did not make and open the scene');
+          if (JSON.stringify(posts) !== '["Made here"]' || JSON.stringify(opened) !== '[["Made here","pick"]]' || NS.open || NS.note) out.push('Make it: ' + JSON.stringify({ posts, opened, open: NS.open, note: NS.note }));
+        }
+        // its rules: a bad name refused here (nothing sent), a name taken said
+        posts.length = 0; opened.length = 0;
+        await sceneMake('-dash'); const n1 = NS.note; await sceneMake('nul'); const n2 = NS.note; await sceneMake('taken');
+        if (posts.join() !== 'taken' || opened.length || !/A scene's name/.test(n1) || !/A scene's name/.test(n2) || !/There is a scene called taken already/.test(NS.note)) out.push('the name rules: ' + JSON.stringify({ posts, opened, n1, n2, note: NS.note }));
+        NS.note = '';
+        // a headset: only with the shell's keypad; its name from the keypad (cancelled: nothing)
+        XR.on = true;
+        if (has('scene', 'newscene')) out.push('a headset without the shell\\'s keypad offers New scene');
+        let give = null;
+        HOST.collab.keypad = async o => { asked.push(o); return give; };
+        if (!has('scene', 'newscene')) out.push('a headset with the shell\\'s keypad does not offer New scene');
+        posts.length = 0; opened.length = 0;
+        await sceneAsk();
+        give = 'from headset'; await sceneAsk();
+        if (asked.length !== 2 || asked[0].title !== 'New scene' || asked[0].max !== 64 || JSON.stringify(posts) !== '["from headset"]' || JSON.stringify(opened) !== '[["from headset","pick"]]') out.push('the headset\\'s keypad: ' + JSON.stringify({ asked, posts, opened }));
+        if (paneBlocks('scene').some(b => b.input)) out.push('the headset\\'s pane has the page\\'s field');
+        XR.on = false;
+        // a visitor, a locked scene, a read-only relay: neither
+        OPT.visit = true; const v1 = has('scene', 'newscene') || has('add', 'from'); OPT.visit = false;
+        editLocked = () => true; const v2 = has('scene', 'newscene') || has('add', 'from'); editLocked = keep.el;
+        SRC.upload = false; const v3 = has('scene', 'newscene') || has('add', 'from'); SRC.upload = true;
+        if (v1 || v2 || v3) out.push('offered to a visitor, while locked or on a read-only relay: ' + [v1, v2, v3]);
+        // a circle made for one scene (its state names the scene, no item): opened to write its saved layout; with items, the room's
+        opened.length = 0;
+        HOST.collab.live = () => ({ id: 'stnew1', story: 'studio' });
+        removeItem = () => {}; putItem = () => null;   // (the test scene's items stay as they are)
+        collabApply({ scene: 'other' });
+        collabApply({ scene: 'third', 'o.abcdef': { name: 'A', file: 'box.glb', p: [0, 0, 0] } });
+        HOST.collab.live = () => ({ id: 'stnew2', story: 'studio' });
+        collabApply({ scene: STU.scene });
+        if (JSON.stringify(opened) !== JSON.stringify([['other', 'fresh'], ['third', 'room'], [STU.scene, 'fresh']])) out.push('a circle made for one scene: ' + JSON.stringify(opened));
+      } finally {
+        window.fetch = keep.fetch; HOST.collab.keypad = keep.kp; listScenes = keep.ls; openScene = keep.os; editLocked = keep.el; HOST.collab.live = keep.live; removeItem = keep.ri; putItem = keep.pi; OPT.visit = false; XR.on = false;
+        Object.assign(SRC, keep.src); Object.assign(NS, { open: false, name: '', note: '', making: false, asking: false }); STU.stId = ''; setEdit(keep.edit); X.tab = 'scene'; renderPanes();
+      }
       return out;
     })()`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));

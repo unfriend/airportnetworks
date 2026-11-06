@@ -13,6 +13,7 @@ const XR = {
   kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from',
   rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
   walk: { x: 0, z: 0, yaw: 0 }, floorSpace: null, floorY: null, atSt: false, turnArm: true,
+  hold: '',   // (Hold it: the selected item the next grip carries, wherever it points)
 };
 const _xd = new THREE.Vector3(), _xp = new THREE.Vector3(), _xq = new THREE.Quaternion();
 const _xq2 = new THREE.Quaternion(), _xm = new THREE.Matrix4(), _xinv = new THREE.Matrix4();
@@ -283,7 +284,7 @@ const _gw = new THREE.Vector3(), _gwq = new THREE.Quaternion();
 const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom() && HOST.room.gripLocked && HOST.room.gripLocked()); } catch (e) { return false; } };
 function xrGrab(c, on) {
   xrLetGo(c);
-  const h = c.hover;
+  const h = on ? holdHover(c) : c.hover;
   if (!on || !h) return;
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
@@ -291,6 +292,7 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
+    if (it.kind === 'g') { groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
     // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
@@ -325,6 +327,19 @@ function xrGrab(c, on) {
     o0: c.o.clone(), p0, reach: 1, r0: XR.panelGroup.quaternion.clone() };
   buzz(c, 0.4, 25);
 }
+// Hold it (a selected item's card, in a headset): the next grip of either hand, wherever it points, carries the selected
+// item as a grip on it would (from where it stands: it keeps its offset from the hand), so a thing too big or too far to
+// point at (a room scan you stand in) can be carried; once, then disarmed. Not at the shell's menu or a station (the
+// shell takes those grips itself): it stays armed then. Disarmed by another selection, editing off, or the session's end
+function holdHover(c) {
+  const h = c.hover, id = XR.hold;
+  if (!id || (h && (h.kind === 'shell' || h.menu))) return h;
+  XR.hold = '';
+  dirty(true);
+  const it = STU.items.get(id);
+  return it && id === STU.sel && editOn() ? { kind: 'item', id, hold: true } : h;
+}
+const holdStep = () => { if (XR.hold && (XR.hold !== STU.sel || !editOn() || !XR.on)) { XR.hold = ''; dirty(true); } };
 // let go of an item (the grip up, the controller gone, or locked meanwhile): it stays where it is (its record written),
 // unless the other hand still holds it
 function xrLetGo(c) {
@@ -527,11 +542,32 @@ function stretchCut(c, G, it) {
   it.holder.quaternion.copy(G.q); it.holder.scale.fromArray(size);
   carryWrite(it);
 }
+// a stick pushed up or down while its ray is on the studio's panel (its own, or its copy on the menu's Story tab) scrolls
+// the pane there when it is taller than the panel: up shows what is above. A dead zone, then faster the further it is
+// pushed, and faster still the longer it is held (from a third of the speed to all of it in 0.8 s); held at the ends as
+// Up and More are. Never by a hand that carries something (its stick pushes and pulls what it holds)
+const SCROLL = { dz: 0.2, slow: 0.25, fast: 1.6, ramp: 0.8 };   // (speeds in the pane's heights a second)
+function stickScroll(c, gp, dt) {
+  const h = c.hover, y = gp && gp.axes.length >= 4 ? gp.axes[3] : 0;
+  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.stories || APP.mode !== 'explore' || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
+  const tab = X.tab, max = X.scrollMax[tab] || 0, view = X.scrollView || 1000;
+  if (!(max > 0)) { c.scrollT = 0; return; }
+  c.scrollT = (c.scrollT || 0) + dt;
+  const m = (Math.abs(y) - SCROLL.dz) / (1 - SCROLL.dz), ramp = Math.min(1, 1 / 3 + c.scrollT / SCROLL.ramp * 2 / 3);
+  const v = (SCROLL.slow + (SCROLL.fast - SCROLL.slow) * m * m) * ramp * view;
+  // (the stick's fraction kept between frames; Up or More pressed meanwhile: from where they put it)
+  const F = X.scrollF;
+  if (F.tab !== tab || F.at !== (X.scroll[tab] || 0)) { F.tab = tab; F.v = X.scroll[tab] || 0; }
+  F.v = clamp(F.v + Math.sign(y) * v * dt, 0, max);
+  F.at = X.scroll[tab] = Math.round(F.v);
+}
 // VR (not passthrough), nothing carried: the left stick walks you through the scene (it moves, not the rig), the right
-// stick turns you 30 degrees a flick, about where you stand
+// stick turns you 30 degrees a flick, about where you stand. Not a stick whose ray is on the studio's panel (it scrolls
+// there: stickScroll); a turn held there waits for the stick to come back to the middle
 function stickWalk(c, gp, dt) {
   if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
   const ax = gp.axes[2], ay = gp.axes[3], hand = c.src.handedness;
+  if (c.hover && c.hover.kind === 'panel') { if (hand === 'right' && Math.abs(ax) >= 0.3) XR.turnArm = false; return; }
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);
     if (m < 0.15) return;
@@ -572,8 +608,9 @@ function xrPoint(c, dt) {
     dist = h.distance;
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
-    const ih = editOn() ? rayPick(XR.raycaster) : null;
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray }; dist = ih.dist; }
+    // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
+    const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
+    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }
@@ -593,6 +630,7 @@ function xrPoint(c, dt) {
     const b4 = !!(gp.buttons[4] && gp.buttons[4].pressed);
     if (b4 && !c.b4 && APP.mode === 'story') APP.togglePlay();
     c.b4 = b4;
+    stickScroll(c, gp, dt);
     stickWalk(c, gp, dt);
   }
   c.ray.scale.z = dist;
@@ -643,6 +681,7 @@ function xrBegin(frame, dt) {
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
+  holdStep();
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
   if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
@@ -822,7 +861,7 @@ function xrEnded() {
   for (const P of XR.panels) P.mesh.visible = false;
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
   xrLost();
-  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false;
+  STU.hover = ''; STU.hotCorner = null; XR.floorSpace = null; XR.floorY = null; XR.atSt = false; XR.hold = '';
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;

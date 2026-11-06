@@ -2747,7 +2747,10 @@ async function tokenRound() {
 // the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
 // it under cuts; a group made on a page (the box, the figure, Tone and Doorway) and turned and sized there, taken by every
 // page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
-// the saved layout.json carrying groups and faces; a long sound streamed (an
+// the saved layout.json carrying groups and faces; From another scene (a model of a second scene copied into the open
+// one with the files it names, an OBJ under originals/, a name taken: a new one; every device taking it); a circle made
+// for one scene as the shell writes it opening that scene and writing its saved layout on the pages that follow it; New
+// scene from the headset's panel (the shell's keypad stubbed) opening the new scene at its station; a long sound streamed (an
 // element, no decoded buffer); the relay's /upload redirecting to the Upload pane, where a page makes a new scene and uploads the test
 // originals (sorted into models/, sounds/ and originals/; the GLBs loading with their records; a short sound as a mono
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
@@ -2757,7 +2760,8 @@ async function tokenRound() {
 // up): a page and the pretend headset open the test scene from the bucket (every file by its signed link, CORS, ranges
 // and crossOrigin exercised by the browser; a long sound streamed), Save writes layout.json and .history/ there, Convert
 // to GLB and the Upload pane send their files straight into the bucket (signed PUTs), a link the bucket refuses is read
-// again, an upload it refuses goes through the relay, and the password goes nowhere.
+// again, an upload it refuses goes through the relay, a copy from another scene is the bucket's (CopyObject), and the
+// password goes nowhere.
 // dir: pictures (studio-*.png)
 async function relayOn(args, env, from) {
   for (let p = from; p < from + 20; p++) {
@@ -2896,7 +2900,7 @@ async function studioRound(dir) {
     const both = [];
     for (const p of [A, B, C, H]) both.push(await sUntil(p, `JSON.stringify(STU.items.get('box001').rec.p) === '[-0.5,0.25,-2]' && STU.items.has('${nc}') && STU.items.size === 5`, 10000));
     check('studio: an object moved by the arrows on one page and a cube added on another at the same moment are both kept, on every page and the headset', tcOk && !!nc && both.every(Boolean),
-      JSON.stringify({ tcOk, nc, both, A: await sp(A, 'Object.keys(collabState()).join()'), box: await sp(C, `STU.items.get('box001').rec.p`) }));
+      JSON.stringify({ tcOk, nc, both, A: await sp(A, 'Object.keys(collabState()).join()'), boxA: await sp(A, `STU.items.get('box001').rec.p`), box: await sp(C, `STU.items.get('box001').rec.p`) }));
 
     // ---- triggers are each device's own: the headset's head put at a point of the scene, then its items worked out as
     // its frame does in a headset (the pretend session is not three.js's own: the renderer says it presents only then)
@@ -3105,6 +3109,76 @@ async function studioRound(dir) {
       streamed && ls.F === 'stream,true,25,false,false' && ls.el && aQuiet, JSON.stringify({ lid, streamed, ls, aQuiet }));
     await B.evaluate(() => HOST.audio.mute(true));
     await sp(B, `(deleteItem('${lid}'), 0)`);
+
+    // ---- From another scene: a scene of the relay's (shelf, made now) holds an FBX naming its picture and an OBJ with its
+    // MTL and picture outside originals/; a page at the station copies each into the open scene through its Add pane (the
+    // picture with the FBX at the same paths; the OBJ and what it names under originals/, the only place an upload may put
+    // an OBJ), and places it, one Undo step; every page and the headset take it, its model in (the FBX with its picture); a
+    // second copy of the FBX gets a new name and keeps this scene's picture; the headset's Add pane offers it too
+    {
+    const SH = path.join(SC, 'shelf');
+    fs.mkdirSync(path.join(SH, 'props'), { recursive: true }); fs.mkdirSync(path.join(SH, 'crates'), { recursive: true });
+    fs.copyFileSync(path.join(TEST, 'test', 'figure.fbx'), path.join(SH, 'props', 'statue.fbx'));
+    fs.copyFileSync(path.join(TEST, 'test', 'figure.png'), path.join(SH, 'props', 'figure.png'));
+    for (const f of ['crate.obj', 'crate.mtl', 'crate.png']) fs.copyFileSync(path.join(TEST, 'test', 'originals', f), path.join(SH, 'crates', f));
+    const shSeen = await sUntil(A, `SRC.scenes.some(s => s.name === 'shelf')`, 15000);
+    await sp(A, `(setEdit(true), select(''), X.tab = 'add', act('from'), act('fromScene', 'shelf'), renderPanes(), 0)`);
+    const listed = await sUntil(A, `!!FROM.files && !FROM.loading && fromLists(FROM.files).models.map(f => f.path).join() === 'crates/crate.obj,props/statue.fbx'`, 10000);
+    await sp(A, '(renderPanes(), 0)');
+    // (a copy placed selects it, which shows its card: the Add pane again before each press)
+    const u0 = await sp(A, 'UNDO.length'), copiedAs = async (want, li) => (await sp(A, `(X.tab = 'add', renderPanes(), 0)`), await click(A, `#pane-add li[data-act="fromFile"][data-v="${li}"]`)) &&
+      await sUntil(A, `!!STUDIO.copied && STUDIO.copied.path === ${JSON.stringify(want)} && !FROM.busy`, 30000);
+    const c1 = await copiedAs('props/statue.fbx', 'props/statue.fbx'), cp1 = await sp(A, '[STUDIO.copied, UNDO.length, FROM.note]');
+    const same = f => fs.existsSync(path.join(SC, 'test', f)) && fs.readFileSync(path.join(SC, 'test', f)).equals(fs.readFileSync(path.join(SH, f)));
+    const id1 = cp1[0] && cp1[0].id, took1 = [];
+    for (const p of [A, B, C, H]) took1.push(!!id1 && await sUntil(p, `(() => { const it = STU.items.get('${id1}'); return !!(it && it.rec.file === 'props/statue.fbx' && it.model && it.E && it.E.texPaths.has('props/figure.png')); })()`, 40000));
+    check('studio: From another scene on a page at the station copies an FBX of the relay\'s shelf scene into the open scene with the picture it names (the same paths, the same bytes), places it (one Undo step), and every page and the headset take it, its picture found',
+      shSeen && listed && c1 && JSON.stringify(cp1[0].copied) === '["props/figure.png"]' && !cp1[0].kept.length && cp1[1] === u0 + 1 && same('props/statue.fbx') && same('props/figure.png') && took1.every(Boolean),
+      JSON.stringify({ shSeen, listed, c1, cp1, u0, took1 }));
+    const c2 = await copiedAs('originals/crates/crate.obj', 'crates/crate.obj'), cp2 = await sp(A, 'STUDIO.copied'), id2 = cp2 && cp2.id;
+    const objIn = [];
+    for (const p of [A, H]) objIn.push(!!id2 && await sUntil(p, `(() => { const it = STU.items.get('${id2}'); return !!(it && it.rec.file === 'originals/crates/crate.obj' && it.model); })()`, 40000));
+    const c3 = await copiedAs('props/statue 2.fbx', 'props/statue.fbx'), cp3 = await sp(A, 'STUDIO.copied');
+    const hFrom = await sp(H, `(() => { X.tab = 'add'; X.scroll = {}; const seen = new Set(); for (let off = 0; off < 6000; off += 150) { X.scroll.add = off; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; return seen.has('from'); })()`);
+    check('studio: an OBJ copied from the shelf goes under originals/ with its MTL and picture (an upload may put an OBJ only there) and its model loads; a second copy of the FBX gets a new name and keeps this scene\'s picture; the headset\'s Add pane offers From another scene',
+      c2 && JSON.stringify(cp2.copied.slice().sort()) === '["originals/crates/crate.mtl","originals/crates/crate.png"]' && ['crate.obj', 'crate.mtl', 'crate.png'].every(f => fs.existsSync(path.join(SC, 'test', 'originals', 'crates', f))) &&
+        !fs.existsSync(path.join(SC, 'test', 'crates')) && objIn.every(Boolean) && c3 && JSON.stringify(cp3.kept) === '["props/figure.png"]' && !cp3.copied.length && fs.existsSync(path.join(SC, 'test', 'props', 'statue 2.fbx')) && hFrom,
+      JSON.stringify({ c2, cp2, objIn, c3, cp3, hFrom }));
+    await sp(A, `(${JSON.stringify([id1, id2, cp3 && cp3.id])}.forEach(i => i && deleteItem(i)), FROM.open = false, select(''), X.tab = 'scene', 0)`);
+    }
+
+    // ---- a circle made for one scene, as the shell writes it (st.<id> with the studio, st.<id>.x naming the scene, in one
+    // batch): two pages following it open that scene and write its saved layout alike (each item once in the room), and
+    // the first station keeps its own scene
+    {
+    fs.writeFileSync(path.join(SC, 'quiet', 'layout.json'), JSON.stringify({ studio: 1, scene: 'quiet', saved: new Date().toISOString(),
+      sounds: [{ id: 'qtone1', name: 'Quiet tone', file: 'tone.wav', p: [0, 1.2, -1.5], vol: 0.5, r: 1.5, loop: true, start: 'always' }],
+      cubes: [{ id: 'qcube1', name: 'Quiet cube', p: [0, 1, 0], yaw: 0, size: [1, 2, 1], mode: 'while', show: ['qtone1'], hide: [] }] }));
+    const nid = 'quiet' + Math.floor(Math.random() * 1e6).toString(36);
+    await A.evaluate(id => HOST.collab.publish([['st.' + id, { story: 'studio', x: 6, z: -6, yaw: 0 }], ['st.' + id + '.x', { scene: 'quiet' }]]), nid);
+    const nSeen = await until(B, id => !!HOST.collab.station(id), nid, 5000);
+    for (const p of [B, C]) await p.evaluate(i => HOST.collab.follow(i), nid);
+    const qOpen = [];
+    for (const p of [B, C]) qOpen.push(await sUntil(p, `atStation() && STU.scene === 'quiet' && STU.listing === 'ok' && STU.items.size === 2 && STU.items.has('qtone1') && STU.items.has('qcube1')`, 20000));
+    await sleep(1500);
+    const qRoom = ((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys['st.' + nid + '.x'] || {}).v || {};
+    const aStill = await sp(A, `[STU.scene, atStation(), STU.items.size]`), qCount = await Promise.all([B, C].map(p => sp(p, 'STU.items.size')));
+    check('studio: a circle made for one scene as the shell writes it (st.<id> with the studio and st.<id>.x naming the scene, in one batch): two pages following it open that scene and write its saved layout alike, the room holding each item once; the first station keeps its own scene',
+      nSeen && qOpen.every(Boolean) && Object.keys(qRoom).sort().join() === 'c.qcube1,s.qtone1,scene' && qRoom.scene === 'quiet' && qCount.every(n => n === 2) && aStill[0] === 'test' && aStill[1],
+      JSON.stringify({ nSeen, qOpen, qRoom: Object.keys(qRoom), qCount, aStill }));
+    }
+
+    // ---- New scene from the headset (the shell's keypad, HOST.collab.keypad: stubbed here, giving the name): made on the
+    // relay, opened at the headset's station and so on the page following it
+    {
+    await H.evaluate(() => { window.__kpAsked = null; HOST.collab.keypad = async o => { window.__kpAsked = o; return 'from headset'; }; });
+    const hk = await hPanel('scene', 'newscene');
+    const madeH = await sUntil(H, `STU.scene === 'from headset' && STU.listing === 'ok' && editOn()`, 15000);
+    const aOn = await sUntil(A, `STU.scene === 'from headset' && STU.listing === 'ok'`, 15000);
+    const asked = await H.evaluate(() => window.__kpAsked);
+    check('studio: New scene on the headset\'s panel asks the shell\'s keypad for the name, makes the scene on the relay and opens it at the station, where the page following it switches to it too',
+      hk && madeH && aOn && fs.existsSync(path.join(SC, 'from headset')) && !!asked && asked.title === 'New scene' && asked.max === 64, JSON.stringify({ hk, madeH, aOn, asked }));
+    }
     for (const p of pages.splice(0)) await p.context().close().catch(() => {});
 
     // ---- the relay's /upload: to the Upload pane, a new scene, the test originals converted and sorted into its folders
@@ -3243,6 +3317,9 @@ async function studioRound(dir) {
     for (let p = 8840; p < 8860 && !S3r; p++) S3r = await startFake({ port: p, bucket: 'scenes', keys: { [R2K]: R2S } }).catch(() => null);
     const walk = (d, rel = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]));
     for (const rel of walk(path.join(TEST, 'test'))) S3r.put('studio/test/' + rel, fs.readFileSync(path.join(TEST, 'test', rel)), { type: typeOf(rel) });
+    // (a second scene, to copy from)
+    S3r.put('studio/shelf/props/statue.fbx', fs.readFileSync(path.join(TEST, 'test', 'figure.fbx')), { type: typeOf('statue.fbx') });
+    S3r.put('studio/shelf/props/figure.png', fs.readFileSync(path.join(TEST, 'test', 'figure.png')), { type: 'image/png' });
     const PASS3 = 'rtwo' + Math.floor(1000 + Math.random() * 9000) + 'scenes';
     Q = await relayOn(['--static', '.', '--scenes', 'r2'], { R2_ENDPOINT: S3r.url, R2_ACCESS_KEY_ID: R2K, R2_SECRET_ACCESS_KEY: R2S, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', COLLAB_TOKEN: PASS3 }, 8792);
     const qb = `http://127.0.0.1:${Q.port}/`, qo = `http://127.0.0.1:${Q.port}`, s3o = S3r.url;
@@ -3344,6 +3421,22 @@ async function studioRound(dir) {
       fb1 === 'originals/fallback.bin' && fb2 === 'originals/fallback2.bin' && S3r.objects.get('studio/made/originals/fallback.bin')?.body.toString() === 'fallback bytes' && !!S3r.objects.get('studio/made/originals/fallback2.bin') &&
         /wrote originals\/fallback\.bin into the bucket/.test(Q.out) && /wrote originals\/fallback2\.bin into the bucket/.test(Q.out) && fbPuts('originals/fallback.bin').join() === '403' && !fbPuts('originals/fallback2.bin').length,
       JSON.stringify({ fb1, fb2, puts1: fbPuts('originals/fallback.bin'), puts2: fbPuts('originals/fallback2.bin') }));
+    // From another scene with R2: the page reads the FBX by its signed link, the relay has the bucket copy it and the
+    // picture it names (CopyObject, signed in the header), and the page places it, its model in
+    {
+    const n0 = S3r.requests.length;
+    await sp(G, `(setEdit(true), select(''), X.tab = 'add', FROM.open = false, act('from'), act('fromScene', 'shelf'), 0)`);
+    const gl = await sUntil(G, `FROM.scene === 'shelf' && !!FROM.files && !FROM.loading`, 10000);
+    await sp(G, `(copyIn('props/statue.fbx'), 0)`);
+    const gc = await sUntil(G, `!!STUDIO.copied && STUDIO.copied.path === 'props/statue.fbx' && !FROM.busy`, 30000), gcp = await sp(G, 'STUDIO.copied');
+    const gIn = !!(gcp && gcp.id) && await sUntil(G, `(() => { const it = STU.items.get('${gcp && gcp.id}'); return !!(it && it.model && it.E.texPaths.has('props/figure.png')); })()`, 40000);
+    const cps = S3r.requests.slice(n0).filter(r => r.method === 'PUT' && r.headers['x-amz-copy-source']);
+    check('studio from R2: From another scene copies a model and the picture it names inside the bucket (CopyObject, its x-amz-copy-source signed in the header), and the page places it, its model and picture in',
+      gl && gc && JSON.stringify(gcp.copied) === '["props/figure.png"]' && gIn && cps.length === 2 && cps.every(r => r.auth === 'header' && r.status === 200 && /SignedHeaders=[^,]*x-amz-copy-source/.test(r.headers.authorization)) &&
+        !!S3r.objects.get('studio/test/props/statue.fbx') && !!S3r.objects.get('studio/test/props/figure.png'),
+      JSON.stringify({ gl, gc, gcp, gIn, cps: cps.map(r => [r.headers['x-amz-copy-source'], r.status, r.auth]) }));
+    if (gcp && gcp.id) await sp(G, `(deleteItem('${gcp.id}'), select(''), 0)`);
+    }
     // the pretend headset opens the scene from the bucket too
     const H2 = await sopen(qb + 'index.html#studio&scene=test', { name: 'Hal', size: { width: 320, height: 200 }, token: PASS3, origin: qo });
     await studioIn(H2);

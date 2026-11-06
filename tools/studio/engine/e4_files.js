@@ -195,16 +195,20 @@ function atStation() {
 // ------------------------------------------------------------- the scene --
 // Open a scene: what was placed goes, its listing and saved layout are read. how: 'pick' (by hand) or 'auto' (by
 // itself) write the saved layout as the items; 'room' (the station's scene, from the room) does not: the room's state
-// carries the items, and only the device that changed the scene writes them
-function openScene(name, how) {
+// carries the items, and only the device that changed the scene writes them; 'fresh' (a station whose state names a scene
+// and holds no item yet: a circle made for that scene, collabApply) writes it as 'auto' does, on every device there alike,
+// unless the room's items come first (STU.fresh: collabApply then takes theirs)
+function openScene(name, how, again) {
   name = okScene(name) ? name : '';
-  if (name === STU.scene && how !== 'again') return;
+  if (name === STU.scene && how !== 'again' && !again) return;
   draftNow();
   clearItems();
   libClear();
+  STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', t0: performance.now(), loadAsk: 0, upNote: '' });
+    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '' });
   STU.seen.clear(); UNDO.length = 0;
+  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
   dirty(true);
@@ -238,8 +242,8 @@ async function loadScene() {
   }
   dirty(true);
 }
-// the scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
-function setFiles(list) {
+// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
+function filesOf(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
@@ -247,8 +251,13 @@ function setFiles(list) {
     out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
-  if (out.some(f => f.url)) linksSoon();
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return out;
+}
+// the open scene's listing
+function setFiles(list) {
+  const out = filesOf(list);
+  if (out.some(f => f.url)) linksSoon();
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
 }
 // the listing again (a file added, changed or gone: the watch), then what uses a changed file loaded again
@@ -390,6 +399,133 @@ function uploadLayout(text) {
   putLayout(L.items);
   STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
+}
+
+// ------------------------------------------------- a new scene; a copy in --
+// New scene (the Scene pane: a page types its name in a field, a headset on the shell's keypad, HOST.collab.keypad): made
+// on the relay (POST /api/scenes, the relay's name rule) and opened as a scene picked by hand is (at a station: for
+// everyone there), editing on. From another scene... (the Add pane): a model or a sound of another of the relay's scenes
+// copied into this one (POST /api/scenes/<this>/copy, one file at a time) at the same path (a new name, as uploads
+// number them, when that is taken here), for a model that is not a GLB with the files it names that its scene has (its
+// MTL and their pictures, a glTF's .bin, the pictures by the ladder), then placed as Add places it (one Undo step). Each
+// scene keeps its own copy. Neither without a relay that takes uploads, on a read-only source, for a visitor (&visit) or
+// while the scene is locked (Lock this story); a headset makes a scene only when the shell has its keypad
+const canWrite = () => SRC.kind === 'relay' && SRC.state === 'ok' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
+const canMake = () => canWrite() && !editLocked() && (!XR.on || !!(HOST.collab && HOST.collab.keypad));
+const canCopy = () => canWrite() && editOn() && STU.listing === 'ok' && SRC.scenes.some(s => s.name !== STU.scene);
+const NS = { open: false, name: '', making: false, asking: false, note: '' };
+// (the relay's rule for a new scene: relay/scenes.mjs, newSceneName) why a name cannot be one, or ''
+const sceneNameWhy = name => (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)
+  ? 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).' : '');
+async function sceneMake(name) {
+  name = String(name || '').trim();
+  const why = sceneNameWhy(name);
+  if (why) { NS.note = why; dirty(true); return false; }
+  if (!canMake() || NS.making) return false;
+  NS.making = true; NS.note = ''; dirty(true);
+  try {
+    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    NS.open = false; NS.name = '';
+    await listScenes(SRC.gen);
+    if (GL.gone || editLocked()) return true;   // (locked meanwhile: made, not opened)
+    openScene(name, 'pick');
+    if (!STU.edit) setEdit(true);
+    sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 });
+    return true;
+  } catch (e) {
+    NS.note = e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
+    return false;
+  } finally { NS.making = false; dirty(true); }
+}
+// New scene pressed: on a page its field opens (or closes); in a headset the shell's keypad asks for the name
+async function sceneAsk() {
+  if (!canMake() || NS.making || NS.asking) return;
+  if (!XR.on) { NS.open = !NS.open; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
+  NS.asking = true; NS.note = ''; dirty(true);
+  let name = null;
+  try { name = await HOST.collab.keypad({ title: 'New scene', hint: 'Its name: letters, digits, spaces, _ . or -', value: '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
+  if (GL.gone || typeof name !== 'string' || !name.trim()) return;
+  await sceneMake(name);
+}
+const FROM = { open: false, scene: '', files: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
+// another scene's listing, for its list of models and sounds
+async function fromScene(name) {
+  if (!okScene(name) || name === STU.scene || FROM.busy) return;
+  const gen = ++FROM.gen;
+  Object.assign(FROM, { scene: name, files: null, loading: true, note: '', orig: false });
+  dirty(true);
+  try {
+    const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`);
+    if (gen === FROM.gen) FROM.files = filesOf(j && j.files);
+  } catch (e) { if (gen === FROM.gen) { FROM.note = `The files of ${name} could not be read: ` + e.message; FROM.noteC = 'red'; } }
+  finally { if (gen === FROM.gen) FROM.loading = false; dirty(true); }
+}
+// its models and sounds as the Add lists show this scene's: models/ and sounds/ first, its originals folded
+function fromLists(files) {
+  const first = pre => (a, b) => { const x = a.path.startsWith(pre), y = b.path.startsWith(pre); return x !== y ? (x ? -1 : 1) : a.path < b.path ? -1 : a.path > b.path ? 1 : 0; };
+  const models = [], sounds = [], orig = [];
+  for (const f of files || []) if (f.kind === 'model' || f.kind === 'audio') (inOriginals(f.path) ? orig : f.kind === 'model' ? models : sounds).push(f);
+  return { models: models.sort(first('models/')), sounds: sounds.sort(first('sounds/')), orig };
+}
+// a file of another scene: its signed link (R2), else its address on the relay (call adds the password)
+const fromUrl = (from, f) => f.url || `${SRC.base}/scenes/${encodeURIComponent(from)}/${encPath(f.path)}` + (f.at ? '?v=' + f.at : '');
+// what a copy of f brings with it: for a model that is not a GLB the files it names that its scene has (deps), found as the
+// Upload pane's plan finds them (an MTL or a .bin: the nearest of that name; a picture: by the ladder), and the names it
+// gives that are not there (lost)
+async function copySet(from, f, files) {
+  const deps = [], lost = [], ext = extOf(f.path);
+  if (!['gltf', 'fbx', 'obj'].includes(ext)) return { deps, lost };
+  const dir = dirOf(f.path), pics = files.filter(x => x.kind === 'image').map(x => x.path);
+  const near = n => { const b = baseName(n).toLowerCase(), L = files.filter(x => baseName(x.path).toLowerCase() === b); return L.find(x => x.path === dir + baseName(n)) || L.find(x => x.path.startsWith(dir)) || L[0] || null; };
+  const dep = n => { const x = near(n); if (x) { if (x.path !== f.path && !deps.includes(x.path)) deps.push(x.path); } else if (!lost.includes(baseName(n))) lost.push(baseName(n)); return x; };
+  const tex = n => { const h = CONV.texFind(n, pics, { dir }); if (h) { if (!deps.includes(h.path)) deps.push(h.path); } else if (!lost.includes(baseName(n))) lost.push(baseName(n)); };
+  const N = CONV.namesIn(ext, await getBytes(fromUrl(from, f)));
+  for (const n of N.mtl) { const x = dep(n); if (x) for (const t of CONV.mtlNames(await (await call(fromUrl(from, x), { cache: 'no-cache' })).text())) tex(t); }
+  for (const n of N.buffers) dep(n);
+  for (const n of N.textures) tex(n);
+  return { deps, lost };
+}
+const copyOne = (scene, from, path, as) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, path, as }) });
+// what this scene may hold where (an upload's rule: relay/scenes.mjs, uploadPath): models (GLB, glTF, FBX), sounds,
+// pictures and data anywhere, any other kind (an OBJ, its MTL) only under originals/
+const mayHold = q => inOriginals(q) || ['glb', 'gltf', 'fbx'].includes(extOf(q)) || ['audio', 'image', 'data'].includes(kindOf(q));
+// a press on a file of the other scene: copied in with what it brings (each at the same path; under originals/ when this
+// scene may hold it only there, the files it names with it; a file it names whose path is taken here is not copied: this
+// scene's own of that name stays, and the model finds it), the file itself under a new name when its path is taken, then
+// placed. Copied files stay when the placing cannot be (the scene full)
+async function copyIn(p) {
+  const from = FROM.scene, f = FROM.files && FROM.files.find(x => x.path === p);
+  if (!f || FROM.busy || !canCopy()) return;
+  const gen = STU.gen, scene = STU.scene;
+  FROM.busy = p; FROM.note = `Copying ${baseName(p)} from ${from}...`; FROM.noteC = 'muted'; dirty(true);
+  try {
+    const S = await copySet(from, f, FROM.files);
+    if (gen !== STU.gen) return;
+    const pre = mayHold(p) ? '' : 'originals/', dest = q => (mayHold(pre + q) ? pre + q : 'originals/' + pre + q), kept = [], copied = [];
+    for (const q of S.deps) {
+      const d = dest(q);
+      if (STU.fileMap.has(d)) { kept.push(d); continue; }
+      try { await copyOne(scene, from, q, d); copied.push(d); } catch (e) { if (e.status === 409) kept.push(d); else throw e; }
+      if (gen !== STU.gen) return;
+    }
+    let to = freeName(dest(p), q => STU.fileMap.has(q)), done = '';
+    for (let k = 0; k < 6 && !done; k++) {
+      try { done = (await copyOne(scene, from, p, to)).path || to; } catch (e) { if (e.status !== 409) throw e; const was = to; to = freeName(to, q => q === was || STU.fileMap.has(q)); }
+      if (gen !== STU.gen) return;
+    }
+    if (!done) throw new Error('no free name for ' + baseName(p));
+    await refreshFiles(new Set());
+    if (gen !== STU.gen) return;
+    const id = kindOf(done) === 'audio' ? addSound(done) : addModel(done);
+    FROM.note = `Copied ${done}` + (copied.length ? ` with ${copied.length} file${copied.length === 1 ? '' : 's'} it names` : '') + (kept.length ? `; this scene's own ${kept.map(baseName).join(', ')} kept` : '')
+      + (S.lost.length ? `; ${from} lacks ${S.lost.join(', ')}` : '') + (id ? ', and placed it in front of you.' : ': it is under Add (the scene is full, nothing placed).');
+    FROM.noteC = id ? 'green' : 'amber';
+    STUDIO.copied = { path: done, copied, kept, lost: S.lost, id };
+  } catch (e) {
+    if (gen !== STU.gen) return;
+    FROM.note = 'Not copied: ' + (e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'this relay writes nothing (--scenes-readonly).' : e.status === 413 ? 'it is bigger than this relay takes (--max-upload).' : e.message);
+    FROM.noteC = 'red';
+  } finally { if (FROM.busy === p) FROM.busy = ''; dirty(true); }
 }
 
 // ------------------------------------------------------------------ drafts --

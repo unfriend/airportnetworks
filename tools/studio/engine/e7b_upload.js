@@ -570,9 +570,8 @@ function rowPlan(r) {
 }
 // a new scene (POST /api/scenes): its folder made, then picked
 async function upMake() {
-  const name = UP.newName.trim();
-  // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName)
-  if (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)) { UP.newNote = 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).'; dirty(true); return; }
+  const name = UP.newName.trim(), why = sceneNameWhy(name);   // (the relay's rule for a new scene)
+  if (why) { UP.newNote = why; dirty(true); return; }
   if (!upRelay() || UP.making) return;
   UP.making = true; UP.newNote = ''; dirty(true);
   try {
@@ -825,8 +824,14 @@ function uploadBind() {
     if (APP.mode !== 'explore') APP.enterExplore();
     readDropped(ev.dataTransfer).then(upTake);
   });
-  ex.addEventListener('input', ev => { if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); } });
-  ex.addEventListener('keydown', ev => { if (ev.target.id === 'stuNewName' && ev.key === 'Enter') { ev.preventDefault(); upMake(); } });
+  ex.addEventListener('input', ev => {
+    if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); }
+    if (ev.target.id === 'stuSceneName') { NS.name = ev.target.value; const b = ex.querySelector('[data-act="scenemake"]'); if (b) b.disabled = NS.making || !NS.name.trim(); }   // (the Scene pane's New scene)
+  });
+  ex.addEventListener('keydown', ev => {
+    if (ev.target.id === 'stuNewName' && ev.key === 'Enter') { ev.preventDefault(); upMake(); }
+    if (ev.target.id === 'stuSceneName' && ev.key === 'Enter') { ev.preventDefault(); sceneMake(NS.name); }
+  });
   ex.addEventListener('change', ev => {
     const t = ev.target;
     if (t.id !== 'stuFiles' && t.id !== 'stuFolder') return;

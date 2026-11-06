@@ -7,7 +7,7 @@
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
 const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, orig: false, texAdd: null, texFor: null };
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, scrollMax: {}, scrollView: 0, scrollF: { tab: '', v: 0, at: -1 }, orig: false, texAdd: null, texFor: null };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -107,6 +107,12 @@ function paneBlocks(tab) {
       if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
       else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
       if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+      // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
+      if (canMake()) {
+        B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
+        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? 'Making...' : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+      }
+      if (NS.note) B.push({ p: NS.note, c: 'red' });
     }
     if (['none', 'error', 'auth'].includes(SRC.state)) B.push({ row: [{ id: 'again', label: 'Look again', act: 'again' }] });
     if (STU.listing === 'loading' || STU.listing === 'waiting') B.push({ p: 'Reading the scene...', c: 'faint' });
@@ -143,7 +149,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it). Left stick: walk; right stick: turn.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -170,6 +176,7 @@ function paneBlocks(tab) {
       if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
         { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
     }
+    fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
     const so = selModel();
@@ -214,6 +221,28 @@ function paneBlocks(tab) {
     if (selCube) B.push({ p: `Ticks: what ${selCube.rec.name} shows and hides.`, c: 'faint', page: true });
   }
   return B;
+}
+// From another scene... (the Add pane, page and headset): the relay's other scenes, then the one picked's models and sounds
+// (models/ and sounds/ first, its originals folded); a press copies one in and places it (copyIn, e4_files.js)
+function fromBlocks(B, full) {
+  const F = FROM, others = SRC.scenes.filter(s => s.name !== STU.scene);
+  if (!canCopy()) { F.open = false; return; }
+  B.push({ label: 'From another scene', row: [{ id: 'from', label: F.open ? 'From another scene ▾' : 'From another scene...', act: 'from', on: F.open }] });
+  if (!F.open) { B.push({ p: 'A model or a sound of another of the relay\'s scenes, copied into this one and placed.', c: 'faint' }); return; }
+  B.push({ row: others.map(s => ({ id: 'froms:' + s.name, label: s.name, act: 'fromScene', v: s.name, on: s.name === F.scene, dis: !!F.busy })) });
+  if (!F.scene) B.push({ p: 'Pick the scene to copy from.', c: 'muted' });
+  else if (F.loading) B.push({ p: `Reading ${F.scene}...`, c: 'faint' });
+  else if (F.files) {
+    const L = fromLists(F.files), row = (f, orig) => ({ id: 'fromf:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes),
+      act: 'fromFile', v: f.path, on: F.busy === f.path, dis: !!F.busy || full(f.kind === 'audio' ? 's' : 'o') });
+    B.push({ label: `Models in ${F.scene} (${L.models.length})`, list: L.models.map(f => row(f)) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
+    if (L.orig.length) {
+      B.push({ row: [{ id: 'fromorig', label: `Its originals (${L.orig.length}) ${F.orig ? '▾' : '▸'}`, act: 'fromOrig', on: F.orig }] });
+      if (F.orig) B.push({ list: L.orig.map(f => row(f, true)) });
+    }
+  }
+  if (F.note) B.push({ p: F.note, c: F.noteC });
+  B.push({ p: 'A press copies the file into this scene at the same path (a new name when that is taken), with the files a model names (its MTL, textures, a glTF\'s .bin), and places it 1.5 m in front of you. Each scene keeps its own copy.', c: 'faint' });
 }
 function itemSub(it) {
   if (it.kind === 'g') { const n = members(it).length; return `${n} item${n === 1 ? '' : 's'}` + (STU.gpick && STU.gpick.id === it.id ? ' · picking' : ''); }
@@ -334,8 +363,16 @@ function itemBlocks(it, B, ed) {
     if (grp) B.splice(1, 0, { p: `In group ${grp.rec.name}: it moves with it. Selected on its own, it moves alone.`, c: 'muted' }, { row: [{ id: 'selgroup', label: 'Select the group', act: 'sel', v: grp.id }] });
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
+  holdBlocks(it, B, dis);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: it.kind === 's' && m !== 'translate' })) });
+}
+// Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
+// it points (holdHover in e8_xr.js); pressed again, not
+function holdBlocks(it, B, dis) {
+  const on = XR.hold === it.id;
+  B.push({ xr: true, label: 'Carry it', row: [{ id: 'hold', label: on ? 'Now press a grip (again: cancel)' : 'Hold it', act: 'i:hold', on, dis }] },
+    { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
 // ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
@@ -355,6 +392,7 @@ function groupBlocks(g, B, dis, ed) {
   if (g.note) B.push({ p: g.note, c: 'amber' });
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
+  holdBlocks(g, B, dis || !ms.length);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis }, { id: 'del', label: 'Delete', act: 'i:del', dis, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m })) });
@@ -508,6 +546,12 @@ function act(a, v) {
     adds: () => addSound(v),
     cube: () => addCube(),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
+    newscene: () => sceneAsk(),
+    scenemake: () => sceneMake(NS.name),
+    from: () => { FROM.open = !FROM.open && canCopy(); const o = SRC.scenes.filter(s => s.name !== STU.scene); if (FROM.open && !FROM.scene && o.length === 1) fromScene(o[0].name); },
+    fromScene: () => fromScene(v),
+    fromFile: () => copyIn(v),
+    fromOrig: () => { FROM.orig = !FROM.orig; },
     sel: () => select(v === STU.sel ? '' : v),
     link: () => { if (STU.pick) toggleLink(STU.pick.id, STU.pick.list, v); },
     linkg: () => { const g = STU.items.get(v); if (STU.pick && g) toggleLinks(STU.pick.id, STU.pick.list, members(g).map(m => m.id)); },
@@ -523,7 +567,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -611,9 +655,9 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const fo = document.activeElement && document.activeElement.id === 'stuNewName' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && ['stuNewName', 'stuSceneName'].includes(ae.id) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
-  if (fo) { const i = $('#stuNewName'); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
+  if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
   const vb = $('#viewctl [data-ctl="view"]');
   if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));
@@ -657,14 +701,34 @@ function pickables() {
 // else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
 // of the object's own cut-outs (a nearer object or sound is still found first); picking the object a sound follows or a
 // cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
-// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model
-function rayPick(ray) {
+// trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model. o.inside: when the
+// ray finds nothing at all and starts inside an object's unseen box (you stand in a room scan: its box's faces point away
+// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick)
+function rayPick(ray, o) {
   GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
   const objOnly = !!(STU.follow || STU.cutTo || STU.gpick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
-  if (!c) return null;
+  if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? ray.ray.clone() : null };
+}
+// the object whose unseen box holds the ray's origin (the controller, or a page's camera in Walk view), the smallest if
+// several (a figure standing in a room scan: the figure); the point where the ray leaves that box (the pointer's dot)
+const _ib = new THREE.Matrix4(), _ir = new THREE.Ray(), _iv = new THREE.Vector3(), UNIT = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(0.5, 0.5, 0.5));
+function insidePick(r) {
+  let best = null, bv = Infinity;
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'o' || !it.model || !it.holder.visible) continue;
+    const m = it.proxy.matrixWorld;
+    _iv.copy(r.origin).applyMatrix4(_ib.copy(m).invert());
+    if (Math.abs(_iv.x) > 0.5 || Math.abs(_iv.y) > 0.5 || Math.abs(_iv.z) > 0.5) continue;
+    const v = Math.abs(m.determinant());   // (the box's volume)
+    if (v < bv) { bv = v; best = it; }
+  }
+  if (!best) return null;
+  const m = best.proxy.matrixWorld, p = _ir.copy(r).applyMatrix4(_ib.copy(m).invert()).intersectBox(UNIT, new THREE.Vector3());
+  const point = p ? p.applyMatrix4(m) : r.origin.clone();
+  return { id: best.id, corner: undefined, point, dist: point.distanceTo(r.origin), ray: r.clone(), inside: true };
 }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
@@ -686,7 +750,7 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
-        const h = rayPick(pointerRay(ev.clientX, ev.clientY));
+        const ray = pointerRay(ev.clientX, ev.clientY), h = rayPick(ray, { inside: walkInside(ray) });
         STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
       }
       return;
@@ -745,11 +809,11 @@ function bindCanvas() {
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
 function clickAt(mx, my) {
-  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray) : null;
+  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray, { inside: walkInside(ray) }) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
-    const p = ray.ray.intersectPlane(_rp, new THREE.Vector3());
-    if (p && p.distanceTo(WALK.pos) < 60) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
+    const p = walkFloor(ray);
+    if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
   if (editOn() && !STU.pick && !STU.follow && !STU.cutTo && !STU.gpick) select('');
 }
@@ -773,6 +837,10 @@ function pressItem(id, ray) {
   if (ray && it.kind === 'o') cutRay(id, ray);
   sfxAct('pick', 'world', null);
 }
+// Walk view: where a click on the floor walks to (within 60 m), or null; standing inside a model's unseen box (a room
+// scan), a click that finds nothing and not the floor selects that model (rayPick's inside: the floor is for walking)
+function walkFloor(ray) { const p = ray.ray.intersectPlane(_rp, new THREE.Vector3()); return p && p.distanceTo(WALK.pos) < 60 ? p : null; }
+const walkInside = ray => X.view === 'walk' && !walkFloor(ray);
 // Walk view: W A S D or the arrows walk (Shift faster), a click on the floor walks there; the camera at 1.6 m
 function walkStep(dt) {
   const f = (KEYS.has('w') || KEYS.has('arrowup') ? 1 : 0) - (KEYS.has('s') || KEYS.has('arrowdown') ? 1 : 0);
