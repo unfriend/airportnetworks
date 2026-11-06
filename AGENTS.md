@@ -69,7 +69,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` to the shell (`collab`: its
   shared-room hooks, see "Shared rooms"; `caption`: its line on show, for the
   headset's subtitles; `recenter`: its Recenter, for the headset's menu; `panels`: its two headset panels, for the
-  menu's Story tab).
+  menu's Story tab; optionally `lobby`, called as this headset goes to a Back to the lobby circle: the studio's).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -99,6 +99,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   board), loaded by `index.html` just before `shared.js` (see the sound notes under
   "How the shell and stories fit together"). `tools/sfx.html` is its sound board and
   `tools/sfx-render.mjs` renders every sound to MP3 files for listening.
+- `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded by `index.html` after `sfx.js` and before
+  `shared.js` (see "Real-world occlusion" below).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
   links of a peer-to-peer room, loaded by `shared.js` only then. `p2p/` - a test
   page (not part of the app) for checking a network before an event: do two
@@ -398,10 +400,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   find (another room) is kept for the next session while things hold where
   they are. Each request carries a generation number, so one that settles
   after Place again, Anchor off or the end of the session is thrown away.
-  What a session asks for comes from the shell (`HOST.xr.features(mode)`, in
-  every story's `xrStart`): AR asks for `local-floor`, `hand-tracking`,
-  `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room) and
-  `shared` (the shared space), all optional; VR only for `local-floor`,
+  What a session asks for comes from the shell (`HOST.xr.request(mode)`, in
+  every story's `xrStart` since v119: `session = await (HOST.xr.request ? HOST.xr.request(mode) :
+  navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));`, the same line in all sixteen,
+  the design room and the studio; `HOST.xr.features(mode)` is still the list): AR asks for `local-floor`, `hand-tracking`,
+  `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room and real-world occlusion) and
+  `shared` (the shared space), and `depth-sensing` (real-world occlusion: below), all optional; VR only for `local-floor`,
   `hand-tracking` and `anchors`, since a Quest 3 left VR for its home at once
   with the full list (October 2026; AR was fine there, and VR on a Pico) and
   started VR on the first try with these three (which of the other three was
@@ -450,7 +454,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   them).
   - The frame rate (v118; the owner, 5 November 2026): beside these, a fifth setting that is never the room's but each
     headset's own (`HOST.xr.fps()`, `HOST.xr.setFps(on)`, `xrFps` in `localStorage`, off by default, `#fps=on|off` in a
-    link; not in `HOST.xr.sig()`): the menu's *Frame rate: on/off* row (Settings, under Moving and Subtitles). While on, in
+    link; not in `HOST.xr.sig()`): the menu's *Frame rate: on/off* row (Settings, under Moving and Subtitles), or a double
+    press of B or Y (v119; the owner, 6 November 2026: "Fps counter should start with a hotkey like double press b or y":
+    `buttons[5]` of either controller pressed twice within 0.4 s, `BY` in `sticks`, a button held as its controller
+    appears counting nothing; a notice says *Frame rate: on* or *off*; no story uses that button). While on, in
     a headset session only, the shell draws a small read-out low in the view (`drawFps`, `OV.fps`, 0.36 m wide, 1 m away,
     22 degrees under the gaze and 14 to the left, fixed to the head, `renderOrder` 52: over the story and the subtitles,
     under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (in
@@ -462,6 +469,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     in the story's scene, rings, icons, the menu and the read-out itself, are in the numbers; each second's means as
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
+  - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
+    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under Frame rate), only in AR;
+    see "Real-world occlusion" below.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -886,6 +896,64 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     headsets at one station (open-ear speakers may let neighbours hear a slight
     flam) is unheard and untested until tried.
 
+## Real-world occlusion (`HOST.occlusion`, `occlusion.js`)
+
+In an AR session (passthrough) real things hide what stands behind them, as they would a real object (v119; the owner,
+6 November 2026: "also plan for adding the occlusions", "occlusion should be on by default"). The way it is done was
+proven on a Quest 3 (Quest Browser 154) with the room test page (`room-test/`), whose depth pass, reading, `ready`,
+probe, `roomSync` and `shapeSig` it reuses.
+
+- **The request.** `HOST.xr.request(mode)` (in `HOST.xr`, `index.html`): VR exactly as before (`{ optionalFeatures:
+  HOST.xr.features(mode) }`, its ladder kept); AR adds `depth-sensing` to the optional features with `depthSensing: {
+  usagePreference: ['gpu-optimized', 'cpu-optimized'], dataFormatPreference: ['unsigned-short', 'luminance-alpha',
+  'float32'], matchDepthView: true }`, and the room test's ladder: a `TypeError` naming one of those values (a browser
+  that does not know `'unsigned-short'`) asks again without it, any other refusal asks again without depth at all.
+- **The setting.** `HOST.occlusion.own()`, `set(m)`, `next(m)`, `mode()`: `'both'` (the default: room and people),
+  `'room'`, `'depth'` (people, hands, anything moving) or `'off'`; this headset's own (`xrOccl` in `localStorage`,
+  `#occl=both|room|depth|off` in a link), never a room's, never in `collab.state()` (no `FORMAT` change). The menu's
+  Settings row *Real world hides: room and people* -> *room* -> *people* -> *nothing* (each press the next) with a note.
+  A story may ask for its own (`HOST.occlusion.scene(mode)`, also `true` for `'both'` and `false` for `'off'`; `null`
+  gives the headset's own back): the studio, for a scene that says always or never; cleared when the story changes
+  (`detach`, from `HOST.teardown`), and the menu's note says so while it holds.
+- **Each frame.** `HOST.loading.wrap` wraps the story's frame function in `HOST.occlusion.wrap` (inside `HOST.perf`'s, so
+  the read-out counts it): before the story draws, in an AR session with the story built (`collab.scene()`), its
+  objects (`O.root`, a `THREE.Group` with `renderOrder` -1e9, so its group order puts them before everything of the
+  story's) are hung in the story's scene (its root is the renderer's reference space), taken out in `HOST.teardown`
+  before the story is disposed and hung in the next story's on its first frame, so they survive a story change in a
+  session. Nothing at all happens outside an AR session or on a frame with no `XRFrame` (three.js r128 also runs the
+  loop on the window's frames).
+- **Depth (people).** Each frame, for each view, `XRWebGLBinding.getDepthInformation(view)` (CPU depth, a phone's:
+  `frame.getDepthInformation(view)`, uploaded as metres). A full-view quad drawn first (opaque, `renderOrder` -2 in the
+  group, `depthFunc` Always, no colour, not culled) writes each eye's real depth as `gl_FragDepth` with that eye's
+  projection (`onBeforeRender` per eye: three.js's left camera is on layer 1, its right on 2), the session's texture
+  handed to three.js as an external texture (a stand-in whose `__webglTexture` is the session's), set to nearest every
+  frame; an eye without depth that frame gets a texture of zeros (unoccluded). Readings: window (a depth buffer's value
+  for the depth's own near and far: `near / (1 - v)` with no far plane, as a Quest 3 gives it; the usual formula for a
+  finite far) or metres (the value times `rawValueToMeters`, through `normDepthBufferFromNormView`): window until the
+  probe has looked when the depth gives its own range, else metres; the probe (the room test's auto reading: a 16 x 16
+  grid of raw values read back, a few times at most a session until it has values, an integer texture refused by a
+  float sampler tried with an integer one) decides once. The depth's own view is taken as the eye's (on the Quest it
+  matched to 0 cm and 0.03 degrees). Depth sensing is paused while unused (`pauseDepthSensing`, `resumeDepthSensing`,
+  where offered).
+- **Room.** `frame.detectedPlanes` and `detectedMeshes` (when the session enabled them) drawn depth-only in the story's
+  scene, each part posed every frame by `frame.getPose(its space, renderer.xr.getReferenceSpace())`, built again only
+  when its shape really changes (`shapeSig`: a plane by its corners, a mesh by its sizes and a sample of its values,
+  the same arrays as last time taken as the same; a Quest 3 marked them changed about 56 times a second with nothing
+  changed), the old drawing kept until the new one is built, at most two built a frame.
+- **A little behind.** A thing must be a little further than a real surface to be hidden by it (`BIAS`: 4 cm for the
+  depth, which is noisier, 2 cm for the room, each along the view), so a robot's trail on the floor, a line along a
+  wall's foot, a studio model standing on the floor or a button under a fingertip is not hidden by what it stands on.
+- **What it hides.** Everything depth-tested drawn after it: the scenes, cards in 3D (the story panels, station cards,
+  name tags), the circles' rings and icons. Never: what is drawn over everything (`depthTest` false: the menu, the
+  notices, the subtitles, the frame-rate read-out, labels and cards set on top, the loading card, the calibration
+  crosses).
+- For tests and the Debug tab: `HOST.occlusion.state()` (the mode, the session's depth: usage, format, reading, eyes,
+  the probe; the room's parts), `line()` (the Debug tab's *Real world* line), `parts()`, `sig()`.
+- **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
+  room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
+  the floor), the cost with a big room scan and depth together in a heavy story, `pauseDepthSensing` on Quest Browser,
+  CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
+
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (the owner said go, 29 October 2026; it is
@@ -915,7 +983,7 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   `shell`, `build`; protocol in `relay/README.md`). A story file changed swaps
   in place at once on every page showing it (also mid-chapter) and is fetched
   fresh next time on the others; the list is read again (cards appear or change,
-  no reload); a shell file (`index.html`, `shared.js`, `sw.js`, `three.min.js`,
+  no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `three.min.js`,
   `peerjs.min.js`) reloads the page with its place kept. `--build` also runs a
   built story's `tools/<key>/build.mjs` when its sources change (the folders its
   build names, `../lbi/` and the like, and the story files it cuts from; not
@@ -1112,7 +1180,11 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   - Back to the lobby: walking into it ends the headset's live station (no story: away, the story hidden, paused and
     silent, nothing of it goes out), and the room shows as before any circle (every ring, card and icon, everyone
     drawn); it is never a live station itself, its own ring, card and icon stay, and walking into a story circle after
-    enters it as usual. No automatic lobby circle (the owner: "no automatic placement for now").
+    enters it as usual. No automatic lobby circle (the owner: "no automatic placement for now"). It is walked into with
+    the circles asked first too, its ring hidden then (v119; the owner, 6 November 2026: "the lobby ring can go away too
+    for now but in that one the headsets shall go to the lobby automatically": "Circles asked first" below). Going to it,
+    by walking in or *Go in*, in either mode, calls the story loaded's optional `lobby` hook (`HOST.cur.lobby()`, in its
+    returned object; the studio's forgets what this headset has seen there, its cubes starting afresh).
   - Pages: a page following an All stories circle shows its Stories screen while the cards show (`pageCards`; a pick
     there is the circle's) and follows the story picked as any station (in sync mode, the linked session); the room's
     arc is followed without Follow (above). The dialog's row of an All stories circle has a picker (*Choosing a story* or
@@ -1274,7 +1346,7 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   and otherwise it asks whoever wrote the room's frame to write it into the
   space again (`q.frame`, passed on like presence) and takes it (waiting up to
   3 s). The frame held so far stays until another is found ("Re-aligned", or
-  "Nothing to re-align to").
+  "Nothing to re-align to"). Once re-aligned, in AR in a room with spots, the check by eye asks (below).
 - The room setup guide, its startup flow and Touch the spot (v107; the owner, 2 November 2026: "a guided room setup and
   an alignment check, so a group can start a shared room from zero and know whether the headsets line up"; "make it so
   that we can run the touch the spot"; v109, 3 November: "just do the calibrated marks but make it part of the startup
@@ -1312,23 +1384,54 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
     in a room with the others or as its first (not one elsewhere, not a room on this device: `guideOn`).
   - The startup flow (`GD`, `guideStep` from the shell's tick, `guideOpen`, `guideClose`, `guideCal`, `guideGo`): every
     time a headset enters AR (or VR answered *In this room*) in a shared room, the guide opens by itself 1.5 s in
-    (`FLOW.wait`), at *Check* when it is lined up by the room's spots already, else at *Line up* (`GD.fl`: 0 not yet, 1
-    on show, 2 done, 3 skipped). On *Line up*, before any press there (`GD.touched`), it turns to *Check* by itself
-    once this headset is lined up by the spots (its own found again, or through the shared space from them); a
+    (`FLOW.wait`), at *Check* when it is lined up by the room's spots already (in AR, since v119, the check by eye's
+    question instead: `eyeInstead`, below), else at *Line up* (`GD.fl`: 0 not yet, 1 on show, 2 done, 3 skipped, 4 asked
+    by eye). On *Line up*, before any press there (`GD.touched`), it turns to *Check* by itself (in AR: closes, and the
+    check by eye asks) once this headset is lined up by the spots (its own found again, or through the shared space from
+    them); a
     calibration started from the guide or the Debug tab (`guideCal`, `GD.cal` the marks' generation then) goes on to
     *Check* once it is made (opening the guide again there if the menu was closed meanwhile, not after Skip for now; the
     menu's own opening by itself, `autoGuide`, allowing). A check that stands
-    (green or amber, on its own or with someone: `checkDone`) ends the flow for the session (`GD.ok`, `{ how: 'a' | 'b'
-    | 'p', d, at }`, until the frame it was made in changes: `setFrame`, a calibration, Re-align, Forget) and closes the
+    (green or amber, on its own or with someone, or Yes by eye: `checkDone`) ends the flow for the session (`GD.ok`,
+    `{ how: 'a' | 'b' | 'p' | 'e', d, at }`, until the frame it was made in changes: `setFrame`, a calibration, Re-align, Forget) and closes the
     guide, and the menu with it when the flow opened it (`GD.menu`). A red one (`checkRed`, `GD.red`) opens it again:
     at *Line up* once the room has its spots (calibrate on them), else at *Not lined up?*. *Skip for now* (or closing it
     any way: the menu closed, another tab) leaves it for the session, until a red check, being late (not lined up 20 s
     after entering with another headset there and the flow not on show: *Not lined up?*, `CK.late`) or the room getting
-    its spots later with no check of this headset's standing (`GD.spots`: once, at *Check* or *Line up*). Never for a
+    its spots later with no check of this headset's standing (`GD.spots`: once, at *Check* (by eye in AR) or *Line up*). Never for a
     headset elsewhere or in a room on this device, never while calibrating or checking, never over the once-per-room
     question (it waits for the answer), and not while the menu is in use for something else (it waits). Opened by itself
     it stays open until used (`PNL.self`). Tests that do not look at it turn its opening by itself off
     (`HOST.collab.autoGuide(false)`). `roomGuide` in `localStorage` (v107's once per device) is removed.
+  - The check by eye (v119; the owner, 6 November 2026: "At the beginning of every session and on wakeup etc we need an
+    alignment flow where it shows the two marks and where it thinks they are in the room and ask the user to align again
+    when they are not there"; "it should run anytime there could be misalignment"; `EYEQ`, `eyeWant`, `eyeStep`,
+    `drawEye`, `OV.eye`). In AR, in a room whose two spots are known (`roomMk()`), lined up, whenever the alignment may
+    have slipped (`eyeWant(why)`: the session's start once lined up by the spots, in place of the flow's opening at
+    *Check*; waking, the session visible again after hidden; a reset of `local-floor`, with or without a transform;
+    Re-align; the spots' anchors lost (`lostMarks`) or found again (`restore`); the room's frame jumping by more than 5
+    cm or 2 degrees, or taken from another source, in `setFrame`, but not the session's first frame nor spots just touched
+    by hand, `'marks'`; the room getting its spots, `GD.spots`), the orange crosses show where this headset puts spot A
+    and spot B (`drawMarks` from `roomMk()`; since v119 the crosses are drawn over everything, `depthTest` off,
+    `renderOrder` 56, so neither the scene nor the room's own depth hides one a little under a table's surface) and a
+    small panel in front of you (720 x 290 px, 0.42 m wide, 0.85 m ahead along the floor and 2 cm above the eyes, turned
+    to you, `renderOrder` 55, the ray's first target, put in front again once the head turns more than 0.9 rad from it or
+    walks 1.6 m off; amber, *CHECK BY EYE*) asks *Are both crosses on your spots?*, with why (*A new session.*, *The
+    headset was off or asleep.*, *The headset moved its floor.*, *Re-aligned.*, the anchors lost or found again, *The
+    room moved in this headset.*, *The room has its spots now.*), *Yes* and *No, calibrate again* (the ray or the right
+    index fingertip, as the circles' question: `pokeSheet`). Yes stands as a check (`checkDone('e')`, `GD.ok.how` `'e'`:
+    the flow done; presence's `lu.ck` `'e'`, the pages' list *checked by eye*; an older distance, `CK.res`, cleared). No
+    (`GD.red` `{ spot: 'e' }`) opens the guide at *Line up*, case `'room'`, with *You said the orange crosses are not on
+    your spots.* in red; `lineUp()` says not lined up meanwhile (`w` `'eye'`: *its crosses off the spots, by eye* in
+    the pages' list). A burst of reasons asks once, 3 s after the last (`EYEQ.quiet`) and at most 10 s after the first
+    (`EYEQ.most`); the first reason says why, a new session's over any other. It waits, and comes back, while
+    calibrating or checking (`tipMode()`), re-aligning (`R.again`), the menu is open or the circles' question shows; a
+    check that stands made since answers it; a room without spots drops it. Its opening by itself follows the guide's
+    (`GD.auto`, `HOST.collab.autoGuide`). A headset elsewhere, in VR, in a room on this device or one without spots:
+    nothing. After waking, with it on its way, the old *Check the spots* notice is not shown. For tests:
+    `HOST.collab.eye()` (`{ ask, shown, why, due, can }`) and `eyeTimes({ quiet, most })`. How the crosses and the panel
+    read on a real Quest, whether the reasons come at the right moments there (a real wake's resets) and how often it
+    asks are untested.
   - A check on its own (`selfCheck`, `CK.self` `'a'` or `'b'` while armed): *Check at A* arms it; the next trigger off
     the menu takes the controller's tip where it was held still (`steady`) in room coordinates and measures it against
     where this headset puts that spot (`roomMk()`); nothing is sent. The orange crosses hide while any check or a
@@ -1407,8 +1510,15 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`): the headset menu's Circles tab has *Circles:
   walk in* / *Circles: ask first* (with a note that it is for everyone here) and the page's Shared dialog the same button
   in its row of the headsets' settings (`data-sh="ask"`). With it on:
-  - Walking in does nothing (`zoneStep` returns at once: no dwell, no swell; `C.zone` is kept at the live station, so
-    walking about with it on enters nothing and, turned off again, walking in starts from where you are).
+  - Walking in does nothing (`zoneStep`: no dwell, no swell; `C.zone` is kept at the live station, so walking about with
+    it on enters nothing and, turned off again, walking in starts from where you are), except into Back to the lobby
+    (v119; the owner, 6 November 2026: "in that one the headsets shall go to the lobby automatically"): the same dwell as
+    walking in (within 1.1 m of its spot for 1 s) ends your live station there, once you have stood outside every lobby
+    since *Go in* last took you somewhere (`C.lobbyArm`, so *Go in* pressed while standing in the lobby holds).
+  - No ring is drawn at all (v119; the owner: "Circles should not show at all when not in all circles on mode since
+    entering them is now done via selection by clicking the card and accepting"): not the lobby's, not your own, not
+    within 2 m, and nothing to point at where one was (`r.noRing` keeps a fading ring out of `OV.hit`), unless *Show
+    all rings* is on (then as ever). The cards and icons stay as they are: they are what you press.
   - The trigger or a pinch on another station's card, ring or icon (not your own live one, nor the room's arc, which
     everyone here is at) opens a small panel in front of you instead of the notice (`askOpen`, `ASK`, `drawAsk`;
     `OV.ask`, a sheet of 720 x 300 px, 0.42 m wide, put 0.9 m ahead along the floor and 6 cm below the eyes as it opens,
@@ -1424,9 +1534,9 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
     live station). The story stays at its circle: the rig at its spot as ever, wherever you stand (a person who goes in
     from across the room sees it there, small, and hears it faintly until they walk over). Nothing is written to the
     room but `look` (asking, Not now and the time running out write nothing).
-  - The station cards' tips say *Point here and press to go in* (the lobby: *to leave your story*; All stories: *to
-    choose a story*), the menu's Stations line *Point at a circle and press to go in*, and the lobby's line *Press: back
-    to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
+  - The station cards' tips say *Point here and press to go in* (the lobby: *Walk in, or press here, to leave your
+    story*; All stories: *to choose a story*), the menu's Stations line *Point at a circle and press to go in* (its note:
+    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
     shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
     it stands and how the fingertip presses it on a real headset is untested.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
@@ -1436,7 +1546,12 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
   `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). Walking in still goes by where
-  you stand on the floor (within 1.1 m of its spot).
+  you stand on the floor (within 1.1 m of its spot). With the circles asked first no ring is drawn (above). At a studio
+  station the studio can hide every other station (`HOST.collab.hideOthers(on)`, v119, the studio's switch; `HIDE`,
+  `hidingOthers`): while on and this headset's live station runs the studio, the other stations' rings, cards and icons
+  are neither drawn nor pointable (`r.hid`; people as ever); it lapses when the live station or its story changes (it
+  holds what it was asked for, `HIDE.sig`), and `hideOthers()` without an argument says whether they are hidden now.
+  Pages are as ever.
 - In a circle, icons only (the owner, 30 October 2026, after v100: "Once
   inside a story hide the circles and show only the 3d icons, show circle once
   a person moves close to the 3d icon of that story"; from 29 October to v100
@@ -1449,7 +1564,8 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   icon and no ring, wherever you walk while it is yours, and nothing of it to
   point at. *Show all rings* (the menu's Circles tab; this headset's own, kept as
   `collabRings`, never in the room; `HOST.collab.allRings(on)`) shows every ring
-  at any distance, yours too (faint), to find the circles or grab your own. The icons stand for their stations: pointable
+  at any distance, yours too (faint), to find the circles or grab your own (and is the only way to see a ring while the
+  circles are asked first). The icons stand for their stations: pointable
   through an unseen ball round each (`ICON.ball`, 0.2 m), grabbable, and the
   trigger there says to walk into its circle, as on a ring. Pointing at an
   icon, a ring or the card it brought up (a controller's ray or a hand's pinch
@@ -1897,7 +2013,9 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   sleep: a woken calibrated headset keeps its frame (moved by the reset), waits
   up to 5 s for its anchors (`afterWake`), then looks for them again by their
   saved handles (they put the frame back on the marks) and shows the orange
-  crosses for 30 s ("Check the spots"). Not found (after 5 and 15 minutes
+  crosses for 30 s ("Check the spots"; in AR in a room with spots, since v119, the
+  check by eye's question instead, which every wake asks: "The room setup guide").
+  Not found (after 5 and 15 minutes
   asleep two Quest 3s did not find them, and did once AR was entered again), it
   looks again every 10 s for two minutes, then every minute up to ten
   (`restore`, `retryDue`; "Spots found again"); a retry does not hold the room
@@ -2245,7 +2363,7 @@ reference, `tools/flock/engine/`):
 - The panel footer: `if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', ...)`;
   `xrResize` and the two-hand branch at the top of `carry`; `XR.size` in
   `xrPlace` (scene stories), `xrRecenter` and `xrAdopt`.
-- The session's optional features from `HOST.xr.features(mode)` (AR asks for `'shared'`; VR does not).
+- The session asked for through the shell: `session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));` (v119; AR asks for `'shared'` and depth sensing; VR does not).
 - `xrFreshStart`: `if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }`: a
   headset taken off in a room keeps its story and place (no Stories screen
   for a new wearer); at a station the room's clock and state go on applying.
@@ -3678,7 +3796,8 @@ opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`
 default with nothing drawn, on through the menu's Frame rate row, the story's frames drawn through `HOST.perf` from the
 pretend head giving a second's triangles, draw calls and code time, the read-out showing them with the frames a second and
 the frame times, 22 degrees down and 14 to the left 1 m away and staying so as the head turns, kept across a reload,
-`#fps=off` and `#fps=on`, nothing drawn when off); the keypad (v118, `HOST.collab.keypad`: the menu opening with its
+`#fps=off` and `#fps=on`, nothing drawn when off; v119: a double press of B on a pretend controller turning it on with
+its notice, of Y off again, one press, two 0.6 s apart and a B held as its controller appeared doing nothing); the keypad (v118, `HOST.collab.keypad`: the menu opening with its
 keys, OK and Delete greyed while empty, *atelier 22*, Delete and OK giving *atelier 2* and closing the menu again, Back
 giving null, another tab giving null, and null at once on a page without a headset session); the menu's Design room
 button outside a room opening the design room, the menu closing and the button
@@ -3687,6 +3806,14 @@ shell knows, places that resolve, times within the story; a paused scrub across
 cues playing none; a stretch played asking for exactly the cues it crosses; one
 explore action's sound, `SFX_PICK`; a pretend headset's press on a story panel
 button clicking; at a slideshow stop no cue past it until Next, then the next),
+real-world occlusion (v119: a pretend AR headset driven through three.js r128's own WebXR path, its depth a real WebGL2
+texture array made in the page each frame, window depth with no far plane, and a pretend room scan; a magenta test plane
+read back from the layer's framebuffer hidden where the real world is nearer and drawn where it is farther, in both
+eyes, also the other way round, an eye without depth unoccluded, the real world 2 cm nearer not hiding it; the room's
+wall hiding what stands behind it with depth paused; off; both; the menu never hidden; the default *room and people*
+and the menu's row going round, kept; a story's own cleared by a story change and the objects hung in the next story's
+scene; nothing drawn after the session ends; CPU depth; `#occl=off`; `HOST.xr.request`'s ladder (a TypeError naming
+`'unsigned-short'`, another refusal) and VR as ever; the session line in every story),
 focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, and an iPad, 1180 x 820, with touch:
 `HOST.focus()` true, the panel hidden, the slim bars, the subtitle strip's text the shell's caption for the line on show
 and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening
@@ -4035,12 +4162,17 @@ again (every session), skipped, *Not lined up?* by itself once late (shortened),
 flow again, skipped. Then the spots: the first headset (the room's origin) calibrates on two from *Line up* (case
 *first*, the red check's reason above), which writes `rm` and a frame from the spots for the space, and the guide goes on
 to *Check* by itself; *Check at A* 3 cm off spot A: green, the flow done, the guide closed; the second, taking that frame
-through the shared space, asked once more at *Check*; entering again it goes straight to *Check*, *Check at A* 3 cm off:
+through the shared space, asked by eye (v119: the orange crosses on the two spots within 2 cm, drawn over everything, the
+question 0.75 to 1 m in front, on top and the ray's first target, the guide shut), *Yes* standing as a check (by eye,
+the flow done, the laptop's list *checked by eye*); after a wake (hidden, then visible) asked again (why *wake*), *Yes*;
+after a floor reset asked again (why *reset*), *No* opening *Line up* (case *room*, why in red, not lined up: the
+laptop's list *not lined up (its crosses off the spots, by eye)*), skipped; entering again the startup flow asks by eye
+(flow *eye*, why *start*, the guide shut) instead of opening at *Check*; *No*, *Next*, *Check at A* 3 cm off:
 green, the guide and its menu closed, the laptop's list *checked 3 cm at spot A*; 40 cm off: red, back to *Line up*
 (case *room*, why); Calibrate there on the spots, on to *Check* by itself, *Check at B* 2 cm off: green (the room's `rm`
 still the first's); the laptop's list *lined up (the room's spots, checked ... at spot ...)* for both, 2 checked; with
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
-space, calibrating, straight to Check, and the laptop's section), the design room (the Shared dialog's picker listing it after
+space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
@@ -4286,16 +4418,21 @@ circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared d
 station's *Lock story*). Circles asked first (`askRound`, v118, also in the main run, right after the ten-headset round;
 `--ask` runs only it, a room of its own with two story circles and Back to the lobby, a page and a pretend headset, a few
 minutes): a page's Shared dialog turning the room's switch on (*Circles: walk in* to *Circles: ask first*, `look`'s
-`ask` true, the headset too); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
+`ask` true, the headset too); no ring drawn or pointable then, the lobby's too, the cards and icons staying, *Show all
+rings* bringing every ring back and off again hiding them (v119); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
 another station's icon (pointed at first) opening the question in front of it (that circle's title, 0.8 to 1 m away, on
 top and the ray's first target; no notice); *Not now* (pressed by the ray at its button) closing it, nothing entered;
 opened again, gone by itself after 10 s; *Not now* pressed by the right index fingertip (a pretend tracked hand, hovering
 first); the headset having written nothing to the room meanwhile; *Go in* entering that
 circle from the other one (its live station, its story loaded and its rig at that circle's spot, the page seeing its
 presence there) and standing on in the first circle entering nothing; the lobby's question (*Back to the lobby*) and its
-*Go in* ending the station; the menu's *Circles* row turning it off for the room, the headset having written nothing but
-`look` (and what any arrival writes: its story's state and view there); walking in working again (with `--shots`:
-`ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
+*Go in* ending the station, the story loaded hearing it (a stub for `HOST.cur.lobby`); from a story again, walking into
+the lobby (its ring hidden) ending the station after 1 s and the stub called again; *Go in* pressed while standing in the
+lobby holding (not taken back there); the menu's *Circles* row turning it off for the room, the headset having written nothing but
+`look` (and what any arrival writes: its story's state and view there); walking in working again; then (v119) a studio
+circle added from the page: `HOST.collab.hideOthers(true)` refused (false) at a story's circle, and at the studio's
+(walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, lapsing
+once the headset walks into another circle (with `--shots`: `ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
 values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:

@@ -137,7 +137,10 @@ local network found each other this way, and then shared a peer-to-peer room; he
      room for everyone, today and next time.
    - **The others**, one by one: if the room has its spots and the headset is not lined up by them, *Calibrate on them*
      (spot A, then spot B). A headset already lined up by them (its own calibration found again, or through the shared
-     space from someone who calibrated) goes straight to **Check**.
+     space from someone who calibrated) is asked by eye instead: the two orange crosses show where it puts the spots and
+     a small panel asks *Are both crosses on your spots?* **Yes** counts as its check (*checked by eye* on the laptop);
+     **No, calibrate again** opens *Line up*. The same question comes after a headset wakes, after **Re-align** and
+     whenever the room may have moved in it: look at both crosses before you answer.
    - **Check** (every headset, once a session): press **Check at A**, hold the ring still on spot A itself (not on the
      orange cross: it hides while you check) and pull the trigger. Green (up to 10 cm) or amber (10 to 25 cm): *Lined
      up*, and the menu closes. Red (over 25 cm): back to *Line up* with why; calibrate on the spots and check again.

@@ -14,6 +14,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
 const step = async (name, fn) => { const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); };
+const smokeStep = step;
 
 await page.goto(base + 'index.html');
 await page.waitForTimeout(4000);
@@ -4615,6 +4616,44 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
     if (!f4.vis || f5.vis) bad.push('#fps=on, then off: ' + JSON.stringify([f4.vis, f5.vis]));
     if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
   });
+  // the frame-rate read-out on a double press of B or Y (v119: button 5 of either controller, two presses within 0.4 s;
+  // no story uses it): B twice turns it on (a notice says so), Y twice off again; one press, or two 0.6 s apart, nothing;
+  // a button held as its controller appears counts nothing
+  await step('the frame-rate read-out: a double press of B or Y turns it on and off; one press, two slow ones or a held button nothing', async () => {
+    const bad = [];
+    if (!await sp.evaluate(() => HOST.curKey === 'qubits' && !!window.__tick && !!HOST.session)) await openXR('qubits');
+    await sp.evaluate(() => HOST.xr.setFps(false));
+    // a pretend controller (index i of the session's input sources) with button 5 (B on the right, Y on the left); seq: its
+    // states, one headset frame each, in one go (two presses within 0.4 s however slowly the page draws)
+    const ctl = (i, hand, held) => sp.evaluate(([i, hand, held]) => { window.__s.inputSources[i] = { handedness: hand, targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(k => ({ pressed: k === 5 && held, touched: false, value: 0 })) } }; window.__tick(1); }, [i, hand, held]);
+    const seq = (i, states) => sp.evaluate(([i, states]) => { const b = window.__s.inputSources[i].gamepad.buttons[5]; for (const v of states) { b.pressed = v; window.__tick(1); } }, [i, states]);
+    const st = () => sp.evaluate(() => ({ on: HOST.xr.fps(), note: (HOST.collab.notes().slice(-1)[0] || {}).title || '' }));
+    await ctl(0, 'right', false); await ctl(1, 'left', false);
+    await seq(0, [true, false]); await tick(2);
+    const s1 = await st();
+    if (s1.on) bad.push('one press of B turned it on');
+    await sp.waitForTimeout(500);
+    await seq(0, [true, false]); await sp.waitForTimeout(600); await seq(0, [true, false]); await tick(1);
+    const s2 = await st();
+    if (s2.on) bad.push('two presses of B 0.6 s apart turned it on');
+    await sp.waitForTimeout(500);
+    await seq(0, [true, false, true, false]); await tick(2);
+    const s3 = await st(), f3 = await sp.evaluate(() => HOST.collab.overlay().fps.mesh.visible);
+    if (!(s3.on && s3.note === 'Frame rate: on' && f3)) bad.push('a double press of B did not turn it on (with its notice, the read-out drawn): ' + JSON.stringify([s3, f3]));
+    await sp.waitForTimeout(500);
+    await seq(1, [true, false, true, false]); await tick(2);
+    const s4 = await st();
+    if (s4.on || s4.note !== 'Frame rate: off') bad.push('a double press of Y did not turn it off: ' + JSON.stringify(s4));
+    // held as its controller appears: let go, pressed once, nothing (that first one was no press)
+    await sp.waitForTimeout(500);
+    await sp.evaluate(() => { window.__s.inputSources.length = 0; HOST.xr.setFps(false); window.__tick(1); });
+    await ctl(0, 'right', true);
+    await seq(0, [true, false, true, false]); await tick(1);
+    const s5 = await st();
+    if (s5.on) bad.push('a B held as its controller appeared counted as a press');
+    await sp.evaluate(() => { window.__s.inputSources.length = 0; HOST.xr.setFps(false); window.__tick(1); });
+    if (bad.length) errors.push(...bad.map(b => 'frame rate by B or Y: ' + b));
+  });
   // a keypad for a word in the headset's menu (HOST.collab.keypad; the studio names scenes with it): a word typed, Delete
   // and OK give it (the menu it opened closing again); OK greyed while empty; Back gives null, and so does another tab;
   // without a headset session there is no keypad (null at once)
@@ -4668,6 +4707,267 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
     if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
   });
   await sp.close();
+}
+// Real-world occlusion in AR (HOST.occlusion, occlusion.js) with a pretend AR headset (its frames driven by the test
+// through three.js r128's own WebXR path), its depth a real WebGL2 texture array made in the page, a new one each frame
+// (window depth with no far plane, 1 - 0.1 / metres, as a Quest 3 gives it; near on the left half of each eye, far on
+// the right), and a pretend room scan (a wall 0.6 m ahead on the left). A magenta test plane 0.8 m ahead in the story's
+// scene, read back from the layer's own framebuffer: hidden where the real world is nearer, drawn where it is farther,
+// in both eyes; the room's wall hiding what stands behind it; the menu never hidden; the setting's default 'both', the
+// menu's row going round, #occl=off, a story's own (cleared with the story), a story change in the session; the
+// session's request (depth sensing asked for in AR, the ladder: a TypeError naming 'unsigned-short' asked again without
+// it, another refusal without depth) and VR as ever; the new session line in every story
+function OCCL_FAKE() {
+  const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
+  const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
+  const DW = 64, DH = 64, WN = 0.1;
+  const F = window.__occl = { o: { refuseUS: false, failDepth: false, cpu: false }, session: null, time: 0, tex: null, texFrame: -1, frameNo: 0, made: 0, near: 0.5, far: 4, drop: null, inits: [], pauses: 0, resumes: 0 };
+  const toWin = m => 1 - WN / m;   // (a depth buffer's value with no far plane)
+  const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+  // a wall 0.6 m ahead, from 3 m to the left to the middle, from the floor (1.6 m down) to 1 m above the eyes
+  const planes = new Set([{ planeSpace: { matrix: rotX(Math.PI / 2, 0, -1.6, -0.6) }, polygon: [{ x: -3, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -2.6 }, { x: -3, y: 0, z: -2.6 }], orientation: 'vertical', semanticLabel: 'wall', lastChangedTime: 1 }]);
+  const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
+  class Session extends EventTarget {
+    constructor(mode, feats) {
+      super(); this.mode = mode; this.renderState = { depthNear: 0.1, depthFar: 1000, baseLayer: null }; this.inputSources = []; this.visibilityState = 'visible';
+      this.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque'; this.enabledFeatures = feats; this.cbs = new Map(); this.n = 0;
+      if (feats.includes('depth-sensing')) { this.depthUsage = F.o.cpu ? 'cpu-optimized' : 'gpu-optimized'; this.depthDataFormat = 'float32'; }
+    }
+    updateRenderState(s) { Object.assign(this.renderState, s); }
+    async requestReferenceSpace(type) { return space({ type, floor: type === 'local-floor' }); }
+    requestAnimationFrame(cb) { const id = ++this.n; this.cbs.set(id, cb); return id; }
+    cancelAnimationFrame(id) { this.cbs.delete(id); }
+    pauseDepthSensing() { F.pauses++; }
+    resumeDepthSensing() { F.resumes++; }
+    async end() { if (this.ended) return; this.ended = true; this.dispatchEvent(new Event('end')); }
+  }
+  // (taken for a headset's session, whose listeners outlive a story, as three.js's own do on a real one)
+  window.XRSession = Session;
+  WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
+  window.XRWebGLLayer = class { constructor(s, gl) {
+    // a framebuffer of its own, as a headset's layer has (colour and depth)
+    const W = this.framebufferWidth = gl.drawingBufferWidth, H = this.framebufferHeight = gl.drawingBufferHeight;
+    const pf = gl.getParameter(gl.FRAMEBUFFER_BINDING), pr = gl.getParameter(gl.RENDERBUFFER_BINDING), fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    for (const [fmt, att] of [[gl.RGBA8, gl.COLOR_ATTACHMENT0], [gl.DEPTH24_STENCIL8, gl.DEPTH_STENCIL_ATTACHMENT]]) {
+      const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, fmt, W, H);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, att, gl.RENDERBUFFER, rb);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pf); gl.bindRenderbuffer(gl.RENDERBUFFER, pr);
+    this.framebuffer = fb; this.antialias = true; }
+    getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
+  window.XRWebGLBinding = class {
+    constructor(s, gl) { this.s = s; this.gl = gl; }
+    getDepthInformation(view) {
+      if (!this.s.depthUsage) throw new DOMException('Depth sensing is not enabled for this session', 'InvalidStateError');
+      if (F.drop === view.eye) return null;
+      if (F.texFrame !== F.frameNo) {   // a new real texture array each frame (window depth), the last one taken back
+        const gl = this.gl, prev = gl.getParameter(gl.TEXTURE_BINDING_2D_ARRAY), fy = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL), pm = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
+        const t = gl.createTexture(), d = new Float32Array(DW * DH * 2);
+        for (let l = 0; l < 2; l++) for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) d[l * DW * DH + y * DW + x] = toWin(x < DW / 2 ? F.near : F.far);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+        gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R32F, DW, DH, 2, 0, gl.RED, gl.FLOAT, d);   // (its filter left as made: the shell sets nearest)
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, prev); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, fy); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, pm);
+        if (F.tex) gl.deleteTexture(F.tex);
+        F.tex = t; F.texFrame = F.frameNo; F.made++;
+      }
+      return { texture: F.tex, textureType: 'texture-array', imageIndex: view.eye === 'left' ? 0 : 1, width: DW, height: DH, rawValueToMeters: 1,
+        normDepthBufferFromNormView: { matrix: ident() }, depthNear: WN, depthFar: Infinity };
+    }
+  };
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 1, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
+  F.frame = () => ({
+    session: F.session,
+    getViewerPose: () => Object.assign(pose(ident()), { views }),
+    getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? pose(s.matrix) : null),
+    detectedPlanes: planes, detectedMeshes: new Set(),
+    // CPU depth (a phone's): metres in an array of its own, rows from the top
+    getDepthInformation: v => {
+      if (F.session.depthUsage !== 'cpu-optimized') throw new DOMException('Depth sensing is not enabled for the CPU', 'InvalidStateError');
+      if (F.drop === v.eye) return null;
+      const d = new Float32Array(DW * DH); for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) d[y * DW + x] = x < DW / 2 ? F.near : F.far;
+      return { data: d.buffer, width: DW, height: DH, rawValueToMeters: 1, normDepthBufferFromNormView: { matrix: ident() } };
+    },
+  });
+  F.step = (n = 1) => {
+    for (let i = 0; i < n; i++) {
+      F.time += 1000 / 72; F.frameNo++;
+      const cbs = [...F.session.cbs.values()]; F.session.cbs.clear();
+      const fr = F.frame();
+      for (const cb of cbs) cb(F.time, fr);
+    }
+  };
+  // pixels of the layer's own framebuffer right after a frame: [eye, x, y], fractions of that eye's viewport from its
+  // bottom left
+  F.look = (pts, frames = 2) => {
+    F.step(frames);
+    const gl = HOST.renderer.getContext(), L = F.session.renderState.baseLayer, W = L.framebufferWidth, H = L.framebufferHeight, out = new Uint8Array(4), prev = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, L.framebuffer);
+    const px = pts.map(([eye, x, y]) => { gl.readPixels(Math.floor((eye * 0.5 + x * 0.5) * W), Math.floor(y * H), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out); return Array.from(out); });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, prev);
+    return px;
+  };
+  Object.defineProperty(navigator, 'xr', { configurable: true, value: {
+    isSessionSupported: async () => true, addEventListener() {}, removeEventListener() {},
+    requestSession: async (mode, init) => {
+      const ds = init.depthSensing;
+      F.inits.push(JSON.parse(JSON.stringify({ mode, init })));
+      if (F.o.refuseUS && ds && ds.dataFormatPreference.includes('unsigned-short')) throw new TypeError(`Failed to read the 'dataFormatPreference' property from 'XRDepthStateInit': The provided value 'unsigned-short' is not a valid enum value of type XRDepthDataFormat.`);
+      if (F.o.failDepth && ds) throw new DOMException('The requested session configuration is not supported', 'NotSupportedError');
+      let feats = (init.optionalFeatures || []).slice();
+      if (!ds) feats = feats.filter(f => f !== 'depth-sensing');
+      const s = new Session(mode, ['viewer', 'local', ...feats]);
+      if (!F.session || F.session.ended) F.session = s;
+      return s;
+    } } });
+}
+{
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const op = await ctx.newPage();
+  op.on('pageerror', e => errors.push('occlusion: ' + (e.stack || e.message)));
+  op.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('occlusion: ' + m.text()); });
+  await op.addInitScript(OCCL_FAKE);
+  const ready = k => op.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 30000 });
+  // the magenta test plane, 1.2 m by 0.8 m, 0.8 m ahead in the story's scene (its root is the headset's space)
+  const plane = () => op.evaluate(() => { const sc = HOST.cur.collab.scene(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0xff00ff, toneMapped: false, fog: false }));
+    m.position.set(0, 0, -0.8); m.name = 'occlusion test'; sc.add(m); return 0; });
+  // the plane on the left and the right of each eye's middle, above the eyes (clear of the notice and the menu)
+  const PTS = [[0, 0.3, 0.62], [0, 0.7, 0.62], [1, 0.3, 0.62], [1, 0.7, 0.62]];
+  const mag = px => px[0] > 200 && px[1] < 70 && px[2] > 200 && px[3] > 200;
+  const shows = async (what, want, frames) => {
+    const px = await op.evaluate(([pts, n]) => window.__occl.look(pts, n), [PTS, frames || 3]), got = px.map(mag).map(b => (b ? 1 : 0)).join('');
+    if (got !== want) errors.push(`occlusion: ${what}: the plane shows ${got} (left and right of each eye), not ${want}: ` + JSON.stringify(px));
+  };
+  const st = () => op.evaluate(() => HOST.occlusion.state());
+  await step('occlusion: on by default (room and people)', async () => {
+    await op.goto(base + 'index.html#airports&labels=hidden&cards=hidden');
+    await ready('airports');
+    const s0 = await op.evaluate(() => [HOST.occlusion.own(), HOST.occlusion.mode(), HOST.occlusion.over(), localStorage.getItem('xrOccl')]);
+    if (s0.join() !== 'both,both,,') errors.push('occlusion: the default is ' + JSON.stringify(s0));
+  });
+  await step('occlusion: AR asks for depth sensing (GPU first, unsigned-short first, the depth seen from the eye)', async () => {
+    await op.evaluate(() => HOST.cur.peek('xrStart("immersive-ar")'));
+    await op.waitForFunction(() => window.__occl.session && window.__occl.session.cbs.size && HOST.session === window.__occl.session, null, { timeout: 20000 });
+    await op.evaluate(() => window.__occl.step(4));
+    const r = await op.evaluate(() => window.__occl.inits);
+    const ds = r[0] && r[0].init.depthSensing, f = r[0] && r[0].init.optionalFeatures;
+    if (r.length !== 1 || !ds || ds.usagePreference.join() !== 'gpu-optimized,cpu-optimized' || ds.dataFormatPreference.join() !== 'unsigned-short,luminance-alpha,float32' || ds.matchDepthView !== true)
+      errors.push('occlusion: the AR request: ' + JSON.stringify(r));
+    const want = await op.evaluate(() => HOST.xr.features('immersive-ar').concat('depth-sensing').join());
+    if (!f || f.join() !== want) errors.push('occlusion: the AR features: ' + f + ' (want ' + want + ')');
+  });
+  await step('occlusion: people (depth): the plane hidden where the real world is nearer, drawn where it is farther, both eyes; read as a depth buffer\'s', async () => {
+    await plane();
+    await op.evaluate(() => HOST.occlusion.set('depth'));
+    await shows('depth, near on the left', '0101');
+    const s = await st();
+    if (!s.quad || s.roomShown || !s.inScene || s.paused || !s.depth || !s.depth.enabled || s.depth.used !== 'window' || !s.depth.decided || s.depth.eyes.join() !== 'true,true' || !(s.depth.probe && s.depth.probe.buf))
+      errors.push('occlusion: depth state ' + JSON.stringify(s));
+    await op.evaluate(() => { window.__occl.near = 4; window.__occl.far = 0.5; });
+    await shows('depth, near on the right', '1010');
+    // an eye without depth this frame: nothing hidden in it
+    await op.evaluate(() => { window.__occl.near = 0.5; window.__occl.far = 4; window.__occl.drop = 'right'; });
+    await shows('the right eye without depth', '0111');
+    await op.evaluate(() => { window.__occl.drop = null; });
+    // nearer than the plane but by less than the bias: not hidden (a thing standing on a real surface)
+    await op.evaluate(() => { window.__occl.near = 0.78; });
+    await shows('the real world 2 cm nearer than the plane', '1111');
+    await op.evaluate(() => { window.__occl.near = 0.5; });
+  });
+  await step('occlusion: room: the scan\'s wall hides what stands behind it, depth paused; off: nothing hidden; both: both', async () => {
+    const p0 = await op.evaluate(() => window.__occl.pauses);
+    await op.evaluate(() => { HOST.occlusion.set('room'); window.__occl.near = window.__occl.far = 4; });
+    await shows('room, the wall on the left', '0101');
+    const s = await st(), p1 = await op.evaluate(() => window.__occl.pauses);
+    if (s.quad || !s.roomShown || !s.paused || !s.room || s.room.planes !== 1 || s.room.built < 1 || p1 !== p0 + 1) errors.push('occlusion: room state ' + JSON.stringify(s) + ' pauses ' + p0 + ' -> ' + p1);
+    await op.evaluate(() => { HOST.occlusion.set('off'); window.__occl.near = window.__occl.far = 0.5; });
+    await shows('off, the real world near everywhere', '1111');
+    if ((await st()).root) errors.push('occlusion: off still draws its objects');
+    await op.evaluate(() => { HOST.occlusion.set('both'); window.__occl.near = 4; window.__occl.far = 0.5; });
+    await shows('both: the wall on the left, people on the right', '0000');
+    const r = await op.evaluate(() => window.__occl.resumes);
+    if (r < 1) errors.push('occlusion: depth sensing never resumed');
+  });
+  await step('occlusion: the menu is never hidden (the real world nearer everywhere)', async () => {
+    await op.evaluate(() => { window.__occl.near = window.__occl.far = 0.3; HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    await op.evaluate(() => window.__occl.step(4));
+    const at = await op.evaluate(() => {   // the menu's middle in the left eye (90 degree views, the eye 3.2 cm to the left)
+      const m = HOST.collab.overlay().panel.mesh, p = m.getWorldPosition(new THREE.Vector3());
+      return [0, 0.5 + (p.x + 0.032) / -p.z / 2, 0.5 + p.y / -p.z / 2, m.material.depthTest];
+    });
+    const px = await op.evaluate(pts => window.__occl.look(pts, 2), [at.slice(0, 3), [0, 0.7, 0.62]]);
+    if (!(px[0][3] > 200) || mag(px[0]) || at[3] !== false) errors.push('occlusion: the menu at ' + JSON.stringify(at) + ' drawn as ' + JSON.stringify(px[0]));
+    if (mag(px[1])) errors.push('occlusion: the plane drawn with the real world nearer everywhere');
+    // its row: room and people -> room -> people -> nothing -> room and people, kept on the headset
+    const seq = await op.evaluate(() => { const out = [HOST.occlusion.own()]; for (let k = 0; k < 4; k++) { const r = HOST.collab.menuFind('occl'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.own() + ':' + localStorage.getItem('xrOccl')); } return out; });
+    if (seq.join() !== 'both,room:room,depth:depth,off:off,both:both') errors.push('occlusion: the menu row went ' + seq.join());
+    await op.evaluate(() => HOST.collab.panelOpen(false));
+  });
+  await step('occlusion: a story\'s own (a scene that says never), cleared when the story changes; hung in the next story\'s scene', async () => {
+    await op.evaluate(() => { HOST.occlusion.scene('off'); window.__occl.near = 0.5; window.__occl.far = 4; });
+    const s = await st();
+    if (s.mode !== 'off' || s.over !== 'off' || s.own !== 'both') errors.push('occlusion: a story\'s own: ' + JSON.stringify(s));
+    await shows('a story\'s own: off', '1111');
+    await op.evaluate(() => HOST.go('design'));
+    for (let k = 0; k < 400 && !(await op.evaluate(() => HOST.curKey === 'design' && HOST.cur && !!HOST.cur.collab.scene() && HOST.loading.ran)); k++) await op.evaluate(() => window.__occl.step(1));
+    await op.evaluate(() => window.__occl.step(4));
+    await plane();
+    const s2 = await st();
+    if (s2.over !== null || s2.mode !== 'both' || !s2.inScene) errors.push('occlusion: after a story change ' + JSON.stringify(s2));
+    await shows('the design room: the wall and people on the left', '0101');
+    await op.evaluate(() => HOST.occlusion.scene(true));
+    if ((await st()).mode !== 'both') errors.push('occlusion: scene(true) is not room and people');
+    await op.evaluate(() => HOST.occlusion.scene(null));
+  });
+  await step('occlusion: the session ends: nothing of it drawn on the page', async () => {
+    await op.evaluate(() => window.__occl.session.end());
+    await op.waitForTimeout(300);
+    const s = await st();
+    if (s.session || s.root || s.quad) errors.push('occlusion: after the session ' + JSON.stringify(s));
+  });
+  await step('occlusion: CPU depth (as a phone gives it, in metres): the plane hidden where the real world is nearer', async () => {
+    await op.evaluate(() => { const F = window.__occl; F.o.cpu = true; F.near = 0.5; F.far = 4; HOST.occlusion.set('depth'); });
+    await op.evaluate(() => HOST.cur.peek('xrStart("immersive-ar")'));
+    await op.waitForFunction(() => window.__occl.session && !window.__occl.session.ended && window.__occl.session.cbs.size && HOST.session === window.__occl.session, null, { timeout: 20000 });
+    await op.evaluate(() => window.__occl.step(4));
+    await plane();
+    await shows('CPU depth, near on the left', '0101');
+    const s = await st();
+    if (!s.quad || s.depth.usage !== 'cpu-optimized' || s.depth.used !== 'metres') errors.push('occlusion: CPU depth state ' + JSON.stringify(s));
+    await op.evaluate(() => { window.__occl.o.cpu = false; HOST.occlusion.set('both'); return window.__occl.session.end(); });
+  });
+  // a link sets it; the session's ladder (a page of its own, no story's session)
+  await step('occlusion: #occl=off; the request\'s ladder (a TypeError naming unsigned-short, another refusal), VR as ever', async () => {
+    await op.goto('about:blank');
+    await op.goto(base + 'index.html#stories&occl=off');
+    await op.waitForFunction(() => typeof HOST !== 'undefined' && HOST.occlusion, null, { timeout: 20000 });
+    const o = await op.evaluate(() => [HOST.occlusion.own(), localStorage.getItem('xrOccl')]);
+    if (o.join() !== 'off,off') errors.push('occlusion: #occl=off gave ' + o);
+    const r = await op.evaluate(async () => {
+      const F = window.__occl, out = {};
+      F.o.refuseUS = true;
+      let s = await HOST.xr.request('immersive-ar'); out.us = F.inits.map(i => i.init.depthSensing && i.init.depthSensing.dataFormatPreference.join('|')); out.usOK = !!s; await s.end();
+      F.inits = []; F.o.refuseUS = false; F.o.failDepth = true;
+      s = await HOST.xr.request('immersive-ar'); out.fail = F.inits.map(i => [!!i.init.depthSensing, i.init.optionalFeatures.includes('depth-sensing')].join('|')); out.failOK = !!s; await s.end();
+      F.inits = []; F.o.failDepth = false;
+      s = await HOST.xr.request('immersive-vr'); out.vr = F.inits.map(i => JSON.stringify(i.init)); out.vrWant = JSON.stringify({ optionalFeatures: HOST.xr.features('immersive-vr') }); await s.end();
+      return out;
+    });
+    if (r.us.join() !== 'unsigned-short|luminance-alpha|float32,luminance-alpha|float32' || !r.usOK) errors.push('occlusion: a TypeError for unsigned-short: ' + JSON.stringify(r.us));
+    if (r.fail.join() !== 'true|true,false|false' || !r.failOK) errors.push('occlusion: another refusal: ' + JSON.stringify(r.fail));
+    if (r.vr.length !== 1 || r.vr[0] !== r.vrWant) errors.push('occlusion: VR asked ' + JSON.stringify(r.vr) + ', not ' + r.vrWant);
+    await op.evaluate(() => { HOST.occlusion.set('both'); });
+  });
+  await step('every story asks for its session through HOST.xr.request', async () => {
+    const line = 'session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));';
+    const miss = await op.evaluate(async ([keys, line]) => (await Promise.all(keys.map(async k => ((await (await fetch('stories/' + k + '.js')).text()).includes(line) ? '' : k)))).filter(Boolean), [[...STORY_KEYS, ...EXTRA], line]);
+    if (miss.length) errors.push('the session line is missing in ' + miss.join(', '));
+  });
+  await ctx.close();
 }
 // Focus mode (HOST.focus): on by default on a phone and an iPad (touch), the 3D on its own between two slim bars (nothing
 // overlapping, also on a 360 px phone), the subtitles the shell's own captions changing with the clock, a chapter's title

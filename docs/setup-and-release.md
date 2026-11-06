@@ -220,7 +220,7 @@ is GitHub Pages' custom domain for `main`.
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
 4. **Bump `VERSION` in `sw.js`** (`networks-v116` now, so `networks-v117` next) after any change to a file the app
-   serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
+   serves: `index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in

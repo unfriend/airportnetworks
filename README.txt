@@ -205,9 +205,11 @@ walk into another. Pointing at a card and pulling the trigger
 does not take you there: walk into its circle. For a tight room, turn the
 circles to ask first (Circles: ask first, in the headset menu's Circles tab or
 the Shared dialog, for everyone in the room): then walking into a circle does
-nothing, and pointing at a circle's card, ring or model and pressing asks, in a
-small panel in front of you, whether to go in (Go in or Not now; it goes by itself
-after 10 seconds). The story stays at its circle; the lobby asks the same way. A headset in a room never shows
+nothing, no rings are drawn (Show all rings brings them back), and pointing at a
+circle's card or model and pressing asks, in a small panel in front of you, whether
+to go in (Go in or Not now; it goes by itself after 10 seconds). The story stays at
+its circle; the lobby asks the same way, and walking into it still takes you back to
+the lobby. A headset in a room never shows
 the Stories screen (leave the room in the menu and it comes back), except at the
 room's arc or an All stories circle; in a room with no stations at all the menu
 opens by itself, with Arrange all.
@@ -246,7 +248,11 @@ picks the two spots and calibrates on them (Calibrate: the bright ring at the
 controller's tip on spot A, the trigger, then spot B), which sets the room for
 everyone; the others calibrate on the same spots, or, already lined up by them
 (their calibration found again, or through the shared space from someone who
-calibrated), go straight to Check. Check: press Check at A and touch spot A
+calibrated), are asked by eye instead: the two orange crosses show where the
+headset puts the spots and a small panel asks Are both crosses on your spots? Yes
+counts as a check; No, calibrate again opens Line up. The same question comes
+after waking, a Re-align, or whenever the room may have moved in the headset.
+Check: press Check at A and touch spot A
 itself; up to 10 cm is green, up to 25 cm amber (fine for walking about), and
 either closes the menu (lined up, for this session); more is red and goes back
 to Line up to calibrate again. Skip for now closes it until a red check or until
@@ -310,7 +316,7 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate, this headset's own; Sound, this headset's own on or
+for every story; Frame rate and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
 Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
@@ -338,7 +344,13 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is. Panels, a fifth
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. Real world
+hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off in a link):
+room and people (the default), room, people or nothing. Real things in front of a scene
+hide it as they would a real object: the walls and furniture of the room scan (run Space
+Setup on the Quest) and people, hands and anything moving, from the headset's depth. The
+menu, the notices, the subtitles and whatever is set on top are never hidden; a studio
+scene may ask for its own, until the next story. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
 under the panel, good with subtitles) or hidden (A or X still plays); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also
@@ -600,7 +612,7 @@ Files: index.html (the app), stories/ (the sixteen stories, the design room and 
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
+shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
 directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),

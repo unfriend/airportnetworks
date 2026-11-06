@@ -895,7 +895,7 @@ shared password](#the-shared-password-collab_token)).
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
-`shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
+`sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
 `spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `version.json` (the release's version file, for
 live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the miniatures), and the files directly in `stories/`, `audio/`,
 `icons/` and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`)
@@ -918,7 +918,7 @@ Server-Sent Events (`text/event-stream`, `Cache-Control: no-store`, `retry: 2000
 
 | event | data | the page |
 | --- | --- | --- |
-| `hello` | `{ shell: { 'index.html': fp, 'shared.js': fp, 'sw.js': fp, 'three.min.js': fp, 'peerjs.min.js': fp }, stories: { <key>: fp }, list: fp, build }`, at once on every connection | the first: the shell as it is; after a lost connection (the relay restarted, the laptop slept): a shell file changed meanwhile reloads, a story changed meanwhile is swapped or marked, the list is read again |
+| `hello` | `{ shell: { 'index.html': fp, 'sfx.js': fp, 'occlusion.js': fp, 'shared.js': fp, 'sw.js': fp, 'three.min.js': fp, 'peerjs.min.js': fp }, stories: { <key>: fp }, list: fp, build }`, at once on every connection | the first: the shell as it is; after a lost connection (the relay restarted, the laptop slept): a shell file changed meanwhile reloads, a story changed meanwhile is swapped or marked, the list is read again |
 | `story` | `{ key, fp }`: `stories/<key>.js` changed | swaps it in place at once where it is on show (its place kept: mode, time, explore state, view, the headset's placement; at a station the room's clock and state, nothing written to the room); fetched fresh next time elsewhere |
 | `list` | `{ fp }`: `stories/list.js` changed | reads the list again: new and changed cards, no reload |
 | `shell` | `{ file, fp }`: a shell file changed | reloads with its place kept (a headset session ends: the page shows Enter VR to continue) |

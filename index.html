@@ -702,8 +702,8 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
       <details class="sh-guide" open><summary>The steps (in a headset: the menu, Circles, Room setup)</summary>
         <ol>
           <li><b>Before:</b> each Quest scans this room once (Settings, Physical space, Space setup, with Physical space features on). Every headset on the same Quest Browser version, the same bookmarked address and the same Wi-Fi. Two fixed spots, A and B, about 2 m apart: two corners of a table that stays put, or two tape crosses on the floor with an arrow from A to B.</li>
-          <li><b>Line up, one headset at a time</b> (each headset's menu opens at it by itself as it enters AR): the first headset picks the two spots and presses <b>Calibrate</b>: the bright ring at the controller's tip on spot A, the trigger, then spot B. That sets the room. Each of the others calibrates on the same spots, or goes straight to the check when it is lined up by them already. A VR headset elsewhere skips this.</li>
-          <li><b>Check:</b> <b>Check at A</b>, then the ring on spot A itself and the trigger. Up to 10 cm: lined up (the menu closes). 10 to 25 cm: fine for walking about. Over 25 cm: not lined up, back to Line up to calibrate again. With someone, <b>Check here</b> on both headsets within 20 s, both tips on one spot (the only check while the room has no spots). Everyone's name tag should float just above the real person's head.</li>
+          <li><b>Line up, one headset at a time</b> (each headset's menu opens at it by itself as it enters AR): the first headset picks the two spots and presses <b>Calibrate</b>: the bright ring at the controller's tip on spot A, the trigger, then spot B. That sets the room. Each of the others calibrates on the same spots; one lined up by them already is asked by eye instead (below). A VR headset elsewhere skips this.</li>
+          <li><b>Check:</b> <b>Check at A</b>, then the ring on spot A itself and the trigger. Up to 10 cm: lined up (the menu closes). 10 to 25 cm: fine for walking about. Over 25 cm: not lined up, back to Line up to calibrate again. With someone, <b>Check here</b> on both headsets within 20 s, both tips on one spot (the only check while the room has no spots). Everyone's name tag should float just above the real person's head. <b>By eye:</b> at the start of each session, after waking and whenever the room may have moved in a headset, it shows its two orange crosses where it puts the spots and asks <em>Are both crosses on your spots?</em> Yes counts as a check; <em>No, calibrate again</em> opens Line up.</li>
           <li><b>Not lined up:</b> <b>Re-align</b> on that headset, then check again. Still out: <b>Calibrate</b> on the two spots, on every headset (spot A, then spot B). Still out: check each headset's room scan and browser version, then <b>Fresh shared space</b> (everyone leaves AR; one headset first, the others after <em>Room ready</em>).</li>
         </ol>
       </details>
@@ -711,7 +711,7 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
       <ul class="sh-stations"></ul>
       <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the design room, the studio or one of the studio's scenes)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the circles are in place: nobody moves, adds or removes one by accident (the stories' scenes and panels have their own locks)">Lock circles</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
-      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets: the small labels inside the scenes" title="The small labels inside the scenes"><option value="face">Labels: on top</option><option value="fixed">Labels: in 3D</option><option value="hidden">Labels: hidden</option></select><select id="shCards" aria-label="Cards in the headsets: the story panels, the station cards and the name tags" title="The larger ones: the story's text panel and play bar, the station cards over the circles and people's name tags"><option value="fixed">Cards: in 3D</option><option value="face">Cards: on top</option><option value="hidden">Cards: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button><button class="btn" type="button" data-sh="ask" aria-pressed="false" title="Walk in: a headset goes into a circle by walking into it. Ask first: walking in does nothing; pointing at a circle's card, ring or icon and pressing asks whether to go in (for tight rooms)">Circles: walk in</button></div>
+      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets: the small labels inside the scenes" title="The small labels inside the scenes"><option value="face">Labels: on top</option><option value="fixed">Labels: in 3D</option><option value="hidden">Labels: hidden</option></select><select id="shCards" aria-label="Cards in the headsets: the story panels, the station cards and the name tags" title="The larger ones: the story's text panel and play bar, the station cards over the circles and people's name tags"><option value="fixed">Cards: in 3D</option><option value="face">Cards: on top</option><option value="hidden">Cards: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button><button class="btn" type="button" data-sh="ask" aria-pressed="false" title="Walk in: a headset goes into a circle by walking into it. Ask first: walking in does nothing; pointing at a circle's card or icon and pressing asks whether to go in, and no rings are drawn (for tight rooms); the lobby is still walked into">Circles: walk in</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
       <p class="hint">Follow a person in a headset: this page shows whichever station they stand at, switching as they walk (for people watching on a screen instead of wearing a headset).</p>
@@ -1446,9 +1446,32 @@ HOST.xr = (function () {
     if (HOST.collab && HOST.collab.setLook && HOST.collab.setLook(o)) return;   // in a room: written for everyone there
     Object.assign(own, o); keepOwn();
   }
+  // The session itself (every story's xrStart): VR with its features as ever; AR also asks for depth sensing (real-world
+  // occlusion, occlusion.js: GPU first, the formats a Quest 3 gave first, the depth seen from the eye itself), with the
+  // room test's ladder: a TypeError naming a value (a browser that does not know 'unsigned-short') asks again without it,
+  // any other refusal asks again without depth at all
+  const DEPTH = { usage: ['gpu-optimized', 'cpu-optimized'], formats: ['unsigned-short', 'luminance-alpha', 'float32'] };
+  async function request(mode) {
+    const feats = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice();
+    asked = mode;
+    if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+    let usage = DEPTH.usage.slice(), formats = DEPTH.formats.slice();
+    for (let k = 0; k < 6 && usage.length && formats.length; k++) {
+      const init = { optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } };
+      try { return await navigator.xr.requestSession(mode, init); } catch (e) {
+        const named = v => e && e.name === 'TypeError' && String(e.message || '').includes("'" + v + "'");
+        const u = usage.filter(v => !named(v)), f = formats.filter(v => !named(v));
+        if (u.length === usage.length && f.length === formats.length) break;   // (not about a value: without depth)
+        console.warn('AR asks again without ' + usage.concat(formats).filter(v => named(v)).join(', ') + ':', e.message);
+        usage = u; formats = f;
+      }
+    }
+    asked = mode;
+    return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+  }
   return {
     features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
-    watch,
+    request, watch,
     line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
     labels: () => look().labels,
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
@@ -1909,6 +1932,7 @@ HOST.loading = (() => {
     // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
     wrap(fn) {
       if (!fn || fn === loop) return fn;
+      if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
@@ -1964,6 +1988,7 @@ HOST.teardown = function () {
       try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
     }
     if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
+    if (this.occlusion) this.occlusion.detach();   // (so does real-world occlusion's, and the story's own choice of it goes)
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);
@@ -3049,6 +3074,7 @@ HOST.unknown = (function () {
 })();
 </script>
 <script src="sfx.js"></script>
+<script src="occlusion.js"></script>
 <script src="shared.js"></script>
 <script>
 'use strict';
@@ -3114,6 +3140,7 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
+  if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('voice')) HOST.xr.setVoice(hp.get('voice') !== 'off');
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)
