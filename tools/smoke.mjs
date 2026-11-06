@@ -1852,6 +1852,159 @@ await step('design: the intro ends at the table', async () => {
     await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  // Fewer triangles and Change texture (tools/studio/SPEC.md): a dense, bumpy ball with a red and green checker made in the
+  // page (24,320 triangles; nothing committed), served as ball.glb and placed twice
+  await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and picture', async () => {
+    const bad = [];
+    const b64 = await ss(`(async () => {
+      exporterLoad();
+      const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
+      g.computeVertexNormals();
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e02020' : '#20c020'; x.fillRect(i * 8, j * 8, 8, 8); }
+      const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshStandardMaterial({ name: 'skin', map: new T.CanvasTexture(cv), roughness: 1, metalness: 0 })));
+      const glb = await new Promise(res => new T.GLTFExporter().parse(root, res, { binary: true }));
+      const u = new Uint8Array(glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s);
+    })()`);
+    const ball = Buffer.from(b64, 'base64');
+    await stp.route('**/scenes/test/ball.glb*', r => r.fulfill({ body: ball, contentType: 'model/gltf-binary' }));
+    const u0 = await ss('UNDO.length');
+    const id = await ss(`(setEdit(true), setFiles(STU.files.concat({ path: 'ball.glb', bytes: ${ball.length}, at: 5, kind: 'model' })), addModel('ball.glb'))`), id2 = await ss(`addModel('ball.glb')`);
+    if (!await until(`(() => { const a = STU.items.get('${id}'), b = STU.items.get('${id2}'); return a.model && b.model && a.a > 0.99 && b.a > 0.99; })()`, 30000)) { errors.push('studio: the ball made in the page was not placed'); return; }
+    // the ball's colour where it shows (its own pixels, not the background's): red and green, the checker's (the mean red,
+    // green, how far apart red and green are pixel by pixel: large for the checker, small for a picture without it)
+    const mean = `(() => { const c = thumbOf(STU.items.get('${id}').holder, 96, 96, false), d = c.getContext('2d').getImageData(0, 0, 96, 96).data; let r = 0, g = 0, x = 0, n = 0; for (let i = 0; i < d.length; i += 4) { if (Math.abs(d[i] - 16) < 10 && Math.abs(d[i + 1] - 26) < 10 && Math.abs(d[i + 2] - 42) < 10) continue; r += d[i]; g += d[i + 1]; x += Math.abs(d[i] - d[i + 1]); n++; } return [Math.round(r / n), Math.round(g / n), Math.round(x / n), n]; })()`;
+    const m0 = await ss(mean), n0 = await ss(`LIB.get('ball.glb').info.tris`);
+    await ss(`(select('${id}'), X.tab = 'item', renderPanes(), 0)`);
+    const acts = await stp.evaluate(() => [...document.querySelectorAll('#pane-item [data-act^="ft:"], #pane-item [data-act^="ct:"]')].map(b => b.dataset.act).join());
+    if (acts !== 'ft:open,ct:open') bad.push('the ball\'s card: ' + acts);
+    await stp.click('#pane-item [data-act="ft:open"]');
+    if (!await until(`!!FT.pv && !FT.busy`, 30000)) bad.push('Fewer triangles made no preview: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    let t = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), document.querySelector('#stuRangeFT') && document.querySelector('#stuRangeFT').value]`);
+    if (n0 !== 24320 || Math.abs(t[0] / n0 - 0.2) > 0.01 || t[1] !== n0 || t[2] !== '20') bad.push('the preview at 20 % (this object only; the slider at 20): ' + JSON.stringify([n0, t]));
+    // its texture where it was: every corner of the lighter one is a corner of the ball's own, with its texture coordinates;
+    // and its colours as before
+    const uvs = await ss(`(() => { const it = STU.items.get('${id}'), g0 = FT.pv.sw[0][1], g1 = it.model.meshes[0].geometry, key = (g, i) => [g.attributes.position.getX(i), g.attributes.position.getY(i), g.attributes.position.getZ(i), g.attributes.uv.getX(i), g.attributes.uv.getY(i)].map(v => v.toFixed(5)).join();
+      const have = new Set(); for (let i = 0; i < g0.attributes.position.count; i++) have.add(key(g0, i)); let miss = 0; for (let i = 0; i < g1.attributes.position.count; i++) if (!have.has(key(g1, i))) miss++; return [g1 !== g0, miss, g1.attributes.position.count]; })()`);
+    const m1 = await ss(mean);
+    if (!uvs[0] || uvs[1] || Math.abs(m1[0] - m0[0]) > m0[0] * 0.06 || Math.abs(m1[1] - m0[1]) > m0[1] * 0.06 || Math.abs(m1[2] - m0[2]) > m0[2] * 0.1 || m0[0] < 40 || m0[1] < 40) bad.push('the preview\'s texture: ' + JSON.stringify({ uvs, m0, m1 }));
+    // the slider let go at 50 %
+    await stp.evaluate(() => { const r = document.querySelector('#stuRangeFT'); r.value = 50; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    if (!await until(`!!FT.pv && FT.pv.keep === 0.5 && !FT.busy`, 30000) || Math.abs(await ss(`STUDIO.tris('${id}')`) / n0 - 0.5) > 0.02) bad.push('the slider at 50 %: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    const card = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Fewer triangles: the share kept/.test(card) || !/It has 24,320 triangles: about 12,160 kept\./.test(card) || !/on this device only/.test(card) || !/Save downloads ball\.glb with about 12,160 triangles/.test(card)) bad.push('the card with Fewer triangles open: ' + card.slice(0, 500));
+    // the pretend headset's card: steps and quick picks (no slider), Save only with a relay that takes uploads
+    const xr = await ss(`(() => {
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, out = {};
+      // (every button the card draws, scrolled through)
+      const ids = () => { const seen = []; for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) if (!seen.includes(r.id)) seen.push(r.id); } X.scroll = {}; draw(); return seen; };
+      XR.on = true; X.scroll = {}; draw();
+      out.ids = ids().filter(i => /^(ft|ct):/.test(i)).join(); out.txt = paneBlocks('item').filter(b => !b.page).map(b => (b.label || '') + ' ' + (b.p || '')).join(' | ');
+      const was = { kind: SRC.kind, upload: SRC.upload, save: SRC.save, held: SRC.held };
+      Object.assign(SRC, { kind: 'relay', upload: true, save: true, held: false }); out.save = ids().includes('ft:save'); Object.assign(SRC, was); draw();
+      XR.main.regions.find(r => r.id === 'ft:10').fn();
+      out.keep = FT.keep; draw();
+      XR.on = false; return out;
+    })()`);
+    if (xr.ids !== 'ft:-,ft:+,ft:10,ft:20,ft:50,ft:cancel,ct:open' || !/Fewer triangles: 50 % kept/.test(xr.txt) || !/Saving from a headset needs a relay that takes uploads/.test(xr.txt) || !xr.save || xr.keep !== 0.1) bad.push('the headset\'s card: ' + JSON.stringify(xr).slice(0, 700));
+    if (!await until(`!!FT.pv && FT.pv.keep === 0.1 && !FT.busy`, 30000) || Math.abs(await ss(`STUDIO.tris('${id}')`) / n0 - 0.1) > 0.01) bad.push('the headset\'s 10 %: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    // Save at 20 % (no relay: downloaded): a GLB with tris in its record, its triangles as previewed; the preview put back
+    await ss(`(ftSet(0.2, true), 0)`);
+    await until(`!!FT.pv && FT.pv.keep === 0.2 && !FT.busy`, 30000);
+    const want = await ss(`FT.pv.to`);
+    const dl = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await ss(`(renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="ft:save"]');
+    const d = await dl;
+    await until(`!CV.busy && !FT.saving`, 60000);
+    const g = await ss(`(async () => { const L = STUDIO.lastGLB, back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej)); let tris = 0; back.scene.traverse(o => { if (o.isMesh) tris += o.geometry.index.count / 3; }); return { ok: L.ok, rec: L.record, tris, ft: FT.id, now: STUDIO.tris('${id}'), note: CV.note, maps: (() => { let n = 0; back.scene.traverse(o => { if (o.isMesh && o.material.map) n++; }); return n; })() }; })()`);
+    if (!d || d.suggestedFilename() !== 'ball.glb' || !g.ok || !g.rec.tris || g.rec.tris.from !== n0 || g.rec.tris.to !== want || g.rec.tris.keep !== 0.2 || g.tris !== want || g.maps !== 1 || g.ft || g.now !== n0 || !/[\d,]+ of 24,320 triangles\) and downloaded as ball\.glb/.test(g.note)) bad.push('Save (downloaded): ' + JSON.stringify(Object.assign({ name: d && d.suggestedFilename(), want }, g)).slice(0, 600));
+    // that GLB served as models/ball.glb, the balls switched to it where they stand (one Undo step), and its card now
+    // counts from the original (20 % of its triangles; 50 % more than the GLB has: shown as it is, made again from it)
+    const lite = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    await stp.route('**/scenes/test/models/ball.glb*', r => r.fulfill({ body: lite, contentType: 'model/gltf-binary' }));
+    const u1 = await ss('UNDO.length');
+    await ss(`(setFiles(STU.files.concat({ path: 'models/ball.glb', bytes: ${lite.length}, at: 6, kind: 'model' })), GLBREC.set('models/ball.glb', { at: 6, rec: CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } }), p: null }), switchToGLB('ball.glb', 'models/ball.glb', CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } })))`);
+    if (!await until(`(() => { const a = STU.items.get('${id}'); return a.rec.file === 'models/ball.glb' && !!a.model && a.E.state === 'ready'; })()`, 30000)) bad.push('the balls did not switch to models/ball.glb');
+    else {
+      const sw = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), STU.items.get('${id}').rec.s, JSON.stringify(STU.items.get('${id}').rec.q), UNDO.length, (select('${id}'), X.tab = 'item', renderPanes(), document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ').match(/[\\d,]+ triangles \\([^)]*\\)/) + '')]`);
+      if (sw[0] !== want || sw[1] !== want || sw[2] !== 1 || sw[3] !== '[0,0,0,1]' || sw[4] !== u1 + 1 || sw[5] !== `${want.toLocaleString('en-GB')} triangles (20 % of the 24,320 in ball.glb)`) bad.push('the switch to the lighter GLB: ' + JSON.stringify(sw));
+      await stp.click('#pane-item [data-act="ft:open"]');
+      await until(`!!FT.pv && !FT.busy`, 30000);
+      await ss(`(ftSet(0.5, true), 0)`);
+      await until(`!!FT.pv && FT.pv.keep === 0.5 && !FT.busy`, 30000);
+      const c2 = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+      if (!/ball\.glb has 24,320 triangles: about 12,160 kept\./.test(c2) || !/The model here has only [\d,]+, so the preview shows it as it is: Save makes it again from ball\.glb/.test(c2) || await ss(`STUDIO.tris('${id}')`) !== want) bad.push('the lighter GLB\'s card at 50 %: ' + c2.slice(0, 500));
+      await stp.click('#pane-item [data-act="ft:cancel"]');
+      await ss('undo()');
+      await until(`STU.items.get('${id}').rec.file === 'ball.glb' && !!STU.items.get('${id}').model && STU.items.get('${id}').E.path === 'ball.glb'`, 30000);
+    }
+    await ss(`(setFiles(STU.files.filter(f => f.path !== 'models/ball.glb')), GLBREC.delete('models/ball.glb'), 0)`);
+    await stp.unroute('**/scenes/test/models/ball.glb*');
+    // Change texture: its material and slots, the scene's pictures; figure.png shown on this ball only, Cancel puts its own
+    // back, then Save bakes it in (downloaded: the record's tex)
+    await ss(`(select('${id}'), X.tab = 'item', renderPanes(), 0)`);
+    const own = await ss(`STU.items.get('${id}').model.meshes[0].material.map.uuid`);
+    await stp.click('#pane-item [data-act="ct:open"]');
+    const ct0 = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Change texture: its material skin Colour: inside the file/.test(ct0) || !/The scene's pictures \(2\) figure\.png/.test(ct0) || !/crate\.png originals\//.test(ct0) || !/Choose a picture\.\.\./.test(ct0)) bad.push('Change texture\'s card: ' + ct0.slice(0, 500));
+    await stp.click('#pane-item [data-act="ct:pic"][data-v="figure.png"]');
+    await until(`!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    const m2 = await ss(mean), ct1 = await ss(`[STU.items.get('${id}').model.meshes[0].material.map === CT.tex, STU.items.get('${id2}').model.meshes[0].material.map.uuid === '${own}' || STU.items.get('${id2}').model.meshes[0].material.map !== CT.tex, CT.tex.image.width]`);
+    if (!ct1[0] || !ct1[1] || ct1[2] !== 64 || m0[2] < 60 || m2[2] > m0[2] / 2) bad.push('figure.png shown on the ball: ' + JSON.stringify({ ct1, m0, m2 }));
+    await stp.click('#pane-item [data-act="ct:cancel"]');
+    const ct2 = await ss(`[STU.items.get('${id}').model.meshes[0].material.map.uuid === '${own}', CT.id]`), m3 = await ss(mean);
+    if (!ct2[0] || ct2[1] || Math.abs(m3[0] - m0[0]) > 4 || Math.abs(m3[1] - m0[1]) > 4) bad.push('Cancel did not put its own picture back: ' + JSON.stringify({ ct2, m0, m3 }));
+    await stp.click('#pane-item [data-act="ct:open"]');
+    await stp.click('#pane-item [data-act="ct:pic"][data-v="figure.png"]');
+    await until(`!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    const dl2 = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await stp.click('#pane-item [data-act="ct:save"]');
+    const d2 = await dl2;
+    await until(`!CV.busy && !CT.saving`, 60000);
+    const g2 = await ss(`(async () => { const L = STUDIO.lastGLB, back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej)); let w = 0; back.scene.traverse(o => { if (o.isMesh && o.material.map) w = o.material.map.image.width; }); return { ok: L.ok, tex: L.record.tex, w, ct: CT.id, map: STU.items.get('${id}').model.meshes[0].material.map.uuid === '${own}' }; })()`);
+    if (!d2 || d2.suggestedFilename() !== 'ball.glb' || !g2.ok || JSON.stringify(g2.tex) !== '[{"name":"","mat":"skin","slot":"map","from":"figure.png","how":"chosen"}]' || g2.w !== 64 || g2.ct || !g2.map) bad.push('Change texture\'s Save (downloaded): ' + JSON.stringify(g2));
+    // the pretend headset: Change texture by the ray, figure.png shown, Cancel
+    const cx = await ss(`(() => {
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, hit = id => { const r = XR.main.regions.find(q => q.id === id); if (r) r.fn(); return !!r; }, out = {};
+      XR.on = true; X.scroll = {}; draw(); out.open = hit('ct:open'); draw();
+      const seen = new Set(); for (let off = 0; off < 3000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
+      out.ids = [...seen].filter(i => /^ct:/.test(i)).join();
+      XR.on = false; return out;
+    })()`);
+    if (!cx.open || !/ct:mat:0/.test(cx.ids) || !/ct:slot:normalMap/.test(cx.ids) || !/ct:pic:figure\.png/.test(cx.ids) || /ct:file/.test(cx.ids) || !/ct:cancel/.test(cx.ids)) bad.push('Change texture in the headset: ' + JSON.stringify(cx));
+    await ss(`(XR.on = true, (() => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } })(), act('ct:pic', 'figure.png'), XR.on = false, 0)`);
+    if (!await until(`!!(CT.saved && CT.saved.length) && !CT.busy && STU.items.get('${id}').model.meshes[0].material.map === CT.tex`, 20000)) bad.push('the headset did not show figure.png on the ball');
+    await ss(`(XR.on = true, act('ct:cancel'), XR.on = false, 0)`);
+    if (await ss(`STU.items.get('${id}').model.meshes[0].material.map.uuid !== '${own}' || !!CT.id`)) bad.push('the headset\'s Cancel did not put its picture back');
+    // nothing of either for a visitor
+    const vis = await ss(`(() => { OPT.visit = true; renderPanes(); const n = document.querySelectorAll('#pane-item [data-act^="ft:"], #pane-item [data-act^="ct:"]').length; act('ft:open', '${id}'); const r = [n, FT.id]; OPT.visit = false; renderPanes(); return r; })()`);
+    if (vis[0] || vis[1]) bad.push('a visitor has Fewer triangles or Change texture: ' + JSON.stringify(vis));
+    // the Upload pane: the ball dropped, 20 % to start with its triangles counted from its bytes, 30 % on its slider, its
+    // picture, then converted (downloaded) with that share
+    await ss(`(select(''), X.tab = 'upload', renderPanes(), 0)`);
+    await stp.evaluate(b64 => { const u = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); HOST.cur.peek('upTake')([{ path: 'ball.glb', file: new File([u], 'ball.glb') }]); }, b64);
+    await until(`!UP.planning && UP.rows.length === 1`, 20000);
+    let up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].tris, document.querySelector('#stuRangeUp0') && document.querySelector('#stuRangeUp0').value, document.querySelector('#pane-upload .stu-plan').textContent.replace(/\\s+/g, ' ')])`);
+    if (up[0] !== 0.2 || up[1] !== n0 || up[2] !== '20' || !/About 4,864 of its 24,320 triangles\./.test(up[3])) bad.push('the Upload row\'s share: ' + JSON.stringify(up).slice(0, 500));
+    await stp.evaluate(() => { const r = document.querySelector('#stuRangeUp0'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await stp.click('#pane-upload [data-act="up:pv"]');
+    await until(`!!UP.rows[0].pv && !UP.rows[0].pv.busy`, 30000);
+    up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].pv, !!document.querySelector('#pane-upload img.stu-pv')])`);
+    if (up[0] !== 0.3 || !up[1].img || !/^24,320 triangles became 7,[23]\d\d\.$/.test(up[1].words) || !up[2]) bad.push('the Upload row\'s picture: ' + JSON.stringify(up).slice(0, 300));
+    await stp.click('#pane-upload [data-act="up:run"]');
+    await until(`!UP.busy && UP.rows[0].state === 'done'`, 60000);
+    const ug = await ss(`(async () => { const a = document.querySelector('#pane-upload .stu-plan a[download]'), j = a ? CONV.glbJSON(await (await fetch(a.href)).arrayBuffer()) : null; return [UP.rows[0].msg, j && j.asset.extras.studio.tris]; })()`);
+    if (!/^Converted \([\d.]+ KB, 7,[23]\d\d of 24,320 triangles\)\.$/.test(ug[0]) || !ug[1] || ug[1].keep !== 0.3 || ug[1].from !== n0) bad.push('the Upload row converted: ' + JSON.stringify(ug));
+    // back as it was
+    // (the two balls placed are the only steps since: taken back)
+    while (await ss('UNDO.length') > u0) await ss('undo()');
+    await ss(`(upClear(), setFiles(STU.files.filter(f => f.path !== 'ball.glb')), X.tab = 'scene', renderPanes(), 0)`);
+    await stp.unroute('**/scenes/test/ball.glb*');
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) bad.push('the layout did not come back after Fewer triangles and Change texture');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
   await step('studio: the headset panels\' panes, its Stories screen, and Download', async () => {
     const bad = await ss(`(() => {
       const out = [], want = { scene: ['edit', 'scene:test', 'load'], add: ['add:box.glb', 'add:figure.fbx', 'adds:tone.wav', 'cube'], item: ['light:scan', 'anim:once', 'turn', 'stand', 'del'], items: ['sel:box001', 'sel:cube01', 'sel:snd001'] };

@@ -866,10 +866,11 @@ function makeConverter(THREE, hooks) {
       step('Fewer triangles', 0.2);
       await yieldNow();
       red = await reduce(wrap, o.keep, { inPlace: true });
-      notes.push(...red.notes);
+      if (red.to < red.from) notes.push(...red.notes);
+      else { notes.push('fewer triangles: none taken away (its parts have too few to come down)'); red = null; }   // (nothing recorded)
       await yieldNow();
     }
-    const ref = red ? stats(wrap, clips) : before;   // (what the GLB must match: the lighter model)
+    const ref = o.keep > 0 && o.keep < 1 ? stats(wrap, clips) : before;   // (what the GLB must match: the lighter model)
 
     // animation tracks for things the file does not export (the exporter would drop the whole animation): left out
     const PATHS = { position: 1, quaternion: 1, scale: 1, morphTargetInfluences: 1 };
