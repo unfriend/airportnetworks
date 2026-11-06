@@ -1653,6 +1653,8 @@ async function askRound(dir) {
   const rings = live => H.evaluate(live => { const X = window.__xr; for (let k = 0; k < 3; k++) X.step(); const O = HOST.collab.overlay(), mine = HOST.collab.mine();
     return [...O.rings.entries()].filter(([id]) => !live || id !== mine).map(([id, o]) => ({ id, ring: o.ring.visible, hit: O.hit.includes(o.ring), icon: o.icon.g.visible && O.hit.includes(o.ball),
       card: !!(O.cards.get(id) && O.cards.get(id).mesh.visible) })); }, !!live);
+  // the same once want holds of them, or ms have passed (they fade over frames, and a page drawing in software steps few)
+  const ringsWhen = async (want, ms, live) => { const t0 = Date.now(); let r; do { await frames(H, 300); r = await rings(live); } while (!want(r) && Date.now() - t0 < ms); return r; };
   // the story loaded hears each time this headset goes to the lobby (HOST.cur.lobby, the studio's): a stub counting them
   const stubLobby = () => H.evaluate(() => { window.__lobbyN = window.__lobbyN || 0; HOST.cur.lobby = () => { window.__lobbyN++; }; return window.__lobbyN; });
   const lobbyN = () => H.evaluate(() => window.__lobbyN || 0);
@@ -1676,13 +1678,10 @@ async function askRound(dir) {
       !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v, headset: hs }));
     // (v119) asked first, no ring is drawn or pointable, before any circle too and the lobby's as well; the cards and icons
     // stay (they are what is pressed); Show all rings brings every ring back, and off again they go
-    await frames(H, 1500);
-    const r0 = await rings(), ra = await H.evaluate(() => HOST.collab.allRings(true));
-    await frames(H, 1200);
-    const r1 = await rings();
+    const r0 = await ringsWhen(r => r.every(x => !x.ring), 8000), ra = await H.evaluate(() => HOST.collab.allRings(true));
+    const r1 = await ringsWhen(r => r.every(x => x.ring && x.hit), 8000);
     await H.evaluate(() => HOST.collab.allRings(false));
-    await frames(H, 1500);
-    const r2 = await rings();
+    const r2 = await ringsWhen(r => r.every(x => !x.ring), 8000);
     check('ask: asked first, no ring is drawn or pointable (the lobby\'s too), the cards and icons stay; Show all rings brings them back, off again they go',
       r0.length === 3 && r0.every(r => !r.ring && !r.hit && r.icon && r.card) && ra && r1.length === 3 && r1.every(r => r.ring && r.hit) && r2.every(r => !r.ring && !r.hit && r.icon && r.card), JSON.stringify({ r0, r1, r2 }));
     // walking into a circle and standing there 3 s enters nothing
@@ -1775,12 +1774,10 @@ async function askRound(dir) {
     const inS = !!SS && await walk(H, SS, 'studio', 0, 150000);
     await frames(H, 600);
     const v0 = await rings(true), on1 = await H.evaluate(() => HOST.collab.hideOthers(true));
-    await frames(H, 1200);
-    const v1 = await rings(true), pt1 = await pointAt(H, await H.evaluate(id => HOST.collab.overlay().rings.get(id).ball.getWorldPosition(new THREE.Vector3()).toArray(), S1.id));
+    const v1 = await ringsWhen(r => r.every(x => !x.icon && !x.card), 8000, true), pt1 = await pointAt(H, await H.evaluate(id => HOST.collab.overlay().rings.get(id).ball.getWorldPosition(new THREE.Vector3()).toArray(), S1.id));
     await H.evaluate(() => window.__xr.ctrl(0, null));
     const in3 = await walk(H, S1, K1, 0, 150000);
-    await frames(H, 1200);
-    const off3 = await H.evaluate(() => HOST.collab.hideOthers()), v2 = await rings(true);
+    const off3 = await H.evaluate(() => HOST.collab.hideOthers()), v2 = await ringsWhen(r => r.some(x => x.icon), 8000, true);
     check('ask: hideOthers at a studio station hides every other station\'s ring, card and icon (nothing of them pointable); refused elsewhere; lapses once the headset walks into another circle',
       no0 === false && inS && v0.some(r => r.icon) && on1 === true && v1.length === 3 && v1.every(r => !r.ring && !r.hit && !r.icon && !r.card) && pt1 === '' && in3 && off3 === false && v2.some(r => r.icon),
       JSON.stringify({ no0, inS, v0, on1, v1, pt1, in3, off3, v2 }));
