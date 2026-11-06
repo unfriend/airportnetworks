@@ -889,7 +889,8 @@ for example to place sounds in space". `engine/e6d_shapes.js`, `LOOKS.shape` and
 - **Its look**: `'colour'`, lit in its colour (`MeshStandardMaterial`, as an object), fading in and out as an object does
   when a cube shows or hides it (faint while editing when hidden for you); `'hide'`, drawn into the depth alone
   (`colorWrite: false`, `renderOrder` -1: after the stage's floor (-2) and sky (-10), before every item), so the scene's own
-  things behind it are not drawn there: in AR the real room shows through it, in VR the stage; it cannot fade, so it
+  things behind it are not drawn there: in AR the real room shows through it, in VR the stage (its grid is drawn with the
+  opaque things now, at -1.5, so its lines carry on behind such a shape); it cannot fade, so it
   switches at one half of its fade (as a cut-out); a closed shape hides from its outside only (from inside it hides
   nothing), a plane both ways. While editing a shape that hides things is also drawn as a see-through fill in its colour
   with its edges (and its name, *· hides things*), still hiding what is behind it; hidden for you, the fill alone, faint.

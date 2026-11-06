@@ -15904,7 +15904,10 @@ SETS.stage = function (K) {
   const gg = keep(new THREE.BufferGeometry());
   gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   gg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  const grid = new THREE.LineSegments(gg, keep(new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
+  // (drawn with the opaque things, after the floor and before the shapes that hide things (renderOrder -1: e6d_shapes.js),
+  // so a shape that hides things leaves the grid behind it as it is; its additive blending stays without transparent)
+  const grid = new THREE.LineSegments(gg, keep(new THREE.LineBasicMaterial({ vertexColors: true, transparent: false, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
+  grid.renderOrder = -1.5;
   group.add(grid);
   // the origin: a small ring and an arrowhead towards -z (where a scene faces)
   const mark = new THREE.Group(), markMat = keep(new THREE.MeshBasicMaterial({ color: 0x46d9ff, transparent: true, opacity: 0.45, depthWrite: false }));
