@@ -593,6 +593,8 @@ function makeConverter(THREE, hooks) {
         out.push(res);
         if (tris > 20000) await yieldNow();
       }
+      // (nothing taken away: the geometry stays as it was)
+      if (out.reduce((a, x) => a + x.length, 0) >= w.groups.reduce((a, gr) => a + gr.count - (gr.count % 3), 0)) { gm.dispose(); w.gm = null; continue; }
       // only the corners still used, in their order (so a skinned mesh's weights and every other attribute come along)
       const all = new Uint32Array(out.reduce((a, x) => a + x.length, 0));
       let o2 = 0;
