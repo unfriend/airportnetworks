@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-34';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-35';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -2123,10 +2123,12 @@
   // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
   // 3D, no subtitles; FORMAT networks-27 for cards, sfx and voice), set from a headset's menu or the page's dialog, and
   // never refused by either lock. A sound switch the room never wrote stays each device's own (HOST.xr.mine), so a device
-  // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: walked into
-  // (ask false, the default) or asked first (ask true: walking in does nothing, a press on a circle asks; v118, FORMAT
-  // networks-33, askFirst below), a setting of the room's only (outside a room there are no circles)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: false };
+  // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: asked first
+  // (ask true, the default since v120, FORMAT networks-35: walking in does nothing, a press on a circle asks) or walked into
+  // (ask false; v118, FORMAT networks-33, askFirst below), a setting of the room's only (outside a room there are no
+  // circles). Tests that walk into circles start as before (localStorage collabAskDefault = walk before the page loads,
+  // as collabAutoAll; HOST.collab.askDefault(on)): a room that never wrote ask then walks in
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: get('collabAskDefault') !== 'walk' };
   const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
   function look() {
     if (!C.code || !C.welcomed) return null;
@@ -2154,10 +2156,11 @@
     changed();
     return true;
   }
-  // The circles: walked into (the default) or asked first (the owner, 5 November 2026: "a switch for the circles so that
-  // they are only accessible by clicking a circle's card or the icon, then a dialogue asks if you want to go into that
-  // story, works better in tight rooms"): the room's (look's ask, for everyone in it, set by anyone from a headset's menu
-  // or a page's dialog, never refused by either lock; a room that never wrote it walks in as before). On, walking into a
+  // The circles: asked first (the default since v120; the owner, 6 November 2026: "Circles should be ask first by default
+  // for everyone") or walked into (until v120 the default; v118, the owner, 5 November 2026: "a switch for the circles so
+  // that they are only accessible by clicking a circle's card or the icon, then a dialogue asks if you want to go into
+  // that story, works better in tight rooms"): the room's (look's ask, for everyone in it, set by anyone from a headset's
+  // menu or a page's dialog, never refused by either lock; a room that never wrote it asks first). On, walking into a
   // circle does nothing (zoneStep), and the trigger or a pinch on another circle's card, ring or icon asks in a small
   // panel in front of you (ASK): Go in does what walking in does, the story staying at its circle. Pages are as ever
   const askFirst = () => { const L = look(); return !!(L && L.ask); };
@@ -7096,8 +7099,9 @@
     look, setLook,
     // the room's circles walked into (false) or asked first (true: walking in does nothing, a press on a circle asks), set
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
-    // or null) and how long it shows (tests)
-    askFirst: () => askFirst(), setAsk: on => setAsk(on),
+    // or null) and how long it shows (tests). askDefault(on): what a room that never wrote ask does here (true, asked
+    // first, since v120; tests that walk into circles turn it off, also by localStorage collabAskDefault = walk)
+    askFirst: () => askFirst(), setAsk: on => setAsk(on), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now
     hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),

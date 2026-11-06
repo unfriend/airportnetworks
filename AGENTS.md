@@ -1060,8 +1060,8 @@ with the station's other keys when it shows another story; FORMAT networks-25), 
 below; FORMAT networks-6),
 `look` (the headsets' four settings, the two sound switches and the circles walked into or asked first, `{ labels, cards, free, subs, sfx, voice, ask, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives labels on top, cards in 3D, no subtitles and circles walked into, and leaves a sound switch it never wrote to each device; free moving turned off takes
-every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33), and per shared space `rf.<space id>` (the room's frame in it) and
+lock; a room without it gives labels on top, cards in 3D, no subtitles and circles asked first (since v120; walked into before), and leaves a sound switch it never wrote to each device; free moving turned off takes
+every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33, asked first by default since networks-35), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
@@ -1083,7 +1083,8 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
 would drop, and in the same round a studio circle made for a scene its record's `sc: true`; networks-34 when the studio's
 shapes, empties, locks and scene settings came in v119: its `state()` gained a field per shape, `p.<id>`, and per empty,
 `e.<id>`, every item's and group's record an optional `locked`, a sound's `on` an empty or a shape too, and the scene's
-`settings`). The plan is
+`settings`; networks-35 when circles became asked first by default and the studio's items gained motions, recordings and
+behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an older device would walk into). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1476,7 +1477,8 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
     nothing while the flow is on show asking it to calibrate (`guideShown()` with `R.calib` or `lineCase() === 'first'`);
     once calibrated, or on Skip for now, the arc stands where the headset stands.
 - A headset runs live the station whose circle it walked into last (within
-  1.1 m of its spot for 1 s): stations are walk-in only (the owner, October
+  1.1 m of its spot for 1 s; with the circles asked first, the default since v120, the one it last went into by *Go
+  in* instead, the lobby still walked into: "Circles asked first" below): stations are walk-in only (the owner, October
   2026: "the stories can only be visited by going to their circle"), and a
   story is left only by walking into another circle (the owner, 29 October
   2026, after ten headsets: "One should only exit a story when walking into a
@@ -1506,10 +1508,15 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   clicking a circle's card or the icon, then a dialogue asks if you want to go into that story, works better in tight
   rooms"; a room setting, walking in doing nothing, the story staying at its circle, a small panel with the story's title
   in its colour, Go in and Not now, gone after 10 s, the lobby the same). The room's (`look`'s `ask`, FORMAT networks-33:
-  set by anyone, never refused by either lock, off by default, a room that never wrote it walks in as before;
-  `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`): the headset menu's Circles tab has *Circles:
-  walk in* / *Circles: ask first* (with a note that it is for everyone here) and the page's Shared dialog the same button
-  in its row of the headsets' settings (`data-sh="ask"`). With it on:
+  set by anyone, never refused by either lock; `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`):
+  the headset menu's Circles tab has *Circles: walk in* / *Circles: ask first* (with a note that it is for everyone here)
+  and the page's Shared dialog the same button in its row of the headsets' settings (`data-sh="ask"`). **On by default
+  since v120** (the owner, 6 November 2026: "Circles should be ask first by default for everyone"; FORMAT networks-35): a
+  room that never wrote `ask` asks first (`LOOK0.ask`), and the switch turned to walk in writes `ask: false` for the room
+  (until v120 off by default, a room that never wrote it walking in). Tests that walk into circles start as before: a
+  device with `localStorage` `collabAskDefault` = `walk` before the page loads (read once, as `collabAutoAll`; every page
+  `tools/collab.mjs` opens has it but the round of the circles asked first) takes a room that never wrote `ask` as walked
+  into, and `HOST.collab.askDefault(on)` sets the same (without an argument it says which). With it on:
   - Walking in does nothing (`zoneStep`: no dwell, no swell; `C.zone` is kept at the live station, so walking about with
     it on enters nothing and, turned off again, walking in starts from where you are), except into Back to the lobby
     (v119; the owner, 6 November 2026: "in that one the headsets shall go to the lobby automatically"): the same dwell as
@@ -4419,8 +4426,10 @@ the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a cir
 circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
 station's *Lock story*). Circles asked first (`askRound`, v118, also in the main run, right after the ten-headset round;
 `--ask` runs only it, a room of its own with two story circles and Back to the lobby, a page and a pretend headset, a few
-minutes): a page's Shared dialog turning the room's switch on (*Circles: walk in* to *Circles: ask first*, `look`'s
-`ask` true, the headset too); no ring drawn or pointable then, the lobby's too, the cards and icons staying, *Show all
+minutes; its two devices the only ones in the run without `collabAskDefault` = `walk`, so v120's default): the fresh room
+asking first with nobody having written `look`'s `ask` (the page, the headset and the dialog's button *Circles: ask
+first*); a page's Shared dialog turning the room's switch to walk in (`look`'s `ask` false written, the headset too) and
+back on (*Circles: walk in* to *Circles: ask first*, `look`'s `ask` true, the headset too); no ring drawn or pointable then, the lobby's too, the cards and icons staying, *Show all
 rings* bringing every ring back and off again hiding them (v119); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
 another station's icon (pointed at first) opening the question in front of it (that circle's title, 0.8 to 1 m away, on
 top and the ray's first target; no notice); *Not now* (pressed by the ray at its button) closing it, nothing entered;
@@ -4430,7 +4439,7 @@ circle from the other one (its live station, its story loaded and its rig at tha
 presence there) and standing on in the first circle entering nothing; the lobby's question (*Back to the lobby*) and its
 *Go in* ending the station, the story loaded hearing it (a stub for `HOST.cur.lobby`); from a story again, walking into
 the lobby (its ring hidden) ending the station after 1 s and the stub called again; *Go in* pressed while standing in the
-lobby holding (not taken back there); the menu's *Circles* row turning it off for the room, the headset having written nothing but
+lobby holding (not taken back there); the menu's *Circles* row turning it off for the room (`look`'s `ask` false), the headset having written nothing but
 `look` (and what any arrival writes: its story's state and view there); walking in working again; then (v119) a studio
 circle added from the page: `HOST.collab.hideOthers(true)` refused (false) at a story's circle, and at the studio's
 (walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, a hidden

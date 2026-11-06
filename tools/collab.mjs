@@ -311,18 +311,18 @@ const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH || undefined,
-  // (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'],
-});
+// (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
+const LAUNCH_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'];
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: LAUNCH_ARGS });
 // every device starts with the room's automatic All stories circles off (a page's arc in a room with no stations, the
 // first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
-// ({ arc: true } with a context's options, or open(hash, size, true))
+// ({ arc: true } with a context's options, or open(hash, size, true)). Likewise every device starts with a room that never
+// wrote look's ask walking into its circles, as before v120 (collabAskDefault = walk), since nearly every round walks in:
+// only the round of the circles asked first takes the new default ({ ask: true }, or open(hash, size, arc, true))
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
-  const { arc, ...rest } = o, ctx = await newContext(rest);
-  if (!arc) await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+  const { arc, ask, ...rest } = o, ctx = await newContext(rest);
+  if (!arc || !ask) await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask });
   return ctx;
 };
 const fails = [], errors = [];
@@ -358,8 +358,9 @@ const base = () => `http://127.0.0.1:${port}/`;
 const roomInfo = async code => (await fetch(base() + 'api/rooms/' + code)).json();
 
 // ---- pages: each in its own browser context (its own storage, like separate devices)
-async function open(hash, size, arc) {
-  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 }, arc: !!arc });   // (arc: the room's automatic All stories circles on)
+async function open(hash, size, arc, ask) {
+  // (arc: the room's automatic All stories circles on; ask: a room that never wrote look's ask asks first, v120's default)
+  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 }, arc: !!arc, ask: !!ask });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.stack || e.message));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
@@ -1564,8 +1565,10 @@ async function circlesOnly() {
 }
 
 // ---- circles asked first (askRound; --ask runs only it, also in the main run after the ten-headset round): a room of its
-// own with two story circles and Back to the lobby, a page and a pretend headset. A page turns the room's switch on in its
-// Shared dialog (look's ask); no ring drawn or pointable then, the cards and icons staying, Show all rings bringing them
+// own with two story circles and Back to the lobby, a page and a pretend headset, both with v120's default (no
+// collabAskDefault). A fresh room asks first with nobody having written look's ask (the page, the headset, the dialog's
+// button); a page's Shared dialog turns it to walk in (look's ask false written, the headset too) and back to ask first
+// (look's ask true); no ring drawn or pointable then, the cards and icons staying, Show all rings bringing them
 // back (v119); the headset walking into a circle and standing there 3 s enters nothing; the trigger on another station's
 // icon (pointed at first) opens the question in front of it (that circle's title, in its colour, Go in and Not now; no
 // notice); Not now closes it; opened again it closes by itself after 10 s; Go in enters (its live station, the story at its
@@ -1576,13 +1579,13 @@ async function circlesOnly() {
 // nothing of them pointable and none walked into but the lobby, and it lapses as the station ends there. dir: pictures (ask-*.png)
 async function askRound(dir) {
   const K1 = 'qubits', K2 = HEADSET_STORY;
-  const A = await open('#stories');
+  const A = await open('#stories', null, false, true);   // (v120's default: a room that never wrote ask asks first)
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(A, () => HOST.collab.status === 'open', null, 10000);
   const rc = await A.evaluate(() => HOST.collab.code);
   await A.evaluate(k => { HOST.collab.add(k[0], { x: 0, z: 0, yaw: 0 }); HOST.collab.add(k[1], { x: 1.8, z: -2.6, yaw: -0.3 }); HOST.collab.add('lobby', { x: -1.8, z: -2.6, yaw: 0.3 }); }, [K1, K2]);
   await until(A, () => HOST.collab.stations().length === 3 && !HOST.collab.internals().pending.size, null, 5000);
-  const H = await open('#s=' + rc, { width: 320, height: 200 });
+  const H = await open('#s=' + rc, { width: 320, height: 200 }, false, true);
   await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 3, null, 20000);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
@@ -1659,23 +1662,38 @@ async function askRound(dir) {
   // the story loaded hears each time this headset goes to the lobby (HOST.cur.lobby, the studio's): a stub counting them
   const stubLobby = () => H.evaluate(() => { window.__lobbyN = window.__lobbyN || 0; HOST.cur.lobby = () => { window.__lobbyN++; }; return window.__lobbyN; });
   const lobbyN = () => H.evaluate(() => window.__lobbyN || 0);
+  // the Shared dialog's switch on page A: { was, now } as [its text, aria-pressed], pressed once (press false: read only)
+  const dlgAsk = press => A.evaluate(async press => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
+    const b = () => document.querySelector('[data-sh="ask"]'), was = b() && [b().textContent, b().getAttribute('aria-pressed')];
+    if (b() && press) b().click();
+    await new Promise(r => setTimeout(r, 200));
+    const now = b() && [b().textContent, b().getAttribute('aria-pressed')];
+    HOST.collab.dialog(false);
+    return { was, now };
+  }, press);
+  // what the headset holds of look's ask, said when a wait for it fails
+  const hsLook = () => H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
   try {
-    // the switch on, from a page's Shared dialog: the room's (look's ask), for the headset too
+    // (v120) asked first by default: in this fresh room nobody has written look's ask, and the page, the headset and the
+    // dialog's button all say ask first
+    const lk0 = (await roomInfo(rc)).keys.look, d0 = await dlgAsk(false);
+    const af0 = await H.evaluate(() => [HOST.collab.askDefault(), HOST.collab.askFirst()]), afA = await A.evaluate(() => [HOST.collab.askDefault(), HOST.collab.askFirst()]);
+    check('ask: a fresh room asks first by default, with nobody having written look\'s ask (the page, the headset and the dialog\'s button)', (!lk0 || lk0.v.ask === undefined) &&
+      af0.join() === 'true,true' && afA.join() === 'true,true' && d0.was && d0.was.join() === 'Circles: ask first,true', JSON.stringify({ look: lk0 && lk0.v, af0, afA, d0 }));
+    // the dialog's switch turns it to walk in for the room: look's ask false written, the headset too
     const q0 = (await roomInfo(rc)).seq;
-    const dlg = await A.evaluate(async () => {
-      HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
-      const b = () => document.querySelector('[data-sh="ask"]'), was = b() && [b().textContent, b().getAttribute('aria-pressed')];
-      if (b()) b().click();
-      await new Promise(r => setTimeout(r, 200));
-      const now = b() && [b().textContent, b().getAttribute('aria-pressed')];
-      HOST.collab.dialog(false);
-      return { was, now };
-    });
+    const d1 = await dlgAsk(true);
+    const off1 = await until(H, () => !HOST.collab.askFirst(), null, 15000), lk1 = (await roomInfo(rc)).keys.look;
+    check('ask: the Shared dialog\'s switch turns the circles to walk in for the room (look\'s ask false written), the headset too', off1 && d1.was && d1.was.join() === 'Circles: ask first,true' &&
+      d1.now.join() === 'Circles: walk in,false' && !!lk1 && lk1.v.ask === false && lk1.by === aId, JSON.stringify({ d1, off1, look: lk1, headset: off1 ? null : await hsLook() }));
+    // and back to ask first: the room's (look's ask true), for the headset too
+    const dlg = await dlgAsk(true);
     // (the key comes in with the socket's message, set at once; a machine loaded with software drawing once took more
     // than 5 s to deliver it, so a longer wait, and what the headset holds is said if it never comes)
     const on = await until(H, () => HOST.collab.askFirst(), null, 15000), lk = (await roomInfo(rc)).keys.look;
-    const hs = on ? null : await H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
-    check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
+    const hs = on ? null : await hsLook();
+    check('ask: a page\'s Shared dialog turns the circles to ask first again for the room (look\'s ask true), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
       !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v, headset: hs }));
     // (v119) asked first, no ring is drawn or pointable, before any circle too and the lobby's as well; the cards and icons
     // stay (they are what is pressed); Show all rings brings every ring back, and off again they go
@@ -1760,8 +1778,9 @@ async function askRound(dir) {
     await frames(H, 300);
     const m1 = await menu('askfirst'), off = m1 && await until(A, () => !HOST.collab.askFirst(), null, 5000);
     // (besides look, at most what any headset arriving at a station writes: its story's state and view there)
-    const wrote = Object.entries((await roomInfo(rc)).keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
-    check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room; the headset wrote nothing else to the room but look', m1 && off && wrote.join() === 'look', JSON.stringify({ m1, off, wrote }));
+    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
+    check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room (look\'s ask false written); the headset wrote nothing else to the room but look',
+      m1 && off && wrote.join() === 'look' && ri.keys.look.v.ask === false, JSON.stringify({ m1, off, wrote, look: ri.keys.look && ri.keys.look.v }));
     // walking in works again
     const in1 = await walk(H, S1, K1, 0, 150000);
     check('ask: switched off, walking into a circle enters it again', in1 && (await where()).mine === S1.id, JSON.stringify(await where()));

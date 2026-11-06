@@ -192,24 +192,25 @@ Shared rooms (Shared button, top bar and Stories screen; in a headset the
 menu's Circles tab: click a stick): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
-wins). A headset runs only the station it stands at: walk into a station's
-circle and after a second its story plays there; the others show as rings
-floating half a metre over the floor with a card over each, and above each ring a
-small turning model of its story in its colour, so you can tell the circles apart
-from across the room. Away from every station no story shows, only the rings, the
-cards, the other people and the menu. Inside a circle the other stations show
-only their models (a ring comes back when you come within 2 m of it, and pointing
-at a model shows its card), and your own ring is hidden (Show all rings in the
-menu shows every ring); walk out of a circle and you stay in its story until you
-walk into another. Pointing at a card and pulling the trigger
-does not take you there: walk into its circle. For a tight room, turn the
-circles to ask first (Circles: ask first, in the headset menu's Circles tab or
-the Shared dialog, for everyone in the room): then walking into a circle does
-nothing, no rings are drawn (Show all rings brings them back), and pointing at a
-circle's card or model and pressing asks, in a small panel in front of you, whether
-to go in (Go in or Not now; it goes by itself after 10 seconds). The story stays at
-its circle; the lobby asks the same way, and walking into it still takes you back to
-the lobby. A headset in a room never shows
+wins). A headset runs only the station it has gone into. Since v120 the circles
+ask first by default: point at a circle's card or model and press, and a small
+panel in front of you asks whether to go in (Go in or Not now; it goes by itself
+after 10 seconds); walking into a circle does nothing then, and no rings are
+drawn (Show all rings brings them back). The story stays at its circle; the lobby
+asks the same way, and walking into it still takes you back to the lobby. For
+walking in instead, turn the circles to walk in (Circles: walk in, in the
+headset menu's Circles tab or the Shared dialog, for everyone in the room): then
+walk into a station's circle and after a second its story plays there; the
+others show as rings floating half a metre over the floor with a card over each.
+Above each circle a small turning model of its story in its colour lets you
+tell the circles apart from across the room. Away from every station no story shows, only the cards,
+the models (and with the circles walked into, the rings), the other people and
+the menu. Inside a circle the other stations show only their models (pointing at
+a model shows its card; with the circles walked into a ring comes back when you
+come within 2 m of it), and your own ring is hidden (Show all rings in the menu
+shows every ring); walk out of a circle and you stay in its story until you go
+into another. With the circles walked into, pointing at a card and pulling
+the trigger does not take you there: walk into its circle. A headset in a room never shows
 the Stories screen (leave the room in the menu and it comes back), except at the
 room's arc or an All stories circle; in a room with no stations at all the menu
 opens by itself, with Arrange all.
@@ -286,10 +287,10 @@ see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:
 the screen shows whichever station they stand at, switching as they walk, for
 people watching without a headset). In a headset you stay in a story once you
-have walked into its circle, wherever you walk, until you walk into another
+have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
-models (point at one to see its card), and a circle's ring appears as you come
-within 2 m of it; other people are drawn only when they are
+models (point at one to see its card), and with the circles walked into a
+circle's ring appears as you come within 2 m of it; other people are drawn only when they are
 at your circle (People: everyone in the menu shows them all). Over each station's ring a small 3D model of its story turns, in its
 colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring, model or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
