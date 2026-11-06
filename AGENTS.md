@@ -39,7 +39,8 @@ relay, with an upload page that converts and sorts what is dropped on it).
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT) and `peerjs.min.js` (PeerJS 1.5.5,
 vendored, MIT, loaded only when a shared room runs peer to peer); the studio pastes three.js r128's own loaders and
-exporter (`tools/studio/vendor/`, MIT) into its built file. The app is deployed by copying
+exporter and meshoptimizer's simplifier (1.3.0, its WebAssembly inside; `tools/studio/vendor/`, MIT) into its built
+file. The app is deployed by copying
 the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 
 ## Layout
@@ -220,15 +221,17 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
   engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
   `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
-  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e6b_cuts.js` the
+  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
+  Fewer triangles and Change texture on a card and the Upload pane's share and picture; `engine/e6b_cuts.js` the
   cut-outs; `engine/e6c_groups.js` the groups), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
   fflate 0.6.9, which the FBX loader needs; pasted into the built file with their licence lines, each wrapped so
   nothing leaks but `THREE.*`, `GLTFExporter` last inside `exporterLoad()`, defined only when the studio first
-  converts: its `README.md`), the build (`build.mjs`, `--check`), `scan.mjs` (a plain folder of scenes for any web
-  host), `convert.mjs` (a model to GLB on a computer), and the test scene (`test/make.mjs` makes
+  converts; and meshoptimizer's `meshopt_simplifier.js`, 1.3.0, MIT, inside `meshoptLoad()`, its WebAssembly made only
+  when the studio first makes a model lighter: its `README.md`), the build (`build.mjs`, `--check`), `scan.mjs` (a plain folder of scenes for any web
+  host), `convert.mjs` (a model to GLB on a computer; `--keep` makes it lighter), and the test scene (`test/make.mjs` makes
   `test/scenes/test/`: an animated `box.glb`, an ASCII `figure.fbx` in centimetres and Z up with `figure.png`, a short
   `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
   about 250 KB, committed; and `test/scenes/textures/`, about 20 KB: pictures in every kind the studio reads, from
@@ -3228,6 +3231,24 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   OGG kept as it is (played from one point) and anything else a mono 22.05 kHz WAV. Every given file also goes into
   `originals/<the dropped folders>`. Without a relay that takes uploads the plan still shows and *Convert* offers each
   GLB and WAV as a download.
+- **Fewer triangles and Change texture** (v119; the owner, 6 November 2026: "models need to be way less triangles",
+  "needs a percentage and should be adjustable per model with a preview", "20 percent by default for everything",
+  "preview in ar/vr would really be helpful", and "a change texture button on models placed in the scene";
+  `tools/studio/SPEC.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
+  mesh to a share of its triangles with meshoptimizer's simplifier: its normals and texture coordinates weighed, so its
+  textures stay put; corners shared between parts locked; crumbs pruned; skins kept, shape keys left), in `toGLB`
+  (`keep`; the record's `tris: { from, to, keep }`) and `convert.mjs --keep`. On a placed model's card (page and headset,
+  editing on, under its place and size): *Fewer triangles...*, 20 % to start (a page's slider; a headset's *− 5 %*,
+  *+ 5 %*, *10 %*, *20 %*, *50 %*), shown at once in place on this device only (the object's own model given the
+  lighter geometries), *Save* making the GLB as Convert to GLB does (from the original a GLB stands for when the scene
+  has it, so the share is of the original; every object of that file switched where it stands, one Undo step, for
+  everyone at a station), *Cancel* putting it back; *Change texture...* (a material, a slot and one of the scene's
+  pictures, or on a page one from this computer, shown at once on this device; *Save* bakes it in through Add a
+  texture's path, recorded in `asset.extras.studio.tex`). Both save from a headset too (with a relay that takes uploads;
+  the rule that a headset converts nothing lifted for these two). A lighter GLB made again from its original keeps its
+  share. The Upload pane: each model's *Triangles kept* (20 % by default), about how many (`CONV.triCount`, from its
+  bytes) and *Preview* (one row at a time: all its triangles and the share kept, drawn side by side). Nothing in the
+  layout or `collab.state()` (no `FORMAT` change).
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
   start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
@@ -3443,7 +3464,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
   lit scan looks, *Studio here* and standing in the studio's circle, the visitor kiosk in a headset, *Convert on a
   laptop* and the folded *Originals* on the headset panel, the Relay password row reached from a studio 401, a group
-  carried and sized by real grips, a model inside out seen from within on a Quest, and how
+  carried and sized by real grips, a model inside out seen from within on a Quest, *Fewer triangles* and *Change texture*
+  in a headset (how a lighter scan looks life size, the pause while a big scan is made lighter there, a GLB written
+  there: its textures encoded and uploaded from a Quest, its memory), the Upload pane's pictures on a real GPU, and how
   the `studio.stage` icon reads across a room. The pretend headset in `tools/collab.mjs` works the triggers out in the
   page with the renderer told it presents for that moment, so the real per-frame headset path is untested on a device.
   Unheard: the converted mono sounds and `first_room.mp3`. Untested anywhere but headless Chromium: a real folder
@@ -3470,7 +3493,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   network standing in the room, things that move, grow or flow). The owner's
   rule, from the feedback on the PET story (October 2026).
 - External scripts: none beyond the vendored three.js and PeerJS (the latter
-  loaded only for a peer-to-peer room; three.js r128's own add-ons for the studio are pasted into its built file). Fonts come from Google Fonts (cached by
+  loaded only for a peer-to-peer room; three.js r128's own add-ons and meshoptimizer's simplifier for the studio are
+  pasted into its built file). Fonts come from Google Fonts (cached by
   the service worker).
 
 ## Things that are easy to forget
@@ -3646,7 +3670,14 @@ decoded buffer), a short one decoded, paused while muted; GLB first (the Add lis
 *Convert to GLB* in the page offered as a download, its bytes a GLB whose record names the original and that loads back
 with the same triangles and clip, a placed figure switched to it keeping where it stands, its corners within 1 mm);
 the Upload pane with no relay (the test originals dropped: the plan's rows, grouping and names, converting offered as
-downloads, a mono WAV of each sound); the headset panels' panes and its Stories screen (no Upload tab and no Convert
+downloads, a mono WAV of each sound); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
+made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
+within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the slider at
+50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save
+downloaded with `tris` in its record, both balls switched to it with the original as the base (*The model here has only
+N*), Change texture's list, figure.png shown on that ball only, Cancel putting its own picture back, Save with `tex` in
+its record, the headset's ray choosing and cancelling, nothing for a visitor; the Upload pane's share (20 %, its count
+read from the bytes, 30 % on its slider), its picture and its conversion with that share); the headset panels' panes and its Stories screen (no Upload tab and no Convert
 there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane. Its *studio textures* steps
 run on another page, at `&scene=textures` (the second test scene, every model placed): every rung of the ladder; TIFF
 (LZW, PackBits), a PSD named by an FBX (the `.ps~` renaming) and DDS (DXT1, BC5) read in the page, their pixels sampled
@@ -4114,7 +4145,10 @@ lists within a few seconds; the story's lock refusing a page's edits and the hea
 `models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a model
 lacking its picture (the textures scene's `rust.obj`, copied in; that scene itself left out of the copy) given *Use
 paint.png* on a page's card: `models/rust.glb` through the relay with the picture in its record, every device's object
-switched to it, textured, where it stands; the rig scene's dancer copied in and placed on a page, a sound made there to
+switched to it, textured, where it stands; Fewer triangles and Change texture (v119: a dense textured ball made on a page
+and put in the folder, saved at 20 % on a page through the relay, every page's and the headset's switched to it as light
+as previewed, its record's `tris`; a picture put in its colour slot and saved from the headset, made again from the ball
+with its share kept); the rig scene's dancer copied in and placed on a page, a sound made there to
 follow her head taken by every page and the headset (each sound where its own dancer's head bone puts it at one held
 scene clock, within 1 cm of the first page's) and the saved `layout.json` carrying `on`, `bone` and `o` (that scene
 itself left out of the copy); a cut-out made on a page on the test scene's box reaching every page and the headset (its

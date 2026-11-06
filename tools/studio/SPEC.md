@@ -392,7 +392,8 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
   `originals/` (the files as they were given: an FBX and its textures, an OBJ and its MTL; kept so a model can be
   converted again). Files at the scene's root or in other folders still work as before. The Add list shows `models/`,
   `sounds/` and anything outside `originals/`; `originals/` is folded under *Originals*.
-- **Convert to GLB** (page only, editing on; a headset says *Convert on a laptop*): on an FBX (or OBJ, PLY, STL, glTF)
+- **Convert to GLB** (page only, editing on; a headset says *Convert on a laptop*, but makes a GLB with *Fewer triangles*
+  and *Change texture* below): on an FBX (or OBJ, PLY, STL, glTF)
   object's Item card and as *Convert every model* in the Add pane. It loads the file, converts it, then (relay) uploads
   it as `models/<base name>.glb` (the original stays where it is), or (no relay, or saving off) downloads it. Progress
   and the result are said; a failure changes nothing. Once uploaded, every object placed from that original switches to
@@ -858,6 +859,76 @@ The owner: "double sided and flip inside out settings per model?". Each placed o
 - **Untested on a headset**: how a scan inside out looks from within it, and the cost of double-sided materials on a
   big scan on a Quest.
 
+## Fewer triangles (the owner, 6 November 2026)
+
+The owner: "models need to be way less triangles"; meshoptimizer approved; "needs a percentage and should be adjustable
+per model with a preview if possible"; "20 percent by default for everything"; "preview in ar/vr would really be helpful
+since this is where we experience the models in the end"; yes to the button on models already placed.
+
+- **The simplifier.** meshoptimizer's (1.3.0, MIT, `vendor/meshopt_simplifier.js`, unchanged, its WebAssembly inside),
+  pasted into `stories/studio.js` inside `meshoptLoad()`, so its WebAssembly is made only the first time a model is made
+  lighter; `convert.mjs` imports it as the module it is. The converter's `reduce(root, keep)` (`engine/convert.js`, shared
+  by the page, the Upload pane and `convert.mjs`): every mesh keeps the same share of its triangles (`keep`, 0.02 to 1),
+  its corners welded first (a copy: the geometry given is not changed, or with `inPlace` each mesh given its new one);
+  `simplifyWithAttributes` weighs its normals (0.5) and texture coordinates (1), so a texture stays where it was (its seams
+  are kept); corners a part shares with another part (another material's group of the same mesh, or another mesh touching
+  it, found by where they are, a grid a hundred-thousandth of the model's size) are locked, so parts do not crack apart;
+  pieces smaller than a hundredth of its size are pruned first (`simplifyPrune`; never at the looser limits, which took a
+  figure's separate arms); the limit on how far a corner may move starts at 1 % of its size and is loosened (10 %, all of
+  it) until the count is within a tenth of the target; a part with no texture coordinates may then collapse across its
+  hard edges (`Permissive`); a part under 16 triangles is left as it is. Its corners are a subset of the old ones, so a
+  skinned mesh keeps its bones' weights; a mesh with shape keys (morph targets) is left as it is and said so. It says how
+  far it came, how far the surface moved when that is more than 2 % of its size, and the pieces pruned. A dense textured
+  sphere of 400,512 triangles came down to 80,101 (20 %) in under a second in headless Chromium, every corner's texture
+  coordinates exactly as before.
+- **In a GLB.** `toGLB(m, { keep })` reduces after the weld and before the export; the checks compare the GLB with the
+  lighter model; the record gains `tris: { from, to, keep }` (none when nothing could be taken away). `CONV.triCount(ext,
+  buf)` reads a model's triangles from its bytes (glTF's accessors, OBJ's faces, STL's count, PLY's header, FBX's
+  `PolygonVertexIndex`, zipped or not), for the Upload pane's words before anything is loaded.
+- **On an object's card** (page and headset, editing on, never `&visit`; under its place and size): *Fewer triangles...*
+  opens it at 20 % (or at the share its GLB was made with). A page has a slider, 2 to 100 % (the preview a moment after it
+  rests and at once when let go); a headset *− 5 %*, *+ 5 %* and *10 %*, *20 %*, *50 %*. It says what it is made from and
+  about how many are kept, and shows it **in place at once, on this device only**: the object's own model is given the
+  lighter geometries (`reduce` on its file's model, which stays as loaded: other objects of that file keep theirs; cut-outs,
+  faces, light and bones work as before, as they are the materials' and the skeleton's); nothing is shared until saved;
+  *Cancel*, another selection or editing off puts it back. **Save** makes the GLB as Convert to GLB does
+  (`convertFile(src, { into, keep })`, through the relay or straight into R2, else downloaded on a page): what it is made
+  from is the original a GLB stands for when the scene has it (`asset.extras.studio.from`: made again from it into that
+  GLB, so a model made too light comes back up), else the file itself (a GLB in `models/` made again where it is, the one
+  it has now kept under `originals/`, which its record then names; anything else as `models/<name>.glb`); every object of
+  that file switches where it stands (one Undo step, for everyone at a station). The share is of what it is made from;
+  the preview shows at most what the model placed has (*The model here has only N, so the preview shows it as it is*).
+  Saving writes from a headset too (with a relay that takes uploads; else the card says so); a failure there (a texture
+  the headset cannot encode: the exporter is given 4 minutes) is said on the card and changes nothing.
+- **Made again.** A GLB made lighter keeps its share when it is made again from its original for another reason (Change
+  texture, a missing texture: `convertFile` takes the replaced GLB's `tris.keep` unless a share is asked); one made again
+  from itself is not made lighter again.
+- **The Upload pane:** each model's row has *Triangles kept* (a slider, 20 % by default), *About N of its M triangles*
+  (`triCount`), and *Preview*: one row at a time, the model read, stood up as the studio will stand it, and drawn twice by
+  the page's renderer into a target of its own (all its triangles, then the share kept, their edges drawn faintly over
+  them: `thumbOf`), side by side with their counts. Converting uses each row's share; its line says the triangles.
+- `convert.mjs --keep <share>` (0.02 to 1): the same, its report saying how far it came.
+- Never in `layout.json` or `collab.state()` (no `FORMAT` change): what is shared is the switch to the GLB.
+- `STUDIO.state().lite` (`{ ft, ct }`), `STUDIO.tris(id)` (what an object's model draws now) and `thumbOf(root, w, h,
+  wired)` for tests.
+
+## Change texture (the owner, 6 November 2026)
+
+The owner: "a change texture button on models placed in the scene where one can select other texture images".
+
+- **On an object's card** (page and headset, editing on, a model with texture coordinates): *Change texture...* lists
+  its materials with the pictures in their slots (colour first; *inside the file* for one a GLB holds), the slots
+  (Colour, Normal, Roughness, Metalness, Occlusion, Glow, Opacity; a dot on the filled ones), what the slot has now, and
+  the scene's pictures likeliest first (`CONV.texRank` by the picture it has, else the material's or the model's name; a
+  page lists them all and offers *Choose a picture...* from this computer, a headset eight at a time). A picture picked is
+  **shown at once on this device** on the object's own materials (lit and as scanned; the others of that file keep theirs);
+  another material, slot or picture shows that instead; *Cancel* puts its own back.
+- **Save** bakes it into the model's GLB through Add a texture's path (`texGo`: a picture from this computer goes to
+  `originals/` first; a GLB made from an original still in the scene is made again from it, its share kept), recorded in
+  `asset.extras.studio.tex` as a slot laid on (`{ name: '', mat, slot, from, how: 'chosen' }`); every object of that file
+  switches where it stands. From a headset too, with a relay that takes uploads. Add a texture stays on the page for a
+  slot that is empty; the missing-name buttons too.
+
 ## New scene and From another scene (the owner, 5 November 2026)
 
 - **New scene** from the headset (the owner: yes, with the keypad) and on the page: on the Scene pane ("Editing" above).
@@ -884,7 +955,8 @@ The owner: "double sided and flip inside out settings per model?". Each placed o
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
 guessing. Textures: JPEG for photos and scans, PNG only for see-through; at most 4,096 px, 2,048 safer on a Quest.
-Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV (MP3 adds silence
+Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene (*Fewer triangles* on a model's card or the Upload
+pane's share brings a scan down, 20 % to start). Sounds: mono; short loops as WAV (MP3 adds silence
 at its ends, so a loop clicks; OGG does not play on iPhones); long ones (more than 20 s, streamed) as MP3 at 96 to 128
 kbit/s. The upload page does all of this by itself; by hand: Ready
 lines: `ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav` (a loop), `ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3` (a
@@ -953,5 +1025,12 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   (a folder's and R2's, the password's list) and `relay/test-r2.mjs` (CopyObject's `x-amz-copy-source` signed, an
   unsigned one refused by the stand-in); `tools/collab.mjs --studio` (From another scene through the relay and in R2, a
   circle made for one scene as the shell writes it, New scene from the headset with the keypad stubbed).
+- v119: the smoke block's Fewer triangles and Change texture step (a dense textured ball made in the page, served as
+  `ball.glb`, nothing committed: the preview at 20 % within 1 %, its corners' texture coordinates exactly as before and
+  its colours as before, the slider at 50 %, the headset's card and its 10 %, Save downloaded with `tris` in its record,
+  the balls switched to it with the original as the base, Change texture shown, cancelled and saved with `tex` in its
+  record, in the headset by the ray, nothing for a visitor; the Upload pane's share, count, picture and conversion);
+  `tools/collab.mjs --studio` (the ball saved at 20 % on a page through the relay, every page's and the headset's switched
+  as light as previewed; a picture put in its colour slot and saved from the headset, its share kept).
 - How it looks and feels on a headset (the scan's size, frame rate with a 400k-triangle scan, the grips, the stick walk,
   how the emitters sound through HRTF) is untested until tried on one.
