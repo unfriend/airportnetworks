@@ -3560,11 +3560,12 @@ async function studioRound(dir) {
     // ---- motions (v120): a wobble set on the box on one page and an orbit on the figure on another, both 'always': every
     // page and the headset take them (the same records) and, at one room time held on each (HOST.collab.now stubbed: the
     // station's clock), draw each in the same phase (their holders' matrices within 1 mm and 0.001 rad of the first page's),
-    // the box neither selected nor carried anywhere; the saved layout.json carries motion
+    // the box neither selected nor carried anywhere; the saved layout.json carries motion. (Set on B and C: A's Undo list,
+    // which From another scene counts below, stays short of its 30)
     {
-    await sp(A, `(setEdit(true), select(''), itemAct('motion', 'wobble', 'box001'), itemAct('mamount', 1, 'box001'), 0)`);
-    const mOn = await sUntil(B, `(STU.items.get('box001') || { rec: {} }).rec.motion`, 10000);
-    if (mOn) await sp(B, `(setEdit(true), select(''), itemAct('motion', 'orbit', 'fig001'), 0)`);
+    await sp(B, `(setEdit(true), select(''), itemAct('motion', 'wobble', 'box001'), itemAct('mamount', 1, 'box001'), 0)`);
+    const mOn = await sUntil(C, `(STU.items.get('box001') || { rec: {} }).rec.motion`, 10000);
+    if (mOn) await sp(C, `(setEdit(true), select(''), itemAct('motion', 'orbit', 'fig001'), 0)`);
     const mTook = [], mAt = [];
     for (const p of [A, B, C, H]) mTook.push(mOn && await sUntil(p, `(() => { const b = STU.items.get('box001'), f = STU.items.get('fig001'); return !!(b && f && b.rec.motion && b.rec.motion.kind === 'wobble' && f.rec.motion && f.rec.motion.kind === 'orbit') && [...STU.items.values()].every(it => !it.gl); })()`, 15000));
     const T = Date.now() + 98765.4321;
@@ -3585,7 +3586,7 @@ async function studioRound(dir) {
     check(`studio: motions set on two pages (a wobble on the box, an orbit on the figure, always) reach every page and the headset, each drawing them in the same phase at one held room time (within ${mFar.slice(0, 1).concat(mFar.slice(2, 3)).map(v => (v * 1000).toFixed(3)).join(' and ')} mm of the first page's), the records unchanged but for them, and the saved layout.json carries them`,
       !!mOn && mTook.every(Boolean) && mMoving && mFar.every(v => v < 0.001) && mSaved && !!mLb && !!mLb.motion && mLb.motion.kind === 'wobble' && mLb.motion.amount === 15 && !!mLf && !!mLf.motion && mLf.motion.kind === 'orbit',
       JSON.stringify({ mOn: !!mOn, mTook, mFar, mAt: mAt.map(m => m && [m[0], m[1] && [m[1].moving, m[1].rests], m[2] && [m[2].moving, m[2].rests], m[3] === mAt[0][3]]), mSaved, b: mLb && mLb.motion, f: mLf && mLf.motion }));
-    await sp(A, `(itemAct('motion', 'none', 'box001'), itemAct('motion', 'none', 'fig001'), select(''), 0)`);
+    await sp(B, `(itemAct('motion', 'none', 'box001'), itemAct('motion', 'none', 'fig001'), select(''), 0)`);
     }
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
