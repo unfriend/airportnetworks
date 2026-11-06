@@ -75,6 +75,24 @@ for it: placing the original places the GLB. An FBX (or OBJ, PLY, STL, glTF) obj
 Add has **Convert every model**: with a relay the GLB goes into `models/` and every object placed from the original
 switches to it where it stands; without one it is downloaded.
 
+## Pictures in the Add pane
+
+The Add pane shows the scene's models (and the Originals' models) as a grid of cards: a picture of each model, its
+name, its size in metres and its triangles (where the studio knows them), so you can tell them apart without placing
+them; sounds stay a list. A model without a picture has a plain tile with its kind (*GLB*, *FBX*...). On a page the grid
+has 3 to 5 cards a row, by the pane's width; in a headset 3 a row, **Up** and **More** paging through them.
+
+- A picture is a small JPEG (256 x 256, the model lit and seen from a little above, on a dark background) kept in the
+  scene as `previews/<the model's path>.jpg`: `models/eva.glb`'s is `previews/models/eva.glb.jpg`. The relay takes only
+  such pictures there (`.jpg`, at most 200 KB) and never offers them as textures.
+- The studio makes one **whenever it makes a GLB**: Convert to GLB, Convert every model, the Upload page, Fewer
+  triangles' and Change texture's Save, and the texture buttons. With a relay that takes uploads it goes into the scene
+  for everyone; without one it is for that page only.
+- **Make pictures** (the Add pane, on a page with Edit on) makes the missing ones, one model after another, with how far
+  it is and a **Stop**: uploaded with a relay that takes uploads, else for that page only. Each model is loaded and freed
+  again, so a scene of big scans takes a while.
+- From another scene copies a model's picture with it. Nothing of this is in `layout.json`.
+
 ## Sounds that follow a model
 
 A sound can follow an object, or one of its bones, so a voice stays at a dancer's head and the sounds of her moving at
@@ -273,7 +291,8 @@ was found as and keeps it in the GLB's record.
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
-  pane's share and preview.
+  pane's share and preview, `engine/e7e_pics.js` the Add pane's pictures of the models (made with every GLB and by Make
+  pictures, kept in `previews/`).
 - `r2sync.mjs` scenes between an R2 bucket and a folder (`list`, `pull`, `push`; the relay's `R2_*` variables).
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons and meshoptimizer's simplifier (see its
   README).

@@ -46,7 +46,9 @@ with `--scenes` refuses to start without a password.
   `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` whether this relay saves layouts.
 - `GET /api/scenes/<name>` -> `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative,
   with `/`; `kind` `'model'` (`.glb .gltf .fbx`), `'audio'` (`.mp3 .ogg .oga .wav .m4a .aac .flac .opus .webm`),
-  `'image'` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `'data'` (`.bin`), else `'other'`; sorted by path; at most 2,000.
+  `'image'` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `'data'` (`.bin`), `'preview'` (v120: a model's picture,
+  `previews/<the model's path>.jpg`: "Pictures in the Add pane" below; anything else under `previews/` is `'other'`),
+  else `'other'`; sorted by path; at most 2,000 (past that, `previews/` is left out first, then `originals/`).
   `layout` is the parsed `layout.json` (or `null`), `layoutAt` its time.
 - `GET /scenes/<name>/<path>` -> the file, its type by extension (`.glb` `model/gltf-binary`, `.gltf`
   `model/gltf+json`, `.fbx` `application/octet-stream`, the usual for images and sounds), `ETag` from size and time,
@@ -325,7 +327,8 @@ The panes (page HTML and headset canvas twins, the same content):
   spaces, `_ . -`, not starting with a space, `.` or `-`, not ending in a dot, no device names; *There is a scene called
   x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. Offered
   only with a relay that takes uploads (not read only, not `&visit`, not while the scene is locked).
-- **Add** (editing): the scene's models (name, size on disk, a warning mark), its sounds, and *Trigger cube*. A press
+- **Add** (editing): the scene's models as a grid of cards with their pictures (v120: "Pictures in the Add pane"), its
+  sounds as a list, and *Trigger cube*. A press
   places it 1.5 m in front of you on the floor (a model's lowest point on the floor, its middle there), selected. And
   *Cut-out box* (*Cut-out box on Wall* while a model, or one of its cut-outs, is selected; else *Cut-out box: select a
   model first*, greyed). *From another scene...* (v118, "From another scene" below).
@@ -405,7 +408,8 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
   used by `convert.mjs` in its headless page and pasted into `stories/studio.js` (with `GLTFExporter`, now in the app,
   loaded only when converting: see the vendor README). The GLB it writes is in metres and Y up, its textures at most
   4,096 px (or 2,048: *for Quest*), and records what it baked in: `asset.extras.studio = { from: '<the original's path in
-  the scene>', s: <the scale applied>, q: [x, y, z, w] <the turn applied>, at: <ms> }`.
+  the scene>', s: <the scale applied>, q: [x, y, z, w] <the turn applied>, at: <ms> }` (since v120 also `size`, its size
+  in metres, and `n`, its triangles, for the Add pane's cards).
 - **A scene's folders.** What the studio makes goes into folders of the scene: `models/` (GLB), `sounds/` and
   `originals/` (the files as they were given: an FBX and its textures, an OBJ and its MTL; kept so a model can be
   converted again). Files at the scene's root or in other folders still work as before. The Add list shows `models/`,
@@ -1074,6 +1078,57 @@ The owner: "a change texture button on models placed in the scene where one can 
   switches where it stands. From a headset too, with a relay that takes uploads. Add a texture stays on the page for a
   slot that is empty; the missing-name buttons too.
 
+## Pictures in the Add pane (the owner, 6 November 2026)
+
+The owner: "Models in add dialogue should have preview images and show in a grid ... 3d preview? overkill?", then "add
+pane with pictures sounds good, leave 3d models for now". `engine/e7e_pics.js`.
+
+- **A picture** of a model is a 256 x 256 JPEG (at most about 190 KB; a few tens in practice): the model lit as the
+  studio lights a scene (a sky and ground light, a light over your shoulder, a cool rim, the soft room for glTF's metal
+  and gloss), its colour pictures drawn as they are, seen from a little above and in front (about 22 degrees up), framed
+  on its box with a small margin, drawn at twice the size and made smaller (smooth edges), over a dark background
+  (cleared to nothing, then laid over a dark gradient: a JPEG has no transparency). It is kept in the scene as
+  `previews/<the model's path>.jpg` (`models/eva.glb`'s: `previews/models/eva.glb.jpg`). The relay's rule
+  (`relay/scenes.mjs`, shared by the folder, R2 and `scan.mjs`): `previews/` takes only such a `.jpg`, at most 200 KB
+  (counted as it streams; `.../put` signs its size; a copy by the same rule), listed and told by the watch with the kind
+  `'preview'`, never `'image'` or `'model'`, so nothing takes it for a texture or a model; anything else put there by hand
+  is `'other'`. The studio says them apart as it reads a listing (`setFiles`: by path too, for an older relay's `'image'`):
+  they are never among the scene's files (the Add lists, the texture ladder and pickers, From another scene's lists, the
+  copy's names), only in `PV.files`, so it knows which models have one. Never in `layout.json` or the room's state (no
+  `FORMAT` change). A model whose picture's path would be more than 4 folders deep or 200 characters long has one for
+  that page only.
+- **Made with every GLB.** The converter's `toGLB(m, { picture })` calls `picture` with the GLB as loaded back (metres,
+  Y up) before it frees it (`pvShotSoon`): every path that writes a GLB makes its picture (Convert to GLB, Convert every
+  model, Fewer triangles' and Change texture's Save, the texture buttons: all through `convertFile`; the Upload pane's
+  rows). With a relay that takes uploads it goes into the scene beside the GLB (`previews/<the GLB's path>.jpg`,
+  replacing one there; `upSend`, so straight into R2 when it can, else through the relay), and shows at once; without, it
+  is kept for this page only, on the card of the model it was made from. The Upload pane's rows show it too (96 px).
+  A picture that cannot be made or kept is never a reason a conversion fails. The GLB's record
+  (`asset.extras.studio`) also says its size in metres (`size`, to the mm) and its triangles (`n`), for the cards.
+- **The cards** (page and headset alike, `{ grid }` blocks): the Add pane's models, and the Originals fold's models (its
+  other files stay a list), each a card with its picture (an original a GLB stands for shows the GLB's, else its own), a
+  plain tile with the model's kind (*GLB*, *FBX*, *OBJ*...) where it has none (or its picture cannot be read), its name
+  (`models/` left out; the full path as the page's tooltip), its size in metres (its largest side) and triangles where
+  they are known (the model loaded here, a GLB's record, a picture made here), else its bytes, and a second line for what
+  it was made from or into. Sounds stay a list. Page: a CSS grid, 3 to 5 cards a row by the pane's width. Headset canvas:
+  3 cards a row (about 30 cm of panel each), the pane's *Up* and *More* paging through them as through any long pane.
+  Pictures are fetched as the scene's other files are (`call`: the password as a header, or R2's signed link, read again
+  as the listing's links lapse), three at a time, each once a version (its `at`); a page fetches the cards' all, a
+  headset only those it draws. A changed picture (the watch) is fetched again; another scene forgets them all.
+- **Make pictures** (the Add pane, a page with editing on; not in a headset, not for a visitor): *Make pictures (n)*,
+  for the models the pane shows that have none (an original a GLB stands for is the GLB's), one after another: a model
+  the scene has loaded drawn from that, any other fetched and loaded as the converter loads it (its textures at most
+  1,024 px) and freed after. With a relay that takes uploads each is uploaded as it is made (kept in the scene for
+  everyone); without, made for this page only. Its button says how far it is (*Making pictures: 2 of 5 (eva.fbx)...*),
+  *Stop* ends it after the model it is making, and a line says what was made (*3 of 5 pictures made, kept in the scene.*,
+  *Stopped: 1 of 3 pictures made...*, and any not made with why).
+- **In a headset session** a picture (of a GLB a headset's Save writes) is drawn at the start of the next frame, inside
+  the session's own frame callback (`PV.jobs`, from `frame()`), not between frames; none if no frame comes within 5 s.
+- **From another scene** copies a model's picture with it (`previews/<its path>.jpg` beside the copy) when that scene has
+  one.
+- `HOST.cur.peek('STUDIO.state().pics')` (`pvState()`: listed, shown, failed, made here, missing, Make pictures, its line,
+  what was learnt) for tests.
+
 ## New scene and From another scene (the owner, 5 November 2026)
 
 - **New scene** from the headset (the owner: yes, with the keypad) and on the page: on the Scene pane ("Editing" above).
@@ -1110,6 +1165,8 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- The smoke test's step for the Add pane's grid and pictures (v120, on the test scene, no relay), relay/test.mjs's
+  `previews:` steps (the folder and R2) and `tools/collab.mjs --studio`'s pictures step: "Testing" in `AGENTS.md`.
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,
   empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
 

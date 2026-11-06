@@ -528,6 +528,7 @@ scenes/
     sounds/birds.mp3        sounds: .mp3 .ogg .oga .wav .m4a .aac .flac .opus .webm
     models/eva_001.glb      what the studio's Upload pane (or Convert to GLB) makes goes into models/ and sounds/,
     originals/eva/...       and the files as they were given into originals/
+    previews/models/eva_001.glb.jpg   the Add pane's picture of models/eva_001.glb (the studio makes it: below)
     layout.json             where everything stands (the studio's Save writes it)
     .history/               the layouts before the last 20 saves (the relay keeps them)
   garden/
@@ -548,6 +549,14 @@ go back, copy one of them over `layout.json`; the studio's *Load saved* then tak
 a line and an item a line, so it reads (and compares in git) well. `--scenes-readonly` writes nothing: *Save* says why
 and the page offers *Download layout.json*.
 
+**Pictures of the models** (v120). `previews/<a model's path>.jpg` is the studio's Add pane picture of that model (a
+256 x 256 JPEG the studio makes with every GLB it writes, and on *Make pictures*: `tools/studio/SPEC.md`, "Pictures in
+the Add pane"). The listing gives such a file the kind `preview` (never `image`: the studio never takes it for a
+texture, nor for a model), and anything else under `previews/` the kind `other`; past 2,000 files `previews/` is left out
+first. Uploads and copies there take only such a `.jpg`, at most 200 KB (or `--max-upload` when that is smaller; over it
+413 *a picture in previews/ is at most 200 KB*), by the same endpoints as every file (through the relay, or with R2
+straight into the bucket: `.../put` signs its size). Deleting the folder is harmless: the studio makes them again.
+
 **The password.** With `COLLAB_TOKEN` every scene request and file needs it, exactly as the API does
 (`Authorization: Bearer <word>` or `?token=<word>`: the studio adds `?token=` to every file its loaders fetch, and
 `Authorization` to sounds and JSON), and wrong ones count towards the 20 a minute from an address ([The shared
@@ -559,7 +568,7 @@ scenes in a Cloudflare R2 bucket (`--scenes r2`: [Scenes in Cloudflare R2](#scen
 | request | answer |
 | --- | --- |
 | `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save, upload, ffmpeg, maxUpload }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` and `upload` false with `--scenes-readonly`; `ffmpeg` whether long sounds are made MP3 here; `maxUpload` the most one upload may be, in bytes ([Uploading](#uploading-the-upload-page)) |
-| `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
+| `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`), `preview` (`previews/<a model's path>.jpg`, above) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
 | `GET /scenes/<name>/<path>` | the file (also `HEAD`): its type by extension, `ETag` from its size and time (304 when it matches), `Cache-Control: no-cache`, single byte ranges (206, 416), CORS (`Access-Control-Expose-Headers: ETag, Content-Range, Accept-Ranges`). The path is decoded once; `..` (as sent or escaped), backslashes, NUL, dot files and folders (`.history/`), more than 4 folders deep, and anything whose real path (a link followed) leaves the scene's folder: 404, the refusals said in the log by their path (never their query), at most 20 lines a minute |
 | `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
 | `GET /api/scenes/watch` | Server-Sent Events (with a password `?token=`: an `EventSource` cannot send headers), below |
@@ -576,7 +585,7 @@ itself:
 | event | data |
 | --- | --- |
 | `hello` | `{ scenes }` (as `GET /api/scenes`), at once on every connection |
-| `scene` | `{ name, path, kind, gone }`: a file added or changed (`gone: false`) or removed (`gone: true`) |
+| `scene` | `{ name, path, kind, gone }`: a file added or changed (`gone: false`) or removed (`gone: true`); `kind` as the listing's (`preview` for a model's picture) |
 | `layout` | `{ name, at }`: a scene's `layout.json` written (by a save, or by hand); `{ name, at: null, gone: true }` when removed |
 | `scenes` | `{ scenes }`: a scene came or went (the list as `GET /api/scenes` gives it) |
 
@@ -633,7 +642,7 @@ own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th
 backslash, control character or `: * ? " < > |`, no part ending in a space or a dot and no Windows device name (`con`,
 `nul`, `com1`...), so a scene copied to another computer stays whole; never `layout.json`, `files.json` or `index.json`
 at the scene's top. Outside `originals/` only the listing's models, sounds, images and data (`.bin`); under
-`originals/` any file. A path through a link in the scene that leads out of it is refused before anything is made: 400,
+`originals/` any file; under `previews/` only a model's picture, a `.jpg` of at most 200 KB (v120: above). A path through a link in the scene that leads out of it is refused before anything is made: 400,
 said in the log. 404 for no such scene; 405 for other methods.
 
 **Writing.** A file already there is replaced only with `replace=1`, else 409 `{ error }` (also when two uploads of one
@@ -1217,7 +1226,10 @@ default; no password asked and the query never passed on; a bad `Host` 400; `POS
 (`POST .../copy`: the same bytes at the same path or `as`, its folders made, told at once, 409 then `replace: true`, an
 OBJ refused outside `originals/` and taken there, sources no listing shows, targets the upload's rules refuse, the file
 onto itself and bad bodies 400 with nothing written, no such scene, file or a folder 404, a link out of its scene 404 and
-said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log); and the password on
+said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log); the models' pictures
+(v120: `previews/<path>.jpg` taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name
+under `previews/` and too deep 400, exactly 200 KB taken and past it 413 by its length and as it streams, nothing left
+behind, `--max-upload` elsewhere as before, copies by the same rule); and the password on
 making a scene, a file, a sound and a copy; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
 every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the
 bucket listed, its CORS rule as a browser meets it), the list and a scene by the same rules with a signed link per file
@@ -1227,7 +1239,8 @@ the relay (a scene's marker, 409, the path rules, the size counted, a page going
 uploads (the signed PUT, a body of another size or type refused by the bucket, `done` and its checks, 501 with a
 folder), copies from another scene by the bucket's CopyObject (its `x-amz-copy-source` signed in the header, the
 stand-in refusing one unsigned; nothing fetched by the relay; 409 then `replace: true`, the kinds and paths, a source not
-there), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
+there), the models' pictures there (through the relay and straight into the bucket, `.../put` refusing one over 200 KB,
+`done` leaving one over it that no link of the relay's brought, a copy by the same rule, all told as `preview`), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
 no key or signed link in a log line, the start refusing missing settings (named, no value shown), a wrong key or bucket
 and no answer, `--r2-check`, and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`). It exits
 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
