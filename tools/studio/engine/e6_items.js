@@ -58,6 +58,7 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);   // (its behaviour, kept only when set: e6g_behave.js)
     if (x.motion != null) r.motion = normMotion(x.motion);   // (its motion, kept only when set: e6e_motion.js)
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     return lockOf(x, r);
@@ -107,6 +108,7 @@ function norm(kind, x) {
     const shape = one('shape', SHAPE_KINDS, 'cube');
     const r = { name: name('Shape'), shape, p: P, q, size: (sz || SHAPE_SIZE[shape] || [0.5, 0.5, 0.5]).map(v => nz(r3(Math.min(100, Math.max(0.01, v))))),
       colour: has('colour') ? x.colour.toLowerCase() : SHAPE_COL, look: one('look', ['colour', 'hide'], 'colour') };
+    if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     return lockOf(x, r);
@@ -116,6 +118,7 @@ function norm(kind, x) {
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
     if (!q) return null;
     const r = { name: name('Empty'), p: P, q };
+    if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     return lockOf(x, r);
@@ -1248,4 +1251,4 @@ function collabApply(v) {
   for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
   dirty();
 }
-function studioEffect() { /* none */ }
+function studioEffect(type, data, by) { if (type === 'beh') behaveHeard(data, by); }   // (a behaviour's driver's samples: e6g_behave.js)

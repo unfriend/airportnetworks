@@ -89,6 +89,11 @@
 // --studio-scenes only the studio's scenes as circles (scenesRound, also in the main run after the studio round: a relay of
 // its own with --scenes on the test scenes, read only; the page's Add listing "Studio: <scene>" after the studio, adding
 // one writing the station and its state with the scene, two at once, their titles, Studio here's rule);
+// --behave only the studio's behaviours shared (behaveRound, also in the main run after the studio's scenes as circles: a
+// relay of its own with --scenes on the test scene alone; two pretend headsets at a studio circle and a page following it:
+// the nearest headset drives a ball that follows, every device saying so and drawing it where it does (120 ms behind its
+// samples while it walks), the other coming nearer by more than 0.3 m taking it over, a looker staying the first one's
+// until they leave, nobody in range: both home everywhere);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -314,6 +319,7 @@ const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: ask
 const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
 const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
 const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
+const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviours shared: behaveRound, a relay of its own with --scenes)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -2022,6 +2028,147 @@ async function menusRound(dir) {
   }
 }
 
+// ---- the studio's behaviours shared (behaveRound; --behave runs only it, also in the main run after the studio's scenes as
+// circles): a relay of its own (from port 8750 up) with --scenes on a copy of the test scene alone (so every device at a
+// studio circle opens it by itself), a studio circle at the room's origin facing -z (its scene's frame the room's), two
+// pretend headsets in it and a page following it. A ball that follows (nearest, range 3, 1 m in front, 1 m/s) and a cube
+// that looks (first, range 3) put in on the page: the nearest headset drives the ball and every device says so; where it
+// draws it reaches the other headset and the page 120 ms behind its samples (the median within 5 cm while the driver
+// walks); the other headset coming nearer by more than 0.3 m takes over; the first headset stays the looker's while it is
+// within range + 0.5 m, though the other stands nearer, and leaves it once further; nobody in range, both items back where
+// they are placed on every device. Nothing of it in the room's keys but the records
+async function behaveRound() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-behave-'));
+  fs.cpSync(path.join(root, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(tmp, 'test'), { recursive: true });
+  const pages = [];
+  let R = null;
+  const sopen = async (url, name, size) => {
+    const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 } });
+    await ctx.addInitScript(n => { try { localStorage.setItem('collabName', n); } catch (e) { /* storage blocked */ } }, name);
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('behave round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|WebSocket connection/.test(m.text())) errors.push('behave round: ' + m.text()); });
+    await p.goto(url, { timeout: 90000 });
+    await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(p);
+    return p;
+  };
+  const sp = (p, s) => p.evaluate(s => HOST.cur.peek(s), s);
+  const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
+  try {
+    R = await relayOn(['--static', '.', '--scenes', tmp, '--scenes-readonly', '--quiet'], {}, 8750);
+    const sb = `http://127.0.0.1:${R.port}/`;
+    const A = await sopen(sb + 'index.html#stories', 'Pia');
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 10000);
+    const rc = await A.evaluate(() => HOST.collab.code);
+    const sid = await A.evaluate(() => HOST.collab.add('studio', { x: 0, z: 0, yaw: 0 }));
+    await until(A, () => HOST.collab.stations().length === 1 && !HOST.collab.internals().pending.size, null, 5000);
+    const H1 = await sopen(sb + 'index.html#s=' + rc, 'Hana', { width: 320, height: 200 }), H2 = await sopen(sb + 'index.html#s=' + rc, 'Ivo', { width: 320, height: 200 });
+    for (const p of [H1, H2]) { await until(p, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.stations().length === 1, rc, 20000); await ready(p, 'airports'); }
+    // both headsets lined up through the shared space (as in the main run)
+    const aId = await A.evaluate(() => HOST.collab.id);
+    await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+    await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+    for (const [H, head] of [[H1, [-1, 1.6, 2, 0.4]], [H2, [1, 1.6, 2, -0.4]]]) {
+      await H.evaluate(() => HOST.room.sharedAlign(true));
+      await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
+      await H.evaluate(() => window.__xr.begin());
+    }
+    await Promise.all([frames(H1, 400), frames(H2, 400)]);
+    for (const H of [H1, H2]) await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    await Promise.all([frames(H1, 300), frames(H2, 300)]);
+    const st = await A.evaluate(id => HOST.collab.station(id), sid);
+    const al = (await H1.evaluate(() => HOST.room.aligned)) && (await H2.evaluate(() => HOST.room.aligned));
+    // both walk into the circle (the studio opens there, its one scene by itself), the page follows it
+    const in1 = await walk(H1, st, 'studio', 0, 90000), in2 = await walk(H2, st, 'studio', 0, 90000);
+    await A.evaluate(id => HOST.collab.follow(id), sid);
+    await ready(A, 'studio', 90000);
+    const loaded = [];
+    for (const p of [A, H1, H2]) loaded.push(await sUntil(p, `STU.scene === 'test' && STUDIO.ready() && atStation()`, 90000));
+    const [id1, id2] = [await H1.evaluate(() => HOST.collab.id), await H2.evaluate(() => HOST.collab.id)];
+    check('behave: two pretend headsets stand in a studio circle at the room\'s origin and a page follows it, the test scene open on all three', !!sid && al && in1 && in2 && loaded.every(Boolean), JSON.stringify({ sid, al, in1, in2, loaded }));
+    // the items, put in on the page; both headsets far from them first
+    await Promise.all([goRoom(H1, 5, 1.6, 4, 0), goRoom(H2, -5, 1.6, 4, 0)]);
+    await sp(A, `(putItem('bfo001', 'p', norm('p', { name: 'Ball', shape: 'sphere', p: [0, 0.5, -2], behaviour: { kind: 'follow', range: 3, dist: 1, speed: 1 } })),
+      putItem('bfi001', 'p', norm('p', { name: 'Looker', shape: 'cube', p: [2, 0.5, -2], behaviour: { kind: 'look', who: 'first', range: 3 } })), 0)`);
+    const all = [A, H1, H2], names = ['page', 'H1', 'H2'];
+    const run = ms => Promise.all([frames(H1, ms), frames(H2, ms), sleep(ms)]);
+    let got = [];
+    for (let k = 0; k < 30 && got.length < 3; k++) { await run(300); got = (await Promise.all(all.map(p => sp(p, `!!(STU.items.get('bfo001') && STU.items.get('bfi001'))`)))).filter(Boolean); }
+    // what each device says of an item: who, driven here, from where, and where it is drawn (its middle: the shapes' holders)
+    const info = id => Promise.all(all.map(p => sp(p, `(() => { const b = STUDIO.behave('${id}'), P = STUDIO.pose('${id}'), m = P ? (P.drawn || P.placed) : null; return b && { who: b.who, drive: b.drive, src: b.src, on: b.on, at: m ? [m[12], m[13], m[14]] : null }; })()`)));
+    const spread = I => Math.max(...I.map(a => Math.max(...I.map(b => (a && b && a.at && b.at ? Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1], a.at[2] - b.at[2]) : 99)))));
+    // waits (frames on both headsets, the page drawing by itself) until want(info of id) on every device, or ms
+    const waitFor = async (id, want, ms) => { const t0 = Date.now(); let I; do { await run(400); I = await info(id); } while (!want(I) && Date.now() - t0 < ms); return I; };
+    const say = I => JSON.stringify(I.map((x, k) => [names[k], x && x.who === id1 ? 'H1' : x && x.who === id2 ? 'H2' : x && x.who, x && x.drive, x && x.src, x && x.at && x.at.map(v => +v.toFixed(3))]));
+
+    // ---- nearest: H1 1.5 m from the ball (looking along -x), H2 far: H1 drives it to 1 m in front of itself, everywhere
+    await goRoom(H1, 1.5, 1.6, -2, Math.PI / 2);
+    const n1 = await waitFor('bfo001', I => I.every(x => x && x.who === id1 && x.at && Math.hypot(x.at[0] - 0.5, x.at[2] + 2) < 0.05), 30000);
+    check('behave: the nearest headset (H1) is the ball\'s on every device, drives it (the others draw its samples) to 1 m in front of itself, where every device draws it (within 5 cm)',
+      got.length === 3 && n1.every(x => x && x.who === id1) && n1[1].drive && !n1[0].drive && !n1[2].drive && n1[0].src === 'by:' + id1 && n1[2].src === 'by:' + id1 && spread(n1) < 0.05 &&
+      n1.every(x => Math.hypot(x.at[0] - 0.5, x.at[1] - 0.5, x.at[2] + 2) < 0.05), say(n1));
+    const l1 = await info('bfi001');
+    check('behave: the looker (first) is H1\'s on every device, H1 driving it', l1.every(x => x && x.who === id1) && l1[1].drive && !l1[0].drive && !l1[2].drive, say(l1));
+
+    // ---- 120 ms behind: H1 walks 1.5 m along +z in 3 s, the ball with it; each frame's place on the page and on H2 against
+    // where H1 had it 120 ms before (the relay's clock on all three)
+    await Promise.all(all.map(p => sp(p, 'BEH.log = new Map()')));
+    for (let k = 1; k <= 30; k++) { await goRoom(H1, 1.5, 1.6, -2 + 1.5 * k / 30, Math.PI / 2); await run(100); }
+    await run(1500);
+    const logs = await Promise.all(all.map(p => sp(p, `JSON.stringify(BEH.log.get('bfo001') || [])`).then(JSON.parse)));
+    const drv = logs[1].filter(e => e[4] === 'me');
+    const behind = L => {
+      const errs = [];
+      let run0 = null, src = '';
+      for (const e of L) {
+        if (e[4] !== src) { src = e[4]; run0 = e[0]; }
+        if (src !== 'by:' + id1 || e[0] - run0 < 500) continue;   // (blended in over its first moments)
+        const t = e[0] - 120, j = drv.findIndex(d => d[0] >= t);
+        if (j < 1) continue;
+        const a = drv[j - 1], b = drv[j], f = (t - a[0]) / Math.max(1, b[0] - a[0]);
+        errs.push(Math.hypot(e[1] - (a[1] + (b[1] - a[1]) * f), e[2] - (a[2] + (b[2] - a[2]) * f)));
+      }
+      errs.sort((x, y) => x - y);
+      return { n: errs.length, median: errs.length ? +errs[errs.length >> 1].toFixed(3) : null, p90: errs.length ? +errs[Math.floor(errs.length * 0.9)].toFixed(3) : null };
+    };
+    const bp = behind(logs[0]), bh = behind(logs[2]), moved = drv.length ? Math.hypot(drv[drv.length - 1][1] - drv[0][1], drv[drv.length - 1][2] - drv[0][2]) : 0;
+    console.log('      behaviour samples 120 ms behind: page ' + JSON.stringify(bp) + ', H2 ' + JSON.stringify(bh) + ', the driver\'s frames ' + drv.length + ', moved ' + moved.toFixed(2) + ' m');
+    check('behave: while H1 walks, the ball as the page and H2 draw it is where H1 had it 120 ms before (median within 5 cm)', moved > 1 && bp.n >= 5 && bh.n >= 5 && bp.median < 0.05 && bh.median < 0.05,
+      JSON.stringify({ bp, bh, moved, drv: drv.length }));
+
+    // ---- H2 comes nearer than H1 by more than 0.3 m: it takes the ball over, everywhere
+    await goRoom(H2, 0.3, 1.6, -0.2, 0);
+    const n2 = await waitFor('bfo001', I => I.every(x => x && x.who === id2 && x.at && Math.hypot(x.at[0] - 0.3, x.at[2] + 1.2) < 0.05), 30000);
+    check('behave: H2 coming nearer than H1 by more than 0.3 m takes the ball over on every device (H2 drives, 1 m in front of it, within 5 cm everywhere)',
+      n2.every(x => x && x.who === id2) && n2[2].drive && !n2[1].drive && !n2[0].drive && n2[0].src === 'by:' + id2 && spread(n2) < 0.05, say(n2));
+
+    // ---- first: H2 right by the looker, H1 3.2 m off (within range + 0.5): still H1's; H1 4 m off: H2's
+    await Promise.all([goRoom(H2, 2.2, 1.6, -2.1, 0), goRoom(H1, 5.2, 1.6, -2, Math.PI / 2)]);
+    await run(3000);
+    const f1 = await info('bfi001');
+    await goRoom(H1, 6, 1.6, -2, Math.PI / 2);
+    const f2 = await waitFor('bfi001', I => I.every(x => x && x.who === id2), 20000);
+    check('behave: the looker (first) stays H1\'s while H1 is within range + 0.5 m though H2 stands nearer, and is H2\'s once H1 is further, on every device',
+      f1.every(x => x && x.who === id1) && f1[1].drive && f2.every(x => x && x.who === id2) && f2[2].drive && !f2[1].drive && !f2[0].drive, say(f1) + ' ' + say(f2));
+
+    // ---- nobody in range: both back where they are placed, on every device
+    await Promise.all([goRoom(H1, 6, 1.6, 4, 0), goRoom(H2, -6, 1.6, 4, 0)]);
+    const home = I => I.every(x => x && !x.who && !x.on && !x.drive);
+    const b1 = await waitFor('bfo001', home, 30000), b2 = await waitFor('bfi001', home, 20000);
+    const placed = await Promise.all(all.map(p => sp(p, `['bfo001', 'bfi001'].map(id => { const P = STUDIO.pose(id), m = P.drawn || P.placed; return Math.max(...m.map((v, i) => Math.abs(v - P.placed[i]))); })`)));
+    check('behave: with nobody in range both go back where they are placed, on every device', home(b1) && home(b2) && placed.every(a => a.every(d => d < 1e-6)), say(b1) + ' ' + say(b2) + ' ' + JSON.stringify(placed));
+    // the room keeps the records and nothing else of it (the samples are effects, never stored)
+    const keys = (await (await fetch(sb + 'api/rooms/' + rc)).json()).keys, x = keys['st.' + sid + '.x'] && keys['st.' + sid + '.x'].v;
+    check('behave: the room keeps the two records with their behaviours, and no key of the samples', !!x && JSON.stringify(x['p.bfo001'].behaviour) === '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":1}' &&
+      JSON.stringify(x['p.bfi001'].behaviour) === '{"kind":"look","who":"first","range":3}' && !Object.keys(keys).some(k => /beh/.test(k)), JSON.stringify(Object.keys(keys)));
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await relayOff(R);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
 // ---- studio scenes as circles (scenesRound; --studio-scenes runs only it, also in the main run after the studio round): a
 // relay of its own with --scenes on the test scenes (read only). The page's Add lists, after the studio, one entry per
 // scene ("Studio: <scene>"); adding one makes a studio station whose state names that scene, in one batch, for every page;
@@ -4302,6 +4449,7 @@ try {
   if (SCENES_ONLY) { await scenesRound(); break main; }
   if (HOME_ONLY) { await homeRound(); break main; }
   if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
+  if (BEHAVE_ONLY) { await behaveRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -6597,6 +6745,8 @@ try {
   await scenesRound();
   // ------------------- the relay the main site offers (HOME_RELAY, by the page's host; a browser of its own) --
   await homeRound();
+  // ------------------------------ the studio's behaviours shared (a relay of its own, with --scenes) --
+  await behaveRound();
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -6677,8 +6827,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

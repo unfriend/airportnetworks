@@ -15,7 +15,7 @@
 //
 // How an item is drawn is one pipeline (drawnPose), so what comes later builds on it:
 //   1. its placed pose: its holder's place, turn and scale (its record, a glide from the room, a carry, the arrows); a
-//      behaviour may give this part instead (POSE.base: none yet);
+//      behaviour may give this part instead (POSE.base, e6g_behave.js: set only while the scene has a behaviour);
 //   2. its recorded path (POSE.path, e6f_path.js; a sound may have one too), changing the pose it is given;
 //   3. its motion (motionDelta), a change in the scene's frame about its middle.
 // The holder keeps the placed pose (what every edit reads and writes, so the record never changes); what is drawn goes
@@ -50,7 +50,7 @@ function normMotion(x) {
 }
 
 // ----------------------------------------------------------- the pipeline --
-// later stages: a behaviour that gives the placed part (none yet), a recorded path that changes it (e6f_path.js) (each
+// later stages: a behaviour that gives the placed part (e6g_behave.js), a recorded path that changes it (e6f_path.js) (each
 // (it, now, clockS, m) -> m changed, base returning false when it gives nothing for this item)
 const POSE = { base: null, path: null };
 const MAXIS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }, MCROSS = { x: [0, 1, 0], y: [0, 0, 1], z: [1, 0, 0] };   // (each axis, and the way across it a wobble tilts and an orbit starts)
@@ -97,6 +97,7 @@ function drawnPose(it, now, clockS, out) {
   if (rest || !(POSE.base && POSE.base(it, now, clockS, out))) out.compose(H.position, H.quaternion, H.scale);
   if (rest) return out;
   if (POSE.path) POSE.path(it, now, clockS, out);
+  if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
   const mo = it.rec && it.rec.motion;
   if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
   return out;

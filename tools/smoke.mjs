@@ -4284,6 +4284,235 @@ await step('design: the intro ends at the table', async () => {
     await sp.close();
   });
 }
+// The studio's behaviours (tools/studio/SPEC.md, "Behaviours"), on a page of its own at the test scene, with a turned shape
+// that looks, a ball that follows, an empty that keeps away and a cube that follows the ball put in for these steps, and a
+// pretend head moved about (STU.head, and pretend others: BEH.fake), the clock held (behNow): each kind's pose against the
+// head (its front to them, dist in front of them at its own height, at least dist away within its area, an item at its
+// offset, not following its target's spin), never faster than its speed, home with nobody in range, the record never
+// changed; nearest and first with several heads (another nearer by more than 0.3 m, kept until range + 0.5 m, ties by id,
+// pages never counting); resting while selected (editing) or carried and starting again from its place; a driver's samples
+// drawn 120 ms behind them (on one page, by a pretend other device's effect); the cards' rows (page and headset, Follow an
+// item... by pointing and by the list), one Undo step each; the state and layout.json, bad values refused, a group's copy
+{
+  const bp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  bp.on('pageerror', e => errors.push('studio behaviours: ' + (e.stack || e.message)));
+  bp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio behaviours: ' + m.text()); });
+  const ss = s => bp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => bp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio behaviours: ' + b)); };
+  // (in the page: the items these steps need, and frames run with the clock held: n frames of dt s, the pretend head moved
+  // first; drawn: an item's drawn matrix; mid: its middle as drawn; front: which way its front faces (atan2 of x, z))
+  const PUT = `(putItem('bhl001', 'p', norm('p', { name: 'Looker', shape: 'cube', p: [2, 0.5, -1], q: [0, 0.3827, 0, 0.9239], size: [0.4, 0.6, 0.2], behaviour: { kind: 'look' } })),
+    putItem('bhf001', 'p', norm('p', { name: 'Ball', shape: 'sphere', p: [0, 0.5, -2], behaviour: { kind: 'follow', dist: 1 } })),
+    putItem('bha001', 'e', norm('e', { name: 'Shy', p: [-2, 1.2, -2], behaviour: { kind: 'avoid', dist: 1.5, area: 2, speed: 1 } })),
+    putItem('bhi001', 'p', norm('p', { name: 'Tail', shape: 'cube', p: [0.8, 0.25, -2], behaviour: { kind: 'item', target: 'bhf001', speed: 2 } })), select(''), 0)`;
+  const HELP = `window.__bh = window.__bh || {
+    T: 0, V: (...a) => new THREE.Vector3(...a),
+    // (exact: the time others' samples are drawn at put right on the clock's 120 ms ago every frame, not eased to it)
+    run: (n, dt, head, exact) => { const B = window.__bh, keep = behNow, sc = sceneClock; if (!B.T) B.T = performance.now(); if (head !== undefined) STU.head = head; behNow = () => B.T; sceneClock = () => B.T / 1000;
+      const mids = {};
+      try { for (let k = 0; k < n; k++) { B.T += dt * 1000; if (exact) BEH.rt.at = 0; behaveStep(dt, performance.now()); itemsStep(dt, performance.now()); for (const id of ['bhl001', 'bhf001', 'bha001', 'bhi001']) if (STU.items.has(id)) (mids[id] = mids[id] || []).push(B.mid(id)); } } finally { behNow = keep; sceneClock = sc; }
+      return mids; },
+    drawn: id => { const H = STU.items.get(id).holder; return H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix.clone(); },
+    placed: id => { const H = STU.items.get(id).holder; return new THREE.Matrix4().compose(H.position, H.quaternion, H.scale); },
+    mid: id => { const it = STU.items.get(id); return (it.kind === 'o' && it.model ? it.proxy.position.clone() : new THREE.Vector3()).applyMatrix4(window.__bh.drawn(id)); },
+    front: id => { const d = new THREE.Vector3(0, 0, 1).transformDirection(window.__bh.drawn(id)); return Math.atan2(d.x, d.z); },
+    // the fastest a list of middles moved in a frame, along the floor
+    fastest: L => Math.max(0, ...L.slice(1).map((p, k) => Math.hypot(p.x - L[k].x, p.z - L[k].z))),
+    far: (a, b) => Math.max(...a.elements.map((v, i) => Math.abs(v - b.elements[i]))),
+    ang: (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))),
+  }`;
+  await step('studio behaviours: each kind against a pretend head moved about (look, follow, keep away, follow an item, not its spin), never faster than its speed, home with nobody in range, the record unchanged', async () => {
+    await bp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await bp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, ${PUT}, 0)`);
+    const r = await ss(`(() => {
+      const B = window.__bh, o = [], recsOf = () => JSON.stringify(Object.fromEntries([...STU.items.values()].filter(it => it.id !== 'box001').map(it => [it.id, it.rec]))), recs = recsOf();
+      // far away: nothing reacts, everything where it is placed (the pipeline on: a behaviour is in the scene)
+      B.run(10, 1 / 30, [20, 1.6, 20, 0]);
+      if (!STUDIO.behave('bhf001').base || ['bhl001', 'bhf001', 'bha001', 'bhi001'].some(id => STUDIO.behave(id).on || B.far(B.drawn(id), B.placed(id)) > 1e-9)) o.push('far away, something moved: ' + JSON.stringify(STUDIO.behave('bhf001')));
+      // look: its front turns to the head (2.5 m to its right, along x), its middle where it is
+      const m0 = B.mid('bhl001');
+      B.run(120, 1 / 30, [4.5, 1.6, -1, 0]);
+      const lk = STUDIO.behave('bhl001');
+      if (lk.who !== 'me' || !lk.drive || Math.abs(B.front('bhl001') - Math.PI / 2) > 0.01 || B.mid('bhl001').distanceTo(m0) > 1e-6) o.push('look: ' + JSON.stringify([lk, B.front('bhl001'), B.mid('bhl001')]));
+      // follow: comes to 1 m in front of the head (looking along -x), at its own height, turned to them, never faster than 0.6 m/s
+      const fm = B.run(300, 1 / 30, [0.5, 1.6, -0.5, Math.PI / 2]).bhf001, fw = B.mid('bhf001');
+      if (fw.distanceTo(B.V(-0.5, 0.5, -0.5)) > 0.01 || Math.abs(B.front('bhf001') - Math.PI / 2) > 0.01 || B.fastest(fm) > 0.6 / 30 + 1e-6) o.push('follow: ' + JSON.stringify([fw, B.front('bhf001'), B.fastest(fm)]));
+      // an item following it: at its offset as they are placed, on the ball as drawn (before its motion); then the ball spins:
+      // the tail stays put
+      const want = B.drawn('bhf001').multiply(B.placed('bhf001').invert()).multiply(B.placed('bhi001')), got = B.drawn('bhi001');
+      if (B.far(want, got) > 0.01) o.push('the item following the ball: ' + B.far(want, got));
+      setRec('bhf001', { motion: { kind: 'spin', speed: 30 } });
+      B.run(1, 1 / 30);
+      const t0 = B.drawn('bhi001'), f0 = B.front('bhf001');
+      B.run(15, 1 / 30);   // (half a second: a quarter turn)
+      if (B.far(B.drawn('bhi001'), t0) > 1e-3 || Math.abs(B.ang(B.front('bhf001'), f0) - Math.PI / 2) > 0.01) o.push('the ball spinning: its tail moved, or the ball did not spin: ' + [B.far(B.drawn('bhi001'), t0), B.front('bhf001'), f0]);
+      setRec('bhf001', { motion: undefined });
+      // keep away: the head 0.36 m from its place: it goes to 1.5 m from the head, never more than 2 m from its place
+      const am = B.run(240, 1 / 30, [-2.3, 1.6, -2.2, 0]).bha001, aw = B.mid('bha001'), h = B.V(-2.3, aw.y, -2.2), home = B.V(-2, aw.y, -2);
+      if (aw.distanceTo(h) < 1.49 || aw.distanceTo(home) > 2 + 1e-6 || Math.abs(aw.y - 1.2) > 1e-9 || B.fastest(am) > 1 / 30 + 1e-6) o.push('keep away: ' + JSON.stringify([aw, aw.distanceTo(h), aw.distanceTo(home), B.fastest(am)]));
+      // cornered: the head between its place and it, where pushing it on would take it past its area: the far side instead
+      const hc = B.V(-2, 0, -2).lerp(B.V(aw.x, 0, aw.z), 0.5).setY(1.6);
+      B.run(240, 1 / 30, hc.toArray());
+      const ac = B.mid('bha001'), hd = Math.hypot(ac.x - hc.x, ac.z - hc.z);
+      if (hd < 1.49 || ac.distanceTo(B.V(-2, ac.y, -2)) > 2 + 1e-6 || (ac.x - hc.x) * (aw.x - hc.x) + (ac.z - hc.z) * (aw.z - hc.z) > 0) o.push('keep away, cornered: ' + JSON.stringify([ac, hd]));
+      // home once home is clear of the head (1.8 m from it, still within range)
+      B.run(240, 1 / 30, [-2, 1.6, -0.2, 0]);
+      if (STUDIO.behave('bha001').who !== 'me' || STUDIO.behave('bha001').on) o.push('keep away, home clear of them: ' + JSON.stringify(STUDIO.behave('bha001')));
+      // nobody in range: home, the ball never faster than 0.6 m/s on the way
+      const hm = B.run(300, 1 / 30, [20, 1.6, 20, 0]).bhf001;
+      if (['bhl001', 'bhf001', 'bha001', 'bhi001'].some(id => STUDIO.behave(id).on || STUDIO.behave(id).who || B.far(B.drawn(id), B.placed(id)) > 1e-9) || B.fastest(hm) > 0.6 / 30 + 1e-6) o.push('home again: ' + JSON.stringify([STUDIO.behave('bhf001'), B.fastest(hm)]));
+      // an object (its middle its model's): looks too
+      setRec('box001', { behaviour: { kind: 'look', range: 5 } });
+      const bm = B.mid('box001');
+      B.run(120, 1 / 30, [-1, 1.6, 1, 0]);
+      const bf = B.front('box001'), bw = Math.atan2(-1 - bm.x, 1 - bm.z);
+      if (B.ang(bf, bw) > 0.01 || B.mid('box001').distanceTo(bm) > 1e-6) o.push('an object looking: ' + [bf, bw, B.mid('box001').distanceTo(bm)]);
+      setRec('box001', { behaviour: undefined });
+      B.run(200, 1 / 30, [20, 1.6, 20, 0]);
+      if (recsOf() !== recs) o.push('a record changed');
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio behaviours: who it reacts to with several heads: nearest (another nearer by more than 0.3 m takes over, kept until range + 0.5 m, ties by id), first (until they leave), this device driving only when it is the one; pages never count', async () => {
+    const r = await ss(`(() => {
+      const B = window.__bh, o = [], who = () => STUDIO.behave('bhl001').who;
+      // (heads at a distance along +x from the looker's middle (2, -1); this device's own far away)
+      const at = (d, z) => [2 + d, 1.6, z === undefined ? -1 : z];
+      const fake = (list) => { BEH.fake = list.map(([id, d, ts]) => ({ id, p: at(d), yaw: 0, ts })); B.run(3, 1 / 30, [20, 1.6, 20, 0]); return who(); };
+      const seq = [[[['a', 2, 1], ['b', 2.5, 1]], 'a'], [[['a', 2, 1], ['b', 1.8, 1]], 'a'], [[['a', 2, 1], ['b', 1.6, 1]], 'b'], [[['a', 5, 1], ['b', 3.3, 1]], 'b'], [[['a', 5, 1], ['b', 3.6, 1]], ''],
+        [[['b', 2, 1], ['a', 2, 1]], 'a']];
+      const got = seq.map(([l]) => fake(l));
+      if (got.join() !== seq.map(s => s[1]).join()) o.push('nearest: ' + got.join());
+      setRec('bhl001', { behaviour: { kind: 'look', who: 'first' } });
+      const seqF = [[[], ''], [[['b', 2.5, 100]], 'b'], [[['b', 2.5, 100], ['a', 1, 200]], 'b'], [[['b', 3.4, 100], ['a', 1, 200]], 'b'], [[['b', 3.6, 100], ['a', 1, 200]], 'a'],
+        [[['b', 2, 300], ['a', 1, 200]], 'a'], [[['b', 2, 300], ['a', 3.6, 200]], 'b'], [[], ''], [[['b', 2, 400], ['a', 2.5, 400]], 'a']];
+      const gotF = seqF.map(([l]) => fake(l));
+      if (gotF.join() !== seqF.map(s => s[1]).join()) o.push('first: ' + gotF.join());
+      // this device's own head with another: driven here only while it is the one (nearest)
+      setRec('bhl001', { behaviour: { kind: 'look' } });
+      BEH.fake = [{ id: 'a', p: at(2), yaw: 0, ts: 1 }]; B.run(3, 1 / 30, at(1));
+      const mine = STUDIO.behave('bhl001');
+      BEH.fake = [{ id: 'a', p: at(0.5), yaw: 0, ts: 1 }]; B.run(3, 1 / 30, at(1));
+      const theirs = STUDIO.behave('bhl001');
+      if (mine.who !== 'me' || !mine.drive || mine.src !== 'me' || theirs.who !== 'a' || theirs.drive || theirs.src !== 'home') o.push('this device driving: ' + JSON.stringify([mine, theirs]));
+      // a page with no head (Orbit view, no pretend head): nobody
+      BEH.fake = null; STU.head = null; X.view = 'orbit';
+      B.run(3, 1 / 30);
+      if (['bhl001', 'bhf001', 'bha001'].some(id => STUDIO.behave(id).who)) o.push('a page with no head counted');
+      B.run(200, 1 / 30, [20, 1.6, 20, 0]);
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio behaviours: resting while selected (editing) and while carried, starting again from its place; a driver\'s samples (a pretend other device\'s effect) drawn 120 ms behind them, home once they end', async () => {
+    const r = await ss(`(() => {
+      const B = window.__bh, o = [];
+      setEdit(true); select('');
+      B.run(150, 1 / 30, [0.5, 1.6, -0.5, Math.PI / 2]);
+      if (!STUDIO.behave('bhf001').on) o.push('not following at first');
+      select('bhf001'); B.run(2, 1 / 30);
+      const s = STUDIO.behave('bhf001');
+      if (s.on || s.drive || B.far(B.drawn('bhf001'), B.placed('bhf001')) > 1e-9 || !STUDIO.pose('bhf001').rests) o.push('selected, it did not rest at its place: ' + JSON.stringify(s));
+      select(''); const L = B.run(1, 1 / 30).bhf001;
+      if (Math.hypot(L[0].x, L[0].z + 2) > 0.6 / 30 + 1e-6 || !STUDIO.behave('bhf001').on) o.push('not selected again, it did not start from its place: ' + JSON.stringify(L[0]));
+      STU.items.get('bhf001').carry = {}; B.run(2, 1 / 30);
+      if (STUDIO.behave('bhf001').on || STUDIO.behave('bhf001').drive) o.push('carried, it did not rest');
+      delete STU.items.get('bhf001').carry;
+      // a driver elsewhere (member zz, in range as a pretend head): its samples drawn 120 ms behind, between them; ended: home
+      B.run(200, 1 / 30, [20, 1.6, 20, 0]);
+      BEH.fake = [{ id: 'zz', p: [0, 1.6, -0.5], yaw: 0, ts: 1 }];
+      const T0 = window.__bh.T;
+      const send = (t, tx, end) => studioEffect('beh', { at: Math.round(t), b: [['bhf001', tx, 0, 0, 5].concat(end ? [1] : [])] }, 'zz');
+      for (let k = 0; k <= 15; k++) send(T0 + k * 100, k * 0.1);   // (the last 8 are kept)
+      B.T = T0 + 1000; B.run(15, 1 / 30, undefined, true);   // (half a second: blended in, then on its samples)
+      const v = STUDIO.behave('bhf001'), wantTx = (B.T - 120 - T0) / 1000;
+      if (v.src !== 'by:zz' || v.drive || v.who !== 'zz' || Math.abs(v.t[0] - wantTx) > 0.002 || Math.abs(B.mid('bhf001').x - wantTx) > 0.002) o.push('a driver\\'s samples: ' + JSON.stringify([v, wantTx]));
+      send(T0 + 1600, 1.6, true);
+      B.run(2, 1 / 30);
+      if (STUDIO.behave('bhf001').src !== 'home') o.push('its samples ended: not going home: ' + JSON.stringify(STUDIO.behave('bhf001')));
+      BEH.fake = null; B.run(200, 1 / 30, [20, 1.6, 20, 0]);
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio behaviours: the cards\' rows (page and headset), Follow an item... by pointing and by the list, one Undo step each', async () => {
+    const out = [];
+    await ss(`(setEdit(true), setRec('bhf001', { behaviour: undefined }), select('bhf001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length'), seq = [['beh:follow', '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":0.6}'], ['bwho:first', '"who":"first"'], ['brange:+', '"range":4'],
+      ['bdist:-', '"dist":0.75'], ['bspeed:+', '"speed":0.8'], ['beh:avoid', '{"kind":"avoid","who":"first","range":4,"dist":1.5,"speed":0.8,"area":2}'], ['barea:-', '"area":1.5'], ['beh:look', '{"kind":"look","who":"first","range":4}']];
+    for (const [id, want] of seq) {
+      await ss('renderPanes()');
+      await bp.click(`#pane-item [data-id="${id}"]`);
+      const got = await ss(`JSON.stringify(STU.items.get('bhf001').rec.behaviour)`);
+      if (!got || !got.includes(want)) out.push('the page\'s card ' + id + ': ' + got);
+    }
+    await ss('renderPanes()');
+    const said = await ss(`/the same for everyone at a circle/.test(document.querySelector('#pane-item').textContent)`);
+    // Follow an item...: the pick, then the scene's pointer (pressItem) on the tail
+    await bp.click('#pane-item [data-id="beh:item"]');
+    const pk = await ss(`[STU.follow, UNDO.length]`);
+    await ss(`(pressItem('bhi001'), renderPanes(), 0)`);
+    const it1 = await ss(`[JSON.stringify(STU.items.get('bhf001').rec.behaviour), STU.follow, UNDO.length]`);
+    // and by the card's list
+    await ss('renderPanes()');
+    await bp.click('#pane-item [data-id="beh:item"]');
+    await ss('renderPanes()');
+    await bp.click('#pane-item [data-id="btarget:bhl001"]');
+    const it2 = await ss(`[JSON.stringify(STU.items.get('bhf001').rec.behaviour), STU.follow, UNDO.length]`);
+    await ss('renderPanes()');
+    await bp.click('#pane-item [data-id="beh:none"]');
+    const end = await ss(`['behaviour' in STU.items.get('bhf001').rec, UNDO.length]`);
+    const n = seq.length;
+    if (!said || pk[0] !== 'bhf001' || pk[1] !== u0 + n || it1[0] !== '{"kind":"item","target":"bhi001","speed":0.6}' || it1[1] || it1[2] !== u0 + n + 1 ||
+      it2[0] !== '{"kind":"item","target":"bhl001","speed":0.6}' || it2[1] || it2[2] !== u0 + n + 2 || end[0] || end[1] !== u0 + n + 3) out.push('the page\'s Behaviour rows (one Undo step each): ' + JSON.stringify({ said, pk, it1, it2, end, u0 }));
+    // the headset's card: its rows pressed
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('bha001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('beh:follow'), JSON.stringify(STU.items.get('bha001').rec.behaviour), press('bspeed:-'), press('bwho:first'), JSON.stringify(STU.items.get('bha001').rec.behaviour),
+        press('beh:item'), STU.follow, press('btarget:bhl001'), JSON.stringify(STU.items.get('bha001').rec.behaviour), press('beh:avoid'), JSON.stringify(STU.items.get('bha001').rec.behaviour)];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (!xr[0] || xr[1] !== '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":1}' || !xr[2] || !xr[3] || xr[4] !== '{"kind":"follow","who":"first","range":3,"dist":1,"speed":0.8}' ||
+      !xr[5] || xr[6] !== 'bha001' || !xr[7] || xr[8] !== '{"kind":"item","target":"bhl001","speed":0.8}' || !xr[9] || xr[10] !== '{"kind":"avoid","who":"nearest","range":3,"dist":1.5,"speed":0.8,"area":2}') out.push('the headset\'s Behaviour rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio behaviours: the state and layout.json carry a behaviour and give it back; bad values refused, out of range held, fields of another kind dropped; a group\'s copy follows its own', async () => {
+    const r = await ss(`(() => {
+      const J = x => JSON.stringify(x), out = [];
+      setRec('bhf001', { behaviour: { kind: 'avoid', who: 'first', range: 2.5, dist: 0.8, speed: 1.2, area: 3 } }); setRec('bhi001', { behaviour: { kind: 'item', target: 'bhf001', speed: 2 } }); setRec('box001', { behaviour: { kind: 'look' } });
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      if (J(collabState()) !== a || J(s['p.bhf001'].behaviour) !== '{"kind":"avoid","who":"first","range":2.5,"dist":0.8,"speed":1.2,"area":3}' || J(s['o.box001'].behaviour) !== '{"kind":"look","who":"nearest","range":3}') out.push('the state: ' + J([s['p.bhf001'], s['o.box001']]));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const got = id => J(back.items.find(x => x.id === id).rec.behaviour);
+      if (back.bad || got('bhf001') !== J(s['p.bhf001'].behaviour) || got('bhi001') !== '{"kind":"item","target":"bhf001","speed":2}' || 'behaviour' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('bhf001'), got('bhi001')]));
+      const N = (k, b) => norm(k, Object.assign(k === 'o' ? { file: 'box.glb' } : {}, { p: [0, 0, 0], behaviour: b }));
+      const res = [N('o', null) && !('behaviour' in N('o', null)), N('p', { kind: 'dance' }), N('e', { kind: 'look', who: 'last' }), N('o', { kind: 'follow', range: 'far' }), N('p', { kind: 'item' }), N('e', { kind: 'item', target: 'Bad id' }), N('o', 'follow'),
+        J(N('o', { kind: 'follow', range: 100, dist: 0.01, speed: 9 }).behaviour), J(N('p', { kind: 'look', dist: 5, area: 2, target: 'abc123' }).behaviour), J(N('e', { kind: 'avoid', range: 1.234 }).behaviour), J(N('p', { kind: 'item', target: 'abc123', who: 'first' }).behaviour),
+        norm('c', { p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour, norm('s', { file: 'tone.wav', p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour];
+      const want = [true, null, null, null, null, null, null, '{"kind":"follow","who":"nearest","range":20,"dist":0.2,"speed":5}', '{"kind":"look","who":"nearest","range":3}', '{"kind":"avoid","who":"nearest","range":1.23,"dist":1.5,"speed":0.6,"area":2}',
+        '{"kind":"item","target":"abc123","speed":0.6}', undefined, undefined];
+      if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
+      const bl = readLayout({ studio: 1, empties: [{ id: 'bbb222', p: [0, 0, 0], behaviour: { kind: 'look' } }, { id: 'bbb333', p: [0, 0, 0], behaviour: { kind: 'hide' } }] });
+      if (bl.bad !== 1 || bl.items.length !== 1) out.push('a bad behaviour in a layout: ' + J(bl));
+      // a group of the ball and its tail duplicated: the tail's copy follows the ball's copy
+      setEdit(true);
+      change(() => putItem('grpbh1', 'g', norm('g', { name: 'Pair', items: ['bhf001', 'bhi001'] })));
+      const g2 = duplicateGroup(STU.items.get('grpbh1')), ms = members(STU.items.get(g2)), ball = ms.find(m => m.rec.name.startsWith('Ball')), tail = ms.find(m => m.rec.name.startsWith('Tail'));
+      if (!ball || !tail || tail.rec.behaviour.target !== ball.id) out.push('the group\\'s copy: ' + J(ms.map(m => [m.id, m.rec.name, m.rec.behaviour])));
+      return out;
+    })()`);
+    bad(r);
+    await bp.close();
+  });
+}
 // The studio's motions (tools/studio/SPEC.md, "Motions"), on pages of their own at the test scene, with a shape (turned and
 // sized per axis), an empty, a sound following the empty and a cut-out on the box put in for these steps: each kind's
 // drawn pose at two moments its formula (about its middle, in the scene's axes) over its placed pose, which stays as its

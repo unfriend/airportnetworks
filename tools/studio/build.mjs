@@ -11,11 +11,12 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
 // (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that
 // tools/studio/convert.mjs loads in its headless page too)
-const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e8_xr', 'e9_panels', 'e10_app'];
-// (e6e_motion: simple motions, and the pipeline that draws an item's pose; e6f_path: recorded paths, the recorder.
-// e7c_direct: a relay that keeps its scenes in R2, signed links and uploads straight into the bucket; after the Upload
-// pane, whose uploads it takes over. e7d_lite: an object's Fewer triangles and Change texture, and the Upload pane's
-// share and preview per model. e7e_pics: the Add pane's pictures of the models, made with every GLB and by Make pictures)
+const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e6g_behave', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e8_xr', 'e9_panels', 'e10_app'];
+// (e6e_motion: simple motions, and the pipeline that draws an item's pose; e6f_path: recorded paths, the recorder;
+// e6g_behave: behaviours, shared from the headset they react to. e7c_direct: a relay that keeps its scenes in R2, signed
+// links and uploads straight into the bucket; after the Upload pane, whose uploads it takes over. e7d_lite: an object's
+// Fewer triangles and Change texture, and the Upload pane's share and preview per model. e7e_pics: the Add pane's
+// pictures of the models, made with every GLB and by Make pictures)
 // the app's add-ons, in the order they need each other (the NURBS curve before the FBX loader that asks for it); the
 // GLTFExporter last, inside a function the converter calls the first time it converts (exporterLoad)
 const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'OBJLoader', 'MTLLoader', 'PLYLoader', 'STLLoader', 'SkeletonUtils', 'TransformControls'];
