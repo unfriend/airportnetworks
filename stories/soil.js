@@ -5993,7 +5993,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) });
+    session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
