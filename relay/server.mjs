@@ -29,7 +29,7 @@ import os from 'node:os';
 import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf,
+import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
   uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 
@@ -1272,6 +1272,10 @@ async function writeLayout(dir, text) {
 // nothing behind (nor the folders made for it, when they are empty). All behind the password, as every scene endpoint.
 const NO_SAVE = 'saving is off on this relay (--scenes-readonly): nothing is written';
 const TOO_BIG = `a file is at most ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB here (--max-upload)`;
+// the most a file at that path may hold (uploadPath's want): --max-upload, and a model's picture under previews/ less
+// (relay/scenes.mjs, MAX_PREVIEW: uploadPath gives it as want.max), with its own words
+const capOf = want => Math.min(MAX_UPLOAD, want && want.max ? want.max : Infinity);
+const bigFor = want => (capOf(want) < MAX_UPLOAD ? `a picture in previews/ is at most ${Math.round(capOf(want) / 1024)} KB` : TOO_BIG);
 const UPLOAD_IDLE = 120000;   // an upload with no byte for this long is given up (server.requestTimeout is off for slow ones)
 const DRAIN = 16 << 20;
 const FF = { running: 0, procs: new Set() };
@@ -1350,7 +1354,7 @@ async function upload(req, res, url, name, sound) {
   const there = await lstatOf(dest);
   if (there && there.isDirectory()) return no(409, 'there is a folder by that name');
   if (there && !replace) return no(409, 'there is a file by that name (replace=1 replaces it)');
-  if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
+  if (+req.headers['content-length'] > capOf(want)) return no(413, bigFor(want));
   // (two sounds at once at most: each conversion takes a core or two for seconds; the body says when to try again too,
   // since a page on another origin cannot read Retry-After unless it is exposed. The slot is taken at once, before
   // anything is awaited, so uploads that come together cannot all pass)
@@ -1395,8 +1399,8 @@ async function uploadJob(req, job, { name, dir, folder, dest, want, replace, the
   job.tmp = path.join(folder, tmpName());
   let into = job.tmp;
   if (sound) { job.inDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'relay-sound-')); into = path.join(job.inDir, 'in'); }
-  const t0 = Date.now(), got = await receive(req, into);
-  if (got.over) return [413, { error: TOO_BIG }];
+  const t0 = Date.now(), got = await receive(req, into, capOf(want));
+  if (got.over) return [413, { error: bigFor(want) }];
   if (got.cut) { log(`scenes: ${name}: an upload of ${want.rel} was cut short (${got.n} bytes came)`); return null; }
   if (got.err) {
     log(`scenes: ${name}: could not write ${want.rel} (${got.err.code || got.err.message})`);
@@ -1463,7 +1467,7 @@ async function folderCopy({ name, dir, from, fromDir, src, want, replace }) {
   try { real = await fs.promises.realpath(file); st = await fs.promises.stat(real); } catch { /* none */ }
   if (!st || !st.isFile()) return [404, { error: `there is no file ${src} in ${from}` }];
   if (!inside(fromDir, real)) { log(`scenes: refused a copy from ${JSON.stringify(from + '/' + src)} (a link out of its folder)`); return [404, { error: `there is no file ${src} in ${from}` }]; }
-  if (st.size > MAX_UPLOAD) return [413, { error: TOO_BIG }];
+  if (st.size > capOf(want)) return [413, { error: bigFor(want) }];
   const dest = path.join(dir, ...want.segs), folder = path.dirname(dest), there = await lstatOf(dest);
   if (there && there.isDirectory()) return [409, { error: 'there is a folder by that name' }];
   if (there && !replace) return [409, { error: 'there is a file by that name (replace: true replaces it)' }];
@@ -1494,7 +1498,7 @@ async function folderCopy({ name, dir, from, fromDir, src, want, replace }) {
 async function r2Copy({ name, from, src, want, replace }) {
   const S = (await r2Listing(from)).rels.get(src);
   if (!S) return [404, { error: `there is no file ${src} in ${from}` }];
-  if (S.size > MAX_UPLOAD) return [413, { error: TOO_BIG }];
+  if (S.size > capOf(want)) return [413, { error: bigFor(want) }];
   const L = await r2Listing(name), stop = r2InTheWay(L, want, replace);
   if (stop) return [stop[0], { error: stop[0] === 409 && /replace=1/.test(stop[1]) ? 'there is a file by that name (replace: true replaces it)' : stop[1] }];
   const key = okey(name, want.rel);
@@ -1508,7 +1512,7 @@ async function r2Copy({ name, from, src, want, replace }) {
 // the body into a new file (never one that is there): { n } once it is all written and on the disk, { over } past
 // --max-upload, { cut } when the page went (or sent nothing for 2 minutes), { err } when the disk would not take it.
 // One write at a time (the request paused meanwhile), so a slow disk holds the page back rather than filling memory
-function receive(req, file) {
+function receive(req, file, max = MAX_UPLOAD) {
   return new Promise(done => {
     const open = fs.promises.open(file, 'wx');
     let n = 0, chain = open.then(() => {}), fin = false, idle = 0;
@@ -1531,7 +1535,7 @@ function receive(req, file) {
     req.on('data', c => {
       if (fin) return;
       wake();
-      if ((n += c.length) > MAX_UPLOAD) return finish({ over: true });
+      if ((n += c.length) > max) return finish({ over: true });
       req.pause();
       // (a failed write ends it from outside the chain: finish waits for the chain)
       chain = chain.then(() => open).then(fh => fh.write(c)).then(() => { if (!fin) req.resume(); }, err => { queueMicrotask(() => finish({ err })); });
@@ -1628,7 +1632,7 @@ function sceneTold(name, rel, getSig) {
     if (old.sig.get(k) === sig) return;
     old.sig.set(k, sig); SW.pending.delete(k);
     if (!rel) tellScenes('layout', { name, at: +sig.split(':')[1] });
-    else tellScenes('scene', { name, path: rel, kind: kindOf(rel), gone: false });
+    else tellScenes('scene', { name, path: rel, kind: kindAt(rel), gone: false });
   });
 }
 async function sceneState() {
@@ -1683,7 +1687,7 @@ async function sceneLook() {
     if (b === undefined) old.sig.delete(k); else old.sig.set(k, b);
     const [name, file] = k.split('\0');
     if (!file) tellScenes('layout', b === undefined ? { name, at: null, gone: true } : { name, at: +b.split(':')[1] });
-    else tellScenes('scene', { name, path: file, kind: kindOf(file), gone: b === undefined });
+    else tellScenes('scene', { name, path: file, kind: kindAt(file), gone: b === undefined });
   }
   if (cur.names !== old.names) tellScenes('scenes', { scenes: cur.scenes });
   old.names = cur.names; old.scenes = cur.scenes;
@@ -1836,8 +1840,8 @@ async function r2Upload(req, res, url, name, want, sound) {
   if (from !== null) {
     src = listable(from) && from !== LAYOUT && from !== LISTING ? L.rels.get(from) || null : null;
     if (!src) return no(400, 'from=<the path of a sound already in this scene>: there is no such file');
-    if (src.size > MAX_UPLOAD) return no(413, TOO_BIG);
-  } else if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
+    if (src.size > capOf(want)) return no(413, bigFor(want));
+  } else if (+req.headers['content-length'] > capOf(want)) return no(413, bigFor(want));
   if (sound && FF.running >= FF_MAX) return answerEarly(req, res, 429, { error: `${FF_MAX} sounds are being made already: try again in a few seconds`, retry: 5 }, { 'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After' });
   // (each upload through the relay is held whole in its temporary folder before it goes into the bucket: a few at once,
   // so the container's disk is never filled by them; pages send most files straight into the bucket anyway)
@@ -1865,8 +1869,8 @@ async function r2UploadJob(req, { name, want, replace, there, sound, src, tmp })
     if (g.over) return [413, { error: TOO_BIG }];
     n = g.bytes;
   } else {
-    const got = await receive(req, into);
-    if (got.over) return [413, { error: TOO_BIG }];
+    const got = await receive(req, into, capOf(want));
+    if (got.over) return [413, { error: bigFor(want) }];
     if (got.cut) { log(`scenes: ${name}: an upload of ${want.rel} was cut short (${got.n} bytes came)`); return null; }
     if (got.err) {
       log(`scenes: ${name}: could not take ${want.rel} (${got.err.code || got.err.message})`);
@@ -1920,7 +1924,7 @@ async function direct(req, res, url, name, what) {
   if (size !== null && !(Number.isInteger(size) && size >= 0)) return no(400, 'size=<the file\'s size in bytes>');
   if (what === 'put') {
     if (size === null) return no(400, 'size=<the file\'s size in bytes> is needed');
-    if (size > MAX_UPLOAD) return no(413, TOO_BIG);
+    if (size > capOf(want)) return no(413, bigFor(want));
     const replace = url.searchParams.get('replace') === '1', stop = r2InTheWay(await r2Listing(name), want, replace);
     if (stop) return no(...stop);
     const sign = DIRECT.sign === 'type' ? 'type' : 'all', link = RX.putLink(key, { type: typeOf(want.rel), size, replace, expires: PUT_TTL, sign }), now = Date.now();
@@ -1930,15 +1934,15 @@ async function direct(req, res, url, name, what) {
   }
   const st = await RX.stat(key), pend = PENDING.get(key), said = size !== null ? size : pend?.size;
   if (!st) return no(400, `nothing came to ${want.rel}`);
-  if (st.size > MAX_UPLOAD) {
+  if (st.size > capOf(want)) {
     // (by a link of ours: given for this path within the hour, the object put since (R2's clock a little off allowed),
     // its length not signed. A link with its length signed never lands a body past --max-upload: such an object came
     // another way, and is not the relay's to remove)
     if (pend && pend.sign === 'type' && st.at >= pend.at - 120000 && Date.now() - pend.at <= PUT_TTL * 1000) {
       await RX.del(key); r2Forget(); PENDING.delete(key);
-      log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket by its link: more than --max-upload)`);
-    } else log(`scenes: ${name}: ${want.rel} in the bucket is ${mb(st.size)}, more than --max-upload: left there (it did not come by a link of this relay's)`);
-    return no(413, TOO_BIG);
+      log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket by its link: more than ${capOf(want) < MAX_UPLOAD ? 'a picture in previews/ takes' : '--max-upload'})`);
+    } else log(`scenes: ${name}: ${want.rel} in the bucket is ${mb(st.size)}, more than ${capOf(want) < MAX_UPLOAD ? 'a picture in previews/ takes' : '--max-upload'}: left there (it did not come by a link of this relay's)`);
+    return no(413, bigFor(want));
   }
   if (said !== undefined && st.size !== said) return no(400, `${want.rel} holds ${st.size} bytes, not the ${said} said`);
   PENDING.delete(key); r2Forget();

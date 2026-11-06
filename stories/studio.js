@@ -16639,7 +16639,7 @@ async function call(url, o = {}) {
   if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
   // (R2: a file's signed link, read again first when it may have lapsed, and once more after the bucket refused it)
-  const signed = !relay && SRC.linkTtl > 0 && STU.files.some(f => f.url === url);
+  const signed = !relay && SRC.linkTtl > 0 && (STU.files.some(f => f.url === url) || [...PV.files.values()].some(f => f.url === url));
   if (signed && !o.again && linksOld()) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) {
@@ -16786,6 +16786,7 @@ function openScene(name, how, again) {
   draftNow();
   clearItems();
   libClear();
+  pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
@@ -16825,23 +16826,27 @@ async function loadScene() {
   }
   dirty(true);
 }
-// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
+// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name. A model's picture for the
+// Add pane (previews/<its path>.jpg) is kind 'preview' whatever the relay said, anything else under previews/ 'other':
+// never a texture or a model (e7e_pics.js)
 function filesOf(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return out;
 }
-// the open scene's listing
+// the open scene's listing; its models' pictures (previews/) said apart (e7e_pics.js), so nothing else sees them
 function setFiles(list) {
-  const out = filesOf(list);
-  if (out.some(f => f.url)) linksSoon();
+  const all = filesOf(list), out = all.filter(f => !f.path.startsWith(PV_DIR));
+  if (all.some(f => f.url)) linksSoon();
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
+  pvListing(all.filter(f => f.kind === 'preview'));
 }
 // the listing again (a file added, changed or gone: the watch), then what uses a changed file loaded again
 async function refreshFiles(changed) {
@@ -17074,7 +17079,7 @@ async function copySet(from, f, files) {
   for (const n of N.textures) tex(n);
   return { deps, lost };
 }
-const copyOne = (scene, from, path, as) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, path, as }) });
+const copyOne = (scene, from, path, as, replace) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(replace ? { from, path, as, replace } : { from, path, as }) });
 // what this scene may hold where (an upload's rule: relay/scenes.mjs, uploadPath): models (GLB, glTF, FBX), sounds,
 // pictures and data anywhere, any other kind (an OBJ, its MTL) only under originals/
 const mayHold = q => inOriginals(q) || ['glb', 'gltf', 'fbx'].includes(extOf(q)) || ['audio', 'image', 'data'].includes(kindOf(q));
@@ -17103,6 +17108,8 @@ async function copyIn(p) {
       if (gen !== STU.gen) return;
     }
     if (!done) throw new Error('no free name for ' + baseName(p));
+    // (its picture for the Add pane, when the other scene has one: copied beside it; never a reason the copy fails)
+    if (FROM.files.some(x => x.path === pvPath(p)) && pvFits(pvPath(done))) { try { await copyOne(scene, from, pvPath(p), pvPath(done), true); } catch (e) { /* Make pictures makes it again */ } }
     await refreshFiles(new Set());
     if (gen !== STU.gen) return;
     const id = kindOf(done) === 'audio' ? addSound(done) : addModel(done);
@@ -17696,7 +17703,194 @@ function makeImages(z) {
   }
   const psdBack = url => String(url).replace(/\.(p)(s)(~|%7e)(?=$|[?#])/i, (m, p, q) => '.' + p + q + (q === 'S' ? 'D' : 'd'));   // (in the name's own case)
 
-  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits };
+  // ---- the gaps between a picture's pieces (tools/studio/SPEC.md, "Fewer triangles": the fill). A scan's texture is an
+  // atlas of many small pieces with black, unused texels between them; a lighter model keeps its seams joined in 3D but
+  // straightens each piece's outline in the picture, so its triangles sample the black between pieces (black wedges along
+  // the seams). cover() marks the texels a model's triangles use; fillGaps() fills every other texel from the nearest that
+  // one does. Both plain typed arrays, so a page and Node alike (no canvas, no float buffers: a 4,096 px picture is
+  // filled in about 90 MB besides its own bytes).
+  // cover(cov, w, h, P, ix, s, e): the triangles ix[s..e) (no ix: corners in order), their corners' places in pixels in P
+  // (x, y pairs, y down the picture), marked 1 in cov (w x h): each texel whose centre is inside a triangle or on its edge;
+  // a triangle that holds no texel's centre marks the texels its corners and middle are in (a tiny piece keeps its own
+  // colours). -> the triangles drawn
+  function cover(cov, w, h, P, ix, s, e) {
+    let n = 0;
+    const mark = (x, y) => { const i = Math.min(w - 1, Math.max(0, Math.floor(x))), j = Math.min(h - 1, Math.max(0, Math.floor(y))); cov[j * w + i] = 1; };
+    for (let t = s; t + 2 < e; t += 3, n++) {
+      const a = ix ? ix[t] : t, c0 = ix ? ix[t + 1] : t + 1, c1 = ix ? ix[t + 2] : t + 2;
+      const x0 = P[a * 2], y0 = P[a * 2 + 1];
+      let x1 = P[c0 * 2], y1 = P[c0 * 2 + 1], x2 = P[c1 * 2], y2 = P[c1 * 2 + 1];
+      if (!(Number.isFinite(x0 + y0 + x1 + y1 + x2 + y2))) continue;
+      let area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0), hit = 0;
+      if (area < 0) { const sx = x1, sy = y1; x1 = x2; y1 = y2; x2 = sx; y2 = sy; area = -area; }
+      if (area > 1e-9) {
+        const minX = Math.max(0, Math.ceil(Math.min(x0, x1, x2) - 0.5)), maxX = Math.min(w - 1, Math.floor(Math.max(x0, x1, x2) - 0.5));
+        const minY = Math.max(0, Math.ceil(Math.min(y0, y1, y2) - 0.5)), maxY = Math.min(h - 1, Math.floor(Math.max(y0, y1, y2) - 0.5));
+        // (each edge's function at the texels' centres, stepped along a row: >= 0 on the inside; a hair's tolerance so a
+        // centre on an edge two triangles share is in both)
+        const A0 = y0 - y1, B0 = x1 - x0, A1 = y1 - y2, B1 = x2 - x1, A2 = y2 - y0, B2 = x0 - x2, eps = -1e-7 * area;
+        for (let j = minY; j <= maxY; j++) {
+          const py = j + 0.5, px = minX + 0.5;
+          let e0 = B0 * (py - y0) + A0 * (px - x0), e1 = B1 * (py - y1) + A1 * (px - x1), e2 = B2 * (py - y2) + A2 * (px - x2), o = j * w + minX;
+          for (let i = minX; i <= maxX; i++, o++) {
+            if (e0 >= eps && e1 >= eps && e2 >= eps) { cov[o] = 1; hit++; }
+            e0 += A0; e1 += A1; e2 += A2;
+          }
+        }
+      }
+      if (!hit) { mark(x0, y0); mark(x1, y1); mark(x2, y2); mark((x0 + x1 + x2) / 3, (y0 + y1 + y2) / 3); }
+    }
+    return n;
+  }
+  // fillGaps(d, w, h, cov, o): the RGBA bytes d (w x h) filled where cov is 0 from the texels where it is not, which never
+  // change: o.band rings of exact edge colours (each texel a copy of a neighbour's from the ring before; 2 to 8 by size:
+  // what a lighter model's wedges and the mipmaps read), then a smooth push-pull fill for the rest (each level's known
+  // texels averaged into the next, smaller one; each unknown texel then drawn back, bilinearly, from the level above).
+  // Alpha kept as it is, unless o.alpha (then filled with the colours). o.rim: rings of the pieces' rims taken back first
+  // (below: a picture drawn down). cov is used up (its values change). o.pause(): a promise yielded to every o.slice ms
+  // (25), so a page or a headset keeps drawing. -> { filled, band, rim (texels taken back), ms }
+  async function fillGaps(d, w, h, cov, o) {
+    o = o || {};
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now(), AL = !!o.alpha;
+    const SL = o.slice || 25, pause = o.pause || null;
+    let last = now();
+    const due = () => !!pause && now() - last > SL, rest = async () => { await pause(); last = now(); };
+    const band = o.band !== undefined ? o.band : Math.min(8, Math.max(2, Math.round(Math.max(w, h) / 512)));
+    // (states: 1 covered, 2 filled in a ring, 3 waiting in the next ring, 0 still empty)
+    let F = new Int32Array(4096), G = new Int32Array(4096), S = new Int32Array(4096), nF = 0, nG = 0, filled = 0;
+    const grow = (a, n) => { if (n < a.length) return a; let m = a.length * 2; while (m <= n) m *= 2; const b = new Int32Array(m); b.set(a); return b; };
+    // a texel's eight neighbours (sides first, then corners), those off the picture left out
+    const NB = new Int32Array(8);
+    const around = p => {
+      const x = p % w, y = (p - x) / w;
+      if (x > 0 && y > 0 && x < w - 1 && y < h - 1) { NB[0] = p - 1; NB[1] = p + 1; NB[2] = p - w; NB[3] = p + w; NB[4] = p - w - 1; NB[5] = p - w + 1; NB[6] = p + w - 1; NB[7] = p + w + 1; return 8; }
+      let n = 0;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const qx = x + dx, qy = y + dy; if (qx >= 0 && qy >= 0 && qx < w && qy < h) NB[n++] = qy * w + qx; }
+      return n;
+    };
+    // o.rim (0 to 4): that many rings of covered texels at the rims of the pieces taken back first and filled as gaps are.
+    // A picture drawn down carries the black between its pieces into their rims (each texel there an average reaching
+    // over the edge), which the band would copy outwards: a dark halo along the seams. A rim texel is taken back only
+    // where a texel deeper in its piece is beside it, so a piece a few texels across keeps its own
+    const rim = Math.max(0, Math.min(4, o.rim | 0));
+    let back = 0;
+    for (let r = 0; r < rim; r++) {
+      // (the rim marked 4 for this ring, so a texel still marked 1 beside one is deeper in its piece)
+      nF = 0;
+      for (let y = 0; y < h; y++) {
+        if (due()) await rest();
+        const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+        for (let x = 0; x < w; x++) {
+          if (cov[r0 + x] !== 1) continue;
+          const l = x > 0 ? x - 1 : x, rr = x < w - 1 ? x + 1 : x;
+          if (cov[r0 + l] && cov[r0 + rr] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + rr] && cov[dn + l] && cov[dn + rr]) continue;
+          F = grow(F, nF); F[nF++] = r0 + x;
+        }
+      }
+      for (let i = 0; i < nF; i++) cov[F[i]] = 4;
+      let m = 0;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let deep = false;
+        for (let k = 0; k < n && !deep; k++) deep = cov[NB[k]] === 1;
+        if (deep) { F[m++] = F[i]; } else cov[F[i]] = 1;
+      }
+      for (let i = 0; i < m; i++) cov[F[i]] = 0;
+      back += m; nF = 0;
+      if (!m) break;
+    }
+    // the first ring: every empty texel beside a covered one (only a covered texel with an empty one beside it looked round)
+    for (let y = 0; y < h; y++) {
+      if (due()) await rest();
+      const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+      for (let x = 0; x < w; x++) {
+        if (cov[r0 + x] !== 1) continue;
+        const l = x > 0 ? x - 1 : x, r = x < w - 1 ? x + 1 : x;
+        if (cov[r0 + l] && cov[r0 + r] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + r] && cov[dn + l] && cov[dn + r]) continue;
+        const n = around(r0 + x);
+        for (let k = 0; k < n; k++) { const q = NB[k]; if (cov[q] === 0) { cov[q] = 3; F = grow(F, nF); F[nF++] = q; } }
+      }
+    }
+    for (let r = 0; r < band && nF; r++) {
+      // each texel's colour: a copy of a neighbour's that was covered or filled before this ring (sides first, then
+      // corners); the empty texels round it wait for the next ring (marked so, they are no one's source in this one)
+      S = grow(S, nF); nG = 0;
+      const next = r + 1 < band;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let src = -1;
+        for (let k = 0; k < n; k++) {
+          const q = NB[k], v = cov[q];
+          if (src < 0 && (v === 1 || v === 2)) src = q;
+          else if (next && v === 0) { cov[q] = 3; G = grow(G, nG); G[nG++] = q; }
+        }
+        S[i] = src;
+      }
+      for (let i = 0; i < nF; i++) {
+        if (S[i] < 0) continue;
+        const p = F[i] * 4, q = S[i] * 4;
+        d[p] = d[q]; d[p + 1] = d[q + 1]; d[p + 2] = d[q + 2];
+        if (AL) d[p + 3] = d[q + 3];
+        cov[F[i]] = 2; filled++;
+      }
+      const t = F; F = G; G = t; nF = nG;
+      if (due()) await rest();
+    }
+    for (let i = 0; i < nF; i++) if (cov[F[i]] === 3) cov[F[i]] = 0;
+    F = G = S = null;
+    // the rest: push-pull. Levels down to 1 x 1, each texel the mean of its known children (4 bytes a texel; the alpha
+    // too only when it is filled)
+    const levels = [];
+    let cw = w, ch = h, sc = d, sk = cov;
+    while (cw > 1 || ch > 1) {
+      const nw = (cw + 1) >> 1, nh = (ch + 1) >> 1, c = new Uint8Array(nw * nh * 4), k = new Uint8Array(nw * nh);
+      for (let y = 0; y < nh; y++) {
+        if (due()) await rest();
+        const ra = 2 * y * cw, rb = 2 * y + 1 < ch ? ra + cw : -1;
+        for (let x = 0; x < nw; x++) {
+          const xa = 2 * x, xb = xa + 1 < cw ? xa + 1 : -1;
+          let n = 0, s0 = 0, s1 = 0, s2 = 0, s3 = 0, q = ra + xa;
+          if (sk[q]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (xb >= 0 && sk[q = ra + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && sk[q = rb + xa]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && xb >= 0 && sk[q = rb + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (!n) continue;
+          const o4 = (y * nw + x) * 4;
+          c[o4] = (s0 / n + 0.5) | 0; c[o4 + 1] = (s1 / n + 0.5) | 0; c[o4 + 2] = (s2 / n + 0.5) | 0; c[o4 + 3] = (s3 / n + 0.5) | 0;
+          k[y * nw + x] = 1;
+        }
+      }
+      levels.push({ w: nw, h: nh, c, k });
+      cw = nw; ch = nh; sc = c; sk = k;
+    }
+    // ...then, from the top down, each unknown texel drawn from the level above (complete by then), bilinearly
+    const draw = async (L, P) => {
+      const pw = P.w, ph = P.h, pc = P.c, out = L ? L.c : d, kk = L ? L.k : cov, lw = L ? L.w : w, lh = L ? L.h : h;
+      const XA = new Int32Array(lw), XB = new Int32Array(lw), TX = new Float32Array(lw);
+      for (let x = 0; x < lw; x++) { const fx = (x + 0.5) / 2 - 0.5, x0 = Math.floor(fx); TX[x] = fx - x0; XA[x] = Math.max(0, x0) * 4; XB[x] = Math.min(pw - 1, x0 + 1) * 4; }
+      for (let y = 0; y < lh; y++) {
+        if (due()) await rest();
+        const fy = (y + 0.5) / 2 - 0.5, y0 = Math.floor(fy), ty = fy - y0, ya = Math.max(0, y0) * pw * 4, yb = Math.min(ph - 1, y0 + 1) * pw * 4;
+        for (let x = 0, p = y * lw; x < lw; x++, p++) {
+          if (kk[p]) continue;
+          const tx = TX[x], a = ya + XA[x], b = ya + XB[x], c = yb + XA[x], e = yb + XB[x], o4 = p * 4;
+          const wa = (1 - tx) * (1 - ty), wb = tx * (1 - ty), wc = (1 - tx) * ty, we = tx * ty;
+          out[o4] = (pc[a] * wa + pc[b] * wb + pc[c] * wc + pc[e] * we + 0.5) | 0;
+          out[o4 + 1] = (pc[a + 1] * wa + pc[b + 1] * wb + pc[c + 1] * wc + pc[e + 1] * we + 0.5) | 0;
+          out[o4 + 2] = (pc[a + 2] * wa + pc[b + 2] * wb + pc[c + 2] * wc + pc[e + 2] * we + 0.5) | 0;
+          if (AL) out[o4 + 3] = (pc[a + 3] * wa + pc[b + 3] * wb + pc[c + 3] * wc + pc[e + 3] * we + 0.5) | 0;
+          if (L) kk[p] = 1; else filled++;
+        }
+      }
+    };
+    if (levels.length && levels[levels.length - 1].k[0]) {
+      for (let i = levels.length - 2; i >= 0; i--) await draw(levels[i], levels[i + 1]);
+      await draw(null, levels[0]);
+    }
+    return { filled, band, rim: back, ms: Math.round(now() - t0) };
+  }
+
+  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits, cover, fillGaps };
 }
 // ================================================================ CONVERT ==
 // The converter (tools/studio/SPEC.md, "GLB first, and converting"): one module in two places, the studio's page (its
@@ -17712,9 +17906,14 @@ function makeImages(z) {
 //   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
 //   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
 //   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
+//   fillModel(root, o)  the gaps between its pictures' pieces filled from the colours round them (engine/images.js's cover
+//                       and fillGaps), so a lighter model samples no black between them; o.copy: new canvases, the model's
+//                       own pictures left as they are (the studio's preview). drew(canvas, k): a picture drawn down by k
+//                       (its pieces' rims taken back and filled too: below)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
-//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (o.keep: made lighter first), loaded back
-//                       and checked against it
+//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
+//                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
+//                       with the GLB as loaded back (metres, Y up) before it is freed, its answer given back as picture
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
@@ -17759,6 +17958,10 @@ function makeConverter(THREE, hooks) {
     const r = IM.decodeImage(k, buf);
     return rgbaCanvas(r.width, r.height, r.data);
   }
+  // the pictures drawn down, and by how much (a factor over 1): drawing down carries the black between an atlas's pieces
+  // into their rims, which the fill then takes back (fillModel). The studio's own drawing down says so too (drew)
+  const DRAWN = new WeakMap(), drawnBy = img => (img && DRAWN.get(img)) || 1;
+  const drew = (cv, k) => { if (cv && k > 1.001) DRAWN.set(cv, k); return cv; };
   // (drawn down to max px on its longer side when bigger)
   const shrink = (img, max) => {
     const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
@@ -17767,7 +17970,7 @@ function makeConverter(THREE, hooks) {
     c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
     const x = c.getContext('2d');
     x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
-    return c;
+    return drew(c, drawnBy(img) * Math.max(w, h) / Math.max(c.width, c.height));
   };
   // a picture at an address, drawn down to o.max (o.ext: its kind when the address does not say, as a blob's)
   async function picture(url, o) {
@@ -18001,6 +18204,9 @@ function makeConverter(THREE, hooks) {
         }
       });
       for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+      // (a GLB written with its pictures' gaps filled: they are not filled again when it is made again from itself)
+      const rec = asset ? glbRecord({ asset }) : null;
+      if (rec && rec.fill) root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) if (m[k] && m[k].isTexture) FILLED.add(m[k]); });
       return { root, clips, guess, asset, missing: [...missing], ext, why, decoded };
     } finally { for (const u of blobs.keys()) URL.revokeObjectURL(u); }
   }
@@ -18030,9 +18236,11 @@ function makeConverter(THREE, hooks) {
     return out.buffer;
   }
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
+  // size: its size in metres [x, y, z] (to the mm), n: its triangles (the Add pane's cards say both),
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
-  // keep } when it was made lighter (Fewer triangles) }
+  // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
+  // filled (fillModel) }
   const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
   const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
   const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
@@ -18045,7 +18253,12 @@ function makeConverter(THREE, hooks) {
     // (tris: the triangles of what it was made from, of the GLB, and the share asked: Fewer triangles)
     const tr = r.tris && typeof r.tris === 'object' && Number.isFinite(r.tris.from) && Number.isFinite(r.tris.to) && r.tris.from > 0 && r.tris.to >= 0
       ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr };
+    // (fill: how many of its pictures have the gaps between their pieces filled)
+    const fl = Number.isFinite(r.fill) && r.fill > 0 ? Math.min(99, Math.round(r.fill)) : 0;
+    // (size and n: what the GLB holds, for the Add pane's cards; absent in a GLB written before v120)
+    const size = Array.isArray(r.size) && r.size.length === 3 && r.size.every(v => Number.isFinite(v) && v >= 0 && v < 1e6) ? r.size.slice() : null;
+    const n = Number.isInteger(r.n) && r.n >= 0 ? r.n : null;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl, size, n };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -18329,6 +18542,124 @@ function makeConverter(THREE, hooks) {
     return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
   }
 
+  // ---- the gaps between a picture's pieces filled (tools/studio/SPEC.md, "Fewer triangles": the fill; the owner, 6
+  // November 2026: "leaves black artifacts in the textured models"). A scan's texture is an atlas of many small pieces
+  // with black, unused texels between them; a lighter model keeps its seams joined in 3D but straightens each piece's
+  // outline in the picture, so at 10 % its triangles sample the black between pieces: black wedges along the seams (and
+  // even all its triangles show thin dark seams once mipmapped). Every texel no triangle of the model as it is now uses
+  // is filled from the nearest one that does (engine/images.js: cover and fillGaps), the used ones never changed, so
+  // whatever share is kept later samples colours of its own piece. Only where it makes sense: texture coordinates within
+  // 0 to 1 (a picture that repeats across the model, tiles, is left alone), under 95 % of it used, every mesh showing it
+  // with texture coordinates. Every slot is filled with its own values (a normal map with normals, never black); alpha
+  // kept as it is where a material reads it (see-through or cut out), else filled too (a canvas cannot hold a colour
+  // where alpha is 0: so a picture a material reads the alpha of, whose gaps are mostly clear, is left as it is). A
+  // picture drawn down (drew) has the rims of its pieces taken back and filled too, one ring of texels, two when drawn
+  // down by more than half: their texels average over the black beyond the edge, and the fill would spread that dark
+  // rim outwards. Done on the model before it is made lighter
+  const FILL_SLOTS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
+  // (three.js r128 reads every picture on the first texture coordinates through one transform, the first of these a
+  // material has; the occlusion picture through the second set, and its own)
+  const UV_FIRST = ['map', 'specularMap', 'displacementMap', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap'];
+  const uvXf = (mt, two) => {
+    const t = two ? mt.aoMap || mt.lightMap : UV_FIRST.map(k => mt[k]).find(x => x && x.isTexture);
+    if (!t) return null;
+    if (t.matrixAutoUpdate) t.updateMatrix();
+    const e = t.matrix.elements;
+    return e[0] === 1 && e[1] === 0 && e[3] === 0 && e[4] === 1 && e[6] === 0 && e[7] === 0 ? null : [e[0], e[1], e[3], e[4], e[6], e[7]];
+  };
+  const sizeOf = img => [img && (img.naturalWidth || img.width || 0), img && (img.naturalHeight || img.height || 0)];
+  // (the textures whose gaps are filled: a GLB's that says so, and the ones filled here; three.js r128's textures have
+  // no userData)
+  const FILLED = new WeakSet(), filled = t => FILLED.has(t);
+  // the pictures a model shows, each with its textures and the triangles that show it (by geometry, texture coordinates,
+  // range of its index, transform and way up)
+  function fillPlan(root) {
+    const plan = new Map();
+    root.traverse(n => {
+      if (!n.isMesh || !n.geometry || !n.geometry.attributes.position) return;
+      const g = n.geometry, ms = [].concat(n.material || []), multi = Array.isArray(n.material) && g.groups && g.groups.length > 0;
+      const all = g.index ? g.index.count : g.attributes.position.count;
+      ms.forEach((mt, mi) => {
+        if (!mt) return;
+        const ranges = multi ? g.groups.filter(gr => (gr.materialIndex || 0) === mi).map(gr => [Math.max(0, gr.start), Math.min(all, gr.start + gr.count)]) : [[0, all]];
+        for (const slot of FILL_SLOTS) {
+          const t = mt[slot];
+          if (!t || !t.isTexture) continue;
+          const [w, h] = sizeOf(t.image);
+          if (!w || !h) continue;
+          let e = plan.get(t.image);
+          if (!e) plan.set(t.image, e = { img: t.image, w, h, texs: new Set(), uses: new Map(), why: '', alpha: false });
+          e.texs.add(t);
+          if (slot === 'map' && (mt.transparent || mt.alphaTest > 0)) e.alpha = true;
+          const two = slot === 'aoMap', name = two && g.attributes.uv2 ? 'uv2' : 'uv', uv = g.attributes[name];
+          if (!uv) { e.why = e.why || 'a mesh shows it without texture coordinates'; continue; }
+          const xf = uvXf(mt, two), rep = t.wrapS !== T.ClampToEdgeWrapping || t.wrapT !== T.ClampToEdgeWrapping, flip = t.flipY !== false;
+          for (const [s, f] of ranges) e.uses.set([g.uuid, name, s, f, xf, flip, rep].join('|'), { g, uv, s, f, xf, flip, rep });
+        }
+      });
+    });
+    return plan;
+  }
+  // o: { copy (each filled picture a new canvas: the model's own stay as they are; else filled where it is, a canvas of
+  // its own, or the textures given a new one) }; a picture all of whose textures are filled already is left as it is. -> { list: [{ img,
+  // canvas, texs, share, ms }] filled, again (pictures filled already), why: [reasons a picture was left alone], ms }
+  async function fillModel(root, o) {
+    o = o || {};
+    const t0 = performance.now(), plan = fillPlan(root), list = [], why = [];
+    let again = 0, last = t0;
+    const uvs = new Map(), pace = async () => { if (performance.now() - last > 25) { await yieldNow(); last = performance.now(); } };
+    for (const e of plan.values()) {
+      if (e.why) { why.push(e.why); continue; }
+      if ([...e.texs].every(filled)) { again++; continue; }
+      const { w, h } = e, N = w * h;
+      if (w < 16 || h < 16 || !e.uses.size) continue;   // (too small to matter)
+      const t1 = performance.now(), cov = new Uint8Array(N);
+      let tiles = false;
+      for (const u of e.uses.values()) {
+        const key = u.g.uuid + '|' + (u.uv === u.g.attributes.uv2 ? 'uv2' : 'uv');
+        let A = uvs.get(key);
+        if (!A) uvs.set(key, A = floats(plainAttr(u.uv), 2, new Float32Array(u.uv.count * 2), 0, 2));
+        const n = u.uv.count, P = new Float32Array(n * 2), x = u.xf, ix = u.g.index ? u.g.index.array : null;
+        // (which corners the range uses, and whether any of them reads past 0 to 1: a picture that tiles)
+        const used = new Uint8Array(n);
+        for (let i = u.s; i < u.f; i++) used[ix ? ix[i] : i] = 1;
+        for (let v = 0; v < n; v++) {
+          if (!used[v]) continue;
+          let a = A[v * 2], b = A[v * 2 + 1];
+          if (x) { const a2 = x[0] * a + x[2] * b + x[4]; b = x[1] * a + x[3] * b + x[5]; a = a2; }
+          if (a < -1e-3 || a > 1.001 || b < -1e-3 || b > 1.001) { if (u.rep) { tiles = true; break; } a = Math.min(1, Math.max(0, a)); b = Math.min(1, Math.max(0, b)); }
+          P[v * 2] = a * w; P[v * 2 + 1] = (u.flip ? 1 - b : b) * h;
+        }
+        if (tiles) break;
+        IM.cover(cov, w, h, P, ix, u.s, u.f);
+        await pace();
+      }
+      if (tiles) { why.push('a picture repeats across the model (tiles)'); continue; }
+      let c = 0;
+      for (let i = 0; i < N; i++) c += cov[i];
+      const share = c / N;
+      if (!c || share >= 0.95) { if (c) why.push('a picture is nearly all used'); continue; }
+      // its bytes (a canvas of its own when it is one and nothing asks for a copy), filled, and put back
+      const own = !o.copy && typeof HTMLCanvasElement !== 'undefined' && e.img instanceof HTMLCanvasElement, cv = own ? e.img : document.createElement('canvas');
+      if (!own) { cv.width = w; cv.height = h; cv.getContext('2d').drawImage(e.img, 0, 0, w, h); }
+      const x = cv.getContext('2d'), id = x.getImageData(0, 0, w, h);
+      if (e.alpha) {
+        // (a gap whose alpha is 0 keeps no colour in a canvas, nor in the GLB written from it: filling them would only
+        // say so)
+        let gaps = 0, clear = 0;
+        for (let i = 0; i < N; i++) if (!cov[i]) { gaps++; if (!id.data[i * 4 + 3]) clear++; }
+        if (clear * 2 > gaps) { why.push('a see-through picture whose gaps are clear (no colour can be kept where nothing shows)'); continue; }
+      }
+      const k = drawnBy(e.img), rim = k > 2 ? 2 : k > 1 ? 1 : 0;
+      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, rim, pause: yieldNow });
+      x.putImageData(id, 0, 0);
+      if (!o.copy) for (const t of e.texs) { if (!own) t.image = cv; FILLED.add(t); t.needsUpdate = true; }
+      if (!own && k > 1) drew(cv, k);   // (a copy is drawn down as its picture was)
+      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled, rim: r.rim });
+    }
+    return { list, again, why: [...new Set(why)], ms: Math.round(performance.now() - t0) };
+  }
+
   // ---- how many triangles a model file holds, read cheaply from its bytes (the Upload pane's rows, before loading it):
   // glTF from its accessors, OBJ from its faces, STL from its count, PLY from its header (faces taken as triangles), FBX
   // from its polygons' corners (PolygonVertexIndex); null when it cannot be told
@@ -18407,8 +18738,9 @@ function makeConverter(THREE, hooks) {
   }
 
   // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
-  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), look
-  // (draw both and compare: needs hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
+  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), fill
+  // (false: its pictures' gaps not filled), keep (a share of its triangles kept), look (draw both and compare: needs
+  // hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
   // scale and turn), so the GLB is in metres and Y up, as glTF is. Loaded back and compared with the original: triangles,
   // size, skins, bones, animations, and where the bones and a sample of skinned corners are at a few moments of every
   // animation. -> { ok, why, notes, before, after, check, look, sheet, glb, record, missing }. Nothing is changed on a
@@ -18473,6 +18805,7 @@ function makeConverter(THREE, hooks) {
         d[i] = Math.round((nx * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
       }
       x.putImageData(out, 0, 0);
+      drew(c, drawnBy(img) / k);
       const n = new T.Texture(c);
       n.flipY = t.flipY; n.wrapS = t.wrapS; n.wrapT = t.wrapT; n.name = (t.name || 'bump') + ' (normal)'; n.needsUpdate = true;
       return n;
@@ -18498,6 +18831,7 @@ function makeConverter(THREE, hooks) {
       if (!R) mt.roughness = 1;
       if (!M) mt.metalness = 1;
       x.putImageData(o2, 0, 0);
+      drew(c, Math.max(...big.map(drawnBy)) / k);
       const t = new T.Texture(c), was = r || m;
       t.flipY = was.flipY; t.wrapS = was.wrapS; t.wrapT = was.wrapT; t.name = 'roughness and metalness'; t.needsUpdate = true;
       mt.roughnessMap = mt.metalnessMap = t;
@@ -18531,7 +18865,7 @@ function makeConverter(THREE, hooks) {
         if (!pic) {
           const k2 = Math.min(1, maxTex / Math.max(w, h));
           if (k2 < 1) drawn++;
-          const cv = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
+          const cv = drew(canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2))), drawnBy(img) / k2);
           pics.set(img, pic = { cv, fmt: opaque(cv) ? T.RGBFormat : T.RGBAFormat });   // (the exporter writes RGB as JPEG, RGBA as PNG)
         }
         t.image = pic.cv; t.format = pic.fmt; t.needsUpdate = true;
@@ -18542,6 +18876,22 @@ function makeConverter(THREE, hooks) {
     if (clear.size) notes.push(`made opaque: ${[...clear].join(', ')} (its opacity was 0, which would show nothing: an exporter's quirk)`);
     if (!before.normals) notes.push('no normals (a scan\'s mesh): marked to be shown as scanned');
     await yieldNow();
+
+    // the gaps between its pictures' pieces filled (fillModel), by its triangles before it is made lighter, so the lighter
+    // one shows no black seams; o.fill false: not. A picture the GLB it was made from had filled already is left as it is
+    let fill = null;
+    if (o.fill !== false) {
+      step('Filling its textures\' gaps', 0.12);
+      fill = await fillModel(wrap);
+      for (const f of fill.list) {
+        // (made opaque where nothing reads its alpha: then written as JPEG, as an opaque one is)
+        const pic = [...pics.values()].find(p => p.cv === f.canvas);
+        if (pic && pic.fmt === T.RGBAFormat && opaque(f.canvas)) { pic.fmt = T.RGBFormat; for (const t of f.texs) t.format = T.RGBFormat; }
+      }
+      const n = fill.list.length;
+      if (n) notes.push(`texture gaps filled: ${n === 1 ? 'its picture' : n + ' pictures'} (${fill.list.map(f => Math.round(f.share * 100) + ' %').join(', ')} of ${n === 1 ? 'it' : 'them'} used by its triangles) given the colours round its pieces between them, so a lighter model shows no black seams (${(fill.ms / 1000).toFixed(1)} s)`);
+      await yieldNow();
+    }
 
     // corners welded: a vertex for every distinct corner (all its attributes the same), and an index
     if (o.weld !== false) {
@@ -18621,10 +18971,12 @@ function makeConverter(THREE, hooks) {
       const t = setTimeout(() => rej(new Error('its textures could not be written here (out of memory?): try it on a laptop')), o.exportMs || 240000);
       try { new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { clearTimeout(t); rej(err); }
     });
-    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
+    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now(),
+      size: ref.size.map(v => Math.round(v * 1000) / 1000), n: ref.tris };
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
+    if (fill && fill.list.length + fill.again) record.fill = fill.list.length + fill.again;
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -18721,14 +19073,17 @@ function makeConverter(THREE, hooks) {
         r.dispose();
       } catch (err) { look = 'not drawn (' + err.message + ')'; }
     }
+    // (a picture of it as written, for the caller: the studio's Add pane; never a reason not to write it)
+    let picture = null;
+    if (o.picture && !why.length) { try { picture = await o.picture(back); } catch (err) { picture = null; } }
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS, drew,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }
 
@@ -18947,6 +19302,7 @@ function capTexture(t, pics) {
   const x = cv.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(img, 0, 0, cw, ch);
+  CONV.drew(cv, Math.max(w, h) / Math.max(cw, ch));   // (the fill takes its pieces' darkened rims back: engine/convert.js)
   pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);
@@ -21159,7 +21515,9 @@ function setView(name) {
 
 // ------------------------------------------------------------ the panes --
 // A pane is a list of blocks: { h, sub } a heading; { p, c } a line (c: muted, faint, amber, red, green); { code } a
-// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }. A button or a row: { id, label,
+// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }; { label, grid: [cards] } (the Add
+// pane's models: a card is a row with pic, the models whose picture it shows, first that has one, kind, the plain tile's
+// word, sub2 a second line, and title, the page's tooltip). A button or a row: { id, label,
 // sub, act, v, on, dis, primary, warn, col, page (page only), xr (headset only) }
 const SOUND_NOTE = 'The scene\'s sounds follow this device\'s Sound button (not the Sound effects or Narration switches: they are the scene\'s own).';
 const hhmm = ms => { const d = new Date(ms), t = d.toTimeString().slice(0, 5); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + t; };
@@ -21253,13 +21611,23 @@ function paneBlocks(tab) {
     if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
     B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
     const L = sceneLists(), full = k => countOf(k) >= LIMITS[k], froms = new Map([...L.stands].map(([o, g]) => [g, o]));
-    const modelRow = (f, orig) => {
+    // a model as a card: its picture (an original a GLB stands for shows the GLB's, else its own; e7e_pics.js), its name
+    // (models/ left out), its size in metres and triangles where known, else its bytes, and what it was made from or into
+    const modelCard = (f, orig) => {
       const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
-      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
-        sub: g ? `converted: ${baseName(g)}` : mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : '') + (froms.has(f.path) ? ` · from ${baseName(froms.get(f.path))}` : '') };
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path.replace(/^models\//i, ''), title: f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+        pic: g ? [g, f.path] : [f.path], kind: extOf(f.path).toUpperCase(), sub: modelWords(g ? STU.fileMap.get(g) || f : f),
+        sub2: g ? `converted: ${baseName(g)}` : froms.has(f.path) ? `from ${baseName(froms.get(f.path))}` : '' };
     };
-    B.push({ label: `Models (${L.models.length})`, list: L.models.map(f => modelRow(f, false)) });
+    B.push({ label: `Models (${L.models.length})`, grid: L.models.map(f => modelCard(f, false)) });
     if (!L.models.length) B.push({ p: 'No models in the scene\'s folder: put .glb (best), .gltf, .fbx, .obj, .ply or .stl files there, or drop them under Upload.', c: 'faint' });
+    // (the page makes the pictures the cards lack: e7e_pics.js)
+    const lack = XR.on ? [] : pvMissing();
+    if (!XR.on && (lack.length || PV.make)) B.push({ page: true, row: [
+      { id: 'pics', label: PV.make ? `Making pictures: ${PV.make.i} of ${PV.make.n}` + (PV.make.path ? ` (${baseName(PV.make.path)})...` : '...') : `Make pictures (${lack.length})`, act: 'pics', dis: !!PV.make || !!CV.busy },
+      PV.make ? { id: 'picstop', label: PV.make.stop ? 'Stopping...' : 'Stop', act: 'picstop', dis: PV.make.stop } : null,
+    ].filter(Boolean) }, { page: true, p: 'A picture of each model that has none, one after another' + (canUpload() ? ', kept in the scene (previews/) for everyone.' : ', for this page only (a relay that takes uploads keeps them in the scene).'), c: 'faint' });
+    if (PV.note && !XR.on) B.push({ page: true, p: PV.note, c: PV.noteC });
     // (the page converts: every model to place that is not a GLB yet)
     const conv = L.models.filter(f => extOf(f.path) !== 'glb');
     if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
@@ -21270,8 +21638,12 @@ function paneBlocks(tab) {
     if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
     if (L.orig.length) {
       B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
-      if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
-        { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      if (X.orig) {
+        const om = L.orig.filter(f => f.kind === 'model'), ot = L.orig.filter(f => f.kind !== 'model');
+        if (om.length) B.push({ grid: om.map(f => modelCard(f, true)) });
+        if (ot.length) B.push({ list: ot.map(f => ({ id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) });
+        B.push({ p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      }
     }
     fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
@@ -21587,6 +21959,8 @@ function texBlocks(it, E, B) {
   for (const [n, f] of E.found) if (HOW_WORDS[f.how]) B.push({ p: `Texture ${n}: using ${f.path}, ${HOW_WORDS[f.how](f.path)}.`, c: 'faint' });
   for (const d of E.decoded || []) B.push({ p: `Texture ${d.name}: read from its ${d.fmt} file in the page (a browser cannot show it itself).`, c: 'faint' });
   if (E.record) for (const x of E.record.tex || []) if (HOW_WORDS[x.how]) B.push({ p: `${x.name ? 'Texture ' + x.name : SLOT_NAME[x.slot] + ' picture'}: ${baseName(x.from)}, ${HOW_WORDS[x.how](x.from)} (in this GLB).`, c: 'faint' });
+  // (the converter filled the gaps between its pictures' pieces: CONV.fillModel)
+  if (E.record && E.record.fill) B.push({ p: `Textures: the gaps between the pieces of ${E.record.fill === 1 ? 'its picture are' : 'its ' + E.record.fill + ' pictures are'} filled with the colours round them (in this GLB), so it shows no black seams when made lighter.`, c: 'faint' });
   const uvs = (E.mats || []).filter(m => m.uv);
   if (E.info && (E.mats || []).length) {
     if (!can) laptop = laptop || !!uvs.length;
@@ -21657,6 +22031,7 @@ function act(a, v) {
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
+  if (PV_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) PV_ACT[a](v); dirty(true); return; }   // (Make pictures: a page's)
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -21702,7 +22077,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -21715,6 +22090,16 @@ function buildExplore() {
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(calc((100% - 16px) / 3), max(104px, calc((100% - 32px) / 5))), 1fr)); gap: 8px; margin: 4px 0 14px; }
+    .stu-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 5px 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+    .stu-card:hover { border-color: var(--cyan); }
+    .stu-card[disabled] { opacity: 0.45; cursor: default; }
+    .stu-card .pic { display: grid; place-items: center; aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; background: #0b1322; margin-bottom: 3px; }
+    .stu-card .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stu-card .pic b { color: var(--faint); font-size: 15px; letter-spacing: 0.08em; }
+    .stu-card .nm { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+    .stu-card small { color: var(--muted); font-size: 11.5px; line-height: 1.25; }
+    .stu-card small.f { color: var(--faint); }
     .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
@@ -21747,6 +22132,7 @@ function buildExplore() {
     .stu-range b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
     .stu-plan li .stu-range { grid-column: 2; margin: 4px 0 2px; font-size: 13px; } .stu-plan li .stu-range label { color: var(--muted); }
     .stu-plan li img.stu-pv { grid-column: 2; max-width: 100%; border-radius: 4px; margin: 4px 0 2px; }
+    .stu-plan li img.stu-pv.sm { width: 96px; height: 96px; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -21788,6 +22174,10 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
+  // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); return `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+    `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
+    `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`; }).join('')}</div>`;
   if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? `margin-left:${20 * +x.ind}px;` : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
@@ -22221,9 +22611,11 @@ async function convertFile(path, o = {}) {
     // (made again from its original into a GLB that was made lighter: as light again, unless a share is asked; made again
     // from itself, it is as light as it is)
     const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
-    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
+    const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
     const size = mb(r.glb.byteLength) + (r.reduced ? `, ${fmt(r.reduced.to)} of ${fmt(r.reduced.from)} triangles` : ''), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
@@ -22240,11 +22632,16 @@ async function convertFile(path, o = {}) {
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
+      // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
+      // only, and is never a reason the conversion failed
+      if (r.picture) { try { await pvKeep(out, r.picture, info, gen); } catch (e) { /* Make pictures makes it again */ } }
     } else {
       saveFile(r.glb, name + '.glb', 'model/gltf-binary');
       CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
       CV.noteC = 'green';
       CV.done.push(name + '.glb');
+      // (its picture, for this page only, on the card of the model it was made from)
+      if (r.picture) { try { await pvKeep(path, r.picture, info, gen); } catch (e) { /* none */ } }
     }
     ok = true;
     sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
@@ -22746,7 +23143,7 @@ async function upRow(r, relay, scene, sent) {
         if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
       }
       const keep = r.keep === undefined ? FT_DEFAULT : r.keep;   // (Triangles kept: 20 % unless the row says otherwise)
-      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, picture: pvShotSoon, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
       for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
@@ -22766,6 +23163,13 @@ async function upRow(r, relay, scene, sent) {
       r.out[0] = (j && j.path) || glbPath;
       r.msg = `Made ${r.out[0]} (${size}).`;
     } else { r.dl.push({ name: baseName(glbPath), url: blobOf(res.glb, 'model/gltf-binary') }); r.msg = `Converted (${size}).`; }
+    // its picture for the Add pane (e7e_pics.js): shown in the row, and with a relay kept in the scene beside the GLB
+    // (previews/<its path>.jpg); one that could not go is only said
+    const pb = res.picture ? await pvJpeg(res.picture).catch(() => null) : null;
+    if (pb) {
+      r.pic = blobOf(pb, 'image/jpeg');
+      if (relay) { try { await pvSend(scene, r.out[0], pb); } catch (err) { r.notes.push(`Its picture for the Add pane was not kept (${err.status === 401 ? AUTH_NOTE : err.message}): Make pictures under Add makes it again.`); } }
+    }
     r.state = 'done'; r.p = 1;
     return;
   }
@@ -22873,7 +23277,7 @@ function uploadHTML(b) {
     return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
-      ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
+      ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
   return '';
 }
@@ -22980,10 +23384,10 @@ function linksFresh() {
 }
 // a signed link this page holds: the same file's link after reading the listing again (null: no other one came)
 async function linksAgain(url) {
-  const f = STU.files.find(x => x.url === url);
+  const f = STU.files.find(x => x.url === url) || [...PV.files.values()].find(x => x.url === url);   // (a model's picture too)
   if (!f) return null;
   await linksFresh();
-  const g = STU.fileMap.get(f.path);
+  const g = STU.fileMap.get(f.path) || PV.files.get(f.path);
   return g && g.url && g.url !== url ? g.url : null;
 }
 // (the page shown again after a while: links that lapsed meanwhile read again at once)
@@ -23050,7 +23454,7 @@ async function upVia(url, body, onP) {
 // stand); Cancel puts it back. Both save from a headset too, with a relay that takes uploads. Never in the layout or
 // collab.state(): what is shared is the switch to the GLB, as for Convert to GLB.
 const FT_DEFAULT = 0.2, FT_PICKS = [0.1, 0.2, 0.5];
-const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0 };
+const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0, fill: null, fsw: [], fLight: '' };
 const CT = { id: '', mat: 0, slot: 'map', pic: null, tex: null, saved: null, busy: false, gen: 0, note: '', noteC: 'muted', page: 0, saving: false, after: 0, light: '', model: null };
 const CT_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];
 const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
@@ -23087,6 +23491,7 @@ function ftBlocks(it, B) {
     else if (pv.k < 0.995 && pv.to >= pv.from * 0.98) B.push({ p: 'Its parts have too few triangles to come down further: it stays as it is.', c: 'amber' });
     else B.push({ p: pv.k >= 0.995 ? (k >= 0.995 ? 'All its triangles: shown as it is.' : 'It has about that many already: shown as it is.') : `Shown here with ${fmt(pv.to)} triangles, on this device only: look at it close up before you save it.`, c: 'green' });
     for (const n of pv.notes.slice(1)) B.push({ p: n.charAt(0).toUpperCase() + n.slice(1) + '.', c: 'faint' });
+    if (FT.fill && FT.fill.n) B.push({ p: `${FT.fill.n === 1 ? 'Its picture is' : 'Its pictures are'} shown with the gaps between ${FT.fill.n === 1 ? 'its' : 'their'} pieces filled with the colours round them, as Save fills ${FT.fill.n === 1 ? 'it' : 'them'}: no black seams.`, c: 'faint' });
   }
   if (FT.note) B.push({ p: FT.note, c: FT.noteC });
   const why = liteWhy();
@@ -23121,30 +23526,74 @@ function ftSet(v, now) {
   dirty();
 }
 // the preview: the object's own model given the lighter geometries (the converter's reduce on its file's model, which
-// stays as loaded: the other objects of that file keep theirs)
+// stays as loaded: the other objects of that file keep theirs), and its pictures with their gaps filled, as Save fills them
 async function ftPreview() {
   const it = STU.items.get(FT.id);
   if (!it || !it.model || !it.E || !it.E.root) return;
   const gen = ++FT.gen, b = liteSrc(it), keep = FT.keep, k = Math.min(1, Math.round(b.n0 * keep) / Math.max(1, b.cur));
   ftUnswap(); ftDispose();
-  if (k >= 0.995) { FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model }; FT.busy = false; dirty(true); return; }
   FT.busy = true; FT.note = ''; dirty(true);
   await new Promise(r => later(r, 40));   // (the note shows before the work holds the page)
   if (gen !== FT.gen) return;
   try {
-    const r = await CONV.reduce(it.E.root, k);
-    if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
-    FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
-    for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
-    sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    await ftFill(it.E);
+    if (gen !== FT.gen || FT.id !== it.id || !it.model) return;
+    if (k >= 0.995) FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model };
+    else {
+      const r = await CONV.reduce(it.E.root, k);
+      if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
+      FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
+      for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
+      sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    }
+    ftFillShow(it);
   } catch (e) { if (gen === FT.gen) { FT.note = 'The preview could not be made: ' + e.message; FT.noteC = 'red'; } }
   finally { if (gen === FT.gen) FT.busy = false; dirty(true); }
 }
-const ftUnswap = () => { if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
+const ftUnswap = () => { ftFillHide(); if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
 const ftDispose = () => { if (FT.pv && FT.pv.geos) for (const g of FT.pv.geos.values()) g.dispose(); if (FT.pv) FT.pv.geos = null; FT.pv = null; };
+// its pictures with the gaps between their pieces filled (CONV.fillModel on the file's model as it is here, into copies:
+// its own pictures stay as they are; a GLB that says its pictures are filled already needs none), worked out once while
+// Fewer triangles is open (again only for another model) and laid on this object's own materials, lit and as scanned, in
+// place of its own; put back by Cancel, Save's end and another object, which free them
+function ftFill(E) {
+  if (FT.fill && FT.fill.root === E.root) return FT.fill.p;
+  ftFillFree();
+  const F = FT.fill = { root: E.root, map: new Map(), rev: new Map(), n: 0, again: 0, ms: 0, gone: false, err: '' };
+  F.p = CONV.fillModel(E.root, { copy: true }).then(r => {
+    if (F.gone) return;
+    for (const f of r.list) for (const t of f.texs) { const c = t.clone(); c.image = f.canvas; c.needsUpdate = true; F.map.set(t, c); F.rev.set(c, t); }
+    F.n = r.list.length; F.again = r.again; F.ms = r.ms;
+  }, e => { F.err = String((e && e.message) || e); });   // (the preview goes on without it)
+  return F.p;
+}
+function ftFillShow(it) {
+  const F = FT.fill;
+  ftFillHide();
+  if (!F || !F.map.size || !it.model) return;
+  for (const c of it.model.meshes) {
+    for (const mt of new Set([].concat(c.material || [], c.userData.lit || [], c.userData.scan || []))) {
+      for (const k of CONV.FILL_SLOTS) {
+        const t = mt[k], orig = F.map.has(t) ? t : F.rev.get(t);   // (a material as scanned made meanwhile took the filled one)
+        if (!orig) continue;
+        FT.fsw.push([mt, k, orig]); mt[k] = F.map.get(orig);
+      }
+    }
+  }
+  FT.fLight = it.light;
+}
+function ftFillHide() { for (const [mt, k, orig] of FT.fsw) mt[k] = orig; FT.fsw = []; }
+function ftFillFree() {
+  const F = FT.fill;
+  if (!F) return;
+  ftFillHide();
+  F.gone = true;
+  for (const c of F.map.values()) { c.dispose(); c.image = null; }
+  FT.fill = null;
+}
 function ftClose() {
   FT.gen++; unlater(FT.t); FT.t = 0;
-  ftUnswap(); ftDispose();
+  ftUnswap(); ftDispose(); ftFillFree();
   FT.id = ''; FT.busy = false; FT.note = ''; FT.after = 0;
   dirty(true);
 }
@@ -23309,6 +23758,7 @@ function liteStep() {
       ftUnswap(); ftDispose();   // (its geometries were on the model that went)
       if (FT.after) ftClose(); else if (it.model) ftPreview();
     }
+    else if (it && FT.fsw.length && FT.fLight !== it.light) ftFillShow(it);   // (lit or as scanned: the other materials)
   }
   if (CT.id) {
     const it = STU.items.get(CT.id);
@@ -23430,10 +23880,306 @@ function thumbOf(root, w, h, wired = true) {
 }
 // for tests and the console: where both stand, and how many triangles an object's model draws now
 const liteState = () => ({
-  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms } },
+  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms },
+    fill: FT.fill && { n: FT.fill.n, again: FT.fill.again, ms: FT.fill.ms, err: FT.fill.err, shown: FT.fsw.length } },
   ct: { id: CT.id, mat: CT.mat, slot: CT.slot, pic: CT.pic && CT.pic.name, shown: !!(CT.saved && CT.saved.length), busy: CT.busy, saving: CT.saving, note: CT.note, after: !!CT.after },
 });
 const trisOf = id => { const it = STU.items.get(id); let n = 0; if (it && it.model) for (const m of it.model.meshes) { const g = m.geometry; n += (g.index ? g.index.count : g.attributes.position.count) / 3; } return Math.round(n); };
+// =============================================================== PICTURES ==
+// The Add pane's pictures of the scene's models (tools/studio/SPEC.md, "Pictures in the Add pane"; the owner, 6 November
+// 2026: "Models in add dialogue should have preview images and show in a grid", "add pane with pictures sounds good,
+// leave 3d models for now"). A picture is a 256 x 256 JPEG of a model, lit and seen from a little above, on a dark
+// background, kept in the scene as previews/<the model's path>.jpg (eva.glb's: previews/models/eva.glb.jpg; the relay's
+// rule, relay/scenes.mjs: only such pictures there, at most 200 KB, listed with a kind of their own, 'preview', so they are
+// never taken for textures). It is made whenever the studio writes a GLB, of the GLB as loaded back (Convert to GLB,
+// Convert every model, Fewer triangles' and Change texture's Save and the texture buttons, all through convertFile; and
+// the Upload pane's rows), and by Make pictures for the models that have none (each loaded as the converter loads it,
+// freed after; one the scene has loaded already drawn from that). With a relay that takes uploads it goes into the scene
+// as every file does (straight into R2 when it can, else through the relay); without, it is kept for this page only.
+// Pictures are fetched as the scene's other files are (the password as a header, or R2's signed link), a few at a time,
+// as the page shows them; a headset fetches only those it draws. Nothing of them is in the layout or the room's state.
+const PV = { files: new Map(), img: new Map(), mem: new Map(), info: new Map(), rev: 0, q: [], busy: 0, make: null, note: '', noteC: 'muted', jobs: [] };
+// files: preview path -> its listing entry; img: preview path -> { at, state, url, img } (fetched); mem: model path -> the
+// same, made on this page and not uploaded; info: model path -> { size, n } learnt by making its picture here
+const PV_PX = 256, PV_MAX = 190 << 10, PV_DIR = 'previews/';
+const pvPath = p => PV_DIR + p + '.jpg';
+const isPv = p => typeof p === 'string' && p.startsWith(PV_DIR) && p.endsWith('.jpg') && p.length > PV_DIR.length + 4;
+// a picture's path the relay takes (its upload rule: at most 200 characters, 4 folders deep, no name a common file system
+// cannot keep): a model whose picture could not go there has one for this page only
+const pvFits = rel => rel.length <= 200 && rel.split('/').length <= 5 && rel.split('/').every(s => s && !/^\./.test(s) && !/[\0-\x1f\x7f\\:*?"<>|]/.test(s) && !/[ .]$/.test(s.replace(/\.jpg$/, 'x')));
+
+// ---- the listing: its pictures said apart (setFiles), those whose file changed or went fetched again or forgotten
+function pvListing(list) {
+  PV.files = new Map(list.map(f => [f.path, f]));
+  for (const [rel, e] of [...PV.img]) { const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }
+  PV.rev++;
+}
+function pvDrop(map, k) { const e = map.get(k); if (e && e.url) URL.revokeObjectURL(e.url); map.delete(k); }
+// another scene, or the studio going: every picture and every fetch forgotten, Make pictures stopped
+function pvClear() {
+  for (const m of [PV.img, PV.mem]) for (const k of [...m.keys()]) pvDrop(m, k);
+  PV.files = new Map(); PV.info.clear(); PV.q = [];
+  if (PV.make) PV.make.stop = true;
+  PV.note = ''; PV.rev++;
+}
+
+// ---- showing: the picture of a model (its own, made here or listed), or null while there is none (yet). A listed one
+// not fetched yet is fetched (load false: only looked at)
+function pvFor(p, load = true) {
+  const m = PV.mem.get(p);
+  if (m) return m.state === 'ready' ? m : null;
+  const f = PV.files.get(pvPath(p));
+  if (!f) return null;
+  const e = PV.img.get(f.path);
+  if (e && e.at === f.at) return e.state === 'ready' ? e : null;
+  if (load && !SRC.held) pvLoad(f);
+  return null;
+}
+// the first of several that has one (an original a GLB stands for shows the GLB's, else its own)
+function pvAny(list, load = true) { for (const p of list) { const r = pvFor(p, load); if (r) return r; } return null; }
+// a model has a picture (one listed that could not be read counts as none: Make pictures makes it again)
+const pvHas = p => PV.mem.has(p) || (PV.files.has(pvPath(p)) && (PV.img.get(pvPath(p)) || {}).state !== 'failed');
+// a listed picture's address: its signed link (R2), else the scene's file (call adds the password as a header)
+const pvUrl = f => f.url || sceneUrl(STU.scene) + encPath(f.path) + (f.at ? '?v=' + f.at : '');
+function pvLoad(f) {
+  const old = PV.img.get(f.path);
+  if (old && old.at === f.at) return;
+  if (old) pvDrop(PV.img, f.path);
+  PV.img.set(f.path, { at: f.at, state: 'queued', url: '', img: null });
+  PV.q.push(f);
+  pvPump();
+}
+// (three fetches at a time: a scene of fifty models asks for its pictures without crowding out its models)
+function pvPump() {
+  while (PV.busy < 3 && PV.q.length) {
+    const f = PV.q.shift(), e = PV.img.get(f.path), gen = STU.gen;
+    if (!e || e.at !== f.at || e.state !== 'queued') continue;
+    PV.busy++; e.state = 'loading';
+    call(pvUrl(f), { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(f.path) === e) pvImage(e, b, () => PV.img.get(f.path) === e); })
+      .catch(() => { if (PV.img.get(f.path) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
+      .finally(() => { PV.busy--; pvPump(); });
+  }
+}
+// a JPEG's bytes as a picture to draw (an <img> for the page's grid and the headset's canvas alike)
+function pvImage(e, blob, still) {
+  e.url = URL.createObjectURL(blob);
+  const im = new Image();
+  im.onload = () => { if (!still()) return; e.state = 'ready'; e.img = im; PV.rev++; dirty(); };
+  im.onerror = () => { if (!still()) return; e.state = 'failed'; PV.rev++; dirty(); };
+  im.src = e.url;
+}
+
+// ---- making: a picture of a model, drawn by the page's renderer into a target of its own (the scene's frame untouched):
+// lit as the studio lights a scene (a sky and ground light, a light over your shoulder, a cool rim, the soft room for
+// glTF's metal and gloss), its colour pictures drawn as they are (the studio's look: its output is linear), seen from a
+// little above and in front, framed on its box, drawn at twice the size and made smaller (smooth edges), over a dark
+// background where nothing of it is
+function pvShot(root) {
+  const R = GL.renderer, S = PV_PX * 2, sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  sc.add(new THREE.HemisphereLight(0xe8eeff, 0x2a2f3a, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(1.5, 3, 2.2); sc.add(sun);
+  const rim = new THREE.DirectionalLight(0x9fc8ff, 0.35); rim.position.set(-2, 1.5, -2.5); sc.add(rim);
+  const env = envMap();
+  if (env) sc.environment = env;
+  const parent = root.parent, saved = [];
+  sc.add(root); root.updateMatrixWorld(true);
+  root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of ['map', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && t.encoding !== THREE.LinearEncoding) { saved.push([t, t.encoding, m]); t.encoding = THREE.LinearEncoding; m.needsUpdate = true; } } });
+  // framed: the camera far enough along its view that every corner of the box is inside the picture, with a margin
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
+  const c = box.getCenter(new THREE.Vector3()), d = new THREE.Vector3(0.75, 0.5, 1).normalize(), up = new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(up, d).normalize(), u = new THREE.Vector3().crossVectors(d, right), th = Math.tan((cam.fov / 2) * D2R);
+  let D = 0, zmax = -Infinity, zmin = Infinity;
+  for (let i = 0; i < 8; i++) {
+    const v = new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(c), z = v.dot(d);
+    D = Math.max(D, z + Math.max(Math.abs(v.dot(right)), Math.abs(v.dot(u))) / th);
+    zmax = Math.max(zmax, z); zmin = Math.min(zmin, z);
+  }
+  D = Math.max(1e-3, D * 1.08);
+  cam.position.copy(c).addScaledVector(d, D); cam.up.copy(up); cam.lookAt(c);
+  cam.near = Math.max(D * 1e-4, (D - zmax) * 0.5); cam.far = (D - zmin) * 2 + 1e-3; cam.updateProjectionMatrix();
+  const rt = new THREE.WebGLRenderTarget(S, S), px = new Uint8Array(S * S * 4);
+  const was = R.getRenderTarget(), xr = R.xr.enabled, cc = R.getClearColor(new THREE.Color()), ca = R.getClearAlpha();
+  try {
+    R.xr.enabled = false; R.setRenderTarget(rt); R.setClearColor(0x000000, 0); R.clear(); R.render(sc, cam);
+    R.readRenderTargetPixels(rt, 0, 0, S, S, px);
+  } finally {
+    R.setRenderTarget(was); R.xr.enabled = xr; R.setClearColor(cc, ca);
+    sc.remove(root); if (parent) parent.add(root);
+    for (const [t, e, m] of saved) { t.encoding = e; m.needsUpdate = true; }
+    rt.dispose();
+  }
+  // the background: a dark, slightly lighter middle; the target's colours lie over it (cleared to nothing, so its colours
+  // are already weighed by how much of a pixel the model covers)
+  const big = document.createElement('canvas');
+  big.width = big.height = S;
+  const bx = big.getContext('2d'), gr = bx.createRadialGradient(S / 2, S * 0.42, S * 0.05, S / 2, S / 2, S * 0.75);
+  gr.addColorStop(0, '#1d2c44'); gr.addColorStop(1, '#070c16');
+  bx.fillStyle = gr; bx.fillRect(0, 0, S, S);
+  const im = bx.getImageData(0, 0, S, S), o = im.data;
+  for (let y = 0; y < S; y++) {
+    const src = (S - 1 - y) * S * 4, dst = y * S * 4;   // (a target is read bottom up)
+    for (let x = 0; x < S * 4; x += 4) {
+      const a = px[src + x + 3] / 255, k = 1 - a;
+      o[dst + x] = Math.min(255, px[src + x] + o[dst + x] * k); o[dst + x + 1] = Math.min(255, px[src + x + 1] + o[dst + x + 1] * k); o[dst + x + 2] = Math.min(255, px[src + x + 2] + o[dst + x + 2] * k);
+    }
+  }
+  bx.putImageData(im, 0, 0);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = PV_PX;
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+  cx.drawImage(big, 0, 0, PV_PX, PV_PX);
+  return cv;
+}
+// in a headset session the picture is drawn at the start of the next frame (inside the session's own frame callback, where
+// the renderer's own target may be bound again), else at once; null if no frame comes within 5 s (the session hidden)
+function pvShotSoon(root) {
+  if (!(XR.on && GL.renderer.xr.isPresenting)) return Promise.resolve(pvShot(root));
+  return new Promise(res => {
+    let done = false;
+    const job = () => { if (done) return; done = true; try { res(pvShot(root)); } catch (e) { res(null); } };
+    PV.jobs.push(job);
+    later(() => { if (!done) { done = true; PV.jobs = PV.jobs.filter(j => j !== job); res(null); } }, 5000);
+  });
+}
+function pvJobs() { const L = PV.jobs; PV.jobs = []; for (const j of L) j(); }
+// a picture as a JPEG of at most PV_MAX (a little under the relay's 200 KB)
+const pvJpeg = cv => new Promise(res => { const go = q => cv.toBlob(b => (b && b.size > PV_MAX && q > 0.4 ? go(q - 0.2) : res(b)), 'image/jpeg', q); go(0.86); });
+// a model's size (metres, as placed from the file: its guess applied) and triangles, from what is loaded
+function pvInfo(root) {
+  let n = 0;
+  root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+  const b = new THREE.Box3().setFromObject(root);
+  return { size: b.isEmpty() ? null : b.getSize(new THREE.Vector3()).toArray().map(r3), n: Math.round(n) };
+}
+// a picture made for a model of the scene (path): into the scene (previews/<path>.jpg, replacing one there) when the relay
+// takes uploads, else kept for this page. gen: the scene's opening it was made for (the caller's, else now): another scene
+// opened meanwhile, the same one opened again, or the studio gone, and nothing is kept (a picture of another scene's model
+// must never go into this one). 'up', 'mem' or '' (none)
+async function pvKeep(path, cv, info, gen = STU.gen) {
+  const scene = STU.scene, gone = () => gen !== STU.gen || GL.gone || !STU.scene;
+  if (gone()) return '';
+  if (info) PV.info.set(path, info);
+  const blob = cv ? await pvJpeg(cv) : null;
+  if (!blob || gone()) return '';
+  const rel = pvPath(path);
+  if (canUpload() && pvFits(rel)) {
+    try {
+      const j = await upSend(fileApi(scene, rel, true), blob);
+      if (gone()) return '';
+      pvPut(rel, blob, j);
+      pvDrop(PV.mem, path);
+      return 'up';
+    } catch (e) { if (gone()) return ''; if (e.status === 401) throw e; /* kept for this page instead */ }
+  }
+  pvDrop(PV.mem, path);
+  const m = { at: 0, state: 'loading', url: '', img: null };
+  PV.mem.set(path, m);
+  pvImage(m, blob, () => PV.mem.get(path) === m);
+  PV.rev++;
+  return 'mem';
+}
+// a picture just uploaded, shown at once (its listing entry as the relay answered, until the listing is read again)
+function pvPut(rel, blob, j) {
+  const at = (j && +j.at) || Date.now(), f = { path: rel, bytes: (j && +j.bytes) || blob.size, at, kind: 'preview' };
+  PV.files.set(rel, f);
+  pvDrop(PV.img, rel);
+  const e = { at, state: 'loading', url: '', img: null };
+  PV.img.set(rel, e);
+  pvImage(e, blob, () => PV.img.get(rel) === e);
+  PV.rev++;
+}
+// the picture of a GLB just made, for a scene that may not be the one open (the Upload pane's): into that scene when the
+// relay takes uploads (shown at once when it is the one open, and was while it went up: a scene opened again meanwhile, or
+// the studio gone, reads it from its listing instead, so no picture is kept past pvClear); a failure only said
+async function pvSend(scene, path, blob) {
+  const rel = pvPath(path), gen = STU.gen;
+  if (!pvFits(rel)) return null;
+  const j = await upSend(fileApi(scene, rel, true), blob);
+  if (scene === STU.scene && gen === STU.gen && !GL.gone) pvPut(rel, blob, j);
+  return j;
+}
+
+// ---- Make pictures (the Add pane, a page with editing on): every model the pane shows without a picture, one after
+// another (a model the scene has loaded drawn from that; any other fetched and loaded as the converter loads it, its
+// textures at most 1,024 px, and freed after), each uploaded as it is made (or kept for this page); a stop between two
+const PV_TEX = 1024;
+function pvMissing() {
+  if (STU.listing !== 'ok') return [];
+  const L = sceneLists(), out = [];
+  for (const f of L.models) if (!pvHas(f.path)) out.push(f.path);
+  for (const f of L.orig) if (f.kind === 'model' && !L.stands.has(f.path) && !pvHas(f.path)) out.push(f.path);
+  return out;
+}
+async function pvMakeAll() {
+  if (PV.make || !editOn() || XR.on || OPT.visit) return;
+  const list = pvMissing(), gen = STU.gen;
+  if (!list.length) return;
+  const M = PV.make = { i: 0, n: list.length, path: '', stop: false, made: 0, up: 0, failed: [] };
+  PV.note = ''; dirty(true);
+  try {
+    for (const p of list) {
+      if (M.stop || gen !== STU.gen || GL.gone || !editOn()) break;
+      M.i++; M.path = p; dirty(true);
+      try { const how = await pvMakeOne(p, gen); if (how) { M.made++; if (how === 'up') M.up++; } }
+      catch (e) { M.failed.push(`${baseName(p)}: ${e.status === 401 ? AUTH_NOTE : e.message}`); if (e.status === 401) break; }
+      await new Promise(r => later(r, 30));
+    }
+  } finally {
+    PV.make = null;
+    if (gen === STU.gen && !GL.gone) {
+      const n = M.made, all = M.n;
+      PV.note = (M.stop && M.i < all ? `Stopped: ${n} of ${all} pictures made` : `${n} of ${all} picture${all === 1 ? '' : 's'} made`) +
+        (n ? (M.up === n ? ', kept in the scene.' : M.up ? `, ${M.up} kept in the scene, the rest for this page only.` : ', for this page only.') : '.') + (M.failed.length ? ' Not made: ' + M.failed.join('; ') : '');
+      PV.noteC = M.failed.length ? 'amber' : 'green';
+    }
+    dirty(true);
+  }
+}
+async function pvMakeOne(p, gen) {
+  const E = LIB.get(p);
+  if (E && E.state === 'ready' && E.root && E.guess && !E.root.parent) {
+    const wrap = new THREE.Group();
+    wrap.quaternion.fromArray(E.guess.q); wrap.scale.setScalar(E.guess.s); wrap.add(E.root);
+    let cv = null, info = null;
+    try { info = pvInfo(wrap); cv = await pvShotSoon(wrap); } finally { wrap.remove(E.root); E.root.updateMatrixWorld(true); }   // (as it was: on its own)
+    return gen === STU.gen ? pvKeep(p, cv, info, gen) : '';
+  }
+  const buf = await getBytes(fileUrl(p));
+  if (gen !== STU.gen || GL.gone) return '';
+  await new Promise(r => later(r, 30));
+  const dir = p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
+  const m = await CONV.load({ ext: extOf(p), data: buf, base, name: stem(p), maxTex: PV_TEX, url: u => resolveUrl(u, base, dir, new Set(), null) });
+  try {
+    if (gen !== STU.gen || GL.gone) return '';
+    const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size), wrap = new THREE.Group();
+    wrap.quaternion.fromArray(g.q); wrap.scale.setScalar(g.s); wrap.add(m.root);
+    const info = pvInfo(wrap), cv = await pvShotSoon(wrap);
+    return gen === STU.gen ? pvKeep(p, cv, info, gen) : '';
+  } finally { CONV.disposeTree(m.root); }
+}
+const PV_ACT = {
+  pics: () => pvMakeAll(),
+  picstop: () => { if (PV.make) PV.make.stop = true; },
+};
+
+// ---- the Add pane's cards: a model's picture (its own, or the GLB's that stands for it), its name, its size in metres
+// and triangles where they are known (the scene's model loaded here, a GLB's record, a picture made here), else its bytes
+function modelWords(f) {
+  const E = LIB.get(f.path), r = extOf(f.path) === 'glb' ? glbRec(f.path) : null, i = PV.info.get(f.path);
+  let size = null, n = null;
+  if (E && E.info && E.guess) { size = placedBox(E, E.guess.q, E.guess.s).getSize(new THREE.Vector3()).toArray(); n = E.info.tris; }
+  else if (r && r.size) { size = r.size; n = r.n; }
+  else if (i) { size = i.size; n = i.n; }
+  const w = [size && Math.max(...size) > 0 ? metres(Math.max(...size)) : '', Number.isFinite(n) ? `${fmt(n)} triangles` : ''].filter(Boolean);
+  return w.length ? w.join(' · ') : mb(f.bytes);
+}
+// for tests and the console: which models have a picture and where it is from, and Make pictures
+const pvState = () => ({
+  listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),
+  mem: [...PV.mem].map(([k, e]) => [k, e.state]), missing: pvMissing(), make: PV.make && { i: PV.make.i, n: PV.make.n, path: PV.make.path, stop: PV.make.stop }, note: PV.note, info: Object.fromEntries(PV.info),
+});
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
@@ -24831,6 +25577,28 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + (cy - (y + h)) + bh + 14;
   }
+  // the Add pane's models: three cards a row, each its picture (fetched only once it is drawn: e7e_pics.js) or a plain
+  // tile with the model's kind, its name and its size; the pane's Up and More page through them
+  if (b.grid) {
+    const cols = 3, gap = 14, cw = Math.floor((W - gap * (cols - 1)) / cols), ph = cw - 16, ch = ph + 98;
+    b.grid.forEach((t, i) => {
+      const cx = x + (i % cols) * (cw + gap), cy = y + h + Math.floor(i / cols) * (ch + gap);
+      if (dry || cy + ch <= top || cy >= bottom) return;
+      const live = inView(cy, ch) && !t.dis;
+      if (t.dis) ctx.globalAlpha = 0.45;
+      vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
+      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
+      if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
+      else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }
+      ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), cw - 20), cx + 10, py + ph + 10);
+      ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
+      if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
+      ctx.globalAlpha = 1;
+    });
+    return h + Math.ceil(b.grid.length / cols) * (ch + gap) + 4;
+  }
   if (b.list) {
     const rh = 58;
     for (const t of b.list) {
@@ -25072,6 +25840,7 @@ let lastNow = 0;
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
+  if (PV.jobs.length) pvJobs();   // (a model's picture asked for in a headset session: drawn here, inside its frame; e7e_pics.js)
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
@@ -25240,8 +26009,9 @@ const STUDIO = {
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
     models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null, found: Object.fromEntries(E.found || []), why: E.why || {}, decoded: E.decoded || [], mats: E.mats || [] }])),
     sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
-    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), pic: !!r.pic, tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
+    pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
@@ -25300,6 +26070,7 @@ return {
     for (const t of TIMERS) clearTimeout(t);
     TIMERS.clear();
     watchStop();
+    pvClear();   // (the pictures' object URLs given back)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }

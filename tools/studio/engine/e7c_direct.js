@@ -31,10 +31,10 @@ function linksFresh() {
 }
 // a signed link this page holds: the same file's link after reading the listing again (null: no other one came)
 async function linksAgain(url) {
-  const f = STU.files.find(x => x.url === url);
+  const f = STU.files.find(x => x.url === url) || [...PV.files.values()].find(x => x.url === url);   // (a model's picture too)
   if (!f) return null;
   await linksFresh();
-  const g = STU.fileMap.get(f.path);
+  const g = STU.fileMap.get(f.path) || PV.files.get(f.path);
   return g && g.url && g.url !== url ? g.url : null;
 }
 // (the page shown again after a while: links that lapsed meanwhile read again at once)

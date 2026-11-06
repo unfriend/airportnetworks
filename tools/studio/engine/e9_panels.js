@@ -480,6 +480,28 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + (cy - (y + h)) + bh + 14;
   }
+  // the Add pane's models: three cards a row, each its picture (fetched only once it is drawn: e7e_pics.js) or a plain
+  // tile with the model's kind, its name and its size; the pane's Up and More page through them
+  if (b.grid) {
+    const cols = 3, gap = 14, cw = Math.floor((W - gap * (cols - 1)) / cols), ph = cw - 16, ch = ph + 98;
+    b.grid.forEach((t, i) => {
+      const cx = x + (i % cols) * (cw + gap), cy = y + h + Math.floor(i / cols) * (ch + gap);
+      if (dry || cy + ch <= top || cy >= bottom) return;
+      const live = inView(cy, ch) && !t.dis;
+      if (t.dis) ctx.globalAlpha = 0.45;
+      vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
+      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
+      if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
+      else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }
+      ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), cw - 20), cx + 10, py + ph + 10);
+      ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
+      if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
+      ctx.globalAlpha = 1;
+    });
+    return h + Math.ceil(b.grid.length / cols) * (ch + gap) + 4;
+  }
   if (b.list) {
     const rh = 58;
     for (const t of b.list) {

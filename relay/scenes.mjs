@@ -27,6 +27,13 @@ export const SCENE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg':
   '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds',
   '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
 export const typeOf = p => (kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
+// a model's picture for the studio's Add pane: previews/<the model's path>.jpg, a JPEG the studio makes with each GLB it
+// writes (and on Make pictures), at most 200 KB. Listed with a kind of its own, 'preview' (never a picture a texture could
+// be, never a model), so the studio knows which models have one; anything else in previews/ is listed as 'other'. An
+// upload under previews/ takes only such a picture (uploadPath)
+export const PREVIEWS = 'previews', MAX_PREVIEW = 200 << 10;
+export const isPreview = rel => { rel = String(rel); return rel.startsWith(PREVIEWS + '/') && rel.endsWith('.jpg') && rel.length > PREVIEWS.length + 5; };
+export const kindAt = rel => (String(rel).startsWith(PREVIEWS + '/') ? (isPreview(rel) ? 'preview' : 'other') : kindOf(rel));
 // an editor's or a download's temporary file (a copy in progress, a swap file): never listed, never told
 export const TEMP = /(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i;
 // a name a listing leaves out: dot files, temporary files, and names no URL path could carry back here
@@ -79,7 +86,7 @@ export async function sceneFiles(dir) {
       seen++;
       if (!rel && n === LAYOUT) { layout = st; continue; }
       if (!rel && n === LISTING) continue;
-      out.push({ path: r, bytes: st.size, at: Math.floor(st.mtimeMs), kind: kindOf(n), ino: st.ino });
+      out.push({ path: r, bytes: st.size, at: Math.floor(st.mtimeMs), kind: kindAt(r), ino: st.ino });
     }
   }
   await walk(dir, '', 0);
@@ -89,10 +96,10 @@ export async function sceneFiles(dir) {
 export function finishListing(out, layout) {
   out.sort(byPath);
   // (past MAX_FILES the files a scene places, models, sounds, pictures and data, are kept before originals/, which sort
-  // first but are only what was given)
+  // first but are only what was given, and those before previews/, which the studio can make again)
   if (out.length > MAX_FILES) {
-    const orig = f => f.path.startsWith(ORIGINALS + '/');
-    return { files: [...out.filter(f => !orig(f)), ...out.filter(orig)].slice(0, MAX_FILES).sort(byPath), layout };
+    const rank = f => (f.path.startsWith(PREVIEWS + '/') ? 2 : f.path.startsWith(ORIGINALS + '/') ? 1 : 0);
+    return { files: out.slice().sort((a, b) => rank(a) - rank(b) || byPath(a, b)).slice(0, MAX_FILES).sort(byPath), layout };
   }
   return { files: out, layout };
 }
@@ -120,7 +127,7 @@ export function scenesOf(objs, prefix, said = () => {}) {
       seen++;
       if (o.rel === LAYOUT) { layout = { size: o.size, mtimeMs: o.at, etag: o.etag }; continue; }
       if (o.rel === LISTING) continue;
-      files.push({ path: o.rel, bytes: o.size, at: o.at, kind: kindOf(o.rel), etag: o.etag });
+      files.push({ path: o.rel, bytes: o.size, at: o.at, kind: kindAt(o.rel), etag: o.etag });
     }
     out.push({ name, ...finishListing(files, layout) });
   }
@@ -157,13 +164,14 @@ export const layoutAt = st => (st ? Math.floor(st.mtimeMs) : null);
 // ---- uploads (SPEC "The upload page": POST /api/scenes/<name>/file and .../sound). A path the relay may write: inside the
 // scene by the listing's own rules, so whatever is written is listed (no dot or temporary names, at most 4 folders deep),
 // never the scene's own files at its top, and outside originals/ (where the files go as they were given) only a model,
-// sound, image or data file. Names a common file system could not keep as given are refused too (Windows' reserved
+// sound, image or data file; under previews/ only a model's picture (.jpg), which is at most MAX_PREVIEW (max: the
+// relay takes the smaller of it and --max-upload). Names a common file system could not keep as given are refused too (Windows' reserved
 // characters and device names, a name ending in a space or a dot), so a scene copied to another computer stays whole.
 export const ORIGINALS = 'originals', MAX_PATH = 200;
 const UPLOAD_KINDS = new Set(['model', 'audio', 'image', 'data']);
 const OWN = new Set([LAYOUT, LISTING, INDEX]);
 const BAD_CHAR = /[\0-\x1f\x7f\\:*?"<>|]/, DEVICE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
-// { rel, segs, kind } or { error } (said to the page as it is)
+// { rel, segs, kind, max (previews/ only) } or { error } (said to the page as it is)
 export function uploadPath(p) {
   if (typeof p !== 'string' || !p) return { error: 'path=<the file\'s path in the scene> is needed' };
   if (p.length > MAX_PATH) return { error: `a path is at most ${MAX_PATH} characters` };
@@ -174,6 +182,13 @@ export function uploadPath(p) {
   if (segs.some(s => TEMP.test(s))) return { error: 'not a temporary file\'s name (~ .tmp .part ...): the listing leaves those out' };
   if (segs.length > MAX_DEPTH + 1) return { error: `at most ${MAX_DEPTH} folders deep` };
   if (segs.length === 1 && OWN.has(p.toLowerCase())) return { error: `${p} is the scene's own (the studio's Save writes the layout)` };
+  if (segs[0] === PREVIEWS) {
+    if (!isPreview(p)) return { error: `${PREVIEWS}/ takes only the studio's pictures of its models: ${PREVIEWS}/<the model's path>.jpg` };
+    return { rel: p, segs, kind: 'preview', max: MAX_PREVIEW };
+  }
+  // (only in lower case: on a file system that ignores case, as Windows' and macOS's do, Previews/ is that same folder,
+  // and a file put there would land among the pictures past their rule, listed as an ordinary image)
+  if (segs[0].toLowerCase() === PREVIEWS) return { error: `${PREVIEWS}/ is written in lower case: no other folder at the top of a scene has that name` };
   const kind = kindOf(p);
   if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: 'outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin)' };
   return { rel: p, segs, kind };

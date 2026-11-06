@@ -14,7 +14,7 @@
 // stand); Cancel puts it back. Both save from a headset too, with a relay that takes uploads. Never in the layout or
 // collab.state(): what is shared is the switch to the GLB, as for Convert to GLB.
 const FT_DEFAULT = 0.2, FT_PICKS = [0.1, 0.2, 0.5];
-const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0 };
+const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0, fill: null, fsw: [], fLight: '' };
 const CT = { id: '', mat: 0, slot: 'map', pic: null, tex: null, saved: null, busy: false, gen: 0, note: '', noteC: 'muted', page: 0, saving: false, after: 0, light: '', model: null };
 const CT_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];
 const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
@@ -51,6 +51,7 @@ function ftBlocks(it, B) {
     else if (pv.k < 0.995 && pv.to >= pv.from * 0.98) B.push({ p: 'Its parts have too few triangles to come down further: it stays as it is.', c: 'amber' });
     else B.push({ p: pv.k >= 0.995 ? (k >= 0.995 ? 'All its triangles: shown as it is.' : 'It has about that many already: shown as it is.') : `Shown here with ${fmt(pv.to)} triangles, on this device only: look at it close up before you save it.`, c: 'green' });
     for (const n of pv.notes.slice(1)) B.push({ p: n.charAt(0).toUpperCase() + n.slice(1) + '.', c: 'faint' });
+    if (FT.fill && FT.fill.n) B.push({ p: `${FT.fill.n === 1 ? 'Its picture is' : 'Its pictures are'} shown with the gaps between ${FT.fill.n === 1 ? 'its' : 'their'} pieces filled with the colours round them, as Save fills ${FT.fill.n === 1 ? 'it' : 'them'}: no black seams.`, c: 'faint' });
   }
   if (FT.note) B.push({ p: FT.note, c: FT.noteC });
   const why = liteWhy();
@@ -85,30 +86,74 @@ function ftSet(v, now) {
   dirty();
 }
 // the preview: the object's own model given the lighter geometries (the converter's reduce on its file's model, which
-// stays as loaded: the other objects of that file keep theirs)
+// stays as loaded: the other objects of that file keep theirs), and its pictures with their gaps filled, as Save fills them
 async function ftPreview() {
   const it = STU.items.get(FT.id);
   if (!it || !it.model || !it.E || !it.E.root) return;
   const gen = ++FT.gen, b = liteSrc(it), keep = FT.keep, k = Math.min(1, Math.round(b.n0 * keep) / Math.max(1, b.cur));
   ftUnswap(); ftDispose();
-  if (k >= 0.995) { FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model }; FT.busy = false; dirty(true); return; }
   FT.busy = true; FT.note = ''; dirty(true);
   await new Promise(r => later(r, 40));   // (the note shows before the work holds the page)
   if (gen !== FT.gen) return;
   try {
-    const r = await CONV.reduce(it.E.root, k);
-    if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
-    FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
-    for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
-    sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    await ftFill(it.E);
+    if (gen !== FT.gen || FT.id !== it.id || !it.model) return;
+    if (k >= 0.995) FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model };
+    else {
+      const r = await CONV.reduce(it.E.root, k);
+      if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
+      FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
+      for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
+      sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    }
+    ftFillShow(it);
   } catch (e) { if (gen === FT.gen) { FT.note = 'The preview could not be made: ' + e.message; FT.noteC = 'red'; } }
   finally { if (gen === FT.gen) FT.busy = false; dirty(true); }
 }
-const ftUnswap = () => { if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
+const ftUnswap = () => { ftFillHide(); if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
 const ftDispose = () => { if (FT.pv && FT.pv.geos) for (const g of FT.pv.geos.values()) g.dispose(); if (FT.pv) FT.pv.geos = null; FT.pv = null; };
+// its pictures with the gaps between their pieces filled (CONV.fillModel on the file's model as it is here, into copies:
+// its own pictures stay as they are; a GLB that says its pictures are filled already needs none), worked out once while
+// Fewer triangles is open (again only for another model) and laid on this object's own materials, lit and as scanned, in
+// place of its own; put back by Cancel, Save's end and another object, which free them
+function ftFill(E) {
+  if (FT.fill && FT.fill.root === E.root) return FT.fill.p;
+  ftFillFree();
+  const F = FT.fill = { root: E.root, map: new Map(), rev: new Map(), n: 0, again: 0, ms: 0, gone: false, err: '' };
+  F.p = CONV.fillModel(E.root, { copy: true }).then(r => {
+    if (F.gone) return;
+    for (const f of r.list) for (const t of f.texs) { const c = t.clone(); c.image = f.canvas; c.needsUpdate = true; F.map.set(t, c); F.rev.set(c, t); }
+    F.n = r.list.length; F.again = r.again; F.ms = r.ms;
+  }, e => { F.err = String((e && e.message) || e); });   // (the preview goes on without it)
+  return F.p;
+}
+function ftFillShow(it) {
+  const F = FT.fill;
+  ftFillHide();
+  if (!F || !F.map.size || !it.model) return;
+  for (const c of it.model.meshes) {
+    for (const mt of new Set([].concat(c.material || [], c.userData.lit || [], c.userData.scan || []))) {
+      for (const k of CONV.FILL_SLOTS) {
+        const t = mt[k], orig = F.map.has(t) ? t : F.rev.get(t);   // (a material as scanned made meanwhile took the filled one)
+        if (!orig) continue;
+        FT.fsw.push([mt, k, orig]); mt[k] = F.map.get(orig);
+      }
+    }
+  }
+  FT.fLight = it.light;
+}
+function ftFillHide() { for (const [mt, k, orig] of FT.fsw) mt[k] = orig; FT.fsw = []; }
+function ftFillFree() {
+  const F = FT.fill;
+  if (!F) return;
+  ftFillHide();
+  F.gone = true;
+  for (const c of F.map.values()) { c.dispose(); c.image = null; }
+  FT.fill = null;
+}
 function ftClose() {
   FT.gen++; unlater(FT.t); FT.t = 0;
-  ftUnswap(); ftDispose();
+  ftUnswap(); ftDispose(); ftFillFree();
   FT.id = ''; FT.busy = false; FT.note = ''; FT.after = 0;
   dirty(true);
 }
@@ -273,6 +318,7 @@ function liteStep() {
       ftUnswap(); ftDispose();   // (its geometries were on the model that went)
       if (FT.after) ftClose(); else if (it.model) ftPreview();
     }
+    else if (it && FT.fsw.length && FT.fLight !== it.light) ftFillShow(it);   // (lit or as scanned: the other materials)
   }
   if (CT.id) {
     const it = STU.items.get(CT.id);
@@ -394,7 +440,8 @@ function thumbOf(root, w, h, wired = true) {
 }
 // for tests and the console: where both stand, and how many triangles an object's model draws now
 const liteState = () => ({
-  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms } },
+  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms },
+    fill: FT.fill && { n: FT.fill.n, again: FT.fill.again, ms: FT.fill.ms, err: FT.fill.err, shown: FT.fsw.length } },
   ct: { id: CT.id, mat: CT.mat, slot: CT.slot, pic: CT.pic && CT.pic.name, shown: !!(CT.saved && CT.saved.length), busy: CT.busy, saving: CT.saving, note: CT.note, after: !!CT.after },
 });
 const trisOf = id => { const it = STU.items.get(id); let n = 0; if (it && it.model) for (const m of it.model.meshes) { const g = m.geometry; n += (g.index ? g.index.count : g.attributes.position.count) / 3; } return Math.round(n); };

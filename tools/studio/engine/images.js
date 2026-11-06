@@ -501,5 +501,192 @@ function makeImages(z) {
   }
   const psdBack = url => String(url).replace(/\.(p)(s)(~|%7e)(?=$|[?#])/i, (m, p, q) => '.' + p + q + (q === 'S' ? 'D' : 'd'));   // (in the name's own case)
 
-  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits };
+  // ---- the gaps between a picture's pieces (tools/studio/SPEC.md, "Fewer triangles": the fill). A scan's texture is an
+  // atlas of many small pieces with black, unused texels between them; a lighter model keeps its seams joined in 3D but
+  // straightens each piece's outline in the picture, so its triangles sample the black between pieces (black wedges along
+  // the seams). cover() marks the texels a model's triangles use; fillGaps() fills every other texel from the nearest that
+  // one does. Both plain typed arrays, so a page and Node alike (no canvas, no float buffers: a 4,096 px picture is
+  // filled in about 90 MB besides its own bytes).
+  // cover(cov, w, h, P, ix, s, e): the triangles ix[s..e) (no ix: corners in order), their corners' places in pixels in P
+  // (x, y pairs, y down the picture), marked 1 in cov (w x h): each texel whose centre is inside a triangle or on its edge;
+  // a triangle that holds no texel's centre marks the texels its corners and middle are in (a tiny piece keeps its own
+  // colours). -> the triangles drawn
+  function cover(cov, w, h, P, ix, s, e) {
+    let n = 0;
+    const mark = (x, y) => { const i = Math.min(w - 1, Math.max(0, Math.floor(x))), j = Math.min(h - 1, Math.max(0, Math.floor(y))); cov[j * w + i] = 1; };
+    for (let t = s; t + 2 < e; t += 3, n++) {
+      const a = ix ? ix[t] : t, c0 = ix ? ix[t + 1] : t + 1, c1 = ix ? ix[t + 2] : t + 2;
+      const x0 = P[a * 2], y0 = P[a * 2 + 1];
+      let x1 = P[c0 * 2], y1 = P[c0 * 2 + 1], x2 = P[c1 * 2], y2 = P[c1 * 2 + 1];
+      if (!(Number.isFinite(x0 + y0 + x1 + y1 + x2 + y2))) continue;
+      let area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0), hit = 0;
+      if (area < 0) { const sx = x1, sy = y1; x1 = x2; y1 = y2; x2 = sx; y2 = sy; area = -area; }
+      if (area > 1e-9) {
+        const minX = Math.max(0, Math.ceil(Math.min(x0, x1, x2) - 0.5)), maxX = Math.min(w - 1, Math.floor(Math.max(x0, x1, x2) - 0.5));
+        const minY = Math.max(0, Math.ceil(Math.min(y0, y1, y2) - 0.5)), maxY = Math.min(h - 1, Math.floor(Math.max(y0, y1, y2) - 0.5));
+        // (each edge's function at the texels' centres, stepped along a row: >= 0 on the inside; a hair's tolerance so a
+        // centre on an edge two triangles share is in both)
+        const A0 = y0 - y1, B0 = x1 - x0, A1 = y1 - y2, B1 = x2 - x1, A2 = y2 - y0, B2 = x0 - x2, eps = -1e-7 * area;
+        for (let j = minY; j <= maxY; j++) {
+          const py = j + 0.5, px = minX + 0.5;
+          let e0 = B0 * (py - y0) + A0 * (px - x0), e1 = B1 * (py - y1) + A1 * (px - x1), e2 = B2 * (py - y2) + A2 * (px - x2), o = j * w + minX;
+          for (let i = minX; i <= maxX; i++, o++) {
+            if (e0 >= eps && e1 >= eps && e2 >= eps) { cov[o] = 1; hit++; }
+            e0 += A0; e1 += A1; e2 += A2;
+          }
+        }
+      }
+      if (!hit) { mark(x0, y0); mark(x1, y1); mark(x2, y2); mark((x0 + x1 + x2) / 3, (y0 + y1 + y2) / 3); }
+    }
+    return n;
+  }
+  // fillGaps(d, w, h, cov, o): the RGBA bytes d (w x h) filled where cov is 0 from the texels where it is not, which never
+  // change: o.band rings of exact edge colours (each texel a copy of a neighbour's from the ring before; 2 to 8 by size:
+  // what a lighter model's wedges and the mipmaps read), then a smooth push-pull fill for the rest (each level's known
+  // texels averaged into the next, smaller one; each unknown texel then drawn back, bilinearly, from the level above).
+  // Alpha kept as it is, unless o.alpha (then filled with the colours). o.rim: rings of the pieces' rims taken back first
+  // (below: a picture drawn down). cov is used up (its values change). o.pause(): a promise yielded to every o.slice ms
+  // (25), so a page or a headset keeps drawing. -> { filled, band, rim (texels taken back), ms }
+  async function fillGaps(d, w, h, cov, o) {
+    o = o || {};
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now(), AL = !!o.alpha;
+    const SL = o.slice || 25, pause = o.pause || null;
+    let last = now();
+    const due = () => !!pause && now() - last > SL, rest = async () => { await pause(); last = now(); };
+    const band = o.band !== undefined ? o.band : Math.min(8, Math.max(2, Math.round(Math.max(w, h) / 512)));
+    // (states: 1 covered, 2 filled in a ring, 3 waiting in the next ring, 0 still empty)
+    let F = new Int32Array(4096), G = new Int32Array(4096), S = new Int32Array(4096), nF = 0, nG = 0, filled = 0;
+    const grow = (a, n) => { if (n < a.length) return a; let m = a.length * 2; while (m <= n) m *= 2; const b = new Int32Array(m); b.set(a); return b; };
+    // a texel's eight neighbours (sides first, then corners), those off the picture left out
+    const NB = new Int32Array(8);
+    const around = p => {
+      const x = p % w, y = (p - x) / w;
+      if (x > 0 && y > 0 && x < w - 1 && y < h - 1) { NB[0] = p - 1; NB[1] = p + 1; NB[2] = p - w; NB[3] = p + w; NB[4] = p - w - 1; NB[5] = p - w + 1; NB[6] = p + w - 1; NB[7] = p + w + 1; return 8; }
+      let n = 0;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const qx = x + dx, qy = y + dy; if (qx >= 0 && qy >= 0 && qx < w && qy < h) NB[n++] = qy * w + qx; }
+      return n;
+    };
+    // o.rim (0 to 4): that many rings of covered texels at the rims of the pieces taken back first and filled as gaps are.
+    // A picture drawn down carries the black between its pieces into their rims (each texel there an average reaching
+    // over the edge), which the band would copy outwards: a dark halo along the seams. A rim texel is taken back only
+    // where a texel deeper in its piece is beside it, so a piece a few texels across keeps its own
+    const rim = Math.max(0, Math.min(4, o.rim | 0));
+    let back = 0;
+    for (let r = 0; r < rim; r++) {
+      // (the rim marked 4 for this ring, so a texel still marked 1 beside one is deeper in its piece)
+      nF = 0;
+      for (let y = 0; y < h; y++) {
+        if (due()) await rest();
+        const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+        for (let x = 0; x < w; x++) {
+          if (cov[r0 + x] !== 1) continue;
+          const l = x > 0 ? x - 1 : x, rr = x < w - 1 ? x + 1 : x;
+          if (cov[r0 + l] && cov[r0 + rr] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + rr] && cov[dn + l] && cov[dn + rr]) continue;
+          F = grow(F, nF); F[nF++] = r0 + x;
+        }
+      }
+      for (let i = 0; i < nF; i++) cov[F[i]] = 4;
+      let m = 0;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let deep = false;
+        for (let k = 0; k < n && !deep; k++) deep = cov[NB[k]] === 1;
+        if (deep) { F[m++] = F[i]; } else cov[F[i]] = 1;
+      }
+      for (let i = 0; i < m; i++) cov[F[i]] = 0;
+      back += m; nF = 0;
+      if (!m) break;
+    }
+    // the first ring: every empty texel beside a covered one (only a covered texel with an empty one beside it looked round)
+    for (let y = 0; y < h; y++) {
+      if (due()) await rest();
+      const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+      for (let x = 0; x < w; x++) {
+        if (cov[r0 + x] !== 1) continue;
+        const l = x > 0 ? x - 1 : x, r = x < w - 1 ? x + 1 : x;
+        if (cov[r0 + l] && cov[r0 + r] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + r] && cov[dn + l] && cov[dn + r]) continue;
+        const n = around(r0 + x);
+        for (let k = 0; k < n; k++) { const q = NB[k]; if (cov[q] === 0) { cov[q] = 3; F = grow(F, nF); F[nF++] = q; } }
+      }
+    }
+    for (let r = 0; r < band && nF; r++) {
+      // each texel's colour: a copy of a neighbour's that was covered or filled before this ring (sides first, then
+      // corners); the empty texels round it wait for the next ring (marked so, they are no one's source in this one)
+      S = grow(S, nF); nG = 0;
+      const next = r + 1 < band;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let src = -1;
+        for (let k = 0; k < n; k++) {
+          const q = NB[k], v = cov[q];
+          if (src < 0 && (v === 1 || v === 2)) src = q;
+          else if (next && v === 0) { cov[q] = 3; G = grow(G, nG); G[nG++] = q; }
+        }
+        S[i] = src;
+      }
+      for (let i = 0; i < nF; i++) {
+        if (S[i] < 0) continue;
+        const p = F[i] * 4, q = S[i] * 4;
+        d[p] = d[q]; d[p + 1] = d[q + 1]; d[p + 2] = d[q + 2];
+        if (AL) d[p + 3] = d[q + 3];
+        cov[F[i]] = 2; filled++;
+      }
+      const t = F; F = G; G = t; nF = nG;
+      if (due()) await rest();
+    }
+    for (let i = 0; i < nF; i++) if (cov[F[i]] === 3) cov[F[i]] = 0;
+    F = G = S = null;
+    // the rest: push-pull. Levels down to 1 x 1, each texel the mean of its known children (4 bytes a texel; the alpha
+    // too only when it is filled)
+    const levels = [];
+    let cw = w, ch = h, sc = d, sk = cov;
+    while (cw > 1 || ch > 1) {
+      const nw = (cw + 1) >> 1, nh = (ch + 1) >> 1, c = new Uint8Array(nw * nh * 4), k = new Uint8Array(nw * nh);
+      for (let y = 0; y < nh; y++) {
+        if (due()) await rest();
+        const ra = 2 * y * cw, rb = 2 * y + 1 < ch ? ra + cw : -1;
+        for (let x = 0; x < nw; x++) {
+          const xa = 2 * x, xb = xa + 1 < cw ? xa + 1 : -1;
+          let n = 0, s0 = 0, s1 = 0, s2 = 0, s3 = 0, q = ra + xa;
+          if (sk[q]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (xb >= 0 && sk[q = ra + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && sk[q = rb + xa]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && xb >= 0 && sk[q = rb + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (!n) continue;
+          const o4 = (y * nw + x) * 4;
+          c[o4] = (s0 / n + 0.5) | 0; c[o4 + 1] = (s1 / n + 0.5) | 0; c[o4 + 2] = (s2 / n + 0.5) | 0; c[o4 + 3] = (s3 / n + 0.5) | 0;
+          k[y * nw + x] = 1;
+        }
+      }
+      levels.push({ w: nw, h: nh, c, k });
+      cw = nw; ch = nh; sc = c; sk = k;
+    }
+    // ...then, from the top down, each unknown texel drawn from the level above (complete by then), bilinearly
+    const draw = async (L, P) => {
+      const pw = P.w, ph = P.h, pc = P.c, out = L ? L.c : d, kk = L ? L.k : cov, lw = L ? L.w : w, lh = L ? L.h : h;
+      const XA = new Int32Array(lw), XB = new Int32Array(lw), TX = new Float32Array(lw);
+      for (let x = 0; x < lw; x++) { const fx = (x + 0.5) / 2 - 0.5, x0 = Math.floor(fx); TX[x] = fx - x0; XA[x] = Math.max(0, x0) * 4; XB[x] = Math.min(pw - 1, x0 + 1) * 4; }
+      for (let y = 0; y < lh; y++) {
+        if (due()) await rest();
+        const fy = (y + 0.5) / 2 - 0.5, y0 = Math.floor(fy), ty = fy - y0, ya = Math.max(0, y0) * pw * 4, yb = Math.min(ph - 1, y0 + 1) * pw * 4;
+        for (let x = 0, p = y * lw; x < lw; x++, p++) {
+          if (kk[p]) continue;
+          const tx = TX[x], a = ya + XA[x], b = ya + XB[x], c = yb + XA[x], e = yb + XB[x], o4 = p * 4;
+          const wa = (1 - tx) * (1 - ty), wb = tx * (1 - ty), wc = (1 - tx) * ty, we = tx * ty;
+          out[o4] = (pc[a] * wa + pc[b] * wb + pc[c] * wc + pc[e] * we + 0.5) | 0;
+          out[o4 + 1] = (pc[a + 1] * wa + pc[b + 1] * wb + pc[c + 1] * wc + pc[e + 1] * we + 0.5) | 0;
+          out[o4 + 2] = (pc[a + 2] * wa + pc[b + 2] * wb + pc[c + 2] * wc + pc[e + 2] * we + 0.5) | 0;
+          if (AL) out[o4 + 3] = (pc[a + 3] * wa + pc[b + 3] * wb + pc[c + 3] * wc + pc[e + 3] * we + 0.5) | 0;
+          if (L) kk[p] = 1; else filled++;
+        }
+      }
+    };
+    if (levels.length && levels[levels.length - 1].k[0]) {
+      for (let i = levels.length - 2; i >= 0; i--) await draw(levels[i], levels[i + 1]);
+      await draw(null, levels[0]);
+    }
+    return { filled, band, rim: back, ms: Math.round(now() - t0) };
+  }
+
+  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits, cover, fillGaps };
 }

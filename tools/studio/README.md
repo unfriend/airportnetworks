@@ -75,6 +75,24 @@ for it: placing the original places the GLB. An FBX (or OBJ, PLY, STL, glTF) obj
 Add has **Convert every model**: with a relay the GLB goes into `models/` and every object placed from the original
 switches to it where it stands; without one it is downloaded.
 
+## Pictures in the Add pane
+
+The Add pane shows the scene's models (and the Originals' models) as a grid of cards: a picture of each model, its
+name, its size in metres and its triangles (where the studio knows them), so you can tell them apart without placing
+them; sounds stay a list. A model without a picture has a plain tile with its kind (*GLB*, *FBX*...). On a page the grid
+has 3 to 5 cards a row, by the pane's width; in a headset 3 a row, **Up** and **More** paging through them.
+
+- A picture is a small JPEG (256 x 256, the model lit and seen from a little above, on a dark background) kept in the
+  scene as `previews/<the model's path>.jpg`: `models/eva.glb`'s is `previews/models/eva.glb.jpg`. The relay takes only
+  such pictures there (`.jpg`, at most 200 KB; the folder's name in lower case only) and never offers them as textures.
+- The studio makes one **whenever it makes a GLB**: Convert to GLB, Convert every model, the Upload page, Fewer
+  triangles' and Change texture's Save, and the texture buttons. With a relay that takes uploads it goes into the scene
+  for everyone; without one it is for that page only.
+- **Make pictures** (the Add pane, on a page with Edit on) makes the missing ones, one model after another, with how far
+  it is and a **Stop**: uploaded with a relay that takes uploads, else for that page only. Each model is loaded and freed
+  again, so a scene of big scans takes a while.
+- From another scene copies a model's picture with it. Nothing of this is in `layout.json`.
+
 ## Sounds that follow a model
 
 A sound can follow an object, or one of its bones, so a voice stays at a dancer's head and the sounds of her moving at
@@ -203,6 +221,13 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   with a relay that takes uploads. meshoptimizer's simplifier does the work: textures stay where they were, parts that
   touch do not crack apart, crumbs of a scan go; a mesh with shape keys is left as it is. Look closely at the preview:
   at 20 % a dense scan usually holds up well, a low-poly model does not need it.
+- **No black seams** (v120): a scan's texture is many small pieces with black between them, and a lighter model's seams
+  cut across that black (black wedges along them). So every GLB the studio makes has the gaps between its pictures'
+  pieces filled with the colours round them (worked out from all its triangles, before it is made lighter); the preview
+  shows it so too. A picture drawn down on the way (a big scan's 8,192 px texture made 4,096) has the dark rims that
+  drawing down gives its pieces filled as well. A picture that repeats across the model (a tiled floor), that the model
+  uses nearly whole, or that is see-through with clear gaps (nothing can be kept there) is left as it is. The GLB's card
+  says *Textures: the gaps between the pieces of its picture are filled*.
 - **The Upload pane** gives each model the same: *Triangles kept* (20 % to start), about how many that is, and
   **Preview**, a picture of it with all its triangles and with the share kept.
 - **Change texture** (a placed model's card): pick one of its materials, a slot (Colour, Normal, Roughness, Metalness,
@@ -235,8 +260,10 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   Occlusion, Glow, Opacity). Either converts the model to a GLB with the picture in it at once (on a page; a headset
   says to do it on a laptop); the choice is kept in the GLB, never in the layout. The upload page does the same for
   what is dropped, and pairs the only picture left over with the only model lacking one.
-- **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), and a
-  bump map becomes a normal map.
+- **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), a
+  bump map becomes a normal map, and the gaps between a picture's pieces (a scan's texture atlas, black between its
+  pieces) are filled with the colours round them, so a lighter model shows no black seams (`--no-fill` in
+  `convert.mjs` leaves them).
 - **Budgets on a Quest:** about 300,000 triangles a model, 500,000 a scene (said on the cards, never refused; *Fewer
   triangles* brings a model down).
 - **Sounds: mono**, so they place well (a stereo file is played from its point, mixed). Short loops as WAV (MP3 adds
@@ -249,13 +276,13 @@ The upload page does all of this by itself. By hand:
 ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav    # a loop
 ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3           # a long one
 node tools/studio/convert.mjs model.fbx           # a model, on a computer with Playwright (as tools/smoke.mjs)
-node tools/studio/convert.mjs scan.fbx --keep 0.2 # the same with a fifth of its triangles
+node tools/studio/convert.mjs scan.fbx --keep 0.2 # the same with a fifth of its triangles (its texture's gaps filled)
 node tools/studio/convert.mjs model.obj --textures ~/pictures --texture rust_old.png=paint.png --texture 0:roughnessMap=rough.tif
 ```
 
 `convert.mjs` uses the same converter as the page (`engine/convert.js`) and also draws the original and the GLB from
 three sides and compares them; `--max-texture 2048`, `--keep 0.2` (the share of its triangles kept, as *Fewer triangles*),
-`--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
+`--no-fill` (the gaps between its pictures' pieces left black), `--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
 look in (any depth), `--texture <name>=<picture>` gives a texture the model names, and `--texture
 <material>:<slot>=<picture>` lays one on (the material's name, its number from 0, or `*`); it prints what each texture
 was found as and keeps it in the GLB's record.
@@ -266,7 +293,8 @@ was found as and keeps it in the GLB's record.
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
-  pane's share and preview.
+  pane's share and preview, `engine/e7e_pics.js` the Add pane's pictures of the models (made with every GLB and by Make
+  pictures, kept in `previews/`).
 - `r2sync.mjs` scenes between an R2 bucket and a folder (`list`, `pull`, `push`; the relay's `R2_*` variables).
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons and meshoptimizer's simplifier (see its
   README).
