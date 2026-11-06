@@ -1475,7 +1475,12 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   cut-outs added a field per cut-out, networks-31; groups a field per group and Faces an object's `faces`, networks-32). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
   VR stick walk and sound are each device's own. With exactly one scene in the relay's listing every device at a station
   with none picks it and writes its saved layout (every device writes the same records, so nothing doubles); else
-  *Pick a scene*. *Lock this story* refuses its editing for everyone at the circle ("The studio" below).
+  *Pick a scene*. A circle made for one scene (v118: the shell's *Studio: <scene>*, written as `st.<id>` = `{ story:
+  'studio', x, z, yaw }` and in the same batch `st.<id>.x` = `{ scene }`): a station whose state names a scene and holds
+  no item field at all is opened on every device there as `'fresh'` (`collabApply`), each writing the scene's saved layout
+  alike, so the circle shows the scene at once (a device with that scene open already, from another station or outside
+  the room, opens it again there: `STU.stId`; items from the room that come first are the room's, `STU.fresh`). *Lock this
+  story* refuses its editing for everyone at the circle ("The studio" below).
 - Moving a station by hand: in a headset the grip on a station's ring, icon or card
   picks it up (the shell hears the session's own `squeezestart` and
   `squeezeend`, controller i being `session.inputSources[i]` in three.js r128,
@@ -1984,7 +1989,10 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   /api/scenes/<name>/file?path=` stores a file, at most `--max-upload` MB (512) counted as it streams, never over a
   file without `replace=1`, written to a temporary dot file and moved into place, nothing left behind on a refusal;
   `POST /api/scenes/<name>/sound?path=` has `ffmpeg` make a long sound a mono MP3 at 96 kbit/s and 44.1 kHz, two at
-  once, `--ffmpeg-limit` s each) and `GET /upload` (302 to `/#studio&upload` when the relay serves the app, else to
+  once, `--ffmpeg-limit` s each; v118: `POST /api/scenes/<name>/copy` `{ from, path, as?, replace? }` copies one file of
+  another scene in, by an upload's path and kind rules, 409 when taken unless `replace`, the source a file its scene lists
+  and at most `--max-upload`, written to a temporary dot file and put in place, told on the watch; with R2 the bucket's
+  CopyObject, its `x-amz-copy-source` signed, nothing through the relay) and `GET /upload` (302 to `/#studio&upload` when the relay serves the app, else to
   `--app <url>`, by default the `--origin`, else `https://stories.lbi-netmed.com/`, with `&relay=` its own `wss://`
   address; no password needed to be sent on, and the query never passed on). `--scenes-readonly` writes nothing (no
   saving, no uploads: 403; the studio offers *Download layout.json*). `ffmpeg` is looked for once at the start
@@ -3296,6 +3304,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
   rig; per device, reset by Recenter, never written to the room); in AR you walk for real, and objects stand on the real
   floor (the session's `local-floor`, its height in the renderer's space from `frame.getPose`; at a station the room's).
+  From the inside (v118; the owner, 5 November 2026: "models should be able to be touched/moved from the inside"): when
+  the ray finds nothing at all and the controller is inside an object's unseen box (a room scan you stand in), that
+  object is pointed at, the smallest such box if several (`rayPick(ray, { inside: true })`, `insidePick`; anything the ray
+  finds wins; it beats the floor), so the trigger selects it and the grip carries it, as cubes have always worked; on a
+  page the same for the camera in Walk view, a click on the floor still walking. *Hold it* (a selected item's headset card,
+  under *Carry it*): the next grip of either hand, wherever it points (not at the shell's menu or a station), carries it
+  from where it stands as a grip on it would (a group as a whole), one Undo step; once, then disarmed (again, another
+  selection, editing off or the session's end disarm it; `XR.hold`, `holdHover`). A stick pushed up or down while its ray
+  is on the studio's panel (or its copy on the menu's Story tab) scrolls a pane taller than the panel (a dead zone of
+  0.2, faster the further pushed, from a third of the speed to all of it in 0.8 s held, stopped at either end as Up and
+  More are: `stickScroll`, `X.scrollMax`), never by a hand that carries something; there the left stick does not walk nor
+  the right stick turn. No other story's headset panel scrolls with Up/More buttons (checked for v118: the design room's
+  prop card cuts a long list of params short and says the page's card lists them all).
   On a page a click selects, `TransformControls` move, turn and size the selection (W, E, R, or its card's buttons;
   cubes take per-axis size from R; sounds only move), the views are *Orbit* (round the scene) and *Walk* (first person
   at 1.6 m: W A S D or the arrows, drag to look, a click on the floor walks there: where cubes trigger on a page), and
@@ -3304,9 +3325,17 @@ formats guide and the upload page; `relay/README.md` the relay's side.
 - **The panes** (page HTML and headset canvas twins, the same content): **Scene** (the scene and the scenes to pick
   from, a station's for everyone at it; *Edit*; *Save*, which says *Saved 22:41* (*by Anna* for another device's save)
   or why not; *Unsaved changes* while what is placed differs from what was last saved or loaded; *Load saved*, two
-  presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one),
-  **Add** (editing: the scene's models with their size and a warning mark, its sounds, *Originals* folded, *Trigger
-  cube*, *Convert every model*), **Item** (the selection's card and its controls: lit or as scanned, the clip and
+  presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one;
+  v118 *New scene*: on a page a field and *Make it*, in a headset *New scene...* asking the shell's keypad,
+  `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
+  picked by hand, editing on), **Add** (editing: the scene's models with their size and a warning mark, its sounds,
+  *Originals* folded, *Trigger cube*, *Convert every model*; v118 *From another scene...*: the relay's other scenes, then
+  one's models and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
+  path, a new name when taken, `POST .../copy`, with the files a non-GLB model names that its scene has, found as the
+  Upload pane's plan finds them, one whose path is taken here kept as this scene's, an OBJ and its MTL under
+  `originals/`; then placed as Add places it, one Undo step; each scene keeps its own copy. New scene and From another
+  scene only with a relay that takes uploads, never read only, `&visit`, editing off (the copy) or a locked scene),
+  **Item** (the selection's card and its controls: lit or as scanned, the clip and
   *Loop* / *Once* / *Off*, *Always* / *When shown*, *Turn 90°*, *Stand up*, *On the floor*, size steps,
   *Duplicate*, *Delete*; a cube's size steps, *While inside* / *Stays once entered*, *Pick what it shows* and *Pick
   what it hides*, pointing at items to add or remove them until *Done*, and what it shows and hides as buttons (v117:
@@ -3580,7 +3609,18 @@ one object made in reverse id order (the 16 lowest cutting, the 17th said); a cu
 in the cube's list; Box B sized with a 30 m cut-out held at 50 m and said on its card; *Cut out a part* from a ray at the
 dancer's posed head landing on her as drawn; a pretend headset's grip carrying one, both grips sizing it and a corner
 stretching it; nothing of a box drawn when not editing (only the hole); the Items pane and the headset's card (its rows;
-Preview pressed there). Its *studio groups* steps run on a fifth page, at `&scene=rig` (with, put in for them, the figure,
+Preview pressed there). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
+pointing at nothing: the figure pointed at, its dot on its box, the trigger selecting it; pointing at the box from there:
+the box; outside every box: nothing, and the trigger clearing; editing off: nothing; Walk view with the camera in her box:
+a click on nothing selects her, one on the floor walks), *Hold it* (on her headset card only; armed, a grip of the other
+hand on nothing carries her from where she stands, one Undo step; without it nothing; another selection or a second press
+disarming it), the sticks (the ray on the panel: the left stick pushed down scrolls her card, held to its end and no
+further, the dead zone nothing, pushed up back to the top, a ramp, neither the left stick walking nor the right turning
+there, a hand carrying something not scrolling; pointing away the left stick walks again), and New scene and From
+another scene (neither with the folder of scenes; with a relay and the keypad stubbed: the page's field and *Make it*,
+the name rules said here first, a name taken, the headset's keypad asked, cancelled and given, no field in a headset;
+neither for a visitor, while locked or on a read-only relay; a circle made for one scene opened `'fresh'`, one with items
+from the room, a station changed to the same scene opened again). Its *studio groups* steps run on a fifth page, at `&scene=rig` (with, put in for them, the figure,
 a sound *Free*, a sound *Out* following the figure, a cut-out *Hole* on the box and a cube *Lamp* outside the group):
 *Make a group...* on the box's card and its pick mode (the dancer Ctrl-clicked and *Free* Shift-clicked in the scene,
 *Voice*, *Out* and *Curtain* by their names under Items, *Done*: one Undo step each); a click on a member selecting the
@@ -3717,12 +3757,16 @@ taken and refused, the size counted as it streams and nothing left behind; the s
 (one generated script under the names ok, fail, empty, hang and broken: its failures, its time limit, two at once, none
 at all) and, when the machine has one, a real `ffmpeg` making a generated stereo 48 kHz WAV a mono 96 kbit/s 44.1 kHz
 MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the relay's own app or `--app` with its
-`wss://` address, no password asked and the query never passed on), and the scenes in R2 (eleven steps against the stand-in
+`wss://` address, no password asked and the query never passed on), copies from another scene (v118, `POST .../copy`: the
+same bytes at the same path or `as`, told at once, 409 then `replace`, an upload's kinds by where it goes, sources no
+listing shows, bad bodies and the file onto itself 400, missing scenes and files 404, a link out 404, over
+`--max-upload` 413, `--scenes-readonly` 403, the password), and the scenes in R2 (eleven steps against the stand-in
 S3 `relay/s3fake.mjs`, which checks every signature: `relay/test-r2.mjs` first (the signer against AWS's published
 Signature Version 4 examples, byte for byte, and the client), then the folder's steps again with `--scenes r2` (the
 start and its CORS check, the listing with a signed link per file, the redirect, saving with `.history/`, the watch from
 the relay's writes and from changes made straight in the bucket, uploads through the relay), direct uploads (`.../put`,
-a body of another size or type refused, `.../done`), `ffmpeg` with `from=`, the password everywhere and in no link, the
+a body of another size or type refused, `.../done`), copies by the bucket's CopyObject (its `x-amz-copy-source` signed in
+the header, which `relay/test-r2.mjs` and the stand-in check: one unsigned refused), `ffmpeg` with `from=`, the password everywhere and in no link, the
 start refusing missing settings (named, never a value), a wrong key or bucket and an address that is no one's,
 `--r2-check`, the start's upload-link check against the stand-in told (`quirks`) to refuse a signed length, both, or to
 ignore `If-None-Match`, `.../done` removing past `--max-upload` only what its own link brought, a save the bucket
@@ -3992,7 +4036,15 @@ corners in the scene's frame within 1 cm of the first page's on each, cutting th
 it under `cuts` (the cuts scene left out of the copy); a group made on a page (the box, the figure, Tone and Doorway),
 turned and sized on its card there, taken by every page and the headset (each member within 1 cm of the first page's, the
 records the same), a Faces setting (the box inside out) from another page reaching every device's materials, and the
-saved `layout.json` carrying `groups` and `faces`; a 25 s sound streamed. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
+saved `layout.json` carrying `groups` and `faces`; a 25 s sound streamed; From another scene (v118: a scene `shelf` made in
+the folder with an FBX naming its picture and an OBJ with its MTL and picture: copied into the open scene from a page's
+Add pane with the picture at the same paths and the same bytes, placed, one Undo step, taken by every page and the
+headset with its picture; the OBJ and what it names under `originals/`, its model in; a second copy of the FBX a new name,
+this scene's picture kept; the headset's Add pane offering it); a circle made for one scene written as the shell will
+(`st.<id>` and `st.<id>.x` naming `quiet`, with a saved layout of a sound and a cube): two pages following it open it and
+write the layout, the room holding each item once, the first station keeping its scene; New scene on the headset's panel
+with the shell's keypad stubbed (`HOST.collab.keypad`): made on the relay and opened at its station, the page following it
+switching too. Uploads: `/upload` redirecting (302) to `/#studio&upload`; the Upload pane making a new scene, planning the
 test originals and sorting them into `models/`, `sounds/` (a mono 16-bit WAV, and a mono 44.1 kHz MP3 from the relay's
 `ffmpeg`, else a mono WAV) and `originals/`; the GLBs loading with their records. Then a relay with `COLLAB_TOKEN`: a
 page without the password making one refused call and then none, nothing listed or saved (the API 401, `layout.json`
@@ -4003,7 +4055,8 @@ page log, address, room key, relay line, log file or saved layout. Then the scen
 r2` and a password: a page opens the test scene from it (every file by its signed link, straight from the bucket, CORS,
 none refused, none signed in a header), a 25 s sound streamed from it (an element with `crossOrigin`, its ranges 206),
 Save writing `layout.json` and `.history/` there, Convert to GLB sending `models/figure.glb` straight into it (a signed
-PUT, the record read with a range), a link the bucket refuses read again and the file fetched by its new one, links past
+PUT, the record read with a range), From another scene by the bucket's CopyObject (a second scene in the bucket; the FBX
+and its picture, each copy's `x-amz-copy-source` signed in the header; placed, its model in), a link the bucket refuses read again and the file fetched by its new one, links past
 half their life read again, the Upload pane making a scene and sending the test originals straight into it (the long
 sound made MP3 by the relay's `ffmpeg` from its original there), an upload the bucket refuses sent through the relay
 (and the next without trying the bucket), the pretend headset opening the scene from it, and the password in neither

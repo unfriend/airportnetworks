@@ -56,6 +56,17 @@ with `--scenes` refuses to start without a password.
   writes `layout.json` (to a temporary file, then renamed) after moving the old one to
   `.history/layout-<ISO time>.json` (the newest 20 kept) -> `{ ok: true, at, bytes }`. Refused with 403 `{ error }`
   when saving is off (`--scenes-readonly`), 404 for no such scene, 413 too big, 400 not a layout.
+- `POST /api/scenes/<name>/copy` with `{ from, path, as, replace }` (`as` and `replace` optional; v118) -> one file of
+  another scene (`from`, its `path` there) copied into this one at `as` (else the same path) -> `{ ok, path, bytes, at }`,
+  as an upload answers, and the watch told at once. The source: a file the scene `from` lists (not its `layout.json` or
+  `files.json`, no dot files or `.history/`; a link out of its folder is no file: 404), at most `--max-upload`; where it
+  goes: by an upload's rules (`relay/scenes.mjs`, `uploadPath`: models, sounds, pictures and data anywhere, any other kind
+  only under `originals/`), 409 when a file is there unless `replace: true`, 507 when the scene is full. A folder's copy
+  is written to a temporary dot file beside where it goes and put in place whole; R2's is the bucket's own CopyObject
+  (signed with its `x-amz-copy-source`: nothing passes through the relay; the bucket is not asked to refuse an object
+  there, so of two copies to one new name at once the second may replace the first). Refused: 403 `--scenes-readonly`,
+  404 no such scene (either) or file, 400 a bad body, a source no listing shows, a target an upload may not have, the
+  file onto itself, 413 over `--max-upload`; behind the password as every scene endpoint.
 - `GET /api/scenes/watch` (`?token=`) -> Server-Sent Events: `hello` `{ scenes }`, then `scene` `{ name, path, kind,
   gone }` when a file is added, changed or removed (a moment after it settles: about 0.5 s with no further change;
   never for `.history/` or temporary files), `layout` `{ name, at }` when `layout.json` changes, a comment every 20 s.
@@ -250,6 +261,26 @@ deleted).
 In a headset (editing on):
 - Pointing at an item lights it and names it; the trigger (or a pinch) selects it (its card on the panel). Pointing at
   nothing and pressing clears the selection.
+- From the inside (v118; the owner, 5 November 2026: "models should be able to be touched/moved from the inside"):
+  when the ray finds nothing at all (no object, sound, cut-out or cube, nor a corner) and the controller is inside an
+  object's unseen box (a room scan you stand in: its box's faces point away from you, so the ray meets none of them),
+  that object is the one pointed at, the smallest such box if several (a figure standing in the scan); the dot sits
+  where the ray leaves its box. So the trigger selects it and the grip carries it, as cubes have always worked; anything
+  the ray does find wins, and it beats the floor (`rayPick(ray, { inside: true })`, `insidePick`). Inside a scan,
+  pointing at nothing therefore selects the scan; the Items pane's row selected again clears the selection.
+- *Hold it* (v118; a selected item's headset card, under *Carry it*, an object, cube, sound, cut-out or group): the next
+  grip of either hand, wherever it points, carries that item as a grip on it would (from where it stands: it keeps its
+  offset from the hand; a group as a whole), one Undo step; once, then disarmed (pressed again, another selection,
+  editing off or the session's end disarm it too). Not at the shell's menu or a station (the shell takes those grips
+  itself): it stays armed then. For a thing too big or too far to point at.
+- Stick scrolling (v118; the owner: "on cards that overflow scrolling should work with the sticks up down"): a stick
+  pushed up or down while its controller's ray is on the studio's panel (its own, or its copy on the menu's Story tab)
+  scrolls the pane there when it is taller than the panel (up shows what is above): a dead zone of 0.2, then from 0.25
+  to 1.6 of the pane's height a second the further it is pushed, a third of that speed at first and all of it after
+  0.8 s held, stopped at either end as *Up* and *More* are (`stickScroll`, `X.scrollMax`). A hand that carries something
+  never scrolls (its stick pushes and pulls what it holds). While a stick's ray is on the panel the left stick does not
+  walk and the right stick does not turn (a turn held there waits for the stick to come back to the middle). The shell's
+  own menu is not the studio's panel: pointing at it the sticks walk and turn as before.
 - The grip carries an object or a sound (as the design room's miniatures: it keeps its offset from the hand and, with
   free moving on, turns with it; off, only about the vertical; the right stick pushes it away or pulls it in), and a cube
   (level; only its yaw turns). Both grips on an object size it (a twentieth to twenty times) and move it with their
@@ -264,17 +295,25 @@ In a headset (editing on):
 On a page (editing on): a click selects; `TransformControls` arrows move, turn and size the selected item (W, E, R, or
 its card's buttons; cubes take per-axis size from R; sounds only move); views: *Orbit* (the camera goes round the scene,
 as the design room's) and *Walk* (first person at 1.6 m: W A S D or the arrow keys, drag to look, a click on the floor
-walks there; this is where cubes trigger on a page). Delete, Duplicate (D) and Undo (Ctrl+Z) from the keyboard too.
+walks there; this is where cubes trigger on a page). In Walk view the camera inside an object's unseen box counts as
+the headset's controller does (above): a click that finds nothing and not the floor (the floor is for walking) selects
+that object, and the pointer names it. Delete, Duplicate (D) and Undo (Ctrl+Z) from the keyboard too.
 
 The panes (page HTML and headset canvas twins, the same content):
 - **Scene**: its name and the scenes to pick from (a station's scene is for everyone at it); *Edit* on/off; *Save*
   (the relay: *Saved 22:41* or why not), *Unsaved changes* when what is placed differs from what was last saved or
   loaded; *Load saved* (asks first: two presses); *Undo*; *Reset what I have seen* (the `stay` cubes); on a page
-  *Download layout.json* and *Upload*; the relay's state (none: how to run one, with the command).
+  *Download layout.json* and *Upload*; the relay's state (none: how to run one, with the command). *New scene* (v118):
+  on a page a field for its name and *Make it* (Enter too), in a headset *New scene...*, which asks the shell's keypad
+  (`HOST.collab.keypad({ title, hint, value, max })`, a promise of the text or `null`; a shell without it: no button in a
+  headset); made on the relay (`POST /api/scenes`, the relay's name rule, said here first: up to 64 letters, digits,
+  spaces, `_ . -`, not starting with a space, `.` or `-`, not ending in a dot, no device names; *There is a scene called
+  x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. Offered
+  only with a relay that takes uploads (not read only, not `&visit`, not while the scene is locked).
 - **Add** (editing): the scene's models (name, size on disk, a warning mark), its sounds, and *Trigger cube*. A press
   places it 1.5 m in front of you on the floor (a model's lowest point on the floor, its middle there), selected. And
   *Cut-out box* (*Cut-out box on Wall* while a model, or one of its cut-outs, is selected; else *Cut-out box: select a
-  model first*, greyed).
+  model first*, greyed). *From another scene...* (v118, "From another scene" below).
 - **Item** (one selected): its name; for an object its card (above), *Lit* / *As scanned*, the animation (clip, *Loop*
   / *Once* / *Off*, *Always* / *When shown*), *Faces* (*As in the file* / *Both sides* / *Inside out*: "Faces"), *Turn 90
   degrees* (about the vertical), *Stand up* (a quarter turn about x), *On the floor*, size steps (x0.5, x0.9, x1.1, x2),
@@ -303,7 +342,14 @@ The panes (page HTML and headset canvas twins, the same content):
   exactly as given, after the same checks as a read layout). Changing the scene clears the items and the device that
   changed it writes the new scene's saved layout as items.
 - A station with no `scene` yet: with exactly one scene in the listing every device picks it (and writes its saved
-  layout: every device writes the same records, so nothing doubles); else *Pick a scene*. A station whose scene this
+  layout: every device writes the same records, so nothing doubles); else *Pick a scene*.
+- A circle made for one scene (v118; the shell's *Studio: <scene>*, written as `st.<id>` = `{ story: 'studio', x, z, yaw }`
+  and, in the same batch, `st.<id>.x` = `{ scene }`): a station whose state names a scene and holds no item field at all
+  is opened on every device there as `'fresh'` (`collabApply`): each writes the scene's saved layout, the same records,
+  so the circle shows the scene at once; a device that has that scene open already (from another station, or outside the
+  room) opens it again there (the station changed: `STU.stId`). Items from the room that come before the layout is read
+  here are the room's (`STU.fresh`: no layout written over them). A scene emptied at a station by hand and left unsaved
+  comes back as saved for a device that arrives later (its state then holds no item): Save the empty scene to keep it so. A station whose scene this
   device cannot find (another relay, not listed): its items keep their places and show as grey boxes, said on the Scene
   pane.
 - Items glide to a record from the room (0.25 s), unless carried here (the carry wins until let go, as the design
@@ -812,6 +858,28 @@ The owner: "double sided and flip inside out settings per model?". Each placed o
 - **Untested on a headset**: how a scan inside out looks from within it, and the cost of double-sided materials on a
   big scan on a Quest.
 
+## New scene and From another scene (the owner, 5 November 2026)
+
+- **New scene** from the headset (the owner: yes, with the keypad) and on the page: on the Scene pane ("Editing" above).
+- **From another scene...** (the owner chose copying: each scene stays self-contained), on the Add pane, page and
+  headset alike: the relay's other scenes as buttons, then the one picked's models and sounds (`models/` and `sounds/`
+  first, its *originals* folded), each with its size. A press copies the file into this scene at the same path (when
+  that is taken here, a new name as uploads number them: *statue 2.fbx*) through `POST /api/scenes/<this>/copy` (one
+  file a call), then places it as Add does (1.5 m in front, selected; one Undo step for the placing). A model that is not
+  a GLB (an FBX, an OBJ, a glTF) also brings the files it names that its scene has, found as the Upload pane's plan finds
+  them (`CONV.namesIn`, `CONV.mtlNames`: an OBJ's MTL and the MTL's pictures, a glTF's `.bin` and pictures, an FBX's
+  pictures; an MTL or a `.bin` by the nearest of its name, a picture by the ladder, `CONV.texFind`), each copied to the
+  same path relative to the scene; one whose path is taken here is not copied (this scene's own file of that name stays,
+  and the model finds it), and names its scene lacks are said. A kind an upload may put only under `originals/` (an OBJ,
+  an MTL) goes there with what it brings (`originals/crates/crate.obj`, `originals/crates/crate.mtl`): the paths stay
+  relative to each other. What was copied and kept is said under the list (*Copied props/statue.fbx with 1 file it
+  names; this scene's own figure.png kept*); copied files stay when the placing cannot be (the scene full). Each scene
+  keeps its own copy: nothing in a layout ever names another scene's file.
+- Not offered without a relay that takes uploads (a folder of scenes, `--scenes-readonly`), with `&visit`, while the
+  scene is locked, with editing off, or when the relay has no other scene. With R2 the bucket copies (CopyObject), the
+  page reads only a non-GLB model's own bytes (by its signed link) to learn what it names.
+- `STUDIO.copied` (`{ path, copied, kept, lost, id }`) for tests.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -880,5 +948,10 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   every device's materials, the saved layout carrying `groups` and `faces`.
 - Groups and Faces: the smoke test's *studio groups* and *studio faces* steps, on the rig test scene ("Testing" in
   `AGENTS.md`).
+- v118: the smoke block's three steps after the headset's grips (inside a model, Hold it, stick scrolling; New scene,
+  From another scene and a circle made for one scene with a stubbed relay and keypad); `relay/test.mjs`'s copy steps
+  (a folder's and R2's, the password's list) and `relay/test-r2.mjs` (CopyObject's `x-amz-copy-source` signed, an
+  unsigned one refused by the stand-in); `tools/collab.mjs --studio` (From another scene through the relay and in R2, a
+  circle made for one scene as the shell writes it, New scene from the headset with the keypad stubbed).
 - How it looks and feels on a headset (the scan's size, frame rate with a 400k-triangle scan, the grips, the stick walk,
   how the emitters sound through HRTF) is untested until tried on one.

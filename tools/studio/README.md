@@ -146,6 +146,33 @@ a room you want to see from inside, as walls that vanish from outside). It is th
 one file may differ; the file is never changed, and the setting stays when the model is converted to a GLB, switched to
 it or changed on the relay. It is shared in a room and saved in `layout.json`.
 
+## In a headset: from the inside, Hold it, the sticks on a card
+
+- **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
+  **Edit** on, pointing at nothing while your controller is inside a model's box points at that model (the smallest box if
+  you are inside several): the trigger selects it and the grip carries it. Anything the ray does hit wins. On a page the
+  same holds in **Walk** view for the camera, except that a click on the floor still walks you there.
+- **Hold it.** A selected item's card in the headset has **Hold it** (under *Carry it*): the next grip of either hand,
+  wherever you point, carries that item from where it stands (as a grip on it would; a group as a whole). Once, then it
+  is off again; pressed again, or another selection, turns it off. For something too big or too far to point at.
+- **Scrolling a card.** A card taller than the panel scrolls with **Up** and **More**, and now with a stick: point at the
+  panel and push either stick up or down (further: faster; held: faster still). While you point at the panel the left
+  stick does not walk and the right stick does not turn; point away and they do again.
+
+## A new scene, and a model from another scene
+
+- **New scene** (the Scene pane, with a relay that takes uploads): on a page type its name and press **Make it** (or
+  Enter); in a headset **New scene...** opens the menu's keypad for the name. The scene is made on the relay and opened
+  (at a circle, for everyone there), with Edit on. A name has up to 64 letters, digits, spaces, `_ . -`.
+- **From another scene...** (the Add pane, page and headset): pick one of the relay's other scenes, then one of its
+  models or sounds. It is **copied** into this scene at the same path (a new name such as *statue 2.fbx* when that path
+  is taken here) and placed in front of you, so each scene keeps its own files and a layout never points into another
+  scene. A model that is not a GLB brings the files it names that its scene has (an OBJ's MTL and pictures, a glTF's
+  `.bin`, an FBX's pictures); one this scene already has by that path is not copied (this scene's own stays). An OBJ and
+  its MTL go under `originals/` (the only place the relay keeps those kinds), the paths between them kept. With R2 the
+  bucket copies the files itself. Not offered for a folder of scenes without a relay, a read-only relay, a visitor
+  (`&visit`) or a locked scene.
+
 ## Formats guide
 
 - **Models: GLB.** One file, its textures and animations inside. FBX works, but converted it loads faster and sits right
