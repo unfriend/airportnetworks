@@ -944,7 +944,7 @@ probe, `roomSync` and `shapeSig` it reuses.
   notices, the subtitles, the frame-rate read-out, labels and cards set on top, the loading card, the calibration
   crosses).
 - For tests and the Debug tab: `HOST.occlusion.state()` (the mode, the session's depth: usage, format, reading, eyes,
-  the probe; the room's parts), `line()` (the Debug tab's *Real world hides* line), `parts()`, `sig()`.
+  the probe; the room's parts), `line()` (the Debug tab's *Real world* line), `parts()`, `sig()`.
 - **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
   room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
   the floor), the cost with a big room scan and depth together in a heavy story, `pauseDepthSensing` on Quest Browser,

@@ -529,8 +529,8 @@ void main() {
       const m = mode();
       if (!S) return SAY[m] + (O.over ? ' (the scene\'s)' : '') + ' · not in AR';
       const Q = S.depth, D = S.D, E = D && D.eyes.find(Boolean);
-      const dp = !Q.enabled ? 'no depth (' + (Q.why || 'not given') + ')' : E ? 'depth ' + (E.cpu ? 'CPU' : 'GPU') + ' ' + (D.used || '?') : 'depth waiting';
-      return SAY[m] + (O.over ? ' (the scene\'s)' : '') + ' · ' + dp + ' · room ' + (S.planes.size + S.meshes.size) + ' parts';
+      const dp = !Q.enabled ? 'no depth' : E ? 'depth ' + (E.cpu ? 'CPU' : 'GPU') + ', ' + (D.used || '?') : 'depth waiting';
+      return SAY[m] + (O.over ? ' (the scene\'s)' : '') + ' · ' + dp + ' · room ' + (S.planes.size + S.meshes.size);
     },
     // for tests: what is set and drawn now
     state() {

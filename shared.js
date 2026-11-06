@@ -4196,7 +4196,7 @@
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
       'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
-    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world hides: ' + HOST.occlusion.line()] : []);
+    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
   // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
