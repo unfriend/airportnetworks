@@ -20977,19 +20977,24 @@ function lockRefused(it) {
   later(() => dirty(true), 4100);
   dirty(true);
 }
-// the line on its card ('' none)
-function lockLine(it, del) {
-  const n = lockNames(it, del), mine = !!it.rec.locked, rest = n.filter(x => x !== it.rec.name);
-  if (!n.length) return '';
-  if (it.kind === 'g') return mine && !rest.length ? 'Locked in place: the group does not move, turn, size or go until it is unlocked.'
-    : `${n.join(', ')} ${n.length > 1 ? 'are' : 'is'} locked in place: the group does not move, turn, size or go until ${n.length > 1 ? 'they are' : mine ? 'it is' : 'that is'} unlocked.`;
-  if (mine && !rest.length) return 'Locked in place: it does not move, turn, size or go until it is unlocked.';
-  if (!mine && n.length && !del) return `Its group ${n.join(', ')} is locked in place: unlock the group to move it.`;
-  return `${n.join(', ')} ${n.length > 1 ? 'are' : 'is'} locked in place: ${mine ? 'it does not move or go' : 'it cannot be deleted'} until ${n.length > 1 ? 'they are' : 'that is'} unlocked.`;
+// the line on its card ('' none): what holds it, in words
+function lockLine(it) {
+  const mine = !!it.rec.locked, are = n => (n.length > 1 ? 'are' : 'is'), them = n => (n.length > 1 ? 'they are' : 'that is');
+  const ms = it.kind === 'g' ? members(it) : [it], cuts = ms.filter(m => m.kind === 'o').flatMap(m => cutsOn(m.id)).filter(x => x.rec.locked).map(x => x.rec.name);
+  if (it.kind === 'g') {
+    const lm = ms.filter(m => m.rec.locked).map(m => m.rec.name);
+    if (mine) return 'Locked in place: the group does not move, turn, size or go until it is unlocked.' + (lm.length ? ` ${lm.join(', ')} ${are(lm)} locked too.` : '');
+    if (lm.length) return `${lm.join(', ')} ${are(lm)} locked in place: the group does not move, turn, size or go until ${them(lm)} unlocked.`;
+    return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: the group cannot be deleted until ${them(cuts)} unlocked.` : '';
+  }
+  if (mine) return 'Locked in place: it does not move, turn, size or go until it is unlocked.';
+  const g = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null;
+  if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
+  return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
 }
 // the lock's blocks on a card: Lock in place / Unlock, and what it holds now (also a refusal just made)
 function lockBlocks(it, B, dis) {
-  const on = !!it.rec.locked, line = lockLine(it, true), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  const on = !!it.rec.locked, line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
   B.push({ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] });
   if (line) B.push({ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' });
   else B.push({ p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
@@ -20997,7 +21002,7 @@ function lockBlocks(it, B, dis) {
 
 // ---------------------------------------------------------- the card's actions --
 Object.assign(ITEM_ACT, {
-  lock: it => setRec(it.id, { locked: it.rec.locked ? undefined : true }),
+  lock: it => { setRec(it.id, { locked: it.rec.locked ? undefined : true }); tcAttach(); },   // (locked: the page's arrows go at once)
   // a shape: its kind (its size kept), its colour and its look
   shape: (it, v) => { if (it.kind === 'p' && SHAPE_KINDS.includes(v)) setRec(it.id, { shape: v }); },
   colour: (it, v) => { if (it.kind === 'p' && /^#[0-9a-f]{6}$/.test(v)) setRec(it.id, { colour: v }); },

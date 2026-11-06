@@ -3470,7 +3470,7 @@ async function studioRound(dir) {
     const qRoom = ((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys['st.' + nid + '.x'] || {}).v || {};
     const aStill = await sp(A, `[STU.scene, atStation(), STU.items.size]`), qCount = await Promise.all([B, C].map(p => sp(p, 'STU.items.size')));
     check('studio: a circle made for one scene as the shell writes it (st.<id> with the studio and st.<id>.x naming the scene, in one batch): two pages following it open that scene and write its saved layout alike, the room holding each item once; the first station keeps its own scene',
-      nSeen && qOpen.every(Boolean) && Object.keys(qRoom).sort().join() === 'c.qcube1,s.qtone1,scene' && qRoom.scene === 'quiet' && qCount.every(n => n === 2) && aStill[0] === 'test' && aStill[1],
+      nSeen && qOpen.every(Boolean) && Object.keys(qRoom).sort().join() === 'c.qcube1,s.qtone1,scene,settings' && qRoom.scene === 'quiet' && qCount.every(n => n === 2) && aStill[0] === 'test' && aStill[1],
       JSON.stringify({ nSeen, qOpen, qRoom: Object.keys(qRoom), qCount, aStill }));
     }
 
