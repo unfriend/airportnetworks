@@ -1708,7 +1708,9 @@
       // (the shell's own kinds: the lobby shows only itself; an All stories circle its cards or a story of the list)
       const kd = v.kind === LOBBY_ST || v.story === LOBBY_ST ? LOBBY_ST : v.kind === ALL || v.story === ALL ? ALL : '';
       if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) continue;
-      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {}));
+      // (a studio circle made for a scene by Add's scene entries is marked so in its record, sc: never the room's plain one)
+      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
+        !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}));
     }
     // (the pages that are not stories after the stories, in their list's order: the design room's, the studio's; then the
     // All stories circles and the lobby)
@@ -2045,7 +2047,7 @@
   const stVal = (s, P) => {
     const cur = s && s.id ? val('st.' + s.id) : null, b = cur && typeof cur === 'object' && typeof cur.story === 'string' ? cur : s;
     return Object.assign({ story: b.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: b.sync === true } : {}, s.kind === ALL && typeof b.arc === 'boolean' ? { arc: b.arc } : {},
-      { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
+      !s.kind && b.story === STUDIO && b.sc === true ? { sc: true } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
   };
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room, the studio: no
   // chapters) in explore mode, at its table or its scene
@@ -2204,10 +2206,11 @@
   // the headset's Add here page) lists after the studio one entry per scene of the studio's relay (relayFind, then GET
   // /api/scenes with its password: asked again whenever the picker or the page opens, at most every 3 s; none without a
   // relay, from a relay without scenes or one that refuses). Such an entry makes a studio circle for that scene in one
-  // batch: st.<id> = { story: 'studio', x, z, yaw }, its clock and its state, st.<id>.x = { scene } (the studio's own
-  // field and nothing else: the studio at a station whose state names a scene and holds no items opens it and writes its
-  // saved layout, every device alike). Several studio circles may stand in a room; each one's title wherever the shell
-  // names a station is "Studio: <scene>" while its state names one (sceneOf)
+  // batch: st.<id> = { story: 'studio', sc: true, x, z, yaw } (sc: made for a scene, the shell's own mark, kept by every
+  // move: stVal), its clock and its state, st.<id>.x = { scene } (the studio's own field and nothing else: the studio at a
+  // station whose state names a scene and holds no items opens it and writes its saved layout, every device alike).
+  // Several studio circles may stand in a room; each one's title wherever the shell names a station is "Studio: <scene>"
+  // while its state names one (sceneOf: also a plain circle's once a scene is picked there)
   const SCN = { list: [], at: -1e9, busy: null };
   function scenesFetch() {
     if (SCN.busy) return SCN.busy;
@@ -2243,7 +2246,7 @@
     b = b || base();
     const id = rid(5);
     // (the station, its clock and the scene in one batch; the room's arc becomes a circle where it stands, as for any Add)
-    publish([['st.' + id, { story: STUDIO, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(STUDIO)], [kX(id), { scene: name }]].concat(arcEnd()));
+    publish([['st.' + id, { story: STUDIO, sc: true, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(STUDIO)], [kX(id), { scene: name }]].concat(arcEnd()));
     sfx('place', roomAt(b.x, 0.05, b.z));
     log('studio scene added', { st: id, scene: name });
     return id;
@@ -2271,10 +2274,11 @@
   // a page that is not a story here (the menu's Design room and Studio buttons in a room): a station of it at your feet,
   // facing your way, or the room's one moved here when it has one (one props table, not a pile of them); refused while the
   // circles are locked. The studio (v118: a room may hold several studio circles, one for each scene, from Add): the room's
-  // plain studio circle (its state names no scene) moved here when it has exactly one, whatever circles of scenes stand
+  // plain studio circle (one not made for a scene, sc; told by how it was made, never by its state, which names a scene as
+  // soon as one is picked there) moved here, the first by id when there are several, whatever circles of scenes stand
   // beside it; else a new plain studio circle at your feet
   const DESIGN = 'design', STUDIO = 'studio';
-  const pageOne = key => { const all = C.st.filter(s => s.story === key && !s.kind), plain = key === STUDIO ? all.filter(s => !sceneOf(s)) : all; return key === STUDIO ? (plain.length === 1 ? plain[0] : null) : all[0] || null; };
+  const pageOne = key => C.st.find(s => s.story === key && !s.kind && !s.sc) || null;
   function pageHere(key, b) {
     const has = pageOne(key);
     if (!C.code || refused(has ? 'move' : 'add')) return '';

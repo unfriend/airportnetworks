@@ -1729,7 +1729,8 @@ async function askRound(dir) {
 // relay of its own with --scenes on the test scenes (read only). The page's Add lists, after the studio, one entry per
 // scene ("Studio: <scene>"); adding one makes a studio station whose state names that scene, in one batch, for every page;
 // two studio circles stand at once (and a third, plain); their titles in the dialog's rows are "Studio: <scene>"; Studio
-// here moves the room's plain studio circle when it is the only one, else adds another
+// here adds the room's plain studio circle, then moves it, also once a scene is picked there (plain or not is how a circle
+// was made, its record's sc, never its state); a scene circle moved keeps its sc
 async function scenesRound() {
   const R = await relayOn(['--static', '.', '--scenes', path.join(root, 'tools', 'studio', 'test', 'scenes'), '--scenes-readonly', '--quiet'], {}, 8770);
   const b = `http://127.0.0.1:${R.port}/`, pages = [];
@@ -1770,7 +1771,7 @@ async function scenesRound() {
     const seen1 = !!id1 && await until(B, id => { const s = HOST.collab.station(id), x = HOST.collab.val('st.' + id + '.x'); return !!s && s.story === 'studio' && JSON.stringify(x) === '{"scene":"test"}'; }, id1, 5000);
     const k1 = (await roomInfo2(b, rc)).keys, st1 = k1['st.' + id1], x1 = k1['st.' + id1 + '.x'];
     check('scenes: adding "Studio: test" makes a studio station whose state names the scene (st.<id> and st.<id>.x, written together), for every page',
-      seen1 && !!st1 && !!x1 && JSON.stringify(x1.v) === '{"scene":"test"}' && st1.v.story === 'studio' && Object.keys(st1.v).sort().join() === 'story,x,yaw,z', JSON.stringify({ id1, st1, x1 }));
+      seen1 && !!st1 && !!x1 && JSON.stringify(x1.v) === '{"scene":"test"}' && st1.v.story === 'studio' && st1.v.sc === true && Object.keys(st1.v).sort().join() === 'sc,story,x,yaw,z', JSON.stringify({ id1, st1, x1 }));
     // two studio circles at once, each titled by its scene (the dialog's rows, on both pages)
     const id2 = await add('scene:' + names.find(n => n !== 'test'));
     const rows = p => p.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300)); const t = [...document.querySelectorAll('#shared .sh-stations li b')].map(e => e.textContent); return t; });
@@ -1785,6 +1786,21 @@ async function scenesRound() {
     const rB2 = await rows(B);
     check('scenes: Studio here adds a plain studio circle beside the scenes\' (titled "Studio") and then moves that one, the only plain one', !!h1 && ![id1, id2].includes(h1) && n3 === 3 && h2 === h1 && n4 === 3 && moved &&
       rB2.includes(await B.evaluate(() => HOST.meta('studio').title)), JSON.stringify({ h1, h2, n3, n4, moved, rB2 }));
+    // a scene picked at that plain circle (its state names it, as the studio writes it there): still the room's plain one,
+    // so Studio here moves it again rather than adding a fourth (plain or not is how a circle was made, never its state)
+    await A.evaluate(id => HOST.collab.publish([['st.' + id + '.x', { scene: 'test' }]]), h1);
+    const picked = await until(B, id => HOST.collab.sceneOf(id) === 'test', h1, 5000), rB3 = await rows(B);
+    const h3 = await A.evaluate(() => HOST.collab.studio({ x: 4, z: 2, yaw: 0.6 })), n5 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    const moved3 = await until(B, ([id]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - 4) < 1e-6 && Math.abs(s.z - 2) < 1e-6; }, [h1], 5000);
+    check('scenes: a scene picked at the plain studio circle (titled "Studio: test" then) and Studio here still moves that one, no fourth circle', picked && h3 === h1 && n5 === 3 && moved3 &&
+      rB3.filter(t => t === 'Studio: test').length === 2, JSON.stringify({ picked, h3, n5, moved3, rB3 }));
+    // a scene circle moved keeps its mark (every move writes it again), and Studio here then still moves the plain one
+    await A.evaluate(id => HOST.collab.move(id, { x: -3, z: 2, yaw: 0.3 }), id1);
+    const kept = await until(B, id => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x + 3) < 1e-6 && s.sc === true; }, id1, 5000);
+    const st1b = (await roomInfo2(b, rc)).keys['st.' + id1];
+    const h4 = await A.evaluate(() => HOST.collab.studio({ x: 4.5, z: 2.5, yaw: 0.8 })), n6 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    check('scenes: a scene circle moved keeps its mark (sc), and Studio here then still moves the plain one', kept && !!st1b && st1b.v.sc === true && Math.abs(st1b.v.x + 3) < 1e-6 &&
+      h4 === h1 && n6 === 3, JSON.stringify({ kept, st1b, h4, n6 }));
   } finally {
     for (const p of pages) await p.context().close().catch(() => {});
     await relayOff(R);

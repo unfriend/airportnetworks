@@ -999,7 +999,7 @@ follow an object or a bone in v112: a sound's record in the studio's `state()` g
 when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`; networks-32 when the studio's
 groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`, and an object's record an optional
 `faces`; networks-33 when the circles asked first came in v118: `look` gained `ask`, which an older device writing `look`
-would drop). The plan is
+would drop, and in the same round a studio circle made for a scene its record's `sc: true`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1512,21 +1512,24 @@ would drop). The plan is
   the headset's Add here list it after the design room (`STORY_EXTRA`'s order, then All stories and Back to the lobby);
   the menu's Settings tab has *Design room* and *Studio* side by side (`PAGE_ROW`, `pageRow`): outside a room *Studio*
   opens the studio (`HOST.go('studio')`), in a room *Studio here* puts a plain studio circle at your feet facing your
-  way, or moves the room's plain one there when it has exactly one (one whose state names no scene, whatever circles of
-  scenes stand beside it; `pageOne`, `pageHere`, `HOST.collab.studio(b)`; since v118, when a room may hold several studio
-  circles), refused while the circles are locked; never Arrange all. Its clock starts in explore mode.
+  way, or moves the room's plain one there (one not made for a scene: no `sc` in its record, told by how it was made and
+  never by its state, which names a scene as soon as one is picked there; the first by id when there are several,
+  whatever circles of scenes stand beside it; `pageOne`, `pageHere`, `HOST.collab.studio(b)`; since v118, when a room may
+  hold several studio circles), refused while the circles are locked; never Arrange all. Its clock starts in explore
+  mode.
   - Scenes as circles (v118; the owner, 5 November 2026: "add scenes as possible circles"): the page's Add and the
     headset's Add here list after *Studio* one entry per scene of the studio's relay (*Studio: <scene>*; `SCN`,
     `scenesFetch`: `relayFind()`, then `GET /api/scenes` with the kept password through `api()`, asked again whenever
     the dialog or the Add here page opens, at most every 3 s; nothing listed without a relay, from a relay without
     `--scenes` or one that refuses; the headset's page shows at most 8, `SCN_ROWS`, and says how many more a page has).
     Such an entry (the picker's value and the button's id `scene:<name>`, `addOne`) makes a studio circle for that scene
-    in one batch (`addScene`): `st.<id>` = `{ story: 'studio', x, z, yaw }`, its clock, and its state `st.<id>.x` =
+    in one batch (`addScene`): `st.<id>` = `{ story: 'studio', sc: true, x, z, yaw }` (`sc`, the shell's own mark that
+    the circle was made for a scene, kept by every move, `stVal`; FORMAT networks-33), its clock, and its state `st.<id>.x` =
     `{ scene }` (the studio's own field and nothing else: the studio at a station whose state names a scene and holds no
     items opens it and writes its saved layout, every device alike; the shell changes no `state()` shape). Several
     studio circles may stand in a room. Wherever the shell names a station (the cards, the dialog's rows and map, the
     menu's lists and Story tab, people and Follow lines, the question of circles asked first) a studio station whose
-    state names a scene is *Studio: <scene>* (`sceneOf`, `stTitle`). `HOST.collab.scenes()`, `addScene(name, b)` and
+    state names a scene is *Studio: <scene>* (`sceneOf`, `stTitle`; a plain circle too, once a scene is picked there). `HOST.collab.scenes()`, `addScene(name, b)` and
     `sceneOf(id)` are for tests. Its scene is life size round the circle's spot
   (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
   scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
@@ -4100,8 +4103,10 @@ presence there) and standing on in the first circle entering nothing; the lobby'
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
 values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:
-'studio', x, z, yaw }` and `st.<id>.x` `{ scene: 'test' }` for every page; a second scene's circle at once, both titled
-*Studio: <scene>* in every page's dialog; *Studio here* adding a plain studio circle beside them and then moving that one.
+'studio', sc: true, x, z, yaw }` and `st.<id>.x` `{ scene: 'test' }` for every page; a second scene's circle at once, both
+titled *Studio: <scene>* in every page's dialog; *Studio here* adding a plain studio circle beside them and then moving
+that one; a scene picked at that plain circle (its state naming it, its title *Studio: <scene>*) and *Studio here* still
+moving it (no fourth circle); a scene circle moved keeping its `sc`, and *Studio here* then still moving the plain one.
 Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
 `--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes
