@@ -1656,7 +1656,10 @@ async function askRound(dir) {
       HOST.collab.dialog(false);
       return { was, now };
     });
-    const on = await until(H, () => HOST.collab.askFirst(), null, 5000), lk = (await roomInfo(rc)).keys.look;
+    // (the pretend headset given frames while it waits, as a real one always has: in a session its pump runs from them too)
+    let on = false;
+    for (let k = 0; k < 30 && !on; k++) { await frames(H, 200); on = await H.evaluate(() => HOST.collab.askFirst()); }
+    const lk = (await roomInfo(rc)).keys.look;
     check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
       !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v }));
     // walking into a circle and standing there 3 s enters nothing
@@ -2033,6 +2036,7 @@ async function allRound() {
   if (switched) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
   const okA = await ready(A, PK), okB = await ready(B, PK);
   await sleep(1500);
+  await frames(H, 300);   // (the pretend headset's clock moves only in frames it is given: none while the pages loaded)
   const hc = await clockOf(H), bc = await clockOf(B), ac = await clockOf(A), still = await arcOf(A), hs = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), placing: HOST.room.placing(), cards: HOST.room.cards() }));
   // (from its start: no further on than the time since the pick, which a loaded machine's story load can make long)
   const since = play0 ? (await A.evaluate(() => HOST.collab.now()) - play0.at) / 1000 : 0;
@@ -3412,8 +3416,9 @@ async function studioRound(dir) {
       cubes: [{ id: 'qcube1', name: 'Quiet cube', p: [0, 1, 0], yaw: 0, size: [1, 2, 1], mode: 'while', show: ['qtone1'], hide: [] }] }));
     const nid = 'quiet' + Math.floor(Math.random() * 1e6).toString(36);
     await A.evaluate(id => HOST.collab.publish([['st.' + id, { story: 'studio', x: 6, z: -6, yaw: 0 }], ['st.' + id + '.x', { scene: 'quiet' }]]), nid);
-    const nSeen = await until(B, id => !!HOST.collab.station(id), nid, 5000);
-    for (const p of [B, C]) await p.evaluate(i => HOST.collab.follow(i), nid);
+    // (each page follows it once it has the station: a follow of a station a page has not heard of yet does nothing)
+    let nSeen = true;
+    for (const p of [B, C]) { nSeen = await until(p, id => !!HOST.collab.station(id), nid, 5000) && nSeen; await p.evaluate(i => HOST.collab.follow(i), nid); }
     const qOpen = [];
     for (const p of [B, C]) qOpen.push(await sUntil(p, `atStation() && STU.scene === 'quiet' && STU.listing === 'ok' && STU.items.size === 2 && STU.items.has('qtone1') && STU.items.has('qcube1')`, 20000));
     await sleep(1500);
@@ -5536,6 +5541,9 @@ try {
   await B.evaluate(() => { const C = HOST.collab.internals(); C.ws.send(JSON.stringify({ t: 'hello', name: C.name, color: C.color, kind: 'ar', here: true })); });
   await until(H, bid => HOST.collab.members.some(m => m.id === bid && m.kind === 'ar' && m.here), await B.evaluate(() => HOST.collab.id), 3000);
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U1', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
+  // (the headset holds that frame before its session begins: with the one before it, a page's here, it would judge
+  // itself not first in the space, as it should then; a loaded machine once began the session first)
+  await until(H, k => (HOST.collab.val(k) || {}).by === 'left-long-ago', rfKey1, 5000);
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 3000);
