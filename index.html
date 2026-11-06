@@ -1446,9 +1446,32 @@ HOST.xr = (function () {
     if (HOST.collab && HOST.collab.setLook && HOST.collab.setLook(o)) return;   // in a room: written for everyone there
     Object.assign(own, o); keepOwn();
   }
+  // The session itself (every story's xrStart): VR with its features as ever; AR also asks for depth sensing (real-world
+  // occlusion, occlusion.js: GPU first, the formats a Quest 3 gave first, the depth seen from the eye itself), with the
+  // room test's ladder: a TypeError naming a value (a browser that does not know 'unsigned-short') asks again without it,
+  // any other refusal asks again without depth at all
+  const DEPTH = { usage: ['gpu-optimized', 'cpu-optimized'], formats: ['unsigned-short', 'luminance-alpha', 'float32'] };
+  async function request(mode) {
+    const feats = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice();
+    asked = mode;
+    if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+    let usage = DEPTH.usage.slice(), formats = DEPTH.formats.slice();
+    for (let k = 0; k < 6 && usage.length && formats.length; k++) {
+      const init = { optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } };
+      try { return await navigator.xr.requestSession(mode, init); } catch (e) {
+        const named = v => e && e.name === 'TypeError' && String(e.message || '').includes("'" + v + "'");
+        const u = usage.filter(v => !named(v)), f = formats.filter(v => !named(v));
+        if (u.length === usage.length && f.length === formats.length) break;   // (not about a value: without depth)
+        console.warn('AR asks again without ' + usage.concat(formats).filter(v => named(v)).join(', ') + ':', e.message);
+        usage = u; formats = f;
+      }
+    }
+    asked = mode;
+    return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+  }
   return {
     features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
-    watch,
+    request, watch,
     line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
     labels: () => look().labels,
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
@@ -1909,6 +1932,7 @@ HOST.loading = (() => {
     // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
     wrap(fn) {
       if (!fn || fn === loop) return fn;
+      if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
@@ -1964,6 +1988,7 @@ HOST.teardown = function () {
       try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
     }
     if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
+    if (this.occlusion) this.occlusion.detach();   // (so does real-world occlusion's, and the story's own choice of it goes)
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);
@@ -3049,6 +3074,7 @@ HOST.unknown = (function () {
 })();
 </script>
 <script src="sfx.js"></script>
+<script src="occlusion.js"></script>
 <script src="shared.js"></script>
 <script>
 'use strict';
@@ -3114,6 +3140,7 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
+  if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('voice')) HOST.xr.setVoice(hp.get('voice') !== 'off');
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)

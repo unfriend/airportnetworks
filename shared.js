@@ -3492,7 +3492,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -3894,6 +3894,17 @@
         note('This headset\'s own: frames a second, triangles and draw calls', y);
         y += 76;
       }
+      // real-world occlusion in AR (occlusion.js): what real things hide (the room scan's walls and furniture, and people,
+      // hands and anything moving, from the headset's depth), each press the next; this headset's own, unless the story
+      // on show asks for its own (a studio scene)
+      if (HOST.occlusion && HOST.occlusion.set) {
+        const O = HOST.occlusion, om = O.own(), nx = O.next(om), ov = O.over();
+        button(S, 'occl', x, y, w, 60, 'Real world hides: ' + O.say(om), () => O.set(nx), { on: om !== 'off', tog: nx === 'off', px: 23 });
+        y += 68;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : !O.ar() ? 'Only in AR: real things in front of a scene hide it. This headset\'s own.' :
+          'Real things in front of a scene hide it, as in the room. This headset\'s own.', x + 4, y, w - 8, 28, 2) + 14;
+      }
       // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
       // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
       const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
@@ -4185,7 +4196,7 @@
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
       'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
-    ];
+    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world hides: ' + HOST.occlusion.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
   // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
