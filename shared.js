@@ -3088,7 +3088,7 @@
     if (!I.g.visible) return;
     I.g.scale.setScalar(I.k); I.g.position.y = ICON.y / o.g.scale.y;
     let yaw = 0, lean = 0.3;
-    if (R.headOK) {
+    if (R.session && R.headOK) {   // (this headset in its session, lined up: its head now)
       const dx = R.hr.x - S.x, dz = R.hr.z - S.z;
       yaw = Math.atan2(dx, dz) - S.yaw; lean = Math.min(0.7, Math.max(0.1, Math.atan2(ICON.y - R.hr.y, Math.hypot(dx, dz)) + 0.2));
     }
@@ -5013,6 +5013,26 @@
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
     fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
+  }
+  // the heads of the people in a headset at this device's live station, this headset's own among them, for a story that
+  // reacts to people (the studio's behaviours): { st: { id, x, z, yaw } (the station's spot as this device draws it),
+  // list: [{ id, me, head: [x, y, z, qx, qy, qz, qw] in room coordinates, ts: the relay's time it was there }] }, or null
+  // (no room, or no live station). Others' from their presence (heard in the last 2 s; a page sends no head), this
+  // headset's own as it is now
+  function heads() {
+    const L = liveSt();
+    if (!C.code || !L) return null;
+    const S = shown(L), list = [], t = performance.now();
+    if (R.session && R.headOK) {   // (this headset in its session, lined up: its head now)
+      _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(HD.q);
+      list.push({ id: C.id, me: true, head: [R.hr.x, R.hr.y, R.hr.z, _q.x, _q.y, _q.z, _q.w], ts: Math.round(now()) });
+    }
+    for (const [id, P] of C.pres) {
+      if (!P.head || P.st !== L.id || t - P.at > 2000) continue;
+      const s = P.buf && P.buf.s.length ? P.buf.s[P.buf.s.length - 1] : null;
+      list.push({ id, me: false, head: P.head.slice(), ts: s ? s.ts : Math.round(now()) });
+    }
+    return { st: { id: L.id, x: S.x, z: S.z, yaw: S.yaw }, list };
   }
   // a headset in a room that is not lined up yet: a presence without a head, once a second, so the pages' list says how it
   // goes (lu) and the others know its browser's version; older pages keep it as they keep a page's
@@ -7113,6 +7133,9 @@
     panels: key => panelsAt(key), setPanels, stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
     fresh: () => freshAsk(), get gen() { return SG; },   // a fresh shared space (two calls: the first arms it); this page's generation
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
+    // the heads of the people in a headset at this device's live station, its own among them, in room coordinates with the
+    // relay's time of each (the studio's behaviours react to one of them): { st, list } or null
+    heads: () => heads(),
     // rooms on this network: this device's network (its id, never the address; '' unknown), the rooms found on it (null:
     // looking), looked for again; whether this room shows there (the room's switch); the room to rejoin by itself and the
     // one offered again; a pretend network (tests: #net=<word>); the page's hash of an address (tests: as the relay's)
