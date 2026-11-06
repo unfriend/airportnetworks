@@ -90,7 +90,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     too); the ask check waited 5 s for the room's key; the pretend headset's clock was read at the arc without its
     frames; a page followed the scene's circle before it had heard of it. A second reading of the code found no product
     bug behind any of them. Run alone afterwards, `--studio` (36), `--ask` (13), `--all` (27) and `--p2p` (18) passed.
-    A second full run with those fixes is under way.
+    A second full run with those fixes: 522 passed, 1 failed (all seven above passed, both shared-space checks and
+    peer to peer too): the question's 10 s was counted from after opening it, which the loaded machine took 1.7 s to do
+    (it had 8.3 s left when first read, and closed 10.0 s after it opened). Counted from when it opened, `--ask` passed
+    alone (13).
 - **networks-v117 (5 November 2026; FORMAT networks-32 unchanged, shell 116: only the studio changed, so running pages
   swap it in), on `dev` first: two small studio fixes from the owner's list.**
   - Trigger cubes: the cube entered last decides, and a *Stays once entered* cube walked into again counts as entered
