@@ -1903,7 +1903,9 @@ await step('design: the intro ends at the table', async () => {
       out.ids = ids().filter(i => /^(ft|ct):/.test(i)).join(); out.txt = paneBlocks('item').filter(b => !b.page).map(b => (b.label || '') + ' ' + (b.p || '')).join(' | ');
       const was = { kind: SRC.kind, upload: SRC.upload, save: SRC.save, held: SRC.held };
       Object.assign(SRC, { kind: 'relay', upload: true, save: true, held: false }); out.save = ids().includes('ft:save'); Object.assign(SRC, was); draw();
-      XR.main.regions.find(r => r.id === 'ft:10').fn();
+      // (10 % pressed where the card shows it, scrolled to)
+      for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === 'ft:10'); if (r) { r.fn(); break; } }
+      X.scroll = {};
       out.keep = FT.keep; draw();
       XR.on = false; return out;
     })()`);
@@ -1968,8 +1970,9 @@ await step('design: the intro ends at the table', async () => {
     // the pretend headset: Change texture by the ray, figure.png shown, Cancel
     const cx = await ss(`(() => {
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, hit = id => { const r = XR.main.regions.find(q => q.id === id); if (r) r.fn(); return !!r; }, out = {};
-      XR.on = true; X.scroll = {}; draw(); out.open = hit('ct:open'); draw();
-      const seen = new Set(); for (let off = 0; off < 3000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
+      XR.on = true; X.scroll = {}; draw();
+      for (let off = 0; off < 4000 && !out.open; off += 150) { X.scroll.item = off; draw(); out.open = hit('ct:open'); } X.scroll = {}; draw();
+      const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
       out.ids = [...seen].filter(i => /^ct:/.test(i)).join();
       XR.on = false; return out;
     })()`);

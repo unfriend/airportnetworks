@@ -70,7 +70,8 @@
 // on a temporary copy of tools/studio/test/scenes; three pages and a pretend headset at a studio station: Studio here, a
 // scene picked for all, two edits at once both kept, the headset's trigger cube, Save from the headset (.history/), a file
 // added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a texture added from a
-// card, a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
+// card, a ball made on a page saved lighter (Fewer triangles) and given a picture from the headset (Change texture, saved
+// there), a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
 // relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
 // COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; then the scenes in R2
 // (--scenes r2) against the stand-in S3 on another port (from 8840 up): files by signed links, Save, Convert to GLB and
@@ -3289,6 +3290,49 @@ async function studioRound(dir) {
       rSeen && !!rustId && rLoaded.every(Boolean) && useBtn && tDone && !!tRec && JSON.stringify(tRec.tex) === '[{"name":"rust_old.png","mat":"","slot":"","from":"paint.png","how":"chosen"}]' && tsw.every(Boolean) && tWorst < 0.001,
       JSON.stringify({ rSeen, rustId, rLoaded, useBtn, tDone, tRec, tsw, tWorst, note: await sp(A, 'CV.note') }));
     await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
+
+    // ---- Fewer triangles and Change texture (e7d_lite.js): a dense ball made on a page (24,320 triangles, a red and green
+    // checker) put in the scene's folder and placed; its share saved on a page at 20 %: models/ball.glb through the relay,
+    // every page's and the headset's ball switched to it, as light as the page previewed it; then a picture put in its colour
+    // slot from the headset's card and saved from the headset: made again from ball.glb with the share kept
+    const ballB64 = await sp(A, `(async () => {
+      exporterLoad();
+      const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
+      g.computeVertexNormals();
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e02020' : '#20c020'; x.fillRect(i * 8, j * 8, 8, 8); }
+      const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshStandardMaterial({ name: 'skin', map: new T.CanvasTexture(cv), roughness: 1, metalness: 0 })));
+      const glb = await new Promise(res => new T.GLTFExporter().parse(root, res, { binary: true }));
+      const u = new Uint8Array(glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s);
+    })()`);
+    fs.writeFileSync(path.join(SC, 'test', 'ball.glb'), Buffer.from(ballB64, 'base64'));
+    const bSeen = await sUntil(A, `STU.fileMap.has('ball.glb')`, 12000);
+    const ballId = bSeen ? await sp(A, `(setEdit(true), addModel('ball.glb'))`) : '';
+    const bIn = [];
+    for (const p of [A, B, C, H]) bIn.push(!!ballId && await sUntil(p, `(() => { const it = STU.items.get('${ballId}'); return !!(it && it.model && it.E.state === 'ready'); })()`, 30000));
+    await sp(A, `(select('${ballId}'), X.tab = 'item', renderPanes(), ftOpen('${ballId}'), 0)`);
+    const fPv = await sUntil(A, `!!FT.pv && !FT.busy && FT.pv.keep === 0.2`, 30000), fWant = await sp(A, 'FT.pv ? FT.pv.to : 0'), fOthers = await sp(B, `STUDIO.tris('${ballId}')`);
+    if (fPv) await click(A, '#pane-item [data-act="ft:save"]');
+    const fDone = fPv && await sUntil(A, `!CV.busy && CV.done.includes('models/ball.glb')`, 90000);
+    const glbRecOf = f => { try { const b = fs.readFileSync(path.join(SC, 'test', f)); return JSON.parse(b.toString('utf8', 20, 20 + b.readUInt32LE(12))).asset.extras.studio; } catch (e) { return null; } };
+    const fRec = glbRecOf('models/ball.glb'), fsw = [];
+    for (const p of [A, B, C, H]) fsw.push(await sUntil(p, `(() => { const it = STU.items.get('${ballId}'), E = LIB.get('models/ball.glb'); return !!it && it.rec.file === 'models/ball.glb' && !!E && E.state === 'ready' && it.built === E.gen && STUDIO.tris('${ballId}') === ${fWant}; })()`, 30000));
+    check('studio: Fewer triangles saved on a page (20 %, previewed there only): models/ball.glb through the relay with tris in its record, and every page\'s and the headset\'s ball switches to it, as light as previewed',
+      bSeen && !!ballId && bIn.every(Boolean) && fPv && fOthers === 24320 && fDone && !!fRec && !!fRec.tris && fRec.tris.from === 24320 && fRec.tris.to === fWant && fRec.tris.keep === 0.2 && fsw.every(Boolean),
+      JSON.stringify({ bSeen, ballId, bIn, fPv, fWant, fOthers, fDone, fRec, fsw, note: await sp(A, 'CV.note') }));
+    const cXR = await sp(H, 'XR.on'), cd0 = await sp(H, 'CV.done.length');
+    await sp(H, `(setEdit(true), select('${ballId}'), X.tab = 'item', act('ct:open', '${ballId}'), act('ct:pic', 'paint.png'), 0)`);
+    const cShown = await sUntil(H, `!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    if (cShown) await sp(H, `(act('ct:save'), 0)`);
+    const cDone = cShown && await sUntil(H, `!CV.busy && !CT.saving && CV.done.length > ${cd0}`, 90000);
+    const cRec = glbRecOf('models/ball.glb'), csw = [];
+    for (const p of [A, B, C, H]) csw.push(await sUntil(p, `(() => { const it = STU.items.get('${ballId}'), E = LIB.get('models/ball.glb'); return !!it && !!E && E.state === 'ready' && it.built === E.gen && !!E.record && (E.record.tex || []).some(x => x.from === 'paint.png' && x.slot === 'map') && STUDIO.tris('${ballId}') === ${fWant}; })()`, 30000));
+    check('studio: Change texture from the headset\'s card (paint.png in the colour slot, shown there, saved from the headset through the relay): models/ball.glb made again from ball.glb with the picture in its record and its share kept, on every page and the headset',
+      cXR && cShown && cDone && !!cRec && !!cRec.tex && cRec.tex.some(x => x.from === 'paint.png' && x.slot === 'map' && x.mat === 'skin') && !!cRec.tris && cRec.tris.keep === 0.2 && cRec.from === 'ball.glb' && csw.every(Boolean),
+      JSON.stringify({ cXR, cShown, cDone, cRec, csw, note: await sp(H, 'CV.note') }));
+    await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
+    await sp(H, `(select(''), 0)`);
 
     // ---- a sound that follows a model: the rig scene's dancer copied into the scene and placed on a page, a sound there
     // made to follow her head; every page and the headset take it (each poses its own dancer: at one scene clock, their

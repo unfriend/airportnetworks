@@ -20962,9 +20962,7 @@ function itemBlocks(it, B, ed) {
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
-    ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset)
     if (E) texBlocks(it, E, B);
-    ctBlocks(it, B);
     if (info) {
       if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
       if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
@@ -20991,6 +20989,8 @@ function itemBlocks(it, B, ed) {
     }
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: dis || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: dis || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis })) });
+    ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
+    ctBlocks(it, B);   // which a headset's card keeps in sight)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
     const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
     B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
@@ -21772,7 +21772,10 @@ async function convertFile(path, o = {}) {
     // (made again from itself: the old one kept under originals/, and the new one says so)
     const keepOld = self && canUpload() && /^models\//i.test(path) ? freeName('originals/' + baseName(path), p => STU.fileMap.has(p)) : '';
     const recTex = self ? [...new Map([...((prev && prev.tex) || []), ...(o.tex || [])].map(x => [keyT(x), x])).values()] : [...[...found].filter(([n]) => !m.missing.includes(n)).map(([n, f]) => ({ name: n, mat: '', slot: '', from: f.path, how: f.how })), ...tex.values()];
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep: o.keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    // (made again from its original into a GLB that was made lighter: as light again, unless a share is asked; made again
+    // from itself, it is as light as it is)
+    const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
     if (gen !== STU.gen || GL.gone) return false;

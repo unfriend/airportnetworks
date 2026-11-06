@@ -144,7 +144,10 @@ async function convertFile(path, o = {}) {
     // (made again from itself: the old one kept under originals/, and the new one says so)
     const keepOld = self && canUpload() && /^models\//i.test(path) ? freeName('originals/' + baseName(path), p => STU.fileMap.has(p)) : '';
     const recTex = self ? [...new Map([...((prev && prev.tex) || []), ...(o.tex || [])].map(x => [keyT(x), x])).values()] : [...[...found].filter(([n]) => !m.missing.includes(n)).map(([n, f]) => ({ name: n, mat: '', slot: '', from: f.path, how: f.how })), ...tex.values()];
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep: o.keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    // (made again from its original into a GLB that was made lighter: as light again, unless a share is asked; made again
+    // from itself, it is as light as it is)
+    const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
     if (gen !== STU.gen || GL.gone) return false;
