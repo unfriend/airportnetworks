@@ -315,6 +315,7 @@ function itemBlocks(it, B, ed) {
     if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
     if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
+    behaveBlocks(it, B, dis);   // (a behaviour: what it does when people come close, e6g_behave.js)
     motionBlocks(it, B, dis);   // (a motion drawn over where it stands: e6e_motion.js)
   } else if (it.kind === 'x') {
     const ob = cutObj(it), picking = STU.cutTo === it.id, objs = [...STU.items.values()].filter(o => o.kind === 'o'), pv = STU.whole.has(it.id) ? 'whole' : STU.cutF.has(it.id) ? 'cut' : 'seen';
@@ -362,6 +363,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: mv })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
     if (r.shape === 'plane') B.push({ p: 'A plane stands upright: its z size is not used.', c: 'faint' });
+    behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);
   } else if (it.kind === 'e') {
     // an empty (e6d_shapes.js): where it is, the sounds that follow it, its place
@@ -370,6 +372,7 @@ function itemBlocks(it, B, ed) {
       { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
     if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
+    behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);   // (the sounds that follow it move with it)
   } else {
     const F = it.F;

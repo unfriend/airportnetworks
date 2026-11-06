@@ -95,6 +95,7 @@ function drawnPose(it, now, clockS, out) {
   if (rest || !(POSE.base && POSE.base(it, now, clockS, out))) out.compose(H.position, H.quaternion, H.scale);
   if (rest) return out;
   if (POSE.path) POSE.path(it, now, clockS, out);
+  if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
   const mo = it.rec && it.rec.motion;
   if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
   return out;

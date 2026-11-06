@@ -210,6 +210,7 @@ function frame(now, xrFrame) {
   if (XR.on && !XR.clear) S = Object.assign({}, S, { stage_floor: 0 });   // passthrough: the scene stands in your room
   updateSets(S, tSet, dt);
   GL.world.updateMatrixWorld(true);
+  behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)
   itemsStep(dt, performance.now());
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   if (!STU.framed && APP.mode === 'explore' && !xr && STU.listing === 'ok' && [...STU.items.values()].every(it => it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed'))) { STU.framed = true; if (STU.items.size && X.view === 'orbit') frameScene(true); }
@@ -353,6 +354,9 @@ const STUDIO = {
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
   tris: id => trisOf(id),
+  // an object's, a shape's or an empty's behaviour here (e6g_behave.js): who it reacts to, driven here or drawn from whose
+  // samples, its move and turn
+  behave: id => behaveInfo(id),
   items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, heard: !!it.heard, a: it.a, sa: it.sa, fa: it.fa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused), at: it.holder.position.toArray(), cutting: !!it.cutting })),
   // a cut-out: the object it cuts here (null: none), whether it cuts now, its box's corners in the scene's frame, and what
   // its object's materials are handed (the boxes cutting now, by id; the count the shader takes)

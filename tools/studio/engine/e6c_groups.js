@@ -250,6 +250,8 @@ function duplicateGroup(g) {
       else if (r.on) { const nd = measureNode(m), at = m.holder.position.clone().add(d); nr.p = at.toArray(); if (nd) nr.o = offsetAt(nd, at, followK(followOf(m))); }   // (what it followed, beside where it is)
       putItem(map.get(m.id), 's', norm('s', nr));
     }
+    // (a copy whose behaviour follows an item of the group follows that item's copy: e6g_behave.js)
+    for (const m of ms) { const b = m.rec.behaviour; if (b && b.target && ids.has(b.target)) setRec(map.get(m.id), { behaviour: Object.assign({}, b, { target: map.get(b.target) }) }); }
     for (const c of [...STU.items.values()]) {
       if (c.kind !== 'c' || ids.has(c.id) || used.has(c.id)) continue;
       const more = l => l.concat([...map].filter(([a]) => l.includes(a)).map(([, z]) => z));
