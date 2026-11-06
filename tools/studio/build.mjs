@@ -1,7 +1,7 @@
 // Assembles stories/studio.js (the studio: your own scenes, a page that is not a story) from the tour's kit
 // (tools/lbi/kit.js), three.js r128's own add-ons vendored in vendor/ (pasted with their licence lines, each wrapped so
 // nothing of them shows outside the story but THREE.*: fflate's UMD sees no module, exports, define or global self),
-// the sets and the engine parts in this folder.
+// meshoptimizer's simplifier (vendor/, inside meshoptLoad()), the sets and the engine parts in this folder.
 // usage (from the repository root): node tools/studio/build.mjs        -> writes stories/studio.js
 //                                   node tools/studio/build.mjs --check -> exits 1 if stories/studio.js is out of date
 import fs from 'fs';
@@ -28,6 +28,22 @@ const iife = f => {
 };
 const three = VENDOR.map(f => `// ---- ${f}.js\n${iife(f)}\n`).join('\n') + '\n' +
   LATER.map(f => `// ---- ${f}.js: defined only when the studio first converts a model (Convert to GLB, the Upload pane)\nfunction exporterLoad() {\nif (THREE.${f}) return;\n${iife(f)}\n}\n`).join('\n');
+// meshoptimizer's simplifier (1.3.0, MIT, its WASM inside the file), unchanged but for its last line, an ES module's export:
+// pasted inside a function the studio calls the first time it makes a model lighter (Fewer triangles: meshoptLoad), so
+// its WASM is made only then and nothing of it shows outside that function but what it returns
+const meshoptSrc = () => {
+  const src = read('vendor/meshopt_simplifier.js').trimEnd(), tail = '\nexport { MeshoptSimplifier };';
+  if (!src.endsWith(tail) || !/^\/\/ This file is part of meshoptimizer library and is distributed under the terms of MIT License\.\n/.test(src) || !/\nvar MeshoptSimplifier = \(function \(\) \{/.test(src)) throw new Error('vendor/meshopt_simplifier.js is not the file meshoptimizer 1.3.0 ships (one var and its export at the end): check vendor/README.md');
+  return src.slice(0, -tail.length);
+};
+const meshopt = `// ---- meshopt_simplifier.js: defined only when the studio first makes a model lighter (Fewer triangles, the Upload
+// pane's share), its WebAssembly made then too (await meshoptLoad().ready)
+function meshoptLoad() {
+if (meshoptLoad.s) return meshoptLoad.s;
+${meshoptSrc()}
+return (meshoptLoad.s = MeshoptSimplifier);
+}
+`;
 const vendor = [
   '// three.js r128\'s own add-ons (three@0.128.0, examples/js; MIT, as three.min.js: three.LICENSE.txt), unchanged, and',
   '// fflate 0.6.9 (MIT, Arjun Barrett, https://github.com/101arrowz/fflate), which the FBX loader needs to unpack',
@@ -39,6 +55,7 @@ const vendor = [
   '  return self.fflate;',
   '})();',
   three,
+  meshopt,
 ].join('\n');
 
 // ---- the story

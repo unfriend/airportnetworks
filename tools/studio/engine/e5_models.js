@@ -9,8 +9,9 @@
 // are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
-// turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter)
-const CONV = makeConverter(THREE, { exporter: () => exporterLoad() });
+// turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter; and the
+// simplifier for Fewer triangles only when first asked: meshoptLoad, from the vendored meshopt_simplifier.js)
+const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad() });
 const MODEL_EXT = CONV.MODEL_EXT;
 const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap', 'lightMap', 'displacementMap'];
 function lib(path) {

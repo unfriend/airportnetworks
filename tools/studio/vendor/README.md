@@ -18,5 +18,13 @@ Copied unchanged from three.js r128 (`three@0.128.0`, `examples/js/`, MIT, the s
 and `fflate.min.js` (fflate 0.6.9 by Arjun Barrett, MIT, <https://github.com/101arrowz/fflate>; the copy three.js r128
 ships in `examples/js/libs/`), which the FBX loader needs to unpack compressed binary FBX arrays.
 
+And `meshopt_simplifier.js` (meshoptimizer 1.3.0 by Arseny Kapoulkine, MIT, <https://github.com/zeux/meshoptimizer>;
+from `cdn.jsdelivr.net/npm/meshoptimizer@1.3.0/meshopt_simplifier.js`, one file with its WebAssembly inside, its licence
+line at its top), the simplifier behind *Fewer triangles* (the converter's `reduce`: an object's card, the Upload pane's
+share per model, `convert.mjs --keep`).
+
 `tools/studio/build.mjs` pastes the app's ones into `stories/studio.js` with their licence lines (`GLTFExporter.js` last, inside
-`exporterLoad()`, so it is defined only when the studio first converts a model); never edit them here.
+`exporterLoad()`, so it is defined only when the studio first converts a model; `meshopt_simplifier.js` inside
+`meshoptLoad()`, its last line, the ES module's `export { MeshoptSimplifier };`, left out, so its WebAssembly is made only
+when the studio first makes a model lighter); never edit them here. `convert.mjs` imports `meshopt_simplifier.js` as the
+module it is.
