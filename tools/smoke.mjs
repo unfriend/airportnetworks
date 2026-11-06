@@ -1226,6 +1226,8 @@ await step('design: the intro ends at the table', async () => {
 // with no relay: downloaded, a GLB whose record names the original, loading back with its triangles and take; a placed
 // figure switched to it keeping its corners within 1 mm, one Undo step); the Upload pane with no relay (the test scene's
 // originals dropped: the plan's rows, grouping and names, converting offered as downloads, #studio&upload opening it);
+// Fewer triangles and Change texture on a dense ball made in the page (the preview in place, Save with tris, the switch,
+// the headset's card, a picture shown, cancelled and saved; the Upload pane's share and picture);
 // the headset panels' panes and its Stories screen (no Upload tab); Download
 {
   const stp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
