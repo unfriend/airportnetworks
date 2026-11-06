@@ -3594,8 +3594,12 @@ async function studioRound(dir) {
     // nothing, the hand swinging it for 2 s at 30 frames a second, the recorder's clock the test's); let go, the path is in
     // its record (its place unchanged) and reaches every page; at one room time held on each (HOST.collab.now stubbed, half
     // way through the path's loop), every page and the headset draw the box at the same pose (within 1 mm and 0.001 rad of
-    // the first page's), away from where it is placed. (Recorded on the headset, taken back on B: A's Undo list stays short)
+    // the first page's), away from where it is placed. (Recorded on the headset, taken back on B: A's Undo list stays short.
+    // First every device has B's last write of the box, the motions taken off: a write of the same record still on its way
+    // from B would land after the headset's and take the path away again, the last writer winning)
     {
+    for (const p of [A, B, C, H]) await sUntil(p, `(() => { const b = STU.items.get('box001'), f = STU.items.get('fig001'); return !!(b && f) && !b.rec.motion && !f.rec.motion && !b.gl; })()`, 15000);
+    await sleep(1000);
     const rRec = await sp(H, `(() => {
       const V = (...a) => new THREE.Vector3(...a), it = STU.items.get('box001'), a = XR.ctrls[0], rc = recClock, p0 = JSON.stringify(it.rec.p);
       let T = 1000; recClock = () => T;
