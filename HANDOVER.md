@@ -43,6 +43,54 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v118 (6 November 2026; FORMAT networks-33, shell 118: running pages ask before reloading), on `dev` first:
+  the owner's batch of 5 November, all but compressed textures.**
+  - Circles asked first, a room setting (`ask` in `look`; FORMAT networks-33). *Circles: walk in* / *Circles: ask first*
+    on the headset menu's Circles tab and in the page's Shared dialog, for everyone in the room, never refused by either
+    lock; off by default, so a room that never wrote it walks in as before. With it on, walking into a circle does
+    nothing and the story stays at its circle; the trigger, a pinch or the right fingertip on another circle's card,
+    ring or icon brings up a small panel (*Go in* / *Not now*, the circle's kicker and title, a countdown) 0.9 m ahead,
+    gone after 10 s, on Not now or when the menu opens. Go in takes the headset there from where it stands (story
+    circles, All stories circles, and Back to the lobby, which ends the story as walking in did). The room's arc is
+    never asked about.
+  - A frame-rate read-out, each headset's own (*Frame rate: on/off* on the Settings tab, under Moving and Subtitles;
+    `xrFps`, `#fps=on|off`): frames a second (green from 70, amber from 55, else red), the mean and worst time between
+    frames, triangles, draw calls and the time our code takes, once a second, low on the left of the view. It counts
+    the shell's things in the scene too (rings, icons, the menu).
+  - A keypad for the stories (`HOST.collab.keypad({ title, hint, value, max })`, a promise of the word or null): a page
+    of the menu with a to z, 0 to 9, space, `_`, `.` and `-`.
+  - Studio scenes as circles: with a relay that serves scenes, the page's Add and the headset's Add here list *Studio:
+    <scene>* for each, after Studio; such a circle opens that scene for everyone at it (its saved layout, written alike
+    on every device) and is titled so wherever the shell names a station. Several studio circles in a room; *Studio
+    here* moves the room's plain studio circle (the one not made for a scene, `sc` in its record) or adds one.
+  - In the studio: a model is selected and carried from inside it when nothing else is under the ray (in a headset
+    always, on a page in Walk view off the floor); *Hold it* on a selected item's headset card: the next grip, wherever
+    it points, carries it (for a scan you stand in). The sticks' up and down scroll the studio's panel the ray is on
+    (and its copy on the menu's Story tab), the walk and turn waiting meanwhile; no other story's headset panel scrolls
+    (they step by buttons), so nothing changed there. *New scene* (a name on the page, the keypad in a headset).
+    *From another scene...* on the Add pane: another scene's models and sounds, copied in with the files they name
+    (the relay's new `POST /api/scenes/<name>/copy`, a folder's or R2's by CopyObject), then placed, so each scene keeps
+    its own files.
+  - Fixed after the reviews: *Studio here* after a scene was picked at the plain circle added another circle (now told
+    by how the circle was made); the circles question never stands over the open menu; a second keypad keeps the first
+    one's closing of the menu; *Hold it* stays armed when the grip is on the studio's panel (that grip moves the panel).
+  - Known limits: the Add list of scenes is read when the dialog or Add here opens (a scene made meanwhile shows the
+    next time); two copies to one new name at the same moment on R2 can leave the second (it checks, then copies);
+    inside a scan you stand in, pointing at nothing selects the scan (clear it from its row under Items); a circle made
+    for a scene whose items were all deleted and not saved gets its saved layout back when someone arrives (save the
+    empty scene to keep it empty).
+  - Untested on a headset: the question panel (its place, pressing it by ray, pinch and fingertip, a story entered from
+    across the room), the frame-rate read-out and its numbers on a Quest (renderer.info for both eyes), the keypad,
+    picking and carrying a scan from inside, Hold it, stick scrolling's speed, New scene and From another scene there.
+    Untested against real R2: CopyObject with its signed copy source.
+  - Tests: the smoke test (215 checks), the relay's (631), R2's signer (39), the update and live tests all passed on the
+    merged tree. The full shared-room run: 516 passed, 7 failed. Two were peer-to-peer timing failures this run has
+    shown before. Four were races in the test itself on a loaded machine, now fixed in `tools/collab.mjs`: a headset
+    began its session before the frame it was handed reached it (and the next check, which follows from it, failed
+    too); the ask check waited 5 s for the room's key; the pretend headset's clock was read at the arc without its
+    frames; a page followed the scene's circle before it had heard of it. A second reading of the code found no product
+    bug behind any of them. Run alone afterwards, `--studio` (36), `--ask` (13), `--all` (27) and `--p2p` (18) passed.
+    A second full run with those fixes is under way.
 - **networks-v117 (5 November 2026; FORMAT networks-32 unchanged, shell 116: only the studio changed, so running pages
   swap it in), on `dev` first: two small studio fixes from the owner's list.**
   - Trigger cubes: the cube entered last decides, and a *Stays once entered* cube walked into again counts as entered
