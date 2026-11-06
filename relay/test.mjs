@@ -1759,6 +1759,44 @@ if (me === 'hang') setInterval(() => {}, 1000);
     w.close();
   });
 
+  // a model's picture for the studio's Add pane (tools/studio/SPEC.md, "Pictures in the Add pane"): previews/<the model's
+  // path>.jpg, at most 200 KB, listed with a kind of its own
+  await step('previews: previews/ takes only a model\'s picture (.jpg, at most 200 KB, also as it streams), listed and told with its kind preview, served as a JPEG; copies by the same rule', async () => {
+    const J = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), bytes(6000)]), KB200 = 200 << 10;
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const r = await upf('previews/models/a.glb.jpg', J), a = r.json();
+    ok(r.status === 200 && a.path === 'previews/models/a.glb.jpg' && a.bytes === J.length && fs.readFileSync(at('previews/models/a.glb.jpg')).equals(J), '200: a model\'s picture where it goes, its folder made');
+    const told = await w.next(ev('scene', d => d.path === 'previews/models/a.glb.jpg'), 3000);
+    ok(told && told.data.kind === 'preview' && told.data.gone === false, 'the watch tells it with its kind, preview');
+    w.close();
+    const one = (await req('GET', '/api/scenes/one', { at: UP.port })).json(), f = one.files.find(x => x.path === 'previews/models/a.glb.jpg');
+    ok(!!f && f.kind === 'preview' && f.bytes === J.length && one.files.filter(x => x.kind === 'preview').length === 1 && one.files.find(x => x.path === 'models/a.glb').kind === 'model',
+      'listed with its kind, preview (never image or model); its model as before: ' + JSON.stringify(f));
+    const sv = await req('GET', '/scenes/one/previews/models/a.glb.jpg', { at: UP.port });
+    ok(sv.status === 200 && sv.headers['content-type'] === 'image/jpeg' && sv.buf.equals(J), 'served as a JPEG');
+    // a file put in previews/ by hand that is not such a picture: listed as other (never a texture)
+    fs.writeFileSync(at('previews/odd.png'), bytes(20));
+    const odd = (await req('GET', '/api/scenes/one', { at: UP.port })).json().files.find(x => x.path === 'previews/odd.png');
+    ok(odd && odd.kind === 'other', 'a picture put in previews/ by hand that is not a .jpg: listed as other (' + (odd && odd.kind) + ')');
+    fs.rmSync(at('previews/odd.png'));
+    const ok2 = [await upf('previews/x.jpg', J), await upf('previews/originals/eva/eva_001.FBX.jpg', J), await upf('previews/a/b/c/d.glb.jpg', J), await upf('Previews/x.jpg', J)];
+    ok(ok2.every(x => x.status === 200), 'any depth up to 4 folders, and Previews/ (another folder: a picture there is an ordinary image): 200 (' + ok2.map(x => x.status).join(' ') + ')');
+    const before = tree(), bad = [];
+    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/a.jpeg', 'previews/models/a.glb', 'previews/notes.txt', 'previews/.jpg', 'previews/a/b/c/d/e.glb.jpg', 'previews']) bad.push((await upf(p, J)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'anything but a .jpg under previews/ (a PNG, .JPG, .jpeg, a model, text), too deep: 400, nothing written (' + bad.join(' ') + ')');
+    ok(/previews\/ takes only the studio's pictures/.test((await upf('previews/a.png', J)).json().error), 'it says why');
+    const ex = await upf('previews/exact.jpg', bytes(KB200)), b1 = await upf('previews/big1.jpg', bytes(KB200 + 1)), b2 = await upf('previews/deep/big2.jpg', bytes(3 * KB200), { chunked: true });
+    ok(ex.status === 200 && b1.status === 413 && b2.status === 413 && /a picture in previews\/ is at most 200 KB/.test(b2.json().error) && !fs.existsSync(at('previews/big1.jpg')) && !fs.existsSync(at('previews/deep')) && !leftovers().length,
+      `exactly 200 KB: 200; past it 413 by its Content-Length (${b1.status}) and counted as it streams (${b2.status}), in its own words; nothing left behind`);
+    ok((await upf('models/big.glb', bytes(KB200 + 1))).status === 200, 'elsewhere --max-upload (1 MB here) as before');
+    const cp = (b, scene = 'new%20one') => send(UP.port, `/api/scenes/${scene}/copy`, Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const c1 = await cp({ from: 'one', path: 'previews/models/a.glb.jpg' }), c2 = await cp({ from: 'one', path: 'models/big.glb', as: 'previews/big.glb.jpg' }), c3 = await cp({ from: 'one', path: 'tex/a.PNG', as: 'previews/a.png' });
+    ok(c1.status === 200 && fs.readFileSync(path.join(U, 'new one', 'previews', 'models', 'a.glb.jpg')).equals(J) && c2.status === 413 && /at most 200 KB/.test(c2.json().error) && c3.status === 400,
+      `copies: a picture copied with it (${c1.status}); one over 200 KB (${c2.status}) or not a .jpg (${c3.status}) refused`);
+  });
+
   await step('uploads: POST /api/scenes/<name>/sound: ffmpeg (a stand-in) makes a mono MP3 at 96 kbit/s and 44.1 kHz; its failures, its limit, two at once, none at all', async () => {
     const W = bytes(40000), r = await snd('sounds/a.mp3', W), a = r.json();
     const note = ffNotes('ok').pop() || { args: [] }, args = note.args, input = args[args.indexOf('-i') + 1], out = args[args.length - 1];
@@ -2085,6 +2123,45 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok((await req('POST', '/api/scenes/one/put?path=x.glb&size=1', { at: UP.port })).status === 501 && (await req('GET', '/api/scenes/new%20one/put?path=x.glb&size=1', { at: RR.port })).status === 405,
       'a relay whose scenes are a folder: 501; GET: 405');
     ok(noLeak(RR.out) && !(await req('POST', '/api/scenes/new%20one/put?path=..%2Fx&size=1', { at: RR.port })).text.includes('X-Amz'), 'no signed link in the log or in an error');
+    w.close();
+  });
+
+  await step('R2: previews/ by the same rule: a model\'s picture through the relay and straight into the bucket (.../put signs its size; at most 200 KB), listed and told as kind preview; other kinds refused; done and copies by it', async () => {
+    const J = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), bytes(5000)]), KB200 = 200 << 10;
+    const upr = (p, body, o = {}) => send(RR.port, `/api/scenes/new%20one/file?path=${encodeURIComponent(p)}${o.replace ? '&replace=1' : ''}`, body, o);
+    const api = (what, q) => req('POST', `/api/scenes/new%20one/${what}?${q}`, { at: RR.port });
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const r = await upr('previews/models/a.glb.jpg', J);
+    ok(r.status === 200 && obj('new one/previews/models/a.glb.jpg').body.equals(J) && obj('new one/previews/models/a.glb.jpg').type === 'image/jpeg', 'through the relay: 200, into the bucket as image/jpeg');
+    const told = await w.next(ev('scene', d => d.path === 'previews/models/a.glb.jpg'), 3000);
+    ok(told && told.data.kind === 'preview', 'the watch tells it as kind preview');
+    const L = (await rget('/api/scenes/new%20one')).json(), f = L.files.find(x => x.path === 'previews/models/a.glb.jpg');
+    ok(!!f && f.kind === 'preview' && typeof f.url === 'string' && f.url.startsWith(S3.url), 'listed as kind preview, with its signed link');
+    const pg = await fetch(f.url);
+    ok(pg.status === 200 && Buffer.from(await pg.arrayBuffer()).equals(J), 'its link gives the picture');
+    const bad = [];
+    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/models/a.glb']) bad.push((await upr(p, J)).status);
+    const b1 = await upr('previews/big.jpg', bytes(KB200 + 1)), b2 = await upr('previews/big2.jpg', bytes(3 * KB200), { chunked: true });
+    ok(bad.every(x => x === 400) && b1.status === 413 && b2.status === 413 && /at most 200 KB/.test(b2.json().error) && !obj('new one/previews/big.jpg') && !obj('new one/previews/big2.jpg') && r2tmp() === tmp0,
+      `other kinds: 400 (${bad.join(' ')}); past 200 KB: 413 by Content-Length and as it streams; nothing in the bucket or left behind`);
+    // straight into the bucket
+    const p = await api('put', 'path=previews%2Fmodels%2Fb.glb.jpg&size=' + J.length), pj = p.json();
+    ok(p.status === 200 && pj.headers['Content-Type'] === 'image/jpeg' && pj.path === 'previews/models/b.glb.jpg', 'put: a signed link for it, its type image/jpeg');
+    const up = await fetch(pj.url, { method: 'PUT', headers: pj.headers, body: J }), d = await api('done', 'path=previews%2Fmodels%2Fb.glb.jpg&size=' + J.length);
+    ok(up.status === 200 && d.status === 200 && obj('new one/previews/models/b.glb.jpg').body.equals(J) && !!(await w.next(ev('scene', x => x.path === 'previews/models/b.glb.jpg' && x.kind === 'preview'), 3000)),
+      'the PUT and done: 200, told as kind preview');
+    const s = [await api('put', 'path=previews%2Fc.jpg&size=' + (KB200 + 1)), await api('put', 'path=previews%2Fc.png&size=10')];
+    ok(s[0].status === 413 && /at most 200 KB/.test(s[0].json().error) && s[1].status === 400, `put: over 200 KB 413, not a .jpg 400 (${s.map(x => x.status).join(' ')})`);
+    seed('new one/previews/huge.jpg', bytes(KB200 + 10));
+    const hg = await api('done', 'path=previews%2Fhuge.jpg');
+    ok(hg.status === 413 && !!obj('new one/previews/huge.jpg') && /previews\/huge\.jpg in the bucket is .*more than a picture in previews\/ takes: left there/.test(RR.out),
+      'done for a picture over 200 KB no link of the relay\'s brought: 413, left there');
+    const cp = b => send(RR.port, '/api/scenes/new%20one/copy', Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const c1 = await cp({ from: 'new one', path: 'previews/models/a.glb.jpg', as: 'previews/models/c.glb.jpg' }), c2 = await cp({ from: 'new one', path: 'previews/huge.jpg', as: 'previews/h.jpg' });
+    ok(c1.status === 200 && obj('new one/previews/models/c.glb.jpg').body.equals(J) && c2.status === 413 && !obj('new one/previews/h.jpg'), `copies in the bucket by the same rule (${c1.status} ${c2.status})`);
+    ok(noLeak(RR.out), 'no signed link or key in the log');
+    for (const k of S3.keys()) if (k.startsWith(PFX + 'new one/previews/')) S3.del(k);   // (the steps after know the scene without them)
     w.close();
   });
 
