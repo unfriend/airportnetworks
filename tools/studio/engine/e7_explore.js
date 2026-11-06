@@ -492,6 +492,8 @@ function texBlocks(it, E, B) {
   for (const [n, f] of E.found) if (HOW_WORDS[f.how]) B.push({ p: `Texture ${n}: using ${f.path}, ${HOW_WORDS[f.how](f.path)}.`, c: 'faint' });
   for (const d of E.decoded || []) B.push({ p: `Texture ${d.name}: read from its ${d.fmt} file in the page (a browser cannot show it itself).`, c: 'faint' });
   if (E.record) for (const x of E.record.tex || []) if (HOW_WORDS[x.how]) B.push({ p: `${x.name ? 'Texture ' + x.name : SLOT_NAME[x.slot] + ' picture'}: ${baseName(x.from)}, ${HOW_WORDS[x.how](x.from)} (in this GLB).`, c: 'faint' });
+  // (the converter filled the gaps between its pictures' pieces: CONV.fillModel)
+  if (E.record && E.record.fill) B.push({ p: `Textures: the gaps between the pieces of ${E.record.fill === 1 ? 'its picture are' : 'its ' + E.record.fill + ' pictures are'} filled with the colours round them (in this GLB), so it shows no black seams when made lighter.`, c: 'faint' });
   const uvs = (E.mats || []).filter(m => m.uv);
   if (E.info && (E.mats || []).length) {
     if (!can) laptop = laptop || !!uvs.length;

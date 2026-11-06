@@ -17696,7 +17696,162 @@ function makeImages(z) {
   }
   const psdBack = url => String(url).replace(/\.(p)(s)(~|%7e)(?=$|[?#])/i, (m, p, q) => '.' + p + q + (q === 'S' ? 'D' : 'd'));   // (in the name's own case)
 
-  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits };
+  // ---- the gaps between a picture's pieces (tools/studio/SPEC.md, "Fewer triangles": the fill). A scan's texture is an
+  // atlas of many small pieces with black, unused texels between them; a lighter model keeps its seams joined in 3D but
+  // straightens each piece's outline in the picture, so its triangles sample the black between pieces (black wedges along
+  // the seams). cover() marks the texels a model's triangles use; fillGaps() fills every other texel from the nearest that
+  // one does. Both plain typed arrays, so a page and Node alike (no canvas, no float buffers: a 4,096 px picture is
+  // filled in about 90 MB besides its own bytes).
+  // cover(cov, w, h, P, ix, s, e): the triangles ix[s..e) (no ix: corners in order), their corners' places in pixels in P
+  // (x, y pairs, y down the picture), marked 1 in cov (w x h): each texel whose centre is inside a triangle or on its edge;
+  // a triangle that holds no texel's centre marks the texels its corners and middle are in (a tiny piece keeps its own
+  // colours). -> the triangles drawn
+  function cover(cov, w, h, P, ix, s, e) {
+    let n = 0;
+    const mark = (x, y) => { const i = Math.min(w - 1, Math.max(0, Math.floor(x))), j = Math.min(h - 1, Math.max(0, Math.floor(y))); cov[j * w + i] = 1; };
+    for (let t = s; t + 2 < e; t += 3, n++) {
+      const a = ix ? ix[t] : t, c0 = ix ? ix[t + 1] : t + 1, c1 = ix ? ix[t + 2] : t + 2;
+      const x0 = P[a * 2], y0 = P[a * 2 + 1];
+      let x1 = P[c0 * 2], y1 = P[c0 * 2 + 1], x2 = P[c1 * 2], y2 = P[c1 * 2 + 1];
+      if (!(Number.isFinite(x0 + y0 + x1 + y1 + x2 + y2))) continue;
+      let area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0), hit = 0;
+      if (area < 0) { const sx = x1, sy = y1; x1 = x2; y1 = y2; x2 = sx; y2 = sy; area = -area; }
+      if (area > 1e-9) {
+        const minX = Math.max(0, Math.ceil(Math.min(x0, x1, x2) - 0.5)), maxX = Math.min(w - 1, Math.floor(Math.max(x0, x1, x2) - 0.5));
+        const minY = Math.max(0, Math.ceil(Math.min(y0, y1, y2) - 0.5)), maxY = Math.min(h - 1, Math.floor(Math.max(y0, y1, y2) - 0.5));
+        // (each edge's function at the texels' centres, stepped along a row: >= 0 on the inside; a hair's tolerance so a
+        // centre on an edge two triangles share is in both)
+        const A0 = y0 - y1, B0 = x1 - x0, A1 = y1 - y2, B1 = x2 - x1, A2 = y2 - y0, B2 = x0 - x2, eps = -1e-7 * area;
+        for (let j = minY; j <= maxY; j++) {
+          const py = j + 0.5, px = minX + 0.5;
+          let e0 = B0 * (py - y0) + A0 * (px - x0), e1 = B1 * (py - y1) + A1 * (px - x1), e2 = B2 * (py - y2) + A2 * (px - x2), o = j * w + minX;
+          for (let i = minX; i <= maxX; i++, o++) {
+            if (e0 >= eps && e1 >= eps && e2 >= eps) { cov[o] = 1; hit++; }
+            e0 += A0; e1 += A1; e2 += A2;
+          }
+        }
+      }
+      if (!hit) { mark(x0, y0); mark(x1, y1); mark(x2, y2); mark((x0 + x1 + x2) / 3, (y0 + y1 + y2) / 3); }
+    }
+    return n;
+  }
+  // fillGaps(d, w, h, cov, o): the RGBA bytes d (w x h) filled where cov is 0 from the texels where it is not, which never
+  // change: o.band rings of exact edge colours (each texel a copy of a neighbour's from the ring before; 2 to 8 by size:
+  // what a lighter model's wedges and the mipmaps read), then a smooth push-pull fill for the rest (each level's known
+  // texels averaged into the next, smaller one; each unknown texel then drawn back, bilinearly, from the level above).
+  // Alpha kept as it is, unless o.alpha (then filled with the colours). cov is used up (its values change). o.pause(): a
+  // promise yielded to every o.slice ms (25), so a page or a headset keeps drawing. -> { filled, band, ms }
+  async function fillGaps(d, w, h, cov, o) {
+    o = o || {};
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now(), AL = !!o.alpha;
+    const SL = o.slice || 25, pause = o.pause || null;
+    let last = now();
+    const due = () => !!pause && now() - last > SL, rest = async () => { await pause(); last = now(); };
+    const band = o.band !== undefined ? o.band : Math.min(8, Math.max(2, Math.round(Math.max(w, h) / 512)));
+    // (states: 1 covered, 2 filled in a ring, 3 waiting in the next ring, 0 still empty)
+    let F = new Int32Array(4096), G = new Int32Array(4096), S = new Int32Array(4096), nF = 0, nG = 0, filled = 0;
+    const grow = (a, n) => { if (n < a.length) return a; let m = a.length * 2; while (m <= n) m *= 2; const b = new Int32Array(m); b.set(a); return b; };
+    // a texel's eight neighbours (sides first, then corners), those off the picture left out
+    const NB = new Int32Array(8);
+    const around = p => {
+      const x = p % w, y = (p - x) / w;
+      if (x > 0 && y > 0 && x < w - 1 && y < h - 1) { NB[0] = p - 1; NB[1] = p + 1; NB[2] = p - w; NB[3] = p + w; NB[4] = p - w - 1; NB[5] = p - w + 1; NB[6] = p + w - 1; NB[7] = p + w + 1; return 8; }
+      let n = 0;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const qx = x + dx, qy = y + dy; if (qx >= 0 && qy >= 0 && qx < w && qy < h) NB[n++] = qy * w + qx; }
+      return n;
+    };
+    // the first ring: every empty texel beside a covered one (only a covered texel with an empty one beside it looked round)
+    for (let y = 0; y < h; y++) {
+      if (due()) await rest();
+      const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+      for (let x = 0; x < w; x++) {
+        if (cov[r0 + x] !== 1) continue;
+        const l = x > 0 ? x - 1 : x, r = x < w - 1 ? x + 1 : x;
+        if (cov[r0 + l] && cov[r0 + r] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + r] && cov[dn + l] && cov[dn + r]) continue;
+        const n = around(r0 + x);
+        for (let k = 0; k < n; k++) { const q = NB[k]; if (cov[q] === 0) { cov[q] = 3; F = grow(F, nF); F[nF++] = q; } }
+      }
+    }
+    for (let r = 0; r < band && nF; r++) {
+      // each texel's colour: a copy of a neighbour's that was covered or filled before this ring (sides first, then
+      // corners); the empty texels round it wait for the next ring (marked so, they are no one's source in this one)
+      S = grow(S, nF); nG = 0;
+      const next = r + 1 < band;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let src = -1;
+        for (let k = 0; k < n; k++) {
+          const q = NB[k], v = cov[q];
+          if (src < 0 && (v === 1 || v === 2)) src = q;
+          else if (next && v === 0) { cov[q] = 3; G = grow(G, nG); G[nG++] = q; }
+        }
+        S[i] = src;
+      }
+      for (let i = 0; i < nF; i++) {
+        if (S[i] < 0) continue;
+        const p = F[i] * 4, q = S[i] * 4;
+        d[p] = d[q]; d[p + 1] = d[q + 1]; d[p + 2] = d[q + 2];
+        if (AL) d[p + 3] = d[q + 3];
+        cov[F[i]] = 2; filled++;
+      }
+      const t = F; F = G; G = t; nF = nG;
+      if (due()) await rest();
+    }
+    for (let i = 0; i < nF; i++) if (cov[F[i]] === 3) cov[F[i]] = 0;
+    F = G = S = null;
+    // the rest: push-pull. Levels down to 1 x 1, each texel the mean of its known children (4 bytes a texel; the alpha
+    // too only when it is filled)
+    const levels = [];
+    let cw = w, ch = h, sc = d, sk = cov;
+    while (cw > 1 || ch > 1) {
+      const nw = (cw + 1) >> 1, nh = (ch + 1) >> 1, c = new Uint8Array(nw * nh * 4), k = new Uint8Array(nw * nh);
+      for (let y = 0; y < nh; y++) {
+        if (due()) await rest();
+        const ra = 2 * y * cw, rb = 2 * y + 1 < ch ? ra + cw : -1;
+        for (let x = 0; x < nw; x++) {
+          const xa = 2 * x, xb = xa + 1 < cw ? xa + 1 : -1;
+          let n = 0, s0 = 0, s1 = 0, s2 = 0, s3 = 0, q = ra + xa;
+          if (sk[q]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (xb >= 0 && sk[q = ra + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && sk[q = rb + xa]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (rb >= 0 && xb >= 0 && sk[q = rb + xb]) { q *= 4; s0 += sc[q]; s1 += sc[q + 1]; s2 += sc[q + 2]; s3 += sc[q + 3]; n++; }
+          if (!n) continue;
+          const o4 = (y * nw + x) * 4;
+          c[o4] = (s0 / n + 0.5) | 0; c[o4 + 1] = (s1 / n + 0.5) | 0; c[o4 + 2] = (s2 / n + 0.5) | 0; c[o4 + 3] = (s3 / n + 0.5) | 0;
+          k[y * nw + x] = 1;
+        }
+      }
+      levels.push({ w: nw, h: nh, c, k });
+      cw = nw; ch = nh; sc = c; sk = k;
+    }
+    // ...then, from the top down, each unknown texel drawn from the level above (complete by then), bilinearly
+    const draw = async (L, P) => {
+      const pw = P.w, ph = P.h, pc = P.c, out = L ? L.c : d, kk = L ? L.k : cov, lw = L ? L.w : w, lh = L ? L.h : h;
+      const XA = new Int32Array(lw), XB = new Int32Array(lw), TX = new Float32Array(lw);
+      for (let x = 0; x < lw; x++) { const fx = (x + 0.5) / 2 - 0.5, x0 = Math.floor(fx); TX[x] = fx - x0; XA[x] = Math.max(0, x0) * 4; XB[x] = Math.min(pw - 1, x0 + 1) * 4; }
+      for (let y = 0; y < lh; y++) {
+        if (due()) await rest();
+        const fy = (y + 0.5) / 2 - 0.5, y0 = Math.floor(fy), ty = fy - y0, ya = Math.max(0, y0) * pw * 4, yb = Math.min(ph - 1, y0 + 1) * pw * 4;
+        for (let x = 0, p = y * lw; x < lw; x++, p++) {
+          if (kk[p]) continue;
+          const tx = TX[x], a = ya + XA[x], b = ya + XB[x], c = yb + XA[x], e = yb + XB[x], o4 = p * 4;
+          const wa = (1 - tx) * (1 - ty), wb = tx * (1 - ty), wc = (1 - tx) * ty, we = tx * ty;
+          out[o4] = (pc[a] * wa + pc[b] * wb + pc[c] * wc + pc[e] * we + 0.5) | 0;
+          out[o4 + 1] = (pc[a + 1] * wa + pc[b + 1] * wb + pc[c + 1] * wc + pc[e + 1] * we + 0.5) | 0;
+          out[o4 + 2] = (pc[a + 2] * wa + pc[b + 2] * wb + pc[c + 2] * wc + pc[e + 2] * we + 0.5) | 0;
+          if (AL) out[o4 + 3] = (pc[a + 3] * wa + pc[b + 3] * wb + pc[c + 3] * wc + pc[e + 3] * we + 0.5) | 0;
+          if (L) kk[p] = 1; else filled++;
+        }
+      }
+    };
+    if (levels.length && levels[levels.length - 1].k[0]) {
+      for (let i = levels.length - 2; i >= 0; i--) await draw(levels[i], levels[i + 1]);
+      await draw(null, levels[0]);
+    }
+    return { filled, band, ms: Math.round(now() - t0) };
+  }
+
+  return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits, cover, fillGaps };
 }
 // ================================================================ CONVERT ==
 // The converter (tools/studio/SPEC.md, "GLB first, and converting"): one module in two places, the studio's page (its
@@ -17712,9 +17867,12 @@ function makeImages(z) {
 //   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
 //   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
 //   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
+//   fillModel(root, o)  the gaps between its pictures' pieces filled from the colours round them (engine/images.js's cover
+//                       and fillGaps), so a lighter model samples no black between them; o.copy: new canvases, the model's
+//                       own pictures left as they are (the studio's preview)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
-//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (o.keep: made lighter first), loaded back
-//                       and checked against it
+//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
+//                       false; o.keep: made lighter first), loaded back and checked against it
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
@@ -18001,6 +18159,9 @@ function makeConverter(THREE, hooks) {
         }
       });
       for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+      // (a GLB written with its pictures' gaps filled: they are not filled again when it is made again from itself)
+      const rec = asset ? glbRecord({ asset }) : null;
+      if (rec && rec.fill) root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) if (m[k] && m[k].isTexture) FILLED.add(m[k]); });
       return { root, clips, guess, asset, missing: [...missing], ext, why, decoded };
     } finally { for (const u of blobs.keys()) URL.revokeObjectURL(u); }
   }
@@ -18032,7 +18193,8 @@ function makeConverter(THREE, hooks) {
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
-  // keep } when it was made lighter (Fewer triangles) }
+  // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
+  // filled (fillModel) }
   const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
   const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
   const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
@@ -18045,7 +18207,9 @@ function makeConverter(THREE, hooks) {
     // (tris: the triangles of what it was made from, of the GLB, and the share asked: Fewer triangles)
     const tr = r.tris && typeof r.tris === 'object' && Number.isFinite(r.tris.from) && Number.isFinite(r.tris.to) && r.tris.from > 0 && r.tris.to >= 0
       ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr };
+    // (fill: how many of its pictures have the gaps between their pieces filled)
+    const fl = Number.isFinite(r.fill) && r.fill > 0 ? Math.min(99, Math.round(r.fill)) : 0;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -18329,6 +18493,112 @@ function makeConverter(THREE, hooks) {
     return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
   }
 
+  // ---- the gaps between a picture's pieces filled (tools/studio/SPEC.md, "Fewer triangles": the fill; the owner, 6
+  // November 2026: "leaves black artifacts in the textured models"). A scan's texture is an atlas of many small pieces
+  // with black, unused texels between them; a lighter model keeps its seams joined in 3D but straightens each piece's
+  // outline in the picture, so at 10 % its triangles sample the black between pieces: black wedges along the seams (and
+  // even all its triangles show thin dark seams once mipmapped). Every texel no triangle of the model as it is now uses
+  // is filled from the nearest one that does (engine/images.js: cover and fillGaps), the used ones never changed, so
+  // whatever share is kept later samples colours of its own piece. Only where it makes sense: texture coordinates within
+  // 0 to 1 (a picture that repeats across the model, tiles, is left alone), under 95 % of it used, every mesh showing it
+  // with texture coordinates. Every slot is filled with its own values (a normal map with normals, never black); alpha
+  // kept as it is where a material reads it (see-through or cut out), else filled too (a canvas cannot hold a colour
+  // where alpha is 0). Done on the model before it is made lighter
+  const FILL_SLOTS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
+  // (three.js r128 reads every picture on the first texture coordinates through one transform, the first of these a
+  // material has; the occlusion picture through the second set, and its own)
+  const UV_FIRST = ['map', 'specularMap', 'displacementMap', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap'];
+  const uvXf = (mt, two) => {
+    const t = two ? mt.aoMap || mt.lightMap : UV_FIRST.map(k => mt[k]).find(x => x && x.isTexture);
+    if (!t) return null;
+    if (t.matrixAutoUpdate) t.updateMatrix();
+    const e = t.matrix.elements;
+    return e[0] === 1 && e[1] === 0 && e[3] === 0 && e[4] === 1 && e[6] === 0 && e[7] === 0 ? null : [e[0], e[1], e[3], e[4], e[6], e[7]];
+  };
+  const sizeOf = img => [img && (img.naturalWidth || img.width || 0), img && (img.naturalHeight || img.height || 0)];
+  // (the textures whose gaps are filled: a GLB's that says so, and the ones filled here; three.js r128's textures have
+  // no userData)
+  const FILLED = new WeakSet(), filled = t => FILLED.has(t);
+  // the pictures a model shows, each with its textures and the triangles that show it (by geometry, texture coordinates,
+  // range of its index, transform and way up)
+  function fillPlan(root) {
+    const plan = new Map();
+    root.traverse(n => {
+      if (!n.isMesh || !n.geometry || !n.geometry.attributes.position) return;
+      const g = n.geometry, ms = [].concat(n.material || []), multi = Array.isArray(n.material) && g.groups && g.groups.length > 0;
+      const all = g.index ? g.index.count : g.attributes.position.count;
+      ms.forEach((mt, mi) => {
+        if (!mt) return;
+        const ranges = multi ? g.groups.filter(gr => (gr.materialIndex || 0) === mi).map(gr => [Math.max(0, gr.start), Math.min(all, gr.start + gr.count)]) : [[0, all]];
+        for (const slot of FILL_SLOTS) {
+          const t = mt[slot];
+          if (!t || !t.isTexture) continue;
+          const [w, h] = sizeOf(t.image);
+          if (!w || !h) continue;
+          let e = plan.get(t.image);
+          if (!e) plan.set(t.image, e = { img: t.image, w, h, texs: new Set(), uses: new Map(), why: '', alpha: false });
+          e.texs.add(t);
+          if (slot === 'map' && (mt.transparent || mt.alphaTest > 0)) e.alpha = true;
+          const two = slot === 'aoMap', name = two && g.attributes.uv2 ? 'uv2' : 'uv', uv = g.attributes[name];
+          if (!uv) { e.why = e.why || 'a mesh shows it without texture coordinates'; continue; }
+          const xf = uvXf(mt, two), rep = t.wrapS !== T.ClampToEdgeWrapping || t.wrapT !== T.ClampToEdgeWrapping, flip = t.flipY !== false;
+          for (const [s, f] of ranges) e.uses.set([g.uuid, name, s, f, xf, flip, rep].join('|'), { g, uv, s, f, xf, flip, rep });
+        }
+      });
+    });
+    return plan;
+  }
+  // o: { copy (each filled picture a new canvas: the model's own stay as they are; else filled where it is, a canvas of
+  // its own, or the textures given a new one) }; a picture all of whose textures are filled already is left as it is. -> { list: [{ img,
+  // canvas, texs, share, ms }] filled, again (pictures filled already), why: [reasons a picture was left alone], ms }
+  async function fillModel(root, o) {
+    o = o || {};
+    const t0 = performance.now(), plan = fillPlan(root), list = [], why = [];
+    let again = 0, last = t0;
+    const uvs = new Map(), pace = async () => { if (performance.now() - last > 25) { await yieldNow(); last = performance.now(); } };
+    for (const e of plan.values()) {
+      if (e.why) { why.push(e.why); continue; }
+      if ([...e.texs].every(filled)) { again++; continue; }
+      const { w, h } = e, N = w * h;
+      if (w < 16 || h < 16 || !e.uses.size) continue;   // (too small to matter)
+      const t1 = performance.now(), cov = new Uint8Array(N);
+      let tiles = false;
+      for (const u of e.uses.values()) {
+        const key = u.g.uuid + '|' + (u.uv === u.g.attributes.uv2 ? 'uv2' : 'uv');
+        let A = uvs.get(key);
+        if (!A) uvs.set(key, A = floats(plainAttr(u.uv), 2, new Float32Array(u.uv.count * 2), 0, 2));
+        const n = u.uv.count, P = new Float32Array(n * 2), x = u.xf, ix = u.g.index ? u.g.index.array : null;
+        // (which corners the range uses, and whether any of them reads past 0 to 1: a picture that tiles)
+        const used = new Uint8Array(n);
+        for (let i = u.s; i < u.f; i++) used[ix ? ix[i] : i] = 1;
+        for (let v = 0; v < n; v++) {
+          if (!used[v]) continue;
+          let a = A[v * 2], b = A[v * 2 + 1];
+          if (x) { const a2 = x[0] * a + x[2] * b + x[4]; b = x[1] * a + x[3] * b + x[5]; a = a2; }
+          if (a < -1e-3 || a > 1.001 || b < -1e-3 || b > 1.001) { if (u.rep) { tiles = true; break; } a = Math.min(1, Math.max(0, a)); b = Math.min(1, Math.max(0, b)); }
+          P[v * 2] = a * w; P[v * 2 + 1] = (u.flip ? 1 - b : b) * h;
+        }
+        if (tiles) break;
+        IM.cover(cov, w, h, P, ix, u.s, u.f);
+        await pace();
+      }
+      if (tiles) { why.push('a picture repeats across the model (tiles)'); continue; }
+      let c = 0;
+      for (let i = 0; i < N; i++) c += cov[i];
+      const share = c / N;
+      if (!c || share >= 0.95) { if (c) why.push('a picture is nearly all used'); continue; }
+      // its bytes (a canvas of its own when it is one and nothing asks for a copy), filled, and put back
+      const own = !o.copy && typeof HTMLCanvasElement !== 'undefined' && e.img instanceof HTMLCanvasElement, cv = own ? e.img : document.createElement('canvas');
+      if (!own) { cv.width = w; cv.height = h; cv.getContext('2d').drawImage(e.img, 0, 0, w, h); }
+      const x = cv.getContext('2d'), id = x.getImageData(0, 0, w, h);
+      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, pause: yieldNow });
+      x.putImageData(id, 0, 0);
+      if (!o.copy) for (const t of e.texs) { if (!own) t.image = cv; FILLED.add(t); t.needsUpdate = true; }
+      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled });
+    }
+    return { list, again, why: [...new Set(why)], ms: Math.round(performance.now() - t0) };
+  }
+
   // ---- how many triangles a model file holds, read cheaply from its bytes (the Upload pane's rows, before loading it):
   // glTF from its accessors, OBJ from its faces, STL from its count, PLY from its header (faces taken as triangles), FBX
   // from its polygons' corners (PolygonVertexIndex); null when it cannot be told
@@ -18407,8 +18677,9 @@ function makeConverter(THREE, hooks) {
   }
 
   // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
-  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), look
-  // (draw both and compare: needs hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
+  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), fill
+  // (false: its pictures' gaps not filled), keep (a share of its triangles kept), look (draw both and compare: needs
+  // hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
   // scale and turn), so the GLB is in metres and Y up, as glTF is. Loaded back and compared with the original: triangles,
   // size, skins, bones, animations, and where the bones and a sample of skinned corners are at a few moments of every
   // animation. -> { ok, why, notes, before, after, check, look, sheet, glb, record, missing }. Nothing is changed on a
@@ -18543,6 +18814,22 @@ function makeConverter(THREE, hooks) {
     if (!before.normals) notes.push('no normals (a scan\'s mesh): marked to be shown as scanned');
     await yieldNow();
 
+    // the gaps between its pictures' pieces filled (fillModel), by its triangles before it is made lighter, so the lighter
+    // one shows no black seams; o.fill false: not. A picture the GLB it was made from had filled already is left as it is
+    let fill = null;
+    if (o.fill !== false) {
+      step('Filling its textures\' gaps', 0.12);
+      fill = await fillModel(wrap);
+      for (const f of fill.list) {
+        // (made opaque where nothing reads its alpha: then written as JPEG, as an opaque one is)
+        const pic = [...pics.values()].find(p => p.cv === f.canvas);
+        if (pic && pic.fmt === T.RGBAFormat && opaque(f.canvas)) { pic.fmt = T.RGBFormat; for (const t of f.texs) t.format = T.RGBFormat; }
+      }
+      const n = fill.list.length;
+      if (n) notes.push(`texture gaps filled: ${n === 1 ? 'its picture' : n + ' pictures'} (${fill.list.map(f => Math.round(f.share * 100) + ' %').join(', ')} of ${n === 1 ? 'it' : 'them'} used by its triangles) given the colours round its pieces between them, so a lighter model shows no black seams (${(fill.ms / 1000).toFixed(1)} s)`);
+      await yieldNow();
+    }
+
     // corners welded: a vertex for every distinct corner (all its attributes the same), and an index
     if (o.weld !== false) {
       step('Welding corners', 0.15);
@@ -18625,6 +18912,7 @@ function makeConverter(THREE, hooks) {
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
+    if (fill && fill.list.length + fill.again) record.fill = fill.list.length + fill.again;
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -18728,7 +19016,7 @@ function makeConverter(THREE, hooks) {
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }
 
@@ -21587,6 +21875,8 @@ function texBlocks(it, E, B) {
   for (const [n, f] of E.found) if (HOW_WORDS[f.how]) B.push({ p: `Texture ${n}: using ${f.path}, ${HOW_WORDS[f.how](f.path)}.`, c: 'faint' });
   for (const d of E.decoded || []) B.push({ p: `Texture ${d.name}: read from its ${d.fmt} file in the page (a browser cannot show it itself).`, c: 'faint' });
   if (E.record) for (const x of E.record.tex || []) if (HOW_WORDS[x.how]) B.push({ p: `${x.name ? 'Texture ' + x.name : SLOT_NAME[x.slot] + ' picture'}: ${baseName(x.from)}, ${HOW_WORDS[x.how](x.from)} (in this GLB).`, c: 'faint' });
+  // (the converter filled the gaps between its pictures' pieces: CONV.fillModel)
+  if (E.record && E.record.fill) B.push({ p: `Textures: the gaps between the pieces of ${E.record.fill === 1 ? 'its picture are' : 'its ' + E.record.fill + ' pictures are'} filled with the colours round them (in this GLB), so it shows no black seams when made lighter.`, c: 'faint' });
   const uvs = (E.mats || []).filter(m => m.uv);
   if (E.info && (E.mats || []).length) {
     if (!can) laptop = laptop || !!uvs.length;
@@ -23050,7 +23340,7 @@ async function upVia(url, body, onP) {
 // stand); Cancel puts it back. Both save from a headset too, with a relay that takes uploads. Never in the layout or
 // collab.state(): what is shared is the switch to the GLB, as for Convert to GLB.
 const FT_DEFAULT = 0.2, FT_PICKS = [0.1, 0.2, 0.5];
-const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0 };
+const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0, fill: null, fsw: [], fLight: '' };
 const CT = { id: '', mat: 0, slot: 'map', pic: null, tex: null, saved: null, busy: false, gen: 0, note: '', noteC: 'muted', page: 0, saving: false, after: 0, light: '', model: null };
 const CT_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];
 const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
@@ -23087,6 +23377,7 @@ function ftBlocks(it, B) {
     else if (pv.k < 0.995 && pv.to >= pv.from * 0.98) B.push({ p: 'Its parts have too few triangles to come down further: it stays as it is.', c: 'amber' });
     else B.push({ p: pv.k >= 0.995 ? (k >= 0.995 ? 'All its triangles: shown as it is.' : 'It has about that many already: shown as it is.') : `Shown here with ${fmt(pv.to)} triangles, on this device only: look at it close up before you save it.`, c: 'green' });
     for (const n of pv.notes.slice(1)) B.push({ p: n.charAt(0).toUpperCase() + n.slice(1) + '.', c: 'faint' });
+    if (FT.fill && FT.fill.n) B.push({ p: `${FT.fill.n === 1 ? 'Its picture is' : 'Its pictures are'} shown with the gaps between ${FT.fill.n === 1 ? 'its' : 'their'} pieces filled with the colours round them, as Save fills ${FT.fill.n === 1 ? 'it' : 'them'}: no black seams.`, c: 'faint' });
   }
   if (FT.note) B.push({ p: FT.note, c: FT.noteC });
   const why = liteWhy();
@@ -23121,30 +23412,74 @@ function ftSet(v, now) {
   dirty();
 }
 // the preview: the object's own model given the lighter geometries (the converter's reduce on its file's model, which
-// stays as loaded: the other objects of that file keep theirs)
+// stays as loaded: the other objects of that file keep theirs), and its pictures with their gaps filled, as Save fills them
 async function ftPreview() {
   const it = STU.items.get(FT.id);
   if (!it || !it.model || !it.E || !it.E.root) return;
   const gen = ++FT.gen, b = liteSrc(it), keep = FT.keep, k = Math.min(1, Math.round(b.n0 * keep) / Math.max(1, b.cur));
   ftUnswap(); ftDispose();
-  if (k >= 0.995) { FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model }; FT.busy = false; dirty(true); return; }
   FT.busy = true; FT.note = ''; dirty(true);
   await new Promise(r => later(r, 40));   // (the note shows before the work holds the page)
   if (gen !== FT.gen) return;
   try {
-    const r = await CONV.reduce(it.E.root, k);
-    if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
-    FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
-    for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
-    sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    await ftFill(it.E);
+    if (gen !== FT.gen || FT.id !== it.id || !it.model) return;
+    if (k >= 0.995) FT.pv = { keep, k: 1, from: b.cur, to: b.cur, geos: null, sw: [], notes: [], model: it.model };
+    else {
+      const r = await CONV.reduce(it.E.root, k);
+      if (gen !== FT.gen || FT.id !== it.id || !it.model) { for (const g of r.geos.values()) g.dispose(); return; }
+      FT.pv = { keep, k, from: r.from, to: r.to, geos: r.geos, sw: [], notes: r.notes, ms: r.ms, model: it.model };
+      for (const m of it.model.meshes) { const g = r.geos.get(m.geometry); if (g) { FT.pv.sw.push([m, m.geometry]); m.geometry = g; } }
+      sfxAct('step', 'stage', 'centre', { gain: 0.4 });
+    }
+    ftFillShow(it);
   } catch (e) { if (gen === FT.gen) { FT.note = 'The preview could not be made: ' + e.message; FT.noteC = 'red'; } }
   finally { if (gen === FT.gen) FT.busy = false; dirty(true); }
 }
-const ftUnswap = () => { if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
+const ftUnswap = () => { ftFillHide(); if (FT.pv) for (const [m, g] of FT.pv.sw) if (m.geometry !== g) m.geometry = g; };
 const ftDispose = () => { if (FT.pv && FT.pv.geos) for (const g of FT.pv.geos.values()) g.dispose(); if (FT.pv) FT.pv.geos = null; FT.pv = null; };
+// its pictures with the gaps between their pieces filled (CONV.fillModel on the file's model as it is here, into copies:
+// its own pictures stay as they are; a GLB that says its pictures are filled already needs none), worked out once while
+// Fewer triangles is open (again only for another model) and laid on this object's own materials, lit and as scanned, in
+// place of its own; put back by Cancel, Save's end and another object, which free them
+function ftFill(E) {
+  if (FT.fill && FT.fill.root === E.root) return FT.fill.p;
+  ftFillFree();
+  const F = FT.fill = { root: E.root, map: new Map(), rev: new Map(), n: 0, again: 0, ms: 0, gone: false, err: '' };
+  F.p = CONV.fillModel(E.root, { copy: true }).then(r => {
+    if (F.gone) return;
+    for (const f of r.list) for (const t of f.texs) { const c = t.clone(); c.image = f.canvas; c.needsUpdate = true; F.map.set(t, c); F.rev.set(c, t); }
+    F.n = r.list.length; F.again = r.again; F.ms = r.ms;
+  }, e => { F.err = String((e && e.message) || e); });   // (the preview goes on without it)
+  return F.p;
+}
+function ftFillShow(it) {
+  const F = FT.fill;
+  ftFillHide();
+  if (!F || !F.map.size || !it.model) return;
+  for (const c of it.model.meshes) {
+    for (const mt of new Set([].concat(c.material || [], c.userData.lit || [], c.userData.scan || []))) {
+      for (const k of CONV.FILL_SLOTS) {
+        const t = mt[k], orig = F.map.has(t) ? t : F.rev.get(t);   // (a material as scanned made meanwhile took the filled one)
+        if (!orig) continue;
+        FT.fsw.push([mt, k, orig]); mt[k] = F.map.get(orig);
+      }
+    }
+  }
+  FT.fLight = it.light;
+}
+function ftFillHide() { for (const [mt, k, orig] of FT.fsw) mt[k] = orig; FT.fsw = []; }
+function ftFillFree() {
+  const F = FT.fill;
+  if (!F) return;
+  ftFillHide();
+  F.gone = true;
+  for (const c of F.map.values()) { c.dispose(); c.image = null; }
+  FT.fill = null;
+}
 function ftClose() {
   FT.gen++; unlater(FT.t); FT.t = 0;
-  ftUnswap(); ftDispose();
+  ftUnswap(); ftDispose(); ftFillFree();
   FT.id = ''; FT.busy = false; FT.note = ''; FT.after = 0;
   dirty(true);
 }
@@ -23309,6 +23644,7 @@ function liteStep() {
       ftUnswap(); ftDispose();   // (its geometries were on the model that went)
       if (FT.after) ftClose(); else if (it.model) ftPreview();
     }
+    else if (it && FT.fsw.length && FT.fLight !== it.light) ftFillShow(it);   // (lit or as scanned: the other materials)
   }
   if (CT.id) {
     const it = STU.items.get(CT.id);
@@ -23430,7 +23766,8 @@ function thumbOf(root, w, h, wired = true) {
 }
 // for tests and the console: where both stand, and how many triangles an object's model draws now
 const liteState = () => ({
-  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms } },
+  ft: { id: FT.id, keep: FT.keep, busy: FT.busy, saving: FT.saving, note: FT.note, after: !!FT.after, pv: FT.pv && { keep: FT.pv.keep, k: FT.pv.k, from: FT.pv.from, to: FT.pv.to, swapped: FT.pv.sw.length, ms: FT.pv.ms },
+    fill: FT.fill && { n: FT.fill.n, again: FT.fill.again, ms: FT.fill.ms, err: FT.fill.err, shown: FT.fsw.length } },
   ct: { id: CT.id, mat: CT.mat, slot: CT.slot, pic: CT.pic && CT.pic.name, shown: !!(CT.saved && CT.saved.length), busy: CT.busy, saving: CT.saving, note: CT.note, after: !!CT.after },
 });
 const trisOf = id => { const it = STU.items.get(id); let n = 0; if (it && it.model) for (const m of it.model.meshes) { const g = m.geometry; n += (g.index ? g.index.count : g.attributes.position.count) / 3; } return Math.round(n); };

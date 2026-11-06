@@ -12,9 +12,12 @@
 //   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
 //   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
 //   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
+//   fillModel(root, o)  the gaps between its pictures' pieces filled from the colours round them (engine/images.js's cover
+//                       and fillGaps), so a lighter model samples no black between them; o.copy: new canvases, the model's
+//                       own pictures left as they are (the studio's preview)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
-//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (o.keep: made lighter first), loaded back
-//                       and checked against it
+//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
+//                       false; o.keep: made lighter first), loaded back and checked against it
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
@@ -301,6 +304,9 @@ function makeConverter(THREE, hooks) {
         }
       });
       for (const im of images) if (im.decode) { try { await im.decode(); } catch (e) { /* drawn as it is */ } }
+      // (a GLB written with its pictures' gaps filled: they are not filled again when it is made again from itself)
+      const rec = asset ? glbRecord({ asset }) : null;
+      if (rec && rec.fill) root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of TEX_KEYS) if (m[k] && m[k].isTexture) FILLED.add(m[k]); });
       return { root, clips, guess, asset, missing: [...missing], ext, why, decoded };
     } finally { for (const u of blobs.keys()) URL.revokeObjectURL(u); }
   }
@@ -332,7 +338,8 @@ function makeConverter(THREE, hooks) {
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
-  // keep } when it was made lighter (Fewer triangles) }
+  // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
+  // filled (fillModel) }
   const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
   const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
   const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
@@ -345,7 +352,9 @@ function makeConverter(THREE, hooks) {
     // (tris: the triangles of what it was made from, of the GLB, and the share asked: Fewer triangles)
     const tr = r.tris && typeof r.tris === 'object' && Number.isFinite(r.tris.from) && Number.isFinite(r.tris.to) && r.tris.from > 0 && r.tris.to >= 0
       ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr };
+    // (fill: how many of its pictures have the gaps between their pieces filled)
+    const fl = Number.isFinite(r.fill) && r.fill > 0 ? Math.min(99, Math.round(r.fill)) : 0;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -629,6 +638,112 @@ function makeConverter(THREE, hooks) {
     return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
   }
 
+  // ---- the gaps between a picture's pieces filled (tools/studio/SPEC.md, "Fewer triangles": the fill; the owner, 6
+  // November 2026: "leaves black artifacts in the textured models"). A scan's texture is an atlas of many small pieces
+  // with black, unused texels between them; a lighter model keeps its seams joined in 3D but straightens each piece's
+  // outline in the picture, so at 10 % its triangles sample the black between pieces: black wedges along the seams (and
+  // even all its triangles show thin dark seams once mipmapped). Every texel no triangle of the model as it is now uses
+  // is filled from the nearest one that does (engine/images.js: cover and fillGaps), the used ones never changed, so
+  // whatever share is kept later samples colours of its own piece. Only where it makes sense: texture coordinates within
+  // 0 to 1 (a picture that repeats across the model, tiles, is left alone), under 95 % of it used, every mesh showing it
+  // with texture coordinates. Every slot is filled with its own values (a normal map with normals, never black); alpha
+  // kept as it is where a material reads it (see-through or cut out), else filled too (a canvas cannot hold a colour
+  // where alpha is 0). Done on the model before it is made lighter
+  const FILL_SLOTS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
+  // (three.js r128 reads every picture on the first texture coordinates through one transform, the first of these a
+  // material has; the occlusion picture through the second set, and its own)
+  const UV_FIRST = ['map', 'specularMap', 'displacementMap', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap'];
+  const uvXf = (mt, two) => {
+    const t = two ? mt.aoMap || mt.lightMap : UV_FIRST.map(k => mt[k]).find(x => x && x.isTexture);
+    if (!t) return null;
+    if (t.matrixAutoUpdate) t.updateMatrix();
+    const e = t.matrix.elements;
+    return e[0] === 1 && e[1] === 0 && e[3] === 0 && e[4] === 1 && e[6] === 0 && e[7] === 0 ? null : [e[0], e[1], e[3], e[4], e[6], e[7]];
+  };
+  const sizeOf = img => [img && (img.naturalWidth || img.width || 0), img && (img.naturalHeight || img.height || 0)];
+  // (the textures whose gaps are filled: a GLB's that says so, and the ones filled here; three.js r128's textures have
+  // no userData)
+  const FILLED = new WeakSet(), filled = t => FILLED.has(t);
+  // the pictures a model shows, each with its textures and the triangles that show it (by geometry, texture coordinates,
+  // range of its index, transform and way up)
+  function fillPlan(root) {
+    const plan = new Map();
+    root.traverse(n => {
+      if (!n.isMesh || !n.geometry || !n.geometry.attributes.position) return;
+      const g = n.geometry, ms = [].concat(n.material || []), multi = Array.isArray(n.material) && g.groups && g.groups.length > 0;
+      const all = g.index ? g.index.count : g.attributes.position.count;
+      ms.forEach((mt, mi) => {
+        if (!mt) return;
+        const ranges = multi ? g.groups.filter(gr => (gr.materialIndex || 0) === mi).map(gr => [Math.max(0, gr.start), Math.min(all, gr.start + gr.count)]) : [[0, all]];
+        for (const slot of FILL_SLOTS) {
+          const t = mt[slot];
+          if (!t || !t.isTexture) continue;
+          const [w, h] = sizeOf(t.image);
+          if (!w || !h) continue;
+          let e = plan.get(t.image);
+          if (!e) plan.set(t.image, e = { img: t.image, w, h, texs: new Set(), uses: new Map(), why: '', alpha: false });
+          e.texs.add(t);
+          if (slot === 'map' && (mt.transparent || mt.alphaTest > 0)) e.alpha = true;
+          const two = slot === 'aoMap', name = two && g.attributes.uv2 ? 'uv2' : 'uv', uv = g.attributes[name];
+          if (!uv) { e.why = e.why || 'a mesh shows it without texture coordinates'; continue; }
+          const xf = uvXf(mt, two), rep = t.wrapS !== T.ClampToEdgeWrapping || t.wrapT !== T.ClampToEdgeWrapping, flip = t.flipY !== false;
+          for (const [s, f] of ranges) e.uses.set([g.uuid, name, s, f, xf, flip, rep].join('|'), { g, uv, s, f, xf, flip, rep });
+        }
+      });
+    });
+    return plan;
+  }
+  // o: { copy (each filled picture a new canvas: the model's own stay as they are; else filled where it is, a canvas of
+  // its own, or the textures given a new one) }; a picture all of whose textures are filled already is left as it is. -> { list: [{ img,
+  // canvas, texs, share, ms }] filled, again (pictures filled already), why: [reasons a picture was left alone], ms }
+  async function fillModel(root, o) {
+    o = o || {};
+    const t0 = performance.now(), plan = fillPlan(root), list = [], why = [];
+    let again = 0, last = t0;
+    const uvs = new Map(), pace = async () => { if (performance.now() - last > 25) { await yieldNow(); last = performance.now(); } };
+    for (const e of plan.values()) {
+      if (e.why) { why.push(e.why); continue; }
+      if ([...e.texs].every(filled)) { again++; continue; }
+      const { w, h } = e, N = w * h;
+      if (w < 16 || h < 16 || !e.uses.size) continue;   // (too small to matter)
+      const t1 = performance.now(), cov = new Uint8Array(N);
+      let tiles = false;
+      for (const u of e.uses.values()) {
+        const key = u.g.uuid + '|' + (u.uv === u.g.attributes.uv2 ? 'uv2' : 'uv');
+        let A = uvs.get(key);
+        if (!A) uvs.set(key, A = floats(plainAttr(u.uv), 2, new Float32Array(u.uv.count * 2), 0, 2));
+        const n = u.uv.count, P = new Float32Array(n * 2), x = u.xf, ix = u.g.index ? u.g.index.array : null;
+        // (which corners the range uses, and whether any of them reads past 0 to 1: a picture that tiles)
+        const used = new Uint8Array(n);
+        for (let i = u.s; i < u.f; i++) used[ix ? ix[i] : i] = 1;
+        for (let v = 0; v < n; v++) {
+          if (!used[v]) continue;
+          let a = A[v * 2], b = A[v * 2 + 1];
+          if (x) { const a2 = x[0] * a + x[2] * b + x[4]; b = x[1] * a + x[3] * b + x[5]; a = a2; }
+          if (a < -1e-3 || a > 1.001 || b < -1e-3 || b > 1.001) { if (u.rep) { tiles = true; break; } a = Math.min(1, Math.max(0, a)); b = Math.min(1, Math.max(0, b)); }
+          P[v * 2] = a * w; P[v * 2 + 1] = (u.flip ? 1 - b : b) * h;
+        }
+        if (tiles) break;
+        IM.cover(cov, w, h, P, ix, u.s, u.f);
+        await pace();
+      }
+      if (tiles) { why.push('a picture repeats across the model (tiles)'); continue; }
+      let c = 0;
+      for (let i = 0; i < N; i++) c += cov[i];
+      const share = c / N;
+      if (!c || share >= 0.95) { if (c) why.push('a picture is nearly all used'); continue; }
+      // its bytes (a canvas of its own when it is one and nothing asks for a copy), filled, and put back
+      const own = !o.copy && typeof HTMLCanvasElement !== 'undefined' && e.img instanceof HTMLCanvasElement, cv = own ? e.img : document.createElement('canvas');
+      if (!own) { cv.width = w; cv.height = h; cv.getContext('2d').drawImage(e.img, 0, 0, w, h); }
+      const x = cv.getContext('2d'), id = x.getImageData(0, 0, w, h);
+      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, pause: yieldNow });
+      x.putImageData(id, 0, 0);
+      if (!o.copy) for (const t of e.texs) { if (!own) t.image = cv; FILLED.add(t); t.needsUpdate = true; }
+      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled });
+    }
+    return { list, again, why: [...new Set(why)], ms: Math.round(performance.now() - t0) };
+  }
+
   // ---- how many triangles a model file holds, read cheaply from its bytes (the Upload pane's rows, before loading it):
   // glTF from its accessors, OBJ from its faces, STL from its count, PLY from its header (faces taken as triangles), FBX
   // from its polygons' corners (PolygonVertexIndex); null when it cannot be told
@@ -707,8 +822,9 @@ function makeConverter(THREE, hooks) {
   }
 
   // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
-  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), look
-  // (draw both and compare: needs hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
+  // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), fill
+  // (false: its pictures' gaps not filled), keep (a share of its triangles kept), look (draw both and compare: needs
+  // hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
   // scale and turn), so the GLB is in metres and Y up, as glTF is. Loaded back and compared with the original: triangles,
   // size, skins, bones, animations, and where the bones and a sample of skinned corners are at a few moments of every
   // animation. -> { ok, why, notes, before, after, check, look, sheet, glb, record, missing }. Nothing is changed on a
@@ -843,6 +959,22 @@ function makeConverter(THREE, hooks) {
     if (!before.normals) notes.push('no normals (a scan\'s mesh): marked to be shown as scanned');
     await yieldNow();
 
+    // the gaps between its pictures' pieces filled (fillModel), by its triangles before it is made lighter, so the lighter
+    // one shows no black seams; o.fill false: not. A picture the GLB it was made from had filled already is left as it is
+    let fill = null;
+    if (o.fill !== false) {
+      step('Filling its textures\' gaps', 0.12);
+      fill = await fillModel(wrap);
+      for (const f of fill.list) {
+        // (made opaque where nothing reads its alpha: then written as JPEG, as an opaque one is)
+        const pic = [...pics.values()].find(p => p.cv === f.canvas);
+        if (pic && pic.fmt === T.RGBAFormat && opaque(f.canvas)) { pic.fmt = T.RGBFormat; for (const t of f.texs) t.format = T.RGBFormat; }
+      }
+      const n = fill.list.length;
+      if (n) notes.push(`texture gaps filled: ${n === 1 ? 'its picture' : n + ' pictures'} (${fill.list.map(f => Math.round(f.share * 100) + ' %').join(', ')} of ${n === 1 ? 'it' : 'them'} used by its triangles) given the colours round its pieces between them, so a lighter model shows no black seams (${(fill.ms / 1000).toFixed(1)} s)`);
+      await yieldNow();
+    }
+
     // corners welded: a vertex for every distinct corner (all its attributes the same), and an index
     if (o.weld !== false) {
       step('Welding corners', 0.15);
@@ -925,6 +1057,7 @@ function makeConverter(THREE, hooks) {
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
+    if (fill && fill.list.length + fill.again) record.fill = fill.list.length + fill.again;
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -1028,6 +1161,6 @@ function makeConverter(THREE, hooks) {
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }

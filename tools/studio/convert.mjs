@@ -1,4 +1,4 @@
-// node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--shots <dir>]
+// node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]
 //                                [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]
 // A model made lighter for a headset (tools/studio/SPEC.md, "GLB first, and converting"), in headless Chromium with the
 // studio's own converter (tools/studio/engine/convert.js, the same module the studio's Convert to GLB and Upload pane
@@ -11,6 +11,9 @@
 // with --keep <share> (0.02 to 1) makes it lighter, every mesh down to that share of its triangles with meshoptimizer's
 // simplifier (vendor/meshopt_simplifier.js; its normals and texture coordinates weighed, so its textures stay put; shared
 // corners locked, tiny pieces pruned; a mesh with shape keys left as it is; the record then holds tris: { from, to, keep });
+// fills the gaps between the pieces of its pictures (a scan's texture atlas: black between its pieces) with the colours
+// round them, by its triangles before it is made lighter, so a lighter one shows no black seams (only pictures used within
+// 0 to 1 and under 95 % of them; --no-fill leaves them as they are; the record then holds fill: how many were filled);
 // draws an FBX material of opacity 0 (3ds Max's habit) solid; and writes one binary glTF with GLTFExporter (animations
 // and skins kept, opaque textures as JPEG, the rest as PNG). The guess goes into the file (its root node's scale and
 // turn), so the GLB is in metres and Y up, as glTF is, and asset.extras.studio records it ({ from: the original's file
@@ -34,11 +37,11 @@ import { sceneFiles } from '../../relay/scenes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '../..');
 const EXTS = ['.fbx', '.glb', '.gltf', '.obj', '.ply', '.stl'];
-const USAGE = 'usage: node tools/studio/convert.mjs <in.fbx|.glb|.gltf|.obj|.ply|.stl> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--shots <dir>]\n' +
+const USAGE = 'usage: node tools/studio/convert.mjs <in.fbx|.glb|.gltf|.obj|.ply|.stl> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]\n' +
   '       [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]';
 const SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
 const args = process.argv.slice(2), pos = [], given = [];
-let maxTex = 4096, weld = true, shots = '', texDir = '', keep = 1;
+let maxTex = 4096, weld = true, fill = true, shots = '', texDir = '', keep = 1;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--max-texture') { maxTex = Number(args[++i]); continue; }
   if (args[i] === '--keep') { keep = Number(args[++i]); if (!(keep >= 0.02 && keep <= 1)) { console.log(`--keep: a share of the triangles kept, 0.02 to 1 (0.2: a fifth)\n${USAGE}`); process.exit(1); } continue; }
@@ -53,6 +56,7 @@ for (let i = 0; i < args.length; i++) {
   }
   if (args[i] === '--shots') { shots = args[++i] || ''; if (!shots) { console.log(USAGE); process.exit(1); } continue; }
   if (args[i] === '--no-weld') { weld = false; continue; }
+  if (args[i] === '--no-fill') { fill = false; continue; }
   if (args[i].startsWith('--') || pos.length >= 2) { console.log(USAGE); process.exit(1); }
   pos.push(args[i]);
 }
@@ -107,7 +111,7 @@ try {
   });
   await page.goto('http://convert.local/');
   await page.waitForFunction(() => !!window.MeshoptSimplifier, null, { timeout: 30000 });
-  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, keep, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
+  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, fill, keep, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
     console.log(`${path.basename(input)}: could not be read or written (${String(err.message).split('\n')[0].replace(/^page\.evaluate: /, '')})`);
     if (logs.length) console.log(logs.slice(0, 8).map(t => '  ' + t.slice(0, 200)).join('\n'));
     process.exitCode = 1;
@@ -191,7 +195,7 @@ console.log('(times in headless Chromium on this machine, drawing in software: a
 
 // ---- in the page: the studio's converter (engine/convert.js) loads it, gives it the guess, lightens and exports it, loads
 // it back and compares; the file names it gives are found beside it (by its path, else by name, case aside)
-async function convertInPage({ file, ext, listing, labels, maxTex, weld, keep, given }) {
+async function convertInPage({ file, ext, listing, labels, maxTex, weld, fill, keep, given }) {
   const T = THREE, have = new Set(listing), lower = new Map(listing.map(p => [p.slice(p.lastIndexOf('/') + 1).toLowerCase(), p]));
   const enc = p => '/in/' + p.split('/').map(encodeURIComponent).join('/');
   const C = makeConverter(T, { renderer: (w, h) => { const r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(w, h, false); return r; } });
@@ -223,7 +227,7 @@ async function convertInPage({ file, ext, listing, labels, maxTex, weld, keep, g
     if (!d.done) throw new Error(d.why[0] || `no material ${JSON.stringify(g.mat)} to lay ${g.path.split('/').pop()} on`);
     tex.push({ name: '', mat: g.mat, slot: g.slot, from: lab(g.path), how: 'chosen' });
   }
-  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, keep, from: file, look: true, tex });
+  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, fill, keep, from: file, look: true, tex });
   r.before.parse = r.before.ready = ready;
   const out = { ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, check: r.check, look: r.look, sheet: r.sheet, record: r.record, format: m.guess.format || ext, tex, why2: m.why, reduced: r.reduced };
   if (r.ok) await fetch('/out', { method: 'POST', body: r.glb });

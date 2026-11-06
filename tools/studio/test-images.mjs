@@ -3,7 +3,9 @@
 // pictures (tools/studio/test/scenes/textures/, written by tools/studio/test/make.mjs) and more kinds made in memory
 // (tools/studio/test/pictures.mjs) read back and compared with the pixels they were made from (exactly for TIFF, PSD and
 // uncompressed DDS; within the block format's error for DXT1, DXT5 and BC5); the refusals and their sentences; the
-// texture names' ladder (texFind), ranking (texRank) and slots (slotOf); an FBX's .psd names renamed and back.
+// texture names' ladder (texFind), ranking (texRank) and slots (slotOf); an FBX's .psd names renamed and back; the fill of
+// the gaps between a picture's pieces (cover, fillGaps): texels whose centres a triangle holds, a tiny one's own, the
+// covered texels unchanged, no black left, exact edge colours beside each piece, alpha kept or filled, and a 4,096 px one.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -136,6 +138,64 @@ const bin = Buffer.concat([Buffer.from('Kaydara FBX Binary  \0\x1a\0', 'latin1')
 const rb = IM.renamePsd(bin), bt = Buffer.from(rb.bytes).toString('latin1');
 ok(rb.count === 2 && bt.includes('C:\\art\\Skin.ps~') && bt.includes('Skin.psd.backup') && bt.includes('xx.psd') && bt.includes('tex/b.PS~') && bt.length === bin.length, 'a binary FBX\'s .psd string records made .ps~ (and nothing else)', JSON.stringify(bt.slice(27)));
 ok(IM.psdBack('http://h/s/x.ps~?v=2') === 'http://h/s/x.psd?v=2' && IM.psdBack('C:/a/X.PS%7E') === 'C:/a/X.PSD' && IM.psdBack('x.psd') === 'x.psd', 'and back');
+
+// ---- the gaps between a picture's pieces (cover, fillGaps: "Fewer triangles: the fill" in tools/studio/SPEC.md)
+// cover: two triangles splitting a 16 x 16 picture (the diagonal's centres in both), a tiny one marking its texel
+{
+  const c1 = new Uint8Array(256), c2 = new Uint8Array(256), c3 = new Uint8Array(256);
+  IM.cover(c1, 16, 16, Float32Array.from([0, 0, 16, 0, 0, 16]), null, 0, 3);
+  IM.cover(c2, 16, 16, Float32Array.from([0, 0, 16, 0, 0, 16, 16, 16]), Uint16Array.from([0, 1, 2, 1, 3, 2]), 0, 6);
+  IM.cover(c3, 16, 16, Float32Array.from([5.2, 7.2, 5.3, 7.2, 5.2, 7.3]), null, 0, 3);
+  const sum = a => a.reduce((s, v) => s + v, 0);
+  ok(sum(c1) === 136 && c1[15] === 1 && c1[16 + 15] === 0 && sum(c2) === 256 && sum(c3) === 1 && c3[7 * 16 + 5] === 1, 'cover: texels whose centres are inside or on an edge; a tiny triangle its own texel', [sum(c1), sum(c2), sum(c3)].join());
+}
+// fillGaps: an atlas of three pieces in shaded colours on black (its gaps see-through), covered where the pieces are
+const atlas = (w, h) => {
+  const d = new Uint8ClampedArray(w * h * 4), cov = new Uint8Array(w * h), k = w / 64;
+  const P = [[4, 4, 20, 26, [200, 60, 40]], [30, 8, 58, 20, [40, 170, 220]], [12, 36, 50, 58, [90, 200, 70]]];
+  for (const [x0, y0, x1, y1, c] of P) for (let y = Math.round(y0 * k); y < y1 * k; y++) for (let x = Math.round(x0 * k); x < x1 * k; x++) {
+    const i = (y * w + x) * 4, s = 0.6 + 0.4 * ((x + y) % 7) / 6;   // (shaded, so each texel of an edge has a colour of its own)
+    d[i] = c[0] * s; d[i + 1] = c[1] * s; d[i + 2] = c[2] * s; d[i + 3] = 200 + ((x * 3 + y) % 50); cov[y * w + x] = 1;
+  }
+  return { d, cov };
+};
+for (const alpha of [false, true]) {
+  const w = 64, h = 64, { d, cov } = atlas(w, h), d0 = d.slice(), c0 = cov.slice();
+  const r = await IM.fillGaps(d, w, h, cov, { alpha, band: 3 });
+  let same = true, black = 0, keptA = true, filledA = true, exact = true, ring = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = y * w + x, i = p * 4;
+    if (c0[p]) { for (let j = 0; j < 4; j++) if (d[i + j] !== d0[i + j]) same = false; continue; }
+    if (Math.max(d[i], d[i + 1], d[i + 2]) < 30) black++;
+    if (!alpha && d[i + 3] !== d0[i + 3]) keptA = false;
+    if (alpha && d[i + 3] < 200) filledA = false;
+    // the band: a texel beside a piece is exactly the colour of a covered texel within three of it
+    let near = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const q = (y + dy) * w + x + dx; if (y + dy >= 0 && y + dy < h && x + dx >= 0 && x + dx < w && c0[q]) near = true; }
+    if (!near) continue;
+    ring++;
+    let hit = false;
+    for (let dy = -3; dy <= 3 && !hit; dy++) for (let dx = -3; dx <= 3 && !hit; dx++) {
+      const qy = y + dy, qx = x + dx, q = qy * w + qx;
+      if (qy >= 0 && qy < h && qx >= 0 && qx < w && c0[q] && d[q * 4] === d[i] && d[q * 4 + 1] === d[i + 1] && d[q * 4 + 2] === d[i + 2]) hit = true;
+    }
+    if (!hit) exact = false;
+  }
+  const what = alpha ? 'with its alpha filled' : 'alpha kept';
+  ok(same, `fillGaps (${what}): the covered texels unchanged`);
+  ok(!black && r.filled === w * h - c0.reduce((s, v) => s + v, 0), `fillGaps (${what}): no black left, every gap filled`, `${black} black, ${r.filled} filled`);
+  ok(exact && ring > 100, `fillGaps (${what}): the texels beside a piece are exact copies of its edge colours`, `${ring} beside a piece`);
+  ok(alpha ? filledA : keptA, `fillGaps (${what}): ${alpha ? 'the gaps opaque as the pieces round them' : 'the alpha of the gaps as it was'}`);
+}
+// and a picture as big as the converter makes them (4,096 px: the time it takes here; a page's and a headset's differ)
+{
+  const w = 4096, h = 4096, { d, cov } = atlas(w, h);
+  const r = await IM.fillGaps(d, w, h, cov, { pause: () => new Promise(res => setTimeout(res, 0)) });
+  let black = 0;
+  for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) < 30) black++;
+  ok(!black && r.band === 8, 'fillGaps: a 4,096 px picture filled, no black left', `${black} black`);
+  console.log(`  a 4,096 px picture's gaps filled in ${(r.ms / 1000).toFixed(1)} s here (band of ${r.band})`);
+}
 
 console.log(`\n${checks - fails} of ${checks} checks passed`);
 if (fails) process.exit(1);
