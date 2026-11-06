@@ -126,6 +126,7 @@ void main() {
       O.quad.frustumCulled = false; O.quad.renderOrder = -2; O.quad.visible = false;
       O.quad.onBeforeRender = (r, sc, cam) => eyeUniforms(cam);
       O.room = new THREE.Group(); O.room.name = 'occlusion room'; O.room.visible = false;
+      O.room.renderOrder = -1e9;   // (a group inside a group sets its own order: without this the room's walls came after a story's own low orders)
       O.roomMat = new THREE.ShaderMaterial({ vertexShader: ROOM_VERT, fragmentShader: 'void main() { gl_FragColor = vec4(0.0); }',
         uniforms: { uBias: { value: BIAS.room } }, colorWrite: false, depthWrite: true, depthTest: true, side: THREE.DoubleSide });
       O.root.add(O.quad, O.room);

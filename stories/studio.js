@@ -21071,8 +21071,9 @@ function hookCall(k, v) {
 }
 function settingsStep() {
   const here = !!STU.scene && !GL.gone && !xrAway() && !XR.stories && !HOST.picking;
-  const hide = here && atStation() && STU.settings.others === 'hidden', occ = here ? OCC[STU.settings.real] : null;
-  if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', hide); }
+  // (hide: the station's id, so a walk into another studio circle asks again: the shell lets it lapse when the station changes)
+  const hide = here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = here ? OCC[STU.settings.real] : null;
+  if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', !!hide); }
   if (occ !== HOOK.occ) { HOOK.occ = occ; hookCall('occ', occ); }
 }
 function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false); hookCall('occ', null); }

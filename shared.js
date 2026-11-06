@@ -2845,8 +2845,8 @@
       new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 }));
     OV.marks.add(OV.crossA, OV.crossB, OV.markLine); OV.room.add(OV.marks);
     // (drawn over everything: on a table corner the room's own depth, or the scene, would hide a cross a little under it,
-    // and the check by eye is about where they are)
-    OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 56; });
+    // and the check by eye is about where they are; under the menu, 54, and the sheets, 55, so their buttons stay readable)
+    OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
     OV.aims = [aim(), aim()]; OV.calA = cross();
     OV.root.add(OV.aims[0], OV.aims[1], OV.calA);
     OV.root.visible = false;

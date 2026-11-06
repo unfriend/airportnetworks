@@ -89,8 +89,8 @@
   follow the head can only be checked on a headset: report them as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
   the shared hooks in all sixteen stories, the same lines in each (the `collab`
-  object, the ray and press lines, the grip line, the optional features from
-  `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the Recenter lines (`xrRecenterAsk` and `recenter` in the returned object), the `HOST.collab.mine()` lines in `xrFreshStart` and
+  object, the ray and press lines, the grip line, the session through
+  `HOST.xr.request(mode)` (its features from `HOST.xr.features(mode)`: AR asks for `'shared'` and depth sensing, VR for less), the Recenter lines (`xrRecenterAsk` and `recenter` in the returned object), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`, and the walk-in lines: `xrRoomOnly` and `xrAway` (no Stories screen in a room; away from its station
   the story hidden, not pointable, paused) read in `xrBegin`, `xrPoint`, `xrUpdate`, `xrEnterScene`, `xrFreshStart`,
   `xrEnded`, `xrLandingClose` and the panel footer). `state()` never holds the camera, hover or anything per
@@ -120,7 +120,7 @@
   sounds, see "The studio" in `AGENTS.md` and `tools/studio/SPEC.md`) likewise from `tools/studio/`
   (`node tools/studio/build.mjs`; its engine adapted from the design room's, with every story's shared-room,
   headset-setting, subtitle, panels, recenter, framing and sound-effect lines; three.js r128's own loaders and exporter
-  pasted in from `tools/studio/vendor/`, never edited; its icon `studio.stage` in `tools/lowpoly/`). Its scenes come
+  and meshoptimizer's simplifier (1.3.0, MIT) pasted in from `tools/studio/vendor/`, never edited; its icon `studio.stage` in `tools/lowpoly/`). Its scenes come
   from the relay (`--scenes <folder>`; `relay/scenes.mjs` holds the listing rules, shared with
   `tools/studio/scan.mjs`), which also saves layouts and takes uploads (`/upload`, `ffmpeg` for long sounds): after
   touching those, run `node relay/test.mjs` and `node tools/collab.mjs --studio`. Its test scene is generated
