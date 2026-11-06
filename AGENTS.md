@@ -470,8 +470,40 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
   - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
-    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under Frame rate), only in AR;
+    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
     see "Real-world occlusion" below.
+  - Your menu shown to your circle (v120; the owner, 6 November 2026: "the menu window of each person should optionally
+    be visible for everyone so that i can explain it easier", then "menu shown to others in my circle"): a seventh
+    setting, each headset's own and never the room's (`MSH` in `shared.js`, `xrMenuShare` = `circle` in `localStorage`,
+    off by default; not in `HOST.xr.sig()`, no link option): the menu's *My menu: only me* / *My menu: my circle* row
+    (Settings, under Frame rate, a note beside it). While on, the menu open and this headset lined up at a live station
+    in a shared room (`menuShareTo`), the other headsets at that station see it where it floats here; never while the
+    relay's password page is open (it shows the password as it is typed: the menu is closed for the others meanwhile).
+    It goes out as quiet effects on the station's channel (`e.<station>`, type `@menu`, which the shell takes for itself
+    in `onFx` and never passes to the story; nothing stored, no `FORMAT` change): the menu's pose in room coordinates
+    (`{ k: 'pose', p, q, w, h, n, ts, m }`: its top edge's middle, which it hangs from, its turn, its width and height
+    in metres, the number of its latest picture, the relay's time, `m: 1` while it moves) at most every 200 ms while it
+    moves, once more as it comes to rest and once a second while still; a picture of what it shows (`{ k: 'pic', img,
+    ... }`, the pose too: the drawn part of its canvas, only the height the tab uses, with the Story tab's copies of the
+    story's panels drawn in where they show, on a dark ground) as a JPEG data URL, made smaller and coarser step by step
+    (`MSH.steps`, 540 px wide at quality 0.75 down to 180 at 0.3; the next starts at the step that fitted, a step finer
+    when it came well under) until it is under 47 KB (the relay refuses effects over 64 KB), sent only when what is
+    drawn changed (`menuSig`: the canvas's and the mirrored panels' texture versions and the height shown) and at most
+    every 500 ms, encoded with `toBlob` off the frame; and `{ k: 'closed' }` once when the menu closes, the setting goes
+    off, the station changes or the session ends (`menuShareEnd`). A headset at that station whose latest picture is
+    older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every 1.5 s) and gets the one made already.
+    Every other headset at the same live station draws it (`drawMenus`, `MENUS`) as a plane at that pose in the room
+    (`OV.room`), smoothed as others' moves are (`bufAt` with `MIX.menu`), the picture's own shape, its corners cut
+    round, two faces back to back so it reads the right way round from either side (from behind, left and right are
+    swapped against the person's ray), depth-tested so what stands in front hides it, `renderOrder` 49.5 on its meshes
+    (after the station cards set on top, under the story panels set on top, the subtitles, the read-out and your own
+    menu; its group's stays 0, as three.js r128 sorts by a group's order before an object's own), a tag over its top
+    edge with the person's name by their colour (*Anna's menu*); never pointable or pressable; gone 3 s after its last
+    sample (`menusExpire`) or at once on `closed`. Pages draw nothing; the Shared dialog's people list says *showing
+    their menu*. `HOST.collab.menuShare(on)`, `menuSent()`, `menus(full)` and `menuShot(master)` (the picture as it
+    would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
+    made in the page up to twice a second, about 45 KB to everyone in the room each time; the relay sends every effect
+    to every member), and Quest Browser's `toBlob`.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -1778,7 +1810,8 @@ behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an 
     off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
     `HOST.xr`), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
-    settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
+    settings"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
+    beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
     a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
     mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines

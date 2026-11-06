@@ -317,7 +317,7 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate and Real world hides, this headset's own; Sound, this headset's own on or
+for every story; Frame rate, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
 Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
@@ -345,7 +345,13 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. Real world
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. My menu
+(this headset's own, never the room's): only me (the default) or my circle. With
+my circle, in a shared room the other headsets at your circle see your menu while
+it is open, as a picture where it floats with your name over it, so you can show
+someone where things are; they cannot press it, and it goes when you close it
+(and while the relay's password page is open).
+The Shared dialog's people list says who is showing their menu. Real world
 hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off in a link):
 room and people (the default), room, people or nothing. Real things in front of a scene
 hide it as they would a real object: the walls and furniture of the room scan (run Space
