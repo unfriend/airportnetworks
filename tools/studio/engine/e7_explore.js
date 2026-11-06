@@ -7,7 +7,7 @@
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
 const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
-const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, scrollMax: {}, scrollView: 0, scrollF: { tab: '', v: 0, at: -1 }, orig: false, texAdd: null, texFor: null };
+const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, scrollMax: {}, scrollView: 0, scrollF: { tab: '', v: 0, at: -1 }, orig: false, texAdd: null, texFor: null, sliding: false };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
 const WALK = { pos: new THREE.Vector3(0, 1.6, 3), yaw: 0, pitch: -0.08, to: null };
@@ -270,7 +270,9 @@ function itemBlocks(it, B, ed) {
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
+    ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset)
     if (E) texBlocks(it, E, B);
+    ctBlocks(it, B);
     if (info) {
       if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
       if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
@@ -478,7 +480,7 @@ function texBlocks(it, E, B) {
       }
     }
   }
-  if (laptop && XR.on) B.push({ p: 'Add a texture on a laptop: this card there offers pictures for what is missing, or lays a new one on, and makes the model a GLB with them.', c: 'faint' });
+  if (laptop && XR.on) B.push({ p: 'Add a texture on a laptop: this card there offers pictures for what is missing, or lays a new one on, and makes the model a GLB with them.' + (canLite(it) && ctMats(it).length ? ' Change texture (below) works here too.' : ''), c: 'faint' });
 }
 // a picture's mean colour, to tell a normal map that says nothing in its name (its bluish purple): the slot set again
 async function texMean(A) {
@@ -498,6 +500,7 @@ function texFile(f) {
   if (!F || !f) return;
   if (F.kind === 'up') { upGive(F.ri, [f], F.name); return; }
   if (F.kind === 'add') { if (X.texAdd && X.texAdd.id === F.id) { X.texAdd.pic = { file: f, name: f.name }; X.texAdd.slot = CONV.slotOf(f.name); X.texAdd.slotSet = false; texMean(X.texAdd); } return; }
+  if (F.kind === 'ct') { if (CT.id === F.id) ctPick('', f); return; }   // (Change texture's picture from this computer)
   texGo(F.id, [{ name: F.name, mat: '', slot: '', from: '', file: f }]);
 }
 const chooseTex = F => { X.texFor = F; const i = $('#stuTex'); if (i) i.click(); };
@@ -524,6 +527,7 @@ const TEX_ACT = {
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
+  if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
   const lock = editLocked();
   ({
@@ -567,7 +571,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -606,6 +610,11 @@ function buildExplore() {
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
     .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
     .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
+    .stu-range { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
+    .stu-range input { flex: 1; min-width: 80px; accent-color: var(--cyan); }
+    .stu-range b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+    .stu-plan li .stu-range { grid-column: 2; margin: 4px 0 2px; font-size: 13px; } .stu-plan li .stu-range label { color: var(--muted); }
+    .stu-plan li img.stu-pv { grid-column: 2; max-width: 100%; border-radius: 4px; margin: 4px 0 2px; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -630,6 +639,7 @@ function buildExplore() {
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   uploadBind();
+  liteBind();
   renderPanes();
 }
 function showTab(k) { pickTab(k); }
@@ -643,6 +653,8 @@ function blockHTML(b) {
   if (b.code !== undefined) return `<code class="stu-code">${esc(b.code)}</code>`;
   if (b.kv) return `<dl class="stats">${b.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
   const lab = b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '';
+  // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
+  if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
   if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? `margin-left:${20 * +x.ind}px;` : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
@@ -650,14 +662,15 @@ function blockHTML(b) {
   return '';
 }
 function renderPanes() {
+  if (X.sliding) { X.dirty = true; return; }   // (a slider held: drawn again once it is let go)
   X.dirty = false; X.drawn = performance.now();
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const ae = document.activeElement, fid = ae && ['stuNewName', 'stuSceneName'].includes(ae.id) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
-  if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }
+  if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { if (i.type === 'text') i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }   // (a slider keeps the keyboard's focus too)
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
   const vb = $('#viewctl [data-ctl="view"]');
   if (vb) vb.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === X.view));
@@ -665,6 +678,7 @@ function renderPanes() {
 let paneLast = '';
 function paneStep(now) {
   if (GL.tc && GL.tc.object && !editOn()) tcAttach();   // (a lock or the end of editing: the arrows go)
+  liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
   const s = paneSig();
   if (s !== paneLast) { paneLast = s; X.dirty = true; }

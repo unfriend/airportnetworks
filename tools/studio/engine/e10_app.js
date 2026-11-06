@@ -345,9 +345,12 @@ const STUDIO = {
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
     models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null, found: Object.fromEntries(E.found || []), why: E.why || {}, decoded: E.decoded || [], mats: E.mats || [] }])),
     sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
-    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]) })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
+    lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
   }),
+  // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
+  tris: id => trisOf(id),
   items: () => [...STU.items.values()].map(it => ({ id: it.id, kind: it.kind, rec: it.rec, shown: it.shown, heard: !!it.heard, a: it.a, sa: it.sa, fa: it.fa, act: !!it.act, inside: !!it.inside, built: !!it.model, src: !!it.src, visible: it.holder.visible, stream: !!it.st, playing: !!(it.st && !it.st.el.paused), at: it.holder.position.toArray(), cutting: !!it.cutting })),
   // a cut-out: the object it cuts here (null: none), whether it cuts now, its box's corners in the scene's frame, and what
   // its object's materials are handed (the boxes cutting now, by id; the count the shader takes)

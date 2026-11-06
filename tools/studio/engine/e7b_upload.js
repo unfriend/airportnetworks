@@ -81,15 +81,17 @@ function sceneLists() {
 // downloaded. A failure changes nothing. Pictures laid on by hand (o.tex: [{ name, mat, slot, from, url }], "Textures:
 // found, added, converted" in tools/studio/SPEC.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
 // converting the original again lays them on again; o.into: the GLB to write (an object's own: replaced where it is,
-// the old one first kept under originals/ when it is made again from itself); o.label: the note's first words
+// the old one first kept under originals/ when it is made again from itself); o.label: the note's first words; o.keep: the
+// share of its triangles kept (Fewer triangles: the converter's reduce; 0 or none, all); o.any: from a headset too
 const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null, item: '' };
-const canConvert = p => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && !XR.on;
+// (any: Fewer triangles and Change texture, which write from a headset too; Convert to GLB and the texture buttons are a page's)
+const canConvert = (p, any) => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && (any || !XR.on);
 const canUpload = () => SRC.kind === 'relay' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
 const maxTexNow = () => (UP.quest ? 2048 : 4096);
 // (only the pictures chosen by hand, or by the Upload pane's own rungs, are laid on again: the ladder finds the rest)
 const BY_HAND = ['chosen', 'only', 'stem'];
 async function convertFile(path, o = {}) {
-  if (!canConvert(path) || CV.busy) return false;
+  if (!canConvert(path, o.any) || CV.busy) return false;
   const name = stem(path), scene = STU.scene, gen = STU.gen, lab = o.label || `Converting ${baseName(path)}`, self = o.into === path;
   CV.busy = path; CV.note = `${lab}: reading it...`; CV.noteC = 'muted'; dirty(true);
   let ok = false;
@@ -142,12 +144,12 @@ async function convertFile(path, o = {}) {
     // (made again from itself: the old one kept under originals/, and the new one says so)
     const keepOld = self && canUpload() && /^models\//i.test(path) ? freeName('originals/' + baseName(path), p => STU.fileMap.has(p)) : '';
     const recTex = self ? [...new Map([...((prev && prev.tex) || []), ...(o.tex || [])].map(x => [keyT(x), x])).values()] : [...[...found].filter(([n]) => !m.missing.includes(n)).map(([n, f]) => ({ name: n, mat: '', slot: '', from: f.path, how: f.how })), ...tex.values()];
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep: o.keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
-    const size = mb(r.glb.byteLength), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
+    const size = mb(r.glb.byteLength) + (r.reduced ? `, ${fmt(r.reduced.to)} of ${fmt(r.reduced.from)} triangles` : ''), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
     if (canUpload()) {
       if (keepOld) { CV.note = `${lab}: keeping the old one as ${keepOld}...`; dirty(); await upSend(fileApi(scene, keepOld, false), new Blob([buf], { type: 'model/gltf-binary' })); }
       CV.note = `${lab}: uploading ${out} (${size})...`; dirty();
@@ -178,9 +180,9 @@ async function convertFile(path, o = {}) {
 // relay, else used from memory and the GLB downloaded), baked into the GLB at once. list: [{ name (a missing name) | mat
 // and slot (a slot added), from, file }]. An object on a GLB made from an original still in the scene is made again from
 // that original into the same GLB; a GLB that has none is made again from itself
-async function texGo(id, list) {
+async function texGo(id, list, o = {}) {
   const it = STU.items.get(id);
-  if (!it || it.kind !== 'o' || CV.busy || !canConvert(it.rec.file)) return false;
+  if (!it || it.kind !== 'o' || CV.busy || !canConvert(it.rec.file, o.any)) return false;
   const file = it.rec.file, x0 = list[0], pic = x0.file ? x0.file.name : baseName(x0.from), lab = `Adding ${pic}`, mem = [], gen = STU.gen;
   CV.item = id;
   try {
@@ -196,7 +198,7 @@ async function texGo(id, list) {
         CV.busy = '';
         // (the scene changed, editing went off or the story was locked meanwhile: the picture stays in originals/, said)
         if (gen !== STU.gen) return false;
-        if (!canConvert(file)) { CV.note = `${pic} is in ${x.from}, but ${baseName(file)} was not converted: editing is off or this scene is locked. Use it from the card again.`; CV.noteC = 'amber'; dirty(true); return false; }
+        if (!canConvert(file, o.any)) { CV.note = `${pic} is in ${x.from}, but ${baseName(file)} was not converted: editing is off or this scene is locked. Use it from the card again.`; CV.noteC = 'amber'; dirty(true); return false; }
       } else { x.url = URL.createObjectURL(x.file); mem.push(x.url); x.from = 'originals/' + safeSeg(x.file.name); }
       delete x.file;
     }
@@ -205,7 +207,7 @@ async function texGo(id, list) {
       const r = glbRec(file) || (it.E && it.E.record);
       if (r && r.from && r.from !== file && STU.fileMap.has(r.from) && MODEL_EXT.includes(extOf(r.from))) { src = r.from; into = file; } else if (/^models\//i.test(file)) into = file;
     }
-    return await convertFile(src, { tex: list, into, label: lab });
+    return await convertFile(src, { tex: list, into, label: lab, any: o.any });
   } catch (e) {
     CV.busy = ''; CV.note = `${pic} was not added (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`; CV.noteC = 'red'; dirty(true);
     return false;
@@ -418,10 +420,11 @@ async function upPlan() {
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
   const rows = [];
   for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
-    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path };
+    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path, keep: FT_DEFAULT, tris: null, pv: null };
     try {
       if (!e.buf) e.buf = await e.file.arrayBuffer();
       if (gen !== UP.gen) return;
+      r.tris = CONV.triCount(e.ext, e.buf);   // (its triangles about, from its bytes: the share's words)
       const N = CONV.namesIn(e.ext, e.buf), lost = [];
       const dep = n => { const f = find(n, e); if (f) { if (!r.deps.includes(f)) r.deps.push(f); return f; } if (!lost.includes(n)) lost.push(n); return null; };
       const tex = n => {
@@ -607,6 +610,26 @@ async function upRun() {
     if (relay) listScenes(SRC.gen);
   } finally { UP.busy = false; dirty(true); }
 }
+// a model row's model read, with the files it names among those given (by its plan: a texture name given a picture is
+// that picture, whatever its name): for converting, and for its preview (Fewer triangles' picture)
+async function upLoad(r) {
+  const e = r.main, urls = new Map();
+  for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
+  const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
+  const blobFor = f => { const u = urls.get(f.path.toLowerCase()); if (u) return u; const v = URL.createObjectURL(f.file); UP.blobs.push(v); urls.set(f.path.toLowerCase(), v); return v; };
+  const named = new Map(r.names.filter(x => x.entry).map(x => [x.name.toLowerCase(), x.entry]));
+  const url = u => {
+    let rel = u.startsWith(base) ? u.slice(base.length) : u;
+    try { rel = decodeURIComponent(rel); } catch (err) { /* as it is */ }
+    rel = CONV.IM.psdBack(rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
+    const x = named.get(baseName(rel).toLowerCase());
+    if (x) return blobFor(x);
+    return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
+  };
+  if (!e.buf) e.buf = await e.file.arrayBuffer();
+  const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: maxTexNow(), url });
+  return { m, nm, gltf: ['glb', 'gltf'].includes(e.ext), blobFor };
+}
 // one row: converted (a model, a sound) and its files uploaded, the given ones to originals/ (each once a run)
 async function upRow(r, relay, scene, sent) {
   const prog = (a, b) => f => { r.p = a + (b - a) * f; dirty(); };
@@ -624,27 +647,14 @@ async function upRow(r, relay, scene, sent) {
     return;
   }
   if (r.kind === 'model') {
-    const e = r.main, glbPath = r.out[0], urls = new Map();
-    for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
-    const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
-    // (a texture name the plan gave a picture: that picture, whatever its name)
-    const blobFor = f => { const u = urls.get(f.path.toLowerCase()); if (u) return u; const v = URL.createObjectURL(f.file); UP.blobs.push(v); urls.set(f.path.toLowerCase(), v); return v; };
-    const named = new Map(r.names.filter(x => x.entry).map(x => [x.name.toLowerCase(), x.entry]));
-    const url = u => {
-      let rel = u.startsWith(base) ? u.slice(base.length) : u;
-      try { rel = decodeURIComponent(rel); } catch (err) { /* as it is */ }
-      rel = CONV.IM.psdBack(rel.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^(\.\/)+/, ''));
-      const x = named.get(baseName(rel).toLowerCase());
-      if (x) return blobFor(x);
-      return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
-    };
+    const e = r.main, glbPath = r.out[0];
     r.msg = 'Reading it...'; r.p = 0.02; upChanged();
     if (!e.buf) e.buf = await e.file.arrayBuffer();
     await new Promise(res => later(res, 30));
     let res = null;
     const op = f => (UP.given && UP.given.get(f)) || origPath(f.path), tex = r.names.filter(x => x.entry).map(x => ({ name: x.name, mat: '', slot: '', from: op(x.entry), how: x.how }));
     try {
-      const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: maxTexNow(), url }), gltf = ['glb', 'gltf'].includes(e.ext);
+      const { m, nm, gltf, blobFor } = await upLoad(r);
       // pictures given as slots of their own, then (no colour picture at all) a left-over one whose name matches the
       // model's or a material's
       const lay = async (f, slot, how) => {
@@ -658,7 +668,8 @@ async function upRow(r, relay, scene, sent) {
         const want = new Set([nm, ...mats.map(x => x.name)].map(x => CONV.normStem(x)).filter(Boolean)), c = upLeft().filter(f => want.has(CONV.normStem(f.name)) && CONV.slotOf(f.name) === 'map');
         if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
       }
-      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      const keep = r.keep === undefined ? FT_DEFAULT : r.keep;   // (Triangles kept: 20 % unless the row says otherwise)
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
       for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
@@ -670,7 +681,8 @@ async function upRow(r, relay, scene, sent) {
     r.p = 0.55;
     for (const f of r.src) await keep(f, r.out[r.src.indexOf(f) + 1]);
     if (!res.ok) { r.state = 'failed'; r.msg = `Not converted: ${res.why}.` + (relay ? ' Its files are kept in originals/.' : ''); return; }
-    const size = mb(res.glb.byteLength);
+    const size = mb(res.glb.byteLength) + (res.reduced ? `, ${fmt(res.reduced.to)} of ${fmt(res.reduced.from)} triangles` : `, ${fmt(res.after.tris)} triangles`);
+    if (res.reduced) r.tris = res.reduced.from;
     if (relay) {
       r.msg = `Uploading ${glbPath} (${size})...`; upChanged();
       const j = await upFile(scene, glbPath, new Blob([res.glb], { type: 'model/gltf-binary' }), prog(0.85, 1));
@@ -718,7 +730,7 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
-function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
+function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.pvRow = null; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
   if (!name) return;
@@ -782,7 +794,7 @@ function uploadHTML(b) {
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
     return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
-      <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
+      <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
@@ -849,6 +861,7 @@ const UP_ACT = {
   'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
   'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
   'up:run': () => upRun(),
+  'up:pv': v => upPreview(+v),   // (a model's picture with its share kept: e7d_lite.js)
   'up:clear': () => upClear(),
   'up:open': () => upOpen(),
   'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },
