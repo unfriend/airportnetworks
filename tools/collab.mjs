@@ -75,6 +75,14 @@
 // COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; then the scenes in R2
 // (--scenes r2) against the stand-in S3 on another port (from 8840 up): files by signed links, Save, Convert to GLB and
 // the Upload pane straight into the bucket, the pretend headset, the password nowhere; with --shots studio-*.png);
+// --ask only the circles asked first (askRound, also in the main run after the ten-headset round: a room of its own with two
+// story circles and the lobby; a page's dialog turns the room's switch on; a pretend headset walking into a circle enters
+// nothing; the trigger on another circle's icon asks in front of it, Not now, closing by itself after 10 s, Go in entering
+// it from elsewhere, the lobby's Go in ending the station; the menu's row turning it off and walking in working again;
+// nothing written but look; with --shots ask-1-question.png);
+// --studio-scenes only the studio's scenes as circles (scenesRound, also in the main run after the studio round: a relay of
+// its own with --scenes on the test scenes, read only; the page's Add listing "Studio: <scene>" after the studio, adding
+// one writing the station and its state with the scene, two at once, their titles, Studio here's rule);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -296,6 +304,8 @@ const ALL_ONLY = argv.includes('--all');   // (only the All stories and Back to 
 const GUIDE_ONLY = argv.includes('--guide');   // (only the room setup guide and Touch the spot: guideRound, in a room of its own)
 const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: tokenRound, a relay of its own with COLLAB_TOKEN; not in the main run)
 const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: studioRound, relays of its own with --scenes)
+const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: askRound, in a room of its own)
+const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -1551,6 +1561,252 @@ async function circlesOnly() {
   if (shots) fs.mkdirSync(shots, { recursive: true });
   await headsetRound(shots);
 }
+
+// ---- circles asked first (askRound; --ask runs only it, also in the main run after the ten-headset round): a room of its
+// own with two story circles and Back to the lobby, a page and a pretend headset. A page turns the room's switch on in its
+// Shared dialog (look's ask); the headset walking into a circle and standing there 3 s enters nothing; the trigger on
+// another station's icon (pointed at first) opens the question in front of it (that circle's title, in its colour, Go in
+// and Not now; no notice); Not now closes it; opened again it closes by itself after 10 s; Go in enters (its live station,
+// the story at its circle, its presence there); the lobby by Go in ends it; the menu's row turns the switch off for the
+// room, and walking in works again; nothing written to the room but look. dir: pictures (ask-*.png)
+async function askRound(dir) {
+  const K1 = 'qubits', K2 = HEADSET_STORY;
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { HOST.collab.add(k[0], { x: 0, z: 0, yaw: 0 }); HOST.collab.add(k[1], { x: 1.8, z: -2.6, yaw: -0.3 }); HOST.collab.add('lobby', { x: -1.8, z: -2.6, yaw: 0.3 }); }, [K1, K2]);
+  await until(A, () => HOST.collab.stations().length === 3 && !HOST.collab.internals().pending.size, null, 5000);
+  const H = await open('#s=' + rc, { width: 320, height: 200 });
+  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 3, null, 20000);
+  await ready(H, 'airports');
+  const aId = await A.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  await H.evaluate(() => HOST.room.sharedAlign(true));
+  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 400);
+  await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+  await frames(H, 300);
+  const sts = await A.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2), SL = sts.find(s => s.kind === 'lobby');
+  check('ask: the pretend headset aligns in a room of its own with two story circles and the lobby', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!SL);
+  // the question in front of the headset: { id, title (its canvas's), vis, d (from the head), hit (pointable) } or null
+  const asked = () => H.evaluate(() => { window.__xr.step(); const a = HOST.collab.asking(), S = HOST.collab.overlay().ask, X = window.__xr;
+    const head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+    return a && { id: a.id, left: a.left, title: S.sig.split('|')[1], vis: S.mesh.visible, d: +S.mesh.position.distanceTo(head).toFixed(2), hit: HOST.collab.overlay().hit[0] === S.mesh, top: !S.mesh.material.depthTest && S.mesh.renderOrder >= 54 }; });
+  // the trigger on station id's icon, pointed at first (the unseen ball round it)
+  const askAt = async id => {
+    const t = await H.evaluate(id => HOST.collab.overlay().rings.get(id).ball.getWorldPosition(new THREE.Vector3()).toArray(), id), on = await pointAt(H, t);
+    await H.evaluate(() => { HOST.cur.peek('XR.ctrls')[0].wantPress = true; });
+    await frames(H, 300);
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    return on;
+  };
+  // a press on the question's button (its region on the canvas, by the ray), as a person's trigger does
+  const askPress = id => H.evaluate(async id => {
+    const X = window.__xr, V = THREE.Vector3, S = HOST.collab.overlay().ask, r = S.regions.find(q => q.id === id);
+    if (!r || !S.mesh.visible) return 'no ' + id;
+    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.h) * S.mw * S.h / S.w, 0));
+    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.1, -0.25, 0));
+    X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)));
+    X.step(); X.step();
+    const h = HOST.collab.internals().hov.get(0);
+    if (!h || h.target.kind !== 'ask') return 'pointed at ' + JSON.stringify(h && h.target);
+    HOST.cur.peek('XR.ctrls')[0].wantPress = true;
+    for (let k = 0; k < 6; k++) { X.step(); await new Promise(res => setTimeout(res, 30)); }
+    try { X.ctrl(0, null); X.step(); } catch (e) { /* (Go in: the next story is loading, its controllers not there yet) */ }
+    return 'pressed';
+  }, id);
+  const menu = id => H.evaluate(async id => {
+    const X = window.__xr; HOST.collab.panelOpen(true); X.step(); X.step();
+    const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn();
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    HOST.collab.panelOpen(false); X.step();
+    return !!(r && r.fn);
+  }, id);
+  // a press on the question's button by the right index fingertip (a tracked hand): hovered 4 cm in front of it, then
+  // within 1.5 cm, then pulled back; { hov: the button hovered, closed: the question gone after }
+  const askPoke = id => H.evaluate(async id => {
+    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, S = HOST.collab.overlay().ask, r = S.regions.find(q => q.id === id);
+    if (!r || !S.mesh.visible) return { no: id };
+    const tip = { world: new M4() }, keep = X.session.inputSources[0];
+    X.session.inputSources[0] = { handedness: 'right', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: { world: X.W.local.clone() }, hand: new Map([['index-finger-tip', tip]]) };
+    const at = d => S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.h) * S.mw * S.h / S.w, d));
+    const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); } };
+    tipAt(at(0.04)); await steps(2);
+    const hov = HOST.collab.overlay().ask.hover;
+    tipAt(at(0.005)); await steps(2);
+    tipAt(at(0.06)); await steps(1);
+    if (keep) X.session.inputSources[0] = keep; else X.session.inputSources.length = 0;
+    await steps(1);
+    return { hov, closed: !HOST.collab.asking() };
+  }, id);
+  const where = () => H.evaluate(() => ({ mine: HOST.collab.mine(), away: HOST.room.away(), key: HOST.curKey, placing: HOST.room.placing() }));
+  try {
+    // the switch on, from a page's Shared dialog: the room's (look's ask), for the headset too
+    const q0 = (await roomInfo(rc)).seq;
+    const dlg = await A.evaluate(async () => {
+      HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
+      const b = () => document.querySelector('[data-sh="ask"]'), was = b() && [b().textContent, b().getAttribute('aria-pressed')];
+      if (b()) b().click();
+      await new Promise(r => setTimeout(r, 200));
+      const now = b() && [b().textContent, b().getAttribute('aria-pressed')];
+      HOST.collab.dialog(false);
+      return { was, now };
+    });
+    const on = await until(H, () => HOST.collab.askFirst(), null, 5000), lk = (await roomInfo(rc)).keys.look;
+    check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
+      !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v }));
+    // walking into a circle and standing there 3 s enters nothing
+    await goRoom(H, S1.x, 1.6, S1.z, 0);
+    await frames(H, 3000);
+    const w1 = await where();
+    check('ask: with the circles asked first, walking into a circle and standing there 3 s enters nothing', !w1.mine && w1.away && w1.key !== K1, JSON.stringify(w1));
+    // the trigger on another station's icon: the question, with that circle's title, in front of the headset, on top and pointable; no notice
+    const n0 = await H.evaluate(() => HOST.collab.notes().length);
+    const p1 = await askAt(S2.id), a1 = await asked(), n1 = await H.evaluate(() => HOST.collab.notes().slice(-1)[0]), t2 = await H.evaluate(k => HOST.meta(k).title, K2);
+    if (dir) await headView(H, path.join(dir, 'ask-1-question.png'), -0.2, -0.15, [960, 600]);
+    check('ask: the trigger on another station\'s icon opens the question in front of the headset (its title, on top, pointable; no notice)', p1 === S2.id && !!a1 && a1.id === S2.id && a1.title === t2 && a1.vis &&
+      a1.d > 0.8 && a1.d < 1 && a1.hit && a1.top && (await H.evaluate(() => HOST.collab.notes().length)) === n0, JSON.stringify({ p1, a1, t2, n1 }));
+    // Not now closes it, and nothing is entered
+    const nn = await askPress('ask:not'), a2 = await asked(), w2 = await where();
+    check('ask: Not now closes the question and enters nothing', nn === 'pressed' && !a2 && !w2.mine && w2.away, JSON.stringify({ nn, a2, w2 }));
+    // opened again, it closes by itself after 10 s
+    await askAt(S2.id);
+    const a3 = await asked(), t0 = Date.now();
+    await frames(H, 7500);
+    const a4 = await asked();
+    const gone = await until(H, () => { window.__xr.step(); return !HOST.collab.asking(); }, null, 4000), after = (Date.now() - t0) / 1000, w3 = await where();
+    check(`ask: the question closes by itself after 10 s (gone after ${after.toFixed(1)} s), entering nothing`, !!a3 && !!a4 && gone && after > 8.5 && !w3.mine, JSON.stringify({ a3, a4, after, w3 }));
+    // Not now pressed by the right index fingertip
+    await askAt(S2.id);
+    const pk = await askPoke('ask:not'), w3b = await where();
+    check('ask: the right index fingertip presses the question\'s buttons (Not now, hovered first)', pk.hov === 'ask:not' && pk.closed && !w3b.mine, JSON.stringify({ pk, w3b }));
+    // (asking, Not now and the time running out wrote nothing to the room)
+    const quiet = Object.entries((await roomInfo(rc)).keys).filter(([, e]) => e.seq > q0 && e.by === hId).map(([k]) => k);
+    check('ask: the headset wrote nothing to the room while it asked, said Not now and let the question close', !quiet.length, JSON.stringify(quiet));
+    // Go in: its live station (the headset still standing in the other circle), the story at its circle, its presence there
+    await askAt(S2.id);
+    const gi = await askPress('ask:go');
+    let inS2 = false;
+    for (let k = 0; k < 60 && !inS2; k++) { await frames(H, 300); inS2 = await H.evaluate(k => HOST.curKey === k, K2); }
+    inS2 = inS2 && await ready(H, K2, 150000);
+    if (inS2) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
+    const w4 = await where(), rig = await rigOf(H), want = rigAt(S2), pres = await until(A, ([h, s]) => { const P = HOST.collab.people().get(h); return !!P && P.st === s; }, [hId, S2.id], 5000);
+    check('ask: Go in enters that circle (its live station, its story placed at its circle, the presence there), the headset standing elsewhere', gi === 'pressed' && inS2 && w4.mine === S2.id && !w4.away && w4.placing &&
+      near(rig.slice(0, 3), want.slice(0, 3), 0.02) && angle(rig[3], want[3]) < 0.02 && pres, JSON.stringify({ gi, inS2, w4, rig: fmt(rig), want: fmt(want), pres }));
+    // still standing in the first circle: nothing enters it
+    await frames(H, 2500);
+    const w5 = await where();
+    check('ask: standing in another circle after Go in enters nothing', w5.mine === S2.id, JSON.stringify(w5));
+    // Back to the lobby by Go in: the live station ends (away, every circle shown again)
+    await askAt(SL.id);
+    const a6 = await asked(), gl = await askPress('ask:go');
+    await frames(H, 600);
+    const w6 = await where();
+    check('ask: the lobby asks too (Back to the lobby), and its Go in ends the station (away, in no circle)', !!a6 && a6.id === SL.id && a6.title === 'Back to the lobby' && gl === 'pressed' && !w6.mine && w6.away,
+      JSON.stringify({ a6, gl, w6 }));
+    // the menu's row turns the switch off for the room (out of every circle first); nothing written by the headset but look
+    const sp1 = await awaySpot(H, S1);
+    await goRoom(H, sp1[0], 1.6, sp1[1], 0);
+    await frames(H, 300);
+    const m1 = await menu('askfirst'), off = m1 && await until(A, () => !HOST.collab.askFirst(), null, 5000);
+    // (besides look, at most what any headset arriving at a station writes: its story's state and view there)
+    const wrote = Object.entries((await roomInfo(rc)).keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
+    check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room; the headset wrote nothing else to the room but look', m1 && off && wrote.join() === 'look', JSON.stringify({ m1, off, wrote }));
+    // walking in works again
+    const in1 = await walk(H, S1, K1, 0, 150000);
+    check('ask: switched off, walking into a circle enters it again', in1 && (await where()).mine === S1.id, JSON.stringify(await where()));
+  } finally {
+    await H.evaluate(() => window.__xr.end()).catch(() => {});
+    for (const p of [A, H]) await p.context().close();
+  }
+}
+
+// ---- studio scenes as circles (scenesRound; --studio-scenes runs only it, also in the main run after the studio round): a
+// relay of its own with --scenes on the test scenes (read only). The page's Add lists, after the studio, one entry per
+// scene ("Studio: <scene>"); adding one makes a studio station whose state names that scene, in one batch, for every page;
+// two studio circles stand at once (and a third, plain); their titles in the dialog's rows are "Studio: <scene>"; Studio
+// here adds the room's plain studio circle, then moves it, also once a scene is picked there (plain or not is how a circle
+// was made, its record's sc, never its state); a scene circle moved keeps its sc
+async function scenesRound() {
+  const R = await relayOn(['--static', '.', '--scenes', path.join(root, 'tools', 'studio', 'test', 'scenes'), '--scenes-readonly', '--quiet'], {}, 8770);
+  const b = `http://127.0.0.1:${R.port}/`, pages = [];
+  const sopen = async hash => {
+    const ctx = await browser.newContext({ viewport: { width: 900, height: 700 } });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('scenes round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('scenes round: ' + m.text()); });
+    await p.goto(b + 'index.html' + hash, { timeout: 90000 });
+    await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(p);
+    return p;
+  };
+  try {
+    const list = await (await fetch(b + 'api/scenes')).json(), names = list.scenes.map(s => s.name).sort();
+    const A = await sopen('#stories');
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 10000);
+    const rc = await A.evaluate(() => HOST.collab.code), B = await sopen('#s=' + rc);
+    await until(B, () => HOST.collab.status === 'open', null, 20000);
+    // the dialog's Add: after the studio, one entry per scene, then All stories and Back to the lobby
+    const opts = await A.evaluate(async () => {
+      HOST.collab.dialog(true);
+      for (let k = 0; k < 50 && ![...document.querySelectorAll('#shAdd option')].some(o => /^scene:/.test(o.value)); k++) await new Promise(r => setTimeout(r, 100));
+      return [...document.querySelectorAll('#shAdd option')].map(o => [o.value, o.textContent]);
+    });
+    const vals = opts.map(o => o[0]), si = vals.indexOf('studio'), sc = opts.filter(o => /^scene:/.test(o[0]));
+    check('scenes: the page\'s Add lists, after the studio, one entry per scene of the studio\'s relay ("Studio: <scene>"), then All stories and Back to the lobby',
+      si > 0 && sc.map(o => o[0].slice(6)).sort().join() === names.join() && sc.every(o => o[1] === 'Studio: ' + o[0].slice(6)) && vals.indexOf(sc[0][0]) === si + 1 &&
+      vals.slice(si + 1 + sc.length).join() === 'all,lobby', JSON.stringify({ opts: opts.slice(si), names }));
+    // adding "Studio: test": a studio station whose state names the scene, in one batch, for every page
+    const add = v => A.evaluate(async v => {
+      const n0 = HOST.collab.stations().length, sel = document.querySelector('#shAdd'); sel.value = v; document.querySelector('[data-sh="add"]').click();
+      for (let k = 0; k < 30 && HOST.collab.stations().length === n0; k++) await new Promise(r => setTimeout(r, 100));
+      return HOST.collab.stations().slice(n0).map(s => s.id)[0] || '';
+    }, v);
+    const id1 = await add('scene:test');
+    const seen1 = !!id1 && await until(B, id => { const s = HOST.collab.station(id), x = HOST.collab.val('st.' + id + '.x'); return !!s && s.story === 'studio' && JSON.stringify(x) === '{"scene":"test"}'; }, id1, 5000);
+    const k1 = (await roomInfo2(b, rc)).keys, st1 = k1['st.' + id1], x1 = k1['st.' + id1 + '.x'];
+    check('scenes: adding "Studio: test" makes a studio station whose state names the scene (st.<id> and st.<id>.x, written together), for every page',
+      seen1 && !!st1 && !!x1 && JSON.stringify(x1.v) === '{"scene":"test"}' && st1.v.story === 'studio' && st1.v.sc === true && Object.keys(st1.v).sort().join() === 'sc,story,x,yaw,z', JSON.stringify({ id1, st1, x1 }));
+    // two studio circles at once, each titled by its scene (the dialog's rows, on both pages)
+    const id2 = await add('scene:' + names.find(n => n !== 'test'));
+    const rows = p => p.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300)); const t = [...document.querySelectorAll('#shared .sh-stations li b')].map(e => e.textContent); return t; });
+    await until(B, id => !!HOST.collab.station(id) && !!HOST.collab.val('st.' + id + '.x'), id2, 5000);
+    const rA = await rows(A), rB = await rows(B), want = ['Studio: test', 'Studio: ' + names.find(n => n !== 'test')];
+    check('scenes: two studio circles stand at once, each titled "Studio: <scene>" in every page\'s dialog', !!id2 && want.every(t => rA.includes(t) && rB.includes(t)), JSON.stringify({ rA, rB, want }));
+    // Studio here: with no plain studio circle it adds one at your feet; with that one alone (no scene), it moves it
+    const h1 = await A.evaluate(() => HOST.collab.studio({ x: 3, z: 1, yaw: 0.2 })), n3 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    await sleep(400);
+    const h2 = await A.evaluate(() => HOST.collab.studio({ x: 3.5, z: 1.5, yaw: 0.4 })), n4 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    const moved = await until(B, ([id]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - 3.5) < 1e-6 && Math.abs(s.z - 1.5) < 1e-6; }, [h1], 5000);
+    const rB2 = await rows(B);
+    check('scenes: Studio here adds a plain studio circle beside the scenes\' (titled "Studio") and then moves that one, the only plain one', !!h1 && ![id1, id2].includes(h1) && n3 === 3 && h2 === h1 && n4 === 3 && moved &&
+      rB2.includes(await B.evaluate(() => HOST.meta('studio').title)), JSON.stringify({ h1, h2, n3, n4, moved, rB2 }));
+    // a scene picked at that plain circle (its state names it, as the studio writes it there): still the room's plain one,
+    // so Studio here moves it again rather than adding a fourth (plain or not is how a circle was made, never its state)
+    await A.evaluate(id => HOST.collab.publish([['st.' + id + '.x', { scene: 'test' }]]), h1);
+    const picked = await until(B, id => HOST.collab.sceneOf(id) === 'test', h1, 5000), rB3 = await rows(B);
+    const h3 = await A.evaluate(() => HOST.collab.studio({ x: 4, z: 2, yaw: 0.6 })), n5 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    const moved3 = await until(B, ([id]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - 4) < 1e-6 && Math.abs(s.z - 2) < 1e-6; }, [h1], 5000);
+    check('scenes: a scene picked at the plain studio circle (titled "Studio: test" then) and Studio here still moves that one, no fourth circle', picked && h3 === h1 && n5 === 3 && moved3 &&
+      rB3.filter(t => t === 'Studio: test').length === 2, JSON.stringify({ picked, h3, n5, moved3, rB3 }));
+    // a scene circle moved keeps its mark (every move writes it again), and Studio here then still moves the plain one
+    await A.evaluate(id => HOST.collab.move(id, { x: -3, z: 2, yaw: 0.3 }), id1);
+    const kept = await until(B, id => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x + 3) < 1e-6 && s.sc === true; }, id1, 5000);
+    const st1b = (await roomInfo2(b, rc)).keys['st.' + id1];
+    const h4 = await A.evaluate(() => HOST.collab.studio({ x: 4.5, z: 2.5, yaw: 0.8 })), n6 = await A.evaluate(() => HOST.collab.stations().filter(s => s.story === 'studio').length);
+    check('scenes: a scene circle moved keeps its mark (sc), and Studio here then still moves the plain one', kept && !!st1b && st1b.v.sc === true && Math.abs(st1b.v.x + 3) < 1e-6 &&
+      h4 === h1 && n6 === 3, JSON.stringify({ kept, st1b, h4, n6 }));
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await relayOff(R);
+  }
+}
+const roomInfo2 = async (b, code) => (await fetch(b + 'api/rooms/' + code)).json();
 
 // ---- others' moves drawn smoothly (snapshot interpolation, shared.js's SMOOTH): a raw socket at a station (speaking as the
 // follow-a-person test's pretend person does) turns the station's scene steadily about the vertical (90 degrees a second)
@@ -3474,6 +3730,8 @@ try {
   if (GUIDE_ONLY) { await guideRound(); break main; }
   if (TOKEN_ONLY) { await tokenRound(); break main; }
   if (STUDIO_ONLY) { await studioRound(shots); break main; }
+  if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
+  if (SCENES_ONLY) { await scenesRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -5748,6 +6006,8 @@ try {
   // ------------------------------------- the ten-headset round (a room of its own) --
   if (shots) fs.mkdirSync(shots, { recursive: true });
   await headsetRound(shots);
+  // --------------------------------------- circles asked first (a room of its own) --
+  await askRound(shots);
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -5758,6 +6018,8 @@ try {
   await guideRound();
   // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
   await studioRound(shots);
+  // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
+  await scenesRound();
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -5838,8 +6100,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

@@ -4049,6 +4049,87 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
   });
   // the menu's Design room button outside a shared room opens the design room (the props table) in the headset: the menu
   // closes, the table opens in explore mode, and the button greys while you are there (nothing to press)
+  // the frame-rate read-out (HOST.xr.fps, this headset's own): off by default; on through the menu's Settings row, kept
+  // across a reload, set by a link; while on, drawn low in the view and a little to the left (fixed to the head, over the
+  // story), with the frame rate and, from the story's frames drawn through the shell's measure (HOST.perf), its triangles
+  // and draw calls; nothing drawn when off
+  await step('the frame-rate read-out in the headset: off by default; on through the menu, kept, set by a link; the story\'s triangles and draw calls, low in the view', async () => {
+    const bad = [];
+    const FP = () => sp.evaluate(() => { const S = HOST.collab.overlay().fps, m = S.mesh.material, p = S.mesh.position, h = window.__head.p, d = [p.x - h[0], p.y - h[1], p.z - h[2]], l = Math.hypot(...d);
+      return { vis: S.mesh.visible, text: S.text, top: !m.depthTest && S.mesh.renderOrder === 52, down: Math.asin(-d[1] / l) * 180 / Math.PI, left: Math.atan2(-d[0], -d[2]) * 180 / Math.PI, dist: l }; });
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    await openXR('qubits');
+    const f0 = await FP();
+    if (await sp.evaluate(() => HOST.xr.fps()) || f0.vis) bad.push('not off by default: ' + JSON.stringify(f0));
+    await sp.evaluate(() => HOST.collab.panelOpen(true));
+    if (!await press('fps') || !await sp.evaluate(() => HOST.xr.fps())) bad.push('the menu\'s Frame rate row did not turn it on');
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    // (the pretend session's own loop is stopped: its frames drawn here through the shell's measure, as the renderer's loop
+    // does, from the pretend head at a moment with a scene on show, until a second's numbers are in)
+    await sx('(APP.seek(60), APP.playing = false)');
+    await sp.evaluate(async () => {
+      const cam = new THREE.PerspectiveCamera(90, 1.6, 0.05, 200), h = window.__head;
+      cam.position.set(...h.p); cam.quaternion.set(...h.q);
+      const f = HOST.perf.wrap(() => HOST.renderer.render(HOST.cur.peek('GL.scene'), cam)), t0 = performance.now();
+      while (performance.now() - t0 < 30000 && !(HOST.perf.stats() && HOST.perf.stats().n > 1)) { window.__tick(1); f(performance.now()); await new Promise(r => setTimeout(r, 25)); }
+      window.__tick(1);
+    });
+    const st = await sp.evaluate(() => HOST.perf.stats()), f1 = await FP();
+    const tri = f1.text && /([\d,]+) triangles · (\d+) draw calls · code ([\d.]+) ms/.exec(f1.text), fp = f1.text && /^(\d+) fps · ([\d.]+) ms a frame, worst ([\d.]+) ms/.exec(f1.text);
+    if (!(st && st.tri > 50 && st.calls > 2 && st.js > 0 && st.n > 1)) bad.push('the story\'s frames were not measured: ' + JSON.stringify(st));
+    if (!(f1.vis && f1.top && tri && +tri[1].replace(/,/g, '') > 50 && +tri[2] > 2 && fp && +fp[1] > 0 && +fp[3] >= +fp[2])) bad.push('the read-out does not show plausible numbers: ' + JSON.stringify(f1));
+    if (!(Math.abs(f1.down - 22) < 1 && Math.abs(f1.left - 14) < 1 && Math.abs(f1.dist - 1) < 0.01)) bad.push('the read-out is not about 22 degrees down and 14 to the left, 1 m away: ' + JSON.stringify(f1));
+    // turned with the head: still in the same place in the view
+    await head([0, 1.6, 0], 0.7); await tick(2);
+    const f2 = await sp.evaluate(() => { const S = HOST.collab.overlay().fps, p = S.mesh.position, h = window.__head, q = new THREE.Quaternion(...h.q).invert(), d = new THREE.Vector3(p.x - h.p[0], p.y - h.p[1], p.z - h.p[2]).applyQuaternion(q).normalize(); return [Math.asin(-d.y) * 180 / Math.PI, Math.atan2(-d.x, -d.z) * 180 / Math.PI]; });
+    if (Math.abs(f2[0] - 22) > 1 || Math.abs(f2[1] - 14) > 1) bad.push('it does not stay put in the view as the head turns: ' + JSON.stringify(f2));
+    await head([0, 1.6, 0], 0);
+    // kept across a reload, a link turns it off, and off nothing is drawn
+    await sp.reload(); await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
+    if (!await sp.evaluate(() => HOST.xr.fps() && localStorage.getItem('xrFps') === 'on')) bad.push('the read-out on was not kept across a reload');
+    await openXR('qubits', '&fps=off');
+    const f3 = await FP();
+    if (await sp.evaluate(() => HOST.xr.fps()) || f3.vis) bad.push('#fps=off did not turn it off: ' + JSON.stringify(f3));
+    await openXR('qubits', '&fps=on'); await tick(2);
+    const f4 = await FP();
+    await sp.evaluate(() => HOST.xr.setFps(false)); await tick(2);
+    const f5 = await FP();
+    if (!f4.vis || f5.vis) bad.push('#fps=on, then off: ' + JSON.stringify([f4.vis, f5.vis]));
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  // a keypad for a word in the headset's menu (HOST.collab.keypad; the studio names scenes with it): a word typed, Delete
+  // and OK give it (the menu it opened closing again); OK greyed while empty; Back gives null, and so does another tab;
+  // without a headset session there is no keypad (null at once)
+  await step('the headset keypad: typed, Delete and OK give the word; Back and another tab give null; none without a headset', async () => {
+    const bad = [];
+    const kp = o => sp.evaluate(o => { window.__kpv = undefined; HOST.collab.keypad(o).then(v => { window.__kpv = v; }); }, o);
+    const press = async id => { await tick(1); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); return ok; };
+    const got = () => sp.evaluate(() => [window.__kpv, HOST.collab.menu]);
+    if (!await sp.evaluate(() => HOST.curKey === 'qubits' && !!window.__tick && !!HOST.session)) await openXR('qubits');   // (the step before left it so)
+    await kp({ title: 'Name the scene', hint: 'Lower-case letters, digits, space and _ . -', value: '', max: 40 });
+    await tick(2);
+    const ids = await sp.evaluate(() => HOST.collab.menuIds().filter(i => i.startsWith('kp:')));
+    const want = [...'abcdefghijklmnopqrstuvwxyz0123456789'].map(c => 'kp:' + c).concat('kp:space', 'kp:_', 'kp:.', 'kp:-', 'kp:back');
+    if (want.some(i => !ids.includes(i)) || ids.includes('kp:ok') || ids.includes('kp:del')) bad.push('the keypad\'s keys (OK and Delete greyed while empty): ' + ids.join(' '));
+    if (!(await got())[1]) bad.push('the menu did not open for the keypad');
+    for (const k of ['a', 't', 'e', 'l', 'i', 'e', 'r', 'space', '2', '2']) if (!await press('kp:' + k)) { bad.push('no key ' + k); break; }
+    await press('kp:del');
+    await press('kp:ok'); await tick(1);
+    const v1 = await got();
+    if (v1[0] !== 'atelier 2' || v1[1]) bad.push('typing "atelier 22", Delete and OK gave ' + JSON.stringify(v1) + ' (the menu should close again)');
+    await kp({ title: 'Another' }); await tick(2);
+    await press('kp:x'); await press('kp:back'); await tick(1);
+    const v2 = await got();
+    if (v2[0] !== null || v2[1]) bad.push('Back did not give null and close the menu: ' + JSON.stringify(v2));
+    await kp({ title: 'A third' }); await tick(2);
+    await press('kp:y'); await press('tab:settings'); await tick(1);
+    const v3 = await got();
+    if (v3[0] !== null) bad.push('another tab did not give null: ' + JSON.stringify(v3));
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    const v4 = await page.evaluate(() => HOST.collab.keypad({ title: 'x' }));
+    if (v4 !== null) bad.push('without a headset session it gave ' + JSON.stringify(v4));
+    if (bad.length) errors.push(...bad.map(b => 'keypad: ' + b));
+  });
   await step('the headset menu\'s Design room button opens the design room outside a room', async () => {
     const bad = [];
     const btn = () => sp.evaluate(() => { const r = HOST.collab.menuFind('design'); return r && r.fn ? 'on' : 'off'; });   // (a greyed button has no region)

@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-32';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-33';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -99,7 +99,8 @@
   // the story a station runs ('' none: an All stories circle showing its cards, the lobby)
   const runs = s => (s && !(s.kind && s.story === s.kind) ? s.story : '');
   // a station's title in lines and lists: "All stories" (with the story picked there), "Back to the lobby", a story's
-  const stTitle = s => (s.kind === ALL ? 'All stories' + (runs(s) ? ': ' + meta(s.story).title : '') : meta(lookKey(s)).title);
+  // (a studio circle whose state names a scene: "Studio: <scene>", sceneOf below)
+  const stTitle = s => (s.kind === ALL ? 'All stories' + (runs(s) ? ': ' + meta(s.story).title : '') : sceneOf(s) ? 'Studio: ' + sceneOf(s) : meta(lookKey(s)).title);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mmss = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];   // a yaw's forward on the floor (x, z): yaw 0 faces -z
@@ -1751,7 +1752,9 @@
       // (the shell's own kinds: the lobby shows only itself; an All stories circle its cards or a story of the list)
       const kd = v.kind === LOBBY_ST || v.story === LOBBY_ST ? LOBBY_ST : v.kind === ALL || v.story === ALL ? ALL : '';
       if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) continue;
-      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {}));
+      // (a studio circle made for a scene by Add's scene entries is marked so in its record, sc: never the room's plain one)
+      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
+        !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}));
     }
     // (the pages that are not stories after the stories, in their list's order: the design room's, the studio's; then the
     // All stories circles and the lobby)
@@ -2088,7 +2091,7 @@
   const stVal = (s, P) => {
     const cur = s && s.id ? val('st.' + s.id) : null, b = cur && typeof cur === 'object' && typeof cur.story === 'string' ? cur : s;
     return Object.assign({ story: b.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: b.sync === true } : {}, s.kind === ALL && typeof b.arc === 'boolean' ? { arc: b.arc } : {},
-      { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
+      !s.kind && b.story === STUDIO && b.sc === true ? { sc: true } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
   };
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room, the studio: no
   // chapters) in explore mode, at its table or its scene
@@ -2118,20 +2121,22 @@
   // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
   // 3D, no subtitles; FORMAT networks-27 for cards, sfx and voice), set from a headset's menu or the page's dialog, and
   // never refused by either lock. A sound switch the room never wrote stays each device's own (HOST.xr.mine), so a device
-  // that turned it off keeps it off. Null outside a room (the device's own)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true };
+  // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: walked into
+  // (ask false, the default) or asked first (ask true: walking in does nothing, a press on a circle asks; v118, FORMAT
+  // networks-33, askFirst below), a setting of the room's only (outside a room there are no circles)
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: false };
   const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
   function look() {
     if (!C.code || !C.welcomed) return null;
     const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : SOUNDS.includes(k) ? mine(k) : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
-    return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice') };
+    return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice'), ask: b('ask') };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
     const L = look(), was = val('look');
     if (!L) return false;
     const bo = k => (typeof o[k] === 'boolean' ? o[k] : L[k]), mo = k => (LOOKS.includes(o[k]) ? o[k] : L[k]);
-    const v = { labels: mo('labels'), cards: mo('cards'), free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice') };
+    const v = { labels: mo('labels'), cards: mo('cards'), free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice'), ask: bo('ask') };
     // (a sound switch neither set now nor written before stays out: another setting must not hand this device's own to all)
     for (const k of SOUNDS) if (typeof o[k] !== 'boolean' && !(was && typeof was[k] === 'boolean')) delete v[k];
     const pairs = [['look', Object.assign({}, v, { by: C.id, at: Math.round(now()) })]];
@@ -2147,6 +2152,14 @@
     changed();
     return true;
   }
+  // The circles: walked into (the default) or asked first (the owner, 5 November 2026: "a switch for the circles so that
+  // they are only accessible by clicking a circle's card or the icon, then a dialogue asks if you want to go into that
+  // story, works better in tight rooms"): the room's (look's ask, for everyone in it, set by anyone from a headset's menu
+  // or a page's dialog, never refused by either lock; a room that never wrote it walks in as before). On, walking into a
+  // circle does nothing (zoneStep), and the trigger or a pinch on another circle's card, ring or icon asks in a small
+  // panel in front of you (ASK): Go in does what walking in does, the story staying at its circle. Pages are as ever
+  const askFirst = () => { const L = look(); return !!(L && L.ask); };
+  function setAsk(on) { if (!setLook({ ask: !!on })) return false; log('circles ask', { on: !!on }); return true; }
   // Panels per story (HOST.panels: shown, controls only or hidden) and each story's lock: in a room each station's, for
   // everyone at its circle (key st.<id>.ui: { panels, lock, story, by, at }; a station without it, or with one written for
   // its story before it changed: shown, not locked), set from a headset's menu at that station or from the page's dialog
@@ -2222,8 +2235,66 @@
   // what Add offers (the page's picker, the headset's Add page): every story, then the pages that are not stories (the
   // design room's table, the studio), which only Add and the menu's Design room and Studio buttons place, never Arrange all
   // (and then the shell's own kinds: All stories and Back to the lobby)
-  const addable = () => HOST.list.concat((self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)), [KINDS.all, KINDS.lobby]);
-  const addName = m => (HOST.list.includes(m) || m.kind ? m.title : m.kick || m.title);
+  // (and after the studio its relay's scenes, one entry each: SCN, below)
+  const addable = () => {
+    const ex = (self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)), st = meta(STUDIO);
+    const sc = st && !st.unknown && ex.some(m => m.key === STUDIO) ? SCN.list.map(n => ({ key: STUDIO, scene: n, title: 'Studio: ' + n, kick: st.kick, col: st.col })) : [];
+    const k = ex.findIndex(m => m.key === STUDIO) + 1;
+    return HOST.list.concat(ex.slice(0, k), sc, ex.slice(k), [KINDS.all, KINDS.lobby]);
+  };
+  const addName = m => (HOST.list.includes(m) || m.kind || m.scene ? m.title : m.kick || m.title);
+  // an entry's value in the page's picker and its button's id in the headset's (add:<it>): a scene's 'scene:<name>'
+  const addVal = m => (m.scene ? 'scene:' + m.scene : m.key);
+  const addOne = (v, b) => (/^scene:/.test(v) ? addScene(v.slice(6), b) : add(v, b));
+  // Studio scenes as circles (v118; the owner, 5 November 2026: "add scenes as possible circles"). Add (the page's picker,
+  // the headset's Add here page) lists after the studio one entry per scene of the studio's relay (relayFind, then GET
+  // /api/scenes with its password: asked again whenever the picker or the page opens, at most every 3 s; none without a
+  // relay, from a relay without scenes or one that refuses). Such an entry makes a studio circle for that scene in one
+  // batch: st.<id> = { story: 'studio', sc: true, x, z, yaw } (sc: made for a scene, the shell's own mark, kept by every
+  // move: stVal), its clock and its state, st.<id>.x = { scene } (the studio's own field and nothing else: the studio at a
+  // station whose state names a scene and holds no items opens it and writes its saved layout, every device alike).
+  // Several studio circles may stand in a room; each one's title wherever the shell names a station is "Studio: <scene>"
+  // while its state names one (sceneOf: also a plain circle's once a scene is picked there)
+  const SCN = { list: [], at: -1e9, busy: null };
+  function scenesFetch() {
+    if (SCN.busy) return SCN.busy;
+    if (performance.now() - SCN.at < 3000) return Promise.resolve(SCN.list);
+    const m = meta(STUDIO);
+    if (!m || m.unknown || !C.code) return Promise.resolve(SCN.list);
+    SCN.busy = (async () => {
+      let list = [];
+      try {
+        const f = await relayFind();
+        if (f && C.relay) {
+          const r = await api('scenes');
+          if (r.ok && r.j && Array.isArray(r.j.scenes)) list = r.j.scenes.map(x => (x && typeof x.name === 'string' ? x.name : '')).filter(n => n && n.length <= 64).slice(0, 200);
+        }
+      } catch (e) { /* none: no relay, or it did not answer */ }
+      const was = SCN.list.join('/');
+      SCN.list = list; SCN.at = performance.now(); SCN.busy = null;
+      if (list.join('/') !== was) { log('scenes', { n: list.length }); changed(); }
+      return list;
+    })();
+    return SCN.busy;
+  }
+  // the scene a studio circle's state names ('' none, or not a studio circle)
+  function sceneOf(s) {
+    if (!s || s.kind || s.story !== STUDIO) return '';
+    const v = val(kX(s.id));
+    return v && typeof v === 'object' && typeof v.scene === 'string' ? v.scene.slice(0, 64) : '';
+  }
+  function addScene(name, b) {
+    const m = meta(STUDIO);
+    name = String(name || '');
+    if (!C.code || !m || m.unknown || !name || name.length > 64 || refused('add')) return '';
+    b = b || base();
+    const id = rid(5);
+    // (the station, its clock and the scene in one batch; the room's arc becomes a circle where it stands, as for any Add)
+    publish([['st.' + id, { story: STUDIO, sc: true, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(STUDIO)], [kX(id), { scene: name }]].concat(arcEnd()));
+    sfx('place', roomAt(b.x, 0.05, b.z));
+    log('studio scene added', { st: id, scene: name });
+    return id;
+  }
   // Add a station here: one story at your feet, facing where you face (or an All stories circle, showing its cards, Own
   // stories; or a lobby circle)
   function add(story, b) {
@@ -2245,11 +2316,15 @@
   }
   function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
   // a page that is not a story here (the menu's Design room and Studio buttons in a room): a station of it at your feet,
-  // facing your way, or the room's one moved here when it has one (one props table, one studio: not a pile of them);
-  // refused while the circles are locked
+  // facing your way, or the room's one moved here when it has one (one props table, not a pile of them); refused while the
+  // circles are locked. The studio (v118: a room may hold several studio circles, one for each scene, from Add): the room's
+  // plain studio circle (one not made for a scene, sc; told by how it was made, never by its state, which names a scene as
+  // soon as one is picked there) moved here, the first by id when there are several, whatever circles of scenes stand
+  // beside it; else a new plain studio circle at your feet
   const DESIGN = 'design', STUDIO = 'studio';
+  const pageOne = key => C.st.find(s => s.story === key && !s.kind && !s.sc) || null;
   function pageHere(key, b) {
-    const has = C.st.find(s => s.story === key && !s.kind);
+    const has = pageOne(key);
     if (!C.code || refused(has ? 'move' : 'add')) return '';
     if (!has) { const id = add(key, b); if (id) log(key + ' here', { st: id, added: true }); return id; }
     move(has.id, b);
@@ -2746,6 +2821,13 @@
     }
     OV.note = sheet(720, 170, 0.5, 54);
     OV.root.add(OV.note.mesh); OV.note.mesh.visible = false;
+    // the question whether to go into a circle (circles asked first: ASK), over everything, pointable; and the frame-rate
+    // read-out (HOST.xr.fps: drawFps), over the story and the subtitles, under the menu and the notices
+    OV.ask = sheet(720, 300, 0.42, 55);
+    OV.ask.mesh.userData.shell = { kind: 'ask' };
+    OV.root.add(OV.ask.mesh); OV.ask.mesh.visible = false;
+    OV.fps = sheet(800, 120, 0.36, 52);
+    OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
     OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51);
     OV.root.add(OV.sub.mesh); OV.sub.mesh.visible = false; OV.sub.text = ''; OV.sub.want = '';
@@ -3070,7 +3152,7 @@
     return o;
   }
   function stationLine(s) {
-    if (s.kind === LOBBY_ST) return 'Walk in: back to every circle';
+    if (s.kind === LOBBY_ST) return askFirst() ? 'Press: back to every circle' : 'Walk in: back to every circle';
     if (s.kind === ALL && !runs(s)) return 'Choosing a story';
     const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
@@ -3085,7 +3167,7 @@
     return out;
   }
   function drawCard(o, s) {
-    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk, s.sync].join('|');
+    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk, s.sync, askFirst(), title].join('|');
     if (sig === o.sig) return;
     o.sig = sig;
     const ctx = o.ctx, W = o.w, H = o.h;
@@ -3095,15 +3177,18 @@
     ctx.fillStyle = m.col; ctx.fillRect(4, 4, W - 8, 9);
     ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(fit(ctx, m.kick.toUpperCase(), W - 64), 32, 36);
     let tp = 54;   // a long title smaller (down to 44 px, on the same baseline: B612's is 0.8 of its size down), else cut short
-    for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(m.title).width <= W - 64) break; }
-    ctx.fillStyle = INK; ctx.fillText(fit(ctx, m.title, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
+    // (a studio circle for one scene: "Studio: <scene>"; an All stories circle: its own title, the story picked below)
+    const big = s.kind === ALL ? m.title : title;
+    for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(big).width <= W - 64) break; }
+    ctx.fillStyle = INK; ctx.fillText(fit(ctx, big, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
     // (an All stories circle: the story picked there, and whether it runs with the room's circle of it)
     const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s) : stationLine(s);
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(fit(ctx, line, W - 64), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
     const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
-      [s.kind === LOBBY_ST ? 'Walk in to leave your story.' : s.kind === ALL ? 'Walk in to choose a story.' : 'Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
+      [askFirst() ? (s.kind === LOBBY_ST ? 'Point here and press to leave your story.' : s.kind === ALL ? 'Point here and press to choose a story.' : 'Point here and press to go in.') :
+        s.kind === LOBBY_ST ? 'Walk in to leave your story.' : s.kind === ALL ? 'Walk in to choose a story.' : 'Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
     tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
   }
@@ -3252,7 +3337,7 @@
       r.ring.visible = r.tip.visible = r.near > 0.02;
       r.ring.userData.shell = r.ball.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
       // in a circle, another station's card and icon only while pointed at (or carried), fading after
-      if (hov || MV.id === s.id) r.seenAt = t;
+      if (hov || MV.id === s.id || ASK.id === s.id) r.seenAt = t;   // (and while you are asked whether to go into it)
       const peek = !L || s.id === L.id || t - (r.seenAt || -1e9) < PEEK.hold, want = peek ? 1 : 0;
       if (r.peek === undefined) r.peek = want;
       r.peek += (want - r.peek) * (1 - Math.exp(-dt * (peek ? PEEK.in : PEEK.out)));
@@ -3286,7 +3371,8 @@
   // question in VR and the first time in a room with no stations.
   const TABS = [['story', 'Story'], ['settings', 'Settings'], ['circles', 'Circles'], ['debug', 'Debug']];
   const PEOPLE_ROWS = 6;   // people listed under Circles at most (the rest as a count): the menu floats in front of you
-  const FPS = { v: 0, n: 0, t0: 0 };   // the headset's frame rate, for the Debug tab
+  const SCN_ROWS = 8;   // the studio relay's scenes listed on the headset's Add here page at most (a page lists them all)
+  const FPS = { v: 0, n: 0, t0: 0, last: 0, k: 0, sum: 0, wmax: 0, mean: 0, worst: 0 };   // the headset's frame rate, for the Debug tab and the read-out
   const tab0 = () => { const t = get('xrMenuTab'); return TABS.some(x => x[0] === t) ? t : 'story'; };
   // where it floats: its middle pos.d m ahead of your eyes along the floor and pos.h m above them (below: negative),
   // turned to you, at scale (the panel is 0.42 m wide at 1: about 44 cm, read as the 28 cm one at 0.5 m was; too far for
@@ -3304,7 +3390,7 @@
   // the menu carried by the grip (MG): the controller it follows, how far along its ray it was taken, and where the
   // menu's top edge was from that point
   const MG = { src: null, i: -1, dist: 0, off: new THREE.Vector3(), at: 0 };
-  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', pass: '', home: false, tab: tab0(), used: 0, self: false, gs: 0 };   // (code: the letters typed on its keypad page; pass: the relay's password typed on its own, home: for the relay offered; gs: the room setup guide's page)
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', pass: '', home: false, tab: tab0(), used: 0, self: false, gs: 0, kp: null };   // (code: the letters typed on its keypad page; pass: the relay's password typed on its own, home: for the relay offered; gs: the room setup guide's page; kp: a keypad waiting for a word, HOST.collab.keypad)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   function menuOpen(on, why) {
     on = !!on;
@@ -3314,6 +3400,8 @@
       const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.pos.d).applyQuaternion(HD.q).add(HD.p) : null;
       sfx(on ? 'open' : 'close', at);
     }
+    kpEnd(null);   // (a keypad waiting for a word: cancelled)
+    if (on) askClose('menu');   // (the question whether to go into a circle goes when the menu opens)
     PNL.open = on; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
     if (!on && MG.src) menuPut();   // (closed while carried)
     PNL.self = on && /^(question|empty|guide)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
@@ -3322,7 +3410,7 @@
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
   // the tabs, and the one it opens on: the one used last (kept on this headset)
-  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; put('xrMenuTab', t); }
+  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; kpEnd(null); PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; put('xrMenuTab', t); }
   // where a press on the open menu sounds from (a headset; null on a screen)
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // how the menu opens, for the notices, and how it closes, for its header
@@ -3372,7 +3460,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -3446,6 +3534,62 @@
     button(S, 'pass:use', x + bw + 16, y, bw, 60, checking ? 'Checking...' : 'Use', ok ? () => (home ? homeTry(t) : authTry(t)) : null, { primary: ok });
     y += 76;
     button(S, 'pass:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.pass = ''; PNL.home = false; }, { px: 23 });
+    return y + 58 + 24;
+  }
+  // A keypad for a word (HOST.collab.keypad({ title, hint, value, max }): a promise of the text typed, or null), in place
+  // of the tab shown: headsets cannot type, so pages that need a name (the studio's scenes) ask the shell. The text so far,
+  // the 26 lower-case letters and the ten digits, space, '_', '.' and '-', Delete, OK (greyed while there is nothing but
+  // spaces) and Back. OK gives the text as typed; Back, another tab, the menu closing, another keypad or the session's end
+  // give null. The menu opens for it (and closes after it, when it was closed before); it does not close by itself while
+  // the keypad waits
+  const KP_KEYS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  function keypad(o) {
+    o = o && typeof o === 'object' ? o : {};
+    return new Promise(res => {
+      if (!HOST.session || !R.session || !OV.root || !OV.root.parent) { res(null); return; }   // (no headset menu to show it)
+      const close = !PNL.open, max = Math.max(1, Math.min(200, Math.floor(+o.max) || 60));
+      menuOpen(true, 'keypad');   // (cancels a keypad already waiting)
+      PNL.kp = { title: String(o.title || 'Type a word').slice(0, 80), hint: String(o.hint || '').slice(0, 240), value: String(o.value || '').slice(0, max), max, res, close };
+      log('keypad', { title: PNL.kp.title });
+      if (OV.panel) OV.panel.sig = '';
+    });
+  }
+  // the keypad's answer (null: cancelled), given once
+  function kpEnd(v) {
+    const K = PNL.kp;
+    if (!K) return null;
+    PNL.kp = null;
+    log('keypad done', { ok: v !== null });
+    try { K.res(v); } catch (e) { /* the asker's */ }
+    if (OV.panel) OV.panel.sig = '';
+    return K;
+  }
+  function kpDone(v) { const K = kpEnd(v); if (K && K.close) menuOpen(false, 'keypad'); }
+  function keyPage(S, x, y, w) {
+    const ctx = S.ctx, K = PNL.kp, t = K.value, bw = (w - 16) / 2, more = t.length < K.max, add = ch => (more ? () => { K.value = (K.value + ch).slice(0, K.max); } : null);
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, K.title, w), x, y); y += 42;
+    if (K.hint) { ctx.font = FONT(21); ctx.fillStyle = MUTED; y += wrapText(ctx, K.hint, x, y, w, 28, 3) + 14; }
+    rr(ctx, x, y, w, 80, 12); ctx.fillStyle = 'rgba(70,217,255,0.12)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = CYAN; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    if (t) { ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, t.replace(/ /g, '\u00a0') + '|', w - 40), x + 20, y + 42); }
+    else { ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText('Type it below', x + 20, y + 42); }
+    ctx.textBaseline = 'top';
+    y += 96;
+    const kw = (w - 80) / 9, kh = 64;   // nine keys to a row, then space and the three signs
+    for (let i = 0; i < KP_KEYS.length; i++) {
+      const ch = KP_KEYS[i];
+      button(S, 'kp:' + ch, x + (i % 9) * (kw + 10), y + Math.floor(i / 9) * (kh + 10), kw, kh, ch, add(ch), { px: 30 });
+    }
+    y += 4 * (kh + 10);
+    const sw = 3 * kw + 20;
+    button(S, 'kp:space', x, y, sw, kh, 'space', add(' '), { px: 26 });
+    ['_', '.', '-'].forEach((ch, i) => button(S, 'kp:' + ch, x + sw + 10 + i * (kw + 10), y, kw, kh, ch, add(ch), { px: 34 }));
+    y += kh + 18;
+    const ok = !!t.trim();
+    button(S, 'kp:del', x, y, bw, 60, 'Delete', t ? () => { K.value = K.value.slice(0, -1); } : null);
+    button(S, 'kp:ok', x + bw + 16, y, bw, 60, 'OK', ok ? () => kpDone(t) : null, { primary: ok });
+    y += 76;
+    button(S, 'kp:back', x, y, bw, 58, 'Back', () => kpDone(null), { px: 23 });
     return y + 58 + 24;
   }
   // the room setup guide (the owner, 2 November 2026: a group starts a shared room from zero and knows whether the headsets
@@ -3609,7 +3753,7 @@
     design: { open: 'Design room', here: 'Design room here', at: 'You are at the props table', what: 'Every story\'s props on one table',
       moves: 'Moves the room\'s props table to your feet', adds: 'The props table as a circle at your feet' },
     studio: { open: 'Studio', here: 'Studio here', at: 'You are in the studio', what: 'Your own models, trigger cubes and sounds',
-      moves: 'Moves the room\'s studio to your feet', adds: 'The studio as a circle at your feet' },
+      moves: 'Moves the room\'s studio to your feet', adds: 'The studio as a circle at your feet', another: 'Another studio circle at your feet' },
   };
   function pageRow(key) {
     const m = meta(key), w = PAGE_ROW[key];
@@ -3618,8 +3762,8 @@
       const at = HOST.curKey === key;
       return { label: w.open, fn: at ? null : () => { menuOpen(false, key); log(key, { open: true }); HOST.go(key); }, note: at ? w.at : w.what, col: m.col };
     }
-    const lk = circlesLocked(), has = C.st.some(s => s.story === key && !s.kind);
-    return { label: w.here, fn: lk ? null : () => pageHere(key), note: lk ? 'Not while the circles are locked' : has ? w.moves : w.adds, col: m.col };
+    const lk = circlesLocked(), has = !!pageOne(key);
+    return { label: w.here, fn: lk ? null : () => pageHere(key), note: lk ? 'Not while the circles are locked' : has ? w.moves : key === STUDIO && C.st.some(s => s.story === key && !s.kind) ? w.another : w.adds, col: m.col };
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -3653,6 +3797,8 @@
     y += 76;
     line();
     PNL.mirror = null;
+    // a keypad waiting for a word (HOST.collab.keypad), whatever the tab: in place of it
+    if (PNL.kp) { finish(keyPage(S, x, y, w)); return; }
     if (PNL.tab === 'story') {
       // the story on show's own two panels (its text and explore panes, its play bar), drawn by the story and shown on
       // planes over this canvas in the room this leaves for them (mirrorStep); pointing there points at the story's
@@ -3664,7 +3810,8 @@
         finish(y);
         return;
       }
-      ctx.font = FONT(22, 700); ctx.fillStyle = (m && m.col) || MUTED; ctx.fillText(fit(ctx, ((m && m.title) || '').toUpperCase(), w), x, y); y += 38;
+      const L0 = liveSt(), tt = L0 && runs(L0) === HOST.curKey && !L0.kind ? stTitle(L0) : (m && m.title) || '';   // (a studio circle's: its scene)
+      ctx.font = FONT(22, 700); ctx.fillStyle = (m && m.col) || MUTED; ctx.fillText(fit(ctx, tt.toUpperCase(), w), x, y); y += 38;
       const hm = w * sp.main.h / sp.main.w, hf = w * sp.foot.h / sp.foot.w;
       PNL.mirror = { x, w, y0: y, hm, hf, gap: 12 };
       y += hm + 12 + hf + 26;
@@ -3707,6 +3854,13 @@
       button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
       button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
       y += 76;
+      // the frame-rate read-out low in your view (this headset's own, never the room's)
+      if (HOST.xr.setFps) {
+        const fo = fpsOn();
+        button(S, 'fps', x, y, bw, 60, fo ? 'Frame rate: on' : 'Frame rate: off', () => HOST.xr.setFps(!fo), { on: fo });
+        note('This headset\'s own: frames a second, triangles and draw calls', y);
+        y += 76;
+      }
       // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
       // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
       const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
@@ -3889,12 +4043,14 @@
       y += 92; line();
     } else if (PNL.page === 'add') {
       label('Add a station here: which story?');
-      const ad = addable();   // (the stories, then the design room and the studio)
+      // (the stories, then the design room, the studio and its relay's scenes, at most SCN_ROWS of them here: all on a page)
+      const all = addable(), sc = all.filter(m => m.scene), ad = all.filter(m => !m.scene || sc.indexOf(m) < SCN_ROWS);
       ad.forEach((m, i) => {
         const bx = x + (i % 2) * (bw + 16), by = y + Math.floor(i / 2) * 72;
-        button(S, 'add:' + m.key, bx, by, bw, 60, addName(m), () => { add(m.key); PNL.page = 'main'; }, { color: m.col, px: 25 });
+        button(S, 'add:' + addVal(m), bx, by, bw, 60, addName(m), () => { addOne(addVal(m)); PNL.page = 'main'; }, { color: m.col, px: m.scene ? 22 : 25 });
       });
       y += Math.ceil(ad.length / 2) * 72 + 8;
+      if (sc.length > SCN_ROWS) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, `And ${sc.length - SCN_ROWS} more scenes: add them from a page's Shared dialog`, w), x, y); y += 36; }
       button(S, 'add:cancel', x, y, 200, 58, 'Cancel', () => { PNL.page = 'main'; });
       y += 82; line();
     } else {
@@ -3918,10 +4074,10 @@
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
-      ctx.fillText(fit(ctx, mine ? 'Yours: ' + stTitle(mine) : C.st.length ? 'Walk into a circle to see its story' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
+      ctx.fillText(fit(ctx, mine ? 'Yours: ' + stTitle(mine) : C.st.length ? (askFirst() ? 'Point at a circle and press to go in' : 'Walk into a circle to see its story') : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
       const lk = circlesLocked();
       button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
-      button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; });
+      button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; scenesFetch(); });
       y += 72;
       button(S, 'arrange', x, y, bw, 60, 'Arrange all', lk ? null : () => arrange());
       button(S, 'remove', x + bw + 16, y, bw, 60, arm ? 'Remove for everyone?' : 'Remove', mine && !lk ? () => removeAsk(mine.id) : null, { px: arm ? 21 : 24, color: arm ? '#ffb43b' : undefined, on: arm });
@@ -3942,6 +4098,12 @@
       }
       button(S, 'rings', x, y, bw, 56, ra ? 'Show all rings: on' : 'Show all rings: off', () => setRingsAll(!ra), { px: 21, on: ra });
       button(S, 'near', x + bw + 16, y, bw, 56, ns ? 'On this network: shown' : 'On this network: hidden', C.local ? null : () => setNear(!nearShown()), { px: 21, on: ns });
+      y += 72;
+      // the room's circles walked into, or asked first (for everyone here; never refused by either lock)
+      const af = askFirst();
+      button(S, 'askfirst', x, y, bw, 56, af ? 'Circles: ask first' : 'Circles: walk in', () => setAsk(!af), { px: 21, on: af });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      wrapText(ctx, af ? 'For everyone here: point at a circle and press to go in' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
@@ -4071,6 +4233,115 @@
     _v.set(0, -0.22, -1).applyQuaternion(hq).add(head);
     if (!S.placed) { S.mesh.position.copy(_v); S.placed = true; } else S.mesh.position.lerp(_v, 0.08);
     S.mesh.lookAt(head);
+  }
+
+  // ------------------------------------------------- circles asked first --
+  // Circles asked first (askFirst, the room's setting): a press on another circle's card, ring or icon asks in a small
+  // panel in front of you (the owner, 5 November 2026: "a small panel in front of you with the story's title in its
+  // colour, Go in / Not now, gone after 10 s"): put there as it opens, about 0.9 m ahead and a little below your eyes,
+  // turned to you, drawn over everything, pointed at by the ray or pressed by the right index fingertip. It goes after
+  // ASK.ms, on Not now, when the menu opens, when the circle goes or you are in it, when the switch goes off or the session
+  // ends. Go in does what walking into the circle does (choose 'walk', the swell, your presence there), for a story's
+  // circle, an All stories circle and Back to the lobby (which ends your station); the story stays at its circle
+  const ASK = { id: '', until: 0, ms: 10000, placed: false, poke: { armed: true, hov: null } };
+  function askOpen(id) {
+    const s = C.stById.get(id);
+    if (!s || !HOST.session || !OV.ask) return;
+    ASK.id = id; ASK.until = performance.now() + ASK.ms; ASK.placed = false; OV.ask.sig = ''; ASK.poke.armed = true;
+    log('ask open', { st: id });
+    sfx('notice', HD.ok ? new THREE.Vector3(0, -0.06, -0.9).applyQuaternion(HD.q).add(HD.p) : null);
+  }
+  function askClose(why) {
+    if (!ASK.id) return;
+    log('ask closed', { st: ASK.id, why });
+    ASK.id = ''; ASK.poke.hov = null;
+    if (OV.ask) { OV.ask.regions = []; OV.ask.sig = ''; OV.ask.mesh.visible = false; }
+  }
+  function askGo() {
+    const s = C.stById.get(ASK.id);
+    askClose('go');
+    if (!s || !C.code) return;
+    C.zone = s.id; C.cand = '';
+    log('zone', { st: s.id, asked: true });
+    choose(s.id, 'walk');
+    sfx('enter');   // (as walking in: a gentle swell all round you)
+  }
+  function drawAsk() {
+    const S = OV.ask, t = performance.now(), s = ASK.id ? C.stById.get(ASK.id) : null;
+    if (ASK.id && (!s || t > ASK.until || !C.code || !askFirst() || s.id === C.live)) askClose(!s ? 'gone' : t > ASK.until ? 'time' : s.id === C.live ? 'in it' : 'off');
+    S.mesh.visible = !!ASK.id && (ASK.placed || HD.ok);
+    if (!S.mesh.visible) return;
+    const m = meta(lookKey(s)) || {}, left = Math.max(1, Math.ceil((ASK.until - t) / 1000)), title = stTitle(s);
+    const sig = [s.id, title, S.hover, left].join('|');
+    if (sig !== S.sig) {
+      S.sig = sig;
+      const ctx = S.ctx, W = S.w, col = m.col || CYAN;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      S.regions = [];
+      rr(ctx, 3, 3, W - 6, S.h - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = col; ctx.stroke();
+      ctx.font = FONT(22, 700); ctx.fillStyle = col; ctx.fillText(fit(ctx, String(m.kick || '').toUpperCase(), W - 60), 30, 26);
+      ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, title, W - 60), 30, 58);
+      ctx.font = FONT(22); ctx.fillStyle = MUTED;
+      ctx.fillText(fit(ctx, s.kind === LOBBY_ST ? 'Leave your story and see every circle again?' : s.kind === ALL ? 'Go into this circle and choose a story there?' :
+        'Go into this circle? Its story plays where the circle is.', W - 60), 30, 114);
+      const bw = (W - 60 - 16) / 2;
+      button(S, 'ask:go', 30, 156, bw, 76, 'Go in', askGo, { primary: true, px: 30, tog: null });
+      button(S, 'ask:not', 30 + bw + 16, 156, bw, 76, 'Not now', () => askClose('not now'), { px: 28, tog: null });
+      ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText(`Closes by itself in ${left} s`, 30, 250);
+      S.tex.needsUpdate = true;
+    }
+    // put there as it opens (it does not follow the head: the ray lands where it aims), turned to you
+    if (!ASK.placed && HD.ok) {
+      _v.set(0, 0, -1).applyQuaternion(HD.q); _v.y = 0;
+      if (_v.lengthSq() < 1e-6) _v.set(0, 0, -1);
+      _v.normalize().multiplyScalar(0.9).add(HD.p); _v.y -= 0.06;
+      S.mesh.position.copy(_v); S.mesh.lookAt(HD.p); ASK.placed = true;
+    }
+  }
+  // the right index fingertip presses its buttons as it does the menu's (within 1.5 cm of the panel over one, again once
+  // pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once with it)
+  function pokeAsk() {
+    const S = OV.ask, P = ASK.poke;
+    if (!POKE.ok || !S || !S.mesh.visible) { P.armed = true; P.hov = null; return; }
+    const lp = S.mesh.worldToLocal(_v2.copy(POKE.tip)), u = lp.x / S.mw + 0.5, v = 0.5 - lp.y / (S.mw * S.h / S.w), dz = lp.z;
+    const on = u >= 0 && u <= 1 && v >= 0 && v <= 1, r = on && dz > -0.03 && dz < 0.05 ? S.at(u * S.w, v * S.vis) : null;
+    if (r && r.fn && r.id !== P.hov) sfx('hover', POKE.tip);
+    P.hov = r ? r.id : null;
+    if (dz > 0.03 || (!on && dz > 0)) P.armed = true;
+    else if (P.armed && dz < 0.015 && r && r.fn) { P.armed = false; if (!twice(r.id, 'finger')) { log('ask', { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
+  }
+
+  // ------------------------------------------------------ the frame rate --
+  // The frame-rate read-out (HOST.xr.fps: the menu's Frame rate row, this headset's own, off by default; never the room's):
+  // low in your view and a little to the left (FPSV), fixed to the head, over the story and the subtitles and under the
+  // menu and the notices, drawn again once a second: frames a second and the time between frames (the mean and the worst
+  // of the last second, from the shell's own frame callback), and from the story's frame (HOST.perf in index.html: the
+  // renderer's counts while the story's frame loop ran, both eyes, the shell's things in its scene with it) its triangles,
+  // draw calls and how long the frame's code took
+  const FPSV = { down: 22 * Math.PI / 180, left: 14 * Math.PI / 180, dist: 1 };
+  const _e = new THREE.Euler(0, 0, 0, 'YXZ'), _q2 = new THREE.Quaternion();
+  const fpsOn = () => !!(HOST.xr && HOST.xr.fps && HOST.xr.fps());
+  function drawFps() {
+    const S = OV.fps, on = fpsOn() && HD.ok;
+    S.mesh.visible = on;
+    if (!on) return;
+    const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500;
+    const l1 = (FPS.v ? FPS.v + ' fps' : 'Measuring') + (FPS.mean ? ` · ${FPS.mean.toFixed(1)} ms a frame, worst ${FPS.worst.toFixed(1)} ms` : '');
+    const l2 = fresh ? `${Math.round(st.tri).toLocaleString('en-GB')} triangles · ${Math.round(st.calls)} draw calls · code ${st.js.toFixed(1)} ms` : 'Triangles and draw calls: waiting for the story\'s frames';
+    const txt = l1 + '\n' + l2;
+    if (txt !== S.text) {
+      S.text = txt;
+      const ctx = S.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      rr(ctx, 2, 2, S.w - 4, S.h - 4, 18); ctx.fillStyle = 'rgba(8,15,28,0.8)'; ctx.fill();
+      ctx.font = FONT(30, 700); ctx.fillStyle = !FPS.v ? MUTED : FPS.v >= 70 ? '#3ee08f' : FPS.v >= 55 ? '#ffb43b' : '#ff7a59';
+      ctx.fillText(fit(ctx, l1, S.w - 44), 22, 18);
+      ctx.font = FONT(24); ctx.fillStyle = INK; ctx.fillText(fit(ctx, l2, S.w - 44), 22, 70);
+      S.tex.needsUpdate = true;
+    }
+    _e.set(-FPSV.down, FPSV.left, 0); _q2.setFromEuler(_e);
+    S.mesh.quaternion.copy(HD.q).multiply(_q2);
+    S.mesh.position.set(0, 0, -FPSV.dist).applyQuaternion(S.mesh.quaternion).add(HD.p);
   }
 
   // ------------------------------------------------------------- subtitles --
@@ -4241,17 +4512,20 @@
     RC.set(o, d); RC.far = 30;   // a station across a large room can be picked too
     const tip = tipMode();
     const hits = RC.intersectObjects(tip ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
+    // (the question whether to go into a circle is drawn over everything: on the ray, it is what the ray points at)
+    const ah = hits.findIndex(x => x.object === OV.ask.mesh);
+    if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]);
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
-      if (!tip && near != null && x.distance > near) break;   // the story's own panel is in front
+      if (!tip && near != null && x.distance > near && t.kind !== 'ask') break;   // the story's own panel is in front
       // the Story tab: the story's own panel there (the story takes it as its panel, at u, v of its canvas: its buttons,
       // sliders and hover tick as on the panel itself)
       if (t.kind === 'storypanel') { C.hov.set(i, { target: t, at: h.at, p: x.point }); h.hk = ''; return { kind: 'shell', panel: t.which, u: x.uv.x, v: x.uv.y, point: x.point, dist: x.distance }; }
       const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
       C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
       // a soft tick as the pointer comes onto something new: a button of the menu, a station
-      const r = t.kind === 'panel' && S ? S.at(hx, hy) : null, key = t.kind === 'panel' ? (r && r.fn ? 'p:' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
+      const sh = t.kind === 'panel' || t.kind === 'ask', r = sh && S ? S.at(hx, hy) : null, key = sh ? (r && r.fn ? t.kind[0] + ':' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
       if (key && key !== h.hk) sfx('hover', x.point);
       h.hk = key;
       return { kind: 'shell', point: x.point, dist: x.distance };
@@ -4273,8 +4547,15 @@
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'check') { checkTake(i); return; }   // Touch the spot (its Stop checking still works)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
-    // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it)
-    else if (h.target.kind === 'station' && !h.target.live && !MV.src) notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
+    else if (h.target.kind === 'ask') { const r = OV.ask.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('ask', { id: r.id }); const n = sfxN(); r.fn(); OV.ask.sig = ''; pressSound(r, n, h.p); } }
+    // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
+    // circles asked first (the room's setting) it asks, in a small panel in front of you, whether to go in (not your own
+    // station, nor the room's arc, which everyone here is at)
+    else if (h.target.kind === 'station' && !h.target.live && !MV.src) {
+      const s = C.stById.get(h.target.id);
+      if (askFirst() && s && s.id !== C.live && !(s.arc && here())) askOpen(s.id);
+      else notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
+    }
   }
   // the right index fingertip presses the open menu's buttons: within 1.5 cm of the panel over one, again once pulled
   // back 3 cm; a pinch on the ray at the button the fingertip has just pressed (or the other way round, within 0.7 s)
@@ -4299,6 +4580,7 @@
       }
     }
     poke();
+    pokeAsk();
   }
   // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
   // axes and button 4), a stick held down as its controller appears being no click
@@ -4375,7 +4657,18 @@
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
     C.tickAt = t; C.frameN = (C.frameN || 0) + 1;
-    if (HOST.session) { FPS.n++; if (t - FPS.t0 >= 1000) { FPS.v = FPS.t0 ? Math.round(FPS.n * 1000 / (t - FPS.t0)) : 0; FPS.n = 0; FPS.t0 = t; } } else FPS.t0 = 0;
+    // (the frame rate, and the time between frames: the mean and the worst of each second, for the Debug tab and the
+    // frame-rate read-out)
+    if (HOST.session) {
+      FPS.n++;
+      if (FPS.last) { const d = t - FPS.last; FPS.sum += d; FPS.wmax = Math.max(FPS.wmax, d); FPS.k++; }
+      FPS.last = t;
+      if (t - FPS.t0 >= 1000) {
+        FPS.v = FPS.t0 ? Math.round(FPS.n * 1000 / (t - FPS.t0)) : 0;
+        FPS.mean = FPS.t0 && FPS.k ? FPS.sum / FPS.k : 0; FPS.worst = FPS.t0 ? FPS.wmax : 0;
+        FPS.n = FPS.k = FPS.sum = FPS.wmax = 0; FPS.t0 = t;
+      }
+    } else FPS.t0 = FPS.last = 0;
     if (C.code) renderStep();   // (the time others' moves are drawn at, smoothed)
     attachCheck();
     const local = refSpace();
@@ -4423,6 +4716,9 @@
   // stays live here, shown, on the station's clock and in step with the room, until you walk into another circle (or
   // leave the room, or a new session starts). A headset that has walked into no circle yet is away (HOST.room.away)
   function zoneStep(t) {
+    // (circles asked first, the room's setting: walking in does nothing, no dwell and no swell; the station you are at
+    // is the live one, so walking about with it on enters nothing, and turned off again it is where walking in starts)
+    if (askFirst()) { C.cand = ''; C.zone = C.live; return; }
     const x = R.hr.x, z = R.hr.z, dist = s => Math.hypot(s.x - x, s.z - z);
     let best = null, bd = NEAR;
     for (const s of C.st) { if (s.id === MV.id || (s.arc && here())) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
@@ -4607,15 +4903,21 @@
       // unused for IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by
       // itself (the question, a room with no stations) until it has been used: neither opens again by itself
       if (inUse) PNL.self = false;
-      if (inUse || tipMode() || askHere() || PNL.self) PNL.used = t;
+      if (inUse || tipMode() || askHere() || PNL.self || PNL.kp) PNL.used = t;   // (nor while its keypad waits for a word)
       else if (t - PNL.used > IDLE.ms) menuOpen(false, 'idle');
     } else if (OV.panel.regions.length) { OV.panel.regions = []; OV.panel.sig = ''; }   // (closed: nothing on it to press)
     if (OV.panelG.visible) { if (MG.src) carryMenu(); else floatMenu(dt, inUse); }
     mirrorStep();
     drawNote(HD.ok ? HD.p : null, HD.q);
     drawSubs(dt);
+    // the question whether to go into a circle (its hover: the ray's, else the fingertip's), and the frame rate
+    OV.ask.hover = ASK.poke.hov;
+    for (const h of HOV) if (h.target.kind === 'ask') { const r = OV.ask.at(h.x, h.y); if (r) OV.ask.hover = r.id; }
+    drawAsk();
+    drawFps();
     // what the controllers can point at
     OV.hit.length = 0;
+    if (OV.ask.mesh.visible) OV.hit.push(OV.ask.mesh);
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {
@@ -6116,6 +6418,7 @@
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset();
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
+    kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
     // controllers or hands are known), unless it is open by then
     if (s) setTimeout(() => { if (R.session === s && !PNL.open) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
@@ -6212,6 +6515,7 @@
     $('#shRelay').value = C.relay.replace(/^http/, 'ws');
     $('#shName').value = C.name;
     detect().then(() => { if (!C.code) { listRooms(); nearFind('dialog'); } renderDialog(); });
+    if (C.code) scenesFetch().then(() => renderDialog());   // (the studio relay's scenes, for Add)
     renderDialog();
     setTimeout(() => { const f = $(C.code ? '[data-sh="close"]' : C.relay ? '[data-sh="start"]' : homeOffer() ? '#shHome' : '#shRelay'); if (f) f.focus(); }, 50);
   }
@@ -6243,13 +6547,14 @@
       else if (act === 'lock') setLock(!circlesLocked());
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
+      else if (act === 'ask') setAsk(!askFirst());
       else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
       else if (act === 'voice') HOST.xr.setVoice(!HOST.xr.voice());
       else if (act === 'panels') { const S = sessOf(C.stById.get(arg)), v = stPanels(S); if (S) setStPanels(S.id, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles; an All stories circle's: its session's)
       else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
       else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
-      else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
+      else if (act === 'add') { const k = $('#shAdd').value, id = addOne(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
       else if (act === 'copy') { try { navigator.clipboard.writeText(link()); b.textContent = 'Copied'; } catch (e) { /* no clipboard */ } }
       renderDialog();
@@ -6397,8 +6702,8 @@
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = circlesLocked(), lb = $('[data-sh="lock"]');
-      const ad = addable();   // (the stories, then the design room and the studio)
-      if (sel.options.length !== ad.length) sel.innerHTML = ad.map(m => `<option value="${m.key}">${esc(addName(m))}</option>`).join('');
+      const ad = addable(), adk = ad.map(addVal).join('\n');   // (the stories, then the design room, the studio and its relay's scenes)
+      if (sel.dataset.k !== adk) { const was = sel.value; sel.innerHTML = ad.map(m => `<option value="${esc(addVal(m))}">${esc(addName(m))}</option>`).join(''); sel.dataset.k = adk; if (ad.some(m => addVal(m) === was)) sel.value = was; }
       if (lb) { lb.textContent = lk ? 'Unlock circles' : 'Lock circles'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
       // shown on this network or not: the room's (anyone sets it; not locked with the circles); a room on this device is on no network
       const nb = $('[data-sh="near"]'), ns = nearShown();
@@ -6409,6 +6714,9 @@
       if (sc && sc.value !== cm) sc.value = cm;
       if (fb2) { fb2.textContent = fr ? 'Moving: free' : 'Moving: facing you'; fb2.setAttribute('aria-pressed', String(fr)); }
       if (sb) { sb.textContent = su ? 'Subtitles: on' : 'Subtitles: off'; sb.setAttribute('aria-pressed', String(su)); }
+      // the room's circles: walked into, or asked first (headsets; not locked with the circles)
+      const ab = $('[data-sh="ask"]'), af = askFirst();
+      if (ab) { ab.textContent = af ? 'Circles: ask first' : 'Circles: walk in'; ab.setAttribute('aria-pressed', String(af)); }
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
       if (fb) { fb.hidden = !canFresh(); fb.textContent = fa ? 'Fresh space for everyone? Press again' : 'Fresh shared space'; fb.classList.toggle('armed', fa); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
@@ -6599,9 +6907,20 @@
       PNL.tab = tab; PNL.page = page; PNL.code = code; draw();
       return [...ids];
     },
-    // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice }; null outside a room), set
-    // for everyone there (HOST.xr calls these)
+    // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice, ask }; null outside a room),
+    // set for everyone there (HOST.xr calls these)
     look, setLook,
+    // the room's circles walked into (false) or asked first (true: walking in does nothing, a press on a circle asks), set
+    // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
+    // or null) and how long it shows (tests)
+    askFirst: () => askFirst(), setAsk: on => setAsk(on),
+    asking: () => (ASK.id ? { id: ASK.id, left: Math.round(ASK.until - performance.now()) } : null), askMs: ms => { if (ms > 0) ASK.ms = +ms; return ASK.ms; },
+    // a keypad for a word in the headset's menu (headsets cannot type): a promise of the text typed, or null when cancelled
+    // or when no headset menu can show it ({ title, hint, value, max })
+    keypad: o => keypad(o),
+    // the studio relay's scenes (a promise of their names, asked again at most every 3 s), a studio circle for one of them
+    // (its station's id; '' refused), and the scene a studio station's state names ('' none)
+    scenes: () => scenesFetch(), addScene: (name, b) => addScene(name, b), sceneOf: id => sceneOf(C.stById.get(id)),
     // panels per story (HOST.panels calls the first two): at a station of the story, the station's (null elsewhere), set for
     // everyone at its circle; any station's, read and set by its id (the page's dialog)
     panels: key => panelsAt(key), setPanels, stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),

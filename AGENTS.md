@@ -435,6 +435,20 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   same way, in `look` beside these (see "The two sound switches" under "Sound
   effects"); `HOST.xr.sig()` leaves them out (the stories' panels do not show
   them).
+  - The frame rate (v118; the owner, 5 November 2026): beside these, a fifth setting that is never the room's but each
+    headset's own (`HOST.xr.fps()`, `HOST.xr.setFps(on)`, `xrFps` in `localStorage`, off by default, `#fps=on|off` in a
+    link; not in `HOST.xr.sig()`): the menu's *Frame rate: on/off* row (Settings, under Moving and Subtitles). While on, in
+    a headset session only, the shell draws a small read-out low in the view (`drawFps`, `OV.fps`, 0.36 m wide, 1 m away,
+    22 degrees under the gaze and 14 to the left, fixed to the head, `renderOrder` 52: over the story and the subtitles,
+    under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (in
+    green from 70, amber from 55, else red) and the time between frames, the mean and the worst of the last second (the
+    shell's own frame callback, `FPS`, as the Debug tab's line), and the story's frame's triangles, draw calls and how
+    long its code took (`HOST.perf` in `index.html`: the story's frame function is wrapped inside `HOST.loading.wrap`, so
+    the loading scene's fade after it is not counted; while measuring, `renderer.info.autoReset` is off for the whole
+    function, so a story that renders twice counts both, and in a headset one render draws both eyes; the shell's things
+    in the story's scene, rings, icons, the menu and the read-out itself, are in the numbers; each second's means as
+    `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
+    numbers on a real Quest are untested.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -963,10 +977,10 @@ whole ms, and `h: 1` while it is still held: "Others' moves, smooth" below),
 page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
 with the station's other keys when it shows another story; FORMAT networks-25), `lock` (the circles lock, `{ on, by, at }`,
 below; FORMAT networks-6),
-`look` (the headsets' four settings and the two sound switches, `{ labels, cards, free, subs, sfx, voice, by, at }`: set by anyone,
+`look` (the headsets' four settings, the two sound switches and the circles walked into or asked first, `{ labels, cards, free, subs, sfx, voice, ask, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives labels on top, cards in 3D and no subtitles, and leaves a sound switch it never wrote to each device; free moving turned off takes
-every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
+lock; a room without it gives labels on top, cards in 3D, no subtitles and circles walked into, and leaves a sound switch it never wrote to each device; free moving turned off takes
+every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
@@ -984,7 +998,8 @@ made, not yet moved by a headset), and a room now starts with the arc, below; ne
 follow an object or a bone in v112: a sound's record in the studio's `state()` gained `on`, `bone` and `o`; networks-31
 when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`; networks-32 when the studio's
 groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`, and an object's record an optional
-`faces`). The plan is
+`faces`; networks-33 when the circles asked first came in v118: `look` gained `ask`, which an older device writing `look`
+would drop, and in the same round a studio circle made for a scene its record's `sc: true`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1368,6 +1383,36 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
   goes out to the room. A desktop page follows one from the Shared dialog (a
   page cannot walk). A story the person starts themselves leaves the station
   (no longer following, not pulled back).
+- Circles asked first (v118; the owner, 5 November 2026: "a switch for the circles so that they are only accessible by
+  clicking a circle's card or the icon, then a dialogue asks if you want to go into that story, works better in tight
+  rooms"; a room setting, walking in doing nothing, the story staying at its circle, a small panel with the story's title
+  in its colour, Go in and Not now, gone after 10 s, the lobby the same). The room's (`look`'s `ask`, FORMAT networks-33:
+  set by anyone, never refused by either lock, off by default, a room that never wrote it walks in as before;
+  `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`): the headset menu's Circles tab has *Circles:
+  walk in* / *Circles: ask first* (with a note that it is for everyone here) and the page's Shared dialog the same button
+  in its row of the headsets' settings (`data-sh="ask"`). With it on:
+  - Walking in does nothing (`zoneStep` returns at once: no dwell, no swell; `C.zone` is kept at the live station, so
+    walking about with it on enters nothing and, turned off again, walking in starts from where you are).
+  - The trigger or a pinch on another station's card, ring or icon (not your own live one, nor the room's arc, which
+    everyone here is at) opens a small panel in front of you instead of the notice (`askOpen`, `ASK`, `drawAsk`;
+    `OV.ask`, a sheet of 720 x 300 px, 0.42 m wide, put 0.9 m ahead along the floor and 6 cm below the eyes as it opens,
+    turned to you, then fixed; `renderOrder` 55, drawn over everything, the ray's first target, `kind: 'ask'`): the
+    circle's kicker in its colour, its title (`stTitle`: "Back to the lobby", "All stories", "Studio: <scene>"), a line
+    (the lobby: *Leave your story and see every circle again?*), *Go in* and *Not now*, and *Closes by itself in n s*.
+    Pointed at by the ray (the hover tick, a click) or pressed by the right index fingertip (`pokeAsk`, as the menu's
+    `poke`; a pinch and a poke at once count once). The station asked about keeps its card shown while it asks.
+  - It goes after 10 s (`ASK.ms`; `HOST.collab.askMs(ms)` for tests), on *Not now*, when the menu opens, when the circle
+    goes or is your live one, when the switch goes off and when the session ends (`askClose`).
+  - *Go in* does what walking in does (`askGo`: `C.zone` set, `choose(id, 'walk')`, the *enter* swell; your presence's
+    `st` then says so), for a story's circle, an All stories circle (its cards) and Back to the lobby (which ends your
+    live station). The story stays at its circle: the rig at its spot as ever, wherever you stand (a person who goes in
+    from across the room sees it there, small, and hears it faintly until they walk over). Nothing is written to the
+    room but `look` (asking, Not now and the time running out write nothing).
+  - The station cards' tips say *Point here and press to go in* (the lobby: *to leave your story*; All stories: *to
+    choose a story*), the menu's Stations line *Point at a circle and press to go in*, and the lobby's line *Press: back
+    to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
+    shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
+    it stands and how the fingertip presses it on a real headset is untested.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
   its middle, a triangle at the front for its facing) floating 0.5 m over the room's floor (`RING.y`; the owner, 31
   October 2026: "Circles sollten ca 50 cm in der luft sein": a headset that finds the floor a little wrong sank a ring
@@ -1466,9 +1511,26 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
 - The studio in a room (v111): a page that is not a story, placed and kept as the design room is. The page's Add and
   the headset's Add here list it after the design room (`STORY_EXTRA`'s order, then All stories and Back to the lobby);
   the menu's Settings tab has *Design room* and *Studio* side by side (`PAGE_ROW`, `pageRow`): outside a room *Studio*
-  opens the studio (`HOST.go('studio')`), in a room *Studio here* puts its circle at your feet facing your way, or moves
-  the room's one there (one studio, not a pile of them; `pageHere`, `HOST.collab.studio(b)`), refused while the circles
-  are locked; never Arrange all. Its clock starts in explore mode. Its scene is life size round the circle's spot
+  opens the studio (`HOST.go('studio')`), in a room *Studio here* puts a plain studio circle at your feet facing your
+  way, or moves the room's plain one there (one not made for a scene: no `sc` in its record, told by how it was made and
+  never by its state, which names a scene as soon as one is picked there; the first by id when there are several,
+  whatever circles of scenes stand beside it; `pageOne`, `pageHere`, `HOST.collab.studio(b)`; since v118, when a room may
+  hold several studio circles), refused while the circles are locked; never Arrange all. Its clock starts in explore
+  mode.
+  - Scenes as circles (v118; the owner, 5 November 2026: "add scenes as possible circles"): the page's Add and the
+    headset's Add here list after *Studio* one entry per scene of the studio's relay (*Studio: <scene>*; `SCN`,
+    `scenesFetch`: `relayFind()`, then `GET /api/scenes` with the kept password through `api()`, asked again whenever
+    the dialog or the Add here page opens, at most every 3 s; nothing listed without a relay, from a relay without
+    `--scenes` or one that refuses; the headset's page shows at most 8, `SCN_ROWS`, and says how many more a page has).
+    Such an entry (the picker's value and the button's id `scene:<name>`, `addOne`) makes a studio circle for that scene
+    in one batch (`addScene`): `st.<id>` = `{ story: 'studio', sc: true, x, z, yaw }` (`sc`, the shell's own mark that
+    the circle was made for a scene, kept by every move, `stVal`; FORMAT networks-33), its clock, and its state `st.<id>.x` =
+    `{ scene }` (the studio's own field and nothing else: the studio at a station whose state names a scene and holds no
+    items opens it and writes its saved layout, every device alike; the shell changes no `state()` shape). Several
+    studio circles may stand in a room. Wherever the shell names a station (the cards, the dialog's rows and map, the
+    menu's lists and Story tab, people and Follow lines, the question of circles asked first) a studio station whose
+    state names a scene is *Studio: <scene>* (`sceneOf`, `stTitle`; a plain circle too, once a scene is picked there). `HOST.collab.scenes()`, `addScene(name, b)` and
+    `sceneOf(id)` are for tests. Its scene is life size round the circle's spot
   (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
   scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
   device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30;
@@ -1574,7 +1636,8 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
     on/off* (`HOST.slides.setGlobal`, for every story, shown when `HOST.slides` exists, a note beside it), *Repeat:
     off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
-    `HOST.xr`), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
+    `HOST.xr`), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
+    settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
     a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
     mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines
@@ -1586,14 +1649,22 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
     stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all
-    rings* and *On this network*; above them, for a headset in the room with the others, *Room setup* and how it lines
-    up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
+    rings* and *On this network*; *Circles: walk in* / *Circles: ask first* with a note (the room's, "Circles asked
+    first"); above them, for a headset in the room with the others, *Room setup* and how it lines up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
     possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
     boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
     letters, and not the room you are in; a code with no room says so, as on a page) and Back. *Room setup* opens the
     room setup guide's four pages there likewise (`guidePage`: "The room setup guide, its startup flow and Touch the
     spot"), which also opens there by itself as a headset enters a room.
+  - A keypad for a word (v118, `HOST.collab.keypad({ title, hint, value, max })`: a promise of the text typed, or null;
+    for pages that need a word in a headset, which cannot type, such as the studio's scene names): in place of the tab
+    shown, whichever it is (`keyPage`, `PNL.kp`, the relay password's page as its model), the title, a hint, the text so
+    far, the 26 lower-case letters and the ten digits nine to a row, *space*, `_`, `.` and `-`, Delete, OK (greyed while
+    there is nothing but spaces; it gives the text as typed) and Back. The menu opens for it, and closes after OK or Back
+    when it was closed before; it does not close by itself while the keypad waits. Back, another tab, the menu closing,
+    another keypad and the session's end give null (`kpEnd`); with no headset session or no story scene to show the menu
+    in, null at once. Its buttons' ids are `kp:<key>`, `kp:space`, `kp:del`, `kp:ok` and `kp:back`.
   - **Debug**: the room's alignment (in a room, once the question is answered: Calibrate, Re-align, *Check here* (Touch
     the spot) and what the check says, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
     space, then *I am elsewhere* / *in the room*), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
@@ -3508,7 +3579,13 @@ explore mode (controls only: the foot bar alone, the text panel neither drawn
 nor pointable; hidden: neither, A or X still playing), cards hidden still
 hiding both and labels hidden neither, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
-opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`; the menu's Design room
+opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`; the frame-rate read-out (v118: off by
+default with nothing drawn, on through the menu's Frame rate row, the story's frames drawn through `HOST.perf` from the
+pretend head giving a second's triangles, draw calls and code time, the read-out showing them with the frames a second and
+the frame times, 22 degrees down and 14 to the left 1 m away and staying so as the head turns, kept across a reload,
+`#fps=off` and `#fps=on`, nothing drawn when off); the keypad (v118, `HOST.collab.keypad`: the menu opening with its
+keys, OK and Delete greyed while empty, *atelier 22*, Delete and OK giving *atelier 2* and closing the menu again, Back
+giving null, another tab giving null, and null at once on a page without a headset session); the menu's Design room
 button outside a room opening the design room, the menu closing and the button
 greyed there), the stories' sound effects (per story: its cue table, names the
 shell knows, places that resolve, times within the story; a paused scrub across
@@ -4080,7 +4157,27 @@ circles* in the menu unlocking; at another circle nothing locked; *Lock story* i
 the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a circle, the others as icons only),
 `round-2-pointed.png` (an icon pointed at, its card up), `round-3-menu.png` (the menu's canvas with *Lock
 circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
-station's *Lock story*). Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
+station's *Lock story*). Circles asked first (`askRound`, v118, also in the main run, right after the ten-headset round;
+`--ask` runs only it, a room of its own with two story circles and Back to the lobby, a page and a pretend headset, a few
+minutes): a page's Shared dialog turning the room's switch on (*Circles: walk in* to *Circles: ask first*, `look`'s
+`ask` true, the headset too); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
+another station's icon (pointed at first) opening the question in front of it (that circle's title, 0.8 to 1 m away, on
+top and the ray's first target; no notice); *Not now* (pressed by the ray at its button) closing it, nothing entered;
+opened again, gone by itself after 10 s; *Not now* pressed by the right index fingertip (a pretend tracked hand, hovering
+first); the headset having written nothing to the room meanwhile; *Go in* entering that
+circle from the other one (its live station, its story loaded and its rig at that circle's spot, the page seeing its
+presence there) and standing on in the first circle entering nothing; the lobby's question (*Back to the lobby*) and its
+*Go in* ending the station; the menu's *Circles* row turning it off for the room, the headset having written nothing but
+`look` (and what any arrival writes: its story's state and view there); walking in working again (with `--shots`:
+`ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
+`--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
+--scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
+values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:
+'studio', sc: true, x, z, yaw }` and `st.<id>.x` `{ scene: 'test' }` for every page; a second scene's circle at once, both
+titled *Studio: <scene>* in every page's dialog; *Studio here* adding a plain studio circle beside them and then moving
+that one; a scene picked at that plain circle (its state naming it, its title *Studio: <scene>*) and *Studio here* still
+moving it (no fourth circle); a scene circle moved keeping its `sc`, and *Studio here* then still moving the plain one.
+Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
 `--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes
 a second with `ts` and `h`, each sent up to 25 ms late, then lets go; a pretend headset standing there in explore mode
