@@ -1656,12 +1656,12 @@ async function askRound(dir) {
       HOST.collab.dialog(false);
       return { was, now };
     });
-    // (the pretend headset given frames while it waits, as a real one always has: in a session its pump runs from them too)
-    let on = false;
-    for (let k = 0; k < 30 && !on; k++) { await frames(H, 200); on = await H.evaluate(() => HOST.collab.askFirst()); }
-    const lk = (await roomInfo(rc)).keys.look;
+    // (the key comes in with the socket's message, set at once; a machine loaded with software drawing once took more
+    // than 5 s to deliver it, so a longer wait, and what the headset holds is said if it never comes)
+    const on = await until(H, () => HOST.collab.askFirst(), null, 15000), lk = (await roomInfo(rc)).keys.look;
+    const hs = on ? null : await H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
     check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
-      !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v }));
+      !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v, headset: hs }));
     // walking into a circle and standing there 3 s enters nothing
     await goRoom(H, S1.x, 1.6, S1.z, 0);
     await frames(H, 3000);
@@ -5543,7 +5543,7 @@ try {
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U1', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
   // (the headset holds that frame before its session begins: with the one before it, a page's here, it would judge
   // itself not first in the space, as it should then; a loaded machine once began the session first)
-  await until(H, k => (HOST.collab.val(k) || {}).by === 'left-long-ago', rfKey1, 5000);
+  const held7 = await until(H, k => (HOST.collab.val(k) || {}).by === 'left-long-ago', rfKey1, 10000);
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 3000);
@@ -5554,7 +5554,7 @@ try {
   const pub7 = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
   await B.evaluate(() => HOST.collab.me({}));   // (a page again)
   check('shared space: a frame there from someone who has left waits, then the first headset\'s own space replaces it (another headset in the room since before)', early7.src === '' && early7.state === 'shared-wait' &&
-    sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ early7, sU7, pub7 }) + ' ' +
+    sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ held7, early7, sU7, pub7 }) + ' ' +
     await H.evaluate(() => JSON.stringify({ members: HOST.collab.members.map(m => [m.id, m.kind, m.here, m.since]), log: window.__collabLog.filter(e => /shared|first|frame|welcome|close|connect/.test(e.ev)).slice(-20) })));
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now())]);
   await frames(H, 1000);
