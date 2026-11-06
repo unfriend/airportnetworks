@@ -224,6 +224,11 @@ placed by itself).
   anything else makes the record bad; "Locked in place" below). The scene's `settings`: `{ others: 'shown' | 'hidden', real:
   'device' | 'always' | 'never' }` ("The scene's settings" below; absent: `shown` and `device`; a bad one is counted and read
   so). A layout without `shapes`, `empties` or `settings` (v118's) reads as before. A group's `items` may name shapes and empties.
+- An object's, a shape's or an empty's `behaviour` (optional, kept only when set; "Behaviours" below): `{ kind, who,
+  range, dist, speed, area, target }` with only the fields its `kind` uses (`'look'`: `who`, `range`; `'follow'`: `who`,
+  `range`, `dist`, `speed`; `'avoid'`: those and `area`; `'item'`: `target`, `speed`), the rest taking their defaults when
+  left out; `null` reads as absent, anything else that is not such a behaviour makes the record bad. A layout without it
+  (v119's) reads as before.
 - An object's, a shape's or an empty's `motion` (optional, kept only when set; "Motions" below): `{ kind, speed, amount,
   axis, start }`, `kind` one of `'spin'`, `'wobble'`, `'bob'`, `'pulse'`, `'orbit'` and `'sway'` (required), the rest taking
   the kind's own when left out; `null` reads as absent, anything else that is not such a motion makes the record bad. A
@@ -398,7 +403,8 @@ The panes (page HTML and headset canvas twins, the same content):
   device cannot find (another relay, not listed): its items keep their places and show as grey boxes, said on the Scene
   pane.
 - Items glide to a record from the room (0.25 s), unless carried here (the carry wins until let go, as the design
-  room's). No effects; `view()` null; `place` and `panel` as the design room's (only the panel moves).
+  room's). One effect, `beh`: a behaviour's driver's samples ("Behaviours" below); `view()` null; `place` and `panel` as
+  the design room's (only the panel moves).
 - A sound's record carries what it follows (`on`, `bone`, `o`), so following is shared exactly as placing is: everyone
   at the station hears it from the same bone, each device posing its own model on the station's clock (with `start:
   'shown'` from each person's own moment, as an object's animation). FORMAT `networks-30` (v112): an older device would
@@ -990,6 +996,84 @@ it is shown (an animation or a sound that starts when shown, a sound that plays 
 nothing of the scene is shown for that device and no cube is entered (`triggerStep`), so it all starts afresh on its
 return. Untested on a headset.
 
+## Behaviours (the owner, 6 November 2026)
+
+The owner: "Add follow the player/avoid the player/an object etc to objects", then "behaviours should be shared for each
+headset so only react to one headset, example closest or first player who walks close". `engine/e6g_behave.js`.
+
+- **The record** (an object's, a shape's or an empty's; `layout.json` and `state()` alike): `behaviour: { kind, ... }`,
+  kept only when set (none: absent), with only the fields its kind uses, in this order:
+  - `'look'` `{ who, range }`: its front (its `+z` as it is placed: a glTF model's own front; a shape's and an empty's
+    `+z`) turns to face the person, about the vertical through its middle (its place does not change);
+  - `'follow'` `{ who, range, dist, speed }`: comes to the person and stays about `dist` in front of them (where they
+    look, along the floor), at its own height, turned to them as `look` turns it;
+  - `'avoid'` `{ who, range, dist, speed, area }`: keeps at least `dist` away from the person along the floor, never more
+    than `area` from where it is placed; where it stands while it is far enough, pushed straight away from them when they
+    come closer, to the far side of its area when its edge would leave it too close; home once home is `dist + 0.2 m`
+    clear of them; it keeps its turn;
+  - `'item'` `{ target, speed }`: follows another object, shape or empty of the scene (`target`, its id) at the offset the
+    two are placed at (`inverse(target placed) × its placed`), on that one where it is drawn before its motion (its
+    behaviour and recorded path, not its spin or bob: `drawnPose` keeps `it.pre` for it), a little behind (a time
+    constant of 0.3 s, at most `speed`); home when that one is not here (or is itself).
+
+  `who`: `'nearest'` (the default) or `'first'`. `range` (default 3 m, 0.5 to 20), `dist` (follow 1 m, avoid 1.5 m; 0.2
+  to 10), `speed` (default 0.6 m/s, 0.05 to 5) and `area` (default 2 m, 0.2 to 20), each to the cm and held at its
+  limits; `target` an item's id (required for `'item'`). A kind it does not know, a `who` it does not know, a number that
+  is not one or an `'item'` without a good `target` makes the record bad (the layout counts it; the room's record is
+  ignored and the item kept); fields its kind does not use are dropped. Cubes, sounds, cut-outs and groups have none.
+- **Who it reacts to**: one person at a time, among the people in a headset at its circle (pages never count; outside a
+  room this device's own head: a headset's, or the camera in Walk view on a page). Distances are along the floor from its
+  middle as drawn. `'nearest'`: the nearest within `range`; once it has one, another takes over only when nearer by more
+  than 0.3 m, and it keeps its one until they are more than `range + 0.5 m` away. `'first'`: the first who came within
+  `range` (each person's arrival kept until they are more than `range + 0.5 m` away), kept until they are; ties by member
+  id. Nobody: it goes home (its placed pose) by itself, at most `speed` (turning at most half a turn a second).
+- **Shared at a station**: everyone there sees it react to the same one person. Every device works out who that is from
+  the same heads: the shell's `HOST.collab.heads()` (the heads of the people in a headset at this device's live station,
+  its own among them, from presence, in room coordinates with the relay's time of each), turned into the scene's frame
+  (whose origin is the station's spot: back to the spot, turned back by its yaw), this headset's own as the studio has it
+  (exact). That person's headset **drives** it: it moves it every frame from its own head and sends where it put it, its
+  move along the floor and its turn from its placed pose (`[id, tx, tz, d, since]`, to the mm and the milliradian), about
+  ten times a second as one quiet effect of the studio's, `beh` (`{ at: the relay's time, b: [...] }`, every item it
+  drives in one message; `studioEffect` hands it on), and once more with a last `1` when it stops driving (nobody in range,
+  someone else's turn, it rests, its behaviour goes). Every other device draws it **120 ms behind** those samples (the
+  relay's clock, eased as the shell's render time is), between the two around that moment (past the last carried on as it
+  went for 0.1 s at most), blended in over its first 0.4 s; with the samples ended or none for 1 s it goes home by itself,
+  the same on every device. If two headsets drive one item at once (they saw each other a moment late) the claims settle
+  it, alike everywhere: for `'first'` the earlier arrival (`since`, which every device also takes as that person's
+  arrival), for `'nearest'` the newer driver (it began because it was nearer), ties by member id; the one that loses stops.
+  `'item'` needs no driver: every device works it out from what it draws. Samples are kept for the items here only, the
+  last 8 of each sender; nothing of them is stored in the room (no key, no `FORMAT` change for the effect). The record is
+  its item's field, shared and saved as placing is: FORMAT networks-35 (v120).
+- **Drawn**: the base stage of the pose pipeline (`POSE.base`, "Motions" below): its placed pose turned by `d` about the
+  vertical through its placed middle and moved by `(tx, 0, tz)` (an item's whole pose), so a recorded path and its motion
+  draw over it, the model, its unseen box, labels, its cut-outs and the sounds that follow it come along, and **the record
+  never changes**. `POSE.base` is set only while some item of the scene has a behaviour (`behaveStep`, every frame before
+  `itemsStep`), so a scene without one is drawn exactly as before; while one has, every object, shape and empty goes
+  through the pipeline (those without one at their placed pose).
+- **Resting**: as a motion, while this device carries it or, editing, has it selected (or its group, or a sound or a
+  cut-out on it): at its placed pose, no longer driven here (its last sample says so), and from there again after.
+- **Its rows** on the card of an object, a shape and an empty, before its Motion rows (page and headset alike, editing on,
+  not refused by a lock: a behaviour does not move its place): *Behaviour: None / Look at / Follow / Keep away / Follow an
+  item...* (a kind for people keeps `who`, `range`, `speed` and `area` where both have them and takes its own `dist`;
+  *Follow an item...* starts a pick: a click, the trigger or a pinch on an object, a shape or an empty, or the card's list,
+  sets it; *Cancel*), *Reacts to: Nearest / First to come close*, *Notices people within* (*Less* / *More* through 0.5, 1,
+  1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20 m), *Stays in front of them at* (follow: *Closer* / *Further*) or *Keeps away by*
+  (avoid), through 0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10 m, *Stays near its place, within* (avoid: 0.2, 0.5,
+  1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20 m), *Moves at most* (*Slower* / *Faster* through 0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8,
+  1, 1.5, 2, 3, 4, 5 m/s; not for look), and a line saying it is one person at a time, the same for everyone at a circle,
+  pages never counting, and that it rests while selected or carried; for an item *Follows: <name>*, *Moves at most* and
+  a line. One Undo step each (the pick itself none). A group's *Duplicate*: a copy whose behaviour follows an item of the
+  group follows that item's copy.
+- **For tests and the console**: `STUDIO.behave(id)` (who, whether this device drives it, where it is drawn from: `'me'`,
+  `'by:<member>'`, `'home'` or `'item'`, its move and turn, whether it is off its placed pose); `STU.head`'s fourth value
+  is the pretend head's turn (0 facing `-z`); `BEH.fake` adds pretend others' heads; `behNow` can be held still;
+  `BEH.log = new Map()` keeps what each item did frame by frame.
+- **Known limit**: in VR the stick walk moves the scene for one headset alone; the others see where that person stands in
+  the room, so near a boundary they may choose differently for a moment (the claims settle who drives).
+- **Untested on a headset**: all of it on real Quests at a station (how it feels to be followed, looked at or avoided
+  life size; the choice and the hand-over between real headsets over Wi-Fi; how smooth 120 ms behind looks there; many
+  behaving items' cost), and the stick walk's limit above.
+
 ## Motions (the owner, 6 November 2026)
 
 The owner: "Add little animations like spin and wobble etc for models?", then "animations do 1 and 2" (1: simple motions,
@@ -1154,6 +1238,9 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,
   empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
+- Behaviours (v120): the smoke test's *studio behaviours* steps (on the test scene, with a shape that looks, a ball that
+  follows, an empty that keeps away and a cube that follows the ball put in for them) and `tools/collab.mjs --behave`:
+  "Testing" in `AGENTS.md`.
 - Motions (v120): the smoke test's *studio motions* steps (on the test scene, with a shape, an empty, a sound and a cut-out
   put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `AGENTS.md`.
 

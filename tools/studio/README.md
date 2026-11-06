@@ -165,6 +165,20 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
   studio, so the scene starts afresh for the next person who puts it on.
 
+## Behaviours: look at, follow, keep away, follow an item
+
+An object, a shape or an empty can react to the people in the room: on its card, **Behaviour** picks **Look at** (it turns
+to face them), **Follow** (it comes along and stays a little in front of them, at its own height), **Keep away** (it
+moves off when they come close, but never far from its place) or **Follow an item...** (point at another object, shape or
+empty, or pick it from the list: it follows that one at the distance they stand apart, a little behind), or **None**.
+**Reacts to** chooses whom: the **Nearest** person within reach, or the **First to come close**, until they walk away.
+**Less** and **More** set how far it notices people, how far in front of them it stays or how far it keeps away, and how
+far from its place it may go; **Slower** and **Faster** how fast it moves. In a shared room it reacts to one headset at a
+time, the same one for everyone at the circle; pages never count. With nobody near it goes back to its place by itself.
+Like a motion it is drawn over where the thing stands, so moving it, saving it and Undo work as ever; while you have it
+selected (editing) or carry it, it rests where it stands. Shared in a room and saved in `layout.json`
+(`engine/e6g_behave.js`; "Behaviours" in `SPEC.md`).
+
 ## Motions: spin, wobble, bob, pulse, orbit, sway
 
 An object, a shape or an empty can move on its own: on its card, **Motion** picks **Spin** (turns round its axis),

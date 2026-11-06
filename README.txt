@@ -91,6 +91,11 @@ scene for everyone at it; several studio circles can stand in a room.
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,
   hold the grip to carry, both grips to size; in VR the sticks walk and turn.
+- Behaviours: an object, a shape or an empty can look at people, follow them,
+  keep away from them or follow another item (Behaviour on its card, with whom
+  it reacts to: the nearest or the first to come close, and how far and how
+  fast). In a room it reacts to one headset at a time, the same for everyone at
+  the circle; with nobody near it goes back to its place.
 - Motions: an object, a shape or an empty can spin, wobble, bob, pulse, orbit
   or sway on its own (Motion on its card, with its speed, how far, its axis and
   whether it runs always or from when a cube shows it). Its place is not
