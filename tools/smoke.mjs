@@ -1804,6 +1804,71 @@ await step('design: the intro ends at the table', async () => {
     if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) bad.push('the layout did not come back after the GLB checks');
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  // the Add pane as a grid with pictures (tools/studio/SPEC.md, "Pictures in the Add pane"): no relay here, so every
+  // picture is made for this page only (PV.mem); the relay's side is relay/test.mjs's and collab.mjs --studio's
+  await step('studio: the Add pane as a grid with pictures: a card per model (a plain tile with its kind where it has none), sounds a list; Convert to GLB makes one, shown on the page and the headset\'s canvas; Make pictures with no relay makes the rest for this page, and stops; previews/ never a texture', async () => {
+    const bad = [];
+    await ss(`(pvClear(), select(''), setEdit(true), X.tab = 'add', X.orig = true, renderPanes(), 0)`);
+    const cards = () => stp.evaluate(() => [...document.querySelectorAll('#pane-add .stu-grid .stu-card')].map(b => ({ id: b.dataset.id, img: !!b.querySelector('.pic img'), tile: (b.querySelector('.pic b') || {}).textContent || '', text: b.textContent.replace(/\s+/g, ' ').trim() })));
+    let c = await cards();
+    if (c.map(x => x.id).join() !== 'add:box.glb,add:figure.fbx,add:originals/crate.obj' || c.some(x => x.img) || c.map(x => x.tile).join() !== 'GLB,FBX,OBJ') bad.push('the grid without pictures (plain tiles with their kinds): ' + JSON.stringify(c));
+    if (!/^GLBbox\.glb ?0\.5 m · 12 triangles$/.test(c[0] && c[0].text) || !/^FBXfigure\.fbx.*1\.7 m · 12 triangles$/.test(c[1] && c[1].text)) bad.push('the cards\' words (name, size, triangles): ' + JSON.stringify(c.map(x => x.text)));
+    const page = await stp.evaluate(() => ({ sounds: document.querySelectorAll('#pane-add .stu-list li[data-act="adds"]').length, make: (document.querySelector('#pane-add [data-act="pics"]') || {}).textContent || '', cols: getComputedStyle(document.querySelector('#pane-add .stu-grid')).gridTemplateColumns.split(' ').length }));
+    if (page.sounds !== 2 || page.make !== 'Make pictures (3)' || page.cols < 3 || page.cols > 5) bad.push('the pane: sounds a list, Make pictures, 3 to 5 cards a row: ' + JSON.stringify(page));
+    // Convert to GLB (no relay: downloaded) makes the GLB's picture, kept for this page on the card of the model it was
+    // made from; its record says its size and triangles
+    const dl = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await ss(`(convertFile('figure.fbx'), 0)`);
+    await dl;
+    if (!await until(`!CV.busy && (PV.mem.get('figure.fbx') || {}).state === 'ready'`, 60000)) bad.push('Convert to GLB made no picture: ' + JSON.stringify(await ss('[CV.note, pvState()]')));
+    const rec = await ss(`[STUDIO.lastGLB.picture, STUDIO.lastGLB.record.size, STUDIO.lastGLB.record.n, CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } }).size]`);
+    if (rec[0] !== true || JSON.stringify(rec[1]) !== '[0.4,1.7,0.3]' || rec[2] !== 12 || JSON.stringify(rec[3]) !== '[0.4,1.7,0.3]') bad.push('the GLB\'s picture and its record\'s size and triangles: ' + JSON.stringify(rec));
+    // the picture: 256 x 256, the figure (bright) in the middle, the dark background at the corners
+    const look = `(k => { const e = (PV.mem.get(k) || {}).img; if (!e) return null; const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.drawImage(e, 0, 0);
+      const mean = (x0, y0, w, h) => { const d = x.getImageData(x0, y0, w, h).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3; return s / (d.length / 4); };
+      return { w: e.naturalWidth, h: e.naturalHeight, mid: Math.round(mean(118, 98, 20, 60)), corner: Math.round(mean(0, 0, 24, 24)) }; })`;
+    const fig = await ss(look + `('figure.fbx')`);
+    if (!fig || fig.w !== 256 || fig.h !== 256 || !(fig.mid > fig.corner + 60) || fig.corner > 40) bad.push('the figure\'s picture (256 px, the model in the middle, dark corners): ' + JSON.stringify(fig));
+    await ss('(renderPanes(), 0)');
+    c = await cards();
+    if (c.map(x => +x.img).join() !== '0,1,0' || c[1].tile) bad.push('the figure\'s card shows its picture (the others plain tiles): ' + JSON.stringify(c));
+    const make1 = await stp.evaluate(() => (document.querySelector('#pane-add [data-act="pics"]') || {}).textContent || '');
+    if (make1 !== 'Make pictures (2)') bad.push('Make pictures counts the two without one: ' + make1);
+    // Make pictures (no relay: for this page only): the box (loaded from the scene, it is placed) and the crate (fetched and
+    // loaded as the converter loads it, freed after)
+    await stp.click('#pane-add [data-act="pics"]');
+    if (!await until(`!PV.make && (PV.mem.get('box.glb') || {}).state === 'ready' && (PV.mem.get('originals/crate.obj') || {}).state === 'ready'`, 60000)) bad.push('Make pictures did not make both: ' + JSON.stringify(await ss('pvState()')));
+    const after = await ss(`(renderPanes(), [PV.note, !!document.querySelector('#pane-add [data-act="pics"]'), pvMissing().length, PV.info.get('originals/crate.obj')])`);
+    if (after[0] !== '2 of 2 pictures made, for this page only.' || after[1] || after[2] || JSON.stringify(after[3]) !== '{"size":[0.8,0.8,0.8],"n":12}') bad.push('after Make pictures (its note, no button, none missing, what it learnt of the crate): ' + JSON.stringify(after));
+    c = await cards();
+    const box = await ss(look + `('box.glb')`);
+    if (c.some(x => !x.img) || !box || !(box.mid > box.corner + 60)) bad.push('every card with its picture, the box\'s a box: ' + JSON.stringify({ c, box }));
+    if (!/crate\.obj0\.8 m · 12 triangles/.test(c[2] && c[2].text)) bad.push('the crate\'s size learnt by making its picture: ' + JSON.stringify(c[2]));
+    // the headset's canvas: the same cards, three a row, their pictures drawn (bright where the model is); without a
+    // picture a plain tile (dark), and no Make pictures (a page's)
+    const xr = `(() => { XR.on = true; X.tab = 'add'; X.scroll = {}; const P = XR.main; P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); XR.on = false;
+      const r = P.regions.find(q => q.id === 'add:box.glb'), f = P.regions.find(q => q.id === 'add:figure.fbx'), ph = r ? r.w - 16 : 0;
+      const mean = (x0, y0, w, h) => { const d = P.ctx.getImageData(x0, y0, w, h).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3; return s / (d.length / 4); };
+      return { ids: P.regions.map(q => q.id).filter(i => /^(add|adds|pics)/.test(i)), row: r && f ? [f.y === r.y, f.x - r.x] : null, w: r ? r.w : 0, mid: r ? Math.round(mean(r.x + 8 + ph * 0.3, r.y + 8 + ph * 0.3, ph * 0.4, ph * 0.4)) : -1 }; })()`;
+    const x1 = await ss(xr);
+    await ss(`(pvClear(), 0)`);
+    const x2 = await ss(xr);
+    if (!x1.ids.includes('add:box.glb') || !x1.ids.includes('add:figure.fbx') || x1.ids.includes('pics') || !x1.row || !x1.row[0] || x1.w < 250 || x1.w > 330 || !(x1.mid > x2.mid + 40))
+      bad.push('the headset\'s cards (three a row, the picture drawn, a plain tile without): ' + JSON.stringify({ x1, x2 }));
+    // Stop: Make pictures stops after the model it is making
+    await ss(`(renderPanes(), PV_ACT.pics(), PV_ACT.picstop(), 0)`);
+    if (!await until(`!PV.make`, 60000) || !/^Stopped: [01] of 3 pictures made/.test(await ss('PV.note'))) bad.push('Stop: ' + JSON.stringify(await ss('pvState()')));
+    // previews/ in a listing: its pictures said apart (kind preview, also from an older relay's image), never a file the
+    // scene's lists or texture ladder see; anything else in previews/ neither
+    const pv = await ss(`(() => { const keep = STU.files.slice();
+      setFiles(keep.concat({ path: 'previews/box.glb.jpg', bytes: 900, at: 3, kind: 'preview' }, { path: 'previews/x.glb.jpg', bytes: 9, at: 3, kind: 'image' }, { path: 'previews/odd.png', bytes: 20, at: 3, kind: 'image' }));
+      const out = { files: STU.files.filter(f => f.path.startsWith('previews/')).length, pics: scenePictures().filter(p => p.startsWith('previews/')).length, listed: [...PV.files.keys()].join(), lists: JSON.stringify(sceneLists()).includes('previews/'), has: pvHas('box.glb') };
+      setFiles(keep); out.after = PV.files.size; out.fits = [pvFits(pvPath('models/eva.glb')), pvFits(pvPath('a/b/c/d/eva.glb')), pvFits(pvPath('x'.repeat(190) + '.glb'))].join(); return out; })()`);
+    if (JSON.stringify(pv) !== '{"files":0,"pics":0,"listed":"previews/box.glb.jpg,previews/x.glb.jpg","lists":false,"has":true,"after":0,"fits":"true,false,false"}') bad.push('previews/ in a listing: ' + JSON.stringify(pv));
+    await ss(`(pvClear(), X.orig = false, X.tab = 'scene', renderPanes(), 0)`);
+    while (await ss('UNDO.length')) await ss('undo()');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
   await step('studio: the Upload pane with no relay: the test originals dropped, the plan (rows, grouping, names), converting offered as downloads', async () => {
     const bad = [];
     await ss(`(X.tab = 'upload', renderPanes(), 0)`);
@@ -1846,6 +1911,9 @@ await step('design: the intro ends at the table', async () => {
     if (!await until(`!UP.busy && UP.ran`, 90000)) bad.push('converting did not finish');
     const ran = await ss(`STUDIO.state().upload.rows.map(r => [r.kind, r.state, r.dl.join()])`);
     if (JSON.stringify(ran) !== JSON.stringify([['model', 'done', 'figure.glb'], ['model', 'done', 'crate.glb'], ['sound', 'done', 'tone.wav'], ['sound', 'done', 'long.wav'], ['keep', 'done', '']])) bad.push('converted: ' + JSON.stringify(ran));
+    // (each model row with a picture of its GLB, as the Add pane's: e7e_pics.js)
+    const rp = await ss(`(renderPanes(), [STUDIO.state().upload.rows.map(r => r.pic).join(), document.querySelectorAll('#pane-upload .stu-plan img.stu-pv.sm').length])`);
+    if (rp[0] !== 'true,true,false,false,false' || rp[1] !== 2) bad.push('the model rows\' pictures of their GLBs: ' + JSON.stringify(rp));
     const out = await ss(`(async () => {
       renderPanes();
       const a = [...document.querySelectorAll('#pane-upload .stu-plan a[download]')].map(x => [x.getAttribute('download'), x.href]), get = async n => (await fetch(a.find(x => x[0] === n)[1])).arrayBuffer();

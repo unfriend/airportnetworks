@@ -3395,6 +3395,22 @@ async function studioRound(dir) {
       btn && cvDone && onDisk && sw.every(Boolean) && worst < 0.001 && lists && !!rec[0] && rec[0].from === 'figure.fbx',
       JSON.stringify({ btn, cvDone, onDisk, sw, worst, lists, rec, note: await sp(A, 'CV.note') }));
 
+    // ---- its picture for the Add pane (v120, tools/studio/SPEC.md "Pictures in the Add pane"): made with the GLB, uploaded
+    // through the relay as previews/models/figure.glb.jpg, listed as kind preview, and shown on another page's card
+    const pvFile = path.join(SC, 'test', 'previews', 'models', 'figure.glb.jpg');
+    let pvOn = false;
+    for (const end = Date.now() + 15000; !pvOn && Date.now() < end; await sleep(100)) pvOn = fs.existsSync(pvFile);
+    const pvBytes = pvOn ? fs.readFileSync(pvFile) : Buffer.alloc(0), pvJpeg = pvBytes.length > 1000 && pvBytes.length <= 200 << 10 && pvBytes[0] === 0xff && pvBytes[1] === 0xd8;
+    const pvListed = await (await fetch(`http://127.0.0.1:${R.port}/api/scenes/test`)).json().then(j => (j.files || []).find(f => f.path === 'previews/models/figure.glb.jpg'), () => null);
+    const bEdit = await sp(B, 'STU.edit');
+    await sp(B, `(setEdit(true), X.tab = 'add', renderPanes(), 0)`);
+    const pvB = await sUntil(B, `(renderPanes(), PV.files.has('previews/models/figure.glb.jpg') && !STU.files.some(f => f.path.startsWith('previews/')) && !!document.querySelector('#pane-add .stu-card[data-v="models/figure.glb"] .pic img'))`, 20000);
+    const pvH = await sUntil(H, `(() => { X.tab = 'add'; X.scroll = {}; const P = XR.main; P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); return P.regions.some(r => r.id === 'add:models/figure.glb') && (PV.img.get('previews/models/figure.glb.jpg') || {}).state === 'ready'; })()`, 20000);
+    await sp(B, `(setEdit(${bEdit}), X.tab = 'scene', renderPanes(), 0)`);
+    await sp(H, `(X.tab = 'scene', 0)`);
+    check('studio: Convert to GLB also makes its picture: previews/models/figure.glb.jpg through the relay (a JPEG under 200 KB), listed with kind preview, and another page\'s Add pane card and the headset\'s canvas show it (never among the scene\'s files)',
+      pvOn && pvJpeg && !!pvListed && pvListed.kind === 'preview' && pvB && pvH, JSON.stringify({ pvOn, bytes: pvBytes.length, pvListed, pvB, pvH, B: await sp(B, 'pvState()') }));
+
     // ---- a texture added from a page's card: a model that lacks its picture (the textures scene's rust.obj names
     // rust_old.png) copied into the scene and placed; its card's Use paint.png converts it at once, through the relay
     for (const f of ['rust.obj', 'rust.mtl', 'paint.png']) fs.copyFileSync(path.join(TEST, 'textures', f), path.join(SC, 'test', f));
@@ -3832,6 +3848,10 @@ async function studioRound(dir) {
     check('studio from R2: Convert to GLB sends models/figure.glb straight into the bucket (the page\'s signed PUT, then .../done), the figure switches to it, and its record is read with a byte range from the bucket (206, or 304 from its ETag)',
       gCv && !!gGlb && gGlb.type === 'model/gltf-binary' && gSw && gSaved2 && gPut && gHead && /models\/figure\.glb came straight into the bucket/.test(Q.out) && !/wrote models\/figure\.glb/.test(Q.out),
       JSON.stringify({ gBtn, gCv, glb: !!gGlb, gSw, gSaved2, gPut, gHead, gGlbGets, note: await sp(G, 'CV.note') }));
+    // (its picture for the Add pane goes the same way: straight into the bucket by a signed PUT of the page's)
+    const gPv = S3r.objects.get('studio/test/previews/models/figure.glb.jpg'), gPvPut = fromPage().some(r => r.method === 'PUT' && r.url.startsWith('/scenes/studio/test/previews/models/figure.glb.jpg?') && r.status === 200);
+    check('studio from R2: Convert to GLB\'s picture goes straight into the bucket too (previews/models/figure.glb.jpg, image/jpeg, the page\'s signed PUT), listed there as kind preview',
+      !!gPv && gPv.type === 'image/jpeg' && gPvPut && await sUntil(G, `PV.files.has('previews/models/figure.glb.jpg') && !!PV.files.get('previews/models/figure.glb.jpg').url`, 10000), JSON.stringify({ pv: !!gPv, type: gPv && gPv.type, gPvPut, pics: await sp(G, 'pvState().listed') }));
     // a signed link the bucket refuses (as one that lapsed while a headset was taken off): the listing read again and the
     // file fetched by its new link; links past half their life read again before a file is used
     const gRe = await sp(G, `(async () => {
