@@ -81,6 +81,11 @@
 // nothing; the trigger on another circle's icon asks in front of it, Not now, closing by itself after 10 s, Go in entering
 // it from elsewhere, the lobby's Go in ending the station; the menu's row turning it off and walking in working again;
 // nothing written but look; with --shots ask-1-question.png);
+// --menus only your menu shown to your circle (menusRound, also in the main run after the circles asked first: a room of
+// its own with two story circles, a page and three pretend headsets; off by default; A's My menu: my circle drawn on B, at
+// the same circle, where A's menu floats, its picture A's menu, under 48 KB and at most 2 a second, following A's menu as
+// it glides, gone when it closes, the setting goes off or the session ends; nothing on C at the other circle; the page's
+// people list; with --shots menus-*.png);
 // --studio-scenes only the studio's scenes as circles (scenesRound, also in the main run after the studio round: a relay of
 // its own with --scenes on the test scenes, read only; the page's Add listing "Studio: <scene>" after the studio, adding
 // one writing the station and its state with the scene, two at once, their titles, Studio here's rule);
@@ -308,6 +313,7 @@ const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: 
 const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: askRound, in a room of its own)
 const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
 const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
+const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -1813,6 +1819,178 @@ async function askRound(dir) {
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, H]) await p.context().close();
+  }
+}
+
+// ---- your menu shown to your circle (menusRound; --menus runs only it, also in the main run after the circles asked
+// first): a room of its own with two story circles, a page and three pretend headsets, A and B at one circle and C at the
+// other, a few minutes. Off by default: A's menu open sends nothing. A turns My menu: my circle on in its menu (Settings):
+// B draws a plane where A's menu floats (its top edge's middle, its turn and width, within 1 cm and a degree) with a
+// picture of A's menu (pixels not dark, the shape A's menu shows), in the room (depth-tested, under the story panels set
+// on top and the menus), never pointable, A's name over it; C, at the other circle, draws nothing; the page's Shared
+// dialog says A shows their menu.
+// A's tabs pressed four times a second for 4 s: at most 2 pictures a second, every effect under 48 KB, B taking every
+// one; the Story tab's picture (its shape, the story's panels drawn in: lit below its top quarter); A's head turned away,
+// its menu glides back in front: B's plane follows (at most 5 poses a second meanwhile) and ends where A's stands. A
+// silent (a headset taken off): gone on B after 3 s with nothing closed, back once A goes on. A closes its menu: gone on
+// B within a second; opened again, back; the setting turned off: gone, and nothing sent with the menu open; on again and
+// A's session ends: gone. (A pretend headset's frames run only between the round's steps, and slowly in software: B's
+// copy goes 3 s after A's last sample, as on a headset taken off, so each step lets both run first.) dir: pictures
+// (menus-*.png)
+async function menusRound(dir) {
+  const K1 = PICK_STORY, K2 = HEADSET_STORY;
+  const P = await open('#stories');
+  await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(P, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await P.evaluate(() => HOST.collab.code);
+  await P.evaluate(k => { HOST.collab.add(k[0], { x: 0, z: 0, yaw: 0 }); HOST.collab.add(k[1], { x: 4, z: -3, yaw: -0.3 }); }, [K1, K2]);
+  await until(P, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const pId = await P.evaluate(() => HOST.collab.id);
+  await P.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', pId, Date.now() - 60000));
+  await until(P, () => !HOST.collab.internals().pending.size, null, 3000);
+  const sts = await P.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2);
+  const H = [];
+  for (let i = 0; i < 3; i++) {
+    const h = await open('#s=' + rc, { width: 320, height: 200 });
+    await until(h, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
+    await ready(h, 'airports');
+    await h.evaluate(() => HOST.room.sharedAlign(true));
+    await h.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+    await h.evaluate(() => window.__xr.begin());
+    await frames(h, 400);
+    await h.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    await frames(h, 300);
+    H.push(h);
+  }
+  const [A, B, C] = H, aId = await A.evaluate(() => HOST.collab.id);
+  // frames on the headsets given while fn is looked for on page Q (or for ms), as the guide round's
+  const run = (h, ms) => h.evaluate(async ms => { window.__go = true; const t0 = performance.now(); while (window.__go && performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); } }, ms);
+  const runUntil = async (hs, Q, fn, arg, ms) => {
+    const go = Promise.all(hs.map(h => run(h, ms))), ok = Q ? await until(Q, fn, arg, ms) : (await sleep(ms), true);
+    await Promise.all(hs.map(h => h.evaluate(() => { window.__go = false; })));
+    await go;
+    return ok;
+  };
+  const sent = () => A.evaluate(() => HOST.collab.menuSent());
+  const seen = h => h.evaluate(id => { window.__xr.step(); return HOST.collab.menus().find(m => m.id === id) || null; }, aId);
+  // A's menu as it floats: its top edge's middle and its turn in the room, its width and height (m), the part shown (px)
+  const aPose = () => A.evaluate(() => {
+    const O = HOST.collab.overlay(), G = O.panelG, R = HOST.room.internals(), p = HOST.room.toRoom(G.position);
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(R.mi)).multiply(G.quaternion);
+    return { p: p.toArray(), q: q.toArray(), w: O.panel.mw * G.scale.x, h: O.panel.mw * O.panel.vis / O.panel.w * G.scale.x, vis: O.panel.vis, open: HOST.collab.menu };
+  });
+  const qd = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (Math.hypot(...a) * Math.hypot(...b))));
+  const press = id => A.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__xr.step(); return !!(r && r.fn); }, id);
+  // B's picture of A's menu as it came (the PNG of its canvas), and what B sees of it from its head
+  const fresh = ms => runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, ms || 6000);
+  const pics = async n => {
+    if (!dir) return;
+    await fresh();
+    const u = await B.evaluate(id => (HOST.collab.menus(true).find(m => m.id === id) || {}).url, aId);
+    if (u) fs.writeFileSync(path.join(dir, `menus-${n}-picture.png`), Buffer.from(u.split(',')[1], 'base64'));
+    await headView(B, path.join(dir, `menus-${n}-seen.png`), 0.86, -0.12, [640, 400]);
+  };
+  try {
+    check('menus: three pretend headsets align in a room of their own with two story circles', (await Promise.all(H.map(h => h.evaluate(() => HOST.room.aligned)))).every(Boolean) && !!S1 && !!S2);
+    const inA = await walk(A, S1, K1, 0, 150000), inB = await walk(B, S1, K1, Math.PI, 150000), inC = await walk(C, S2, K2, 0, 150000);
+    // B a step to A's side, facing where A's menu will float
+    await goRoom(B, S1.x + 0.7, 1.6, S1.z - 0.2, 0.86);
+    check('menus: A and B walk into one circle, C into the other', inA && inB && inC);
+    // off by default: A's menu open sends nothing, and B draws nothing
+    await A.evaluate(() => HOST.collab.menuIdle(600000));   // (unused for 20 s it would close by itself: not in this round)
+    const off0 = await A.evaluate(() => [HOST.collab.menuShare(), localStorage.getItem('xrMenuShare')]);
+    await A.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    await runUntil([A, B], null, null, null, 1500);
+    const s0 = await sent(), b0 = await seen(B);
+    check('menus: off by default (My menu: only me), nothing sent with the menu open and nothing drawn on B', off0[0] === false && off0[1] === null && s0.pics === 0 && s0.poses === 0 && !s0.st && !b0,
+      JSON.stringify({ off0, s0, b0 }));
+    // A turns it on in its menu: B draws a plane where A's menu floats, with A's picture
+    const lab0 = await A.evaluate(() => { const r = HOST.collab.menuFind('menushare'); return r && HOST.collab.overlay().panel.regions.some(q => q.id === 'menushare') ? HOST.collab.menuTab() : ''; });
+    const pr = await press('menushare');
+    const drawn = await runUntil([A, B, C], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, 15000);
+    await runUntil([A, B], null, null, null, 600);
+    const ap = await aPose(), bm = await seen(B), cm = await seen(C), s1 = await sent(), aName = await A.evaluate(() => HOST.collab.name);
+    check('menus: My menu: my circle on (Settings), A\'s menu open: B draws it where it floats on A (its top edge\'s middle, its turn and width within 1 cm and a degree), the picture\'s shape A\'s menu\'s',
+      lab0 === 'settings' && pr && drawn && !!bm && dist(bm.p, ap.p) < 0.01 && qd(bm.q, ap.q) < 0.0175 && Math.abs(bm.w - ap.w) < 0.01 && Math.abs(bm.h - ap.h) < 0.01 && Math.abs(bm.ih / bm.iw - ap.vis / 720) < 0.02,
+      JSON.stringify({ lab0, pr, drawn, bm: bm && Object.assign({}, bm, { pose: undefined }), ap }));
+    check('menus: B\'s picture is A\'s menu (its pixels not empty), in the room (depth-tested, under the story panels set on top and the menus), never pointable, A\'s name over it; A says it is on in its menu',
+      !!bm && bm.lit > 0.02 && bm.depth === true && bm.order < 50 && bm.order > 49 && bm.gorder === 0 && !bm.hit && bm.name === aName && s1.on && s1.st === S1.id && s1.pics >= 1 &&
+      await A.evaluate(() => (HOST.collab.menuFind('menushare') || {}).id === 'menushare'),
+      JSON.stringify({ bm: bm && { lit: bm.lit, depth: bm.depth, order: bm.order, gorder: bm.gorder, hit: bm.hit, name: bm.name }, aName, s1 }));
+    check('menus: C, at the other circle, draws none of it', !cm || !cm.drawn, JSON.stringify(cm));
+    // the page's Shared dialog: A shows their menu
+    const dl = await runUntil([A], P, () => { HOST.collab.dialog(true); return [...document.querySelectorAll('#shared .sh-people li')].some(li => /showing their menu/.test(li.textContent)); }, null, 8000);
+    await P.evaluate(() => HOST.collab.dialog(false));
+    check('menus: the page\'s Shared dialog says who shows their menu', dl);
+    await pics(1);
+    // A's menu changes four times a second for 4 s (its tabs): at most 2 pictures a second, each effect under 48 KB, B
+    // taking every one (got: every picture B took, whatever became of its copy)
+    await fresh();
+    const n0 = (await sent()).pics, f0 = Date.now();
+    const flip = A.evaluate(async () => { const tabs = ['settings', 'circles', 'debug', 'settings']; for (let k = 0; k < 16; k++) { HOST.collab.menuTab(tabs[k % 4]); await new Promise(r => setTimeout(r, 250)); } });
+    await runUntil([A, B], null, null, null, 4300);
+    await flip;
+    await runUntil([A, B], null, null, null, 1200);   // (the last tab's picture)
+    const fs2 = (Date.now() - f0) / 1000, s2 = await sent(), at = s2.at.slice(-(s2.pics - n0)), gaps = at.slice(1).map((t, k) => t - at[k]);
+    // (B took every picture A sent since the setting went on, in all: a picture being made as the frames stopped may still
+    // go out, so at least those counted and at most those sent by then)
+    const took = await until(B, n => HOST.collab.menuSent().got >= n, s2.pics, 3000), g2 = await B.evaluate(() => HOST.collab.menuSent().got), s2b = await sent();
+    check('menus: A\'s menu changing four times a second: at most 2 pictures a second (each 500 ms or more apart), every effect under 48 KB, B taking every one',
+      s2.pics - n0 >= 2 && s2.pics - n0 <= 2 * fs2 + 1 && gaps.every(g => g >= 490) && s2b.most < 48 * 1024 && took && g2 >= s2.pics && g2 <= s2b.pics,
+      JSON.stringify({ pics: s2.pics - n0, all: s2.pics, after: s2b.pics, secs: fs2, gaps: gaps.map(Math.round), most: s2b.most, step: s2.step, took: g2 }));
+    // the Story tab: the story's own panels drawn into the picture (its shape is that tab's, lit below its top quarter
+    // where the panels are). (A pretend headset's step runs the story's xrBegin, not its panels' drawing: drawn here once)
+    await A.evaluate(() => { HOST.cur.peek('XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })'); HOST.collab.menuTab('story'); });
+    const vis2 = await A.evaluate(() => HOST.collab.overlay().panel.vis);
+    const st = await runUntil([A, B], B, ([id, r]) => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && Math.abs(m.ih / m.iw - r) < 0.02 && m.low > 0.008; }, [aId, vis2 / 720], 12000);
+    await runUntil([A, B], null, null, null, 900);
+    const ap2 = await aPose(), bm2 = await seen(B), mir = await A.evaluate(() => Object.values(HOST.collab.overlay().mirror).every(m => m.visible));
+    await pics(2);
+    check('menus: the Story tab\'s picture, the story\'s panels drawn in (its shape the tab\'s, lit where the panels are)', st && mir && !!bm2 && Math.abs(bm2.ih / bm2.iw - ap2.vis / 720) < 0.02 && bm2.low > 0.008 && Math.abs(bm2.h - ap2.h) < 0.01,
+      JSON.stringify({ st, mir, ih: bm2 && bm2.ih, iw: bm2 && bm2.iw, vis: ap2.vis, lit: bm2 && bm2.lit, low: bm2 && bm2.low, h: [bm2 && bm2.h, ap2.h] }));
+    // A turns away: its menu glides back in front of it, B's follows (at most 5 poses a second meanwhile) and ends where A's stands
+    const p0 = (await sent()).poses, before = await aPose();
+    await goRoom(A, S1.x, 1.6, S1.z, 1.2);
+    const t0 = Date.now();
+    await runUntil([A, B], null, null, null, 3000);
+    const dt = (Date.now() - t0) / 1000, p1 = (await sent()).poses;
+    await runUntil([A, B], null, null, null, 800);
+    const ap3 = await aPose(), bm3 = await seen(B);
+    check('menus: A\'s menu glides back in front of A as it turns away: B\'s follows (at most 5 poses a second) and ends where A\'s stands',
+      dist(before.p, ap3.p) > 0.3 && p1 - p0 >= 2 && p1 - p0 <= 5 * dt + 3 && dist(bm3.p, ap3.p) < 0.01 && qd(bm3.q, ap3.q) < 0.0175,
+      JSON.stringify({ moved: dist(before.p, ap3.p), poses: p1 - p0, dt, b: bm3.p, a: ap3.p }));
+    // A silent (a headset taken off: no frames): B's copy gone 3 s after A's last sample, nothing closed; back once A goes on
+    const c0 = (await sent()).closed, q0 = Date.now();
+    const quiet = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 6000);
+    const qs = (Date.now() - q0) / 1000, c1 = (await sent()).closed;
+    const again = await fresh(10000);
+    check('menus: A silent (a headset taken off): gone on B after a few seconds with nothing closed; back once A goes on', quiet && c1 === c0 && again,
+      JSON.stringify({ quiet, qs, closed: c1 - c0, again }));
+    // A closes its menu: gone on B within a second; opened again, back
+    await A.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.step(); });
+    const gone = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 1000);
+    const s3 = await sent();
+    await A.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    const back = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    check('menus: A closes its menu: gone on B within a second (closed sent); opened again, back', gone && s3.closed >= 1 && !s3.st && back, JSON.stringify({ gone, s3, back }));
+    // the setting off (with the menu open): gone on B, and nothing sent meanwhile
+    await press('menushare');
+    const gone2 = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 2000);
+    const s4 = await sent();
+    await runUntil([A, B], null, null, null, 1500);
+    const s5 = await sent(), off1 = await A.evaluate(() => [HOST.collab.menuShare(), localStorage.getItem('xrMenuShare'), HOST.collab.menu]);
+    check('menus: My menu: only me again (the menu open): gone on B, nothing more sent', gone2 && !off1[0] && off1[1] === null && off1[2] && s5.pics === s4.pics && s5.poses === s4.poses && !s5.st,
+      JSON.stringify({ gone2, off1, s4, s5 }));
+    // on again, then A's session ends: gone on B
+    await press('menushare');
+    const back2 = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    const kept = await A.evaluate(() => localStorage.getItem('xrMenuShare'));
+    await A.evaluate(() => window.__xr.end());
+    const gone3 = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 1500);
+    check('menus: on again (kept on the headset), then A\'s session ends: gone on B', back2 && kept === 'circle' && gone3, JSON.stringify({ back2, kept, gone3 }));
+  } finally {
+    for (const h of H) await h.evaluate(() => window.__xr.end()).catch(() => {});
+    for (const p of [P, ...H]) await p.context().close();
   }
 }
 
@@ -3995,6 +4173,7 @@ try {
   if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
   if (SCENES_ONLY) { await scenesRound(); break main; }
   if (HOME_ONLY) { await homeRound(); break main; }
+  if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -6274,6 +6453,8 @@ try {
   await headsetRound(shots);
   // --------------------------------------- circles asked first (a room of its own) --
   await askRound(shots);
+  // ------------------------------------ your menu shown to your circle (a room of its own) --
+  await menusRound(shots);
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -6368,8 +6549,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

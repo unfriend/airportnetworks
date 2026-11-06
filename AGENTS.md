@@ -4482,7 +4482,22 @@ lobby holding (not taken back there); the menu's *Circles* row turning it off fo
 circle added from the page: `HOST.collab.hideOthers(true)` refused (false) at a story's circle, and at the studio's
 (walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, a hidden
 story circle not walked into (still at the studio after standing in it), the lobby still walked into (the station ends
-and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
+and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). Your
+menu shown to your circle (`menusRound`, v120, also in the main run, right after the circles asked first; `--menus` runs
+only it, a room of its own with two story circles, a page and three pretend headsets, A and B walked into one circle and
+C into the other, a few minutes): off by default (*My menu: only me*, nothing kept), A's menu open sending nothing and B
+drawing nothing; A's *My menu: my circle* (Settings) pressed: B draws a plane where A's menu floats (its top edge's middle,
+its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows), its picture A's menu
+(its pixels not dark), depth-tested, `renderOrder` between 49 and 50 (its group's 0), never pointable, A's name on its tag; C draws none
+of it; the page's Shared dialog says *showing their menu*; A's tabs changed four times a second for 4 s: at least 2
+pictures and at most 2 a second, each 490 ms or more after the last, every effect under 48 KB, B taking every one (its
+`got`); the Story tab's picture (its shape that tab's, lit below its top quarter where the story's panels are drawn in; a
+pretend headset's step does not draw the story's panels, so the round draws them once first); A's head turned 69
+degrees, its menu gliding back in front: B's plane following (at most 5 poses a second) and ending where A's stands; A
+silent (no frames, as a headset taken off): gone on B after a few seconds with nothing closed, and back once A goes on (B
+asking for the picture it lacks); A's menu closed: gone on B within a second (`closed` sent), opened again, back; *My menu: only me* again with the menu open: gone on B, nothing more sent; on again (kept as `xrMenuShare`) and A's
+session ended: gone on B (with `--shots`: `menus-1-picture.png` and `menus-2-picture.png`, the pictures B holds of A's
+Settings and Story tabs, and `menus-1-seen.png`, `menus-2-seen.png`, what B sees from its head). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
 values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:
