@@ -4097,6 +4097,44 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
     if (!f4.vis || f5.vis) bad.push('#fps=on, then off: ' + JSON.stringify([f4.vis, f5.vis]));
     if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
   });
+  // the frame-rate read-out on a double press of B or Y (v119: button 5 of either controller, two presses within 0.4 s;
+  // no story uses it): B twice turns it on (a notice says so), Y twice off again; one press, or two 0.6 s apart, nothing;
+  // a button held as its controller appears counts nothing
+  await step('the frame-rate read-out: a double press of B or Y turns it on and off; one press, two slow ones or a held button nothing', async () => {
+    const bad = [];
+    if (!await sp.evaluate(() => HOST.curKey === 'qubits' && !!window.__tick && !!HOST.session)) await openXR('qubits');
+    await sp.evaluate(() => HOST.xr.setFps(false));
+    // a pretend controller (index i of the session's input sources) with button 5 (B on the right, Y on the left); seq: its
+    // states, one headset frame each, in one go (two presses within 0.4 s however slowly the page draws)
+    const ctl = (i, hand, held) => sp.evaluate(([i, hand, held]) => { window.__s.inputSources[i] = { handedness: hand, targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(k => ({ pressed: k === 5 && held, touched: false, value: 0 })) } }; window.__tick(1); }, [i, hand, held]);
+    const seq = (i, states) => sp.evaluate(([i, states]) => { const b = window.__s.inputSources[i].gamepad.buttons[5]; for (const v of states) { b.pressed = v; window.__tick(1); } }, [i, states]);
+    const st = () => sp.evaluate(() => ({ on: HOST.xr.fps(), note: (HOST.collab.notes().slice(-1)[0] || {}).title || '' }));
+    await ctl(0, 'right', false); await ctl(1, 'left', false);
+    await seq(0, [true, false]); await tick(2);
+    const s1 = await st();
+    if (s1.on) bad.push('one press of B turned it on');
+    await sp.waitForTimeout(500);
+    await seq(0, [true, false]); await sp.waitForTimeout(600); await seq(0, [true, false]); await tick(1);
+    const s2 = await st();
+    if (s2.on) bad.push('two presses of B 0.6 s apart turned it on');
+    await sp.waitForTimeout(500);
+    await seq(0, [true, false, true, false]); await tick(2);
+    const s3 = await st(), f3 = await sp.evaluate(() => HOST.collab.overlay().fps.mesh.visible);
+    if (!(s3.on && s3.note === 'Frame rate: on' && f3)) bad.push('a double press of B did not turn it on (with its notice, the read-out drawn): ' + JSON.stringify([s3, f3]));
+    await sp.waitForTimeout(500);
+    await seq(1, [true, false, true, false]); await tick(2);
+    const s4 = await st();
+    if (s4.on || s4.note !== 'Frame rate: off') bad.push('a double press of Y did not turn it off: ' + JSON.stringify(s4));
+    // held as its controller appears: let go, pressed once, nothing (that first one was no press)
+    await sp.waitForTimeout(500);
+    await sp.evaluate(() => { window.__s.inputSources.length = 0; HOST.xr.setFps(false); window.__tick(1); });
+    await ctl(0, 'right', true);
+    await seq(0, [true, false, true, false]); await tick(1);
+    const s5 = await st();
+    if (s5.on) bad.push('a B held as its controller appeared counted as a press');
+    await sp.evaluate(() => { window.__s.inputSources.length = 0; HOST.xr.setFps(false); window.__tick(1); });
+    if (bad.length) errors.push(...bad.map(b => 'frame rate by B or Y: ' + b));
+  });
   // a keypad for a word in the headset's menu (HOST.collab.keypad; the studio names scenes with it): a word typed, Delete
   // and OK give it (the menu it opened closing again); OK greyed while empty; Back gives null, and so does another tab;
   // without a headset session there is no keypad (null at once)

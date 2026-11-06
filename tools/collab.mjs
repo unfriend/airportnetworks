@@ -1564,11 +1564,15 @@ async function circlesOnly() {
 
 // ---- circles asked first (askRound; --ask runs only it, also in the main run after the ten-headset round): a room of its
 // own with two story circles and Back to the lobby, a page and a pretend headset. A page turns the room's switch on in its
-// Shared dialog (look's ask); the headset walking into a circle and standing there 3 s enters nothing; the trigger on
-// another station's icon (pointed at first) opens the question in front of it (that circle's title, in its colour, Go in
-// and Not now; no notice); Not now closes it; opened again it closes by itself after 10 s; Go in enters (its live station,
-// the story at its circle, its presence there); the lobby by Go in ends it; the menu's row turns the switch off for the
-// room, and walking in works again; nothing written to the room but look. dir: pictures (ask-*.png)
+// Shared dialog (look's ask); no ring drawn or pointable then, the cards and icons staying, Show all rings bringing them
+// back (v119); the headset walking into a circle and standing there 3 s enters nothing; the trigger on another station's
+// icon (pointed at first) opens the question in front of it (that circle's title, in its colour, Go in and Not now; no
+// notice); Not now closes it; opened again it closes by itself after 10 s; Go in enters (its live station, the story at its
+// circle, its presence there); the lobby by Go in ends it, and so does walking into it (still walked into, its ring
+// hidden), the story loaded hearing both (a stub for HOST.cur.lobby, the studio's); Go in pressed while standing in the
+// lobby holds; the menu's row turns the switch off for the room, and walking in works again; nothing written to the room
+// but look. Then a studio circle: at it, HOST.collab.hideOthers(true) hides every other station's ring, card and icon,
+// nothing of them pointable, and it lapses once the headset walks into another circle. dir: pictures (ask-*.png)
 async function askRound(dir) {
   const K1 = 'qubits', K2 = HEADSET_STORY;
   const A = await open('#stories');
@@ -1644,6 +1648,14 @@ async function askRound(dir) {
     return { hov, closed: !HOST.collab.asking() };
   }, id);
   const where = () => H.evaluate(() => ({ mine: HOST.collab.mine(), away: HOST.room.away(), key: HOST.curKey, placing: HOST.room.placing() }));
+  // every station's ring, icon and card as the headset draws them (a few frames first), the live one's left out on ask: ring
+  // drawn, hit (the ring pointable), icon (drawn and pointable), card (drawn)
+  const rings = live => H.evaluate(live => { const X = window.__xr; for (let k = 0; k < 3; k++) X.step(); const O = HOST.collab.overlay(), mine = HOST.collab.mine();
+    return [...O.rings.entries()].filter(([id]) => !live || id !== mine).map(([id, o]) => ({ id, ring: o.ring.visible, hit: O.hit.includes(o.ring), icon: o.icon.g.visible && O.hit.includes(o.ball),
+      card: !!(O.cards.get(id) && O.cards.get(id).mesh.visible) })); }, !!live);
+  // the story loaded hears each time this headset goes to the lobby (HOST.cur.lobby, the studio's): a stub counting them
+  const stubLobby = () => H.evaluate(() => { window.__lobbyN = window.__lobbyN || 0; HOST.cur.lobby = () => { window.__lobbyN++; }; return window.__lobbyN; });
+  const lobbyN = () => H.evaluate(() => window.__lobbyN || 0);
   try {
     // the switch on, from a page's Shared dialog: the room's (look's ask), for the headset too
     const q0 = (await roomInfo(rc)).seq;
@@ -1662,6 +1674,17 @@ async function askRound(dir) {
     const hs = on ? null : await H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
     check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
       !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v, headset: hs }));
+    // (v119) asked first, no ring is drawn or pointable, before any circle too and the lobby's as well; the cards and icons
+    // stay (they are what is pressed); Show all rings brings every ring back, and off again they go
+    await frames(H, 1500);
+    const r0 = await rings(), ra = await H.evaluate(() => HOST.collab.allRings(true));
+    await frames(H, 1200);
+    const r1 = await rings();
+    await H.evaluate(() => HOST.collab.allRings(false));
+    await frames(H, 1500);
+    const r2 = await rings();
+    check('ask: asked first, no ring is drawn or pointable (the lobby\'s too), the cards and icons stay; Show all rings brings them back, off again they go',
+      r0.length === 3 && r0.every(r => !r.ring && !r.hit && r.icon && r.card) && ra && r1.length === 3 && r1.every(r => r.ring && r.hit) && r2.every(r => !r.ring && !r.hit && r.icon && r.card), JSON.stringify({ r0, r1, r2 }));
     // walking into a circle and standing there 3 s enters nothing
     await goRoom(H, S1.x, 1.6, S1.z, 0);
     await frames(H, 3000);
@@ -1705,13 +1728,32 @@ async function askRound(dir) {
     await frames(H, 2500);
     const w5 = await where();
     check('ask: standing in another circle after Go in enters nothing', w5.mine === S2.id, JSON.stringify(w5));
-    // Back to the lobby by Go in: the live station ends (away, every circle shown again)
+    // Back to the lobby by Go in: the live station ends (away, every circle shown again), and the story loaded hears it
+    await stubLobby();
     await askAt(SL.id);
     const a6 = await asked(), gl = await askPress('ask:go');
     await frames(H, 600);
-    const w6 = await where();
-    check('ask: the lobby asks too (Back to the lobby), and its Go in ends the station (away, in no circle)', !!a6 && a6.id === SL.id && a6.title === 'Back to the lobby' && gl === 'pressed' && !w6.mine && w6.away,
-      JSON.stringify({ a6, gl, w6 }));
+    const w6 = await where(), l6 = await lobbyN();
+    check('ask: the lobby asks too (Back to the lobby), and its Go in ends the station (away, in no circle); the story loaded hears it (HOST.cur.lobby)', !!a6 && a6.id === SL.id && a6.title === 'Back to the lobby' && gl === 'pressed' && !w6.mine && w6.away && l6 === 1,
+      JSON.stringify({ a6, gl, w6, l6 }));
+    // (v119) the lobby is still walked into with the circles asked first, its ring hidden: from a story (Go in), walking
+    // into it ends the station and the story loaded hears it again
+    await askAt(S2.id);
+    const g7 = await askPress('ask:go');
+    await frames(H, 800);
+    const w7 = await where();
+    await stubLobby();
+    await goRoom(H, SL.x, 1.6, SL.z, 0);
+    await frames(H, 2500);
+    const w8 = await where(), l8 = await lobbyN(), lr = (await rings()).find(r => r.id === SL.id);
+    check('ask: asked first, the lobby is still walked into (its ring hidden): standing in it 1 s ends the station, and the story loaded hears it',
+      g7 === 'pressed' && w7.mine === S2.id && !w8.mine && w8.away && l8 === 2 && !!lr && !lr.ring && !lr.hit, JSON.stringify({ g7, w7, w8, l8, lr }));
+    // Go in pressed while standing in the lobby: not taken back to the lobby until the headset has stepped out of it
+    await askAt(S2.id);
+    const g9 = await askPress('ask:go');
+    await frames(H, 2500);
+    const w9 = await where(), l9 = await lobbyN();
+    check('ask: Go in pressed while standing in the lobby holds (not taken back there until you step out of it)', g9 === 'pressed' && w9.mine === S2.id && l9 === 2, JSON.stringify({ g9, w9, l9 }));
     // the menu's row turns the switch off for the room (out of every circle first); nothing written by the headset but look
     const sp1 = await awaySpot(H, S1);
     await goRoom(H, sp1[0], 1.6, sp1[1], 0);
@@ -1723,6 +1765,25 @@ async function askRound(dir) {
     // walking in works again
     const in1 = await walk(H, S1, K1, 0, 150000);
     check('ask: switched off, walking into a circle enters it again', in1 && (await where()).mine === S1.id, JSON.stringify(await where()));
+    // (v119) the other circles hidden at a studio station (HOST.collab.hideOthers, the studio's switch): another station's
+    // ring, card and icon neither drawn nor pointable there; refused elsewhere; it lapses once the live station changes
+    const no0 = await H.evaluate(() => HOST.collab.hideOthers(true));
+    await H.evaluate(() => HOST.collab.hideOthers(false));
+    await A.evaluate(() => HOST.collab.add('studio', { x: -1.8, z: 2.6, yaw: Math.PI }));
+    await until(H, () => HOST.collab.stations().some(s => s.story === 'studio'), null, 5000);
+    const SS = (await H.evaluate(() => HOST.collab.stations())).find(s => s.story === 'studio');
+    const inS = !!SS && await walk(H, SS, 'studio', 0, 150000);
+    await frames(H, 600);
+    const v0 = await rings(true), on1 = await H.evaluate(() => HOST.collab.hideOthers(true));
+    await frames(H, 1200);
+    const v1 = await rings(true), pt1 = await pointAt(H, await H.evaluate(id => HOST.collab.overlay().rings.get(id).ball.getWorldPosition(new THREE.Vector3()).toArray(), S1.id));
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    const in3 = await walk(H, S1, K1, 0, 150000);
+    await frames(H, 1200);
+    const off3 = await H.evaluate(() => HOST.collab.hideOthers()), v2 = await rings(true);
+    check('ask: hideOthers at a studio station hides every other station\'s ring, card and icon (nothing of them pointable); refused elsewhere; lapses once the headset walks into another circle',
+      no0 === false && inS && v0.some(r => r.icon) && on1 === true && v1.length === 3 && v1.every(r => !r.ring && !r.hit && !r.icon && !r.card) && pt1 === '' && in3 && off3 === false && v2.some(r => r.icon),
+      JSON.stringify({ no0, inS, v0, on1, v1, pt1, in3, off3, v2 }));
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, H]) await p.context().close();
@@ -2496,11 +2557,14 @@ async function smoothRound() {
 // page opened by itself); a check alone timing out; the second back with no shared space: its flow skipped, the last
 // page opens by itself once it is late; back in the shared space, the flow again (every session). Then the spots: the
 // first headset calibrates on two from Line up (its calibration sets the room: rm and a frame from the spots for the
-// space), Check at A 3 cm off, green, the flow done; the second, taking that frame through the shared space, is asked once
-// more, at Check; entering again, its flow goes straight to Check, Check at A 3 cm off: green, the guide and the menu
-// close; 40 cm off: red, back to Line up; Calibrate there on the spots, on to Check by itself, Check at B: green; the
-// laptop's list says checked at which spot. With --shots its pictures: guide-*.png (the menu's canvas on each page and
-// case, waiting, green, red, the Circles tab, alone, no shared space, calibrating; the laptop's Setting up a room)
+// space), Check at A 3 cm off, green, the flow done; the second, taking that frame through the shared space, is asked by
+// eye (v119: the orange crosses on the two spots, drawn over everything, and Are both crosses on your spots? in front),
+// Yes standing as a check by eye (the laptop's list says so); after a wake and after a floor reset asked again, No opening
+// Line up to calibrate on the spots (not lined up, by eye, in the laptop's list); entering again, the startup flow asks by
+// eye instead of opening at Check; No, Next, Check at A 3 cm off: green, the guide and the menu close; 40 cm off: red,
+// back to Line up; Calibrate there on the spots, on to Check by itself, Check at B: green; the laptop's list says checked
+// at which spot. With --shots its pictures: guide-*.png (the menu's canvas on each page and case, waiting, green, red, the
+// Circles tab, alone, no shared space, calibrating, the question by eye; the laptop's Setting up a room)
 async function guideRound() {
   const A = await open('#stories');
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
@@ -2534,11 +2598,35 @@ async function guideRound() {
   const diag = async () => JSON.stringify([await listText(), await pres(A), await A.evaluate(() => [HOST.collab.status, HOST.collab.id, Math.round(performance.now()), window.__collabLog.slice(-8).map(e => e.ev)]), await hs(H1), await hs(H2)]);
   const lu = re => new RegExp(re).test([...document.querySelectorAll('#shared .sh-lu li')].map(li => li.textContent).join('|'));
   const listed = re => bothUntil(A, lu, re.source, 15000);
-  const menuPic = async (H, file) => {
+  const menuPic = async (H, file, which) => {
     if (!shots) return;
-    const u = await H.evaluate(() => { window.__xr.step(); const S = HOST.collab.overlay().panel, c = document.createElement('canvas'); c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); return c.toDataURL('image/png'); });
+    const u = await H.evaluate(w => { window.__xr.step(); const S = HOST.collab.overlay()[w || 'panel'], c = document.createElement('canvas'); c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); return c.toDataURL('image/png'); }, which);
     fs.writeFileSync(path.join(shots, file), Buffer.from(u.split(',')[1], 'base64'));
   };
+  // the check by eye as headset H shows it: whether it asks, is on show and why; the orange crosses (drawn, over everything)
+  // and where they stand in the pretend room; the question (drawn, how far from the head, the ray's first target, on top)
+  const EY = H => H.evaluate(() => {
+    const X = window.__xr, O = HOST.collab.overlay(), e = HOST.collab.eye(), w = o => o.getWorldPosition(new THREE.Vector3()).applyMatrix4(X.W.local).toArray().map(v => +v.toFixed(3));
+    X.step();
+    const head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), S = O.eye;
+    return Object.assign(e, { marks: O.marks.visible, top: O.crossA.children.every(m => !m.material.depthTest), a: w(O.crossA), b: w(O.crossB),
+      q: { vis: S.mesh.visible, d: +S.mesh.position.distanceTo(head).toFixed(2), hit: O.hit[0] === S.mesh, top: !S.mesh.material.depthTest && S.mesh.renderOrder >= 54 } });
+  });
+  // a press on the question's button by the ray, as a person's trigger does (as the circles' question is pressed)
+  const eyePress = (H, id) => H.evaluate(async id => {
+    const X = window.__xr, V = THREE.Vector3, S = HOST.collab.overlay().eye, r = S.regions.find(q => q.id === id);
+    if (!r || !S.mesh.visible) return 'no ' + id;
+    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.h) * S.mw * S.h / S.w, 0));
+    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.1, -0.25, 0));
+    X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)));
+    X.step(); X.step();
+    const h = HOST.collab.internals().hov.get(0);
+    if (!h || h.target.kind !== 'eye') return 'pointed at ' + JSON.stringify(h && h.target);
+    HOST.cur.peek('XR.ctrls')[0].wantPress = true;
+    for (let k = 0; k < 6; k++) { X.step(); await new Promise(res => setTimeout(res, 30)); }
+    X.ctrl(0, null); X.step();
+    return 'pressed';
+  }, id);
   // the laptop's Setting up a room once it says what re says, the headsets' frames running meanwhile (their presence fresh)
   const laptopPic = async (file, re) => {
     if (!shots) return;
@@ -2735,29 +2823,60 @@ async function guideRound() {
   check('guide: Check at A with the tip 3 cm off spot A: green (Lined up: 3 cm at spot A), the flow done and the guide closed',
     s1 && q3.check.s === 'done' && q3.check.text === 'Lined up: 3 cm at spot A' && q3.check.col === '#3ee08f' && q3.status.c === 3 && q3.ok && q3.ok.how === 'a' && q3.flow === 'done' && !q3.open,
     JSON.stringify(q3));
-  // the second headset (in a session, its flow skipped) takes the frame from the spots through the shared space: asked
-  // once more, at Check (lined up by the room's spots)
-  const sp = await bothUntil(H2, () => { const g = HOST.collab.guide(); return HOST.room.src === 'adopted' && !!HOST.room.marks && g.open && g.step === 2 && g.case === 'check'; }, null, 20000);
-  const v1 = await G(H2);
-  check('guide: the room gets its spots: a headset that skipped its flow, lined up through the shared space from them, is asked once more, at Check', sp && v1.flow === 'on' && v1.menu,
-    JSON.stringify({ sp, v1: [v1.open, v1.step, v1.case, v1.flow, v1.src, v1.status] }));
+  // (v119) the second headset (in a session, its flow skipped) takes the frame from the spots through the shared space:
+  // the room moved in it, so the check by eye asks (once things settle): the orange crosses where it puts spot A and B
+  // (drawn over everything), and the question in front of it, on top and pointable; Yes stands as a check (by eye), the
+  // laptop's list says so
+  const sp = await bothUntil(H2, () => HOST.room.src === 'adopted' && !!HOST.room.marks && HOST.collab.eye().shown, null, 25000);
+  const e1 = await EY(H2), v1 = await G(H2);
+  await menuPic(H2, 'guide-16-eye-question.png', 'eye');
+  check('guide: the room gets its spots: a headset lined up through the shared space from them is asked by eye (the crosses on the two spots, drawn over everything, the question in front, on top, pointable; the guide shut)',
+    sp && e1.shown && e1.marks && e1.top && near(e1.a, SA, 0.02) && near(e1.b, SB, 0.02) && e1.q.vis && e1.q.d > 0.75 && e1.q.d < 1 && e1.q.hit && e1.q.top && !v1.open,
+    JSON.stringify({ sp, e1, v1: [v1.open, v1.flow, v1.case] }));
+  const y1 = await eyePress(H2, 'eye:yes'), v1b = await G(H2), e1b = await EY(H2);
+  check('guide: Yes to the check by eye stands as a check (by eye): the flow done, the question gone', y1 === 'pressed' && v1b.ok && v1b.ok.how === 'e' && v1b.flow === 'done' && !e1b.ask && !e1b.shown && !v1b.open,
+    JSON.stringify({ y1, ok: v1b.ok, flow: v1b.flow, e1b }));
+  const le = await listed(/lined up \(shared space, checked by eye\)/);
+  check('guide: the laptop\'s list says checked by eye', le, await diag());
+  // after a wake (the session hidden, then visible again): asked again
+  await H2.evaluate(() => window.__xr.visibility('hidden'));
+  await frames(H2, 400);
+  await H2.evaluate(() => window.__xr.visibility('visible'));
+  const wk = await stepUntil(H2, () => HOST.collab.eye().shown, null, 20000), e2 = await EY(H2);
+  const y2 = await eyePress(H2, 'eye:yes'), v2y = await G(H2);
+  check('guide: after a wake the check by eye asks again (why: the headset was off), and Yes stands again', wk && e2.why === 'wake' && e2.marks && y2 === 'pressed' && v2y.ok && v2y.ok.how === 'e',
+    JSON.stringify({ wk, e2, y2, ok: v2y.ok }));
+  // after a reset of the floor (Quest Browser's, with a transform that moves nothing here): asked again; No opens the
+  // guide at Line up, to calibrate on the room's spots, saying why; the laptop's list says not lined up, by eye
+  await H2.evaluate(F => window.__xr.floorReset(F, 0), FLOOR);
+  const rs = await stepUntil(H2, () => HOST.collab.eye().shown, null, 20000), e3 = await EY(H2);
+  const n3e = await eyePress(H2, 'eye:no'), v3n = await G(H2);
+  await menuPic(H2, 'guide-17-eye-no.png');
+  check('guide: after a floor reset the check by eye asks again; No opens the guide at Line up (calibrate on the room\'s spots, why above), not lined up meanwhile',
+    rs && e3.why === 'reset' && n3e === 'pressed' && v3n.open && v3n.menu && v3n.step === 1 && v3n.case === 'room' && v3n.flow === 'on' && v3n.red && v3n.red.spot === 'e' && !v3n.ok &&
+      v3n.status.k === 'no' && v3n.status.w === 'eye' && !(await EY(H2)).ask && await has(H2, 'guide:cal') === true,
+    JSON.stringify({ rs, e3, n3e, v3n: [v3n.open, v3n.step, v3n.case, v3n.flow, v3n.red, v3n.status] }));
+  const ln = await listed(/not lined up \(its crosses off the spots, by eye\)/);
+  check('guide: the laptop\'s list says not lined up (its crosses off the spots, by eye)', ln, await diag());
   await tap(H2, 'guide:skip');
-  // entering again: straight to Check (lined up through the shared space from the spots); Check at A 3 cm off: green, the
-  // guide and the menu it opened close
+  // entering again: lined up through the shared space from the room's spots, the startup flow asks by eye instead of
+  // opening at Check; No, then Next to Check, Check at A 3 cm off: green, the guide and the menu it opened close
   await H2.evaluate(() => window.__xr.end());
   await frames(H1, 200);
   await xr(H2, [0.6, 1.6, 0.4, 0.3]);
   await H2.evaluate(() => window.__xr.begin());
   await frames(H2, 300);
   await inSpace(H2);
-  const st2 = await stepUntil(H2, () => { const g = HOST.collab.guide(); return g.open && g.step === 2 && g.case === 'check'; }, null, 20000);
-  const v2 = await G(H2);
-  await menuPic(H2, 'guide-16-straight-to-check.png');
+  const st2 = await stepUntil(H2, () => HOST.collab.eye().shown, null, 25000);
+  const v2 = await G(H2), e4 = await EY(H2);
+  check('guide: a headset lined up through the shared space from the room\'s spots is asked by eye as it enters (the startup flow\'s question, not the guide at Check)',
+    st2 && v2.src === 'adopted' && v2.flow === 'eye' && !v2.open && e4.why === 'start' && e4.marks, JSON.stringify({ st2, v2: [v2.open, v2.step, v2.case, v2.src, v2.flow, v2.status], e4 }));
+  const n4 = await eyePress(H2, 'eye:no'), nx4 = await tap(H2, 'guide:next');
   const s2 = await selfCheck(H2, 'A', [SA[0] + 0.03, SA[1], SA[2]]);
   const v3 = await G(H2);
-  check('guide: a headset lined up through the shared space from the room\'s spots goes straight to Check as it enters; Check at A 3 cm off: green, the guide and its menu close',
-    st2 && v2.src === 'adopted' && v2.flow === 'on' && s2 && v3.check.text === 'Lined up: 3 cm at spot A' && v3.ok && v3.ok.how === 'a' && v3.flow === 'done' && !v3.open && !v3.menu &&
-      await H2.evaluate(() => HOST.collab.notes().some(n => n.title === 'Lined up: 3 cm')), JSON.stringify({ st2, v2: [v2.step, v2.case, v2.src, v2.flow, v2.status], s2, v3 }));
+  check('guide: No, then Next to Check, Check at A 3 cm off: green, the guide and its menu close',
+    n4 === 'pressed' && nx4 && s2 && v3.check.text === 'Lined up: 3 cm at spot A' && v3.ok && v3.ok.how === 'a' && v3.flow === 'done' && !v3.open && !v3.menu &&
+      await H2.evaluate(() => HOST.collab.notes().some(n => n.title === 'Lined up: 3 cm')), JSON.stringify({ n4, nx4, s2, v3 }));
   const l4 = await listed(/lined up \(shared space, checked 3 cm at spot A\)/);
   check('guide: the laptop\'s list says checked 3 cm at spot A', l4, await diag());
   // 40 cm off: red, back to Line up (calibrate on the room's spots, and why); Calibrate there, on to Check by itself,
