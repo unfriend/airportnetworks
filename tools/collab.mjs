@@ -1625,6 +1625,24 @@ async function askRound(dir) {
     HOST.collab.panelOpen(false); X.step();
     return !!(r && r.fn);
   }, id);
+  // a press on the question's button by the right index fingertip (a tracked hand): hovered 4 cm in front of it, then
+  // within 1.5 cm, then pulled back; { hov: the button hovered, closed: the question gone after }
+  const askPoke = id => H.evaluate(async id => {
+    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, S = HOST.collab.overlay().ask, r = S.regions.find(q => q.id === id);
+    if (!r || !S.mesh.visible) return { no: id };
+    const tip = { world: new M4() }, keep = X.session.inputSources[0];
+    X.session.inputSources[0] = { handedness: 'right', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: { world: X.W.local.clone() }, hand: new Map([['index-finger-tip', tip]]) };
+    const at = d => S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.h) * S.mw * S.h / S.w, d));
+    const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); } };
+    tipAt(at(0.04)); await steps(2);
+    const hov = HOST.collab.overlay().ask.hover;
+    tipAt(at(0.005)); await steps(2);
+    tipAt(at(0.06)); await steps(1);
+    if (keep) X.session.inputSources[0] = keep; else X.session.inputSources.length = 0;
+    await steps(1);
+    return { hov, closed: !HOST.collab.asking() };
+  }, id);
   const where = () => H.evaluate(() => ({ mine: HOST.collab.mine(), away: HOST.room.away(), key: HOST.curKey, placing: HOST.room.placing() }));
   try {
     // the switch on, from a page's Shared dialog: the room's (look's ask), for the headset too
@@ -1662,6 +1680,10 @@ async function askRound(dir) {
     const a4 = await asked();
     const gone = await until(H, () => { window.__xr.step(); return !HOST.collab.asking(); }, null, 4000), after = (Date.now() - t0) / 1000, w3 = await where();
     check(`ask: the question closes by itself after 10 s (gone after ${after.toFixed(1)} s), entering nothing`, !!a3 && !!a4 && gone && after > 8.5 && !w3.mine, JSON.stringify({ a3, a4, after, w3 }));
+    // Not now pressed by the right index fingertip
+    await askAt(S2.id);
+    const pk = await askPoke('ask:not'), w3b = await where();
+    check('ask: the right index fingertip presses the question\'s buttons (Not now, hovered first)', pk.hov === 'ask:not' && pk.closed && !w3b.mine, JSON.stringify({ pk, w3b }));
     // (asking, Not now and the time running out wrote nothing to the room)
     const quiet = Object.entries((await roomInfo(rc)).keys).filter(([, e]) => e.seq > q0 && e.by === hId).map(([k]) => k);
     check('ask: the headset wrote nothing to the room while it asked, said Not now and let the question close', !quiet.length, JSON.stringify(quiet));

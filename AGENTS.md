@@ -4090,7 +4090,8 @@ minutes): a page's Shared dialog turning the room's switch on (*Circles: walk in
 `ask` true, the headset too); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
 another station's icon (pointed at first) opening the question in front of it (that circle's title, 0.8 to 1 m away, on
 top and the ray's first target; no notice); *Not now* (pressed by the ray at its button) closing it, nothing entered;
-opened again, gone by itself after 10 s; the headset having written nothing to the room meanwhile; *Go in* entering that
+opened again, gone by itself after 10 s; *Not now* pressed by the right index fingertip (a pretend tracked hand, hovering
+first); the headset having written nothing to the room meanwhile; *Go in* entering that
 circle from the other one (its live station, its story loaded and its rig at that circle's spot, the page seeing its
 presence there) and standing on in the first circle entering nothing; the lobby's question (*Back to the lobby*) and its
 *Go in* ending the station; the menu's *Circles* row turning it off for the room, the headset having written nothing but
