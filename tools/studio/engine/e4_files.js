@@ -57,7 +57,7 @@ async function call(url, o = {}) {
   if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
   // (R2: a file's signed link, read again first when it may have lapsed, and once more after the bucket refused it)
-  const signed = !relay && SRC.linkTtl > 0 && STU.files.some(f => f.url === url);
+  const signed = !relay && SRC.linkTtl > 0 && (STU.files.some(f => f.url === url) || [...PV.files.values()].some(f => f.url === url));
   if (signed && !o.again && linksOld()) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) {
@@ -204,6 +204,7 @@ function openScene(name, how, again) {
   draftNow();
   clearItems();
   libClear();
+  pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
@@ -243,23 +244,27 @@ async function loadScene() {
   }
   dirty(true);
 }
-// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
+// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name. A model's picture for the
+// Add pane (previews/<its path>.jpg) is kind 'preview' whatever the relay said, anything else under previews/ 'other':
+// never a texture or a model (e7e_pics.js)
 function filesOf(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return out;
 }
-// the open scene's listing
+// the open scene's listing; its models' pictures (previews/) said apart (e7e_pics.js), so nothing else sees them
 function setFiles(list) {
-  const out = filesOf(list);
-  if (out.some(f => f.url)) linksSoon();
+  const all = filesOf(list), out = all.filter(f => !f.path.startsWith(PV_DIR));
+  if (all.some(f => f.url)) linksSoon();
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
+  pvListing(all.filter(f => f.kind === 'preview'));
 }
 // the listing again (a file added, changed or gone: the watch), then what uses a changed file loaded again
 async function refreshFiles(changed) {
@@ -492,7 +497,7 @@ async function copySet(from, f, files) {
   for (const n of N.textures) tex(n);
   return { deps, lost };
 }
-const copyOne = (scene, from, path, as) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, path, as }) });
+const copyOne = (scene, from, path, as, replace) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(replace ? { from, path, as, replace } : { from, path, as }) });
 // what this scene may hold where (an upload's rule: relay/scenes.mjs, uploadPath): models (GLB, glTF, FBX), sounds,
 // pictures and data anywhere, any other kind (an OBJ, its MTL) only under originals/
 const mayHold = q => inOriginals(q) || ['glb', 'gltf', 'fbx'].includes(extOf(q)) || ['audio', 'image', 'data'].includes(kindOf(q));
@@ -521,6 +526,8 @@ async function copyIn(p) {
       if (gen !== STU.gen) return;
     }
     if (!done) throw new Error('no free name for ' + baseName(p));
+    // (its picture for the Add pane, when the other scene has one: copied beside it; never a reason the copy fails)
+    if (FROM.files.some(x => x.path === pvPath(p)) && pvFits(pvPath(done))) { try { await copyOne(scene, from, pvPath(p), pvPath(done), true); } catch (e) { /* Make pictures makes it again */ } }
     await refreshFiles(new Set());
     if (gen !== STU.gen) return;
     const id = kindOf(done) === 'audio' ? addSound(done) : addModel(done);

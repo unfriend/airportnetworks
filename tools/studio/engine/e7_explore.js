@@ -64,7 +64,9 @@ function setView(name) {
 
 // ------------------------------------------------------------ the panes --
 // A pane is a list of blocks: { h, sub } a heading; { p, c } a line (c: muted, faint, amber, red, green); { code } a
-// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }. A button or a row: { id, label,
+// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }; { label, grid: [cards] } (the Add
+// pane's models: a card is a row with pic, the models whose picture it shows, first that has one, kind, the plain tile's
+// word, sub2 a second line, and title, the page's tooltip). A button or a row: { id, label,
 // sub, act, v, on, dis, primary, warn, col, page (page only), xr (headset only) }
 const SOUND_NOTE = 'The scene\'s sounds follow this device\'s Sound button (not the Sound effects or Narration switches: they are the scene\'s own).';
 const hhmm = ms => { const d = new Date(ms), t = d.toTimeString().slice(0, 5); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + t; };
@@ -158,13 +160,23 @@ function paneBlocks(tab) {
     if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
     B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
     const L = sceneLists(), full = k => countOf(k) >= LIMITS[k], froms = new Map([...L.stands].map(([o, g]) => [g, o]));
-    const modelRow = (f, orig) => {
+    // a model as a card: its picture (an original a GLB stands for shows the GLB's, else its own; e7e_pics.js), its name
+    // (models/ left out), its size in metres and triangles where known, else its bytes, and what it was made from or into
+    const modelCard = (f, orig) => {
       const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
-      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
-        sub: g ? `converted: ${baseName(g)}` : mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : '') + (froms.has(f.path) ? ` · from ${baseName(froms.get(f.path))}` : '') };
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path.replace(/^models\//i, ''), title: f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+        pic: g ? [g, f.path] : [f.path], kind: extOf(f.path).toUpperCase(), sub: modelWords(g ? STU.fileMap.get(g) || f : f),
+        sub2: g ? `converted: ${baseName(g)}` : froms.has(f.path) ? `from ${baseName(froms.get(f.path))}` : '' };
     };
-    B.push({ label: `Models (${L.models.length})`, list: L.models.map(f => modelRow(f, false)) });
+    B.push({ label: `Models (${L.models.length})`, grid: L.models.map(f => modelCard(f, false)) });
     if (!L.models.length) B.push({ p: 'No models in the scene\'s folder: put .glb (best), .gltf, .fbx, .obj, .ply or .stl files there, or drop them under Upload.', c: 'faint' });
+    // (the page makes the pictures the cards lack: e7e_pics.js)
+    const lack = XR.on ? [] : pvMissing();
+    if (!XR.on && (lack.length || PV.make)) B.push({ page: true, row: [
+      { id: 'pics', label: PV.make ? `Making pictures: ${PV.make.i} of ${PV.make.n}` + (PV.make.path ? ` (${baseName(PV.make.path)})...` : '...') : `Make pictures (${lack.length})`, act: 'pics', dis: !!PV.make || !!CV.busy },
+      PV.make ? { id: 'picstop', label: PV.make.stop ? 'Stopping...' : 'Stop', act: 'picstop', dis: PV.make.stop } : null,
+    ].filter(Boolean) }, { page: true, p: 'A picture of each model that has none, one after another' + (canUpload() ? ', kept in the scene (previews/) for everyone.' : ', for this page only (a relay that takes uploads keeps them in the scene).'), c: 'faint' });
+    if (PV.note && !XR.on) B.push({ page: true, p: PV.note, c: PV.noteC });
     // (the page converts: every model to place that is not a GLB yet)
     const conv = L.models.filter(f => extOf(f.path) !== 'glb');
     if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
@@ -175,8 +187,12 @@ function paneBlocks(tab) {
     if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
     if (L.orig.length) {
       B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
-      if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
-        { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      if (X.orig) {
+        const om = L.orig.filter(f => f.kind === 'model'), ot = L.orig.filter(f => f.kind !== 'model');
+        if (om.length) B.push({ grid: om.map(f => modelCard(f, true)) });
+        if (ot.length) B.push({ list: ot.map(f => ({ id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) });
+        B.push({ p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      }
     }
     fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
@@ -564,6 +580,7 @@ function act(a, v) {
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
+  if (PV_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) PV_ACT[a](v); dirty(true); return; }   // (Make pictures: a page's)
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -609,7 +626,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -622,6 +639,16 @@ function buildExplore() {
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(calc((100% - 16px) / 3), max(104px, calc((100% - 32px) / 5))), 1fr)); gap: 8px; margin: 4px 0 14px; }
+    .stu-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 5px 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+    .stu-card:hover { border-color: var(--cyan); }
+    .stu-card[disabled] { opacity: 0.45; cursor: default; }
+    .stu-card .pic { display: grid; place-items: center; aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; background: #0b1322; margin-bottom: 3px; }
+    .stu-card .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stu-card .pic b { color: var(--faint); font-size: 15px; letter-spacing: 0.08em; }
+    .stu-card .nm { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+    .stu-card small { color: var(--muted); font-size: 11.5px; line-height: 1.25; }
+    .stu-card small.f { color: var(--faint); }
     .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
@@ -654,6 +681,7 @@ function buildExplore() {
     .stu-range b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
     .stu-plan li .stu-range { grid-column: 2; margin: 4px 0 2px; font-size: 13px; } .stu-plan li .stu-range label { color: var(--muted); }
     .stu-plan li img.stu-pv { grid-column: 2; max-width: 100%; border-radius: 4px; margin: 4px 0 2px; }
+    .stu-plan li img.stu-pv.sm { width: 96px; height: 96px; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -695,6 +723,10 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
+  // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); return `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+    `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
+    `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`; }).join('')}</div>`;
   if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? `margin-left:${20 * +x.ind}px;` : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;

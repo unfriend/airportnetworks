@@ -17,7 +17,8 @@
 //                       own pictures left as they are (the studio's preview)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
-//                       false; o.keep: made lighter first), loaded back and checked against it
+//                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
+//                       with the GLB as loaded back (metres, Y up) before it is freed, its answer given back as picture
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
@@ -336,6 +337,7 @@ function makeConverter(THREE, hooks) {
     return out.buffer;
   }
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
+  // size: its size in metres [x, y, z] (to the mm), n: its triangles (the Add pane's cards say both),
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
   // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
@@ -354,7 +356,10 @@ function makeConverter(THREE, hooks) {
       ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
     // (fill: how many of its pictures have the gaps between their pieces filled)
     const fl = Number.isFinite(r.fill) && r.fill > 0 ? Math.min(99, Math.round(r.fill)) : 0;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl };
+    // (size and n: what the GLB holds, for the Add pane's cards; absent in a GLB written before v120)
+    const size = Array.isArray(r.size) && r.size.length === 3 && r.size.every(v => Number.isFinite(v) && v >= 0 && v < 1e6) ? r.size.slice() : null;
+    const n = Number.isInteger(r.n) && r.n >= 0 ? r.n : null;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl, size, n };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -1053,7 +1058,8 @@ function makeConverter(THREE, hooks) {
       const t = setTimeout(() => rej(new Error('its textures could not be written here (out of memory?): try it on a laptop')), o.exportMs || 240000);
       try { new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { clearTimeout(t); rej(err); }
     });
-    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
+    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now(),
+      size: ref.size.map(v => Math.round(v * 1000) / 1000), n: ref.tris };
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
@@ -1154,10 +1160,13 @@ function makeConverter(THREE, hooks) {
         r.dispose();
       } catch (err) { look = 'not drawn (' + err.message + ')'; }
     }
+    // (a picture of it as written, for the caller: the studio's Add pane; never a reason not to write it)
+    let picture = null;
+    if (o.picture && !why.length) { try { picture = await o.picture(back); } catch (err) { picture = null; } }
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 

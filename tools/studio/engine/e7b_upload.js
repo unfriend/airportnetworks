@@ -147,9 +147,11 @@ async function convertFile(path, o = {}) {
     // (made again from its original into a GLB that was made lighter: as light again, unless a share is asked; made again
     // from itself, it is as light as it is)
     const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
-    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
+    const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
     const size = mb(r.glb.byteLength) + (r.reduced ? `, ${fmt(r.reduced.to)} of ${fmt(r.reduced.from)} triangles` : ''), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
@@ -166,11 +168,16 @@ async function convertFile(path, o = {}) {
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
+      // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
+      // only, and is never a reason the conversion failed
+      if (r.picture) { try { await pvKeep(out, r.picture, info); } catch (e) { /* Make pictures makes it again */ } }
     } else {
       saveFile(r.glb, name + '.glb', 'model/gltf-binary');
       CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
       CV.noteC = 'green';
       CV.done.push(name + '.glb');
+      // (its picture, for this page only, on the card of the model it was made from)
+      if (r.picture) { try { await pvKeep(path, r.picture, info); } catch (e) { /* none */ } }
     }
     ok = true;
     sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
@@ -672,7 +679,7 @@ async function upRow(r, relay, scene, sent) {
         if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
       }
       const keep = r.keep === undefined ? FT_DEFAULT : r.keep;   // (Triangles kept: 20 % unless the row says otherwise)
-      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, picture: pvShotSoon, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
       for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
@@ -692,6 +699,13 @@ async function upRow(r, relay, scene, sent) {
       r.out[0] = (j && j.path) || glbPath;
       r.msg = `Made ${r.out[0]} (${size}).`;
     } else { r.dl.push({ name: baseName(glbPath), url: blobOf(res.glb, 'model/gltf-binary') }); r.msg = `Converted (${size}).`; }
+    // its picture for the Add pane (e7e_pics.js): shown in the row, and with a relay kept in the scene beside the GLB
+    // (previews/<its path>.jpg); one that could not go is only said
+    const pb = res.picture ? await pvJpeg(res.picture).catch(() => null) : null;
+    if (pb) {
+      r.pic = blobOf(pb, 'image/jpeg');
+      if (relay) { try { await pvSend(scene, r.out[0], pb); } catch (err) { r.notes.push(`Its picture for the Add pane was not kept (${err.status === 401 ? AUTH_NOTE : err.message}): Make pictures under Add makes it again.`); } }
+    }
     r.state = 'done'; r.p = 1;
     return;
   }
@@ -799,7 +813,7 @@ function uploadHTML(b) {
     return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
-      ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
+      ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
   return '';
 }

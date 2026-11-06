@@ -16639,7 +16639,7 @@ async function call(url, o = {}) {
   if (relay && SRC.held) throw AUTH_ERR();
   if (relay && SRC.token && !/[?&]token=/.test(url)) headers.Authorization = 'Bearer ' + SRC.token;   // (a file carries it in its address)
   // (R2: a file's signed link, read again first when it may have lapsed, and once more after the bucket refused it)
-  const signed = !relay && SRC.linkTtl > 0 && STU.files.some(f => f.url === url);
+  const signed = !relay && SRC.linkTtl > 0 && (STU.files.some(f => f.url === url) || [...PV.files.values()].some(f => f.url === url));
   if (signed && !o.again && linksOld()) { const nu = await linksAgain(url); if (nu) return call(nu, Object.assign({}, o, { again: true })); }
   let r;
   try { r = await fetch(url, { method: o.method || 'GET', headers, body: o.body, cache: o.cache || 'no-store' }); } catch (e) {
@@ -16786,6 +16786,7 @@ function openScene(name, how, again) {
   draftNow();
   clearItems();
   libClear();
+  pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
@@ -16825,23 +16826,27 @@ async function loadScene() {
   }
   dirty(true);
 }
-// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name
+// a scene's listing: [{ path, bytes, at, kind }], at most 2,000, only paths a layout may name. A model's picture for the
+// Add pane (previews/<its path>.jpg) is kind 'preview' whatever the relay said, anything else under previews/ 'other':
+// never a texture or a model (e7e_pics.js)
 function filesOf(list) {
   const out = [];
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind: kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path),
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);
+    out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
   out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return out;
 }
-// the open scene's listing
+// the open scene's listing; its models' pictures (previews/) said apart (e7e_pics.js), so nothing else sees them
 function setFiles(list) {
-  const out = filesOf(list);
-  if (out.some(f => f.url)) linksSoon();
+  const all = filesOf(list), out = all.filter(f => !f.path.startsWith(PV_DIR));
+  if (all.some(f => f.url)) linksSoon();
   STU.files = out; STU.fileMap = new Map(out.map(f => [f.path, f]));
+  pvListing(all.filter(f => f.kind === 'preview'));
 }
 // the listing again (a file added, changed or gone: the watch), then what uses a changed file loaded again
 async function refreshFiles(changed) {
@@ -17074,7 +17079,7 @@ async function copySet(from, f, files) {
   for (const n of N.textures) tex(n);
   return { deps, lost };
 }
-const copyOne = (scene, from, path, as) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, path, as }) });
+const copyOne = (scene, from, path, as, replace) => getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(scene)}/copy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(replace ? { from, path, as, replace } : { from, path, as }) });
 // what this scene may hold where (an upload's rule: relay/scenes.mjs, uploadPath): models (GLB, glTF, FBX), sounds,
 // pictures and data anywhere, any other kind (an OBJ, its MTL) only under originals/
 const mayHold = q => inOriginals(q) || ['glb', 'gltf', 'fbx'].includes(extOf(q)) || ['audio', 'image', 'data'].includes(kindOf(q));
@@ -17103,6 +17108,8 @@ async function copyIn(p) {
       if (gen !== STU.gen) return;
     }
     if (!done) throw new Error('no free name for ' + baseName(p));
+    // (its picture for the Add pane, when the other scene has one: copied beside it; never a reason the copy fails)
+    if (FROM.files.some(x => x.path === pvPath(p)) && pvFits(pvPath(done))) { try { await copyOne(scene, from, pvPath(p), pvPath(done), true); } catch (e) { /* Make pictures makes it again */ } }
     await refreshFiles(new Set());
     if (gen !== STU.gen) return;
     const id = kindOf(done) === 'audio' ? addSound(done) : addModel(done);
@@ -17872,7 +17879,8 @@ function makeImages(z) {
 //                       own pictures left as they are (the studio's preview)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
-//                       false; o.keep: made lighter first), loaded back and checked against it
+//                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
+//                       with the GLB as loaded back (metres, Y up) before it is freed, its answer given back as picture
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
@@ -18191,6 +18199,7 @@ function makeConverter(THREE, hooks) {
     return out.buffer;
   }
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
+  // size: its size in metres [x, y, z] (to the mm), n: its triangles (the Add pane's cards say both),
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
   // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
@@ -18209,7 +18218,10 @@ function makeConverter(THREE, hooks) {
       ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
     // (fill: how many of its pictures have the gaps between their pieces filled)
     const fl = Number.isFinite(r.fill) && r.fill > 0 ? Math.min(99, Math.round(r.fill)) : 0;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl };
+    // (size and n: what the GLB holds, for the Add pane's cards; absent in a GLB written before v120)
+    const size = Array.isArray(r.size) && r.size.length === 3 && r.size.every(v => Number.isFinite(v) && v >= 0 && v < 1e6) ? r.size.slice() : null;
+    const n = Number.isInteger(r.n) && r.n >= 0 ? r.n : null;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl, size, n };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -18908,7 +18920,8 @@ function makeConverter(THREE, hooks) {
       const t = setTimeout(() => rej(new Error('its textures could not be written here (out of memory?): try it on a laptop')), o.exportMs || 240000);
       try { new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { clearTimeout(t); rej(err); }
     });
-    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
+    const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now(),
+      size: ref.size.map(v => Math.round(v * 1000) / 1000), n: ref.tris };
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
@@ -19009,10 +19022,13 @@ function makeConverter(THREE, hooks) {
         r.dispose();
       } catch (err) { look = 'not drawn (' + err.message + ')'; }
     }
+    // (a picture of it as written, for the caller: the studio's Add pane; never a reason not to write it)
+    let picture = null;
+    if (o.picture && !why.length) { try { picture = await o.picture(back); } catch (err) { picture = null; } }
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
@@ -21447,7 +21463,9 @@ function setView(name) {
 
 // ------------------------------------------------------------ the panes --
 // A pane is a list of blocks: { h, sub } a heading; { p, c } a line (c: muted, faint, amber, red, green); { code } a
-// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }. A button or a row: { id, label,
+// command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }; { label, grid: [cards] } (the Add
+// pane's models: a card is a row with pic, the models whose picture it shows, first that has one, kind, the plain tile's
+// word, sub2 a second line, and title, the page's tooltip). A button or a row: { id, label,
 // sub, act, v, on, dis, primary, warn, col, page (page only), xr (headset only) }
 const SOUND_NOTE = 'The scene\'s sounds follow this device\'s Sound button (not the Sound effects or Narration switches: they are the scene\'s own).';
 const hhmm = ms => { const d = new Date(ms), t = d.toTimeString().slice(0, 5); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + t; };
@@ -21541,13 +21559,23 @@ function paneBlocks(tab) {
     if (STU.listing !== 'ok') { B.push({ p: 'Reading the scene...', c: 'faint' }); return B; }
     B.push({ p: 'A press places it 1.5 m in front of you, on the floor, selected.', c: 'muted' });
     const L = sceneLists(), full = k => countOf(k) >= LIMITS[k], froms = new Map([...L.stands].map(([o, g]) => [g, o]));
-    const modelRow = (f, orig) => {
+    // a model as a card: its picture (an original a GLB stands for shows the GLB's, else its own; e7e_pics.js), its name
+    // (models/ left out), its size in metres and triangles where known, else its bytes, and what it was made from or into
+    const modelCard = (f, orig) => {
       const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
-      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
-        sub: g ? `converted: ${baseName(g)}` : mb(f.bytes) + (E && E.info ? ` · ${fmt(E.info.tris)} triangles` : '') + (froms.has(f.path) ? ` · from ${baseName(froms.get(f.path))}` : '') };
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path.replace(/^models\//i, ''), title: f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+        pic: g ? [g, f.path] : [f.path], kind: extOf(f.path).toUpperCase(), sub: modelWords(g ? STU.fileMap.get(g) || f : f),
+        sub2: g ? `converted: ${baseName(g)}` : froms.has(f.path) ? `from ${baseName(froms.get(f.path))}` : '' };
     };
-    B.push({ label: `Models (${L.models.length})`, list: L.models.map(f => modelRow(f, false)) });
+    B.push({ label: `Models (${L.models.length})`, grid: L.models.map(f => modelCard(f, false)) });
     if (!L.models.length) B.push({ p: 'No models in the scene\'s folder: put .glb (best), .gltf, .fbx, .obj, .ply or .stl files there, or drop them under Upload.', c: 'faint' });
+    // (the page makes the pictures the cards lack: e7e_pics.js)
+    const lack = XR.on ? [] : pvMissing();
+    if (!XR.on && (lack.length || PV.make)) B.push({ page: true, row: [
+      { id: 'pics', label: PV.make ? `Making pictures: ${PV.make.i} of ${PV.make.n}` + (PV.make.path ? ` (${baseName(PV.make.path)})...` : '...') : `Make pictures (${lack.length})`, act: 'pics', dis: !!PV.make || !!CV.busy },
+      PV.make ? { id: 'picstop', label: PV.make.stop ? 'Stopping...' : 'Stop', act: 'picstop', dis: PV.make.stop } : null,
+    ].filter(Boolean) }, { page: true, p: 'A picture of each model that has none, one after another' + (canUpload() ? ', kept in the scene (previews/) for everyone.' : ', for this page only (a relay that takes uploads keeps them in the scene).'), c: 'faint' });
+    if (PV.note && !XR.on) B.push({ page: true, p: PV.note, c: PV.noteC });
     // (the page converts: every model to place that is not a GLB yet)
     const conv = L.models.filter(f => extOf(f.path) !== 'glb');
     if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
@@ -21558,8 +21586,12 @@ function paneBlocks(tab) {
     if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
     if (L.orig.length) {
       B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
-      if (X.orig) B.push({ list: L.orig.map(f => (f.kind === 'model' ? modelRow(f, true) : { id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) },
-        { p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      if (X.orig) {
+        const om = L.orig.filter(f => f.kind === 'model'), ot = L.orig.filter(f => f.kind !== 'model');
+        if (om.length) B.push({ grid: om.map(f => modelCard(f, true)) });
+        if (ot.length) B.push({ list: ot.map(f => ({ id: 'orig:' + f.path, label: f.path.replace(/^originals\//i, ''), sub: mb(f.bytes) + ' · kept as given', act: f.kind === 'audio' ? 'adds' : 'none', v: f.path, dis: f.kind !== 'audio' || full('s') })) });
+        B.push({ p: 'The files as they were given (kept so a model can be converted again). A model a GLB was made from places the GLB.', c: 'faint' });
+      }
     }
     fromBlocks(B, full);
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
@@ -21947,6 +21979,7 @@ function act(a, v) {
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
+  if (PV_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) PV_ACT[a](v); dirty(true); return; }   // (Make pictures: a page's)
   const lock = editLocked();
   ({
     scene: () => { if (!lock && v !== STU.scene) { openScene(v, 'pick'); sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 }); } },
@@ -21992,7 +22025,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -22005,6 +22038,16 @@ function buildExplore() {
     .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
     .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
+    .stu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(calc((100% - 16px) / 3), max(104px, calc((100% - 32px) / 5))), 1fr)); gap: 8px; margin: 4px 0 14px; }
+    .stu-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 5px 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+    .stu-card:hover { border-color: var(--cyan); }
+    .stu-card[disabled] { opacity: 0.45; cursor: default; }
+    .stu-card .pic { display: grid; place-items: center; aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; background: #0b1322; margin-bottom: 3px; }
+    .stu-card .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stu-card .pic b { color: var(--faint); font-size: 15px; letter-spacing: 0.08em; }
+    .stu-card .nm { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+    .stu-card small { color: var(--muted); font-size: 11.5px; line-height: 1.25; }
+    .stu-card small.f { color: var(--faint); }
     .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
@@ -22037,6 +22080,7 @@ function buildExplore() {
     .stu-range b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
     .stu-plan li .stu-range { grid-column: 2; margin: 4px 0 2px; font-size: 13px; } .stu-plan li .stu-range label { color: var(--muted); }
     .stu-plan li img.stu-pv { grid-column: 2; max-width: 100%; border-radius: 4px; margin: 4px 0 2px; }
+    .stu-plan li img.stu-pv.sm { width: 96px; height: 96px; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
     <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -22078,6 +22122,10 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
+  // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); return `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+    `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
+    `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`; }).join('')}</div>`;
   if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? `margin-left:${20 * +x.ind}px;` : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
@@ -22511,9 +22559,11 @@ async function convertFile(path, o = {}) {
     // (made again from its original into a GLB that was made lighter: as light again, unless a share is asked; made again
     // from itself, it is as light as it is)
     const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
-    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after };
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
+    const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
     const size = mb(r.glb.byteLength) + (r.reduced ? `, ${fmt(r.reduced.to)} of ${fmt(r.reduced.from)} triangles` : ''), lost = r.missing.length ? ` It lacks ${r.missing.join(', ')}.` : '';
@@ -22530,11 +22580,16 @@ async function convertFile(path, o = {}) {
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
+      // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
+      // only, and is never a reason the conversion failed
+      if (r.picture) { try { await pvKeep(out, r.picture, info); } catch (e) { /* Make pictures makes it again */ } }
     } else {
       saveFile(r.glb, name + '.glb', 'model/gltf-binary');
       CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
       CV.noteC = 'green';
       CV.done.push(name + '.glb');
+      // (its picture, for this page only, on the card of the model it was made from)
+      if (r.picture) { try { await pvKeep(path, r.picture, info); } catch (e) { /* none */ } }
     }
     ok = true;
     sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
@@ -23036,7 +23091,7 @@ async function upRow(r, relay, scene, sent) {
         if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
       }
       const keep = r.keep === undefined ? FT_DEFAULT : r.keep;   // (Triangles kept: 20 % unless the row says otherwise)
-      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, picture: pvShotSoon, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
       for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
@@ -23056,6 +23111,13 @@ async function upRow(r, relay, scene, sent) {
       r.out[0] = (j && j.path) || glbPath;
       r.msg = `Made ${r.out[0]} (${size}).`;
     } else { r.dl.push({ name: baseName(glbPath), url: blobOf(res.glb, 'model/gltf-binary') }); r.msg = `Converted (${size}).`; }
+    // its picture for the Add pane (e7e_pics.js): shown in the row, and with a relay kept in the scene beside the GLB
+    // (previews/<its path>.jpg); one that could not go is only said
+    const pb = res.picture ? await pvJpeg(res.picture).catch(() => null) : null;
+    if (pb) {
+      r.pic = blobOf(pb, 'image/jpeg');
+      if (relay) { try { await pvSend(scene, r.out[0], pb); } catch (err) { r.notes.push(`Its picture for the Add pane was not kept (${err.status === 401 ? AUTH_NOTE : err.message}): Make pictures under Add makes it again.`); } }
+    }
     r.state = 'done'; r.p = 1;
     return;
   }
@@ -23163,7 +23225,7 @@ function uploadHTML(b) {
     return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
-      ${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
+      ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
   }).join('')}</ul>`;
   return '';
 }
@@ -23270,10 +23332,10 @@ function linksFresh() {
 }
 // a signed link this page holds: the same file's link after reading the listing again (null: no other one came)
 async function linksAgain(url) {
-  const f = STU.files.find(x => x.url === url);
+  const f = STU.files.find(x => x.url === url) || [...PV.files.values()].find(x => x.url === url);   // (a model's picture too)
   if (!f) return null;
   await linksFresh();
-  const g = STU.fileMap.get(f.path);
+  const g = STU.fileMap.get(f.path) || PV.files.get(f.path);
   return g && g.url && g.url !== url ? g.url : null;
 }
 // (the page shown again after a while: links that lapsed meanwhile read again at once)
@@ -23771,6 +23833,296 @@ const liteState = () => ({
   ct: { id: CT.id, mat: CT.mat, slot: CT.slot, pic: CT.pic && CT.pic.name, shown: !!(CT.saved && CT.saved.length), busy: CT.busy, saving: CT.saving, note: CT.note, after: !!CT.after },
 });
 const trisOf = id => { const it = STU.items.get(id); let n = 0; if (it && it.model) for (const m of it.model.meshes) { const g = m.geometry; n += (g.index ? g.index.count : g.attributes.position.count) / 3; } return Math.round(n); };
+// =============================================================== PICTURES ==
+// The Add pane's pictures of the scene's models (tools/studio/SPEC.md, "Pictures in the Add pane"; the owner, 6 November
+// 2026: "Models in add dialogue should have preview images and show in a grid", "add pane with pictures sounds good,
+// leave 3d models for now"). A picture is a 256 x 256 JPEG of a model, lit and seen from a little above, on a dark
+// background, kept in the scene as previews/<the model's path>.jpg (eva.glb's: previews/models/eva.glb.jpg; the relay's
+// rule, relay/scenes.mjs: only such pictures there, at most 200 KB, listed with a kind of their own, 'preview', so they are
+// never taken for textures). It is made whenever the studio writes a GLB, of the GLB as loaded back (Convert to GLB,
+// Convert every model, Fewer triangles' and Change texture's Save and the texture buttons, all through convertFile; and
+// the Upload pane's rows), and by Make pictures for the models that have none (each loaded as the converter loads it,
+// freed after; one the scene has loaded already drawn from that). With a relay that takes uploads it goes into the scene
+// as every file does (straight into R2 when it can, else through the relay); without, it is kept for this page only.
+// Pictures are fetched as the scene's other files are (the password as a header, or R2's signed link), a few at a time,
+// as the page shows them; a headset fetches only those it draws. Nothing of them is in the layout or the room's state.
+const PV = { files: new Map(), img: new Map(), mem: new Map(), info: new Map(), rev: 0, q: [], busy: 0, make: null, note: '', noteC: 'muted', jobs: [] };
+// files: preview path -> its listing entry; img: preview path -> { at, state, url, img } (fetched); mem: model path -> the
+// same, made on this page and not uploaded; info: model path -> { size, n } learnt by making its picture here
+const PV_PX = 256, PV_MAX = 190 << 10, PV_DIR = 'previews/';
+const pvPath = p => PV_DIR + p + '.jpg';
+const isPv = p => typeof p === 'string' && p.startsWith(PV_DIR) && p.endsWith('.jpg') && p.length > PV_DIR.length + 4;
+// a picture's path the relay takes (its upload rule: at most 200 characters, 4 folders deep, no name a common file system
+// cannot keep): a model whose picture could not go there has one for this page only
+const pvFits = rel => rel.length <= 200 && rel.split('/').length <= 5 && rel.split('/').every(s => s && !/^\./.test(s) && !/[\0-\x1f\x7f\\:*?"<>|]/.test(s) && !/[ .]$/.test(s.replace(/\.jpg$/, 'x')));
+
+// ---- the listing: its pictures said apart (setFiles), those whose file changed or went fetched again or forgotten
+function pvListing(list) {
+  PV.files = new Map(list.map(f => [f.path, f]));
+  for (const [rel, e] of [...PV.img]) { const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }
+  PV.rev++;
+}
+function pvDrop(map, k) { const e = map.get(k); if (e && e.url) URL.revokeObjectURL(e.url); map.delete(k); }
+// another scene, or the studio going: every picture and every fetch forgotten, Make pictures stopped
+function pvClear() {
+  for (const m of [PV.img, PV.mem]) for (const k of [...m.keys()]) pvDrop(m, k);
+  PV.files = new Map(); PV.info.clear(); PV.q = [];
+  if (PV.make) PV.make.stop = true;
+  PV.note = ''; PV.rev++;
+}
+
+// ---- showing: the picture of a model (its own, made here or listed), or null while there is none (yet). A listed one
+// not fetched yet is fetched (load false: only looked at)
+function pvFor(p, load = true) {
+  const m = PV.mem.get(p);
+  if (m) return m.state === 'ready' ? m : null;
+  const f = PV.files.get(pvPath(p));
+  if (!f) return null;
+  const e = PV.img.get(f.path);
+  if (e && e.at === f.at) return e.state === 'ready' ? e : null;
+  if (load && !SRC.held) pvLoad(f);
+  return null;
+}
+// the first of several that has one (an original a GLB stands for shows the GLB's, else its own)
+function pvAny(list, load = true) { for (const p of list) { const r = pvFor(p, load); if (r) return r; } return null; }
+// a model has a picture (one listed that could not be read counts as none: Make pictures makes it again)
+const pvHas = p => PV.mem.has(p) || (PV.files.has(pvPath(p)) && (PV.img.get(pvPath(p)) || {}).state !== 'failed');
+// a listed picture's address: its signed link (R2), else the scene's file (call adds the password as a header)
+const pvUrl = f => f.url || sceneUrl(STU.scene) + encPath(f.path) + (f.at ? '?v=' + f.at : '');
+function pvLoad(f) {
+  const old = PV.img.get(f.path);
+  if (old && old.at === f.at) return;
+  if (old) pvDrop(PV.img, f.path);
+  PV.img.set(f.path, { at: f.at, state: 'queued', url: '', img: null });
+  PV.q.push(f);
+  pvPump();
+}
+// (three fetches at a time: a scene of fifty models asks for its pictures without crowding out its models)
+function pvPump() {
+  while (PV.busy < 3 && PV.q.length) {
+    const f = PV.q.shift(), e = PV.img.get(f.path), gen = STU.gen;
+    if (!e || e.at !== f.at || e.state !== 'queued') continue;
+    PV.busy++; e.state = 'loading';
+    call(pvUrl(f), { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(f.path) === e) pvImage(e, b, () => PV.img.get(f.path) === e); })
+      .catch(() => { if (PV.img.get(f.path) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
+      .finally(() => { PV.busy--; pvPump(); });
+  }
+}
+// a JPEG's bytes as a picture to draw (an <img> for the page's grid and the headset's canvas alike)
+function pvImage(e, blob, still) {
+  e.url = URL.createObjectURL(blob);
+  const im = new Image();
+  im.onload = () => { if (!still()) return; e.state = 'ready'; e.img = im; PV.rev++; dirty(); };
+  im.onerror = () => { if (!still()) return; e.state = 'failed'; PV.rev++; dirty(); };
+  im.src = e.url;
+}
+
+// ---- making: a picture of a model, drawn by the page's renderer into a target of its own (the scene's frame untouched):
+// lit as the studio lights a scene (a sky and ground light, a light over your shoulder, a cool rim, the soft room for
+// glTF's metal and gloss), its colour pictures drawn as they are (the studio's look: its output is linear), seen from a
+// little above and in front, framed on its box, drawn at twice the size and made smaller (smooth edges), over a dark
+// background where nothing of it is
+function pvShot(root) {
+  const R = GL.renderer, S = PV_PX * 2, sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.01, 1000);
+  sc.add(new THREE.HemisphereLight(0xe8eeff, 0x2a2f3a, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(1.5, 3, 2.2); sc.add(sun);
+  const rim = new THREE.DirectionalLight(0x9fc8ff, 0.35); rim.position.set(-2, 1.5, -2.5); sc.add(rim);
+  const env = envMap();
+  if (env) sc.environment = env;
+  const parent = root.parent, saved = [];
+  sc.add(root); root.updateMatrixWorld(true);
+  root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of ['map', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && t.encoding !== THREE.LinearEncoding) { saved.push([t, t.encoding, m]); t.encoding = THREE.LinearEncoding; m.needsUpdate = true; } } });
+  // framed: the camera far enough along its view that every corner of the box is inside the picture, with a margin
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
+  const c = box.getCenter(new THREE.Vector3()), d = new THREE.Vector3(0.75, 0.5, 1).normalize(), up = new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(up, d).normalize(), u = new THREE.Vector3().crossVectors(d, right), th = Math.tan((cam.fov / 2) * D2R);
+  let D = 0, zmax = -Infinity, zmin = Infinity;
+  for (let i = 0; i < 8; i++) {
+    const v = new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(c), z = v.dot(d);
+    D = Math.max(D, z + Math.max(Math.abs(v.dot(right)), Math.abs(v.dot(u))) / th);
+    zmax = Math.max(zmax, z); zmin = Math.min(zmin, z);
+  }
+  D = Math.max(1e-3, D * 1.08);
+  cam.position.copy(c).addScaledVector(d, D); cam.up.copy(up); cam.lookAt(c);
+  cam.near = Math.max(D * 1e-4, (D - zmax) * 0.5); cam.far = (D - zmin) * 2 + 1e-3; cam.updateProjectionMatrix();
+  const rt = new THREE.WebGLRenderTarget(S, S), px = new Uint8Array(S * S * 4);
+  const was = R.getRenderTarget(), xr = R.xr.enabled, cc = R.getClearColor(new THREE.Color()), ca = R.getClearAlpha();
+  try {
+    R.xr.enabled = false; R.setRenderTarget(rt); R.setClearColor(0x000000, 0); R.clear(); R.render(sc, cam);
+    R.readRenderTargetPixels(rt, 0, 0, S, S, px);
+  } finally {
+    R.setRenderTarget(was); R.xr.enabled = xr; R.setClearColor(cc, ca);
+    sc.remove(root); if (parent) parent.add(root);
+    for (const [t, e, m] of saved) { t.encoding = e; m.needsUpdate = true; }
+    rt.dispose();
+  }
+  // the background: a dark, slightly lighter middle; the target's colours lie over it (cleared to nothing, so its colours
+  // are already weighed by how much of a pixel the model covers)
+  const big = document.createElement('canvas');
+  big.width = big.height = S;
+  const bx = big.getContext('2d'), gr = bx.createRadialGradient(S / 2, S * 0.42, S * 0.05, S / 2, S / 2, S * 0.75);
+  gr.addColorStop(0, '#1d2c44'); gr.addColorStop(1, '#070c16');
+  bx.fillStyle = gr; bx.fillRect(0, 0, S, S);
+  const im = bx.getImageData(0, 0, S, S), o = im.data;
+  for (let y = 0; y < S; y++) {
+    const src = (S - 1 - y) * S * 4, dst = y * S * 4;   // (a target is read bottom up)
+    for (let x = 0; x < S * 4; x += 4) {
+      const a = px[src + x + 3] / 255, k = 1 - a;
+      o[dst + x] = Math.min(255, px[src + x] + o[dst + x] * k); o[dst + x + 1] = Math.min(255, px[src + x + 1] + o[dst + x + 1] * k); o[dst + x + 2] = Math.min(255, px[src + x + 2] + o[dst + x + 2] * k);
+    }
+  }
+  bx.putImageData(im, 0, 0);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = PV_PX;
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+  cx.drawImage(big, 0, 0, PV_PX, PV_PX);
+  return cv;
+}
+// in a headset session the picture is drawn at the start of the next frame (inside the session's own frame callback, where
+// the renderer's own target may be bound again), else at once; null if no frame comes within 5 s (the session hidden)
+function pvShotSoon(root) {
+  if (!(XR.on && GL.renderer.xr.isPresenting)) return Promise.resolve(pvShot(root));
+  return new Promise(res => {
+    let done = false;
+    const job = () => { if (done) return; done = true; try { res(pvShot(root)); } catch (e) { res(null); } };
+    PV.jobs.push(job);
+    later(() => { if (!done) { done = true; PV.jobs = PV.jobs.filter(j => j !== job); res(null); } }, 5000);
+  });
+}
+function pvJobs() { const L = PV.jobs; PV.jobs = []; for (const j of L) j(); }
+// a picture as a JPEG of at most PV_MAX (a little under the relay's 200 KB)
+const pvJpeg = cv => new Promise(res => { const go = q => cv.toBlob(b => (b && b.size > PV_MAX && q > 0.4 ? go(q - 0.2) : res(b)), 'image/jpeg', q); go(0.86); });
+// a model's size (metres, as placed from the file: its guess applied) and triangles, from what is loaded
+function pvInfo(root) {
+  let n = 0;
+  root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+  const b = new THREE.Box3().setFromObject(root);
+  return { size: b.isEmpty() ? null : b.getSize(new THREE.Vector3()).toArray().map(r3), n: Math.round(n) };
+}
+// a picture made for a model of the scene (path): into the scene (previews/<path>.jpg, replacing one there) when the relay
+// takes uploads, else kept for this page. 'up', 'mem' or '' (none)
+async function pvKeep(path, cv, info) {
+  if (info) PV.info.set(path, info);
+  const blob = cv ? await pvJpeg(cv) : null;
+  if (!blob) return '';
+  const rel = pvPath(path), scene = STU.scene, gen = STU.gen;
+  if (canUpload() && pvFits(rel)) {
+    try {
+      const j = await upSend(fileApi(scene, rel, true), blob);
+      if (gen !== STU.gen) return '';
+      pvPut(rel, blob, j);
+      pvDrop(PV.mem, path);
+      return 'up';
+    } catch (e) { if (gen !== STU.gen) return ''; if (e.status === 401) throw e; /* kept for this page instead */ }
+  }
+  pvDrop(PV.mem, path);
+  const m = { at: 0, state: 'loading', url: '', img: null };
+  PV.mem.set(path, m);
+  pvImage(m, blob, () => PV.mem.get(path) === m);
+  PV.rev++;
+  return 'mem';
+}
+// a picture just uploaded, shown at once (its listing entry as the relay answered, until the listing is read again)
+function pvPut(rel, blob, j) {
+  const at = (j && +j.at) || Date.now(), f = { path: rel, bytes: (j && +j.bytes) || blob.size, at, kind: 'preview' };
+  PV.files.set(rel, f);
+  pvDrop(PV.img, rel);
+  const e = { at, state: 'loading', url: '', img: null };
+  PV.img.set(rel, e);
+  pvImage(e, blob, () => PV.img.get(rel) === e);
+  PV.rev++;
+}
+// the picture of a GLB just made, for a scene that may not be the one open (the Upload pane's): into that scene when the
+// relay takes uploads (shown at once when it is the one open); a failure only said
+async function pvSend(scene, path, blob) {
+  const rel = pvPath(path);
+  if (!pvFits(rel)) return null;
+  const j = await upSend(fileApi(scene, rel, true), blob);
+  if (scene === STU.scene) pvPut(rel, blob, j);
+  return j;
+}
+
+// ---- Make pictures (the Add pane, a page with editing on): every model the pane shows without a picture, one after
+// another (a model the scene has loaded drawn from that; any other fetched and loaded as the converter loads it, its
+// textures at most 1,024 px, and freed after), each uploaded as it is made (or kept for this page); a stop between two
+const PV_TEX = 1024;
+function pvMissing() {
+  if (STU.listing !== 'ok') return [];
+  const L = sceneLists(), out = [];
+  for (const f of L.models) if (!pvHas(f.path)) out.push(f.path);
+  for (const f of L.orig) if (f.kind === 'model' && !L.stands.has(f.path) && !pvHas(f.path)) out.push(f.path);
+  return out;
+}
+async function pvMakeAll() {
+  if (PV.make || !editOn() || XR.on || OPT.visit) return;
+  const list = pvMissing(), gen = STU.gen;
+  if (!list.length) return;
+  const M = PV.make = { i: 0, n: list.length, path: '', stop: false, made: 0, up: 0, failed: [] };
+  PV.note = ''; dirty(true);
+  try {
+    for (const p of list) {
+      if (M.stop || gen !== STU.gen || GL.gone || !editOn()) break;
+      M.i++; M.path = p; dirty(true);
+      try { const how = await pvMakeOne(p, gen); if (how) { M.made++; if (how === 'up') M.up++; } }
+      catch (e) { M.failed.push(`${baseName(p)}: ${e.status === 401 ? AUTH_NOTE : e.message}`); if (e.status === 401) break; }
+      await new Promise(r => later(r, 30));
+    }
+  } finally {
+    PV.make = null;
+    if (gen === STU.gen && !GL.gone) {
+      const n = M.made, all = M.n;
+      PV.note = (M.stop && M.i < all ? `Stopped: ${n} of ${all} pictures made` : `${n} of ${all} picture${all === 1 ? '' : 's'} made`) +
+        (n ? (M.up === n ? ', kept in the scene.' : M.up ? `, ${M.up} kept in the scene, the rest for this page only.` : ', for this page only.') : '.') + (M.failed.length ? ' Not made: ' + M.failed.join('; ') : '');
+      PV.noteC = M.failed.length ? 'amber' : 'green';
+    }
+    dirty(true);
+  }
+}
+async function pvMakeOne(p, gen) {
+  const E = LIB.get(p);
+  if (E && E.state === 'ready' && E.root && E.guess && !E.root.parent) {
+    const wrap = new THREE.Group();
+    wrap.quaternion.fromArray(E.guess.q); wrap.scale.setScalar(E.guess.s); wrap.add(E.root);
+    let cv = null, info = null;
+    try { info = pvInfo(wrap); cv = await pvShotSoon(wrap); } finally { wrap.remove(E.root); }
+    return gen === STU.gen ? pvKeep(p, cv, info) : '';
+  }
+  const buf = await getBytes(fileUrl(p));
+  if (gen !== STU.gen || GL.gone) return '';
+  await new Promise(r => later(r, 30));
+  const dir = p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
+  const m = await CONV.load({ ext: extOf(p), data: buf, base, name: stem(p), maxTex: PV_TEX, url: u => resolveUrl(u, base, dir, new Set(), null) });
+  try {
+    if (gen !== STU.gen || GL.gone) return '';
+    const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size), wrap = new THREE.Group();
+    wrap.quaternion.fromArray(g.q); wrap.scale.setScalar(g.s); wrap.add(m.root);
+    const info = pvInfo(wrap), cv = await pvShotSoon(wrap);
+    return gen === STU.gen ? pvKeep(p, cv, info) : '';
+  } finally { CONV.disposeTree(m.root); }
+}
+const PV_ACT = {
+  pics: () => pvMakeAll(),
+  picstop: () => { if (PV.make) PV.make.stop = true; },
+};
+
+// ---- the Add pane's cards: a model's picture (its own, or the GLB's that stands for it), its name, its size in metres
+// and triangles where they are known (the scene's model loaded here, a GLB's record, a picture made here), else its bytes
+function modelWords(f) {
+  const E = LIB.get(f.path), r = extOf(f.path) === 'glb' ? glbRec(f.path) : null, i = PV.info.get(f.path);
+  let size = null, n = null;
+  if (E && E.info && E.guess) { size = placedBox(E, E.guess.q, E.guess.s).getSize(new THREE.Vector3()).toArray(); n = E.info.tris; }
+  else if (r && r.size) { size = r.size; n = r.n; }
+  else if (i) { size = i.size; n = i.n; }
+  const w = [size && Math.max(...size) > 0 ? metres(Math.max(...size)) : '', Number.isFinite(n) ? `${fmt(n)} triangles` : ''].filter(Boolean);
+  return w.length ? w.join(' · ') : mb(f.bytes);
+}
+// for tests and the console: which models have a picture and where it is from, and Make pictures
+const pvState = () => ({
+  listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),
+  mem: [...PV.mem].map(([k, e]) => [k, e.state]), missing: pvMissing(), make: PV.make && { i: PV.make.i, n: PV.make.n, path: PV.make.path, stop: PV.make.stop }, note: PV.note, info: Object.fromEntries(PV.info),
+});
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
@@ -25168,6 +25520,28 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + (cy - (y + h)) + bh + 14;
   }
+  // the Add pane's models: three cards a row, each its picture (fetched only once it is drawn: e7e_pics.js) or a plain
+  // tile with the model's kind, its name and its size; the pane's Up and More page through them
+  if (b.grid) {
+    const cols = 3, gap = 14, cw = Math.floor((W - gap * (cols - 1)) / cols), ph = cw - 16, ch = ph + 98;
+    b.grid.forEach((t, i) => {
+      const cx = x + (i % cols) * (cw + gap), cy = y + h + Math.floor(i / cols) * (ch + gap);
+      if (dry || cy + ch <= top || cy >= bottom) return;
+      const live = inView(cy, ch) && !t.dis;
+      if (t.dis) ctx.globalAlpha = 0.45;
+      vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
+      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
+      if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
+      else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }
+      ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), cw - 20), cx + 10, py + ph + 10);
+      ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
+      if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
+      ctx.globalAlpha = 1;
+    });
+    return h + Math.ceil(b.grid.length / cols) * (ch + gap) + 4;
+  }
   if (b.list) {
     const rh = 58;
     for (const t of b.list) {
@@ -25409,6 +25783,7 @@ let lastNow = 0;
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
+  if (PV.jobs.length) pvJobs();   // (a model's picture asked for in a headset session: drawn here, inside its frame; e7e_pics.js)
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
@@ -25577,8 +25952,9 @@ const STUDIO = {
     files: STU.files.length, items: STU.items.size, edit: editOn(), sel: STU.sel, pick: STU.pick, unsaved: unsaved(), savedAt: STU.savedAt, savedBy: STU.savedBy, bad: STU.bad, note: STU.note, saveNote: STU.saveNote, undo: UNDO.length,
     models: Object.fromEntries([...LIB.values()].map(E => [E.path, { state: E.state, err: E.err, ms: E.ms, info: E.info, guess: E.guess, missing: [...E.missing], users: E.users.size, record: E.record || null, found: Object.fromEntries(E.found || []), why: E.why || {}, decoded: E.decoded || [], mats: E.mats || [] }])),
     sounds: Object.fromEntries([...SND.values()].map(F => [F.path, { state: F.state, err: F.err, size: F.size, dur: F.dur, stream: !!F.stream, buf: !!F.buf, bytes: F.bytes ? F.bytes.byteLength : 0 }])),
-    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
+    upload: { tab: X.tab, scene: UP.scene, rows: UP.rows.map(r => ({ kind: r.kind, title: r.title, src: r.src.map(e => e.path), out: r.out.slice(), notes: r.notes.slice(), state: r.state, msg: r.msg, dl: r.dl.map(d => d.name), pic: !!r.pic, tex: (r.names || []).map(x => [x.name, x.entry ? x.entry.path : '', x.how]), adds: (r.adds || []).map(x => [x.entry.path, x.slot]), keep: r.keep, tris: r.tris, pv: r.pv ? { keep: r.pv.keep, busy: !!r.pv.busy, img: !!r.pv.img, words: r.pv.words || '', note: r.pv.note || '' } : null })), busy: UP.busy, note: UP.note, left: UP.left.slice() },
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
+    pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
@@ -25637,6 +26013,7 @@ return {
     for (const t of TIMERS) clearTimeout(t);
     TIMERS.clear();
     watchStop();
+    pvClear();   // (the pictures' object URLs given back)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
