@@ -1681,8 +1681,9 @@ async function askRound(dir) {
     const a3 = await asked(), t0 = Date.now();
     await frames(H, 7500);
     const a4 = await asked();
-    const gone = await until(H, () => { window.__xr.step(); return !HOST.collab.asking(); }, null, 4000), after = (Date.now() - t0) / 1000, w3 = await where();
-    check(`ask: the question closes by itself after 10 s (gone after ${after.toFixed(1)} s), entering nothing`, !!a3 && !!a4 && gone && after > 8.5 && !w3.mine, JSON.stringify({ a3, a4, after, w3 }));
+    // (its age counted from when it opened: the time it had left when first read, as opening it may take a loaded machine a while)
+    const gone = await until(H, () => { window.__xr.step(); return !HOST.collab.asking(); }, null, 4000), after = (Date.now() - t0) / 1000 + (a3 ? (10000 - a3.left) / 1000 : 0), w3 = await where();
+    check(`ask: the question closes by itself after 10 s (gone after ${after.toFixed(1)} s), entering nothing`, !!a3 && !!a4 && gone && after > 9.5 && after < 12 && !w3.mine, JSON.stringify({ a3, a4, after, w3 }));
     // Not now pressed by the right index fingertip
     await askAt(S2.id);
     const pk = await askPoke('ask:not'), w3b = await where();
