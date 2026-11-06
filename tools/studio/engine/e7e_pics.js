@@ -251,7 +251,7 @@ async function pvMakeOne(p, gen) {
     const wrap = new THREE.Group();
     wrap.quaternion.fromArray(E.guess.q); wrap.scale.setScalar(E.guess.s); wrap.add(E.root);
     let cv = null, info = null;
-    try { info = pvInfo(wrap); cv = await pvShotSoon(wrap); } finally { wrap.remove(E.root); }
+    try { info = pvInfo(wrap); cv = await pvShotSoon(wrap); } finally { wrap.remove(E.root); E.root.updateMatrixWorld(true); }   // (as it was: on its own)
     return gen === STU.gen ? pvKeep(p, cv, info) : '';
   }
   const buf = await getBytes(fileUrl(p));
