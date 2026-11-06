@@ -186,6 +186,9 @@ export function uploadPath(p) {
     if (!isPreview(p)) return { error: `${PREVIEWS}/ takes only the studio's pictures of its models: ${PREVIEWS}/<the model's path>.jpg` };
     return { rel: p, segs, kind: 'preview', max: MAX_PREVIEW };
   }
+  // (only in lower case: on a file system that ignores case, as Windows' and macOS's do, Previews/ is that same folder,
+  // and a file put there would land among the pictures past their rule, listed as an ordinary image)
+  if (segs[0].toLowerCase() === PREVIEWS) return { error: `${PREVIEWS}/ is written in lower case: no other folder at the top of a scene has that name` };
   const kind = kindOf(p);
   if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: 'outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin)' };
   return { rel: p, segs, kind };

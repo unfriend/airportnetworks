@@ -1781,12 +1781,12 @@ if (me === 'hang') setInterval(() => {}, 1000);
     const odd = (await req('GET', '/api/scenes/one', { at: UP.port })).json().files.find(x => x.path === 'previews/odd.png');
     ok(odd && odd.kind === 'other', 'a picture put in previews/ by hand that is not a .jpg: listed as other (' + (odd && odd.kind) + ')');
     fs.rmSync(at('previews/odd.png'));
-    const ok2 = [await upf('previews/x.jpg', J), await upf('previews/originals/eva/eva_001.FBX.jpg', J), await upf('previews/a/b/c/d.glb.jpg', J), await upf('Previews/x.jpg', J)];
-    ok(ok2.every(x => x.status === 200), 'any depth up to 4 folders, and Previews/ (another folder: a picture there is an ordinary image): 200 (' + ok2.map(x => x.status).join(' ') + ')');
+    const ok2 = [await upf('previews/x.jpg', J), await upf('previews/originals/eva/eva_001.FBX.jpg', J), await upf('previews/a/b/c/d.glb.jpg', J), await upf('tex/Previews/x.jpg', J)];
+    ok(ok2.every(x => x.status === 200), 'any depth up to 4 folders, and a Previews/ further down (an ordinary folder): 200 (' + ok2.map(x => x.status).join(' ') + ')');
     const before = tree(), bad = [];
-    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/a.jpeg', 'previews/models/a.glb', 'previews/notes.txt', 'previews/.jpg', 'previews/a/b/c/d/e.glb.jpg', 'previews']) bad.push((await upf(p, J)).status);
-    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'anything but a .jpg under previews/ (a PNG, .JPG, .jpeg, a model, text), too deep: 400, nothing written (' + bad.join(' ') + ')');
-    ok(/previews\/ takes only the studio's pictures/.test((await upf('previews/a.png', J)).json().error), 'it says why');
+    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/a.jpeg', 'previews/models/a.glb', 'previews/notes.txt', 'previews/.jpg', 'previews/a/b/c/d/e.glb.jpg', 'previews', 'Previews/x.jpg', 'PREVIEWS/models/a.glb.jpg', 'Previews/big.png']) bad.push((await upf(p, J)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'anything but a .jpg under previews/ (a PNG, .JPG, .jpeg, a model, text), too deep, and Previews/ in any other case (the same folder where case is ignored): 400, nothing written (' + bad.join(' ') + ')');
+    ok(/previews\/ takes only the studio's pictures/.test((await upf('previews/a.png', J)).json().error) && /previews\/ is written in lower case/.test((await upf('Previews/x.jpg', J)).json().error), 'it says why');
     const ex = await upf('previews/exact.jpg', bytes(KB200)), b1 = await upf('previews/big1.jpg', bytes(KB200 + 1)), b2 = await upf('previews/deep/big2.jpg', bytes(3 * KB200), { chunked: true });
     ok(ex.status === 200 && b1.status === 413 && b2.status === 413 && /a picture in previews\/ is at most 200 KB/.test(b2.json().error) && !fs.existsSync(at('previews/big1.jpg')) && !fs.existsSync(at('previews/deep')) && !leftovers().length,
       `exactly 200 KB: 200; past it 413 by its Content-Length (${b1.status}) and counted as it streams (${b2.status}), in its own words; nothing left behind`);
@@ -2141,7 +2141,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
     const pg = await fetch(f.url);
     ok(pg.status === 200 && Buffer.from(await pg.arrayBuffer()).equals(J), 'its link gives the picture');
     const bad = [];
-    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/models/a.glb']) bad.push((await upr(p, J)).status);
+    for (const p of ['previews/a.png', 'previews/a.JPG', 'previews/models/a.glb', 'Previews/x.jpg']) bad.push((await upr(p, J)).status);
     const b1 = await upr('previews/big.jpg', bytes(KB200 + 1)), b2 = await upr('previews/big2.jpg', bytes(3 * KB200), { chunked: true });
     ok(bad.every(x => x === 400) && b1.status === 413 && b2.status === 413 && /at most 200 KB/.test(b2.json().error) && !obj('new one/previews/big.jpg') && !obj('new one/previews/big2.jpg') && r2tmp() === tmp0,
       `other kinds: 400 (${bad.join(' ')}); past 200 KB: 413 by Content-Length and as it streams; nothing in the bucket or left behind`);
