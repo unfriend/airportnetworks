@@ -20992,12 +20992,16 @@ function lockLine(it) {
   if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
   return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
 }
-// the lock's blocks on a card: Lock in place / Unlock, and what it holds now (also a refusal just made)
+// the lock's row on a card (near its Duplicate and Delete, so a headset's card keeps its place and size in sight): Lock in
+// place / Unlock; and at its top, only while something holds it (or a refusal was just made), what holds it
 function lockBlocks(it, B, dis) {
-  const on = !!it.rec.locked, line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  const on = !!it.rec.locked;
   B.push({ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] });
-  if (line) B.push({ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' });
-  else B.push({ p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+  if (!on) B.push({ page: true, p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+}
+function lockTop(it) {
+  const line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  return line ? [{ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' }] : [];
 }
 
 // ---------------------------------------------------------- the card's actions --
@@ -21482,12 +21486,10 @@ function itemBlocks(it, B, ed) {
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
   holdBlocks(it, B, mv);
+  lockBlocks(it, B, dis);   // (Lock in place: e6d_shapes.js)
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') })) });
-  // Lock in place, at the card's top (e6d_shapes.js)
-  const LB = [];
-  lockBlocks(it, LB, dis);
-  B.splice(1, 0, ...LB);
+  B.splice(1, 0, ...lockTop(it));   // (what holds it in place, at the card's top)
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -21515,12 +21517,11 @@ function groupBlocks(g, B, dis, ed) {
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
   holdBlocks(g, B, mv || !ms.length);
+  lockBlocks(g, B, dis);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis: dis || !!g.rec.locked }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m, dis: mv })) });
-  const LB = [];
-  lockBlocks(g, LB, dis);
-  B.splice(1, 0, ...LB);
+  B.splice(1, 0, ...lockTop(g));
 }
 // the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
 const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };

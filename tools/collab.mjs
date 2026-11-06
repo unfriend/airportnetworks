@@ -3009,7 +3009,9 @@ async function tokenRound() {
 // the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
 // it under cuts; a group made on a page (the box, the figure, Tone and Doorway) and turned and sized there, taken by every
 // page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
-// the saved layout.json carrying groups and faces; From another scene (a model of a second scene copied into the open
+// the saved layout.json carrying groups and faces; a shape that hides things and an empty with a sound following it made on a
+// page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the lock
+// refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); From another scene (a model of a second scene copied into the open
 // one with the files it names, an OBJ under originals/, a name taken: a new one; every device taking it); a circle made
 // for one scene as the shell writes it opening that scene and writing its saved layout on the pages that follow it; New
 // scene from the headset's panel (the shell's keypad stubbed) opening the new scene at its station; a long sound streamed (an
@@ -3401,6 +3403,33 @@ async function studioRound(dir) {
       JSON.stringify({ gId, recs: gs.map(g => g && g[0]), gFar, fIn, gSaved, gLg, faces: gLb && gLb.faces }));
     if (gId) await sp(A, `(itemAct('faces', 'file', 'box001'), select('${gId}'), itemAct('ungroup'), select(''), 0)`);
     }   // (a block of its own: the R2 part below names its own gs and gSaved)
+
+    // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it
+    // made on a page; the box locked and the scene's other circles hidden on another page; every page and the headset take
+    // them (the same records, the sound where the empty puts it, the settings), a third page's card refusing to move the
+    // locked box, the headset at this studio's circle telling its shell to hide the other circles (the hook recorded there);
+    // the saved layout.json carries shapes, empties and settings
+    {
+    await H.evaluate(() => { window.__hk = []; if (HOST.collab) HOST.collab.hideOthers = v => window.__hk.push(['hide', v]); });
+    const pr = await sp(A, `(() => { setEdit(true); const p = addShape('cube'); setRec(p, { p: [1.5, 0.4, -1], size: [0.8, 0.8, 0.8], look: 'hide' }); const e = addEmpty(); setRec(e, { p: [-1.5, 1.6, -1] }); const s = addSound('tone.wav'); itemAct('follow', e, s); select(''); return p && e && s ? [p, e, s] : null; })()`);
+    const [pId, eId, sId] = pr || ['', '', ''];
+    const pAtB = !!pr && await sUntil(B, `STU.items.has('${pId}') && STU.items.has('${eId}') && STU.items.has('${sId}')`, 15000);   // (B has them before it locks one)
+    if (pAtB) await sp(B, `(setEdit(true), select('${pId}'), itemAct('lock'), setSetting('others:hidden'), select(''), 0)`);
+    const pTook = [], pRecs = [];
+    for (const p of [A, B, C, H]) pTook.push(!!pr && await sUntil(p, `(() => { const s = STU.items.get('${pId}'), e = STU.items.get('${eId}'), f = STUDIO.follow('${sId}'); return !!s && s.rec.locked === true && s.rec.look === 'hide' && !!e && !!f && f.d < 0.01 && STU.settings.others === 'hidden'; })()`, 15000));
+    const rOf = id => `(STU.items.get('${id}') || {}).rec || null`;
+    for (const p of [A, B, C, H]) pRecs.push(pr ? await sp(p, `JSON.stringify([${rOf(pId)}, ${rOf(eId)}, ${rOf(sId)}, STU.settings])`) : null);
+    const pLock = pTook.every(Boolean) ? await sp(C, `(setEdit(true), select('${pId}'), itemAct('turn'), itemAct('psize', 2), deleteItem('${pId}'), select(''), [STU.items.has('${pId}'), JSON.stringify((STU.items.get('${pId}') || { rec: {} }).rec.q), String((STU.items.get('${pId}') || { rec: { size: [] } }).rec.size)])`) : null;
+    const hHide = await H.waitForFunction(() => (window.__hk || []).some(x => x[0] === 'hide' && x[1] === true), null, { timeout: 10000 }).then(() => true, () => false);
+    await sp(A, 'saveLayout()');
+    const pSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const pL = layoutOf() || {}, pLs = (pL.shapes || []).find(x => x.id === pId), pLe = (pL.empties || []).find(x => x.id === eId);
+    check('studio: a shape that hides things and an empty with a sound following it, made on a page, the shape locked and the other circles hidden on another, reach every page and the headset (the same records, the sound at the empty), the lock refuses a third page\'s card, the headset at the circle tells its shell to hide the other circles, and the saved layout.json carries shapes, empties and settings',
+      !!pr && pTook.every(Boolean) && pRecs.every(r => r === pRecs[0]) && JSON.stringify(pLock) === JSON.stringify([true, '[0,0,0,1]', '0.8,0.8,0.8']) && hHide && pSaved &&
+        !!pLs && pLs.locked === true && pLs.look === 'hide' && !!pLe && !!pL.settings && pL.settings.others === 'hidden',
+      JSON.stringify({ pr, pAtB, pTook, recs: pRecs.map(r => r && r.slice(0, 160)), pLock, hHide, pSaved, pLs, pLe, settings: pL.settings, hk: await H.evaluate(() => window.__hk) }));
+    if (pr) await sp(B, `(setEdit(true), select('${pId}'), itemAct('lock'), deleteItem('${pId}'), deleteItem('${sId}'), deleteItem('${eId}'), setSetting('others:shown'), select(''), 0)`);
+    }
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));

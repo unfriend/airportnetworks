@@ -115,12 +115,16 @@ function lockLine(it) {
   if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
   return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
 }
-// the lock's blocks on a card: Lock in place / Unlock, and what it holds now (also a refusal just made)
+// the lock's row on a card (near its Duplicate and Delete, so a headset's card keeps its place and size in sight): Lock in
+// place / Unlock; and at its top, only while something holds it (or a refusal was just made), what holds it
 function lockBlocks(it, B, dis) {
-  const on = !!it.rec.locked, line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  const on = !!it.rec.locked;
   B.push({ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] });
-  if (line) B.push({ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' });
-  else B.push({ p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+  if (!on) B.push({ page: true, p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+}
+function lockTop(it) {
+  const line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
+  return line ? [{ p: (said ? 'Refused: ' : '') + line, c: said ? 'red' : 'amber' }] : [];
 }
 
 // ---------------------------------------------------------- the card's actions --

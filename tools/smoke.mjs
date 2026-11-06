@@ -3861,7 +3861,10 @@ await step('design: the intro ends at the table', async () => {
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
       const ids = () => { const s = new Set(); for (let off = 0; off < 5000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) s.add(q.id); } X.scroll = {}; return s; };
       select(STUDIO.ids.ball); X.tab = 'item'; X.scroll = {}; draw();
-      const q = XR.main.regions.find(z => z.id === 'lock'); if (q) q.fn();
+      let q = null;
+      for (let off = 0; off < 5000 && !q; off += 150) { X.scroll.item = off; draw(); q = XR.main.regions.find(z => z.id === 'lock'); }
+      if (q) q.fn();
+      X.scroll = {};
       const s = ids(), r = [!!q, STU.items.get(STUDIO.ids.ball).rec.locked, s.has('turn'), s.has('del'), s.has('lock'), s.has('dup')];
       itemAct('lock'); XR.on = false; X.tab = 'scene'; renderPanes();
       return r;
