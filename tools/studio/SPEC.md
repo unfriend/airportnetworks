@@ -292,15 +292,36 @@ In a headset (editing on):
   pushed up or down while its controller's ray is on the studio's panel (its own, or its copy on the menu's Story tab)
   scrolls the pane there when it is taller than the panel (up shows what is above): a dead zone of 0.2, then from 0.25
   to 1.6 of the pane's height a second the further it is pushed, a third of that speed at first and all of it after
-  0.8 s held, stopped at either end as *Up* and *More* are (`stickScroll`, `X.scrollMax`). A hand that carries something
-  never scrolls (its stick pushes and pulls what it holds). While a stick's ray is on the panel the left stick does not
+  0.8 s held, stopped at either end as *Up* and *More* are (`stickScroll`, `X.scrollMax`). Nothing scrolls while something
+  is carried (v120: the sticks steer what is carried, below). While a stick's ray is on the panel the left stick does not
   walk and the right stick does not turn (a turn held there waits for the stick to come back to the middle). The shell's
   own menu is not the studio's panel: pointing at it the sticks walk and turn as before.
 - The grip carries an object or a sound (as the design room's miniatures: it keeps its offset from the hand and, with
-  free moving on, turns with it; off, only about the vertical; the right stick pushes it away or pulls it in), and a cube
-  (level; only its yaw turns). Both grips on an object size it (a twentieth to twenty times) and move it with their
-  middle. A selected cube shows a ball at each of its 8 corners: the grip on a corner stretches the cube (the opposite
-  corner stays). Let go, it stays where it was put (its record written).
+  free moving on, turns with it; off, only about the vertical), and a cube (level; only its yaw turns). Both grips on an
+  object size it (a twentieth to twenty times) and move it with their middle. A selected cube shows a ball at each of its
+  8 corners: the grip on a corner stretches the cube (the opposite corner stays). Let go, it stays where it was put (its
+  record written).
+- The sticks while something is carried (v120; the owner, 6 November 2026: "Things in edit mode should be turnable and
+  zoomable with the sticks once grabbed like the models in the stories"; "left stick up down is zoom, left stick right
+  left is turn, right stick up down is move away, move to me, right stick left right is also turn for now"). Whichever hand
+  carries it, by one hand (an item or a group; not a corner, and not while both hands hold it: both grips size it then):
+  - the left stick up makes it larger and down smaller: twice the size in 1.5 s held fully (`HOLD.grow`, ln 2 / 1.5 a
+    second), about its middle (an object's own box's middle; a shape's, a cube's and a cut-out's centre; a group's pivot),
+    within what both grips and the size steps allow: a twentieth to twenty times its size as it was taken, and each
+    record's own limits (an object a ten-thousandth to 10,000, a cube's side 5 cm to 100 m, a shape's 1 cm to 100 m, a
+    cut-out's 1 cm to 50 m, a sound's reach, its full volume within, 10 cm to 20 m; an empty has no size). An object's
+    cut-outs and the sounds following it keep their place on it as it is sized (`scaleFollowers`, as both grips);
+  - left and right on the left stick turn it about the scene's vertical through its middle (a group about its pivot), 90
+    degrees a second held fully: pushed right, its near side goes right (anticlockwise seen from above); a cube stays level;
+    a sound has no turn;
+  - the right stick up pushes it away along the line from the hand and down pulls it in (its reach, 0.15 to 8 times, 1.5
+    a second as before, now on the right stick whichever hand carries it); left and right turn it as the left stick does.
+  A hand that carries something else steers that with its own stick only; both sticks act on one thing otherwise. A dead
+  zone of 0.2, then the rate rises with the push (its square, all of it pushed fully). It is part of the carry: the size,
+  turn and push are shown at once and written with the carry's records (ten times a second and as it is let go), one Undo
+  step for the whole carry; a locked item is refused as the grip is, so the sticks never reach it. While something is
+  carried the VR stick walk and turn do nothing (as before) and the panel does not scroll. The headset's card says it under
+  *Carry it* (`holdBlocks`). Untested on a headset: how the rates feel on real sticks.
 - In VR (not passthrough) the left stick walks you through the scene and the right stick turns you 30 degrees a flick,
   while nothing is carried (`XR.lifeOff` style: the scene moves, not the rig; per device, reset by Recenter; never
   written to the room). In AR you walk for real.
@@ -821,7 +842,8 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
     wait); a group gone meanwhile (from the room) lets them go, and its change ends as the pointer comes up.
   - In a headset: the grip on any member (unless that member is selected on its own: then it alone) carries the whole
     group, its members keeping their places about the hand; it stays level and takes only a yaw from the hand's turn,
-    and only while free moving is on; the right stick pushes it away or pulls it in. Both grips (on members of the same
+    and only while free moving is on; the sticks size it and turn it about its pivot and push or pull it (v120, as any
+    item carried: "The sticks while something is carried" above). Both grips (on members of the same
     group) size it about its pivot, a twentieth to twenty times, and move it with their middle; while one hand carries the
     group the other's grip on any member (a corner too) joins it, and while one hand carries a member on its own the
     other's grip on another member of that group carries that one on its own too (never the group round what the first

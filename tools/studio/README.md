@@ -165,7 +165,7 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
   studio, so the scene starts afresh for the next person who puts it on.
 
-## In a headset: from the inside, Hold it, the sticks on a card
+## In a headset: from the inside, Hold it, the sticks
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
   **Edit** on, pointing at nothing while your controller is inside a model's box points at that model (the smallest box if
@@ -177,6 +177,11 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **Scrolling a card.** A card taller than the panel scrolls with **Up** and **More**, and now with a stick: point at the
   panel and push either stick up or down (further: faster; held: faster still). While you point at the panel the left
   stick does not walk and the right stick does not turn; point away and they do again.
+- **The sticks while you carry something** (with one hand, whichever hand): the **left stick** up makes it larger and down
+  smaller (twice the size in about 1.5 s held fully; a group about its middle, a sound's full-volume distance instead of
+  a size), left and right turn it; the **right stick** up pushes it away and down pulls it in, left and right turn it too.
+  It is all one change: one **Undo** takes the whole carry back. A locked item cannot be carried, so the sticks do nothing
+  to it.
 
 ## A new scene, and a model from another scene
 

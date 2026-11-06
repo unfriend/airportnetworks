@@ -1465,6 +1465,75 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  await step('studio: the sticks while something is carried: the left stick up sizes it (twice in 1.5 s, about its middle), left or right turns it; the right stick up pushes it away, left or right turns it; a group about its pivot, a sound\'s reach; a locked item refused; one Undo step each', async () => {
+    await until(`[...STU.items.values()].every(it => !it.gl)`, 5000);
+    const bad = await ss(`(() => {
+      const out = [], it = STU.items.get('box001'), near = (a, b, e) => Math.abs(a - b) <= (e || 1e-4), V = (...a) => new THREE.Vector3(...a);
+      setEdit(true); XR.on = true; XR.clear = true; XR.free = false; GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity(); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.updateMatrixWorld(true);
+      const ctl = (c, p, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand, gamepad: { axes: axes || [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.compose(V(...p), new THREE.Quaternion(), V(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const [a, b] = XR.ctrls, mid = x => itemTopInto(x, V(), true), u0 = UNDO.length, rec0 = JSON.stringify(it.rec), s0 = it.rec.s, q0 = new THREE.Quaternion(...it.rec.q).normalize();
+      const w0 = it.holder.getWorldPosition(V()), h0 = [w0.x, w0.y + 0.2, w0.z + 0.6], m0 = mid(it);
+      ctl(a, h0, 'right'); ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left');
+      a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      if (!a.grab || a.grab.id !== 'box001') out.push('the grip did not take the box');
+      // the left stick (the other hand's: it carries nothing) up, held 1.5 s: twice the size, its middle where it was
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      if (!near(it.holder.scale.x, 2 * s0, 1e-6) || mid(it).distanceTo(m0) > 1e-4) out.push('the left stick up did not size it twice about its middle: ' + it.holder.scale.x + ' ' + mid(it).distanceTo(m0));
+      // walking does nothing meanwhile
+      const wz = XR.walk.z; stickWalk(b, b.src.gamepad, 0.5);
+      if (XR.walk.z !== wz) out.push('the left stick walked while something was carried');
+      // the left stick right, 1 s: a quarter turn about the vertical (its near side to the right), its middle kept
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 1, 0]); carry(a, 1);
+      const want = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2).multiply(q0);
+      if (it.holder.quaternion.angleTo(want) > 1e-4 || mid(it).distanceTo(m0) > 1e-4) out.push('the left stick right did not turn it a quarter about its middle: ' + it.holder.quaternion.toArray().map(v => v.toFixed(4)) + ' ' + mid(it).distanceTo(m0));
+      // the right stick up, 0.5 s: pushed away along the hand's line to it (its reach e^0.75 times), the rest kept
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); ctl(a, h0, 'right', [0, 0, 0, -1]); carry(a, 0.5);
+      const push = w0.clone().sub(V(...h0)).multiplyScalar(Math.exp(0.75) - 1), m1 = mid(it);
+      if (m1.distanceTo(m0.clone().add(push)) > 1e-4 || !(m1.distanceTo(V(...h0)) > m0.distanceTo(V(...h0)) + 0.1)) out.push('the right stick up did not push it away: ' + m1.toArray().map(v => v.toFixed(3)));
+      // the right stick left, 1 s: back a quarter turn
+      ctl(a, h0, 'right', [0, 0, -1, 0]); carry(a, 1);
+      if (it.holder.quaternion.angleTo(q0) > 1e-4) out.push('the right stick left did not turn it back');
+      ctl(a, h0, 'right'); xrGrab(a, false);
+      if (!near(it.rec.s, 2 * s0) || it.carry) out.push('the size was not written: ' + it.rec.s);
+      if (UNDO.length !== u0 + 1) out.push('the carry with the sticks was not one Undo step: ' + (UNDO.length - u0));
+      undo();
+      if (JSON.stringify(it.rec) !== rec0) out.push('Undo did not put it back');
+      // a group (the box and the cube) about its pivot: twice the size and a quarter turn
+      const gid = 'grp0v1'; change(() => putItem(gid, 'g', norm('g', { name: 'Pair', items: ['box001', 'cube01'] })));
+      const g = STU.items.get(gid), cube = STU.items.get('cube01'), bp = V(...it.rec.p), cp = V(...cube.rec.p), cy = cube.rec.yaw, cs = cube.rec.size.slice(), u1 = UNDO.length;
+      select(''); a.hover = { kind: 'item', id: 'box001' }; ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, true);
+      if (!a.grab || a.grab.target !== 'group') out.push('the grip on a member did not take its group');
+      const P = g.base ? g.base.P.clone() : V();
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 1, 0]); carry(a, 1);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, false);
+      const at = p => p.clone().sub(P).multiplyScalar(2).applyAxisAngle(V(0, 1, 0), Math.PI / 2).add(P);
+      if (V(...it.rec.p).distanceTo(at(bp)) > 2e-3 || !near(it.rec.s, 2 * s0) || new THREE.Quaternion(...it.rec.q).normalize().angleTo(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2).multiply(q0)) > 1e-3) out.push('the group did not size and turn the box about its pivot: ' + JSON.stringify(it.rec));
+      if (V(...cube.rec.p).distanceTo(at(cp)) > 2e-3 || !near(cube.rec.yaw, cy + Math.PI / 2, 1e-3) || cube.rec.size.some((v, i) => !near(v, 2 * cs[i], 2e-3))) out.push('the group did not size and turn the cube about its pivot: ' + JSON.stringify(cube.rec));
+      if (UNDO.length !== u1 + 1) out.push('the group\\'s carry was not one Undo step');
+      undo(); undo();
+      if (STU.items.has(gid) || JSON.stringify(it.rec) !== rec0) out.push('Undo did not take the group back');
+      // a sound: the left stick sizes its reach
+      const snd = STU.items.get('snd001'), r0 = snd.rec.r, u2 = UNDO.length;
+      a.hover = { kind: 'item', id: 'snd001' }; xrGrab(a, true);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, false);
+      if (!near(snd.rec.r, Math.min(20, 2 * r0), 0.011) || UNDO.length !== u2 + 1) out.push('the left stick did not size the sound\\'s reach: ' + snd.rec.r);
+      undo();
+      // locked in place: the grip refused, so the sticks do nothing
+      change(() => setRec('box001', { locked: true }));
+      const rl = JSON.stringify(it.rec), u3 = UNDO.length;
+      a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      if (a.grab) { out.push('the grip took a locked box'); ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5); xrGrab(a, false); }
+      if (JSON.stringify(it.rec) !== rl || UNDO.length !== u3) out.push('a locked box was changed by the sticks');
+      undo();
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; STU.hover = ''; select('');
+      while (UNDO.length) undo();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
   await step('studio: in a headset, inside a model and pointing at nothing it is pointed at (another item in front wins; outside, nothing); in Walk view the same, the floor still walking; Hold it carries it with a grip on nothing (one Undo step)', async () => {
     await until(`[...STU.items.values()].every(it => !it.gl) && STUDIO.ready()`, 10000);
     await frames(4);

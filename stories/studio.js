@@ -21500,7 +21500,11 @@ function itemBlocks(it, B, ed) {
 function holdBlocks(it, B, dis) {
   const on = XR.hold === it.id;
   B.push({ xr: true, label: 'Carry it', row: [{ id: 'hold', label: on ? 'Now press a grip (again: cancel)' : 'Hold it', act: 'i:hold', on, dis }] },
-    { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' });
+    { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' },
+    // (the sticks while it is carried: holdSticks in e8_xr.js)
+    { xr: true, p: 'Carried, the sticks steer it: ' + (it.kind === 's' ? 'the left stick up or down sizes its reach (full volume within); the right stick up pushes it away, down pulls it in.'
+      : it.kind === 'e' ? 'left or right on either stick turns it; the right stick up pushes it away, down pulls it in.'
+      : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.'), c: 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
 // ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
@@ -23439,8 +23443,10 @@ const trisOf = id => { const it = STU.items.get(id); let n = 0; if (it && it.mod
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
 // Editing: point at an item to light it, pull the trigger (or pinch) to select it, and grip it to carry it: it follows
 // your hand (and turns with it, moving freely), both grips size an object or a cut-out, the grip on a selected cube's
-// or cut-out's corner stretches it; let go, it stays. In VR the left stick walks you through the scene and the right stick turns you
-// (the scene moves, not you). The grip on the panel moves the panel. A/X plays and pauses the intro.
+// or cut-out's corner stretches it; let go, it stays. While something is carried the sticks steer it (holdSticks): the
+// left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
+// stick walks you through the scene and the right stick turns you (the scene moves, not you). The grip on the panel
+// moves the panel. A/X plays and pauses the intro.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -23753,7 +23759,8 @@ function xrGrab(c, on) {
       const cor = new THREE.Vector3(sg[0] * s.x / 2, sg[1] * s.y / 2, sg[2] * s.z / 2).applyQuaternion(q).add(P);
       c.grab = { target: 'corner', id: it.id, sg, opp, q, off: cor.sub(GL.world.worldToLocal(c.o.clone())), at: 0 };
     } else {
-      c.grab = { target: 'item', id: it.id, q0, o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()), r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0 };
+      c.grab = { target: 'item', id: it.id, q0, o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()), r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0,
+        s0: it.holder.scale.clone(), rr: it.kind === 's' ? it.rec.r : 0, kz: 1, sth: 0 };   // (the sticks' size and turn from here: holdSticks)
     }
     beginChange([it.id]);
     it.carry = true; it.gl = null;
@@ -23791,7 +23798,7 @@ function xrLetGo(c) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.id === G.id);
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
-  if (it) { carryWrite(it, true); it.carry = false; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  if (it) { carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
 }
@@ -23810,7 +23817,7 @@ function groupGrab(c, g, q0) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === g.id);
   if (!o) groupHold(g);
   const B = g.base, P = GL.items.localToWorld(B.P.clone().add(g.T.t));
-  c.grab = { target: 'group', id: g.id, q0, o0: c.o.clone(), p0: P, reach: 1, th0: g.T.th, at: 0, base: B };
+  c.grab = { target: 'group', id: g.id, q0, o0: c.o.clone(), p0: P, reach: 1, th0: g.T.th, k0: g.T.k, kz: 1, sth: 0, at: 0, base: B };
   select(g.id);
   buzz(c, 0.4, 25); sfxAct('grab', 'world', P.toArray());
 }
@@ -23827,7 +23834,7 @@ function groupLetGo(c, G) {
 function groupRegrip(c) {
   const G = c.grab, g = STU.items.get(G.id);
   if (!g || !g.base) return;
-  G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1; G.th0 = g.T.th;
+  G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1; G.th0 = g.T.th; G.k0 = g.T.k; G.kz = 1; G.sth = 0;
   G.p0.copy(GL.items.localToWorld(g.base.P.clone().add(g.T.t)));
 }
 // a hand that holds an item alone again (the other let go) carries on from where it is now
@@ -23836,6 +23843,7 @@ function xrRegrip(c) {
   if (!it) return;
   G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1;
   it.holder.getWorldPosition(G.p0); it.holder.getWorldQuaternion(G.r0);
+  G.s0 = it.holder.scale.clone(); G.kz = 1; G.sth = 0; if (it.kind === 's') G.rr = it.carryR || it.rec.r;   // (the sticks from here)
 }
 // what a carried item's holder shows, into its record (at most ten times a second while it moves, and as it is let go)
 function carryWrite(it, now) {
@@ -23848,7 +23856,7 @@ function carryWrite(it, now) {
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
   else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
-  else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset from where the hand puts it)
+  else setRec(it.id, Object.assign(soundAt(it, h.position), it.carryR ? { r: it.carryR } : {}));   // (a sound that follows a model: its offset from where the hand puts it; its reach as the left stick sizes it)
 }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
 // the grabbed object keeps its offset from the controller, so moving or turning your hand carries it (moving freely,
@@ -23895,13 +23903,59 @@ function xrResize(a, b) {
   XR.rot.copy(_gq).multiply(T.r0);
   XR.globeOff.copy(XR.globeBase).add(T.off0).sub(T.m0).applyQuaternion(_gq).add(_gv).sub(XR.globeBase);
 }
+// The sticks while something is carried (the owner, 6 November 2026: "Things in edit mode should be turnable and zoomable
+// with the sticks once grabbed like the models in the stories"; "left stick up down is zoom, left stick right left is turn,
+// right stick up down is move away, move to me, right stick left right is also turn for now"), whichever hand carries it:
+// the left stick up sizes it up (twice the size in 1.5 s held fully) and down sizes it down, about its middle (a group
+// about its pivot), within what both grips and the size steps allow (a twentieth to twenty times, and each record's own
+// limits: an object's cut-outs and the sounds following it keep their place on it, scaleFollowers; a shape's, a cube's
+// and a cut-out's sides, a sound's reach); left and right turn it about the vertical (90 degrees a second, pushed right
+// its near side goes right); the right stick up pushes it away along the carrying ray and down pulls it in, and left and
+// right turn it too. A hand that carries something else itself steers that with its own stick. A dead zone of 0.2, then
+// the rate rises with the push (its square). All of it part of the carry: written with its records, one Undo step
+const HOLD = { dz: 0.2, grow: Math.LN2 / 1.5, turn: Math.PI / 2, push: 1.5 };
+const steers = k => !!(k.grab && (k.grab.target === 'item' || k.grab.target === 'group'));
+// a hand's stick ([x, y] past the dead zone, each -1 to 1) for the carry of hand c: its own, or the other hand's while
+// that one carries nothing else (both hands on one thing: either)
+function holdStick(c, hand) {
+  const k = XR.ctrls.find(x => x.src && x.g.visible && x.src.handedness === hand), gp = k && k.src.gamepad;
+  if (!gp || !gp.axes || gp.axes.length < 4 || (k !== c && steers(k) && k.grab.id !== c.grab.id)) return [0, 0];
+  return [gp.axes[2], gp.axes[3]].map(v => { const m = (Math.abs(v) - HOLD.dz) / (1 - HOLD.dz); return m > 0 ? Math.sign(v) * m * m : 0; });
+}
+// once a frame, by the carrying hand: G.kz (its size since it took hold, held within lo and hi), G.sth (the turn) and
+// G.reach (the push)
+function holdSticks(c, G, dt, lo, hi) {
+  const [lx, ly] = holdStick(c, 'left'), [rx, ry] = holdStick(c, 'right');
+  if (ly) G.kz = clamp(G.kz * Math.exp(-ly * HOLD.grow * dt), Math.min(lo, 1), Math.max(hi, 1));
+  G.sth += (lx + rx) * HOLD.turn * dt;
+  if (ry) G.reach = clamp(G.reach * Math.exp(-ry * HOLD.push * dt), 0.15, 8);
+}
+// how far the sticks may size an item from where it was taken: a twentieth to twenty times, and within its record's own
+// limits (an empty has no size)
+function holdRange(it, G) {
+  const s = G.s0, mn = Math.min(s.x, s.y, s.z), mx = Math.max(s.x, s.y, s.z);
+  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx]
+    : it.kind === 'x' ? [0.01 / mn, 50 / mx] : it.kind === 's' ? [0.1 / G.rr, 20 / G.rr] : [1, 1];
+  return [Math.max(1 / 20, a), Math.min(20, b)];
+}
+// the sticks' size and turn on the pose the hand gives it: about its middle (an object's own box's; the others' holders
+// stand at their middles), the turn about the scene's vertical; a sound's reach instead of a size
+const _hm = new THREE.Vector3(), _hq = new THREE.Quaternion();
+function holdApply(it, G) {
+  const H = it.holder, k = G.kz, th = G.sth;
+  if (it.kind === 's') { it.carryR = clamp(r2(G.rr * k), 0.1, 20); return; }
+  const off = it.kind === 'o' && it.model ? _hm.copy(it.proxy.position).multiply(G.s0).applyQuaternion(H.quaternion) : _hm.set(0, 0, 0);
+  if (it.kind !== 'e') H.scale.copy(G.s0).multiplyScalar(k);
+  H.position.add(off).sub(off.multiplyScalar(it.kind === 'e' ? 1 : k).applyAxisAngle(_xY, th));
+  if (th) H.quaternion.premultiply(_hq.setFromAxisAngle(_xY, th));
+}
 // an item in the hand: where the hand puts it (an object, a cut-out, a shape or an empty, moving freely, turns with the
 // hand as a real object would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands
 // on an object, a cut-out or a shape size it (a twentieth to twenty times; a cut-out and a shape every side alike) and move
-// it with their middle; the right stick pushes it away or pulls it in
+// it with their middle; one hand on it, the sticks steer it (holdSticks)
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
-  const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
+  const G = c.grab, it = STU.items.get(G.id);
   if (!it) { c.grab = null; XR.lost = true; return; }
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
@@ -23910,7 +23964,7 @@ function carryItem(c, dt) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
     const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
-    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
+    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.holder.scale.x, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });   // (as shown: the sticks may have sized it since its record was last written)
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
     if (vec) it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
     else it.holder.scale.setScalar(clamp(W.s0 * d / W.d0, W.s0 / 20, W.s0 * 20));
@@ -23919,7 +23973,7 @@ function carryItem(c, dt) {
   }
   if (o) { if (c.i < o.i) return; }
   if (G.two) xrRegrip(c);
-  if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.2) G.reach = clamp(G.reach * Math.exp(-gp.axes[3] * dt * 1.5), 0.15, 8);
+  holdSticks(c, G, dt, ...holdRange(it, G));
   _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);   // the hand's turn since it took hold
   _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
   if (_gv.length() > 30) _gv.setLength(30);
@@ -23930,16 +23984,18 @@ function carryItem(c, dt) {
     if (XR.free && it.kind !== 'c') q = _mq.copy(_gq).multiply(G.r0);
     else { _me.setFromQuaternion(_gq, 'YXZ'); q = _mq.setFromAxisAngle(_xY, _me.y).multiply(G.r0); }
     it.holder.quaternion.copy(q.premultiply(_mi));
-    if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
   }
+  holdApply(it, G);
+  if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
   carryWrite(it);
 }
 // a group in the hand: its pivot where the hand puts it, its members keeping their places about it; level, taking only a
 // yaw from the hand's turn while free moving is on; both hands size it about its pivot (a twentieth to twenty times) and
-// move it with their middle; the right stick pushes it away or pulls it in. Records written ten times a second (and as
-// it is let go: groupLetGo), the members shown where the hand puts them meanwhile
+// move it with their middle; one hand on it, the sticks size it and turn it about its pivot and push or pull it
+// (holdSticks). Records written ten times a second (and as it is let go: groupLetGo), the members shown where the hand
+// puts them meanwhile
 function carryGroup(c, dt) {
-  const G = c.grab, g = STU.items.get(G.id), gp = c.src.gamepad;
+  const G = c.grab, g = STU.items.get(G.id);
   if (!g || g.kind !== 'g' || !g.base) { c.grab = null; groupLetGo(c, G); return; }   // (gone meanwhile, as from the room: its members let go)
   const T = g.T, o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
@@ -23952,13 +24008,14 @@ function carryGroup(c, dt) {
     T.t.copy(W.t0).add(GL.items.worldToLocal(_mv.clone())).sub(W.m0);
   } else {
     if (G.two) groupRegrip(c);
-    if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.2) G.reach = clamp(G.reach * Math.exp(-gp.axes[3] * dt * 1.5), 0.15, 8);
+    holdSticks(c, G, dt, 1 / 20 / G.k0, 20 / G.k0);   // (the group a twentieth to twenty times its size as it began)
     _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);   // the hand's turn since it took hold
     _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
     if (_gv.length() > 30) _gv.setLength(30);
     _gv.applyQuaternion(_gq).add(c.o);
     T.t.copy(GL.items.worldToLocal(_gv)).sub(g.base.P);
-    T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y : 0);
+    T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y : 0) + G.sth;
+    T.k = G.k0 * G.kz;
   }
   const t = performance.now(), write = t - (g.wrote || 0) >= 100;
   if (write) g.wrote = t;
@@ -23989,11 +24046,11 @@ function stretchCut(c, G, it) {
 // a stick pushed up or down while its ray is on the studio's panel (its own, or its copy on the menu's Story tab) scrolls
 // the pane there when it is taller than the panel: up shows what is above. A dead zone, then faster the further it is
 // pushed, and faster still the longer it is held (from a third of the speed to all of it in 0.8 s); held at the ends as
-// Up and More are. Never by a hand that carries something (its stick pushes and pulls what it holds)
+// Up and More are. Never while something is carried (the sticks steer it then: holdSticks)
 const SCROLL = { dz: 0.2, slow: 0.25, fast: 1.6, ramp: 0.8 };   // (speeds in the pane's heights a second)
 function stickScroll(c, gp, dt) {
   const h = c.hover, y = gp && gp.axes.length >= 4 ? gp.axes[3] : 0;
-  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.stories || APP.mode !== 'explore' || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
+  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.ctrls.some(steers) || XR.stories || APP.mode !== 'explore' || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
   const tab = X.tab, max = X.scrollMax[tab] || 0, view = X.scrollView || 1000;
   if (!(max > 0)) { c.scrollT = 0; return; }
   c.scrollT = (c.scrollT || 0) + dt;

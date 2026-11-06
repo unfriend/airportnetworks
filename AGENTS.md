@@ -3578,9 +3578,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `&upload` in its link). *Undo* takes back this device's last 30 changes. In a headset the ray lights and names an
   item and the trigger (or a pinch) selects it (nothing: clears); the grip carries an object or a sound as the design
   room's miniatures (its offset from the hand kept, turning with the hand while free moving is on, else only about the
-  vertical; the right stick pushes it away or pulls it in) and a cube (level, only its yaw turns); both grips size an
-  object (a twentieth to twenty times) and move it with their middle; a selected cube's 8 corner balls stretch it (the
-  opposite corner stays); let go, it stays and its record is written. In VR, while nothing is carried, the left stick
+  vertical) and a cube (level, only its yaw turns); both grips size an object (a twentieth to twenty times) and move it
+  with their middle; a selected cube's 8 corner balls stretch it (the opposite corner stays); let go, it stays and its
+  record is written. The sticks while something is carried by one hand (v120; the owner, 6 November 2026: "Things in edit
+  mode should be turnable and zoomable with the sticks once grabbed like the models in the stories"; "left stick up down
+  is zoom, left stick right left is turn, right stick up down is move away, move to me, right stick left right is also
+  turn for now"), whichever hand carries it (`holdSticks`, `holdApply` in `engine/e8_xr.js`): the left stick up sizes it up
+  and down sizes it down (twice the size in 1.5 s held fully, about its middle, a group about its pivot; a twentieth to
+  twenty times and each record's own limits, as both grips and the size steps: an object's cut-outs and following sounds
+  scaled with it, `scaleFollowers`; a shape's, a cube's and a cut-out's sides; a sound's reach; an empty has no size), left
+  and right turn it about the vertical (90 degrees a second, pushed right its near side goes right); the right stick up
+  pushes it away along the carrying line and down pulls it in (its reach, 0.15 to 8 times), left and right turn it too. A
+  hand that carries something else steers that with its own stick. A dead zone of 0.2, the rate the push's square past
+  it; part of the carry (its records written with the carry's, one Undo step); a locked item is refused as the grip is,
+  so the sticks never reach it; nothing scrolls the panel meanwhile. A line on the headset's card under *Carry it* says
+  it. In VR, while nothing is carried, the left stick
   walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
   rig; per device, reset by Recenter, never written to the room); in AR you walk for real, and objects stand on the real
   floor (the session's `local-floor`, its height in the renderer's space from `frame.getPose`; at a station the room's).
@@ -3594,7 +3606,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   selection, editing off or the session's end disarm it; `XR.hold`, `holdHover`). A stick pushed up or down while its ray
   is on the studio's panel (or its copy on the menu's Story tab) scrolls a pane taller than the panel (a dead zone of
   0.2, faster the further pushed, from a third of the speed to all of it in 0.8 s held, stopped at either end as Up and
-  More are: `stickScroll`, `X.scrollMax`), never by a hand that carries something; there the left stick does not walk nor
+  More are: `stickScroll`, `X.scrollMax`), never while something is carried (v120: the sticks steer it); there the left stick does not walk nor
   the right stick turn. No other story's headset panel scrolls with Up/More buttons (checked for v118: the design room's
   prop card cuts a long list of params short and says the page's card lists them all).
   On a page a click selects, `TransformControls` move, turn and size the selection (W, E, R, or its card's buttons;
@@ -3854,7 +3866,10 @@ fading over 0.4 s (stepped frame by frame), the figure's take from when it was s
 `stay` cube holding, the hidden box faint while editing; editing on the page (a click selecting, the arrows moving it,
 a cube grown, a link ticked, Add and Delete, Undo); the shared state and back (`apply(state())` the same), a state from
 the room taken, bad values ignored; a pretend headset's grip carrying an object, both grips sizing it, a corner
-stretching a cube, the VR stick walk (none in passthrough) and Recenter; the relay's watch (a scene added, a layout
+stretching a cube, the VR stick walk (none in passthrough) and Recenter; the sticks while something is carried (v120: the
+other hand's left stick up held 1.5 s doubling the box about its middle, right a quarter turn in a second, the right stick
+up pushing it away along the hand's line by e^0.75, left turning it back, no walk meanwhile, one Undo step; a group about
+its pivot, twice and a quarter turn; a sound's reach; a locked box refused); the relay's watch (a scene added, a layout
 removed) and its password (one refusal told once, nothing more asked until another; a stubbed `fetch`); the emitter's
 HRTF panner at its place once shown, silent while muted; a sound longer than 20 s streamed through an element (no
 decoded buffer), a short one decoded, paused while muted; GLB first (the Add list's folders, an OBJ from `originals/`,
