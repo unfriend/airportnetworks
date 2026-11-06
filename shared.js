@@ -3547,7 +3547,7 @@
     o = o && typeof o === 'object' ? o : {};
     return new Promise(res => {
       if (!HOST.session || !R.session || !OV.root || !OV.root.parent) { res(null); return; }   // (no headset menu to show it)
-      const close = !PNL.open, max = Math.max(1, Math.min(200, Math.floor(+o.max) || 60));
+      const close = PNL.kp ? PNL.kp.close : !PNL.open, max = Math.max(1, Math.min(200, Math.floor(+o.max) || 60));   // (one waiting: its own close carried over)
       menuOpen(true, 'keypad');   // (cancels a keypad already waiting)
       PNL.kp = { title: String(o.title || 'Type a word').slice(0, 80), hint: String(o.hint || '').slice(0, 240), value: String(o.value || '').slice(0, max), max, res, close };
       log('keypad', { title: PNL.kp.title });
@@ -4247,6 +4247,7 @@
   function askOpen(id) {
     const s = C.stById.get(id);
     if (!s || !HOST.session || !OV.ask) return;
+    if (PNL.open) menuOpen(false, 'ask');   // (never both up: the question takes the menu's place)
     ASK.id = id; ASK.until = performance.now() + ASK.ms; ASK.placed = false; OV.ask.sig = ''; ASK.poke.armed = true;
     log('ask open', { st: id });
     sfx('notice', HD.ok ? new THREE.Vector3(0, -0.06, -0.9).applyQuaternion(HD.q).add(HD.p) : null);

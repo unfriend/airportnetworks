@@ -21931,10 +21931,11 @@ function xrGrab(c, on) {
 // Hold it (a selected item's card, in a headset): the next grip of either hand, wherever it points, carries the selected
 // item as a grip on it would (from where it stands: it keeps its offset from the hand), so a thing too big or too far to
 // point at (a room scan you stand in) can be carried; once, then disarmed. Not at the shell's menu or a station (the
-// shell takes those grips itself): it stays armed then. Disarmed by another selection, editing off, or the session's end
+// shell takes those grips itself) or at the studio's own panel (the grip moves it): it stays armed then. Disarmed by
+// another selection, editing off, or the session's end
 function holdHover(c) {
   const h = c.hover, id = XR.hold;
-  if (!id || (h && (h.kind === 'shell' || h.menu))) return h;
+  if (!id || (h && (h.kind === 'shell' || h.kind === 'panel' || h.menu))) return h;   // (the grip on a panel moves the panel)
   XR.hold = '';
   dirty(true);
   const it = STU.items.get(id);

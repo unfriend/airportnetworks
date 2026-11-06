@@ -272,7 +272,7 @@ In a headset (editing on):
   grip of either hand, wherever it points, carries that item as a grip on it would (from where it stands: it keeps its
   offset from the hand; a group as a whole), one Undo step; once, then disarmed (pressed again, another selection,
   editing off or the session's end disarm it too). Not at the shell's menu or a station (the shell takes those grips
-  itself): it stays armed then. For a thing too big or too far to point at.
+  itself) or the studio's own panel (the grip moves the panel): it stays armed then. For a thing too big or too far to point at.
 - Stick scrolling (v118; the owner: "on cards that overflow scrolling should work with the sticks up down"): a stick
   pushed up or down while its controller's ray is on the studio's panel (its own, or its copy on the menu's Story tab)
   scrolls the pane there when it is taller than the panel (up shows what is above): a dead zone of 0.2, then from 0.25
