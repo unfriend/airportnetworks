@@ -288,7 +288,9 @@ Installed copies play narrations from their offline copy, so a replaced narratio
 - **The test place** (v116; the owner, 5 November 2026: the main site "will stay on github pages, deployed from main and
   works as it always worked", and branch `dev` goes to the owner's Coolify, at `stories.lab.lbi-netmed.com`, with a
   webhook, saving the studio's models to Cloudflare R2): see [relay/README.md](../relay/README.md), "The test place on
-  Coolify". The main site's rooms run peer to peer (no relay offered: `HOME_RELAY` in `shared.js` is empty for now).
+  Coolify". Since v120 the owner's Coolify also runs `main` as the main site's relay at `main.lab.lbi-netmed.com`, which
+  the main site offers (`HOME_RELAY` in `shared.js`): a device with its password runs its rooms there, one without it peer
+  to peer (as every device did from v116 to v119).
 - Pages publishes **everything** on main, not only the app. `tools/` and `docs/` can be downloaded from the live site
   too (and `ikerdata/` could, until it was removed from the repository on 3 November 2026). The relay, and its Docker image, serve only the app's files.
 - Pages sends `Cache-Control: max-age=600` and ETags (tags that let a browser ask whether a file changed). The update

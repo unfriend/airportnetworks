@@ -471,8 +471,44 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
   - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
-    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under Frame rate), only in AR;
+    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
     see "Real-world occlusion" below.
+  - Your menu shown to your circle (v120; the owner, 6 November 2026: "the menu window of each person should optionally
+    be visible for everyone so that i can explain it easier", then "menu shown to others in my circle"): a seventh
+    setting, each headset's own and never the room's (`MSH` in `shared.js`, `xrMenuShare` = `circle` in `localStorage`,
+    off by default; not in `HOST.xr.sig()`, no link option): the menu's *My menu: only me* / *My menu: my circle* row
+    (Settings, under Frame rate, a note beside it). While on, the menu open and this headset lined up at a live station
+    in a shared room (`menuShareTo`), the other headsets at that station see it where it floats here; never while the
+    relay's password page is open (it shows the password as it is typed: the menu is closed for the others meanwhile).
+    It goes out as quiet effects on the station's channel (`e.<station>`, type `@menu`, which the shell takes for itself
+    in `onFx` and never passes to the story; nothing stored, no `FORMAT` change): the menu's pose in room coordinates
+    (`{ k: 'pose', p, q, w, h, n, ts, m }`: its top edge's middle, which it hangs from, its turn, its width and height
+    in metres, the number of its latest picture, the relay's time, `m: 1` while it moves) at most every 200 ms while it
+    moves, once more as it comes to rest and once a second while still; a picture of what it shows (`{ k: 'pic', img,
+    ... }`, the pose too: the drawn part of its canvas, only the height the tab uses, with the Story tab's copies of the
+    story's panels drawn in where they show, on a dark ground) as a JPEG data URL, made smaller and coarser step by step
+    (`MSH.steps`, 540 px wide at quality 0.75 down to 180 at 0.3; the next starts at the step that fitted, a step finer
+    when it came well under) until it is under 47 KB (the relay refuses effects over 64 KB), sent only when what it
+    shows changed (`menuSig`: the menu's content, `cver`, counted by `drawPanel` with the light of the button pointed at
+    left out, the mirrored panels' texture versions and the height shown) and at most every 1.5 s (`MSH.picMs`), or when
+    only that light changed at most every 4 s (`MSH.hovMs`: a ray moving over the buttons redraws the menu all the time,
+    and every picture goes to everyone in the room), encoded with `toBlob` off the frame; and `{ k: 'closed' }` once
+    when the menu closes, the setting goes off, the station changes or the session ends (`menuShareEnd`). A headset at
+    that station whose latest picture is older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every
+    1.5 s) and gets the last one made (also when a newer one did not fit); only a headset at that station keeps a
+    picture (`menuIn`), so one that walks in later asks. Every other headset at the same live station draws it (`drawMenus`, `MENUS`) as a plane at that pose in the room
+    (`OV.room`), smoothed as others' moves are (`bufAt` with `MIX.menu`), the picture's own shape, its corners cut
+    round, two faces back to back so it reads the right way round from either side (from behind, left and right are
+    swapped against the person's ray), depth-tested so what stands in front hides it, `renderOrder` 49.5 on its meshes
+    (after the station cards set on top, under the story panels set on top, the subtitles, the read-out and your own
+    menu; its group's stays 0, as three.js r128 sorts by a group's order before an object's own), a tag over its top
+    edge with the person's name by their colour (*Anna's menu*); never pointable or pressable; gone 3 s after its last
+    sample (`menusExpire`) or at once on `closed`. Pages draw nothing; the Shared dialog's people list says *showing
+    their menu*. `HOST.collab.menuShare(on)`, `menuSent()`, `menus(full)` and `menuShot(master)` (the picture as it
+    would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
+    made in the page at most every 1.5 s, about 45 KB to everyone in the room each time: the relay, and a peer-to-peer
+    room's host, send every effect to every member, so with the Story tab of a playing story shown, its clock changing
+    every second, about 30 KB a second to each of them), and Quest Browser's `toBlob`.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -1061,8 +1097,8 @@ with the station's other keys when it shows another story; FORMAT networks-25), 
 below; FORMAT networks-6),
 `look` (the headsets' four settings, the two sound switches and the circles walked into or asked first, `{ labels, cards, free, subs, sfx, voice, ask, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives labels on top, cards in 3D, no subtitles and circles walked into, and leaves a sound switch it never wrote to each device; free moving turned off takes
-every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33), and per shared space `rf.<space id>` (the room's frame in it) and
+lock; a room without it gives labels on top, cards in 3D, no subtitles and circles asked first (since v120; walked into before), and leaves a sound switch it never wrote to each device; free moving turned off takes
+every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33, asked first by default since networks-35), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
@@ -1084,7 +1120,8 @@ groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`,
 would drop, and in the same round a studio circle made for a scene its record's `sc: true`; networks-34 when the studio's
 shapes, empties, locks and scene settings came in v119: its `state()` gained a field per shape, `p.<id>`, and per empty,
 `e.<id>`, every item's and group's record an optional `locked`, a sound's `on` an empty or a shape too, and the scene's
-`settings`). The plan is
+`settings`; networks-35 when circles became asked first by default and the studio's items gained motions, recordings and
+behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an older device would walk into). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -1477,7 +1514,8 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
     nothing while the flow is on show asking it to calibrate (`guideShown()` with `R.calib` or `lineCase() === 'first'`);
     once calibrated, or on Skip for now, the arc stands where the headset stands.
 - A headset runs live the station whose circle it walked into last (within
-  1.1 m of its spot for 1 s): stations are walk-in only (the owner, October
+  1.1 m of its spot for 1 s; with the circles asked first, the default since v120, the one it last went into by *Go
+  in* instead, the lobby still walked into: "Circles asked first" below): stations are walk-in only (the owner, October
   2026: "the stories can only be visited by going to their circle"), and a
   story is left only by walking into another circle (the owner, 29 October
   2026, after ten headsets: "One should only exit a story when walking into a
@@ -1507,10 +1545,15 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   clicking a circle's card or the icon, then a dialogue asks if you want to go into that story, works better in tight
   rooms"; a room setting, walking in doing nothing, the story staying at its circle, a small panel with the story's title
   in its colour, Go in and Not now, gone after 10 s, the lobby the same). The room's (`look`'s `ask`, FORMAT networks-33:
-  set by anyone, never refused by either lock, off by default, a room that never wrote it walks in as before;
-  `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`): the headset menu's Circles tab has *Circles:
-  walk in* / *Circles: ask first* (with a note that it is for everyone here) and the page's Shared dialog the same button
-  in its row of the headsets' settings (`data-sh="ask"`). With it on:
+  set by anyone, never refused by either lock; `askFirst()`, `setAsk(on)`, `HOST.collab.askFirst()` and `setAsk(on)`):
+  the headset menu's Circles tab has *Circles: walk in* / *Circles: ask first* (with a note that it is for everyone here)
+  and the page's Shared dialog the same button in its row of the headsets' settings (`data-sh="ask"`). **On by default
+  since v120** (the owner, 6 November 2026: "Circles should be ask first by default for everyone"; FORMAT networks-35): a
+  room that never wrote `ask` asks first (`LOOK0.ask`), and the switch turned to walk in writes `ask: false` for the room
+  (until v120 off by default, a room that never wrote it walking in). Tests that walk into circles start as before: a
+  device with `localStorage` `collabAskDefault` = `walk` before the page loads (read once, as `collabAutoAll`; every page
+  `tools/collab.mjs` opens has it but the round of the circles asked first) takes a room that never wrote `ask` as walked
+  into, and `HOST.collab.askDefault(on)` sets the same (without an argument it says which). With it on:
   - Walking in does nothing (`zoneStep`: no dwell, no swell; `C.zone` is kept at the live station, so walking about with
     it on enters nothing and, turned off again, walking in starts from where you are), except into Back to the lobby
     (v119; the owner, 6 November 2026: "in that one the headsets shall go to the lobby automatically"): the same dwell as
@@ -1772,7 +1815,8 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
     off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
     `HOST.xr`), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
-    settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
+    settings"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
+    beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
     a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
     mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines
@@ -2114,12 +2158,15 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   and saves models to cloudflare r2", and the main site "does not need a hosted relay
   for now ... a good place to test the peer to peer functionality"; `relay/README.md`,
   "The test place on Coolify"): the main site is GitHub Pages from `main` at
-  `https://stories.lbi-netmed.com/` (its `CNAME`), its rooms peer to peer; the
-  owner's Coolify runs branch `dev` at `https://stories.lab.lbi-netmed.com/` (every
-  name under `lab.lbi-netmed.com` points at the Coolify server with a wildcard
-  certificate), served by its relay, with the studio's scenes in R2 and a webhook
-  deploying every push to `dev`. Work goes to `dev` first, then `main` once the
-  owner has tried it. A page can offer a relay of its own (`HOME_RELAY` in
+  `https://stories.lbi-netmed.com/` (its `CNAME`); the owner's Coolify runs branch
+  `dev` at `https://stories.lab.lbi-netmed.com/` (every name under
+  `lab.lbi-netmed.com` points at the Coolify server with a wildcard certificate),
+  served by its relay, with the studio's scenes in R2 and a webhook deploying every
+  push to `dev`, and since v120 (the owner, 6 November 2026) branch `main` as well,
+  as the main site's relay at `https://main.lab.lbi-netmed.com/` (a clone of the test
+  place's resource with its domain, branch and `R2_PREFIX` changed:
+  `--proxy 1 --public --scenes r2` and a password), which the main site offers.
+  Work goes to `dev` first, then `main` once the owner has tried it. A page can offer a relay of its own (`HOME_RELAY` in
   `shared.js`, keyed by the page's host, so never this machine, a LAN or the tests,
   where `HOST.collab.homeRelay(url)` offers one): while no relay is in use there
   (`homeOffer`), the Shared dialog has *The relay* (a password field, `homeTry`) and
@@ -2128,9 +2175,11 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   studio's, which asks the offered relay for its scenes through `relayFind`), the
   device keeps it and uses that relay from then on (`setRelay`, kept as one typed
   in); without it rooms run peer to peer; *Forget the password*, out of a room, takes
-  both off the device and the offer is back. The table is empty for now (no relay
-  offered anywhere), ready for a relay for the main site later; `--public` allows
-  `https://stories.lbi-netmed.com` already (`APP_ORIGIN`). v114 and v115 had planned
+  both off the device and the offer is back. The table has one entry since v120,
+  `'stories.lbi-netmed.com': 'https://main.lab.lbi-netmed.com'` (empty from v116 to
+  v119, the main site's rooms peer to peer; without the password they still are);
+  `--public` allows `https://stories.lbi-netmed.com` (`APP_ORIGIN`), so the main
+  relay needs no `--origin`; its test is `node tools/collab.mjs --home`. v114 and v115 had planned
   the main site on Coolify and a test copy on Pages (v115 only reached `dev`).
   On a public server (the owner's Coolify) it runs with `--public` (3 November
   2026; `RELAY_ARGS="--proxy 1 --public"` in its environment; `relay/README.md`,
@@ -4502,8 +4551,10 @@ the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a cir
 circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
 station's *Lock story*). Circles asked first (`askRound`, v118, also in the main run, right after the ten-headset round;
 `--ask` runs only it, a room of its own with two story circles and Back to the lobby, a page and a pretend headset, a few
-minutes): a page's Shared dialog turning the room's switch on (*Circles: walk in* to *Circles: ask first*, `look`'s
-`ask` true, the headset too); no ring drawn or pointable then, the lobby's too, the cards and icons staying, *Show all
+minutes; its two devices the only ones in the run without `collabAskDefault` = `walk`, so v120's default): the fresh room
+asking first with nobody having written `look`'s `ask` (the page, the headset and the dialog's button *Circles: ask
+first*); a page's Shared dialog turning the room's switch to walk in (`look`'s `ask` false written, the headset too) and
+back on (*Circles: walk in* to *Circles: ask first*, `look`'s `ask` true, the headset too); no ring drawn or pointable then, the lobby's too, the cards and icons staying, *Show all
 rings* bringing every ring back and off again hiding them (v119); the headset walking into a circle and standing there 3 s entering nothing; the trigger on
 another station's icon (pointed at first) opening the question in front of it (that circle's title, 0.8 to 1 m away, on
 top and the ray's first target; no notice); *Not now* (pressed by the ray at its button) closing it, nothing entered;
@@ -4513,12 +4564,28 @@ circle from the other one (its live station, its story loaded and its rig at tha
 presence there) and standing on in the first circle entering nothing; the lobby's question (*Back to the lobby*) and its
 *Go in* ending the station, the story loaded hearing it (a stub for `HOST.cur.lobby`); from a story again, walking into
 the lobby (its ring hidden) ending the station after 1 s and the stub called again; *Go in* pressed while standing in the
-lobby holding (not taken back there); the menu's *Circles* row turning it off for the room, the headset having written nothing but
+lobby holding (not taken back there); the menu's *Circles* row turning it off for the room (`look`'s `ask` false), the headset having written nothing but
 `look` (and what any arrival writes: its story's state and view there); walking in working again; then (v119) a studio
 circle added from the page: `HOST.collab.hideOthers(true)` refused (false) at a story's circle, and at the studio's
 (walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, a hidden
 story circle not walked into (still at the studio after standing in it), the lobby still walked into (the station ends
-and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
+and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). Your
+menu shown to your circle (`menusRound`, v120, also in the main run, right after the circles asked first; `--menus` runs
+only it, a room of its own with two story circles, a page and three pretend headsets, A and B walked into one circle and
+C into the other, a few minutes): off by default (*My menu: only me*, nothing kept), A's menu open sending nothing and B
+drawing nothing; A's *My menu: my circle* (Settings) pressed: B draws a plane where A's menu floats (its top edge's middle,
+its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows), its picture A's menu
+(its pixels not dark), depth-tested, `renderOrder` between 49 and 50 (its group's 0), never pointable, A's name on its tag; C draws none
+of it; the page's Shared dialog says *showing their menu*; A's tabs changed four times a second for 4 s: at least 2
+pictures and at most one every 1.5 s, each 1,490 ms or more after the last, every effect under 48 KB, B taking every one
+(its `got`); a pretend controller's ray moving over A's buttons for 4.5 s (only their light changing, at least three
+buttons lit): at most 2 pictures and under 24 KB a second sent; the Story tab's picture (its shape that tab's, lit below its top quarter where the story's panels are drawn in; a
+pretend headset's step does not draw the story's panels, so the round draws them once first); A's head turned 69
+degrees, its menu gliding back in front: B's plane following (at most 5 poses a second) and ending where A's stands; A
+silent (no frames, as a headset taken off): gone on B after a few seconds with nothing closed, and back once A goes on (B
+asking for the picture it lacks); A's menu closed: gone on B within a second (`closed` sent), opened again, back; *My menu: only me* again with the menu open: gone on B, nothing more sent; on again (kept as `xrMenuShare`) and A's
+session ended: gone on B (with `--shots`: `menus-1-picture.png` and `menus-2-picture.png`, the pictures B holds of A's
+Settings and Story tabs, and `menus-1-seen.png`, `menus-2-seen.png`, what B sees from its head). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
 values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:
@@ -4526,6 +4593,12 @@ values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: 
 titled *Studio: <scene>* in every page's dialog; *Studio here* adding a plain studio circle beside them and then moving
 that one; a scene picked at that plain circle (its state naming it, its title *Studio: <scene>*) and *Studio here* still
 moving it (no fourth circle); a scene circle moved keeping its `sc`, and *Studio here* then still moving the plain one.
+The relay the main site offers (`homeRound`, v120, also in the main run after the scenes round; `--home` runs only it,
+under a minute): a browser of its own that takes `stories.lbi-netmed.com` and `stories.lab.lbi-netmed.com` for this
+machine (`--host-resolver-rules`), the page served there by the test relay as plain http (the offer goes by the host
+alone), its `/api` turned away as GitHub Pages has none and nothing let out to any other address: as the main site it
+offers `https://main.lab.lbi-netmed.com` (`HOST.collab.homeRelay()`, the Shared dialog's box naming it) and sends that
+address nothing before a password is typed; as the test place's name and on `127.0.0.1` it offers none (`HOME_RELAY`).
 Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
 `--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes

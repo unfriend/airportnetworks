@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-34';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-35';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -64,12 +64,11 @@
   // entered and accepted (there, or where a 401 of its asked for it), this device keeps it and uses that relay from then
   // on, as a relay typed in (homeTry, authSaw); without it rooms run peer to peer, and Forget the password (out of a room)
   // goes back to that. Keyed by the page's host, so never this machine, a LAN or the tests (HOST.collab.homeRelay(url)
-  // offers one there). None for now (the owner, 5 November 2026: the main site stays on GitHub Pages from main, "works as
-  // it always worked", and "does not need a hosted relay for now, if it needs one i will add that later on, for now its a
-  // good place to test the peer to peer functionality"; the test place is branch dev on Coolify, served by its own relay).
-  // To offer one later: its host and address here, e.g. { 'stories.lbi-netmed.com': 'https://<relay>' }, and the page's
-  // origin in that relay's --origin (its --public allows https://stories.lbi-netmed.com already)
-  const HOME_RELAY = {};
+  // offers one there). v120 (the owner, 6 November 2026): the main site on GitHub Pages (branch main) offers the relay the
+  // owner's Coolify runs from main as well, at main.lab.lbi-netmed.com (--proxy 1 --public --scenes r2 and a password;
+  // its --public allows https://stories.lbi-netmed.com). The test place (branch dev, stories.lab.lbi-netmed.com) is
+  // served by its own relay and needs no entry; until v120 the table was empty and the main site's rooms peer to peer
+  const HOME_RELAY = { 'stories.lbi-netmed.com': 'https://main.lab.lbi-netmed.com' };
   const HOME = { o: null, state: '' };   // o: a test's own offer (null: the table's); state: '', 'checking', 'wrong', 'limit', 'away'
   const homeRelay = () => { if (HOME.o !== null) return HOME.o; try { return HOME_RELAY[location.hostname] || ''; } catch (e) { return ''; } };
   // listeners added here belong to the shell: a story change must not remove them
@@ -1704,6 +1703,175 @@
   }
   function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) { TOAST.el.hidden = true; TOAST.el.style.display = 'none'; } }
 
+  // ------------------------------------------------ the menu shown to your circle --
+  // My menu: my circle (the menu's Settings tab; this headset's own, kept as xrMenuShare, off by default, never the room's;
+  // the owner, 6 November 2026: "the menu window of each person should optionally be visible for everyone so that i can
+  // explain it easier", then "menu shown to others in my circle"). While it is on, the menu open and this headset lined up
+  // at a live station in a shared room, the other headsets at that station see a picture of the menu where it floats here.
+  // It goes to them as quiet effects on the station's channel (e.<station>, type MSH.type: the shell's own, never passed
+  // to the story): the menu's pose in room coordinates (its top edge's middle, which it hangs from, its turn, its width and
+  // height), at most every MSH.poseMs while it moves, once more as it comes to rest and every MSH.beat while still; a
+  // picture of what it shows (the drawn part of its canvas, the Story tab's copies of the story's panels drawn in) as a
+  // JPEG, made smaller and coarser step by step (MSH.steps) until it fits MSH.max (the relay refuses effects over 64 KB),
+  // only when what it shows changed and at most every MSH.picMs, or when only the light of the button pointed at changed
+  // at most every MSH.hovMs (a ray moving over the buttons redraws the menu all the time, and the relay sends every
+  // effect to everyone in the room: about 45 KB each); and 'closed' once when the menu closes, the setting goes off, the
+  // station changes or the session ends. A headset at the station that lacks the picture a pose names asks for it
+  // ('want', at most every MSH.ask) and gets the last one made without its being made again (also when a newer one did
+  // not fit). Only a headset at that station keeps a picture (the others ask once they come). Drawn by drawMenus; pages
+  // draw nothing (the Shared dialog's people list says who shows their menu)
+  const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 1500, hovMs: 4000, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
+    steps: [[540, 0.75], [480, 0.66], [420, 0.58], [360, 0.5], [300, 0.42], [240, 0.35], [180, 0.3]],
+    st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
+    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [] }, got: 0 };   // (got: pictures taken from others, for tests)
+  const MENUS = new Map();   // others' menus shown to their circle, by member: { code, st, at, n, nWant, img, dec, buf, pose, o, ... }
+  const menuShareOn = () => MSH.on;
+  function setMenuShare(on) { MSH.on = !!on; put('xrMenuShare', MSH.on ? 'circle' : null); log('menu share', { on: MSH.on }); changed(); }
+  // where this headset's menu goes: its live station's id, or '' (off, closed, no room, not lined up, no station; and while
+  // the relay's password page is open, which shows the password as it is typed: closed for the others meanwhile)
+  function menuShareTo() {
+    const L = liveSt();
+    return MSH.on && PNL.open && PNL.page !== 'pass' && OV.panelG && OV.panelG.visible && HOST.session && C.code && R.aligned && L && !away() ? L.id : '';
+  }
+  function menuOut(st, data) {
+    const v = { type: MSH.type, data, q: 1 }, n = J(v).length;
+    MSH.sent.most = Math.max(MSH.sent.most, n); MSH.sent.bytes += n;
+    return fx('e.' + st, v);
+  }
+  // the menu's pose in room coordinates: its top edge's middle, its turn, its width and height (m)
+  function menuPose() {
+    const G = OV.panelG;
+    _v.copy(G.position).applyMatrix4(R.mi);
+    _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(G.quaternion);
+    return { p: [r3(_v.x), r3(_v.y), r3(_v.z)], q: qOut([_q.x, _q.y, _q.z, _q.w]), w: r3(OV.panel.mw * G.scale.x), h: r3(menuH()) };
+  }
+  // what the menu shows now: its canvas as drawn (cver: the light of what is pointed at aside, drawPanel), the part
+  // shown, and the Story tab's copies of the story's panels
+  function menuSig() {
+    const ms = Object.values(OV.mirror).map(m => (m.visible && m.material.map ? m.material.map.uuid + ':' + m.material.map.version : ''));
+    return (OV.panel.cver || 0) + '|' + OV.panel.vis + '|' + ms.join('|');
+  }
+  // each frame (the shell's tick, after the overlay is drawn, so the menu stands where it shows): the pose, the picture,
+  // or 'closed'
+  function menuShareStep(t) {
+    const to = menuShareTo();
+    if (!C.code) { MSH.st = ''; MSH.last = null; }
+    if (MSH.st && MSH.st !== to) menuShareEnd(!MSH.on ? 'off' : !PNL.open ? 'closed' : PNL.page === 'pass' ? 'password' : 'station');
+    if (!to) return;
+    if (!MSH.st) { MSH.st = to; MSH.want = !!MSH.img; MSH.poseAt = 0; MSH.last = null; MSH.moving = false; log('menu share', { to }); }
+    // the picture: what it shows changed, at most every picMs, or only what is lit where a ray points, at most every
+    // hovMs (full: as drawn, with that light); or someone at the station lacks it
+    const sig = menuSig(), full = sig + '|' + OV.panel.tex.version;
+    if (!MSH.busy && t - MSH.picAt >= MSH.picMs) {
+      const due = sig !== MSH.sig || (full !== MSH.full && t - MSH.picAt >= MSH.hovMs);
+      if (due && full !== MSH.failed) {
+        menuPicture().then(P => {
+          if (!P) { MSH.failed = full; return; }
+          MSH.n++; MSH.img = P; MSH.sig = sig; MSH.full = full;
+          if (MSH.st && menuShareTo() === MSH.st) picOut();
+        });
+        return;
+      }
+      if (MSH.want && MSH.img) { picOut(); return; }   // (asked for again: the last one made, also when a newer one did not fit)
+    }
+    // the pose: while it moves at most every poseMs (held), once more as it comes to rest, and now and then while still
+    const ps = menuPose(), L = MSH.last;
+    const moved = !L || Math.hypot(ps.p[0] - L.p[0], ps.p[1] - L.p[1], ps.p[2] - L.p[2]) > 0.003 || qAng(ps.q, L.q) > 0.005 || Math.abs(ps.h - L.h) > 0.002 || ps.w !== L.w;
+    if (moved ? t - MSH.poseAt >= MSH.poseMs : MSH.moving ? t - MSH.poseAt >= MSH.poseMs : t - MSH.poseAt >= MSH.beat) {
+      MSH.moving = moved && !!L;
+      MSH.last = ps; MSH.poseAt = t; MSH.sent.poses++;
+      menuOut(MSH.st, Object.assign({ k: 'pose', n: MSH.n }, ps, { ts: Math.round(now()) }, MSH.moving ? { m: 1 } : {}));
+    }
+  }
+  function picOut() {
+    const t = performance.now(), ps = menuPose();
+    MSH.picAt = t; MSH.want = false; MSH.last = ps; MSH.poseAt = t; MSH.moving = false;
+    MSH.sent.pics++; MSH.sent.at.push(t); if (MSH.sent.at.length > 40) MSH.sent.at.shift();
+    menuOut(MSH.st, Object.assign({ k: 'pic', n: MSH.n, img: MSH.img }, ps, { ts: Math.round(now()) }));
+  }
+  // 'closed' to the station it went to (the menu closed, the setting off, another station, the session's end)
+  function menuShareEnd(why) {
+    if (!MSH.st) return;
+    if (C.code) menuOut(MSH.st, { k: 'closed' });
+    MSH.sent.closed++;
+    log('menu share', { closed: MSH.st, why });
+    MSH.st = ''; MSH.last = null; MSH.moving = false; MSH.want = false;
+  }
+  // the picture: the menu's canvas (the part shown) with the story's panels drawn in where the Story tab shows them, onto a
+  // dark ground (a JPEG has no see-through corners: the others cut them round), then a JPEG at each step until one fits
+  // (the next starts at the step that fitted, a step finer when it came well under). A data URL, or '' when none fits
+  const jpeg = (cv, q) => new Promise(res => { try { cv.toBlob(b => res(b), 'image/jpeg', q); } catch (e) { res(null); } });
+  const dataUrl = b => new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => res(''); r.readAsDataURL(b); });
+  async function menuPicture() {
+    MSH.busy = true;
+    try {
+      const S = OV.panel, vis = Math.max(1, Math.min(S.h, Math.round(S.vis))), M = MSH.master || (MSH.master = document.createElement('canvas'));
+      M.width = S.w; M.height = vis;
+      const c = M.getContext('2d'), g = PNL.mirror;
+      c.fillStyle = '#080f1c'; c.fillRect(0, 0, S.w, vis);
+      c.drawImage(S.cv, 0, 0, S.w, vis, 0, 0, S.w, vis);
+      if (g) for (const which of ['main', 'foot']) {
+        const m = OV.mirror[which], img = m.visible && m.material.map && m.material.map.image;
+        if (!img) continue;
+        const h = which === 'main' ? g.hm : g.hf, top = which === 'main' ? g.y0 : g.y0 + g.hm + g.gap;
+        try { c.drawImage(img, g.x, top, g.w, h); } catch (e) { /* not drawable */ }
+      }
+      const cv = MSH.cv || (MSH.cv = document.createElement('canvas'));
+      for (let k = Math.min(MSH.step, MSH.steps.length - 1); k < MSH.steps.length; k++) {
+        const [W, q] = MSH.steps[k];
+        cv.width = W; cv.height = Math.max(1, Math.round(vis * W / S.w));
+        const x = cv.getContext('2d');
+        x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+        x.drawImage(M, 0, 0, cv.width, cv.height);
+        const b = await jpeg(cv, q);
+        if (!b) break;
+        const len = 23 + 4 * Math.ceil(b.size / 3);   // (its data URL's length: 'data:image/jpeg;base64,' and the bytes)
+        if (len > MSH.max) continue;
+        const u = await dataUrl(b);
+        if (!u.startsWith('data:image/jpeg;base64,') || u.length > MSH.max) break;
+        MSH.step = k > 0 && len < MSH.max * 0.45 ? k - 1 : k;
+        return u;
+      }
+      log('menu share', { picture: 'none fits' });
+      return '';
+    } finally { MSH.busy = false; }
+  }
+  // someone's menu, as it comes (every page keeps it, for the Shared dialog's people list; only a headset at that station
+  // draws it, and only it asks for a picture it lacks)
+  const v3 = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite) && a.every(x => Math.abs(x) < 1e4);
+  function menuIn(st, d, by) {
+    if (!by || by === C.id || !d || typeof d !== 'object') return;
+    let E = MENUS.get(by);
+    if (d.k === 'closed') { if (E && E.st === st) menuDrop(by); return; }
+    if (d.k === 'want') { if (d.to === C.id && MSH.st === st && MSH.img) MSH.want = true; return; }
+    if (d.k !== 'pose' && d.k !== 'pic') return;
+    if (!v3(d.p) || !validQ(d.q) || !(d.w > 0.05 && d.w < 4) || !(d.h > 0.02 && d.h < 8)) return;
+    if (!E) { MENUS.set(by, (E = { code: C.code, st, at: 0, n: 0, nWant: 0, img: '', dec: '', buf: { s: [], seed: false }, pose: null, o: null, asked: 0, pics: 0, bytes: 0 })); changed(); }
+    if (E.st !== st || E.code !== C.code) { E.st = st; E.code = C.code; E.buf = { s: [], seed: false }; E.n = 0; E.img = ''; E.dec = ''; E.drawn = false; }   // (another station: anew)
+    E.at = performance.now();
+    E.pose = { p: d.p.slice(), q: d.q.slice(), w: d.w, h: d.h };
+    if (Number.isFinite(d.ts)) bufPush(E.buf, d.ts, E.pose, d.m === 1); else E.buf.s.length = 0;
+    if (Number.isInteger(d.n)) E.nWant = d.n;
+    // (the picture kept only by a headset at that station, which draws it: drawMenus; one that comes later asks for it)
+    const L = liveSt();
+    if (d.k === 'pic' && Number.isInteger(d.n) && typeof d.img === 'string' && d.img.startsWith('data:image/jpeg;base64,') && d.img.length <= 64 * 1024 && HOST.session && L && L.id === st) {
+      E.n = d.n; E.img = d.img; E.pics++; E.bytes = d.img.length; MSH.got++;
+    }
+  }
+  function menuDrop(id) {
+    const E = MENUS.get(id);
+    if (!E) return;
+    MENUS.delete(id);
+    if (E.o) { E.o.g.parent && E.o.g.parent.remove(E.o.g); E.o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) x.material.dispose(); }); E.o.tex.dispose(); E.o.tagTex.dispose(); }
+    changed();
+  }
+  // gone MSH.gone after its last sample (a headset taken off, gone from the room), or once the room is another
+  function menusExpire(t) {
+    for (const [id, E] of MENUS) if (t - E.at > MSH.gone || E.code !== C.code) menuDrop(id);
+  }
+  // who shows their menu at a station now (the Shared dialog's people list)
+  const showsMenu = id => { const E = MENUS.get(id); return !!E && E.code === C.code && performance.now() - E.at <= MSH.gone; };
+
   // ----------------------------------------------------------- ephemeral --
   function fx(k, v) { return send({ t: 'fx', k, v }); }
   function onFx(m) {
@@ -1728,6 +1896,7 @@
     } else if (m.k === 'q.check') { checkIn(m.v, m.by);   // someone's Touch the spot: where their room puts the spot
     } else if (m.k.startsWith('e.')) {
       const L = sesSt(), v = m.v || {};   // (the station's session: an All stories circle in sync mode shares its effects)
+      if (v.type === MSH.type) { menuIn(m.k.slice(2), v.data, m.by); return; }   // (someone's menu shown to their circle: the shell's)
       if (!v.q) log('effect in', { st: m.k.slice(2), type: v.type, by: m.by });
       if (L && m.k === 'e.' + L.id && C.ready && L.story === HOST.curKey && C.hook && C.hook.effect) {
         try { C.hook.effect(v.type, v.data, m.by); } catch (e) { log('effect failed', { e: e.message }); }   // (by: who sent it, as the relay says)
@@ -2123,10 +2292,12 @@
   // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
   // 3D, no subtitles; FORMAT networks-27 for cards, sfx and voice), set from a headset's menu or the page's dialog, and
   // never refused by either lock. A sound switch the room never wrote stays each device's own (HOST.xr.mine), so a device
-  // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: walked into
-  // (ask false, the default) or asked first (ask true: walking in does nothing, a press on a circle asks; v118, FORMAT
-  // networks-33, askFirst below), a setting of the room's only (outside a room there are no circles)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: false };
+  // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: asked first
+  // (ask true, the default since v120, FORMAT networks-35: walking in does nothing, a press on a circle asks) or walked into
+  // (ask false; v118, FORMAT networks-33, askFirst below), a setting of the room's only (outside a room there are no
+  // circles). Tests that walk into circles start as before (localStorage collabAskDefault = walk before the page loads,
+  // as collabAutoAll; HOST.collab.askDefault(on)): a room that never wrote ask then walks in
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: get('collabAskDefault') !== 'walk' };
   const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
   function look() {
     if (!C.code || !C.welcomed) return null;
@@ -2154,10 +2325,11 @@
     changed();
     return true;
   }
-  // The circles: walked into (the default) or asked first (the owner, 5 November 2026: "a switch for the circles so that
-  // they are only accessible by clicking a circle's card or the icon, then a dialogue asks if you want to go into that
-  // story, works better in tight rooms"): the room's (look's ask, for everyone in it, set by anyone from a headset's menu
-  // or a page's dialog, never refused by either lock; a room that never wrote it walks in as before). On, walking into a
+  // The circles: asked first (the default since v120; the owner, 6 November 2026: "Circles should be ask first by default
+  // for everyone") or walked into (until v120 the default; v118, the owner, 5 November 2026: "a switch for the circles so
+  // that they are only accessible by clicking a circle's card or the icon, then a dialogue asks if you want to go into
+  // that story, works better in tight rooms"): the room's (look's ask, for everyone in it, set by anyone from a headset's
+  // menu or a page's dialog, never refused by either lock; a room that never wrote it asks first). On, walking into a
   // circle does nothing (zoneStep), and the trigger or a pinch on another circle's card, ring or icon asks in a small
   // panel in front of you (ASK): Go in does what walking in does, the story staying at its circle. Pages are as ever
   const askFirst = () => { const L = look(); return !!(L && L.ask); };
@@ -2557,6 +2729,7 @@
     panel: (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), yaw: a.yaw + turnBy(a.yaw, b.yaw) * f,
       q: a.q || b.q ? qSlerp(a.q || yawQ(a.yaw), b.q || yawQ(b.yaw), f) : null }),
     station: (a, b, f) => ({ x: lerp(a.x, b.x, f), z: lerp(a.z, b.z, f), yaw: a.yaw + turnBy(a.yaw, b.yaw) * f }),
+    menu: (a, b, f) => ({ p: a.p.map((x, k) => lerp(x, b.p[k], f)), q: qSlerp(a.q, b.q, f), w: lerp(a.w, b.w, f), h: lerp(a.h, b.h, f) }),   // (someone's menu shown to their circle)
     view: (a, b, f) => a.map((x, k) => { const y = b[k], w = Math.abs(x) <= 180 && Math.abs(y) <= 180 ? (y - x > 180 ? -360 : x - y > 180 ? 360 : 0) : 0; return lerp(x, y + w, f); }),
     person: (a, b, f) => ({ head: [lerp(a.head[0], b.head[0], f), lerp(a.head[1], b.head[1], f), lerp(a.head[2], b.head[2], f), ...qSlerp(a.head.slice(3), b.head.slice(3), f)],
       hands: b.hands.map((H, i) => {
@@ -2733,6 +2906,7 @@
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
     else if (L && runs(L) && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);
+    menusExpire(t);   // (someone's menu shown to their circle, not heard of for a while: gone)
     // a desktop says which station it follows, now and then (headsets say it with their presence)
     if (!HOST.session && t - C.deskAt > 2000) { C.deskAt = t; fx('p.' + C.id, { st: C.follow || '' }); }
     if (DLG.open) { drawMap(); guideList(); }
@@ -3486,13 +3660,14 @@
       m.visible = true;
     }
   }
-  function panelSig() {
-    return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
+  // (hov: what is pointed at, lit; null: the same without it, what the menu shows to your circle goes by: menuSig)
+  function panelSig(hov = OV.panel.hover) {
+    return J([C.code, C.status, C.note, PNL.open, PNL.page, hov, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -3802,6 +3977,7 @@
     const S = OV.panel, sig = panelSig();
     if (sig === S.sig) return;
     S.sig = sig;
+    { const c = S.hover ? panelSig(null) : sig; if (c !== S.csig) { S.csig = c; S.cver = (S.cver || 0) + 1; } }   // (what it shows, the light of what is pointed at aside)
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -3894,6 +4070,11 @@
         note('This headset\'s own: frames a second, triangles and draw calls', y);
         y += 76;
       }
+      // your menu shown to the people at your circle while it is open, to explain it to them (this headset's own, never the
+      // room's: MSH)
+      button(S, 'menushare', x, y, bw, 60, MSH.on ? 'My menu: my circle' : 'My menu: only me', () => setMenuShare(!MSH.on), { on: MSH.on, px: 23 });
+      note(!C.code ? 'In a shared room: shown to the people at your circle' : MSH.on ? 'The people at your circle see it while it is open' : 'Only you see it. This headset\'s own', y);
+      y += 76;
       // real-world occlusion in AR (occlusion.js): what real things hide (the room scan's walls and furniture, and people,
       // hands and anything moving, from the headset's depth), each press the next; this headset's own, unless the story
       // on show asks for its own (a studio scene)
@@ -4479,6 +4660,72 @@
     S.mesh.position.set(0, 0, -FPSV.dist).applyQuaternion(S.mesh.quaternion).add(HD.p);
   }
 
+  // ------------------------------------------------ others' menus at your circle --
+  // (MSH, MENUS) every other headset's menu shown to your live station, as the picture they sent, where it floats there (in
+  // the room: its top edge's middle at their pose, smoothed as others' moves are, SMOOTH), the picture's own shape; two
+  // faces back to back, so it reads the right way round from either side; in the room (depth-tested: what stands in
+  // front of it hides it), drawn after the station cards set on top (49) and before the story panels set on top (50), the
+  // subtitles, the read-out and your own menu (MSH.order); a tag over it with
+  // the person's name by their colour; never pointable. A picture it lacks it asks for (want)
+  function drawMenus() {
+    const L = liveSt(), t = performance.now();
+    menusExpire(t);
+    for (const [id, E] of MENUS) {
+      const here = !!(L && E.st === L.id && HOST.session);
+      if (here && E.n < E.nWant && t - E.asked > MSH.ask) { E.asked = t; menuOut(E.st, { k: 'want', to: id }); }
+      if (here && E.img && E.dec !== E.img && !E.decoding) menuDecode(E);
+      const o = here && E.drawn ? menuObj(E) : E.o;
+      if (!o) continue;
+      o.g.visible = here && !!E.drawn;
+      if (!o.g.visible) continue;
+      const m = member(id) || {}, name = m.name || 'Someone', col = m.color || '#f2f6fc';
+      if (o.name !== name || o.color !== col) {
+        o.name = name; o.color = col;
+        const ctx = o.tagCv.getContext('2d');
+        ctx.clearRect(0, 0, 400, 72); rr(ctx, 2, 2, 396, 68, 14); ctx.fillStyle = 'rgba(3,8,16,0.88)'; ctx.fill();
+        ctx.fillStyle = col; ctx.fillRect(2, 2, 10, 68);
+        ctx.font = FONT(32, 700); ctx.fillStyle = INK; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, name + '\'s menu', 360), 26, 38);
+        o.tagTex.needsUpdate = true;
+      }
+      const S = bufAt(E.buf, MIX.menu) || E.pose, w = S.w, h = w * E.ih / E.iw;
+      o.g.position.fromArray(S.p); o.g.quaternion.fromArray(S.q).normalize();   // (sent to 4 decimals: made whole again)
+      for (const f of [o.front, o.back]) { f.scale.set(w, h, 1); f.position.y = -h / 2; }
+      o.tag.position.y = 0.035;
+    }
+  }
+  // a picture as it came (a data URL) into its canvas, its corners cut round as the menu's are
+  function menuDecode(E) {
+    const src = E.img, im = new Image();
+    E.decoding = true;
+    im.onload = () => {
+      E.decoding = false;
+      if (E.img !== src || !im.naturalWidth) return;   // (a newer one came meanwhile: that one next)
+      const cv = E.cv || (E.cv = document.createElement('canvas')), W = im.naturalWidth, H = im.naturalHeight, ctx = cv.getContext('2d');
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      ctx.clearRect(0, 0, W, H); ctx.save(); rr(ctx, 0, 0, W, H, 24 * W / 720); ctx.clip(); ctx.drawImage(im, 0, 0); ctx.restore();
+      E.dec = src; E.iw = W; E.ih = H; E.drawn = true;
+      if (E.o) E.o.tex.needsUpdate = true;
+    };
+    im.onerror = () => { E.decoding = false; E.dec = src; };
+    im.src = src;
+  }
+  function menuObj(E) {
+    if (E.o) return E.o;
+    const tex = new THREE.CanvasTexture(E.cv), geo = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false });
+    const g = new THREE.Group(), front = new THREE.Mesh(geo, mat), back = new THREE.Mesh(geo, mat);
+    back.rotation.y = Math.PI;
+    const tagCv = document.createElement('canvas'); tagCv.width = 400; tagCv.height = 72;
+    const tagTex = new THREE.CanvasTexture(tagCv), tm = new THREE.MeshBasicMaterial({ map: tagTex, transparent: true, depthTest: true, depthWrite: false }), tg = new THREE.PlaneGeometry(0.2, 0.036);
+    const tag = new THREE.Group();
+    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(tg, tm); f.rotation.y = ry; tag.add(f); }   // (over the top edge's middle, both ways round)
+    g.add(front, back, tag);
+    g.traverse(x => { if (x.isMesh) x.renderOrder = MSH.order; });   // (meshes only: a group's renderOrder sorts all it holds first, three.js's groupOrder)
+    OV.room.add(g);
+    E.o = { g, front, back, tag, tex, tagCv, tagTex, name: null, color: '' };
+    return E.o;
+  }
+
   // ------------------------------------------------------------- subtitles --
   // HOST.xr.subs() (the menu's Subtitles row; in a room the room's): the narration's words in a strip low in the view,
   // about 1.4 m away and 0.9 m wide, white on a dark band, drawn on top of everything in every label mode (subtitles
@@ -4860,6 +5107,7 @@
     touch(f, local);
     easeStations(dt);
     drawOverlay(dt);
+    menuShareStep(performance.now());   // (your menu shown to your circle: where it now floats)
     pump();
   }
   // your station by where you stand: the nearest within 1.1 m for a second. You stay in its story wherever you walk
@@ -5045,6 +5293,7 @@
       OV.room.matrix.copy(R.m);
       drawPreviews(dt);
       drawPeople(dt);
+      drawMenus();   // (the others' menus shown to your circle)
     }
     drawMarks();
     // the menu floats in front of you (FLOAT, floatMenu; carried by the grip, MG). It is drawn first, so it is placed by
@@ -6600,6 +6849,7 @@
     if (s === R.session) return;
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset();
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
+    menuShareEnd('session');   // (your menu shown to your circle: closed for them)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
@@ -6910,7 +7160,7 @@
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
       guideList();
@@ -7068,6 +7318,29 @@
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
     allRings: on => { if (on !== undefined) setRingsAll(on); return ringsAll(); },   // Show all rings (this headset's own)
+    menuShare: on => { if (on !== undefined) setMenuShare(on); return menuShareOn(); },   // My menu: my circle (this headset's own)
+    // for tests: what this headset sent of its menu (got: the pictures it took from others), and the others' menus it
+    // holds (lit: the share of a sample of the picture's pixels that are not dark, low: below its top quarter and inside
+    // its edges; hit: pointable, which they never are; full: each picture as a PNG too, url)
+    menuShot: master => menuPicture().then(u => (master && MSH.master ? MSH.master.toDataURL('image/png') : u)),   // (the picture as made now; master: before the JPEG)
+    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), got: MSH.got }),
+    menus: full => [...MENUS].map(([id, E]) => {
+      const o = E.o, g = o && o.g;
+      let lit = 0, low = 0;
+      if (E.cv && E.cv.width) {
+        const W = E.cv.width, H = E.cv.height, d = E.cv.getContext('2d').getImageData(0, 0, W, H).data;
+        let n = 0, k = 0, nl = 0, kl = 0;
+        for (let y = 0; y < H; y += 3) for (let x = 0; x < W; x += 3) {
+          const i = 4 * (y * W + x), on = d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] > 150;
+          n++; if (on) k++;
+          if (y >= H / 4 && x >= W * 0.05 && x <= W * 0.95) { nl++; if (on) kl++; }   // (inside its edges)
+        }
+        lit = n ? k / n : 0; low = nl ? kl / nl : 0;
+      }
+      return { id, st: E.st, n: E.n, want: E.nWant, pics: E.pics, bytes: E.bytes, drawn: !!(g && g.visible), p: g ? g.position.toArray() : null, q: g ? g.quaternion.toArray() : null,
+        pose: E.pose, w: o ? o.front.scale.x : 0, h: o ? o.front.scale.y : 0, iw: E.iw || 0, ih: E.ih || 0, lit, low, order: o ? o.front.renderOrder : null, gorder: g ? g.renderOrder : null, depth: o ? o.front.material.depthTest : null,
+        hit: !!(o && OV.hit.some(x => x === o.front || x === o.back)), name: o ? o.name : null, age: Math.round(performance.now() - E.at), url: full && E.cv ? E.cv.toDataURL('image/png') : undefined };
+    }),
     // for tests: the menu's tab (and its first page), how long it waits unused before it closes, and a button by its id
     // on whichever tab has it (that tab shown; null when none has it, or it is greyed: a greyed button has no region)
     menuTab: t => { if (t !== undefined) { setTab(t); OV.panel && (OV.panel.sig = ''); } return PNL.tab; },
@@ -7096,8 +7369,9 @@
     look, setLook,
     // the room's circles walked into (false) or asked first (true: walking in does nothing, a press on a circle asks), set
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
-    // or null) and how long it shows (tests)
-    askFirst: () => askFirst(), setAsk: on => setAsk(on),
+    // or null) and how long it shows (tests). askDefault(on): what a room that never wrote ask does here (true, asked
+    // first, since v120; tests that walk into circles turn it off, also by localStorage collabAskDefault = walk)
+    askFirst: () => askFirst(), setAsk: on => setAsk(on), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now
     hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),

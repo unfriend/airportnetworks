@@ -10,14 +10,14 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first (nothing at the wrist; a note at the start says how to open it). Click either stick to open it (hand tracking: two quick pinches of the left hand while it points at nothing); it floats in front of you, about 80 cm away, the time in its header; the same, or **Close**, closes it, and it closes by itself after 20 s unused. Point at it and hold the grip to move it: it stays there and opens there next time (per headset) | Four tabs. **Story**: the story panel and play bar of the story on show, usable there (handy with Panels hidden). **Settings**: **Exit** (leaves VR or AR), **Recenter**, **Slideshow: on/off** (every story); **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Sound effects**, **Narration**, **Effects volume**; **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle) and **Studio** beside it (your own scenes, section 4; in a room **Studio here**). **Circles**: **Join**, **Start a room**, **Join with a code**; in a room **Another room**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), at an All stories circle **Own stories / With the room's circles** (its switch, for everyone there) and **Back to all stories**, **Show all rings** (this headset only), **On this network**, **Room setup** (the steps for lining up, how this headset lines up, **Check here**), the people, **Leave**. **Debug**: **Calibrate**, **Re-align**, **Check here** (Touch the spot), **Forget calibration**, **Shared space: on**, **Fresh shared space**, **People: same circle / everyone** (this headset only: whom it draws), **Sound check**, the version, the connection and the frame rate |
+| Menu (headset) | closed at first (nothing at the wrist; a note at the start says how to open it). Click either stick to open it (hand tracking: two quick pinches of the left hand while it points at nothing); it floats in front of you, about 80 cm away, the time in its header; the same, or **Close**, closes it, and it closes by itself after 20 s unused. Point at it and hold the grip to move it: it stays there and opens there next time (per headset) | Four tabs. **Story**: the story panel and play bar of the story on show, usable there (handy with Panels hidden). **Settings**: **Exit** (leaves VR or AR), **Recenter**, **Slideshow: on/off** (every story); **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Sound effects**, **Narration**, **Effects volume**; **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle) and **Studio** beside it (your own scenes, section 4; in a room **Studio here**). **Circles**: **Join**, **Start a room**, **Join with a code**; in a room **Another room**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), at an All stories circle **Own stories / With the room's circles** (its switch, for everyone there) and **Back to all stories**, **Show all rings** (this headset only), **On this network**, **Circles: ask first / walk in** (for the whole room; ask first by default, step 10), **Room setup** (the steps for lining up, how this headset lines up, **Check here**), the people, **Leave**. **Debug**: **Calibrate**, **Re-align**, **Check here** (Touch the spot), **Forget calibration**, **Shared space: on**, **Fresh shared space**, **People: same circle / everyone** (this headset only: whom it draws), **Sound check**, the version, the connection and the frame rate |
 | Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | Its title, **Back to the story** (when you came from one) and a card per story in two rows, the first half of the stories on top (the sound, **Sound check**, **Anchor**, **Recenter** or **Place again**, **Exit** and **Repeat** are in the menu) |
-| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, *Setting up a room* (how each headset lines up, and the steps), room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (after the stories: the design room, the studio, **All stories**, **Back to the lobby**), an All stories circle's story picker and **Own stories / With the room's circles**, **Lock circles**, **Fresh shared space**, **Copy link** |
+| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, *Setting up a room* (how each headset lines up, and the steps), room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (after the stories: the design room, the studio, **All stories**, **Back to the lobby**), an All stories circle's story picker and **Own stories / With the room's circles**, **Lock circles**, **Circles: ask first / walk in** (for the room; ask first by default), **Fresh shared space**, **Copy link** |
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
 
-## Two ways to run a room
+## Three ways to run a room
 
 - **Peer to peer** (no laptop relay): the devices open the live copy (GitHub Pages), a page starts a room and the
   others open its link. A public server only introduces them (PeerJS's, `0.peerjs.com`; Cloudflare's STUN server tells
@@ -25,7 +25,13 @@ space** shows only on a page that comes from the relay.
   devices reach each other directly: **bring your own router** (eduroam and guest networks keep devices apart).
   Calibrations, Anchor places and shared spaces belong to the live copy's address. **Fresh shared space** and the
   headsets' logs need the relay, so they are not there.
-- **The laptop relay** (section 2): the fallback when peer to peer does not work on the network, and the way to collect
+- **The main site's relay** (since v120): the live copy (GitHub Pages) offers the owner's relay at
+  `main.lab.lbi-netmed.com` in its Shared dialog (in a headset the menu's **Circles** > **Relay password**). With its
+  password, entered once per device, that device's rooms run there: devices need not reach each other directly, so a
+  network that keeps them apart (eduroam, a guest network, a hotspot) may do (untested there so far). Without the password the live copy runs rooms peer to peer,
+  as above. **Fresh shared space** shows only on the relay's own copy (`https://main.lab.lbi-netmed.com/`), and the
+  headsets' logs are not kept there.
+- **The laptop relay** (section 2): the fallback when neither works on the network, and the way to collect
   the headsets' alignment logs. A page that comes from the relay always uses it.
 
 Peer to peer, one page **hosts** the room: the first that started it, and later the one longest in it. **Start the room
@@ -161,7 +167,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    its dot on the Shared dialog's map, or **Move here** in the menu; **Lock circles** stops that. As soon as someone adds
    another circle (**Add here**, **Add a station**, **Design room here**, a lobby) or presses **Arrange all**, the arc
    becomes an ordinary **All stories** circle where it stands: whoever was at it stays with it, and from then on it is
-   reached by walking into its circle, as any circle. It runs its own stories at first; **With the room's circles** (the
+   gone into as any circle (step 10). It runs its own stories at first; **With the room's circles** (the
    menu at that circle, or its row in the Shared dialog) makes a story picked there join the room's circle of that
    story. Removed, it does not come back by itself (**Add here** or **Add a station** puts an All stories circle again).
    A **Back to the lobby** circle (added the same way; none is placed by itself) ends the story of whoever walks into
@@ -174,7 +180,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    go, facing the way it should face, and press **Design room here** in the menu (or choose **Design room** under
    **Add a station** on the page); Arrange all leaves it where it is, and the All stories and lobby circles too. Over each ring its story's small model turns
    (the design room's: a little table), so circles can be told apart from across the room.
-7. **Check again when in doubt** (*Lined up* is only what the app believes). A quick look: before anyone walks into a
+7. **Check again when in doubt** (*Lined up* is only what the app believes). A quick look: before anyone goes into a
    circle everyone's name tag shows, and it should float just above the real person's head (others' rays should start
    at their real controllers). **Check at A** (step 4) checks one headset against the spots. **Touch the spot** checks
    two headsets against each other (the only check while the room has no spots, and the one that catches two headsets
@@ -205,12 +211,18 @@ local network found each other this way, and then shared a peer-to-peer room; he
    Panels per station stay free: at a circle, **Panels** in the menu (or the station's **Panels** button in the page's
    Shared dialog) goes **shown**, **controls only** (only the play bar under the panel: good with **Subtitles: on**) and
    **hidden** (A or X still plays and pauses), for everyone at that circle; each station keeps its own.
-10. Walk into a station's circle (a second there): its story runs there, as it does for everyone there. You stay in that
-    story wherever you walk afterwards (it keeps playing, in step with the room; its sound fades with distance) until
-    you walk into another circle. Pointing at a card or ring and pulling the trigger does not go there. In a circle the
-    other circles show only their rings: point at a ring and its card and model come up, and fade 2 s after you look
-    away. Before a headset has walked into any circle it shows no story, only the rings, cards, models, people and the
-    menu. Screens **Follow** a station from the room map. **Leave** in the menu brings the headset's Stories screen back.
+10. Go into a station's circle. Since v120 the circles **ask first** by default: point at a circle's card or model and
+    press; a small panel in front of you asks whether to go in (**Go in** or **Not now**; it closes by itself after
+    10 s). Walking into a circle does nothing then, and no rings are drawn (**Show all rings** in the menu brings them
+    back); the story stays at its circle, so walk over to it. **Back to the lobby** asks the same way, and walking into it
+    still ends your story. For a room with space to walk, **Circles: walk in** (the menu's **Circles** tab, or the same
+    button in the page's Shared dialog, for everyone in the room) goes back to walking in: stand in a station's circle
+    (a second there) and its story runs there; pointing at a card or ring and pulling the trigger then does not go
+    there. Either way its story runs there as it does for everyone there, and you stay in it wherever you walk afterwards
+    (it keeps playing, in step with the room; its sound fades with distance) until you go into another circle. In a
+    circle the other circles show only their models: point at one and its card comes up, and fades 2 s after you look
+    away (with the circles walked into, a ring shows as you come within 2 m). Before a headset has gone into any circle
+    it shows no story, only the cards, models (and rings, walked into), people and the menu. Screens **Follow** a station from the room map. **Leave** in the menu brings the headset's Stories screen back.
     Other people are drawn (name tag, head, hands) only when they are at your circle (everyone before your first
     circle). For debugging, **People: everyone** in a headset's menu draws them all again (that headset only).
 11. **A laptop for people without a headset** (a guide leads): in its Shared dialog, under **People**, press

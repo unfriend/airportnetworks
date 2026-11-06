@@ -192,24 +192,25 @@ Shared rooms (Shared button, top bar and Stories screen; in a headset the
 menu's Circles tab: click a stick): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
-wins). A headset runs only the station it stands at: walk into a station's
-circle and after a second its story plays there; the others show as rings
-floating half a metre over the floor with a card over each, and above each ring a
-small turning model of its story in its colour, so you can tell the circles apart
-from across the room. Away from every station no story shows, only the rings, the
-cards, the other people and the menu. Inside a circle the other stations show
-only their models (a ring comes back when you come within 2 m of it, and pointing
-at a model shows its card), and your own ring is hidden (Show all rings in the
-menu shows every ring); walk out of a circle and you stay in its story until you
-walk into another. Pointing at a card and pulling the trigger
-does not take you there: walk into its circle. For a tight room, turn the
-circles to ask first (Circles: ask first, in the headset menu's Circles tab or
-the Shared dialog, for everyone in the room): then walking into a circle does
-nothing, no rings are drawn (Show all rings brings them back), and pointing at a
-circle's card or model and pressing asks, in a small panel in front of you, whether
-to go in (Go in or Not now; it goes by itself after 10 seconds). The story stays at
-its circle; the lobby asks the same way, and walking into it still takes you back to
-the lobby. A headset in a room never shows
+wins). A headset runs only the station it has gone into. Since v120 the circles
+ask first by default: point at a circle's card or model and press, and a small
+panel in front of you asks whether to go in (Go in or Not now; it goes by itself
+after 10 seconds); walking into a circle does nothing then, and no rings are
+drawn (Show all rings brings them back). The story stays at its circle; the lobby
+asks the same way, and walking into it still takes you back to the lobby. For
+walking in instead, turn the circles to walk in (Circles: walk in, in the
+headset menu's Circles tab or the Shared dialog, for everyone in the room): then
+walk into a station's circle and after a second its story plays there; the
+others show as rings floating half a metre over the floor with a card over each.
+Above each circle a small turning model of its story in its colour lets you
+tell the circles apart from across the room. Away from every station no story shows, only the cards,
+the models (and with the circles walked into, the rings), the other people and
+the menu. Inside a circle the other stations show only their models (pointing at
+a model shows its card; with the circles walked into a ring comes back when you
+come within 2 m of it), and your own ring is hidden (Show all rings in the menu
+shows every ring); walk out of a circle and you stay in its story until you go
+into another. With the circles walked into, pointing at a card and pulling
+the trigger does not take you there: walk into its circle. A headset in a room never shows
 the Stories screen (leave the room in the menu and it comes back), except at the
 room's arc or an All stories circle; in a room with no stations at all the menu
 opens by itself, with Arrange all.
@@ -286,10 +287,10 @@ see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:
 the screen shows whichever station they stand at, switching as they walk, for
 people watching without a headset). In a headset you stay in a story once you
-have walked into its circle, wherever you walk, until you walk into another
+have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
-models (point at one to see its card), and a circle's ring appears as you come
-within 2 m of it; other people are drawn only when they are
+models (point at one to see its card), and with the circles walked into a
+circle's ring appears as you come within 2 m of it; other people are drawn only when they are
 at your circle (People: everyone in the menu shows them all). Over each station's ring a small 3D model of its story turns, in its
 colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring, model or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
@@ -316,7 +317,7 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate and Real world hides, this headset's own; Sound, this headset's own on or
+for every story; Frame rate, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
 Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
@@ -344,7 +345,13 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. Real world
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. My menu
+(this headset's own, never the room's): only me (the default) or my circle. With
+my circle, in a shared room the other headsets at your circle see your menu while
+it is open, as a picture where it floats with your name over it, so you can show
+someone where things are; they cannot press it, and it goes when you close it
+(and while the relay's password page is open).
+The Shared dialog's people list says who is showing their menu. Real world
 hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off in a link):
 room and people (the default), room, people or nothing. Real things in front of a scene
 hide it as they would a real object: the walls and furniture of the room scan (run Space
@@ -367,7 +374,11 @@ relay/README.md). GitHub Pages serves everything else; a copy there can join a
 relay elsewhere with &relay=wss://... in the room link. Since v116 the owner's
 Coolify server runs the test place (branch dev, the app and its relay at
 https://stories.lab.lbi-netmed.com/, the studio's scenes in Cloudflare R2), while
-the main site stays on GitHub Pages from main, its rooms peer to peer; see
+the main site stays on GitHub Pages from main. Since v120 Coolify runs main too,
+as the main site's relay (https://main.lab.lbi-netmed.com/), and the main site
+offers it: the Shared dialog (or the headset menu's Circles, Relay password)
+asks once for its password, and that device's rooms and the studio's scenes are
+then on it; without the password rooms run peer to peer, as before; see
 relay/README.md, "The test place on Coolify". #s=XYZ in a link joins
 room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
 device enters it once, in the Shared dialog or, in a headset, under the menu's

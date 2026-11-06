@@ -81,6 +81,11 @@
 // nothing; the trigger on another circle's icon asks in front of it, Not now, closing by itself after 10 s, Go in entering
 // it from elsewhere, the lobby's Go in ending the station; the menu's row turning it off and walking in working again;
 // nothing written but look; with --shots ask-1-question.png);
+// --menus only your menu shown to your circle (menusRound, also in the main run after the circles asked first: a room of
+// its own with two story circles, a page and three pretend headsets; off by default; A's My menu: my circle drawn on B, at
+// the same circle, where A's menu floats, its picture A's menu, under 48 KB and at most one every 1.5 s (every 4 s while
+// only a button's light changes), following A's menu as it glides, gone when it closes, the setting goes off or the session ends; nothing on C at the other circle; the page's
+// people list; with --shots menus-*.png);
 // --studio-scenes only the studio's scenes as circles (scenesRound, also in the main run after the studio round: a relay of
 // its own with --scenes on the test scenes, read only; the page's Add listing "Studio: <scene>" after the studio, adding
 // one writing the station and its state with the scene, two at once, their titles, Studio here's rule);
@@ -307,22 +312,24 @@ const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: to
 const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: studioRound, relays of its own with --scenes)
 const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: askRound, in a room of its own)
 const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
+const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
+const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH || undefined,
-  // (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'],
-});
+// (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
+const LAUNCH_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'];
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: LAUNCH_ARGS });
 // every device starts with the room's automatic All stories circles off (a page's arc in a room with no stations, the
 // first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
-// ({ arc: true } with a context's options, or open(hash, size, true))
+// ({ arc: true } with a context's options, or open(hash, size, true)). Likewise every device starts with a room that never
+// wrote look's ask walking into its circles, as before v120 (collabAskDefault = walk), since nearly every round walks in:
+// only the round of the circles asked first takes the new default ({ ask: true }, or open(hash, size, arc, true))
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
-  const { arc, ...rest } = o, ctx = await newContext(rest);
-  if (!arc) await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+  const { arc, ask, ...rest } = o, ctx = await newContext(rest);
+  if (!arc || !ask) await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask });
   return ctx;
 };
 const fails = [], errors = [];
@@ -358,8 +365,9 @@ const base = () => `http://127.0.0.1:${port}/`;
 const roomInfo = async code => (await fetch(base() + 'api/rooms/' + code)).json();
 
 // ---- pages: each in its own browser context (its own storage, like separate devices)
-async function open(hash, size, arc) {
-  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 }, arc: !!arc });   // (arc: the room's automatic All stories circles on)
+async function open(hash, size, arc, ask) {
+  // (arc: the room's automatic All stories circles on; ask: a room that never wrote look's ask asks first, v120's default)
+  const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 }, arc: !!arc, ask: !!ask });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.stack || e.message));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
@@ -1564,8 +1572,10 @@ async function circlesOnly() {
 }
 
 // ---- circles asked first (askRound; --ask runs only it, also in the main run after the ten-headset round): a room of its
-// own with two story circles and Back to the lobby, a page and a pretend headset. A page turns the room's switch on in its
-// Shared dialog (look's ask); no ring drawn or pointable then, the cards and icons staying, Show all rings bringing them
+// own with two story circles and Back to the lobby, a page and a pretend headset, both with v120's default (no
+// collabAskDefault). A fresh room asks first with nobody having written look's ask (the page, the headset, the dialog's
+// button); a page's Shared dialog turns it to walk in (look's ask false written, the headset too) and back to ask first
+// (look's ask true); no ring drawn or pointable then, the cards and icons staying, Show all rings bringing them
 // back (v119); the headset walking into a circle and standing there 3 s enters nothing; the trigger on another station's
 // icon (pointed at first) opens the question in front of it (that circle's title, in its colour, Go in and Not now; no
 // notice); Not now closes it; opened again it closes by itself after 10 s; Go in enters (its live station, the story at its
@@ -1576,13 +1586,13 @@ async function circlesOnly() {
 // nothing of them pointable and none walked into but the lobby, and it lapses as the station ends there. dir: pictures (ask-*.png)
 async function askRound(dir) {
   const K1 = 'qubits', K2 = HEADSET_STORY;
-  const A = await open('#stories');
+  const A = await open('#stories', null, false, true);   // (v120's default: a room that never wrote ask asks first)
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(A, () => HOST.collab.status === 'open', null, 10000);
   const rc = await A.evaluate(() => HOST.collab.code);
   await A.evaluate(k => { HOST.collab.add(k[0], { x: 0, z: 0, yaw: 0 }); HOST.collab.add(k[1], { x: 1.8, z: -2.6, yaw: -0.3 }); HOST.collab.add('lobby', { x: -1.8, z: -2.6, yaw: 0.3 }); }, [K1, K2]);
   await until(A, () => HOST.collab.stations().length === 3 && !HOST.collab.internals().pending.size, null, 5000);
-  const H = await open('#s=' + rc, { width: 320, height: 200 });
+  const H = await open('#s=' + rc, { width: 320, height: 200 }, false, true);
   await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 3, null, 20000);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
@@ -1659,23 +1669,38 @@ async function askRound(dir) {
   // the story loaded hears each time this headset goes to the lobby (HOST.cur.lobby, the studio's): a stub counting them
   const stubLobby = () => H.evaluate(() => { window.__lobbyN = window.__lobbyN || 0; HOST.cur.lobby = () => { window.__lobbyN++; }; return window.__lobbyN; });
   const lobbyN = () => H.evaluate(() => window.__lobbyN || 0);
+  // the Shared dialog's switch on page A: { was, now } as [its text, aria-pressed], pressed once (press false: read only)
+  const dlgAsk = press => A.evaluate(async press => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
+    const b = () => document.querySelector('[data-sh="ask"]'), was = b() && [b().textContent, b().getAttribute('aria-pressed')];
+    if (b() && press) b().click();
+    await new Promise(r => setTimeout(r, 200));
+    const now = b() && [b().textContent, b().getAttribute('aria-pressed')];
+    HOST.collab.dialog(false);
+    return { was, now };
+  }, press);
+  // what the headset holds of look's ask, said when a wait for it fails
+  const hsLook = () => H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
   try {
-    // the switch on, from a page's Shared dialog: the room's (look's ask), for the headset too
+    // (v120) asked first by default: in this fresh room nobody has written look's ask, and the page, the headset and the
+    // dialog's button all say ask first
+    const lk0 = (await roomInfo(rc)).keys.look, d0 = await dlgAsk(false);
+    const af0 = await H.evaluate(() => [HOST.collab.askDefault(), HOST.collab.askFirst()]), afA = await A.evaluate(() => [HOST.collab.askDefault(), HOST.collab.askFirst()]);
+    check('ask: a fresh room asks first by default, with nobody having written look\'s ask (the page, the headset and the dialog\'s button)', (!lk0 || lk0.v.ask === undefined) &&
+      af0.join() === 'true,true' && afA.join() === 'true,true' && d0.was && d0.was.join() === 'Circles: ask first,true', JSON.stringify({ look: lk0 && lk0.v, af0, afA, d0 }));
+    // the dialog's switch turns it to walk in for the room: look's ask false written, the headset too
     const q0 = (await roomInfo(rc)).seq;
-    const dlg = await A.evaluate(async () => {
-      HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
-      const b = () => document.querySelector('[data-sh="ask"]'), was = b() && [b().textContent, b().getAttribute('aria-pressed')];
-      if (b()) b().click();
-      await new Promise(r => setTimeout(r, 200));
-      const now = b() && [b().textContent, b().getAttribute('aria-pressed')];
-      HOST.collab.dialog(false);
-      return { was, now };
-    });
+    const d1 = await dlgAsk(true);
+    const off1 = await until(H, () => !HOST.collab.askFirst(), null, 15000), lk1 = (await roomInfo(rc)).keys.look;
+    check('ask: the Shared dialog\'s switch turns the circles to walk in for the room (look\'s ask false written), the headset too', off1 && d1.was && d1.was.join() === 'Circles: ask first,true' &&
+      d1.now.join() === 'Circles: walk in,false' && !!lk1 && lk1.v.ask === false && lk1.by === aId, JSON.stringify({ d1, off1, look: lk1, headset: off1 ? null : await hsLook() }));
+    // and back to ask first: the room's (look's ask true), for the headset too
+    const dlg = await dlgAsk(true);
     // (the key comes in with the socket's message, set at once; a machine loaded with software drawing once took more
     // than 5 s to deliver it, so a longer wait, and what the headset holds is said if it never comes)
     const on = await until(H, () => HOST.collab.askFirst(), null, 15000), lk = (await roomInfo(rc)).keys.look;
-    const hs = on ? null : await H.evaluate(() => { const I = HOST.collab.internals(), e = I.keys && I.keys.get('look'); return { welcomed: I.welcomed, ws: I.ws && I.ws.readyState, look: e ? { seq: e.seq, ask: e.v && e.v.ask } : null }; });
-    check('ask: a page\'s Shared dialog turns the circles to ask first for the room (look\'s ask), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
+    const hs = on ? null : await hsLook();
+    check('ask: a page\'s Shared dialog turns the circles to ask first again for the room (look\'s ask true), the headset too', on && dlg.was && dlg.was.join() === 'Circles: walk in,false' && dlg.now.join() === 'Circles: ask first,true' &&
       !!lk && lk.v.ask === true, JSON.stringify({ dlg, on, look: lk && lk.v, headset: hs }));
     // (v119) asked first, no ring is drawn or pointable, before any circle too and the lobby's as well; the cards and icons
     // stay (they are what is pressed); Show all rings brings every ring back, and off again they go
@@ -1760,8 +1785,9 @@ async function askRound(dir) {
     await frames(H, 300);
     const m1 = await menu('askfirst'), off = m1 && await until(A, () => !HOST.collab.askFirst(), null, 5000);
     // (besides look, at most what any headset arriving at a station writes: its story's state and view there)
-    const wrote = Object.entries((await roomInfo(rc)).keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
-    check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room; the headset wrote nothing else to the room but look', m1 && off && wrote.join() === 'look', JSON.stringify({ m1, off, wrote }));
+    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
+    check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room (look\'s ask false written); the headset wrote nothing else to the room but look',
+      m1 && off && wrote.join() === 'look' && ri.keys.look.v.ask === false, JSON.stringify({ m1, off, wrote, look: ri.keys.look && ri.keys.look.v }));
     // walking in works again
     const in1 = await walk(H, S1, K1, 0, 150000);
     check('ask: switched off, walking into a circle enters it again', in1 && (await where()).mine === S1.id, JSON.stringify(await where()));
@@ -1793,6 +1819,206 @@ async function askRound(dir) {
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, H]) await p.context().close();
+  }
+}
+
+// ---- your menu shown to your circle (menusRound; --menus runs only it, also in the main run after the circles asked
+// first): a room of its own with two story circles, a page and three pretend headsets, A and B at one circle and C at the
+// other, a few minutes. Off by default: A's menu open sends nothing. A turns My menu: my circle on in its menu (Settings):
+// B draws a plane where A's menu floats (its top edge's middle, its turn and width, within 1 cm and a degree) with a
+// picture of A's menu (pixels not dark, the shape A's menu shows), in the room (depth-tested, under the story panels set
+// on top and the menus), never pointable, A's name over it; C, at the other circle, draws nothing; the page's Shared
+// dialog says A shows their menu.
+// A's tabs pressed four times a second for 4 s: at most a picture every 1.5 s, every effect under 48 KB, B taking every
+// one; a ray moving over A's buttons for 4.5 s (only their light changing): at most 2 pictures, under 24 KB a second
+// sent; the Story tab's picture (its shape, the story's panels drawn in: lit below its top quarter); A's head turned away,
+// its menu glides back in front: B's plane follows (at most 5 poses a second meanwhile) and ends where A's stands. A
+// silent (a headset taken off): gone on B after 3 s with nothing closed, back once A goes on. A closes its menu: gone on
+// B within a second; opened again, back; the setting turned off: gone, and nothing sent with the menu open; on again and
+// A's session ends: gone. (A pretend headset's frames run only between the round's steps, and slowly in software: B's
+// copy goes 3 s after A's last sample, as on a headset taken off, so each step lets both run first.) dir: pictures
+// (menus-*.png)
+async function menusRound(dir) {
+  const K1 = PICK_STORY, K2 = HEADSET_STORY;
+  const P = await open('#stories');
+  await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(P, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await P.evaluate(() => HOST.collab.code);
+  await P.evaluate(k => { HOST.collab.add(k[0], { x: 0, z: 0, yaw: 0 }); HOST.collab.add(k[1], { x: 4, z: -3, yaw: -0.3 }); }, [K1, K2]);
+  await until(P, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const pId = await P.evaluate(() => HOST.collab.id);
+  await P.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', pId, Date.now() - 60000));
+  await until(P, () => !HOST.collab.internals().pending.size, null, 3000);
+  const sts = await P.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2);
+  const H = [];
+  for (let i = 0; i < 3; i++) {
+    const h = await open('#s=' + rc, { width: 320, height: 200 });
+    await until(h, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
+    await ready(h, 'airports');
+    await h.evaluate(() => HOST.room.sharedAlign(true));
+    await h.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+    await h.evaluate(() => window.__xr.begin());
+    await frames(h, 400);
+    await h.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    await frames(h, 300);
+    H.push(h);
+  }
+  const [A, B, C] = H, aId = await A.evaluate(() => HOST.collab.id);
+  // frames on the headsets given while fn is looked for on page Q (or for ms), as the guide round's
+  const run = (h, ms) => h.evaluate(async ms => { window.__go = true; const t0 = performance.now(); while (window.__go && performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); } }, ms);
+  const runUntil = async (hs, Q, fn, arg, ms) => {
+    const go = Promise.all(hs.map(h => run(h, ms))), ok = Q ? await until(Q, fn, arg, ms) : (await sleep(ms), true);
+    await Promise.all(hs.map(h => h.evaluate(() => { window.__go = false; })));
+    await go;
+    return ok;
+  };
+  const sent = () => A.evaluate(() => HOST.collab.menuSent());
+  const seen = h => h.evaluate(id => { window.__xr.step(); return HOST.collab.menus().find(m => m.id === id) || null; }, aId);
+  // A's menu as it floats: its top edge's middle and its turn in the room, its width and height (m), the part shown (px)
+  const aPose = () => A.evaluate(() => {
+    const O = HOST.collab.overlay(), G = O.panelG, R = HOST.room.internals(), p = HOST.room.toRoom(G.position);
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(R.mi)).multiply(G.quaternion);
+    return { p: p.toArray(), q: q.toArray(), w: O.panel.mw * G.scale.x, h: O.panel.mw * O.panel.vis / O.panel.w * G.scale.x, vis: O.panel.vis, open: HOST.collab.menu };
+  });
+  const qd = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (Math.hypot(...a) * Math.hypot(...b))));
+  const press = id => A.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__xr.step(); return !!(r && r.fn); }, id);
+  // B's picture of A's menu as it came (the PNG of its canvas), and what B sees of it from its head
+  const fresh = ms => runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, ms || 6000);
+  const pics = async n => {
+    if (!dir) return;
+    await fresh();
+    const u = await B.evaluate(id => (HOST.collab.menus(true).find(m => m.id === id) || {}).url, aId);
+    if (u) fs.writeFileSync(path.join(dir, `menus-${n}-picture.png`), Buffer.from(u.split(',')[1], 'base64'));
+    await headView(B, path.join(dir, `menus-${n}-seen.png`), 0.86, -0.12, [640, 400]);
+  };
+  try {
+    check('menus: three pretend headsets align in a room of their own with two story circles', (await Promise.all(H.map(h => h.evaluate(() => HOST.room.aligned)))).every(Boolean) && !!S1 && !!S2);
+    const inA = await walk(A, S1, K1, 0, 150000), inB = await walk(B, S1, K1, Math.PI, 150000), inC = await walk(C, S2, K2, 0, 150000);
+    // B a step to A's side, facing where A's menu will float
+    await goRoom(B, S1.x + 0.7, 1.6, S1.z - 0.2, 0.86);
+    check('menus: A and B walk into one circle, C into the other', inA && inB && inC);
+    // off by default: A's menu open sends nothing, and B draws nothing
+    await A.evaluate(() => HOST.collab.menuIdle(600000));   // (unused for 20 s it would close by itself: not in this round)
+    const off0 = await A.evaluate(() => [HOST.collab.menuShare(), localStorage.getItem('xrMenuShare')]);
+    await A.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    await runUntil([A, B], null, null, null, 1500);
+    const s0 = await sent(), b0 = await seen(B);
+    check('menus: off by default (My menu: only me), nothing sent with the menu open and nothing drawn on B', off0[0] === false && off0[1] === null && s0.pics === 0 && s0.poses === 0 && !s0.st && !b0,
+      JSON.stringify({ off0, s0, b0 }));
+    // A turns it on in its menu: B draws a plane where A's menu floats, with A's picture
+    const lab0 = await A.evaluate(() => { const r = HOST.collab.menuFind('menushare'); return r && HOST.collab.overlay().panel.regions.some(q => q.id === 'menushare') ? HOST.collab.menuTab() : ''; });
+    const pr = await press('menushare');
+    const drawn = await runUntil([A, B, C], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, 15000);
+    await runUntil([A, B], null, null, null, 600);
+    const ap = await aPose(), bm = await seen(B), cm = await seen(C), s1 = await sent(), aName = await A.evaluate(() => HOST.collab.name);
+    check('menus: My menu: my circle on (Settings), A\'s menu open: B draws it where it floats on A (its top edge\'s middle, its turn and width within 1 cm and a degree), the picture\'s shape A\'s menu\'s',
+      lab0 === 'settings' && pr && drawn && !!bm && dist(bm.p, ap.p) < 0.01 && qd(bm.q, ap.q) < 0.0175 && Math.abs(bm.w - ap.w) < 0.01 && Math.abs(bm.h - ap.h) < 0.01 && Math.abs(bm.ih / bm.iw - ap.vis / 720) < 0.02,
+      JSON.stringify({ lab0, pr, drawn, bm: bm && Object.assign({}, bm, { pose: undefined }), ap }));
+    check('menus: B\'s picture is A\'s menu (its pixels not empty), in the room (depth-tested, under the story panels set on top and the menus), never pointable, A\'s name over it; A says it is on in its menu',
+      !!bm && bm.lit > 0.02 && bm.depth === true && bm.order < 50 && bm.order > 49 && bm.gorder === 0 && !bm.hit && bm.name === aName && s1.on && s1.st === S1.id && s1.pics >= 1 &&
+      await A.evaluate(() => (HOST.collab.menuFind('menushare') || {}).id === 'menushare'),
+      JSON.stringify({ bm: bm && { lit: bm.lit, depth: bm.depth, order: bm.order, gorder: bm.gorder, hit: bm.hit, name: bm.name }, aName, s1 }));
+    check('menus: C, at the other circle, draws none of it', !cm || !cm.drawn, JSON.stringify(cm));
+    // the page's Shared dialog: A shows their menu
+    const dl = await runUntil([A], P, () => { HOST.collab.dialog(true); return [...document.querySelectorAll('#shared .sh-people li')].some(li => /showing their menu/.test(li.textContent)); }, null, 8000);
+    await P.evaluate(() => HOST.collab.dialog(false));
+    check('menus: the page\'s Shared dialog says who shows their menu', dl);
+    await pics(1);
+    // A's menu changes four times a second for 4 s (its tabs): at most a picture every 1.5 s, each effect under 48 KB, B
+    // taking every one (got: every picture B took, whatever became of its copy)
+    await fresh();
+    const n0 = (await sent()).pics, f0 = Date.now();
+    const flip = A.evaluate(async () => { const tabs = ['settings', 'circles', 'debug', 'settings']; for (let k = 0; k < 16; k++) { HOST.collab.menuTab(tabs[k % 4]); await new Promise(r => setTimeout(r, 250)); } });
+    await runUntil([A, B], null, null, null, 4300);
+    await flip;
+    await runUntil([A, B], null, null, null, 1200);   // (the last tab's picture)
+    const fs2 = (Date.now() - f0) / 1000, s2 = await sent(), at = s2.at.slice(-(s2.pics - n0)), gaps = at.slice(1).map((t, k) => t - at[k]);
+    // (B took every picture A sent since the setting went on, in all: a picture being made as the frames stopped may still
+    // go out, so at least those counted and at most those sent by then)
+    const took = await until(B, n => HOST.collab.menuSent().got >= n, s2.pics, 3000), g2 = await B.evaluate(() => HOST.collab.menuSent().got), s2b = await sent();
+    check('menus: A\'s menu changing four times a second: at most a picture every 1.5 s (each 1,490 ms or more apart), every effect under 48 KB, B taking every one',
+      s2.pics - n0 >= 2 && s2.pics - n0 <= fs2 / 1.5 + 1 && gaps.every(g => g >= 1490) && s2b.most < 48 * 1024 && took && g2 >= s2.pics && g2 <= s2b.pics,
+      JSON.stringify({ pics: s2.pics - n0, all: s2.pics, after: s2b.pics, secs: fs2, gaps: gaps.map(Math.round), most: s2b.most, step: s2.step, took: g2 }));
+    // a ray moving over A's buttons (Settings), a button every 300 ms for 4.5 s: only their light changes, so at most 2
+    // pictures (one every 4 s at most) and under 24 KB a second sent (a picture every 500 ms was up to about 95 KB a second)
+    await A.evaluate(() => HOST.collab.menuTab('settings'));
+    await runUntil([A, B], null, null, null, 1800);   // (the Settings tab's picture out first)
+    const h0 = await sent(), hT = Date.now();
+    const lit = A.evaluate(async () => {
+      const X = window.__xr, V = THREE.Vector3, S = HOST.collab.overlay().panel, seen = new Set();
+      const rs = S.regions.filter(r => r.id !== 'close' && !/^tab/.test(r.id) && r.y + r.h < S.vis).slice(0, 4);
+      const H = S.mw * S.h / S.w;
+      for (let k = 0; k < 15 && rs.length; k++) {
+        const r = rs[k % rs.length], p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * H, 0));
+        const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.1, -0.25, 0));
+        X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)));
+        await new Promise(res => setTimeout(res, 300));
+        if (S.hover) seen.add(S.hover);
+      }
+      X.ctrl(0, null);
+      return [...seen];
+    });
+    await runUntil([A, B], null, null, null, 4700);
+    const hov = await lit, h1 = await sent(), hs = (Date.now() - hT) / 1000, hb = (h1.bytes - h0.bytes) / hs;
+    check('menus: a ray moving over A\'s buttons for 4.5 s (only their light changing): at most 2 pictures and under 24 KB a second sent',
+      hov.length >= 3 && h1.pics - h0.pics <= 2 && hb < 24 * 1024, JSON.stringify({ lit: hov, pics: h1.pics - h0.pics, perSec: Math.round(hb), secs: hs }));
+    // the Story tab: the story's own panels drawn into the picture (its shape is that tab's, lit below its top quarter
+    // where the panels are). (A pretend headset's step runs the story's xrBegin, not its panels' drawing: drawn here once)
+    await A.evaluate(() => { HOST.cur.peek('XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })'); HOST.collab.menuTab('story'); });
+    const vis2 = await A.evaluate(() => HOST.collab.overlay().panel.vis);
+    const storyPic = ([id, r]) => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && Math.abs(m.ih / m.iw - r) < 0.02 && m.low > 0.008; };
+    const st = await runUntil([A, B], B, storyPic, [aId, vis2 / 720], 12000);
+    await runUntil([A, B], null, null, null, 900);
+    // (B's copy once both have run again: a pretend headset's frames stop between the round's steps, so B may have let
+    // A's copy go meanwhile, 3 s after its last sample, and be taking it again, its picture asked for: up to MSH.picMs)
+    const st2 = await runUntil([A, B], B, storyPic, [aId, vis2 / 720], 6000);
+    const ap2 = await aPose(), bm2 = await seen(B), mir = await A.evaluate(() => Object.values(HOST.collab.overlay().mirror).every(m => m.visible));
+    await pics(2);
+    check('menus: the Story tab\'s picture, the story\'s panels drawn in (its shape the tab\'s, lit where the panels are)', st && st2 && mir && !!bm2 && Math.abs(bm2.ih / bm2.iw - ap2.vis / 720) < 0.02 && bm2.low > 0.008 && Math.abs(bm2.h - ap2.h) < 0.01,
+      JSON.stringify({ st, st2, mir, ih: bm2 && bm2.ih, iw: bm2 && bm2.iw, vis: ap2.vis, lit: bm2 && bm2.lit, low: bm2 && bm2.low, h: [bm2 && bm2.h, ap2.h] }));
+    // A turns away: its menu glides back in front of it, B's follows (at most 5 poses a second meanwhile) and ends where A's stands
+    const p0 = (await sent()).poses, before = await aPose();
+    await goRoom(A, S1.x, 1.6, S1.z, 1.2);
+    const t0 = Date.now();
+    await runUntil([A, B], null, null, null, 3000);
+    const dt = (Date.now() - t0) / 1000, p1 = (await sent()).poses;
+    await runUntil([A, B], null, null, null, 800);
+    const ap3 = await aPose(), bm3 = await seen(B);
+    check('menus: A\'s menu glides back in front of A as it turns away: B\'s follows (at most 5 poses a second) and ends where A\'s stands',
+      dist(before.p, ap3.p) > 0.3 && p1 - p0 >= 2 && p1 - p0 <= 5 * dt + 3 && dist(bm3.p, ap3.p) < 0.01 && qd(bm3.q, ap3.q) < 0.0175,
+      JSON.stringify({ moved: dist(before.p, ap3.p), poses: p1 - p0, dt, b: bm3.p, a: ap3.p }));
+    // A silent (a headset taken off: no frames): B's copy gone 3 s after A's last sample, nothing closed; back once A goes on
+    const c0 = (await sent()).closed, q0 = Date.now();
+    const quiet = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 6000);
+    const qs = (Date.now() - q0) / 1000, c1 = (await sent()).closed;
+    const again = await fresh(10000);
+    check('menus: A silent (a headset taken off): gone on B after a few seconds with nothing closed; back once A goes on', quiet && c1 === c0 && again,
+      JSON.stringify({ quiet, qs, closed: c1 - c0, again }));
+    // A closes its menu: gone on B within a second; opened again, back
+    await A.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.step(); });
+    const gone = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 1000);
+    const s3 = await sent();
+    await A.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    const back = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    check('menus: A closes its menu: gone on B within a second (closed sent); opened again, back', gone && s3.closed >= 1 && !s3.st && back, JSON.stringify({ gone, s3, back }));
+    // the setting off (with the menu open): gone on B, and nothing sent meanwhile
+    await press('menushare');
+    const gone2 = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 2000);
+    const s4 = await sent();
+    await runUntil([A, B], null, null, null, 1500);
+    const s5 = await sent(), off1 = await A.evaluate(() => [HOST.collab.menuShare(), localStorage.getItem('xrMenuShare'), HOST.collab.menu]);
+    check('menus: My menu: only me again (the menu open): gone on B, nothing more sent', gone2 && !off1[0] && off1[1] === null && off1[2] && s5.pics === s4.pics && s5.poses === s4.poses && !s5.st,
+      JSON.stringify({ gone2, off1, s4, s5 }));
+    // on again, then A's session ends: gone on B
+    await press('menushare');
+    const back2 = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    const kept = await A.evaluate(() => localStorage.getItem('xrMenuShare'));
+    await A.evaluate(() => window.__xr.end());
+    const gone3 = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 1500);
+    check('menus: on again (kept on the headset), then A\'s session ends: gone on B', back2 && kept === 'circle' && gone3, JSON.stringify({ back2, kept, gone3 }));
+  } finally {
+    for (const h of H) await h.evaluate(() => window.__xr.end()).catch(() => {});
+    for (const p of [P, ...H]) await p.context().close();
   }
 }
 
@@ -3938,6 +4164,45 @@ async function studioRound(dir) {
   }
 }
 
+// ---- the relay the main site offers (homeRound, v120; --home runs only it, also in the main run, a minute): HOME_RELAY in
+// shared.js, by the page's host. A browser of its own takes the main site's name (stories.lbi-netmed.com) and the test
+// place's (stories.lab.lbi-netmed.com) for this machine, the page served by the test relay (as http: the offer goes by the
+// host alone), its /api turned away as GitHub Pages has none, and nothing let out to any other address (the offered
+// relay's real one included). As the main site the page offers https://main.lab.lbi-netmed.com (homeRelay(), the Shared
+// dialog's box naming it) and sends it nothing before a password is typed; as the test place's name and on 127.0.0.1 it
+// offers none
+async function homeRound() {
+  const SITE = 'stories.lbi-netmed.com', LAB = 'stories.lab.lbi-netmed.com', OFFER = 'https://main.lab.lbi-netmed.com';
+  const b2 = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: [...LAUNCH_ARGS, `--host-resolver-rules=MAP ${SITE} 127.0.0.1, MAP ${LAB} 127.0.0.1`] });
+  // the page at host: { host, offer: homeRelay(), box: the dialog's offer shown, what: its words, sent: what it tried
+  // to reach that was turned away (its own /api, any other address) }
+  const look = async host => {
+    const ctx = await b2.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' }), sent = [];
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.route(u => u.hostname !== host || u.port !== String(port) || /^\/api\//.test(u.pathname), r => { sent.push(r.request().url()); return r.abort(); });
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    try {
+      await page.goto(`http://${host}:${port}/index.html#stories&peer=off&net=home`, { timeout: 90000 });
+      await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+      const r = await page.evaluate(async () => {
+        await HOST.collab.detect(); HOST.collab.dialog(true); await new Promise(res => setTimeout(res, 400));
+        const d = document.querySelector('#shared .sh-home'), w = document.querySelector('#shared .sh-homewhat');
+        return { host: location.hostname, offer: HOST.collab.homeRelay(), served: HOST.collab.relay || '', box: !!d && !d.hidden && !d.closest('[hidden]') && getComputedStyle(d).display !== 'none', what: w ? w.textContent : '' };
+      });
+      return Object.assign(r, { sent: sent.filter(u => !/fonts\.(googleapis|gstatic)\.com/.test(u)) });
+    } finally { await ctx.close(); }
+  };
+  try {
+    const m = await look(SITE);
+    check(`home relay: the main site (${SITE}) offers ${OFFER} in the Shared dialog while no relay is in use, and sends it nothing before a password is typed`,
+      m.host === SITE && m.offer === OFFER && !m.served && m.box && m.what.includes(OFFER.replace('https://', '')) && !m.sent.some(u => new URL(u).hostname !== SITE), JSON.stringify(m));
+    const l = await look(LAB), h = await look('127.0.0.1');
+    check(`home relay: the test place's name (${LAB}) and this machine (127.0.0.1) offer none`, l.host === LAB && !l.offer && !l.box && h.host === '127.0.0.1' && !h.offer && !h.box,
+      JSON.stringify({ l, h }));
+  } finally { await b2.close(); }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -3955,6 +4220,8 @@ try {
   if (STUDIO_ONLY) { await studioRound(shots); break main; }
   if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
   if (SCENES_ONLY) { await scenesRound(); break main; }
+  if (HOME_ONLY) { await homeRound(); break main; }
+  if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -6234,6 +6501,8 @@ try {
   await headsetRound(shots);
   // --------------------------------------- circles asked first (a room of its own) --
   await askRound(shots);
+  // ------------------------------------ your menu shown to your circle (a room of its own) --
+  await menusRound(shots);
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -6246,6 +6515,8 @@ try {
   await studioRound(shots);
   // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
   await scenesRound();
+  // ------------------- the relay the main site offers (HOME_RELAY, by the page's host; a browser of its own) --
+  await homeRound();
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -6326,8 +6597,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

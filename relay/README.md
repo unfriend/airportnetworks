@@ -331,7 +331,8 @@ certificate if you have one.
 The relay can run on the owner's Coolify server as well as on a laptop at an event: then shared rooms work wherever
 web pages do (eduroam, a hotspot, at home), and the copies of the app elsewhere can use it. Since v116 the owner's
 Coolify runs the test place this way, branch `dev` at `https://stories.lab.lbi-netmed.com/` with the studio's scenes in
-R2, while the main site stays on GitHub Pages: [The test place on Coolify](#the-test-place-on-coolify) after these steps.
+R2, and since v120 branch `main` as well, at `https://main.lab.lbi-netmed.com/`, the relay the main site on GitHub Pages
+offers: [The test place on Coolify](#the-test-place-on-coolify) after these steps.
 Peer to peer stays the fallback when it is down. On the internet anyone can reach it, so it runs with `--public` (below: what that changes
 and why). Nothing here changes how it runs on a laptop.
 
@@ -339,7 +340,9 @@ and why). Nothing here changes how it runs on a laptop.
 with a public address and its proxy (Traefik or Caddy) running, and access to this repository from Coolify. At the
 institute every name under `lab.lbi-netmed.com` (such as `stories.lab.lbi-netmed.com`)
 already points at the Coolify server and has a certificate (a wildcard record and a wildcard certificate, checked 5
-November 2026): there, skip step 1, and the domain in step 5 works at once.
+November 2026): there, skip step 1, and the domain in step 5 works at once. A name outside it (such as
+`rooms.lbi-netmed.com`) gets no certificate on that server without more: see *Certificates and names on Coolify* under
+[The test place on Coolify](#the-test-place-on-coolify).
 
 1. **DNS.** With the domain's DNS provider, add an `A` record `rooms` (`rooms.lbi-netmed.com`) pointing at the Coolify
    server's public IPv4 address (and an `AAAA` record for its IPv6 address, if it has one). Wait until it resolves
@@ -435,9 +438,13 @@ that is at stories.lab.lbi-netmed.com and saves models to cloudflare r2", and "t
 hosted relay for now, if it needs one i will add that later on, for now its a good place to test the peer to peer
 functionality".
 
+The owner, 6 November 2026, after setting up a relay for the main site the same day: Coolify runs branch `main` too, as
+the main site's relay, and the main site on GitHub Pages offers it (v120).
+
 | address | serves | branch | rooms |
 | --- | --- | --- | --- |
-| `https://stories.lbi-netmed.com/` | GitHub Pages, the main site, as ever | `main` | peer to peer (no relay offered) |
+| `https://stories.lbi-netmed.com/` | GitHub Pages, the main site, as ever | `main` | on the main relay once a device has its password (offered in the Shared dialog and the headset menu, below); peer to peer without it |
+| `https://main.lab.lbi-netmed.com/` | Coolify, the main site's relay (it serves `main`'s app too) | `main` | on its relay (its password once per device); the studio's scenes in R2 under the main relay's own `R2_PREFIX` |
 | `https://stories.lab.lbi-netmed.com/` | Coolify, the test place: the relay serving the app | `dev` | on its relay (its password once per device); the studio's scenes in R2 |
 
 Every name under `lab.lbi-netmed.com` points at the Coolify server (`178.104.76.48`) with a wildcard certificate, so the
@@ -450,13 +457,35 @@ with *Auto Deploy* (step 9) makes it follow every push to `dev` within a minute 
 ffmpeg stay cached; each deploy restarts the relay, and open rooms come back from the pages within seconds).
 
 **Releases.** Work goes to `dev` first: the test place takes it by itself. Once the owner has tried it there, `main` moves
-forward to it and GitHub Pages publishes it, as before. The main site keeps its `CNAME` file and custom domain; it runs
-its rooms peer to peer, so it is where peer to peer is tried.
+forward to it: GitHub Pages publishes it, and the main relay rebuilds from it (by itself with *Auto Deploy* and a webhook
+for `main`, as the test place has for `dev`; else press **Deploy**), so the two serve the same release and room format (a
+room refuses another `FORMAT`: a main relay left behind refuses the main site's rooms until it is deployed). The main site keeps its `CNAME` file and
+custom domain. A device without the main relay's password runs its rooms peer to peer, so peer to peer is still tried
+there.
 
-**A relay for the main site later** (not now): give the page's host a relay to offer in `HOME_RELAY` in `shared.js`
-(v116: while no relay is in use, the Shared dialog and the headset menu offer it with a password field; with the password
-a device's rooms and the studio's scenes are on it, without it rooms stay peer to peer). The relay's `--public` already
-allows `https://stories.lbi-netmed.com`.
+**The main site's relay** (v120, set up by the owner on 6 November 2026): a clone of the test place's resource in Coolify,
+with three things changed and then redeployed: *Domains* **`https://main.lab.lbi-netmed.com`**,
+the branch **`main`**, and its own **`R2_PREFIX`** (so its scenes stay apart from `dev`'s in the same bucket; the other R2
+variables as for the test place). Everything else as above: *Ports Exposes* `8787`, `RELAY_ARGS` = `--proxy 1 --public
+--scenes r2`, `COLLAB_TOKEN` locked (the main relay's own password; never in the repository), a GitHub webhook for `main`
+with *Auto Deploy* (above). `--public` allows `https://stories.lbi-netmed.com` by default (`APP_ORIGIN` in `server.mjs`), so the
+main site's pages may use it with no `--origin`, and the relay's own pages at `main.lab.lbi-netmed.com` always may.
+
+**How the main site offers it** (`HOME_RELAY` in `shared.js`, keyed by the page's host:
+`'stories.lbi-netmed.com': 'https://main.lab.lbi-netmed.com'`; on any other host, this machine, a LAN and the tests no
+relay is offered). While no relay is in use there, the Shared dialog shows *Have the password for
+main.lab.lbi-netmed.com?* with a password field, and the headset menu's **Circles** tab a **Relay password** row (a
+keypad of lower-case letters and digits). The password accepted (once per device), that device's rooms run on the main
+relay and the studio's scenes come from it (`relayFind`); without it rooms run peer to peer, as before v120, and nothing
+is sent to the relay until a password is typed. **Forget the password** (out of a room) goes back to peer to peer and
+offers it again. The test: `node tools/collab.mjs --home` (a browser that takes the two site names for this machine).
+
+**Certificates and names on Coolify** (learnt on 6 November 2026, setting up the main relay): Coolify's proxy gets its
+certificates with a DNS challenge through Hetzner DNS, which answers the `lab.lbi-netmed.com` names. A name under
+`lab.lbi-netmed.com` (such as `main.lab.lbi-netmed.com`) therefore gets its certificate at once. A name served elsewhere
+(`lbi-netmed.com` itself is at Namecheap, so `rooms.lbi-netmed.com` in the steps above) gets none on Coolify unless its `_acme-challenge` name is a `CNAME` into the lab zone (for example `_acme-challenge.rooms.lbi-netmed.com`
+pointing at a name under `lab.lbi-netmed.com` that Hetzner answers). After changing a resource's domain in Coolify,
+redeploy it: the new domain is only served (and its certificate asked for) from the next deploy.
 
 **What `--public` changes, and why** (each flag on its own in [Running it](#running-it)):
 
