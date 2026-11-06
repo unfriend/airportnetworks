@@ -65,7 +65,10 @@ event, on the laptop on the headsets' Wi-Fi:
 Each subfolder of <folder> is one scene. Open the address it prints followed by
 /upload on a laptop to add files, and #studio on every headset and screen (or
 Studio in the headset's menu, Settings tab; in a shared room Studio here puts
-its circle at your feet, for everyone at it).
+its circle at your feet, for everyone at it). In a shared room each scene can be
+a circle of its own: Add (the Shared dialog, or Add here in the headset's menu)
+lists Studio: <scene> for every scene of the relay, and the circle opens that
+scene for everyone at it; several studio circles can stand in a room.
 - Upload (<address>/upload, or the studio's Upload tab on a laptop or desktop):
   pick a scene or New scene, drop files or whole folders, read the plan, then
   Convert and upload. Models (FBX, OBJ with its MTL, glTF, GLB, PLY, STL) become
@@ -199,7 +202,12 @@ only their models (a ring comes back when you come within 2 m of it, and pointin
 at a model shows its card), and your own ring is hidden (Show all rings in the
 menu shows every ring); walk out of a circle and you stay in its story until you
 walk into another. Pointing at a card and pulling the trigger
-does not take you there: walk into its circle. A headset in a room never shows
+does not take you there: walk into its circle. For a tight room, turn the
+circles to ask first (Circles: ask first, in the headset menu's Circles tab or
+the Shared dialog, for everyone in the room): then walking into a circle does
+nothing, and pointing at a circle's card, ring or model and pressing asks, in a
+small panel in front of you, whether to go in (Go in or Not now; it goes by itself
+after 10 seconds). The story stays at its circle; the lobby asks the same way. A headset in a room never shows
 the Stories screen (leave the room in the menu and it comes back), except at the
 room's arc or an All stories circle; in a room with no stations at all the menu
 opens by itself, with Arrange all.
@@ -302,10 +310,10 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Sound, this headset's own on or off; the sound switches; the
-design room and the studio), Circles (the shared room: rooms to join, a
-room by its code, Room setup, the stations, the locks, Show all rings, the people,
-your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
+for every story; Frame rate, this headset's own; Sound, this headset's own on or
+off; the sound switches; the design room and the studio), Circles (the shared
+room: rooms to join, a room by its code, Room setup, the stations, the locks,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over
@@ -326,7 +334,11 @@ turn away; #subs=on in a link turns them on). In a shared room all four
 settings are the room's, the same for everyone in it (also set in the Shared
 dialog; the locks do not stop them), and a scene turned at a station is
 turned for everyone there.
-#labels=face|fixed|hidden, #cards=face|fixed|hidden and #free=on|off in a link set them. Panels, a fifth
+#labels=face|fixed|hidden, #cards=face|fixed|hidden and #free=on|off in a link set them. Frame rate (off
+by default, this headset's own, never the room's; #fps=on in a link): a small
+read-out low in your view with the frames a second, the time a frame takes (on
+average and at worst) and the story's triangles and draw calls, for checking
+how heavy a scene is. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
 under the panel, good with subtitles) or hidden (A or X still plays); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also
