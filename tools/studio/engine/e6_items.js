@@ -4,7 +4,8 @@
 // sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js), groups (items that move
 // together: e6c_groups.js), shapes (a cube, a ball, a cylinder or a plane, in a colour or hiding what is behind it) and
 // empties (a point to place sounds at, seen only while editing: e6d_shapes.js). Any of them may be locked in place, and
-// the scene has its settings (e6d_shapes.js). Each has a record (as in
+// the scene has its settings (e6d_shapes.js); an object, a shape or an empty may move (a motion: e6e_motion.js, drawn over
+// its placed pose, its record never changed), and so may a sound along a recorded path (e6f_path.js). Each has a record (as in
 // layout.json, without its id), checked the same way wherever it comes from (the layout, the room, an edit here), so a
 // record taken and given back is the same. Records are never changed in place:
 // each change is a new record (the shared room keeps the old one to compare with).
@@ -17,6 +18,7 @@ const STU = {
   gpick: null,   // (a group picking its members: { id, made, step })
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
+  recPlay: '',   // (an item whose recorded path plays here though it is selected: just recorded, or Play it here; e6f_path.js)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -56,6 +58,8 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    if (x.motion != null) r.motion = normMotion(x.motion);   // (its motion, kept only when set: e6e_motion.js)
+    if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     return lockOf(x, r);
   }
   if (kind === 'c') {
@@ -83,6 +87,7 @@ function norm(kind, x) {
       const O = o ? o.map(v => nz(r3(v))) : null;
       if (O && O.some(v => v !== 0)) r.o = O;
     }
+    if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
     return lockOf(x, r);
   }
   if (kind === 'x') {
@@ -102,13 +107,18 @@ function norm(kind, x) {
     const shape = one('shape', SHAPE_KINDS, 'cube');
     const r = { name: name('Shape'), shape, p: P, q, size: (sz || SHAPE_SIZE[shape] || [0.5, 0.5, 0.5]).map(v => nz(r3(Math.min(100, Math.max(0.01, v))))),
       colour: has('colour') ? x.colour.toLowerCase() : SHAPE_COL, look: one('look', ['colour', 'hide'], 'colour') };
+    if (x.motion != null) r.motion = normMotion(x.motion);
+    if (x.path != null) r.path = normPath(x.path);
     return lockOf(x, r);
   }
   if (kind === 'e') {
-    // an empty: a point and a full turn
+    // an empty: a point and a full turn (and a motion: a sound following it moves with it)
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
     if (!q) return null;
-    return lockOf(x, { name: name('Empty'), p: P, q });
+    const r = { name: name('Empty'), p: P, q };
+    if (x.motion != null) r.motion = normMotion(x.motion);
+    if (x.path != null) r.path = normPath(x.path);
+    return lockOf(x, r);
   }
   return null;
 }
@@ -414,7 +424,7 @@ function triggerStep(now) {
     if (it.kind === 'c' || it.kind === 'g') continue;
     // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back)
     const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = !away && (s || h ? s >= h : !LISTS.shown.has(it.id));
-    if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
+    if (MOTION_ITEMS.includes(it.kind) && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }   // (an animation's and a motion's start when shown)
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
   }
@@ -530,7 +540,7 @@ function followPoint(nd, o, out) {
 }
 // where a following sound on node nd stands now (its offset scaled by followK while its object is being sized)
 function followAt(it, nd, out) {
-  const k = followK(followOf(it)), o = it.rec.o;
+  const ob = followOf(it), k = followK(ob) * (ob && ob.kind === 'o' ? motionK(ob) : 1), o = it.rec.o;   // (and as a pulse draws it: e6e_motion.js)
   return followPoint(nd, o && k !== 1 ? o.map(v => v * k) : o, out);
 }
 // the offset that keeps a sound at p (the scene's frame) on node nd, to the mm (k: its object shown k times its record's
@@ -552,6 +562,7 @@ const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
+  recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
   for (const it of STU.items.values()) {
     if (it.kind === 'g') continue;   // (groups once their members have their places: groupsStep)
     // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
@@ -564,6 +575,7 @@ function itemsStep(dt, now) {
       it.holder.scale.lerpVectors(it.gl.s, _ps, k);
       if (k >= 1) it.gl = null;
     }
+    poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
     const tgt = it.kind === 'c' || it.kind === 'x' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
@@ -603,6 +615,7 @@ function itemsStep(dt, now) {
 // a sound: where it follows (gliding there from where it was when the room moved it), heard as far as it and what it
 // follows are shown for you (its fade times its object's, the 0.4 s fades), and while editing its speaker, its ring at
 // its full-volume distance and a faint line to what it follows (its labels, hovered or selected: "Voice → Dancer · Head")
+const _sdp = new THREE.Vector3();
 function soundStep(it, editing, now) {
   const r = it.rec, L = it.look, ob = followOf(it), n = r.on ? followNode(it) : null;
   if (r.on && !it.carry) {
@@ -614,13 +627,14 @@ function soundStep(it, editing, now) {
   it.holder.visible = L.ring.visible = editing;
   L.link.visible = false;
   if (!editing) return;
-  L.ring.position.set(it.holder.position.x, 0.004, it.holder.position.z);
+  const at = it.holder.matrixAutoUpdate ? it.holder.position : _sdp.setFromMatrixPosition(it.holder.matrix);   // (where it is drawn: its recorded path)
+  L.ring.position.set(at.x, 0.004, at.z);
   L.ring.scale.setScalar(r.r);
   const hot = STU.hover === it.id, sel = STU.sel === it.id;
   L.look({ hot, selected: sel, on: !!it.src && it.fa > 0.5 });   // (its labels, hovered or selected, say what it follows)
   if (n) {
     nodePose(n, _wp, _wq);
-    if (_wp.distanceTo(it.holder.position) > 0.005) { L.link.userData.set(it.holder.position, _wp); L.link.visible = true; }
+    if (_wp.distanceTo(at) > 0.005) { L.link.userData.set(at, _wp); L.link.visible = true; }
   }
 }
 // a model not here yet: its grey box where it will stand, with what is happening to it
@@ -712,10 +726,10 @@ function itemTopInto(it, out, mid) {
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
-  else if (it.kind === 'e') out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.2));
+  else if (it.kind === 'e') { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.2; }   // (where it is drawn: a motion)
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
-  else out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.14));
+  else { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.14; }   // (a sound: where it is drawn, its path)
   return out;
 }
 // a label's point (the engine's hover and selection labels: anchors in the stage's frame, which is the scene's)
@@ -1056,6 +1070,8 @@ function duplicateItem(id) {
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
+  const pw = pathCopyWhy([it.rec]);   // (its recorded path: the scene's 6,000 keys and the shared state's room; e6f_path.js)
+  if (pw) { recSay(it.id, pw, 'amber'); return ''; }
   const nid = newId(), o = it.rec.o || [0, 0, 0];
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
@@ -1124,10 +1140,11 @@ const ITEM_ACT = {
     const o = STU.items.get(oid);
     STU.follow = '';
     // (the object it follows already: nothing changes, its bone kept; Whole model is one of the bone choices)
-    if (it.kind === 's' && o && FOLLOW_KINDS.includes(o.kind) && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
+    if (it.kind === 's' && o && FOLLOW_KINDS.includes(o.kind) && it.rec.on !== oid) { poseRest(o); setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) }); }   // (against where it stands, not where a motion draws it)
   },
   bone: (it, name) => {
     const o = followOf(it), nd = name ? nodeOf(o, name) : o && o.holder;
+    if (o) poseRest(o);
     if (nd) setRec(it.id, { bone: name || undefined, o: offsetAt(nd, it.holder.position, followK(o)) });   // (a bone this model lacks: refused)
   },
   onto: it => { const nd = followNode(it); if (nd) setRec(it.id, { o: undefined, p: followPoint(nd, null, new THREE.Vector3()).toArray() }); },
@@ -1136,13 +1153,14 @@ const ITEM_ACT = {
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
   // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
-  hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; },
+  hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; XR.rec = ''; },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'recPlay'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
   if (lockStops(it, act)) { lockRefused(it); return; }   // (locked in place: it does not move, turn, size or go; e6d_shapes.js)
+  if (recStops(it, act)) return;   // (recording a path here: it is not sized meanwhile; e6f_path.js)
   if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
   if (act === 'mkgroup' && STU.gpick) gpickEnd();   // (another group's picking ends first, in a step of its own)
   change(() => ITEM_ACT[act](it, v));
@@ -1173,6 +1191,8 @@ function toggleLinks(cubeId, list, ids) {
 function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
+  if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
+  if (STU.recPlay && STU.recPlay !== id) STU.recPlay = '';   // (it rests again once something else is selected)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
@@ -1213,12 +1233,15 @@ function collabApply(v) {
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
   const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0 };
+  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one)
   for (const k of Object.keys(v)) {
     const m = /^([ocsxgpe])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
-    const it = STU.items.get(m[2]), rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
+    const it = STU.items.get(m[2]);
+    let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
+    if (rec && rec.path && keys + rec.path.k.length > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++;
+    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += rec.path.k.length;
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }

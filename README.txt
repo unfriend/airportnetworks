@@ -91,6 +91,17 @@ scene for everyone at it; several studio circles can stand in a room.
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,
   hold the grip to carry, both grips to size; in VR the sticks walk and turn.
+- Motions: an object, a shape or an empty can spin, wobble, bob, pulse, orbit
+  or sway on its own (Motion on its card, with its speed, how far, its axis and
+  whether it runs always or from when a cube shows it). Its place is not
+  changed; while selected or carried it rests so it can be placed.
+- Recorded paths: an object, a shape, an empty or a sound can play back a
+  movement you made. In a headset press Record its movement on its card, then
+  carry it with a grip (the sticks turn it and push it) and let go; on a page
+  press Record, move it with the arrows or its card's buttons, then Stop. It
+  plays from where it stands (Loop, Once or Back and forth, Always or When
+  shown, slower or faster); moving it moves its whole path. A group has none:
+  record its members one by one.
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

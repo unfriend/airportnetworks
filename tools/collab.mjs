@@ -3361,7 +3361,10 @@ async function tokenRound() {
 // page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
 // the saved layout.json carrying groups and faces; a shape that hides things and an empty with a sound following it made on a
 // page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the lock
-// refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); From another scene (a model of a second scene copied into the open
+// refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); motions
+// (v120: a wobble and an orbit set on two pages drawn in the same phase on every page and the headset at one held room time,
+// saved in layout.json); a recorded path (v120: the headset records the box's movement with a grip; every page takes the
+// path and, with the headset, draws the box at the same pose along it at one held room time); From another scene (a model of a second scene copied into the open
 // one with the files it names, an OBJ under originals/, a name taken: a new one; every device taking it); a circle made
 // for one scene as the shell writes it opening that scene and writing its saved layout on the pages that follow it; New
 // scene from the headset's panel (the shell's keypad stubbed) opening the new scene at its station; a long sound streamed (an
@@ -3795,6 +3798,83 @@ async function studioRound(dir) {
         !!pLs && pLs.locked === true && pLs.look === 'hide' && !!pLe && !!pL.settings && pL.settings.others === 'hidden',
       JSON.stringify({ pr, pAtB, pTook, recs: pRecs.map(r => r && r.slice(0, 160)), pLock, hHide, pSaved, pLs, pLe, settings: pL.settings, hk: await H.evaluate(() => window.__hk) }));
     if (pr) await sp(B, `(setEdit(true), select('${pId}'), itemAct('lock'), deleteItem('${pId}'), deleteItem('${sId}'), deleteItem('${eId}'), setSetting('others:shown'), select(''), 0)`);
+    }
+
+    // ---- motions (v120): a wobble set on the box on one page and an orbit on the figure on another, both 'always': every
+    // page and the headset take them (the same records) and, at one room time held on each (HOST.collab.now stubbed: the
+    // station's clock), draw each in the same phase (their holders' matrices within 1 mm and 0.001 rad of the first page's),
+    // the box neither selected nor carried anywhere; the saved layout.json carries motion. (Set on B and C: A's Undo list,
+    // which From another scene counts below, stays short of its 30)
+    {
+    await sp(B, `(setEdit(true), select(''), itemAct('motion', 'wobble', 'box001'), itemAct('mamount', 1, 'box001'), 0)`);
+    const mOn = await sUntil(C, `(STU.items.get('box001') || { rec: {} }).rec.motion`, 10000);
+    if (mOn) await sp(C, `(setEdit(true), select(''), itemAct('motion', 'orbit', 'fig001'), 0)`);
+    const mTook = [], mAt = [];
+    for (const p of [A, B, C, H]) mTook.push(mOn && await sUntil(p, `(() => { const b = STU.items.get('box001'), f = STU.items.get('fig001'); return !!(b && f && b.rec.motion && b.rec.motion.kind === 'wobble' && f.rec.motion && f.rec.motion.kind === 'orbit') && [...STU.items.values()].every(it => !it.gl); })()`, 15000));
+    const T = Date.now() + 98765.4321;
+    for (const p of [A, B, C, H]) {
+      mAt.push(await sp(p, `(() => { const n = HOST.collab.now; HOST.collab.now = () => ${T}; try {
+        select(''); const now = performance.now(); itemsStep(0, now); const pb = STUDIO.pose('box001'), pf = STUDIO.pose('fig001');
+        return [Math.abs(sceneClock(now) - ${T / 1000}) < 1e-6, pb, pf, JSON.stringify([STU.items.get('box001').rec, STU.items.get('fig001').rec])];
+      } finally { HOST.collab.now = n; } })()`));
+    }
+    // (how far each device's drawn box and figure are from the first page's: places in m, turns in rad)
+    const dOf = (a, b) => { if (!a || !b || !a.drawn || !b.drawn) return [Infinity, Infinity]; const d = M => { const m = new Float64Array(16); M.forEach((v, i) => { m[i] = v; }); return m; }, A1 = d(a.drawn), B1 = d(b.drawn);
+      const pd = Math.hypot(A1[12] - B1[12], A1[13] - B1[13], A1[14] - B1[14]); let rd = 0; for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) rd = Math.max(rd, Math.abs(A1[i] - B1[i])); return [pd, rd]; };
+    const mFar = mAt.every(Boolean) ? mAt.map(m => [dOf(m[1], mAt[0][1]), dOf(m[2], mAt[0][2])].flat()).reduce((a, b) => a.map((v, i) => Math.max(v, b[i]))) : [Infinity];
+    const mMoving = mAt.every(m => m && m[0] && m[1] && m[1].moving && !m[1].rests && m[2] && m[2].moving && !m[2].rests && m[3] === mAt[0][3]);
+    await sp(A, 'saveLayout()');
+    const mSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const mL = layoutOf() || {}, mLb = (mL.objects || []).find(x => x.id === 'box001'), mLf = (mL.objects || []).find(x => x.id === 'fig001');
+    check(`studio: motions set on two pages (a wobble on the box, an orbit on the figure, always) reach every page and the headset, each drawing them in the same phase at one held room time (within ${mFar.slice(0, 1).concat(mFar.slice(2, 3)).map(v => (v * 1000).toFixed(3)).join(' and ')} mm of the first page's), the records unchanged but for them, and the saved layout.json carries them`,
+      !!mOn && mTook.every(Boolean) && mMoving && mFar.every(v => v < 0.001) && mSaved && !!mLb && !!mLb.motion && mLb.motion.kind === 'wobble' && mLb.motion.amount === 15 && !!mLf && !!mLf.motion && mLf.motion.kind === 'orbit',
+      JSON.stringify({ mOn: !!mOn, mTook, mFar, mAt: mAt.map(m => m && [m[0], m[1] && [m[1].moving, m[1].rests], m[2] && [m[2].moving, m[2].rests], m[3] === mAt[0][3]]), mSaved, b: mLb && mLb.motion, f: mLf && mLf.motion }));
+    await sp(B, `(itemAct('motion', 'none', 'box001'), itemAct('motion', 'none', 'fig001'), select(''), 0)`);
+    }
+
+    // ---- a recorded path (v120): the headset records the box's movement (Record its movement armed on its card, a grip on
+    // nothing, the hand swinging it for 2 s at 30 frames a second, the recorder's clock the test's); let go, the path is in
+    // its record (its place unchanged) and reaches every page; at one room time held on each (HOST.collab.now stubbed, half
+    // way through the path's loop), every page and the headset draw the box at the same pose (within 1 mm and 0.001 rad of
+    // the first page's), away from where it is placed. (Recorded on the headset, taken back on B: A's Undo list stays short.
+    // First every device has B's last write of the box, the motions taken off: a write of the same record still on its way
+    // from B would land after the headset's and take the path away again, the last writer winning)
+    {
+    for (const p of [A, B, C, H]) await sUntil(p, `(() => { const b = STU.items.get('box001'), f = STU.items.get('fig001'); return !!(b && f) && !b.rec.motion && !f.rec.motion && !b.gl; })()`, 15000);
+    await sleep(1000);
+    const rRec = await sp(H, `(() => {
+      const V = (...a) => new THREE.Vector3(...a), it = STU.items.get('box001'), a = XR.ctrls[0], rc = recClock, p0 = JSON.stringify(it.rec.p);
+      let T = 1000; recClock = () => T;
+      try {
+        setEdit(true); select('box001'); itemAct('recArm');
+        const armed = XR.rec === 'box001', w = it.holder.getWorldPosition(V());
+        const put = p => { a.g.matrix.compose(p, new THREE.Quaternion(), V(1, 1, 1)); a.o.setFromMatrixPosition(a.g.matrix); };
+        a.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; a.g.visible = true;
+        put(w.clone().add(V(0.3, 0.2, 0.6))); a.hover = null; xrGrab(a, true);
+        const began = !!REC;
+        for (let i = 1; i <= 60; i++) { T += 1000 / 30; put(w.clone().add(V(0.3 + 0.5 * Math.sin(i / 10), 0.2 + 0.01 * i, 0.6))); carry(a, 1 / 30); }
+        xrGrab(a, false);
+        a.src = null; a.g.visible = false; a.hover = null; select('');
+        const P = it.rec.path;
+        return { armed, began, keys: P ? P.k.length : 0, D: P ? pathLen(P) : 0, same: JSON.stringify(it.rec.p) === p0, note: REC_NOTE.text };
+      } finally { recClock = rc; }
+    })()`);
+    const rTook = [];
+    for (const p of [A, B, C]) rTook.push(rRec.keys > 1 && await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!(b && b.rec.path && b.rec.path.k.length === ${rRec.keys}) && !b.gl; })()`, 15000));
+    const D = rRec.D || 1, T = (Math.round(Date.now() / 1000 / D) * D + D / 2) * 1000, rAt = [];
+    for (const p of [A, B, C, H]) {
+      rAt.push(await sp(p, `(() => { const n = HOST.collab.now; HOST.collab.now = () => ${T}; try {
+        select(''); const now = performance.now(); itemsStep(0, now); const pb = STUDIO.pose('box001');
+        return [pb, JSON.stringify(STU.items.get('box001').rec)];
+      } finally { HOST.collab.now = n; } })()`));
+    }
+    const dOf = (a, b) => { const pd = Math.hypot(a.drawn[12] - b.drawn[12], a.drawn[13] - b.drawn[13], a.drawn[14] - b.drawn[14]); let rd = 0; for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) rd = Math.max(rd, Math.abs(a.drawn[i] - b.drawn[i])); return [pd, rd]; };
+    const rFar = rAt.every(r => r && r[0] && r[0].drawn) ? rAt.map(r => dOf(r[0], rAt[0][0])).reduce((a, b) => a.map((v, i) => Math.max(v, b[i]))) : [Infinity, Infinity];
+    const rMoved = rAt.every(r => r && r[0] && r[0].moving && r[1] === rAt[0][1]) && Math.hypot(rAt[0][0].drawn[12] - rAt[0][0].placed[12], rAt[0][0].drawn[13] - rAt[0][0].placed[13], rAt[0][0].drawn[14] - rAt[0][0].placed[14]) > 0.05;
+    check(`studio: a path recorded on the headset (${rRec.keys} keys over ${rRec.D} s, its place unchanged) reaches every page, and at one held room time the pages and the headset draw the box at the same pose (within ${(rFar[0] * 1000).toFixed(3)} mm of the first page's), along its path`,
+      rRec.armed && rRec.began && rRec.keys > 1 && rRec.same && Math.abs(rRec.D - 2) < 0.002 && rTook.every(Boolean) && rMoved && rFar[0] < 0.001 && rFar[1] < 0.001,
+      JSON.stringify({ rRec, rTook, rFar, rAt: rAt.map(r => r && [r[0] && r[0].moving, r[1] === rAt[0][1]]) }));
+    await sp(B, `(setEdit(true), itemAct('recDel', null, 'box001'), select(''), 0)`);
     }
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent

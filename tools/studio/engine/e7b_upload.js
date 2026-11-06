@@ -243,7 +243,8 @@ async function convertAll() {
 // the original's did, and a name the loader tidied is still found). Its cut-outs likewise: middle and turn turned by r
 // (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
 // figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
-// 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it
+// 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it.
+// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path
 function switchToGLB(orig, glb, rec) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
@@ -273,7 +274,8 @@ function switchToGLB(orig, glb, rec) {
 }
 const switchedRec = (r, glb, g) => {
   const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
-  return { file: glb, s: r.s / (g.s || 1), q: q.toArray() };
+  // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned)
+  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: pathTurned(r.path, g.q) } : {});
 };
 // a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
 function saveFile(data, name, type) {

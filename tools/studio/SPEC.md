@@ -162,7 +162,10 @@ placed by itself).
   "saved": "2026-11-03T22:40:00.000Z",
   "objects": [
     { "id": "k3f9qa", "name": "Atelier", "file": "annette.fbx", "p": [0, 0, 0], "q": [0, 0, 0, 1], "s": 0.01,
-      "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" }
+      "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" },
+    { "id": "f4n001", "name": "Fan", "file": "models/fan.glb", "p": [2, 2.4, -1], "q": [0, 0, 0, 1], "s": 1,
+      "light": "lit", "clip": "", "anim": "loop", "start": "always",
+      "motion": { "kind": "spin", "speed": 30, "amount": 0, "axis": "y", "start": "always" } }
   ],
   "cubes": [
     { "id": "c81mzt", "name": "Doorway", "p": [1.2, 1, -2], "yaw": 0, "size": [1.2, 2, 1.2], "mode": "while",
@@ -185,7 +188,9 @@ placed by itself).
       "colour": "#c9d1dc", "look": "hide", "locked": true }
   ],
   "empties": [
-    { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1] }
+    { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1],
+      "path": { "k": [[0, 0, 0, 0, 0, 0, 0, 1], [1.5, 0.6, 0.2, 0, 0, 0.3827, 0, 0.9239], [3, 1.2, 0, -0.4, 0, 0.7071, 0, 0.7071]],
+        "play": "bounce", "start": "always", "speed": 1 } }
   ],
   "settings": { "others": "hidden", "real": "device" }
 }
@@ -223,6 +228,16 @@ placed by itself).
   anything else makes the record bad; "Locked in place" below). The scene's `settings`: `{ others: 'shown' | 'hidden', real:
   'device' | 'always' | 'never' }` ("The scene's settings" below; absent: `shown` and `device`; a bad one is counted and read
   so). A layout without `shapes`, `empties` or `settings` (v118's) reads as before. A group's `items` may name shapes and empties.
+- An object's, a shape's or an empty's `motion` (optional, kept only when set; "Motions" below): `{ kind, speed, amount,
+  axis, start }`, `kind` one of `'spin'`, `'wobble'`, `'bob'`, `'pulse'`, `'orbit'` and `'sway'` (required), the rest taking
+  the kind's own when left out; `null` reads as absent, anything else that is not such a motion makes the record bad. A
+  layout without it (v119's) reads as before.
+- An object's, a shape's, an empty's or a sound's `path` (optional, kept only when set; "Recorded paths" below): `{ k, play,
+  start, speed }`, `k` 2 to 600 keys `[t, dx, dy, dz, qx, qy, qz, qw]` (the first `t` 0, strictly increasing, the last at
+  most 120), `play` `'loop'` (the default), `'once'` or `'bounce'`, `start` `'always'` (the default) or `'shown'`, `speed`
+  0.25 to 4 (1 by default); `null` reads as absent, anything else that is not such a path makes the record bad, and an
+  item whose path would take the layout's paths past 6,000 keys is dropped and counted. A layout without it reads as
+  before.
 - Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups, 200 shapes, 100
   empties; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
@@ -294,15 +309,36 @@ In a headset (editing on):
   pushed up or down while its controller's ray is on the studio's panel (its own, or its copy on the menu's Story tab)
   scrolls the pane there when it is taller than the panel (up shows what is above): a dead zone of 0.2, then from 0.25
   to 1.6 of the pane's height a second the further it is pushed, a third of that speed at first and all of it after
-  0.8 s held, stopped at either end as *Up* and *More* are (`stickScroll`, `X.scrollMax`). A hand that carries something
-  never scrolls (its stick pushes and pulls what it holds). While a stick's ray is on the panel the left stick does not
+  0.8 s held, stopped at either end as *Up* and *More* are (`stickScroll`, `X.scrollMax`). Nothing scrolls while something
+  is carried (v120: the sticks steer what is carried, below). While a stick's ray is on the panel the left stick does not
   walk and the right stick does not turn (a turn held there waits for the stick to come back to the middle). The shell's
   own menu is not the studio's panel: pointing at it the sticks walk and turn as before.
 - The grip carries an object or a sound (as the design room's miniatures: it keeps its offset from the hand and, with
-  free moving on, turns with it; off, only about the vertical; the right stick pushes it away or pulls it in), and a cube
-  (level; only its yaw turns). Both grips on an object size it (a twentieth to twenty times) and move it with their
-  middle. A selected cube shows a ball at each of its 8 corners: the grip on a corner stretches the cube (the opposite
-  corner stays). Let go, it stays where it was put (its record written).
+  free moving on, turns with it; off, only about the vertical), and a cube (level; only its yaw turns). Both grips on an
+  object size it (a twentieth to twenty times) and move it with their middle. A selected cube shows a ball at each of its
+  8 corners: the grip on a corner stretches the cube (the opposite corner stays). Let go, it stays where it was put (its
+  record written).
+- The sticks while something is carried (v120; the owner, 6 November 2026: "Things in edit mode should be turnable and
+  zoomable with the sticks once grabbed like the models in the stories"; "left stick up down is zoom, left stick right
+  left is turn, right stick up down is move away, move to me, right stick left right is also turn for now"). Whichever hand
+  carries it, by one hand (an item or a group; not a corner, and not while both hands hold it: both grips size it then):
+  - the left stick up makes it larger and down smaller: twice the size in 1.5 s held fully (`HOLD.grow`, ln 2 / 1.5 a
+    second), about its middle (an object's own box's middle; a shape's, a cube's and a cut-out's centre; a group's pivot),
+    within what both grips and the size steps allow: a twentieth to twenty times its size as it was taken, and each
+    record's own limits (an object a ten-thousandth to 10,000, a cube's side 5 cm to 100 m, a shape's 1 cm to 100 m, a
+    cut-out's 1 cm to 50 m, a sound's reach, its full volume within, 10 cm to 20 m; an empty has no size). An object's
+    cut-outs and the sounds following it keep their place on it as it is sized (`scaleFollowers`, as both grips);
+  - left and right on the left stick turn it about the scene's vertical through its middle (a group about its pivot), 90
+    degrees a second held fully: pushed right, its near side goes right (anticlockwise seen from above); a cube stays level;
+    a sound has no turn;
+  - the right stick up pushes it away along the line from the hand and down pulls it in (its reach, 0.15 to 8 times, 1.5
+    a second as before, now on the right stick whichever hand carries it); left and right turn it as the left stick does.
+  A hand that carries something else steers that with its own stick only; both sticks act on one thing otherwise. A dead
+  zone of 0.2, then the rate rises with the push (its square, all of it pushed fully). It is part of the carry: the size,
+  turn and push are shown at once and written with the carry's records (ten times a second and as it is let go), one Undo
+  step for the whole carry; a locked item is refused as the grip is, so the sticks never reach it. While something is
+  carried the VR stick walk and turn do nothing (as before) and the panel does not scroll. The headset's card says it under
+  *Carry it* (`holdBlocks`). Untested on a headset: how the rates feel on real sticks.
 - In VR (not passthrough) the left stick walks you through the scene and the right stick turns you 30 degrees a flick,
   while nothing is carried (`XR.lifeOff` style: the scene moves, not the rig; per device, reset by Recenter; never
   written to the room). In AR you walk for real.
@@ -825,7 +861,8 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
     wait); a group gone meanwhile (from the room) lets them go, and its change ends as the pointer comes up.
   - In a headset: the grip on any member (unless that member is selected on its own: then it alone) carries the whole
     group, its members keeping their places about the hand; it stays level and takes only a yaw from the hand's turn,
-    and only while free moving is on; the right stick pushes it away or pulls it in. Both grips (on members of the same
+    and only while free moving is on; the sticks size it and turn it about its pivot and push or pull it (v120, as any
+    item carried: "The sticks while something is carried" above). Both grips (on members of the same
     group) size it about its pivot, a twentieth to twenty times, and move it with their middle; while one hand carries the
     group the other's grip on any member (a corner too) joins it, and while one hand carries a member on its own the
     other's grip on another member of that group carries that one on its own too (never the group round what the first
@@ -964,6 +1001,135 @@ calls (`HOST.cur.lobby && HOST.cur.lobby()`) as this headset walks into that cir
 it is shown (an animation or a sound that starts when shown, a sound that plays once). Nothing is written to the room. Away from its station in a room (the lobby, or before any circle)
 nothing of the scene is shown for that device and no cube is entered (`triggerStep`), so it all starts afresh on its
 return. Untested on a headset.
+
+## Motions (the owner, 6 November 2026)
+
+The owner: "Add little animations like spin and wobble etc for models?", then "animations do 1 and 2" (1: simple motions,
+this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6e_motion.js`.
+
+- **The record** (an object's, a shape's or an empty's; `layout.json` and `state()` alike): `motion: { kind, speed, amount,
+  axis, start }`, kept only when set (no motion: absent). `kind`: `'spin'` (turns about the axis through its middle),
+  `'wobble'` (tilts `amount` degrees away from the axis, the tilt going round it), `'bob'` (up and down along the axis by
+  `amount` metres), `'pulse'` (grows and shrinks about its middle by `amount`, a share of its size; no axis), `'orbit'`
+  (goes round a circle of `amount` metres about where it stands, across the axis, keeping its own facing) or `'sway'`
+  (swings about the axis through its middle by `amount` degrees each way). `speed`: turns, wobbles, bobs, pulses or swings
+  a minute, 0.1 to 600 in size to 2 decimals, a negative one going the other way. `amount`: 0 to the kind's largest
+  (wobble 60°, sway 90°, bob 10 m, orbit 50 m, pulse 0.9; degrees to 0.1, metres to the mm, a share to 2 decimals; a
+  spin's is 0). `axis`: `'y'` (upright, the default), `'x'` (side to side) or `'z'` (front to back), the scene's axes.
+  `start`: `'always'` (the default) or `'shown'`. Left out, `speed` and `amount` take the kind's own (spin 6 a minute;
+  wobble 20 and 10°; bob 15 and 10 cm; pulse 30 and 10 %; orbit 4 and 50 cm; sway 15 and 15°), `axis` `'y'`, `start`
+  `'always'`. A kind it does not know, a value that is not a number, another axis or start makes the record bad (the layout
+  counts it; the room's record is ignored and the item kept); a value out of range is held at its limit. Cubes, sounds,
+  cut-outs and groups have none (a group's members each keep their own).
+- **The formulas** (time `t` in seconds, `c = speed / 60 * t` the count so far, its phase `ph = 2π (c - floor c)`, `A` the
+  axis and `u` the way across it, `(0, 0, 1)` for `y`, `(1, 0, 0)` for `z`, `(0, 1, 0)` for `x`), each a change in the
+  scene's frame applied over the placed pose, about the item's middle (an object's: its model's box's middle; a shape's
+  and an empty's: its place): spin a turn by `ph` about `A`; sway a turn by `amount° × sin ph` about `A`; wobble a turn by
+  `amount°` about `u` turned by `ph` about `A`; pulse a scale of `1 + amount × sin ph`; bob a move of `amount × sin ph`
+  along `A`; orbit a move of `amount` along `u` turned by `ph` about `A`.
+- **The clock**: `'always'` runs on the scene's clock (`sceneClock`: at a station the room's, `HOST.collab.now()`, so
+  everyone at a circle sees the same moment of it; outside a room since the scene opened), `'shown'` from when it was last
+  shown here (a cube showing it to you; this device's own, as an animation or a sound started when shown, and from its
+  beginning again after the lobby).
+- **One pose pipeline** (`drawnPose(it, now, clockS, out)`, the drawn pose of an item at a time, in the scene's frame), so
+  what comes later builds on it: (1) its placed pose, its holder's place, turn and scale (its record, a glide from the
+  room, a carry, the arrows), or what a behaviour gives instead (`POSE.base(it, now, clockS, out)`, returning false when it
+  gives nothing for this item; none yet); (2) its recorded path (`POSE.path(it, now, clockS, out)`, "Recorded paths" below,
+  changing the pose it is given); (3) its motion (`motionDelta`), premultiplied. `poseStep` (every frame in `itemsStep`, once the
+  placed pose is this frame's) writes the drawn pose into the holder's matrix (`matrixAutoUpdate` off while it moves), so
+  everything under it comes along: the model, the pointer's unseen box, its labels, a sound following it or one of its
+  bones (a pulse grows an object's followers' offsets with it, `motionK`); its cut-outs take the same change on their own
+  placed poses (`poseCut`), so they stay on the same part of the model. The holder's place, turn and scale stay the
+  placed pose, which every edit reads and writes: **the record never changes**. A group's members move only by their own
+  motions. `STUDIO.pose(id)` gives the drawn and placed matrices (tests).
+- **Resting**: while this device carries it (a grip, its group carried, the page's arrows on it) or, editing, has it
+  selected (or its group, or a sound or a cut-out on it, or a group holding such a sound), it is drawn at its placed pose,
+  so it can be placed; what is measured against it (a sound attached, a bone picked, a group's move) is measured there
+  (`poseRest`). Others at the station still see it move.
+- **Its rows** on the card of an object, a shape and an empty (page and headset alike, editing on, not refused by a lock:
+  a motion does not move its place): *Motion: None / Spin / Wobble / Bob / Pulse / Orbit / Sway* (a kind its own speed and
+  amount, the axis and start kept), *Speed* (*Slower* / *Faster* through 0.5, 1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 45, 60, 90,
+  120 a minute; *The other way* for a spin and an orbit), *How far* (a wobble's and a sway's degrees, a bob's metres; *By*
+  for a pulse, *Round a circle of* for an orbit; *Less* / *More* through each kind's steps; none for a spin), *Axis*
+  (*Upright (y)*, *Side to side (x)*, *Front to back (z)*; none for a pulse), *Starts: Always / When shown*, and a line
+  that it is drawn over where it stands, its place not changed, and rests while selected or carried. One Undo step each,
+  shared (its field in `state()`) and saved. Its sub-line in lists says so (*spins*, *wobbles*...).
+- **Shared rooms**: the record is its item's field, so a motion is shared as placing is; the phase of `'always'` comes
+  from the room's clock on every device. FORMAT networks-35 (v120).
+- **Untested on a headset**: how the motions look and feel life size (a spinning scan around you, a fast orbit), their
+  phase across real headsets at a station, the cost of many moving items on a Quest.
+
+## Recorded paths (the owner, 6 November 2026)
+
+The owner: "just animate objects by dragging them? Animation recorder?", then "animations do 1 and 2" (2: this section).
+`engine/e6f_path.js`.
+
+- **The record** (an object's, a shape's, an empty's or a sound's; `layout.json` and `state()` alike): `path: { k, play,
+  start, speed }`, kept only when set. A group has none (its members each keep their own and move with it; its card says
+  so), nor do cubes and cut-outs (a cut-out goes with its object's path).
+  - `k`: its keys, each `[t, dx, dy, dz, qx, qy, qz, qw]`: `t` seconds from 0 (to the ms; the first 0, strictly
+    increasing, the last at most 120), then its pose relative to its placed pose: `(dx, dy, dz)` metres in its placed
+    frame, turned but not scaled (to the mm, each within 1,000), and `(qx, qy, qz, qw)` a turn after its placed turn (a
+    turn of length 0 is bad; normalised when it is more than 2e-3 off unit length, 4 decimals). A sound only moves (its
+    turn is kept but not used). 2 to 600 keys an item, and 6,000 in a scene (in a layout's or a state's order, an item
+    past them is bad); so the station's state, one value at the relay (256 KB at most), stays under it: a recording that
+    would take the state past 224 KB is refused, and so is a copy (Duplicate, a group's) that would pass either limit.
+  - `play`: `'loop'` (from its start again), `'once'` (to its last key, then held there) or `'bounce'` (back and forth).
+  - `start`: `'always'` (on the scene's clock: at a station the room's, `HOST.collab.now()`, so everyone there sees the
+    same moment; outside a room since the scene opened) or `'shown'` (from when it was last shown here: a cube showing it to
+    you; a sound, heard). *Once* with *Always* plays once from when the scene opened (at a station the room's clock has
+    long passed it, so it stands at its end): *Once* is meant with *When shown*.
+  - `speed`: 0.25 to 4 (2 decimals), how fast it plays.
+  - A key that is not 8 finite numbers, times out of order or past 120 s, fewer than 2 or more than 600 keys, or a `play`,
+    `start` or `speed` of the wrong kind make the record bad (the layout counts it; the room's record is ignored and the
+    item kept); a `speed` out of range is held at its limit; `null` reads as absent.
+- **Playing** (`pathTime`, `pathAt`): its time (the clock above) times its speed, then looped (`u mod D`), held
+  (`min(u, D)`) or back and forth (`u mod 2D`, mirrored past `D`), `D` its last key's time; between the two keys round it
+  the place in a straight line and the turn by slerp (the shortest way, normalised). Drawn by the pose pipeline
+  ("Motions": `POSE.path`, after the placed pose and before a motion, which adds on top): the placed place plus its turn
+  times `d`, its turn times `q`. So moving or turning the item moves or turns its whole path, sizing it does not size the
+  path, its record's place stays where it is placed, and what follows it comes along (a sound following it or one of its
+  bones, its cut-outs). A sound that follows something moves with that: its own path waits (kept) until it follows nothing.
+  Switched to its GLB (which holds its model turned by `r`), an object's keys are turned so it moves as before:
+  `d' = r d`, `q' = r q r^-1` (`pathTurned`, in `switchedRec`).
+- **Resting**: as a motion, it rests at its placed pose while this device carries it or, editing, has it selected (or its
+  group...), except just after it was recorded, or with *Play it here* on its card (`STU.recPlay`: it plays though
+  selected, without the page's arrows, until something else is selected or it is carried).
+- **Recording** (`REC`, this device's own: nothing goes into its record or to the room while it runs):
+  - In a headset: *Record its movement* on its card arms it (`XR.rec`, as *Hold it*: one disarms the other; another
+    selection, editing off or the session's end disarm it). The next grip of either hand, on it or anywhere (not at a
+    panel, the shell's menu or a station), carries it as usual, from where it stands, and its holder's pose is sampled 30
+    times a second (`recSample`, right after each carry) until it is let go. The sticks turn it and push it meanwhile, and
+    that is recorded; they do not size it, nor does a second hand (a grip of the other hand on it is refused while it
+    records): a path has no size. At 120 s it ends as if let go.
+  - On a page: *Record* on its card starts it and *Stop* keeps it (*Cancel* drops it); meanwhile the arrows (Move, Turn:
+    `TransformControls`) and its card's buttons (*Turn 90°*, *On the floor*...) move it as usual, with their real timing
+    (sampled every frame, 30 times a second at most); its size steps and the Size arrows are off. From Record to Stop is one
+    change (the arrows' drags and the card's presses inside it). Selecting something else keeps it as Stop does; editing
+    off (or the station's story locked) cancels it. At 120 s it stops by itself.
+  - Then (`recPath`): the samples relative to where it stood as the recording began, simplified (`pathSimplify`, splitting
+    where the straight line and slerp between two kept keys stray most from a sample, while any strays by more than 5 mm at
+    its middle, an object's model's box's middle, or 1 degree: 4 mm and 0.9 degrees there, the rest left for rounding to
+    the mm, 4 decimals and the ms), and the path written into its record, its place and turn as they were when the
+    recording began: one change, one Undo step. *Record again* keeps the old path's `play`, `start` and `speed` (a first
+    one: loop, always, 1). It plays at once (`STU.recPlay`), and its card says *Recorded 3.0 s in 27 keys (from 91
+    samples)*.
+  - Refused in words on its card: too short (under 0.1 s), not moved (no key 5 mm or 1 degree from where it began), more
+    than 600 keys once simplified, the scene's 6,000, the shared state's 224 KB; a locked item (*Lock in place*: refused as
+    a move is, with a knock), a sound that follows something (*Stop following to record its own path*), a group (*record
+    its members one by one*). A refused recording changes nothing.
+- **Its rows** on the card of an object, a shape, an empty and a sound (page and headset, editing on): *Recorded path* (with
+  its length and keys) and *Record* / *Record again* (page; *Stop* and *Cancel* while it records) or *Record its
+  movement* (headset; *Now press a grip (again: cancel)* while armed); with a path *Plays: Loop / Once / Back and forth*,
+  *Starts: Always / When shown*, *Speed: ×1* (*Slower*, *Faster* through ×0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4), *Play it
+  here* (this device's) and *Delete recording*; one Undo step each but Play it here. How it plays is not refused by a lock
+  (its place stays, as with a motion). Its sub-line in lists says *recorded path*. `RECLAST` (the last recording, with its
+  samples) and `recClock` (the recorder's clock, ms) are for tests.
+- **Shared rooms**: the path is part of its item's record, so it is shared as placing is; `'always'` takes its phase from
+  the room's clock on every device. FORMAT networks-35 (v120, with the motions).
+- **Untested on a headset**: recording with real grips and sticks (the pose sampled from a real carry at the headset's
+  frame rate), how a path plays back life size, its phase across real headsets at a station, the stall of simplifying a
+  long recording on a Quest (a 120 s one is 3,600 samples), the cost of many items on paths.
 
 ## Fewer triangles (the owner, 6 November 2026)
 
@@ -1183,6 +1349,11 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   `previews:` steps (the folder and R2) and `tools/collab.mjs --studio`'s pictures step: "Testing" in `AGENTS.md`.
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,
   empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
+- Motions (v120): the smoke test's *studio motions* steps (on the test scene, with a shape, an empty, a sound and a cut-out
+  put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `AGENTS.md`.
+- Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
+  in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
+  "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

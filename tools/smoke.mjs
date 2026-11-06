@@ -1466,6 +1466,75 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  await step('studio: the sticks while something is carried: the left stick up sizes it (twice in 1.5 s, about its middle), left or right turns it; the right stick up pushes it away, left or right turns it; a group about its pivot, a sound\'s reach; a locked item refused; one Undo step each', async () => {
+    await until(`[...STU.items.values()].every(it => !it.gl)`, 5000);
+    const bad = await ss(`(() => {
+      const out = [], it = STU.items.get('box001'), near = (a, b, e) => Math.abs(a - b) <= (e || 1e-4), V = (...a) => new THREE.Vector3(...a);
+      setEdit(true); XR.on = true; XR.clear = true; XR.free = false; GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity(); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.updateMatrixWorld(true);
+      const ctl = (c, p, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand, gamepad: { axes: axes || [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.compose(V(...p), new THREE.Quaternion(), V(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const [a, b] = XR.ctrls, mid = x => itemTopInto(x, V(), true), u0 = UNDO.length, rec0 = JSON.stringify(it.rec), s0 = it.rec.s, q0 = new THREE.Quaternion(...it.rec.q).normalize();
+      const w0 = it.holder.getWorldPosition(V()), h0 = [w0.x, w0.y + 0.2, w0.z + 0.6], m0 = mid(it);
+      ctl(a, h0, 'right'); ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left');
+      a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      if (!a.grab || a.grab.id !== 'box001') out.push('the grip did not take the box');
+      // the left stick (the other hand's: it carries nothing) up, held 1.5 s: twice the size, its middle where it was
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      if (!near(it.holder.scale.x, 2 * s0, 1e-6) || mid(it).distanceTo(m0) > 1e-4) out.push('the left stick up did not size it twice about its middle: ' + it.holder.scale.x + ' ' + mid(it).distanceTo(m0));
+      // walking does nothing meanwhile
+      const wz = XR.walk.z; stickWalk(b, b.src.gamepad, 0.5);
+      if (XR.walk.z !== wz) out.push('the left stick walked while something was carried');
+      // the left stick right, 1 s: a quarter turn about the vertical (its near side to the right), its middle kept
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 1, 0]); carry(a, 1);
+      const want = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2).multiply(q0);
+      if (it.holder.quaternion.angleTo(want) > 1e-4 || mid(it).distanceTo(m0) > 1e-4) out.push('the left stick right did not turn it a quarter about its middle: ' + it.holder.quaternion.toArray().map(v => v.toFixed(4)) + ' ' + mid(it).distanceTo(m0));
+      // the right stick up, 0.5 s: pushed away along the hand's line to it (its reach e^0.75 times), the rest kept
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); ctl(a, h0, 'right', [0, 0, 0, -1]); carry(a, 0.5);
+      const push = w0.clone().sub(V(...h0)).multiplyScalar(Math.exp(0.75) - 1), m1 = mid(it);
+      if (m1.distanceTo(m0.clone().add(push)) > 1e-4 || !(m1.distanceTo(V(...h0)) > m0.distanceTo(V(...h0)) + 0.1)) out.push('the right stick up did not push it away: ' + m1.toArray().map(v => v.toFixed(3)));
+      // the right stick left, 1 s: back a quarter turn
+      ctl(a, h0, 'right', [0, 0, -1, 0]); carry(a, 1);
+      if (it.holder.quaternion.angleTo(q0) > 1e-4) out.push('the right stick left did not turn it back');
+      ctl(a, h0, 'right'); xrGrab(a, false);
+      if (!near(it.rec.s, 2 * s0) || it.carry) out.push('the size was not written: ' + it.rec.s);
+      if (UNDO.length !== u0 + 1) out.push('the carry with the sticks was not one Undo step: ' + (UNDO.length - u0));
+      undo();
+      if (JSON.stringify(it.rec) !== rec0) out.push('Undo did not put it back');
+      // a group (the box and the cube) about its pivot: twice the size and a quarter turn
+      const gid = 'grp0v1'; change(() => putItem(gid, 'g', norm('g', { name: 'Pair', items: ['box001', 'cube01'] })));
+      const g = STU.items.get(gid), cube = STU.items.get('cube01'), bp = V(...it.rec.p), cp = V(...cube.rec.p), cy = cube.rec.yaw, cs = cube.rec.size.slice(), u1 = UNDO.length;
+      select(''); a.hover = { kind: 'item', id: 'box001' }; ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, true);
+      if (!a.grab || a.grab.target !== 'group') out.push('the grip on a member did not take its group');
+      const P = g.base ? g.base.P.clone() : V();
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 1, 0]); carry(a, 1);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, false);
+      const at = p => p.clone().sub(P).multiplyScalar(2).applyAxisAngle(V(0, 1, 0), Math.PI / 2).add(P);
+      if (V(...it.rec.p).distanceTo(at(bp)) > 2e-3 || !near(it.rec.s, 2 * s0) || new THREE.Quaternion(...it.rec.q).normalize().angleTo(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2).multiply(q0)) > 1e-3) out.push('the group did not size and turn the box about its pivot: ' + JSON.stringify(it.rec));
+      if (V(...cube.rec.p).distanceTo(at(cp)) > 2e-3 || !near(cube.rec.yaw, cy + Math.PI / 2, 1e-3) || cube.rec.size.some((v, i) => !near(v, 2 * cs[i], 2e-3))) out.push('the group did not size and turn the cube about its pivot: ' + JSON.stringify(cube.rec));
+      if (UNDO.length !== u1 + 1) out.push('the group\\'s carry was not one Undo step');
+      undo(); undo();
+      if (STU.items.has(gid) || JSON.stringify(it.rec) !== rec0) out.push('Undo did not take the group back');
+      // a sound: the left stick sizes its reach
+      const snd = STU.items.get('snd001'), r0 = snd.rec.r, u2 = UNDO.length;
+      a.hover = { kind: 'item', id: 'snd001' }; xrGrab(a, true);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5);
+      ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left'); xrGrab(a, false);
+      if (!near(snd.rec.r, Math.min(20, 2 * r0), 0.011) || UNDO.length !== u2 + 1) out.push('the left stick did not size the sound\\'s reach: ' + snd.rec.r);
+      undo();
+      // locked in place: the grip refused, so the sticks do nothing
+      change(() => setRec('box001', { locked: true }));
+      const rl = JSON.stringify(it.rec), u3 = UNDO.length;
+      a.hover = { kind: 'item', id: 'box001' }; xrGrab(a, true);
+      if (a.grab) { out.push('the grip took a locked box'); ctl(b, [w0.x - 0.4, w0.y, w0.z + 0.5], 'left', [0, 0, 0, -1]); carry(a, 1.5); xrGrab(a, false); }
+      if (JSON.stringify(it.rec) !== rl || UNDO.length !== u3) out.push('a locked box was changed by the sticks');
+      undo();
+      for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+      XR.on = false; STU.hover = ''; select('');
+      while (UNDO.length) undo();
+      return out;
+    })()`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
   await step('studio: in a headset, inside a model and pointing at nothing it is pointed at (another item in front wins; outside, nothing); in Walk view the same, the floor still walking; Hold it carries it with a grip on nothing (one Undo step)', async () => {
     await until(`[...STU.items.values()].every(it => !it.gl) && STUDIO.ready()`, 10000);
     await frames(4);
@@ -4213,6 +4282,523 @@ await step('design: the intro ends at the table', async () => {
     const got = await sp.evaluate(() => JSON.stringify(window.__hk));
     if (!/\["hide",false\],\["occ",null\]\]$/.test(got)) bad(['the hooks when the studio went: ' + got]);
     await sp.close();
+  });
+}
+// The studio's motions (tools/studio/SPEC.md, "Motions"), on pages of their own at the test scene, with a shape (turned and
+// sized per axis), an empty, a sound following the empty and a cut-out on the box put in for these steps: each kind's
+// drawn pose at two moments its formula (about its middle, in the scene's axes) over its placed pose, which stays as its
+// record puts it; 'always' the same on two pages at one room time, 'shown' from its showing; the sound following the
+// empty, the box's cut-out and a sound on the pulsing box coming along; resting while selected (or its group, or a sound on it) and while carried;
+// the cards' rows (page and headset), one Undo step each; the state and layout.json, bad values refused
+{
+  const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } }), mp2 = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  for (const p of [mp, mp2]) {
+    p.on('pageerror', e => errors.push('studio motions: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio motions: ' + m.text()); });
+  }
+  const ss = (s, p) => (p || mp).evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms, p) => (p || mp).waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio motions: ' + b)); };
+  // (in the page: the items these steps need; an item drawn at a scene clock T (and now); what each kind's formula says
+  // its drawn middle, turn and scale are, from its record and its own middle, worked out here on its own)
+  const PUT = `(putItem('mot001', 'p', norm('p', { name: 'Turned', shape: 'cube', p: [2, 0.5, -1], q: [0, 0.3827, 0, 0.9239], size: [0.4, 0.6, 0.2] })),
+    putItem('emp001', 'e', norm('e', { name: 'Point', p: [0, 1.2, -1] })),
+    putItem('sfl001', 's', norm('s', { name: 'Hum', file: 'tone.wav', p: [0, 1.4, -1], on: 'emp001', o: [0, 0.2, 0] })),
+    putItem('cut001', 'x', norm('x', { name: 'Notch', on: 'box001', p: [0.1, 0.1, 0.25], size: [0.2, 0.2, 0.2] })), 0)`;
+  const HELP = `window.__mo = window.__mo || {
+    V: (...a) => new THREE.Vector3(...a),
+    at: (id, T, now) => { const sc = sceneClock; sceneClock = () => T; try { itemsStep(0, now === undefined ? performance.now() : now); } finally { sceneClock = sc; } const H = STU.items.get(id).holder; H.updateWorldMatrix(true, false); return H; },
+    // [drawn middle, turn, scale] and [placed (from its record)] for its own middle m (its holder's local frame)
+    pose: (it, mat) => { const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); mat.decompose(p, q, s); return { mid: window.__mo.m(it).applyMatrix4(mat), q, s }; },
+    m: it => (it.kind === 'o' && it.model ? it.proxy.position.clone() : new THREE.Vector3()),
+    placed: it => { const r = it.rec, q = new THREE.Quaternion(...r.q), s = it.kind === 'o' ? new THREE.Vector3(r.s, r.s, r.s) : it.kind === 'p' ? new THREE.Vector3(...r.size) : new THREE.Vector3(1, 1, 1); return new THREE.Matrix4().compose(new THREE.Vector3(...r.p), q, s); },
+    // what the formula says at T
+    want: (it, T) => {
+      const M = window.__mo, mo = it.rec.motion, A = M.V(...{ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[mo.axis]), u = M.V(...{ x: [0, 1, 0], y: [0, 0, 1], z: [1, 0, 0] }[mo.axis]);
+      const ph = 2 * Math.PI * mo.speed / 60 * T, sn = Math.sin(ph), P = M.pose(it, M.placed(it)), R = (ax, a) => new THREE.Quaternion().setFromAxisAngle(ax, a);
+      const w = { mid: P.mid.clone(), q: P.q.clone(), s: P.s.clone() }, deg = Math.PI / 180;
+      if (mo.kind === 'spin') w.q.premultiply(R(A, ph));
+      if (mo.kind === 'sway') w.q.premultiply(R(A, mo.amount * deg * sn));
+      if (mo.kind === 'wobble') w.q.premultiply(R(u.clone().applyQuaternion(R(A, ph)), mo.amount * deg));
+      if (mo.kind === 'bob') w.mid.addScaledVector(A, mo.amount * sn);
+      if (mo.kind === 'pulse') w.s.multiplyScalar(1 + mo.amount * sn);
+      if (mo.kind === 'orbit') w.mid.add(u.clone().applyQuaternion(R(A, ph)).multiplyScalar(mo.amount));
+      return w;
+    },
+    // how far the drawn pose is from the formula's: [m, rad, scale]
+    off: (it, T) => { const M = window.__mo, H = M.at(it.id, T), d = M.pose(it, H.matrixAutoUpdate ? M.placed(it) : H.matrix), w = M.want(it, T); return [d.mid.distanceTo(w.mid), d.q.angleTo(w.q), d.s.distanceTo(w.s)]; },
+  }`;
+  await step('studio motions: each kind\'s drawn pose at two moments is its formula (about its middle, in the scene\'s axes) over its placed pose, which stays as its record puts it; the empty\'s sound and the box\'s cut-out come along', async () => {
+    for (const p of [mp, mp2]) {
+      await p.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+      await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    }
+    for (const p of [mp, mp2]) if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000, p)) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, ${PUT}, select(''), 0)`);
+    const r = await ss(`(() => {
+      const M = window.__mo, out = [], T = [1.25, 7.3];
+      const cases = [['mot001', { kind: 'spin', speed: 6 }], ['mot001', { kind: 'wobble', speed: 20, amount: 10, axis: 'x' }], ['mot001', { kind: 'bob', speed: 15, amount: 0.3, axis: 'z' }],
+        ['mot001', { kind: 'pulse', speed: 30, amount: 0.2 }], ['mot001', { kind: 'orbit', speed: -4, amount: 0.5 }], ['mot001', { kind: 'sway', speed: 15, amount: 20, axis: 'z' }],
+        ['box001', { kind: 'spin', speed: 12 }], ['box001', { kind: 'orbit', speed: 3, amount: 1, axis: 'x' }], ['emp001', { kind: 'bob', speed: 15, amount: 0.3 }], ['emp001', { kind: 'sway', speed: 9, amount: 30, axis: 'x' }]];
+      for (const [id, mo] of cases) {
+        const it = STU.items.get(id), rec0 = JSON.stringify(Object.assign({}, it.rec, { motion: undefined }));
+        setRec(id, { motion: mo });
+        for (const t of T) {
+          const o = M.off(it, t);
+          if (o[0] > 1e-5 || o[1] > 1e-4 || o[2] > 1e-5) out.push(id + ' ' + mo.kind + ' at ' + t + ' s: ' + o.map(v => v.toExponential(2)));
+          // (its placed pose: its holder's place, turn and scale stay what its record puts)
+          if (M.V().copy(it.holder.position).distanceTo(M.V(...it.rec.p)) > 1e-6) out.push(id + ' ' + mo.kind + ': its holder moved');
+        }
+        if (it.holder.matrixAutoUpdate) out.push(id + ' ' + mo.kind + ' is not drawn moving');
+        if (JSON.stringify(Object.assign({}, it.rec, { motion: undefined })) !== rec0) out.push(id + ' ' + mo.kind + ': its record changed');
+      }
+      // the empty bobbing: the sound following it goes with it (where its offset puts it on the drawn empty)
+      setRec('emp001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } });
+      M.at('emp001', 1);
+      const want = 1.2 + 0.3 * Math.sin(2 * Math.PI * 15 / 60 * 1) + 0.2, f = STUDIO.follow('sfl001');
+      if (!f || f.d > 1e-6 || Math.abs(STU.items.get('sfl001').holder.position.y - want) > 1e-5) out.push('the sound on the empty did not go with it: ' + JSON.stringify(f) + ' ' + want);
+      // the box spinning: its cut-out comes along (its corners where the box's change puts its placed ones)
+      setRec('box001', { motion: { kind: 'spin', speed: 12 } });
+      const B = M.at('box001', 2), x = STU.items.get('cut001'), D = B.matrix.clone().multiply(M.placed(STU.items.get('box001')).invert());
+      const pl = new THREE.Matrix4().compose(x.holder.position, x.holder.quaternion, x.holder.scale), cs = STUDIO.cut('cut001').corners;
+      const far = Math.max(...cs.map((c, k) => M.V(k & 1 ? 0.5 : -0.5, k & 2 ? 0.5 : -0.5, k & 4 ? 0.5 : -0.5).applyMatrix4(pl).applyMatrix4(D).distanceTo(M.V(...c))));
+      if (!(far < 1e-5) || x.holder.matrixAutoUpdate) out.push('the cut-out did not come along with the box: ' + far);
+      // the box pulsing: a sound on its whole model goes where the box's change puts it at rest (its offset grown with it)
+      const sb = addSound('tone.wav'); setRec(sb, { p: [0.4, 1.1, -1.6] }); setRec('box001', { motion: undefined }); M.at('box001', 2); itemAct('follow', 'box001', sb); select('');   // (a sound on it selected: it would rest)
+      const r0 = STU.items.get(sb).holder.position.clone();
+      setRec('box001', { motion: { kind: 'pulse', speed: 30, amount: 0.4 } });
+      const P2 = M.at('box001', 0.5), D2 = P2.matrix.clone().multiply(M.placed(STU.items.get('box001')).invert()), dp = STU.items.get(sb).holder.position.distanceTo(r0.clone().applyMatrix4(D2));
+      if (!(dp < 1e-5) || !(Math.abs(Math.cbrt(D2.determinant()) - 1.4) < 1e-6)) out.push('the sound on the pulsing box did not go with it: ' + dp);
+      deleteItem(sb);
+      // none: at rest, drawn where its record puts it
+      setRec('box001', { motion: undefined }); M.at('box001', 2);
+      if (!STU.items.get('box001').holder.matrixAutoUpdate || !STU.items.get('cut001').holder.matrixAutoUpdate) out.push('with no motion the box (or its cut-out) was still drawn moving');
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio motions: \'always\' the same on two pages at one room time, \'shown\' from its showing (again from its beginning when shown again)', async () => {
+    const out = [];
+    await ss(`(${HELP}, ${PUT}, 0)`, mp2);
+    const T = 1700000123.456, now = `(() => {
+      const it = STU.items.get('mot001'), a = atStation, n = HOST.collab.now;
+      setRec('mot001', { motion: { kind: 'wobble', speed: 17, amount: 25, axis: 'z' } });
+      atStation = () => true; HOST.collab.now = () => ${T * 1000};
+      try { itemsStep(0, performance.now()); return [it.holder.matrix.toArray(), window.__mo.off(it, sceneClock(performance.now()))[1]]; } finally { atStation = a; HOST.collab.now = n; }
+    })()`;
+    const [a, b] = [await ss(now), await ss(now, mp2)];
+    const d = Math.max(...a[0].map((v, i) => Math.abs(v - b[0][i])));
+    if (!(d < 1e-9) || !(a[1] < 1e-4)) out.push('always at one room time: the two pages differ by ' + d + ', the formula by ' + a[1]);
+    const sh = await ss(`(() => {
+      const M = window.__mo, it = STU.items.get('mot001'), c = STU.items.get('cube01'), o = [];
+      setRec('cube01', { show: c.rec.show.concat('mot001') });
+      setRec('mot001', { motion: { kind: 'spin', speed: 6, start: 'shown' } });
+      shownFor(null);
+      if (it.shown) o.push('not hidden before its cube');
+      shownFor([0, 1, 0]);
+      const t0 = it.shownAt, yaw = now => { M.at('mot001', 999, now); const q = new THREE.Quaternion(); it.holder.matrix.decompose(M.V(), q, M.V()); return new THREE.Euler().setFromQuaternion(q, 'YXZ').y; };
+      const y0 = yaw(t0), y1 = yaw(t0 + 2500), base = Math.PI / 4;
+      if (Math.abs(y0 - base) > 1e-3 || Math.abs(y1 - (base + Math.PI / 2)) > 1e-3) o.push('shown: not from its showing ' + [y0, y1]);
+      it.shownAt = t0 - 5000;   // (as if shown five seconds before)
+      shownFor(null); shownFor([0, 1, 0]);
+      const t1 = it.shownAt, y2 = yaw(t1 + 1250);
+      if (!(t1 >= t0) || Math.abs(y2 - (base + Math.PI / 4)) > 1e-3) o.push('shown again: not from its beginning ' + [t0, t1, y2]);
+      shownFor(null); STU.head = null;
+      return o;
+    })()`);
+    bad(out.concat(sh));
+  });
+  await step('studio motions: resting while selected (editing), its group selected, a sound on it selected, and while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
+    const out = await ss(`(() => {
+      const M = window.__mo, o = [], mv = id => !STU.items.get(id).holder.matrixAutoUpdate, step = () => M.at('mot001', 3.3);
+      setEdit(true); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } }); setRec('emp001', { motion: { kind: 'orbit', speed: 8, amount: 0.4 } }); select(''); step();
+      if (!mv('mot001') || !mv('emp001')) o.push('not moving at first');
+      select('mot001'); step();
+      if (mv('mot001') || !mv('emp001')) o.push('selected, it did not rest (or the empty rested too)');
+      const ex = new THREE.Matrix4().compose(STU.items.get('mot001').holder.position, STU.items.get('mot001').holder.quaternion, STU.items.get('mot001').holder.scale);
+      if (STU.items.get('mot001').holder.matrix.elements.some((v, i) => Math.abs(v - ex.elements[i]) > 1e-9)) o.push('resting, it was not drawn at its placed pose');
+      select(''); step();
+      if (!mv('mot001')) o.push('not moving again once not selected');
+      select('sfl001'); step();
+      if (mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty did not rest');
+      change(() => putItem('grpmo1', 'g', norm('g', { name: 'Two', items: ['mot001', 'emp001'] }))); select('grpmo1'); step();
+      if (mv('mot001') || mv('emp001')) o.push('their group selected: they did not rest');
+      undo(); select(''); step();
+      setEdit(false); select('mot001'); step();
+      if (!mv('mot001')) o.push('editing off, it rested');
+      setEdit(true); select('');
+      // carried by a pretend headset's grip: rests while held, moves again let go (once not selected)
+      XR.on = true; GL.world.updateMatrixWorld(true);
+      const c = XR.ctrls[0], w = STU.items.get('mot001').holder.getWorldPosition(M.V());
+      c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.makeTranslation(w.x, w.y + 0.2, w.z + 0.4); c.o.setFromMatrixPosition(c.g.matrix);
+      c.hover = { kind: 'item', id: 'mot001' }; xrGrab(c, true); select('emp001'); step();
+      if (mv('mot001') || !STU.items.get('mot001').carry) o.push('carried, it did not rest');
+      xrGrab(c, false); select(''); step();
+      if (!mv('mot001')) o.push('let go, it did not move again');
+      c.src = null; c.g.visible = false; c.hover = null; XR.on = false;
+      return o;
+    })()`);
+    // the page's card: a shape with no motion given one, its speed, how far, its axis and when it starts, then none
+    await ss(`(setRec('mot001', { motion: undefined }), select('mot001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length'), seq = [['motion:wobble', '{"kind":"wobble","speed":20,"amount":10,"axis":"y","start":"always"}'], ['mspeed:+', '"speed":30'], ['mamount:-', '"amount":5'],
+      ['maxis:x', '"axis":"x"'], ['mstart:shown', '"start":"shown"'], ['motion:spin', '{"kind":"spin","speed":6,"amount":0,"axis":"x","start":"shown"}'], ['mrev', '"speed":-6']];
+    for (const [id, want] of seq) {
+      await ss('renderPanes()');
+      await mp.click(`#pane-item [data-id="${id}"]`);
+      const got = await ss(`JSON.stringify(STU.items.get('mot001').rec.motion)`);
+      if (!got || !got.includes(want)) out.push('the page\'s card ' + id + ': ' + got);
+    }
+    await ss('renderPanes()');
+    const said = await ss(`[/rests where it stands/.test(document.querySelector('#pane-item').textContent), itemSub(STU.items.get('mot001'))]`);
+    await mp.click('#pane-item [data-id="motion:none"]');
+    const pg = await ss(`['motion' in STU.items.get('mot001').rec, UNDO.length]`).then(a => a.concat(said));
+    if (pg[0] || pg[1] !== u0 + seq.length + 1 || !pg[2] || !/spins/.test(pg[3])) out.push('the page\'s Motion rows (one Undo step each, the rest said): ' + JSON.stringify([pg, u0]));
+    // the headset's card: its rows pressed
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('emp001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('motion:pulse'), JSON.stringify(STU.items.get('emp001').rec.motion), press('mamount:+'), JSON.stringify(STU.items.get('emp001').rec.motion), press('motion:none'), 'motion' in STU.items.get('emp001').rec];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (!xr[0] || !/"kind":"pulse","speed":30,"amount":0.1/.test(xr[1]) || !xr[2] || !/"amount":0.15/.test(xr[3]) || !xr[4] || xr[5]) out.push('the headset\'s Motion rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio motions: the state and layout.json carry a motion and give it back; a record without one as before; bad values refused, out of range held', async () => {
+    const r = await ss(`(() => {
+      const J = x => JSON.stringify(x), out = [];
+      setRec('mot001', { motion: { kind: 'orbit', speed: -4.5, amount: 0.75, axis: 'z', start: 'shown' } }); setRec('box001', { motion: { kind: 'spin' } }); setRec('emp001', { motion: { kind: 'bob', amount: 0.05 } });
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      if (J(collabState()) !== a || J(s['p.mot001'].motion) !== '{"kind":"orbit","speed":-4.5,"amount":0.75,"axis":"z","start":"shown"}' || J(s['o.box001'].motion) !== '{"kind":"spin","speed":6,"amount":0,"axis":"y","start":"always"}') out.push('the state: ' + J([s['p.mot001'], s['o.box001']]));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const got = id => J(back.items.find(x => x.id === id).rec.motion);
+      if (back.bad || got('mot001') !== J(s['p.mot001'].motion) || got('emp001') !== '{"kind":"bob","speed":15,"amount":0.05,"axis":"y","start":"always"}' || 'motion' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('mot001'), got('emp001')]));
+      const N = (k, m) => norm(k, Object.assign(k === 'o' ? { file: 'box.glb' } : {}, { p: [0, 0, 0], motion: m }));
+      const res = [N('o', null) && !('motion' in N('o', null)), N('p', { kind: 'twirl' }), N('e', { kind: 'bob', speed: 'fast' }), N('o', { kind: 'bob', axis: 'w' }), N('p', { kind: 'spin', start: 'later' }), N('e', 'spin'),
+        J(N('o', { kind: 'bob', amount: 99, speed: 0 }).motion), J(N('p', { kind: 'pulse', amount: -1, speed: -700 }).motion), J(N('e', { kind: 'wobble', amount: 12.345, speed: 7.777 }).motion), J(N('o', { kind: 'spin', amount: 5 }).motion), norm('c', { p: [0, 0, 0], motion: { kind: 'spin' } }).motion];
+      const want = [true, null, null, null, null, null, '{"kind":"bob","speed":0.1,"amount":10,"axis":"y","start":"always"}', '{"kind":"pulse","speed":-600,"amount":0,"axis":"y","start":"always"}', '{"kind":"wobble","speed":7.78,"amount":12.3,"axis":"y","start":"always"}', '{"kind":"spin","speed":6,"amount":0,"axis":"y","start":"always"}', undefined];
+      if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
+      const bl = readLayout({ studio: 1, shapes: [{ id: 'bbb222', p: [0, 0, 0], motion: { kind: 'spin' } }, { id: 'bbb333', p: [0, 0, 0], motion: { kind: 'jump' } }] });
+      if (bl.bad !== 1 || bl.items.length !== 1) out.push('a bad motion in a layout: ' + J(bl));
+      return out;
+    })()`);
+    bad(r);
+    await mp.close(); await mp2.close();
+  });
+}
+// The studio's recorded paths (tools/studio/SPEC.md, "Recorded paths"), on a page of its own at the test scene, with a
+// shape, an empty and two sounds put in for these steps: a recording made by a pretend headset's grip (Record its movement
+// armed, a grip on nothing; the hand moving and turning, the sticks turning and pushing; the recorder's clock the test's):
+// its keys simplified, the pose at every sample's time within 5 mm and 1 degree of what was recorded, one Undo step, its
+// place kept, playing at once; loop, once and back and forth at chosen times, its speed, When shown, a motion on top,
+// moving or turning the item moving or turning its path, what follows it coming along; the refusals (too short, still,
+// more than 600 keys, the scene's 6,000, the shared state's 224 KB, 120 s kept, a lock, a following sound, a group); a page's
+// recording through the arrows and its card's buttons (one Undo step), the cards' rows on page and headset; the state and
+// layout.json round trip, norm's rules, the scene's 6,000 in a layout and from the room, a GLB switch turning its keys
+{
+  const rp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  rp.on('pageerror', e => errors.push('studio paths: ' + (e.stack || e.message)));
+  rp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio paths: ' + m.text()); });
+  const ss = s => rp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => rp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio paths: ' + b)); };
+  // (in the page: the items these steps need; a pretend right hand and left hand; an item drawn at a scene clock T (and
+  // now); a pose's middle (an object's model's box's middle); the recorder's clock, the test's own)
+  const PUT = `(putItem('pth001', 'p', norm('p', { name: 'Runner', shape: 'cube', p: [2, 0.5, -1], q: [0, 0.3827, 0, 0.9239], size: [0.4, 0.6, 0.2] })),
+    putItem('pemp01', 'e', norm('e', { name: 'Spot', p: [0, 1.2, -1] })),
+    putItem('psnd01', 's', norm('s', { name: 'Hum', file: 'tone.wav', p: [0, 1.4, -1], on: 'pth001', o: [0, 0.5, 0] })),
+    putItem('psnd02', 's', norm('s', { name: 'Buzz', file: 'tone.wav', p: [-1, 1.4, -1] })), 0)`;
+  const HELP = `window.__pa = window.__pa || {
+    V: (...a) => new THREE.Vector3(...a), Q: (...a) => new THREE.Quaternion(...a),
+    at: (id, T, now) => { const sc = sceneClock; sceneClock = () => T; try { itemsStep(0, now === undefined ? performance.now() : now); } finally { sceneClock = sc; } const H = STU.items.get(id).holder; return H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix.clone(); },
+    dec: m => { const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return { p, q, s }; },
+    mid: (it, p, q, s) => (it.kind === 'o' && it.model ? it.proxy.position.clone().multiply(s).applyQuaternion(q).add(p) : p.clone()),
+    hands: () => {
+      XR.on = true; XR.clear = true; XR.free = true; GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity(); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.updateMatrixWorld(true);
+      const [a, b] = XR.ctrls, put = (c, p, q, hand, axes) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand, gamepad: { axes: axes || [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.compose(p, q || new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      return { a, b, put };
+    },
+    off: () => { for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; } XR.on = false; XR.rec = ''; },
+    T: 1000, clock: () => { recClock = () => window.__pa.T; },
+    // a recording by the pretend right hand: armed, a grip on nothing (the hand 0.7 m from it), n frames of 1/30 s (move(i, H,
+    // w) sets the hands and sticks, w where the item stood), let go
+    record: (id, n, move) => {
+      const P = window.__pa, H = P.hands(); P.clock();
+      select(id); itemAct('recArm');
+      const armed = XR.rec === id, w = STU.items.get(id).holder.getWorldPosition(P.V());
+      H.a.hover = null; H.put(H.a, w.clone().add(P.V(0.3, 0.2, 0.6)), null, 'right'); H.put(H.b, w.clone().add(P.V(-0.4, 0, 0.5)), null, 'left');
+      xrGrab(H.a, true);
+      const began = !!(REC && REC.id === id && REC.by === 'xr');
+      for (let i = 1; i <= n && H.a.grab; i++) { P.T += 1000 / 30; move(i, H, w); carry(H.a, 1 / 30); }
+      const held = !!H.a.grab;
+      xrGrab(H.a, false);
+      return { armed, began, held };
+    },
+  }`;
+  await step('studio paths: a recording by a pretend headset\'s grip (Record its movement armed, a grip on nothing; the hand moving and turning, the left stick turning and the right pushing): simplified keys, the pose at every sample\'s time (between keys too) within 5 mm and 1 degree, one Undo step, its place kept, playing at once while selected', async () => {
+    await rp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await rp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, ${PUT}, setEdit(true), select(''), 0)`);
+    const r = await ss(`(() => {
+      const P = window.__pa, out = [], it = STU.items.get('box001'), rec0 = JSON.stringify(it.rec), u0 = UNDO.length;
+      const res = P.record('box001', 90, (i, H, w) => {
+        const s = i / 30, q = P.Q().setFromEuler(new THREE.Euler(0.3 * Math.sin(2 * s), 0.5 * s, 0));
+        H.put(H.a, w.clone().add(P.V(0.3 + 0.4 * Math.sin(1.7 * s), 0.2 + 0.2 * s, 0.6 - 0.3 * s)), q, 'right', i > 30 && i <= 50 ? [0, 0, 0, -0.8] : [0, 0, 0, 0]);
+        H.put(H.b, w.clone().add(P.V(-0.4, 0, 0.5)), null, 'left', i > 55 && i <= 75 ? [0, 0, 0.7, 0] : [0, 0, 0, 0]);
+      });
+      if (!res.armed || !res.began || !res.held) out.push('the recording did not run: ' + JSON.stringify(res));
+      const Pth = it.rec.path, S = RECLAST && RECLAST.S;
+      if (!Pth || !S) return out.concat('no path written: ' + JSON.stringify(REC_NOTE));
+      if (!(S.length >= 88 && Pth.k.length >= 3 && Pth.k.length < S.length / 2)) out.push('not simplified: ' + Pth.k.length + ' keys from ' + S.length + ' samples');
+      if (Pth.k[0][0] !== 0 || Math.abs(Pth.k[Pth.k.length - 1][0] - 3) > 0.002 || Pth.play !== 'loop' || Pth.start !== 'always' || Pth.speed !== 1) out.push('the path: ' + JSON.stringify([Pth.k[0], Pth.k[Pth.k.length - 1], Pth.play, Pth.start, Pth.speed]));
+      if (JSON.stringify(Object.assign({}, it.rec, { path: undefined })) !== rec0) out.push('its place changed: ' + JSON.stringify(it.rec.p));
+      if (UNDO.length !== u0 + 1) out.push('not one Undo step: ' + (UNDO.length - u0));
+      // every sample: where the path puts it (its placed pose, then the key between) against where it was
+      const p0 = P.V(...it.rec.p), q0 = P.Q(...it.rec.q), s0 = P.V(it.rec.s, it.rec.s, it.rec.s), d = P.V(), q = P.Q();
+      let far = 0, turn = 0, between = 0;
+      for (const sm of S) {
+        pathAt(Pth, sm[0], d, q);
+        const pp = d.clone().applyQuaternion(q0).add(p0), pq = q0.clone().multiply(q), wp = P.V(sm[1], sm[2], sm[3]), wq = P.Q(sm[4], sm[5], sm[6], sm[7]);
+        far = Math.max(far, P.mid(it, pp, pq, s0).distanceTo(P.mid(it, wp, wq, s0))); turn = Math.max(turn, pq.angleTo(wq));
+        if (!Pth.k.some(k => Math.abs(k[0] - sm[0]) < 0.0006)) between++;
+      }
+      if (!(far <= 0.005) || !(turn <= Math.PI / 180) || between < 20) out.push('the path strays from the samples: ' + [far, turn * 180 / Math.PI, between]);
+      // it moved: the hand's turn, the right stick's push and the left stick's turn are in it (its last key far from its first)
+      const L = Pth.k[Pth.k.length - 1], lq = P.Q(L[4], L[5], L[6], L[7]);
+      if (!(Math.hypot(L[1], L[2], L[3]) > 0.3) || !(lq.angleTo(P.Q()) > 1)) out.push('the movement is not in it: ' + JSON.stringify(L));
+      // playing at once, though selected (Play it here): drawn at a scene time between keys as the sample there
+      const i = Math.floor(S.length * 0.6), sm = S[i], M = P.dec(P.at('box001', sm[0]));
+      if (STU.sel !== 'box001' || STU.recPlay !== 'box001' || !STUDIO.pose('box001').moving || STUDIO.pose('box001').rests) out.push('not playing at once: ' + JSON.stringify([STU.sel, STU.recPlay, STUDIO.pose('box001')]));
+      const dm = P.mid(it, M.p, M.q, M.s).distanceTo(P.mid(it, P.V(sm[1], sm[2], sm[3]), P.Q(sm[4], sm[5], sm[6], sm[7]), s0));
+      if (!(dm <= 0.005)) out.push('drawn at ' + sm[0] + ' s ' + (dm * 1000).toFixed(2) + ' mm from what was recorded');
+      if (!/^Recorded 3\\.0 s in \\d+ keys/.test(REC_NOTE.text)) out.push('its note: ' + REC_NOTE.text);
+      // selected again: it rests at its place
+      select(''); select('box001'); P.at('box001', 1);
+      if (STU.recPlay || STUDIO.pose('box001').moving) out.push('selected again, it did not rest');
+      undo();
+      if ('path' in it.rec || JSON.stringify(it.rec) !== rec0) out.push('Undo did not take the recording back');
+      P.off(); select('');
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio paths: loop, once and back and forth at chosen times, its speed, When shown; a motion on top; moving or turning the item moves or turns its whole path; a sound following it, the box\'s cut-out and a sound\'s own path come along; a following sound\'s own path waits', async () => {
+    const r = await ss(`(() => {
+      const P = window.__pa, out = [], V = P.V, it = STU.items.get('pth001'), near = (a, b, e) => a.distanceTo(b) <= (e || 2e-4);   // (0.2 mm: a record's turn is a hair off unit length)
+      const K = [[0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0, 0, 1], [2, 1, 1, 0, 0, 0.7071, 0, 0.7071]];
+      const want = (s, it2) => { const r = (it2 || it).rec, d = V(), q = P.Q(); pathAt(normPath({ k: K }), s, d, q); const Q0 = P.Q(...r.q).normalize(); return { p: d.applyQuaternion(Q0).add(V(...r.p)), q: Q0.multiply(q) }; };
+      const check = (what, T, s, now) => { const M = P.dec(P.at('pth001', T, now)), w = want(s); if (!near(M.p, w.p) || M.q.angleTo(w.q) > 3e-4) out.push(what + ': at ' + T + ' s drawn ' + M.p.toArray().map(v => v.toFixed(4)) + ', wanted ' + w.p.toArray().map(v => v.toFixed(4))); };
+      setRec('pth001', { path: { k: K } });
+      check('loop', 0.5, 0.5); check('loop', 2.5, 0.5); check('loop', 3.25, 1.25);
+      setRec('pth001', { path: { k: K, play: 'once' } }); check('once', 1.5, 1.5); check('once', 2.5, 2); check('once', 7, 2);
+      setRec('pth001', { path: { k: K, play: 'bounce' } }); check('back and forth', 2.5, 1.5); check('back and forth', 4.5, 0.5); check('back and forth', 3.75, 0.25);
+      setRec('pth001', { path: { k: K, speed: 2 } }); check('loop at ×2', 0.75, 1.5); check('loop at ×2', 1.25, 0.5);
+      // when shown: from its showing (a cube shows it)
+      const c = STU.items.get('cube01');
+      setRec('cube01', { show: c.rec.show.concat('pth001') }); setRec('pth001', { path: { k: K, start: 'shown' } });
+      shownFor(null); shownFor([0, 1, 0]);
+      const t0 = it.shownAt;
+      check('when shown', 999, 1.5, t0 + 1500); check('when shown', 999, 0.25, t0 + 2250);
+      shownFor(null); STU.head = null; setRec('cube01', { show: c.rec.show.filter(x => x !== 'pth001') });
+      // a motion on top: a bob of 0.3 m about y over the path
+      setRec('pth001', { path: { k: K }, motion: { kind: 'bob', speed: 15, amount: 0.3 } });
+      { const M = P.dec(P.at('pth001', 0.5)), w = want(0.5).p.add(V(0, 0.3 * Math.sin(2 * Math.PI * 15 / 60 * 0.5), 0)); if (!near(M.p, w)) out.push('a motion on top: ' + M.p.toArray() + ' ' + w.toArray()); }
+      setRec('pth001', { motion: undefined });
+      // moved: its whole path moves; turned (Turn 90°, one Undo step): its whole path turns
+      const w0 = P.dec(P.at('pth001', 1.5)).p;
+      setRec('pth001', { p: [2.5, 0.5, -1.2] });
+      { const M = P.dec(P.at('pth001', 1.5)); if (!near(M.p, w0.clone().add(V(0.5, 0, -0.2)))) out.push('moved, its path did not move with it'); }
+      const u0 = UNDO.length; itemAct('turn', null, 'pth001');
+      { const M = P.dec(P.at('pth001', 1.5)), w = want(1.5); if (UNDO.length !== u0 + 1 || !near(M.p, w.p) || M.q.angleTo(w.q) > 3e-4 || near(M.p, w0.clone().add(V(0.5, 0, -0.2)), 0.1)) out.push('turned, its path did not turn with it: ' + M.p.toArray() + ' wanted ' + w.p.toArray()); }
+      undo(); setRec('pth001', { p: [2, 0.5, -1] });
+      // a sound following it goes with it (its offset on the drawn shape)
+      { P.at('pth001', 1.5); const f = STUDIO.follow('psnd01'); if (!f || f.d > 1e-5 || !near(STU.items.get('psnd01').holder.position, P.dec(STU.items.get('pth001').holder.matrix).p.add(V(0, 0.5, 0).applyQuaternion(P.dec(STU.items.get('pth001').holder.matrix).q)), 1e-5)) out.push('the following sound did not go with it: ' + JSON.stringify(f)); }
+      // a sound's own path (it only moves; its turn unused), and its emitter's place with it
+      setRec('psnd02', { path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 0, 0, -2, 0, 0.7071, 0, 0.7071]] } });
+      { const M = P.at('psnd02', 1), w = STU.items.get('psnd02').holder.getWorldPosition(V()), g = GL.items.localToWorld(V(-1, 1.4, -2)); if (!near(P.dec(M).p, V(-1, 1.4, -2)) || P.dec(M).q.angleTo(P.Q()) > 1e-6 || !near(w, g, 1e-5)) out.push('a sound\\'s own path: ' + P.dec(M).p.toArray()); }
+      // a following sound's own path waits (it follows the shape)
+      setRec('psnd01', { path: { k: K } });
+      { P.at('pth001', 1.5); const f = STUDIO.follow('psnd01'); if (!f || f.d > 1e-5 || pathOf(STU.items.get('psnd01'))) out.push('a following sound played its own path'); }
+      setRec('psnd01', { path: undefined }); setRec('psnd02', { path: undefined });
+      // the box with a path: its cut-out comes along (the box's change on its own placed pose)
+      putItem('pcut01', 'x', norm('x', { name: 'Notch', on: 'box001', p: [0.1, 0.1, 0.25], size: [0.2, 0.2, 0.2] }));
+      setRec('box001', { path: { k: K } });
+      { const B = P.at('box001', 1.5), b = STU.items.get('box001').holder, D = B.clone().multiply(new THREE.Matrix4().compose(b.position, b.quaternion, b.scale).invert()), x = STU.items.get('pcut01').holder;
+        const want2 = new THREE.Matrix4().compose(x.position, x.quaternion, x.scale).premultiply(D);
+        if (x.matrixAutoUpdate || x.matrix.elements.some((v, i) => Math.abs(v - want2.elements[i]) > 1e-6)) out.push('the cut-out did not come along with the box'); }
+      setRec('box001', { path: undefined }); removeItem('pcut01'); setRec('pth001', { path: undefined });
+      P.at('pth001', 0);
+      if (!it.holder.matrixAutoUpdate) out.push('with no path it was still drawn moving');
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio paths: refused in words (too short, not moved, more than 600 keys, the scene\'s 6,000, a shared state past 224 KB, a locked item, a sound that follows something, a group); 120 s stops it and keeps it', async () => {
+    const r = await ss(`(() => {
+      const P = window.__pa, out = [], it = STU.items.get('pth001'), rec0 = JSON.stringify(it.rec), u0 = UNDO.length, V = P.V;
+      const run = (n, move) => { REC_NOTE.text = ''; const res = P.record('pth001', n, move || (() => {})); return { res, path: 'path' in it.rec, note: REC_NOTE.text }; };
+      let x = run(0);
+      if (x.path || !/Too short/.test(x.note)) out.push('too short: ' + JSON.stringify(x));
+      x = run(20);
+      if (x.path || !/did not move/.test(x.note)) out.push('still: ' + JSON.stringify(x));
+      // a jittery movement: more than 600 keys once simplified
+      x = run(700, (i, H, w) => H.put(H.a, w.clone().add(V(0.3 + (i % 2 ? 0.02 : -0.02), 0.2 + i * 0.0005, 0.6)), null, 'right'));
+      if (x.path || !/needs \\d[\\d,]* keys: a path holds 600 at most/.test(x.note)) out.push('more than 600 keys: ' + JSON.stringify(x));
+      // the scene's 6,000: ten empties of 599 keys each
+      const big = Array.from({ length: 599 }, (_, i) => [i * 0.1, 0, 0, i * 0.001, 0, 0, 0, 1]);
+      for (let j = 0; j < 10; j++) putItem('pfull' + j, 'e', norm('e', { name: 'Full ' + j, p: [j, 2, 3], path: { k: big } }));
+      const glide = (i, H, w) => H.put(H.a, w.clone().add(V(0.3 + i * 0.01, 0.2 + 0.2 * Math.sin(i / 5), 0.6)), null, 'right');
+      x = run(60, glide);
+      if (x.path || !/would hold [\\d,]+ keys: 6,000 at most/.test(x.note)) out.push('the scene\\'s 6,000: ' + JSON.stringify(x));
+      // (nor is a copy of a path made past them: Duplicate refused, said; a group's Duplicate too)
+      const nd = duplicateItem('pfull0'), nn = REC_NOTE.text;
+      putItem('pgrp02', 'g', norm('g', { name: 'Two full', items: ['pfull1', 'pfull2'] }));
+      if (nd || !/No room for the copy's recorded path/.test(nn) || !/No room for the copy's recorded path/.test(groupDupWhy(STU.items.get('pgrp02'))) || duplicateGroup(STU.items.get('pgrp02'))) out.push('a copy past the scene\\'s 6,000: ' + JSON.stringify([nd, nn]));
+      removeItem('pgrp02');
+      for (let j = 0; j < 10; j++) removeItem('pfull' + j);
+      // a shared state past 224 KB (its limit lowered for the test)
+      const was = PATH_MAX.state; PATH_MAX.state = JSON.stringify(collabState()).length + 100;
+      x = run(60, glide);
+      PATH_MAX.state = was;
+      if (x.path || !/KB to share in a room/.test(x.note)) out.push('the shared state: ' + JSON.stringify(x));
+      if (JSON.stringify(it.rec) !== rec0 || UNDO.length !== u0) out.push('a refused recording changed something: ' + (UNDO.length - u0));
+      // 120 s: it stops by itself and is kept (its hand let go)
+      x = run(3700, (i, H, w) => H.put(H.a, w.clone().add(V(0.3 + i * 0.0003, 0.2 + 0.2 * Math.sin(i / 300), 0.6)), null, 'right'));
+      if (!x.path || x.res.held || !(it.rec.path.k[it.rec.path.k.length - 1][0] <= 120) || !(it.rec.path.k[it.rec.path.k.length - 1][0] > 119.9) || !/stopped at 120 s/.test(x.note)) out.push('120 s: ' + JSON.stringify([x.path, x.res, x.note, it.rec.path && it.rec.path.k.slice(-1)]));
+      undo();
+      // locked in place: Record its movement refused (and a page's Record); a sound that follows something; a group
+      setRec('pth001', { locked: true }); select('pth001'); XR.on = true; itemAct('recArm'); XR.on = false;
+      const lk = XR.rec; itemAct('rec');
+      if (lk || REC || !STU.lockSaid || STU.lockSaid.id !== 'pth001') out.push('a locked item was armed or recorded');
+      setRec('pth001', { locked: undefined });
+      XR.on = true; select('psnd01'); itemAct('recArm'); XR.on = false;
+      if (XR.rec || !/Stop following to record/.test(REC_NOTE.text)) out.push('a following sound: ' + REC_NOTE.text);
+      putItem('pgrp01', 'g', norm('g', { name: 'Pair', items: ['pth001', 'pemp01'] }));
+      if (!/A group has no recorded path/.test(recWhy(STU.items.get('pgrp01')))) out.push('a group: ' + recWhy(STU.items.get('pgrp01')));
+      select('pgrp01'); X.tab = 'item'; renderPanes();
+      if (!/A group has no recorded path/.test(document.querySelector('#pane-item').textContent)) out.push('the group\\'s card does not say it has none');
+      removeItem('pgrp01'); select(''); P.off();
+      while (UNDO.length > u0) undo();
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio paths: a page\'s recording through the arrows (Record on the card, the Move arrows dragged, Turn 90° on its card, Stop), with its real timing, one Undo step, its place as it was, no sizing meanwhile; the cards\' rows (page and headset), one Undo step each', async () => {
+    const out = [];
+    await ss(`(window.__pa.clock(), window.__pa.T = 5000, select('pth001'), X.tab = 'item', tcSetMode('translate'), renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length'), rec0 = await ss(`JSON.stringify(STU.items.get('pth001').rec)`);
+    await rp.click('#pane-item [data-id="rec"]');
+    const pg = await ss(`(() => {
+      const P = window.__pa, it = STU.items.get('pth001'), H = it.holder, o = [], tc = GL.tc, s0 = it.rec.size.slice();
+      if (!REC || REC.by !== 'page' || tc.object !== H) o.push('Record did not start with the arrows on it');
+      // the Move arrows dragged 0.6 m along x over a second, then still for half a second, then Turn 90° on its card
+      tc.dispatchEvent({ type: 'dragging-changed', value: true });
+      for (let i = 1; i <= 30; i++) { P.T += 1000 / 30; H.position.x += 0.02; tc.dispatchEvent({ type: 'objectChange' }); recStep(); }
+      tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      if (!REC) o.push('the end of the drag ended the recording');
+      for (let i = 1; i <= 15; i++) { P.T += 1000 / 30; recStep(); }
+      itemAct('psize', 2); itemAct('pgrow', '0:0.1');
+      if (JSON.stringify(it.rec.size) !== JSON.stringify(s0)) o.push('sized while recording');
+      tcSetMode('scale'); if (tc.mode !== 'translate') o.push('the Size arrows while recording'); tcSetMode('translate');
+      itemAct('turn');
+      for (let i = 1; i <= 15; i++) { P.T += 1000 / 30; recStep(); }
+      X.tab = 'item'; renderPanes();
+      return [o, !!document.querySelector('#pane-item [data-id="recstop"]'), /● Recording 2\\.0 s/.test(document.querySelector('#pane-item').textContent)];
+    })()`);
+    out.push(...pg[0]);
+    if (!pg[1] || !pg[2]) out.push('the card while recording: ' + JSON.stringify(pg.slice(1)));
+    await rp.click('#pane-item [data-id="recstop"]');
+    const st = await ss(`(() => {
+      const P = window.__pa, it = STU.items.get('pth001'), Pth = it.rec.path, o = [], V = P.V;
+      if (REC || !Pth) return ['Stop did not keep it: ' + REC_NOTE.text];
+      if (JSON.stringify(Object.assign({}, it.rec, { path: undefined })) !== ${JSON.stringify(rec0)}) o.push('its place is not as it was: ' + JSON.stringify(it.rec.p));
+      // its real timing: 0.6 m along x by 1 s, held to 1.5 s, the quarter turn at 1.5 s, held to 2 s (the end)
+      const d = V(), q = P.Q(), Q0 = P.Q(...it.rec.q), p0 = V(...it.rec.p), atS = s => { pathAt(Pth, s, d, q); return [d.clone().applyQuaternion(Q0).add(p0), q.clone()]; };
+      const [a1, b1] = atS(1), [a2, b2] = atS(1.49), [a3, b3] = atS(1.6), [a4] = atS(0.5), D = pathLen(Pth);
+      if (a1.distanceTo(p0.clone().add(V(0.6, 0, 0))) > 0.005 || a2.distanceTo(a1) > 0.005 || b1.angleTo(P.Q()) > 0.02 || b2.angleTo(P.Q()) > 0.02 || Math.abs(b3.angleTo(P.Q()) - Math.PI / 2) > 0.02 || a4.distanceTo(p0.clone().add(V(0.3, 0, 0))) > 0.005 || Math.abs(D - 2) > 0.002)
+        o.push('the path\\'s timing: ' + JSON.stringify([a1, a2, a4].map(v => v.toArray().map(x => x.toFixed(3))).concat([b2.angleTo(P.Q()), b3.angleTo(P.Q()), D])));
+      if (STU.recPlay !== 'pth001' || GL.tc.object) o.push('not playing at once, or its arrows still there');
+      return o;
+    })()`);
+    out.push(...st);
+    if (await ss('UNDO.length') !== u0 + 1) out.push('the page\'s recording was not one Undo step: ' + ((await ss('UNDO.length')) - u0));
+    // the page's rows: Once, Back and forth, When shown, Faster, Slower, Play it here, Delete recording
+    const seq = [['pplay:once', '"play":"once"'], ['pplay:bounce', '"play":"bounce"'], ['pstart:shown', '"start":"shown"'], ['pspeed:+', '"speed":1.5'], ['pspeed:-', '"speed":1}'], ['pplay:loop', '"play":"loop"']];
+    const u1 = await ss('UNDO.length');
+    for (const [id, w] of seq) {
+      await ss('renderPanes()');
+      await rp.click(`#pane-item [data-id="${id}"]`);
+      const got = await ss(`JSON.stringify(Object.assign({}, STU.items.get('pth001').rec.path, { k: undefined }))`);
+      if (!got.includes(w)) out.push('the page\'s card ' + id + ': ' + got);
+    }
+    await ss('renderPanes()'); await rp.click('#pane-item [data-id="recplay"]');
+    const rest = await ss(`[STU.recPlay, !!GL.tc.object]`);
+    await ss('renderPanes()'); await rp.click('#pane-item [data-id="recplay"]');
+    const play = await ss(`[STU.recPlay, !!GL.tc.object]`);
+    if (rest[0] !== '' || !rest[1] || play[0] !== 'pth001' || play[1]) out.push('Play it here: ' + JSON.stringify([rest, play]));
+    await ss('renderPanes()'); await rp.click('#pane-item [data-id="recdel"]');
+    const del = await ss(`['path' in STU.items.get('pth001').rec, UNDO.length, STU.recPlay]`);
+    if (del[0] || del[1] !== u1 + seq.length + 1 || del[2]) out.push('Delete recording (one Undo step each): ' + JSON.stringify([del, u1]));
+    await ss('undo()');
+    // the headset's card: Record its movement armed and disarmed, Back and forth, Faster, Delete recording
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const find = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q) return q; } return null; };
+      const press = id => { const q = find(id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } X.scroll = {}; return false; };
+      select('pth001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [!find('rec'), press('recxr'), XR.rec, press('recxr'), XR.rec, press('pplay:bounce'), STU.items.get('pth001').rec.path.play, press('pspeed:+'), STU.items.get('pth001').rec.path.speed, press('recdel'), 'path' in STU.items.get('pth001').rec];
+      XR.on = false; XR.rec = ''; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== JSON.stringify([true, true, 'pth001', true, '', true, 'bounce', true, 1.5, true, false])) out.push('the headset\'s rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio paths: the state and layout.json carry a path and give it back; norm\'s rules (2 to 600 keys, the first at 0, strictly later, at most 120 s, 8 numbers a key; play, start, speed); the scene\'s 6,000 in a layout and from the room; a GLB switch turns its keys so it moves as before', async () => {
+    const r = await ss(`(() => {
+      const P = window.__pa, J = x => JSON.stringify(x), out = [], V = P.V;
+      const K = [[0, 0, 0, 0, 0, 0, 0, 1], [1.5, 0.25, 0.125, -0.5, 0, 0.3827, 0, 0.9239]];
+      setRec('pth001', { path: { k: K, play: 'bounce', start: 'shown', speed: 0.75 } }); setRec('pemp01', { path: { k: K } }); setRec('psnd02', { path: { k: K, speed: 3 } });
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      if (J(collabState()) !== a || J(s['p.pth001'].path) !== J({ k: K, play: 'bounce', start: 'shown', speed: 0.75 }) || J(s['s.psnd02'].path) !== J({ k: K, play: 'loop', start: 'always', speed: 3 })) out.push('the state: ' + J(s['p.pth001']));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const got = id => J(back.items.find(x => x.id === id).rec.path);
+      if (back.bad || got('pth001') !== J(s['p.pth001'].path) || got('pemp01') !== J(s['e.pemp01'].path) || got('psnd02') !== J(s['s.psnd02'].path) || 'path' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('pth001')]));
+      const N = (k, path) => norm(k, Object.assign(k === 'o' || k === 's' ? { file: k === 'o' ? 'box.glb' : 'tone.wav' } : {}, { p: [0, 0, 0], path }));
+      const long = n => Array.from({ length: n }, (_, i) => [i * 0.1, 0, 0, 0, 0, 0, 0, 1]);
+      const res = [!('path' in N('o', null)), N('p', { k: K.slice(0, 1) }), N('e', { k: long(601) }), J(N('e', { k: long(600) }).path.k.length), N('o', { k: [[0.5, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1]] }), N('s', { k: [[0, 0, 0, 0, 0, 0, 0, 1], [0, 1, 0, 0, 0, 0, 0, 1]] }),
+        N('p', { k: [[0, 0, 0, 0, 0, 0, 0, 1], [120.001, 1, 0, 0, 0, 0, 0, 1]] }), N('e', { k: [[0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1]] }), N('o', { k: [[0, 0, 0, NaN, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1]] }), N('o', { k: [[0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 1]] }),
+        N('p', { k: K, play: 'twice' }), N('e', { k: K, start: 'later' }), N('s', { k: K, speed: 'fast' }), N('o', 'path'),
+        J(N('p', { k: [[0.0002, 0.12345, 0, 0, 0, 0, 0, 2], [1.0004, 0, 0, 0, 0.7071, 0, 0, 0.7071]], speed: 9 }).path), J(N('e', { k: K, speed: 0.1 }).path.speed), norm('c', { p: [0, 0, 0], path: { k: K } }).path, norm('x', { on: 'box001', p: [0, 0, 0], path: { k: K } }).path,
+        J(N('s', { k: K }).path.play), !!pathOf({ kind: 's', rec: Object.assign(N('s', { k: K }), { on: 'pth001' }) })];
+      const want = [true, null, null, '600', null, null, null, null, null, null, null, null, null, null, J({ k: [[0, 0.123, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0.7071, 0, 0, 0.7071]], play: 'loop', start: 'always', speed: 4 }), '0.25', undefined, undefined, '"loop"', false];
+      if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
+      // the scene's 6,000: a layout whose paths pass them (the item past them bad), and a state from the room likewise
+      const big = long(599), lay = { studio: 1, empties: Array.from({ length: 11 }, (_, j) => ({ id: 'qfull' + j, p: [j, 2, 3], path: { k: big } })) };
+      const bl = readLayout(lay);
+      if (bl.bad !== 1 || bl.items.length !== 10) out.push('a layout past 6,000 keys: ' + J([bl.bad, bl.items.length]));
+      setRec('pth001', { path: undefined }); setRec('pemp01', { path: undefined }); setRec('psnd02', { path: undefined });
+      const st = Object.assign(collabState(), Object.fromEntries(lay.empties.map(e => ['e.' + e.id, Object.assign({}, e, { id: undefined })])));
+      collabApply(JSON.parse(J(st)));
+      const nIn = [...STU.items.keys()].filter(id => /^qfull/.test(id)).length;
+      if (nIn !== 10 || pathKeys('') !== 5990) out.push('a state past 6,000 keys: ' + J([nIn, pathKeys('')]));
+      for (const id of [...STU.items.keys()]) if (/^qfull/.test(id)) removeItem(id);
+      // a GLB switch: the figure (turned up from Z up) with a path, switched to a GLB holding it turned by r: it is drawn
+      // where it was (its holder turned by r^-1 over the model turned by r), its keys turned
+      setRec('fig001', { path: { k: K } });
+      const before = P.dec(P.at('fig001', 1.2)), g = { s: 0.01, q: [-0.7071, 0, 0, 0.7071] }, u0 = UNDO.length;
+      const n = switchToGLB('figure.fbx', 'models/figure-x.glb', g);
+      const after = P.dec(P.at('fig001', 1.2)), r = P.Q(...g.q).normalize();
+      if (n !== 1 || STU.items.get('fig001').rec.file !== 'models/figure-x.glb' || after.p.distanceTo(before.p) > 0.0015 || after.q.clone().multiply(r).angleTo(before.q) > 3e-4 || UNDO.length !== u0 + 1) out.push('a GLB switch: ' + J([n, after.p.distanceTo(before.p), after.q.clone().multiply(r).angleTo(before.q)]));
+      undo(); setRec('fig001', { path: undefined });
+      return out;
+    })()`);
+    bad(r);
+    await until('STUDIO.ready()', 60000);
+    await rp.close();
   });
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)

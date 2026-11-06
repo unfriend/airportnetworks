@@ -77,6 +77,7 @@ function groupPivot(g, out) {
 // something sounds where that puts it); a sound that follows an object of the group rides with it
 function groupBase(g) {
   const ms = members(g), ids = new Set(ms.map(m => m.id));
+  for (const m of ms) poseRest(m);   // (measured where they stand, not where their motions draw them: e6e_motion.js)
   return { id: g.id, P: groupPivot(g, new THREE.Vector3()), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
     pos: m.kind === 's' ? soundPoint(m, new THREE.Vector3()) : m.holder.position.clone(), rides: m.kind === 's' && !!m.rec.on && ids.has(m.rec.on) && !!followOf(m) })) };
 }
@@ -222,7 +223,7 @@ function groupDupWhy(g) {
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
-  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : '';
+  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : pathCopyWhy(ms.map(m => m.rec));   // (and its members' recorded paths: e6f_path.js)
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the
