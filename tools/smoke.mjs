@@ -2167,7 +2167,9 @@ await step('design: the intro ends at the table', async () => {
     // every frame the page draws for 2.5 s (her clip is 2 s; software drawing is slow), and every step of 1/30 s through
     // her clip (the scene's clock held at each): the sound where her head bone and its offset put it, worked out on its own
     await ss(`(() => { const F = window.__fh; F.log = []; F.keep = itemsStep; itemsStep = (dt, now) => { F.keep(dt, now); const w = F.at(F.head(), STU.items.get('voi001').rec.o); F.log.push([w.distanceTo(F.pos('voi001')), w.toArray()]); }; return 0; })()`);
+    // (and until the page has drawn one at least: a machine busy drawing in software may give it none in 2.5 s)
     await fop.waitForTimeout(2500);
+    await until(`window.__fh.log.length > 0`, 15000);
     const ev = await ss(`(() => {
       const F = window.__fh, real = F.log.length, sc = sceneClock;
       for (let k = 0; k <= 60; k++) { sceneClock = () => k / 30; itemsStep(1 / 30, performance.now()); }
