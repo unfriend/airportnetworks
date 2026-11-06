@@ -43,6 +43,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **The room and depth test page, 6 November 2026, on `dev` (the page is not part of the app: no release).** The owner's
+  first two reports from a Quest 3 (Quest Browser 154): depth every frame for both eyes (GPU only, 320 x 320 an eye), 39
+  planes and 11 meshes (31,299 triangles) of the room scan within 0.4 s, every mode's GPU work done in 2 to 4.6 ms of an
+  11 ms frame. The depth is a depth buffer's values for a near of 0.1 m and no far plane (`depthFar` Infinity, which the
+  report wrote as null): distance = 0.1 / (1 - value), 0.3 to 11 m in their room. The page read it as metres (every
+  value thrown away: nothing drawn) or as window depth with a far plane (NaN), so no depth mode worked; Room and Room
+  hides blinked and lagged because Quest marked the planes changed about 45 times a second and the page rebuilt them
+  each time. Fixed: no far plane read as such, the depth followed into its own view (*Depth seen from*), the room rebuilt
+  only on a real change, and the report says each. `tools/room-test.mjs` passed (23 steps). Untested on the Quest until
+  the owner runs it again.
 - **networks-v118 (6 November 2026; FORMAT networks-33, shell 118: running pages ask before reloading), on `dev` first:
   the owner's batch of 5 November, all but compressed textures.**
   - Circles asked first, a room setting (`ask` in `look`; FORMAT networks-33). *Circles: walk in* / *Circles: ask first*

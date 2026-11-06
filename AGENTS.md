@@ -119,7 +119,16 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   unoccluded), *Room*, *Room hides* (the meshes and planes depth-only, built only while one of the two shows) and
   *Nothing* (no depth asked for: the baseline). *Depth as* tries the readings (metres through
   `normDepthBufferFromNormView`, flipped, or a depth buffer's window depth for the depth's own near and far, as three.js
-  r158 reads it, turned back into metres). The report (kept every 5 s while the session runs and when the page hides) (JSON,
+  r158 reads it, turned back into metres; with no far plane, `depthFar` Infinity, as a Quest 3 on Quest Browser 154 gave,
+  `near / (1 - value)`, the report saying `infinite`). *Depth seen from* (after the owner's first reports from a
+  Quest 3, 6 November 2026: their depth was such a depth buffer, which *metres* threw away and *window* turned into
+  NaN): *its own view*, the default, follows each eye's ray into the view the depth was seen from (`XRDepthInformation`'s
+  `transform` and `projectionMatrix`, the view's own where it gives none), a few steps in the shader; *the eye* reads it
+  straight behind the eye's point as before; the report keeps per eye how far that view is from the eye (`offset`: cm and
+  degrees, mean and most, and whether its projection differs). The room's planes and meshes are built again only when
+  their shape changes (`shapeSig`), the old drawing kept until the new one is ready: that Quest marked its 39 planes
+  changed about 45 times a second with nothing changed, and rebuilding each time made Room and Room hides blink and stall
+  (the report: `ticks`, `changes`, `rebuilt`). The report (kept every 5 s while the session runs and when the page hides) (JSON,
   no names: the user agent, what came back, the frame times) is kept in `localStorage` (`roomTestReport`), copied,
   downloaded or sent to a relay that keeps logs (`POST /api/log`, with the app's kept password for that origin). Its
   test is `tools/room-test.mjs`. Untested on a real Quest: that is what it is for.
@@ -4205,7 +4214,11 @@ real WebGL2 depth texture array made in the page, a new one every frame with Web
 half of each eye, far on the right), drawn into a framebuffer of the pretend layer's own, and its pixels show the test pillar and panel hidden where the depth is nearer and drawn where it is farther, in
 both eyes, through three.js and through raw WebGL; depth of 1.9 and 2.1 m against the 2 m pillar; an eye with no depth
 for a frame; rows split top and bottom (identity, *Depth as: metres, flipped*, and a matrix that turns y over); window
-depth for its own near and far (auto reading it so, the close steps right); the ladder after another error; also the
+depth for its own near and far (auto reading it so, the close steps right), and with no far plane (`depthFar` Infinity:
+the report's `infinite`, the probe in metres, the same occlusion and close steps, the picture drawn); depth seen from a view
+0.3 m ahead of each eye (a surface 1.9 m from there drawn 2.2 m from the eye, the 2 m pillar in front of it, behind it
+with *Depth seen from: the eye*; the offset in the report); the room marked changed every frame with the same shapes
+(nothing rebuilt or gone for a frame) and a real change rebuilt once; the ladder after another error; also the
 depth picture's colours, an integer (`'unsigned-short'`)
 texture, CPU depth, a pretend wall, floor and table (Room's labels, Room hides hiding what stands behind the wall), a
 pretend controller pressing the panel's Mode, a session without depth, the format ladder, the frame times (Nothing asking

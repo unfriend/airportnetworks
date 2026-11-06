@@ -106,9 +106,9 @@ function freshReport(mode) {
   return { page: 'room-test', v: 1, at: new Date().toISOString(), mode, ua: navigator.userAgent, webgl2: null, attempts: [],
     session: null, depth: { asked: false, enabled: false, usage: null, format: null, depthType: null, binding: '', frames: 0,
       validFrames: 0, firstValidS: null, eyes: [], errors: {}, fields: [], probe: null, sampler: '', interp: 'auto', used: '',
-      drawWith: 'three', glErrors: {}, threeProgram: '', rawProgram: '' },
-    room: { planesOn: false, meshesOn: false, planes: { count: 0, max: 0, labels: {}, orientations: {}, points: null, firstS: null, changes: 0 },
-      meshes: { count: 0, max: 0, labels: {}, vertices: 0, triangles: 0, firstS: null, changes: 0 }, errors: {}, capture: '' },
+      drawWith: 'three', glErrors: {}, threeProgram: '', rawProgram: '', reproj: true },
+    room: { planesOn: false, meshesOn: false, planes: { count: 0, max: 0, labels: {}, orientations: {}, points: null, firstS: null, changes: 0, ticks: 0, rebuilt: 0 },
+      meshes: { count: 0, max: 0, labels: {}, vertices: 0, triangles: 0, firstS: null, changes: 0, ticks: 0, rebuilt: 0 }, errors: {}, capture: '' },
     modes: {}, floor: null, errors: {}, seconds: 0, ended: '' };
 }
 // quiet: kept on the device only (the autosave while the session runs), the page's copy redrawn after it
@@ -251,9 +251,10 @@ float rawAt(vec2 d) {
 #endif
 }`;
 const FRAG_DEPTH = `
-uniform float uScale, uWin, uFlip, uNear, uFar, uOpacity;
+uniform float uScale, uWin, uFlip, uNear, uFar, uOpacity, uInf, uRe;
 uniform mat4 uM;
 uniform mat4 projectionMatrix;
+uniform mat4 uEyeInvProj, uEyeToDepth, uDepthToEye, uDepthProj, uDepthInvProj;
 vec3 ramp(float m) {
   float t = clamp(log2(max(m, 0.01) / 0.25) / 5.0, 0.0, 1.0);   // 0.25 m .. 8 m
   vec3 c0 = vec3(1.0, 0.18, 0.1), c1 = vec3(1.0, 0.85, 0.1), c2 = vec3(0.2, 0.9, 0.35), c3 = vec3(0.1, 0.8, 1.0), c4 = vec3(0.3, 0.3, 1.0);
@@ -262,25 +263,58 @@ vec3 ramp(float m) {
   if (t < 0.75) return mix(c2, c3, t * 4.0 - 2.0);
   return mix(c3, c4, t * 4.0 - 3.0);
 }
-void main() {
-  vec2 d;
-  if (uWin > 0.5) d = vUv;
-  else {
-    d = (uM * vec4(vUv.x, 1.0 - vUv.y, 0.0, 1.0)).xy;
-    if (uFlip > 0.5) d.y = 1.0 - d.y;
-  }
-  if (d.x < 0.0 || d.y < 0.0 || d.x > 1.0 || d.y > 1.0) discard;
-  float raw = rawAt(d), m;
+// a view's point (0..1, origin bottom left) on the depth texture: as it is for a depth buffer (as three.js r158 reads it),
+// else through normDepthBufferFromNormView from the spec's coordinates (origin top left)
+vec2 texOf(vec2 uv) {
+  if (uWin > 0.5) return uv;
+  vec2 d = (uM * vec4(uv.x, 1.0 - uv.y, 0.0, 1.0)).xy;
+  if (uFlip > 0.5) d.y = 1.0 - d.y;
+  return d;
+}
+// the depth at a point of the depth's own view, in metres along that view's axis (-1: none there)
+float metresAt(vec2 uv) {
+  vec2 d = texOf(uv);
+  if (d.x < 0.0 || d.y < 0.0 || d.x > 1.0 || d.y > 1.0) return -1.0;
+  float raw = rawAt(d);
   if (uWin > 0.5) {
     // a depth buffer's value for the depth's own near and far (the depth information's, else the session's), back to
-    // metres, so it is right even when three.js's eyes use another near and far
-    if (!(raw > 0.0 && raw < 1.0)) discard;
+    // metres, so it is right even when three.js's eyes use another near and far. With no far plane (Quest Browser:
+    // depthFar Infinity) a depth buffer holds 1 - near / z
+    if (!(raw > 0.0 && raw < 1.0)) return -1.0;
+    if (uInf > 0.5) return uNear / (1.0 - raw);
     float z = raw * 2.0 - 1.0;
-    m = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
-  } else {
-    m = raw * uScale;
-    if (!(m > 0.0 && m < 1000.0)) discard;
+    return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
   }
+  float m = raw * uScale;
+  return m > 0.0 && m < 1000.0 ? m : -1.0;
+}
+// the way through a view's point (0..1), from that view's inverse projection, scaled so that its z is -1
+vec3 rayOf(mat4 inv, vec2 uv) {
+  vec4 r = inv * vec4(uv * 2.0 - 1.0, -1.0, 1.0);
+  vec3 p = r.xyz / r.w;
+  return p / -p.z;
+}
+void main() {
+  float m = metresAt(vUv);
+  if (uRe > 0.5) {
+    // the depth was seen from a view of its own (the depth information's transform and projectionMatrix: another place,
+    // maybe an earlier moment): this eye's ray followed into it, a few steps from the depth straight behind this point
+    vec3 e = rayOf(uEyeInvProj, vUv);
+    float z = m > 0.0 ? m : 2.0;
+    bool ok = false;
+    for (int i = 0; i < 4; i++) {
+      vec4 c = uDepthProj * (uEyeToDepth * vec4(e * z, 1.0));
+      if (c.w <= 0.0) { ok = false; break; }
+      vec2 uv = c.xy / c.w * 0.5 + 0.5;
+      float md = metresAt(uv);
+      if (md <= 0.0) { ok = false; break; }
+      vec3 p = (uDepthToEye * vec4(rayOf(uDepthInvProj, uv) * md, 1.0)).xyz;
+      z = -p.z; ok = z > 0.0;
+      if (!ok) break;
+    }
+    if (!ok) discard;
+    m = z;
+  } else if (m <= 0.0) discard;
   vec4 c = projectionMatrix * vec4(0.0, 0.0, -m, 1.0);
   float fd = clamp(c.z / c.w * 0.5 + 0.5, 0.0, 1.0);
 #ifdef PIC
@@ -313,7 +347,9 @@ function depthMaterial(pic) {
   if (D.mats[key]) return D.mats[key];
   const m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: defs(k) + FRAG_HEAD + FRAG_DEPTH,
     uniforms: { uDepth: { value: null }, uLayer: { value: 0 }, uScale: { value: 1 }, uWin: { value: 0 }, uFlip: { value: 0 }, uNear: { value: 0.1 },
-      uFar: { value: 1000 }, uOpacity: { value: 0.55 }, uM: { value: new THREE.Matrix4() } },
+      uFar: { value: 1000 }, uOpacity: { value: 0.55 }, uM: { value: new THREE.Matrix4() }, uInf: { value: 0 }, uRe: { value: 0 },
+      uEyeInvProj: { value: new THREE.Matrix4() }, uEyeToDepth: { value: new THREE.Matrix4() }, uDepthToEye: { value: new THREE.Matrix4() },
+      uDepthProj: { value: new THREE.Matrix4() }, uDepthInvProj: { value: new THREE.Matrix4() } },
     depthTest: !pic, depthWrite: !pic, colorWrite: !!pic, transparent: !!pic });
   if (!pic) m.depthFunc = THREE.AlwaysDepth;
   return (D.mats[key] = m);
@@ -337,8 +373,12 @@ function eyeUniforms(mesh, cam) {
 function setUniforms(u, E) {
   const win = D.used === 'window', set = (k, v) => { if (u[k]) { if (u[k].value && u[k].value.fromArray) u[k].value.fromArray(v); else u[k].value = v; } };
   set('uLayer', E.layer); set('uScale', E.scale); set('uWin', win ? 1 : 0); set('uFlip', D.used === 'metres-flip' ? 1 : 0);
-  set('uNear', E.near); set('uFar', E.far); set('uM', E.matrix);
+  set('uNear', E.near); set('uFar', E.inf ? 1000 : E.far); set('uInf', E.inf ? 1 : 0); set('uM', E.matrix); set('uRe', R.depth.reproj && E.re ? 1 : 0);
+  for (const k of RE_MATS) set(k, E.re ? E.re[k] : IDENT);
 }
+// the matrices that follow this eye's ray into the depth's own view (each eye, each frame)
+const RE_MATS = ['uEyeInvProj', 'uEyeToDepth', 'uDepthToEye', 'uDepthProj', 'uDepthInvProj'];
+const IDENT = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 // a WebGL call that binds a texture of its own, with three.js's idea of what is bound put back after it
 function keepBinding(target, fn) {
   const gl = G.gl, prev = gl.getParameter(target === gl.TEXTURE_2D_ARRAY ? gl.TEXTURE_BINDING_2D_ARRAY : gl.TEXTURE_BINDING_2D);
@@ -455,15 +495,26 @@ function probe() {
     const px = new Uint8Array(16 * 16 * 4);
     gl.readPixels(0, 0, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, px);
     const f = new Float32Array(px.buffer);
-    out.eyes.push(Object.assign({ eye: E.i }, stats(f, E.scale, f[8 * 16 + 8])));
+    const st = stats(f, metresOf(E), f[8 * 16 + 8]), pe = Object.assign({ eye: E.i }, st);
+    Object.defineProperty(pe, 'raw', { value: st.raw, enumerable: false });   // (Object.assign leaves it behind)
+    out.eyes.push(pe);
   }
   rawEnd();
   return out;
 }
-function stats(a, scale, centre) {
+// a raw value in metres as the reading in use takes it (window: a depth buffer's, for its near and far; else raw x scale)
+function metresOf(E) {
+  if (!D || D.used !== 'window') return v => v * E.scale;
+  return v => (!(v > 0 && v < 1) ? NaN : E.inf ? E.near / (1 - v) : 2 * E.near * E.far / (E.far + E.near - (2 * v - 1) * (E.far - E.near)));
+}
+function stats(a, toM, centre) {
+  if (typeof toM === 'number') { const k = toM; toM = v => v * k; }
   const v = Array.from(a).filter(x => isFinite(x)), pos = v.filter(x => x > 0).sort((x, y) => x - y);
-  return { n: v.length, zero: v.filter(x => x === 0).length, min: r3(pos[0]), median: r3(pos[pos.length >> 1]), max: r3(pos[pos.length - 1]),
-    over1: pos.filter(x => x > 1).length, centre: r3(centre), metres: pos.length ? [r3(pos[0] * scale), r3(pos[pos.length >> 1] * scale), r3(pos[pos.length - 1] * scale)] : null };
+  const out = { n: v.length, zero: v.filter(x => x === 0).length, min: r3(pos[0]), median: r3(pos[pos.length >> 1]), max: r3(pos[pos.length - 1]),
+    over1: pos.filter(x => x > 1).length, centre: r3(centre), metres: pos.length ? [r3(toM(pos[0])), r3(toM(pos[pos.length >> 1])), r3(toM(pos[pos.length - 1]))] : null };
+  // (the raw values unrounded, out of the report: metres worked out again once the reading is decided, decideInterp)
+  Object.defineProperty(out, 'raw', { value: pos.length ? [pos[0], pos[pos.length >> 1], pos[pos.length - 1]] : null, enumerable: false });
+  return out;
 }
 // auto: metres unless every value is between 0 and 1 and they bunch near 1, as a depth buffer's do (with no scale to
 // metres, or with a near and far of the depth's own, which only a depth buffer needs); the reason kept in the report
@@ -495,7 +546,10 @@ function rawPass(pic) {
     gl.uniform1i(prog.loc.uDepth, 0);
     const L = prog.loc, win = D.used === 'window';
     gl.uniform1f(L.uLayer, E.layer); gl.uniform1f(L.uScale, E.scale); gl.uniform1f(L.uWin, win ? 1 : 0); gl.uniform1f(L.uFlip, D.used === 'metres-flip' ? 1 : 0);
-    gl.uniform1f(L.uNear, E.near); gl.uniform1f(L.uFar, E.far);
+    gl.uniform1f(L.uNear, E.near); gl.uniform1f(L.uFar, E.inf ? 1000 : E.far);
+    if (L.uInf) gl.uniform1f(L.uInf, E.inf ? 1 : 0);
+    if (L.uRe) gl.uniform1f(L.uRe, R.depth.reproj && E.re ? 1 : 0);
+    for (const k of RE_MATS) if (L[k]) gl.uniformMatrix4fv(L[k], false, E.re ? E.re[k] : IDENT);
     if (L.uOpacity) gl.uniform1f(L.uOpacity, 0.55);
     gl.uniformMatrix4fv(L.uM, false, E.matrix); gl.uniformMatrix4fv(L.projectionMatrix, false, view.projectionMatrix);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -551,26 +605,41 @@ function roomDispose(e) {
   e.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== DEPTH_ONLY) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
   e.g = null;
 }
+// a part's shape, to tell a real change from lastChangedTime moving on (a Quest 3 moved it about 45 times a second for its
+// 39 planes, mostly with nothing changed: rebuilding each time made the room blink and stall)
+function shapeSig(o, kind) {
+  if (kind === 'plane') return Array.from(o.polygon || []).map(p => Math.round(p.x * 1000) + ',' + Math.round(p.y * 1000) + ',' + Math.round(p.z * 1000)).join(';');
+  const v = o.vertices || [], ix = o.indices || [];
+  let h = 7;
+  for (let i = 0; i < v.length; i++) h = (h * 31 + Math.round(v[i] * 1000)) | 0;
+  for (let i = 0; i < ix.length; i++) h = (h * 31 + ix[i]) | 0;
+  return v.length + ':' + ix.length + ':' + h;
+}
 // need: Room or Room hides on show. Otherwise only the summary (no poses, nothing built); at most two parts built a
-// frame, and a frame that builds is left out of the times
+// frame, and a frame that builds is left out of the times. A part whose shape changed keeps its old drawing until the
+// new one is built (never a gap); lastChangedTime moving on with the same shape builds nothing (ticks; changes are real)
 function roomSync(set, map, kind, frame, ref, t, need, budget) {
   const st = R.room[kind === 'plane' ? 'planes' : 'meshes'], seen = new Set();
   set.forEach(o => {
     seen.add(o);
     let e = map.get(o);
     if (!e || e.changed !== o.lastChangedTime) {
-      if (e) { roomDispose(e); st.changes++; }
-      let info = null;
-      try { info = roomInfo(o, kind); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); return; }
-      e = { g: null, changed: o.lastChangedTime, info, label: labelOf(o) };
-      map.set(o, e);
+      let info = null, sig = '';
+      try { info = roomInfo(o, kind); sig = shapeSig(o, kind); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); return; }
+      if (e) {
+        st.ticks++; e.changed = o.lastChangedTime; e.info = info;
+        if (sig !== e.sig) { st.changes++; e.sig = sig; e.stale = true; e.label = labelOf(o); }
+      } else { e = { g: null, changed: o.lastChangedTime, info, label: labelOf(o), sig, stale: false }; map.set(o, e); }
     }
     if (!need) return;
-    if (!e.g) {
-      if (budget.n <= 0) return;
-      budget.n--; S.heavy = true;
-      try { e.g = roomBuild(o, kind, e.label); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); return; }
-      G.room.add(e.g);
+    if (!e.g || e.stale) {
+      if (budget.n > 0) {
+        budget.n--; S.heavy = true; e.stale = false;
+        let g = null;
+        try { g = roomBuild(o, kind, e.label); } catch (err) { tally(R.room.errors, kind + ': ' + msg(err)); }
+        if (g) { if (e.g) roomDispose(e); e.g = g; G.room.add(g); st.rebuilt++; }
+      }
+      if (!e.g) return;
     }
     let pose = null;
     try { pose = frame.getPose(kind === 'plane' ? o.planeSpace : o.meshSpace, ref); } catch (err) { tally(R.room.errors, kind + ' pose: ' + msg(err)); }
@@ -604,6 +673,7 @@ function makePanel() {
 }
 function buttonsNow() {
   const b = [['mode', 'Mode: ' + MODES[S.mode][1]], ['interp', 'Depth as: ' + R.depth.interp], ['draw', 'Draw with: ' + (R.depth.drawWith === 'raw' ? 'raw WebGL' : 'three.js')],
+    ['align', 'Depth seen from: ' + (R.depth.reproj ? 'its own view' : 'the eye')],
     ['save', 'Save report'], ['here', 'Bring here'], ['exit', 'Exit']];
   if (S.captureOffer && !R.room.capture) b.push(['capture', 'Set up the room']);
   return b;
@@ -644,7 +714,9 @@ function drawPanel(now) {
       line(`${i ? 'Right' : 'Left'}: ${e.textureType || 'CPU'}${e.imageIndex !== undefined ? ' #' + e.imageIndex : ''}, ${e.width} x ${e.height}, raw to m ${e.rawValueToMeters}, valid ${Math.round(100 * (e.valid / Math.max(1, e.calls)))} %`, 26);
     });
     const P0 = Dp.probe && Dp.probe.eyes[0];
-    if (P0) line(`Values (left): ${P0.min} to ${P0.max}, median ${P0.median}; ${P0.zero} of ${P0.n} none`, 26, '#9fb0c8');
+    if (P0) line(`Values (left): ${P0.min} to ${P0.max}, median ${P0.median}; ${P0.zero} of ${P0.n} none${P0.metres ? ` (${P0.metres.map(v => (+v).toFixed(2)).join(', ')} m)` : ''}`, 26, '#9fb0c8');
+    const O = Dp.eyes[0] && Dp.eyes[0].offset;
+    if (O) line(O.own ? `Depth's own view: ${O.cm.toFixed(1)} cm (at most ${O.cmMax.toFixed(1)}), ${O.deg.toFixed(1)}° (at most ${O.degMax.toFixed(1)}) from the left eye${O.proj > 0.001 ? ', its own lens' : ''}` : 'The depth gives no view of its own: the eye\'s', 26, '#9fb0c8');
     line(`Read as: ${INTERP_NAME[D && D.used] || 'not yet'}${Dp.interp === 'auto' ? ' (auto)' : ''} · drawn with ${Dp.drawWith === 'raw' ? 'raw WebGL' : 'three.js'}`, 26, '#9fb0c8');
   }
   y += 6;
@@ -661,6 +733,7 @@ function drawPanel(now) {
   const Rm = R.room;
   line(`Planes: ${Rm.planesOn ? Rm.planes.count + ' (' + lab(Rm.planes.labels) + ')' : 'not enabled'}`, 26);
   line(`Meshes: ${Rm.meshesOn ? Rm.meshes.count + ' (' + lab(Rm.meshes.labels) + '), ' + Rm.meshes.triangles + ' triangles' : 'not enabled'}`, 26);
+  if (Rm.planes.ticks || Rm.meshes.ticks) line(`Marked changed: planes ${Rm.planes.ticks}, meshes ${Rm.meshes.ticks}; really changed ${Rm.planes.changes} and ${Rm.meshes.changes}`, 24, '#9fb0c8');
   if (Rm.capture) line('Room setup: ' + Rm.capture, 24, '#9fb0c8');
   const errs = Object.entries(Object.assign({}, R.errors, Dp.errors, Rm.errors, Dp.glErrors)).slice(-3);
   for (const [k, n] of errs) line(`${n} x ${k}`, 22, '#ff6b6b');
@@ -716,6 +789,7 @@ function act(id) {
   if (id === 'mode') setMode((S.mode + 1) % MODES.length);
   else if (id === 'interp') { R.depth.interp = INTERPS[(INTERPS.indexOf(R.depth.interp) + 1) % INTERPS.length]; if (D) decideInterp(); }
   else if (id === 'draw') { R.depth.drawWith = R.depth.drawWith === 'raw' ? 'three' : 'raw'; R.depth.drawChosen = true; }
+  else if (id === 'align') R.depth.reproj = !R.depth.reproj;
   else if (id === 'save') saveReport('pressed');
   else if (id === 'here') S.bring = true;
   else if (id === 'exit') { try { S.session.end(); } catch (e) { tally(R.errors, 'end: ' + msg(e)); } }
@@ -941,6 +1015,30 @@ function threeCheck(md, err) {
   S.threeErr = err ? (S.threeErr || 0) + 1 : 0;
   if ((bad || S.threeErr >= 3) && !R.depth.drawChosen) { R.depth.drawWith = 'raw'; R.depth.switched = `three.js failed in ${md} (${bad ? 'program' : 'WebGL error ' + err + ' at three checks in a row'}): raw WebGL from ${r3((performance.now() - S.t0) / 1000)} s`; }
 }
+// The depth's own view (XRDepthInformation's transform and projectionMatrix, the XRViewGeometry the spec gives it; the
+// view's own when it gives none): the matrices that take this eye's points into it and back, and how far it is from the
+// eye (kept per eye in the report: cm and degrees, mean and most, and the largest difference in the projections), which
+// says whether the session gave depth aligned with the view (matchDepthView) or from elsewhere
+const RE_T = { m: [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()], q: [new THREE.Quaternion(), new THREE.Quaternion()], p: [new THREE.Vector3(), new THREE.Vector3()], s: new THREE.Vector3() };
+function reproj(view, info, ey) {
+  let dT = null, dP = null;
+  try { dT = info.transform && info.transform.matrix ? info.transform.matrix : null; } catch (e) { dT = null; }
+  try { dP = info.projectionMatrix || null; } catch (e) { dP = null; }
+  const vT = view.transform.matrix, vP = view.projectionMatrix;
+  const [eyeT, depT, eyeToDepth, inv] = RE_T.m, _p = RE_T.p, _q = RE_T.q, _s = RE_T.s;
+  eyeT.fromArray(vT); depT.fromArray(dT || vT);
+  eyeToDepth.copy(depT).invert().multiply(eyeT);
+  const re = { uEyeToDepth: eyeToDepth.toArray(), uDepthToEye: inv.copy(eyeToDepth).invert().toArray(), uEyeInvProj: inv.fromArray(vP).invert().toArray(),
+    uDepthProj: Array.from(dP || vP), uDepthInvProj: inv.fromArray(dP || vP).invert().toArray() };
+  if (!re.uEyeInvProj.every(isFinite) || !re.uDepthInvProj.every(isFinite) || !re.uDepthToEye.every(isFinite)) return null;
+  const o = ey.offset || (ey.offset = { own: false, n: 0, cm: 0, cmMax: 0, deg: 0, degMax: 0, proj: 0 });
+  o.own = o.own || !!(dT || dP);
+  eyeT.decompose(_p[0], _q[0], _s); depT.decompose(_p[1], _q[1], _s);
+  const cm = _p[0].distanceTo(_p[1]) * 100, deg = _q[0].angleTo(_q[1]) * 180 / Math.PI;
+  o.n++; o.cm += (cm - o.cm) / o.n; o.deg += (deg - o.deg) / o.n; o.cmMax = Math.max(o.cmMax, cm); o.degMax = Math.max(o.degMax, deg);
+  if (dP) for (let k = 0; k < 16; k++) o.proj = Math.max(o.proj, Math.abs(dP[k] - vP[k]));
+  return re;
+}
 // the depth, each frame: what each eye gets (GPU through the binding, CPU from the frame), summarised
 function depthStep(frame, t) {
   const Dp = R.depth;
@@ -963,7 +1061,7 @@ function depthStep(frame, t) {
     const mat = g('normDepthBufferFromNormView'), M = mat && mat.matrix ? Array.from(mat.matrix) : [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     const first = ey.width === undefined;
     const now = { textureType: g('textureType'), imageIndex: g('imageIndex'), width: g('width'), height: g('height'), rawValueToMeters: g('rawValueToMeters'),
-      matrix: M.map(r3), depthNear: g('depthNear'), depthFar: g('depthFar') };
+      matrix: M.map(r3), depthNear: g('depthNear'), depthFar: g('depthFar') === Infinity ? 'infinite' : g('depthFar') };
     if (g('projectionMatrix')) now.projectionMatrix = Array.from(g('projectionMatrix')).map(r3);
     if (g('transform')) { try { now.transform = Array.from(info.transform.matrix).map(r3); } catch (e) { /* none */ } }
     if (!gpu) { try { now.centreM = r3(info.getDepthInMeters(0.5, 0.5)); } catch (e) { tally(Dp.errors, 'getDepthInMeters: ' + msg(e)); } }
@@ -976,11 +1074,12 @@ function depthStep(frame, t) {
       Dp.sampler = Dp.sampler || (gpu ? (D.kind.la ? 'luminance-alpha (two bytes)' : 'float') : 'CPU data uploaded as metres');
     }
     const rv = +g('rawValueToMeters') || 1, dn = +g('depthNear'), df = +g('depthFar'), own = dn > 0 && df > dn;
+    const far = own ? df : (rs.depthFar || 1000);
     const E = { i, info, rv, tex: gpu ? info.texture : null, layer: arr ? (+g('imageIndex') || 0) : 0, matrix: M, cpu: !gpu,
       // a 16-bit value read through a float sampler comes as value / 65535
       scale: !gpu ? 1 : (Dp.format === 'unsigned-short' && !D.kind.int ? rv * 65535 : rv),
       // a depth buffer's near and far: the depth information's own when it gives them, else the session's
-      near: own ? dn : (rs.depthNear || 0.1), far: own ? df : (rs.depthFar || 1000), ownRange: own };
+      near: own ? dn : (rs.depthNear || 0.1), far, inf: !(far < 1e6), ownRange: own, re: reproj(view, info, ey) };
     if (!gpu) cpuUpload(E, info, rv);
     else { if (!D.ph[i]) D.ph[i] = placeholder(arr); ready(E.tex, arr ? G.gl.TEXTURE_2D_ARRAY : G.gl.TEXTURE_2D); }
     D.eyes[i] = E;
@@ -992,7 +1091,13 @@ function depthStep(frame, t) {
     // the probe: once as the first depth comes, then every 2 s (it reads pixels back: the frame is left out of the times)
     if (gpu && performance.now() - S.probeAt > 2000) { S.probeAt = performance.now(); S.heavy = true; try { Dp.probe = probe(); } catch (e) { tally(Dp.errors, 'probe: ' + msg(e)); try { rawEnd(); } catch (er) { /* */ } } }
     if (!gpu && performance.now() - S.probeAt > 2000) { S.probeAt = performance.now(); Dp.probe = { at: r3(t), eyes: D.eyes.filter(Boolean).map(E => Object.assign({ eye: E.i }, stats(E.metres.filter((v, j) => j % 7 === 0), 1, E.metres[(E.metres.length >> 1)]))) }; }
+    const was = D.used;
     decideInterp();
+    // the probe's metres by the reading now decided (the first probe comes before it is)
+    if (gpu && Dp.probe && (D.used !== was || Dp.probe.by !== D.used)) {
+      Dp.probe.by = D.used;
+      for (const pe of Dp.probe.eyes) { const E = D.eyes[pe.eye]; if (E && pe.raw) pe.metres = pe.raw.map(metresOf(E)).map(r3); }
+    }
     Dp.used = D.used;
   }
   if (gpu && D.kind && S.views.some((v, i) => !D.eyes[i])) zeroTex(D.kind);   // (made before anything draws)

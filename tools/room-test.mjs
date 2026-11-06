@@ -39,7 +39,9 @@ const step = async (name, fn) => { const n = errors.length; try { await fn(); } 
 
 // ------------------------------------------------------------------------------------------- the pretend headset
 // o: { depth: 'gpu' | 'gpu16' (unsigned-short in an integer texture, in mm) | 'window' (a depth buffer's values for its own
-// near and far, 0.1 and 20 m) | 'cpu' | 'none', room: bool, refuseUS: bool (a TypeError for 'unsigned-short'),
+// near and far, 0.1 and 20 m) | 'window-inf' (the same with no far plane, depthFar Infinity: 1 - 0.1 / z, as a Quest 3
+// gave) | 'cpu' | 'none', room: bool, refuseUS: bool (a TypeError for 'unsigned-short'), depthView: 'ahead' (the depth
+// information's own transform 0.3 m ahead of each eye, its projection the eye's),
 // split: 'x' (near on the left half, far on the right) | 'y' (near on the rows from 0, the top under the spec's
 // convention), flip: bool (normDepthBufferFromNormView turns y over) }. At run time: F.near and F.far (metres), F.drop
 // (an eye, 'left' or 'right', that gets no depth). As a headset does, the session hands out a new texture every frame
@@ -49,10 +51,10 @@ function FAKE(o) {
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
-  const DW = 64, DH = 64, WN = 0.1, WF = 20;
+  const DW = 64, DH = 64, WN = 0.1, WF = o.depth === 'window-inf' ? Infinity : 20, win = /^window/.test(o.depth);
   const F = window.__fake = { o, session: null, time: 0, aim: null, src: null, tex: null, texFrame: -1, frameNo: 0, made: 0, calls: 0, near: 0.5, far: 4, drop: null };
   const depthAt = (x, y) => ((o.split === 'y' ? y < DH / 2 : x < DW / 2) ? F.near : F.far);
-  const toWin = m => ((WF + WN) / (WF - WN) - 2 * WF * WN / ((WF - WN) * m)) * 0.5 + 0.5;
+  const toWin = m => (WF === Infinity ? 1 - WN / m : ((WF + WN) / (WF - WN) - 2 * WF * WN / ((WF - WN) * m)) * 0.5 + 0.5);
   const flipY = () => new Float32Array([1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1]);
   const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
   // the room: a floor, a wall 1.8 m ahead (behind the 1 and 1.5 m pillars, in front of the panel and the 2 and 3 m ones), a table
@@ -63,6 +65,7 @@ function FAKE(o) {
   for (const x of [-hx, hx]) for (const y of [-hy, hy]) for (const z of [-hz, hz]) bv.push(x, y, z);
   const bi = [0, 1, 3, 0, 3, 2, 4, 6, 7, 4, 7, 5, 0, 4, 5, 0, 5, 1, 2, 3, 7, 2, 7, 6, 0, 2, 6, 0, 6, 4, 1, 5, 7, 1, 7, 3];
   const meshes = new Set([{ meshSpace: { matrix: tr(0.9, -1.2, -1.2) }, vertices: new Float32Array(bv), indices: new Uint32Array(bi), semanticLabel: 'table', lastChangedTime: 1 }]);
+  F.planes = planes; F.meshes = meshes;
   class Session extends EventTarget {
     constructor(mode, feats) {
       super(); this.mode = mode; this.renderState = { depthNear: 0.1, depthFar: 1000, baseLayer: null }; this.inputSources = []; this.visibilityState = 'visible';
@@ -97,7 +100,7 @@ function FAKE(o) {
       if (F.texFrame !== F.frameNo) {   // a new real texture array each frame, made in the page's own context; the last one taken back
         const gl = this.gl, prev = gl.getParameter(gl.TEXTURE_BINDING_2D_ARRAY), fy = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL), pm = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
         const mm = o.depth === 'gpu16', t = gl.createTexture(), d = mm ? new Uint16Array(DW * DH * 2) : new Float32Array(DW * DH * 2);
-        for (let l = 0; l < 2; l++) for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) { const m = depthAt(x, y); d[l * DW * DH + y * DW + x] = mm ? m * 1000 : o.depth === 'window' ? toWin(m) : m; }
+        for (let l = 0; l < 2; l++) for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) { const m = depthAt(x, y); d[l * DW * DH + y * DW + x] = mm ? m * 1000 : win ? toWin(m) : m; }
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
         gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, mm ? gl.R16UI : gl.R32F, DW, DH, 2, 0, mm ? gl.RED_INTEGER : gl.RED, mm ? gl.UNSIGNED_SHORT : gl.FLOAT, d);   // (its filter left as made: the page sets nearest)
@@ -106,7 +109,8 @@ function FAKE(o) {
         F.tex = t; F.texFrame = F.frameNo; F.made++;
       }
       const info = { texture: F.tex, textureType: 'texture-array', imageIndex: view.eye === 'left' ? 0 : 1, width: DW, height: DH, rawValueToMeters: o.depth === 'gpu16' ? 0.001 : 1, normDepthBufferFromNormView: { matrix: o.flip ? flipY() : ident() } };
-      if (o.depth === 'window') { info.depthNear = WN; info.depthFar = WF; }
+      if (win) { info.depthNear = WN; info.depthFar = WF; }
+      if (o.depthView === 'ahead') { info.transform = { matrix: tr(view.transform.matrix[12], 0, -0.3) }; info.projectionMatrix = view.projectionMatrix; }
       return info;
     }
   };
@@ -134,6 +138,7 @@ function FAKE(o) {
   F.step = (n = 1) => {
     for (let i = 0; i < n; i++) {
       F.time += 1000 / 72; F.frameNo++;
+      if (F.tickRoom) { for (const q of planes) q.lastChangedTime++; for (const q of meshes) q.lastChangedTime++; }   // (marked changed, the same shapes)
       const cbs = [...F.session.cbs.values()]; F.session.cbs.clear();
       const fr = F.frame();
       for (const cb of cbs) cb(F.time, fr);
@@ -297,6 +302,21 @@ await step('Room: the pretend floor, wall and table drawn with their labels, cou
   // the wall's see-through fill where the panel was (the test things are not drawn in Room)
   const px = await looks(pg, [P.panelR(0), P.panelR(1)]);
   if (px.some(p => !p[3])) errors.push('the wall not drawn: ' + JSON.stringify(px));
+  // marked changed every frame with the same shapes (as a Quest 3's planes were, 45 times a second): nothing rebuilt, nothing
+  // gone for a frame; a real change rebuilt once, the old drawing there until the new one is
+  const t = await pg.evaluate(() => {
+    const F = window.__fake, Rm = RT.R.room, b0 = [Rm.planes.rebuilt, Rm.meshes.rebuilt], kids = [];
+    F.tickRoom = true;
+    for (let i = 0; i < 30; i++) { F.step(1); kids.push(RT.G.room.children.length); }
+    const same = { ticks: [Rm.planes.ticks, Rm.meshes.ticks], changes: [Rm.planes.changes, Rm.meshes.changes], rebuilt: [Rm.planes.rebuilt - b0[0], Rm.meshes.rebuilt - b0[1]] };
+    const wall = [...F.planes].find(q => q.semanticLabel === 'wall'), kids2 = [];
+    wall.polygon = wall.polygon.map(q => ({ x: q.x * 1.1, y: q.y, z: q.z }));
+    for (let i = 0; i < 6; i++) { F.step(1); kids2.push(RT.G.room.children.length); }
+    F.tickRoom = false;
+    return { same, kids, kids2, after: { changes: Rm.planes.changes, rebuilt: Rm.planes.rebuilt - b0[0] } };
+  });
+  if (t.same.ticks[0] < 50 || t.same.ticks[1] < 25 || t.same.changes.join() !== '0,0' || t.same.rebuilt.join() !== '0,0' || t.kids.some(k => k !== 3) ||
+    t.after.changes !== 1 || t.after.rebuilt !== 1 || t.kids2.some(k => k !== 3)) errors.push('room marked changed: ' + JSON.stringify(t));
 });
 await step('Room hides: what stands behind the pretend wall hidden, what stands before it drawn (no depth pass)', async () => {
   await mode(pg, 'roomhide');
@@ -403,6 +423,41 @@ await step('window depth (a depth buffer for its own near and far, 0.1 to 20 m):
     await page.evaluate(() => { window.__fake.near = window.__fake.far = 2.1; });
     await expect(page, `window 2.1 m (${how})`, { pillar2: true, pillar15: true, panelR: false });
   }
+  await ctx.close();
+});
+await step('window depth with no far plane (depthFar Infinity, as a Quest 3 gave: 1 - 0.1 / z): auto reads it so, the report says infinite, the probe in metres, the same occlusion', async () => {
+  const { page, ctx } = await openPage({ name: 'windowinf', depth: 'window-inf', room: false });
+  await enterAR(page);
+  await mode(page, 'occlusion');
+  const d = await page.evaluate(() => ({ used: RT.D.used, why: RT.R.depth.autoWhy, eye: RT.R.depth.eyes[0], inf: RT.D.eyes[0] && RT.D.eyes[0].inf, probe: RT.R.depth.probe && RT.R.depth.probe.eyes[0] }));
+  if (d.used !== 'window' || !/depth buffer/.test(d.why) || d.eye.depthFar !== 'infinite' || !d.inf || !d.probe || d.probe.metres.join() !== '0.5,4,4') errors.push('window depth, no far plane: ' + JSON.stringify(d));
+  await expect(page, 'window depth, no far plane', { panelL: false, panelR: true, pillar1: false, pillar15: true });
+  for (const how of ['three', 'raw']) {
+    if (how === 'raw') await page.evaluate(() => RT.act('draw'));
+    await page.evaluate(() => { window.__fake.near = window.__fake.far = 1.9; });
+    await expect(page, `no far plane, 1.9 m (${how})`, { pillar2: false, pillar15: true });
+    await page.evaluate(() => { window.__fake.near = window.__fake.far = 2.1; });
+    await expect(page, `no far plane, 2.1 m (${how})`, { pillar2: true, pillar15: true, panelR: false });
+  }
+  await mode(page, 'picture');
+  const got = await looks(page, [[0, 0.5, 0.85], [1, 0.5, 0.85]]);
+  if (got.some(p => !p[3])) errors.push('picture with no far plane: nothing drawn ' + JSON.stringify(got));
+  await ctx.close();
+});
+await step('depth seen from a view of its own (0.3 m ahead of each eye): followed into it, a surface 1.9 m from there is 2.2 m from the eye (the 2 m pillar in front of it); seen from the eye instead it hides that pillar; the report says how far the view is', async () => {
+  const { page, ctx } = await openPage({ name: 'ahead', depth: 'gpu', room: false, depthView: 'ahead' });
+  await enterAR(page);
+  await mode(page, 'occlusion');
+  await page.evaluate(() => { window.__fake.near = window.__fake.far = 1.9; });
+  for (const how of ['three', 'raw']) {
+    if (how === 'raw') await page.evaluate(() => RT.act('draw'));
+    await expect(page, `its own view (${how})`, { pillar2: true, pillar15: true, panelR: false });
+    await page.evaluate(() => RT.act('align'));
+    await expect(page, `seen from the eye (${how})`, { pillar2: false, pillar15: true, panelR: false });
+    await page.evaluate(() => RT.act('align'));
+  }
+  const o = await page.evaluate(() => ({ off: RT.R.depth.eyes[0].offset, re: RT.R.depth.reproj }));
+  if (!o.off || !o.off.own || Math.abs(o.off.cm - 30) > 0.5 || o.off.deg > 0.1 || o.off.proj !== 0 || !o.re) errors.push('the depth\'s own view in the report: ' + JSON.stringify(o));
   await ctx.close();
 });
 await step('a first request refused for another reason: the next rung (depth with fewer formats) is still tried', async () => {
