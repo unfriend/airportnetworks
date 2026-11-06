@@ -1843,6 +1843,8 @@
       if (how !== 'walk') return;
       log('lobby', { st: id, was: C.live });
       C.mine = ''; C.live = ''; C.picked = false; VW.id = '';
+      // the story loaded hears it (the studio forgets what this headset has seen there: its cubes start afresh)
+      try { if (HOST.cur && typeof HOST.cur.lobby === 'function') HOST.cur.lobby(); } catch (e) { log('lobby hook failed', { e: e && e.message }); }
       changed();
       return;
     }
@@ -2826,6 +2828,10 @@
     OV.ask = sheet(720, 300, 0.42, 55);
     OV.ask.mesh.userData.shell = { kind: 'ask' };
     OV.root.add(OV.ask.mesh); OV.ask.mesh.visible = false;
+    // the check by eye's question (EYEQ: are both crosses on your spots?), the same way
+    OV.eye = sheet(720, 290, 0.42, 55);
+    OV.eye.mesh.userData.shell = { kind: 'eye' };
+    OV.root.add(OV.eye.mesh); OV.eye.mesh.visible = false;
     OV.fps = sheet(800, 120, 0.36, 52);
     OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
@@ -2838,6 +2844,9 @@
     OV.markLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]),
       new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 }));
     OV.marks.add(OV.crossA, OV.crossB, OV.markLine); OV.room.add(OV.marks);
+    // (drawn over everything: on a table corner the room's own depth, or the scene, would hide a cross a little under it,
+    // and the check by eye is about where they are)
+    OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 56; });
     OV.aims = [aim(), aim()]; OV.calA = cross();
     OV.root.add(OV.aims[0], OV.aims[1], OV.calA);
     OV.root.visible = false;
@@ -2860,8 +2869,8 @@
   // (not while the trigger takes the controller's tip: a calibration, or a check, goes to the spot itself, not to where
   // this headset puts it)
   function drawMarks() {
-    const mk = R.mk, t = performance.now();
-    OV.marks.visible = OV.room.visible && !!mk && !tipMode() && (PNL.open || t < R.showUntil);
+    const eye = eyeShown(), mk = eye ? roomMk() : R.mk, t = performance.now();   // (asked by eye: where this headset puts the room's spots)
+    OV.marks.visible = OV.room.visible && !!mk && !tipMode() && (eye || PNL.open || t < R.showUntil);
     if (OV.marks.visible) {
       OV.crossA.position.set(0, mk[0], 0); OV.crossB.position.set(mk[1], mk[2], 0);
       OV.crossA.visible = OV.crossB.visible = true;
@@ -3152,7 +3161,7 @@
     return o;
   }
   function stationLine(s) {
-    if (s.kind === LOBBY_ST) return askFirst() ? 'Press: back to every circle' : 'Walk in: back to every circle';
+    if (s.kind === LOBBY_ST) return askFirst() ? 'Walk in or press: back to every circle' : 'Walk in: back to every circle';
     if (s.kind === ALL && !runs(s)) return 'Choosing a story';
     const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
@@ -3187,7 +3196,7 @@
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
     const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
-      [askFirst() ? (s.kind === LOBBY_ST ? 'Point here and press to leave your story.' : s.kind === ALL ? 'Point here and press to choose a story.' : 'Point here and press to go in.') :
+      [askFirst() ? (s.kind === LOBBY_ST ? 'Walk in, or press here, to leave your story.' : s.kind === ALL ? 'Point here and press to choose a story.' : 'Point here and press to go in.') :
         s.kind === LOBBY_ST ? 'Walk in to leave your story.' : s.kind === ALL ? 'Walk in to choose a story.' : 'Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
     tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
@@ -3304,8 +3313,27 @@
   // "just hide it once i am inside, only show it if i turn on the show all rings in the menu"): not drawn and not
   // pointable. Show all rings (the menu's Circles tab; this headset's own, kept here and never in the room) shows every
   // ring at any distance, yours too. Before any circle everything shows
+  // With the circles asked first (the room's setting) no ring is drawn at all, the lobby's and your own too, unless Show all
+  // rings is on (the owner, 6 November 2026: "Circles should not show at all when not in all circles on mode since entering
+  // them is now done via selection by clicking the card and accepting"): the cards and icons stay, they are what you press
   const RINGS = { all: get('collabRings') === 'all' }, ringsAll = () => RINGS.all;
   function setRingsAll(on) { RINGS.all = !!on; put('collabRings', on ? 'all' : null); log('rings', { all: !!on }); changed(); }
+  // The other circles hidden (HOST.collab.hideOthers, for the studio: a scene of its own in the room): while on and this
+  // headset is at a studio station, every other station's ring, card and icon is neither drawn nor pointable (people stay
+  // as they are); it lapses when the live station or its story changes (sig: what it was asked for). Pages are as ever
+  const HIDE = { on: false, sig: '' };
+  const hideSig = () => { const L = liveSt(); return L ? L.id + '|' + L.story : ''; };
+  function hideOthers(on) {
+    on = !!on;
+    if (on !== HIDE.on || (on && HIDE.sig !== hideSig())) log('hide others', { on, st: C.live });
+    HIDE.on = on; HIDE.sig = on ? hideSig() : '';
+    return hidingOthers();
+  }
+  function hidingOthers() {
+    if (HIDE.on && HIDE.sig !== hideSig()) { HIDE.on = false; HIDE.sig = ''; log('hide others', { on: false, why: 'station' }); }
+    const L = HIDE.on && liveSt();
+    return !!(L && L.story === STUDIO && HOST.session);
+  }
   const HOV = [];   // what the controllers point at, this frame
   const PEEK = { hold: 2000, in: 12, out: 5 };   // (ms shown after the pointing stops; how fast it comes and goes, per s)
   const RING = { y: 0.5, near: 2, far: 2.2, in: 6, out: 4 };   // (its height over the floor; m from its spot: in a circle a ring shows within near and goes beyond far; how fast)
@@ -3322,14 +3350,18 @@
     for (const [id, o] of OV.cards) if (!ids.has(id) || yours(C.stById.get(id))) {
       o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); OV.cards.delete(id);
     }
+    const noRings = askFirst() && !RINGS.all, hide = hidingOthers();
     for (const s of C.st) {
       const r = ringFor(s), live = yours(s), hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
       // its ring: always before any circle, with Show all rings and while carried; in a circle another station's only
       // near its spot, your own never
       // (the room's arc, in a headset at it: nothing, its cards are the circle; one that became a circle while this headset
       // was at it, never walked into: its ring while you stand outside it, so you see where it is)
+      // (circles asked first: none, unless Show all rings; the others hidden at a studio station: none of theirs, nor their
+      // cards and icons, nothing of them to point at: r.hid, r.noRing)
       const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0, own = !!L && s.id === L.id, arc = s.arc && here();
-      const nw = arc ? 0 : !L || RINGS.all || MV.id === s.id || (own && C.arcd === s.id && d > NEAR) || (!own && d < (r.near > 0.5 ? RING.far : RING.near)) ? 1 : 0;
+      r.hid = hide && !own; r.noRing = r.hid || noRings;
+      const nw = arc || r.noRing ? 0 : !L || RINGS.all || MV.id === s.id || (own && C.arcd === s.id && d > NEAR) || (!own && d < (r.near > 0.5 ? RING.far : RING.near)) ? 1 : 0;
       if (r.near === undefined) r.near = nw;
       r.near += (nw - r.near) * (1 - Math.exp(-dt * (nw ? RING.in : RING.out)));
       if (Math.abs(nw - r.near) < 0.01) r.near = nw;
@@ -3343,8 +3375,8 @@
       r.peek += (want - r.peek) * (1 - Math.exp(-dt * (peek ? PEEK.in : PEEK.out)));
       if (Math.abs(want - r.peek) < 0.01) r.peek = want;
       // its icon in every mode (not a card: with cards hidden it tells the circles apart), but not over your own station
-      iconStep(r, S, !live && !arc, dt);
-      if (live || arc) continue;
+      iconStep(r, S, !live && !arc && !r.hid, dt);
+      if (live || arc || r.hid) { const c = OV.cards.get(s.id); if (c) c.mesh.visible = false; continue; }
       // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
       const c = cardFor(s, cm), k = r.peek * Math.min(1, Math.max(0, ((R.headOK ? d : 9) - CARD_NEAR[0]) / (CARD_NEAR[1] - CARD_NEAR[0])));
       c.mesh.visible = cm !== 'hidden' && k > 0.02;
@@ -3616,7 +3648,8 @@
     } else if (k === 1) {
       // Line up: what to do now (lineCase), and why after a check that was out
       const c = lineCase(), L = lineUp(), red = GD.red;
-      if (red && c !== 'calib') para(red.spot === 'p' ? `Your last check was ${Math.round(red.d * 100)} cm out against someone else's tip.` : `Your last check: spot ${red.spot.toUpperCase()} was ${Math.round(red.d * 100)} cm from where this headset puts it.`, RED);
+      if (red && c !== 'calib') para(red.spot === 'p' ? `Your last check was ${Math.round(red.d * 100)} cm out against someone else's tip.` : red.spot === 'e' ? 'You said the orange crosses are not on your spots.' :
+        `Your last check: spot ${red.spot.toUpperCase()} was ${Math.round(red.d * 100)} cm from where this headset puts it.`, RED);
       if (c === 'calib') {
         para(R.calib.step === 'a' ? 'Put the bright ring at your controller\'s tip on spot A itself, hold still and pull the trigger.' : 'Now on spot B, a metre or more from A: hold still and pull the trigger.');
         calBtn(x, bw, false); y += 76;
@@ -4103,7 +4136,7 @@
       const af = askFirst();
       button(S, 'askfirst', x, y, bw, 56, af ? 'Circles: ask first' : 'Circles: walk in', () => setAsk(!af), { px: 21, on: af });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      wrapText(ctx, af ? 'For everyone here: point at a circle and press to go in' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
+      wrapText(ctx, af ? 'For everyone here: press a card or icon to go in; no rings' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
@@ -4262,7 +4295,7 @@
     const s = C.stById.get(ASK.id);
     askClose('go');
     if (!s || !C.code) return;
-    C.zone = s.id; C.cand = '';
+    C.zone = s.id; C.cand = ''; C.lobbyArm = false;   // (standing in the lobby as you go in somewhere: not taken back there until you step out of it)
     log('zone', { st: s.id, asked: true });
     choose(s.id, 'walk');
     sfx('enter');   // (as walking in: a gentle swell all round you)
@@ -4301,15 +4334,105 @@
   }
   // the right index fingertip presses its buttons as it does the menu's (within 1.5 cm of the panel over one, again once
   // pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once with it)
-  function pokeAsk() {
-    const S = OV.ask, P = ASK.poke;
+  // (the check by eye's panel, below, the same way)
+  const pokeAsk = () => pokeSheet(OV.ask, ASK.poke, 'ask');
+  function pokeSheet(S, P, what) {
     if (!POKE.ok || !S || !S.mesh.visible) { P.armed = true; P.hov = null; return; }
     const lp = S.mesh.worldToLocal(_v2.copy(POKE.tip)), u = lp.x / S.mw + 0.5, v = 0.5 - lp.y / (S.mw * S.h / S.w), dz = lp.z;
     const on = u >= 0 && u <= 1 && v >= 0 && v <= 1, r = on && dz > -0.03 && dz < 0.05 ? S.at(u * S.w, v * S.vis) : null;
     if (r && r.fn && r.id !== P.hov) sfx('hover', POKE.tip);
     P.hov = r ? r.id : null;
     if (dz > 0.03 || (!on && dz > 0)) P.armed = true;
-    else if (P.armed && dz < 0.015 && r && r.fn) { P.armed = false; if (!twice(r.id, 'finger')) { log('ask', { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
+    else if (P.armed && dz < 0.015 && r && r.fn) { P.armed = false; if (!twice(r.id, 'finger')) { log(what, { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
+  }
+
+  // ------------------------------------------------------ the check by eye --
+  // The check by eye (v119; the owner, 6 November 2026: "At the beginning of every session and on wakeup etc we need an
+  // alignment flow where it shows the two marks and where it thinks they are in the room and ask the user to align again
+  // when they are not there"; "it should run anytime there could be misalignment"). In AR, in a room whose two spots are
+  // known (roomMk), whenever the alignment may have slipped (eyeWant: the session's start once lined up by the spots,
+  // waking, a reset of the floor, Re-align, the spots' anchors lost or found again, the room's frame jumping by more than
+  // 5 cm or 2 degrees or taken from elsewhere), the orange crosses show where this headset puts the two spots and a small
+  // panel in front asks: Are both crosses on your spots? Yes stands as a check (GD.ok, how 'e': the startup flow is done,
+  // the pages' list says checked by eye); No opens the room setup guide at Line up, to calibrate on the spots (GD.red,
+  // spot 'e'). A burst of reasons asks once: EYEQ.quiet ms after the last, at most EYEQ.most ms after the first. Never while
+  // calibrating or checking, nor over the menu or the circles question, nor while re-aligning (it waits, and comes back
+  // when they are done); a check made since (Check at A or B, with someone) answers it. Its opening by itself follows the
+  // guide's (autoGuide). A headset elsewhere, in VR, in a room on this device or one without spots: nothing
+  const EYEQ = { due: 0, first: 0, why: '', since: 0, ask: false, placed: false, quiet: 3000, most: 10000, s: null, code: '', poke: { armed: true, hov: null } };
+  const EYEQ_WHY = { start: 'A new session.', spots: 'The room has its spots now.', wake: 'The headset was off or asleep.', reset: 'The headset moved its floor.',
+    realign: 'Re-aligned.', lost: 'The spots\' anchors were lost.', found: 'The spots\' anchors were found again.', frame: 'The room moved in this headset.' };
+  const eyeRoom = () => !!(R.session && C.code && !C.local && kind() === 'ar' && here());
+  const eyeCan = () => !!(eyeRoom() && C.welcomed && R.aligned && R.frame && roomMk());
+  // a reason to ask (why): the question comes once things settle
+  function eyeWant(why) {
+    if (!eyeRoom()) return;
+    const t = performance.now();
+    if (!EYEQ.due) { EYEQ.first = t; if (!EYEQ.ask) EYEQ.since = now(); }
+    if (!EYEQ.ask && (!EYEQ.due || why === 'start')) EYEQ.why = why;   // (the first reason of a burst says why; a new session's says it best)
+    EYEQ.due = t + EYEQ.quiet;
+    log('eye wanted', { why });
+  }
+  // on show now: asked, and nothing else in the way
+  const eyeShown = () => !!(EYEQ.ask && GD.auto && eyeCan() && !R.calib && !R.again && !tipMode() && !PNL.open && !ASK.id && OV.root && OV.root.visible);
+  function eyeStep(t) {
+    if (EYEQ.s !== R.session || EYEQ.code !== C.code) Object.assign(EYEQ, { s: R.session, code: C.code, due: 0, ask: false, why: '', placed: false });
+    if (!eyeRoom()) { EYEQ.due = 0; EYEQ.ask = false; return; }
+    if (EYEQ.due && (t >= EYEQ.due || t - EYEQ.first >= EYEQ.most)) { EYEQ.due = 0; if (!EYEQ.ask) EYEQ.chimed = false; EYEQ.ask = true; log('eye asks', { why: EYEQ.why }); }
+    if (!EYEQ.ask) return;
+    // answered meanwhile by a check made since it was asked for, or the room has no spots (lined up, none known): not asked
+    if (GD.ok && GD.ok.at >= EYEQ.since) { EYEQ.ask = false; log('eye answered', { by: GD.ok.how }); return; }
+    if (R.aligned && R.frame && !roomMk()) { EYEQ.ask = false; log('eye dropped', { why: 'no spots' }); }
+  }
+  function eyeYes() {
+    EYEQ.ask = false; EYEQ.due = 0;
+    CK.res = null; CK.mine = null;   // (by eye now: an older distance would say otherwise)
+    log('eye', { said: 'yes', why: EYEQ.why });
+    checkDone('e', 0);
+    notice('Checked by eye', 'Both crosses on the spots: the room is lined up here.', 3500);
+    changed();
+  }
+  function eyeNo() {
+    EYEQ.ask = false; EYEQ.due = 0;
+    log('eye', { said: 'no', why: EYEQ.why });
+    GD.ok = null; GD.red = { spot: 'e', d: 0 };
+    guideOpen(1, 'eye');   // (Line up: calibrate on the room's two spots)
+    changed();
+  }
+  function drawEye() {
+    const S = OV.eye, show = eyeShown();
+    if (!show) { if (S.mesh.visible) { S.mesh.visible = false; S.regions = []; S.sig = ''; } EYEQ.placed = false; return; }
+    const sig = [EYEQ.why, S.hover].join('|');
+    if (sig !== S.sig) {
+      S.sig = sig;
+      const ctx = S.ctx, W = S.w;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      S.regions = [];
+      rr(ctx, 3, 3, W - 6, S.h - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = AMBER; ctx.stroke();
+      ctx.font = FONT(22, 700); ctx.fillStyle = AMBER; ctx.fillText('CHECK BY EYE', 30, 26);
+      ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, 'Are both crosses on your spots?', W - 60), 30, 58);
+      ctx.font = FONT(22); ctx.fillStyle = MUTED;
+      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' The orange crosses show where this headset puts spot A and spot B.', 30, 110, W - 60, 29, 2);
+      const bw = (W - 60 - 16) / 2;
+      button(S, 'eye:yes', 30, 180, bw, 76, 'Yes', eyeYes, { primary: true, px: 30, tog: null });
+      button(S, 'eye:no', 30 + bw + 16, 180, bw, 76, 'No, calibrate again', eyeNo, { px: 26, tog: null });
+      S.tex.needsUpdate = true;
+    }
+    // put there as it shows, a little nearer than the circles' question and at eye height (the spots are lower down: on
+    // the floor, a table); put there again once your head has turned well away from it or you walked off
+    if (EYEQ.placed && HD.ok) {
+      _v.copy(S.mesh.position).sub(HD.p); const dist = Math.hypot(_v.x, _v.z);
+      _v2.set(0, 0, -1).applyQuaternion(HD.q);
+      if (dist > 1.6 || Math.abs(Math.atan2(_v.x * _v2.z - _v.z * _v2.x, _v.x * _v2.x + _v.z * _v2.z)) > 0.9) EYEQ.placed = false;
+    }
+    if (!EYEQ.placed && HD.ok) {
+      _v.set(0, 0, -1).applyQuaternion(HD.q); _v.y = 0;
+      if (_v.lengthSq() < 1e-6) _v.set(0, 0, -1);
+      _v.normalize().multiplyScalar(0.85).add(HD.p); _v.y += 0.02;
+      S.mesh.position.copy(_v); S.mesh.lookAt(HD.p); EYEQ.placed = true;
+      if (!EYEQ.chimed) { EYEQ.chimed = true; sfx('notice', S.mesh.position); log('eye shown', { why: EYEQ.why }); }   // (once a question, not again as it moves back in front)
+    }
+    S.mesh.visible = EYEQ.placed;
   }
 
   // ------------------------------------------------------ the frame rate --
@@ -4514,19 +4637,18 @@
     const tip = tipMode();
     const hits = RC.intersectObjects(tip ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
     // (the question whether to go into a circle is drawn over everything: on the ray, it is what the ray points at)
-    const ah = hits.findIndex(x => x.object === OV.ask.mesh);
-    if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]);
+    for (const top of [OV.ask.mesh, OV.eye.mesh]) { const ah = hits.findIndex(x => x.object === top); if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]); }
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
-      if (!tip && near != null && x.distance > near && t.kind !== 'ask') break;   // the story's own panel is in front
+      if (!tip && near != null && x.distance > near && t.kind !== 'ask' && t.kind !== 'eye') break;   // the story's own panel is in front
       // the Story tab: the story's own panel there (the story takes it as its panel, at u, v of its canvas: its buttons,
       // sliders and hover tick as on the panel itself)
       if (t.kind === 'storypanel') { C.hov.set(i, { target: t, at: h.at, p: x.point }); h.hk = ''; return { kind: 'shell', panel: t.which, u: x.uv.x, v: x.uv.y, point: x.point, dist: x.distance }; }
       const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
       C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
       // a soft tick as the pointer comes onto something new: a button of the menu, a station
-      const sh = t.kind === 'panel' || t.kind === 'ask', r = sh && S ? S.at(hx, hy) : null, key = sh ? (r && r.fn ? t.kind[0] + ':' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
+      const sh = t.kind === 'panel' || t.kind === 'ask' || t.kind === 'eye', r = sh && S ? S.at(hx, hy) : null, key = sh ? (r && r.fn ? t.kind[0] + ':' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
       if (key && key !== h.hk) sfx('hover', x.point);
       h.hk = key;
       return { kind: 'shell', point: x.point, dist: x.distance };
@@ -4548,7 +4670,7 @@
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'check') { checkTake(i); return; }   // Touch the spot (its Stop checking still works)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
-    else if (h.target.kind === 'ask') { const r = OV.ask.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('ask', { id: r.id }); const n = sfxN(); r.fn(); OV.ask.sig = ''; pressSound(r, n, h.p); } }
+    else if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
     // circles asked first (the room's setting) it asks, in a small panel in front of you, whether to go in (not your own
     // station, nor the room's arc, which everyone here is at)
@@ -4582,22 +4704,39 @@
     }
     poke();
     pokeAsk();
+    pokeSheet(OV.eye, EYEQ.poke, 'eye');
   }
   // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
-  // axes and button 4), a stick held down as its controller appears being no click
-  const STK = new WeakMap();
+  // axes and button 4), a stick held down as its controller appears being no click. The frame-rate read-out turns on and
+  // off with a double press of B or Y (button 5; the owner, 6 November 2026: "Fps counter should start with a hotkey like
+  // double press b or y"; no story uses it): two presses of one controller's within BY.gap ms, a button held as its
+  // controller appears counting nothing
+  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 };
+  const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
   function sticks() {
     let list = [];
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
-    let click = false;
+    let click = false, twice2 = false;
+    const t = performance.now();
     for (const src of list) {
-      const gp = src && !src.hand && src.gamepad, b = !!(gp && gp.buttons && gp.buttons[3] && gp.buttons[3].pressed);
+      const gp = src && !src.hand && src.gamepad, b = pressed(gp, 3);
       if (!src) continue;
       const was = STK.get(src);
       STK.set(src, b);
       if (b && was === false) click = true;
+      const y = pressed(gp, 5), w = BY.m.get(src) || { b: undefined, at: 0 };
+      if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
+      w.b = y; BY.m.set(src, w);
     }
     if (click && HOST.session) toggleMenu('stick');   // (both sticks clicked at once: one toggle)
+    if (twice2 && HOST.session && HOST.xr && HOST.xr.setFps) {
+      const on = !fpsOn();
+      HOST.xr.setFps(on);
+      log('fps', { on, by: 'B or Y' });
+      sfx(on ? 'toggleOn' : 'toggleOff', null);
+      notice(on ? 'Frame rate: on' : 'Frame rate: off', on ? 'Press B or Y twice to hide it again.' : 'Press B or Y twice to show it again.', 2500);
+      changed();
+    }
   }
   // with tracked hands, two quick pinches of the left hand (the clock's) open and close it (the owner, 31 October 2026:
   // "only left double pinch"), but only while its ray points at none of the panels: not at the menu, a station or a
@@ -4693,7 +4832,7 @@
       arcStep(t);
       presenceOut(t);
     } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
-    if (C.code && R.session) guideStep(t);
+    if (C.code && R.session) { guideStep(t); eyeStep(t); }
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
@@ -4717,14 +4856,18 @@
   // stays live here, shown, on the station's clock and in step with the room, until you walk into another circle (or
   // leave the room, or a new session starts). A headset that has walked into no circle yet is away (HOST.room.away)
   function zoneStep(t) {
-    // (circles asked first, the room's setting: walking in does nothing, no dwell and no swell; the station you are at
-    // is the live one, so walking about with it on enters nothing, and turned off again it is where walking in starts)
-    if (askFirst()) { C.cand = ''; C.zone = C.live; return; }
-    const x = R.hr.x, z = R.hr.z, dist = s => Math.hypot(s.x - x, s.z - z);
+    const x = R.hr.x, z = R.hr.z, dist = s => Math.hypot(s.x - x, s.z - z), ask = askFirst();
+    // (circles asked first, the room's setting: walking into a story's circle does nothing, no dwell and no swell; the
+    // station you are at is the live one, so walking about with it on enters nothing, and turned off again it is where
+    // walking in starts. The lobby alone is still walked into (the owner, 6 November 2026: its ring hidden, "the headsets
+    // shall go to the lobby automatically"), once you have stood outside every lobby since Go in last took you somewhere:
+    // C.lobbyArm, so Go in pressed while standing in the lobby is not undone a second later)
+    if (ask) { const Z0 = C.stById.get(C.zone); if (!(Z0 && Z0.kind === LOBBY_ST && !C.live)) C.zone = C.live; }
     let best = null, bd = NEAR;
-    for (const s of C.st) { if (s.id === MV.id || (s.arc && here())) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
+    for (const s of C.st) { if (s.id === MV.id || (s.arc && here()) || (ask && s.kind !== LOBBY_ST)) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
+    if (ask && !best) C.lobbyArm = true;
     const Z = C.stById.get(C.zone) || C.stById.get(C.live), zd = Z ? dist(Z) : Infinity;   // (the station you are at: walked into, or live here)
-    const cand = best && best.id !== (Z && Z.id) && bd < zd ? best.id : '';
+    const cand = best && best.id !== (Z && Z.id) && bd < zd && (!ask || C.lobbyArm !== false) ? best.id : '';
     if (cand !== C.cand) { C.cand = cand; C.candAt = t; }
     if (cand && t - C.candAt >= DWELL) {
       C.zone = cand; C.cand = '';
@@ -4912,20 +5055,22 @@
     drawNote(HD.ok ? HD.p : null, HD.q);
     drawSubs(dt);
     // the question whether to go into a circle (its hover: the ray's, else the fingertip's), and the frame rate
-    OV.ask.hover = ASK.poke.hov;
-    for (const h of HOV) if (h.target.kind === 'ask') { const r = OV.ask.at(h.x, h.y); if (r) OV.ask.hover = r.id; }
+    OV.ask.hover = ASK.poke.hov; OV.eye.hover = EYEQ.poke.hov;
+    for (const h of HOV) if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r) S.hover = r.id; }
     drawAsk();
+    drawEye();
     drawFps();
     // what the controllers can point at
     OV.hit.length = 0;
     if (OV.ask.mesh.visible) OV.hit.push(OV.ask.mesh);
+    if (OV.eye.mesh.visible) OV.hit.push(OV.eye.mesh);
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {
       for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
       for (const o of OV.rings.values()) {
-        if (o.ring.visible && o.ring.userData.shell) OV.hit.push(o.ring);
-        if (o.icon.g.visible && o.icon.k > 0.5) OV.hit.push(o.ball);
+        if (o.ring.visible && o.ring.userData.shell && !o.noRing) OV.hit.push(o.ring);
+        if (o.icon.g.visible && o.icon.k > 0.5 && !o.hid) OV.hit.push(o.ball);
       }
     }
     OV.root.updateMatrixWorld(true);
@@ -5113,7 +5258,11 @@
     R.frame = { o: [fr.o[0], Number.isFinite(fr.o[1]) ? fr.o[1] : 0, fr.o[2]], x };
     // a check (Touch the spot) stands for the frame it was made in: another source, or one moved by 5 cm or 2 degrees, needs a new one
     // (and the session's check that stood with it, GD.ok: the guide's flow asks again when the room gets its spots)
-    if (CK.res || CK.mine || GD.ok || GD.red) { const [d, a] = old ? apart(old, R.frame) : [1, 0]; if (src !== was || d > 0.05 || a > 0.035 || Math.abs(old.o[1] - R.frame.o[1]) > 0.05) { CK.res = null; CK.mine = null; GD.ok = null; GD.red = null; log('check cleared', { src }); } }
+    const [fd, fa] = old ? apart(old, R.frame) : [1, 0], moved = src !== was || fd > 0.05 || fa > 0.035 || (!!old && Math.abs(old.o[1] - R.frame.o[1]) > 0.05);
+    if ((CK.res || CK.mine || GD.ok || GD.red) && moved) { CK.res = null; CK.mine = null; GD.ok = null; GD.red = null; log('check cleared', { src }); }
+    // the check by eye: the room jumped here, or comes from elsewhere now (not the first frame, which the startup flow asks
+    // about, nor spots just touched by hand: they are where the tip was)
+    if (old && moved && src !== 'marks') eyeWant('frame');
     R.src = src;
     setState(src);
     log('frame', { src, o: R.frame.o.map(r3), x: x.map(r3) });
@@ -5164,6 +5313,7 @@
     const sp = ev && (ev.referenceSpace || ev.target);
     if (sp && sp !== R.floor) return;   // an older space of ours
     const tr = ev && ev.transform;
+    eyeWant('reset');
     // without a transform the origin may have moved (a recentre): anchors and the shared space put things right,
     // a calibration without anchors is asked again
     if (!tr) {
@@ -5226,6 +5376,7 @@
     R.showUntil = performance.now() + 30000;
     if (R.reenter) return;
     R.reenter = true; log('marks lost', { why });
+    eyeWant('lost');
     notice('Leave AR and enter it again', 'Leave AR and enter it again: the headset finds your spots then (after standby it does not, in the same session). Until then things may stand off the two spots.', 12000);
     changed();
   }
@@ -5507,7 +5658,7 @@
     Promise.all(R.saved.anchors.map(u => HOST.anchor.find(u).then(a => a, () => null))).then(as => {
       if (R.session === s && R.mgen === g && as.every(Boolean)) {
         R.anchors = as; R.anchorIds = null; R.anchorsOK = false; R.anchorSince = performance.now();
-        if (R.tries) { log('anchors found again', { tries: R.tries }); notice('Spots found again', 'The headset found the two spots again: things are back where they were calibrated.', 6000); }
+        if (R.tries) { log('anchors found again', { tries: R.tries }); notice('Spots found again', 'The headset found the two spots again: things are back where they were calibrated.', 6000); eyeWant('found'); }
         R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
       } else {
         for (const a of as) if (a) { try { a.delete(); } catch (e) { /* gone */ } }
@@ -5558,7 +5709,7 @@
     if (anchors && ids) { releaseAnchors(); R.anchorTried = false; R.afterSleep = true; }   // looked for again by their handles (align)
     if (!reset && !anchors) return true;   // nothing moved, as far as the headset says (the system menu)
     R.showUntil = t + 30000;
-    notice('Check the spots', 'The headset was off: the orange crosses should sit on the two spots. If they do not, calibrate again.', 8000);
+    if (!(GD.auto && eyeCan())) notice('Check the spots', 'The headset was off: the orange crosses should sit on the two spots. If they do not, calibrate again.', 8000);   // (else the check by eye asks)
     return true;
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
@@ -5841,6 +5992,7 @@
     if (R.calib) cancel();
     Object.assign(R, { again: t, againRel: now(), wakeHold: 0, hS: null, aloneAt: 0, notJoined: false, firstHere: null, cmp: null, recAt: 0, prev: null, noticed: '', woke: 0 });
     CK.res = null; CK.mine = null; GD.ok = null; GD.red = null;   // (the room setup guide: Re-align, then check again)
+    eyeWant('realign');   // (by eye too, once it has re-aligned: EYEQ waits while R.again)
     if (R.sharedId) fx('q.frame', { id: R.sharedId });   // whoever wrote the room's frame writes it into the space again
     if (!here()) { R.again = 0; R.frame = null; R.src = ''; R.aligned = false; notice('Re-aligned', 'The stations stand round you again, as they stand in the room.', 5000); changed(); return; }
     reshared('realign');
@@ -6023,7 +6175,7 @@
   // devices ignore the field (no FORMAT change)
   const LU_WHY = { space: 'no shared space', other: 'not in the others\' shared space', split: 'the shared space puts headsets apart',
     scan: 'no room scan', version: 'another Quest Browser version', off: 'shared space switched off', marks: 'its spots not found this session',
-    none: 'nothing to line up with', time: 'nothing after 20 s' };
+    none: 'nothing to line up with', time: 'nothing after 20 s', eye: 'its crosses off the spots, by eye' };
   const GREEN = '#3ee08f', AMBER = '#ffb43b', RED = '#ff6b6b';
   // Touch the spot: ok and red (m) the limits of green and amber; win (ms) how far apart in time two checks pair; late (ms)
   // how long after entering AR a headset not lined up gets the guide's last page; arm: the next trigger takes the spot;
@@ -6062,22 +6214,24 @@
     if (CK.res && (performance.now() - CK.res.t > CK.keep || /^(split|other|marks|version|scan)$/.test(w))) CK.res = null;
     const r = h && CK.res;
     if (r) { o.c = Math.round(r.d * 100); if (r.d > CK.red) { k = 'no'; w = 'check'; } else { k = 'ok'; w = ''; } }
+    else if (h && GD.red && GD.red.spot === 'e') { k = 'no'; w = 'eye'; }   // (No, said to the check by eye: the crosses are off the spots)
     o.k = k; o.h = h; o.w = w;
     o.text = k === 'ok' ? { origin: 'Room ready: this headset is the room\'s origin', shared: R.mk ? 'Lined up from the room\'s spots (shared space)' : 'Lined up through the shared space',
       marks: R.src === 'anchor' ? 'Lined up from the room\'s spots, found again' : 'Lined up from the two spots you touched' }[h] :
-      k === 'wait' ? (R.state === 'restoring' ? 'Lining up: finding your spots again...' : 'Lining up with the room...') : w === 'check' ? `${o.c} cm out: not lined up` : 'Not lined up yet: ' + LU_WHY[w];
+      k === 'wait' ? (R.state === 'restoring' ? 'Lining up: finding your spots again...' : 'Lining up with the room...') : w === 'check' ? `${o.c} cm out: not lined up` :
+        w === 'eye' ? 'Not lined up: the crosses are off the spots' : 'Not lined up yet: ' + LU_WHY[w];
     return o;
   }
-  const luCol = L => (L.k === 'ok' ? (L.c > CK.ok * 100 ? AMBER : GREEN) : L.k === 'wait' ? CYAN : L.k === 'no' ? (L.w === 'check' ? RED : AMBER) : MUTED);
+  const luCol = L => (L.k === 'ok' ? (L.c > CK.ok * 100 ? AMBER : GREEN) : L.k === 'wait' ? CYAN : L.k === 'no' ? (L.w === 'check' || L.w === 'eye' ? RED : AMBER) : MUTED);
   // what goes out with presence: { k, h, w, c (cm, while a check stands), ck (this session's check that stood, green or
-  // amber: 'a' or 'b' at that spot, 'p' with someone; '' none yet) }
+  // amber: 'a' or 'b' at that spot, 'p' with someone, 'e' by eye; '' none yet) }
   const luOut = () => { const L = lineUp(), o = { k: L.k, h: L.h, w: L.w, ck: GD.ok ? GD.ok.how : '' }; if (L.c !== null) o.c = L.c; return o; };
   // a person in a headset as the pages' list says it ([colour class, words]): from their presence's lu; an older app sends
   // none, only what aligns it (al) while it is aligned (and no ck: nothing said about a check it may have made)
   function luLine(m, P) {
     const L = P && P.lu, how = L && { origin: 'the room\'s origin', shared: 'shared space', marks: 'the room\'s spots' }[L.h];
     const at = L && (L.ck === 'a' || L.ck === 'b') ? ' at spot ' + L.ck.toUpperCase() : '';
-    const chk = !L ? '' : Number.isFinite(L.c) ? `checked ${L.c} cm${at}` : L.ck ? 'checked' : L.ck === '' ? 'not checked yet' : '';
+    const chk = !L ? '' : Number.isFinite(L.c) ? `checked ${L.c} cm${at}` : L.ck === 'e' ? 'checked by eye' : L.ck ? 'checked' : L.ck === '' ? 'not checked yet' : '';
     if (!L && m.here === false) return ['away', 'elsewhere: nothing to line up'];
     if (!L) return P && P.al ? ['ok', 'lined up (' + ({ adopted: 'shared space', shared: 'the room\'s origin', marks: 'the room\'s spots', anchor: 'the room\'s spots' }[P.al] || P.al) + ')'] : ['wait', 'no word yet (lining up, or an older app)'];
     if (L.k === 'ok') return [L.c > CK.ok * 100 ? 'mid' : 'ok', (L.h === 'origin' ? 'room ready (' : 'lined up (') + [how, chk].filter(Boolean).join(', ') + ')' + (L.c > CK.ok * 100 ? ': fine for walking about; calibrate on the spots for close work' : '')];
@@ -6284,17 +6438,31 @@
       GD.cal = -1;
       if (made) { GD.red = null; GD.ok = null; if (shown) { GD.fl = 1; guideGo(2, 'calibrated'); } else { GD.due = 2; GD.why = 'calibrated'; } }
     }
-    // in the flow, before any press on its pages: on to Check once this headset is lined up by the room's spots
-    if (shown && GD.fl === 1 && PNL.gs === 1 && !GD.touched && lineCase() === 'check') guideGo(2, 'lined up');
-    // the startup flow, once a session: at Check when lined up by the room's spots already, else at Line up
-    if (!GD.fl && !GD.due && t - GD.from > FLOW.wait) { GD.due = lineCase() === 'check' ? 2 : 1; GD.why = 'start'; }
+    // in the flow, before any press on its pages: once this headset is lined up by the room's spots, the question by eye
+    // in AR (the guide closes), else on to Check
+    if (shown && GD.fl === 1 && PNL.gs === 1 && !GD.touched && lineCase() === 'check') { if (eyeCan()) eyeInstead('start'); else guideGo(2, 'lined up'); }
+    // the startup flow, once a session: lined up by the room's spots already, the question by eye in AR (EYEQ: are both
+    // crosses on your spots?; GD.fl 4), else at Check; not lined up by them, at Line up
+    if (!GD.fl && !GD.due && t - GD.from > FLOW.wait) {
+      if (lineCase() === 'check' && eyeCan()) eyeInstead('start'); else { GD.due = lineCase() === 'check' ? 2 : 1; GD.why = 'start'; }
+    }
     // the room got its spots since (someone calibrated on them) and no check of this headset's stands: once more
-    if (GD.spots === false && GD.fl >= 2 && !GD.ok && !GD.due && validFloor() && !own() && !R.calib) { GD.spots = true; GD.due = lineCase() === 'check' ? 2 : 1; GD.why = 'spots'; }
+    if (GD.spots === false && GD.fl >= 2 && !GD.ok && !GD.due && validFloor() && !own() && !R.calib) {
+      GD.spots = true;
+      if (lineCase() === 'check' && eyeCan()) eyeWant('spots'); else { GD.due = lineCase() === 'check' ? 2 : 1; GD.why = 'spots'; }
+    }
     if (!GD.late && othersIn() && t - GD.from > CK.late) { GD.late = true; if (lineUp().k !== 'ok' && GD.fl !== 1) GD.due = 3; }   // not lined up 20 s in
     if (!GD.due || !GD.auto || tipMode() || !OV.root || !OV.root.visible || (PNL.open && !PNL.self && PNL.page !== 'guide' && t - PNL.used < 5000)) return;
     const k = GD.due, why = GD.why || (k === 3 ? 'late' : 'start');
     GD.due = 0; GD.why = '';
     guideOpen(k, why);
+  }
+  // the startup flow asks by eye instead of at Check (GD.fl 4): the guide closes if the flow showed it (its menu too)
+  function eyeInstead(why) {
+    if (GD.fl === 1 && guideShown()) { if (GD.menu) menuOpen(false, 'guide'); else PNL.page = 'main'; }
+    GD.fl = 4; GD.menu = false; GD.due = 0;
+    log('guide', { flow: 'eye', why });
+    eyeWant(why);
   }
   // the guide on show turns to page k by itself (kept open until used, as when it opened by itself)
   function guideGo(k, why) {
@@ -6441,6 +6609,7 @@
         if (own() && R.frame) R.woke = t;
         else if (R.frame && (R.src === 'adopted' || R.src === 'shared')) R.wakeHold = t;   // from the shared space: held until it agrees again
         R.refresh = t;   // the room's frame, if this headset wrote it, is written into the space again once settled (align)
+        eyeWant('wake');   // (the check by eye: are both crosses still on the spots?)
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
@@ -6915,6 +7084,9 @@
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
     // or null) and how long it shows (tests)
     askFirst: () => askFirst(), setAsk: on => setAsk(on),
+    // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
+    // it lapses when the live station or its story changes); without an argument, whether they are hidden now
+    hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),
     asking: () => (ASK.id ? { id: ASK.id, left: Math.round(ASK.until - performance.now()) } : null), askMs: ms => { if (ms > 0) ASK.ms = +ms; return ASK.ms; },
     // a keypad for a word in the headset's menu (headsets cannot type): a promise of the text typed, or null when cancelled
     // or when no headset menu can show it ({ title, hint, value, max })
@@ -6947,10 +7119,13 @@
     // spots: the room's spots as this headset puts them, menu: the flow opened the menu }), opened at a step (the menu
     // too), Check here armed or not (spot 'a' or 'b': on its own at that spot), and (tests) its windows shortened:
     // { win: ms two checks pair within, late: ms before not lined up opens it }
-    guide: () => ({ open: guideShown(), step: PNL.gs, status: lineUp(), check: checkState(), lined: linedUp(), flow: ['', 'on', 'done', 'skipped'][GD.fl],
+    guide: () => ({ open: guideShown(), step: PNL.gs, status: lineUp(), check: checkState(), lined: linedUp(), flow: ['', 'on', 'done', 'skipped', 'eye'][GD.fl],
       case: lineCase(), ok: GD.ok, red: GD.red, spots: roomMk(), menu: GD.menu }),
     guideOpen: k => guideOpen(k, 'api'), checkArm: (on, spot) => checkArm(on !== false, spot), autoGuide: on => { if (on !== undefined) GD.auto = !!on; return GD.auto; },
     guideTimes: o => { if (o && o.win > 0) CK.win = +o.win; if (o && o.late > 0) CK.late = +o.late; return { win: CK.win, late: CK.late }; },
+    // the check by eye (for tests): whether it asks, is on show, why, and when it is due; its two times (ms) to shorten
+    eye: () => ({ ask: EYEQ.ask, shown: eyeShown(), why: EYEQ.why, due: EYEQ.due ? Math.round(EYEQ.due - performance.now()) : 0, can: eyeCan() }),
+    eyeTimes: o => { if (o && o.quiet > 0) EYEQ.quiet = +o.quiet; if (o && o.most > 0) EYEQ.most = +o.most; return { quiet: EYEQ.quiet, most: EYEQ.most }; },
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
     // the caption on show now ({ text, id }: '' none), the headsets' subtitles' words: the page's subtitles in focus mode
