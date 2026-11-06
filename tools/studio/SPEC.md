@@ -1002,6 +1002,46 @@ since this is where we experience the models in the end"; yes to the button on m
   the preview shows at most what the model placed has (*The model here has only N, so the preview shows it as it is*).
   Saving writes from a headset too (with a relay that takes uploads; else the card says so); a failure there (a texture
   the headset cannot encode: the exporter is given 4 minutes) is said on the card and changes nothing.
+- **The fill: no black seams** (v120; the owner, 6 November 2026: "The reduction works really well but leaves black
+  artifacts in the textured models ... maybe just needs changes to the texture like adding fade out color around all tiles
+  since now these parts are black most of the time?"). Why: a scan's texture is an atlas of many small pieces with black,
+  unused texels between them (the atelier's: 1,960 pieces, 27 % of its 4,096 px picture used). Reducing keeps the seams
+  joined in 3D but straightens each piece's outline in the picture, so at 10 % the lighter model's triangles sample the
+  black between pieces: black wedges along the seams (and even all its triangles show thin dark seams once mipmapped,
+  since the black bleeds into the pieces' edges). Measured on the atelier with its margins blacked out: at 10 % about 2.5 %
+  of what is drawn sampled the empty space; filling every texel no triangle uses with the colour of the nearest piece took
+  the wedges and the thin seams away. Locking the seams' corners in the simplifier stopped the wedges too but kept the
+  dark seams: not done. So `toGLB` fills (`CONV.fillModel`, before the weld and before it is made lighter, by the model's
+  triangles as they are then): for each picture it is made with, the texels its triangles use are marked
+  (`IM.cover` in `engine/images.js`: every texel whose centre a triangle holds, on an edge too; a triangle smaller than a
+  texel marks its corners' and middle's texels, so a tiny piece keeps its colour), and every other texel is filled from
+  them (`IM.fillGaps`): a band of exact edge colours (each texel a copy of a neighbour's from the ring before, sides first:
+  2 rings at 1,024 px or less, 4 at 2,048, 8 at 4,096), then a smooth push-pull fill (the known texels averaged level by
+  level down to one, each empty one drawn back bilinearly from the level above). The used texels never change. Only where
+  it makes sense: texture coordinates within 0 to 1 (a picture that repeats across the model, with repeat wrapping, is
+  left alone; with clamping the coordinates are clamped), under 95 % of the picture used (a box's or a sphere's picture is
+  left as it is), at least 16 px a side, every mesh showing it with texture coordinates (three.js's transform of the first
+  set read as r128 reads it: the material's first picture of map, specular, displacement, normal, bump, roughness,
+  metalness, alpha, glow; the occlusion picture through the second set). Every slot is filled (colour, glow, normal,
+  roughness, metalness, occlusion, opacity), each with its own values: a normal map with the normals round its pieces,
+  never black. Alpha is kept as it is where a material reads it (see-through or cut out); elsewhere it is filled with the
+  colours (a canvas keeps no colour where alpha is 0), and a picture that becomes opaque so is written as JPEG. No float
+  buffers: integer arrays, about 90 MB besides the picture's own bytes at 4,096 px, the work given up to the page every
+  25 ms (so a headset keeps drawing). Times in headless Chromium on this machine: the atelier's 4,096 px picture with its
+  397,066 triangles in 1.4 s in `convert.mjs`'s page; in the studio's page while it draws the scan in software between
+  slices, 5.6 s (a headset's own are untested). Its GLB came out 3.3 MB at 10 % (3.4 MB without the fill: the smooth
+  fill costs JPEG nothing). The record gains `fill` (how many pictures are filled, those a GLB made from had filled
+  already counted), the GLB's card says so in one line (*Textures: the gaps between the pieces of its picture are
+  filled ...*), and a GLB whose record says so has its pictures marked as filled when it is loaded (`load`), so making it
+  again from itself does not fill them again. Every path that writes a GLB fills: Convert to GLB, Convert every model, the
+  Upload pane at any share, Fewer triangles' Save, Change texture's Save and the missing-texture buttons; `convert.mjs`
+  too (`--no-fill` leaves them as they are; `toGLB(m, { fill: false })`).
+- **The fill in the preview.** Fewer triangles shows the object's pictures filled too, as Save fills them: worked out once
+  while it is open (`CONV.fillModel(E.root, { copy: true })`: copies, the file's own pictures stay as they are; again only
+  for another model), at any share, and laid on the object's own materials, lit and as scanned (`ftFillShow`, again when
+  its light changes); *Cancel*, Save's end, another object or editing off put its own back and free them (`ftFillFree`).
+  The card says *Its picture is shown with the gaps between its pieces filled ...*. A GLB already filled needs none.
+  `STUDIO.state().lite.ft.fill` (`{ n, again, ms, err, shown }`) for tests.
 - **Made again.** A GLB made lighter keeps its share when it is made again from its original for another reason (Change
   texture, a missing texture: `convertFile` takes the replaced GLB's `tris.keep` unless a share is asked); one made again
   from itself is not made lighter again.
@@ -1010,6 +1050,9 @@ since this is where we experience the models in the end"; yes to the button on m
   the page's renderer into a target of its own (all its triangles, then the share kept, their edges drawn faintly over
   them: `thumbOf`), side by side with their counts. Converting uses each row's share; its line says the triangles.
 - `convert.mjs --keep <share>` (0.02 to 1): the same, its report saying how far it came.
+- The fill's limits: a picture shared by a tiling model and an atlas is left alone; a picture whose pieces were baked
+  without any margin still shows the colour of the piece next to it at a seam once lighter (the nearest colour, not
+  black). How the filled seams look on a Quest is untested.
 - Never in `layout.json` or `collab.state()` (no `FORMAT` change): what is shared is the switch to the GLB.
 - `STUDIO.state().lite` (`{ ft, ct }`), `STUDIO.tris(id)` (what an object's model draws now) and `thumbOf(root, w, h,
   wired)` for tests.
@@ -1058,7 +1101,8 @@ The owner: "a change texture button on models placed in the scene where one can 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
 guessing. Textures: JPEG for photos and scans, PNG only for see-through; at most 4,096 px, 2,048 safer on a Quest.
 Budgets on a Quest: about 300,000 triangles a model, 500,000 a scene (*Fewer triangles* on a model's card or the Upload
-pane's share brings a scan down, 20 % to start). Sounds: mono; short loops as WAV (MP3 adds silence
+pane's share brings a scan down, 20 % to start; the gaps between its texture's pieces are filled, so it shows no black
+seams). Sounds: mono; short loops as WAV (MP3 adds silence
 at its ends, so a loop clicks; OGG does not play on iPhones); long ones (more than 20 s, streamed) as MP3 at 96 to 128
 kbit/s. The upload page does all of this by itself; by hand: Ready
 lines: `ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav` (a loop), `ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3` (a
@@ -1137,5 +1181,14 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   record, in the headset by the ray, nothing for a visitor; the Upload pane's share, count, picture and conversion);
   `tools/collab.mjs --studio` (the ball saved at 20 % on a page through the relay, every page's and the headset's switched
   as light as previewed; a picture put in its colour slot and saved from the headset, its share kept).
+- v120: the fill. `node tools/studio/test-images.mjs` (`cover`: two triangles splitting a picture, the diagonal in both,
+  a tiny one marking its own texel; `fillGaps` on a 64 px atlas of three shaded pieces on black: the covered texels
+  unchanged, no black left, every texel beside a piece an exact copy of an edge colour within three texels, alpha kept,
+  and filled when asked; a 4,096 px one). The smoke block's step after Fewer triangles' (an atlas ball made in the page:
+  128 wavy pieces with 6 px of black between them, 24,320 triangles, placed as scanned; pixels read back from four sides:
+  none black with all its triangles, many at 10 % without the fill and none with it, in the preview and in the GLB Save
+  downloads against the converter's own GLB made with `fill: false`; the fill worked out once for two shares; the record's
+  `fill`, its line in the notes, the placed GLB's card line, and Fewer triangles on it filling nothing again; a picture
+  that tiles and one a plane uses whole left alone).
 - How it looks and feels on a headset (the scan's size, frame rate with a 400k-triangle scan, the grips, the stick walk,
   how the emitters sound through HRTF) is untested until tried on one.

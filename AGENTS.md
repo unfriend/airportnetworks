@@ -3373,6 +3373,28 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   share. The Upload pane: each model's *Triangles kept* (20 % by default), about how many (`CONV.triCount`, from its
   bytes) and *Preview* (one row at a time: all its triangles and the share kept, drawn side by side). Nothing in the
   layout or `collab.state()` (no `FORMAT` change).
+  - The fill: no black seams (v120; the owner, 6 November 2026: "The reduction works really well but leaves black
+    artifacts in the textured models ... maybe just needs changes to the texture like adding fade out color around all
+    tiles"; `tools/studio/SPEC.md`, "Fewer triangles"). Why: a scan's texture is an atlas of many small pieces with black,
+    unused texels between them; reducing keeps the seams joined in 3D but straightens each piece's outline in the
+    picture, so at 10 % the triangles sample the black between pieces (black wedges along the seams; even all its
+    triangles show thin dark seams once mipmapped). Measured on the atelier with its margins blacked out: filling every
+    texel no triangle uses with the colour of the nearest piece took both away; locking the seams' corners stopped the
+    wedges but kept the dark seams (not done). So the converter fills (`CONV.fillModel`, `engine/convert.js`; the pixel
+    work `IM.cover` and `IM.fillGaps` in `engine/images.js`, plain typed arrays): for each picture a GLB is made with, the
+    texels the triangles of the model as it is before it is made lighter use are marked, and every other texel is
+    filled from them, a band of exact edge colours (2 to 8 rings by size) and then a smooth push-pull fill; the used
+    texels never change; alpha kept where a material reads it, else filled too. Only where it makes sense: texture
+    coordinates within 0 to 1 (a picture that tiles is left alone), under 95 % of the picture used, every mesh showing it
+    with texture coordinates; every slot with its own values (a normal map never black). Integer arrays only (about 90
+    MB besides the picture at 4,096 px), the page given back every 25 ms; the atelier's 4,096 px picture in 1.4 s in
+    `convert.mjs`'s headless page (a headset's time untested). Every path that writes a GLB fills (Convert to GLB,
+    Convert every model, the Upload pane, Fewer triangles' and Change texture's Save, the missing-texture buttons:
+    `toGLB`, `fill: false` not); the record gains `fill` (how many pictures), the GLB's card says so in one line, and a
+    GLB whose record says so is never filled again (`load` marks its pictures). Fewer triangles' preview shows the
+    pictures filled too (copies, worked out once while it is open, laid on the object's own materials, put back and
+    freed by Cancel, Save's end or another object; `STUDIO.state().lite.ft.fill`). `convert.mjs --no-fill`. How the
+    filled seams look on a Quest and the time the fill takes there are untested.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
   start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
@@ -3868,7 +3890,12 @@ within 1 % on that object only, every corner's texture coordinates as before and
 downloaded with `tris` in its record, both balls switched to it with the original as the base (*The model here has only
 N*), Change texture's list, figure.png shown on that ball only, Cancel putting its own picture back, Save with `tex` in
 its record, the headset's ray choosing and cancelling, nothing for a visitor; the Upload pane's share (20 %, its count
-read from the bytes, 30 % on its slider), its picture and its conversion with that share); the headset panels' panes and its Stories screen (no Upload tab and no Convert
+read from the bytes, 30 % on its slider), its picture and its conversion with that share); the gaps filled (v120: a dense
+ball whose picture is an atlas of 128 wavy pieces with 6 px of black between them, made in the page, placed as scanned:
+pixels read back from four sides, none black with all its triangles, many at 10 % without the fill and none with it in
+the preview, the same in the GLB Save downloads against the converter's own made with `fill: false`, the fill worked out
+once for two shares, the record's `fill` and its note, the placed GLB's card line and Fewer triangles on it filling nothing
+again; a picture that tiles and one a plane uses whole left alone); the headset panels' panes and its Stories screen (no Upload tab and no Convert
 there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane. Its *studio textures* steps
 run on another page, at `&scene=textures` (the second test scene, every model placed): every rung of the ladder; TIFF
 (LZW, PackBits), a PSD named by an FBX (the `.ps~` renaming) and DDS (DXT1, BC5) read in the page, their pixels sampled
@@ -4490,7 +4517,7 @@ endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy
 The studio's two tools: `node tools/studio/scan.mjs <folder> [--check]` writes a plain folder's `index.json` and
 `<name>/files.json` as the relay's API answers them (only what changed; `--check` exits 1 when one is not current, the
 files' times aside: run it on `tools/studio/test/scenes` after changing the test scene). `node tools/studio/convert.mjs
-<model> [out.glb] [--max-texture 4096] [--no-weld] [--shots <dir>]` (FBX, glTF, GLB, OBJ, PLY or STL; Playwright and
+<model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]` (FBX, glTF, GLB, OBJ, PLY or STL; Playwright and
 Chromium, as the smoke test) converts one model with the studio's own converter in a headless page, then checks the GLB
 against the original (triangles, size, textures, clips, bones, where the bones and a sample of skinned corners are at
 four moments of each clip, and pictures from three sides) and writes nothing when something did not come through (exit
@@ -4503,7 +4530,10 @@ test scene's pictures and more kinds made in memory back against the pixels they
 block format's error for DXT1, DXT5 and BC5), and checks the refusals, broken and forged files refused in words and
 quickly (strips or tiles of no size, sizes their data cannot hold, RLE counts past the end, a Deflate strip that unpacks
 to 64 MB), a PSD's named alpha channel not taken for transparency, LZW and PackBits round trips, the ladder, `slotOf`
-(colour words first, the last word only), `texRank` and the `.psd` renaming; run it after changing `tools/studio/engine/images.js` or
+(colour words first, the last word only), `texRank` and the `.psd` renaming, and the fill of the gaps between a picture's
+pieces (v120: `cover` marking the texels whose centres its triangles hold, a tiny one's own; `fillGaps` on an atlas of
+three shaded pieces on black: the covered texels unchanged, no black left, the texels beside a piece exact copies of
+its edge colours, alpha kept or filled, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
 `tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`).
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),

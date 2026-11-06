@@ -203,6 +203,11 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   with a relay that takes uploads. meshoptimizer's simplifier does the work: textures stay where they were, parts that
   touch do not crack apart, crumbs of a scan go; a mesh with shape keys is left as it is. Look closely at the preview:
   at 20 % a dense scan usually holds up well, a low-poly model does not need it.
+- **No black seams** (v120): a scan's texture is many small pieces with black between them, and a lighter model's seams
+  cut across that black (black wedges along them). So every GLB the studio makes has the gaps between its pictures'
+  pieces filled with the colours round them (worked out from all its triangles, before it is made lighter); the preview
+  shows it so too. A picture that repeats across the model (a tiled floor) or that the model uses nearly whole is left
+  as it is. The GLB's card says *Textures: the gaps between the pieces of its picture are filled*.
 - **The Upload pane** gives each model the same: *Triangles kept* (20 % to start), about how many that is, and
   **Preview**, a picture of it with all its triangles and with the share kept.
 - **Change texture** (a placed model's card): pick one of its materials, a slot (Colour, Normal, Roughness, Metalness,
@@ -235,8 +240,10 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   Occlusion, Glow, Opacity). Either converts the model to a GLB with the picture in it at once (on a page; a headset
   says to do it on a laptop); the choice is kept in the GLB, never in the layout. The upload page does the same for
   what is dropped, and pairs the only picture left over with the only model lacking one.
-- **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), and a
-  bump map becomes a normal map.
+- **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), a
+  bump map becomes a normal map, and the gaps between a picture's pieces (a scan's texture atlas, black between its
+  pieces) are filled with the colours round them, so a lighter model shows no black seams (`--no-fill` in
+  `convert.mjs` leaves them).
 - **Budgets on a Quest:** about 300,000 triangles a model, 500,000 a scene (said on the cards, never refused; *Fewer
   triangles* brings a model down).
 - **Sounds: mono**, so they place well (a stereo file is played from its point, mixed). Short loops as WAV (MP3 adds
@@ -249,13 +256,13 @@ The upload page does all of this by itself. By hand:
 ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav    # a loop
 ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3           # a long one
 node tools/studio/convert.mjs model.fbx           # a model, on a computer with Playwright (as tools/smoke.mjs)
-node tools/studio/convert.mjs scan.fbx --keep 0.2 # the same with a fifth of its triangles
+node tools/studio/convert.mjs scan.fbx --keep 0.2 # the same with a fifth of its triangles (its texture's gaps filled)
 node tools/studio/convert.mjs model.obj --textures ~/pictures --texture rust_old.png=paint.png --texture 0:roughnessMap=rough.tif
 ```
 
 `convert.mjs` uses the same converter as the page (`engine/convert.js`) and also draws the original and the GLB from
 three sides and compares them; `--max-texture 2048`, `--keep 0.2` (the share of its triangles kept, as *Fewer triangles*),
-`--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
+`--no-fill` (the gaps between its pictures' pieces left black), `--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
 look in (any depth), `--texture <name>=<picture>` gives a texture the model names, and `--texture
 <material>:<slot>=<picture>` lays one on (the material's name, its number from 0, or `*`); it prints what each texture
 was found as and keeps it in the GLB's record.
