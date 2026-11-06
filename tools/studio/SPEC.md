@@ -1029,7 +1029,15 @@ since this is where we experience the models in the end"; yes to the button on m
   metalness, alpha, glow; the occlusion picture through the second set). Every slot is filled (colour, glow, normal,
   roughness, metalness, occlusion, opacity), each with its own values: a normal map with the normals round its pieces,
   never black. Alpha is kept as it is where a material reads it (see-through or cut out); elsewhere it is filled with the
-  colours (a canvas keeps no colour where alpha is 0), and a picture that becomes opaque so is written as JPEG. No float
+  colours (a canvas keeps no colour where alpha is 0), and a picture that becomes opaque so is written as JPEG. A picture
+  a material reads the alpha of whose gaps are mostly clear (alpha 0) is left as it is and said (*a see-through picture
+  whose gaps are clear*): a canvas, and the GLB written from it, keeps no colour there, so a fill would change nothing. A
+  picture drawn down before the fill (the converter's `maxTex`, which a model's own pictures reach at their full size, its
+  reading of a picture with a `max`, the studio's own cap: each says so, `CONV.drew(canvas, k)`) has its pieces' rims
+  taken back first and filled too (`fillGaps`'s `rim`: one ring of texels, two when drawn down by more than half), each
+  rim texel only where a texel deeper in its piece is beside it (a piece a few texels across keeps its own): drawing down
+  makes each rim texel an average reaching over the edge into the black, and the band would copy that dark rim outwards
+  (the atelier's 8,192 px picture is drawn down to 4,096 before it is filled). No float
   buffers: integer arrays, about 90 MB besides the picture's own bytes at 4,096 px, the work given up to the page every
   25 ms (so a headset keeps drawing). Times in headless Chromium on this machine: the atelier's 4,096 px picture with its
   397,066 triangles in 1.4 s in `convert.mjs`'s page; in the studio's page while it draws the scan in software between
@@ -1056,7 +1064,8 @@ since this is where we experience the models in the end"; yes to the button on m
 - `convert.mjs --keep <share>` (0.02 to 1): the same, its report saying how far it came.
 - The fill's limits: a picture shared by a tiling model and an atlas is left alone; a picture whose pieces were baked
   without any margin still shows the colour of the piece next to it at a seam once lighter (the nearest colour, not
-  black). How the filled seams look on a Quest is untested.
+  black); a see-through picture whose gaps are clear keeps its dark fringe where a filtered texel reaches them. How the
+  filled seams look on a Quest is untested.
 - Never in `layout.json` or `collab.state()` (no `FORMAT` change): what is shared is the switch to the GLB.
 - `STUDIO.state().lite` (`{ ft, ct }`), `STUDIO.tris(id)` (what an object's model draws now) and `thumbOf(root, w, h,
   wired)` for tests.
@@ -1092,7 +1101,9 @@ pane with pictures sounds good, leave 3d models for now". `engine/e7e_pics.js`.
   (`relay/scenes.mjs`, shared by the folder, R2 and `scan.mjs`): `previews/` takes only such a `.jpg`, at most 200 KB
   (counted as it streams; `.../put` signs its size; a copy by the same rule), listed and told by the watch with the kind
   `'preview'`, never `'image'` or `'model'`, so nothing takes it for a texture or a model; anything else put there by hand
-  is `'other'`. The studio says them apart as it reads a listing (`setFiles`: by path too, for an older relay's `'image'`):
+  is `'other'`. An upload to `Previews/` or any other casing of it at the top of a scene is refused (400: on a file system
+  that ignores case, Windows' and macOS's, it is that same folder, and a file put there would be past the rule). The
+  studio says them apart as it reads a listing (`setFiles`: by path too, for an older relay's `'image'`):
   they are never among the scene's files (the Add lists, the texture ladder and pickers, From another scene's lists, the
   copy's names), only in `PV.files`, so it knows which models have one. Never in `layout.json` or the room's state (no
   `FORMAT` change). A model whose picture's path would be more than 4 folders deep or 200 characters long has one for
@@ -1102,7 +1113,10 @@ pane with pictures sounds good, leave 3d models for now". `engine/e7e_pics.js`.
   model, Fewer triangles' and Change texture's Save, the texture buttons: all through `convertFile`; the Upload pane's
   rows). With a relay that takes uploads it goes into the scene beside the GLB (`previews/<the GLB's path>.jpg`,
   replacing one there; `upSend`, so straight into R2 when it can, else through the relay), and shows at once; without, it
-  is kept for this page only, on the card of the model it was made from. The Upload pane's rows show it too (96 px).
+  is kept for this page only, on the card of the model it was made from. A picture belongs to the opening of the scene it
+  was made in (`STU.gen`, passed on by `convertFile` and Make pictures): another scene opened meanwhile, the same one
+  opened again or the studio gone, and it is kept nowhere (`pvKeep`, `pvSend`: never another scene's picture under a
+  path of this one, and never an object address made after `pvClear` freed them). The Upload pane's rows show it too (96 px).
   A picture that cannot be made or kept is never a reason a conversion fails. The GLB's record
   (`asset.extras.studio`) also says its size in metres (`size`, to the mm) and its triangles (`n`), for the cards.
 - **The cards** (page and headset alike, `{ grid }` blocks): the Add pane's models, and the Originals fold's models (its
@@ -1241,11 +1255,14 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - v120: the fill. `node tools/studio/test-images.mjs` (`cover`: two triangles splitting a picture, the diagonal in both,
   a tiny one marking its own texel; `fillGaps` on a 64 px atlas of three shaded pieces on black: the covered texels
   unchanged, no black left, every texel beside a piece an exact copy of an edge colour within three texels, alpha kept,
-  and filled when asked; a 4,096 px one). The smoke block's step after Fewer triangles' (an atlas ball made in the page:
+  and filled when asked; a picture drawn down 2 and 4 times by a box filter, its pieces' edges between texels: without
+  `rim` a dark halo, with it none, a strip two texels wide keeping its own texels; a 4,096 px one). The smoke block's step after Fewer triangles' (an atlas ball made in the page:
   128 wavy pieces with 6 px of black between them, 24,320 triangles, placed as scanned; pixels read back from four sides:
   none black with all its triangles, many at 10 % without the fill and none with it, in the preview and in the GLB Save
   downloads against the converter's own GLB made with `fill: false`; the fill worked out once for two shares; the record's
   `fill`, its line in the notes, the placed GLB's card line, and Fewer triangles on it filling nothing again; a picture
-  that tiles and one a plane uses whole left alone).
+  that tiles and one a plane uses whole left alone; a 256 px piece drawn down 4 times by `CONV.picture` with a `max`
+  filled with no dark rim beside it, the same drawn down by hand (the converter not told) with one; a see-through picture
+  whose gaps are clear left alone and said, one whose gaps are opaque black filled, its alpha kept).
 - How it looks and feels on a headset (the scan's size, frame rate with a 400k-triangle scan, the grips, the stick walk,
   how the emitters sound through HRTF) is untested until tried on one.

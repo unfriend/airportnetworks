@@ -84,7 +84,7 @@ has 3 to 5 cards a row, by the pane's width; in a headset 3 a row, **Up** and **
 
 - A picture is a small JPEG (256 x 256, the model lit and seen from a little above, on a dark background) kept in the
   scene as `previews/<the model's path>.jpg`: `models/eva.glb`'s is `previews/models/eva.glb.jpg`. The relay takes only
-  such pictures there (`.jpg`, at most 200 KB) and never offers them as textures.
+  such pictures there (`.jpg`, at most 200 KB; the folder's name in lower case only) and never offers them as textures.
 - The studio makes one **whenever it makes a GLB**: Convert to GLB, Convert every model, the Upload page, Fewer
   triangles' and Change texture's Save, and the texture buttons. With a relay that takes uploads it goes into the scene
   for everyone; without one it is for that page only.
@@ -224,8 +224,10 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **No black seams** (v120): a scan's texture is many small pieces with black between them, and a lighter model's seams
   cut across that black (black wedges along them). So every GLB the studio makes has the gaps between its pictures'
   pieces filled with the colours round them (worked out from all its triangles, before it is made lighter); the preview
-  shows it so too. A picture that repeats across the model (a tiled floor) or that the model uses nearly whole is left
-  as it is. The GLB's card says *Textures: the gaps between the pieces of its picture are filled*.
+  shows it so too. A picture drawn down on the way (a big scan's 8,192 px texture made 4,096) has the dark rims that
+  drawing down gives its pieces filled as well. A picture that repeats across the model (a tiled floor), that the model
+  uses nearly whole, or that is see-through with clear gaps (nothing can be kept there) is left as it is. The GLB's card
+  says *Textures: the gaps between the pieces of its picture are filled*.
 - **The Upload pane** gives each model the same: *Triangles kept* (20 % to start), about how many that is, and
   **Preview**, a picture of it with all its triangles and with the share kept.
 - **Change texture** (a placed model's card): pick one of its materials, a slot (Colour, Normal, Roughness, Metalness,

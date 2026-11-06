@@ -2190,7 +2190,8 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   own `layout.json` and `files.json` left out; the rules in `relay/scenes.mjs`; v120: a model's picture for the studio's
   Add pane, `previews/<the model's path>.jpg`, listed and told with the kind `preview`, never `image`, anything else in
   `previews/` `other`, and `previews/` left out first past 2,000; an upload or copy there takes only such a `.jpg` of at
-  most 200 KB, `.../put` signing its size, 413 *a picture in previews/ is at most 200 KB*). `GET /api/scenes` (the scenes, and
+  most 200 KB, `.../put` signing its size, 413 *a picture in previews/ is at most 200 KB*, and `Previews/` in any other
+  case is refused, 400: where case is ignored, Windows and macOS, it is that same folder). `GET /api/scenes` (the scenes, and
   `save`, `upload`, `ffmpeg`, `maxUpload`), `GET /api/scenes/<name>` (its files with their kinds, its parsed `layout`
   and `layoutAt`), `GET /scenes/<name>/<path>` (the file: `ETag`, `no-cache`, 304, byte ranges, CORS; `..`,
   backslashes, NUL, dot files and links out of the scene refused), `POST /api/scenes/<name>/layout` (writes
@@ -3388,7 +3389,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     work `IM.cover` and `IM.fillGaps` in `engine/images.js`, plain typed arrays): for each picture a GLB is made with, the
     texels the triangles of the model as it is before it is made lighter use are marked, and every other texel is
     filled from them, a band of exact edge colours (2 to 8 rings by size) and then a smooth push-pull fill; the used
-    texels never change; alpha kept where a material reads it, else filled too. Only where it makes sense: texture
+    texels never change; alpha kept where a material reads it, else filled too (a see-through picture whose gaps are
+    mostly clear is left as it is and said: a canvas keeps no colour where alpha is 0). A picture drawn down before the
+    fill (the converter's `maxTex`, its reading with a `max`, the studio's own cap: each tells it, `CONV.drew`) has its
+    pieces' rims taken back and filled too (`fillGaps`'s `rim`: one ring, two when drawn down by more than half; only
+    where a texel deeper in the piece is beside it), since drawing down averages them with the black beyond the edge and
+    the band would copy that dark rim outwards (the atelier's 8,192 px picture is filled at 4,096). Only where it makes sense: texture
     coordinates within 0 to 1 (a picture that tiles is left alone), under 95 % of the picture used, every mesh showing it
     with texture coordinates; every slot with its own values (a normal map never black). Integer arrays only (about 90
     MB besides the picture at 4,096 px), the page given back every 25 ms; the atelier's 4,096 px picture in 1.4 s in
@@ -3422,8 +3428,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   listing is read (`setFiles`; by path too, for an older relay's `image`), so nothing else sees them (the Add lists, the
   texture ladder and pickers, From another scene's lists), and fetched as files are (`call`: the password as a header,
   or R2's signed link), three at a time, each once a version, a page all of the cards', a headset only those it draws.
-  In a headset session a picture is drawn inside the session's frame callback (`PV.jobs`, from `frame()`). From another
-  scene copies a model's picture with it. Nothing in the layout or `collab.state()` (no `FORMAT` change).
+  In a headset session a picture is drawn inside the session's frame callback (`PV.jobs`, from `frame()`). A picture
+  belongs to the opening of the scene it was made in (`STU.gen`): another scene opened meanwhile, the same one opened
+  again or the studio gone, and it is kept nowhere (`pvKeep`, `pvSend`). From another scene copies a model's picture with
+  it. Nothing in the layout or `collab.state()` (no `FORMAT` change).
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
@@ -3919,7 +3927,8 @@ the Upload pane with no relay (the test originals dropped: the plan's rows, grou
 downloads, a mono WAV of each sound, each model row's picture of its GLB); the Add pane's grid and pictures (v120, no
 relay: a card per model with a plain tile and its kind, the cards' words, sounds a list, 3 to 5 a row; *Convert to GLB*
 making the figure's picture, 256 px with the model in the middle and dark corners, its record's `size` and `n`, shown on
-its card; *Make pictures* making the box's and the crate's for this page, its line, *Stop* after one; the headset's
+its card; *Make pictures* making the box's and the crate's for this page, its line, *Stop* after one; a picture made for
+an opening of the scene that is over kept nowhere; the headset's
 canvas, three a row, a picture drawn and a plain tile without; `previews/` in a listing never among the scene's files
 or textures, an older relay's `image` taken by its path); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
 made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
@@ -3933,7 +3942,9 @@ ball whose picture is an atlas of 128 wavy pieces with 6 px of black between the
 pixels read back from four sides, none black with all its triangles, many at 10 % without the fill and none with it in
 the preview, the same in the GLB Save downloads against the converter's own made with `fill: false`, the fill worked out
 once for two shares, the record's `fill` and its note, the placed GLB's card line and Fewer triangles on it filling nothing
-again; a picture that tiles and one a plane uses whole left alone); the headset panels' panes and its Stories screen (no Upload tab and no Convert
+again; a picture that tiles and one a plane uses whole left alone; a piece drawn down 4 times by the converter's reading
+filled with no dark rim beside it, the same drawn down by hand with one; a see-through picture whose gaps are clear left
+alone and said, one whose gaps are opaque black filled with its alpha kept); the headset panels' panes and its Stories screen (no Upload tab and no Convert
 there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane. Its *studio textures* steps
 run on another page, at `&scene=textures` (the second test scene, every model placed): every rung of the ladder; TIFF
 (LZW, PackBits), a PSD named by an FBX (the `.ps~` renaming) and DDS (DXT1, BC5) read in the page, their pixels sampled
@@ -4151,7 +4162,7 @@ MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the r
 same bytes at the same path or `as`, told at once, 409 then `replace`, an upload's kinds by where it goes, sources no
 listing shows, bad bodies and the file onto itself 400, missing scenes and files 404, a link out 404, over
 `--max-upload` 413, `--scenes-readonly` 403, the password), the models' pictures (v120, `previews:`: `previews/<path>.jpg`
-taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name there and too deep 400, exactly
+taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name there, too deep and `Previews/` in another case 400, exactly
 200 KB taken and past it 413 by its length and as it streams, nothing left behind, copies by the same rule), and the scenes in R2 (thirteen steps against the stand-in
 S3 `relay/s3fake.mjs`, which checks every signature: `relay/test-r2.mjs` first (the signer against AWS's published
 Signature Version 4 examples, byte for byte, and the client), then the folder's steps again with `--scenes r2` (the
@@ -4578,7 +4589,8 @@ to 64 MB), a PSD's named alpha channel not taken for transparency, LZW and PackB
 (colour words first, the last word only), `texRank` and the `.psd` renaming, and the fill of the gaps between a picture's
 pieces (v120: `cover` marking the texels whose centres its triangles hold, a tiny one's own; `fillGaps` on an atlas of
 three shaded pieces on black: the covered texels unchanged, no black left, the texels beside a piece exact copies of
-its edge colours, alpha kept or filled, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
+its edge colours, alpha kept or filled, a picture drawn down 2 and 4 times with a dark halo without `rim` and none with
+it, a strip two texels wide keeping its own, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
 `tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`).
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),

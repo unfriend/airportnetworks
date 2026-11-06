@@ -555,7 +555,9 @@ the Add pane"). The listing gives such a file the kind `preview` (never `image`:
 texture, nor for a model), and anything else under `previews/` the kind `other`; past 2,000 files `previews/` is left out
 first. Uploads and copies there take only such a `.jpg`, at most 200 KB (or `--max-upload` when that is smaller; over it
 413 *a picture in previews/ is at most 200 KB*), by the same endpoints as every file (through the relay, or with R2
-straight into the bucket: `.../put` signs its size). Deleting the folder is harmless: the studio makes them again.
+straight into the bucket: `.../put` signs its size). `Previews/`, or `previews/` in any other case, at the top of a scene
+is refused (400): on a file system that ignores case (Windows', macOS's) it is that same folder, and a file put there would
+be past the rule. Deleting the folder is harmless: the studio makes them again.
 
 **The password.** With `COLLAB_TOKEN` every scene request and file needs it, exactly as the API does
 (`Authorization: Bearer <word>` or `?token=<word>`: the studio adds `?token=` to every file its loaders fetch, and
@@ -642,7 +644,8 @@ own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th
 backslash, control character or `: * ? " < > |`, no part ending in a space or a dot and no Windows device name (`con`,
 `nul`, `com1`...), so a scene copied to another computer stays whole; never `layout.json`, `files.json` or `index.json`
 at the scene's top. Outside `originals/` only the listing's models, sounds, images and data (`.bin`); under
-`originals/` any file; under `previews/` only a model's picture, a `.jpg` of at most 200 KB (v120: above). A path through a link in the scene that leads out of it is refused before anything is made: 400,
+`originals/` any file; under `previews/` only a model's picture, a `.jpg` of at most 200 KB, and no other casing of that
+folder at the top (v120: above). A path through a link in the scene that leads out of it is refused before anything is made: 400,
 said in the log. 404 for no such scene; 405 for other methods.
 
 **Writing.** A file already there is replaced only with `replace=1`, else 409 `{ error }` (also when two uploads of one
@@ -1228,7 +1231,7 @@ OBJ refused outside `originals/` and taken there, sources no listing shows, targ
 onto itself and bad bodies 400 with nothing written, no such scene, file or a folder 404, a link out of its scene 404 and
 said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log); the models' pictures
 (v120: `previews/<path>.jpg` taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name
-under `previews/` and too deep 400, exactly 200 KB taken and past it 413 by its length and as it streams, nothing left
+under `previews/`, too deep and `Previews/` in another case 400, exactly 200 KB taken and past it 413 by its length and as it streams, nothing left
 behind, `--max-upload` elsewhere as before, copies by the same rule); and the password on
 making a scene, a file, a sound and a copy; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
 every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the
