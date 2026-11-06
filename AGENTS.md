@@ -1549,7 +1549,9 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
   you stand on the floor (within 1.1 m of its spot). With the circles asked first no ring is drawn (above). At a studio
   station the studio can hide every other station (`HOST.collab.hideOthers(on)`, v119, the studio's switch; `HIDE`,
   `hidingOthers`): while on and this headset's live station runs the studio, the other stations' rings, cards and icons
-  are neither drawn nor pointable (`r.hid`; people as ever); it lapses when the live station or its story changes (it
+  are neither drawn nor pointable (`r.hid`; people as ever) nor walked into (`zoneStep`: a circle you cannot see would
+  switch your story as you walk about a life-size scene), but the lobby, where the headsets charge, is still walked into
+  (its ring, card and icon hidden too); it lapses when the live station or its story changes (it
   holds what it was asked for, `HIDE.sig`), and `hideOthers()` without an argument says whether they are hidden now.
   Pages are as ever.
 - In a circle, icons only (the owner, 30 October 2026, after v100: "Once
@@ -4431,8 +4433,9 @@ the lobby (its ring hidden) ending the station after 1 s and the stub called aga
 lobby holding (not taken back there); the menu's *Circles* row turning it off for the room, the headset having written nothing but
 `look` (and what any arrival writes: its story's state and view there); walking in working again; then (v119) a studio
 circle added from the page: `HOST.collab.hideOthers(true)` refused (false) at a story's circle, and at the studio's
-(walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, lapsing
-once the headset walks into another circle (with `--shots`: `ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
+(walked into, the studio loaded) every other station's ring, card and icon gone and nothing of them pointable, a hidden
+story circle not walked into (still at the studio after standing in it), the lobby still walked into (the station ends
+and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
 values `scene:<name>`), then All stories and Back to the lobby; adding *Studio: test* writing `st.<id>` `{ story:

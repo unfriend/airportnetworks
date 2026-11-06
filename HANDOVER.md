@@ -85,7 +85,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     thing must be 4 cm behind the depth (2 cm behind the room) to be hidden, so things on a surface stay.
   - Fixed at integration: the studio asks again for its hidden circles at another studio circle (the shell lets it lapse
     when the station changes); the room's occluders ordered first inside their own group; the crosses drawn under the
-    menu and the panels (they covered the Yes/No buttons).
+    menu and the panels (they covered the Yes/No buttons). After a review of where the two chains meet: with the studio's
+    *Other circles: hidden*, the hidden circles could still be walked into (walking about a life-size scene could switch
+    the story from a circle you cannot see); now none is walked into but the lobby.
   - Known limits: a sound following a shape keeps its offset when the shape is sized; two people changing two scene
     settings at the same moment, one wins; making a big scan lighter stalls the headset's frames for some seconds (it
     runs on the page's thread); a declined AR permission is asked once more without depth.

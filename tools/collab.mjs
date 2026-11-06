@@ -1573,7 +1573,7 @@ async function circlesOnly() {
 // hidden), the story loaded hearing both (a stub for HOST.cur.lobby, the studio's); Go in pressed while standing in the
 // lobby holds; the menu's row turns the switch off for the room, and walking in works again; nothing written to the room
 // but look. Then a studio circle: at it, HOST.collab.hideOthers(true) hides every other station's ring, card and icon,
-// nothing of them pointable, and it lapses once the headset walks into another circle. dir: pictures (ask-*.png)
+// nothing of them pointable and none walked into but the lobby, and it lapses as the station ends there. dir: pictures (ask-*.png)
 async function askRound(dir) {
   const K1 = 'qubits', K2 = HEADSET_STORY;
   const A = await open('#stories');
@@ -1777,11 +1777,19 @@ async function askRound(dir) {
     const v0 = await rings(true), on1 = await H.evaluate(() => HOST.collab.hideOthers(true));
     const v1 = await ringsWhen(r => r.every(x => !x.icon && !x.card), 8000, true), pt1 = await pointAt(H, await H.evaluate(id => HOST.collab.overlay().rings.get(id).ball.getWorldPosition(new THREE.Vector3()).toArray(), S1.id));
     await H.evaluate(() => window.__xr.ctrl(0, null));
+    // (a circle hidden is not walked into: none of them is seen; the lobby, where the headsets charge, still is, which ends
+    // the station, and the hiding lapses with it; then circles are walked into again)
+    await goRoom(H, S1.x, 1.6, S1.z, 0);
+    await frames(H, 2500);
+    const wH3 = await where(), onH3 = await H.evaluate(() => HOST.collab.hideOthers());
+    await goRoom(H, SL.x, 1.6, SL.z, 0);
+    await frames(H, 2500);
+    const wH4 = await where(), off3 = await H.evaluate(() => HOST.collab.hideOthers()), v2 = await ringsWhen(r => r.some(x => x.icon), 8000, true);
     const in3 = await walk(H, S1, K1, 0, 150000);
-    const off3 = await H.evaluate(() => HOST.collab.hideOthers()), v2 = await ringsWhen(r => r.some(x => x.icon), 8000, true);
-    check('ask: hideOthers at a studio station hides every other station\'s ring, card and icon (nothing of them pointable); refused elsewhere; lapses once the headset walks into another circle',
-      no0 === false && inS && v0.some(r => r.icon) && on1 === true && v1.length === 3 && v1.every(r => !r.ring && !r.hit && !r.icon && !r.card) && pt1 === '' && in3 && off3 === false && v2.some(r => r.icon),
-      JSON.stringify({ no0, inS, v0, on1, v1, pt1, in3, off3, v2 }));
+    check('ask: hideOthers at a studio station hides every other station\'s ring, card and icon (nothing of them pointable); refused elsewhere; a hidden circle is not walked into, the lobby still is, and the hiding lapses with the station; then circles are walked into again',
+      no0 === false && inS && v0.some(r => r.icon) && on1 === true && v1.length === 3 && v1.every(r => !r.ring && !r.hit && !r.icon && !r.card) && pt1 === '' &&
+      wH3.mine === SS.id && onH3 === true && !wH4.mine && off3 === false && v2.some(r => r.icon) && in3,
+      JSON.stringify({ no0, inS, v0, on1, v1, pt1, wH3, onH3, wH4, off3, v2, in3 }));
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, H]) await p.context().close();

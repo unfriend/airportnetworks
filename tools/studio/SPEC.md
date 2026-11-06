@@ -946,8 +946,9 @@ shell's), and each scene may set it.
   `HOST.collab.hideOthers(true)` while this device is at this studio's station (`atStation()`) and the scene hides the
   other circles, `false` otherwise (away from its station, on the Stories screen, another scene, the setting changed);
   `HOST.occlusion.scene('both')` (always) or `('off')` (never) while the scene shows here, `null` (as each headset has it)
-  otherwise; `false` and `null` again as the studio goes (`dispose`). The shell draws or hides the other stations' rings,
-  cards and icons and runs the occlusion.
+  otherwise; `false` and `null` again as the studio goes (`dispose`). Told again at another studio circle (the station's
+  id is part of what it wants: the shell lets it lapse when the station changes). The shell draws or hides the other
+  stations' rings, cards and icons (hidden ones are not walked into either, but the lobby) and runs the occlusion.
 - **Untested on a headset**: the circles hidden at a studio's circle, and the occlusion setting with the shell's
   real-world occlusion.
 

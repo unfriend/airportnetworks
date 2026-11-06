@@ -4874,8 +4874,11 @@
     // shall go to the lobby automatically"), once you have stood outside every lobby since Go in last took you somewhere:
     // C.lobbyArm, so Go in pressed while standing in the lobby is not undone a second later)
     if (ask) { const Z0 = C.stById.get(C.zone); if (!(Z0 && Z0.kind === LOBBY_ST && !C.live)) C.zone = C.live; }
+    // (the other circles hidden by the studio's scene, hideOthers: none of them walked into, as none is seen, but the
+    // lobby, where the headsets charge, and the station you are at)
     let best = null, bd = NEAR;
-    for (const s of C.st) { if (s.id === MV.id || (s.arc && here()) || (ask && s.kind !== LOBBY_ST)) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
+    const hid = hidingOthers();
+    for (const s of C.st) { if (s.id === MV.id || (s.arc && here()) || (ask && s.kind !== LOBBY_ST) || (hid && s.id !== C.live && s.kind !== LOBBY_ST)) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
     if (ask && !best) C.lobbyArm = true;
     const Z = C.stById.get(C.zone) || C.stById.get(C.live), zd = Z ? dist(Z) : Infinity;   // (the station you are at: walked into, or live here)
     const cand = best && best.id !== (Z && Z.id) && bd < zd && (!ask || C.lobbyArm !== false) ? best.id : '';
