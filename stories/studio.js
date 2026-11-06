@@ -22634,14 +22634,14 @@ async function convertFile(path, o = {}) {
       CV.done.push(out);
       // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
       // only, and is never a reason the conversion failed
-      if (r.picture) { try { await pvKeep(out, r.picture, info); } catch (e) { /* Make pictures makes it again */ } }
+      if (r.picture) { try { await pvKeep(out, r.picture, info, gen); } catch (e) { /* Make pictures makes it again */ } }
     } else {
       saveFile(r.glb, name + '.glb', 'model/gltf-binary');
       CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
       CV.noteC = 'green';
       CV.done.push(name + '.glb');
       // (its picture, for this page only, on the card of the model it was made from)
-      if (r.picture) { try { await pvKeep(path, r.picture, info); } catch (e) { /* none */ } }
+      if (r.picture) { try { await pvKeep(path, r.picture, info, gen); } catch (e) { /* none */ } }
     }
     ok = true;
     sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
@@ -24054,20 +24054,24 @@ function pvInfo(root) {
   return { size: b.isEmpty() ? null : b.getSize(new THREE.Vector3()).toArray().map(r3), n: Math.round(n) };
 }
 // a picture made for a model of the scene (path): into the scene (previews/<path>.jpg, replacing one there) when the relay
-// takes uploads, else kept for this page. 'up', 'mem' or '' (none)
-async function pvKeep(path, cv, info) {
+// takes uploads, else kept for this page. gen: the scene's opening it was made for (the caller's, else now): another scene
+// opened meanwhile, the same one opened again, or the studio gone, and nothing is kept (a picture of another scene's model
+// must never go into this one). 'up', 'mem' or '' (none)
+async function pvKeep(path, cv, info, gen = STU.gen) {
+  const scene = STU.scene, gone = () => gen !== STU.gen || GL.gone || !STU.scene;
+  if (gone()) return '';
   if (info) PV.info.set(path, info);
   const blob = cv ? await pvJpeg(cv) : null;
-  if (!blob) return '';
-  const rel = pvPath(path), scene = STU.scene, gen = STU.gen;
+  if (!blob || gone()) return '';
+  const rel = pvPath(path);
   if (canUpload() && pvFits(rel)) {
     try {
       const j = await upSend(fileApi(scene, rel, true), blob);
-      if (gen !== STU.gen) return '';
+      if (gone()) return '';
       pvPut(rel, blob, j);
       pvDrop(PV.mem, path);
       return 'up';
-    } catch (e) { if (gen !== STU.gen) return ''; if (e.status === 401) throw e; /* kept for this page instead */ }
+    } catch (e) { if (gone()) return ''; if (e.status === 401) throw e; /* kept for this page instead */ }
   }
   pvDrop(PV.mem, path);
   const m = { at: 0, state: 'loading', url: '', img: null };
@@ -24087,12 +24091,13 @@ function pvPut(rel, blob, j) {
   PV.rev++;
 }
 // the picture of a GLB just made, for a scene that may not be the one open (the Upload pane's): into that scene when the
-// relay takes uploads (shown at once when it is the one open); a failure only said
+// relay takes uploads (shown at once when it is the one open, and was while it went up: a scene opened again meanwhile, or
+// the studio gone, reads it from its listing instead, so no picture is kept past pvClear); a failure only said
 async function pvSend(scene, path, blob) {
-  const rel = pvPath(path);
+  const rel = pvPath(path), gen = STU.gen;
   if (!pvFits(rel)) return null;
   const j = await upSend(fileApi(scene, rel, true), blob);
-  if (scene === STU.scene) pvPut(rel, blob, j);
+  if (scene === STU.scene && gen === STU.gen && !GL.gone) pvPut(rel, blob, j);
   return j;
 }
 
@@ -24139,7 +24144,7 @@ async function pvMakeOne(p, gen) {
     wrap.quaternion.fromArray(E.guess.q); wrap.scale.setScalar(E.guess.s); wrap.add(E.root);
     let cv = null, info = null;
     try { info = pvInfo(wrap); cv = await pvShotSoon(wrap); } finally { wrap.remove(E.root); E.root.updateMatrixWorld(true); }   // (as it was: on its own)
-    return gen === STU.gen ? pvKeep(p, cv, info) : '';
+    return gen === STU.gen ? pvKeep(p, cv, info, gen) : '';
   }
   const buf = await getBytes(fileUrl(p));
   if (gen !== STU.gen || GL.gone) return '';
@@ -24151,7 +24156,7 @@ async function pvMakeOne(p, gen) {
     const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size), wrap = new THREE.Group();
     wrap.quaternion.fromArray(g.q); wrap.scale.setScalar(g.s); wrap.add(m.root);
     const info = pvInfo(wrap), cv = await pvShotSoon(wrap);
-    return gen === STU.gen ? pvKeep(p, cv, info) : '';
+    return gen === STU.gen ? pvKeep(p, cv, info, gen) : '';
   } finally { CONV.disposeTree(m.root); }
 }
 const PV_ACT = {

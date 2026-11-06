@@ -170,14 +170,14 @@ async function convertFile(path, o = {}) {
       CV.done.push(out);
       // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
       // only, and is never a reason the conversion failed
-      if (r.picture) { try { await pvKeep(out, r.picture, info); } catch (e) { /* Make pictures makes it again */ } }
+      if (r.picture) { try { await pvKeep(out, r.picture, info, gen); } catch (e) { /* Make pictures makes it again */ } }
     } else {
       saveFile(r.glb, name + '.glb', 'model/gltf-binary');
       CV.note = `${baseName(path)} converted (${size}) and downloaded as ${name}.glb: ` + (SRC.kind === 'relay' ? 'this relay does not take uploads; ' : '') + 'put it in the scene\'s models/ folder.' + lost;
       CV.noteC = 'green';
       CV.done.push(name + '.glb');
       // (its picture, for this page only, on the card of the model it was made from)
-      if (r.picture) { try { await pvKeep(path, r.picture, info); } catch (e) { /* none */ } }
+      if (r.picture) { try { await pvKeep(path, r.picture, info, gen); } catch (e) { /* none */ } }
     }
     ok = true;
     sfxAct('ping', 'stage', 'centre', { gain: 0.6 });

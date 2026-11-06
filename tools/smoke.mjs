@@ -1858,6 +1858,10 @@ await step('design: the intro ends at the table', async () => {
     // Stop: Make pictures stops after the model it is making
     await ss(`(renderPanes(), PV_ACT.pics(), PV_ACT.picstop(), 0)`);
     if (!await until(`!PV.make`, 60000) || !/^Stopped: [01] of 3 pictures made/.test(await ss('PV.note'))) bad.push('Stop: ' + JSON.stringify(await ss('pvState()')));
+    // a picture made for an opening of the scene that is over (another scene opened meanwhile, or this one again) is kept
+    // nowhere: a model of the same path in the scene open now must never show it
+    const stale = await ss(`(async () => { const c = document.createElement('canvas'); c.width = c.height = 8; const r = await pvKeep('stale.glb', c, { size: [1, 1, 1], n: 2 }, STU.gen - 1); return [r, PV.mem.has('stale.glb'), PV.info.has('stale.glb')]; })()`);
+    if (JSON.stringify(stale) !== '["",false,false]') bad.push('a picture for a scene opened since kept: ' + JSON.stringify(stale));
     // previews/ in a listing: its pictures said apart (kind preview, also from an older relay's image), never a file the
     // scene's lists or texture ladder see; anything else in previews/ neither
     const pv = await ss(`(() => { const keep = STU.files.slice();
