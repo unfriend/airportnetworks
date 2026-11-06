@@ -544,8 +544,9 @@ function makeImages(z) {
   // change: o.band rings of exact edge colours (each texel a copy of a neighbour's from the ring before; 2 to 8 by size:
   // what a lighter model's wedges and the mipmaps read), then a smooth push-pull fill for the rest (each level's known
   // texels averaged into the next, smaller one; each unknown texel then drawn back, bilinearly, from the level above).
-  // Alpha kept as it is, unless o.alpha (then filled with the colours). cov is used up (its values change). o.pause(): a
-  // promise yielded to every o.slice ms (25), so a page or a headset keeps drawing. -> { filled, band, ms }
+  // Alpha kept as it is, unless o.alpha (then filled with the colours). o.rim: rings of the pieces' rims taken back first
+  // (below: a picture drawn down). cov is used up (its values change). o.pause(): a promise yielded to every o.slice ms
+  // (25), so a page or a headset keeps drawing. -> { filled, band, rim (texels taken back), ms }
   async function fillGaps(d, w, h, cov, o) {
     o = o || {};
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now(), AL = !!o.alpha;
@@ -565,6 +566,37 @@ function makeImages(z) {
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const qx = x + dx, qy = y + dy; if (qx >= 0 && qy >= 0 && qx < w && qy < h) NB[n++] = qy * w + qx; }
       return n;
     };
+    // o.rim (0 to 4): that many rings of covered texels at the rims of the pieces taken back first and filled as gaps are.
+    // A picture drawn down carries the black between its pieces into their rims (each texel there an average reaching
+    // over the edge), which the band would copy outwards: a dark halo along the seams. A rim texel is taken back only
+    // where a texel deeper in its piece is beside it, so a piece a few texels across keeps its own
+    const rim = Math.max(0, Math.min(4, o.rim | 0));
+    let back = 0;
+    for (let r = 0; r < rim; r++) {
+      // (the rim marked 4 for this ring, so a texel still marked 1 beside one is deeper in its piece)
+      nF = 0;
+      for (let y = 0; y < h; y++) {
+        if (due()) await rest();
+        const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+        for (let x = 0; x < w; x++) {
+          if (cov[r0 + x] !== 1) continue;
+          const l = x > 0 ? x - 1 : x, rr = x < w - 1 ? x + 1 : x;
+          if (cov[r0 + l] && cov[r0 + rr] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + rr] && cov[dn + l] && cov[dn + rr]) continue;
+          F = grow(F, nF); F[nF++] = r0 + x;
+        }
+      }
+      for (let i = 0; i < nF; i++) cov[F[i]] = 4;
+      let m = 0;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let deep = false;
+        for (let k = 0; k < n && !deep; k++) deep = cov[NB[k]] === 1;
+        if (deep) { F[m++] = F[i]; } else cov[F[i]] = 1;
+      }
+      for (let i = 0; i < m; i++) cov[F[i]] = 0;
+      back += m; nF = 0;
+      if (!m) break;
+    }
     // the first ring: every empty texel beside a covered one (only a covered texel with an empty one beside it looked round)
     for (let y = 0; y < h; y++) {
       if (due()) await rest();
@@ -653,7 +685,7 @@ function makeImages(z) {
       for (let i = levels.length - 2; i >= 0; i--) await draw(levels[i], levels[i + 1]);
       await draw(null, levels[0]);
     }
-    return { filled, band, ms: Math.round(now() - t0) };
+    return { filled, band, rim: back, ms: Math.round(now() - t0) };
   }
 
   return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits, cover, fillGaps };

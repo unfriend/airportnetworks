@@ -17746,8 +17746,9 @@ function makeImages(z) {
   // change: o.band rings of exact edge colours (each texel a copy of a neighbour's from the ring before; 2 to 8 by size:
   // what a lighter model's wedges and the mipmaps read), then a smooth push-pull fill for the rest (each level's known
   // texels averaged into the next, smaller one; each unknown texel then drawn back, bilinearly, from the level above).
-  // Alpha kept as it is, unless o.alpha (then filled with the colours). cov is used up (its values change). o.pause(): a
-  // promise yielded to every o.slice ms (25), so a page or a headset keeps drawing. -> { filled, band, ms }
+  // Alpha kept as it is, unless o.alpha (then filled with the colours). o.rim: rings of the pieces' rims taken back first
+  // (below: a picture drawn down). cov is used up (its values change). o.pause(): a promise yielded to every o.slice ms
+  // (25), so a page or a headset keeps drawing. -> { filled, band, rim (texels taken back), ms }
   async function fillGaps(d, w, h, cov, o) {
     o = o || {};
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now(), AL = !!o.alpha;
@@ -17767,6 +17768,37 @@ function makeImages(z) {
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) { const qx = x + dx, qy = y + dy; if (qx >= 0 && qy >= 0 && qx < w && qy < h) NB[n++] = qy * w + qx; }
       return n;
     };
+    // o.rim (0 to 4): that many rings of covered texels at the rims of the pieces taken back first and filled as gaps are.
+    // A picture drawn down carries the black between its pieces into their rims (each texel there an average reaching
+    // over the edge), which the band would copy outwards: a dark halo along the seams. A rim texel is taken back only
+    // where a texel deeper in its piece is beside it, so a piece a few texels across keeps its own
+    const rim = Math.max(0, Math.min(4, o.rim | 0));
+    let back = 0;
+    for (let r = 0; r < rim; r++) {
+      // (the rim marked 4 for this ring, so a texel still marked 1 beside one is deeper in its piece)
+      nF = 0;
+      for (let y = 0; y < h; y++) {
+        if (due()) await rest();
+        const r0 = y * w, up = y > 0 ? r0 - w : r0, dn = y < h - 1 ? r0 + w : r0;
+        for (let x = 0; x < w; x++) {
+          if (cov[r0 + x] !== 1) continue;
+          const l = x > 0 ? x - 1 : x, rr = x < w - 1 ? x + 1 : x;
+          if (cov[r0 + l] && cov[r0 + rr] && cov[up + x] && cov[dn + x] && cov[up + l] && cov[up + rr] && cov[dn + l] && cov[dn + rr]) continue;
+          F = grow(F, nF); F[nF++] = r0 + x;
+        }
+      }
+      for (let i = 0; i < nF; i++) cov[F[i]] = 4;
+      let m = 0;
+      for (let i = 0; i < nF; i++) {
+        const n = around(F[i]);
+        let deep = false;
+        for (let k = 0; k < n && !deep; k++) deep = cov[NB[k]] === 1;
+        if (deep) { F[m++] = F[i]; } else cov[F[i]] = 1;
+      }
+      for (let i = 0; i < m; i++) cov[F[i]] = 0;
+      back += m; nF = 0;
+      if (!m) break;
+    }
     // the first ring: every empty texel beside a covered one (only a covered texel with an empty one beside it looked round)
     for (let y = 0; y < h; y++) {
       if (due()) await rest();
@@ -17855,7 +17887,7 @@ function makeImages(z) {
       for (let i = levels.length - 2; i >= 0; i--) await draw(levels[i], levels[i + 1]);
       await draw(null, levels[0]);
     }
-    return { filled, band, ms: Math.round(now() - t0) };
+    return { filled, band, rim: back, ms: Math.round(now() - t0) };
   }
 
   return { decodeImage, sniff, way, isPicture, extOf, baseOf, stemOf, FMT, REFUSE, PREFER, ALL, texFind, texRank, slotOf, normStem, words, isNormalColour, renamePsd, psdBack, join, lzw, packbits, cover, fillGaps };
@@ -17876,7 +17908,8 @@ function makeImages(z) {
 //   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
 //   fillModel(root, o)  the gaps between its pictures' pieces filled from the colours round them (engine/images.js's cover
 //                       and fillGaps), so a lighter model samples no black between them; o.copy: new canvases, the model's
-//                       own pictures left as they are (the studio's preview)
+//                       own pictures left as they are (the studio's preview). drew(canvas, k): a picture drawn down by k
+//                       (its pieces' rims taken back and filled too: below)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
 //                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
@@ -17925,6 +17958,10 @@ function makeConverter(THREE, hooks) {
     const r = IM.decodeImage(k, buf);
     return rgbaCanvas(r.width, r.height, r.data);
   }
+  // the pictures drawn down, and by how much (a factor over 1): drawing down carries the black between an atlas's pieces
+  // into their rims, which the fill then takes back (fillModel). The studio's own drawing down says so too (drew)
+  const DRAWN = new WeakMap(), drawnBy = img => (img && DRAWN.get(img)) || 1;
+  const drew = (cv, k) => { if (cv && k > 1.001) DRAWN.set(cv, k); return cv; };
   // (drawn down to max px on its longer side when bigger)
   const shrink = (img, max) => {
     const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
@@ -17933,7 +17970,7 @@ function makeConverter(THREE, hooks) {
     c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
     const x = c.getContext('2d');
     x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
-    return c;
+    return drew(c, drawnBy(img) * Math.max(w, h) / Math.max(c.width, c.height));
   };
   // a picture at an address, drawn down to o.max (o.ext: its kind when the address does not say, as a blob's)
   async function picture(url, o) {
@@ -18515,7 +18552,10 @@ function makeConverter(THREE, hooks) {
   // 0 to 1 (a picture that repeats across the model, tiles, is left alone), under 95 % of it used, every mesh showing it
   // with texture coordinates. Every slot is filled with its own values (a normal map with normals, never black); alpha
   // kept as it is where a material reads it (see-through or cut out), else filled too (a canvas cannot hold a colour
-  // where alpha is 0). Done on the model before it is made lighter
+  // where alpha is 0: so a picture a material reads the alpha of, whose gaps are mostly clear, is left as it is). A
+  // picture drawn down (drew) has the rims of its pieces taken back and filled too, one ring of texels, two when drawn
+  // down by more than half: their texels average over the black beyond the edge, and the fill would spread that dark
+  // rim outwards. Done on the model before it is made lighter
   const FILL_SLOTS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
   // (three.js r128 reads every picture on the first texture coordinates through one transform, the first of these a
   // material has; the occlusion picture through the second set, and its own)
@@ -18603,10 +18643,19 @@ function makeConverter(THREE, hooks) {
       const own = !o.copy && typeof HTMLCanvasElement !== 'undefined' && e.img instanceof HTMLCanvasElement, cv = own ? e.img : document.createElement('canvas');
       if (!own) { cv.width = w; cv.height = h; cv.getContext('2d').drawImage(e.img, 0, 0, w, h); }
       const x = cv.getContext('2d'), id = x.getImageData(0, 0, w, h);
-      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, pause: yieldNow });
+      if (e.alpha) {
+        // (a gap whose alpha is 0 keeps no colour in a canvas, nor in the GLB written from it: filling them would only
+        // say so)
+        let gaps = 0, clear = 0;
+        for (let i = 0; i < N; i++) if (!cov[i]) { gaps++; if (!id.data[i * 4 + 3]) clear++; }
+        if (clear * 2 > gaps) { why.push('a see-through picture whose gaps are clear (no colour can be kept where nothing shows)'); continue; }
+      }
+      const k = drawnBy(e.img), rim = k > 2 ? 2 : k > 1 ? 1 : 0;
+      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, rim, pause: yieldNow });
       x.putImageData(id, 0, 0);
       if (!o.copy) for (const t of e.texs) { if (!own) t.image = cv; FILLED.add(t); t.needsUpdate = true; }
-      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled });
+      if (!own && k > 1) drew(cv, k);   // (a copy is drawn down as its picture was)
+      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled, rim: r.rim });
     }
     return { list, again, why: [...new Set(why)], ms: Math.round(performance.now() - t0) };
   }
@@ -18756,6 +18805,7 @@ function makeConverter(THREE, hooks) {
         d[i] = Math.round((nx * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
       }
       x.putImageData(out, 0, 0);
+      drew(c, drawnBy(img) / k);
       const n = new T.Texture(c);
       n.flipY = t.flipY; n.wrapS = t.wrapS; n.wrapT = t.wrapT; n.name = (t.name || 'bump') + ' (normal)'; n.needsUpdate = true;
       return n;
@@ -18781,6 +18831,7 @@ function makeConverter(THREE, hooks) {
       if (!R) mt.roughness = 1;
       if (!M) mt.metalness = 1;
       x.putImageData(o2, 0, 0);
+      drew(c, Math.max(...big.map(drawnBy)) / k);
       const t = new T.Texture(c), was = r || m;
       t.flipY = was.flipY; t.wrapS = was.wrapS; t.wrapT = was.wrapT; t.name = 'roughness and metalness'; t.needsUpdate = true;
       mt.roughnessMap = mt.metalnessMap = t;
@@ -18814,7 +18865,7 @@ function makeConverter(THREE, hooks) {
         if (!pic) {
           const k2 = Math.min(1, maxTex / Math.max(w, h));
           if (k2 < 1) drawn++;
-          const cv = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
+          const cv = drew(canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2))), drawnBy(img) / k2);
           pics.set(img, pic = { cv, fmt: opaque(cv) ? T.RGBFormat : T.RGBAFormat });   // (the exporter writes RGB as JPEG, RGBA as PNG)
         }
         t.image = pic.cv; t.format = pic.fmt; t.needsUpdate = true;
@@ -19032,7 +19083,7 @@ function makeConverter(THREE, hooks) {
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS, drew,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }
 
@@ -19251,6 +19302,7 @@ function capTexture(t, pics) {
   const x = cv.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(img, 0, 0, cw, ch);
+  CONV.drew(cv, Math.max(w, h) / Math.max(cw, ch));   // (the fill takes its pieces' darkened rims back: engine/convert.js)
   pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);

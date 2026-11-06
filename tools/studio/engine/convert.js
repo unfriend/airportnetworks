@@ -14,7 +14,8 @@
 //   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
 //   fillModel(root, o)  the gaps between its pictures' pieces filled from the colours round them (engine/images.js's cover
 //                       and fillGaps), so a lighter model samples no black between them; o.copy: new canvases, the model's
-//                       own pictures left as they are (the studio's preview)
+//                       own pictures left as they are (the studio's preview). drew(canvas, k): a picture drawn down by k
+//                       (its pieces' rims taken back and filled too: below)
 //   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
 //   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (its pictures' gaps filled unless o.fill is
 //                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
@@ -63,6 +64,10 @@ function makeConverter(THREE, hooks) {
     const r = IM.decodeImage(k, buf);
     return rgbaCanvas(r.width, r.height, r.data);
   }
+  // the pictures drawn down, and by how much (a factor over 1): drawing down carries the black between an atlas's pieces
+  // into their rims, which the fill then takes back (fillModel). The studio's own drawing down says so too (drew)
+  const DRAWN = new WeakMap(), drawnBy = img => (img && DRAWN.get(img)) || 1;
+  const drew = (cv, k) => { if (cv && k > 1.001) DRAWN.set(cv, k); return cv; };
   // (drawn down to max px on its longer side when bigger)
   const shrink = (img, max) => {
     const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
@@ -71,7 +76,7 @@ function makeConverter(THREE, hooks) {
     c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
     const x = c.getContext('2d');
     x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
-    return c;
+    return drew(c, drawnBy(img) * Math.max(w, h) / Math.max(c.width, c.height));
   };
   // a picture at an address, drawn down to o.max (o.ext: its kind when the address does not say, as a blob's)
   async function picture(url, o) {
@@ -653,7 +658,10 @@ function makeConverter(THREE, hooks) {
   // 0 to 1 (a picture that repeats across the model, tiles, is left alone), under 95 % of it used, every mesh showing it
   // with texture coordinates. Every slot is filled with its own values (a normal map with normals, never black); alpha
   // kept as it is where a material reads it (see-through or cut out), else filled too (a canvas cannot hold a colour
-  // where alpha is 0). Done on the model before it is made lighter
+  // where alpha is 0: so a picture a material reads the alpha of, whose gaps are mostly clear, is left as it is). A
+  // picture drawn down (drew) has the rims of its pieces taken back and filled too, one ring of texels, two when drawn
+  // down by more than half: their texels average over the black beyond the edge, and the fill would spread that dark
+  // rim outwards. Done on the model before it is made lighter
   const FILL_SLOTS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
   // (three.js r128 reads every picture on the first texture coordinates through one transform, the first of these a
   // material has; the occlusion picture through the second set, and its own)
@@ -741,10 +749,19 @@ function makeConverter(THREE, hooks) {
       const own = !o.copy && typeof HTMLCanvasElement !== 'undefined' && e.img instanceof HTMLCanvasElement, cv = own ? e.img : document.createElement('canvas');
       if (!own) { cv.width = w; cv.height = h; cv.getContext('2d').drawImage(e.img, 0, 0, w, h); }
       const x = cv.getContext('2d'), id = x.getImageData(0, 0, w, h);
-      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, pause: yieldNow });
+      if (e.alpha) {
+        // (a gap whose alpha is 0 keeps no colour in a canvas, nor in the GLB written from it: filling them would only
+        // say so)
+        let gaps = 0, clear = 0;
+        for (let i = 0; i < N; i++) if (!cov[i]) { gaps++; if (!id.data[i * 4 + 3]) clear++; }
+        if (clear * 2 > gaps) { why.push('a see-through picture whose gaps are clear (no colour can be kept where nothing shows)'); continue; }
+      }
+      const k = drawnBy(e.img), rim = k > 2 ? 2 : k > 1 ? 1 : 0;
+      const r = await IM.fillGaps(id.data, w, h, cov, { alpha: !e.alpha, rim, pause: yieldNow });
       x.putImageData(id, 0, 0);
       if (!o.copy) for (const t of e.texs) { if (!own) t.image = cv; FILLED.add(t); t.needsUpdate = true; }
-      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled });
+      if (!own && k > 1) drew(cv, k);   // (a copy is drawn down as its picture was)
+      list.push({ img: e.img, canvas: cv, texs: [...e.texs], share, ms: Math.round(performance.now() - t1), filled: r.filled, rim: r.rim });
     }
     return { list, again, why: [...new Set(why)], ms: Math.round(performance.now() - t0) };
   }
@@ -894,6 +911,7 @@ function makeConverter(THREE, hooks) {
         d[i] = Math.round((nx * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); d[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); d[i + 3] = 255;
       }
       x.putImageData(out, 0, 0);
+      drew(c, drawnBy(img) / k);
       const n = new T.Texture(c);
       n.flipY = t.flipY; n.wrapS = t.wrapS; n.wrapT = t.wrapT; n.name = (t.name || 'bump') + ' (normal)'; n.needsUpdate = true;
       return n;
@@ -919,6 +937,7 @@ function makeConverter(THREE, hooks) {
       if (!R) mt.roughness = 1;
       if (!M) mt.metalness = 1;
       x.putImageData(o2, 0, 0);
+      drew(c, Math.max(...big.map(drawnBy)) / k);
       const t = new T.Texture(c), was = r || m;
       t.flipY = was.flipY; t.wrapS = was.wrapS; t.wrapT = was.wrapT; t.name = 'roughness and metalness'; t.needsUpdate = true;
       mt.roughnessMap = mt.metalnessMap = t;
@@ -952,7 +971,7 @@ function makeConverter(THREE, hooks) {
         if (!pic) {
           const k2 = Math.min(1, maxTex / Math.max(w, h));
           if (k2 < 1) drawn++;
-          const cv = canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2)));
+          const cv = drew(canvasOf(img, Math.max(1, Math.round(w * k2)), Math.max(1, Math.round(h * k2))), drawnBy(img) / k2);
           pics.set(img, pic = { cv, fmt: opaque(cv) ? T.RGBFormat : T.RGBAFormat });   // (the exporter writes RGB as JPEG, RGBA as PNG)
         }
         t.image = pic.cv; t.format = pic.fmt; t.needsUpdate = true;
@@ -1170,6 +1189,6 @@ function makeConverter(THREE, hooks) {
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS, drew,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }

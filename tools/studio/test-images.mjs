@@ -187,6 +187,44 @@ for (const alpha of [false, true]) {
   ok(exact && ring > 100, `fillGaps (${what}): the texels beside a piece are exact copies of its edge colours`, `${ring} beside a piece`);
   ok(alpha ? filledA : keptA, `fillGaps (${what}): ${alpha ? 'the gaps opaque as the pieces round them' : 'the alpha of the gaps as it was'}`);
 }
+// rim: a picture drawn down carries the black between its pieces into their rims (each rim texel an average reaching
+// over the edge). Two pieces in one colour on black at 256 px, their edges between texels of the smaller picture, drawn
+// down 2 and 4 times by a box filter (each texel the mean of those it stands for), covered where the texels' centres are
+// inside a piece; filled without rim, the texels beside a piece copy its dark rim; with rim (1 at 2 times, 2 at 4) none
+// is darker than a tenth below the colour, and a strip two texels wide keeps its own texels
+for (const [f, rim] of [[2, 1], [4, 2]]) {
+  const W = 256, w = W / f, h = w, C = [200, 160, 60], big = new Float32Array(W * W * 3);
+  const P = [[37, 41, 151, 133], [171, 27, 233, 219]], strip = [64, 204, 64 + 2 * f, 244];   // (on the smaller picture's texels: two across)
+  for (const [x0, y0, x1, y1] of P.concat([strip])) for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) for (let j = 0; j < 3; j++) big[(y * W + x) * 3 + j] = C[j];
+  const make = () => {
+    const d = new Uint8ClampedArray(w * h * 4), cov = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      for (let j = 0; j < 3; j++) { let s = 0; for (let b = 0; b < f; b++) for (let a = 0; a < f; a++) s += big[((y * f + b) * W + x * f + a) * 3 + j]; d[i + j] = s / (f * f); }
+      d[i + 3] = 255;
+      const cx = (x + 0.5) * f, cy = (y + 0.5) * f;
+      if (P.concat([strip]).some(([x0, y0, x1, y1]) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1)) cov[y * w + x] = 1;
+    }
+    return { d, cov };
+  };
+  // the darkest of the texels beside a piece (and, with rim, its rim), as a share of the colour
+  const darkest = (d, c0) => {
+    let m = 1;
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      let near = false;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (c0[p + dy * w + dx] !== c0[p]) near = true;
+      if (near) m = Math.min(m, d[p * 4] / C[0], d[p * 4 + 1] / C[1], d[p * 4 + 2] / C[2]);
+    }
+    return m;
+  };
+  const a = make(), c0 = a.cov.slice(), b = make(), sx = Math.round(strip[0] / f), sy = Math.round((strip[1] + strip[3]) / 2 / f), s0 = a.d.slice(((sy * w) + sx) * 4, ((sy * w) + sx + 2) * 4);
+  const r0 = await IM.fillGaps(a.d, w, h, a.cov, { band: 4 }), r1 = await IM.fillGaps(b.d, w, h, b.cov, { band: 4, rim });
+  const m0 = darkest(a.d, c0), m1 = darkest(b.d, c0), s1 = b.d.slice(((sy * w) + sx) * 4, ((sy * w) + sx + 2) * 4);
+  console.log(`  drawn down ${f} times: ${(m0 * 100).toFixed(0)} % without rim, ${(m1 * 100).toFixed(0)} % with rim ${rim}, ${r1.rim} texels taken back`);
+  ok(m0 < 0.75 && m1 > 0.9 && r0.rim === 0 && r1.rim > 0, `fillGaps: a picture drawn down ${f} times: without rim a dark halo along the pieces (${(m0 * 100).toFixed(0)} % of the colour at the darkest), with rim ${rim} none (${(m1 * 100).toFixed(0)} %)`, `${r1.rim} taken back`);
+  ok(s1.every((v, i) => v === s0[i]), `fillGaps (rim ${rim}): a strip two texels wide keeps its own texels`, [...s0].join() + ' / ' + [...s1].join());
+}
 // and a picture as big as the converter makes them (4,096 px: the time it takes here; a page's and a headset's differ)
 {
   const w = 4096, h = 4096, { d, cov } = atlas(w, h);

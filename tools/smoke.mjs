@@ -2084,7 +2084,7 @@ await step('design: the intro ends at the table', async () => {
   // wavy pieces on black, as a scan's is (made in the page; nothing committed), placed as scanned. At 10 % its seams
   // straighten and sample the black between the pieces; filled (the preview, and the GLB Save makes), far fewer black
   // pixels; the GLB's record says so, its card too, and it is not filled again; a picture that tiles is left alone
-  await step('studio: the gaps between a picture\'s pieces filled (an atlas ball made in the page: the 10 % preview and the saved GLB with far fewer black pixels than without, filled once and cached, its record and card, not filled again, a tiling picture left alone)', async () => {
+  await step('studio: the gaps between a picture\'s pieces filled (an atlas ball made in the page: the 10 % preview and the saved GLB with far fewer black pixels than without, filled once and cached, its record and card, not filled again, a tiling picture left alone; a picture drawn down without a dark rim, a see-through one with clear gaps left alone)', async () => {
     const bad = [];
     const b64 = await ss(`(async () => {
       exporterLoad();
@@ -2189,6 +2189,39 @@ await step('design: the intro ends at the table', async () => {
       return { n: r.list.length, why: r.why, px: [...px], n2: r2.list.length, why2: r2.why, same: root.children[0].material.map.image === cv };
     })()`);
     if (tl.n || !tl.why.includes('a picture repeats across the model (tiles)') || tl.px.slice(0, 3).join() !== '0,0,0' || !tl.same || tl.n2 || !tl.why2.includes('a picture is nearly all used')) bad.push('a picture that tiles, or one nearly all used: ' + JSON.stringify(tl));
+    // a picture drawn down (by the converter's own reading, 4 times here: CONV.picture with a max) has the rims of its
+    // pieces taken back and filled too: beside the piece nothing darker than a tenth below its colour; drawn down the
+    // same way by hand (the converter not told), the dark rim copied outwards. A see-through picture whose gaps are clear
+    // is left as it is and said (a canvas keeps no colour there); one whose gaps are opaque black is filled, its alpha kept
+    const dn = await ss(`(async () => {
+      const T = THREE, out = {}, S = 256, big = document.createElement('canvas'); big.width = big.height = S; const bx = big.getContext('2d');
+      bx.fillStyle = '#000'; bx.fillRect(0, 0, S, S); bx.fillStyle = 'rgb(200,160,60)'; bx.fillRect(66, 66, 124, 124);
+      const url = await new Promise(res => big.toBlob(b => res(URL.createObjectURL(b)), 'image/png'));
+      const plane = img => { const g = new T.PlaneGeometry(1, 1), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (66 + uv.getX(i) * 124) / S, (66 + uv.getY(i) * 124) / S); const r = new T.Group(); r.add(new T.Mesh(g, new T.MeshBasicMaterial({ map: new T.CanvasTexture(img) }))); return r; };
+      const darkest = async img => {
+        const root = plane(img), r = await CONV.fillModel(root), d = root.children[0].material.map.image.getContext('2d').getImageData(0, 0, 64, 64).data;
+        let m = 1;
+        for (const y of [24, 32, 40]) for (const x of [12, 13, 14, 15, 16, 17, 18, 45, 46, 47, 48, 49, 50, 51]) for (const [i, j] of [[x, y], [y, x]]) { const p = (j * 64 + i) * 4; m = Math.min(m, d[p] / 200, d[p + 1] / 160, d[p + 2] / 60); }
+        return { m: Math.round(m * 100) / 100, n: r.list.length, rim: r.list[0] && r.list[0].rim };
+      };
+      const said = await CONV.picture(url, { max: 64, ext: 'png' }), hand = document.createElement('canvas'); hand.width = hand.height = 64;
+      const hx = hand.getContext('2d'); hx.imageSmoothingQuality = 'high'; hx.drawImage(big, 0, 0, 64, 64);
+      out.said = await darkest(said); out.hand = await darkest(hand);
+      URL.revokeObjectURL(url);
+      const seeThrough = async clear => {
+        const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+        if (!clear) { x.fillStyle = '#000'; x.fillRect(0, 0, 64, 64); }
+        x.fillStyle = 'rgba(40,170,220,0.8)'; x.fillRect(16, 16, 32, 32);
+        const g = new T.PlaneGeometry(1, 1), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.25 + uv.getX(i) * 0.5, 0.25 + uv.getY(i) * 0.5);
+        const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true })));
+        const r = await CONV.fillModel(root), d = root.children[0].material.map.image.getContext('2d').getImageData(10, 32, 1, 1).data;
+        return { n: r.list.length, why: r.why, px: [...d] };
+      };
+      out.clear = await seeThrough(true); out.opaque = await seeThrough(false);
+      return out;
+    })()`);
+    if (dn.said.n !== 1 || !(dn.said.rim > 0) || dn.said.m < 0.9 || dn.hand.n !== 1 || dn.hand.rim || dn.hand.m > 0.75) bad.push('a picture drawn down 4 times (by the converter, by hand): ' + JSON.stringify({ said: dn.said, hand: dn.hand }));
+    if (dn.clear.n || !dn.clear.why.includes('a see-through picture whose gaps are clear (no colour can be kept where nothing shows)') || dn.opaque.n !== 1 || dn.opaque.px[3] !== 255 || Math.max(...dn.opaque.px.slice(0, 3)) < 100) bad.push('a see-through picture (gaps clear, gaps opaque): ' + JSON.stringify({ clear: dn.clear, opaque: dn.opaque }));
     // back as it was
     while (await ss('UNDO.length') > u0) await ss('undo()');
     await ss(`(setFiles(STU.files.filter(f => f.path !== 'atlas.glb' && f.path !== 'models/atlas.glb')), select(''), X.tab = 'scene', renderPanes(), 0)`);

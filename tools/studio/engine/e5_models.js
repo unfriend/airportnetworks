@@ -214,6 +214,7 @@ function capTexture(t, pics) {
   const x = cv.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(img, 0, 0, cw, ch);
+  CONV.drew(cv, Math.max(w, h) / Math.max(cw, ch));   // (the fill takes its pieces' darkened rims back: engine/convert.js)
   pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);
