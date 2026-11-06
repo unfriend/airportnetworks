@@ -1,7 +1,7 @@
 
 // ================================================================= GROUPS ==
-// A group is a named set of items that move together (tools/studio/SPEC.md, "Groups"): objects, sounds and trigger
-// cubes (a cut-out belongs to its object and moves with it, so it is never a member). Its record: { name, items } (the
+// A group is a named set of items that move together (tools/studio/SPEC.md, "Groups"): objects, sounds, trigger cubes,
+// shapes and empties (a cut-out belongs to its object and moves with it, so it is never a member). Its record: { name, items } (the
 // members' ids). An item is in one group at most: an id two groups name stays in the one with the lower id (groupOf, the
 // same on every device); no groups in groups; 50 a scene. A click (the trigger, a pinch) on a member selects its group,
 // a second one on the same member, its group selected, that member alone (pressItem, e7_explore.js). A selected group
@@ -36,9 +36,11 @@ function groupBox(g, out, solid) {
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o') : [];
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p') : [];
   for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
+    if (it.kind === 'e') { out.expandByPoint(it.holder.position); continue; }
+    if (it.kind === 'p') { out.union(shapeBox(it, _gb)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
     t.updateWorldMatrix(true, false);
@@ -105,6 +107,11 @@ function groupMove(B, t, th, k, write) {
       const p = at(_gpv.fromArray(r.p), it), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
       if (write) setRec(it.id, { p: p.toArray(), yaw, size });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.setFromAxisAngle(_gpy, yaw); it.holder.scale.fromArray(size); }
+    } else if (m.kind === 'p' || m.kind === 'e') {
+      // (a shape: its place, its turn and its size per axis; an empty: its place and turn)
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), size = m.kind === 'p' ? r.size.map(v => lim(v * k, 0.01, 100, it)) : null;
+      if (write) setRec(it.id, Object.assign({ p: p.toArray(), q: q.toArray() }, size ? { size } : {}));
+      if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); if (size) it.holder.scale.fromArray(size); }
     } else {
       const rr = lim(r.r * k, 0.1, 20, it);
       if (m.rides) { if (write) setRec(it.id, { r: rr }); continue; }   // (carried by its object)
@@ -113,10 +120,10 @@ function groupMove(B, t, th, k, write) {
       if (it.carry) it.holder.position.copy(p);
     }
   }
-  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
+  if (write) g.note = held.length ? `Sized this far, ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} held at the limit (an object a ten-thousandth to 10,000 times, a cube's side 5 cm to 100 m, a shape's 1 cm to 100 m, a sound's full volume within 10 cm to 20 m, a place within 1 km of the scene's origin): sizing back does not undo that; Undo does.` : '';
 }
-// the group's lowest point onto the floor: its objects' (a cube's volume and a sound's point stand on nothing; a group of
-// cubes and sounds alone, theirs)
+// the group's lowest point onto the floor: its objects' and shapes' (a cube's volume, a sound's and an empty's point stand
+// on nothing; a group of those alone, theirs)
 function groupFloor(g) {
   const b = groupBox(g, new THREE.Box3(), true);
   if (!b.isEmpty() && Math.abs(b.min.y) > 5e-4) groupMove(groupBase(g), new THREE.Vector3(0, -b.min.y, 0), 0, 1, true);
@@ -211,11 +218,11 @@ function gpickEnd() {
 // --------------------------------------------------------- duplicate --
 // why a group cannot be copied now ('' it can): the scene's limits, its copies and its objects' cut-outs counted
 function groupDupWhy(g) {
-  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1 };
+  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0 };
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
-  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_NAME[k]}s at most.` : '';
+  return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : '';
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the
@@ -228,14 +235,16 @@ function duplicateGroup(g) {
   const map = new Map(), base = n => nameFor(n.replace(/ \d+$/, '')), nid = fresh();
   change(() => {
     for (const m of ms) { map.set(m.id, fresh()); if (m.kind === 'o') for (const x of cutsOn(m.id)) map.set(x.id, fresh()); }
+    // (copies are never locked: they are new, to be put where they go)
     for (const m of ms) if (m.kind === 'o') {
-      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p) })));
-      for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name) })));
+      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
+      for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide) })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
-      const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p) });
+      const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
       else if (r.on) { const nd = measureNode(m), at = m.holder.position.clone().add(d); nr.p = at.toArray(); if (nd) nr.o = offsetAt(nd, at, followK(followOf(m))); }   // (what it followed, beside where it is)
       putItem(map.get(m.id), 's', norm('s', nr));

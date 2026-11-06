@@ -39,7 +39,8 @@ relay, with an upload page that converts and sorts what is dropped on it).
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT) and `peerjs.min.js` (PeerJS 1.5.5,
 vendored, MIT, loaded only when a shared room runs peer to peer); the studio pastes three.js r128's own loaders and
-exporter (`tools/studio/vendor/`, MIT) into its built file. The app is deployed by copying
+exporter and meshoptimizer's simplifier (1.3.0, its WebAssembly inside; `tools/studio/vendor/`, MIT) into its built
+file. The app is deployed by copying
 the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 
 ## Layout
@@ -220,15 +221,18 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
   engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
   `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
-  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e6b_cuts.js` the
-  cut-outs; `engine/e6c_groups.js` the groups), two sets (`stage`, the
-  floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes), `vendor/`
+  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
+  Fewer triangles and Change texture on a card and the Upload pane's share and picture; `engine/e6b_cuts.js` the
+  cut-outs; `engine/e6c_groups.js` the groups; `engine/e6d_shapes.js` the shapes, empties, locks, the scene's settings and the
+  lobby hook), two sets (`stage`, the
+  floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
   fflate 0.6.9, which the FBX loader needs; pasted into the built file with their licence lines, each wrapped so
   nothing leaks but `THREE.*`, `GLTFExporter` last inside `exporterLoad()`, defined only when the studio first
-  converts: its `README.md`), the build (`build.mjs`, `--check`), `scan.mjs` (a plain folder of scenes for any web
-  host), `convert.mjs` (a model to GLB on a computer), and the test scene (`test/make.mjs` makes
+  converts; and meshoptimizer's `meshopt_simplifier.js`, 1.3.0, MIT, inside `meshoptLoad()`, its WebAssembly made only
+  when the studio first makes a model lighter: its `README.md`), the build (`build.mjs`, `--check`), `scan.mjs` (a plain folder of scenes for any web
+  host), `convert.mjs` (a model to GLB on a computer; `--keep` makes it lighter), and the test scene (`test/make.mjs` makes
   `test/scenes/test/`: an animated `box.glb`, an ASCII `figure.fbx` in centimetres and Z up with `figure.png`, a short
   `tone.wav`, a 25 s `sounds/long.wav`, an OBJ with its MTL and PNG under `originals/`, its `layout.json` and listings,
   about 250 KB, committed; and `test/scenes/textures/`, about 20 KB: pictures in every kind the studio reads, from
@@ -1008,7 +1012,10 @@ follow an object or a bone in v112: a sound's record in the studio's `state()` g
 when the studio's cut-outs came in v113: its `state()` gained a field per cut-out, `x.<id>`; networks-32 when the studio's
 groups and Faces came in v114: its `state()` gained a field per group, `g.<id>`, and an object's record an optional
 `faces`; networks-33 when the circles asked first came in v118: `look` gained `ask`, which an older device writing `look`
-would drop, and in the same round a studio circle made for a scene its record's `sc: true`). The plan is
+would drop, and in the same round a studio circle made for a scene its record's `sc: true`; networks-34 when the studio's
+shapes, empties, locks and scene settings came in v119: its `state()` gained a field per shape, `p.<id>`, and per empty,
+`e.<id>`, every item's and group's record an optional `locked`, a sound's `on` an empty or a shape too, and the scene's
+`settings`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -2274,7 +2281,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids); an object's record carries its `faces` when set: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound or a cut-out's *Preview* | none |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview* or what the lobby made this device forget | none |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3228,19 +3235,41 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   OGG kept as it is (played from one point) and anything else a mono 22.05 kHz WAV. Every given file also goes into
   `originals/<the dropped folders>`. Without a relay that takes uploads the plan still shows and *Convert* offers each
   GLB and WAV as a download.
+- **Fewer triangles and Change texture** (v119; the owner, 6 November 2026: "models need to be way less triangles",
+  "needs a percentage and should be adjustable per model with a preview", "20 percent by default for everything",
+  "preview in ar/vr would really be helpful", and "a change texture button on models placed in the scene";
+  `tools/studio/SPEC.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
+  mesh to a share of its triangles with meshoptimizer's simplifier: its normals and texture coordinates weighed, so its
+  textures stay put; corners shared between parts locked; crumbs pruned; skins kept, shape keys left), in `toGLB`
+  (`keep`; the record's `tris: { from, to, keep }`) and `convert.mjs --keep`. On a placed model's card (page and headset,
+  editing on, under its place and size): *Fewer triangles...*, 20 % to start (a page's slider; a headset's *− 5 %*,
+  *+ 5 %*, *10 %*, *20 %*, *50 %*), shown at once in place on this device only (the object's own model given the
+  lighter geometries), *Save* making the GLB as Convert to GLB does (from the original a GLB stands for when the scene
+  has it, so the share is of the original; every object of that file switched where it stands, one Undo step, for
+  everyone at a station), *Cancel* putting it back; *Change texture...* (a material, a slot and one of the scene's
+  pictures, or on a page one from this computer, shown at once on this device; *Save* bakes it in through Add a
+  texture's path, recorded in `asset.extras.studio.tex`). Both save from a headset too (with a relay that takes uploads;
+  the rule that a headset converts nothing lifted for these two). A lighter GLB made again from its original keeps its
+  share. The Upload pane: each model's *Triangles kept* (20 % by default), about how many (`CONV.triCount`, from its
+  bytes) and *Preview* (one row at a time: all its triangles and the share kept, drawn side by side). Nothing in the
+  layout or `collab.state()` (no `FORMAT` change).
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
-  cubes, sounds, cuts, groups }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
+  cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
   start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
   ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
   the object it follows, its bone's name, the offset in the target's frame; "Sounds" below), a cut-out `{ id, name, on,
   p, q, size }` in `cuts` (the object it cuts, and its middle, a full turn and its size in that object's frame, turned
   but not scaled; "Cut-outs" below; a layout without `cuts`, v112's, reads as before), a group `{ id, name, items }` in
   `groups` (its members' ids, this layout's objects, sounds and cubes only, one left with fewer than 2 dropped and counted;
-  "Groups" below; a layout without `groups`, v113's, reads as before). Metres in the scene's frame (the floor at y = 0, the origin
+  "Groups" below; a layout without `groups`, v113's, reads as before), a shape `{ id, name, shape: 'cube' | 'sphere' |
+  'cylinder' | 'plane', p, q, size, colour: '#rrggbb', look: 'colour' | 'hide' }` in `shapes` and an empty `{ id, name, p,
+  q }` in `empties` ("Shapes and empties" below), any item or group with `locked: true` (kept only when set; "Locked in
+  place" below), and the scene's `settings` `{ others: 'shown' | 'hidden', real: 'device' | 'always' | 'never' }` ("The
+  scene's settings" below; a layout without them, v118's, reads as before, a new scene's; bad ones counted). Metres in the scene's frame (the floor at y = 0, the origin
   at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
-  2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object), 50 groups; a `file` is a path in the scene's listing (200 characters, no `..`); a
+  2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object), 50 groups, 200 shapes, 100 empties; a `file` is a path in the scene's listing (200 characters, no `..`); a
   cube's lists only name this scene's items. A bad item is dropped and said once (*2 items in layout.json could not be
   read*); anything else ignored.
 - **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
@@ -3249,7 +3278,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   in `hide` (H): shown if S has any and H none, hidden if H has any and S none, both: the one entered last decides (a
   `stay` cube walked into again counts as entered again, v117: before, it counted only the first time, so with a `stay`
   cube showing an item and another hiding it the item stayed hidden after the first round, the owner's report of 5
-  November 2026); neither: hidden if any cube lists it in `show` (it waits for its cube), else shown. Shown and hidden fade
+  November 2026); neither: hidden if any cube lists it in `show` (it waits for its cube), else shown (v119: away from its
+  station in a room, nothing; a shape or an empty is shown and hidden as an object is). Shown and hidden fade
   over 0.4 s; `start: 'shown'` starts an object's animation, or a sound, from its beginning each time it is shown (a
   sound stops, fading, when hidden). Never shared, never in `state()`: ten headsets each see what their own place
   reveals. While editing every cube is drawn see-through (its colour at about 0.18, brighter edges, its name, brighter
@@ -3272,7 +3302,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   in the sound's colour and a faint ring on the floor at `r`.
 - **Sounds that follow a model** (the owner, 4 November 2026: "also sound should follow a model, sometimes i might also
   want to select bones like the head for voice, breast for sounds she makes while moving etc"; `tools/studio/SPEC.md`,
-  "Sounds that follow a model"): a sound's optional `on` (an object's id), `bone` (a bone of its model, or for a model
+  "Sounds that follow a model"): a sound's optional `on` (an object's id; since v119 also a shape's or an empty's, followed
+  where it is, no bone), `bone` (a bone of its model, or for a model
   with no bones a part its clips move, by name as three.js gives it; none: the whole model, the object's holder) and `o`
   (an offset in metres in the target's frame, turned but not scaled, to the mm). Every frame, once every object's
   animation has stepped, its holder goes to the target's place plus the target's turn times `o` (`soundStep`; the
@@ -3334,7 +3365,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
 - **Groups** (the owner, 5 November 2026: "grouping things (models, sounds, etc) in studio mode so that they move together";
   `tools/studio/SPEC.md`, "Groups"; `engine/e6c_groups.js`). A group (`{ name, items }`, kind `g`) is a named set of objects,
-  sounds and trigger cubes (a cut-out belongs to its object, so never a member); an item is in one group at most (an id
+  sounds and trigger cubes, and since v119 shapes and empties (a cut-out belongs to its object, so never a member); an item is in one group at most (an id
   two groups name stays in the one with the lower id, `groupOf`, the same on every device), no groups in groups, 50 a
   scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
   an item puts it in or takes it out, Ctrl- and Shift-click as a click, names under Items too; one in another group moves
@@ -3372,6 +3403,55 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   record's `faces`), and with its cut-outs' addition. A row on the object's card (page and headset): *Faces: As in the file
   / Both sides / Inside out*, one Undo step, shared and saved (FORMAT networks-32). The file is never changed. Untested on
   a headset: a scan inside out seen from within, the cost of double sides on a big scan.
+- **Shapes, empties, locks, the scene's settings and the lobby** (v119; the owner, 6 November 2026: "Needs invisible
+  occlusion cubes and other primitives to hide things and just in general"; "Needs empty objects for example to place
+  sounds in space"; "an option to lock things in space so we cannot accidentally move them"; "an option to hide all other
+  icons and circles in studio mode"; `tools/studio/SPEC.md`, "Shapes and empties", "Locked in place", "The scene's
+  settings", "The lobby"; `engine/e6d_shapes.js`, `LOOKS.shape`, `LOOKS.empty`).
+  - A shape (`p.<id>`, `shapes`): `{ name, shape: 'cube' | 'sphere' | 'cylinder' | 'plane', p, q, size, colour, look }`,
+    added from the Add pane's *Shapes* row (a 50 cm box or ball, a 50 cm by 1 m cylinder, a 1 m plane, upright, facing
+    +z; 1.5 m in front of you on the floor, selected; 200 a scene). `look: 'colour'`: lit in its colour (ten swatches on
+    its card, `#rrggbb` lower case), fading as an object does; `'hide'`: drawn into the depth alone (`colorWrite: false`,
+    `renderOrder` -1, after the stage's floor and sky, before the items), so the scene's own things behind it are not
+    drawn there: in AR the real room shows through it, in VR the stage; a closed shape hides from its outside only, a plane
+    both ways; while editing a see-through fill in its colour and its edges show where it is (a cube hiding it from you:
+    the fill faint, nothing hidden). It moves, turns (fully) and sizes per axis: the page's arrows (scale in its own frame),
+    the grips (turning with the hand while free moving is on), both grips (every side alike), a cube's corners; its card:
+    *Shape*, *Look: Colour / Hides things*, *Colour*, size 10 cm a press per side and ×0.5 to ×2, *Turn 90°*, *On the
+    floor* (its exact lowest point: a ball's and a cylinder's as turned). A trigger cube shows or hides it, a group holds
+    it, a sound follows it (its place and turn; its offsets not scaled with its size).
+  - An empty (`e.<id>`, `empties`): `{ name, p, q }`, a point with a turn, drawn only while editing (a small axis cross,
+    x red, y green, z blue, over everything, a ball in its colour, its name; an unseen ball for the pointer); added from
+    the Add pane (1.2 m up; 100 a scene). A sound follows it as it follows an object (*Follow an object...* lists objects,
+    shapes and empties; the pointer on one picks it), heard only while the empty is shown for you (a cube may hide it).
+    Its card: where it is, the sounds that follow it, *Turn 90°*. Moved and turned (not sized), in groups and cube lists.
+  - *Lock in place* (`locked: true` on any item's or group's record, kept only when set; *Lock in place* / *🔒 Unlock* on
+    every card by its Duplicate and Delete, page and headset, one Undo step, shared and saved): a locked item does not
+    move, turn, size or go, whichever way is tried (its card's buttons greyed and refused, the Delete key, the page's
+    arrows not attached, the grips, both grips, a corner and *Hold it* refused with a short buzz and a knock); a group's
+    lock holds its members (selected alone too), and a group with a locked member does not move or go and says which; an
+    object with a locked cut-out is not deleted (the cut-out moves with it as ever); *Ungroup* is refused only by the
+    group's own lock. The card's top says what holds it (*Refused:* in red for 4 s after a try); labels and the Items pane
+    mark it 🔒. A copy (Duplicate, a group's) is never locked. The room's records and Undo are never refused. Editing a
+    locked item's other fields (light, colour, look, clip, its cube lists) is allowed.
+  - The scene's settings (`settings`, in `layout.json` and in `state()`, so for everyone at that studio's circle; rows on
+    the Scene pane while editing, page and headset, one Undo step each, counted by *Unsaved changes*; a new scene's:
+    shown, as each headset has it): *Other circles: Shown / Hidden* and *Real world hides the scene: As each headset has
+    it / Always / Never*. The studio tells the shell each time what it wants changes (`settingsStep`, every frame,
+    guarded: `HOST.collab.hideOthers(true)` while this device is at this studio's station with the other circles hidden,
+    `false` otherwise; `HOST.occlusion.scene(null | 'both' | 'off')` while the scene shows here, `null` otherwise), and both
+    back (`false`, `null`) as it goes (`dispose`); away from the station, on the Stories screen or for another scene (a
+    new scene's settings) they are off. The shell draws or hides the circles and does the occlusion (the shell's lane:
+    real-world occlusion is on by default for every headset in AR).
+  - The lobby: the studio's returned object has `lobby()`, which the shell calls as this headset walks into the room's
+    *Back to the lobby* circle: this device forgets what it has seen (as *Reset what I have seen*, and more: every item
+    starts again from its beginning the next time it is shown: a `shown` animation or sound, a sound that plays once);
+    nothing is written to the room. Away from its station (the lobby, before any circle) nothing of the scene is shown for
+    that device (`triggerStep`), so it all starts afresh on its return.
+  - FORMAT networks-34. Untested on a headset: how a shape that hides things looks against the real room in AR (its edges,
+    the depth's precision against the room's occlusion), the empty's cross in a headset, the lock's buzz, the circles
+    hidden at a studio's circle and the occlusion setting with the shell's real-world occlusion, the lobby hook as a
+    headset walks into the lobby.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -3408,8 +3488,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one;
   v118 *New scene*: on a page a field and *Make it*, in a headset *New scene...* asking the shell's keypad,
   `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
-  picked by hand, editing on), **Add** (editing: the scene's models with their size and a warning mark, its sounds,
-  *Originals* folded, *Trigger cube*, *Convert every model*; v118 *From another scene...*: the relay's other scenes, then
+  picked by hand, editing on; v119, while editing, the scene's settings: *Other circles* and *Real world hides the
+  scene*), **Add** (editing: the scene's models with their size and a warning mark, its sounds,
+  *Originals* folded, *Trigger cube*, *Convert every model*; v119 *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; v118 *From another scene...*: the relay's other scenes, then
   one's models and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
   path, a new name when taken, `POST .../copy`, with the files a non-GLB model names that its scene has, found as the
   Upload pane's plan finds them, one whose path is taken here kept as this scene's, an OBJ and its MTL under
@@ -3443,8 +3524,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
   lit scan looks, *Studio here* and standing in the studio's circle, the visitor kiosk in a headset, *Convert on a
   laptop* and the folded *Originals* on the headset panel, the Relay password row reached from a studio 401, a group
-  carried and sized by real grips, a model inside out seen from within on a Quest, and how
-  the `studio.stage` icon reads across a room. The pretend headset in `tools/collab.mjs` works the triggers out in the
+  carried and sized by real grips, a model inside out seen from within on a Quest, *Fewer triangles* and *Change texture*
+  in a headset (how a lighter scan looks life size, the pause while a big scan is made lighter there, a GLB written
+  there: its textures encoded and uploaded from a Quest, its memory), the Upload pane's pictures on a real GPU, shapes
+  that hide things in AR against the real room and with the shell's real-world occlusion, an empty's cross, a lock
+  refused by real grips (the buzz), the other circles hidden at a studio's circle and the lobby hook as a headset walks
+  into the lobby, and how the `studio.stage` icon reads across a room. The pretend headset in `tools/collab.mjs` works the triggers out in the
   page with the renderer told it presents for that moment, so the real per-frame headset path is untested on a device.
   Unheard: the converted mono sounds and `first_room.mp3`. Untested anywhere but headless Chromium: a real folder
   dragged from a desktop file manager (only a synthetic drop and *Choose files*), Safari, iPhone and Firefox
@@ -3470,7 +3555,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   network standing in the room, things that move, grow or flow). The owner's
   rule, from the feedback on the PET story (October 2026).
 - External scripts: none beyond the vendored three.js and PeerJS (the latter
-  loaded only for a peer-to-peer room; three.js r128's own add-ons for the studio are pasted into its built file). Fonts come from Google Fonts (cached by
+  loaded only for a peer-to-peer room; three.js r128's own add-ons and meshoptimizer's simplifier for the studio are
+  pasted into its built file). Fonts come from Google Fonts (cached by
   the service worker).
 
 ## Things that are easy to forget
@@ -3646,7 +3732,14 @@ decoded buffer), a short one decoded, paused while muted; GLB first (the Add lis
 *Convert to GLB* in the page offered as a download, its bytes a GLB whose record names the original and that loads back
 with the same triangles and clip, a placed figure switched to it keeping where it stands, its corners within 1 mm);
 the Upload pane with no relay (the test originals dropped: the plan's rows, grouping and names, converting offered as
-downloads, a mono WAV of each sound); the headset panels' panes and its Stories screen (no Upload tab and no Convert
+downloads, a mono WAV of each sound); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
+made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
+within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the slider at
+50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save
+downloaded with `tris` in its record, both balls switched to it with the original as the base (*The model here has only
+N*), Change texture's list, figure.png shown on that ball only, Cancel putting its own picture back, Save with `tex` in
+its record, the headset's ray choosing and cancelling, nothing for a visitor; the Upload pane's share (20 %, its count
+read from the bytes, 30 % on its slider), its picture and its conversion with that share); the headset panels' panes and its Stories screen (no Upload tab and no Convert
 there); *Download layout.json* giving the layout; `#studio&upload` opening the Upload pane. Its *studio textures* steps
 run on another page, at `&scene=textures` (the second test scene, every model placed): every rung of the ladder; TIFF
 (LZW, PackBits), a PSD named by an FBX (the `.ps~` renaming) and DDS (DXT1, BC5) read in the page, their pixels sampled
@@ -3740,7 +3833,24 @@ out* its far inner side, which a cut-out taking the far half away removes (and l
 a cut-out in its near side *Both sides* showing its far inner side through the hole and *As in the file* nothing, lit and
 as scanned; *Inside out* kept through a rebuild of its file (`fileChanged`) and the figure's *Both sides* through *Convert
 to GLB* and the switch; the state and `layout.json` with `faces` (`null` read as absent, other values refused); the page's Faces row (one Undo
-step each) and the headset's.
+step each) and the headset's. Its *studio shapes* steps run on a seventh page, at `&scene=test` (v119): the Add pane's four shapes and an empty
+(their records, geometries and names), a shape's card (a colour's swatch, *Hides things*, size per side and every side, its
+kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties, the
+headset's card (its rows, a colour pressed); pixels read back from renders: a shape that hides things between the camera
+and the box shows the sky behind where the box was, one in red draws red, and editing shows its fill while it still hides; a
+sound following an empty (picked by pointing, following as it moves, the cards on both sides, silenced by a cube hiding the
+empty), an empty drawn only while editing; *Lock in place* on the card (one Undo step, the move buttons greyed, the arrows
+off, the 🔒 in the label) refusing the card's actions, the Delete key, *Hold it*, a pretend headset's grip, both grips and a
+corner; a group with a locked member not moving or going and saying which, a group's lock holding its member and refusing
+*Ungroup*, an object with a locked cut-out not deleted; *Unlock* from the card (the turn then working) and *Lock* from the
+headset's card (its move and Delete buttons then not offered); the scene's settings rows (page and headset, only while
+editing, one Undo step each) and the shell's hooks, stubbed, told in order: outside a room only the real world, at a
+pretend station the other circles hidden, away both off, *Never*, back; another scene's settings and its hooks off; the
+lobby hook forgetting a cube that stays and starting a `shown` animation again, writing nothing; the state with `p.<id>`,
+`e.<id>`, `locked` and `settings` and back, the room's records taken (colour lower-cased, `locked: false` dropped), bad
+ones and bad settings ignored, a state without settings a new scene's, 200 shapes at most from the room, `layout.json`
+with shapes, empties and settings read back the same, an older layout read as before, bad settings and a bad shape
+counted, a group of a shape and an empty; and the hooks off as the studio goes.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
@@ -4114,7 +4224,10 @@ lists within a few seconds; the story's lock refusing a page's edits and the hea
 `models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*; a model
 lacking its picture (the textures scene's `rust.obj`, copied in; that scene itself left out of the copy) given *Use
 paint.png* on a page's card: `models/rust.glb` through the relay with the picture in its record, every device's object
-switched to it, textured, where it stands; the rig scene's dancer copied in and placed on a page, a sound made there to
+switched to it, textured, where it stands; Fewer triangles and Change texture (v119: a dense textured ball made on a page
+and put in the folder, saved at 20 % on a page through the relay, every page's and the headset's switched to it as light
+as previewed, its record's `tris`; a picture put in its colour slot and saved from the headset, made again from the ball
+with its share kept); the rig scene's dancer copied in and placed on a page, a sound made there to
 follow her head taken by every page and the headset (each sound where its own dancer's head bone puts it at one held
 scene clock, within 1 cm of the first page's) and the saved `layout.json` carrying `on`, `bone` and `o` (that scene
 itself left out of the copy); a cut-out made on a page on the test scene's box reaching every page and the headset (its
@@ -4122,7 +4235,11 @@ corners in the scene's frame within 1 cm of the first page's on each, cutting th
 it under `cuts` (the cuts scene left out of the copy); a group made on a page (the box, the figure, Tone and Doorway),
 turned and sized on its card there, taken by every page and the headset (each member within 1 cm of the first page's, the
 records the same), a Faces setting (the box inside out) from another page reaching every device's materials, and the
-saved `layout.json` carrying `groups` and `faces`; a 25 s sound streamed; From another scene (v118: a scene `shelf` made in
+saved `layout.json` carrying `groups` and `faces`; a shape that hides things and an empty with Tone following it made on
+a page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the same
+records, the sound at the empty), a third page's card refused by the lock, the headset at the circle telling its shell
+(the hook recorded) to hide the other circles, the saved `layout.json` carrying `shapes`, `empties` and `settings` (v119);
+a 25 s sound streamed; From another scene (v118: a scene `shelf` made in
 the folder with an FBX naming its picture and an OBJ with its MTL and picture: copied into the open scene from a page's
 Add pane with the picture at the same paths and the same bytes, placed, one Undo step, taken by every page and the
 headset with its picture; the OBJ and what it names under `originals/`, its model in; a second copy of the FBX a new name,

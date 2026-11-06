@@ -1226,6 +1226,8 @@ await step('design: the intro ends at the table', async () => {
 // with no relay: downloaded, a GLB whose record names the original, loading back with its triangles and take; a placed
 // figure switched to it keeping its corners within 1 mm, one Undo step); the Upload pane with no relay (the test scene's
 // originals dropped: the plan's rows, grouping and names, converting offered as downloads, #studio&upload opening it);
+// Fewer triangles and Change texture on a dense ball made in the page (the preview in place, Save with tris, the switch,
+// the headset's card, a picture shown, cancelled and saved; the Upload pane's share and picture);
 // the headset panels' panes and its Stories screen (no Upload tab); Download
 {
   const stp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
@@ -1393,7 +1395,7 @@ await step('design: the intro ends at the table', async () => {
     const bad = await ss(`(() => {
       const out = [], same = () => { const a = JSON.stringify(collabState()); collabApply(JSON.parse(a)); return JSON.stringify(collabState()) === a; };
       const s0 = collabState();
-      if (s0.scene !== 'test' || Object.keys(s0).sort().join() !== 'c.cube01,o.box001,o.fig001,s.snd001,scene' || !same()) out.push('the state is not the scene and its four items, or apply changed it: ' + JSON.stringify(s0).slice(0, 300));
+      if (s0.scene !== 'test' || Object.keys(s0).sort().join() !== 'c.cube01,o.box001,o.fig001,s.snd001,scene,settings' || !same()) out.push('the state is not the scene and its four items, or apply changed it: ' + JSON.stringify(s0).slice(0, 300));
       // from the room: the box moved (it glides there), the sound gone, a new cube
       const st = JSON.parse(JSON.stringify(s0));
       st['o.box001'].p = [0.5, 0.25, -1]; delete st['s.snd001']; st['c.zz9876'] = { name: 'Corner', p: [2, 1, 2], size: [1, 2, 1], show: ['box001'] };
@@ -1850,6 +1852,162 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     if (out.links.join() !== 'figure.glb,crate.glb,tone.wav,long.wav' || out.from !== 'originals/drop/figure.fbx' || out.tone.join() !== '1,22050,16' || out.long.join() !== '1,8000,25' || !/nothing was uploaded/.test(out.note)) bad.push('what was made: ' + JSON.stringify(out));
     await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  // Fewer triangles and Change texture (tools/studio/SPEC.md): a dense, bumpy ball with a red and green checker made in the
+  // page (24,320 triangles; nothing committed), served as ball.glb and placed twice
+  await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and picture', async () => {
+    const bad = [];
+    const b64 = await ss(`(async () => {
+      exporterLoad();
+      const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
+      g.computeVertexNormals();
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e02020' : '#20c020'; x.fillRect(i * 8, j * 8, 8, 8); }
+      const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshStandardMaterial({ name: 'skin', map: new T.CanvasTexture(cv), roughness: 1, metalness: 0 })));
+      const glb = await new Promise(res => new T.GLTFExporter().parse(root, res, { binary: true }));
+      const u = new Uint8Array(glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s);
+    })()`);
+    const ball = Buffer.from(b64, 'base64');
+    await stp.route('**/scenes/test/ball.glb*', r => r.fulfill({ body: ball, contentType: 'model/gltf-binary' }));
+    const u0 = await ss('UNDO.length');
+    const id = await ss(`(setEdit(true), setFiles(STU.files.concat({ path: 'ball.glb', bytes: ${ball.length}, at: 5, kind: 'model' })), addModel('ball.glb'))`), id2 = await ss(`addModel('ball.glb')`);
+    if (!await until(`(() => { const a = STU.items.get('${id}'), b = STU.items.get('${id2}'); return a.model && b.model && a.a > 0.99 && b.a > 0.99; })()`, 30000)) { errors.push('studio: the ball made in the page was not placed'); return; }
+    // the ball's colour where it shows (its own pixels, not the background's): red and green, the checker's (the mean red,
+    // green, how far apart red and green are pixel by pixel: large for the checker, small for a picture without it)
+    const mean = `(() => { const c = thumbOf(STU.items.get('${id}').holder, 96, 96, false), d = c.getContext('2d').getImageData(0, 0, 96, 96).data; let r = 0, g = 0, x = 0, n = 0; for (let i = 0; i < d.length; i += 4) { if (Math.abs(d[i] - 16) < 10 && Math.abs(d[i + 1] - 26) < 10 && Math.abs(d[i + 2] - 42) < 10) continue; r += d[i]; g += d[i + 1]; x += Math.abs(d[i] - d[i + 1]); n++; } return [Math.round(r / n), Math.round(g / n), Math.round(x / n), n]; })()`;
+    const m0 = await ss(mean), n0 = await ss(`LIB.get('ball.glb').info.tris`);
+    await ss(`(select('${id}'), X.tab = 'item', renderPanes(), 0)`);
+    const acts = await stp.evaluate(() => [...document.querySelectorAll('#pane-item [data-act^="ft:"], #pane-item [data-act^="ct:"]')].map(b => b.dataset.act).join());
+    if (acts !== 'ft:open,ct:open') bad.push('the ball\'s card: ' + acts);
+    await stp.click('#pane-item [data-act="ft:open"]');
+    if (!await until(`!!FT.pv && !FT.busy`, 30000)) bad.push('Fewer triangles made no preview: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    let t = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), document.querySelector('#stuRangeFT') && document.querySelector('#stuRangeFT').value]`);
+    if (n0 !== 24320 || Math.abs(t[0] / n0 - 0.2) > 0.01 || t[1] !== n0 || t[2] !== '20') bad.push('the preview at 20 % (this object only; the slider at 20): ' + JSON.stringify([n0, t]));
+    // its texture where it was: every corner of the lighter one is a corner of the ball's own, with its texture coordinates;
+    // and its colours as before
+    const uvs = await ss(`(() => { const it = STU.items.get('${id}'), g0 = FT.pv.sw[0][1], g1 = it.model.meshes[0].geometry, key = (g, i) => [g.attributes.position.getX(i), g.attributes.position.getY(i), g.attributes.position.getZ(i), g.attributes.uv.getX(i), g.attributes.uv.getY(i)].map(v => v.toFixed(5)).join();
+      const have = new Set(); for (let i = 0; i < g0.attributes.position.count; i++) have.add(key(g0, i)); let miss = 0; for (let i = 0; i < g1.attributes.position.count; i++) if (!have.has(key(g1, i))) miss++; return [g1 !== g0, miss, g1.attributes.position.count]; })()`);
+    const m1 = await ss(mean);
+    if (!uvs[0] || uvs[1] || Math.abs(m1[0] - m0[0]) > m0[0] * 0.06 || Math.abs(m1[1] - m0[1]) > m0[1] * 0.06 || Math.abs(m1[2] - m0[2]) > m0[2] * 0.1 || m0[0] < 40 || m0[1] < 40) bad.push('the preview\'s texture: ' + JSON.stringify({ uvs, m0, m1 }));
+    // the slider let go at 50 %
+    await stp.evaluate(() => { const r = document.querySelector('#stuRangeFT'); r.value = 50; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    if (!await until(`!!FT.pv && FT.pv.keep === 0.5 && !FT.busy`, 30000) || Math.abs(await ss(`STUDIO.tris('${id}')`) / n0 - 0.5) > 0.02) bad.push('the slider at 50 %: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    const card = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Fewer triangles: the share kept/.test(card) || !/It has 24,320 triangles: about 12,160 kept\./.test(card) || !/on this device only/.test(card) || !/Save downloads ball\.glb with about 12,160 triangles/.test(card)) bad.push('the card with Fewer triangles open: ' + card.slice(0, 500));
+    // the pretend headset's card: steps and quick picks (no slider), Save only with a relay that takes uploads
+    const xr = await ss(`(() => {
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, out = {};
+      // (every button the card draws, scrolled through)
+      const ids = () => { const seen = []; for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) if (!seen.includes(r.id)) seen.push(r.id); } X.scroll = {}; draw(); return seen; };
+      XR.on = true; X.scroll = {}; draw();
+      out.ids = ids().filter(i => /^(ft|ct):/.test(i)).join(); out.txt = paneBlocks('item').filter(b => !b.page).map(b => (b.label || '') + ' ' + (b.p || '')).join(' | ');
+      const was = { kind: SRC.kind, upload: SRC.upload, save: SRC.save, held: SRC.held };
+      Object.assign(SRC, { kind: 'relay', upload: true, save: true, held: false }); out.save = ids().includes('ft:save'); Object.assign(SRC, was); draw();
+      // (10 % pressed where the card shows it, scrolled to)
+      for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === 'ft:10'); if (r) { r.fn(); break; } }
+      X.scroll = {};
+      out.keep = FT.keep; draw();
+      XR.on = false; return out;
+    })()`);
+    if (xr.ids !== 'ft:-,ft:+,ft:10,ft:20,ft:50,ft:cancel,ct:open' || !/Fewer triangles: 50 % kept/.test(xr.txt) || !/Saving from a headset needs a relay that takes uploads/.test(xr.txt) || !xr.save || xr.keep !== 0.1) bad.push('the headset\'s card: ' + JSON.stringify(xr).slice(0, 700));
+    if (!await until(`!!FT.pv && FT.pv.keep === 0.1 && !FT.busy`, 30000) || Math.abs(await ss(`STUDIO.tris('${id}')`) / n0 - 0.1) > 0.01) bad.push('the headset\'s 10 %: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
+    // Save at 20 % (no relay: downloaded): a GLB with tris in its record, its triangles as previewed; the preview put back
+    await ss(`(ftSet(0.2, true), 0)`);
+    await until(`!!FT.pv && FT.pv.keep === 0.2 && !FT.busy`, 30000);
+    const want = await ss(`FT.pv.to`);
+    const dl = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await ss(`(renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="ft:save"]');
+    const d = await dl;
+    await until(`!CV.busy && !FT.saving`, 60000);
+    const g = await ss(`(async () => { const L = STUDIO.lastGLB, back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej)); let tris = 0; back.scene.traverse(o => { if (o.isMesh) tris += o.geometry.index.count / 3; }); return { ok: L.ok, rec: L.record, tris, ft: FT.id, now: STUDIO.tris('${id}'), note: CV.note, maps: (() => { let n = 0; back.scene.traverse(o => { if (o.isMesh && o.material.map) n++; }); return n; })() }; })()`);
+    if (!d || d.suggestedFilename() !== 'ball.glb' || !g.ok || !g.rec.tris || g.rec.tris.from !== n0 || g.rec.tris.to !== want || g.rec.tris.keep !== 0.2 || g.tris !== want || g.maps !== 1 || g.ft || g.now !== n0 || !/[\d,]+ of 24,320 triangles\) and downloaded as ball\.glb/.test(g.note)) bad.push('Save (downloaded): ' + JSON.stringify(Object.assign({ name: d && d.suggestedFilename(), want }, g)).slice(0, 600));
+    // that GLB served as models/ball.glb, the balls switched to it where they stand (one Undo step), and its card now
+    // counts from the original (20 % of its triangles; 50 % more than the GLB has: shown as it is, made again from it)
+    const lite = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    await stp.route('**/scenes/test/models/ball.glb*', r => r.fulfill({ body: lite, contentType: 'model/gltf-binary' }));
+    const u1 = await ss('UNDO.length');
+    await ss(`(setFiles(STU.files.concat({ path: 'models/ball.glb', bytes: ${lite.length}, at: 6, kind: 'model' })), GLBREC.set('models/ball.glb', { at: 6, rec: CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } }), p: null }), switchToGLB('ball.glb', 'models/ball.glb', CONV.glbRecord({ asset: { extras: { studio: STUDIO.lastGLB.record } } })))`);
+    if (!await until(`(() => { const a = STU.items.get('${id}'); return a.rec.file === 'models/ball.glb' && !!a.model && a.E.state === 'ready'; })()`, 30000)) bad.push('the balls did not switch to models/ball.glb');
+    else {
+      const sw = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), STU.items.get('${id}').rec.s, JSON.stringify(STU.items.get('${id}').rec.q), UNDO.length, (select('${id}'), X.tab = 'item', renderPanes(), document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ').match(/[\\d,]+ triangles \\([^)]*\\)/) + '')]`);
+      if (sw[0] !== want || sw[1] !== want || sw[2] !== 1 || sw[3] !== '[0,0,0,1]' || sw[4] !== u1 + 1 || sw[5] !== `${want.toLocaleString('en-GB')} triangles (20 % of the 24,320 in ball.glb)`) bad.push('the switch to the lighter GLB: ' + JSON.stringify(sw));
+      await stp.click('#pane-item [data-act="ft:open"]');
+      await until(`!!FT.pv && !FT.busy`, 30000);
+      await ss(`(ftSet(0.5, true), 0)`);
+      await until(`!!FT.pv && FT.pv.keep === 0.5 && !FT.busy`, 30000);
+      const c2 = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+      if (!/ball\.glb has 24,320 triangles: about 12,160 kept\./.test(c2) || !/The model here has only [\d,]+, so the preview shows it as it is: Save makes it again from ball\.glb/.test(c2) || await ss(`STUDIO.tris('${id}')`) !== want) bad.push('the lighter GLB\'s card at 50 %: ' + c2.slice(0, 500));
+      await stp.click('#pane-item [data-act="ft:cancel"]');
+      await ss('undo()');
+      await until(`STU.items.get('${id}').rec.file === 'ball.glb' && !!STU.items.get('${id}').model && STU.items.get('${id}').E.path === 'ball.glb'`, 30000);
+    }
+    await ss(`(setFiles(STU.files.filter(f => f.path !== 'models/ball.glb')), GLBREC.delete('models/ball.glb'), 0)`);
+    await stp.unroute('**/scenes/test/models/ball.glb*');
+    // Change texture: its material and slots, the scene's pictures; figure.png shown on this ball only, Cancel puts its own
+    // back, then Save bakes it in (downloaded: the record's tex)
+    await ss(`(select('${id}'), X.tab = 'item', renderPanes(), 0)`);
+    const own = await ss(`STU.items.get('${id}').model.meshes[0].material.map.uuid`);
+    await stp.click('#pane-item [data-act="ct:open"]');
+    const ct0 = await stp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+    if (!/Change texture: its material skin Colour: inside the file/.test(ct0) || !/The scene's pictures \(2\) figure\.png/.test(ct0) || !/crate\.png originals\//.test(ct0) || !/Choose a picture\.\.\./.test(ct0)) bad.push('Change texture\'s card: ' + ct0.slice(0, 500));
+    await stp.click('#pane-item [data-act="ct:pic"][data-v="figure.png"]');
+    await until(`!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    const m2 = await ss(mean), ct1 = await ss(`[STU.items.get('${id}').model.meshes[0].material.map === CT.tex, STU.items.get('${id2}').model.meshes[0].material.map.uuid === '${own}' || STU.items.get('${id2}').model.meshes[0].material.map !== CT.tex, CT.tex.image.width]`);
+    if (!ct1[0] || !ct1[1] || ct1[2] !== 64 || m0[2] < 60 || m2[2] > m0[2] / 2) bad.push('figure.png shown on the ball: ' + JSON.stringify({ ct1, m0, m2 }));
+    await stp.click('#pane-item [data-act="ct:cancel"]');
+    const ct2 = await ss(`[STU.items.get('${id}').model.meshes[0].material.map.uuid === '${own}', CT.id]`), m3 = await ss(mean);
+    if (!ct2[0] || ct2[1] || Math.abs(m3[0] - m0[0]) > 4 || Math.abs(m3[1] - m0[1]) > 4) bad.push('Cancel did not put its own picture back: ' + JSON.stringify({ ct2, m0, m3 }));
+    await stp.click('#pane-item [data-act="ct:open"]');
+    await stp.click('#pane-item [data-act="ct:pic"][data-v="figure.png"]');
+    await until(`!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    const dl2 = stp.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+    await stp.click('#pane-item [data-act="ct:save"]');
+    const d2 = await dl2;
+    await until(`!CV.busy && !CT.saving`, 60000);
+    const g2 = await ss(`(async () => { const L = STUDIO.lastGLB, back = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej)); let w = 0; back.scene.traverse(o => { if (o.isMesh && o.material.map) w = o.material.map.image.width; }); return { ok: L.ok, tex: L.record.tex, w, ct: CT.id, map: STU.items.get('${id}').model.meshes[0].material.map.uuid === '${own}' }; })()`);
+    if (!d2 || d2.suggestedFilename() !== 'ball.glb' || !g2.ok || JSON.stringify(g2.tex) !== '[{"name":"","mat":"skin","slot":"map","from":"figure.png","how":"chosen"}]' || g2.w !== 64 || g2.ct || !g2.map) bad.push('Change texture\'s Save (downloaded): ' + JSON.stringify(g2));
+    // the pretend headset: Change texture by the ray, figure.png shown, Cancel
+    const cx = await ss(`(() => {
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, hit = id => { const r = XR.main.regions.find(q => q.id === id); if (r) r.fn(); return !!r; }, out = {};
+      XR.on = true; X.scroll = {}; draw();
+      for (let off = 0; off < 4000 && !out.open; off += 150) { X.scroll.item = off; draw(); out.open = hit('ct:open'); } X.scroll = {}; draw();
+      const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
+      out.ids = [...seen].filter(i => /^ct:/.test(i)).join();
+      XR.on = false; return out;
+    })()`);
+    if (!cx.open || !/ct:mat:0/.test(cx.ids) || !/ct:slot:normalMap/.test(cx.ids) || !/ct:pic:figure\.png/.test(cx.ids) || /ct:file/.test(cx.ids) || !/ct:cancel/.test(cx.ids)) bad.push('Change texture in the headset: ' + JSON.stringify(cx));
+    await ss(`(XR.on = true, (() => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } })(), act('ct:pic', 'figure.png'), XR.on = false, 0)`);
+    if (!await until(`!!(CT.saved && CT.saved.length) && !CT.busy && STU.items.get('${id}').model.meshes[0].material.map === CT.tex`, 20000)) bad.push('the headset did not show figure.png on the ball');
+    await ss(`(XR.on = true, act('ct:cancel'), XR.on = false, 0)`);
+    if (await ss(`STU.items.get('${id}').model.meshes[0].material.map.uuid !== '${own}' || !!CT.id`)) bad.push('the headset\'s Cancel did not put its picture back');
+    // nothing of either for a visitor
+    const vis = await ss(`(() => { OPT.visit = true; renderPanes(); const n = document.querySelectorAll('#pane-item [data-act^="ft:"], #pane-item [data-act^="ct:"]').length; act('ft:open', '${id}'); const r = [n, FT.id]; OPT.visit = false; renderPanes(); return r; })()`);
+    if (vis[0] || vis[1]) bad.push('a visitor has Fewer triangles or Change texture: ' + JSON.stringify(vis));
+    // the Upload pane: the ball dropped, 20 % to start with its triangles counted from its bytes, 30 % on its slider, its
+    // picture, then converted (downloaded) with that share
+    await ss(`(select(''), X.tab = 'upload', renderPanes(), 0)`);
+    await stp.evaluate(b64 => { const u = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); HOST.cur.peek('upTake')([{ path: 'ball.glb', file: new File([u], 'ball.glb') }]); }, b64);
+    await until(`!UP.planning && UP.rows.length === 1`, 20000);
+    let up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].tris, document.querySelector('#stuRangeUp0') && document.querySelector('#stuRangeUp0').value, document.querySelector('#pane-upload .stu-plan').textContent.replace(/\\s+/g, ' ')])`);
+    if (up[0] !== 0.2 || up[1] !== n0 || up[2] !== '20' || !/About 4,864 of its 24,320 triangles\./.test(up[3])) bad.push('the Upload row\'s share: ' + JSON.stringify(up).slice(0, 500));
+    await stp.evaluate(() => { const r = document.querySelector('#stuRangeUp0'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await stp.click('#pane-upload [data-act="up:pv"]');
+    await until(`!!UP.rows[0].pv && !UP.rows[0].pv.busy`, 30000);
+    up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].pv, !!document.querySelector('#pane-upload img.stu-pv')])`);
+    if (up[0] !== 0.3 || !up[1].img || !/^24,320 triangles became 7,[23]\d\d\.$/.test(up[1].words) || !up[2]) bad.push('the Upload row\'s picture: ' + JSON.stringify(up).slice(0, 300));
+    await stp.click('#pane-upload [data-act="up:run"]');
+    await until(`!UP.busy && UP.rows[0].state === 'done'`, 60000);
+    const ug = await ss(`(async () => { const a = document.querySelector('#pane-upload .stu-plan a[download]'), j = a ? CONV.glbJSON(await (await fetch(a.href)).arrayBuffer()) : null; return [UP.rows[0].msg, j && j.asset.extras.studio.tris]; })()`);
+    if (!/^Converted \([\d.]+ KB, 7,[23]\d\d of 24,320 triangles\)\.$/.test(ug[0]) || !ug[1] || ug[1].keep !== 0.3 || ug[1].from !== n0) bad.push('the Upload row converted: ' + JSON.stringify(ug));
+    // back as it was
+    // (the two balls placed are the only steps since: taken back)
+    while (await ss('UNDO.length') > u0) await ss('undo()');
+    await ss(`(upClear(), setFiles(STU.files.filter(f => f.path !== 'ball.glb')), X.tab = 'scene', renderPanes(), 0)`);
+    await stp.unroute('**/scenes/test/ball.glb*');
+    if (await ss('STU.items.size') !== 4 || await ss('unsaved()')) bad.push('the layout did not come back after Fewer triangles and Change texture');
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
   await step('studio: the headset panels\' panes, its Stories screen, and Download', async () => {
@@ -3471,6 +3629,366 @@ await step('design: the intro ends at the table', async () => {
     if (!xr[0] || xr[1] !== 'inside' || !xr[2]) out.push('the headset\'s Faces row: ' + JSON.stringify(xr));
     bad(out);
     await fp.close();
+  });
+}
+// The studio's shapes, empties, locks, the scene's settings and the lobby hook (tools/studio/SPEC.md, "Shapes and
+// empties", "Locked in place", "The scene's settings"), on a page of its own at the test scene: the Add pane's four shapes
+// and an empty, a shape's card (its kind, look, colour, size; page and headset); pixels read back from renders: a shape that
+// hides things hides an object behind it (the stage behind shows there) and one in its colour draws it; a sound following
+// an empty (as it moves, the cards on both sides, a cube hiding the empty silencing it); Lock in place refusing every way
+// (the card's buttons, the Delete key, the page's arrows, a pretend headset's grip, both grips, a corner, Hold it, a group
+// with a locked member saying which, an object with a locked cut-out not deleted) and Unlock, one Undo step each; the
+// scene's settings rows (page and headset) and the shell's hooks told (stubbed) at a pretend station, away, for another
+// scene and when the studio goes; the lobby hook forgetting what was seen; the state and layout.json with all of it
+{
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio shapes: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio shapes: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio shapes: ' + b)); };
+  // (in the page: the scene drawn from a camera of its own and read back where scene points land, the items named hidden
+  // for that drawing and nothing of editing drawn; the hooks the shell would be told, recorded)
+  const HELP = `window.__sh = window.__sh || {
+    shot: (eye, tgt, pts, hide) => {
+      const W = 320, H = 200, r = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(60, W / H, 0.02, 200);
+      itemsStep(0, performance.now()); GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(...eye))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(...tgt))); cam.updateMatrixWorld();
+      const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => (i.kind !== 'o' && i.kind !== 'p') || (hide || []).includes(i.id)).map(i => i.holder));
+      const keep = hid.map(o => o.visible);
+      hid.forEach(o => { o.visible = false; });
+      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
+      r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
+      return px;
+    },
+  }`;
+  const dpx = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  // (the shell's two hooks, recorded instead: only those methods replaced, whatever else the shell keeps on them)
+  const hooks = `(window.__hk = [], HOST.collab.hideOthers = v => window.__hk.push(['hide', v]), HOST.occlusion = HOST.occlusion || {}, HOST.occlusion.scene = v => window.__hk.push(['occ', v]), 0)`;
+  const hk = n => sp.waitForFunction(n => window.__hk.length >= n, n, { timeout: 15000 }).then(() => true, () => false);
+  await step('studio shapes: the Add pane\'s shapes and empty, a shape\'s card (kind, look, colour, size, page and headset), the arrows sizing it per axis, the Items pane, one Undo step each', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio shapes: the test scene did not load'); return; }
+    await ss(`(${HELP}, ${hooks}, X.tab = 'add', renderPanes(), 0)`);
+    const out = [];
+    // (each placed is selected, its card shown: the Add pane again for the next)
+    for (const k of ['shape:cube', 'shape:sphere', 'shape:cylinder', 'shape:plane', 'empty']) { await ss(`(X.tab = 'add', renderPanes(), 0)`); await sp.click(`#pane-add [data-id="${k}"]`); }
+    const r = await ss(`(() => {
+      const ps = [...STU.items.values()].filter(i => i.kind === 'p'), es = [...STU.items.values()].filter(i => i.kind === 'e');
+      STUDIO.ids = { box: ps[0].id, ball: ps[1].id, cyl: ps[2].id, plane: ps[3].id, emp: es[0].id };
+      return { n: [ps.length, es.length, UNDO.length], recs: ps.map(i => [i.rec.name, i.rec.shape, i.rec.size.join(), i.rec.colour, i.rec.look, i.rec.p[1], i.look.mesh.geometry.type]),
+        e: es.map(i => [i.rec.name, i.rec.p[1], JSON.stringify(i.rec.q), i.holder.visible]), sel: STU.sel === es[0].id };
+    })()`);
+    if (JSON.stringify(r.n) !== '[4,1,5]' || !r.sel) out.push('the Add pane\'s shapes and empty: ' + JSON.stringify(r));
+    if (JSON.stringify(r.recs) !== JSON.stringify([['Box 2', 'cube', '0.5,0.5,0.5', '#c9d1dc', 'colour', 0.25, 'BoxGeometry'], ['Ball', 'sphere', '0.5,0.5,0.5', '#c9d1dc', 'colour', 0.25, 'SphereGeometry'], ['Cylinder', 'cylinder', '0.5,1,0.5', '#c9d1dc', 'colour', 0.5, 'CylinderGeometry'], ['Plane', 'plane', '1,1,0.01', '#c9d1dc', 'colour', 0.5, 'PlaneGeometry']]))
+      out.push('the shapes placed: ' + JSON.stringify(r.recs));
+    if (JSON.stringify(r.e) !== JSON.stringify([['Empty', 1.2, '[0,0,0,1]', true]])) out.push('the empty placed: ' + JSON.stringify(r.e));
+    // the shape's card on the page: its colour (a swatch), its look, its kind, its size per side and every side
+    await ss(`(select(STUDIO.ids.box), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    const card = (await sp.textContent('#pane-item')).replace(/\s+/g, ' ');
+    if (!/Shape.*Cube.*Sphere.*Cylinder.*Plane/.test(card) || !/Hides things/.test(card) || !/Light grey/.test(card) || !/Lock in place/.test(card) || !(await sp.$('#pane-item [data-id="colour:#ff5a4b"] .stu-sw'))) out.push('the shape\'s card: ' + card.slice(0, 500));
+    await sp.click('#pane-item [data-id="colour:#ff5a4b"]');
+    await sp.click('#pane-item [data-id="look:hide"]');
+    await sp.click('#pane-item [data-id="pgrow:1:+"]');
+    await sp.click('#pane-item [data-id="psize:2"]');
+    const c = await ss(`(() => { const i = STU.items.get(STUDIO.ids.box); return [i.rec.colour, i.rec.look, i.rec.size.join(), UNDO.length, i.look.mesh.material.colorWrite, i.look.mesh.renderOrder, '#' + i.look.fill.material.color.getHexString()]; })()`);
+    if (JSON.stringify(c) !== JSON.stringify(['#ff5a4b', 'hide', '1,1.2,1', u0 + 4, false, -1, '#ff5a4b'])) out.push('the card\'s colour, look and size: ' + JSON.stringify(c));
+    await sp.click('#pane-item [data-id="pshape:cylinder"]');
+    const k = await ss(`(() => { const i = STU.items.get(STUDIO.ids.box); return [i.rec.shape, i.look.mesh.geometry.type, i.rec.size.join()]; })()`);
+    if (JSON.stringify(k) !== '["cylinder","CylinderGeometry","1,1.2,1"]') out.push('another kind of shape: ' + JSON.stringify(k));
+    await ss('(undo(), undo(), undo(), undo(), undo(), 0)');
+    const back = await ss(`(() => { const i = STU.items.get(STUDIO.ids.box); return JSON.stringify([i.rec.shape, i.rec.colour, i.rec.look, i.rec.size]); })()`);
+    if (back !== '["cube","#c9d1dc","colour",[0.5,0.5,0.5]]') out.push('Undo did not take the card\'s changes back one at a time: ' + back);
+    // the page's arrows size a shape per axis (in its own frame)
+    const tc = await ss(`(() => {
+      const i = STU.items.get(STUDIO.ids.box), u = UNDO.length;
+      select(i.id); tcSetMode('scale'); const on = GL.tc.object === i.holder, space = GL.tc.space;
+      GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); i.holder.scale.set(1, 0.5, 2); GL.tc.dispatchEvent({ type: 'objectChange' }); GL.tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      tcSetMode('translate');
+      return [on, space, i.rec.size.join(), UNDO.length - u];
+    })()`);
+    if (JSON.stringify(tc) !== '[true,"local","1,0.5,2",1]') out.push('the page\'s arrows sizing a shape: ' + JSON.stringify(tc));
+    // the Items pane lists shapes and empties
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    const items = (await sp.textContent('#pane-items')).replace(/\s+/g, ' ');
+    if (!/Shapes.*Box 2.*Ball.*Cylinder.*Plane.*Empties.*Empty/.test(items) || !/4 shapes · 1 empties/.test(items)) out.push('the Items pane: ' + items.slice(0, 500));
+    // the headset's card: the same rows, a colour pressed by its button
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = new Set(), press = id => { for (let off = 0; off < 5000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select(STUDIO.ids.ball); X.tab = 'item';
+      for (let off = 0; off < 5000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) ids.add(q.id); }
+      X.scroll = {};
+      const miss = ['lock', 'pshape:cube', 'pshape:plane', 'look:colour', 'look:hide', 'colour:#46d9ff', 'pgrow:0:+', 'psize:2', 'turn', 'floor', 'mkgroup', 'hold', 'dup', 'del'].filter(i => !ids.has(i));
+      const pr = press('colour:#46d9ff'), col = STU.items.get(STUDIO.ids.ball).rec.colour;
+      XR.on = false; X.tab = 'scene'; renderPanes();
+      return { miss, pr, col };
+    })()`);
+    if (xr.miss.length || !xr.pr || xr.col !== '#46d9ff') out.push('the headset\'s shape card: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio shapes: pixels: a shape that hides things hides an object behind it (the stage behind it shows there), one in its colour draws it, and with editing on the first is a see-through fill', async () => {
+    const out = [];
+    // the box (box001, 0.5 m at [-1, 0.25, -2]) seen from in front; a hiding box 0.6 m across put between, 1 m in front of it
+    const id = await ss(`(() => { const id = addShape('cube'); setRec(id, { p: [-1, 0.3, -1], size: [0.6, 0.6, 0.6], look: 'hide' }); setRec('box001', { anim: 'off' }); setEdit(false); return id; })()`);
+    if (!await until(`STU.items.get('${id}').a > 0.99 && STU.items.get('box001').a > 0.99`, 10000)) out.push('the shapes did not fade in');
+    // (seen a little upwards: the sky behind the box, not the floor's grid)
+    const eye = [-1, 0.2, 1.5], tgt = [-1, 0.4, -1.75], pt = [[-1, 0.4, -1.75]];
+    const others = await ss(`[...STU.items.values()].filter(i => (i.kind === 'o' || i.kind === 'p') && i.id !== 'box001' && i.id !== '${id}').map(i => i.id)`);
+    const [box] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others.concat(id))})`);
+    const [none] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others.concat(id, 'box001'))})`);
+    const [hid] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others)})`);
+    if (dpx(box, none) < 40) out.push('the box does not show in the view: ' + JSON.stringify([box, none]));
+    if (dpx(hid, none) > 12) out.push('a shape that hides things did not hide the box behind it (the stage should show): ' + JSON.stringify({ box, none, hid }));
+    await ss(`(setRec('${id}', { look: 'colour', colour: '#ff5a4b' }), 0)`);
+    const [col] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others)})`);
+    if (!(col[0] > col[1] + 40 && col[0] > col[2] + 40)) out.push('a shape in red did not draw red: ' + JSON.stringify(col));
+    const ed = await ss(`(setRec('${id}', { look: 'hide' }), setEdit(true), itemsStep(0, performance.now()), [STU.items.get('${id}').look.fill.visible, STU.items.get('${id}').look.line.visible, STU.items.get('${id}').look.mesh.visible])`);
+    if (JSON.stringify(ed) !== '[true,true,true]') out.push('a shape that hides things is not drawn see-through while editing (it still hides): ' + JSON.stringify(ed));
+    await ss(`(deleteItem('${id}'), 0)`);
+    bad(out);
+  });
+  await step('studio shapes: a sound follows an empty (as it moves; the cards on both sides; picked by pointing), a cube hiding the empty silences it, an empty is drawn only while editing', async () => {
+    const r = await ss(`(() => {
+      const out = [], e = STUDIO.ids.emp, snd = addSound('tone.wav');
+      select(snd); itemAct('followPick');
+      pressItem(e);   // (the pointer on the empty, picking what the sound follows)
+      const sr = STU.items.get(snd).rec;
+      if (sr.on !== e || STUDIO.follow(snd).d > 0.001) out.push('the sound did not follow the empty: ' + JSON.stringify([sr, STUDIO.follow(snd)]));
+      setRec(e, { p: [2, 1.5, -1], q: [0, 0.7071, 0, 0.7071] }); itemsStep(0, performance.now());
+      const f = STUDIO.follow(snd);
+      if (!f || f.d > 0.001) out.push('the sound did not follow the empty as it moved: ' + JSON.stringify(f));
+      select(snd); X.tab = 'item'; renderPanes();
+      const sc = document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ');
+      if (!/Follows.*Empty/.test(sc) || /Bone/.test(sc)) out.push('the sound\\'s card: ' + sc.slice(0, 400));
+      select(e); renderPanes();
+      const ec = document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ');
+      if (!/Followed by.*tone/i.test(ec)) out.push('the empty\\'s card: ' + ec.slice(0, 400));
+      // a cube hiding the empty: the sound shown but not heard (its object hidden)
+      const cb = addCube(); setRec(cb, { p: [5, 1, 5], hide: [e] });
+      const sh = shownFor([5, 1.6, 5]);
+      if (sh[e] || !sh[snd] || STU.items.get(snd).heard) out.push('a cube hiding the empty did not silence its sound: ' + JSON.stringify([sh[e], sh[snd], STU.items.get(snd).heard]));
+      shownFor(null);
+      // not editing: the empty is not drawn
+      setEdit(false); itemsStep(0.5, performance.now()); itemsStep(0.5, performance.now());
+      const vis = STU.items.get(e).holder.visible;
+      setEdit(true); itemsStep(0.5, performance.now());
+      if (vis || !STU.items.get(e).holder.visible) out.push('an empty is not drawn only while editing');
+      deleteItem(cb); STUDIO.snd = snd;
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio shapes: Lock in place refuses moving, turning, sizing and deleting every way (the card, the Delete key, the arrows, a pretend headset\'s grip, both grips, a corner, Hold it, a group with a locked member, an object with a locked cut-out) and Unlock gives them back, one Undo step each', async () => {
+    const out = [];
+    // the card's Lock button (one Undo step), the lock mark in the labels and the Items pane
+    // (Undo keeps 30 steps: emptied first, so each count here is this step's own)
+    await ss(`(UNDO.length = 0, select(STUDIO.ids.box), X.tab = 'item', renderPanes(), STUDIO.u0 = UNDO.length, 0)`);
+    await sp.click('#pane-item [data-id="lock"]');
+    const st = await ss(`(() => {
+      const i = STU.items.get(STUDIO.ids.box); renderPanes(); updateExtraLabels();
+      const dis = id => { const b = document.querySelector('#pane-item [data-id="' + id + '"]'); return !!b && b.disabled; };
+      return { locked: i.rec.locked, undo: UNDO.length - STUDIO.u0, dis: ['turn', 'floor', 'psize:2', 'pgrow:0:+', 'del', 'tc:translate'].map(dis), colour: dis('colour:#ff5a4b'), un: document.querySelector('#pane-item [data-id="lock"]').textContent,
+        line: /Locked in place: it does not move, turn, size or go/.test(document.querySelector('#pane-item').textContent), label: LBL.extra[1].txt, tc: !!GL.tc.object };
+    })()`);
+    if (st.locked !== true || st.undo !== 1 || st.dis.some(d => !d) || st.colour || !/Unlock/.test(st.un) || !st.line || st.tc) out.push('locking from the card: ' + JSON.stringify(st));
+    if (!/🔒 Box 2/.test(JSON.stringify(st.label))) out.push('the selection\'s label has no lock mark: ' + JSON.stringify(st.label));
+    // every way of moving or deleting it refused, the record untouched
+    await sp.keyboard.press('Delete');
+    const r = await ss(`(() => {
+      const out = [], i = STU.items.get(STUDIO.ids.box), rec0 = JSON.stringify(i.rec), u = UNDO.length;
+      for (const a of ['turn', 'floor', 'del']) itemAct(a);
+      itemAct('psize', 2); itemAct('pgrow', '0:0.1'); deleteItem(i.id); itemAct('hold');
+      if (!STU.items.has(i.id) || JSON.stringify(i.rec) !== rec0 || UNDO.length !== u || XR.hold) out.push('the card\\'s actions or Delete moved, sized or deleted it: ' + JSON.stringify([STU.items.has(i.id), i.rec, UNDO.length - u]));
+      if (!STU.lockSaid || STU.lockSaid.id !== i.id) out.push('the refusal was not said');
+      tcAttach(); if (GL.tc.object) out.push('the arrows are on a locked shape');
+      // a pretend headset: the grip, a corner and Hold it refused (a buzz), nothing carried
+      XR.on = true; XR.clear = true; GL.world.updateMatrixWorld(true);
+      const ctl = (c, p) => { c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const [a, b] = XR.ctrls, w = i.holder.getWorldPosition(new THREE.Vector3());
+      ctl(a, [w.x, w.y, w.z + 0.4]); a.hover = { kind: 'item', id: i.id }; xrGrab(a, true);
+      ctl(b, [w.x + 0.3, w.y, w.z + 0.4]); b.hover = { kind: 'item', id: i.id }; xrGrab(b, true);
+      if (a.grab || b.grab || i.carry) out.push('the grips took a locked shape');
+      xrGrab(a, false); xrGrab(b, false);
+      a.hover = { kind: 'item', id: i.id, corner: 7 }; xrGrab(a, true);
+      if (a.grab) out.push('a corner took a locked shape');
+      xrGrab(a, false);
+      XR.hold = i.id; a.hover = null; xrGrab(a, true);
+      if (a.grab) out.push('Hold it carried a locked shape');
+      xrGrab(a, false); XR.on = false; XR.hold = '';
+      if (JSON.stringify(i.rec) !== rec0 || UNDO.length !== u) out.push('the headset moved it: ' + JSON.stringify(i.rec));
+      // a group with a locked member: it does not move, and says which; an unlocked one moves
+      const e = STUDIO.ids.emp; select(e); itemAct('mkgroup'); groupToggle(STU.gpick.id, i.id); const g = STU.gpick.id; gpickEnd();
+      const gp0 = JSON.stringify(STU.items.get(e).rec.p);
+      select(g); itemAct('turn'); itemAct('size', 2); deleteItem(g);
+      if (!STU.items.has(g) || JSON.stringify(STU.items.get(e).rec.p) !== gp0) out.push('a group with a locked member moved or went');
+      if (!/^Box 2 is locked in place: the group does not move/.test(lockLine(STU.items.get(g)))) out.push('the group\\'s card does not say which member is locked: ' + lockLine(STU.items.get(g)));
+      XR.on = true; ctl(a, [w.x, w.y, w.z + 0.4]); a.hover = { kind: 'item', id: e }; select(''); xrGrab(a, true);
+      if (a.grab) out.push('the grip took a group with a locked member');
+      xrGrab(a, false); XR.on = false;
+      // the group's own lock holds its members, even selected alone
+      select(i.id); itemAct('lock'); select(g); itemAct('lock');
+      const eq = JSON.stringify(STU.items.get(e).rec.q);
+      select(e); itemAct('turn');
+      if (JSON.stringify(STU.items.get(e).rec.q) !== eq) out.push('a member of a locked group turned');
+      if (!/^Its group .* is locked in place/.test(lockLine(STU.items.get(e)))) out.push('a member\\'s card does not say its group is locked: ' + lockLine(STU.items.get(e)));
+      select(g); itemAct('ungroup');
+      if (!STU.items.has(g)) out.push('a locked group was ungrouped');
+      itemAct('lock'); itemAct('turn');
+      if (JSON.stringify(STU.items.get(e).rec.p) === gp0) out.push('the group unlocked did not turn');
+      itemAct('ungroup');
+      // an object with a locked cut-out is not deleted (the cut-out moves with it)
+      select('box001'); itemAct('cut'); const x = STU.sel; itemAct('lock');
+      select('box001'); deleteItem('box001');
+      if (!STU.items.has('box001') || !/is locked in place: it cannot be deleted/.test(lockLine(STU.items.get('box001')))) out.push('an object with a locked cut-out was deleted, or it is not said: ' + lockLine(STU.items.get('box001')));
+      select(x); itemAct('lock'); deleteItem(x);
+      select(i.id); itemAct('lock');   // (the shape locked again, for its card's Unlock below)
+      return out;
+    })()`);
+    // unlocked again from the card: it turns, one Undo step
+    await ss(`(UNDO.length = 0, select(STUDIO.ids.box), X.tab = 'item', renderPanes(), STUDIO.u1 = UNDO.length, 0)`);
+    await sp.click('#pane-item [data-id="lock"]');
+    await sp.click('#pane-item [data-id="turn"]');
+    const un = await ss(`(() => { const i = STU.items.get(STUDIO.ids.box); return ['locked' in i.rec, UNDO.length - STUDIO.u1, JSON.stringify(i.rec.q) !== '[0,0,0,1]']; })()`);
+    if (JSON.stringify(un) !== '[false,2,true]') out.push('Unlock from the card: ' + JSON.stringify(un));
+    // the headset's card: Lock pressed there, the turn and Delete then not offered
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = () => { const s = new Set(); for (let off = 0; off < 5000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) s.add(q.id); } X.scroll = {}; return s; };
+      select(STUDIO.ids.ball); X.tab = 'item'; X.scroll = {}; draw();
+      let q = null;
+      for (let off = 0; off < 5000 && !q; off += 150) { X.scroll.item = off; draw(); q = XR.main.regions.find(z => z.id === 'lock'); }
+      if (q) q.fn();
+      X.scroll = {};
+      const s = ids(), r = [!!q, STU.items.get(STUDIO.ids.ball).rec.locked, s.has('turn'), s.has('del'), s.has('lock'), s.has('dup')];
+      itemAct('lock'); XR.on = false; X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== '[true,true,false,false,true,true]') out.push('the headset\'s Lock: ' + JSON.stringify(xr));
+    bad(out.concat(r));
+  });
+  await step('studio shapes: the scene\'s settings (page and headset rows, one Undo step each) tell the shell to hide the other circles at this studio\'s circle and how the real world hides the scene, and stop when away, for another scene and when the studio goes', async () => {
+    const out = [];
+    await ss(`(${hooks}, UNDO.length = 0, X.tab = 'scene', renderPanes(), STUDIO.u2 = UNDO.length, 0)`);
+    const txt = (await sp.textContent('#pane-scene')).replace(/\s+/g, ' ');
+    if (!/Other circles.*Shown.*Hidden/.test(txt) || !/Real world hides the scene.*As each headset has it.*Always.*Never/.test(txt)) out.push('the Scene pane\'s settings rows: ' + txt.slice(0, 500));
+    await sp.click('#pane-scene [data-id="set:others:hidden"]');
+    await sp.click('#pane-scene [data-id="set:real:always"]');
+    await hk(1);
+    const s1 = await ss(`[JSON.stringify(STU.settings), UNDO.length - STUDIO.u2 + (UNDO.every(l => l.length === 1 && l[0].kind === 'set') ? 0 : 10), JSON.stringify(window.__hk), unsaved()]`);
+    // (outside a room: no circles to hide; the real world: always)
+    if (s1[0] !== '{"others":"hidden","real":"always"}' || s1[1] !== 2 || s1[2] !== '[["occ","both"]]' || !s1[3]) out.push('the settings set outside a room: ' + JSON.stringify(s1));
+    // at a pretend station of the studio: the other circles hidden; away: both back; Never; the device's own
+    await ss(`(STUDIO.live = HOST.collab.live, HOST.collab.live = () => ({ id: 'st9', story: 'studio' }), 0)`);
+    await hk(2);
+    await ss(`(HOST.room = HOST.room || {}, STUDIO.away = HOST.room.away, HOST.room.away = () => true, 0)`);
+    await hk(4);
+    await ss(`(HOST.room.away = STUDIO.away, setSetting('real:never'), 0)`);
+    await hk(6);
+    await ss(`(setSetting('real:device'), setSetting('others:shown'), 0)`);
+    await hk(8);
+    const s2 = await ss(`JSON.stringify(window.__hk)`);
+    if (s2 !== '[["occ","both"],["hide",true],["hide",false],["occ",null],["hide",true],["occ","off"],["hide",false],["occ",null]]') out.push('the hooks at a station, away and back: ' + s2);
+    // Undo takes the settings back (one step each)
+    await ss(`(undo(), 0)`); await hk(9);
+    const s3 = await ss(`[JSON.stringify(STU.settings), JSON.stringify(window.__hk.slice(8))]`);
+    if (s3[0] !== '{"others":"hidden","real":"device"}' || s3[1] !== '[["hide",true]]') out.push('Undo of a setting: ' + JSON.stringify(s3));
+    // the headset's Scene pane: the same rows, one pressed
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      X.tab = 'scene'; let q = null;
+      for (let off = 0; off < 5000 && !q; off += 150) { X.scroll.scene = off; draw(); q = XR.main.regions.find(z => z.id === 'set:real:never'); }
+      const all = q ? ['set:others:shown', 'set:others:hidden', 'set:real:device', 'set:real:always'].every(id => XR.main.regions.some(z => z.id === id)) : false;
+      if (q) q.fn();
+      X.scroll = {}; XR.on = false; renderPanes();
+      return [!!q, all, STU.settings.real];
+    })()`);
+    if (JSON.stringify(xr) !== '[true,true,"never"]') out.push('the headset\'s settings rows: ' + JSON.stringify(xr));
+    // not editing: no rows
+    const ne = await ss(`(setEdit(false), renderPanes(), [/Other circles/.test(document.querySelector('#pane-scene').textContent), setEdit(true)][0])`);
+    if (ne) out.push('the settings rows show while not editing');
+    await ss(`(HOST.collab.live = STUDIO.live, 0)`);
+    if (!await hk(11)) out.push('the hooks after leaving the pretend station: ' + await ss('JSON.stringify(window.__hk)'));
+    bad(out);
+  });
+  await step('studio shapes: the lobby hook forgets what this device has seen (a cube that stays, an animation started when shown starts again) and writes nothing to the room', async () => {
+    const r = await ss(`(() => {
+      const out = [], b = STU.items.get('box001'), cb = addCube();
+      setRec(cb, { p: [6, 1, 6], mode: 'stay', show: ['box001'] }); setRec('box001', { start: 'shown', anim: 'loop' });
+      shownFor([6, 1.6, 6]); const t1 = b.shownAt; shownFor([0, 1.6, 9]);
+      if (!STU.seen.has(cb) || !b.shown) out.push('the stay cube did not hold');
+      const s0 = JSON.stringify(collabState());
+      HOST.cur.lobby();
+      const s1 = JSON.stringify(collabState());
+      if (STU.seen.size || !(STU.lobbyAt > 0) || s0 !== s1) out.push('the lobby did not forget, or wrote to the state: ' + JSON.stringify([STU.seen.size, STU.lobbyAt, s0 === s1]));
+      const sh = shownFor([0, 1.6, 9]);
+      if (sh.box001) out.push('after the lobby the box waits for its cube again: ' + JSON.stringify(sh));
+      const t0 = performance.now(); shownFor([6, 1.6, 6]);
+      if (!(b.shownAt >= t0)) out.push('the box\\'s animation did not start again from its beginning: ' + JSON.stringify([t1, b.shownAt, t0]));
+      shownFor(null); deleteItem(cb); setRec('box001', { start: 'always' });
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio shapes: the state and layout.json carry shapes, empties, locks and the settings, and give them back; bad records ignored, limits kept, an older layout read as before', async () => {
+    const r = await ss(`(() => {
+      const out = [], J = JSON.stringify, same = () => { const a = J(collabState()); collabApply(JSON.parse(a)); return J(collabState()) === a; };
+      const ball = STUDIO.ids.ball, e = STUDIO.ids.emp;
+      select(ball); itemAct('lock'); setSetting('others:hidden');
+      const s0 = collabState();
+      if (!s0['p.' + ball] || !s0['e.' + e] || s0['p.' + ball].locked !== true || J(s0.settings) !== '{"others":"hidden","real":"never"}' || !same()) out.push('the state: ' + J(s0).slice(0, 500));
+      // the room's: a new shape and empty taken; bad ones ignored (the items kept); settings bad (kept) or absent (a new scene's)
+      const st = JSON.parse(J(s0));
+      st['p.zz0001'] = { name: 'Wall', shape: 'plane', p: [0, 1, -3], size: [3, 2, 0.01], colour: '#FFFFFF', look: 'hide', locked: false };
+      st['e.zz0002'] = { name: 'Here', p: [1, 1.7, -1], locked: true };
+      collabApply(st);
+      const w = STU.items.get('zz0001'), h = STU.items.get('zz0002');
+      if (!w || w.rec.colour !== '#ffffff' || 'locked' in w.rec || !h || h.rec.locked !== true || !same()) out.push('the room\\'s shape and empty: ' + J([w && w.rec, h && h.rec]));
+      const was = J(collabState()), b2 = JSON.parse(was);
+      Object.assign(b2, { 'p.zz0001': { shape: 'cone', p: [0, 0, 0] }, 'p.zz0003': { p: [0, 0, 0], colour: 'red' }, 'e.zz0002': { p: [0, 0, 0], locked: 'yes' }, 'p.zz0004': { p: [0, 0, 0], size: 2 }, settings: { others: 'gone' } });
+      collabApply(b2);
+      if (J(collabState()) !== was) out.push('bad records or settings were taken: ' + J(collabState()).slice(0, 500));
+      const b3 = JSON.parse(was); delete b3.settings; collabApply(b3);
+      if (J(STU.settings) !== '{"others":"shown","real":"device"}') out.push('a state without settings did not give a new scene\\'s: ' + J(STU.settings));
+      collabApply(JSON.parse(was));
+      // limits: 200 shapes from the room at most
+      const many = JSON.parse(was); for (let k = 0; k < 230; k++) many['p.m' + String(k).padStart(5, '0')] = { p: [k * 0.01, 0, 0] };
+      collabApply(many);
+      if (countOf('p') !== 200) out.push('the room\\'s shapes past 200 were taken: ' + countOf('p'));
+      collabApply(JSON.parse(was));
+      // layout.json: written and read back the same (Unsaved changes follows); a v118 layout reads as before; bad settings counted
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      if (!L.shapes.length || !L.empties.length || J(L.settings) !== '{"others":"hidden","real":"never"}' || back.bad || keyOf(back.items, back.settings) !== keyOf()) out.push('layout.json with shapes, empties and settings: ' + J([L.shapes.length, L.empties.length, L.settings, back.bad]));
+      const old = readLayout({ studio: 1, objects: [{ id: 'aaa111', file: 'box.glb', p: [0, 0, 0] }] });
+      if (old.bad || J(old.settings) !== '{"others":"shown","real":"device"}' || old.items.length !== 1) out.push('an older layout: ' + J(old));
+      const bs = readLayout({ studio: 1, settings: { real: 'sometimes' }, shapes: [{ id: 'bbb222', p: [0, 0, 0], shape: 'cube' }, { id: 'bbb333', p: [0, 0, 0], look: 'glass' }], empties: [{ id: 'ccc444', p: [0, 1, 0] }], groups: [{ id: 'ggg555', items: ['bbb222', 'ccc444'] }] });
+      if (bs.bad !== 2 || bs.items.length !== 3 || J(bs.settings) !== '{"others":"shown","real":"device"}') out.push('bad settings and a bad shape in a layout, a group of a shape and an empty: ' + J(bs));
+      select(ball); itemAct('lock');
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio shapes: the studio\'s hooks told off for another scene (a new scene\'s settings) and when the studio goes (the other circles shown, the real world as each headset has it)', async () => {
+    await ss(`(${hooks}, setSetting('real:always'), 0)`);
+    await hk(1);
+    await ss(`(openScene('textures', 'pick'), 0)`);
+    await hk(2);
+    const sc = await ss(`[JSON.stringify(STU.settings), JSON.stringify(window.__hk)]`);
+    if (sc[0] !== '{"others":"shown","real":"device"}' || sc[1] !== '[["occ","both"],["occ",null]]') bad(['another scene\'s settings and the hooks: ' + JSON.stringify(sc)]);
+    await until(`STU.listing === 'ok'`, 30000);
+    await ss(`(setSetting('real:never'), 0)`);
+    await hk(3);
+    await sp.evaluate(() => HOST.go('design'));
+    await sp.waitForFunction(() => HOST.curKey === 'design', null, { timeout: 60000 }).catch(() => {});
+    const got = await sp.evaluate(() => JSON.stringify(window.__hk));
+    if (!/\["hide",false\],\["occ",null\]\]$/.test(got)) bad(['the hooks when the studio went: ' + got]);
+    await sp.close();
   });
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)

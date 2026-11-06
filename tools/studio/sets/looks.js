@@ -3,9 +3,12 @@
 // small speaker (a ball and a cone) in its colour, a faint ring on the floor where it stops being at full volume and, for
 // a sound that follows a model, a faint line to what it follows. A cut-out: a box with dashed red-orange edges and solid
 // ticks at its corners (never a cube's see-through fill and solid edges). A group (selected, while editing): a faint
-// dashed box round all its members, in its colour (its name is the selection's label). A model still loading (or one this
-// device cannot find): a grey box with a line of text over it. Each item's colour comes from its id, so it is the same on
-// every device (a cut-out's is one for all).
+// dashed box round all its members, in its colour (its name is the selection's label). A shape: a cube, a ball, a
+// cylinder or a plane, lit in its colour, or (hiding things) drawn into the depth only, so it hides what stands behind it
+// and is otherwise invisible (while editing a see-through fill and its edges show where it is). An empty: a small axis
+// cross and its name, drawn only while editing. A model still loading (or one this device cannot find): a grey box with a
+// line of text over it. Each item's colour comes from its id, so it is the same on every device (a cut-out's is one for
+// all; a shape's is its record's).
 const LOOKS = (function () {
   const PAL = ['#46d9ff', '#ffb43b', '#3ee08f', '#ff5ad9', '#9db4ff', '#ff7a59', '#c3e85a', '#c08cff', '#5fe0c8', '#ffe066'];
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
@@ -156,6 +159,101 @@ const LOOKS = (function () {
     deco.add(box); deco.visible = false;
     return { deco, box, col: '#' + col.getHexString(), drop() { box.material.dispose(); } };
   }
+  // a shape: its body (scaled to its size, turned as it is: the item's holder) holds the drawn mesh, a see-through fill
+  // and its edges (editing); `deco` (not scaled, following its place and turn) its name and, for a cube, the corner balls
+  // to stretch it by. Lit in its colour, or hiding things: drawn into the depth alone (no colour), before the items
+  // (renderOrder -1: after the stage's floor and sky, so in VR the stage shows where it stands and in AR the room) so
+  // what stands behind it is hidden; a closed shape from its outside only (from inside it hides nothing), a plane both
+  // ways. The geometries are shared (unit sized: a 1 m box, a ball and a cylinder 1 m across, a 1 m square upright,
+  // facing +z)
+  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1) };
+  const SHAPE_EDGE = {};
+  const shapeEdges = k => SHAPE_EDGE[k] || (SHAPE_EDGE[k] = new THREE.EdgesGeometry(SHAPE_GEO[k], 20));   // (a ball: none)
+  function shape(id) {
+    const body = new THREE.Group(), deco = new THREE.Group();
+    const lit = new THREE.MeshStandardMaterial({ color: 0xc9d1dc, roughness: 0.75, metalness: 0 });
+    const hide = new THREE.MeshBasicMaterial({ colorWrite: false });
+    const mesh = new THREE.Mesh(box, lit);
+    const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xc9d1dc, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
+    fill.renderOrder = 5;
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false }));
+    line.renderOrder = 6;
+    body.add(mesh, fill, line);
+    const name = tag(30);
+    deco.add(name);
+    const corners = [];
+    for (let k = 0; k < 8; k++) {
+      const c = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: 0xe8eef8, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
+      c.scale.setScalar(0.04); c.renderOrder = 9; c.userData.corner = k; c.visible = false;
+      deco.add(c); corners.push(c);
+    }
+    let kind = '', col = '', hides = false, a = -1;
+    const S = {
+      body, deco, mesh, fill, line, name, corners, col: '#c9d1dc',
+      // its record's shape, colour and look
+      set(r) {
+        if (r.shape !== kind) {
+          kind = r.shape;
+          mesh.geometry = fill.geometry = SHAPE_GEO[kind] || box;
+          line.geometry = shapeEdges(kind);
+          lit.side = kind === 'plane' ? THREE.DoubleSide : THREE.FrontSide; hide.side = lit.side;
+          lit.needsUpdate = hide.needsUpdate = true;
+        }
+        if (r.colour !== col) {
+          col = r.colour; S.col = col;
+          lit.color.set(col); fill.material.color.set(col);
+          line.material.color.set(col).lerp(new THREE.Color(1, 1, 1), 0.35);
+          for (const c of corners) c.material.color.set(col).lerp(new THREE.Color(1, 1, 1), 0.5);
+        }
+        if ((r.look === 'hide') !== hides) { hides = r.look === 'hide'; mesh.material = hides ? hide : lit; mesh.renderOrder = hides ? -1 : 0; a = -1; }
+      },
+      // a: its fade (shown or hidden for you: a colour fades, what hides things switches at one half); editing: its fill and
+      // edges for one that hides things (the edges also when pointed at or selected), its corners when selected (a cube)
+      look(o) {
+        if (Math.abs(o.a - a) > 1e-3) {
+          a = o.a;
+          if (hides) mesh.visible = a > 0.5;
+          else {
+            mesh.visible = a > 0.002;
+            const full = a >= 0.999;
+            lit.transparent = !full; lit.opacity = full ? 1 : a; lit.depthWrite = full;
+          }
+        }
+        fill.visible = !!o.editing && hides;
+        fill.material.opacity = (o.hot ? 0.24 : 0.14) * (hides ? 1 : 0) * Math.max(0.35, o.a);
+        line.visible = !!o.editing && (hides || o.hot || o.selected) && kind !== 'sphere';
+        line.material.opacity = o.selected || o.hot ? 1 : 0.6;
+        for (const c of corners) { c.visible = !!o.selected && kind === 'cube'; c.scale.setScalar(o.hotCorner === c.userData.corner ? 0.06 : 0.04); }
+        name.visible = !!o.editing && hides && !(o.hot || o.selected);   // (one you cannot see; the engine's label names it when pointed at)
+      },
+      hides: () => hides,
+      drop() { lit.dispose(); hide.dispose(); fill.material.dispose(); line.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
+    };
+    return S;
+  }
+  // an empty: a point with a turn, seen only while editing: a small axis cross (x red, y green, z blue, drawn over
+  // everything so it shows inside a model), a ball in its colour, its name, and an unseen ball round it for the pointer
+  const axGeo = (function () {
+    const g = new THREE.BufferGeometry(), L = 0.16;
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, L, 0, 0, 0, 0, 0, 0, L, 0, 0, 0, 0, 0, 0, L], 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute([1, 0.35, 0.29, 1, 0.35, 0.29, 0.24, 0.88, 0.56, 0.24, 0.88, 0.56, 0.27, 0.85, 1, 0.27, 0.85, 1], 3));
+    return g;
+  })();
+  function empty(id) {
+    const col = new THREE.Color(colOf(id)), g = new THREE.Group();
+    const axes = new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+    axes.renderOrder = 8; axes.frustumCulled = false;
+    const dot = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false }));
+    dot.scale.setScalar(0.025); dot.renderOrder = 8;
+    const hit = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ visible: false })); hit.scale.setScalar(0.12);
+    const name = tag(30); name.position.y = 0.2;
+    g.add(axes, dot, hit, name);
+    return {
+      group: g, hit, name, col: '#' + col.getHexString(),
+      look(o) { dot.scale.setScalar(o.hot || o.selected ? 0.04 : 0.025); axes.material.opacity = o.hot || o.selected ? 1 : 0.75; name.visible = !(o.hot || o.selected); },
+      drop() { axes.material.dispose(); dot.material.dispose(); hit.material.dispose(); name.userData.drop(); },
+    };
+  }
   // a model that is not here yet (loading, missing or unreadable): a grey box with a line of text over it
   function grey() {
     const g = new THREE.Group();
@@ -167,5 +265,6 @@ const LOOKS = (function () {
     g.add(name);
     return { group: g, body, fill, name, drop() { fill.material.dispose(); line.material.dispose(); name.userData.drop(); } };
   }
-  return { colOf, cube, speaker, cut, group, grey, tag, CUT_COL, dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); } };
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, CUT_COL,
+    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); axGeo.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();

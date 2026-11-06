@@ -146,6 +146,25 @@ a room you want to see from inside, as walls that vanish from outside). It is th
 one file may differ; the file is never changed, and the setting stays when the model is converted to a GLB, switched to
 it or changed on the relay. It is shared in a room and saved in `layout.json`.
 
+## Shapes, empties, locks and the scene's settings
+
+- **Shapes** (Add, *Shapes*: Cube, Sphere, Cylinder, Plane): plain shapes in a colour, or ones that **hide things**: on
+  the card, *Look: Hides things* makes it invisible, hiding whatever of the scene stands behind it. In AR your room shows
+  through it, so a box the size of a real table hides the virtual things behind that table, as the table would. While
+  editing it shows as a see-through fill so you can find it. Size it per side (the card's steps, the page's arrows, a
+  cube's corners in a headset) and pick its colour from the swatches.
+- **Empties** (Add, *Empty*): a point you only see while editing (a small cross). Put a sound on it: on the sound's card,
+  *Follow an object...*, then point at the empty. Move the empty and the sound goes with it; a trigger cube that hides
+  the empty silences the sound.
+- **Lock in place** (every card, by *Duplicate* and *Delete*): a locked thing cannot be moved, turned, sized or deleted
+  by any hand, page or headset, until *Unlock*. A locked group holds all its members; a group with a locked member does
+  not move and says which. It is shared and saved.
+- **The scene's settings** (Scene, while editing): *Other circles: Hidden* hides the other circles' rings, cards and icons
+  for everyone at this studio's circle in a shared room; *Real world hides the scene* sets whether real things hide the
+  scene in AR (*As each headset has it*, *Always* or *Never*). Both are saved with the scene.
+- **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
+  studio, so the scene starts afresh for the next person who puts it on.
+
 ## In a headset: from the inside, Hold it, the sticks on a card
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With
@@ -172,6 +191,23 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   its MTL go under `originals/` (the only place the relay keeps those kinds), the paths between them kept. With R2 the
   bucket copies the files itself. Not offered for a folder of scenes without a relay, a read-only relay, a visitor
   (`&visit`) or a locked scene.
+
+## Fewer triangles, and Change texture
+
+- **Fewer triangles** (a placed model's card, with **Edit** on, on a page and in a headset): a share of its triangles kept,
+  **20 %** to start. On a page a slider (2 to 100 %); in a headset **− 5 %**, **+ 5 %** and **10 %**, **20 %**, **50 %**.
+  It shows at once, in place, **on this device only**, so you can walk round it life size in the headset before keeping
+  it; **Cancel** puts it back. **Save** makes `models/<name>.glb` with that share, as Convert to GLB does, and every
+  object of that file switches to it where it stands (for everyone at a circle). The share is of the original when the
+  scene has it, so a model made too light can come back up (*Save makes it again from statue.fbx*); a headset saves too,
+  with a relay that takes uploads. meshoptimizer's simplifier does the work: textures stay where they were, parts that
+  touch do not crack apart, crumbs of a scan go; a mesh with shape keys is left as it is. Look closely at the preview:
+  at 20 % a dense scan usually holds up well, a low-poly model does not need it.
+- **The Upload pane** gives each model the same: *Triangles kept* (20 % to start), about how many that is, and
+  **Preview**, a picture of it with all its triangles and with the share kept.
+- **Change texture** (a placed model's card): pick one of its materials, a slot (Colour, Normal, Roughness, Metalness,
+  Occlusion, Glow, Opacity) and one of the scene's pictures (on a page also one from this computer). It shows at once on
+  this device; **Save** puts it into the model's GLB (recorded there, never in the layout); **Cancel** puts its own back.
 
 ## Formats guide
 
@@ -201,7 +237,8 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
   what is dropped, and pairs the only picture left over with the only model lacking one.
 - **In the GLB:** separate roughness and metalness pictures become one (roughness in green, metalness in blue), and a
   bump map becomes a normal map.
-- **Budgets on a Quest:** about 300,000 triangles a model, 500,000 a scene (said on the cards, never refused).
+- **Budgets on a Quest:** about 300,000 triangles a model, 500,000 a scene (said on the cards, never refused; *Fewer
+  triangles* brings a model down).
 - **Sounds: mono**, so they place well (a stereo file is played from its point, mixed). Short loops as WAV (MP3 adds
   silence at its ends, so a loop clicks; OGG does not play on iPhones). Long ones (more than 20 s: streamed, not held in
   memory) as MP3 at 96 to 128 kbit/s.
@@ -212,23 +249,27 @@ The upload page does all of this by itself. By hand:
 ffmpeg -i in.wav -ac 1 -c:a pcm_s16le loop.wav    # a loop
 ffmpeg -i in.mp3 -ac 1 -b:a 96k out.mp3           # a long one
 node tools/studio/convert.mjs model.fbx           # a model, on a computer with Playwright (as tools/smoke.mjs)
+node tools/studio/convert.mjs scan.fbx --keep 0.2 # the same with a fifth of its triangles
 node tools/studio/convert.mjs model.obj --textures ~/pictures --texture rust_old.png=paint.png --texture 0:roughnessMap=rough.tif
 ```
 
 `convert.mjs` uses the same converter as the page (`engine/convert.js`) and also draws the original and the GLB from
-three sides and compares them; `--max-texture 2048`, `--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
+three sides and compares them; `--max-texture 2048`, `--keep 0.2` (the share of its triangles kept, as *Fewer triangles*),
+`--shots <dir>` keeps the pictures. `--textures <dir>` adds pictures to
 look in (any depth), `--texture <name>=<picture>` gives a texture the model names, and `--texture
 <material>:<slot>=<picture>` lays one on (the material's name, its number from 0, or `*`); it prints what each texture
 was found as and keeps it in the GLB's record.
 
 ## Files
 
-- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups), `engine/convert.js` the converter and `engine/images.js` the picture reader
+- `engine/` the studio's engine (`e*.js`; `e6b_cuts.js` the cut-outs and their shader, `e6c_groups.js` the groups, `e6d_shapes.js` the shapes, empties, locks, the scene's settings and the lobby), `engine/convert.js` the converter and `engine/images.js` the picture reader
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
-  uploads straight into the bucket).
+  uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
+  pane's share and preview.
 - `r2sync.mjs` scenes between an R2 bucket and a folder (`list`, `pull`, `push`; the relay's `R2_*` variables).
-- `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons (see its README).
+- `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons and meshoptimizer's simplifier (see its
+  README).
 - `test/make.mjs` makes the test scene `test/scenes/test/` (models, a texture, a short and a 25 s sound, and an OBJ with
   its MTL under `originals/`, under 250 KB), the textures scene `test/scenes/textures/` (about 20 KB: pictures from
   `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung), the rig scene

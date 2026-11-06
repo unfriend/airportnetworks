@@ -292,22 +292,26 @@ function xrGrab(c, on) {
     if (!it || !editOn()) return;
     GL.world.updateMatrixWorld(true);
     const q0 = new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert();
-    if (it.kind === 'g') { groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
+    // (locked in place: refused, with a short buzz and a knock, and said on its card; e6d_shapes.js)
+    const refuse = x => { buzz(c, 0.15, 12); lockRefused(x); };
+    if (it.kind === 'g') { if (lockWhy(it)) refuse(it); else groupGrab(c, it, q0); return; }   // (a group selected, held by Hold it: the whole group)
     // (a group's member, unless it is selected on its own: its whole group. The other hand carrying its group: this one
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
     const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
     const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
     const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
-    if (grp) { groupGrab(c, grp, q0); return; }
+    if (grp) { if (lockWhy(grp)) refuse(grp); else groupGrab(c, grp, q0); return; }
+    if (lockWhy(it)) { refuse(it); return; }
     if (h.corner !== undefined && it.kind === 'c') {
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], r = it.rec;
       // the opposite corner stays where it is (the scene's frame); the hand keeps its offset from the corner it took
       const opp = new THREE.Vector3(-sg[0] * r.size[0] / 2, -sg[1] * r.size[1] / 2, -sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       const cor = new THREE.Vector3(sg[0] * r.size[0] / 2, sg[1] * r.size[1] / 2, sg[2] * r.size[2] / 2).applyAxisAngle(_xY, r.yaw).add(_gw.fromArray(r.p));
       c.grab = { target: 'corner', id: it.id, sg, opp, off: cor.sub(GL.world.worldToLocal(c.o.clone())), at: 0 };
-    } else if (h.corner !== undefined && it.kind === 'x') {
-      // a cut-out's corner: as a cube's, its box turned as it is (a full turn), the turn kept while it stretches
+    } else if (h.corner !== undefined && (it.kind === 'x' || it.kind === 'p')) {
+      // a cut-out's corner (or a shape's, a cube): as a cube's, its box turned as it is (a full turn), the turn kept while it
+      // stretches
       const k = h.corner, sg = [k & 1 ? 1 : -1, k & 2 ? 1 : -1, k & 4 ? 1 : -1], q = it.holder.quaternion.clone(), s = it.holder.scale, P = it.holder.position;
       const opp = new THREE.Vector3(-sg[0] * s.x / 2, -sg[1] * s.y / 2, -sg[2] * s.z / 2).applyQuaternion(q).add(P);
       const cor = new THREE.Vector3(sg[0] * s.x / 2, sg[1] * s.y / 2, sg[2] * s.z / 2).applyQuaternion(q).add(P);
@@ -406,6 +410,8 @@ function carryWrite(it, now) {
   if (it.kind === 'o') setObj(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: h.scale.x });   // (sized by both grips: its sounds keep their place on it)
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
+  else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
+  else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset from where the hand puts it)
 }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
@@ -414,7 +420,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
@@ -453,9 +459,10 @@ function xrResize(a, b) {
   XR.rot.copy(_gq).multiply(T.r0);
   XR.globeOff.copy(XR.globeBase).add(T.off0).sub(T.m0).applyQuaternion(_gq).add(_gv).sub(XR.globeBase);
 }
-// an item in the hand: where the hand puts it (an object or a cut-out, moving freely, turns with the hand as a real object
-// would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands on an object or a
-// cut-out size it (a twentieth to twenty times) and move it with their middle; the right stick pushes it away or pulls it in
+// an item in the hand: where the hand puts it (an object, a cut-out, a shape or an empty, moving freely, turns with the
+// hand as a real object would; else, and a cube always, it turns only about the vertical; a sound only moves); both hands
+// on an object, a cut-out or a shape size it (a twentieth to twenty times; a cut-out and a shape every side alike) and move
+// it with their middle; the right stick pushes it away or pulls it in
 const _mq = new THREE.Quaternion(), _mi = new THREE.Quaternion(), _mv = new THREE.Vector3(), _me = new THREE.Euler();
 function carryItem(c, dt) {
   const G = c.grab, it = STU.items.get(G.id), gp = c.src.gamepad;
@@ -463,13 +470,13 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && (it.kind === 'o' || it.kind === 'x')) {
+  if (o && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
-    const d = c.o.distanceTo(o.o);
+    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
-    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: it.kind === 'x' ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
+    const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.rec.s, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
-    if (it.kind === 'x') it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
+    if (vec) it.holder.scale.copy(W.s0).multiplyScalar(clamp(d / W.d0, 1 / 20, 20));   // (every side alike: its shape kept)
     else it.holder.scale.setScalar(clamp(W.s0 * d / W.d0, W.s0 / 20, W.s0 * 20));
     carryWrite(it);
     return;
@@ -484,7 +491,7 @@ function carryItem(c, dt) {
   it.holder.position.copy(GL.world.worldToLocal(_gv));
   if (it.kind !== 's') {
     let q;
-    if (XR.free && (it.kind === 'o' || it.kind === 'x')) q = _mq.copy(_gq).multiply(G.r0);
+    if (XR.free && it.kind !== 'c') q = _mq.copy(_gq).multiply(G.r0);
     else { _me.setFromQuaternion(_gq, 'YXZ'); q = _mq.setFromAxisAngle(_xY, _me.y).multiply(G.r0); }
     it.holder.quaternion.copy(q.premultiply(_mi));
     if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
@@ -525,7 +532,7 @@ function carryGroup(c, dt) {
 function stretchCube(c) {
   const G = c.grab, it = STU.items.get(G.id);
   if (!it) { c.grab = null; XR.lost = true; return; }
-  if (it.kind === 'x') { stretchCut(c, G, it); return; }
+  if (it.kind === 'x' || it.kind === 'p') { stretchCut(c, G, it); return; }   // (a shape's corners: a cube's)
   GL.world.updateMatrixWorld(true);
   const r = it.rec, cor = GL.world.worldToLocal(_mv.copy(c.o)).add(G.off).sub(G.opp).applyAxisAngle(_xY, -r.yaw);
   const size = [0, 1, 2].map(i => Math.max(0.1, cor.getComponent(i) * G.sg[i]));

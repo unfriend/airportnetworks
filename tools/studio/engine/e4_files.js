@@ -206,7 +206,8 @@ function openScene(name, how, again) {
   libClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '' });
+    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
@@ -231,8 +232,8 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad;
-    if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); }
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad;
+    if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
   } catch (e) {
@@ -279,22 +280,25 @@ async function refreshFiles(changed) {
 }
 
 // ------------------------------------------------------------- the layout --
-// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts, groups },
-// each item with its id and its record. Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
+// layout.json (also what Download gives and Upload takes): { studio: 1, scene, saved, objects, cubes, sounds, cuts, groups,
+// shapes, empties, settings }, each item with its id and its record, and the scene's settings (e6d_shapes.js). Read: every item checked (bad ones dropped and counted, the limits kept), a cube's
 // lists naming only this scene's items, and a group's members only this layout's objects, sounds and cubes (one left with
 // fewer than 2 dropped and counted). A sound's on, bone and o (optional fields, so still studio: 1) are kept even when
 // the layout lacks its object, as a state from the room keeps them: it stands at its p until that object is back, and a
 // save never loses what it followed; so is a cut-out's on (it cuts nothing until its object is back). A layout without
-// cuts (v112's) or without groups (v113's) reads as before
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50 };
+// cuts (v112's), without groups (v113's) or without shapes, empties and settings (v118's) reads as before (its settings a
+// new scene's: other circles shown, the real world hiding it as each headset has it); bad settings are counted and taken so
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, at: 0, by: '' };
+  const out = { items: [], bad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
   out.by = typeof j.by === 'string' ? j.by.slice(0, 40) : '';
+  const S = normSettings(j.settings);
+  if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups]]) {
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
@@ -328,22 +332,25 @@ function layoutOut() {
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
-  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g');
+  L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  L.settings = Object.assign({}, STU.settings);
   return L;
 }
-// a list of items (or what is placed) as one string, to tell whether two are the same
-function keyOf(items) {
+// a list of items (or what is placed) and the scene's settings as one string, to tell whether two are the same
+function keyOf(items, settings) {
   const L = (items || placedItems()).map(x => [x.id, x.kind, x.rec]);
   L.sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  return JSON.stringify(L);
+  return JSON.stringify(L) + JSON.stringify(settings || (items ? normSettings() : STU.settings));
 }
 const unsaved = () => STU.listing === 'ok' && keyOf() !== STU.saved;
-// the items of a layout in place of what is placed (Load saved, Upload, Restore), as one change Undo takes back
-function putLayout(items) {
+// the items of a layout (and its settings) in place of what is placed (Load saved, Upload, Restore), as one change Undo
+// takes back
+function putLayout(items, settings) {
   change(() => {
     const keep = new Set(items.map(x => x.id));
     for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
     for (const x of items) putItem(x.id, x.kind, x.rec);
+    if (settings) putSettings(settings);
   });
 }
 
@@ -376,8 +383,8 @@ async function loadSaved() {
     const layout = SRC.kind === 'relay' ? (await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`)).layout : await getJSON(`${SRC.folder}/${encodeURIComponent(name)}/layout.json`);
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
-    putLayout(L.items);
-    STU.saved = keyOf(L.items); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad;
+    putLayout(L.items, L.settings);
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -396,7 +403,7 @@ function uploadLayout(text) {
   try { j = JSON.parse(text); } catch (e) { j = null; }
   if (!j || j.studio !== 1) { STU.upNote = 'That file is not a studio layout (layout.json with "studio": 1).'; dirty(true); return; }
   const L = readLayout(j);
-  putLayout(L.items);
+  putLayout(L.items, L.settings);
   STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
 }
@@ -538,7 +545,7 @@ function draftNow() {
   unlater(draftT); draftT = 0;
   if (!STU.scene || STU.listing !== 'ok' || atStation() || OPT.visit) return;
   if (!unsaved()) { draftDrop(); return; }
-  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]) }));
+  store.set(draftKey(), JSON.stringify({ at: Date.now(), items: placedItems().map(it => [it.id, it.kind, it.rec]), settings: STU.settings }));
 }
 function draftDrop() { if (STU.scene) store.set(draftKey(), null); }
 function offerDraft() {
@@ -546,11 +553,11 @@ function offerDraft() {
   try { d = JSON.parse(store.get(draftKey()) || 'null'); } catch (e) { d = null; }
   if (!d || !Array.isArray(d.items) || !(d.at > STU.savedAt)) return;
   const items = d.items.filter(x => Array.isArray(x) && okId(x[0]) && LIMITS[x[1]]).map(x => ({ id: x[0], kind: x[1], rec: norm(x[1], x[2]) })).filter(x => x.rec);
-  const k = keyOf(items);
+  const settings = normSettings(d.settings) || normSettings(), k = keyOf(items, settings);
   if (k === STU.saved || k === keyOf()) return;
-  STU.draft = { at: d.at, items };
+  STU.draft = { at: d.at, items, settings };
 }
-function draftRestore() { const d = STU.draft; STU.draft = null; if (d) putLayout(d.items); dirty(true); }
+function draftRestore() { const d = STU.draft; STU.draft = null; if (d) putLayout(d.items, d.settings); dirty(true); }
 function draftDiscard() { STU.draft = null; draftDrop(); dirty(true); }
 
 // ------------------------------------------------------------------- watch --
@@ -592,7 +599,7 @@ async function onLayoutEvent(d) {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
-    STU.saved = keyOf(L.items); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
   dirty(true);
 }

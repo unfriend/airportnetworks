@@ -70,7 +70,8 @@
 // on a temporary copy of tools/studio/test/scenes; three pages and a pretend headset at a studio station: Studio here, a
 // scene picked for all, two edits at once both kept, the headset's trigger cube, Save from the headset (.history/), a file
 // added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a texture added from a
-// card, a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
+// card, a ball made on a page saved lighter (Fewer triangles) and given a picture from the headset (Change texture, saved
+// there), a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
 // relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
 // COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; then the scenes in R2
 // (--scenes r2) against the stand-in S3 on another port (from 8840 up): files by signed links, Save, Convert to GLB and
@@ -3008,7 +3009,9 @@ async function tokenRound() {
 // the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
 // it under cuts; a group made on a page (the box, the figure, Tone and Doorway) and turned and sized there, taken by every
 // page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
-// the saved layout.json carrying groups and faces; From another scene (a model of a second scene copied into the open
+// the saved layout.json carrying groups and faces; a shape that hides things and an empty with a sound following it made on a
+// page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the lock
+// refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); From another scene (a model of a second scene copied into the open
 // one with the files it names, an OBJ under originals/, a name taken: a new one; every device taking it); a circle made
 // for one scene as the shell writes it opening that scene and writing its saved layout on the pages that follow it; New
 // scene from the headset's panel (the shell's keypad stubbed) opening the new scene at its station; a long sound streamed (an
@@ -3290,6 +3293,49 @@ async function studioRound(dir) {
       JSON.stringify({ rSeen, rustId, rLoaded, useBtn, tDone, tRec, tsw, tWorst, note: await sp(A, 'CV.note') }));
     await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
 
+    // ---- Fewer triangles and Change texture (e7d_lite.js): a dense ball made on a page (24,320 triangles, a red and green
+    // checker) put in the scene's folder and placed; its share saved on a page at 20 %: models/ball.glb through the relay,
+    // every page's and the headset's ball switched to it, as light as the page previewed it; then a picture put in its colour
+    // slot from the headset's card and saved from the headset: made again from ball.glb with the share kept
+    const ballB64 = await sp(A, `(async () => {
+      exporterLoad();
+      const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
+      g.computeVertexNormals();
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e02020' : '#20c020'; x.fillRect(i * 8, j * 8, 8, 8); }
+      const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshStandardMaterial({ name: 'skin', map: new T.CanvasTexture(cv), roughness: 1, metalness: 0 })));
+      const glb = await new Promise(res => new T.GLTFExporter().parse(root, res, { binary: true }));
+      const u = new Uint8Array(glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s);
+    })()`);
+    fs.writeFileSync(path.join(SC, 'test', 'ball.glb'), Buffer.from(ballB64, 'base64'));
+    const bSeen = await sUntil(A, `STU.fileMap.has('ball.glb')`, 12000);
+    const ballId = bSeen ? await sp(A, `(setEdit(true), addModel('ball.glb'))`) : '';
+    const bIn = [];
+    for (const p of [A, B, C, H]) bIn.push(!!ballId && await sUntil(p, `(() => { const it = STU.items.get('${ballId}'); return !!(it && it.model && it.E.state === 'ready'); })()`, 30000));
+    await sp(A, `(select('${ballId}'), X.tab = 'item', renderPanes(), ftOpen('${ballId}'), 0)`);
+    const fPv = await sUntil(A, `!!FT.pv && !FT.busy && FT.pv.keep === 0.2`, 30000), fWant = await sp(A, 'FT.pv ? FT.pv.to : 0'), fOthers = await sp(B, `STUDIO.tris('${ballId}')`);
+    if (fPv) await click(A, '#pane-item [data-act="ft:save"]');
+    const fDone = fPv && await sUntil(A, `!CV.busy && CV.done.includes('models/ball.glb')`, 90000);
+    const glbRecOf = f => { try { const b = fs.readFileSync(path.join(SC, 'test', f)); return JSON.parse(b.toString('utf8', 20, 20 + b.readUInt32LE(12))).asset.extras.studio; } catch (e) { return null; } };
+    const fRec = glbRecOf('models/ball.glb'), fsw = [];
+    for (const p of [A, B, C, H]) fsw.push(await sUntil(p, `(() => { const it = STU.items.get('${ballId}'), E = LIB.get('models/ball.glb'); return !!it && it.rec.file === 'models/ball.glb' && !!E && E.state === 'ready' && it.built === E.gen && STUDIO.tris('${ballId}') === ${fWant}; })()`, 30000));
+    check('studio: Fewer triangles saved on a page (20 %, previewed there only): models/ball.glb through the relay with tris in its record, and every page\'s and the headset\'s ball switches to it, as light as previewed',
+      bSeen && !!ballId && bIn.every(Boolean) && fPv && fOthers === 24320 && fDone && !!fRec && !!fRec.tris && fRec.tris.from === 24320 && fRec.tris.to === fWant && fRec.tris.keep === 0.2 && fsw.every(Boolean),
+      JSON.stringify({ bSeen, ballId, bIn, fPv, fWant, fOthers, fDone, fRec, fsw, note: await sp(A, 'CV.note') }));
+    const cXR = await sp(H, 'XR.on'), cd0 = await sp(H, 'CV.done.length');
+    await sp(H, `(setEdit(true), select('${ballId}'), X.tab = 'item', act('ct:open', '${ballId}'), act('ct:pic', 'paint.png'), 0)`);
+    const cShown = await sUntil(H, `!!(CT.saved && CT.saved.length) && !CT.busy`, 20000);
+    if (cShown) await sp(H, `(act('ct:save'), 0)`);
+    const cDone = cShown && await sUntil(H, `!CV.busy && !CT.saving && CV.done.length > ${cd0}`, 90000);
+    const cRec = glbRecOf('models/ball.glb'), csw = [];
+    for (const p of [A, B, C, H]) csw.push(await sUntil(p, `(() => { const it = STU.items.get('${ballId}'), E = LIB.get('models/ball.glb'); return !!it && !!E && E.state === 'ready' && it.built === E.gen && !!E.record && (E.record.tex || []).some(x => x.from === 'paint.png' && x.slot === 'map') && STUDIO.tris('${ballId}') === ${fWant}; })()`, 30000));
+    check('studio: Change texture from the headset\'s card (paint.png in the colour slot, shown there, saved from the headset through the relay): models/ball.glb made again from ball.glb with the picture in its record and its share kept, on every page and the headset',
+      cXR && cShown && cDone && !!cRec && !!cRec.tex && cRec.tex.some(x => x.from === 'paint.png' && x.slot === 'map' && x.mat === 'skin') && !!cRec.tris && cRec.tris.keep === 0.2 && cRec.from === 'ball.glb' && csw.every(Boolean),
+      JSON.stringify({ cXR, cShown, cDone, cRec, csw, note: await sp(H, 'CV.note') }));
+    await sp(A, `(select(''), X.tab = 'scene', renderPanes(), 0)`);
+    await sp(H, `(select(''), 0)`);
+
     // ---- a sound that follows a model: the rig scene's dancer copied into the scene and placed on a page, a sound there
     // made to follow her head; every page and the headset take it (each poses its own dancer: at one scene clock, their
     // sound where their own head bone and its offset put it, within 1 cm of the first page's), and the layout saved from a
@@ -3357,6 +3403,33 @@ async function studioRound(dir) {
       JSON.stringify({ gId, recs: gs.map(g => g && g[0]), gFar, fIn, gSaved, gLg, faces: gLb && gLb.faces }));
     if (gId) await sp(A, `(itemAct('faces', 'file', 'box001'), select('${gId}'), itemAct('ungroup'), select(''), 0)`);
     }   // (a block of its own: the R2 part below names its own gs and gSaved)
+
+    // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it
+    // made on a page; the box locked and the scene's other circles hidden on another page; every page and the headset take
+    // them (the same records, the sound where the empty puts it, the settings), a third page's card refusing to move the
+    // locked box, the headset at this studio's circle telling its shell to hide the other circles (the hook recorded there);
+    // the saved layout.json carries shapes, empties and settings
+    {
+    await H.evaluate(() => { window.__hk = []; if (HOST.collab) HOST.collab.hideOthers = v => window.__hk.push(['hide', v]); });
+    const pr = await sp(A, `(() => { setEdit(true); const p = addShape('cube'); setRec(p, { p: [1.5, 0.4, -1], size: [0.8, 0.8, 0.8], look: 'hide' }); const e = addEmpty(); setRec(e, { p: [-1.5, 1.6, -1] }); const s = addSound('tone.wav'); itemAct('follow', e, s); select(''); return p && e && s ? [p, e, s] : null; })()`);
+    const [pId, eId, sId] = pr || ['', '', ''];
+    const pAtB = !!pr && await sUntil(B, `STU.items.has('${pId}') && STU.items.has('${eId}') && STU.items.has('${sId}')`, 15000);   // (B has them before it locks one)
+    if (pAtB) await sp(B, `(setEdit(true), select('${pId}'), itemAct('lock'), setSetting('others:hidden'), select(''), 0)`);
+    const pTook = [], pRecs = [];
+    for (const p of [A, B, C, H]) pTook.push(!!pr && await sUntil(p, `(() => { const s = STU.items.get('${pId}'), e = STU.items.get('${eId}'), f = STUDIO.follow('${sId}'); return !!s && s.rec.locked === true && s.rec.look === 'hide' && !!e && !!f && f.d < 0.01 && STU.settings.others === 'hidden'; })()`, 15000));
+    const rOf = id => `(STU.items.get('${id}') || {}).rec || null`;
+    for (const p of [A, B, C, H]) pRecs.push(pr ? await sp(p, `JSON.stringify([${rOf(pId)}, ${rOf(eId)}, ${rOf(sId)}, STU.settings])`) : null);
+    const pLock = pTook.every(Boolean) ? await sp(C, `(setEdit(true), select('${pId}'), itemAct('turn'), itemAct('psize', 2), deleteItem('${pId}'), select(''), [STU.items.has('${pId}'), JSON.stringify((STU.items.get('${pId}') || { rec: {} }).rec.q), String((STU.items.get('${pId}') || { rec: { size: [] } }).rec.size)])`) : null;
+    const hHide = await H.waitForFunction(() => (window.__hk || []).some(x => x[0] === 'hide' && x[1] === true), null, { timeout: 10000 }).then(() => true, () => false);
+    await sp(A, 'saveLayout()');
+    const pSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const pL = layoutOf() || {}, pLs = (pL.shapes || []).find(x => x.id === pId), pLe = (pL.empties || []).find(x => x.id === eId);
+    check('studio: a shape that hides things and an empty with a sound following it, made on a page, the shape locked and the other circles hidden on another, reach every page and the headset (the same records, the sound at the empty), the lock refuses a third page\'s card, the headset at the circle tells its shell to hide the other circles, and the saved layout.json carries shapes, empties and settings',
+      !!pr && pTook.every(Boolean) && pRecs.every(r => r === pRecs[0]) && JSON.stringify(pLock) === JSON.stringify([true, '[0,0,0,1]', '0.8,0.8,0.8']) && hHide && pSaved &&
+        !!pLs && pLs.locked === true && pLs.look === 'hide' && !!pLe && !!pL.settings && pL.settings.others === 'hidden',
+      JSON.stringify({ pr, pAtB, pTook, recs: pRecs.map(r => r && r.slice(0, 160)), pLock, hHide, pSaved, pLs, pLe, settings: pL.settings, hk: await H.evaluate(() => window.__hk) }));
+    if (pr) await sp(B, `(setEdit(true), select('${pId}'), itemAct('lock'), deleteItem('${pId}'), deleteItem('${sId}'), deleteItem('${eId}'), setSetting('others:shown'), select(''), 0)`);
+    }
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent
     await B.evaluate(() => HOST.audio.mute(false));
@@ -3426,7 +3499,7 @@ async function studioRound(dir) {
     const qRoom = ((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys['st.' + nid + '.x'] || {}).v || {};
     const aStill = await sp(A, `[STU.scene, atStation(), STU.items.size]`), qCount = await Promise.all([B, C].map(p => sp(p, 'STU.items.size')));
     check('studio: a circle made for one scene as the shell writes it (st.<id> with the studio and st.<id>.x naming the scene, in one batch): two pages following it open that scene and write its saved layout alike, the room holding each item once; the first station keeps its own scene',
-      nSeen && qOpen.every(Boolean) && Object.keys(qRoom).sort().join() === 'c.qcube1,s.qtone1,scene' && qRoom.scene === 'quiet' && qCount.every(n => n === 2) && aStill[0] === 'test' && aStill[1],
+      nSeen && qOpen.every(Boolean) && Object.keys(qRoom).sort().join() === 'c.qcube1,s.qtone1,scene,settings' && qRoom.scene === 'quiet' && qCount.every(n => n === 2) && aStill[0] === 'test' && aStill[1],
       JSON.stringify({ nSeen, qOpen, qRoom: Object.keys(qRoom), qCount, aStill }));
     }
 

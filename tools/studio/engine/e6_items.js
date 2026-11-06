@@ -1,8 +1,10 @@
 
 // ================================================================== ITEMS ==
 // What is placed in the scene: objects (a model file placed once; one file may be placed many times), trigger cubes,
-// sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js) and groups (objects, sounds
-// and cubes that move together: e6c_groups.js). Each has a record (as in
+// sounds, cut-outs (a box that hides the part of one object's model inside it: e6b_cuts.js), groups (items that move
+// together: e6c_groups.js), shapes (a cube, a ball, a cylinder or a plane, in a colour or hiding what is behind it) and
+// empties (a point to place sounds at, seen only while editing: e6d_shapes.js). Any of them may be locked in place, and
+// the scene has its settings (e6d_shapes.js). Each has a record (as in
 // layout.json, without its id), checked the same way wherever it comes from (the layout, the room, an edit here), so a
 // record taken and given back is the same. Records are never changed in place:
 // each change is a new record (the shared room keeps the old one to compare with).
@@ -14,6 +16,7 @@ const STU = {
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
+  settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -33,7 +36,7 @@ function norm(kind, x) {
     // cube's lists drop them; which of them are here, and in which group, is worked out where it is used: groupOf)
     if (!Array.isArray(x.items)) return null;
     const r = { name: name('Group'), items: [...new Set(x.items.filter(okId))].slice(0, GROUP_ITEMS) };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   const p = vecOf(x.p, 3, 1000);
   if (!p) return null;
@@ -53,7 +56,7 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 'c') {
     const sz = has('size') ? vecOf(x.size, 3, 1000) : [1.2, 2, 1.2];
@@ -62,7 +65,7 @@ function norm(kind, x) {
     if (Math.abs(yaw) > 3.1416) yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
     const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(okId))].slice(0, 400) : null);
     const r = { name: name('Cube'), p: P, yaw: nz(r4(yaw)), size: sz.map(v => r3(Math.min(100, Math.max(0.05, v)))), mode: one('mode', ['while', 'stay'], 'while'), show: ids('show'), hide: ids('hide') };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 's') {
     if (!okFile(x.file) || (has('vol') && !fin(x.vol)) || (has('r') && !fin(x.r)) || (has('loop') && typeof x.loop !== 'boolean')) return null;
@@ -80,7 +83,7 @@ function norm(kind, x) {
       const O = o ? o.map(v => nz(r3(v))) : null;
       if (O && O.some(v => v !== 0)) r.o = O;
     }
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
   }
   if (kind === 'x') {
     // a cut-out: the object it cuts (on, required), and its middle, turn and size in that object's frame, turned but not
@@ -89,9 +92,33 @@ function norm(kind, x) {
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : [0.8, 2, 0.4];
     if (!q || !sz) return null;
     const r = { name: name('Cut-out'), on: x.on, p: P, q, size: sz.map(v => nz(r3(Math.min(50, Math.max(0.01, v))))) };
-    return Object.values(r).includes(null) ? null : r;
+    return lockOf(x, r);
+  }
+  if (kind === 'p') {
+    // a shape: cube, sphere, cylinder or plane, a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
+    // kept but unused), its colour (#rrggbb, lower case) and its look: in its colour, or hiding what is behind it
+    const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : null;
+    if (!q || (has('size') && !sz) || (has('colour') && !(typeof x.colour === 'string' && /^#[0-9a-f]{6}$/i.test(x.colour)))) return null;
+    const shape = one('shape', SHAPE_KINDS, 'cube');
+    const r = { name: name('Shape'), shape, p: P, q, size: (sz || SHAPE_SIZE[shape] || [0.5, 0.5, 0.5]).map(v => nz(r3(Math.min(100, Math.max(0.01, v))))),
+      colour: has('colour') ? x.colour.toLowerCase() : SHAPE_COL, look: one('look', ['colour', 'hide'], 'colour') };
+    return lockOf(x, r);
+  }
+  if (kind === 'e') {
+    // an empty: a point and a full turn
+    const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
+    if (!q) return null;
+    return lockOf(x, { name: name('Empty'), p: P, q });
   }
   return null;
+}
+// a record's lock, kept only when set (locked: true; absent, false or null: not locked; anything else makes it bad), last
+// of its fields; and the record itself checked (null when a field was bad)
+function lockOf(x, r) {
+  if (Object.values(r).includes(null)) return null;
+  if (x.locked !== undefined && x.locked !== null && typeof x.locked !== 'boolean') return null;
+  if (x.locked === true) r.locked = true;
+  return r;
 }
 // a turn as a record keeps it: four numbers, normalised, to 4 decimals (null: not a turn)
 function quatOf(a) {
@@ -99,9 +126,15 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c'], GROUP_ITEMS = 460;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
+// what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
+const FOLLOW_KINDS = ['o', 'p', 'e'];
+// shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
+// plane 1 m square, upright), and the colour one starts in
+const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
@@ -149,6 +182,17 @@ function makeItem(id, kind) {
     it.look = LOOKS.group(id);
     it.holder = new THREE.Group();
     GL.edit.add(it.look.deco);
+  } else if (kind === 'p') {
+    // a shape: its body is its holder (scaled to its size, turned as it is); its name and corners follow it (deco)
+    it.look = LOOKS.shape(id);
+    it.holder = it.look.body;
+    it.look.mesh.userData.id = it.look.fill.userData.id = id;
+    for (const c of it.look.corners) c.userData.id = id;
+    GL.edit.add(it.look.deco);
+  } else if (kind === 'e') {
+    it.look = LOOKS.empty(id);
+    it.holder = it.look.group;
+    it.look.hit.userData.id = id;
   } else {
     it.look = LOOKS.speaker(id);
     it.holder = it.look.group;
@@ -190,6 +234,8 @@ function poseOf(it) {
   if (it.kind === 'o') { _pq.fromArray(r.q); _ps.setScalar(r.s); }
   else if (it.kind === 'c') { _pq.setFromAxisAngle(_yUp, r.yaw); _ps.fromArray(r.size); }
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
+  else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
+  else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
@@ -202,10 +248,12 @@ function applyRec(it, was, glide) {
     if (!was || was.light !== r.light) applyLight(it);
     else if (was.faces !== r.faces) applyFaces(it);
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
-  } else if (it.kind === 'c') it.look.name.userData.set(r.name, it.look.col, 0.085);
-  else if (it.kind === 'x') it.look.name.userData.set('✂ ' + r.name, it.look.col, 0.075);
+  } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
+  else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
+  else if (it.kind === 'p') { it.look.set(r); it.look.name.userData.set(tagName(r) + ' · hides things', it.look.col, 0.075); }
+  else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
-    it.look.name.userData.set(r.name, it.look.col, 0.07);
+    it.look.name.userData.set(tagName(r), it.look.col, 0.07);
     if (!was || was.file !== r.file) { emitStop(it, true); itemFile(it); }
     if (!was || was.loop !== r.loop || was.start !== r.start) { emitStop(it); it.ended = false; }
   }
@@ -338,6 +386,7 @@ function sceneClock(now) {
 const _hp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
+  if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
   if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateMatrixWorld(true); return GL.world.worldToLocal(out.copy(XR.head)); }
   if (APP.mode === 'explore' && X.view === 'walk') return out.copy(WALK.pos);
   return null;
@@ -348,7 +397,7 @@ function inCube(r, p) {
 }
 const LISTS = { rev: -1, shown: new Set() };
 function triggerStep(now) {
-  const hp = headPoint(_hp), S = new Map(), H = new Map();
+  const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
   if (LISTS.rev !== STU.rev) { LISTS.rev = STU.rev; LISTS.shown = new Set(); for (const c of STU.items.values()) if (c.kind === 'c') for (const i of c.rec.show) LISTS.shown.add(i); }
   for (const c of STU.items.values()) {
     if (c.kind !== 'c') continue;
@@ -363,7 +412,8 @@ function triggerStep(now) {
   }
   for (const it of STU.items.values()) {
     if (it.kind === 'c' || it.kind === 'g') continue;
-    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = s || h ? s >= h : !LISTS.shown.has(it.id);
+    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back)
+    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = !away && (s || h ? s >= h : !LISTS.shown.has(it.id));
     if (it.kind === 'o' && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
@@ -448,11 +498,12 @@ function nodeOf(ob, name) {
   return M.names.get(name) || M.keys.get(boneKey(name)) || null;
 }
 // the object a sound follows (null: none, or not an object of this scene)
-const followOf = it => { const o = it.kind === 's' && it.rec.on ? STU.items.get(it.rec.on) : null; return o && o.kind === 'o' ? o : null; };
+// (or a shape or an empty: its place and turn)
+const followOf = it => { const o = it.kind === 's' && it.rec.on ? STU.items.get(it.rec.on) : null; return o && FOLLOW_KINDS.includes(o.kind) ? o : null; };
 // the node it follows now: its bone, else the object's holder (null: it follows nothing here)
 function followNode(it) {
   const o = followOf(it);
-  return o ? (it.rec.bone && nodeOf(o, it.rec.bone)) || o.holder : null;
+  return o ? (it.rec.bone && o.kind === 'o' && nodeOf(o, it.rec.bone)) || o.holder : null;
 }
 // the node to measure a following sound's offset against here: as it follows, but none while it names a bone and its
 // model is not here yet (where that bone stands is not known, so only p is written: an offset measured against the
@@ -460,11 +511,12 @@ function followNode(it) {
 // file), so the whole model is what everyone follows and is measured against
 function measureNode(it) {
   const o = followOf(it);
-  return !o || (it.rec.bone && !o.model) ? null : followNode(it);
+  return !o || (it.rec.bone && o.kind === 'o' && !o.model) ? null : followNode(it);
 }
 // how much larger an object is shown than its record says: both grips write its size ten times a second, the room's
 // size glides in, so between those its followers' offsets are scaled by this (1 at rest)
-const followK = o => (o && o.rec.s > 0 && o.holder.scale.x > 0 ? o.holder.scale.x / o.rec.s : 1);
+// (an object only: a shape's size is per axis, and its followers' offsets stay as they are)
+const followK = o => (o && o.kind === 'o' && o.rec.s > 0 && o.holder.scale.x > 0 ? o.holder.scale.x / o.rec.s : 1);
 // a node's place and turn in the scene's frame (the items' group's), its scale left out
 const _wm = new THREE.Matrix4(), _ws = new THREE.Vector3(), _wp = new THREE.Vector3(), _wq = new THREE.Quaternion();
 function nodePose(nd, p, q) {
@@ -491,7 +543,7 @@ function offsetAt(nd, p, k) {
 function followWords(it) {
   if (!it.rec.on) return '';
   const o = followOf(it);
-  return o ? o.rec.name + ' · ' + (it.rec.bone ? boneLabel(o, it.rec.bone) : 'Whole model') : 'an object not in the scene';
+  return !o ? 'an object not in the scene' : o.kind !== 'o' ? o.rec.name : o.rec.name + ' · ' + (it.rec.bone ? boneLabel(o, it.rec.bone) : 'Whole model');
 }
 
 // ----------------------------------------------------------- every frame --
@@ -512,7 +564,7 @@ function itemsStep(dt, now) {
       it.holder.scale.lerpVectors(it.gl.s, _ps, k);
       if (k >= 1) it.gl = null;
     }
-    const tgt = it.kind === 'c' || it.kind === 'x' ? (editing ? 1 : 0) : it.shown ? 1 : editing && it.kind === 'o' ? 0.3 : 0;
+    const tgt = it.kind === 'c' || it.kind === 'x' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
@@ -534,9 +586,10 @@ function itemsStep(dt, now) {
         L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
         L.look({ inside: it.inside, selected: STU.sel === it.id && editing, hot: STU.hover === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
         L.fill.material.opacity *= it.a; L.line.material.opacity *= it.a;
-        L.name.userData.set(r.name + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
+        L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
       }
-    }
+    } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
+    else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
@@ -587,10 +640,10 @@ const _sb = new THREE.Box3(), _sv = new THREE.Vector3(), _sw = new THREE.Vector3
 function editStep(editing) {
   const sel = editing ? STU.items.get(STU.sel) : null, hov = editing && STU.hover !== STU.sel ? STU.items.get(STU.hover) : null;
   for (const [B, it] of [[GL.selBox, sel], [GL.hoverBox, hov]]) {
-    const ok = it && it.kind === 'o' && (it.model ? it.proxy : it.grey.group.visible);
+    const ok = it && ((it.kind === 'o' && (it.model ? it.proxy : it.grey.group.visible)) || (it.kind === 'p' && it.holder.visible));
     B.visible = !!ok;
     if (!ok) continue;
-    const t = it.model ? it.proxy : it.greyHit;
+    const t = it.kind === 'p' ? it.holder : it.model ? it.proxy : it.greyHit;
     t.updateWorldMatrix(true, false);
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
@@ -658,6 +711,8 @@ function itemTopInto(it, out, mid) {
     _sb.copy(BOX1.boundingBox).applyMatrix4(_sm);
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
+  else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'e') out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.2));
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
   else out.copy(it.holder.position).setY(it.holder.position.y + (mid ? 0 : 0.14));
@@ -831,13 +886,16 @@ function setEdit(on) {
   dirty(true);
 }
 let SNAP = null;
-const snapNow = ids => new Map((ids ? ids.map(id => [id, STU.items.get(id)]) : [...STU.items]).map(([id, it]) => [id, it ? [it.kind, JSON.stringify(it.rec)] : null]));
+// (the scene's settings are in a change as one more entry, SET_ID: Undo takes them back as it does an item's record)
+const SET_ID = '@set';
+const snapOne = id => { if (id === SET_ID) return ['set', JSON.stringify(STU.settings)]; const it = STU.items.get(id); return it ? [it.kind, JSON.stringify(it.rec)] : null; };
+const snapNow = ids => new Map((ids || [...STU.items.keys(), SET_ID]).map(id => [id, snapOne(id)]));
 // a change begins (a drag: only its items) and ends: what changed goes on the Undo list as one step
 // (a change begun while another is open, the other hand carrying something else: its items join the open one)
 function beginChange(ids) {
   if (!SNAP) { SNAP = { ids: ids || null, before: snapNow(ids) }; return; }
   if (!SNAP.ids) return;
-  const more = (ids || [...STU.items.keys()]).filter(id => !SNAP.before.has(id));
+  const more = (ids || [...STU.items.keys(), SET_ID]).filter(id => !SNAP.before.has(id));
   for (const [id, b] of snapNow(more)) SNAP.before.set(id, b);
   if (ids) SNAP.ids.push(...more); else SNAP.ids = null;
 }
@@ -847,6 +905,7 @@ function endChange() {
   SNAP = null;
   const list = [];
   for (const [id, b] of before) {
+    if (id === SET_ID) { if (JSON.stringify(STU.settings) !== b[1]) list.push({ id, kind: 'set', before: JSON.parse(b[1]) }); continue; }
     const it = STU.items.get(id);
     if (!b) { if (it) list.push({ id, kind: it.kind, before: null }); continue; }
     if (!it || it.kind !== b[0] || JSON.stringify(it.rec) !== b[1]) list.push({ id, kind: b[0], before: JSON.parse(b[1]) });
@@ -867,7 +926,7 @@ function undo() {
 // members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
 // (groupUndone, e6c_groups.js)
 function undoList(list) {
-  for (const u of list.slice().reverse()) { if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const u of list.slice().reverse()) { if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
   groupUndone(list);
   changed();
@@ -969,6 +1028,7 @@ function addCube() {
 function deleteItem(id) {
   const it = STU.items.get(id);
   if (!editOn() || !it) return;
+  if (lockWhy(it, true)) { lockRefused(it); return; }   // (locked in place: e6d_shapes.js)
   // (a group: every member with it, in the same step)
   const list = it.kind === 'g' ? members(it).map(m => m.id).concat(id) : [id];
   let gone = new Set();
@@ -1000,10 +1060,11 @@ function duplicateItem(id) {
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]] },
+    // (a copy is never locked: it is new, to be put where it goes)
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
-    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')) })))) cubeCopy(x.id, xid); }
+    if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -1026,7 +1087,7 @@ const ITEM_ACT = {
   // about its pivot, the vertical only)
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
-  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
   // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
   faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
   // sizes about its foot (the middle of its lowest side stays where it is); the sounds that follow it keep their place on it
@@ -1056,13 +1117,14 @@ const ITEM_ACT = {
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   loop: (it, v) => setRec(it.id, { loop: v === 'on' }),
-  // a sound: what it follows, from where it is now (an object, then one of its bones; the offset worked out here), onto
-  // it (no offset), or nothing (where it is now); picking the object by pointing (followPick), the card's list of bones
+  // a sound: what it follows, from where it is now (an object, then one of its bones; a shape or an empty; the offset
+  // worked out here), onto it (no offset), or nothing (where it is now); picking it by pointing (followPick), the card's
+  // list of bones
   follow: (it, oid) => {
     const o = STU.items.get(oid);
     STU.follow = '';
     // (the object it follows already: nothing changes, its bone kept; Whole model is one of the bone choices)
-    if (it.kind === 's' && o && o.kind === 'o' && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
+    if (it.kind === 's' && o && FOLLOW_KINDS.includes(o.kind) && it.rec.on !== oid) setRec(it.id, { on: oid, bone: undefined, o: offsetAt(o.holder, it.holder.position, followK(o)) });
   },
   bone: (it, name) => {
     const o = followOf(it), nd = name ? nodeOf(o, name) : o && o.holder;
@@ -1080,6 +1142,7 @@ const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'pre
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
+  if (lockStops(it, act)) { lockRefused(it); return; }   // (locked in place: it does not move, turn, size or go; e6d_shapes.js)
   if (PANE_ONLY.includes(act)) { ITEM_ACT[act](it, v); dirty(true); return; }
   if (act === 'mkgroup' && STU.gpick) gpickEnd();   // (another group's picking ends first, in a step of its own)
   change(() => ITEM_ACT[act](it, v));
@@ -1089,6 +1152,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
+  if (it.kind === 'p' || it.kind === 'e') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -1120,13 +1184,14 @@ function select(id) {
 }
 
 // --------------------------------------------------------- shared rooms --
-// What everyone at the station sees alike: the scene's name and one top-level field per item (its record: o.<id>,
-// c.<id>, s.<id>, x.<id>, g.<id>), so two people changing two items at once both keep theirs. Never the camera, triggers, editing, the selection or sound.
+// What everyone at the station sees alike: the scene's name, its settings and one top-level field per item (its record:
+// o.<id>, c.<id>, s.<id>, x.<id>, g.<id>, p.<id>, e.<id>), so two people changing two items at once both keep theirs.
+// Never the camera, triggers, editing, the selection or sound.
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
 function collabState() {
-  const s = { scene: STU.scene };
+  const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   return s;
 }
@@ -1135,7 +1200,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxg]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpe]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -1144,9 +1209,12 @@ function collabApply(v) {
   const ok = typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)), fresh = ok && !!v.scene && !items;
   if (ok && (v.scene !== STU.scene || (moved && fresh))) openScene(v.scene, fresh ? 'fresh' : 'room', true);
   else if (items && STU.write && STU.fresh) STU.write = false;
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0 };
+  // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
+  // until the saved layout is read; a bad value: ignored, kept as they are)
+  if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0 };
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxg])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpe])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]), rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)

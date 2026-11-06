@@ -11,9 +11,13 @@
 //                       to its loader as PNG, a TGA name read whatever the file is
 //   texFind, texRank, slotOf, normStem   which picture a texture name stands for (engine/images.js: the ladder)
 //   picture(url, o), matsOf(root), addTextures(root, list, o)   a picture to lay on, the materials, pictures laid on
-//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up, loaded back and checked against it
+//   reduce(root, keep)  fewer triangles: every mesh down to that share (meshoptimizer's simplifier), a new geometry each
+//   triCount(ext, buf)  how many triangles a model file holds, read cheaply from its bytes (null: cannot be told)
+//   toGLB(m, o)         a loaded model as one binary glTF in metres and Y up (o.keep: made lighter first), loaded back
+//                       and checked against it
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
-// hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.renderer(w, h): a WebGL
+// hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
+// simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
 // renderer for drawing both to compare their looks (convert.mjs only: the app's one renderer is the shell's)
 function makeConverter(THREE, hooks) {
   const T = THREE, H = hooks || {};
@@ -327,7 +331,8 @@ function makeConverter(THREE, hooks) {
   }
   // asset.extras.studio: { from: the original's path, s: the scale baked in, q: the turn baked in, at: ms, scan: no normals,
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
-  // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }] }
+  // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
+  // keep } when it was made lighter (Fewer triangles) }
   const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
   const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
   const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
@@ -337,7 +342,10 @@ function makeConverter(THREE, hooks) {
     const r = j && j.asset && j.asset.extras && j.asset.extras.studio;
     if (!r || typeof r !== 'object') return null;
     const q = Array.isArray(r.q) && r.q.length === 4 && r.q.every(Number.isFinite) ? r.q : [0, 0, 0, 1];
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex) };
+    // (tris: the triangles of what it was made from, of the GLB, and the share asked: Fewer triangles)
+    const tr = r.tris && typeof r.tris === 'object' && Number.isFinite(r.tris.from) && Number.isFinite(r.tris.to) && r.tris.from > 0 && r.tris.to >= 0
+      ? { from: Math.round(r.tris.from), to: Math.round(r.tris.to), keep: Number.isFinite(r.tris.keep) && r.tris.keep > 0 ? Math.min(1, r.tris.keep) : Math.min(1, r.tris.to / r.tris.from) } : null;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -419,6 +427,284 @@ function makeConverter(THREE, hooks) {
       }
     });
   };
+
+  // ---- corners welded: a vertex for every distinct corner (all its attributes the same, bit for bit), and an index.
+  // -> { attrs: [[name, attribute]], morphs: [[name, i, attribute]], index, was, now }, or null (indexed already, an
+  // interleaved attribute, or nothing repeated). The geometry given is not changed
+  function weldOf(gm) {
+    if (gm.index) return null;
+    const attrs = Object.entries(gm.attributes), morphs = Object.entries(gm.morphAttributes || {}).flatMap(([nm, list]) => list.map((a, i) => [nm, i, a]));
+    if ([...attrs.map(a => a[1]), ...morphs.map(x => x[2])].some(a => a.isInterleavedBufferAttribute)) return null;
+    const cnt = gm.attributes.position.count, cols = [...attrs.map(a => a[1]), ...morphs.map(x => x[2])];
+    const views = cols.map(a => (a.array instanceof Float32Array ? new Uint32Array(a.array.buffer, a.array.byteOffset, a.array.length) : a.array));
+    const sizes = cols.map(a => a.itemSize);
+    let cap = 1; while (cap < cnt * 2) cap <<= 1;
+    const table = new Int32Array(cap).fill(-1), remap = new Uint32Array(cnt), first = [];
+    for (let v = 0; v < cnt; v++) {
+      let h = 2166136261;
+      for (let c = 0; c < views.length; c++) { const a = views[c], s = sizes[c]; for (let j = v * s, e = j + s; j < e; j++) h = Math.imul(h ^ a[j], 16777619); }
+      let slot = (h >>> 0) & (cap - 1);
+      for (;;) {
+        const u = table[slot];
+        if (u < 0) { table[slot] = first.length; remap[v] = first.length; first.push(v); break; }
+        const w = first[u];
+        let same = true;
+        for (let c = 0; c < views.length && same; c++) { const a = views[c], s = sizes[c]; for (let j = 0; j < s; j++) if (a[v * s + j] !== a[w * s + j]) { same = false; break; } }
+        if (same) { remap[v] = u; break; }
+        slot = (slot + 1) & (cap - 1);
+      }
+    }
+    if (first.length === cnt) return null;
+    const pick = a => { const s = a.itemSize, arr = new a.array.constructor(first.length * s); for (let i = 0; i < first.length; i++) for (let j = 0; j < s; j++) arr[i * s + j] = a.array[first[i] * s + j]; return new T.BufferAttribute(arr, s, a.normalized); };
+    return { attrs: attrs.map(([nm, a]) => [nm, pick(a)]), morphs: morphs.map(([nm, i, a]) => [nm, i, pick(a)]), index: new T.BufferAttribute(first.length < 65536 ? new Uint16Array(remap) : remap, 1), was: cnt, now: first.length };
+  }
+
+  // ---- fewer triangles (tools/studio/SPEC.md, "Fewer triangles"): meshoptimizer's simplifier (vendored: the studio's
+  // meshoptLoad(), or convert.mjs's MeshoptSimplifier; its WebAssembly made when first asked). Every mesh keeps the same
+  // share of its triangles (keep, 0.02 to 1), its corners welded first. Its normals and texture coordinates weigh in, so
+  // a texture stays where it was (its seams are kept); corners a part shares with another part (another mesh or material
+  // touching it) are locked, so the parts do not crack apart; tiny loose pieces are pruned. How far a corner may move
+  // starts strict and is loosened until the count is reached (or as near as its seams and borders allow). Its corners are
+  // a subset of the old ones, so a skinned mesh keeps its bones' weights; a mesh with shape keys (morph targets) is left
+  // as it is. o.inPlace: each mesh is given its new geometry (a model loaded for converting). -> { from, to, keep, geos:
+  // Map(old geometry -> new), notes, morph (meshes left as they were), err (the largest error, a share of the size), ms }
+  const KEEP_MIN = 0.02;
+  const simplifier = async () => {
+    const S = H.simplifier ? H.simplifier() : typeof MeshoptSimplifier !== 'undefined' ? MeshoptSimplifier : null;   // eslint-disable-line no-undef
+    if (!S) throw new Error('no simplifier here (meshoptimizer)');
+    await S.ready;
+    return S;
+  };
+  // an attribute as a plain one of its own kind (an interleaved one taken apart); its first k components as floats
+  // (normalised integers as -1 to 1 or 0 to 1)
+  const GET = ['getX', 'getY', 'getZ', 'getW'], NORM = { Int8Array: 127, Uint8Array: 255, Int16Array: 32767, Uint16Array: 65535, Int32Array: 2147483647, Uint32Array: 4294967295 };
+  const plainAttr = a => {
+    if (!a.isInterleavedBufferAttribute) return a;
+    const n = a.count, s = a.itemSize, arr = new a.array.constructor(n * s);
+    for (let i = 0; i < n; i++) for (let j = 0; j < s && j < 4; j++) arr[i * s + j] = a[GET[j]](i);
+    return new T.BufferAttribute(arr, s, a.normalized);
+  };
+  const floats = (a, k, out, off, stride) => {
+    const n = a.count, s = a.itemSize, src = a.array, d = a.normalized ? NORM[src.constructor.name] || 1 : 1;
+    for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) out[i * stride + off + j] = j < s ? src[i * s + j] / d : 0;
+    return out;
+  };
+  async function reduce(root, keep, o) {
+    o = o || {};
+    const t0 = performance.now();
+    keep = Math.min(1, Math.max(KEEP_MIN, +keep || 1));
+    const S = await simplifier(), notes = [], geos = new Map(), work = new Map();
+    root.updateMatrixWorld(true);
+    let from = 0, morph = 0, err = 0, short = 0, pruned = 0;
+    const meshes = [];
+    root.traverse(n => { if (n.isMesh && n.geometry && n.geometry.attributes.position) meshes.push(n); });
+    for (const n of meshes) {
+      const g = n.geometry;
+      from += (g.index ? g.index.count : g.attributes.position.count) / 3;
+      if (Object.values(g.morphAttributes || {}).some(l => l && l.length)) { morph++; continue; }
+      if (!work.has(g)) work.set(g, { src: g, mesh: n, meshes: [] });
+      work.get(g).meshes.push(n);
+    }
+    from = Math.round(from);
+    // each geometry plain, welded and indexed (a copy: the one given is not changed), its material groups as parts
+    const items = [...work.values()];
+    let nParts = 0;
+    for (const w of items) {
+      const g = w.src, gm = new T.BufferGeometry();
+      for (const [nm, a] of Object.entries(g.attributes)) gm.setAttribute(nm, plainAttr(a));
+      if (g.index) gm.setIndex(new T.BufferAttribute(Uint32Array.from(g.index.array.subarray(0, g.index.count)), 1));
+      else {
+        const wd = weldOf(gm), n = gm.attributes.position.count;
+        if (wd) { for (const [nm, a] of wd.attrs) gm.setAttribute(nm, a); gm.setIndex(new T.BufferAttribute(Uint32Array.from(wd.index.array), 1)); }
+        else { const ix = new Uint32Array(n); for (let i = 0; i < n; i++) ix[i] = i; gm.setIndex(new T.BufferAttribute(ix, 1)); }
+      }
+      const ic = gm.index.count;
+      w.gm = gm;
+      // (groups count only where its meshes draw them: an array of materials; else three.js draws the whole index)
+      w.multi = !!(g.groups && g.groups.length && w.meshes.every(msh => Array.isArray(msh.material)));
+      w.groups = (w.multi ? g.groups : [{ start: 0, count: ic, materialIndex: 0 }]).map(x => ({ start: Math.max(0, x.start), count: Math.max(0, Math.min(x.count, ic - x.start)), materialIndex: x.materialIndex || 0 })).filter(x => x.count >= 3);
+      w.part0 = nParts; nParts += w.groups.length;
+      w.lock = null;
+    }
+    // corners shared between parts (two materials of one mesh, or two meshes touching where they meet), locked: found by
+    // where they are in the model (a grid a hundred-thousandth of its size), each corner with the parts it is in
+    if (nParts > 1) {
+      const size = new T.Box3().setFromObject(root).getSize(new T.Vector3()).length(), eps = Math.max(1e-9, size * 1e-5);
+      let total = 0;
+      for (const w of items) total += w.gm.attributes.position.count;
+      let cap = 1; while (cap < total * 2) cap <<= 1;
+      const tab = new Int32Array(cap).fill(-1), KX = new Int32Array(total), KY = new Int32Array(total), KZ = new Int32Array(total), PT = new Int32Array(total), MULTI = new Uint8Array(total);
+      let used = 0;
+      const inv = new T.Matrix4().copy(root.matrixWorld).invert(), M = new T.Matrix4(), v = new T.Vector3();
+      for (const w of items) {
+        const gm = w.gm, n = gm.attributes.position.count, P = floats(gm.attributes.position, 3, new Float32Array(n * 3), 0, 3), ix = gm.index.array;
+        const vp = new Int32Array(n).fill(-1), lock = new Uint8Array(n), ent = new Int32Array(n).fill(-1);
+        w.groups.forEach((gr, gi) => { for (let i = gr.start; i < gr.start + gr.count; i++) { const k = ix[i]; if (vp[k] < 0) vp[k] = w.part0 + gi; else if (vp[k] !== w.part0 + gi) lock[k] = 1; } });
+        M.multiplyMatrices(inv, w.mesh.matrixWorld);
+        for (let k = 0; k < n; k++) {
+          if (vp[k] < 0) continue;
+          v.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]).applyMatrix4(M);
+          const x = Math.round(v.x / eps), y = Math.round(v.y / eps), z = Math.round(v.z / eps);
+          let slot = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & (cap - 1);
+          for (;;) {
+            const e = tab[slot];
+            if (e < 0) { tab[slot] = used; KX[used] = x; KY[used] = y; KZ[used] = z; PT[used] = vp[k]; ent[k] = used++; break; }
+            if (KX[e] === x && KY[e] === y && KZ[e] === z) { if (PT[e] !== vp[k]) MULTI[e] = 1; ent[k] = e; break; }
+            slot = (slot + 1) & (cap - 1);
+          }
+        }
+        w.ent = ent; w.lock = lock;
+      }
+      for (const w of items) {
+        let any = false;
+        for (let k = 0; k < w.ent.length; k++) if (w.ent[k] >= 0 && MULTI[w.ent[k]]) { w.lock[k] = 1; any = true; }
+        if (!any && !w.lock.some(x => x)) w.lock = null;
+        w.ent = null;
+      }
+    }
+    // each part made lighter: the share asked of its triangles, the limit loosened (1 %, 10 %, the whole size) until the
+    // count is within a tenth of it; a part with no texture coordinates may then collapse across its hard edges too
+    for (const w of items) {
+      const gm = w.gm, n = gm.attributes.position.count, ix = gm.index.array, nrm = gm.attributes.normal, uv = gm.attributes.uv;
+      const pos = floats(gm.attributes.position, 3, new Float32Array(n * 3), 0, 3);
+      const k = (nrm ? 3 : 0) + (uv ? 2 : 0) || 1, A = new Float32Array(n * k), W = [];
+      if (nrm) { floats(nrm, 3, A, 0, k); W.push(0.5, 0.5, 0.5); }
+      if (uv) { floats(uv, 2, A, nrm ? 3 : 0, k); W.push(1, 1); }
+      const out = [], gout = [];
+      for (const gr of w.groups) {
+        let sub = ix.slice(gr.start, gr.start + gr.count - (gr.count % 3)), res = sub;
+        const tris = sub.length / 3;
+        if (tris >= 16) {
+          // (tiny loose pieces first, under a hundredth of its size: crumbs of a scan; never with the looser limits below,
+          // which would take whole arms off a figure made of separate parts)
+          const pr = S.simplifyPrune(sub, pos, 3, 0.01);
+          if (pr.length >= 3 && pr.length < sub.length) { pruned += (sub.length - pr.length) / 3; sub = pr; }
+          const target = Math.max(3, Math.round(tris * keep) * 3), fl = sub.length * 2 < n ? ['Sparse'] : [];
+          let r = null;
+          for (const e of [0.01, 0.1, 1]) {
+            r = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, Math.min(target, sub.length), e, fl);
+            if (r[0].length <= target * 1.1) break;
+          }
+          if (r[0].length > target * 1.25 && !uv) { const p = S.simplifyWithAttributes(sub, pos, 3, A, k, W, w.lock, Math.min(target, sub.length), 1, fl.concat('Permissive')); if (p[0].length < r[0].length) r = p; }
+          if (r[0].length > target * 1.25) short++;
+          if (r[0].length >= 3) { res = r[0]; err = Math.max(err, r[1]); }
+        }
+        gout.push({ start: out.reduce((a, x) => a + x.length, 0), count: res.length, materialIndex: gr.materialIndex });
+        out.push(res);
+        if (tris > 20000) await yieldNow();
+      }
+      // (nothing taken away: the geometry stays as it was)
+      if (out.reduce((a, x) => a + x.length, 0) >= w.groups.reduce((a, gr) => a + gr.count - (gr.count % 3), 0)) { gm.dispose(); w.gm = null; continue; }
+      // only the corners still used, in their order (so a skinned mesh's weights and every other attribute come along)
+      const all = new Uint32Array(out.reduce((a, x) => a + x.length, 0));
+      let o2 = 0;
+      for (const x of out) { all.set(x, o2); o2 += x.length; }
+      const map = new Int32Array(n).fill(-1);
+      let m = 0;
+      for (let i = 0; i < all.length; i++) { const q = all[i]; if (map[q] < 0) map[q] = m++; all[i] = map[q]; }
+      const ng = new T.BufferGeometry();
+      for (const [nm, a] of Object.entries(gm.attributes)) {
+        const s = a.itemSize, arr = new a.array.constructor(m * s);
+        for (let q = 0; q < n; q++) { const t = map[q]; if (t >= 0) for (let j = 0; j < s; j++) arr[t * s + j] = a.array[q * s + j]; }
+        ng.setAttribute(nm, new T.BufferAttribute(arr, s, a.normalized));
+      }
+      ng.setIndex(new T.BufferAttribute(m < 65536 ? new Uint16Array(all) : all, 1));
+      if (w.multi) for (const gr of gout) ng.addGroup(gr.start, gr.count, gr.materialIndex);
+      ng.name = w.src.name; ng.userData = Object.assign({}, w.src.userData);
+      ng.computeBoundingBox(); ng.computeBoundingSphere();
+      gm.dispose();
+      w.gm = null;
+      geos.set(w.src, ng);
+      if (o.inPlace) { for (const msh of w.meshes) msh.geometry = ng; w.src.dispose(); }
+    }
+    let to = 0;
+    for (const n of meshes) { const g = geos.get(n.geometry) || n.geometry; to += (g.index ? g.index.count : g.attributes.position.count) / 3; }
+    to = Math.round(to);
+    const pc = v => (v * 100 >= 10 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
+    notes.push(`fewer triangles: ${from.toLocaleString('en-GB')} became ${to.toLocaleString('en-GB')} (${pc(to / Math.max(1, from))}; ${pc(keep)} asked)`);
+    if (pruned) notes.push(`${Math.round(pruned).toLocaleString('en-GB')} triangles of tiny loose pieces left out`);
+    if (err > 0.02) notes.push(`its surface moved by up to ${(err * 100).toFixed(err < 0.1 ? 1 : 0)} % of its size to come down this far: look at it before keeping it`);
+    if (short) notes.push(`${short} part${short === 1 ? '' : 's'} could not come down as far as asked (seams and borders kept)`);
+    if (morph) notes.push(`${morph} mesh${morph === 1 ? '' : 'es'} with shape keys (morph targets) left as ${morph === 1 ? 'it is' : 'they are'}`);
+    return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
+  }
+
+  // ---- how many triangles a model file holds, read cheaply from its bytes (the Upload pane's rows, before loading it):
+  // glTF from its accessors, OBJ from its faces, STL from its count, PLY from its header (faces taken as triangles), FBX
+  // from its polygons' corners (PolygonVertexIndex); null when it cannot be told
+  function triCount(ext, buf) {
+    try {
+      ext = String(ext).toLowerCase();
+      const u8 = new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+      if (ext === 'glb' || ext === 'gltf') {
+        const j = ext === 'glb' ? glbJSON(buf) : JSON.parse(new TextDecoder().decode(u8));
+        if (!j || !j.meshes) return null;
+        const acc = j.accessors || [], per = j.meshes.map(me => (me.primitives || []).reduce((t, p) => {
+          const mode = p.mode === undefined ? 4 : p.mode, a = acc[p.indices !== undefined ? p.indices : p.attributes && p.attributes.POSITION], c = a ? a.count : 0;
+          return t + (mode === 4 ? Math.floor(c / 3) : mode === 5 || mode === 6 ? Math.max(0, c - 2) : 0);
+        }, 0));
+        const uses = (j.nodes || []).filter(nd => Number.isInteger(nd.mesh));
+        return uses.length ? uses.reduce((t, nd) => t + (per[nd.mesh] || 0), 0) : per.reduce((a, b) => a + b, 0);
+      }
+      if (ext === 'stl') {
+        if (u8.length >= 84 && 84 + dv.getUint32(80, true) * 50 === u8.length) return dv.getUint32(80, true);
+        const s = new TextDecoder().decode(u8);
+        return (s.match(/\bendfacet\b/g) || []).length;
+      }
+      if (ext === 'ply') {
+        const head = new TextDecoder().decode(u8.subarray(0, Math.min(u8.length, 4096))), m = /element\s+face\s+(\d+)/.exec(head);
+        return m ? +m[1] : null;
+      }
+      if (ext === 'obj') {
+        // (each face line: its corners less two)
+        let t = 0, i = 0;
+        const n = u8.length;
+        while (i < n) {
+          while (i < n && (u8[i] === 32 || u8[i] === 9)) i++;
+          if (u8[i] === 102 && (u8[i + 1] === 32 || u8[i + 1] === 9)) {
+            let c = 0, inTok = false;
+            for (i += 2; i < n && u8[i] !== 10 && u8[i] !== 13; i++) { const sp = u8[i] === 32 || u8[i] === 9; if (!sp && !inTok) c++; inTok = !sp; }
+            t += Math.max(0, c - 2);
+          }
+          while (i < n && u8[i] !== 10) i++;
+          i++;
+        }
+        return t;
+      }
+      if (ext === 'fbx') {
+        // a polygon's last corner is stored negative: triangles = corners - 2 x polygons
+        const count = ints => { let neg = 0; for (let k = 0; k < ints.length; k++) if (ints[k] < 0) neg++; return ints.length - 2 * neg; };
+        const name = 'PolygonVertexIndex';
+        if (String.fromCharCode.apply(null, u8.subarray(0, 18)) === 'Kaydara FBX Binary') {
+          const ZL = typeof fflate !== 'undefined' ? fflate : null;   // eslint-disable-line no-undef
+          let t = 0, at = 0, found = 0;
+          for (;;) {
+            let i = u8.indexOf(18, at);
+            if (i < 0) break;
+            at = i + 1;
+            let ok = true;
+            for (let k = 0; k < 18 && ok; k++) ok = u8[i + 1 + k] === name.charCodeAt(k);
+            if (!ok) continue;
+            i += 19;
+            if (u8[i] !== 105) continue;   // ('i': an array of 32-bit integers)
+            const len = dv.getUint32(i + 1, true), enc = dv.getUint32(i + 5, true), clen = dv.getUint32(i + 9, true), data = u8.subarray(i + 13, i + 13 + clen);
+            let raw;
+            if (enc === 0) raw = data;
+            else if (enc === 1 && ZL) raw = ZL.unzlibSync(data);
+            else return null;
+            t += count(new Int32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + len * 4)));
+            found++; at = i + 13 + clen;
+          }
+          return found ? t : null;
+        }
+        const s = new TextDecoder().decode(u8);
+        let t = 0, found = 0;
+        for (const m of s.matchAll(/PolygonVertexIndex:\s*\*\d+\s*\{\s*a:\s*([-0-9,\s]*)\}/g)) { t += count(m[1].split(',').filter(x => x.trim()).map(Number)); found++; }
+        return found ? t : null;
+      }
+    } catch (e) { return null; }
+    return null;
+  }
 
   // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
   // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), look
@@ -565,40 +851,28 @@ function makeConverter(THREE, hooks) {
       wrap.traverse(n => {
         if (!n.isMesh || seen.has(n.geometry)) return;
         seen.add(n.geometry);
-        const gm = n.geometry;
-        if (gm.index) return;
-        const attrs = Object.entries(gm.attributes), morphs = Object.entries(gm.morphAttributes || {}).flatMap(([nm, list]) => list.map((a, i) => [nm, i, a]));
-        if ([...attrs.map(a => a[1]), ...morphs.map(x => x[2])].some(a => a.isInterleavedBufferAttribute)) return;
-        const cnt = gm.attributes.position.count, cols = [...attrs.map(a => a[1]), ...morphs.map(x => x[2])];
-        const views = cols.map(a => (a.array instanceof Float32Array ? new Uint32Array(a.array.buffer, a.array.byteOffset, a.array.length) : a.array));
-        const sizes = cols.map(a => a.itemSize);
-        let cap = 1; while (cap < cnt * 2) cap <<= 1;
-        const table = new Int32Array(cap).fill(-1), remap = new Uint32Array(cnt), first = [];
-        for (let v = 0; v < cnt; v++) {
-          let h = 2166136261;
-          for (let c = 0; c < views.length; c++) { const a = views[c], s = sizes[c]; for (let j = v * s, e = j + s; j < e; j++) h = Math.imul(h ^ a[j], 16777619); }
-          let slot = (h >>> 0) & (cap - 1);
-          for (;;) {
-            const u = table[slot];
-            if (u < 0) { table[slot] = first.length; remap[v] = first.length; first.push(v); break; }
-            const w = first[u];
-            let same = true;
-            for (let c = 0; c < views.length && same; c++) { const a = views[c], s = sizes[c]; for (let j = 0; j < s; j++) if (a[v * s + j] !== a[w * s + j]) { same = false; break; } }
-            if (same) { remap[v] = u; break; }
-            slot = (slot + 1) & (cap - 1);
-          }
-        }
-        if (first.length === cnt) return;
-        const pick = a => { const s = a.itemSize, arr = new a.array.constructor(first.length * s); for (let i = 0; i < first.length; i++) for (let j = 0; j < s; j++) arr[i * s + j] = a.array[first[i] * s + j]; return new T.BufferAttribute(arr, s, a.normalized); };
-        for (const [nm, a] of attrs) gm.setAttribute(nm, pick(a));
-        for (const [nm, i, a] of morphs) gm.morphAttributes[nm][i] = pick(a);
-        gm.setIndex(new T.BufferAttribute(first.length < 65536 ? new Uint16Array(remap) : remap, 1));   // (groups keep their ranges: the index is in the old order)
+        const gm = n.geometry, w = weldOf(gm);
+        if (!w) return;
+        for (const [nm, a] of w.attrs) gm.setAttribute(nm, a);
+        for (const [nm, i, a] of w.morphs) gm.morphAttributes[nm][i] = a;
+        gm.setIndex(w.index);   // (groups keep their ranges: the index is in the old order)
         gm.boundingBox = null; gm.boundingSphere = null;
-        was += cnt; now += first.length;
+        was += w.was; now += w.now;
       });
       if (was) notes.push(`corners welded: ${was.toLocaleString('en-GB')} vertices became ${now.toLocaleString('en-GB')}`);
       await yieldNow();
     }
+    // fewer triangles (o.keep under 1: the share kept), after the weld, which the simplifier needs
+    let red = null;
+    if (o.keep > 0 && o.keep < 1) {
+      step('Fewer triangles', 0.2);
+      await yieldNow();
+      red = await reduce(wrap, o.keep, { inPlace: true });
+      if (red.to < red.from) notes.push(...red.notes);
+      else { notes.push('fewer triangles: none taken away (its parts have too few to come down)'); red = null; }   // (nothing recorded)
+      await yieldNow();
+    }
+    const ref = o.keep > 0 && o.keep < 1 ? stats(wrap, clips) : before;   // (what the GLB must match: the lighter model)
 
     // animation tracks for things the file does not export (the exporter would drop the whole animation): left out
     const PATHS = { position: 1, quaternion: 1, scale: 1, morphTargetInfluences: 1 };
@@ -642,12 +916,15 @@ function makeConverter(THREE, hooks) {
     step('Writing the GLB', 0.35);
     await yieldNow();
     const t0 = performance.now();
+    // (a picture the browser cannot encode, as a headset short of memory, leaves the exporter waiting for ever: a limit)
     let glb = await new Promise((res, rej) => {
-      try { new T.GLTFExporter().parse(wrap, res, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { rej(err); }
+      const t = setTimeout(() => rej(new Error('its textures could not be written here (out of memory?): try it on a laptop')), o.exportMs || 240000);
+      try { new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { clearTimeout(t); rej(err); }
     });
     const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now() };
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
+    if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
     const exportMs = performance.now() - t0;
 
@@ -659,10 +936,10 @@ function makeConverter(THREE, hooks) {
     const back = gb.scene, after = stats(back, gb.animations);
     after.parse = performance.now() - t1;
     const tol = Math.max(0.002, 0.005 * Math.max(...before.size)), why = [];
-    if (after.tris !== before.tris) why.push(`triangles ${before.tris} became ${after.tris}`);
-    if (after.skinned !== before.skinned) why.push(`skinned meshes ${before.skinned} became ${after.skinned}`);
-    if (after.bones < before.bones) why.push(`bones ${before.bones} became ${after.bones}`);
-    if (before.size.some((v, i) => Math.abs(v - after.size[i]) > tol)) why.push(`size ${before.size.map(v => v.toFixed(3))} became ${after.size.map(v => v.toFixed(3))}`);
+    if (after.tris !== ref.tris) why.push(`triangles ${ref.tris} became ${after.tris}`);
+    if (after.skinned !== ref.skinned) why.push(`skinned meshes ${ref.skinned} became ${after.skinned}`);
+    if (after.bones < ref.bones) why.push(`bones ${ref.bones} became ${after.bones}`);
+    if (ref.size.some((v, i) => Math.abs(v - after.size[i]) > tol)) why.push(`size ${ref.size.map(v => v.toFixed(3))} became ${after.size.map(v => v.toFixed(3))}`);
     if (!glbRecord(gb.parser && gb.parser.json) && !glbRecord({ asset: gb.asset })) why.push('its record (asset.extras.studio) did not come through');
     for (const c of outClips) {
       const b = gb.animations.find(x => x.name === c.name);
@@ -747,9 +1024,10 @@ function makeConverter(THREE, hooks) {
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) } };
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+      reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }
