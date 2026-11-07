@@ -1835,15 +1835,17 @@ async function askRound(dir) {
 // picture of A's menu (pixels not dark, the shape A's menu shows), in the room (depth-tested, under the story panels set
 // on top and the menus), never pointable, A's name over it; C, at the other circle, draws nothing; the page's Shared
 // dialog says A shows their menu.
-// A's tabs pressed four times a second for 4 s: at most a picture every 1.5 s, every effect under 48 KB, B taking every
-// one; a ray moving over A's buttons for 4.5 s (only their light changing): at most 2 pictures, under 24 KB a second
-// sent; the Story tab's picture (its shape, the story's panels drawn in: lit below its top quarter); A's head turned away,
-// its menu glides back in front: B's plane follows (at most 5 poses a second meanwhile) and ends where A's stands. A
-// silent (a headset taken off): gone on B after 3 s with nothing closed, back once A goes on. A closes its menu: gone on
-// B within a second; opened again, back; the setting turned off: gone, and nothing sent with the menu open; on again and
-// A's session ends: gone. (A pretend headset's frames run only between the round's steps, and slowly in software: B's
-// copy goes 3 s after A's last sample, as on a headset taken off, so each step lets both run first.) dir: pictures
-// (menus-*.png)
+// A's tabs pressed four times a second until 2 pictures have gone out (4 to 20 s): at most a picture every 1.5 s by A's
+// clock, every effect under 48 KB, B taking every one; a ray moving over A's buttons for 4.5 s (only their light
+// changing): a picture at most every 4 s by A's clock, under 24 KB a second sent; the Story tab's picture (its shape, the
+// story's panels drawn in: lit below its top quarter); A's head turned away, its menu glides back in front: B's plane
+// follows (at most 5 poses a second meanwhile) and ends where A's stands. A silent (a headset taken off): gone on B after
+// 3 s with nothing closed (quiet, by B's log), back once A goes on. A closes its menu: gone on B as its closed comes (by
+// B's log, within 2 s); opened again, back; the setting turned off: gone (closed), and nothing sent with the menu open;
+// on again and A's session ends: gone (closed). (A pretend headset's frames run only between the round's steps, and
+// slowly in software: B's copy goes 3 s after A's last sample, as on a headset taken off, so each step lets both run
+// first; and a busy machine, as in the whole run, draws them seconds apart, so each change the round makes is seen by a
+// frame of its own and each rate is measured on A's clock.) dir: pictures (menus-*.png)
 async function menusRound(dir) {
   const K1 = PICK_STORY, K2 = HEADSET_STORY;
   const P = await open('#stories');
@@ -1888,6 +1890,11 @@ async function menusRound(dir) {
   });
   const qd = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (Math.hypot(...a) * Math.hypot(...b))));
   const press = id => A.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__xr.step(); return !!(r && r.fn); }, id);
+  // why B let A's copy go last since B's time t (its log: 'closed' as A said, 'quiet' after MSH.gone without a sample), B's
+  // time, and whether B holds A's copy drawn (no pixels read back: a poll that reads them waits on a busy machine's GPU)
+  const goneWhy = t => B.evaluate(([id, t]) => (window.__collabLog.filter(e => e.ev === 'menu gone' && e.by === id && e.t >= t).pop() || {}).why || '', [aId, t]);
+  const bNow = () => B.evaluate(() => Math.floor(performance.now()));
+  const bGone = id => { window.__xr.step(); return !HOST.collab.menus(false, false).some(x => x.id === id && x.drawn); };
   // B's picture of A's menu as it came (the PNG of its canvas), and what B sees of it from its head
   const fresh = ms => runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, ms || 6000);
   const pics = async n => {
@@ -1930,26 +1937,44 @@ async function menusRound(dir) {
     await P.evaluate(() => HOST.collab.dialog(false));
     check('menus: the page\'s Shared dialog says who shows their menu', dl);
     await pics(1);
-    // A's menu changes four times a second for 4 s (its tabs): at most a picture every 1.5 s, each effect under 48 KB, B
-    // taking every one (got: every picture B took, whatever became of its copy)
+    // A's menu changes four times a second (its tabs), each change seen by a frame of A's, for at least 4 s and until two
+    // pictures have gone out since (at most 20 s): at most a picture every 1.5 s, each effect under 48 KB, B taking every
+    // one (got: every picture B took, whatever became of its copy). (A makes its pictures in its frames, and a busy machine
+    // draws the pretend headsets' frames seconds apart: in the whole run, with every earlier round's pages still drawing,
+    // a fixed 4 s window saw one picture. So the window lasts until two, and the bounds go by A's own clock)
     await fresh();
-    const n0 = (await sent()).pics, f0 = Date.now();
-    const flip = A.evaluate(async () => { const tabs = ['settings', 'circles', 'debug', 'settings']; for (let k = 0; k < 16; k++) { HOST.collab.menuTab(tabs[k % 4]); await new Promise(r => setTimeout(r, 250)); } });
-    await runUntil([A, B], null, null, null, 4300);
+    const n0 = (await sent()).pics, f0 = await A.evaluate(() => { window.__flipped = false; return performance.now(); });
+    const flip = A.evaluate(async n0 => {
+      const tabs = ['settings', 'circles', 'debug', 'settings'], t0 = performance.now();
+      for (let k = 0; ; k++) {
+        HOST.collab.menuTab(tabs[k % 4]); window.__xr.step();
+        await new Promise(r => setTimeout(r, 250));
+        const el = performance.now() - t0;
+        if (el >= 20000 || (el >= 4000 && HOST.collab.menuSent().pics - n0 >= 2)) break;
+      }
+      HOST.collab.menuTab('settings'); window.__xr.step();
+      window.__flipped = true;
+    }, n0);
+    await runUntil([A, B], A, () => window.__flipped, null, 30000);
     await flip;
     await runUntil([A, B], null, null, null, 1200);   // (the last tab's picture)
-    const fs2 = (Date.now() - f0) / 1000, s2 = await sent(), at = s2.at.slice(-(s2.pics - n0)), gaps = at.slice(1).map((t, k) => t - at[k]);
+    const s2 = await sent(), fs2 = (await A.evaluate(() => performance.now()) - f0) / 1000, at = s2.at.filter(t => t >= f0), gaps = at.slice(1).map((t, k) => t - at[k]);
     // (B took every picture A sent since the setting went on, in all: a picture being made as the frames stopped may still
     // go out, so at least those counted and at most those sent by then)
     const took = await until(B, n => HOST.collab.menuSent().got >= n, s2.pics, 3000), g2 = await B.evaluate(() => HOST.collab.menuSent().got), s2b = await sent();
     check('menus: A\'s menu changing four times a second: at most a picture every 1.5 s (each 1,490 ms or more apart), every effect under 48 KB, B taking every one',
       s2.pics - n0 >= 2 && s2.pics - n0 <= fs2 / 1.5 + 1 && gaps.every(g => g >= 1490) && s2b.most < 48 * 1024 && took && g2 >= s2.pics && g2 <= s2b.pics,
       JSON.stringify({ pics: s2.pics - n0, all: s2.pics, after: s2b.pics, secs: fs2, gaps: gaps.map(Math.round), most: s2b.most, step: s2.step, took: g2 }));
-    // a ray moving over A's buttons (Settings), a button every 300 ms for 4.5 s: only their light changes, so at most 2
-    // pictures (one every 4 s at most) and under 24 KB a second sent (a picture every 500 ms was up to about 95 KB a second)
+    // a ray moving over A's buttons (Settings), a button every 300 ms for 4.5 s, a frame of A's right after each move (as a
+    // headset's next frame sees it: the pretend headset's own frames come seconds apart on a busy machine, and a ray never
+    // seen lit nothing): only their light changes, so at most one picture every 4 s (MSH.hovMs: each 3,990 ms or more
+    // after the last, at most one per 4 s of A's own clock, which a busy machine stretches) and under 24 KB a second sent
+    // (a picture every 500 ms was up to about 95 KB a second). A change of what the menu shows meanwhile (cver: its
+    // clock's minute) may bring one picture 1.5 s after the last: one allowed for each. (Pictures made, by their numbers:
+    // a want's answer, the last one sent again to someone who lacks it, is no new picture; its bytes count)
     await A.evaluate(() => HOST.collab.menuTab('settings'));
-    await runUntil([A, B], null, null, null, 1800);   // (the Settings tab's picture out first)
-    const h0 = await sent(), hT = Date.now();
+    const cur = await runUntil([A, B], A, () => HOST.collab.menuSent().cur, null, 15000);   // (the Settings tab's picture out first)
+    const h0 = await sent(), hA = await A.evaluate(() => [performance.now(), HOST.collab.overlay().panel.cver]);
     const lit = A.evaluate(async () => {
       const X = window.__xr, V = THREE.Vector3, S = HOST.collab.overlay().panel, seen = new Set();
       const rs = S.regions.filter(r => r.id !== 'close' && !/^tab/.test(r.id) && r.y + r.h < S.vis).slice(0, 4);
@@ -1958,20 +1983,27 @@ async function menusRound(dir) {
         const r = rs[k % rs.length], p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * H, 0));
         const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.1, -0.25, 0));
         X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)));
-        await new Promise(res => setTimeout(res, 300));
+        X.step();
         if (S.hover) seen.add(S.hover);
+        await new Promise(res => setTimeout(res, 300));
       }
       X.ctrl(0, null);
       return [...seen];
     });
     await runUntil([A, B], null, null, null, 4700);
-    const hov = await lit, h1 = await sent(), hs = (Date.now() - hT) / 1000, hb = (h1.bytes - h0.bytes) / hs;
-    check('menus: a ray moving over A\'s buttons for 4.5 s (only their light changing): at most 2 pictures and under 24 KB a second sent',
-      hov.length >= 3 && h1.pics - h0.pics <= 2 && hb < 24 * 1024, JSON.stringify({ lit: hov, pics: h1.pics - h0.pics, perSec: Math.round(hb), secs: hs }));
+    const hov = await lit, h1 = await sent(), hA1 = await A.evaluate(() => [performance.now(), HOST.collab.overlay().panel.cver]);
+    const hs = (hA1[0] - hA[0]) / 1000, hb = (h1.bytes - h0.bytes) / hs, hc = hA1[1] - hA[1];
+    const first = (S, n) => S.at[S.ns.indexOf(n)], made = [...new Set(h1.ns.filter(n => n > h0.n))];
+    const hat = [...(h0.ns.includes(h0.n) ? [first(h0, h0.n)] : []), ...made.map(n => first(h1, n))], hgaps = hat.slice(1).map((t, k) => t - hat[k]);
+    check('menus: a ray moving over A\'s buttons for 4.5 s (only their light changing): a picture at most every 4 s (each 3,990 ms or more after the last) and under 24 KB a second sent',
+      hov.length >= 3 && h1.n - h0.n <= Math.floor(hs / 4) + 1 + hc && hgaps.filter(g => g < 3990).length <= hc && hb < 24 * 1024,
+      JSON.stringify({ lit: hov, made: h1.n - h0.n, sent: h1.pics - h0.pics, gaps: hgaps.map(Math.round), cver: hc, perSec: Math.round(hb), secs: hs, cur }));
     // the Story tab: the story's own panels drawn into the picture (its shape is that tab's, lit below its top quarter
     // where the panels are). (A pretend headset's step runs the story's xrBegin, not its panels' drawing: drawn here once)
     await A.evaluate(() => { HOST.cur.peek('XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })'); HOST.collab.menuTab('story'); });
-    const vis2 = await A.evaluate(() => HOST.collab.overlay().panel.vis);
+    // (its height once a frame of A's has drawn the Story tab: read before one, it was the Settings tab's, so a copy of the
+    // Settings picture passed for the Story tab's and the Story tab's own never did)
+    const vis2 = await A.evaluate(() => { window.__xr.step(); return HOST.collab.menuTab() === 'story' ? HOST.collab.overlay().panel.vis : 0; });
     const storyPic = ([id, r]) => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && Math.abs(m.ih / m.iw - r) < 0.02 && m.low > 0.008; };
     const st = await runUntil([A, B], B, storyPic, [aId, vis2 / 720], 12000);
     await runUntil([A, B], null, null, null, 900);
@@ -1980,14 +2012,15 @@ async function menusRound(dir) {
     const st2 = await runUntil([A, B], B, storyPic, [aId, vis2 / 720], 6000);
     const ap2 = await aPose(), bm2 = await seen(B), mir = await A.evaluate(() => Object.values(HOST.collab.overlay().mirror).every(m => m.visible));
     await pics(2);
-    check('menus: the Story tab\'s picture, the story\'s panels drawn in (its shape the tab\'s, lit where the panels are)', st && st2 && mir && !!bm2 && Math.abs(bm2.ih / bm2.iw - ap2.vis / 720) < 0.02 && bm2.low > 0.008 && Math.abs(bm2.h - ap2.h) < 0.01,
-      JSON.stringify({ st, st2, mir, ih: bm2 && bm2.ih, iw: bm2 && bm2.iw, vis: ap2.vis, lit: bm2 && bm2.lit, low: bm2 && bm2.low, h: [bm2 && bm2.h, ap2.h] }));
+    check('menus: the Story tab\'s picture, the story\'s panels drawn in (its shape the tab\'s, lit where the panels are)', vis2 > 0 && vis2 === ap2.vis && st && st2 && mir && !!bm2 && Math.abs(bm2.ih / bm2.iw - ap2.vis / 720) < 0.02 && bm2.low > 0.008 && Math.abs(bm2.h - ap2.h) < 0.01,
+      JSON.stringify({ st, st2, mir, ih: bm2 && bm2.ih, iw: bm2 && bm2.iw, vis2, vis: ap2.vis, lit: bm2 && bm2.lit, low: bm2 && bm2.low, h: [bm2 && bm2.h, ap2.h] }));
     // A turns away: its menu glides back in front of it, B's follows (at most 5 poses a second meanwhile) and ends where A's stands
     const p0 = (await sent()).poses, before = await aPose();
     await goRoom(A, S1.x, 1.6, S1.z, 1.2);
     const t0 = Date.now();
     await runUntil([A, B], null, null, null, 3000);
     const dt = (Date.now() - t0) / 1000, p1 = (await sent()).poses;
+    const qT = await bNow();   // (from here on, B letting go of A's copy is the silent step's: its reason is looked at there)
     await runUntil([A, B], null, null, null, 800);
     const ap3 = await aPose(), bm3 = await seen(B);
     check('menus: A\'s menu glides back in front of A as it turns away: B\'s follows (at most 5 poses a second) and ends where A\'s stands',
@@ -1995,33 +2028,38 @@ async function menusRound(dir) {
       JSON.stringify({ moved: dist(before.p, ap3.p), poses: p1 - p0, dt, b: bm3.p, a: ap3.p }));
     // A silent (a headset taken off: no frames): B's copy gone 3 s after A's last sample, nothing closed; back once A goes on
     const c0 = (await sent()).closed, q0 = Date.now();
-    const quiet = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 6000);
-    const qs = (Date.now() - q0) / 1000, c1 = (await sent()).closed;
+    const quiet = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus(false, false).some(x => x.id === id); }, aId, 6000);
+    const qs = (Date.now() - q0) / 1000, c1 = (await sent()).closed, qWhy = await goneWhy(qT);
     const again = await fresh(10000);
-    check('menus: A silent (a headset taken off): gone on B after a few seconds with nothing closed; back once A goes on', quiet && c1 === c0 && again,
-      JSON.stringify({ quiet, qs, closed: c1 - c0, again }));
-    // A closes its menu: gone on B within a second; opened again, back
+    check('menus: A silent (a headset taken off): gone on B after a few seconds with nothing closed (quiet, by B\'s own reckoning); back once A goes on', quiet && c1 === c0 && qWhy === 'quiet' && again,
+      JSON.stringify({ quiet, qs, closed: c1 - c0, why: qWhy, again }));
+    // A closes its menu: gone on B as A's closed comes (B's own reason, so not MSH.gone's 3 s without a pose), within 2 s;
+    // opened again, back. (The whole run, its earlier rounds' pages still drawing in software, once missed a second here: B's
+    // polls read the picture's pixels back, each waiting on the busy GPU process. They read none now, and the reason
+    // tells closed from quiet whatever the time)
+    const cT = await bNow(), cl0 = (await sent()).closed;
     await A.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.step(); });
-    const gone = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 1000);
-    const s3 = await sent();
+    const gone = await runUntil([A, B], B, bGone, aId, 2000);
+    const s3 = await sent(), cWhy = await goneWhy(cT);
     await A.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
-    const back = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
-    check('menus: A closes its menu: gone on B within a second (closed sent); opened again, back', gone && s3.closed >= 1 && !s3.st && back, JSON.stringify({ gone, s3, back }));
-    // the setting off (with the menu open): gone on B, and nothing sent meanwhile
+    const back = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus(false, false).find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    check('menus: A closes its menu: gone on B as its closed comes (B\'s reason, within 2 s); opened again, back', gone && cWhy === 'closed' && s3.closed === cl0 + 1 && !s3.st && back, JSON.stringify({ gone, why: cWhy, s3, back }));
+    // the setting off (with the menu open): gone on B as its closed comes, and nothing sent meanwhile
+    const oT = await bNow();
     await press('menushare');
-    const gone2 = await runUntil([A, B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id && x.drawn); }, aId, 2000);
+    const gone2 = await runUntil([A, B], B, bGone, aId, 2000), oWhy = await goneWhy(oT);
     const s4 = await sent();
     await runUntil([A, B], null, null, null, 1500);
     const s5 = await sent(), off1 = await A.evaluate(() => [HOST.collab.menuShare(), localStorage.getItem('xrMenuShare'), HOST.collab.menu]);
-    check('menus: My menu: only me again (the menu open): gone on B, nothing more sent', gone2 && !off1[0] && off1[1] === null && off1[2] && s5.pics === s4.pics && s5.poses === s4.poses && !s5.st,
-      JSON.stringify({ gone2, off1, s4, s5 }));
+    check('menus: My menu: only me again (the menu open): gone on B (closed), nothing more sent', gone2 && oWhy === 'closed' && !off1[0] && off1[1] === null && off1[2] && s5.pics === s4.pics && s5.poses === s4.poses && !s5.st,
+      JSON.stringify({ gone2, why: oWhy, off1, s4, s5 }));
     // on again, then A's session ends: gone on B
     await press('menushare');
-    const back2 = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
-    const kept = await A.evaluate(() => localStorage.getItem('xrMenuShare'));
+    const back2 = await runUntil([A, B], B, id => { window.__xr.step(); const m = HOST.collab.menus(false, false).find(x => x.id === id); return !!m && m.drawn; }, aId, 10000);
+    const kept = await A.evaluate(() => localStorage.getItem('xrMenuShare')), eT = await bNow();
     await A.evaluate(() => window.__xr.end());
-    const gone3 = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus().some(x => x.id === id); }, aId, 1500);
-    check('menus: on again (kept on the headset), then A\'s session ends: gone on B', back2 && kept === 'circle' && gone3, JSON.stringify({ back2, kept, gone3 }));
+    const gone3 = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus(false, false).some(x => x.id === id); }, aId, 1500), eWhy = await goneWhy(eT);
+    check('menus: on again (kept on the headset), then A\'s session ends: gone on B (closed)', back2 && kept === 'circle' && gone3 && eWhy === 'closed', JSON.stringify({ back2, kept, gone3, why: eWhy }));
   } finally {
     for (const h of H) await h.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [P, ...H]) await p.context().close();
