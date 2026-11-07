@@ -3026,7 +3026,7 @@
     OV.markLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]),
       new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 }));
     OV.marks.add(OV.crossA, OV.crossB, OV.markLine); OV.room.add(OV.marks);
-    // (drawn over everything: on a table corner the room's own depth, or the scene, would hide a cross a little under it,
+    // (drawn over everything: on the floor the room's own depth, or the scene, would hide a cross a little under it,
     // and the check by eye is about where they are; under the menu, 54, and the sheets, 55, so their buttons stay readable)
     OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
     OV.aims = [aim(), aim()]; OV.calA = cross();
@@ -3826,7 +3826,7 @@
     if (k === 0) {
       para('Each Quest scans this room once: Settings, Physical space, Space setup (with Physical space features on).');
       para('Every headset: the same Quest Browser version, the same bookmarked address, the same Wi-Fi.');
-      para('Two fixed spots, A and B, about 2 m apart: two table corners, or two tape crosses on the floor (an arrow from A to B helps). Every headset calibrates on them and checks on them.');
+      para('Two tape crosses on the floor, A and B, about 2 m apart (1 m at least; an arrow from A to B helps). Every headset calibrates on them and checks on them, the controller\'s tip on the floor: they set the room and its floor.');
       drawTape(ctx, x, y, w, 150); y += 168;
     } else if (k === 1) {
       // Line up: what to do now (lineCase), and why after a check that was out
@@ -3834,25 +3834,25 @@
       if (red && c !== 'calib') para(red.spot === 'p' ? `Your last check was ${Math.round(red.d * 100)} cm out against someone else's tip.` : red.spot === 'e' ? 'You said the orange crosses are not on your spots.' :
         `Your last check: spot ${red.spot.toUpperCase()} was ${Math.round(red.d * 100)} cm from where this headset puts it.`, RED);
       if (c === 'calib') {
-        para(R.calib.step === 'a' ? 'Put the bright ring at your controller\'s tip on spot A itself, hold still and pull the trigger.' : 'Now on spot B, a metre or more from A: hold still and pull the trigger.');
+        para(R.calib.step === 'a' ? 'Hold your controller pointing down, the bright ring at its tip on spot A on the floor: hold still and pull the trigger.' : 'Now spot B on the floor, a metre or more from A: hold still and pull the trigger.');
         calBtn(x, bw, false); y += 76;
       } else if (c === 'check') {
         para(L.h === 'marks' ? 'Lined up from the room\'s two spots. Now check it: one touch on spot A.' : 'Lined up from the room\'s two spots, through the shared space. Now check it: one touch on spot A.');
         button(S, 'guide:tocheck', x, y, bw, 60, 'Check', turn(2), { primary: true, px: 23 });
         calBtn(x + bw + 16, bw, false); y += 76;
       } else if (c === 'room') {
-        para('This room has two fixed spots, A and B: tape crosses, or marked table corners. Calibrate on them: touch spot A with your controller\'s tip and pull the trigger, then spot B.');
+        para('This room has two spots, A and B: tape crosses on the floor. Calibrate on them: hold your controller pointing down, its tip on spot A, and pull the trigger; then spot B.');
         drawTape(ctx, x, y, w, 120); y += 136;
         calBtn(x, bw, true); y += 76;
-        para('Spots gone? Pick two new fixed spots and calibrate on them: they become the room\'s, and the others calibrate on them too.', MUTED, 21);
+        para('Spots gone? Put two new tape crosses on the floor and calibrate on them: they become the room\'s, and the others calibrate on them too.', MUTED, 21);
       } else if (c === 'first') {
-        para('This room has no fixed spots yet, and this headset is its first. Pick two at least 1 m apart, about 2 m is best: two table corners, or two tape crosses on the floor. Touch spot A with your controller\'s tip and pull the trigger, then spot B.');
+        para('This room has no spots yet, and this headset is its first. Put two tape crosses on the floor, at least 1 m apart, about 2 m is best. Hold your controller pointing down, its tip on spot A, and pull the trigger; then spot B.');
         drawTape(ctx, x, y, w, 120); y += 136;
         calBtn(x, bw, true); y += 76;
-        para('They set the room for everyone, today and next time: the other headsets calibrate on the same two spots.', MUTED, 21);
+        para('They set the room and its floor for everyone, today and next time: the other headsets calibrate on the same two spots.', MUTED, 21);
       } else {   // 'none': no spots yet, another headset is first
-        para(L.k === 'ok' ? 'No fixed spots in this room yet: the first headset picks them, then everyone calibrates on them. Lined up through the shared space for now: check it with someone.' :
-          'No fixed spots in this room yet. Pick two, about 2 m apart (two table corners, or two tape crosses), and calibrate on them: they become the room\'s, and the others calibrate on them too.');
+        para(L.k === 'ok' ? 'No spots in this room yet: the first headset picks them, then everyone calibrates on them. Lined up through the shared space for now: check it with someone.' :
+          'No spots in this room yet. Put two tape crosses on the floor, about 2 m apart, and calibrate on them: they become the room\'s, and the others calibrate on them too.');
         button(S, 'guide:tocheck', x, y, bw, 60, 'Check with someone', L.k === 'ok' ? turn(2) : null, { primary: L.k === 'ok', px: 23 });
         calBtn(x + bw + 16, bw, L.k !== 'ok'); y += 76;
       }
@@ -3860,7 +3860,7 @@
     } else if (k === 2) {
       // Check: on its own at the room's spot A (or B) once the room has its spots; with someone always
       if (roomMk()) {
-        para('Press Check at A, then put the bright ring at your controller\'s tip on spot A itself (not on an orange cross), hold still and pull the trigger. Spot B works too.');
+        para('Press Check at A, then put the bright ring at your controller\'s tip on spot A on the floor (not on an orange cross), hold still and pull the trigger. Spot B works too.');
         y = selfRow(S, x, y, w);
         para('Or with someone: both touch one spot, and each presses Check here within 20 s of the other.', MUTED, 21);
         y = checkRow(S, x, y, w, 'guide:check', true);
@@ -3875,7 +3875,7 @@
       button(S, 'guide:realign', x, y, bw, 58, R.again ? 'Re-aligning...' : 'Re-align', R.session && !cal ? () => realignNow() : null, { on: !!R.again, px: 23 });
       button(S, 'guide:again', x + bw + 16, y, bw, 58, 'Check again', turn(2), { px: 23 });
       y += 76;
-      para('2. Calibrate on the two spots, on every headset: the bright ring at the controller\'s tip on spot A, hold still, pull the trigger; then spot B. Nothing overrides it, and it is found again next time.');
+      para('2. Calibrate on the two spots, on every headset: the bright ring at the controller\'s tip on spot A on the floor, hold still, pull the trigger; then spot B. Nothing overrides it, and it is found again next time.');
       calBtn(x, bw, false);
       y += 76;
       const fr = canFresh(), fa = freshArmed();
@@ -3929,7 +3929,7 @@
     if (!quiet && cs.text) { ctx.font = FONT(cs.s === 'done' ? 25 : 22, cs.s === 'done' ? 700 : 400); ctx.fillStyle = cs.col; y += wrapText(ctx, cs.text, x, y, w, cs.s === 'done' ? 33 : 29, 3) + 14; }
     return y;
   }
-  // the two fixed spots, A and B, about 2 m apart, with an arrow from A to B (seen from above; drawn as tape crosses)
+  // the two spots, A and B, tape crosses on the floor about 2 m apart, with an arrow from A to B (seen from above)
   function drawTape(ctx, x, y, w, h) {
     rr(ctx, x, y, w, h, 14); ctx.fillStyle = 'rgba(149,166,189,0.08)'; ctx.fill();
     const ax = x + w * 0.24, bx = x + w * 0.76, cy = y + h * (h < 140 ? 0.36 : 0.42), s = h < 140 ? 20 : 26, org = '#ffb43b';
@@ -3941,7 +3941,7 @@
     ctx.textAlign = 'center';
     ctx.font = FONT(h < 140 ? 26 : 32, 700); ctx.fillStyle = INK; ctx.fillText('A', ax, cy + s + 10); ctx.fillText('B', bx, cy + s + 10);
     ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText('about 2 m', (ax + bx) / 2, cy - (h < 140 ? 34 : 42));
-    ctx.fillText(fit(ctx, 'table corners or tape crosses', w * 0.5), (ax + bx) / 2, cy + 18);
+    ctx.fillText(fit(ctx, 'tape crosses on the floor', w * 0.5), (ax + bx) / 2, cy + 18);
     ctx.textAlign = 'left';
   }
   // two controllers held tip to tip just over spot A (seen from the side), the bright ring where the tips meet
@@ -4612,14 +4612,14 @@
       ctx.font = FONT(22, 700); ctx.fillStyle = AMBER; ctx.fillText('CHECK BY EYE', 30, 26);
       ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, 'Are both crosses on your spots?', W - 60), 30, 58);
       ctx.font = FONT(22); ctx.fillStyle = MUTED;
-      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' The orange crosses show where this headset puts spot A and spot B.', 30, 110, W - 60, 29, 2);
+      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' The orange crosses show where this headset puts spot A and spot B on the floor.', 30, 110, W - 60, 29, 2);
       const bw = (W - 60 - 16) / 2;
       button(S, 'eye:yes', 30, 180, bw, 76, 'Yes', eyeYes, { primary: true, px: 30, tog: null });
       button(S, 'eye:no', 30 + bw + 16, 180, bw, 76, 'No, calibrate again', eyeNo, { px: 26, tog: null });
       S.tex.needsUpdate = true;
     }
     // put there as it shows, a little nearer than the circles' question and at eye height (the spots are lower down: on
-    // the floor, a table); put there again once your head has turned well away from it or you walked off
+    // the floor); put there again once your head has turned well away from it or you walked off
     if (EYEQ.placed && HD.ok) {
       _v.copy(S.mesh.position).sub(HD.p); const dist = Math.hypot(_v.x, _v.z);
       _v2.set(0, 0, -1).applyQuaternion(HD.q);
@@ -5484,6 +5484,7 @@
     // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
     wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), ownId: '', ownFor: new Map(),
     scanAt: 0, scanFrom: 0, scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
+    scanFloor: null, sfAt: 0,   // the room scan's floor plane over this headset's floor (scanFloorAt; null: none at hand)
     reenter: false, afterSleep: false,
     again: 0, againRel: 0,   // Re-align pressed (when; relay time): the frame is decided again as at the start, the old one kept until then
     reasked: 0,   // the wake (visibleAt) after which the shared space was asked for again
@@ -5511,18 +5512,45 @@
   const kSplit = id => 'rs.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // a shared space found split (splitCheck)
   const level = x => { const l = Math.hypot(x[0], x[2]); return l > 1e-6 ? [x[0] / l, 0, x[2] / l] : null; };
   const yawOfX = x => Math.atan2(-x[2], x[0]);   // the x axis (cos a, 0, -sin a) of a turn by a about y
-  // the room's floor under the marks: the first calibration in the room says how high mark A stands over the floor
-  // (key rm), and a headset whose own floor differs (a Guardian floor set wrong, or one that jumped) stands the room
-  // on the marks instead: its frame's origin is that far above its floor. Other marks (another distance): its floor.
+  // The room's floor under the marks (v122, floor spots; the owner, 7 November 2026: "is it possible to make the floor
+  // also set by the two points for calibration? ... the floor was off so many times now in various headsets"). The two
+  // spots are tape crosses on the floor, touched with the controller's tip on the floor, so a calibration's floor is the
+  // floor under its spots: mark A's touch height less FLOOR_TIP, whatever this headset's own (Guardian) floor says, and
+  // every headset that calibrates on the spots gets the same floor. Its saved marks say so (f: 1), and the room's key
+  // rm says so to the others ({ a: FLOOR_TIP, d, f: 1 }: older devices read a and d as before, so they get the same
+  // floor; no FORMAT change). A calibration from before v122 (no f: its spots may be table corners) keeps the old rule:
+  // the first calibration in the room says how high mark A stands over the floor (rm), and a headset whose own floor
+  // differs stands the room on the marks instead (its frame's origin that far above its floor); other marks (another
+  // distance): its own floor. Headsets lined up through the shared space keep their own floor (reconcile)
   const SAME = 0.1;   // marks measured within 10 cm of the same distance apart are the same marks (touched by hand)
-  const floorUnder = (a, b) => { const M = val('rm'); return M && Number.isFinite(M.a) && Math.abs(M.d - Math.hypot(b[0] - a[0], b[2] - a[2])) <= SAME ? a[1] - M.a : 0; };
+  // the height of the controller's target-ray origin (where a mark is taken) over the floor when its tip touches the
+  // floor, held pointing down. A guess until measured on a Quest: the headsets' logs say 'floor spots' with the touch
+  // heights over their own floor and, with a room scan, over its floor plane
+  const FLOOR_TIP = 0.02;
+  const SPOTS_DH = 0.03, SPOTS_UP = 0.45;   // floor spots: at most 3 cm apart in height; spot A at most 45 cm over this headset's floor
+  const onFloor = () => !!(R.saved && R.saved.f);   // this headset's marks are floor spots (a calibration since v122)
+  const floorUnder = (a, b) => {
+    if (onFloor()) return a[1] - FLOOR_TIP;
+    const M = val('rm'); return M && Number.isFinite(M.a) && Math.abs(M.d - Math.hypot(b[0] - a[0], b[2] - a[2])) <= SAME ? a[1] - M.a : 0;
+  };
   const fromMarks = (a, b) => ({ o: [a[0], floorUnder(a, b), a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) });
   const marksMk = (a, b) => { const y = floorUnder(a, b); return [r3(a[1] - y), r3(Math.hypot(b[0] - a[0], b[2] - a[2])), r3(b[1] - y)]; };
-  // our marks set the room's floor when nobody's do yet, when the room's are our own older ones or other marks, or
-  // when whoever set them has left (asked when a calibration is made or found again, not every frame)
+  // our marks set the room's floor (key rm). Floor spots: whenever the room has none, its are not on the floor (no f),
+  // other spots (another distance) or whoever set them has left; two headsets on the same spots never write it in turn.
+  // Older marks (no f): when nobody's do yet, when the room's are our own older ones or other marks, or when whoever set
+  // them has left; never over the room's floor spots while whoever set them is here. Asked when a calibration is made or
+  // found again, and twice a second while the room's floor is missing, its writer gone, or (floor spots) not on the floor
   function claimFloor(a, b) {
-    const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
-    if (M && Number.isFinite(M.a) && Math.abs(M.d - d) <= SAME && M.by !== C.id && member(M.by)) return;
+    const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]), ok = !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)), same = ok && Math.abs(M.d - d) <= SAME;
+    const here = ok && (M.by === C.id || member(M.by));
+    if (onFloor()) {
+      if (ok && M.f && same && here) return;
+      publish([['rm', { a: FLOOR_TIP, d: r3(d), f: 1, by: C.id, at: Math.round(now()) }]]);
+      log('floor claimed', { a: FLOOR_TIP, d: r3(d), f: 1, was: M ? M.by : '' });
+      return;
+    }
+    if (ok && M.f && here) return;
+    if (same && M.by !== C.id && member(M.by)) return;
     publish([['rm', { a: r3(a[1]), d: r3(d), by: C.id, at: Math.round(now()) }]]);
     log('floor claimed', { a: r3(a[1]), d: r3(d), was: M ? M.by : '' });
   }
@@ -5572,7 +5600,7 @@
       sharedPose: false, sharedHead: false, sharedOwn: null, ownId: '', ownFor: new Map(), visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), again: 0,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false,
-      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
+      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanFloor: null, sfAt: 0, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
       reenter: false, afterSleep: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
@@ -5718,6 +5746,23 @@
     if (n) R.scanSeen = true;
     const none = !n && t - R.scanFrom > 20000;
     if (none !== R.noScan) { R.noScan = none; R.scanAt = 0; log('room scan', { found: n, none }); changed(); }
+  }
+  // the room scan's floor (the lowest plane labelled floor) in this headset's floor's coordinates, read every 2 s while the
+  // session has plane detection: logged with floor spots (null: none)
+  function scanFloorAt(f, t) {
+    if (t - R.sfAt < 2000) return;
+    R.sfAt = t;
+    const feats = R.session && R.session.enabledFeatures ? [...R.session.enabledFeatures] : [];
+    if (!R.floor || !feats.includes('plane-detection')) { R.scanFloor = null; return; }
+    let y = null;
+    try {
+      for (const pl of f.detectedPlanes || []) {
+        if (!pl || pl.semanticLabel !== 'floor' || !pl.planeSpace) continue;
+        const P = f.getPose(pl.planeSpace, R.floor), py = P && P.transform.position.y;
+        if (Number.isFinite(py) && (y === null || py < y)) y = py;
+      }
+    } catch (e) { /* not now */ }
+    R.scanFloor = y;
   }
   const sharedY = () => floorFromShared(_mo).elements[13];   // the space's origin over this headset's floor (both level)
   // a frame given in shared coordinates, in ours (floor)
@@ -5979,7 +6024,8 @@
     const [d, a] = apart(F, R.frame), h = Math.abs(F.o[1] - R.frame.o[1]);
     if (d > 0.02 || a > 0.005 || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
   }
-  // without anchors: the room's floor (key rm) may change; the marks stay where they were touched
+  // without anchors: the room's floor (key rm) may change for older marks (floor spots: the floor under them, which
+  // stays); the marks stay where they were touched
   function refloor() {
     if (R.anchors && R.anchorsOK || !R.saved || !R.frame) return;
     const y = floorUnder(R.saved.a, R.saved.b);
@@ -6037,7 +6083,7 @@
       if (R.woke && !afterWake(f, t)) return;
       retryDue(t);
       if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);   // after waking, or Re-align
-      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by)) claimFloor(...marksNow()); }
+      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by) || (onFloor() && !val('rm').f)) claimFloor(...marksNow()); }
       // back from standby (or asked by someone's Re-align): our marks' frame written into the space again once settled
       if (R.refresh && !R.woke && R.shared && R.sharedOK && R.sharedId && settled() && !R.sharedOwn) {
         R.refresh = 0;
@@ -6141,17 +6187,17 @@
     if (R.again && R.frame) {   // Re-align found nothing better: the frame stays as it was
       R.again = 0; changed();
       if (notJoined) notice('Not in the shared space', 'Check on every headset: the same Quest Browser version, the WebXR experiments flag, Enhanced spatial services, the same address. Then restart both headsets and start one after the other, or calibrate both on the same two spots.', 9000);
-      else notice('Nothing to re-align to', C.local ? 'No shared space here: the stations stay where they are. Calibrate on two fixed spots to keep them in place.' : 'No frame came through the shared space: things stay where they are. Calibrate on the room\'s two spots to line up with the others.', 9000);
+      else notice('Nothing to re-align to', C.local ? 'No shared space here: the stations stay where they are. Calibrate on two tape crosses on the floor to keep them in place.' : 'No frame came through the shared space: things stay where they are. Calibrate on the room\'s two spots to line up with the others.', 9000);
       return;
     }
     if (R.again && !R.frame && R.state !== 'restoring') { R.again = 0; changed(); }   // Re-align with no frame: as at the start (below)
     if (!R.frame && R.state !== 'restoring') {
       // on this headset alone there is nobody to line up with: the stations stand on its floor (where the session
       // began) until it is calibrated, which keeps them in place next time
-      if (C.local && R.lfOK) { R.mk = null; setFrame({ o: [0, 0, 0], x: [1, 0, 0] }, 'floor', 'On your floor', 'The stations stand where you put them, for this session. To keep them in place next time, calibrate on two fixed spots (Calibrate, under Debug in the menu).'); return; }
+      if (C.local && R.lfOK) { R.mk = null; setFrame({ o: [0, 0, 0], x: [1, 0, 0] }, 'floor', 'On your floor', 'The stations stand where you put them, for this session. To keep them in place next time, calibrate on two tape crosses on the floor (Calibrate, under Debug in the menu).'); return; }
       setState('calibrate');
       if (notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'Check on every headset: the same Quest Browser version, the WebXR experiments flag, Enhanced spatial services, the same address. Then restart both headsets and start one after the other, or calibrate both on the same two spots.', 9000); }
-      else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Press Calibrate in the menu (' + menuWhere() + '): Room setup, under Circles. Then touch spot A and spot B with a controller\'s tip: two fixed spots a metre or more apart, such as two table corners or two tape crosses.', 9000); }
+      else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Press Calibrate in the menu (' + menuWhere() + '): Room setup, under Circles. Then touch spot A and spot B with a controller\'s tip: two tape crosses on the floor, a metre or more apart.', 9000); }
     }
   }
   // After waking, the frame the floor's resets carried over (the room as it was; Quest's transforms were right to
@@ -6225,6 +6271,7 @@
       }
     }
     scanCheck(f, performance.now());
+    scanFloorAt(f, performance.now());
     align(f, local);
     // new anchors at mark A and mark B (asked inside a frame, as WebXR wants)
     if (R.wantAnchors && R.saved && R.floor && HOST.anchor.keep) {
@@ -6254,7 +6301,7 @@
     R.calib = { step: 'a', a: null }; R.again = 0;
     CK.arm = false; CK.self = ''; CK.res = null; CK.mine = null; GD.ok = null;   // (a check made before stands for the frame this replaces)
     setState('mark-a');
-    notice('Calibrate the room', 'Put the bright ring at the front of a controller on spot A itself (the tape cross or the table corner), hold still and pull the trigger.', 0);
+    notice('Calibrate the room', 'Hold a controller pointing down, the bright ring at its tip on spot A, the tape cross on the floor: hold still and pull the trigger.', 0);
     log('calibrate');
   }
   function cancel() { if (!R.calib) return; R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate'); log('calibrate cancelled'); }
@@ -6431,20 +6478,35 @@
     R.markAt = t;
     const s = steady(h), p = s.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
     log('mark', { step: R.calib.step, p: p.toArray().map(r3), moved: r3(s.distanceTo(h.o)) });
-    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Spot A taken', 'Now put the ring on spot B, a metre or more from A (about 2 m is best), hold still and pull the trigger.', 0); return; }
-    const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z;
+    // the spots are on the floor: spot A well over this headset's floor (a Guardian floor was seen up to 28 cm off, a
+    // table is 70 cm or more) is a table, refused at once
+    if (R.calib.step === 'a' && p.y > SPOTS_UP) {
+      log('mark refused', { why: 'high', h: r3(p.y) });
+      notice('Not on the floor', `Spot A is ${Math.round(p.y * 100)} cm above this headset's floor: the spots must be on the floor (tape crosses on the floor), not on a table.`, 0);
+      return;
+    }
+    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Spot A taken', 'Now spot B on the floor, a metre or more from A (about 2 m is best): the ring at the tip on it, hold still and pull the trigger.', 0); return; }
+    const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z, dh = p.y - a.y;
     if (Math.hypot(dx, dz) < 0.5) { notice('Spots too close', 'Spot B must be at least 50 cm from spot A (a metre or more is better). Touch spot B again.', 0); return; }
+    // both on the floor, so as high as each other: one higher is a tip held off the floor, or a spot that is not on it
+    if (Math.abs(dh) > SPOTS_DH) {
+      log('mark refused', { why: 'heights', a: r3(a.y), b: r3(p.y) });
+      R.calib = { step: 'a', a: null }; setState('mark-a');
+      notice('Spots at different heights', `Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A. Both spots must be on the floor: touch them again, the controller's tip on the floor.`, 0);
+      return;
+    }
     R.calib = null;
     dropAnchors();   // the old marks' anchors go now: they would pull the new frame back to the old marks
     R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
-    R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [] };
+    R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [], f: 1 };   // (f: floor spots)
     storeSaved();   // kept once its anchors are made
+    // the touch heights over this headset's floor and over the room scan's floor plane, to measure FLOOR_TIP and the
+    // headsets' floors from the logs later
+    const sf = R.scanFloor;
+    log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP });
     claimFloor(R.saved.a, R.saved.b);
     R.mk = marksMk(R.saved.a, R.saved.b); R.cmp = null; R.pubAt = 0; R.recAt = 0;
-    const dh = R.saved.b[1] - R.saved.a[1];
-    if (Math.abs(dh) > 0.05) setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Spots at different heights',
-      `Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A. If both are on one table or the floor, calibrate again, holding the controller the same way at both.`);
-    else setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'The orange crosses should sit on the two spots. Everyone who calibrates on the same spots sees the stations in the same places.' + (guideOn() ? ' Now check it: Check at A, in the menu.' : ''));
+    setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'The orange crosses should sit on the two spots, and the room\'s floor on the floor. Everyone who calibrates on the same spots sees the stations in the same places.' + (guideOn() ? ' Now check it: Check at A, in the menu.' : ''));
     R.wantAnchors = true;   // made in the next frame, at the marks as they are then
   }
   function status() {
@@ -6572,7 +6634,7 @@
     CK.arm = on; CK.armAt = on ? performance.now() : 0; CK.self = self;
     log('check', { arm: on, self });
     // (the orange crosses hide while it is armed: the tip goes to the spot itself, not to where this headset puts it)
-    if (on && self) notice('Touch spot ' + self.toUpperCase(), `Put the bright ring at your controller's tip on spot ${self.toUpperCase()} itself (the tape cross or the table corner), hold still and pull the trigger.`, 0);
+    if (on && self) notice('Touch spot ' + self.toUpperCase(), `Put the bright ring at your controller's tip on spot ${self.toUpperCase()} itself (the tape cross on the floor), hold still and pull the trigger.`, 0);
     else if (on) notice('Touch the spot', 'Put the bright ring at your controller\'s tip on the spot (spot A, or the other person\'s tip), hold still and pull the trigger.', 0);
     else checkNoteOff();
     changed();
@@ -6596,14 +6658,18 @@
     const mk = roomMk();
     if (!mk) return;
     const q = spot === 'b' ? [mk[1], mk[2], 0] : [0, mk[0], 0], d = Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]), cm = Math.round(d * 100), S = spot.toUpperCase();
+    const h = Math.abs(p.y - q[1]), hp = hPart(h);   // (the height part: this headset's floor against the room's, as a rule)
     CK.mine = null;
-    CK.res = { d, by: '', spot, at: Math.round(now()), t: performance.now() };
-    log('check self', { spot, d: r3(d), p: [r3(p.x), r3(p.y), r3(p.z)], q: q.map(r3), src: R.src });
-    if (d <= CK.ok) { notice(`Lined up: ${cm} cm`, `Your tip on spot ${S}, and where this headset puts it.`, 6000); checkDone(spot, d); }
-    else if (d <= CK.red) { notice(`${cm} cm out`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone(spot, d); }
-    else { notice(`${cm} cm out: not lined up`, `Spot ${S} is ${cm} cm from where this headset puts it: calibrate on the room's two spots (Line up, in the menu).`, 9000); checkRed(spot, d); }
+    CK.res = { d, h, by: '', spot, at: Math.round(now()), t: performance.now() };
+    log('check self', { spot, d: r3(d), h: r3(h), p: [r3(p.x), r3(p.y), r3(p.z)], q: q.map(r3), src: R.src });
+    if (d <= CK.ok) { notice(`Lined up: ${cm} cm${hp}`, `Your tip on spot ${S}, and where this headset puts it.`, 6000); checkDone(spot, d); }
+    else if (d <= CK.red) { notice(`${cm} cm out${hp}`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone(spot, d); }
+    else { notice(`${cm} cm out${hp}: not lined up`, `Spot ${S} is ${cm} cm from where this headset puts it: calibrate on the room's two spots (Line up, in the menu).`, 9000); checkRed(spot, d); }
     changed();
   }
+  // the height part of a check's distance, said when it is 2 cm or more: the spots are on the floor, so it is mostly how
+  // this headset's floor differs from the room's (one lined up through the shared space keeps its own floor)
+  const hPart = h => (Number.isFinite(h) && Math.round(h * 100) >= 2 ? ` (${Math.round(h * 100)} cm in height)` : '');
   // another headset's check (q.check, with who sent it as the relay says)
   function checkIn(v, by) {
     if (!v || typeof by !== 'string' || by === C.id || !Array.isArray(v.p) || v.p.length !== 3 || !v.p.every(c => Number.isFinite(c) && Math.abs(c) < 1e4) || !Number.isFinite(v.at)) return;
@@ -6624,13 +6690,13 @@
       if (!best || Math.abs(T.at - M.at) < Math.abs(best[1].at - M.at)) best = [by, T];
     }
     if (!best) return false;
-    const [by, T] = best, d = Math.hypot(M.p[0] - T.p[0], M.p[1] - T.p[1], M.p[2] - T.p[2]), cm = Math.round(d * 100);
+    const [by, T] = best, d = Math.hypot(M.p[0] - T.p[0], M.p[1] - T.p[1], M.p[2] - T.p[2]), cm = Math.round(d * 100), h = Math.abs(M.p[1] - T.p[1]), hp = hPart(h);
     T.used = true; M.with.add(by);
-    CK.res = { d, by, at: Math.max(M.at, T.at), t: performance.now() };
-    log('check result', { with: by, d: r3(d) });
-    if (d <= CK.ok) { notice(`Lined up: ${cm} cm`, `Where your room and ${whoName(by)}'s put the spot.`, 6000); checkDone('p', d); }
-    else if (d <= CK.red) { notice(`${cm} cm out`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone('p', d); }
-    else { notice(`${cm} cm out: not lined up`, roomSpots() ? 'The menu shows what to do: calibrate on the room\'s two spots.' : 'The menu shows what to do: Re-align, then check again; or calibrate on two fixed spots.', 9000); checkRed('p', d); }
+    CK.res = { d, h, by, at: Math.max(M.at, T.at), t: performance.now() };
+    log('check result', { with: by, d: r3(d), h: r3(h) });
+    if (d <= CK.ok) { notice(`Lined up: ${cm} cm${hp}`, `Where your room and ${whoName(by)}'s put the spot.`, 6000); checkDone('p', d); }
+    else if (d <= CK.red) { notice(`${cm} cm out${hp}`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone('p', d); }
+    else { notice(`${cm} cm out${hp}: not lined up`, roomSpots() ? 'The menu shows what to do: calibrate on the room\'s two spots.' : 'The menu shows what to do: Re-align, then check again; or calibrate on two tape crosses on the floor.', 9000); checkRed('p', d); }
     changed();
     return true;
   }
@@ -6660,10 +6726,10 @@
       if (!T.used && left > 0 && member(by) && (!M || T.at > M.at)) return { s: 'theirs', text: `${whoName(by)} pressed Check here: touch the same spot and press it too (${left} s)`, col: CYAN };
     }
     if (CK.res) {
-      const d = Math.round(CK.res.d * 100), at = CK.res.spot ? ' at spot ' + CK.res.spot.toUpperCase() : '';
-      return CK.res.d <= CK.ok ? { s: 'done', text: `Lined up: ${d} cm` + (CK.res.spot ? at : ` (with ${whoName(CK.res.by)})`), col: GREEN } :
-        CK.res.d <= CK.red ? { s: 'done', text: `${d} cm out${at}: fine for walking about; calibrate on the spots for close work`, col: AMBER } :
-          { s: 'done', text: `${d} cm out${at}: not lined up`, col: RED };
+      const d = Math.round(CK.res.d * 100), at = CK.res.spot ? ' at spot ' + CK.res.spot.toUpperCase() : '', hp = hPart(CK.res.h);
+      return CK.res.d <= CK.ok ? { s: 'done', text: `Lined up: ${d} cm` + (CK.res.spot ? at : ` (with ${whoName(CK.res.by)})`) + hp, col: GREEN } :
+        CK.res.d <= CK.red ? { s: 'done', text: `${d} cm out${at}${hp}: fine for walking about; calibrate on the spots for close work`, col: AMBER } :
+          { s: 'done', text: `${d} cm out${at}${hp}: not lined up`, col: RED };
     }
     if (M && !M.with.size) {
       const left = Math.ceil((CK.win - (t - M.t)) / 1000);
@@ -6676,8 +6742,8 @@
   const checkNoteOff = () => { if (/^Touch (the )?spot/.test(NOTE.title || '')) NOTE.until = 0; };
   const checkReset = () => { if (CK.arm) checkNoteOff(); CK.arm = false; CK.self = ''; CK.armAt = 0; CK.mine = null; CK.res = null; CK.theirs.clear(); };
   // The startup flow (v109; the owner, 3 November 2026: "just do the calibrated marks but make it part of the startup flow
-  // to check and make people check and calibrate if needed"; two fixed spots, two table corners or two tape crosses, are
-  // more accurate than two people touching controllers). Every time a headset enters AR (or VR, answered "In this room") in
+  // to check and make people check and calibrate if needed"; two fixed spots are more accurate than two people touching
+  // controllers; since v122 two tape crosses on the floor, which set the room's floor too). Every time a headset enters AR (or VR, answered "In this room") in
   // a shared room, the guide opens by itself (FLOW.wait in) at Line up: how this headset lines up now and what to do
   // (lineCase): calibrate on the room's two spots, or, as the room's first headset while it has none, pick two and
   // calibrate (that sets the room for everyone); lined up by the spots already (its own found again, or through the shared
