@@ -496,7 +496,7 @@ function installXR(o) {
 }
 // the pretend headset H put down and woken up (standbySteps, and the main run's nights): the floor moved to F (its reset
 // saying how) and the shared space at S meanwhile, then 20 frames; and the shared space back at S (its reset; nothing is
-// let go within 20 s of waking, so that time is taken as passed)
+// let go within 20 s of waking, so that time is taken as passed), giving when the room last looked at the space
 const sleepWake = (H, F, S) => H.evaluate(([F, S]) => {
   const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
   const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
@@ -509,6 +509,7 @@ const spaceBack = (H, S) => H.evaluate(S => {
   X.W.shared = new THREE.Matrix4().compose(V(S[0], S[1], S[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S[3]), V(1, 1, 1));
   for (const fn of X.resets.shared || []) fn({ transform: null });
   HOST.room.internals().visibleAt -= 21000;   // (nothing is let go within 20 s of waking)
+  return HOST.room.internals().recAt;   // (when the room last looked at the shared space: not since the hold began)
 }, S);
 // a pretend headset aligned through the shared space (U1, the room's frame published for it, src 'adopted', its floor
 // FLOOR): the shared space glitching as Quest Browser's did, then standby with the shared space in use, and woken again on
@@ -534,8 +535,18 @@ async function standbySteps(H, wantO) {
   // once the space is back and agrees, the room is where it was, and at the same height as before
   const F6 = [FLOOR[0] + 0.5, -0.15, FLOOR[2] - 0.3, FLOOR[3] + 0.6], JUNK = [SHARED[0] + 0.8, 0, SHARED[2] - 0.4, SHARED[3] + 0.35];
   const held6 = await sleepWake(H, F6, JUNK);
-  await spaceBack(H, SHARED);
-  await frames(H, 800);
+  const r6 = await spaceBack(H, SHARED);
+  // The room takes the space's frame again, at its held height, on its first look at the space once the space agrees
+  // (a look at most every 500 ms, R.recAt, and only in a frame). This step used to wait a fixed 800 ms of frames, which
+  // failed in every main run of v119 and v120: a page drawing in software spends 1 to 4 s on some of its frames (shaders
+  // compiled as the stations' icons and cards first show), and where those frames fall had moved. When the room's last look
+  // before the standby came less than 500 ms before the space agreed (the menu's notice, waited for above, came late, just
+  // after such a frame), the next such frame took the rest of the 800 ms, and the height was read before the room had
+  // looked again. So the frames go on until that look has been made (up to 8 s), and the room is read then
+  const t6 = Date.now();
+  await until(H, r => { window.__xr.step(); const R = HOST.room.internals(); return !R.wakeHold && R.recAt > r; }, r6, 8000);
+  const waited = Date.now() - t6;
+  console.log(`     (the room looked at the shared space again ${waited} ms after it was back)`);
   const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
     // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
     trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
@@ -544,7 +555,7 @@ async function standbySteps(H, wantO) {
     near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
   check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', back6.src === 'adopted' &&
     near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
-    JSON.stringify(Object.assign(back6, { want: [w6, x6] })));
+    JSON.stringify(Object.assign(back6, { want: [w6, x6], waited })));
   await sleepWake(H, FLOOR, SHARED);   // and back to the floor the rest expects
   await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
   await frames(H, 800);

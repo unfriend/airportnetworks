@@ -4632,7 +4632,9 @@ the pretend addresses. `--quick` runs only the last story in the per-story part.
 headset's standby with the shared space in use (`standbyRound`, a room of its own set up as the main run's pretend headset
 finds it, a minute or two, running the main run's own steps, `standbySteps`): the shared space at the head and as this
 headset's own floor, standby with the floor 15 cm lower and a wrong space held off, the room back where it was and at the
-same height once the space agrees, and woken again on the first floor. `--design` runs only the design room
+same height once the space agrees, read once the room has looked at the space again (up to 8 s of frames; the fixed
+800 ms read before missed that look whenever one of a software-drawn page's 1 to 4 s frames fell there, as in every
+main run of v119 and v120), and woken again on the first floor. `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
 canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
 `--token` runs only the relay's password (`tokenRound`, not in the main run; a relay of its own with `COLLAB_TOKEN`, a
