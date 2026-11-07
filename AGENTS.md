@@ -4876,8 +4876,10 @@ room's origin facing -z (its scene's frame the room's), two pretend headsets in 
 follows (nearest, range 3, 1 m, 1 m/s) and a cube that looks (first) put in on the page; the nearest headset is the ball's
 on every device and drives it (the others drawing its samples) to 1 m in front of itself, where all three draw it within 5
 cm, and the looker's; while it walks 1.5 m the page and the other headset draw the ball where it had it 120 ms before (the
-median within 5 cm, by the relay's clock; it prints the median and the 90th percentile); the other headset coming nearer
-by more than 0.3 m taking the ball over everywhere; the looker staying the first headset's while it is within range + 0.5
+median within 5 cm, by the relay's clock; it prints the median and the 90th percentile); Pause on the page (v122, editing
+on there) writing nothing to the room (its `state()` and the station's key unchanged), the page drawing the ball where it
+is placed while the other headset still draws it within 5 cm of the driver, and played again the page following it again;
+the other headset coming nearer by more than 0.3 m taking the ball over everywhere; the looker staying the first headset's while it is within range + 0.5
 m though the other stands nearer, and the other's once it is further; nobody in range, both back where they are placed on
 every device; the room keeping the two records and no key of the samples.
 Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
