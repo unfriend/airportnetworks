@@ -43,6 +43,26 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v121 (7 November 2026; FORMAT networks-35, shell 121: running pages ask before reloading), on `dev`: v120's
+  five failing shared-room checks root-caused; all were the tests'.**
+  - The shared menu round: the Story tab's height was read before a frame of A's had drawn the tab; pictures and
+    hovers are made only inside the pretend headsets' frames, which a busy machine draws seconds apart, so the round now
+    gives each change a frame, measures its rates on A's own clock, and reads A's menu and B's copy while both draw (B
+    rightly lets a copy go 3 s after its last sample). B's log now says why a copy went (`closed`, `quiet`, `room`),
+    and a `closed` that drops nothing says so (`menu closed ignored`); `menuSent()` gives each picture's number and the
+    `cver` it shows.
+  - The standby height check read the room 800 ms after the shared space agreed again; the room looks at the space at
+    most every 500 ms and only inside a frame, and a software-drawn page's 1 to 4 s frames could fall there. It now
+    waits for that look (up to 8 s) and says so if it never comes; `--standby` runs only that part. Nothing in the
+    alignment changed.
+  - One change in the app, found on the way: a shared menu's picture whose bytes are the last one's is not sent again
+    (what the menu draws from, people walking between circles among it, changes more often than what a tab shows,
+    and each picture, about 40 KB, goes to everyone in the room); `menuSent().same` counts them.
+  - Tests: relay 653, smoke 252, `--menus` 15, `--standby` 5 passed. The full shared-room run passed its first 350
+    checks (to a room on this device going to a relay) before a container restart stopped it; the rounds after it, run
+    one by one, all passed: `--circles` 17, `--ask` 19, `--smooth` 11, `--code` 2, `--all` 27, `--guide` 28,
+    `--studio` 43, `--studio-scenes` 6, `--home` 2, `--behave` 8, `--p2p` 18, `--near` 19.
+  - Untested on a headset, as v120.
 - **networks-v120 (7 November 2026; FORMAT networks-35, shell 120: running pages ask before reloading), on `dev` first:
   the owner's batch after trying v119.**
   - The black patches on lighter scans (the owner: "The reduction works really well but leaves black artifacts in the
@@ -93,7 +113,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     session; circles asked first by default in a real room; the main site's relay offer and password on a Quest; how a
     shared menu reads and costs; the sticks, the motions, recording with real grips and paths playing life size;
     behaviours over real Wi-Fi (who is picked, the hand-over, how 120 ms behind looks).
-  - Tests: TESTS120
+  - Tests (on edb95b7): smoke 252, room test 23, update 8, live 21, sound 59, relay 653, R2 39, pictures 123 passed;
+    the shared-room run 562 passed and 5 failed: the shared menu round's four and the standby height check, all five
+    the tests' own, fixed in v121 (below).
 - **networks-v119 (6 November 2026; FORMAT networks-34, shell 119: running pages ask before reloading), on `dev` first:
   the owner's batch of 6 November (lighter models, textures, studio items, the lobby, the check by eye, real-world
   occlusion).**
