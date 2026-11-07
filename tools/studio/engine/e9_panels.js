@@ -539,11 +539,13 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
 // the Items pane's cards (paneBlocks' itemCard): three a row as the Add pane's, a row as tall as its tallest card. The face
 // (its picture or tile, marks, name and lines) selects it, or picking picks it; under it its cut-outs' tags and, with a cube
 // selected, Shows and Hides, each pressable only where it shows whole (so nothing out of the pane's view takes a press).
-// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one
-const CARD = { gap: 14, tag: 46, ticks: 56 };
+// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one, and
+// a cut-out's tag likewise. A tag is the card's whole width, its own Shows and Hides on a row under it (beside it, at three
+// a row, the tag's name had room for a few letters)
+const CARD = { gap: 14, tag: 46, tagTicks: 44, ticks: 56 };
 function drawItemCards(ctx, P, L, x, y0, W, top, bottom, dry, inView) {
   const cols = 3, cw = Math.floor((W - CARD.gap * (cols - 1)) / cols), ph = cw - 16, base = ph + 98;
-  const extra = t => (t.tags || []).length * CARD.tag + (t.ticks ? CARD.ticks : 0);
+  const extra = t => (t.tags || []).reduce((n, g) => n + CARD.tag + (g.ticks ? CARD.tagTicks : 0), 0) + (t.ticks ? CARD.ticks : 0);
   let cy = y0;
   for (let i = 0; i < L.length; i += cols) {
     const R = L.slice(i, i + cols), ch = base + Math.max(...R.map(extra));
@@ -572,18 +574,19 @@ function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
   ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label, cw - 20), cx + 10, py + ph + 10);
   ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
   if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
-  // Shows and Hides (a cube selected): two toggles side by side, or (a cut-out's tag) at its right
+  // Shows and Hides (a cube selected): two toggles side by side, the card's under its tags, a tag's under the tag
   const toggles = (L, v, tx, ty, tw, th, px2) => {
     const w = Math.floor((tw - 6) / 2);
     L.forEach(([l, on], k) => vButton(ctx, P, `tick:${l}:${v}`, tx + k * (w + 6), ty, w, th, l === 'show' ? 'Shows' : 'Hides', inView(ty, th) ? () => act('tick', `${l}:${v}`) : null, { on, px: px2, r: 8 }));
   };
   let ty = cy + base - 4;
   for (const g of t.tags || []) {
-    const tw = cw - 16 - (g.ticks ? 2 * 70 + 6 : 0);
-    vButton(ctx, P, g.id, cx + 8, ty, tw, CARD.tag - 8, g.label, inView(ty, CARD.tag - 8) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
-    if (g.sel) { rr(ctx, cx + 8, ty, tw, CARD.tag - 8, 8); ctx.lineWidth = 3; ctx.strokeStyle = VC.cyan; ctx.stroke(); }
-    if (g.ticks) toggles(g.ticks, g.v, cx + 8 + tw + 6, ty, 2 * 70 + 6 - 6, CARD.tag - 8, 15);
+    const tw = cw - 16, th = CARD.tag - 8;
+    vButton(ctx, P, g.id, cx + 8, ty, tw, th, g.label, inView(ty, th) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
+    const ge = g.sel ? VC.cyan : g.pk === 'show' ? VC.green : g.pk === 'hide' ? VC.red : '';
+    if (ge) { rr(ctx, cx + 8, ty, tw, th, 8); ctx.lineWidth = 3; ctx.strokeStyle = ge; ctx.stroke(); }
     ty += CARD.tag;
+    if (g.ticks) { toggles(g.ticks, g.v, cx + 8, ty - 4, tw, CARD.tagTicks - 8, 16); ty += CARD.tagTicks; }
   }
   if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
 }

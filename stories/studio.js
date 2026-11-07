@@ -22597,7 +22597,9 @@ function paneBlocks(tab) {
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
     const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
     if (selCube) B.push({ p: `Shows and Hides under each card: what ${selCube.rec.name} shows and hides (a press puts it on that list, again takes it off).`, c: 'faint' });
-    const C = { P, GP, selCube, L: sceneLists() };
+    // (which GLB stands for which original: worked out once a render, and only when an object's card asks)
+    let S = null;
+    const C = { P, GP, selCube, stands: f => (S || (S = glbFor())).get(f) };
     // (groups first, each with its members under it; picking for a cube, a group's name puts all of its members in or out)
     const gs = all.filter(it => it.kind === 'g'), grouped = new Set();
     for (const g of gs) {
@@ -22646,11 +22648,12 @@ function itemSub(it) {
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
 }
-// an item as a card of the Items pane (C: the pane's picks, the selected cube and the scene's lists): an object its model's
-// picture (as the Add pane shows it for that file: an original a GLB stands for shows the GLB's), else the plain tile with
-// its kind; what has no file a tile drawn for it (tileFor, e7e_pics.js); its name, a short line and a faint one; marks for
-// a lock and for moving (a motion, a recorded path or a behaviour); an object's cut-outs as tags (a press selects one); with
-// a cube selected, Shows and Hides under it. A press does what the row did: selects it, or picking, picks it
+// an item as a card of the Items pane (C: the pane's picks, the selected cube and which GLB stands for a file): an object
+// its model's picture (as the Add pane shows it for that file: an original a GLB stands for shows the GLB's), else the plain
+// tile with its kind; what has no file a tile drawn for it (tileFor, e7e_pics.js); its name, a short line and a faint one
+// (which also says what moves it, the headset having no tooltip); marks for a lock and for moving (a motion, a recorded
+// path or a behaviour); an object's cut-outs as tags (a press selects one; picking for a cube, green or red on its list as
+// a card is); with a cube selected, Shows and Hides under it. A press does what the row did: selects it, or picking, picks it
 const kTris = n => (n < 1000 ? String(n) : n < 9950 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n < 999500 ? Math.round(n / 1000) + 'k' : (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M');
 function itemCard(it, C) {
   const r = it.rec, { P, GP, selCube } = C;
@@ -22659,9 +22662,11 @@ function itemCard(it, C) {
   const ticks = id => (selCube && id !== selCube.id ? [['show', selCube.rec.show.includes(id)], ['hide', selCube.rec.hide.includes(id)]] : null);
   const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id,
     on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour), ticks: it.kind !== 'c' ? ticks(it.id) : null };
-  const state = [recording(it) ? 'recording' : '', (it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you'];
+  // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
+  const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : ''];
+  const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you');
   if (it.kind === 'o') {
-    const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.L.stands.get(r.file);
+    const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
     card.pic = g ? [g, r.file] : [r.file]; card.kind = extOf(r.file).toUpperCase();
     if (info) { const sz = placedBox(E, r.q, r.s).getSize(new THREE.Vector3()); card.sub = metres(Math.max(sz.x, sz.y, sz.z)) + ` · ${kTris(info.tris)} triangles`; }
     else card.sub = !E || !f || E.state === 'missing' ? 'Its file is not in the scene' : E.state === 'failed' ? 'Could not be read' : E.state === 'loading' ? `Loading: ${Math.round(E.p * 100)} %` : E.state === 'parsing' ? 'Reading the file...' : modelWords(g ? STU.fileMap.get(g) || f : f);
@@ -22669,7 +22674,7 @@ function itemCard(it, C) {
     state.unshift(r.name.toLowerCase().startsWith(stem(r.file).toLowerCase()) ? '' : baseName(r.file));
     // its cut-outs as tags: a press selects one (picking for a cube, puts it on the list); a cube selected, their Shows and Hides
     const xs = cutsOn(it.id);
-    if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, ticks: ticks(x.id) }; });
+    if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
@@ -23086,6 +23091,9 @@ function buildExplore() {
     .stu-ic .tks .tk { flex: 1; }
     .stu-ic .tg .tks { padding: 0; flex: 1 1 100%; } .stu-ic .tg .tks .tk { font-size: 11px; padding: 2px 4px; }
     .stu-ic .tg button[aria-pressed="true"], .stu-ic .tks button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); background: rgba(70, 217, 255, 0.14); }
+    .stu-ic .tg .tag.sel { box-shadow: 0 0 0 1px var(--cyan); }
+    .stu-ic .tg .tag.pk-show:not(.sel) { border-color: var(--green); color: var(--green); background: rgba(62, 224, 143, 0.14); }
+    .stu-ic .tg .tag.pk-hide:not(.sel) { border-color: var(--red); color: var(--red); background: rgba(255, 90, 75, 0.14); }
     .stu-gh { display: flex; align-items: center; gap: 8px; width: 100%; margin: 6px 0 6px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
     .stu-gh:hover { border-color: var(--cyan); }
     .stu-gh[aria-pressed="true"] { border-color: var(--cyan); }
@@ -23162,7 +23170,7 @@ function itemCardHTML(x) {
     `<button type="button" class="cm" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : T ? `<img src="${T}" alt="" data-tile="${esc(x.tile.k)}">` : `<b>${esc(x.kind || '')}</b>`}${mk ? `<span class="mks">${mk}</span>` : ''}</span>` +
     `<span class="nm">${esc(x.label)}</span>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>` +
-    (x.tags || []).map(g => `<span class="tg"><button type="button" class="tag" data-act="${g.act}" data-v="${esc(g.v)}" data-id="${esc(g.id)}" aria-pressed="${!!g.on}" title="${esc(g.title || g.label)}">${esc(g.label)}</button>${g.ticks ? tk(g.ticks, g.v) : ''}</span>`).join('') +
+    (x.tags || []).map(g => `<span class="tg"><button type="button" class="tag${g.sel ? ' sel' : ''}${g.pk ? ' pk-' + g.pk : ''}" data-act="${g.act}" data-v="${esc(g.v)}" data-id="${esc(g.id)}" aria-pressed="${!!g.on}" title="${esc(g.title || g.label)}">${esc(g.label)}</button>${g.ticks ? tk(g.ticks, g.v) : ''}</span>`).join('') +
     (x.ticks ? tk(x.ticks, x.v) : '') + '</div>';
 }
 function blockHTML(b) {
@@ -26781,11 +26789,13 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
 // the Items pane's cards (paneBlocks' itemCard): three a row as the Add pane's, a row as tall as its tallest card. The face
 // (its picture or tile, marks, name and lines) selects it, or picking picks it; under it its cut-outs' tags and, with a cube
 // selected, Shows and Hides, each pressable only where it shows whole (so nothing out of the pane's view takes a press).
-// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one
-const CARD = { gap: 14, tag: 46, ticks: 56 };
+// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one, and
+// a cut-out's tag likewise. A tag is the card's whole width, its own Shows and Hides on a row under it (beside it, at three
+// a row, the tag's name had room for a few letters)
+const CARD = { gap: 14, tag: 46, tagTicks: 44, ticks: 56 };
 function drawItemCards(ctx, P, L, x, y0, W, top, bottom, dry, inView) {
   const cols = 3, cw = Math.floor((W - CARD.gap * (cols - 1)) / cols), ph = cw - 16, base = ph + 98;
-  const extra = t => (t.tags || []).length * CARD.tag + (t.ticks ? CARD.ticks : 0);
+  const extra = t => (t.tags || []).reduce((n, g) => n + CARD.tag + (g.ticks ? CARD.tagTicks : 0), 0) + (t.ticks ? CARD.ticks : 0);
   let cy = y0;
   for (let i = 0; i < L.length; i += cols) {
     const R = L.slice(i, i + cols), ch = base + Math.max(...R.map(extra));
@@ -26814,18 +26824,19 @@ function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
   ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label, cw - 20), cx + 10, py + ph + 10);
   ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
   if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
-  // Shows and Hides (a cube selected): two toggles side by side, or (a cut-out's tag) at its right
+  // Shows and Hides (a cube selected): two toggles side by side, the card's under its tags, a tag's under the tag
   const toggles = (L, v, tx, ty, tw, th, px2) => {
     const w = Math.floor((tw - 6) / 2);
     L.forEach(([l, on], k) => vButton(ctx, P, `tick:${l}:${v}`, tx + k * (w + 6), ty, w, th, l === 'show' ? 'Shows' : 'Hides', inView(ty, th) ? () => act('tick', `${l}:${v}`) : null, { on, px: px2, r: 8 }));
   };
   let ty = cy + base - 4;
   for (const g of t.tags || []) {
-    const tw = cw - 16 - (g.ticks ? 2 * 70 + 6 : 0);
-    vButton(ctx, P, g.id, cx + 8, ty, tw, CARD.tag - 8, g.label, inView(ty, CARD.tag - 8) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
-    if (g.sel) { rr(ctx, cx + 8, ty, tw, CARD.tag - 8, 8); ctx.lineWidth = 3; ctx.strokeStyle = VC.cyan; ctx.stroke(); }
-    if (g.ticks) toggles(g.ticks, g.v, cx + 8 + tw + 6, ty, 2 * 70 + 6 - 6, CARD.tag - 8, 15);
+    const tw = cw - 16, th = CARD.tag - 8;
+    vButton(ctx, P, g.id, cx + 8, ty, tw, th, g.label, inView(ty, th) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
+    const ge = g.sel ? VC.cyan : g.pk === 'show' ? VC.green : g.pk === 'hide' ? VC.red : '';
+    if (ge) { rr(ctx, cx + 8, ty, tw, th, 8); ctx.lineWidth = 3; ctx.strokeStyle = ge; ctx.stroke(); }
     ty += CARD.tag;
+    if (g.ticks) { toggles(g.ticks, g.v, cx + 8, ty - 4, tw, CARD.tagTicks - 8, 16); ty += CARD.tagTicks; }
   }
   if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
 }
