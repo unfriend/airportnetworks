@@ -304,7 +304,7 @@ In a headset (editing on):
   that object is the one pointed at, the smallest such box if several (a figure standing in the scan); the dot sits
   where the ray leaves its box. So the trigger selects it and the grip carries it, as cubes have always worked; anything
   the ray does find wins, and it beats the floor (`rayPick(ray, { inside: true })`, `insidePick`). Inside a scan,
-  pointing at nothing therefore selects the scan; the Items pane's row selected again clears the selection.
+  pointing at nothing therefore selects the scan; the Items pane's card selected again clears the selection.
 - *Hold it* (v118; a selected item's headset card, under *Carry it*, an object, cube, sound, cut-out or group): the next
   grip of either hand, wherever it points, carries that item as a grip on it would (from where it stands: it keeps its
   offset from the hand; a group as a whole), one Undo step; once, then disarmed (pressed again, another selection,
@@ -383,10 +383,12 @@ The panes (page HTML and headset canvas twins, the same content):
   an object...*, its bone choices, *Move onto it*, *Stop following*: "Sounds that follow a model"), *Delete*; an
   object, a cube or a sound in a group says so at the top (*In group ...*, *Select the group*); for a group its card
   ("Groups").
-- **Items**: every item in the scene (groups first, each with its members under it; objects, cubes, sounds, cut-outs), what is selected lit, a press selects it; on a
-  page also a tick box per item in a selected cube's *Shows* and *Hides* columns. A sound that follows something says what
-  (*→ Dancer · Head*). Each object's cut-outs are listed under it (indented, *✂ Door*); cut-outs whose object is not
-  here under a heading of their own.
+- **Items** (v122: picture cards, "The Items pane as cards" below): every item in the scene as a card in the Add pane's
+  look (groups first, a heading each with its members' cards under it; then objects, shapes, empties, cubes and sounds in
+  no group), its picture or a tile drawn for it, what is selected lit, a press selects it. A sound that follows something
+  says what (*Sound · follows Dancer · Head*). Each object's cut-outs are tags on its card (*✂ Door*); cut-outs whose
+  object is not here have cards under a heading of their own. With a cube selected, *Shows* and *Hides* under every card
+  (page and headset).
 
 ## Shared rooms
 
@@ -761,7 +763,7 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   takes.*; *The scene has 100 cut-outs: the most it can hold.*). A layout or a room with more than 16 on one object (two
   people adding at once): of those cutting now the 16 with the lowest ids cut, the same on every device whatever order
   its items came in; the rest are drawn as cutting nothing (*· cuts nothing (16 at most)*, and their card says why).
-- **Trigger cubes**: a cut-out is an item a cube can show or hide (its lists take it, the Items pane's ticks and *Pick
+- **Trigger cubes**: a cut-out is an item a cube can show or hide (its lists take it, the Items pane's *Shows* and *Hides* and *Pick
   what it shows* too). Hidden for you, it cuts nothing (the model whole); shown, it cuts; it switches as its own 0.4 s fade
   crosses one half (a cut cannot fade). A cut-out new here (made, put back by Undo, from the room, a scene opened) takes
   its state at once, with no half fade to wait for. A cut-out a cube shows waits for its cube, as any item: the owner's door, closed
@@ -840,8 +842,9 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
 - **Selecting.** A click (the trigger, a pinch) on a member selects its group (its card); a second one on the same member
   while its group is selected selects that member alone (its own card, with *In group Group 2: it moves with it. Selected
   on its own, it moves alone.* and *Select the group*); one more on it keeps it. The group's card lists its members (a
-  press selects one alone). The Items pane lists groups first (*▣ Group 2*, *n items*), each with its members indented
-  under it (an object's cut-outs under that, further in); the other sections list what is in no group. Hover labels
+  press selects one alone). The Items pane shows groups first, a heading each (*▣ Group 2*, *n items*; a press selects
+  the group) with its members' cards under it (an object's cut-outs tags on its card); the other sections show what is in
+  no group. Hover labels
   name the group (*Group 2 · Dancer*); the selection's label says *group of 6 · selected*, or *in Group 2 · selected*
   for a member on its own.
 - **Moving.** A selected group moves, turns and sizes as one about its **pivot**: the mean of its members' middles as
@@ -891,7 +894,7 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   with fewer than 2 members goes too (not one picking its members now). Undo brings both back.
 - **Trigger cubes**: in a cube's *Pick what it shows* / *Pick what it hides*, pointing at a grouped item (a cube of the
   group too) puts all of its group's members (not its cubes) in the list, or takes them all out when all are in it (one
-  change); under Items the group's name does the same. The lists still name the members one by one. A cube in a group of
+  change); under Items the group's heading does the same. The lists still name the members one by one. A cube in a group of
   cubes alone (nothing a cube can list) is selected as an ungrouped cube is (its group, as a click on any member), which
   ends the pick.
 - **Drawn while editing**: a selected group as a faint dashed box in its colour round all its members (`LOOKS.group`,
@@ -976,7 +979,8 @@ The owner: "There should be an option to lock things in space so we cannot accid
   *Duplicate* (a copy is never locked: it is new, to be put where it goes), Undo (it takes back what was done, the lock
   too) and the room's records (the room's word wins, as ever). An item carried when the room locks it is let go where it is.
 - **Its row**: *Lock in place* / *🔒 Unlock* by the card's *Duplicate* and *Delete* (page and headset; one Undo step), so a
-  headset's card keeps its place and size in sight; labels and the Items pane mark a locked item 🔒 while editing.
+  headset's card keeps its place and size in sight; labels mark a locked item 🔒 while editing, and the Items pane's cards
+  always.
 
 ## The scene's settings (the owner, 6 November 2026)
 
@@ -1392,6 +1396,43 @@ pane with pictures sounds good, leave 3d models for now". `engine/e7e_pics.js`.
   one.
 - `HOST.cur.peek('STUDIO.state().pics')` (`pvState()`: listed, shown, failed, made here, missing, Make pictures, its line,
   what was learnt) for tests.
+
+## The Items pane as cards (the owner, 7 November 2026)
+
+The owner: "items need a preview in the items list tab, should show the same image and look like the add item part".
+`paneBlocks('items')` and `itemCard` in `engine/e7_explore.js`, the tiles in `engine/e7e_pics.js`, the canvas in
+`engine/e9_panels.js` (`drawItemCards`). Nothing in `layout.json` or the room's state changes (no `FORMAT` change).
+
+- **One card an item**, in the Add pane's grid (page: 3 to 5 a row by the pane's width; headset canvas: 3 a row, a row as
+  tall as its tallest card, the pane's *Up*, *More* and the stick scroll paging through them). The heading's counts stay.
+  Groups first: a heading each (its colour, *▣ Pair*, *n items*, 🔒 when locked; a press selects the group, as its row
+  did), with its members' cards under it; then what is in no group, by kind: *Objects (n)*, *Shapes*, *Empties*,
+  *Trigger cubes*, *Sounds*, and *Cut-outs cutting nothing* (those whose object is not here).
+- **Its picture or tile.** An object shows its model file's picture exactly as the Add pane shows it for that file (an
+  original a GLB stands for shows the GLB's; `pvAny`, the same fetching, a card drawn again when its picture arrives),
+  else the Add pane's plain tile with its kind (*FBX*). What has no file gets a tile drawn for it (`tileFor`: one 256 px
+  canvas a kind and colour, kept; the page shows it as a data URL, `tileUrl`, so page and headset look the same; on the
+  pictures' dark background): a shape its kind in its colour (cube, sphere, cylinder, plane; one that hides things
+  see-through, its edges dashed), a sound a speaker in its colour, a trigger cube a see-through cube's edges in its colour,
+  an empty an axis cross (x red, y green, z blue) round a ball in its colour, a cut-out cutting nothing a dashed box with
+  scissors.
+- **Its words**: its name; a short line (an object: its size as placed, its largest side, and triangles, *1.7 m · 24k
+  triangles*, or why not yet, *Loading: 40 %*; *Sphere* or *Cube · hides things*; *Empty · 1 sound*; *Sound · 80 %* or
+  *Sound · follows Dancer · Head*; *Cube · shows 2, hides 1*); a faint one (an object's or a sound's file where the name
+  does not say it, *hidden for you*, *recording*, a cube's *stays once entered* and *active for you*).
+- **Marks** at its picture's top right: 🔒 when locked in place, *moves* when it has a motion, a recorded path or a
+  behaviour. The selected item's card (or the group's heading) has a clear border in the accent colour; picking for a
+  cube's list, a card on it is ticked (*✓ Post*) with a green (shows) or red (hides) border; picking a group's members, a
+  member's border is the accent's.
+- **A press** on a card does what a press on its row did: selects it (its card under Item; pressed again, none), or,
+  picking for a cube or a group, picks it (one Undo step each, as before). An object's cut-outs are **tags** on its card
+  (*✂ Notch*; a press selects the cut-out, or picking for a cube, puts it on the list), never cards of their own.
+- **Shows and Hides**: with a cube selected (editing), two small toggles under every card but the cube's own (and beside
+  each cut-out's tag), lit while the item is on that list: a press puts it on that list (off the other), again takes it
+  off (`toggleLink`, one Undo step). What the page's tick boxes did, now in the headset too.
+- Ids, for tests: a card's face and a heading `sel:<id>` (the regions the rows had), a tag `sel:<cut-out id>`, a toggle
+  `tick:show:<id>` or `tick:hide:<id>` (the act `tick` with `show:<id>`); on the page a card is `.stu-ic[data-card=<id>]`,
+  its face `.cm`, a heading `.stu-gh`.
 
 ## New scene and From another scene (the owner, 5 November 2026)
 

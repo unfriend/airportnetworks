@@ -93,6 +93,19 @@ has 3 to 5 cards a row, by the pane's width; in a headset 3 a row, **Up** and **
   again, so a scene of big scans takes a while.
 - From another scene copies a model's picture with it. Nothing of this is in `layout.json`.
 
+## The Items pane
+
+**Items** shows everything placed as cards in the same look: an object with its model's picture (the one the Add pane
+shows for that file; a plain tile with its kind where there is none), and shapes, sounds, trigger cubes and empties with a
+small drawing in their colour (a shape its kind, a sound a speaker, a cube a see-through box, an empty an axis cross).
+Under each name a short line (*1.7 m · 24k triangles*, *Sphere*, *Sound · follows Dancer*, *Cube · shows 2, hides 1*,
+*Empty*); 🔒 marks what is locked in place and *moves* what has a motion, a recorded path or a behaviour. Groups come
+first, a heading each (a press selects the group) with their members under it; a model's cut-outs are small tags on its
+card (*✂ Door*: a press selects it). A press on a card selects it (its card opens under Item); the selected card has a
+bright border. With a trigger cube selected, every card has **Shows** and **Hides** under it: a press puts the item on
+that list of the cube, again takes it off (page and headset). In a headset the cards are three a row, **Up** and **More**
+(or a stick) paging through them.
+
 ## Sounds that follow a model
 
 A sound can follow an object, or one of its bones, so a voice stays at a dancer's head and the sounds of her moving at
@@ -139,7 +152,7 @@ A group is a named set of objects, sounds and trigger cubes that move, turn and 
 the sounds that follow it, come with it anyway). With **Edit** on:
 
 1. Select one of them and press **Make a group...** on its card. Then point at the others and pull the trigger (or click
-   them on a page; Ctrl- or Shift-click work too, as do their names under Items) to put them in; again to take one out.
+   them on a page; Ctrl- or Shift-click work too, as do their cards under Items) to put them in; again to take one out.
    **Done** ends it. An item is in one group at most: picked for another, it moves into that one.
 2. A click (or the trigger) on a member selects its group: the group's card, and a faint box round all its members. A
    second click on the same member selects that member alone (its card says *In group ...* and has **Select the
