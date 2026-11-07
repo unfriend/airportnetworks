@@ -99,10 +99,11 @@ has 3 to 5 cards a row, by the pane's width; in a headset 3 a row, **Up** and **
 shows for that file; a plain tile with its kind where there is none), and shapes, sounds, trigger cubes and empties with a
 small drawing in their colour (a shape its kind, a sound a speaker, a cube a see-through box, an empty an axis cross).
 Under each name a short line (*1.7 m · 24k triangles*, *Sphere*, *Sound · follows Dancer*, *Cube · shows 2, hides 1*,
-*Empty*); 🔒 marks what is locked in place and *moves* what has a motion, a recorded path or a behaviour. Groups come
+*Empty*), and a fainter one that also says what moves it (*spins*, *recorded path*, *follows people*); 🔒 marks what is
+locked in place and *moves* what has a motion, a recorded path or a behaviour. Groups come
 first, a heading each (a press selects the group) with their members under it; a model's cut-outs are small tags on its
 card (*✂ Door*: a press selects it). A press on a card selects it (its card opens under Item); the selected card has a
-bright border. With a trigger cube selected, every card has **Shows** and **Hides** under it: a press puts the item on
+bright border, and while you pick what a cube shows or hides, what is on its list has a green or red one (a tag too). With a trigger cube selected, every card has **Shows** and **Hides** under it: a press puts the item on
 that list of the cube, again takes it off (page and headset). In a headset the cards are three a row, **Up** and **More**
 (or a stick) paging through them.
 

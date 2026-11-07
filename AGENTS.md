@@ -3859,13 +3859,16 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   shape, a sound, a trigger cube, an empty and a cut-out cutting nothing a tile drawn for it in its colour, `tileFor` in
   `engine/e7e_pics.js`, one canvas a kind and colour, the page showing it as a data URL; its name, a short line, *1.7 m ·
   24k triangles*, *Sphere*, *Sound · follows Dancer · Head*, *Cube · shows 2, hides 1*, *Empty*, and a faint one; 🔒 and
-  *moves* marks; groups first, a heading each, `.stu-gh`, a press selecting the group, with their members' cards under
-  it; an object's cut-outs tags on its card, a press selecting one; the selected card's border in the accent colour, one
-  on a cube's list being picked green or red; a press does what a row's did, selecting it or, picking, picking it; with a
-  cube selected *Shows* and *Hides* under every card but the cube's own and beside each cut-out's tag, one Undo step
+  *moves* marks, and the faint line says what moves it, *spins*, *recorded path*, *follows people*, as the rows did (a
+  headset has no tooltip); groups first, a heading each, `.stu-gh`, a press selecting the group, with their members'
+  cards under it; an object's cut-outs tags on its card, a press selecting one; the selected card's border in the accent
+  colour, one on a cube's list being picked green or red, a cut-out's tag too; a press does what a row's did, selecting it
+  or, picking, picking it; with a cube selected *Shows* and *Hides* under every card but the cube's own and under each
+  cut-out's tag (in the headset the tag keeps the card's whole width, its toggles on a row of their own), one Undo step
   each, what the page's tick boxes did, now in the headset too, regions `tick:show:<id>` and `tick:hide:<id>`; the
   headset's canvas three a row, a row as tall as its tallest card, `drawItemCards` in `engine/e9_panels.js`, paged by Up,
-  More and the stick; the card faces and headings keep the rows' ids, `sel:<id>`; no layout or `state()` change) and
+  More and the stick; the card faces and headings keep the rows' ids, `sel:<id>`; which GLB stands for a file worked out
+  once a render, only when an object's card asks; no layout or `state()` change) and
   **Upload** (pages only). `&tab=scene|add|item|items|upload`, `&view=walk`.
 - **Saving**: *Save* writes what is placed now to the relay's `layout.json` (for everyone at a station); a read-only
   source offers *Download layout.json*. Outside a room what is placed is also kept on this device
@@ -4122,10 +4125,12 @@ and an empty, a cut-out on the box and three shapes, one locked and hiding thing
 for this page, the figure's plain tile with its kind, a tile per shape, the empty, the cube and the sound, really drawn in
 their colours; the order, the group's heading and its members first, the cut-out a tag after the box's face, the
 sections by kind; the lines and the marks; a press on a card selecting it, its card lit under Items, the tag selecting
-the cut-out, the heading the group; the cube selected, *Shows* and *Hides* under every card but its own and by the
-cut-out's tag, three presses three Undo steps; a pick by a press, the card ticked with a green border; the headset's
-canvas: three a row, paged by More, the box's picture and the ball's tile bright where the figure's plain tile is dark,
-the selected card's border in the accent colour, a toggle and a card's face pressed by a pretend ray); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
+the cut-out, the heading the group; the cube selected, *Shows* and *Hides* under every card but its own and under the
+cut-out's tag, three presses three Undo steps; the ball's faint line saying it spins; a pick by a press, the card ticked
+with a green border, and the cut-out's tag pressed, on the list and green; the headset's canvas: three a row, paged by
+More, the box's picture and the ball's tile bright where the figure's plain tile is dark, the selected card's border in
+the accent colour, the cut-out's tag the card's width less its margins with its toggles on a row under it, picked, its
+edge green, a toggle and a card's face pressed by a pretend ray); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
 made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
 within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the slider at
 50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save

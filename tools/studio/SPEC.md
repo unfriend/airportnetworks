@@ -1419,16 +1419,20 @@ The owner: "items need a preview in the items list tab, should show the same ima
 - **Its words**: its name; a short line (an object: its size as placed, its largest side, and triangles, *1.7 m · 24k
   triangles*, or why not yet, *Loading: 40 %*; *Sphere* or *Cube · hides things*; *Empty · 1 sound*; *Sound · 80 %* or
   *Sound · follows Dancer · Head*; *Cube · shows 2, hides 1*); a faint one (an object's or a sound's file where the name
-  does not say it, *hidden for you*, *recording*, a cube's *stays once entered* and *active for you*).
+  does not say it; what moves it, as the rows said: its motion, *spins*, *recorded path* or *recording*, its behaviour,
+  *follows people*, since a headset shows no tooltip; *hidden for you*; a cube's *stays once entered* and *active for
+  you*). Which GLB stands for an original (`glbFor`) is worked out once a render, and only when an object's card asks.
 - **Marks** at its picture's top right: 🔒 when locked in place, *moves* when it has a motion, a recorded path or a
   behaviour. The selected item's card (or the group's heading) has a clear border in the accent colour; picking for a
   cube's list, a card on it is ticked (*✓ Post*) with a green (shows) or red (hides) border; picking a group's members, a
-  member's border is the accent's.
+  member's border is the accent's. A cut-out's tag likewise: the accent's edge when selected, green or red on the list
+  being picked (`pk` on the tag; the page's `.tag.pk-show` and `.tag.pk-hide`).
 - **A press** on a card does what a press on its row did: selects it (its card under Item; pressed again, none), or,
   picking for a cube or a group, picks it (one Undo step each, as before). An object's cut-outs are **tags** on its card
   (*✂ Notch*; a press selects the cut-out, or picking for a cube, puts it on the list), never cards of their own.
-- **Shows and Hides**: with a cube selected (editing), two small toggles under every card but the cube's own (and beside
-  each cut-out's tag), lit while the item is on that list: a press puts it on that list (off the other), again takes it
+- **Shows and Hides**: with a cube selected (editing), two small toggles under every card but the cube's own (and under
+  each cut-out's tag: in the headset the tag keeps the card's whole width, its two toggles on a row under it, since beside
+  it at three cards a row its name had room for a few letters), lit while the item is on that list: a press puts it on that list (off the other), again takes it
   off (`toggleLink`, one Undo step). What the page's tick boxes did, now in the headset too.
 - Ids, for tests: a card's face and a heading `sel:<id>` (the regions the rows had), a tag `sel:<cut-out id>`, a toggle
   `tick:show:<id>` or `tick:hide:<id>` (the act `tick` with `show:<id>`); on the page a card is `.stu-ic[data-card=<id>]`,
