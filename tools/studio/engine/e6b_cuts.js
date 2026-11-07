@@ -193,10 +193,13 @@ function cutAt(ob) {
   let p = null, from = null;
   const R = STU.ray;
   if (R && R.id === ob.id && ob.model && performance.now() - R.at < 300000) {
+    // (the ray as it met the model, in the model's own frame, taken onto where it is placed: a model that moves is met
+    // where it was drawn as the click came, and its cut-out goes on that part of it; e6e_motion.js)
+    poseRest(ob);
     GL.world.updateMatrixWorld(true);
-    const o = GL.items.localToWorld(new THREE.Vector3().fromArray(R.o)), d = new THREE.Vector3().fromArray(R.d).transformDirection(GL.items.matrixWorld);
+    const M = ob.holder.matrixWorld, o = new THREE.Vector3().fromArray(R.lo).applyMatrix4(M), d = new THREE.Vector3().fromArray(R.ld).transformDirection(M);
     const hs = modelHits(ob.model.o, new THREE.Raycaster(o, d, 0, 500)).filter(h => h.object.isMesh && h.object.visible);
-    if (hs.length) { p = GL.items.worldToLocal(hs[0].point.clone()); from = new THREE.Vector3().fromArray(R.o); }
+    if (hs.length) { p = GL.items.worldToLocal(hs[0].point.clone()); from = GL.items.worldToLocal(o.clone()); }
   }
   if (!p) { p = box ? box.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(ob.rec.p); from = viewerAt(); }
   const dx = from.x - p.x, dz = from.z - p.z;
@@ -222,12 +225,14 @@ function viewerAt() {
   if (XR.on && GL.renderer.xr.isPresenting) return GL.items.worldToLocal(XR.head.clone());
   return GL.items.worldToLocal(GL.camera.getWorldPosition(new THREE.Vector3()));
 }
-// the last ray (the pointer's, a controller's) that met an object, in the scene's frame: a new cut-out goes where it met
+// the last ray (the pointer's, a controller's) that met an object, in the scene's frame and in the object's own (its holder's,
+// as it was drawn then: its motion's moment; or as it is placed, when the ray met its ghost): a new cut-out goes where it met
 // the model (rayPick keeps it)
 function cutRay(id, ray) {
   GL.world.updateMatrixWorld(true);
-  const m = GL.items.matrixWorld.clone().invert();
-  STU.ray = { id, o: ray.origin.clone().applyMatrix4(m).toArray(), d: ray.direction.clone().transformDirection(m).toArray(), at: performance.now() };
+  const m = GL.items.matrixWorld.clone().invert(), ob = STU.items.get(id), H = ob && ob.holder;
+  const L = !H ? m : ray.ghost ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale).premultiply(GL.items.matrixWorld).invert() : H.matrixWorld.clone().invert();
+  STU.ray = { id, o: ray.origin.clone().applyMatrix4(m).toArray(), d: ray.direction.clone().transformDirection(m).toArray(), lo: ray.origin.clone().applyMatrix4(L).toArray(), ld: ray.direction.clone().transformDirection(L).toArray(), at: performance.now() };
 }
 // a copy beside it on the same object (along its own width), selected; in every cube list the original is in (a door a
 // cube opens, copied, opens with it: cubeCopy)

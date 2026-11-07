@@ -329,8 +329,7 @@ function xrGrab(c, on) {
     }
     beginChange([it.id]);
     it.carry = true; it.gl = null;
-    select(it.id);
-    STU.recPlay = '';   // (carried, it rests where it stands, its path too)
+    select(it.id);   // (carried, it rests where it is placed, its path and motion too: motionRests)
     // (Record its movement armed: what this hand carries is recorded until it lets go, unless the other hand holds it too)
     if (h.rec && c.grab.target === 'item' && !other.some(k => k.grab.id === it.id)) recBegin(it, 'xr', c);
     buzz(c, 0.4, 25); sfxAct('grab', 'world', c.grab.p0 || null);   // (sound effects: picked up)

@@ -2221,7 +2221,9 @@ async function menusRound(dir) {
 // pretend headsets in it and a page following it. A ball that follows (nearest, range 3, 1 m in front, 1 m/s) and a cube
 // that looks (first, range 3) put in on the page: the nearest headset drives the ball and every device says so; where it
 // draws it reaches the other headset and the page 120 ms behind its samples (the median within 5 cm while the driver
-// walks); the other headset coming nearer by more than 0.3 m takes over; the first headset stays the looker's while it is
+// walks); Pause on the page (editing on there) writes nothing to the room, the page drawing the ball where it is placed
+// while the other headset still draws it where the driver's samples put it, and played again the page follows them again;
+// the other headset coming nearer by more than 0.3 m takes over; the first headset stays the looker's while it is
 // within range + 0.5 m, though the other stands nearer, and leaves it once further; nobody in range, both items back where
 // they are placed on every device. Nothing of it in the room's keys but the records
 async function behaveRound() {
@@ -2324,6 +2326,21 @@ async function behaveRound() {
     console.log('      behaviour samples 120 ms behind: page ' + JSON.stringify(bp) + ', H2 ' + JSON.stringify(bh) + ', the driver\'s frames ' + drv.length + ', moved ' + moved.toFixed(2) + ' m');
     check('behave: while H1 walks, the ball as the page and H2 draw it is where H1 had it 120 ms before (median within 5 cm)', moved > 1 && bp.n >= 5 && bh.n >= 5 && bp.median < 0.05 && bh.median < 0.05,
       JSON.stringify({ bp, bh, moved, drv: drv.length }));
+
+    // ---- Pause on the page (this device's own, editing on there; v122): nothing goes to the room (its state() and the
+    // station's key as they were), the page draws the ball where it is placed while H2 still draws it where H1's samples
+    // put it; played again, the page follows them again
+    const roomX = async () => { const k = (await (await fetch(sb + 'api/rooms/' + rc)).json()).keys['st.' + sid + '.x']; return k ? JSON.stringify([k.seq, k.v]) : ''; };
+    const ps0 = await sp(A, `(setEdit(true), JSON.stringify(collabState()))`), rx0 = await roomX();
+    await sp(A, `(pauseSet(true), 0)`);
+    await run(1500);
+    const pz = await info('bfo001'), ps1 = await sp(A, `[MPAUSE.on, JSON.stringify(collabState())]`), rx1 = await roomX();
+    const atPlace = x => !!(x && x.at && Math.hypot(x.at[0], x.at[1] - 0.5, x.at[2] + 2) < 1e-6), byH1 = (x, y) => !!(x && y && x.who === id1 && x.src === 'by:' + id1 && x.at && y.at && Math.hypot(x.at[0] - y.at[0], x.at[1] - y.at[1], x.at[2] - y.at[2]) < 0.05);
+    await sp(A, `(pauseSet(false), setEdit(false), 0)`);
+    const pz2 = await waitFor('bfo001', I => byH1(I[0], I[1]) && byH1(I[2], I[1]), 15000);
+    check('behave: Pause on the page writes nothing to the room (its state() and the station\'s key unchanged) and draws the ball where it is placed, while H2 still draws it where H1\'s samples put it (within 5 cm of H1); played again, the page follows H1 again',
+      ps1[0] && ps1[1] === ps0 && !!rx0 && rx1 === rx0 && atPlace(pz[0]) && !pz[0].drive && pz[1].drive && byH1(pz[2], pz[1]) && byH1(pz2[0], pz2[1]) && byH1(pz2[2], pz2[1]),
+      JSON.stringify({ paused: ps1[0], state: ps1[1] === ps0, room: rx1 === rx0 }) + ' ' + say(pz) + ' ' + say(pz2));
 
     // ---- H2 comes nearer than H1 by more than 0.3 m: it takes the ball over, everywhere
     await goRoom(H2, 0.3, 1.6, -0.2, 0);

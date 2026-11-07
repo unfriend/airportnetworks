@@ -75,9 +75,12 @@ function groupPivot(g, out) {
 }
 // where a move begins: the pivot, and each member as it stands (its record, and where it is shown: a sound that follows
 // something sounds where that puts it); a sound that follows an object of the group rides with it
+// its members and what their sounds follow: where a group is measured (each where it is placed, not where its motion draws
+// it: e6e_motion.js)
+const groupMeasured = g => members(g).flatMap(m => (m.kind === 's' && followOf(m) ? [m, followOf(m)] : [m]));
 function groupBase(g) {
   const ms = members(g), ids = new Set(ms.map(m => m.id));
-  for (const m of ms) poseRest(m);   // (measured where they stand, not where their motions draw them: e6e_motion.js)
+  for (const m of groupMeasured(g)) poseRest(m);   // (measured where they stand, not where their motions draw them: e6e_motion.js)
   return { id: g.id, P: groupPivot(g, new THREE.Vector3()), list: ms.map(m => ({ id: m.id, kind: m.kind, rec: JSON.parse(JSON.stringify(m.rec)),
     pos: m.kind === 's' ? soundPoint(m, new THREE.Vector3()) : m.holder.position.clone(), rides: m.kind === 's' && !!m.rec.on && ids.has(m.rec.on) && !!followOf(m) })) };
 }
@@ -126,6 +129,7 @@ function groupMove(B, t, th, k, write) {
 // the group's lowest point onto the floor: its objects' and shapes' (a cube's volume, a sound's and an empty's point stand
 // on nothing; a group of those alone, theirs)
 function groupFloor(g) {
+  for (const m of groupMeasured(g)) poseRest(m);   // (where they are placed)
   const b = groupBox(g, new THREE.Box3(), true);
   if (!b.isEmpty() && Math.abs(b.min.y) > 5e-4) groupMove(groupBase(g), new THREE.Vector3(0, -b.min.y, 0), 0, 1, true);
 }
@@ -230,7 +234,7 @@ function groupDupWhy(g) {
 // group follows its copy; each copy also joins the lists of the cubes outside the group its original is in (as cubeCopy)
 function duplicateGroup(g) {
   if (!editOn() || groupDupWhy(g)) return '';
-  const ms = members(g), ids = new Set(ms.map(m => m.id)), b = groupBox(g, new THREE.Box3());
+  const ms = members(g), ids = new Set(ms.map(m => m.id)), b = atPlaced(groupMeasured(g), () => groupBox(g, new THREE.Box3()));
   const d = new THREE.Vector3(b.isEmpty() ? 1 : r3(b.max.x - b.min.x + 0.5), 0, 0), add = v => v.map((x, i) => x + d.getComponent(i));
   const used = new Set(), fresh = () => { let id; do id = newId(); while (used.has(id)); used.add(id); return id; };
   const map = new Map(), base = n => nameFor(n.replace(/ \d+$/, '')), nid = fresh();
@@ -272,9 +276,11 @@ function groupsStep(editing) {
     if (g.kind !== 'g') continue;
     const sel = editing && STU.sel === g.id, L = g.look;
     if (!sel && !g.carry) { L.deco.visible = false; continue; }
-    if (!g.carry) { groupPivot(g, g.holder.position); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
+    // (its pivot and box where its members are placed: they move on while it is selected, and their ghosts show there)
+    const ms = g.carry ? [] : groupMeasured(g);
+    if (!g.carry) { atPlaced(ms, () => groupPivot(g, g.holder.position)); g.holder.quaternion.identity(); g.holder.scale.set(1, 1, 1); }
     if (!sel) { L.deco.visible = false; continue; }
-    const b = groupBox(g, _gsb);
+    const b = atPlaced(ms, () => groupBox(g, _gsb));
     L.deco.visible = sel && !b.isEmpty();
     if (!L.deco.visible) continue;
     const m = 0.04;   // (a little outside its members)

@@ -21,9 +21,13 @@
 // The holder keeps the placed pose (what every edit reads and writes, so the record never changes); what is drawn goes
 // into its matrix (matrixAutoUpdate off while it moves), so everything under it comes along (the model, the pointer's
 // unseen box, its labels, a sound following it or one of its bones); its cut-outs take the same change on their own
-// placed poses (poseCut). While this device carries it (a grip, a group carried, the page's arrows) or, editing, has it
-// selected (or its group, or a sound or a cut-out on it) it rests at its placed pose, so it can be placed (a path just
-// recorded, or Play it here on its card, plays while it is selected: STU.recPlay).
+// placed poses (poseCut). It keeps moving while it is selected (the owner, 7 November 2026: "when selecting animations on
+// the item motion tab they should also show on the item as a preview"; "to make placing easier add a pause motion button but
+// i also want to be able to move moving/animated items to select their exact place"): it rests at its placed pose only while
+// this device holds it (motionRests: a grip, its group carried, the page's arrows dragged on it or its group, the sticks, a
+// sound or a cut-out on it carried, its path being recorded), while a cut-out on it or a sound following it is selected
+// here (they are placed on it where it is placed), and while Pause is on here (e6h_ghost.js); a see-through ghost shows
+// where it is placed meanwhile, and the page's arrows stand on that ghost.
 const MOTION_KINDS = ['spin', 'wobble', 'bob', 'pulse', 'orbit', 'sway'], MOTION_ITEMS = ['o', 'p', 'e'];
 // each kind as it starts (speed and amount), its amount's unit, largest value and steps on the card, and its words
 const MOTION = {
@@ -78,18 +82,38 @@ function motionDelta(it, mo, t, m, out) {
   u.applyAxisAngle(A, ph).multiplyScalar(mo.amount);   // orbit: round its place, its facing kept
   return out.makeTranslation(u.x, u.y, u.z);
 }
-// whether it rests at its placed pose now: carried here (a grip, its group carried, the page's arrows on it) or, editing,
-// selected (or its group, or a sound or a cut-out on it, or a group holding such a sound: what is placed on it holds
-// still too), unless it plays here though selected (a path just recorded, or Play it here: STU.recPlay)
-function motionRests(it) {
-  if (it.carry || (GL.tc && GL.tc.object === it.holder)) return true;
-  if (!editOn()) return false;
-  const s = STU.items.get(STU.sel);
-  if (!s) return false;
-  if (s === it) return STU.recPlay !== it.id;
-  if ((s.kind === 's' || s.kind === 'x') && s.rec.on === it.id) return true;
-  // (its group, or a group with a sound on it: a group's move measures what its sounds follow where it stands)
-  return s.kind === 'g' && (groupOf(it.id) === s || members(s).some(m => m.kind === 's' && m.rec.on === it.id));
+// whether it rests at its placed pose now: Pause on here (e6h_ghost.js), or held here (restScan's list, made once a frame:
+// carried by a grip or the sticks, dragged by the page's arrows, its path being recorded, or what is on it or holds it
+// carried: a sound or a cut-out on it, its group, a group holding a sound on it, so what is placed on it is measured where
+// it is placed), or a cut-out on it or a sound following it selected here (editing): their arrows, box and corners stand
+// on it where it is placed, so a drag of them never jumps (they have no ghost of their own)
+const REST = { ids: new Set() };
+function motionRests(it) { return motionsPaused() || REST.ids.has(it.id); }
+function restScan() {
+  const S = REST.ids;
+  S.clear();
+  if (MPAUSE.on && !editOn()) { MPAUSE.on = false; dirty(); }   // (Pause is editing's only: off as editing goes)
+  const sel = editOn() ? STU.items.get(STU.sel) : null;
+  if (sel && (sel.kind === 's' || sel.kind === 'x') && sel.rec.on) S.add(sel.rec.on);
+  for (const x of STU.items.values()) {
+    if (!x.carry && !recording(x)) continue;
+    S.add(x.id);
+    if ((x.kind === 's' || x.kind === 'x') && x.rec.on) S.add(x.rec.on);
+    if (x.kind === 'g') for (const m of members(x)) { S.add(m.id); if (m.kind === 's' && m.rec.on) S.add(m.rec.on); }
+  }
+}
+// a measure taken where items are placed while they move (fn, then each drawn where it was again): each moving holder put
+// at its placed pose meanwhile (its children, an object's bones and unseen box, with it), so a group's pivot and box stay
+// put while its members move
+function atPlaced(list, fn) {
+  const kept = [];
+  for (const it of list) {
+    const H = it && it.holder;
+    if (!H || H.matrixAutoUpdate) continue;
+    kept.push([H, H.matrix.clone()]);
+    H.matrix.compose(H.position, H.quaternion, H.scale); H.matrixWorldNeedsUpdate = true;
+  }
+  try { return fn(); } finally { for (const [H, m] of kept) { H.matrix.copy(m); H.matrixWorldNeedsUpdate = true; } }
 }
 // the pipeline: its drawn pose at now (the scene's clock clockS, s) into out, in the items' frame (the scene's)
 function drawnPose(it, now, clockS, out) {
@@ -153,7 +177,7 @@ function motionBlocks(it, B, dis) {
   if (m.kind !== 'spin') B.push({ label: (m.kind === 'pulse' ? 'By' : m.kind === 'orbit' ? 'Round a circle of' : 'How far') + ': ' + motionAmountWords(m), row: [{ id: 'mamount:-', label: 'Less', act: 'i:mamount', v: -1, dis }, { id: 'mamount:+', label: 'More', act: 'i:mamount', v: 1, dis }] });
   if (m.kind !== 'pulse') B.push({ label: 'Axis', row: [['y', 'Upright (y)'], ['x', 'Side to side (x)'], ['z', 'Front to back (z)']].map(([v, n]) => ({ id: 'maxis:' + v, label: n, act: 'i:maxis', v, on: m.axis === v, dis })) });
   B.push({ label: 'Starts', row: [{ id: 'mstart:always', label: 'Always', act: 'i:mstart', v: 'always', on: m.start === 'always', dis }, { id: 'mstart:shown', label: 'When shown', act: 'i:mstart', v: 'shown', on: m.start === 'shown', dis }] },
-    { p: 'Drawn over where it stands: its place is not changed. Always: in step for everyone at a circle. When shown: from when a cube shows it to you. While it is selected (editing) or carried it rests where it stands, so it can be placed.', c: 'faint' });
+    { p: 'Drawn over where it stands: its place is not changed. Always: in step for everyone at a circle. When shown: from when a cube shows it to you. It keeps moving while selected, a ghost where it is placed; carried, it rests there, so it can be placed (Pause stands everything still).', c: 'faint' });
 }
 // the card's actions (one Undo step each): a kind (its own speed and amount, the axis and start kept; None takes it
 // away), its speed and amount a step up or down, the other way, its axis, when it starts

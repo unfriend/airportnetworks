@@ -193,8 +193,9 @@ empty, or pick it from the list: it follows that one at the distance they stand 
 **Less** and **More** set how far it notices people, how far in front of them it stays or how far it keeps away, and how
 far from its place it may go; **Slower** and **Faster** how fast it moves. In a shared room it reacts to one headset at a
 time, the same one for everyone at the circle; pages never count. With nobody near it goes back to its place by itself.
-Like a motion it is drawn over where the thing stands, so moving it, saving it and Undo work as ever; while you have it
-selected (editing) or carry it, it rests where it stands. Shared in a room and saved in `layout.json`
+Like a motion it is drawn over where the thing stands, so moving it, saving it and Undo work as ever; it goes on while
+you have it selected (a ghost shows where it is placed) and rests there while you carry it or Pause is on. Shared in a
+room and saved in `layout.json`
 (`engine/e6g_behave.js`; "Behaviours" in `SPEC.md`).
 
 ## Motions: spin, wobble, bob, pulse, orbit, sway
@@ -206,8 +207,23 @@ set how many a minute (*The other way* turns a spin or an orbit round), **Less**
 or a share of its size for a pulse), **Axis** which way (upright, side to side, front to back), and **Starts** whether it
 runs **Always** (on the room's clock: everyone at a circle sees it at the same moment) or **When shown** (from when a
 trigger cube shows it to you). It is drawn over where the thing stands: its place is not changed, so moving it, saving it
-and Undo work as ever. While you have it selected (editing) or carry it, it rests where it stands so you can place it;
-the others still see it move. A sound on it, or a cut-out, moves with it. Shared in a room and saved in `layout.json`.
+and Undo work as ever. It keeps moving while you have it selected, so you see the motion you picked at once; the others
+still see it move. A sound on it, or a cut-out, moves with it. Shared in a room and saved in `layout.json`.
+
+## Placing what moves: the ghost and Pause
+
+- **The ghost.** While something you have selected moves away from where it is placed (a motion, a recorded path, a
+  behaviour), a pale see-through copy stands at its place: that is where it is placed, and what Save keeps. On a page its
+  arrows stand on the ghost: drag them and the thing rests there while you drag, then moves on from its new place. In a
+  headset the grip on the ghost, or on the thing where it is, carries it from its place; let go, it moves on from there.
+  Its card's buttons (Turn 90°, On the floor, the size steps) work on its place as ever. A very big model's ghost is just
+  its outline box. Selecting a cut-out of it, or a sound that follows it, stands it still at its place while that is
+  selected, so you place those on it where it is placed.
+- **Pause.** **Motions: playing / paused** on the Scene tab (while editing), on the card of anything that moves, or **P**
+  on a page: everything stands where it is placed and animations hold their frame, so placing is easy; sounds play on.
+  It is this device's own (nobody else sees it), and turning Edit off plays everything again.
+- **Start again** on the card of something that starts *When shown* or plays *Once* plays it from its beginning, on this
+  device only.
 
 ## Recorded paths: the recorder
 
@@ -220,10 +236,19 @@ one by one; each plays its own and moves with the group).
   other hand (a path has no size).
 - **On a page**: select it, press **Record** on its card, then move it with its arrows (Move, Turn) or its card's buttons
   (Turn 90°, On the floor...), taking your time: the pauses are recorded too. **Stop** keeps it, **Cancel** drops it.
+- **Its ghost**: while you record, a ghost of it stays where it began. Bring it back there (within 5 cm and 10 degrees,
+  once it has been away) and the ghost lights up with a soft tick and, in a headset, a short buzz in your hand: let go (or
+  Stop) there and the end goes exactly onto the start.
+- **Smooth loops**: a recording that plays in a loop (a new one does) is tidied as it is kept: the still moments at its
+  start and end are cut, and when its end is within 15 cm and 20 degrees of its start, its last half second is bent so it
+  arrives exactly at its start, at the speed it sets off with, so the loop has no jump and no pause. Its card says what
+  was done (*Loop closed: its end met its start (6 cm, 4° apart; 0.4 s of stillness cut)*), or how far apart they were
+  when it could not close it; **Keep it as recorded** undoes the tidying (one Undo step). Once and Back and forth are kept
+  as recorded.
 - Up to 120 s (it stops there by itself and keeps what it has). The recording is thinned out to the keys that matter (a key
   wherever leaving it out would move it more than 5 mm or turn it more than 1 degree) and kept in its record as one
-  change: Undo takes it back. It then plays at once, even while it is selected (**Play it here** turns that off and on);
-  selected again or carried, it rests where it stands so you can place it.
+  change: Undo takes it back. It then plays at once, also while selected; carried, it rests where it is placed (its
+  ghost shows where that is).
 - It plays from where the thing stands: move it or turn it (arrows, grips, Turn 90°, its group) and its whole path moves
   with it. **Plays**: **Loop**, **Once** (then it stays at the end) or **Back and forth**; **Starts**: **Always** (on the
   room's clock, so everyone at a circle sees the same moment) or **When shown** (from when a trigger cube shows it to
