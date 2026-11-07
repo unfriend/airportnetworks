@@ -1039,7 +1039,8 @@ function tcAttach() {
   tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
   tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
   tc.showY = true;
-  const T = tcTarget(it);   // (its own holder, or its ghost's stand-in while it moves: e6h_ghost.js)
+  // (its own holder, or its ghost's stand-in while it moves: e6h_ghost.js; never switched in the middle of a drag)
+  const T = X.tcDrag && (tc.object === it.holder || (tc.object === TCP && TCP.userData.id === it.id)) ? tc.object : tcTarget(it);
   if (T === TCP) tcProxy(it);
   if (tc.object !== T) tc.attach(T);
 }

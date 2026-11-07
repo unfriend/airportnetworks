@@ -4290,7 +4290,7 @@ await step('design: the intro ends at the table', async () => {
 // head (its front to them, dist in front of them at its own height, at least dist away within its area, an item at its
 // offset, not following its target's spin), never faster than its speed, home with nobody in range, the record never
 // changed; nearest and first with several heads (another nearer by more than 0.3 m, kept until range + 0.5 m, ties by id,
-// pages never counting); resting while selected (editing) or carried and starting again from its place; a driver's samples
+// pages never counting); going on while selected (editing), resting while carried or paused and starting again from its place; a driver's samples
 // drawn 120 ms behind them (on one page, by a pretend other device's effect); the cards' rows (page and headset, Follow an
 // item... by pointing and by the list), one Undo step each; the state and layout.json, bad values refused, a group's copy
 {
@@ -4408,20 +4408,25 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     bad(r);
   });
-  await step('studio behaviours: resting while selected (editing) and while carried, starting again from its place; a driver\'s samples (a pretend other device\'s effect) drawn 120 ms behind them, home once they end', async () => {
+  await step('studio behaviours: going on while selected (editing; its ghost where it is placed), resting while carried and while paused, starting again from its place; a driver\'s samples (a pretend other device\'s effect) drawn 120 ms behind them, home once they end', async () => {
     const r = await ss(`(() => {
       const B = window.__bh, o = [];
       setEdit(true); select('');
       B.run(150, 1 / 30, [0.5, 1.6, -0.5, Math.PI / 2]);
       if (!STUDIO.behave('bhf001').on) o.push('not following at first');
       select('bhf001'); B.run(2, 1 / 30);
-      const s = STUDIO.behave('bhf001');
-      if (s.on || s.drive || B.far(B.drawn('bhf001'), B.placed('bhf001')) > 1e-9 || !STUDIO.pose('bhf001').rests) o.push('selected, it did not rest at its place: ' + JSON.stringify(s));
-      select(''); const L = B.run(1, 1 / 30).bhf001;
-      if (Math.hypot(L[0].x, L[0].z + 2) > 0.6 / 30 + 1e-6 || !STUDIO.behave('bhf001').on) o.push('not selected again, it did not start from its place: ' + JSON.stringify(L[0]));
+      const s = STUDIO.behave('bhf001'), g = STUDIO.ghost('bhf001');
+      if (!s.on || !s.drive || B.far(B.drawn('bhf001'), B.placed('bhf001')) < 0.05 || STUDIO.pose('bhf001').rests) o.push('selected, it did not go on: ' + JSON.stringify(s));
+      if (!g || !g.shown || g.at.some((v, i) => Math.abs(v - B.placed('bhf001').elements[i]) > 1e-9)) o.push('selected and away from its place, no ghost there: ' + JSON.stringify(g));
       STU.items.get('bhf001').carry = {}; B.run(2, 1 / 30);
-      if (STUDIO.behave('bhf001').on || STUDIO.behave('bhf001').drive) o.push('carried, it did not rest');
+      if (STUDIO.behave('bhf001').on || STUDIO.behave('bhf001').drive || B.far(B.drawn('bhf001'), B.placed('bhf001')) > 1e-9) o.push('carried, it did not rest at its place');
       delete STU.items.get('bhf001').carry;
+      { const L = B.run(1, 1 / 30).bhf001; if (Math.hypot(L[0].x, L[0].z + 2) > 0.6 / 30 + 1e-6 || !STUDIO.behave('bhf001').on) o.push('let go, it did not start from its place: ' + JSON.stringify(L[0])); }
+      B.run(30, 1 / 30); pauseSet(true); B.run(2, 1 / 30);
+      if (STUDIO.behave('bhf001').on || STUDIO.behave('bhf001').drive || B.far(B.drawn('bhf001'), B.placed('bhf001')) > 1e-9) o.push('paused, it did not rest at its place');
+      pauseSet(false);
+      { const L = B.run(1, 1 / 30).bhf001; if (Math.hypot(L[0].x, L[0].z + 2) > 0.6 / 30 + 1e-6 || !STUDIO.behave('bhf001').on) o.push('played again, it did not start from its place: ' + JSON.stringify(L[0])); }
+      select('');
       // a driver elsewhere (member zz, in range as a pretend head): its samples drawn 120 ms behind, between them; ended: home
       B.run(200, 1 / 30, [20, 1.6, 20, 0]);
       BEH.fake = [{ id: 'zz', p: [0, 1.6, -0.5], yaw: 0, ts: 1 }];
@@ -4517,7 +4522,8 @@ await step('design: the intro ends at the table', async () => {
 // sized per axis), an empty, a sound following the empty and a cut-out on the box put in for these steps: each kind's
 // drawn pose at two moments its formula (about its middle, in the scene's axes) over its placed pose, which stays as its
 // record puts it; 'always' the same on two pages at one room time, 'shown' from its showing; the sound following the
-// empty, the box's cut-out and a sound on the pulsing box coming along; resting while selected (or its group, or a sound on it) and while carried;
+// empty, the box's cut-out and a sound on the pulsing box coming along; going on while selected (or its group, or a sound on it), resting while
+// carried; selected and moving, a ghost where it is placed, the page's arrows on it, Pause (the Scene pane, a card, P), Start again;
 // the cards' rows (page and headset), one Undo step each; the state and layout.json, bad values refused
 {
   const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } }), mp2 = await browser.newPage({ viewport: { width: 640, height: 400 } });
@@ -4637,21 +4643,25 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     bad(out.concat(sh));
   });
-  await step('studio motions: resting while selected (editing), its group selected, a sound on it selected, and while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
+  await step('studio motions: going on while selected (editing), its group selected, a sound on it selected, and resting while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
     const out = await ss(`(() => {
       const M = window.__mo, o = [], mv = id => !STU.items.get(id).holder.matrixAutoUpdate, step = () => M.at('mot001', 3.3);
       setEdit(true); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } }); setRec('emp001', { motion: { kind: 'orbit', speed: 8, amount: 0.4 } }); select(''); step();
       if (!mv('mot001') || !mv('emp001')) o.push('not moving at first');
       select('mot001'); step();
-      if (mv('mot001') || !mv('emp001')) o.push('selected, it did not rest (or the empty rested too)');
-      const ex = new THREE.Matrix4().compose(STU.items.get('mot001').holder.position, STU.items.get('mot001').holder.quaternion, STU.items.get('mot001').holder.scale);
-      if (STU.items.get('mot001').holder.matrix.elements.some((v, i) => Math.abs(v - ex.elements[i]) > 1e-9)) o.push('resting, it was not drawn at its placed pose');
-      select(''); step();
-      if (!mv('mot001')) o.push('not moving again once not selected');
+      if (!mv('mot001') || !mv('emp001') || STUDIO.pose('mot001').rests) o.push('selected, it rested (or the empty did)');
       select('sfl001'); step();
-      if (mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty did not rest');
+      if (!mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty rested');
+      // (a sound on it carried: it rests, so the sound's place is measured where it is placed)
+      STU.items.get('sfl001').carry = true; step();
+      if (mv('emp001')) o.push('a sound on the empty carried: the empty did not rest');
+      STU.items.get('sfl001').carry = false;
       change(() => putItem('grpmo1', 'g', norm('g', { name: 'Two', items: ['mot001', 'emp001'] }))); select('grpmo1'); step();
-      if (mv('mot001') || mv('emp001')) o.push('their group selected: they did not rest');
+      if (!mv('mot001') || !mv('emp001')) o.push('their group selected: they rested');
+      const gm = [STUDIO.ghost('mot001'), STUDIO.ghost('emp001')];
+      if (!gm.every(g => g && g.shown)) o.push('their group selected: no ghosts for its moving members: ' + JSON.stringify(gm));
+      // (the group's pivot where they are placed, not where they are drawn: it does not move as they do)
+      { const g = STU.items.get('grpmo1'), P1 = g.holder.position.clone(); M.at('mot001', 4.1); if (g.holder.position.distanceTo(P1) > 1e-9) o.push('the group\\'s pivot moved with its members\\' motions'); }
       undo(); select(''); step();
       setEdit(false); select('mot001'); step();
       if (!mv('mot001')) o.push('editing off, it rested');
@@ -4678,7 +4688,7 @@ await step('design: the intro ends at the table', async () => {
       if (!got || !got.includes(want)) out.push('the page\'s card ' + id + ': ' + got);
     }
     await ss('renderPanes()');
-    const said = await ss(`[/rests where it stands/.test(document.querySelector('#pane-item').textContent), itemSub(STU.items.get('mot001'))]`);
+    const said = await ss(`[/a ghost where it is placed/.test(document.querySelector('#pane-item').textContent), itemSub(STU.items.get('mot001'))]`);
     await mp.click('#pane-item [data-id="motion:none"]');
     const pg = await ss(`['motion' in STU.items.get('mot001').rec, UNDO.length]`).then(a => a.concat(said));
     if (pg[0] || pg[1] !== u0 + seq.length + 1 || !pg[2] || !/spins/.test(pg[3])) out.push('the page\'s Motion rows (one Undo step each, the rest said): ' + JSON.stringify([pg, u0]));
@@ -4693,6 +4703,108 @@ await step('design: the intro ends at the table', async () => {
       return r;
     })()`);
     if (!xr[0] || !/"kind":"pulse","speed":30,"amount":0.1/.test(xr[1]) || !xr[2] || !/"amount":0.15/.test(xr[3]) || !xr[4] || xr[5]) out.push('the headset\'s Motion rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await step('studio motions: selected and moving, a ghost where it is placed (a big model only its box), gone when deselected; the page\'s arrows on the ghost (a drag moves its record, the item drawn there while dragged, moving again after); a pretend headset\'s grip on the ghost carrying it; Pause (the Scene pane, a card, P): everything at its placed pose, a clip held, nothing written to the room, editing off playing again; Start again; a cut-out made where a click met a moving model', async () => {
+    const out = await ss(`(() => {
+      const M = window.__mo, o = [], V = M.V, it = STU.items.get('mot001'), H = it.holder, placed = () => new THREE.Matrix4().compose(H.position, H.quaternion, H.scale);
+      const same = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= (e || 1e-9));
+      setEdit(true); select(''); setRec('emp001', { motion: undefined }); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 1 } });
+      M.at('mot001', 1);   // (a quarter of a bob: drawn 1 m above where it is placed)
+      if (STUDIO.ghost('mot001')) o.push('a ghost before it was selected');
+      select('mot001'); M.at('mot001', 1);
+      let g = STUDIO.ghost('mot001');
+      if (!g || !g.shown || g.parts !== 1 || g.hits !== 1 || !same(g.at, placed().toArray()) || !STUDIO.pose('mot001').moving) o.push('selected and moving: no ghost at its placed pose: ' + JSON.stringify(g));
+      // the page's arrows: on the ghost's stand-in; a drag goes into its placed pose (one Undo step), the item resting there meanwhile
+      tcSetMode('translate');
+      if (GL.tc.object !== TCP || TCP.position.distanceTo(H.position) > 1e-9) o.push('the arrows are not on the ghost');
+      const u0 = UNDO.length, p0 = it.rec.p.slice();
+      GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); TCP.position.x += 0.5; GL.tc.dispatchEvent({ type: 'objectChange' });
+      M.at('mot001', 1.5);
+      if (Math.abs(it.rec.p[0] - p0[0] - 0.5) > 1e-6 || !STUDIO.pose('mot001').rests || STUDIO.pose('mot001').moving || H.position.distanceTo(TCP.position) > 1e-9) o.push('dragged: its record or where it is drawn: ' + JSON.stringify([it.rec.p, STUDIO.pose('mot001')]));
+      GL.tc.dispatchEvent({ type: 'dragging-changed', value: false }); M.at('mot001', 1);
+      const dr = new THREE.Vector3().setFromMatrixPosition(H.matrix);
+      if (UNDO.length !== u0 + 1 || !STUDIO.pose('mot001').moving || Math.abs(dr.x - p0[0] - 0.5) > 1e-6 || Math.abs(dr.y - p0[1] - 1) > 1e-6 || GL.tc.object !== TCP || TCP.position.distanceTo(H.position) > 1e-9) o.push('let go, it did not move on from its new place: ' + JSON.stringify([UNDO.length - u0, dr]));
+      undo(); M.at('mot001', 1);
+      // a pretend headset's grip on the ghost (a ray at where it is placed, under where it is drawn): the item, carried from there
+      XR.on = true; GL.world.updateMatrixWorld(true);
+      const c = XR.ctrls[0], wp = GL.items.localToWorld(H.position.clone()), from = wp.clone().add(V(0, 0, 2));
+      const rc = new THREE.Raycaster(from, V(0, 0, -1)), h = rayPick(rc);
+      if (!h || h.id !== 'mot001' || !h.ghost) o.push('the ray on the ghost did not find the item: ' + JSON.stringify(h && [h.id, h.ghost]));
+      c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.makeTranslation(from.x, from.y, from.z); c.o.setFromMatrixPosition(c.g.matrix);
+      c.hover = h ? { kind: 'item', id: h.id, point: h.point, ray: h.ray } : null; xrGrab(c, true);
+      M.at('mot001', 1.2);
+      if (!c.grab || c.grab.p0.distanceTo(wp) > 1e-6 || STUDIO.pose('mot001').moving) o.push('the grip on the ghost did not carry it from where it is placed');
+      c.g.matrix.makeTranslation(from.x + 0.3, from.y, from.z); c.o.setFromMatrixPosition(c.g.matrix); carry(c, 1 / 30); xrGrab(c, false);
+      M.at('mot001', 1);
+      if (Math.abs(it.rec.p[0] - p0[0] - 0.3) > 1e-3 || !STUDIO.pose('mot001').moving) o.push('carried by its ghost and let go: ' + JSON.stringify(it.rec.p));
+      undo(); c.src = null; c.g.visible = false; c.hover = null; XR.on = false; GL.world.updateMatrixWorld(true);
+      // an object's ghost: a copy of its model; a big one only its outline box; an empty's cross; a sound's speaker (its own path)
+      setRec('box001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } }); select('box001'); M.at('box001', 1);
+      const nm = (() => { let n = 0; STU.items.get('box001').model.o.traverse(x => { if (x.isMesh && x.visible) n++; }); return n; })();
+      g = STUDIO.ghost('box001');
+      if (!g || !g.shown || g.outline || g.parts !== nm) o.push('an object\\'s ghost (its model\\'s ' + nm + ' meshes): ' + JSON.stringify(g));
+      GHOST.tris = 1; select(''); M.at('box001', 1); select('box001'); M.at('box001', 1); g = STUDIO.ghost('box001'); GHOST.tris = 100000;
+      if (!g || !g.outline) o.push('a big model\\'s ghost is not its outline box: ' + JSON.stringify(g));
+      setRec('emp001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } }); select('emp001'); M.at('emp001', 1); g = STUDIO.ghost('emp001');
+      if (!g || !g.shown || g.parts !== 2 || STUDIO.ghost('box001')) o.push('an empty\\'s ghost (its cross and dot), the box\\'s freed: ' + JSON.stringify([g, STUDIO.ghost('box001')]));
+      putItem('sgh001', 's', norm('s', { name: 'Walker', file: 'tone.wav', p: [1, 1.2, -1], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]] } })); select('sgh001'); M.at('sgh001', 1); g = STUDIO.ghost('sgh001');
+      if (!g || !g.shown || g.parts !== 2) o.push('a sound\\'s ghost (its speaker): ' + JSON.stringify(g));
+      removeItem('sgh001'); setRec('emp001', { motion: undefined });
+      select(''); M.at('box001', 1);
+      if (GH.size || STUDIO.ghost('box001')) o.push('deselected, a ghost stayed');
+      return o;
+    })()`);
+    // Pause: the Scene pane's switch, a card's and P; everything at its placed pose, the box's clip held, nothing written
+    await ss(`(setRec('box001', { motion: { kind: 'spin', speed: 30 } }), setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 1 } }), select(''), X.tab = 'scene', renderPanes(), window.__mo.at('box001', 1), window.__ps0 = JSON.stringify(collabState()), 0)`);
+    await mp.click('#pane-scene [data-id="pause"]');
+    const pz = await ss(`(() => {
+      const M = window.__mo, o = [], b = STU.items.get('box001'), t1 = (M.at('box001', 2), b.action.time), t2 = (M.at('box001', 2.7), b.action.time);
+      if (!MPAUSE.on || STUDIO.pose('box001').moving || STUDIO.pose('mot001').moving || !STUDIO.pose('box001').rests) o.push('paused, something moved');
+      if (Math.abs(t1 - t2) > 1e-9) o.push('paused, the box\\'s clip went on: ' + [t1, t2]);
+      if (!/Motions: paused/.test(document.querySelector('#pane-scene').textContent)) o.push('the Scene pane does not say paused');
+      if (JSON.stringify(collabState()) !== window.__ps0) o.push('Pause wrote to the room');
+      return o;
+    })()`);
+    await ss(`(select('mot001'), X.tab = 'item', renderPanes(), 0)`);
+    await mp.click('#pane-item [data-id="mpause"]');
+    const pz2 = await ss(`[MPAUSE.on, (window.__mo.at('mot001', 1), STUDIO.pose('mot001').moving), GL.tc.object === TCP]`);
+    if (pz2[0] || !pz2[1] || !pz2[2]) pz.push('the card\'s switch did not play them again: ' + JSON.stringify(pz2));
+    await mp.keyboard.press('p');
+    const pz3 = await ss(`[MPAUSE.on, (window.__mo.at('mot001', 1), STUDIO.pose('mot001').moving), GL.tc.object === STU.items.get('mot001').holder]`);
+    if (!pz3[0] || pz3[1] || !pz3[2]) pz.push('P did not pause them (the arrows back on the item): ' + JSON.stringify(pz3));
+    const pz4 = await ss(`(setEdit(false), window.__mo.at('mot001', 1), setEdit(true), [MPAUSE.on, STUDIO.pose('mot001').moving, JSON.stringify(collabState()).length > 0])`);
+    if (pz4[0] || !pz4[1]) pz.push('editing off did not play them again: ' + JSON.stringify(pz4));
+    out.push(...pz);
+    // Start again (a motion that starts when shown): its 'shown' clock from now; nothing recorded
+    const sa = await ss(`(() => {
+      setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 1, start: 'shown' } }); select('mot001'); X.tab = 'item'; renderPanes();
+      const it = STU.items.get('mot001'), u = UNDO.length; it.shownAt = performance.now() - 9000;
+      const b = document.querySelector('#pane-item [data-id="restart"]'); if (b) b.click();
+      return [!!b, performance.now() - it.shownAt < 1500, UNDO.length === u];
+    })()`);
+    if (!sa.every(Boolean)) out.push('Start again on a motion that starts when shown: ' + JSON.stringify(sa));
+    // a cut-out where a click met the box as it was drawn then (spinning), in its own frame, whatever it does since
+    const cu = await ss(`(() => {
+      const M = window.__mo, V = M.V, o = [], b = STU.items.get('box001');
+      setRec('box001', { anim: 'off', motion: { kind: 'spin', speed: 15 } }); select(''); M.at('box001', 1);   // (a quarter turn about its middle)
+      GL.world.updateMatrixWorld(true);
+      const mid = M.m(b).applyMatrix4(b.holder.matrixWorld), from = mid.clone().add(V(0.06, 0.03, 3)), rc = new THREE.Raycaster(from, V(0, 0, -1));
+      const hs = modelHits(b.model.o, rc).filter(x => x.object.isMesh && x.object.visible);
+      if (!hs.length) return ['the ray missed the drawn box'];
+      const L = b.holder.worldToLocal(hs[0].point.clone()).multiplyScalar(b.rec.s);   // (in its own frame, turned but not scaled)
+      pressItem('box001', rc.ray);
+      M.at('box001', 1.6);   // (it spins on before Cut out a part is pressed)
+      const n0 = [...STU.items.values()].filter(x => x.kind === 'x').length;
+      itemAct('cut', null, 'box001');
+      const x = [...STU.items.values()].filter(y => y.kind === 'x' && y.rec.on === 'box001').pop();
+      if (!x || [...STU.items.values()].filter(y => y.kind === 'x').length !== n0 + 1) return ['no cut-out made'];
+      const d = V(...x.rec.p).distanceTo(L);
+      if (d > 0.001) o.push('the cut-out is not where the click met the moving box: ' + (d * 1000).toFixed(1) + ' mm off');
+      undo(); setRec('box001', { anim: 'loop', motion: undefined }); setRec('mot001', { motion: undefined }); select('');
+      return o;
+    })()`);
+    out.push(...cu);
     bad(out);
   });
   await step('studio motions: the state and layout.json carry a motion and give it back; a record without one as before; bad values refused, out of range held', async () => {
@@ -4766,7 +4878,7 @@ await step('design: the intro ends at the table', async () => {
       return { armed, began, held };
     },
   }`;
-  await step('studio paths: a recording by a pretend headset\'s grip (Record its movement armed, a grip on nothing; the hand moving and turning, the left stick turning and the right pushing): simplified keys, the pose at every sample\'s time (between keys too) within 5 mm and 1 degree, one Undo step, its place kept, playing at once while selected', async () => {
+  await step('studio paths: a recording by a pretend headset\'s grip (Record its movement armed, a grip on nothing; the hand moving and turning, the left stick turning and the right pushing): simplified keys, the pose at every sample\'s time (between keys too) within 5 mm and 1 degree, one Undo step, its place kept, playing at once and on while selected', async () => {
     await rp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
     await rp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
     if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { bad(['the test scene did not load']); return; }
@@ -4798,15 +4910,15 @@ await step('design: the intro ends at the table', async () => {
       // it moved: the hand's turn, the right stick's push and the left stick's turn are in it (its last key far from its first)
       const L = Pth.k[Pth.k.length - 1], lq = P.Q(L[4], L[5], L[6], L[7]);
       if (!(Math.hypot(L[1], L[2], L[3]) > 0.3) || !(lq.angleTo(P.Q()) > 1)) out.push('the movement is not in it: ' + JSON.stringify(L));
-      // playing at once, though selected (Play it here): drawn at a scene time between keys as the sample there
+      // playing at once, though selected: drawn at a scene time between keys as the sample there
       const i = Math.floor(S.length * 0.6), sm = S[i], M = P.dec(P.at('box001', sm[0]));
-      if (STU.sel !== 'box001' || STU.recPlay !== 'box001' || !STUDIO.pose('box001').moving || STUDIO.pose('box001').rests) out.push('not playing at once: ' + JSON.stringify([STU.sel, STU.recPlay, STUDIO.pose('box001')]));
+      if (STU.sel !== 'box001' || !STUDIO.pose('box001').moving || STUDIO.pose('box001').rests) out.push('not playing at once: ' + JSON.stringify([STU.sel, STUDIO.pose('box001')]));
       const dm = P.mid(it, M.p, M.q, M.s).distanceTo(P.mid(it, P.V(sm[1], sm[2], sm[3]), P.Q(sm[4], sm[5], sm[6], sm[7]), s0));
       if (!(dm <= 0.005)) out.push('drawn at ' + sm[0] + ' s ' + (dm * 1000).toFixed(2) + ' mm from what was recorded');
       if (!/^Recorded 3\\.0 s in \\d+ keys/.test(REC_NOTE.text)) out.push('its note: ' + REC_NOTE.text);
-      // selected again: it rests at its place
+      // selected again: it plays on
       select(''); select('box001'); P.at('box001', 1);
-      if (STU.recPlay || STUDIO.pose('box001').moving) out.push('selected again, it did not rest');
+      if (!STUDIO.pose('box001').moving) out.push('selected again, it rested');
       undo();
       if ('path' in it.rec || JSON.stringify(it.rec) !== rec0) out.push('Undo did not take the recording back');
       P.off(); select('');
@@ -4895,8 +5007,9 @@ await step('design: the intro ends at the table', async () => {
       if (x.path || !/KB to share in a room/.test(x.note)) out.push('the shared state: ' + JSON.stringify(x));
       if (JSON.stringify(it.rec) !== rec0 || UNDO.length !== u0) out.push('a refused recording changed something: ' + (UNDO.length - u0));
       // 120 s: it stops by itself and is kept (its hand let go)
-      x = run(3700, (i, H, w) => H.put(H.a, w.clone().add(V(0.3 + i * 0.0003, 0.2 + 0.2 * Math.sin(i / 300), 0.6)), null, 'right'));
-      if (!x.path || x.res.held || !(it.rec.path.k[it.rec.path.k.length - 1][0] <= 120) || !(it.rec.path.k[it.rec.path.k.length - 1][0] > 119.9) || !/stopped at 120 s/.test(x.note)) out.push('120 s: ' + JSON.stringify([x.path, x.res, x.note, it.rec.path && it.rec.path.k.slice(-1)]));
+      x = run(3700, (i, H, w) => H.put(H.a, w.clone().add(V(0.32 + i * 0.0003, 0.2 + 0.2 * Math.sin(i / 300), 0.6)), null, 'right'));   // (2 cm off at once: no still start to cut)
+      // (its slow drift's last centimetre, within 1 cm of where it ended, is cut as a still end: it loops)
+      if (!x.path || x.res.held || !(it.rec.path.k[it.rec.path.k.length - 1][0] <= 120) || !(it.rec.path.k[it.rec.path.k.length - 1][0] > 119.4) || !/stopped at 120 s/.test(x.note)) out.push('120 s: ' + JSON.stringify([x.path, x.res, x.note, it.rec.path && it.rec.path.k.slice(-1)]));
       undo();
       // locked in place: Record its movement refused (and a page's Record); a sound that follows something; a group
       setRec('pth001', { locked: true }); select('pth001'); XR.on = true; itemAct('recArm'); XR.on = false;
@@ -4915,7 +5028,7 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     bad(r);
   });
-  await step('studio paths: a page\'s recording through the arrows (Record on the card, the Move arrows dragged, Turn 90° on its card, Stop), with its real timing, one Undo step, its place as it was, no sizing meanwhile; the cards\' rows (page and headset), one Undo step each', async () => {
+  await step('studio paths: a page\'s recording through the arrows (Record on the card, the Move arrows dragged, Turn 90° on its card, Stop), with its real timing, its still end cut, one Undo step, its place as it was, no sizing meanwhile, playing at once with its arrows on its ghost; the cards\' rows (page and headset), one Undo step each, Start again', async () => {
     const out = [];
     await ss(`(window.__pa.clock(), window.__pa.T = 5000, select('pth001'), X.tab = 'item', tcSetMode('translate'), renderPanes(), 0)`);
     const u0 = await ss('UNDO.length'), rec0 = await ss(`JSON.stringify(STU.items.get('pth001').rec)`);
@@ -4944,17 +5057,21 @@ await step('design: the intro ends at the table', async () => {
       const P = window.__pa, it = STU.items.get('pth001'), Pth = it.rec.path, o = [], V = P.V;
       if (REC || !Pth) return ['Stop did not keep it: ' + REC_NOTE.text];
       if (JSON.stringify(Object.assign({}, it.rec, { path: undefined })) !== ${JSON.stringify(rec0)}) o.push('its place is not as it was: ' + JSON.stringify(it.rec.p));
-      // its real timing: 0.6 m along x by 1 s, held to 1.5 s, the quarter turn at 1.5 s, held to 2 s (the end)
+      // its real timing: 0.6 m along x by 1 s, held to 1.5 s, the quarter turn at 1.5 s, then still to 2 s: cut, as it loops
+      // (it ends at the first sample after the turn, 1.533 s)
       const d = V(), q = P.Q(), Q0 = P.Q(...it.rec.q), p0 = V(...it.rec.p), atS = s => { pathAt(Pth, s, d, q); return [d.clone().applyQuaternion(Q0).add(p0), q.clone()]; };
       const [a1, b1] = atS(1), [a2, b2] = atS(1.49), [a3, b3] = atS(1.6), [a4] = atS(0.5), D = pathLen(Pth);
-      if (a1.distanceTo(p0.clone().add(V(0.6, 0, 0))) > 0.005 || a2.distanceTo(a1) > 0.005 || b1.angleTo(P.Q()) > 0.02 || b2.angleTo(P.Q()) > 0.02 || Math.abs(b3.angleTo(P.Q()) - Math.PI / 2) > 0.02 || a4.distanceTo(p0.clone().add(V(0.3, 0, 0))) > 0.005 || Math.abs(D - 2) > 0.002)
+      if (a1.distanceTo(p0.clone().add(V(0.6, 0, 0))) > 0.005 || a2.distanceTo(a1) > 0.005 || b1.angleTo(P.Q()) > 0.02 || b2.angleTo(P.Q()) > 0.02 || Math.abs(b3.angleTo(P.Q()) - Math.PI / 2) > 0.02 || a4.distanceTo(p0.clone().add(V(0.3, 0, 0))) > 0.005 || Math.abs(D - 1.533) > 0.002)
         o.push('the path\\'s timing: ' + JSON.stringify([a1, a2, a4].map(v => v.toArray().map(x => x.toFixed(3))).concat([b2.angleTo(P.Q()), b3.angleTo(P.Q()), D])));
-      if (STU.recPlay !== 'pth001' || GL.tc.object) o.push('not playing at once, or its arrows still there');
+      // (its end far from its start: not joined, and the card says so)
+      if (!REC_NOTE.join || !/^Its end is 60 cm and 90° from its start, so it jumps back each loop: record again and end at the ghost to close it\\. \\(0\\.5 s of stillness cut\\.\\)$/.test(REC_NOTE.join.text) || !REC_NOTE.join.keep) o.push('its join note: ' + JSON.stringify(REC_NOTE.join));
+      itemsStep(0, performance.now());
+      if (!STUDIO.pose('pth001').moving || GL.tc.object !== TCP || TCP.position.distanceTo(it.holder.position) > 1e-9) o.push('not playing at once, or its arrows not on its ghost');
       return o;
     })()`);
     out.push(...st);
     if (await ss('UNDO.length') !== u0 + 1) out.push('the page\'s recording was not one Undo step: ' + ((await ss('UNDO.length')) - u0));
-    // the page's rows: Once, Back and forth, When shown, Faster, Slower, Play it here, Delete recording
+    // the page's rows: Once, Back and forth, When shown, Faster, Slower, Start again, Delete recording
     const seq = [['pplay:once', '"play":"once"'], ['pplay:bounce', '"play":"bounce"'], ['pstart:shown', '"start":"shown"'], ['pspeed:+', '"speed":1.5'], ['pspeed:-', '"speed":1}'], ['pplay:loop', '"play":"loop"']];
     const u1 = await ss('UNDO.length');
     for (const [id, w] of seq) {
@@ -4963,14 +5080,16 @@ await step('design: the intro ends at the table', async () => {
       const got = await ss(`JSON.stringify(Object.assign({}, STU.items.get('pth001').rec.path, { k: undefined }))`);
       if (!got.includes(w)) out.push('the page\'s card ' + id + ': ' + got);
     }
-    await ss('renderPanes()'); await rp.click('#pane-item [data-id="recplay"]');
-    const rest = await ss(`[STU.recPlay, !!GL.tc.object]`);
-    await ss('renderPanes()'); await rp.click('#pane-item [data-id="recplay"]');
-    const play = await ss(`[STU.recPlay, !!GL.tc.object]`);
-    if (rest[0] !== '' || !rest[1] || play[0] !== 'pth001' || play[1]) out.push('Play it here: ' + JSON.stringify([rest, play]));
+    // Start again (it starts when shown): its 'shown' clock from now, drawn at its path's start then; nothing recorded
+    await ss(`(STU.items.get('pth001').shownAt = performance.now() - 5000, renderPanes(), 0)`);
+    const u2 = await ss('UNDO.length');
+    await rp.click('#pane-item [data-id="restart"]');
+    const sa = await ss(`(() => { const it = STU.items.get('pth001'), t = performance.now(), M = window.__pa.dec(window.__pa.at('pth001', 99, t)), d = new THREE.Vector3(), q = new THREE.Quaternion(); pathAt(it.rec.path, pathTime(it.rec.path, (t - it.shownAt) / 1000), d, q);
+      const w = d.applyQuaternion(new THREE.Quaternion(...it.rec.q).normalize()).add(new THREE.Vector3(...it.rec.p)); return [t - it.shownAt, M.p.distanceTo(w), UNDO.length]; })()`);
+    if (!(sa[0] >= 0 && sa[0] < 1500) || sa[1] > 1e-4 || sa[2] !== u2) out.push('Start again: ' + JSON.stringify([sa, u2]));
     await ss('renderPanes()'); await rp.click('#pane-item [data-id="recdel"]');
-    const del = await ss(`['path' in STU.items.get('pth001').rec, UNDO.length, STU.recPlay]`);
-    if (del[0] || del[1] !== u1 + seq.length + 1 || del[2]) out.push('Delete recording (one Undo step each): ' + JSON.stringify([del, u1]));
+    const del = await ss(`['path' in STU.items.get('pth001').rec, UNDO.length]`);
+    if (del[0] || del[1] !== u1 + seq.length + 1) out.push('Delete recording (one Undo step each): ' + JSON.stringify([del, u1]));
     await ss('undo()');
     // the headset's card: Record its movement armed and disarmed, Back and forth, Faster, Delete recording
     const xr = await ss(`(() => {
@@ -4985,6 +5104,85 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     if (JSON.stringify(xr) !== JSON.stringify([true, true, 'pth001', true, '', true, 'bounce', true, 1.5, true, false])) out.push('the headset\'s rows: ' + JSON.stringify(xr));
     bad(out);
+  });
+  await step('studio paths: the recording\'s ghost and the loop join: a pretend headset\'s recording going 0.5 m away and back to 4 cm of its start (its ghost at the start pose all along, lit near the end with a tick and a pulse; its end snapped on, the still start and end cut, the seam smooth, the card\'s line, Keep it as recorded); one ending 40 cm away not joined; a back-and-forth one not cut or bent; a page\'s recording through the arrows ending at the ghost joined too', async () => {
+    const r = await ss(`(() => {
+      const P = window.__pa, out = [], V = P.V, it = STU.items.get('box001'), u0 = UNDO.length;
+      const mid = (s, d, q) => (it.model ? it.proxy.position.clone().multiply(V(it.rec.s, it.rec.s, it.rec.s)) : V()).applyQuaternion(q).add(d);   // (its middle, in its placed frame)
+      const at = s => { const d = V(), q = P.Q(); pathAt(it.rec.path, s, d, q); return mid(s, d, q); };
+      // a recording by the pretend right hand (its haptics and the tick logged): the hand where where(i) puts it, frame by frame
+      const pulses = [], ticks = [], keep = HOST.sfx && HOST.sfx.play;
+      const run = (n, where, ghosts) => {
+        const H = P.hands(); P.clock();
+        select('box001'); itemAct('recArm');
+        const w = it.holder.getWorldPosition(V()), g0 = w.clone().add(V(0.3, 0.2, 0.6));
+        let i = 0;
+        const put = p => { H.put(H.a, p, null, 'right'); H.a.src.gamepad.hapticActuators = [{ pulse: (s, ms) => pulses.push([s, ms, i]) }]; };
+        if (HOST.sfx) HOST.sfx.play = (nm, o) => { ticks.push([nm, !!(o && o.force), i]); return null; };
+        try {
+          put(g0); H.b.src = null; H.b.g.visible = false; H.a.hover = null; xrGrab(H.a, true);
+          for (i = 1; i <= n && H.a.grab; i++) { P.T += 1000 / 30; put(g0.clone().add(where(i))); carry(H.a, 1 / 30); itemsStep(0, performance.now()); if (ghosts) ghosts.push(STUDIO.ghost('box001')); }
+          xrGrab(H.a, false);
+        } finally { if (keep) HOST.sfx.play = keep; P.off(); }
+      };
+      // (12 frames still, a circle 0.5 m across at 2.5 s a turn, stopping 4.2 cm short of where it began, 12 frames still)
+      const circ = (i, m) => { const k = Math.min(Math.max(i - 12, 0), m), th = 2 * Math.PI / 2.5 * k / 30; return V(0.25 - 0.25 * Math.cos(th), 0, -0.25 * Math.sin(th)); };
+      const p0 = it.rec.p.slice(), q0 = it.rec.q.slice(), placed = new THREE.Matrix4().compose(V(...p0), P.Q(...q0), V(it.rec.s, it.rec.s, it.rec.s)).toArray(), ghosts = [];
+      run(97, i => circ(i, 73), ghosts);
+      const Pth = it.rec.path, S = RECLAST && RECLAST.S;
+      if (!Pth || !S) return out.concat('no path: ' + REC_NOTE.text);
+      // its ghost: at its start pose the whole recording, lit from where it came back within 5 cm (frame 85)
+      const gOk = ghosts.length === 97 && ghosts.every(g => g && g.shown && g.at.every((v, j) => Math.abs(v - placed[j]) < 1e-9)), litAt = ghosts.findIndex(g => g && g.lit) + 1;
+      if (!gOk || litAt !== 85 || !ghosts.slice(84).every(g => g.lit)) out.push('its ghost while recording: ' + JSON.stringify([ghosts.length, gOk, litAt]));
+      if (!pulses.some(p => p[0] === 0.1 && p[2] === 85) || !ticks.some(t => t[0] === 'hover' && t[1] && t[2] === 85)) out.push('no pulse or tick as it lit: ' + JSON.stringify([pulses, ticks]));
+      // the still start and end cut: 0.4 s each; it moves within 0.1 s and ends where it last moved (73 frames: 2.433 s)
+      const D = pathLen(Pth), K = Pth.k, k0 = K[0], kL = K[K.length - 1], kq = e => P.Q(e[4], e[5], e[6], e[7]);
+      if (Math.abs(D - 73 / 30) > 0.002 || at(0.1).distanceTo(at(0)) < 0.03) out.push('the still moments not cut: ' + JSON.stringify([D, at(0.1).distanceTo(at(0))]));
+      // its last key is its first's pose; the seam: drawn just before its end and just after its start within 5 mm, its velocity over the last and first 0.05 s alike
+      if (Math.hypot(kL[1] - k0[1], kL[2] - k0[2], kL[3] - k0[3]) > 1e-9 || kq(kL).angleTo(kq(k0)) > 1e-4) out.push('its last key is not its first\\'s pose: ' + JSON.stringify([k0, kL]));
+      const seam = at(D - 0.002).distanceTo(at(0.002)), vb = at(D).sub(at(D - 0.05)).divideScalar(0.05), va = at(0.05).sub(at(0)).divideScalar(0.05);
+      if (seam > 0.005 || vb.distanceTo(va) > 0.3 * Math.min(vb.length(), va.length()) || va.length() < 0.4) out.push('the seam: ' + JSON.stringify([seam, vb.toArray(), va.toArray()]));
+      if (JSON.stringify(it.rec.p) !== JSON.stringify(p0) || UNDO.length !== u0 + 1) out.push('its place changed, or not one Undo step');
+      const J = REC_NOTE.join;
+      if (!J || !/^Loop closed: its end met its start \\(4 cm, 0° apart; 0\\.8 s of stillness cut\\)\\.$/.test(J.text) || !J.keep) out.push('its join note: ' + JSON.stringify(J));
+      X.tab = 'item'; renderPanes();
+      if (!document.querySelector('#pane-item [data-id="reckeep"]') || !/Loop closed/.test(document.querySelector('#pane-item').textContent)) out.push('the card does not say it, or offer Keep it as recorded');
+      // Keep it as recorded: the raw recording, one Undo step (its first key where it began, still; its last 4.2 cm from it)
+      document.querySelector('#pane-item [data-id="reckeep"]').click();
+      { const K2 = it.rec.path.k, e = K2[K2.length - 1]; if (UNDO.length !== u0 + 2 || Math.abs(pathLen(it.rec.path) - 97 / 30) > 0.002 || Math.hypot(K2[0][1], K2[0][2], K2[0][3]) > 1e-9 || Math.abs(Math.hypot(e[1], e[2], e[3]) - 0.042) > 0.002) out.push('Keep it as recorded: ' + JSON.stringify([UNDO.length - u0, pathLen(it.rec.path), K2[0], e])); }
+      undo(); undo();
+      // one ending 40 cm away: not joined, and the card says so (no still part: nothing cut, nothing offered)
+      run(30, i => V(Math.min(i, 25) * 0.02 - Math.max(0, i - 25) * 0.02, 0, 0));
+      { const J2 = REC_NOTE.join, K2 = it.rec.path.k, e = K2[K2.length - 1]; if (!J2 || J2.text !== 'Its end is 40 cm from its start, so it jumps back each loop: record again and end at the ghost to close it.' || J2.keep || Math.abs(Math.hypot(e[1], e[2], e[3]) - 0.4) > 0.003 || Math.abs(pathLen(it.rec.path) - 1) > 0.002) out.push('one ending 40 cm away: ' + JSON.stringify([J2, e, pathLen(it.rec.path)])); }
+      // a back-and-forth one recorded again (still at both ends, ending 40 cm away): kept as it was recorded, no line
+      setRec('box001', { path: Object.assign({}, it.rec.path, { play: 'bounce' }) });
+      run(60, i => V(Math.min(Math.max(i - 8, 0), 25) * 0.02 - Math.min(Math.max(i - 33, 0), 20) * 0.005, 0, 0));
+      { const P2 = it.rec.path, K2 = P2.k, e = K2[K2.length - 1]; if (P2.play !== 'bounce' || REC_NOTE.join || Math.abs(pathLen(P2) - 2) > 0.002 || Math.hypot(K2[0][1], K2[0][2], K2[0][3]) > 1e-9 || Math.abs(Math.hypot(e[1], e[2], e[3]) - 0.4) > 0.003) out.push('a back-and-forth one cut or bent: ' + JSON.stringify([P2.play, REC_NOTE.join, pathLen(P2), K2[0], e])); }
+      while (UNDO.length > u0) undo();
+      return out;
+    })()`);
+    // a page's recording through the arrows: 0.3 m out and back to 2 cm, still 10 frames, Stop: joined
+    const pg = await ss(`(() => {
+      const P = window.__pa, it = STU.items.get('pth001'), H = it.holder, o = [], tc = GL.tc, u0 = UNDO.length;
+      P.clock(); select('pth001'); X.tab = 'item'; tcSetMode('translate'); itemAct('rec');
+      if (!REC || REC.by !== 'page' || tc.object !== H) return ['Record did not start with the arrows on it'];
+      tc.dispatchEvent({ type: 'dragging-changed', value: true });
+      for (let i = 1; i <= 29; i++) { P.T += 1000 / 30; H.position.x += i <= 15 ? 0.02 : -0.02; tc.dispatchEvent({ type: 'objectChange' }); recStep(); itemsStep(0, performance.now()); }
+      tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      for (let i = 1; i <= 10; i++) { P.T += 1000 / 30; recStep(); itemsStep(0, performance.now()); }
+      const g = STUDIO.ghost('pth001');
+      if (!g || !g.shown || !g.lit) o.push('its ghost not lit at the end: ' + JSON.stringify(g));
+      itemAct('recStop');
+      const K = it.rec.path && it.rec.path.k, J = REC_NOTE.join;
+      if (!K) return o.concat('Stop kept nothing: ' + REC_NOTE.text);
+      const a = K[0], b = K[K.length - 1];
+      if (Math.hypot(b[1] - a[1], b[2] - a[2], b[3] - a[3]) > 1e-9 || Math.abs(pathLen(it.rec.path) - 29 / 30) > 0.002 || !J || !/^Loop closed: its end met its start \\(2 cm, 0° apart; 0\\.3 s of stillness cut\\)\\.$/.test(J.text) || UNDO.length !== u0 + 1)
+        o.push('the page\\'s recording not joined: ' + JSON.stringify([a, b, pathLen(it.rec.path), J, UNDO.length - u0]));
+      while (UNDO.length > u0) undo();
+      select('');
+      return o;
+    })()`);
+    bad(r.concat(pg));
   });
   await step('studio paths: the state and layout.json carry a path and give it back; norm\'s rules (2 to 600 keys, the first at 0, strictly later, at most 120 s, 8 numbers a key; play, start, speed); the scene\'s 6,000 in a layout and from the room; a GLB switch turns its keys so it moves as before', async () => {
     const r = await ss(`(() => {

@@ -4322,7 +4322,8 @@ times looped, once and back and forth, at ×2 and when shown, a bob on top, the 
 it), a sound following it, a sound's own path (and its emitter), a following sound's own path waiting, the box's cut-out
 coming along, at rest without one; the refusals in words (too short, not moved, a jittery 700 frames needing more than
 600 keys, ten empties of 599 keys leaving no room for the scene's 6,000 and their copies refused, the shared state's limit
-lowered, a locked item, a following sound, a group) with nothing changed, and 120 s stopping it and keeping it; a page's
+lowered, a locked item, a following sound, a group) with nothing changed, and 120 s stopping it and keeping it (its slow
+drift's last centimetre cut as a still end, v122); a page's
 recording (Record on the card, the Move arrows dragged 0.6 m over a second through `TransformControls`' own events, half
 a second still, the size steps and the Size arrows refused, Turn 90° on its card, half a second still, Stop): its timing
 as recorded, its still end cut (it ends 1.533 s in, the first sample after the turn: it loops), the card saying its end is
@@ -4334,8 +4335,8 @@ recording's ghost and the loop join (v122): a pretend headset's recording of the
 across at 2.5 s a turn stopping 4.2 cm short of its start, 12 frames still), its ghost at its start pose in every frame
 and lit from the frame it came back within 5 cm (frame 85), a pulse of 0.1 on the stubbed haptic actuator and a forced
 `hover` tick asked of the stubbed `HOST.sfx.play` in that frame; the path cut to 73 frames (2.433 s, moving within 0.1
-s), its last key its first's pose, drawn within 5 mm across the seam and its speed over the last and the first 0.1 s
-within 30 % of each other; one Undo step, its place unchanged; the card's *Loop closed: its end met its start (4 cm, 0°
+s), its last key its first's pose, drawn within 5 mm across the seam and its velocity over the last and the first 0.05
+s within 30 % of each other; one Undo step, its place unchanged; the card's *Loop closed: its end met its start (4 cm, 0°
 apart; 0.8 s of stillness cut)* and *Keep it as recorded* (the raw 3.233 s path, its last key 4.2 cm from its first, one
 Undo step); one ending 40 cm away not joined (*Its end is 40 cm from its start, so it jumps back each loop...*, nothing to
 keep); a back-and-forth one recorded again neither cut nor bent and no line; a page's recording through the arrows (0.3
