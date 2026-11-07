@@ -288,6 +288,74 @@ function modelWords(f) {
   const w = [size && Math.max(...size) > 0 ? metres(Math.max(...size)) : '', Number.isFinite(n) ? `${fmt(n)} triangles` : ''].filter(Boolean);
   return w.length ? w.join(' · ') : mb(f.bytes);
 }
+
+// ---- the Items pane's tiles (the owner, 7 November 2026: "items need a preview in the items list tab, should show the same
+// image and look like the add item part"): an object shows its model's picture, as the Add pane does; what has no file is
+// drawn here, on the pictures' dark background, in its colour: a shape its kind (cube, sphere, cylinder, plane; one that
+// hides things see-through, its edges dashed), a sound a speaker, a trigger cube a see-through cube's edges, an empty an
+// axis cross, a cut-out cutting nothing a dashed box. Drawn once a kind and colour, as a canvas the headset draws and the
+// page shows as a data URL (so both look the same)
+const TILE = new Map(), TILE_PX = 256;
+function tileFor(t) {
+  const key = t.k + '|' + t.col + '|' + (t.hide ? 1 : 0);
+  let e = TILE.get(key);
+  if (e) return e.cv;
+  const S = TILE_PX, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const x = cv.getContext('2d'), c = new THREE.Color(t.col || '#c9d1dc'), rgb = (k, w) => { const m = c.clone().multiplyScalar(k).lerp(new THREE.Color(1, 1, 1), w || 0); return `rgb(${[m.r, m.g, m.b].map(v => Math.round(Math.min(1, v) * 255)).join(',')})`; };
+  const gr = x.createRadialGradient(S / 2, S * 0.42, S * 0.05, S / 2, S / 2, S * 0.75);
+  gr.addColorStop(0, '#1d2c44'); gr.addColorStop(1, '#070c16');
+  x.fillStyle = gr; x.fillRect(0, 0, S, S);
+  x.lineJoin = x.lineCap = 'round';
+  // a box seen from a little above (its corners -1..1 on each axis), as the pictures see a model
+  const iso = (X, Y, Z, s = 46, cy = 130) => [S / 2 + (X - Z) * 0.866 * s, cy + (X + Z) * 0.5 * s - Y * s];
+  const poly = (P, fill, stroke, lw, dash) => { x.beginPath(); P.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]))); x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.setLineDash(dash || []); x.lineWidth = lw || 3; x.strokeStyle = stroke; x.stroke(); x.setLineDash([]); } };
+  const line = (a, b, col, lw, dash) => { x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.setLineDash(dash || []); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); x.setLineDash([]); };
+  const C = [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1], [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]].map(p => iso(...p));
+  const E12 = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]], BACK = [[0, 1], [3, 0], [0, 4]];   // (the three edges at the far bottom corner are behind)
+  const edges = (col, lw, dashBack, dashAll) => { for (const [a, b] of E12) { const back = BACK.some(([p, q]) => p === a && q === b); line(C[a], C[b], col, lw, dashAll ? [12, 9] : back && dashBack ? [8, 8] : []); } };
+  const faces = a => { x.globalAlpha = a; poly([C[4], C[5], C[6], C[7]], rgb(1, 0.25)); poly([C[1], C[2], C[6], C[5]], rgb(0.62)); poly([C[2], C[3], C[7], C[6]], rgb(0.84)); x.globalAlpha = 1; };
+  const see = t.hide ? 0.3 : 1, dash = t.hide ? [12, 9] : null;
+  if (t.k === 'cube') { faces(see); if (t.hide) edges(rgb(1, 0.45), 3, false, true); else for (const [a, b] of [[4, 5], [5, 6], [6, 7], [7, 4], [1, 5], [2, 6], [3, 7], [1, 2], [2, 3]]) line(C[a], C[b], rgb(1, 0.45), 2.5); }
+  else if (t.k === 'sphere') {
+    const g = x.createRadialGradient(104, 104, 6, 128, 132, 84);
+    g.addColorStop(0, rgb(1, 0.5)); g.addColorStop(0.45, rgb(1)); g.addColorStop(1, rgb(0.32));
+    x.globalAlpha = see; x.beginPath(); x.arc(128, 132, 80, 0, 7); x.fillStyle = g; x.fill(); x.globalAlpha = 1;
+    if (t.hide) { x.beginPath(); x.arc(128, 132, 80, 0, 7); x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'cylinder') {
+    const rx = 56, ry = 19, y0 = 66, y1 = 196, g = x.createLinearGradient(128 - rx, 0, 128 + rx, 0);
+    g.addColorStop(0, rgb(0.5)); g.addColorStop(0.38, rgb(1)); g.addColorStop(1, rgb(0.45));
+    x.globalAlpha = see;
+    x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.closePath(); x.fillStyle = g; x.fill();
+    x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.fillStyle = rgb(1, 0.28); x.fill(); x.globalAlpha = 1;
+    if (t.hide) { x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.stroke(); x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'plane') {
+    const P = [iso(-1.15, -1.15, 0, 50, 130), iso(1.15, -1.15, 0, 50, 130), iso(1.15, 1.15, 0, 50, 130), iso(-1.15, 1.15, 0, 50, 130)], g = x.createLinearGradient(P[0][0], P[3][1], P[2][0], P[1][1]);
+    g.addColorStop(0, rgb(1, 0.2)); g.addColorStop(1, rgb(0.6));
+    x.globalAlpha = see; poly(P, g); x.globalAlpha = 1;
+    poly(P, null, rgb(1, 0.45), 3, dash);
+  } else if (t.k === 'sound') {
+    // a speaker: its box, its cone and three waves
+    x.globalAlpha = 1; poly([[64, 104], [94, 104], [94, 156], [64, 156]], rgb(0.8)); poly([[94, 104], [136, 68], [136, 192], [94, 156]], rgb(1, 0.15));
+    x.lineWidth = 10;
+    [34, 58, 82].forEach((r, i) => { x.globalAlpha = 1 - i * 0.25; x.beginPath(); x.arc(140, 130, r, -0.75, 0.75); x.strokeStyle = rgb(1, 0.3); x.stroke(); });
+    x.globalAlpha = 1;
+  } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
+  else if (t.k === 'empty') {
+    // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
+    const o = iso(0, 0, 0, 82, 136), ax = [[iso(1, 0, 0, 82, 136), '#ff5a4b'], [iso(0, 1, 0, 82, 136), '#3ee08f'], [iso(0, 0, 1, 82, 136), '#4f9dff']];
+    for (const [p, col] of ax) { line([2 * o[0] - p[0], 2 * o[1] - p[1]], o, col, 5, [6, 9]); line(o, p, col, 8); }
+    x.beginPath(); x.arc(o[0], o[1], 15, 0, 7); x.fillStyle = rgb(1, 0.2); x.fill();
+  } else {
+    // a cut-out cutting nothing: its dashed box and a pair of scissors
+    edges(rgb(1, 0.2), 3, false, true);
+    x.font = '700 72px B612, "Segoe UI", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = rgb(1, 0.3); x.fillText('✂', 128, 136);
+  }
+  TILE.set(key, e = { cv, url: '' });
+  return cv;
+}
+// the same tile for the page: a data URL, made once
+function tileUrl(t) { tileFor(t); const e = TILE.get(t.k + '|' + t.col + '|' + (t.hide ? 1 : 0)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
 // for tests and the console: which models have a picture and where it is from, and Make pictures
 const pvState = () => ({
   listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),

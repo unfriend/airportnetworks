@@ -22436,7 +22436,10 @@ function setView(name) {
 // A pane is a list of blocks: { h, sub } a heading; { p, c } a line (c: muted, faint, amber, red, green); { code } a
 // command; { kv: [[name, value]] }; { label, row: [buttons] }; { label, list: [rows] }; { label, grid: [cards] } (the Add
 // pane's models: a card is a row with pic, the models whose picture it shows, first that has one, kind, the plain tile's
-// word, sub2 a second line, and title, the page's tooltip). A button or a row: { id, label,
+// word, sub2 a second line, and title, the page's tooltip; the Items pane's cards (item: true) also tile, a tile drawn for
+// what has no file, sel and pk (selected; picked for a cube's list or a group), lock and moves (marks), tags (an object's
+// cut-outs: buttons) and ticks (Shows and Hides: [[list, on]])); { label, gh } (a group's heading in the Items pane: a
+// button). A button or a row: { id, label,
 // sub, act, v, on, dis, primary, warn, col, page (page only), xr (headset only) }
 const SOUND_NOTE = 'The scene\'s sounds follow this device\'s Sound button (not the Sound effects or Narration switches: they are the scene\'s own).';
 const hhmm = ms => { const d = new Date(ms), t = d.toTimeString().slice(0, 5); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + t; };
@@ -22584,34 +22587,30 @@ function paneBlocks(tab) {
     if (!it) { B.push({ h: 'Item' }, { p: ed ? (XR.on ? 'Point at something in the scene and pull the trigger, or pick it under Items.' : 'Click something in the scene, or pick it under Items.') : 'Pick something under Items to see its card.', c: 'muted' }); return B; }
     itemBlocks(it, B, ed);
   } else {
+    // the Items pane as cards, the Add pane's look (the owner, 7 November 2026: "items need a preview in the items list
+    // tab, should show the same image and look like the add item part"): groups first, a heading each (a press selects the
+    // group) with its members' cards under it; then what is in no group, by kind. An object's cut-outs are tags on its card
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
     B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
     const selCube = ed && STU.items.get(STU.sel) && STU.items.get(STU.sel).kind === 'c' ? STU.items.get(STU.sel) : null;
-    const rowOf = (it, ind) => {
-      const inP = P && it.kind !== 'c' ? (P.rec.show.includes(it.id) ? 'show' : P.rec.hide.includes(it.id) ? 'hide' : '') : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
-      const row = { id: 'sel:' + it.id, label: (inP || inG ? '✓ ' : '') + (it.kind === 'x' ? '✂ ' : '') + tagName(it.rec), sub: itemSub(it), act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id, on: it.id === STU.sel || !!inP || inG, col: it.kind !== 'o' ? it.look.col : '', ind: ind || (it.kind === 'x' && !!cutObj(it)) };
-      if (selCube && it.kind !== 'c') row.ticks = [['show', selCube.rec.show.includes(it.id)], ['hide', selCube.rec.hide.includes(it.id)]];
-      return row;
-    };
-    // (an object and the cut-outs under it)
-    const withCuts = (it, ind) => [rowOf(it, ind)].concat(it.kind === 'o' ? cutsOn(it.id).map(x => rowOf(x, (ind || 0) + 1)) : []);
+    if (selCube) B.push({ p: `Shows and Hides under each card: what ${selCube.rec.name} shows and hides (a press puts it on that list, again takes it off).`, c: 'faint' });
+    const C = { P, GP, selCube, L: sceneLists() };
     // (groups first, each with its members under it; picking for a cube, a group's name puts all of its members in or out)
     const gs = all.filter(it => it.kind === 'g'), grouped = new Set();
-    if (gs.length) B.push({ label: 'Groups', list: gs.flatMap(g => {
+    for (const g of gs) {
       const ms = members(g), inAll = !!P && ms.some(m => m.kind !== 'c') && ms.filter(m => m.kind !== 'c').every(m => P.rec.show.includes(m.id) || P.rec.hide.includes(m.id));
       for (const m of ms) grouped.add(m.id);
-      return [{ id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + tagName(g.rec), sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), col: g.look.col }].concat(ms.flatMap(m => withCuts(m, 1)));
-    }) });
-    // (each object's cut-outs under it; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing (their object is not here)']]) {
-      const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
-      if (!L.length) continue;
-      B.push({ label: title, list: L.flatMap(it => (k === 'o' ? withCuts(it) : [rowOf(it)])) });
+      B.push({ label: g === gs[0] ? `Groups (${gs.length})` : '', gh: { id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + g.rec.name, sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), sel: g.id === STU.sel, lock: !!g.rec.locked, col: g.look.col } });
+      if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
-    if (selCube) B.push({ p: `Ticks: what ${selCube.rec.name} shows and hides.`, c: 'faint', page: true });
+    // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
+    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+      const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
+      if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
+    }
   }
   return B;
 }
@@ -22646,6 +22645,38 @@ function itemSub(it) {
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
+}
+// an item as a card of the Items pane (C: the pane's picks, the selected cube and the scene's lists): an object its model's
+// picture (as the Add pane shows it for that file: an original a GLB stands for shows the GLB's), else the plain tile with
+// its kind; what has no file a tile drawn for it (tileFor, e7e_pics.js); its name, a short line and a faint one; marks for
+// a lock and for moving (a motion, a recorded path or a behaviour); an object's cut-outs as tags (a press selects one); with
+// a cube selected, Shows and Hides under it. A press does what the row did: selects it, or picking, picks it
+const kTris = n => (n < 1000 ? String(n) : n < 9950 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n < 999500 ? Math.round(n / 1000) + 'k' : (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M');
+function itemCard(it, C) {
+  const r = it.rec, { P, GP, selCube } = C;
+  const pkOf = id => (P ? (P.rec.show.includes(id) ? 'show' : P.rec.hide.includes(id) ? 'hide' : '') : '');
+  const inP = it.kind !== 'c' ? pkOf(it.id) : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
+  const ticks = id => (selCube && id !== selCube.id ? [['show', selCube.rec.show.includes(id)], ['hide', selCube.rec.hide.includes(id)]] : null);
+  const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id,
+    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour), ticks: it.kind !== 'c' ? ticks(it.id) : null };
+  const state = [recording(it) ? 'recording' : '', (it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you'];
+  if (it.kind === 'o') {
+    const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.L.stands.get(r.file);
+    card.pic = g ? [g, r.file] : [r.file]; card.kind = extOf(r.file).toUpperCase();
+    if (info) { const sz = placedBox(E, r.q, r.s).getSize(new THREE.Vector3()); card.sub = metres(Math.max(sz.x, sz.y, sz.z)) + ` · ${kTris(info.tris)} triangles`; }
+    else card.sub = !E || !f || E.state === 'missing' ? 'Its file is not in the scene' : E.state === 'failed' ? 'Could not be read' : E.state === 'loading' ? `Loading: ${Math.round(E.p * 100)} %` : E.state === 'parsing' ? 'Reading the file...' : modelWords(g ? STU.fileMap.get(g) || f : f);
+    // (its file's name where its name does not say it)
+    state.unshift(r.name.toLowerCase().startsWith(stem(r.file).toLowerCase()) ? '' : baseName(r.file));
+    // its cut-outs as tags: a press selects one (picking for a cube, puts it on the list); a cube selected, their Shows and Hides
+    const xs = cutsOn(it.id);
+    if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, ticks: ticks(x.id) }; });
+  } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
+  else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
+  else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}`; state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
+  else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
+  card.sub2 = state.filter(Boolean).join(' · ');
+  return card;
 }
 function itemBlocks(it, B, ed) {
   // (locked in place: what moves, turns, sizes or deletes it is greyed, mv and dl; e6d_shapes.js)
@@ -23001,6 +23032,7 @@ function act(a, v) {
     fromOrig: () => { FROM.orig = !FROM.orig; },
     sel: () => select(v === STU.sel ? '' : v),
     link: () => { if (STU.pick) toggleLink(STU.pick.id, STU.pick.list, v); },
+    tick: () => { const [l, id] = String(v).split(':'); if (l === 'show' || l === 'hide') toggleLink(STU.sel, l, id); },   // (the Items pane's Shows and Hides: the selected cube's lists)
     linkg: () => { const g = STU.items.get(v); if (STU.pick && g) toggleLinks(STU.pick.id, STU.pick.list, members(g).map(m => m.id)); },
     pickdone: () => { STU.pick = null; },
     gtog: () => { if (STU.gpick) groupToggle(STU.gpick.id, v); },
@@ -23024,8 +23056,6 @@ function buildExplore() {
     .stu-list li[aria-disabled="true"] { opacity: 0.45; cursor: default; }
     .stu-list li small { grid-column: 1; color: var(--muted); font-size: 12.5px; }
     .stu-list li > span:first-child { overflow-wrap: anywhere; min-width: 0; }
-    .stu-list li .tk { grid-row: 1 / 3; grid-column: 2; display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
-    .stu-list li .tk label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
     .stu-warn { color: var(--amber); margin-left: 6px; }
     .stu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(calc((100% - 16px) / 3), max(104px, calc((100% - 32px) / 5))), 1fr)); gap: 8px; margin: 4px 0 14px; }
     .stu-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 5px 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
@@ -23037,6 +23067,32 @@ function buildExplore() {
     .stu-card .nm { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
     .stu-card small { color: var(--muted); font-size: 11.5px; line-height: 1.25; }
     .stu-card small.f { color: var(--faint); }
+    .stu-ic { padding: 0; cursor: default; gap: 0; }
+    .stu-ic:hover { border-color: var(--line); }
+    .stu-ic .cm { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 5px 5px 6px; border: 0; border-radius: 6px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+    .stu-ic .cm:hover { background: rgba(149, 166, 189, 0.12); }
+    .stu-ic.sel { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan); }
+    .stu-ic.pk-show:not(.sel) { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+    .stu-ic.pk-hide:not(.sel) { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+    .stu-ic.pk-in:not(.sel) { border-color: var(--cyan); }
+    .stu-card .pic { position: relative; }
+    .stu-card .mks { position: absolute; top: 4px; right: 4px; display: flex; gap: 3px; }
+    .stu-card .mk { font-style: normal; font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 4px; background: rgba(4, 10, 20, 0.8); color: var(--ink); }
+    .stu-card .mk.mv { color: var(--cyan); font-weight: 700; }
+    .stu-ic .tg, .stu-ic .tks { display: flex; gap: 4px; padding: 0 5px 5px; min-width: 0; }
+    .stu-ic .tg button, .stu-ic .tks button { font: inherit; font-size: 11.5px; line-height: 1.2; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--line); background: rgba(149, 166, 189, 0.1); color: var(--ink); cursor: pointer; min-width: 0; }
+    .stu-ic .tg { flex-wrap: wrap; }
+    .stu-ic .tg .tag { flex: 1 1 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stu-ic .tks .tk { flex: 1; }
+    .stu-ic .tg .tks { padding: 0; flex: 1 1 100%; } .stu-ic .tg .tks .tk { font-size: 11px; padding: 2px 4px; }
+    .stu-ic .tg button[aria-pressed="true"], .stu-ic .tks button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); background: rgba(70, 217, 255, 0.14); }
+    .stu-gh { display: flex; align-items: center; gap: 8px; width: 100%; margin: 6px 0 6px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+    .stu-gh:hover { border-color: var(--cyan); }
+    .stu-gh[aria-pressed="true"] { border-color: var(--cyan); }
+    .stu-gh.sel { box-shadow: 0 0 0 2px var(--cyan); }
+    .stu-gh span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .stu-gh small { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+    .stu-gh .stu-sw { margin: 0; }
     .stu-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin: 0 7px -2px 0; box-shadow: 0 0 0 1px var(--line); }
     .stu-code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: var(--chip); padding: 6px 8px; border-radius: 4px; display: block; margin: 0 0 10px; overflow-x: auto; white-space: nowrap; }
     #explore .actions .btn[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
@@ -23081,15 +23137,12 @@ function buildExplore() {
   $('#explore').addEventListener('click', ev => {
     const t = ev.target.closest('[data-act]');
     if (!t || t.getAttribute('aria-disabled') === 'true' || t.disabled) return;
-    if (t.dataset.act === 'tick') return;
     act(t.dataset.act, t.dataset.n ? +t.dataset.v : t.dataset.v);
   });
-  // a tick box in Items: an item in or out of the selected cube's list
   $('#explore').addEventListener('change', ev => {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
-    if (t.dataset && t.dataset.act === 'tick') toggleLink(STU.sel, t.dataset.list, t.dataset.v);
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
@@ -23098,6 +23151,20 @@ function buildExplore() {
   renderPanes();
 }
 function showTab(k) { pickTab(k); }
+// an Items card on the page: a box holding the press that selects it (its picture or tile, marks, name, lines), its cut-outs'
+// tags and, a cube selected, its Shows and Hides (buttons of their own, so a press there neither selects nor picks it)
+const MOVES_TIP = 'It moves: a motion, a recorded path or a behaviour';
+function itemCardHTML(x) {
+  const P = x.pic ? pvAny(x.pic) : null, T = !P && x.tile ? tileUrl(x.tile) : '';
+  const mk = (x.lock ? '<i class="mk" title="Locked in place">🔒</i>' : '') + (x.moves ? `<i class="mk mv" title="${MOVES_TIP}">moves</i>` : '');
+  const tk = (L, v) => `<span class="tks">${L.map(([l, on]) => `<button type="button" class="tk" data-act="tick" data-v="${l}:${esc(v)}" data-id="tick:${l}:${esc(v)}" aria-pressed="${!!on}" title="${l === 'show' ? 'On its Shows list' : 'On its Hides list'}">${l === 'show' ? 'Shows' : 'Hides'}</button>`).join('')}</span>`;
+  return `<div class="stu-card stu-ic${x.sel ? ' sel' : ''}${x.pk ? ' pk-' + x.pk : ''}" data-card="${esc(x.v)}">` +
+    `<button type="button" class="cm" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+    `<span class="pic">${P ? `<img src="${P.url}" alt="">` : T ? `<img src="${T}" alt="" data-tile="${esc(x.tile.k)}">` : `<b>${esc(x.kind || '')}</b>`}${mk ? `<span class="mks">${mk}</span>` : ''}</span>` +
+    `<span class="nm">${esc(x.label)}</span>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>` +
+    (x.tags || []).map(g => `<span class="tg"><button type="button" class="tag" data-act="${g.act}" data-v="${esc(g.v)}" data-id="${esc(g.id)}" aria-pressed="${!!g.on}" title="${esc(g.title || g.label)}">${esc(g.label)}</button>${g.ticks ? tk(g.ticks, g.v) : ''}</span>`).join('') +
+    (x.ticks ? tk(x.ticks, x.v) : '') + '</div>';
+}
 function blockHTML(b) {
   if (b.xr) return '';
   if (b.drop || b.input || b.plan) return uploadHTML(b);
@@ -23112,11 +23179,14 @@ function blockHTML(b) {
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
   // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
+  // (a group's heading in the Items pane: a press selects the group)
+  if (b.gh) { const x = b.gh; return lab + `<button type="button" class="stu-gh${x.sel ? ' sel' : ''}" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"><i class="stu-sw" style="background:${esc(x.col || '')}"></i><span>${esc(x.label)}${x.lock ? ' 🔒' : ''}</span><small>${esc(x.sub || '')}</small></button>`; }
+  if (b.grid && b.grid.some(x => x.item)) return lab + `<div class="stu-grid">${b.grid.map(itemCardHTML).join('')}</div>`;
   if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); return `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
     `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`; }).join('')}</div>`;
-  if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}${x.ind ? `margin-left:${20 * +x.ind}px;` : ''}">
-    <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>${x.ticks ? `<span class="tk">${x.ticks.map(([l, on]) => `<label><input type="checkbox" data-act="tick" data-list="${l}" data-v="${esc(x.v)}"${on ? ' checked' : ''}>${l === 'show' ? 'Shows' : 'Hides'}</label>`).join('')}</span>` : ''}
+  if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}">
+    <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
   return '';
 }
@@ -25115,6 +25185,74 @@ function modelWords(f) {
   const w = [size && Math.max(...size) > 0 ? metres(Math.max(...size)) : '', Number.isFinite(n) ? `${fmt(n)} triangles` : ''].filter(Boolean);
   return w.length ? w.join(' · ') : mb(f.bytes);
 }
+
+// ---- the Items pane's tiles (the owner, 7 November 2026: "items need a preview in the items list tab, should show the same
+// image and look like the add item part"): an object shows its model's picture, as the Add pane does; what has no file is
+// drawn here, on the pictures' dark background, in its colour: a shape its kind (cube, sphere, cylinder, plane; one that
+// hides things see-through, its edges dashed), a sound a speaker, a trigger cube a see-through cube's edges, an empty an
+// axis cross, a cut-out cutting nothing a dashed box. Drawn once a kind and colour, as a canvas the headset draws and the
+// page shows as a data URL (so both look the same)
+const TILE = new Map(), TILE_PX = 256;
+function tileFor(t) {
+  const key = t.k + '|' + t.col + '|' + (t.hide ? 1 : 0);
+  let e = TILE.get(key);
+  if (e) return e.cv;
+  const S = TILE_PX, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const x = cv.getContext('2d'), c = new THREE.Color(t.col || '#c9d1dc'), rgb = (k, w) => { const m = c.clone().multiplyScalar(k).lerp(new THREE.Color(1, 1, 1), w || 0); return `rgb(${[m.r, m.g, m.b].map(v => Math.round(Math.min(1, v) * 255)).join(',')})`; };
+  const gr = x.createRadialGradient(S / 2, S * 0.42, S * 0.05, S / 2, S / 2, S * 0.75);
+  gr.addColorStop(0, '#1d2c44'); gr.addColorStop(1, '#070c16');
+  x.fillStyle = gr; x.fillRect(0, 0, S, S);
+  x.lineJoin = x.lineCap = 'round';
+  // a box seen from a little above (its corners -1..1 on each axis), as the pictures see a model
+  const iso = (X, Y, Z, s = 46, cy = 130) => [S / 2 + (X - Z) * 0.866 * s, cy + (X + Z) * 0.5 * s - Y * s];
+  const poly = (P, fill, stroke, lw, dash) => { x.beginPath(); P.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]))); x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.setLineDash(dash || []); x.lineWidth = lw || 3; x.strokeStyle = stroke; x.stroke(); x.setLineDash([]); } };
+  const line = (a, b, col, lw, dash) => { x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.setLineDash(dash || []); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); x.setLineDash([]); };
+  const C = [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1], [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]].map(p => iso(...p));
+  const E12 = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]], BACK = [[0, 1], [3, 0], [0, 4]];   // (the three edges at the far bottom corner are behind)
+  const edges = (col, lw, dashBack, dashAll) => { for (const [a, b] of E12) { const back = BACK.some(([p, q]) => p === a && q === b); line(C[a], C[b], col, lw, dashAll ? [12, 9] : back && dashBack ? [8, 8] : []); } };
+  const faces = a => { x.globalAlpha = a; poly([C[4], C[5], C[6], C[7]], rgb(1, 0.25)); poly([C[1], C[2], C[6], C[5]], rgb(0.62)); poly([C[2], C[3], C[7], C[6]], rgb(0.84)); x.globalAlpha = 1; };
+  const see = t.hide ? 0.3 : 1, dash = t.hide ? [12, 9] : null;
+  if (t.k === 'cube') { faces(see); if (t.hide) edges(rgb(1, 0.45), 3, false, true); else for (const [a, b] of [[4, 5], [5, 6], [6, 7], [7, 4], [1, 5], [2, 6], [3, 7], [1, 2], [2, 3]]) line(C[a], C[b], rgb(1, 0.45), 2.5); }
+  else if (t.k === 'sphere') {
+    const g = x.createRadialGradient(104, 104, 6, 128, 132, 84);
+    g.addColorStop(0, rgb(1, 0.5)); g.addColorStop(0.45, rgb(1)); g.addColorStop(1, rgb(0.32));
+    x.globalAlpha = see; x.beginPath(); x.arc(128, 132, 80, 0, 7); x.fillStyle = g; x.fill(); x.globalAlpha = 1;
+    if (t.hide) { x.beginPath(); x.arc(128, 132, 80, 0, 7); x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'cylinder') {
+    const rx = 56, ry = 19, y0 = 66, y1 = 196, g = x.createLinearGradient(128 - rx, 0, 128 + rx, 0);
+    g.addColorStop(0, rgb(0.5)); g.addColorStop(0.38, rgb(1)); g.addColorStop(1, rgb(0.45));
+    x.globalAlpha = see;
+    x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.closePath(); x.fillStyle = g; x.fill();
+    x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.fillStyle = rgb(1, 0.28); x.fill(); x.globalAlpha = 1;
+    if (t.hide) { x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.stroke(); x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'plane') {
+    const P = [iso(-1.15, -1.15, 0, 50, 130), iso(1.15, -1.15, 0, 50, 130), iso(1.15, 1.15, 0, 50, 130), iso(-1.15, 1.15, 0, 50, 130)], g = x.createLinearGradient(P[0][0], P[3][1], P[2][0], P[1][1]);
+    g.addColorStop(0, rgb(1, 0.2)); g.addColorStop(1, rgb(0.6));
+    x.globalAlpha = see; poly(P, g); x.globalAlpha = 1;
+    poly(P, null, rgb(1, 0.45), 3, dash);
+  } else if (t.k === 'sound') {
+    // a speaker: its box, its cone and three waves
+    x.globalAlpha = 1; poly([[64, 104], [94, 104], [94, 156], [64, 156]], rgb(0.8)); poly([[94, 104], [136, 68], [136, 192], [94, 156]], rgb(1, 0.15));
+    x.lineWidth = 10;
+    [34, 58, 82].forEach((r, i) => { x.globalAlpha = 1 - i * 0.25; x.beginPath(); x.arc(140, 130, r, -0.75, 0.75); x.strokeStyle = rgb(1, 0.3); x.stroke(); });
+    x.globalAlpha = 1;
+  } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
+  else if (t.k === 'empty') {
+    // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
+    const o = iso(0, 0, 0, 82, 136), ax = [[iso(1, 0, 0, 82, 136), '#ff5a4b'], [iso(0, 1, 0, 82, 136), '#3ee08f'], [iso(0, 0, 1, 82, 136), '#4f9dff']];
+    for (const [p, col] of ax) { line([2 * o[0] - p[0], 2 * o[1] - p[1]], o, col, 5, [6, 9]); line(o, p, col, 8); }
+    x.beginPath(); x.arc(o[0], o[1], 15, 0, 7); x.fillStyle = rgb(1, 0.2); x.fill();
+  } else {
+    // a cut-out cutting nothing: its dashed box and a pair of scissors
+    edges(rgb(1, 0.2), 3, false, true);
+    x.font = '700 72px B612, "Segoe UI", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = rgb(1, 0.3); x.fillText('✂', 128, 136);
+  }
+  TILE.set(key, e = { cv, url: '' });
+  return cv;
+}
+// the same tile for the page: a data URL, made once
+function tileUrl(t) { tileFor(t); const e = TILE.get(t.k + '|' + t.col + '|' + (t.hide ? 1 : 0)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
 // for tests and the console: which models have a picture and where it is from, and Make pictures
 const pvState = () => ({
   listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),
@@ -26499,7 +26637,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 
 // explore: the Scene, Add, Item and Items panes, drawn from the same blocks as the page's (paneBlocks), without the
-// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More,
+// page's own (Download, Upload, the arrows, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More,
 // or a stick pushed up or down while pointing at it (stickScroll)
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
@@ -26584,8 +26722,23 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + (cy - (y + h)) + bh + 14;
   }
-  // the Add pane's models: three cards a row, each its picture (fetched only once it is drawn: e7e_pics.js) or a plain
-  // tile with the model's kind, its name and its size; the pane's Up and More page through them
+  // a group's heading in the Items pane (a press selects the group): its colour, its name, how many it holds
+  if (b.gh) {
+    const t = b.gh, hh = 60, gy = y + h;
+    if (!dry && gy + hh > top && gy < bottom) {
+      vButton(ctx, P, t.id, x, gy, W, hh, '', inView(gy, hh) && !t.dis ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
+      if (t.sel) { rr(ctx, x + 1, gy + 1, W - 2, hh - 2, 10); ctx.lineWidth = 4; ctx.strokeStyle = VC.cyan; ctx.stroke(); }
+      if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + 8, gy + 12, 6, hh - 24); }
+      ctx.font = vfont(19); const sw = Math.min(W * 0.4, ctx.measureText(t.sub || '').width);
+      ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, t.sub || '', W * 0.4), x + W - 18, gy + 20); ctx.textAlign = 'left';
+      ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, t.label + (t.lock ? '  🔒' : ''), W - sw - 70), x + 26, gy + 17);
+    }
+    return h + hh + 12;
+  }
+  // the Add pane's models and the Items pane's items: three cards a row, each its picture (fetched only once it is drawn:
+  // e7e_pics.js), a tile drawn for what has no file, or a plain tile with the model's kind, its name and its lines; the
+  // pane's Up and More page through them
+  if (b.grid && b.grid.some(t => t.item)) return h + drawItemCards(ctx, P, b.grid, x, y + h, W, top, bottom, dry, inView);
   if (b.grid) {
     const cols = 3, gap = 14, cw = Math.floor((W - gap * (cols - 1)) / cols), ph = cw - 16, ch = ph + 98;
     b.grid.forEach((t, i) => {
@@ -26611,12 +26764,12 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     for (const t of b.list) {
       const ry = y + h;
       if (!dry && ry + rh > top && ry < bottom) {
-        const live = inView(ry, rh) && !t.dis, ix = t.ind ? 34 * +t.ind : 0, w = W - ix;   // (a cut-out under its object, a group's member under it: indented)
-        vButton(ctx, P, t.id, x + ix, ry, w, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
-        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + ix + 4, ry + 8, 5, rh - 22); }
+        const live = inView(ry, rh) && !t.dis, w = W;
+        vButton(ctx, P, t.id, x, ry, w, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
+        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + 4, ry + 8, 5, rh - 22); }
         ctx.font = vfont(23, t.on ? 700 : 400); ctx.fillStyle = t.dis ? VC.faint : VC.ink;
         const sub = t.sub || '';
-        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), w * 0.6 - 24), x + ix + 20, ry + 14);
+        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), w * 0.6 - 24), x + 20, ry + 14);
         ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, sub, w * 0.4 - 16), x + W - 14, ry + 17); ctx.textAlign = 'left';
       }
       h += rh;
@@ -26624,6 +26777,57 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     return h + 10;
   }
   return 0;
+}
+// the Items pane's cards (paneBlocks' itemCard): three a row as the Add pane's, a row as tall as its tallest card. The face
+// (its picture or tile, marks, name and lines) selects it, or picking picks it; under it its cut-outs' tags and, with a cube
+// selected, Shows and Hides, each pressable only where it shows whole (so nothing out of the pane's view takes a press).
+// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one
+const CARD = { gap: 14, tag: 46, ticks: 56 };
+function drawItemCards(ctx, P, L, x, y0, W, top, bottom, dry, inView) {
+  const cols = 3, cw = Math.floor((W - CARD.gap * (cols - 1)) / cols), ph = cw - 16, base = ph + 98;
+  const extra = t => (t.tags || []).length * CARD.tag + (t.ticks ? CARD.ticks : 0);
+  let cy = y0;
+  for (let i = 0; i < L.length; i += cols) {
+    const R = L.slice(i, i + cols), ch = base + Math.max(...R.map(extra));
+    if (!dry && cy + ch > top && cy < bottom) R.forEach((t, k) => drawItemCard(ctx, P, t, x + k * (cw + CARD.gap), cy, cw, ph, base, ch, inView));
+    cy += ch + CARD.gap;
+  }
+  return cy - y0 + 4;
+}
+function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
+  // (the face pressable where it shows whole: its region pushed here, the card's background drawn with no press of its own)
+  vButton(ctx, P, t.id, cx, cy, cw, ch, '', null, { on: t.on, r: 10 });
+  if (inView(cy, base) && !t.dis) P.regions.push({ id: t.id, x: cx, y: cy, w: cw, h: base, fn: () => act(t.act, t.v) });
+  const edge = t.sel ? [VC.cyan, 5] : t.pk === 'show' ? [VC.green, 3] : t.pk === 'hide' ? [VC.red, 3] : null;
+  if (edge) { rr(ctx, cx + 1.5, cy + 1.5, cw - 3, ch - 3, 10); ctx.lineWidth = edge[1]; ctx.strokeStyle = edge[0]; ctx.stroke(); }
+  const px = cx + 8, py = cy + 8, pic = t.pic ? pvAny(t.pic) : null;
+  ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
+  if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
+  else if (t.tile) ctx.drawImage(tileFor(t.tile), px, py, ph, ph);
+  else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }
+  ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  // its marks, at the picture's top right: locked in place, and moving (a motion, a recorded path or a behaviour)
+  let mx = px + ph - 8;
+  const mark = (s, col) => { ctx.font = vfont(19, 700); const w = Math.ceil(ctx.measureText(s).width) + 18; mx -= w; rr(ctx, mx, py + 8, w, 34, 8); ctx.fillStyle = 'rgba(4,10,20,0.8)'; ctx.fill(); ctx.fillStyle = col; ctx.fillText(s, mx + 9, py + 16); mx -= 6; };
+  if (t.moves) mark('moves', VC.cyan);
+  if (t.lock) mark('🔒', VC.ink);
+  ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label, cw - 20), cx + 10, py + ph + 10);
+  ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
+  if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
+  // Shows and Hides (a cube selected): two toggles side by side, or (a cut-out's tag) at its right
+  const toggles = (L, v, tx, ty, tw, th, px2) => {
+    const w = Math.floor((tw - 6) / 2);
+    L.forEach(([l, on], k) => vButton(ctx, P, `tick:${l}:${v}`, tx + k * (w + 6), ty, w, th, l === 'show' ? 'Shows' : 'Hides', inView(ty, th) ? () => act('tick', `${l}:${v}`) : null, { on, px: px2, r: 8 }));
+  };
+  let ty = cy + base - 4;
+  for (const g of t.tags || []) {
+    const tw = cw - 16 - (g.ticks ? 2 * 70 + 6 : 0);
+    vButton(ctx, P, g.id, cx + 8, ty, tw, CARD.tag - 8, g.label, inView(ty, CARD.tag - 8) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
+    if (g.sel) { rr(ctx, cx + 8, ty, tw, CARD.tag - 8, 8); ctx.lineWidth = 3; ctx.strokeStyle = VC.cyan; ctx.stroke(); }
+    if (g.ticks) toggles(g.ticks, g.v, cx + 8 + tw + 6, ty, 2 * 70 + 6 - 6, CARD.tag - 8, 15);
+    ty += CARD.tag;
+  }
+  if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
