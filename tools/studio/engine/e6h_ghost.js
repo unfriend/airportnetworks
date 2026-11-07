@@ -94,7 +94,6 @@ function ghostFar(it) {
 // then the page's arrows on the right one
 const _ghq = new THREE.Quaternion();
 function ghostStep(editing, now) {
-  if (MPAUSE.on && !editing) { MPAUSE.on = false; dirty(true); }   // (Pause is editing's only)
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');

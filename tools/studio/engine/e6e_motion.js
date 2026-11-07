@@ -90,6 +90,7 @@ function motionRests(it) { return motionsPaused() || REST.ids.has(it.id); }
 function restScan() {
   const S = REST.ids;
   S.clear();
+  if (MPAUSE.on && !editOn()) { MPAUSE.on = false; dirty(); }   // (Pause is editing's only: off as editing goes)
   for (const x of STU.items.values()) {
     if (!x.carry && !recording(x)) continue;
     S.add(x.id);
