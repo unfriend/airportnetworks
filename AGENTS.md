@@ -4753,19 +4753,25 @@ its last sample), its picture A's menu
 (its pixels not dark), depth-tested, `renderOrder` between 49 and 50 (its group's 0), never pointable, A's name on its tag; C draws none
 of it; the page's Shared dialog says *showing their menu*; A's tabs changed four times a second, a frame of A's with
 each change, for at least 4 s and until 2 pictures have gone out (at most 20 s: a busy machine draws the pretend
-headsets' frames seconds apart, and pictures are made in frames): at most one every 1.5 s by A's own clock, each 1,490
+headsets' frames seconds apart, and pictures are made in frames): at most one sent every 1.5 s by A's own clock (a
+want's answer counted, as it is sent too), each 1,490
 ms or more after the last, every effect under 48 KB, B taking every one (its `got`); a pretend controller's ray moving
 over A's buttons for 4.5 s, a frame of A's with each move (only their light changing, at least three buttons lit): a
-picture at most every 4 s by A's clock, each 3,990 ms or more after the last (one more allowed for each change of what
-the menu shows meanwhile, its `cver`: its clock's minute), and under 24 KB a second sent; the Story tab's picture (its
+picture made at most every 4 s by A's clock, each 3,990 ms or more after the last (pictures by their numbers: a want's
+answer is no new one), but one sooner at most, and only where the later picture shows a later `cver` than the one before
+it (`menuSent`'s `cv`: what the menu shows changed meanwhile, as its clock's minute; the light of what is pointed at
+never moves it), and under 24 KB a second sent; the Story tab's picture (its
 shape that tab's, its height read once a frame of A's has drawn the tab, lit below its top quarter where the story's
 panels are drawn in; a pretend headset's step does not draw the story's panels, so the round draws them once first); A's head turned 69
 degrees, its menu gliding back in front: B's plane following (at most 5 poses a second) and ending where A's stands; A
 silent (no frames, as a headset taken off): gone on B after a few seconds with nothing closed (B's `menu gone` says
-`quiet`), and back once A goes on (B asking for the picture it lacks); A's menu closed: gone on B as its `closed` comes
-(B's `menu gone` says `closed`, so not the 3 s without a pose; within 2 s, B's polls reading no pixels back), opened
-again, back; *My menu: only me* again with the menu open: gone on B (`closed`), nothing more sent; on again (kept as
-`xrMenuShare`) and A's session ended: gone on B (`closed`) (with `--shots`: `menus-1-picture.png` and `menus-2-picture.png`, the pictures B holds of A's
+`quiet`), and back once A goes on (B asking for the picture it lacks); A's menu closed, while both draw frames and B
+holds a copy whose last sample is under 1.5 s old (else, frames stopped between the round's steps, B let it go quiet
+first, rightly): gone on B as its `closed` comes
+(B's `menu gone` says `closed`, so not the 3 s without a pose; within 2 s, B's polls reading no pixels back; a failure
+shows B's log of A's copy, a `closed` it ignored too, and A's own closed lines), opened
+again, back; *My menu: only me* again with the menu open (the same way): gone on B (`closed`), nothing more sent; on
+again (kept as `xrMenuShare`) and A's session ended (the same way): gone on B (`closed`) (with `--shots`: `menus-1-picture.png` and `menus-2-picture.png`, the pictures B holds of A's
 Settings and Story tabs, and `menus-1-seen.png`, `menus-2-seen.png`, what B sees from its head). The studio's scenes as circles (`scenesRound`, v118, also in the main run after the studio round;
 `--studio-scenes` runs only it, a relay of its own from port 8770 up with `--scenes tools/studio/test/scenes
 --scenes-readonly`, a minute): the page's Add listing after *Studio* one entry per scene of the relay (*Studio: <scene>*,
