@@ -1942,7 +1942,7 @@ await step('design: the intro ends at the table', async () => {
     while (await ss('UNDO.length')) await ss('undo()');
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
-  await step('studio: the Items pane as cards (v122): a picture or a tile per item (the box\'s picture, the figure\'s plain tile, shapes, an empty, a sound and a cube drawn), a group\'s heading with its members under it, a cut-out\'s tag selecting it, a press selecting and the selected card lit, the lock and moves marks; a cube selected, Shows and Hides changing its lists (one Undo step each); a pick mode adding by a press; the headset\'s canvas (three a row, paging, a picture and a tile drawn, the selected card\'s border, a toggle and a card pressed by a pretend ray)', async () => {
+  await step('studio: the Items pane as cards (v122): a picture or a tile per item (the box\'s picture, the figure\'s plain tile, shapes, an empty, a sound and a cube drawn), a group\'s heading with its members under it, a cut-out\'s tag selecting it, a press selecting and the selected card lit, the lock and moves marks (what moves it in words); a cube selected, Shows and Hides changing its lists (one Undo step each); a pick mode adding by a press, a cut-out\'s tag marked green; the headset\'s canvas (three a row, paging, a picture and a tile drawn, the selected card\'s border, a cut-out\'s tag the card\'s width with its toggles under it and green when picked, a toggle and a card pressed by a pretend ray)', async () => {
     const bad = [];
     // put in for it: a group of a ball (it moves) and an empty, a cut-out on the box, three shapes (one locked, hiding things)
     if (!await until(`!!STU.items.get('box001').model && !!STU.items.get('fig001').model`, 60000)) bad.push('the box and the figure did not load');
@@ -1965,7 +1965,7 @@ await step('design: the intro ends at the table', async () => {
       cards: Object.fromEntries([...document.querySelectorAll('#pane-items .stu-ic')].map(c => { const im = c.querySelector('.pic img'); return [c.dataset.card, {
         pic: im ? im.dataset.tile || (/^blob:/.test(im.src) ? 'picture' : 'other') : 'tile:' + ((c.querySelector('.pic b') || {}).textContent || ''), sel: c.classList.contains('sel'), pk: (/\bpk-(\w+)/.exec(c.className) || [])[1] || '',
         marks: [...c.querySelectorAll('.mk')].map(m => m.textContent).join(','), name: c.querySelector('.nm').textContent, lines: [...c.querySelectorAll('.cm small')].map(x => x.textContent),
-        tags: [...c.querySelectorAll('.tag')].map(t => t.dataset.v + '=' + t.textContent + (t.getAttribute('aria-pressed') === 'true' ? '+' : '')), ticks: [...c.querySelectorAll('.tk')].map(t => t.dataset.v + (t.getAttribute('aria-pressed') === 'true' ? '+' : '-')).join() }]; })),
+        tags: [...c.querySelectorAll('.tag')].map(t => t.dataset.v + '=' + t.textContent + (t.getAttribute('aria-pressed') === 'true' ? '+' : '') + (m => (m ? '/' + m[1] : ''))(/\bpk-(\w+)/.exec(t.className))), ticks: [...c.querySelectorAll('.tk')].map(t => t.dataset.v + (t.getAttribute('aria-pressed') === 'true' ? '+' : '-')).join() }]; })),
       sub: (document.querySelector('#pane-items .stu-k') || {}).textContent || '', cols: getComputedStyle(document.querySelector('#pane-items .stu-grid')).gridTemplateColumns.split(' ').length }));
     await ss(`(X.tab = 'items', renderPanes(), 0)`);
     let P = await pane();
@@ -1978,7 +1978,7 @@ await step('design: the intro ends at the table', async () => {
     const want = { box001: ['picture', '0.5 m · 12 triangles'], fig001: ['tile:' + fext, '1.7 m · 12 triangles'], icb001: ['sphere', 'Sphere'], ice001: ['empty', 'Empty'], icw001: ['cube', 'Cube · hides things'], icp001: ['cylinder', 'Cylinder'], icn001: ['plane', 'Plane'], cube01: ['trigger', 'Cube · shows 2, hides 1'], snd001: ['sound', 'Sound · 80 %'] };
     for (const [id, [pic, line]] of Object.entries(want)) { const c = P.cards[id]; if (!c || c.pic !== pic || c.lines[0] !== line) bad.push(`${id}'s card (its picture or tile, its line): ` + JSON.stringify(c)); }
     const C = P.cards;
-    if (!C.box001 || C.box001.tags.join() !== 'icx001=✂ Notch' || C.icb001.marks !== 'moves' || C.icw001.marks !== '🔒' || C.box001.marks || C.box001.ticks || Object.values(C).some(c => c.sel || c.pk)) bad.push('the tag, the marks, nothing selected nor any Shows and Hides: ' + JSON.stringify(C));
+    if (!C.box001 || C.box001.tags.join() !== 'icx001=✂ Notch' || C.icb001.marks !== 'moves' || !/\bspins\b/.test(C.icb001.lines[1] || '') || C.icw001.marks !== '🔒' || C.box001.marks || C.box001.ticks || Object.values(C).some(c => c.sel || c.pk)) bad.push('the tag, the marks (what moves it said in words), nothing selected nor any Shows and Hides: ' + JSON.stringify(C));
     // the tiles really drawn: the ball's middle in its colour, the speaker's cone in the sound's, the trigger cube see-through
     const tiles = await ss(`(() => { const px = (t, x, y) => [...tileFor(t).getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3); const s = STU.items.get('snd001'); return { ball: px({ k: 'sphere', col: '#46d9ff' }, 128, 132), cone: px({ k: 'sound', col: s.look.col }, 120, 130), col: new THREE.Color(s.look.col).toArray().map(v => Math.round(v * 255)), cube: px({ k: 'trigger', col: '#ff5a4b' }, 128, 60), url: /^data:image\\/png/.test(tileUrl({ k: 'empty', col: '#ffffff' })) }; })()`);
     if (!(tiles.ball[1] > 150 && tiles.ball[2] > 180 && tiles.ball[0] < 140) || Math.max(...tiles.cone.map((v, k) => Math.abs(v - Math.min(255, tiles.col[k] * 0.85 + 38)))) > 40 || !tiles.url) bad.push('the tiles drawn: ' + JSON.stringify(tiles));
@@ -2020,7 +2020,13 @@ await step('design: the intro ends at the table', async () => {
     await ss(`(X.tab = 'items', renderPanes(), 0)`);
     P = await pane();
     if (l4 !== '[["fig001","snd001","icp001"],["box001"]]' || sel4.join() !== 'cube01,true' || P.cards.icp001.pk !== 'show' || !/^✓ Post$/.test(P.cards.icp001.name) || P.cards.box001.pk !== 'hide') bad.push('picking by a press: ' + JSON.stringify([l4, sel4, P.cards.icp001, P.cards.box001.pk]));
-    await ss(`(STU.pick = null, undo(), 0)`);
+    // the cut-out's tag likewise: on the list, marked green as a card is (its object's card stays red: it hides the box)
+    await stp.click('#pane-items .stu-ic[data-card="box001"] .tag[data-v="icx001"]');
+    const l5 = await L();
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    if (l5 !== '[["fig001","snd001","icp001","icx001"],["box001"]]' || P.cards.box001.tags[0] !== 'icx001=✓ ✂ Notch+/show' || P.cards.box001.pk !== 'hide') bad.push('picking the cut-out\'s tag by a press (on the list, green): ' + JSON.stringify([l5, P.cards.box001]));
+    await ss(`(STU.pick = null, undo(), undo(), 0)`);
     // the headset's canvas: three a row (the shapes), paged (Up and More), the box's picture and the ball's tile drawn (bright)
     // where the figure's plain tile is dark, the selected card's border in the accent colour, a toggle and a card pressed by
     // a pretend ray (the controller's hover on the panel: xrPress and xrRelease)
@@ -2046,6 +2052,13 @@ await step('design: the intro ends at the table', async () => {
       out.tick = [!!t, STU.items.get('cube01').rec.show.includes('icb001'), UNDO.length - u];
       if (UNDO.length > u) undo();
       const tg = find('tick:hide:icx001'); out.tagTick = !!tg;
+      // the cut-out's tag the card's whole width, its Shows and Hides on a row under it
+      const tr = reg('sel:icx001'), ts = reg('tick:show:icx001');
+      out.tagRow = tr && ts && tg && out.row ? [tr.w === out.row[3] - 16, ts.y >= tr.y + tr.h, ts.y === tg.y, ts.x === tr.x, Math.abs(tg.x + tg.w - (tr.x + tr.w)) <= 1] : null;
+      // picking for the cube: the tag on its Shows list, its edge green
+      const u3 = UNDO.length; itemAct('pickFor', 'show'); act('link', 'icx001'); X.tab = 'items'; X.scroll = {};
+      const tp = find('sel:icx001'); out.tagPk = tp ? [...P.ctx.getImageData(tp.x, tp.y + Math.round(tp.h / 2), 1, 1).data].slice(0, 3) : null;
+      STU.pick = null; while (UNDO.length > u3) undo(); X.scroll = {};
       // a card's face pressed by the ray: selected
       const f = find('sel:icn001');
       if (f) { ctl.hover = { kind: 'panel', P, x: f.x + f.w / 2, y: f.y + 40, point: new THREE.Vector3() }; xrPress(ctl); xrRelease(ctl); }
@@ -2054,7 +2067,9 @@ await step('design: the intro ends at the table', async () => {
       return out;
     })()`);
     const lit = p => p && p[2] > 200 && p[1] > 150 && p[0] < 140;
-    if (!xr.more || xr.first || !xr.row || !xr.row[0] || xr.row[1] !== xr.row[2] || xr.row[1] < xr.row[3] || !(xr.box > xr.fig + 40) || !(xr.ball > xr.fig + 40) || !lit(xr.border) || lit(xr.border2) || !xr.paged || xr.tick.join() !== 'true,true,1' || !xr.tagTick || xr.press !== 'icn001')
+    const green = p => p && p[1] > 180 && p[0] < 120 && p[2] < 190;
+    if (!xr.more || xr.first || !xr.row || !xr.row[0] || xr.row[1] !== xr.row[2] || xr.row[1] < xr.row[3] || !(xr.box > xr.fig + 40) || !(xr.ball > xr.fig + 40) || !lit(xr.border) || lit(xr.border2) || !xr.paged || xr.tick.join() !== 'true,true,1' || !xr.tagTick
+      || !xr.tagRow || xr.tagRow.some(v => !v) || !green(xr.tagPk) || xr.press !== 'icn001')
       bad.push('the headset\'s Items cards: ' + JSON.stringify(xr));
     // as it was: the items put in taken out, no picture kept, no Undo step left
     await ss(`(['icg001', 'icx001', 'icb001', 'ice001', 'icw001', 'icp001', 'icn001'].forEach(removeItem), pvClear(), select(''), X.tab = 'scene', renderPanes(), 0)`);
