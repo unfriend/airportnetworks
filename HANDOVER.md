@@ -43,7 +43,42 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **networks-v121 (7 November 2026; FORMAT networks-35, shell 121: running pages ask before reloading), on `dev`: v120's
+- **networks-v123 (7 November 2026; FORMAT networks-35, shell 123), on `dev`: floor spots without a limit on how high
+  spot A is.** The owner tried v122: a Quest whose own floor was off put spot A 92 cm over it, and v122's 45 cm limit
+  refused it ("that was an error by the headset floor and exactly what i want to avoid ... remove the limit for now").
+  `SPOTS_UP` and its *Not on the floor* refusal are gone; the 4 cm between the two spots' heights stays (`SPOTS_DH`).
+  Spots on a table are taken too now, and put the room's floor on the table: the guide and the event runbook say the
+  spots go on the floor. The guide round's floor-spots test calibrates a headset whose floor is 90 cm too low instead
+  of refusing a table. Tests: the guide round and the full shared-room run on v123 were running when this was written (results in the next entry).
+- **networks-v122 (7 November 2026; FORMAT networks-35, shell 122), on `dev`: floor spots, the studio's Items pane as
+  cards, and placing what moves.** The owner's go after trying v121 (which went to `main` the same day).
+  - Floor spots (the owner: "the floor was off so many times now in various headsets"; "floor spots sounds good, lets
+    try that"): the two calibration spots are tape crosses on the floor, and the room's floor is spot A's touch height
+    less `FLOOR_TIP` (2 cm, the controller's ray origin over the floor with its tip on it; a guess until the logs say),
+    whatever each headset's own floor says. `rm` gains `f: 1` (older devices read `a` and `d` as before and get the same
+    floor: no `FORMAT` change); a calibration from before v122 keeps the old rule. Spots more than 4 cm apart in height
+    are refused. The log's `floor spots` line has the touch heights over the headset's floor and over the room scan's
+    floor plane, and `dh`, to tune `FLOOR_TIP` and the 4 cm. Checks say the height part (*3 cm at spot A (2 cm in
+    height)*). The guide's words say tape crosses on the floor.
+  - The studio's Items pane as picture cards, as the Add pane (page and headset): each item's picture or tile, its
+    name, a faint line saying what moves it, groups with their members, a cut-out's tag under its object, and a
+    selected cube's Shows and Hides as toggles on each card.
+  - Placing what moves (the owner: a ghost to come back to for loops, smoothed loops, motions shown when chosen, "a
+    pause motion button but i also want to be able to move moving/animated items to select their exact place"): a
+    selected item keeps its motion, path or behaviour (so a motion chosen on its card shows at once); a pale ghost
+    stands where it is placed (`e6h_ghost.js`), the page's arrows stand on it and a grip on the ghost or the moving item
+    carries it from where it is placed; it rests only while carried, dragged, recorded or paused (and while a cut-out or
+    sound on it is selected or carried). *Pause* (Scene pane, its card, P) is this device's own. *Start again* replaces
+    *Play it here*. Recording: the ghost stays at the start and lights (a tick, a pulse in the hand) once you come back
+    within 5 cm and 10 degrees; a loop has its still ends cut and an end within 15 cm and 20 degrees of the start bent
+    onto it (*Keep it as recorded* undoes that). Nothing new in a record: no `FORMAT` change.
+  - Tests: relay 653 and smoke 255 passed on v122; the shared-room run was started on v123 instead (above).
+  - Untested on a headset: `FLOOR_TIP` and the 4 cm against real touches; the room's floor on the real floor in every
+    headset; the Items cards on a Quest; the ghost life size and in AR, carrying by it, Pause and Start again from the
+    headset panel, finding the start ghost by hand, the tick and the pulse, a joined loop played back.
+- **networks-v121 (7 November 2026; FORMAT networks-35, shell 121: running pages ask before reloading), on `dev`, and on
+  `main` the same day once the owner had tried it (with v120 and v119 under it; the owner's two `CNAME` commits merged in
+  first, unchanged): v120's
   five failing shared-room checks root-caused; all were the tests'.**
   - The shared menu round: the Story tab's height was read before a frame of A's had drawn the tab; pictures and
     hovers are made only inside the pretend headsets' frames, which a busy machine draws seconds apart, so the round now
