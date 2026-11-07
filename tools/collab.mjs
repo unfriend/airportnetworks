@@ -94,6 +94,10 @@
 // the nearest headset drives a ball that follows, every device saying so and drawing it where it does (120 ms behind its
 // samples while it walks), the other coming nearer by more than 0.3 m taking it over, a looker staying the first one's
 // until they leave, nobody in range: both home everywhere);
+// --standby only the pretend headset's standby with the shared space in use (standbyRound: a room of its own with a station
+// per story, the pretend headset aligned through the shared space as in the main run, then the main run's own steps,
+// standbySteps: the shared space at the head and as its own floor, standby with the floor moved 15 cm and a wrong space
+// held off, the room back at the same height once the space agrees, woken again on the first floor; a minute or two);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -320,6 +324,7 @@ const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's sc
 const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
 const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
 const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviours shared: behaveRound, a relay of its own with --scenes)
+const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -488,6 +493,112 @@ function installXR(o) {
     for (const fn of X.resets['local-floor'] || []) fn({ transform: { matrix: Float32Array.from(newFromOld.elements), inverse: { matrix: Float32Array.from(newFromOld.clone().invert().elements) } } });
   };
   return true;
+}
+// the pretend headset H put down and woken up (standbySteps, and the main run's nights): the floor moved to F (its reset
+// saying how) and the shared space at S meanwhile, then 20 frames; and the shared space back at S (its reset; nothing is
+// let go within 20 s of waking, so that time is taken as passed), giving when the room last looked at the space
+const sleepWake = (H, F, S) => H.evaluate(([F, S]) => {
+  const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+  X.visibility('hidden'); X.floorReset(F, 0.2); X.W.shared = M(S); X.visibility('visible');
+  for (let k = 0; k < 20; k++) X.step();
+  return { src: HOST.room.src, frame: HOST.room.frame && { o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice() }, held: window.__collabLog.slice(-40).some(e => e.ev === 'shared held after wake') };
+}, [F, S]);
+const spaceBack = (H, S) => H.evaluate(S => {
+  const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  X.W.shared = new THREE.Matrix4().compose(V(S[0], S[1], S[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S[3]), V(1, 1, 1));
+  for (const fn of X.resets.shared || []) fn({ transform: null });
+  HOST.room.internals().visibleAt -= 21000;   // (nothing is let go within 20 s of waking)
+  return HOST.room.internals().recAt;   // (when the room last looked at the shared space: not since the hold began)
+}, S);
+// a pretend headset aligned through the shared space (U1, the room's frame published for it, src 'adopted', its floor
+// FLOOR): the shared space glitching as Quest Browser's did, then standby with the shared space in use, and woken again on
+// the first floor (the main run's pretend headset, and --standby's: standbyRound). wantO: the room's origin on FLOOR
+async function standbySteps(H, wantO) {
+  // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
+  // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
+  const glitch = await H.evaluate(() => {
+    const X = window.__xr, keep = X.W.shared, R = HOST.room.internals(), sa = R.sharedAlign;
+    R.sharedAlign = false;   // the adopted frame stays put meanwhile
+    X.head([-6, 1.6, 6, 0]);   // away from the stations (a second at one would make it the headset's)
+    X.W.shared = X.W.head.clone(); X.step(); X.step();
+    const atHead = !R.sharedOK && R.sharedHead && window.__collabLog.some(e => e.ev === 'shared at head');
+    X.W.shared = X.W.floor.clone(); X.step(); X.step();
+    const own = R.sharedOK && /your own floor/.test(HOST.room.sharedLine());
+    X.W.shared = keep; X.step(); X.step();
+    R.sharedAlign = sa;
+    return { atHead, own, back: R.sharedOK && !R.sharedHead && !/your own floor/.test(HOST.room.sharedLine()) };
+  });
+  check('headset: a shared space at the head is not used, and one that is just its own floor is named on the panel', glitch.atHead && glitch.own && glitch.back, JSON.stringify(glitch));
+  // standby with the shared space in use: the floor moves while the headset sleeps (a reset says how; Quest's floor
+  // came back 12 to 17 cm off) and the shared space is wrong for a while: the frame the reset carried over holds;
+  // once the space is back and agrees, the room is where it was, and at the same height as before
+  const F6 = [FLOOR[0] + 0.5, -0.15, FLOOR[2] - 0.3, FLOOR[3] + 0.6], JUNK = [SHARED[0] + 0.8, 0, SHARED[2] - 0.4, SHARED[3] + 0.35];
+  const held6 = await sleepWake(H, F6, JUNK);
+  const r6 = await spaceBack(H, SHARED);
+  // The room takes the space's frame again, at its held height, on its first look at the space once the space agrees
+  // (a look at most every 500 ms, R.recAt, and only in a frame). This step used to wait a fixed 800 ms of frames, which
+  // failed in every main run of v119 and v120: a page drawing in software spends 1 to 4 s on some of its frames (shaders
+  // compiled as the stations' icons and cards first show), and where those frames fall had moved. When the room's last look
+  // before the standby came less than 500 ms before the space agreed (the menu's notice, waited for above, came late, just
+  // after such a frame), the next such frame took the rest of the 800 ms, and the height was read before the room had
+  // looked again. So the frames go on until that look has been made (up to 8 s), and the room is read then. (recAt only
+  // grows by a look, to that moment's performance.now(): a reset that had zeroed it leaves r6 at 0, and only a look after
+  // it passes.) A wait that runs out fails the check below, which says so
+  const t6 = Date.now();
+  const looked = await until(H, r => { window.__xr.step(); const R = HOST.room.internals(); return !R.wakeHold && R.recAt > r; }, r6, 8000);
+  const waited = Date.now() - t6;
+  console.log(looked ? `     (the room looked at the shared space again ${waited} ms after it was back)`
+    : `     (the room had not looked at the shared space again, or still held its frame, ${waited} ms after it was back)`);
+  const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
+    // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
+    trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
+  const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
+  check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
+    near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
+  check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', looked && back6.src === 'adopted' &&
+    near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
+    (looked ? '' : 'the room did not look at the shared space again within 8 s: ') + JSON.stringify(Object.assign(back6, { want: [w6, x6], waited, r6 })));
+  await sleepWake(H, FLOOR, SHARED);   // and back to the floor the rest expects
+  await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
+  await frames(H, 800);
+  // (a frame or two at a time on a busy machine: given up to 8 s more to come back)
+  await until(H, w => { window.__xr.step(); const o = HOST.room.frame && HOST.room.frame.o; return !!o && Math.abs(o[0] - w[0]) < 2e-3 && Math.abs(o[1]) < 2e-3 && Math.abs(o[2] - w[2]) < 2e-3; }, wantO, 8000);
+  check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
+    fmt(await H.evaluate(() => HOST.room.frame.o)));
+}
+// --standby: only the pretend headset's alignment through the shared space and its standby steps (standbySteps), in a
+// room of its own set up as the main run's pretend headset finds it: a station for every story (Arrange all), the room's
+// frame published for the shared space U1 by a page, the headset away from the stations, aligned through U1 (a minute)
+async function standbyRound() {
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+  await until(A, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 5000);
+  const H = await open('#s=' + rc);
+  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 20000);
+  await ready(H, 'airports');
+  const aId = await A.evaluate(() => HOST.collab.id);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  await H.evaluate(() => HOST.room.sharedAlign(true));
+  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 400);
+  await H.evaluate(() => window.__xr.head([-6, 1.6, 6, 0]));   // (away from the stations, as in the main run)
+  await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+  await frames(H, 300);
+  const fr = await H.evaluate(() => HOST.room.frame && { o: HOST.room.frame.o, x: HOST.room.frame.x, src: HOST.room.src });
+  const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
+  check('standby: the pretend headset aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
+    fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
+  // (the main run waits here for the notice saying how to open the menu, 2.5 s into the session)
+  await until(H, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
+  await standbySteps(H, wantO);
+  await H.evaluate(() => window.__xr.end()).catch(() => {});
+  for (const p of [A, H]) await p.context().close();
 }
 // frames for a while (real time passes: the station dwell, the reconciliation)
 const frames = (page, ms) => page.evaluate(async ms => {
@@ -4523,6 +4634,7 @@ try {
   if (HOME_ONLY) { await homeRound(); break main; }
   if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
+  if (STANDBY_ONLY) { await standbyRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -4985,57 +5097,7 @@ try {
     regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: (HOST.collab.notes().find(n => n.title === 'The menu') || {}).text }; });   // (as it showed: another may have followed it)
   check('headset: the menu is closed at first, with no watch on the wrist, and a notice says how to open it', !menu0.open && !menu0.clock && !menu0.panel &&
     !menu0.regions && menu0.hit && /stick|pinch/i.test(menu0.note || ''), JSON.stringify(menu0));
-  // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
-  // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
-  const glitch = await H.evaluate(() => {
-    const X = window.__xr, keep = X.W.shared, R = HOST.room.internals(), sa = R.sharedAlign;
-    R.sharedAlign = false;   // the adopted frame stays put meanwhile
-    X.head([-6, 1.6, 6, 0]);   // away from the stations (a second at one would make it the headset's)
-    X.W.shared = X.W.head.clone(); X.step(); X.step();
-    const atHead = !R.sharedOK && R.sharedHead && window.__collabLog.some(e => e.ev === 'shared at head');
-    X.W.shared = X.W.floor.clone(); X.step(); X.step();
-    const own = R.sharedOK && /your own floor/.test(HOST.room.sharedLine());
-    X.W.shared = keep; X.step(); X.step();
-    R.sharedAlign = sa;
-    return { atHead, own, back: R.sharedOK && !R.sharedHead && !/your own floor/.test(HOST.room.sharedLine()) };
-  });
-  check('headset: a shared space at the head is not used, and one that is just its own floor is named on the panel', glitch.atHead && glitch.own && glitch.back, JSON.stringify(glitch));
-  // standby with the shared space in use: the floor moves while the headset sleeps (a reset says how; Quest's floor
-  // came back 12 to 17 cm off) and the shared space is wrong for a while: the frame the reset carried over holds;
-  // once the space is back and agrees, the room is where it was, and at the same height as before
-  const F6 = [FLOOR[0] + 0.5, -0.15, FLOOR[2] - 0.3, FLOOR[3] + 0.6], JUNK = [SHARED[0] + 0.8, 0, SHARED[2] - 0.4, SHARED[3] + 0.35];
-  const sleepWake = (F, S) => H.evaluate(([F, S]) => {
-    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
-    X.visibility('hidden'); X.floorReset(F, 0.2); X.W.shared = M(S); X.visibility('visible');
-    for (let k = 0; k < 20; k++) X.step();
-    return { src: HOST.room.src, frame: HOST.room.frame && { o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice() }, held: window.__collabLog.slice(-40).some(e => e.ev === 'shared held after wake') };
-  }, [F, S]);
-  const spaceBack = S => H.evaluate(S => {
-    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
-    X.W.shared = new THREE.Matrix4().compose(V(S[0], S[1], S[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S[3]), V(1, 1, 1));
-    for (const fn of X.resets.shared || []) fn({ transform: null });
-    HOST.room.internals().visibleAt -= 21000;   // (nothing is let go within 20 s of waking)
-  }, S);
-  const held6 = await sleepWake(F6, JUNK);
-  await spaceBack(SHARED);
-  await frames(H, 800);
-  const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
-    // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
-    trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
-  const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
-  check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
-    near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
-  check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', back6.src === 'adopted' &&
-    near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
-    JSON.stringify(Object.assign(back6, { want: [w6, x6] })));
-  await sleepWake(FLOOR, SHARED);   // and back to the floor the rest expects
-  await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
-  await frames(H, 800);
-  // (a frame or two at a time on a busy machine: given up to 8 s more to come back)
-  await until(H, w => { window.__xr.step(); const o = HOST.room.frame && HOST.room.frame.o; return !!o && Math.abs(o[0] - w[0]) < 2e-3 && Math.abs(o[1]) < 2e-3 && Math.abs(o[2] - w[2]) < 2e-3; }, wantO, 8000);
-  check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
-    fmt(await H.evaluate(() => HOST.room.frame.o)));
+  await standbySteps(H, wantO);   // (the shared space glitching, then standby with the shared space in use)
   // Re-align by hand (in the menu): a headset left offset (as one was after a long standby) goes back to the
   // room's frame through the shared space, which is asked for again
   const qA = (await roomInfo(code)).seq;   // (the room's frame is written on purpose from here to qB)
@@ -5128,9 +5190,9 @@ try {
   check('after a night, the room\'s frame written by this headset goes into the space made again as it was held', rp.held < 2e-3 && rp.sent < 2e-3 && rp.by && rp.fresh &&
     !rp.hold && rp.rep, JSON.stringify(rp));
   // back to the room as the rest expects: the space where it was, the room's frame by A, the first floor
-  await spaceBack(SHARED);
+  await spaceBack(H, SHARED);
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
-  await sleepWake(FLOOR, SHARED);
+  await sleepWake(H, FLOOR, SHARED);
   await H.evaluate(() => HOST.room.realignNow());
   for (let k = 0; k < 10 && !(await H.evaluate(() => !HOST.room.internals().again)); k++) await frames(H, 500);
   const rb = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o }));
@@ -6900,8 +6962,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
