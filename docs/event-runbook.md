@@ -115,8 +115,8 @@ local network found each other this way, and then shared a peer-to-peer room; he
   `{"ok":true,...}`, and `/api/ping` says `missing or wrong token`, which is right).
 - [ ] Two tape crosses **on the floor**, A and B, about 2 m apart in the middle of the play area (1 m at least), with an
   arrow from A to B, left all day (and for the next session). Since v122 they set the room's floor too: every headset
-  that calibrates on them stands the room on the real floor, whatever its own floor says (no table corners: a spot more
-  than 45 cm over a headset's floor is refused).
+  that calibrates on them stands the room on the real floor, whatever its own floor says, however far off (no table
+  corners: spots on a table would put the room's floor on the table).
   Every headset calibrates on them as it starts and checks on them; the first headset's calibration makes them the
   room's. Label them A and B: a headset that touches them the other way round stands the room the other way round.
 - [ ] Floor for **Arrange all**: sixteen stations in two rows, eight and eight behind them, about 17 m by 4 m starting 1.2 m in front of you.
@@ -143,7 +143,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    - **The first headset** (no spots in the room yet): *Put two tape crosses on the floor*: press **Calibrate**, hold
      the controller pointing down, the bright ring at its tip still on spot A on the floor, and pull the trigger, then
      on spot B. That sets the room and its floor for everyone, today and next time. Spots at different heights (more
-     than 4 cm: the tip held off the floor) go back to spot A; spot A on a table is refused.
+     than 4 cm: the tip held off the floor) go back to spot A.
    - **The others**, one by one: if the room has its spots and the headset is not lined up by them, *Calibrate on them*
      (spot A, then spot B). A headset already lined up by them (its own calibration found again, or through the shared
      space from someone who calibrated) is asked by eye instead: the two orange crosses show where it puts the spots and

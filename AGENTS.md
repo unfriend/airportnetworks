@@ -1990,9 +1990,11 @@ empty's). The plan is
   calibrator's, or the last to find theirs again, so the other headset's note says its marks are that much further
   apart than the room's; the floor is the same either way). When the second spot is touched (`mark()`) spots more
   than 4 cm apart in height are refused (`SPOTS_DH`: *Spots at different heights*, back to spot A; the tip's height
-  moves with how the controller is tilted), and spot A more than 45 cm over this headset's floor is refused at once as
-  it is touched (`SPOTS_UP`, *Not on the floor*: a Guardian floor was seen up to 28 cm off, a table is 70 cm or more).
-  Both limits are guesses until tuned from the headsets' logs. The log says `floor spots` with A's and B's touch
+  moves with how the controller is tilted; a guess until tuned from the headsets' logs). How high spot A stands over
+  this headset's own floor is never limited (the owner, 7 November 2026: a Quest whose floor put spot A 92 cm up was
+  refused by v122's first 45 cm limit, "that was an error by the headset floor and exactly what i want to avoid": a floor
+  that is off, by however much, is what floor spots are for), so spots on a table are taken too, and the room's floor
+  is then the table's. The log says `floor spots` with A's and B's touch
   heights over this headset's floor and their difference (`dh`) and, when the session has plane detection and a plane
   labelled floor (`scanFloorAt`, the lowest, every 2 s), over the room scan's floor too, and `mark refused` with why
   (and `dh`, or A's height `h`): later logs measure `FLOOR_TIP`, the two limits and the headsets' floors. A
@@ -2136,9 +2138,9 @@ empty's). The plan is
   the controller pointing down, its tip on the floor; a mark is where the
   controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
-  apart; a second pull within 0.6 s is ignored; spot A more than 45 cm over
-  this headset's floor is refused, and spots more than 4 cm apart in height go
-  back to spot A (above: "The room's floor is under the marks"). Orange
+  apart; a second pull within 0.6 s is ignored; spots more than 4 cm apart in
+  height go back to spot A (how high spot A is over this headset's floor is
+  never limited) (above: "The room's floor is under the marks"). Orange
   crosses show the marks where this headset puts them (while the headset's menu
   is open, and 30 s after aligning). The panel's room section also shows the
   shared space's id and *Forget calibration* (`HOST.room.forget()`, press
@@ -4615,10 +4617,12 @@ still the first's); the laptop's list *lined up (the room's spots, checked ... a
 floor spots (v122, `floorSpots`): the first headset back in a new session with its own floor 20 cm too high and a room
 scan whose floor plane is the true floor, its spots found again by their anchors: the room's floor on the true floor
 within 1 cm and *Your floor is 20 cm higher*; calibrating on them again, spot B 5 cm higher refused (*Spots at different
-heights*, back to spot A), spot A on a table (75 cm, 55 cm over its floor) refused at once (*Not on the floor*), then
-both on the floor taken (B 3 cm higher than A): the room's floor on the true floor within 1 cm, `rm`
-`{ a: FLOOR_TIP, f: 1 }` its own, and the log's `mark refused` (heights with `dh` 5 cm, high) and `floor spots` (touch
-heights -18 and -15 cm over its floor, `dh` 3 cm, 2 and 5 cm over the scan's floor); the second back with its own
+heights*, back to spot A), then both on the floor taken (B 3 cm higher than A): the room's floor on the true floor
+within 1 cm, `rm` `{ a: FLOOR_TIP, f: 1 }` its own, and the log's `mark refused` (heights with `dh` 5 cm) and `floor
+spots` (touch heights -18 and -15 cm over its floor, `dh` 3 cm, 2 and 5 cm over the scan's floor); back again with its
+own floor 90 cm too low (the owner's Quest), calibrating on them again: spot A, 92 cm over its floor, taken, nothing
+refused, the room's floor on the true floor within 1 cm, *Your floor is 90 cm lower*, the log's touch height 92 cm; the
+second back with its own
 floor 15 cm too low, its spots found again (the true floor within 1 cm), then
 calibrated on again: its room's origin and direction within 1 cm of the first's, *Your floor is 15 cm lower*, nothing
 written to `rm` (no `floor claimed`, `rm` unchanged); Forget, lined up through the shared space (its own floor kept),
@@ -4628,7 +4632,7 @@ room's floor is other spots), *f* absent, nothing written to `rm`; an older devi
 no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
 space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
-spot A refused as not on the floor (`guide-20-not-on-floor.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
+calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches

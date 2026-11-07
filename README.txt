@@ -272,8 +272,9 @@ enters AR in a shared room (in VR: answered In this room), its menu opens by
 itself at Line up, which says how it lines up now and what to do: the room's
 first headset calibrates on the two spots (Calibrate: the controller pointing
 down, the bright ring at its tip on spot A on the floor, the trigger, then spot
-B), which sets the room and its floor for everyone (spots at different heights,
-or spot A on a table, are refused: touch them again on the floor); the others
+B), which sets the room and its floor for everyone, however far off a
+headset's own floor is (spots at different heights are refused: touch them
+again on the floor); the others
 calibrate on the same spots, or, already lined up by them (their calibration
 found again, or through the shared space from someone who calibrated), are asked
 by eye instead: the two orange crosses show where the headset puts the spots and

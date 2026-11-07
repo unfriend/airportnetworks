@@ -5527,9 +5527,11 @@
   // floor, held pointing down. A guess until measured on a Quest: the headsets' logs say 'floor spots' with the touch
   // heights over their own floor and, with a room scan, over its floor plane
   const FLOOR_TIP = 0.02;
-  // floor spots: at most 4 cm apart in height (the tip's height moves with how the controller is tilted); spot A at most
-  // 45 cm over this headset's floor. Both guesses until tuned from the logs ('mark refused' and 'floor spots' carry dh)
-  const SPOTS_DH = 0.04, SPOTS_UP = 0.45;
+  // floor spots: at most 4 cm apart in height (the tip's height moves with how the controller is tilted; a guess until
+  // tuned from the logs: 'mark refused' and 'floor spots' carry dh). How high spot A stands over this headset's own floor
+  // is never limited: a headset's floor that is off, by however much, is what floor spots are for (the owner, 7 November
+  // 2026, after a Quest whose floor put spot A 92 cm up was refused by v122's first 45 cm limit)
+  const SPOTS_DH = 0.04;
   const onFloor = () => !!(R.saved && R.saved.f);   // this headset's marks are floor spots (a calibration since v122)
   const floorUnder = (a, b) => {
     if (onFloor()) return a[1] - FLOOR_TIP;
@@ -6480,13 +6482,6 @@
     R.markAt = t;
     const s = steady(h), p = s.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
     log('mark', { step: R.calib.step, p: p.toArray().map(r3), moved: r3(s.distanceTo(h.o)) });
-    // the spots are on the floor: spot A well over this headset's floor (a Guardian floor was seen up to 28 cm off, a
-    // table is 70 cm or more) is a table, refused at once
-    if (R.calib.step === 'a' && p.y > SPOTS_UP) {
-      log('mark refused', { why: 'high', h: r3(p.y) });
-      notice('Not on the floor', `Spot A is ${Math.round(p.y * 100)} cm above this headset's floor: the spots must be on the floor (tape crosses on the floor), not on a table.`, 0);
-      return;
-    }
     if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Spot A taken', 'Now spot B on the floor, a metre or more from A (about 2 m is best): the ring at the tip on it, hold still and pull the trigger.', 0); return; }
     const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z, dh = p.y - a.y;
     if (Math.hypot(dx, dz) < 0.5) { notice('Spots too close', 'Spot B must be at least 50 cm from spot A (a metre or more is better). Touch spot B again.', 0); return; }
