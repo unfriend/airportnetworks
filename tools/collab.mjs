@@ -542,20 +542,23 @@ async function standbySteps(H, wantO) {
   // compiled as the stations' icons and cards first show), and where those frames fall had moved. When the room's last look
   // before the standby came less than 500 ms before the space agreed (the menu's notice, waited for above, came late, just
   // after such a frame), the next such frame took the rest of the 800 ms, and the height was read before the room had
-  // looked again. So the frames go on until that look has been made (up to 8 s), and the room is read then
+  // looked again. So the frames go on until that look has been made (up to 8 s), and the room is read then. (recAt only
+  // grows by a look, to that moment's performance.now(): a reset that had zeroed it leaves r6 at 0, and only a look after
+  // it passes.) A wait that runs out fails the check below, which says so
   const t6 = Date.now();
-  await until(H, r => { window.__xr.step(); const R = HOST.room.internals(); return !R.wakeHold && R.recAt > r; }, r6, 8000);
+  const looked = await until(H, r => { window.__xr.step(); const R = HOST.room.internals(); return !R.wakeHold && R.recAt > r; }, r6, 8000);
   const waited = Date.now() - t6;
-  console.log(`     (the room looked at the shared space again ${waited} ms after it was back)`);
+  console.log(looked ? `     (the room looked at the shared space again ${waited} ms after it was back)`
+    : `     (the room had not looked at the shared space again, or still held its frame, ${waited} ms after it was back)`);
   const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
     // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
     trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
   const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
     near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
-  check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', back6.src === 'adopted' &&
+  check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', looked && back6.src === 'adopted' &&
     near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
-    JSON.stringify(Object.assign(back6, { want: [w6, x6], waited })));
+    (looked ? '' : 'the room did not look at the shared space again within 8 s: ') + JSON.stringify(Object.assign(back6, { want: [w6, x6], waited, r6 })));
   await sleepWake(H, FLOOR, SHARED);   // and back to the floor the rest expects
   await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
   await frames(H, 800);
