@@ -25,8 +25,9 @@
 // the item motion tab they should also show on the item as a preview"; "to make placing easier add a pause motion button but
 // i also want to be able to move moving/animated items to select their exact place"): it rests at its placed pose only while
 // this device holds it (motionRests: a grip, its group carried, the page's arrows dragged on it or its group, the sticks, a
-// sound or a cut-out on it carried, its path being recorded) and while Pause is on here (e6h_ghost.js); a see-through
-// ghost shows where it is placed meanwhile, and the page's arrows stand on that ghost.
+// sound or a cut-out on it carried, its path being recorded), while a cut-out on it or a sound following it is selected
+// here (they are placed on it where it is placed), and while Pause is on here (e6h_ghost.js); a see-through ghost shows
+// where it is placed meanwhile, and the page's arrows stand on that ghost.
 const MOTION_KINDS = ['spin', 'wobble', 'bob', 'pulse', 'orbit', 'sway'], MOTION_ITEMS = ['o', 'p', 'e'];
 // each kind as it starts (speed and amount), its amount's unit, largest value and steps on the card, and its words
 const MOTION = {
@@ -84,13 +85,16 @@ function motionDelta(it, mo, t, m, out) {
 // whether it rests at its placed pose now: Pause on here (e6h_ghost.js), or held here (restScan's list, made once a frame:
 // carried by a grip or the sticks, dragged by the page's arrows, its path being recorded, or what is on it or holds it
 // carried: a sound or a cut-out on it, its group, a group holding a sound on it, so what is placed on it is measured where
-// it is placed)
+// it is placed), or a cut-out on it or a sound following it selected here (editing): their arrows, box and corners stand
+// on it where it is placed, so a drag of them never jumps (they have no ghost of their own)
 const REST = { ids: new Set() };
 function motionRests(it) { return motionsPaused() || REST.ids.has(it.id); }
 function restScan() {
   const S = REST.ids;
   S.clear();
   if (MPAUSE.on && !editOn()) { MPAUSE.on = false; dirty(); }   // (Pause is editing's only: off as editing goes)
+  const sel = editOn() ? STU.items.get(STU.sel) : null;
+  if (sel && (sel.kind === 's' || sel.kind === 'x') && sel.rec.on) S.add(sel.rec.on);
   for (const x of STU.items.values()) {
     if (!x.carry && !recording(x)) continue;
     S.add(x.id);

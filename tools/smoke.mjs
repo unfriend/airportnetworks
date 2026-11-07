@@ -4522,8 +4522,9 @@ await step('design: the intro ends at the table', async () => {
 // sized per axis), an empty, a sound following the empty and a cut-out on the box put in for these steps: each kind's
 // drawn pose at two moments its formula (about its middle, in the scene's axes) over its placed pose, which stays as its
 // record puts it; 'always' the same on two pages at one room time, 'shown' from its showing; the sound following the
-// empty, the box's cut-out and a sound on the pulsing box coming along; going on while selected (or its group, or a sound on it), resting while
-// carried; selected and moving, a ghost where it is placed, the page's arrows on it, Pause (the Scene pane, a card, P), Start again;
+// empty, the box's cut-out and a sound on the pulsing box coming along; going on while selected (or its group), resting while a sound or a
+// cut-out on it is selected (their arrows on them where they are drawn, a drag of them not jumping) and while carried; selected and
+// moving, a ghost where it is placed, the page's arrows on it, Pause (the Scene pane, a card, P), Start again;
 // the cards' rows (page and headset), one Undo step each; the state and layout.json, bad values refused
 {
   const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } }), mp2 = await browser.newPage({ viewport: { width: 640, height: 400 } });
@@ -4643,15 +4644,16 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     bad(out.concat(sh));
   });
-  await step('studio motions: going on while selected (editing), its group selected, a sound on it selected, and resting while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
+  await step('studio motions: going on while selected (editing) and its group selected, resting while a sound on it is selected and while carried; moving again after; the cards\' rows (page and headset), one Undo step each', async () => {
     const out = await ss(`(() => {
       const M = window.__mo, o = [], mv = id => !STU.items.get(id).holder.matrixAutoUpdate, step = () => M.at('mot001', 3.3);
       setEdit(true); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 0.3 } }); setRec('emp001', { motion: { kind: 'orbit', speed: 8, amount: 0.4 } }); select(''); step();
       if (!mv('mot001') || !mv('emp001')) o.push('not moving at first');
       select('mot001'); step();
       if (!mv('mot001') || !mv('emp001') || STUDIO.pose('mot001').rests) o.push('selected, it rested (or the empty did)');
+      // (a sound on it selected: it rests, so the sound's arrows stand on it where it is placed)
       select('sfl001'); step();
-      if (!mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty rested');
+      if (mv('emp001') || !mv('mot001')) o.push('a sound on the empty selected: the empty did not rest (or the shape did)');
       // (a sound on it carried: it rests, so the sound's place is measured where it is placed)
       STU.items.get('sfl001').carry = true; step();
       if (mv('emp001')) o.push('a sound on the empty carried: the empty did not rest');
@@ -4705,7 +4707,7 @@ await step('design: the intro ends at the table', async () => {
     if (!xr[0] || !/"kind":"pulse","speed":30,"amount":0.1/.test(xr[1]) || !xr[2] || !/"amount":0.15/.test(xr[3]) || !xr[4] || xr[5]) out.push('the headset\'s Motion rows: ' + JSON.stringify(xr));
     bad(out);
   });
-  await step('studio motions: selected and moving, a ghost where it is placed (a big model only its box), gone when deselected; the page\'s arrows on the ghost (a drag moves its record, the item drawn there while dragged, moving again after); a pretend headset\'s grip on the ghost carrying it; Pause (the Scene pane, a card, P): everything at its placed pose, a clip held, nothing written to the room, editing off playing again; Start again; a cut-out made where a click met a moving model', async () => {
+  await step('studio motions: selected and moving, a ghost where it is placed (a big model only its box), gone when deselected; the page\'s arrows on the ghost (a drag moves its record, the item drawn there while dragged, moving again after); a pretend headset\'s grip on the ghost carrying it; Pause (the Scene pane, a card, P): everything at its placed pose, a clip held, nothing written to the room, editing off playing again; Start again; a cut-out on a spinning model and a sound on an orbiting empty selected: what they are on rests, their arrows on them, a drag not jumping; a cut-out made where a click met a moving model', async () => {
     const out = await ss(`(() => {
       const M = window.__mo, o = [], V = M.V, it = STU.items.get('mot001'), H = it.holder, placed = () => new THREE.Matrix4().compose(H.position, H.quaternion, H.scale);
       const same = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= (e || 1e-9));
@@ -4784,6 +4786,37 @@ await step('design: the intro ends at the table', async () => {
       return [!!b, performance.now() - it.shownAt < 1500, UNDO.length === u];
     })()`);
     if (!sa.every(Boolean)) out.push('Start again on a motion that starts when shown: ' + JSON.stringify(sa));
+    // a cut-out on the spinning box and a sound following the orbiting empty, selected: what they are on rests (they have no
+    // ghost of their own), so their arrows are on them where they are drawn, and a drag moves them from there without a jump
+    const ar = await ss(`(() => {
+      const M = window.__mo, V = M.V, o = [], J = a => JSON.stringify(a), at = H => { H.updateWorldMatrix(true, false); return V().setFromMatrixPosition(H.matrixWorld); };
+      setRec('mot001', { motion: undefined }); setRec('box001', { anim: 'off', motion: { kind: 'spin', speed: 15 } }); setRec('emp001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } });
+      select(''); M.at('box001', 1);
+      if (!STUDIO.pose('box001').moving || !STUDIO.pose('emp001').moving) o.push('not moving before the cut-out or the sound was selected');
+      tcSetMode('translate');
+      for (const [id, on] of [['cut001', 'box001'], ['sfl001', 'emp001']]) {
+        const it = STU.items.get(id);
+        select(id); M.at(on, 1); M.at(on, 1.7);
+        const P = STUDIO.pose(on), a0 = at(it.holder);
+        if (P.moving || !P.rests) o.push(id + ' selected: what it is on did not rest: ' + J(P));
+        if (GL.tc.object !== it.holder || !it.holder.matrixAutoUpdate || STUDIO.ghost(id) || STUDIO.ghost(on)) o.push(id + ' selected: its arrows not on it where it is drawn: ' + J([GL.tc.object && GL.tc.object.userData.id, GL.tc.object === TCP, it.holder.matrixAutoUpdate, STUDIO.ghost(id), STUDIO.ghost(on)]));
+        const u0 = UNDO.length;
+        GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); M.at(on, 2.2);
+        const a1 = at(it.holder);
+        it.holder.position.x += 0.1; GL.tc.dispatchEvent({ type: 'objectChange' }); M.at(on, 2.6);
+        const a2 = at(it.holder);
+        GL.tc.dispatchEvent({ type: 'dragging-changed', value: false }); M.at(on, 3);
+        const a3 = at(it.holder);
+        // (let go, at most the record's rounding to the mm away)
+        if (a1.distanceTo(a0) > 1e-6 || a2.distanceTo(a0.clone().add(V(0.1, 0, 0))) > 1e-6 || a3.distanceTo(a2) > 0.0015 || UNDO.length !== u0 + 1) o.push(id + ' dragged, it jumped: ' + J([a0, a1, a2, a3, UNDO.length - u0]));
+        if (UNDO.length > u0) undo();
+      }
+      select(''); M.at('box001', 1);
+      if (!STUDIO.pose('box001').moving || !STUDIO.pose('emp001').moving) o.push('deselected, they did not move again');
+      setRec('emp001', { motion: undefined }); setRec('box001', { anim: 'loop', motion: undefined }); select('');
+      return o;
+    })()`);
+    out.push(...ar);
     // a cut-out where a click met the box as it was drawn then (spinning), in its own frame, whatever it does since
     const cu = await ss(`(() => {
       const M = window.__mo, V = M.V, o = [], b = STU.items.get('box001');

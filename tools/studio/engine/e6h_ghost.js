@@ -3,7 +3,8 @@
 // one can hit it again for better loops", "when selecting animations on the item motion tab they should also show on the
 // item as a preview", and "to make placing easier add a pause motion button but i also want to be able to move
 // moving/animated items to select their exact place". So an item that moves (a motion, a recorded path, a behaviour) goes
-// on while it is selected (motionRests, e6e_motion.js), and:
+// on while it is selected (motionRests, e6e_motion.js; a cut-out on it or a sound following it, selected, holds it still
+// at its placed pose instead: they have no ghost, so their arrows stand on it there), and:
 // - its ghost: while a selected item (or a selected group's member) is drawn more than 1 cm or 1 degree from where it is
 //   placed, a see-through copy stands there (an object's model sharing its geometry with one pale material, a skinned one
 //   frozen in its rest pose, a model of more than 100,000 triangles only its outline box; a shape its shape; an empty its

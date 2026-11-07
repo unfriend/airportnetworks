@@ -3747,7 +3747,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   it goes on while selected (editing or not: a motion picked on its card shows at once), and rests at its placed pose
   only while this device holds it (`motionRests`, from `restScan`'s list made once a frame: a grip or the sticks, its
   group carried, the page's arrows dragged on it or its group, its path being recorded, a sound or a cut-out on it
-  carried, a group holding a sound on it carried) or Pause is on here ("The ghost, Pause and placing what moves" below);
+  carried, a group holding a sound on it carried), while a cut-out on it or a sound following it is selected here
+  (editing: their arrows, box and corners stand on it where it is placed, so a drag of them never jumps; they have no
+  ghost of their own) or Pause is on here ("The ghost, Pause and placing what moves" below);
   what is measured against it (attaching a sound, a bone, *Move onto it*, *Stop following*, a group's pivot, box, moves
   and *On the floor*, sizes, a cut-out's frame) is measured at its placed pose (`poseRest` in an action, `atPlaced`
   inside a frame). Its card (page and headset, editing on, not refused by a lock): *Motion: None / Spin / Wobble / Bob /
@@ -4296,9 +4298,9 @@ cut-out on the box put in for them): each kind's drawn pose at two moments its f
 axes, for the shape, the box and the empty), its holder and record unchanged; the sound on the bobbing empty, the cut-out
 on the spinning box and a sound on the pulsing box (its offset grown with it) coming along; no motion, at rest; `always`
 drawn alike on both pages at one room time (a pretend station, `HOST.collab.now` stubbed), `shown` from its showing and
-from its beginning when shown again; going on while selected (editing), its group selected (both members' ghosts shown,
-the group's pivot still while they move) and a sound on it selected, resting while a sound on it is carried and while a
-pretend headset's grip carries it, moving again after (v122); the page's Motion rows (a kind, Faster, Less, an axis, When
+from its beginning when shown again; going on while selected (editing) and its group selected (both members' ghosts
+shown, the group's pivot still while they move), resting while a sound on it is selected or carried and while a pretend
+headset's grip carries it, moving again after (v122); the page's Motion rows (a kind, Faster, Less, an axis, When
 shown, another kind, The other way, None: one Undo step each, the line about the ghost, the list's *spins*) and the
 headset's (Pulse, More, None); then (v122) a step for the ghost: none before it is selected, at its placed pose while a
 bob draws it 1 m above, one part and one unseen box; the page's arrows on its stand-in (`TCP`), a drag through
@@ -4309,7 +4311,10 @@ model's meshes, a big one (`GHOST.tris` lowered) only its outline box, an empty'
 two, none once deselected; Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
 clock, the pane saying so, `state()` unchanged), the card's switch playing them again (the arrows back on the ghost), P
 pausing (the arrows back on the item), editing off playing them again; Start again on a motion that starts when shown
-(its clock from now, no Undo step); and a cut-out made where a click met the spinning box (its clip off) put on that part
+(its clock from now, no Undo step); a cut-out on the spinning box and a sound following the orbiting empty, each
+selected: what it is on resting, no ghost, the arrows on its own holder, a drag through `TransformControls`' events not
+moving it as it begins and moving it by just the 0.1 m dragged (one Undo step), let go within the record's rounding, both
+moving again once deselected; and a cut-out made where a click met the spinning box (its clip off) put on that part
 of it in its own frame, within 1 mm, though it spun on before *Cut out a part*; the state and `layout.json` carrying motions and giving them back, `norm`'s
 rules (bad kinds, values, axes and starts refused, out of range held, a cube's ignored), a bad motion in a layout counted.
 Its *studio paths* steps run on a page of their own at `&scene=test` (v120, with a shape, an empty and two sounds put in

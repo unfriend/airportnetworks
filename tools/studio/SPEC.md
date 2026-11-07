@@ -1131,8 +1131,10 @@ this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6
 - **Resting** (v122; until v121 it also rested while selected): it goes on while selected, editing or not, so the card's
   rows show on it at once; it is drawn at its placed pose only while this device holds it (`motionRests`, from
   `restScan`'s list made once a frame: carried by a grip or the sticks, its group carried, the page's arrows dragged on it
-  or its group, its path being recorded, or a sound or a cut-out on it carried, or a group holding a sound on it carried)
-  and while Pause is on here. What is measured against it (a sound attached, a bone picked, *Move onto it*, *Stop
+  or its group, its path being recorded, or a sound or a cut-out on it carried, or a group holding a sound on it carried),
+  while a cut-out on it or a sound following it is selected here (editing: as until v121; their arrows, box and corners
+  stand on it where it is placed, so a drag of them never jumps, and they have no ghost of their own) and while Pause is
+  on here. What is measured against it (a sound attached, a bone picked, *Move onto it*, *Stop
   following*, a group's pivot, box, moves and *On the floor*, sizes, a cut-out's frame) is measured at its placed pose
   (`poseRest` in an action; `atPlaced`, the holders put at their placed poses for the measure, inside a frame). Others at
   the station still see it move. See "The ghost, Pause and placing what moves" below.
@@ -1229,7 +1231,8 @@ preview", and, asked whether a selected item should keep moving: "to make placin
 also want to be able to move moving/animated items to select their exact place". `engine/e6h_ghost.js`.
 
 - **It goes on while selected**: an item with a motion, a recorded path or a behaviour moves while it is selected (editing
-  or not), and rests at its placed pose only while this device holds it or Pause is on ("Motions": Resting). So a motion
+  or not), and rests at its placed pose only while this device holds it, a cut-out on it or a sound following it is
+  selected here, or Pause is on ("Motions": Resting). So a motion
   picked on its card shows on it at once.
 - **The ghost**: while a selected item (or a member of a selected group) is drawn more than 1 cm or 1 degree from where it
   is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy

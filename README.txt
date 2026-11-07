@@ -103,7 +103,8 @@ scene for everyone at it; several studio circles can stand in a room.
 - Placing what moves: while something you selected moves away from its place,
   a pale ghost stands where it is placed. On a page its arrows stand on the
   ghost; in a headset the grip on the ghost (or on the thing) carries it from
-  there. Motions: paused (the Scene tab, its card, or P on a page) stands
+  there. A cut-out or a following sound selected stands what it is on still.
+  Motions: paused (the Scene tab, its card, or P on a page) stands
   everything still on this device while you place things.
 - Recorded paths: an object, a shape, an empty or a sound can play back a
   movement you made. In a headset press Record its movement on its card, then

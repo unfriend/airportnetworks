@@ -217,7 +217,8 @@ still see it move. A sound on it, or a cut-out, moves with it. Shared in a room 
   arrows stand on the ghost: drag them and the thing rests there while you drag, then moves on from its new place. In a
   headset the grip on the ghost, or on the thing where it is, carries it from its place; let go, it moves on from there.
   Its card's buttons (Turn 90°, On the floor, the size steps) work on its place as ever. A very big model's ghost is just
-  its outline box.
+  its outline box. Selecting a cut-out of it, or a sound that follows it, stands it still at its place while that is
+  selected, so you place those on it where it is placed.
 - **Pause.** **Motions: playing / paused** on the Scene tab (while editing), on the card of anything that moves, or **P**
   on a page: everything stands where it is placed and animations hold their frame, so placing is easy; sounds play on.
   It is this device's own (nobody else sees it), and turning Edit off plays everything again.
