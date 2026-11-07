@@ -13,9 +13,18 @@
   to all sixteen stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
-  screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
-  run `node tools/smoke.mjs` before committing. Report anything that can only
-  be checked on a real headset as untested.
+  screenshots (hashes such as `#spatial&t=60` jump straight to a moment).
+  Report anything that can only be checked on a real headset as untested.
+- When the test suites run (the owner, 7 November 2026: "only running when
+  pushing to main makes sense for now"): the full suites (smoke, relay, shared
+  rooms, and update, live, sound and room test where a change touches them)
+  run only before `main` moves. A push to `dev` gets the cheap checks only:
+  `node --check` on the changed files, the builds' `--check`, and
+  `node tools/release.mjs --check`; no smoke test or shared-room run, and a
+  red result is not chased on `dev`. Every "run ... after touching" line below
+  and in `AGENTS.md` names what goes into that release run. Why: running is
+  free (CPU), but chasing red results costs tokens, and most were the tests'
+  own or the machine's ("Working economically" in `AGENTS.md`).
 - After any change to app files, bump `VERSION` in `sw.js`. After changing
   `sw.js` or how files load, run `tools/update.mjs` (see Testing in `AGENTS.md`).
 - Releasing: after the `VERSION` bump, run `node tools/release.mjs` (it writes

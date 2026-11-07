@@ -144,14 +144,15 @@ app's renderer can use it to hide virtual things behind a real hand, person, wal
 
 ## 3. Tests
 
-There is no unit-test suite and no CI (no automatic test runs on GitHub): you run these tests yourself. The browser
+There is no unit-test suite and no CI (no automatic test runs on GitHub): you run these tests yourself, before `main`
+moves (a push to `dev` gets only the build check and the release file check: section 4). The browser
 tests use headless Chromium, which draws in software here and is slow, so run them one at a time. In the table,
 "server" means the folder served on port 8123, as in section 2. The times are for a machine with 4 CPUs.
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
 | Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
-| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
+| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every release to `main` (since 7 November 2026; not for `dev`) | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
@@ -190,7 +191,9 @@ the test place: the owner's Coolify builds it at `https://stories.lab.lbi-netmed
 served by its relay, with the studio's scenes in R2. The tested working branch is pushed there (`git push origin
 HEAD:dev`, a fast-forward, as for `main`), the owner tries it, and only then does `main` move forward to it (step 9).
 Work happens on one working branch. `main` and `dev` only move forward by fast-forwards (they take the branch's commits
-as they are, with no merge commit), and only after the tests pass. No pull requests are used. The `CNAME` file stays: it
+as they are, with no merge commit). `dev` moves after the cheap checks (`node --check` on the changed files, the builds'
+`--check`, `node tools/release.mjs --check`); `main` only after the full tests pass (step 7; the owner, 7 November 2026:
+"only running when pushing to main makes sense for now"). No pull requests are used. The `CNAME` file stays: it
 is GitHub Pages' custom domain for `main`.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
@@ -242,8 +245,9 @@ is GitHub Pages' custom domain for `main`.
    - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
    - The chapter timings in `audio/PUT-narration.mp3-HERE.txt`.
    - [narration.md](narration.md) (with `tools/narration.mjs`) if a story's text changed.
-7. **Run the tests**: the build check, `node tools/release.mjs --check`, smoke, update, live updates, relay and shared
-   rooms, plus sound if you touched sound. All of them must pass.
+7. **Run the tests** before `main` moves (for `dev`, only the build check and `node tools/release.mjs --check`): the
+   build check, `node tools/release.mjs --check`, smoke, update, live updates, relay and shared rooms, plus sound if you
+   touched sound and the room test if you touched it. All of them must pass.
 8. **Commit on the working branch**, sources and built files together.
 9. **Fast-forward main, then push the branch:**
 

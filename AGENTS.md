@@ -4076,8 +4076,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
 
 ## Testing
 
-There is no unit-test suite. Before committing, serve the folder and run the
-smoke test, which loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
+There is no unit-test suite. When the suites run (the owner, 7 November 2026: "only running when pushing to main makes
+sense for now"): every suite below that a change touches runs before `main` moves, the smoke test always; a push to
+`dev` gets only `node --check` on the changed files, the builds' `--check` and `node tools/release.mjs --check`, and a
+red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
+
+The smoke test (serve the folder, then run it) loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
 with its card as `props.json` has it, a pretend headset's grip, its shared state, Tidy; and the studio, below), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
 last one, the voice finishing the chapter there where a story has a recording,
@@ -5103,6 +5107,11 @@ rounds and verification, all on the most expensive model. Next time:
   agents and their work is redone, so finish or checkpoint long runs first.
 - **Prefer cheap tests.** The smoke test and the set harness catch most
   problems; full screenshot sweeps of a story are for the end.
+- **The full suites run only before `main` moves** (the owner, 7 November 2026; "Testing"). Running them costs no
+  tokens (they are scripts on the machine's CPU); chasing their red results does (100,000 to over a million tokens a
+  time), and from v91 to v122 about 5 real app bugs were caught in the full runs against about 70 failures that were the
+  tests' own or the machine's (load, slow software drawing, restarts); builders' own runs caught about 11 more before
+  merging. Code reviews and the owner's headset tests found more real bugs than the suites did.
 - **The shape of a story run** (as the qubits story was built: two builders,
   one review and one fix round in about 1 h 15 min and 1.2M tokens): the
   builders use the strongest model, the review runs on Sonnet, there is only

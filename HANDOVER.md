@@ -49,7 +49,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   `SPOTS_UP` and its *Not on the floor* refusal are gone; the 4 cm between the two spots' heights stays (`SPOTS_DH`).
   Spots on a table are taken too now, and put the room's floor on the table: the guide and the event runbook say the
   spots go on the floor. The guide round's floor-spots test calibrates a headset whose floor is 90 cm too low instead
-  of refusing a table. Tests: the guide round and the full shared-room run on v123 were running when this was written (results in the next entry).
+  of refusing a table. Tests: the guide round passed (38, the new 90 cm case among them); the full shared-room run was stopped at 417
+  passed and none failed when the owner moved the full runs to releases to `main` (below).
+- **When the tests run (7 November 2026).** The owner, after asking what the tests catch and cost: "only running when
+  pushing to main makes sense for now". The full suites run before `main` moves; a push to `dev` gets the cheap checks
+  only (`node --check`, the builds' `--check`, `node tools/release.mjs --check`). The record from v91 to v122, read back
+  from this file, the commits, the test logs and the builders' reports (approximate; first failed runs were often not
+  written down): about 30,000 check results and about 150 failures. The full runs caught about 5 real app bugs (v102 two
+  pinches at nothing impossible in the life-size stories, v107 the setup section hiding the room map, v111 the design
+  room's and studio's circles asking every page to update, v113-v114 the relay's file links changing every second, v117
+  the built studio declaring a name twice); about 40 failures were the tests' own and about 30 the machine's or never
+  explained. Builders' own runs caught about 11 more real bugs before merging. Recurring noise: peer-to-peer timing in
+  about 15 full runs (a silent host replaced only after 41 to 43 s, the introduction server's 40 s timeout: the known
+  limit, never settled), the standby height check (fixed in v121), "a circle made for one scene" in the studio round
+  (v118, v120, v122, unexplained), the robots not docking in the smoke test (about one run in eight). Code reviews and
+  the owner's headset tests found more real bugs than the suites. Only about 3 of 26 full shared-room runs were clean
+  on the first try.
 - **networks-v122 (7 November 2026; FORMAT networks-35, shell 122), on `dev`: floor spots, the studio's Items pane as
   cards, and placing what moves.** The owner's go after trying v121 (which went to `main` the same day).
   - Floor spots (the owner: "the floor was off so many times now in various headsets"; "floor spots sounds good, lets
@@ -327,7 +342,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     for it later is one line there. The relay drops quote marks typed round `RELAY_ARGS` (they made it print its usage
     and stop). `--public`'s default origin is the main site's again (v114 had added `unfriend.github.io`).
   - The release flow: work goes to `dev` first (the test place updates by itself), then `main` once the owner has tried it
-    (`docs/setup-and-release.md`, section 4).
+    (`docs/setup-and-release.md`, section 4). Since 7 November 2026 the full test suites run only before `main` moves.
   - Set up and checked the same day: the owner's Coolify app runs `dev` at `stories.lab.lbi-netmed.com` (v116 served,
     `/api/health` open, the API refused without the password and to other sites' pages, `/upload` to the studio's
     Upload pane, no relay offered on the main site), and "R2 works" (the owner).
