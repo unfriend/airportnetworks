@@ -1331,7 +1331,7 @@ await step('design: the intro ends at the table', async () => {
     })()`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
-  await step('studio: editing on the page: a click selects, the arrows move it, a cube grows, a tick links, Add and Delete, Undo', async () => {
+  await step('studio: editing on the page: a click selects, the arrows move it, a cube grows, Shows under a card links, Add and Delete, Undo', async () => {
     const bad = [];
     await ss(`(setEdit(true), setView('orbit'), orbit.cur = [10, 18, 3.2, -1, 0.3, -2], orbit.to = null, select(''), 0)`);
     await frames(3);
@@ -1350,11 +1350,11 @@ await step('design: the intro ends at the table', async () => {
     await ss(`(select('cube01'), itemAct('grow', '1:0.1'), 0)`);
     const c = await ss(`STU.items.get('cube01').rec`);
     if (c.size.join() !== '1.2,2.1,1.2' || c.p[1] !== 1.05) bad.push('a cube\'s height step: ' + JSON.stringify(c));
-    // the Items pane's tick box: the box on the cube's Shows list (and off its Hides list), then Undo
+    // the Items pane's Shows under the box's card: the box on the cube's Shows list (and off its Hides list), then Undo
     await ss(`(X.tab = 'items', renderPanes(), 0)`);
-    await stp.click('#pane-items input[data-act="tick"][data-list="show"][data-v="box001"]');
+    await stp.click('#pane-items .stu-ic[data-card="box001"] button[data-act="tick"][data-v="show:box001"]');
     const c2 = await ss(`STU.items.get('cube01').rec`);
-    if (!c2.show.includes('box001') || c2.hide.includes('box001')) bad.push('the tick did not put the box on the cube\'s Shows list: ' + JSON.stringify(c2));
+    if (!c2.show.includes('box001') || c2.hide.includes('box001')) bad.push('Shows under the box\'s card did not put it on the cube\'s Shows list: ' + JSON.stringify(c2));
     await ss('undo()');
     const c3 = await ss(`STU.items.get('cube01').rec`);
     if (c3.show.includes('box001') || !c3.hide.includes('box001')) bad.push('Undo did not take the link back: ' + JSON.stringify(c3));
@@ -1940,6 +1940,141 @@ await step('design: the intro ends at the table', async () => {
     if (JSON.stringify(pv) !== '{"files":0,"pics":0,"listed":"previews/box.glb.jpg,previews/x.glb.jpg","lists":false,"has":true,"after":0,"fits":"true,false,false"}') bad.push('previews/ in a listing: ' + JSON.stringify(pv));
     await ss(`(pvClear(), X.orig = false, X.tab = 'scene', renderPanes(), 0)`);
     while (await ss('UNDO.length')) await ss('undo()');
+    if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: the Items pane as cards (v122): a picture or a tile per item (the box\'s picture, the figure\'s plain tile, shapes, an empty, a sound and a cube drawn), a group\'s heading with its members under it, a cut-out\'s tag selecting it, a press selecting and the selected card lit, the lock and moves marks (what moves it in words); a cube selected, Shows and Hides changing its lists (one Undo step each); a pick mode adding by a press, a cut-out\'s tag marked green; the headset\'s canvas (three a row, paging, a picture and a tile drawn, the selected card\'s border, a cut-out\'s tag the card\'s width with its toggles under it and green when picked, a toggle and a card pressed by a pretend ray)', async () => {
+    const bad = [];
+    // put in for it: a group of a ball (it moves) and an empty, a cut-out on the box, three shapes (one locked, hiding things)
+    if (!await until(`!!STU.items.get('box001').model && !!STU.items.get('fig001').model`, 60000)) bad.push('the box and the figure did not load');
+    const lists0 = await ss(`JSON.stringify([STU.items.get('cube01').rec.show, STU.items.get('cube01').rec.hide])`), u0 = await ss('UNDO.length');
+    await ss(`(pvClear(), setEdit(true), select(''),
+      putItem('icx001', 'x', norm('x', { name: 'Notch', on: 'box001', p: [0, 0.2, 0], size: [0.2, 0.2, 0.2] })),
+      putItem('icb001', 'p', norm('p', { name: 'Ball', shape: 'sphere', p: [1.5, 0.25, -1], size: [0.5, 0.5, 0.5], colour: '#46d9ff', motion: { kind: 'spin' } })),
+      putItem('ice001', 'e', norm('e', { name: 'Point', p: [1.5, 1.2, -1] })),
+      putItem('icg001', 'g', norm('g', { name: 'Pair', items: ['icb001', 'ice001'] })),
+      putItem('icw001', 'p', norm('p', { name: 'Screen', shape: 'cube', p: [2.5, 0.25, -1], size: [0.5, 0.5, 0.5], colour: '#ffb43b', look: 'hide', locked: true })),
+      putItem('icp001', 'p', norm('p', { name: 'Post', shape: 'cylinder', p: [3, 0.5, -1], size: [0.5, 1, 0.5], colour: '#3ee08f' })),
+      putItem('icn001', 'p', norm('p', { name: 'Sign', shape: 'plane', p: [3.5, 0.5, -1], size: [1, 1, 0.01], colour: '#ff5ad9' })), 0)`);
+    // the box's picture, made as Make pictures makes it (no relay: for this page); the figure has none
+    await ss(`pvMakeOne('box.glb', STU.gen)`);
+    if (!await until(`(PV.mem.get('box.glb') || {}).state === 'ready'`, 60000)) bad.push('the box\'s picture was not made: ' + JSON.stringify(await ss('pvState()')));
+    const fext = await ss(`extOf(STU.items.get('fig001').rec.file).toUpperCase()`);
+    const pane = () => stp.evaluate(() => ({
+      order: [...document.querySelectorAll('#pane-items .stu-gh, #pane-items .stu-ic .cm, #pane-items .stu-ic .tag')].map(e => (e.classList.contains('stu-gh') ? 'h:' : e.classList.contains('tag') ? 't:' : '') + e.dataset.v),
+      head: [...document.querySelectorAll('#pane-items .stu-gh')].map(h => [h.dataset.v, h.textContent.replace(/\s+/g, ' ').trim(), h.classList.contains('sel')]),
+      cards: Object.fromEntries([...document.querySelectorAll('#pane-items .stu-ic')].map(c => { const im = c.querySelector('.pic img'); return [c.dataset.card, {
+        pic: im ? im.dataset.tile || (/^blob:/.test(im.src) ? 'picture' : 'other') : 'tile:' + ((c.querySelector('.pic b') || {}).textContent || ''), sel: c.classList.contains('sel'), pk: (/\bpk-(\w+)/.exec(c.className) || [])[1] || '',
+        marks: [...c.querySelectorAll('.mk')].map(m => m.textContent).join(','), name: c.querySelector('.nm').textContent, lines: [...c.querySelectorAll('.cm small')].map(x => x.textContent),
+        tags: [...c.querySelectorAll('.tag')].map(t => t.dataset.v + '=' + t.textContent + (t.getAttribute('aria-pressed') === 'true' ? '+' : '') + (m => (m ? '/' + m[1] : ''))(/\bpk-(\w+)/.exec(t.className))), ticks: [...c.querySelectorAll('.tk')].map(t => t.dataset.v + (t.getAttribute('aria-pressed') === 'true' ? '+' : '-')).join() }]; })),
+      sub: (document.querySelector('#pane-items .stu-k') || {}).textContent || '', cols: getComputedStyle(document.querySelector('#pane-items .stu-grid')).gridTemplateColumns.split(' ').length }));
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    let P = await pane();
+    // the order: the group's heading, its members, then what is in no group by kind (objects, shapes, cubes, sounds); the
+    // box's cut-out a tag on its card, after its face
+    const o = P.order, objs = o.slice(3, 6);
+    if (o.slice(0, 3).join() !== 'h:icg001,icb001,ice001' || objs.filter(v => v === 'fig001' || v === 'box001').length !== 2 || o[o.indexOf('box001') + 1] !== 't:icx001' || o.slice(6).join() !== 'icw001,icp001,icn001,cube01,snd001')
+      bad.push('the Items pane\'s order: ' + o.join(' '));
+    if (JSON.stringify(P.head) !== '[["icg001","▣ Pair2 items",false]]' || !/^\d+ objects · 1 cubes · 1 sounds · 1 cut-outs · 4 shapes · 1 empties · 1 groups/i.test(P.sub) || P.cols < 3 || P.cols > 5) bad.push('the group\'s heading, the counts, 3 to 5 cards a row: ' + JSON.stringify([P.head, P.sub, P.cols]));
+    const want = { box001: ['picture', '0.5 m · 12 triangles'], fig001: ['tile:' + fext, '1.7 m · 12 triangles'], icb001: ['sphere', 'Sphere'], ice001: ['empty', 'Empty'], icw001: ['cube', 'Cube · hides things'], icp001: ['cylinder', 'Cylinder'], icn001: ['plane', 'Plane'], cube01: ['trigger', 'Cube · shows 2, hides 1'], snd001: ['sound', 'Sound · 80 %'] };
+    for (const [id, [pic, line]] of Object.entries(want)) { const c = P.cards[id]; if (!c || c.pic !== pic || c.lines[0] !== line) bad.push(`${id}'s card (its picture or tile, its line): ` + JSON.stringify(c)); }
+    const C = P.cards;
+    if (!C.box001 || C.box001.tags.join() !== 'icx001=✂ Notch' || C.icb001.marks !== 'moves' || !/\bspins\b/.test(C.icb001.lines[1] || '') || C.icw001.marks !== '🔒' || C.box001.marks || C.box001.ticks || Object.values(C).some(c => c.sel || c.pk)) bad.push('the tag, the marks (what moves it said in words), nothing selected nor any Shows and Hides: ' + JSON.stringify(C));
+    // the tiles really drawn: the ball's middle in its colour, the speaker's cone in the sound's, the trigger cube see-through
+    const tiles = await ss(`(() => { const px = (t, x, y) => [...tileFor(t).getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3); const s = STU.items.get('snd001'); return { ball: px({ k: 'sphere', col: '#46d9ff' }, 128, 132), cone: px({ k: 'sound', col: s.look.col }, 120, 130), col: new THREE.Color(s.look.col).toArray().map(v => Math.round(v * 255)), cube: px({ k: 'trigger', col: '#ff5a4b' }, 128, 60), url: /^data:image\\/png/.test(tileUrl({ k: 'empty', col: '#ffffff' })) }; })()`);
+    if (!(tiles.ball[1] > 150 && tiles.ball[2] > 180 && tiles.ball[0] < 140) || Math.max(...tiles.cone.map((v, k) => Math.abs(v - Math.min(255, tiles.col[k] * 0.85 + 38)))) > 40 || !tiles.url) bad.push('the tiles drawn: ' + JSON.stringify(tiles));
+    // a press on a card selects it (its card under Item); back under Items its card lit; the cut-out's tag selects the
+    // cut-out, the group's heading the group
+    await stp.click('#pane-items .stu-ic[data-card="icw001"] .cm');
+    const s1 = await ss('[STU.sel, X.tab]');
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    if (s1.join() !== 'icw001,item' || !P.cards.icw001.sel || Object.entries(P.cards).some(([k, c]) => k !== 'icw001' && c.sel)) bad.push('a press on the screen\'s card (selected, its card shown; lit under Items): ' + JSON.stringify([s1, P.cards.icw001]));
+    await stp.click('#pane-items .stu-ic[data-card="box001"] .tag[data-v="icx001"]');
+    const s2 = await ss('STU.sel');
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    await stp.click('#pane-items .stu-gh[data-v="icg001"]');
+    const s3 = await ss('STU.sel');
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    const P3 = await pane();
+    if (s2 !== 'icx001' || P.cards.box001.tags[0] !== 'icx001=✂ Notch+' || P.cards.box001.sel || s3 !== 'icg001' || !P3.head[0][2]) bad.push('the tag selects the cut-out, the heading the group: ' + JSON.stringify([s2, P.cards.box001, s3, P3.head]));
+    // a cube selected: Shows and Hides under every card but its own (the cut-out's tag too); each press one Undo step
+    await ss(`(select('cube01'), X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    const tk = P.cards;
+    if (tk.fig001.ticks !== 'show:fig001+,hide:fig001-' || tk.box001.ticks !== 'show:icx001-,hide:icx001-,show:box001-,hide:box001+' || tk.icb001.ticks !== 'show:icb001-,hide:icb001-' || tk.cube01.ticks || !tk.cube01.sel) bad.push('Shows and Hides with the cube selected: ' + JSON.stringify(tk));
+    const u1 = await ss('UNDO.length'), L = () => ss(`JSON.stringify([STU.items.get('cube01').rec.show, STU.items.get('cube01').rec.hide])`);
+    await stp.click('#pane-items button[data-act="tick"][data-v="show:icb001"]');
+    const l1 = await L();
+    await stp.click('#pane-items button[data-act="tick"][data-v="hide:icb001"]');
+    const l2 = await L();
+    await stp.click('#pane-items button[data-act="tick"][data-v="show:icx001"]');
+    const l3 = await L(), u2 = await ss('UNDO.length'), on = await stp.evaluate(() => document.querySelector('#pane-items button[data-act="tick"][data-v="hide:icb001"]').getAttribute('aria-pressed'));
+    if (l1 !== '[["fig001","snd001","icb001"],["box001"]]' || l2 !== '[["fig001","snd001"],["box001","icb001"]]' || l3 !== '[["fig001","snd001","icx001"],["box001","icb001"]]' || u2 - u1 !== 3 || on !== 'true') bad.push('Shows and Hides pressed (one Undo step each): ' + JSON.stringify([l1, l2, l3, u2 - u1, on]));
+    await ss('(undo(), undo(), undo(), 0)');
+    if (await L() !== lists0) bad.push('Undo did not take them back: ' + await L());
+    // a pick mode (Pick what it shows): a press on a card puts it on the list, marked (green, a tick)
+    await ss(`(select('cube01'), itemAct('pickFor', 'show'), X.tab = 'items', renderPanes(), 0)`);
+    await stp.click('#pane-items .stu-ic[data-card="icp001"] .cm');
+    const l4 = await L(), sel4 = await ss('[STU.sel, !!STU.pick]');
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    if (l4 !== '[["fig001","snd001","icp001"],["box001"]]' || sel4.join() !== 'cube01,true' || P.cards.icp001.pk !== 'show' || !/^✓ Post$/.test(P.cards.icp001.name) || P.cards.box001.pk !== 'hide') bad.push('picking by a press: ' + JSON.stringify([l4, sel4, P.cards.icp001, P.cards.box001.pk]));
+    // the cut-out's tag likewise: on the list, marked green as a card is (its object's card stays red: it hides the box)
+    await stp.click('#pane-items .stu-ic[data-card="box001"] .tag[data-v="icx001"]');
+    const l5 = await L();
+    await ss(`(X.tab = 'items', renderPanes(), 0)`);
+    P = await pane();
+    if (l5 !== '[["fig001","snd001","icp001","icx001"],["box001"]]' || P.cards.box001.tags[0] !== 'icx001=✓ ✂ Notch+/show' || P.cards.box001.pk !== 'hide') bad.push('picking the cut-out\'s tag by a press (on the list, green): ' + JSON.stringify([l5, P.cards.box001]));
+    await ss(`(STU.pick = null, undo(), undo(), 0)`);
+    // the headset's canvas: three a row (the shapes), paged (Up and More), the box's picture and the ball's tile drawn (bright)
+    // where the figure's plain tile is dark, the selected card's border in the accent colour, a toggle and a card pressed by
+    // a pretend ray (the controller's hover on the panel: xrPress and xrRelease)
+    const xr = await ss(`(() => {
+      const out = {}, P = XR.main, draw = () => { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); };
+      const reg = id => P.regions.find(q => q.id === id), find = id => { for (let off = 0; off < 6000; off += 120) { X.scroll.items = off; draw(); if (reg(id)) return reg(id); } return null; };
+      const mean = (x0, y0, w, h) => { const d = P.ctx.getImageData(Math.round(x0), Math.round(y0), Math.round(w), Math.round(h)).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += (d[i] + d[i + 1] + d[i + 2]) / 3; return Math.round(s / (d.length / 4)); };
+      const picMean = r => mean(r.x + 8 + (r.w - 16) * 0.3, r.y + 8 + (r.w - 16) * 0.3, (r.w - 16) * 0.4, (r.w - 16) * 0.4);
+      XR.on = true; select('box001'); X.tab = 'items'; X.scroll = {}; draw();
+      out.more = !!reg('scroll:down'); out.first = !!reg('sel:snd001');
+      const a = find('sel:icw001'), b = reg('sel:icp001'), c = reg('sel:icn001');
+      out.row = a && b && c ? [a.y === b.y && b.y === c.y, b.x - a.x, c.x - b.x, a.w] : null;
+      const bx = find('sel:box001'); out.box = bx ? picMean(bx) : -1;
+      const pix = bx ? [...P.ctx.getImageData(bx.x + 2, bx.y + 120, 1, 1).data].slice(0, 3) : null; out.border = pix;
+      const fg = find('sel:fig001'); out.fig = fg ? picMean(fg) : -1;
+      const fpix = fg ? [...P.ctx.getImageData(fg.x + 2, fg.y + 120, 1, 1).data].slice(0, 3) : null; out.border2 = fpix;
+      const bl = find('sel:icb001'); out.ball = bl ? picMean(bl) : -1;
+      X.scroll = {}; draw(); const d0 = reg('scroll:down'); if (d0) d0.fn(); out.paged = X.scroll.items > 0;
+      // the cube selected: its toggles, one pressed by the ray
+      select('cube01'); X.tab = 'items'; X.scroll = {};
+      const t = find('tick:show:icb001'), ctl = XR.ctrls[0], u = UNDO.length;
+      if (t) { ctl.hover = { kind: 'panel', P, x: t.x + t.w / 2, y: t.y + t.h / 2, point: new THREE.Vector3() }; xrPress(ctl); xrRelease(ctl); }
+      out.tick = [!!t, STU.items.get('cube01').rec.show.includes('icb001'), UNDO.length - u];
+      if (UNDO.length > u) undo();
+      const tg = find('tick:hide:icx001'); out.tagTick = !!tg;
+      // the cut-out's tag the card's whole width, its Shows and Hides on a row under it
+      const tr = reg('sel:icx001'), ts = reg('tick:show:icx001');
+      out.tagRow = tr && ts && tg && out.row ? [tr.w === out.row[3] - 16, ts.y >= tr.y + tr.h, ts.y === tg.y, ts.x === tr.x, Math.abs(tg.x + tg.w - (tr.x + tr.w)) <= 1] : null;
+      // picking for the cube: the tag on its Shows list, its edge green
+      const u3 = UNDO.length; itemAct('pickFor', 'show'); act('link', 'icx001'); X.tab = 'items'; X.scroll = {};
+      const tp = find('sel:icx001'); out.tagPk = tp ? [...P.ctx.getImageData(tp.x, tp.y + Math.round(tp.h / 2), 1, 1).data].slice(0, 3) : null;
+      STU.pick = null; while (UNDO.length > u3) undo(); X.scroll = {};
+      // a card's face pressed by the ray: selected
+      const f = find('sel:icn001');
+      if (f) { ctl.hover = { kind: 'panel', P, x: f.x + f.w / 2, y: f.y + 40, point: new THREE.Vector3() }; xrPress(ctl); xrRelease(ctl); }
+      out.press = STU.sel;
+      ctl.hover = null; ctl.press = null; XR.on = false; X.scroll = {}; select(''); X.tab = 'scene';
+      return out;
+    })()`);
+    const lit = p => p && p[2] > 200 && p[1] > 150 && p[0] < 140;
+    const green = p => p && p[1] > 180 && p[0] < 120 && p[2] < 190;
+    if (!xr.more || xr.first || !xr.row || !xr.row[0] || xr.row[1] !== xr.row[2] || xr.row[1] < xr.row[3] || !(xr.box > xr.fig + 40) || !(xr.ball > xr.fig + 40) || !lit(xr.border) || lit(xr.border2) || !xr.paged || xr.tick.join() !== 'true,true,1' || !xr.tagTick
+      || !xr.tagRow || xr.tagRow.some(v => !v) || !green(xr.tagPk) || xr.press !== 'icn001')
+      bad.push('the headset\'s Items cards: ' + JSON.stringify(xr));
+    // as it was: the items put in taken out, no picture kept, no Undo step left
+    await ss(`(['icg001', 'icx001', 'icb001', 'ice001', 'icw001', 'icp001', 'icn001'].forEach(removeItem), pvClear(), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    while (await ss('UNDO.length') > u0) await ss('undo()');
+    if (await L() !== lists0) bad.push('the cube\'s lists not as they were: ' + await L());
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
   await step('studio: the Upload pane with no relay: the test originals dropped, the plan (rows, grouping, names), converting offered as downloads', async () => {
@@ -3197,11 +3332,10 @@ await step('design: the intro ends at the table', async () => {
       await frames(2);
       const pa = await ss(`[STU.whole.has('${nc.id}') || STU.cutF.has('${nc.id}'), STUDIO.cut('${nc.id}').cutting, UNDO.length]`);
       if (!pw[0] || pw[1] || pw[2] !== u0 + 3 || pc[0] || !pc[1] || pc[2] !== u0 + 3 || pa[0] || !pa[1] || pa[2] !== u0 + 3) out.push('Preview: whole (this device, no Undo step), then cut, then as seen: ' + JSON.stringify({ pw, pc, pa }));
-      // the Items pane: each object's cut-outs under it, indented
+      // the Items pane: each object's cut-outs as tags on its card (no cards of their own)
       await ss(`(X.tab = 'items', renderPanes(), 0)`);
-      const rows = await cxp.evaluate(() => [...document.querySelectorAll('#pane-items li')].map(li => [li.dataset.v, li.style.marginLeft || '']));
-      const wi = rows.findIndex(r => r[0] === 'wal001');
-      if (wi < 0 || !rows.slice(wi + 1, wi + 3).every(r => ['dor001', nc.id].includes(r[0]) && r[1] === '20px')) out.push('the Items pane: the wall\'s cut-outs under it: ' + JSON.stringify(rows));
+      const tags = await cxp.evaluate(() => [...document.querySelectorAll('#pane-items .stu-ic[data-card="wal001"] .tag')].map(t => t.dataset.v)), own = await cxp.evaluate(() => [...document.querySelectorAll('#pane-items .stu-ic')].map(c => c.dataset.card));
+      if (tags.length !== 2 || !tags.includes('dor001') || !tags.includes(nc.id) || own.includes('dor001') || own.includes(nc.id)) out.push('the Items pane: the wall\'s cut-outs as tags on its card: ' + JSON.stringify({ tags, own }));
       // the arrows: sized per side and turned, in the wall's frame (the wall is not turned)
       const tc = await ss(`(() => {
         const x = STU.items.get('${nc.id}'), u = UNDO.length; select('${nc.id}'); tcSetMode('scale');
@@ -3476,7 +3610,7 @@ await step('design: the intro ends at the table', async () => {
     }
     // Voice, Out and Curtain by their names under Items, then Done
     await ss(`(X.tab = 'items', renderPanes(), 0)`);
-    for (const id of ['voi001', 'out001', 'cube01']) await gp.click(`#pane-items li[data-act="gtog"][data-v="${id}"]`);
+    for (const id of ['voi001', 'out001', 'cube01']) await gp.click(`#pane-items .stu-ic .cm[data-act="gtog"][data-v="${id}"]`);
     await gp.click('#pane-items [data-act="gpickdone"]');
     const g1 = await ss(`(() => { const g = STU.items.get(window.__gr.gid()); return [JSON.stringify(g.rec), STU.gpick, STU.sel === g.id, UNDO.length]; })()`);
     if (g1[0] !== '{"name":"Group","items":["box001","dan001","fre001","voi001","out001","cube01"]}' || g1[1] || !g1[2] || g1[3] - u0 !== 6) out.push('the group picked (one Undo step each): ' + JSON.stringify(g1));
@@ -3502,10 +3636,10 @@ await step('design: the intro ends at the table', async () => {
     // its box while selected and editing; nothing of it with editing off
     const box = await ss(`(() => { const g = STU.items.get(window.__gr.gid()); select(g.id); itemsStep(0, performance.now()); const on = g.look.deco.visible, s = g.look.box.scale.toArray(); setEdit(false); itemsStep(0, performance.now()); const off = g.look.deco.visible; setEdit(true); select(g.id); itemsStep(0, performance.now()); return [on, off, s.every(v => v > 0.3)]; })()`);
     if (!box[0] || box[1] || !box[2]) out.push('its box: shown selected, not with editing off: ' + JSON.stringify(box));
-    // the Items pane: the group, its members under it, the box's hole under the box
-    const rows = await ss(`(X.tab = 'items', renderPanes(), [...document.querySelectorAll('#pane-items li')].map(li => li.dataset.id + '@' + (li.style.marginLeft || '0')).join(' '))`);
+    // the Items pane: the group's heading, its members' cards under it, the box's hole a tag on the box's card
+    const rows = await ss(`(X.tab = 'items', renderPanes(), [...document.querySelectorAll('#pane-items .stu-gh, #pane-items .stu-ic .cm, #pane-items .stu-ic .tag')].map(e => (e.classList.contains('stu-gh') ? 'h:' : e.classList.contains('tag') ? 't:' : '') + e.dataset.v).join(' '))`);
     const gid = await ss('window.__gr.gid()');
-    if (!rows.startsWith(`sel:${gid}@0 sel:box001@20px sel:hol001@40px sel:dan001@20px sel:fre001@20px sel:voi001@20px sel:out001@20px sel:cube01@20px`) || /sel:dan001@0/.test(rows)) out.push('the Items pane: ' + rows);
+    if (!rows.startsWith(`h:${gid} box001 t:hol001 dan001 fre001 voi001 out001 cube01 `) || / dan001 .* dan001 /.test(rows + ' ')) out.push('the Items pane: ' + rows);
     if (!/Groups/.test(await gp.textContent('#pane-items'))) out.push('the Items pane has no Groups heading');
     // Make a group... then Done with only that item: as if never pressed (its step taken back)
     const one = await ss(`(() => { const u = UNDO.length; select('fig001'); itemAct('mkgroup'); const made = !!STU.gpick; gpickEnd(); return [made, UNDO.length - u, [...STU.items.values()].filter(i => i.kind === 'g').length]; })()`);
@@ -3647,7 +3781,7 @@ await step('design: the intro ends at the table', async () => {
       pressItem('dan001'); out.add = L();
       pressItem('box001'); out.rem = L();
       pressItem('cube01'); out.cube = [L(), STU.sel];
-      X.tab = 'items'; renderPanes(); document.querySelector('#pane-items li[data-act="linkg"][data-v="' + gid + '"]').click(); out.row = L();
+      X.tab = 'items'; renderPanes(); document.querySelector('#pane-items .stu-gh[data-act="linkg"][data-v="' + gid + '"]').click(); out.row = L();
       out.steps = UNDO.length - u;
       STU.pick = null; while (UNDO.length > u) undo(); select(''); X.tab = 'scene';
       // a cube in a group of cubes alone (nothing a cube can list): pointed at while picking, its group is selected (as a

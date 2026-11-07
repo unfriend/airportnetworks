@@ -3644,7 +3644,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   finds the nearest object, sound or cut-out, passing over an object's unseen box when the ray goes on into one of its
   own cut-outs (and over cut-outs while picking an object for a sound or a cut-out); the page's arrows move,
   turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
-  size it, a corner stretches it. Not editing, only the hole. The Items pane lists each object's cut-outs under it.
+  size it, a corner stretches it. Not editing, only the hole. The Items pane shows each object's cut-outs as tags on its card.
   `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31, v113). Untested on a headset: how the holes look on a
   Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
 - **Groups** (the owner, 5 November 2026: "grouping things (models, sounds, etc) in studio mode so that they move together";
@@ -3652,11 +3652,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   sounds and trigger cubes, and since v119 shapes and empties (a cut-out belongs to its object, so never a member); an item is in one group at most (an id
   two groups name stays in the one with the lower id, `groupOf`, the same on every device), no groups in groups, 50 a
   scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
-  an item puts it in or takes it out, Ctrl- and Shift-click as a click, names under Items too; one in another group moves
+  an item puts it in or takes it out, Ctrl- and Shift-click as a click, cards under Items too; one in another group moves
   into this one; *Done*); *Add or remove items...* on the group's card the same. A click on a member selects its group (its
   card, a faint dashed box round its members while editing, `LOOKS.group`), a second one on the same member that member
   alone (*In group ...*, *Select the group*; selected alone it moves alone); hover labels say *Group 2 · Dancer*; the
-  Items pane lists groups first with their members indented. A selected group moves, turns and sizes as one about its
+  Items pane shows groups first, a heading each with its members' cards under it. A selected group moves, turns and sizes as one about its
   pivot (the mean of its members' middles, on the floor, `groupPivot`: a turn or a size carries every middle with its
   member, so the pivot stays put; the middle of their box shifted after a turn that was not a quarter, and the next turn
   hopped): turns about the vertical only (an object's turn and a cube's yaw gain it), sizes alike on every axis (places,
@@ -3715,8 +3715,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     arrows not attached, the grips, both grips, a corner and *Hold it* refused with a short buzz and a knock); a group's
     lock holds its members (selected alone too), and a group with a locked member does not move or go and says which; an
     object with a locked cut-out is not deleted (the cut-out moves with it as ever); *Ungroup* is refused only by the
-    group's own lock. The card's top says what holds it (*Refused:* in red for 4 s after a try); labels and the Items pane
-    mark it 🔒. A copy (Duplicate, a group's) is never locked. The room's records and Undo are never refused. Editing a
+    group's own lock. The card's top says what holds it (*Refused:* in red for 4 s after a try); labels and the Items pane's
+    cards mark it 🔒. A copy (Duplicate, a group's) is never locked. The room's records and Undo are never refused. Editing a
     locked item's other fields (light, colour, look, clip, its cube lists) is allowed.
   - The scene's settings (`settings`, in `layout.json` and in `state()`, so for everyone at that studio's circle; rows on
     the Scene pane while editing, page and headset, one Undo step each, counted by *Unsaved changes*; a new scene's:
@@ -3937,8 +3937,23 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   what it hides*, pointing at items to add or remove them until *Done*, and what it shows and hides as buttons (v117:
   one flashes the item's box in the scene for 1.6 s while editing, green if the cube shows it and red if it hides it;
   *Its card* opens the item's card; ✕ takes it off the list, one Undo step); a sound's volume, reach, loop and start),
-  **Items** (every item; on a page a tick box per item in a selected cube's Shows and Hides columns) and **Upload**
-  (pages only). `&tab=scene|add|item|items|upload`, `&view=walk`.
+  **Items** (v122, the owner, 7 November 2026: "items need a preview in the items list tab, should show the same image and
+  look like the add item part": every item a card in the Add pane's grid look, page and headset alike, `itemCard`; an
+  object its model file's picture exactly as the Add pane shows it for that file, else the plain tile with its kind; a
+  shape, a sound, a trigger cube, an empty and a cut-out cutting nothing a tile drawn for it in its colour, `tileFor` in
+  `engine/e7e_pics.js`, one canvas a kind and colour, the page showing it as a data URL; its name, a short line, *1.7 m ·
+  24k triangles*, *Sphere*, *Sound · follows Dancer · Head*, *Cube · shows 2, hides 1*, *Empty*, and a faint one; 🔒 and
+  *moves* marks, and the faint line says what moves it, *spins*, *recorded path*, *follows people*, as the rows did (a
+  headset has no tooltip); groups first, a heading each, `.stu-gh`, a press selecting the group, with their members'
+  cards under it; an object's cut-outs tags on its card, a press selecting one; the selected card's border in the accent
+  colour, one on a cube's list being picked green or red, a cut-out's tag too; a press does what a row's did, selecting it
+  or, picking, picking it; with a cube selected *Shows* and *Hides* under every card but the cube's own and under each
+  cut-out's tag (in the headset the tag keeps the card's whole width, its toggles on a row of their own), one Undo step
+  each, what the page's tick boxes did, now in the headset too, regions `tick:show:<id>` and `tick:hide:<id>`; the
+  headset's canvas three a row, a row as tall as its tallest card, `drawItemCards` in `engine/e9_panels.js`, paged by Up,
+  More and the stick; the card faces and headings keep the rows' ids, `sel:<id>`; which GLB stands for a file worked out
+  once a render, only when an object's card asks; no layout or `state()` change) and
+  **Upload** (pages only). `&tab=scene|add|item|items|upload`, `&view=walk`.
 - **Saving**: *Save* writes what is placed now to the relay's `layout.json` (for everyone at a station); a read-only
   source offers *Download layout.json*. Outside a room what is placed is also kept on this device
   (`studioDraft.<source>.<scene>` in `localStorage`, a second after each change), and opening the scene with a draft
@@ -3963,7 +3978,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   carried and sized by real grips, a model inside out seen from within on a Quest, *Fewer triangles* and *Change texture*
   in a headset (how a lighter scan looks life size, the pause while a big scan is made lighter there, a GLB written
   there: its textures encoded and uploaded from a Quest, its memory), the Upload pane's pictures on a real GPU, the Add
-  pane's grid on the headset panel (how the cards and pictures read, paging by Up and More) and a picture drawn in a
+  pane's grid and the Items pane's cards on the headset panel (how the cards, pictures and tiles read, paging by Up and More,
+  *Shows* and *Hides* pressed by a real ray) and a picture drawn in a
   headset session (inside its frame callback: a GLB a headset's Save writes), shapes
   that hide things in AR against the real room and with the shell's real-world occlusion, an empty's cross, a lock
   refused by real grips (the buzz), the other circles hidden at a studio's circle and the lobby hook as a headset walks
@@ -4170,7 +4186,7 @@ refuses, and one sized to 1 m), the clips, the missing texture, the opacity-0 ma
 normals; the layout read; a pretend head moved into the cube showing the figure and the sound and hiding the box,
 fading over 0.4 s (stepped frame by frame), the figure's take from when it was shown, out again the reverse, a
 `stay` cube holding, the hidden box faint while editing; editing on the page (a click selecting, the arrows moving it,
-a cube grown, a link ticked, Add and Delete, Undo); the shared state and back (`apply(state())` the same), a state from
+a cube grown, *Shows* under the box's Items card linking it, Add and Delete, Undo); the shared state and back (`apply(state())` the same), a state from
 the room taken, bad values ignored; a pretend headset's grip carrying an object, both grips sizing it, a corner
 stretching a cube, the VR stick walk (none in passthrough) and Recenter; the sticks while something is carried (v120: the
 other hand's left stick up held 1.5 s doubling the box about its middle, right a quarter turn in a second, the right stick
@@ -4188,7 +4204,17 @@ making the figure's picture, 256 px with the model in the middle and dark corner
 its card; *Make pictures* making the box's and the crate's for this page, its line, *Stop* after one; a picture made for
 an opening of the scene that is over kept nowhere; the headset's
 canvas, three a row, a picture drawn and a plain tile without; `previews/` in a listing never among the scene's files
-or textures, an older relay's `image` taken by its path); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
+or textures, an older relay's `image` taken by its path); the Items pane as cards (v122, with a group of a ball that spins
+and an empty, a cut-out on the box and three shapes, one locked and hiding things, put in for it: the box's picture made
+for this page, the figure's plain tile with its kind, a tile per shape, the empty, the cube and the sound, really drawn in
+their colours; the order, the group's heading and its members first, the cut-out a tag after the box's face, the
+sections by kind; the lines and the marks; a press on a card selecting it, its card lit under Items, the tag selecting
+the cut-out, the heading the group; the cube selected, *Shows* and *Hides* under every card but its own and under the
+cut-out's tag, three presses three Undo steps; the ball's faint line saying it spins; a pick by a press, the card ticked
+with a green border, and the cut-out's tag pressed, on the list and green; the headset's canvas: three a row, paged by
+More, the box's picture and the ball's tile bright where the figure's plain tile is dark, the selected card's border in
+the accent colour, the cut-out's tag the card's width less its margins with its toggles on a row under it, picked, its
+edge green, a toggle and a card's face pressed by a pretend ray); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
 made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
 within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the slider at
 50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save
@@ -4250,7 +4276,7 @@ seen* shutting it, editing off forgetting it; a new cut-out (and one put back by
 one object made in reverse id order (the 16 lowest cutting, the 17th said); a cut-out's copy and the wall's copy's door
 in the cube's list; Box B sized with a 30 m cut-out held at 50 m and said on its card; *Cut out a part* from a ray at the
 dancer's posed head landing on her as drawn; a pretend headset's grip carrying one, both grips sizing it and a corner
-stretching it; nothing of a box drawn when not editing (only the hole); the Items pane and the headset's card (its rows;
+stretching it; nothing of a box drawn when not editing (only the hole); the Items pane (the wall's cut-outs tags on its card) and the headset's card (its rows;
 Preview pressed there). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
 pointing at nothing: the figure pointed at, its dot on its box, the trigger selecting it; pointing at the box from there:
 the box; outside every box: nothing, and the trigger clearing; editing off: nothing; Walk view with the camera in her box:
@@ -4265,9 +4291,9 @@ neither for a visitor, while locked or on a read-only relay; a circle made for o
 from the room, a station changed to the same scene opened again). Its *studio groups* steps run on a fifth page, at `&scene=rig` (with, put in for them, the figure,
 a sound *Free*, a sound *Out* following the figure, a cut-out *Hole* on the box and a cube *Lamp* outside the group):
 *Make a group...* on the box's card and its pick mode (the dancer Ctrl-clicked and *Free* Shift-clicked in the scene,
-*Voice*, *Out* and *Curtain* by their names under Items, *Done*: one Undo step each); a click on a member selecting the
+*Voice*, *Out* and *Curtain* by their cards under Items, *Done*: one Undo step each); a click on a member selecting the
 group, again the member alone (*In group*, *Select the group*); hover naming the group (*Group · Dancer*); its box only while
-selected and editing; the Items pane (the group, its members under it, the hole under the box); *Make a group...* then
+selected and editing; the Items pane (the group's heading, its members' cards under it, the hole a tag on the box's card); *Make a group...* then
 *Done* with one item leaving no step; a group picking its one member left out of `layout.json` and *Unsaved changes*;
 Undo of the pick that gave a group its second member, after *Done* and while picking, leaving it picking again (*Done*
 then taking it back as never made, no step left over); the arrows' move, turn (the vertical ring only; a tilt given dropped) and size about
@@ -4280,7 +4306,7 @@ two sounds' reach at 20 m, said on the card; ×400 holding a place at 1 km (ever
 the copies in *Lamp*'s list, one step), *Ungroup* and *Delete* (every member and the hole, *Lamp* letting them go) with
 Undo; *Free* moved into the figure's own group, the figure then deleted and its group, left with one, going in the same
 step (*Out* left following nothing), Undo bringing both back; *Lamp*'s pick toggling the group's members (a member, a cube
-of the group, the group's name under Items; a cube in a group of cubes alone selecting its group, ending the pick); the
+of the group, the group's heading under Items; a cube in a group of cubes alone selecting its group, ending the pick); the
 state with `g.<id>` and back, `norm`'s rules, a bad group from the room
 ignored, an id two groups name staying in the lower id's in either order of the keys; `layout.json` with and without
 `groups`, and groups naming items the layout lacks; a pretend headset's trigger (the group, then the member), its grip
@@ -4298,7 +4324,7 @@ as scanned; *Inside out* kept through a rebuild of its file (`fileChanged`) and 
 to GLB* and the switch; the state and `layout.json` with `faces` (`null` read as absent, other values refused); the page's Faces row (one Undo
 step each) and the headset's. Its *studio shapes* steps run on a seventh page, at `&scene=test` (v119): the Add pane's four shapes and an empty
 (their records, geometries and names), a shape's card (a colour's swatch, *Hides things*, size per side and every side, its
-kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties, the
+kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties cards, the
 headset's card (its rows, a colour pressed); pixels read back from renders: a shape that hides things between the camera
 and the box shows the sky behind where the box was, one in red draws red, and editing shows its fill while it still hides; a
 sound following an empty (picked by pointing, following as it moves, the cards on both sides, silenced by a cube hiding the

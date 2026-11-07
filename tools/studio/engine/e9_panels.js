@@ -395,7 +395,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 
 // explore: the Scene, Add, Item and Items panes, drawn from the same blocks as the page's (paneBlocks), without the
-// page's own (Download, Upload, the arrows, tick boxes, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More,
+// page's own (Download, Upload, the arrows, Convert to GLB, the Upload tab); a pane taller than the panel scrolls with Up and More,
 // or a stick pushed up or down while pointing at it (stickScroll)
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
@@ -480,8 +480,23 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + (cy - (y + h)) + bh + 14;
   }
-  // the Add pane's models: three cards a row, each its picture (fetched only once it is drawn: e7e_pics.js) or a plain
-  // tile with the model's kind, its name and its size; the pane's Up and More page through them
+  // a group's heading in the Items pane (a press selects the group): its colour, its name, how many it holds
+  if (b.gh) {
+    const t = b.gh, hh = 60, gy = y + h;
+    if (!dry && gy + hh > top && gy < bottom) {
+      vButton(ctx, P, t.id, x, gy, W, hh, '', inView(gy, hh) && !t.dis ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
+      if (t.sel) { rr(ctx, x + 1, gy + 1, W - 2, hh - 2, 10); ctx.lineWidth = 4; ctx.strokeStyle = VC.cyan; ctx.stroke(); }
+      if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + 8, gy + 12, 6, hh - 24); }
+      ctx.font = vfont(19); const sw = Math.min(W * 0.4, ctx.measureText(t.sub || '').width);
+      ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, t.sub || '', W * 0.4), x + W - 18, gy + 20); ctx.textAlign = 'left';
+      ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, t.label + (t.lock ? '  🔒' : ''), W - sw - 70), x + 26, gy + 17);
+    }
+    return h + hh + 12;
+  }
+  // the Add pane's models and the Items pane's items: three cards a row, each its picture (fetched only once it is drawn:
+  // e7e_pics.js), a tile drawn for what has no file, or a plain tile with the model's kind, its name and its lines; the
+  // pane's Up and More page through them
+  if (b.grid && b.grid.some(t => t.item)) return h + drawItemCards(ctx, P, b.grid, x, y + h, W, top, bottom, dry, inView);
   if (b.grid) {
     const cols = 3, gap = 14, cw = Math.floor((W - gap * (cols - 1)) / cols), ph = cw - 16, ch = ph + 98;
     b.grid.forEach((t, i) => {
@@ -507,12 +522,12 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     for (const t of b.list) {
       const ry = y + h;
       if (!dry && ry + rh > top && ry < bottom) {
-        const live = inView(ry, rh) && !t.dis, ix = t.ind ? 34 * +t.ind : 0, w = W - ix;   // (a cut-out under its object, a group's member under it: indented)
-        vButton(ctx, P, t.id, x + ix, ry, w, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
-        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + ix + 4, ry + 8, 5, rh - 22); }
+        const live = inView(ry, rh) && !t.dis, w = W;
+        vButton(ctx, P, t.id, x, ry, w, rh - 6, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 8 });
+        if (t.col) { ctx.fillStyle = t.col; ctx.fillRect(x + 4, ry + 8, 5, rh - 22); }
         ctx.font = vfont(23, t.on ? 700 : 400); ctx.fillStyle = t.dis ? VC.faint : VC.ink;
         const sub = t.sub || '';
-        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), w * 0.6 - 24), x + ix + 20, ry + 14);
+        ctx.fillText(fitText(ctx, t.label + (t.warn ? '  ⚠' : ''), w * 0.6 - 24), x + 20, ry + 14);
         ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, sub, w * 0.4 - 16), x + W - 14, ry + 17); ctx.textAlign = 'left';
       }
       h += rh;
@@ -520,6 +535,60 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     return h + 10;
   }
   return 0;
+}
+// the Items pane's cards (paneBlocks' itemCard): three a row as the Add pane's, a row as tall as its tallest card. The face
+// (its picture or tile, marks, name and lines) selects it, or picking picks it; under it its cut-outs' tags and, with a cube
+// selected, Shows and Hides, each pressable only where it shows whole (so nothing out of the pane's view takes a press).
+// The selected card has a clear border in the accent colour; one on a cube's list a green (shows) or red (hides) one, and
+// a cut-out's tag likewise. A tag is the card's whole width, its own Shows and Hides on a row under it (beside it, at three
+// a row, the tag's name had room for a few letters)
+const CARD = { gap: 14, tag: 46, tagTicks: 44, ticks: 56 };
+function drawItemCards(ctx, P, L, x, y0, W, top, bottom, dry, inView) {
+  const cols = 3, cw = Math.floor((W - CARD.gap * (cols - 1)) / cols), ph = cw - 16, base = ph + 98;
+  const extra = t => (t.tags || []).reduce((n, g) => n + CARD.tag + (g.ticks ? CARD.tagTicks : 0), 0) + (t.ticks ? CARD.ticks : 0);
+  let cy = y0;
+  for (let i = 0; i < L.length; i += cols) {
+    const R = L.slice(i, i + cols), ch = base + Math.max(...R.map(extra));
+    if (!dry && cy + ch > top && cy < bottom) R.forEach((t, k) => drawItemCard(ctx, P, t, x + k * (cw + CARD.gap), cy, cw, ph, base, ch, inView));
+    cy += ch + CARD.gap;
+  }
+  return cy - y0 + 4;
+}
+function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
+  // (the face pressable where it shows whole: its region pushed here, the card's background drawn with no press of its own)
+  vButton(ctx, P, t.id, cx, cy, cw, ch, '', null, { on: t.on, r: 10 });
+  if (inView(cy, base) && !t.dis) P.regions.push({ id: t.id, x: cx, y: cy, w: cw, h: base, fn: () => act(t.act, t.v) });
+  const edge = t.sel ? [VC.cyan, 5] : t.pk === 'show' ? [VC.green, 3] : t.pk === 'hide' ? [VC.red, 3] : null;
+  if (edge) { rr(ctx, cx + 1.5, cy + 1.5, cw - 3, ch - 3, 10); ctx.lineWidth = edge[1]; ctx.strokeStyle = edge[0]; ctx.stroke(); }
+  const px = cx + 8, py = cy + 8, pic = t.pic ? pvAny(t.pic) : null;
+  ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
+  if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
+  else if (t.tile) ctx.drawImage(tileFor(t.tile), px, py, ph, ph);
+  else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }
+  ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  // its marks, at the picture's top right: locked in place, and moving (a motion, a recorded path or a behaviour)
+  let mx = px + ph - 8;
+  const mark = (s, col) => { ctx.font = vfont(19, 700); const w = Math.ceil(ctx.measureText(s).width) + 18; mx -= w; rr(ctx, mx, py + 8, w, 34, 8); ctx.fillStyle = 'rgba(4,10,20,0.8)'; ctx.fill(); ctx.fillStyle = col; ctx.fillText(s, mx + 9, py + 16); mx -= 6; };
+  if (t.moves) mark('moves', VC.cyan);
+  if (t.lock) mark('🔒', VC.ink);
+  ctx.font = vfont(22, 700); ctx.fillStyle = t.dis ? VC.faint : VC.ink; ctx.fillText(fitText(ctx, t.label, cw - 20), cx + 10, py + ph + 10);
+  ctx.font = vfont(18); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, t.sub || '', cw - 20), cx + 10, py + ph + 40);
+  if (t.sub2) { ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, t.sub2, cw - 20), cx + 10, py + ph + 64); }
+  // Shows and Hides (a cube selected): two toggles side by side, the card's under its tags, a tag's under the tag
+  const toggles = (L, v, tx, ty, tw, th, px2) => {
+    const w = Math.floor((tw - 6) / 2);
+    L.forEach(([l, on], k) => vButton(ctx, P, `tick:${l}:${v}`, tx + k * (w + 6), ty, w, th, l === 'show' ? 'Shows' : 'Hides', inView(ty, th) ? () => act('tick', `${l}:${v}`) : null, { on, px: px2, r: 8 }));
+  };
+  let ty = cy + base - 4;
+  for (const g of t.tags || []) {
+    const tw = cw - 16, th = CARD.tag - 8;
+    vButton(ctx, P, g.id, cx + 8, ty, tw, th, g.label, inView(ty, th) ? () => act(g.act, g.v) : null, { on: g.on, px: 18, left: true, r: 8 });
+    const ge = g.sel ? VC.cyan : g.pk === 'show' ? VC.green : g.pk === 'hide' ? VC.red : '';
+    if (ge) { rr(ctx, cx + 8, ty, tw, th, 8); ctx.lineWidth = 3; ctx.strokeStyle = ge; ctx.stroke(); }
+    ty += CARD.tag;
+    if (g.ticks) { toggles(g.ticks, g.v, cx + 8, ty - 4, tw, CARD.tagTicks - 8, 16); ty += CARD.tagTicks; }
+  }
+  if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
