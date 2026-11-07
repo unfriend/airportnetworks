@@ -1888,6 +1888,17 @@ async function menusRound(dir) {
     const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(R.mi)).multiply(G.quaternion);
     return { p: p.toArray(), q: q.toArray(), w: O.panel.mw * G.scale.x, h: O.panel.mw * O.panel.vis / O.panel.w * G.scale.x, vis: O.panel.vis, open: HOST.collab.menu };
   });
+  // A's menu and B's copy, read while both draw frames (once B's copy is drawn, at most 6 s): between the round's steps the
+  // pretend headsets draw none, and B lets A's copy go 3 s after its last sample, as for a headset taken off. On a busy
+  // machine stopping the frames and reading A alone took that long, so a copy read after them was gone or being fetched
+  const both = async () => {
+    const go = Promise.all([A, B].map(h => run(h, 30000)));
+    await until(B, id => { const m = HOST.collab.menus(false, false).find(x => x.id === id); return !!m && m.drawn; }, aId, 6000);
+    const ap = await aPose(), bm = await B.evaluate(id => HOST.collab.menus().find(m => m.id === id) || null, aId);
+    await Promise.all([A, B].map(h => h.evaluate(() => { window.__go = false; })));
+    await go;
+    return [ap, bm];
+  };
   const qd = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (Math.hypot(...a) * Math.hypot(...b))));
   const press = id => A.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__xr.step(); return !!(r && r.fn); }, id);
   // why B let A's copy go last since B's time t (its log: 'closed' as A said, 'quiet' after MSH.gone without a sample), B's
@@ -1923,7 +1934,7 @@ async function menusRound(dir) {
     const pr = await press('menushare');
     const drawn = await runUntil([A, B, C], B, id => { window.__xr.step(); const m = HOST.collab.menus().find(x => x.id === id); return !!m && m.drawn && m.lit > 0.02; }, aId, 15000);
     await runUntil([A, B], null, null, null, 600);
-    const ap = await aPose(), bm = await seen(B), cm = await seen(C), s1 = await sent(), aName = await A.evaluate(() => HOST.collab.name);
+    const [ap, bm] = await both(), cm = await seen(C), s1 = await sent(), aName = await A.evaluate(() => HOST.collab.name);
     check('menus: My menu: my circle on (Settings), A\'s menu open: B draws it where it floats on A (its top edge\'s middle, its turn and width within 1 cm and a degree), the picture\'s shape A\'s menu\'s',
       lab0 === 'settings' && pr && drawn && !!bm && dist(bm.p, ap.p) < 0.01 && qd(bm.q, ap.q) < 0.0175 && Math.abs(bm.w - ap.w) < 0.01 && Math.abs(bm.h - ap.h) < 0.01 && Math.abs(bm.ih / bm.iw - ap.vis / 720) < 0.02,
       JSON.stringify({ lab0, pr, drawn, bm: bm && Object.assign({}, bm, { pose: undefined }), ap }));
@@ -2010,7 +2021,7 @@ async function menusRound(dir) {
     // (B's copy once both have run again: a pretend headset's frames stop between the round's steps, so B may have let
     // A's copy go meanwhile, 3 s after its last sample, and be taking it again, its picture asked for: up to MSH.picMs)
     const st2 = await runUntil([A, B], B, storyPic, [aId, vis2 / 720], 6000);
-    const ap2 = await aPose(), bm2 = await seen(B), mir = await A.evaluate(() => Object.values(HOST.collab.overlay().mirror).every(m => m.visible));
+    const [ap2, bm2] = await both(), mir = await A.evaluate(() => Object.values(HOST.collab.overlay().mirror).every(m => m.visible));
     await pics(2);
     check('menus: the Story tab\'s picture, the story\'s panels drawn in (its shape the tab\'s, lit where the panels are)', vis2 > 0 && vis2 === ap2.vis && st && st2 && mir && !!bm2 && Math.abs(bm2.ih / bm2.iw - ap2.vis / 720) < 0.02 && bm2.low > 0.008 && Math.abs(bm2.h - ap2.h) < 0.01,
       JSON.stringify({ st, st2, mir, ih: bm2 && bm2.ih, iw: bm2 && bm2.iw, vis2, vis: ap2.vis, lit: bm2 && bm2.lit, low: bm2 && bm2.low, h: [bm2 && bm2.h, ap2.h] }));
@@ -2022,10 +2033,10 @@ async function menusRound(dir) {
     const dt = (Date.now() - t0) / 1000, p1 = (await sent()).poses;
     const qT = await bNow();   // (from here on, B letting go of A's copy is the silent step's: its reason is looked at there)
     await runUntil([A, B], null, null, null, 800);
-    const ap3 = await aPose(), bm3 = await seen(B);
+    const [ap3, bm3] = await both();
     check('menus: A\'s menu glides back in front of A as it turns away: B\'s follows (at most 5 poses a second) and ends where A\'s stands',
-      dist(before.p, ap3.p) > 0.3 && p1 - p0 >= 2 && p1 - p0 <= 5 * dt + 3 && dist(bm3.p, ap3.p) < 0.01 && qd(bm3.q, ap3.q) < 0.0175,
-      JSON.stringify({ moved: dist(before.p, ap3.p), poses: p1 - p0, dt, b: bm3.p, a: ap3.p }));
+      dist(before.p, ap3.p) > 0.3 && p1 - p0 >= 2 && p1 - p0 <= 5 * dt + 3 && !!bm3 && !!bm3.p && dist(bm3.p, ap3.p) < 0.01 && qd(bm3.q, ap3.q) < 0.0175,
+      JSON.stringify({ moved: dist(before.p, ap3.p), poses: p1 - p0, dt, b: bm3 && bm3.p, a: ap3.p }));
     // A silent (a headset taken off: no frames): B's copy gone 3 s after A's last sample, nothing closed; back once A goes on
     const c0 = (await sent()).closed, q0 = Date.now();
     const quiet = await runUntil([B], B, id => { window.__xr.step(); return !HOST.collab.menus(false, false).some(x => x.id === id); }, aId, 6000);

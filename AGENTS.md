@@ -4745,7 +4745,9 @@ menu shown to your circle (`menusRound`, v120, also in the main run, right after
 only it, a room of its own with two story circles, a page and three pretend headsets, A and B walked into one circle and
 C into the other, a few minutes): off by default (*My menu: only me*, nothing kept), A's menu open sending nothing and B
 drawing nothing; A's *My menu: my circle* (Settings) pressed: B draws a plane where A's menu floats (its top edge's middle,
-its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows), its picture A's menu
+its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows; A's menu and B's copy
+read while both draw frames, since between the round's steps a pretend headset draws none and B lets a copy go 3 s after
+its last sample), its picture A's menu
 (its pixels not dark), depth-tested, `renderOrder` between 49 and 50 (its group's 0), never pointable, A's name on its tag; C draws none
 of it; the page's Shared dialog says *showing their menu*; A's tabs changed four times a second, a frame of A's with
 each change, for at least 4 s and until 2 pictures have gone out (at most 20 s: a busy machine draws the pretend
