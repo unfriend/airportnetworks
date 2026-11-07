@@ -1723,7 +1723,7 @@
   const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 1500, hovMs: 4000, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
     steps: [[540, 0.75], [480, 0.66], [420, 0.58], [360, 0.5], [300, 0.42], [240, 0.35], [180, 0.3]],
     st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
-    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [], ns: [] }, got: 0 };   // (got: pictures taken from others, for tests; at and ns: when each picture went and its number, a want's answer an old one)
+    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [], ns: [], cv: [] }, got: 0 };   // (got: pictures taken from others, for tests; at, ns and cv: when each picture went, its number, a want's answer an old one, and the menu's cver it shows)
   const MENUS = new Map();   // others' menus shown to their circle, by member: { code, st, at, n, nWant, img, dec, buf, pose, o, ... }
   const menuShareOn = () => MSH.on;
   function setMenuShare(on) { MSH.on = !!on; put('xrMenuShare', MSH.on ? 'circle' : null); log('menu share', { on: MSH.on }); changed(); }
@@ -1786,7 +1786,8 @@
   function picOut() {
     const t = performance.now(), ps = menuPose();
     MSH.picAt = t; MSH.want = false; MSH.last = ps; MSH.poseAt = t; MSH.moving = false;
-    MSH.sent.pics++; MSH.sent.at.push(t); MSH.sent.ns.push(MSH.n); if (MSH.sent.at.length > 40) { MSH.sent.at.shift(); MSH.sent.ns.shift(); }
+    const S = MSH.sent;   // (cv: the cver the picture shows, the first field of its menuSig)
+    S.pics++; S.at.push(t); S.ns.push(MSH.n); S.cv.push(parseInt(MSH.sig, 10) || 0); if (S.at.length > 40) { S.at.shift(); S.ns.shift(); S.cv.shift(); }
     menuOut(MSH.st, Object.assign({ k: 'pic', n: MSH.n, img: MSH.img }, ps, { ts: Math.round(now()) }));
   }
   // 'closed' to the station it went to (the menu closed, the setting off, another station, the session's end)
@@ -1842,7 +1843,9 @@
   function menuIn(st, d, by) {
     if (!by || by === C.id || !d || typeof d !== 'object') return;
     let E = MENUS.get(by);
-    if (d.k === 'closed') { if (E && E.st === st) menuDrop(by, 'closed'); return; }
+    // ('closed' for another station than the copy's, or with no copy here: said in the log, so a copy that stays after its
+    // closed can be told from one that never heard it)
+    if (d.k === 'closed') { if (E && E.st === st) menuDrop(by, 'closed'); else log('menu closed ignored', { by, st, have: E ? E.st : null }); return; }
     if (d.k === 'want') { if (d.to === C.id && MSH.st === st && MSH.img) MSH.want = true; return; }
     if (d.k !== 'pose' && d.k !== 'pic') return;
     if (!v3(d.p) || !validQ(d.q) || !(d.w > 0.05 && d.w < 4) || !(d.h > 0.02 && d.h < 8)) return;
@@ -7347,7 +7350,7 @@
     // a test polling whether one is there reads no pixels back)
     menuShot: master => menuPicture().then(u => (master && MSH.master ? MSH.master.toDataURL('image/png') : u)),   // (the picture as made now; master: before the JPEG)
     // (cur: the last picture made shows what the menu shows now, the light of what is pointed at aside, and none is being made)
-    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), ns: MSH.sent.ns.slice(), got: MSH.got,
+    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), ns: MSH.sent.ns.slice(), cv: MSH.sent.cv.slice(), got: MSH.got,
       cur: !!OV.panel && !MSH.busy && MSH.sig === menuSig() }),
     menus: (full, px = true) => [...MENUS].map(([id, E]) => {
       const o = E.o, g = o && o.g;

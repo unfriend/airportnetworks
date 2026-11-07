@@ -504,10 +504,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     (after the station cards set on top, under the story panels set on top, the subtitles, the read-out and your own
     menu; its group's stays 0, as three.js r128 sorts by a group's order before an object's own), a tag over its top
     edge with the person's name by their colour (*Anna's menu*); never pointable or pressable; gone 3 s after its last
-    sample (`menusExpire`) or at once on `closed` (the log's `menu gone` says why: `closed`, `quiet` or `room`). Pages
-    draw nothing; the Shared dialog's people list says *showing their menu*. `HOST.collab.menuShare(on)`, `menuSent()`
-    (`cur`: the last picture made shows what the menu shows now), `menus(full, px)` (`px` false: no pixels read back) and
-    `menuShot(master)` (the picture as it would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
+    sample (`menusExpire`) or at once on `closed` (the log's `menu gone` says why: `closed`, `quiet` or `room`; a `closed`
+    for another station than the copy's, or with no copy, is `menu closed ignored`). Pages draw nothing; the Shared
+    dialog's people list says *showing their menu*. `HOST.collab.menuShare(on)`, `menuSent()` (`n`: pictures made;
+    `pics`: pictures sent, a want's answer, an old picture sent again, among them; `at`, `ns` and `cv`: when each was
+    sent, its number and the `cver` it shows; `cur`: the last picture made shows what the menu shows now), `menus(full,
+    px)` (`px` false: no pixels read back) and `menuShot(master)` (the picture as it would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
     made in the page at most every 1.5 s, about 45 KB to everyone in the room each time: the relay, and a peer-to-peer
     room's host, send every effect to every member, so with the Story tab of a playing story shown, its clock changing
     every second, about 30 KB a second to each of them), and Quest Browser's `toBlob`.
