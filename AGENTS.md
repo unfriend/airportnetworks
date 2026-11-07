@@ -1985,14 +1985,18 @@ empty's). The plan is
   `FORMAT` change. A floor-spot calibration writes `rm` when the room has none, its `rm` lacks `f`, its distance
   differs by more than `SAME` or its writer has left (`claimFloor`, at a calibration, when its marks are found again,
   and twice a second while `rm` is missing, its writer gone or without `f`); two headsets on the same spots never write
-  it in turn, and its own frame never waits for it. When the second spot is touched (`mark()`) spots more than 3 cm
-  apart in height are refused (`SPOTS_DH`: *Spots at different heights*, back to spot A), and spot A more than 45 cm
-  over this headset's floor is refused at once as it is touched (`SPOTS_UP`, *Not on the floor*: a Guardian floor was
-  seen up to 28 cm off, a table is 70 cm or more). The log says `floor spots` with A's and B's touch heights over this
-  headset's floor and, when the session has plane detection and a plane labelled floor (`scanFloorAt`, the lowest,
-  every 2 s), over the room scan's floor too, and `mark refused` with why: later logs measure `FLOOR_TIP` and the
-  headsets' floors. A calibration from before v122 (no `f`: its spots may be table corners) keeps the old rule: `rm`
-  is mark A's height over the floor of the first headset that calibrated (taken over by a newer calibration of the
+  it in turn, and its own frame never waits for it (two sets of floor spots in one room: `rm`'s `d` is the last
+  calibrator's, or the last to find theirs again, so the other headset's note says its marks are that much further
+  apart than the room's; the floor is the same either way). When the second spot is touched (`mark()`) spots more
+  than 4 cm apart in height are refused (`SPOTS_DH`: *Spots at different heights*, back to spot A; the tip's height
+  moves with how the controller is tilted), and spot A more than 45 cm over this headset's floor is refused at once as
+  it is touched (`SPOTS_UP`, *Not on the floor*: a Guardian floor was seen up to 28 cm off, a table is 70 cm or more).
+  Both limits are guesses until tuned from the headsets' logs. The log says `floor spots` with A's and B's touch
+  heights over this headset's floor and their difference (`dh`) and, when the session has plane detection and a plane
+  labelled floor (`scanFloorAt`, the lowest, every 2 s), over the room scan's floor too, and `mark refused` with why
+  (and `dh`, or A's height `h`): later logs measure `FLOOR_TIP`, the two limits and the headsets' floors. A
+  calibration from before v122 (no `f`: its spots may be table corners) keeps the old rule: `rm` is mark A's height
+  over the floor of the first headset that calibrated (taken over by a newer calibration of the
   same headset, other marks, or a calibrated headset when its writer has left; never over the room's floor spots while
   their writer is here), and a headset whose floor differs puts the room's origin that far above its own floor; other
   marks (another distance): its own floor. Either way the origin's height comes from the anchors' heights, so a floor
@@ -2132,7 +2136,7 @@ empty's). The plan is
   controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
   apart; a second pull within 0.6 s is ignored; spot A more than 45 cm over
-  this headset's floor is refused, and spots more than 3 cm apart in height go
+  this headset's floor is refused, and spots more than 4 cm apart in height go
   back to spot A (above: "The room's floor is under the marks"). Orange
   crosses show the marks where this headset puts them (while the headset's menu
   is open, and 30 s after aligning). The panel's room section also shows the
@@ -4510,9 +4514,10 @@ floor spots (v122, `floorSpots`): the first headset back in a new session with i
 scan whose floor plane is the true floor, its spots found again by their anchors: the room's floor on the true floor
 within 1 cm and *Your floor is 20 cm higher*; calibrating on them again, spot B 5 cm higher refused (*Spots at different
 heights*, back to spot A), spot A on a table (75 cm, 55 cm over its floor) refused at once (*Not on the floor*), then
-both on the floor taken: the room's floor on the true floor within 1 cm, `rm` `{ a: FLOOR_TIP, f: 1 }` its own, and the
-log's `mark refused` (heights, high) and `floor spots` (touch heights -18 cm over its floor, 2 cm over the scan's
-floor); the second back with its own floor 15 cm too low, its spots found again (the true floor within 1 cm), then
+both on the floor taken (B 3 cm higher than A): the room's floor on the true floor within 1 cm, `rm`
+`{ a: FLOOR_TIP, f: 1 }` its own, and the log's `mark refused` (heights with `dh` 5 cm, high) and `floor spots` (touch
+heights -18 and -15 cm over its floor, `dh` 3 cm, 2 and 5 cm over the scan's floor); the second back with its own
+floor 15 cm too low, its spots found again (the true floor within 1 cm), then
 calibrated on again: its room's origin and direction within 1 cm of the first's, *Your floor is 15 cm lower*, nothing
 written to `rm` (no `floor claimed`, `rm` unchanged); Forget, lined up through the shared space (its own floor kept),
 *Check at A* with the tip on spot A: *15 cm out at spot A (15 cm in height)*; a calibration from before v122 (no `f`,

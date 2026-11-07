@@ -143,7 +143,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    - **The first headset** (no spots in the room yet): *Put two tape crosses on the floor*: press **Calibrate**, hold
      the controller pointing down, the bright ring at its tip still on spot A on the floor, and pull the trigger, then
      on spot B. That sets the room and its floor for everyone, today and next time. Spots at different heights (more
-     than 3 cm: the tip held off the floor) go back to spot A; spot A on a table is refused.
+     than 4 cm: the tip held off the floor) go back to spot A; spot A on a table is refused.
    - **The others**, one by one: if the room has its spots and the headset is not lined up by them, *Calibrate on them*
      (spot A, then spot B). A headset already lined up by them (its own calibration found again, or through the shared
      space from someone who calibrated) is asked by eye instead: the two orange crosses show where it puts the spots and

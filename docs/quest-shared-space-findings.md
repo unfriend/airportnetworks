@@ -135,7 +135,9 @@ what we do about it.
 - Take a mark where the controller's ray origin was 70 to 260 ms before the trigger: pulling the trigger moves
   the controller. Show that point as a ring.
 - Ignore a second pull within 0.6 s (a double pull once took mark B 0.1 s after mark A). Ask for marks at least
-  50 cm apart, and add a note when they are more than 5 cm apart in height.
+  50 cm apart, and add a note when they are more than 5 cm apart in height. Since v122 the marks are tape crosses on
+  the floor and set the room's floor too: marks more than 4 cm apart in height are refused, and so is mark A more than
+  45 cm over the headset's floor (both guesses until the logs say better).
 - A headset's own marks always win over a frame from the shared space. A calibrated headset still publishes its
   marks through the space and shows how far the space puts another calibrated headset's marks from its own.
   That distance is the best accuracy test we have.

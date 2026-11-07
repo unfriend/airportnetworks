@@ -5527,7 +5527,9 @@
   // floor, held pointing down. A guess until measured on a Quest: the headsets' logs say 'floor spots' with the touch
   // heights over their own floor and, with a room scan, over its floor plane
   const FLOOR_TIP = 0.02;
-  const SPOTS_DH = 0.03, SPOTS_UP = 0.45;   // floor spots: at most 3 cm apart in height; spot A at most 45 cm over this headset's floor
+  // floor spots: at most 4 cm apart in height (the tip's height moves with how the controller is tilted); spot A at most
+  // 45 cm over this headset's floor. Both guesses until tuned from the logs ('mark refused' and 'floor spots' carry dh)
+  const SPOTS_DH = 0.04, SPOTS_UP = 0.45;
   const onFloor = () => !!(R.saved && R.saved.f);   // this headset's marks are floor spots (a calibration since v122)
   const floorUnder = (a, b) => {
     if (onFloor()) return a[1] - FLOOR_TIP;
@@ -6490,7 +6492,7 @@
     if (Math.hypot(dx, dz) < 0.5) { notice('Spots too close', 'Spot B must be at least 50 cm from spot A (a metre or more is better). Touch spot B again.', 0); return; }
     // both on the floor, so as high as each other: one higher is a tip held off the floor, or a spot that is not on it
     if (Math.abs(dh) > SPOTS_DH) {
-      log('mark refused', { why: 'heights', a: r3(a.y), b: r3(p.y) });
+      log('mark refused', { why: 'heights', a: r3(a.y), b: r3(p.y), dh: r3(dh) });
       R.calib = { step: 'a', a: null }; setState('mark-a');
       notice('Spots at different heights', `Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A. Both spots must be on the floor: touch them again, the controller's tip on the floor.`, 0);
       return;
@@ -6503,7 +6505,7 @@
     // the touch heights over this headset's floor and over the room scan's floor plane, to measure FLOOR_TIP and the
     // headsets' floors from the logs later
     const sf = R.scanFloor;
-    log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP });
+    log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], dh: r3(dh), scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP });
     claimFloor(R.saved.a, R.saved.b);
     R.mk = marksMk(R.saved.a, R.saved.b); R.cmp = null; R.pubAt = 0; R.recAt = 0;
     setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'The orange crosses should sit on the two spots, and the room\'s floor on the floor. Everyone who calibrates on the same spots sees the stations in the same places.' + (guideOn() ? ' Now check it: Check at A, in the menu.' : ''));

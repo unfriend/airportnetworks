@@ -3481,8 +3481,8 @@ async function guideRound() {
 // calibration's floor is the floor under them (mark A's touch less FLOOR_TIP), whatever a headset's own floor says. The
 // first headset back with its own floor 20 cm too high (and a room scan's floor plane) finds its spots again, the room's
 // floor on the true floor; calibrating on them again, spot B 5 cm higher is refused (back to spot A), then spot A on a
-// table (75 cm), then the spots on the floor: the room's floor on the true floor within 1 cm, its rm { a: FLOOR_TIP, f: 1 }
-// and the log's touch heights (over its floor and over the scan's). The second with its own floor 15 cm too low the same,
+// table (75 cm), then the spots on the floor (B 3 cm higher, within the 4 cm allowed): the room's floor on the true floor
+// within 1 cm, its rm { a: FLOOR_TIP, f: 1 } and the log's touch heights and dh (over its floor and over the scan's). The second with its own floor 15 cm too low the same,
 // within 1 cm of the first, writing nothing to the room's floor; lined up through the shared space instead (its own floor
 // kept there), Check at A on the spot says the 15 cm are in height. A calibration from before v122 (no f: two table
 // corners) found again keeps the old rule: its own floor while the room's floor is other spots (and the room's floor spots
@@ -3514,7 +3514,8 @@ async function floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfC
   const r1 = await roomOf(H1);
   check('floor spots: a headset whose own floor is 20 cm too high finds its floor spots again: the room\'s floor on the true floor (within 1 cm), and it says its floor is 20 cm higher',
     f1 && r1.src === 'anchor' && near(r1.o, [SA[0], 0, SA[2]], 0.01) && Math.abs(r1.y + 0.2) < 0.01 && r1.f === 1 && /floor is 20 cm higher than the room/.test(r1.note), JSON.stringify(r1));
-  // calibrating on them again: spot B 5 cm higher than spot A refused (back to A), spot A on a table refused, then both on the floor
+  // calibrating on them again: spot B 5 cm higher than spot A refused (back to A), spot A on a table refused, then both on
+  // the floor (B 3 cm higher than A, as a controller tilted another way puts its tip: taken)
   await H1.evaluate(() => { HOST.collab.guideOpen(1); window.__xr.step(); });
   const c0 = await tap(H1, 'guide:cal');
   await H1.evaluate(() => window.__collabLog.push({ ev: 'test floor spots' }));
@@ -3527,17 +3528,18 @@ async function floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfC
     c0 && s1[0] === 'mark-a' && s1[1] === 'a' && !!n1 && n1.title === 'Spots at different heights' && /^Spot B is 5 cm higher than spot A\. Both spots must be on the floor/.test(n1.text), JSON.stringify({ c0, s1, n1 }));
   check('floor spots: spot A on a table (75 cm up, 55 cm over this headset\'s floor) is refused at once (not on the floor), still at spot A',
     s2[0] === 'mark-a' && s2[1] === 'a' && !!n2 && n2.title === 'Not on the floor' && /^Spot A is 55 cm above this headset's floor: the spots must be on the floor/.test(n2.text), JSON.stringify({ s2, n2 }));
-  await touch(H1, SA); await touch(H1, SB);
+  await touch(H1, SA); await touch(H1, [SB[0], SB[1] + 0.03, SB[2]]);
   await H1.evaluate(() => window.__xr.ctrl(0, null));
   await stepUntil(H1, () => HOST.room.src === 'marks', null, 5000);
   const r2 = await roomOf(H1), l1 = (await since(H1, 'test floor spots')).filter(e => /^(mark refused|floor spots)$/.test(e.ev));
-  const sp = l1.find(e => e.ev === 'floor spots') || null, h1Id = await H1.evaluate(() => HOST.collab.id);
-  check('floor spots: on the floor they are taken, the room\'s floor on the true floor (within 1 cm) though this headset\'s floor is 20 cm too high; the room\'s floor is floor spots (rm: a 2 cm, f 1)',
+  const sp = l1.find(e => e.ev === 'floor spots') || null, rh = l1.find(e => e.ev === 'mark refused' && e.why === 'heights') || null, h1Id = await H1.evaluate(() => HOST.collab.id);
+  check('floor spots: on the floor (B 3 cm higher than A) they are taken, the room\'s floor on the true floor (within 1 cm) though this headset\'s floor is 20 cm too high; the room\'s floor is floor spots (rm: a 2 cm, f 1)',
     r2.src === 'marks' && near(r2.o, [SA[0], 0, SA[2]], 0.01) && r2.f === 1 && !!r2.mk && Math.abs(r2.mk[0] - TIP) < 2e-3 && Math.abs(r2.mk[1] - dAB) < 0.01 &&
       !!r2.rm && r2.rm.f === 1 && Math.abs(r2.rm.a - TIP) < 1e-3 && r2.rm.by === h1Id && /floor is 20 cm higher than the room/.test(r2.note), JSON.stringify(r2));
-  check('floor spots: the log has the refusals and the touch heights, over this headset\'s floor (-18 cm) and over the room scan\'s floor plane (2 cm)',
-    l1.filter(e => e.ev === 'mark refused').map(e => e.why).join() === 'heights,high' && !!sp && Math.abs(sp.a + 0.18) < 3e-3 && Math.abs(sp.b + 0.18) < 3e-3 &&
-      Array.isArray(sp.scan) && Math.abs(sp.scan[0] - TIP) < 3e-3 && Math.abs(sp.scan[1] - TIP) < 3e-3 && sp.tip === TIP, JSON.stringify(l1));
+  check('floor spots: the log has the refusals (B 5 cm over A) and the touch heights, over this headset\'s floor (-18 cm and -15 cm, 3 cm apart) and over the room scan\'s floor plane (2 cm and 5 cm)',
+    l1.filter(e => e.ev === 'mark refused').map(e => e.why).join() === 'heights,high' && !!rh && Math.abs(rh.dh - 0.05) < 3e-3 && !!sp && Math.abs(sp.a + 0.18) < 3e-3 &&
+      Math.abs(sp.b + 0.15) < 3e-3 && Math.abs(sp.dh - 0.03) < 3e-3 && Array.isArray(sp.scan) && Math.abs(sp.scan[0] - TIP) < 3e-3 && Math.abs(sp.scan[1] - TIP - 0.03) < 3e-3 &&
+      sp.tip === TIP, JSON.stringify(l1));
   // the second headset, its own floor 15 cm too low: its floor spots found again, then calibrated on again, the room's
   // floor within 1 cm of the first's, nothing written to the room's floor (the same spots: within 10 cm of the distance)
   const rmWas = JSON.stringify((await roomOf(H1)).rm);
