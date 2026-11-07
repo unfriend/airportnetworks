@@ -15,10 +15,10 @@
 // - speed: 0.25 to 4 (2 decimals), how fast it plays.
 // It is drawn by the pose pipeline (e6e_motion.js: POSE.path, after the placed pose and before a motion, which adds on
 // top), so moving or turning the item moves or turns its whole path, its record's place stays where it is placed, and
-// what follows it (a sound, a cut-out) goes with it. It rests at its placed pose while carried here or, editing, selected
-// (as a motion does), except just after it is recorded (STU.recPlay: it plays though selected, until something else is
-// selected or it is carried; Play it here on its card does the same). A sound that follows something moves with that:
-// its own path waits until it follows nothing.
+// what follows it (a sound, a cut-out) goes with it. As a motion, it plays on while selected (a ghost where it is placed)
+// and rests at its placed pose while held here or paused (motionRests). Start again on its card starts it from its
+// beginning on this device (its 'shown' clock; a path that plays once, played once more). A sound that follows something
+// moves with that: its own path waits until it follows nothing.
 //
 // Recording (REC, this device's own, never shared while it runs): in a headset, Record its movement on its card arms it
 // (XR.rec, as Hold it is armed); the next grip, on it or anywhere, carries it as usual and records its pose 30 times a
@@ -77,7 +77,8 @@ function pathAt(P, s, d, q) {
   return q.set(a[4], a[5], a[6], a[7]).slerp(_pkq.set(b[4], b[5], b[6], b[7]), f).normalize();   // (keys kept to 4 decimals are a hair off unit length)
 }
 // its time (s): 'always' the scene's clock, 'shown' since it was last shown here (a sound: heard)
-const pathClock = (it, P, now, clockS) => (P.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : clockS);
+// (one that plays once and was started again here, Start again: since then)
+const pathClock = (it, P, now, clockS) => (P.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : P.play === 'once' && it.again != null ? Math.max(0, (now - it.again) / 1000) : clockS);
 const _pp3 = new THREE.Vector3(), _pq3 = new THREE.Quaternion(), _ps3 = new THREE.Vector3(), _pd3 = new THREE.Vector3(), _pk3 = new THREE.Quaternion();
 // the pipeline's second stage (drawnPose in e6e_motion.js): its pose m (its placed one) moved along its path: the place by
 // its turn times d, the turn by q after it (a sound only moves)
@@ -124,7 +125,6 @@ function recBegin(it, by, c) {
   if (why) { recSay(it.id, why, 'amber'); return false; }
   poseRest(it);
   REC = { it, id: it.id, by, c: c || null, t0: recClock(), last: -1e9, p0: new THREE.Vector3().fromArray(it.rec.p), q0: it.kind === 's' ? new THREE.Quaternion() : new THREE.Quaternion().fromArray(it.rec.q), mid: recMid(it), S: [], said: 0 };
-  STU.recPlay = '';
   recSample(true);
   recSay(it.id, '', '');
   sfxAct('pulse', 'world', null, { gain: 0.5 });
@@ -172,8 +172,7 @@ function recEnd(save) {
   let res = save && editOn() ? recPath(it, R) : { why: 'Recording cancelled: nothing changed.' };
   if (!setRec(it.id, Object.assign(back, res.path ? { path: res.path } : {})) && res.path) res = { why: 'The recording could not be kept.' };
   if (res.path) {
-    STU.recPlay = it.id;
-    recSay(it.id, `Recorded ${secs(pathLen(res.path))} in ${res.path.k.length} keys (from ${R.S.length} samples)` + (R.capped ? ', stopped at 120 s: the longest a path may be.' : '.') + ' It plays now; carry it or select something else and it rests at its place.', R.capped ? 'amber' : 'green');
+    recSay(it.id, `Recorded ${secs(pathLen(res.path))} in ${res.path.k.length} keys (from ${R.S.length} samples)` + (R.capped ? ', stopped at 120 s: the longest a path may be.' : '.') + ' It plays now; its ghost shows where it is placed.', R.capped ? 'amber' : 'green');
     sfxAct('rise', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray(), { dur: 0.5, gain: 0.5 });
   } else recSay(it.id, res.why, 'amber');
   if (R.by === 'page') endChange();
@@ -245,12 +244,12 @@ const REC_NO_SIZE = ['size', 'psize', 'pgrow', 'grow'];
 const recording = it => !!(REC && it && REC.id === it.id);
 const recStops = (it, act) => recording(it) && REC_NO_SIZE.includes(act);
 // the card's signature part (the panes are drawn again when it changes)
-const recSig = () => [XR.rec, STU.recPlay, REC ? REC.id + ':' + Math.floor((recClock() - REC.t0) / 250) : '', REC_NOTE.id, REC_NOTE.text].join(',');
+const recSig = () => [XR.rec, MPAUSE.on, REC ? REC.id + ':' + Math.floor((recClock() - REC.t0) / 250) : '', REC_NOTE.id, REC_NOTE.text].join(',');
 
 // ------------------------------------------------------------- the card --
 // the Recorded path rows (an object's, a shape's, an empty's and a sound's card, page and headset): Record (a page:
-// Record and Stop; a headset: Record its movement, armed until the next grip), then how it plays, Play it here and Delete
-// recording; one Undo step each (Record to its end is one)
+// Record and Stop; a headset: Record its movement, armed until the next grip), then how it plays and Delete recording, and,
+// for anything that moves, Pause and Start again (moveBlocks); one Undo step each (Record to its end is one)
 function pathBlocks(it, B, dis, mv) {
   if (!PATH_ITEMS.includes(it.kind)) return;
   const P = it.rec.path, rec = recording(it), armed = XR.rec === it.id, fol = it.kind === 's' && !!it.rec.on, busy = !!REC && !rec;
@@ -274,10 +273,20 @@ function pathBlocks(it, B, dis, mv) {
     B.push({ label: 'Plays', row: [['loop', 'Loop'], ['once', 'Once'], ['bounce', 'Back and forth']].map(([v, n]) => ({ id: 'pplay:' + v, label: n, act: 'i:pplay', v, on: P.play === v, dis })) },
       { label: 'Starts', row: [['always', 'Always'], ['shown', 'When shown']].map(([v, n]) => ({ id: 'pstart:' + v, label: n, act: 'i:pstart', v, on: P.start === v, dis })) },
       { label: 'Speed: ×' + P.speed, row: [{ id: 'pspeed:-', label: 'Slower', act: 'i:pspeed', v: -1, dis: dis || P.speed <= 0.25 }, { id: 'pspeed:+', label: 'Faster', act: 'i:pspeed', v: 1, dis: dis || P.speed >= 4 }] },
-      { row: [{ id: 'recplay', label: STU.recPlay === it.id ? 'Playing here (rest it)' : 'Play it here', act: 'i:recPlay', on: STU.recPlay === it.id, dis: dis || rec || fol }, { id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
-      { p: 'Played from where it stands: moving or turning it moves its whole path. Selected (editing) or carried, it rests at its place; Play it here shows it playing while selected. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
+      { row: [{ id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
+      { p: 'Played from where it stands: moving or turning it moves its whole path. It plays on while selected (a ghost where it is placed); carried, it rests there. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
   }
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
+  moveBlocks(it, B);
+}
+// what anything that moves has on its card (a motion, a recorded path, a behaviour, a model's animation): Pause (this
+// device's, as on the Scene pane: e6h_ghost.js), and Start again where it starts when shown or a path plays once (this
+// device's: from its beginning, as when a cube shows it)
+function moveBlocks(it, B) {
+  const P = pathOf(it), mo = it.rec.motion, clip = it.kind === 'o' && it.rec.anim !== 'off' && !!(it.E && it.E.clips && it.E.clips.some(c => c.name === it.rec.clip));
+  if (!(mo || P || it.rec.behaviour || clip) || !editOn()) return;
+  const again = (P && (P.start === 'shown' || P.play === 'once')) || (mo && mo.start === 'shown');
+  pauseBlocks(B, false, again ? [{ id: 'restart', label: 'Start again', act: 'i:restart' }] : []);
 }
 // the card's actions: recording (this device's: no change recorded until its end), and how it plays (one Undo step each)
 const pathSet = (it, fn) => { const P = it.rec.path; if (P) setRec(it.id, { path: normPath(Object.assign({}, P, fn(P))) || P }); };
@@ -298,9 +307,15 @@ Object.assign(ITEM_ACT, {
     if (why) { recSay(it.id, why, 'amber'); return; }
     XR.rec = it.id; XR.hold = ''; recSay(it.id, '', '');
   },
-  recPlay: it => { STU.recPlay = STU.recPlay === it.id || !pathOf(it) ? '' : it.id; tcAttach(); },
+  // (this device's: its 'shown' clock from now, a path that plays once played once more; a sound starts again too)
+  restart: it => {
+    const now = performance.now();
+    it.shownAt = now; it.ended = false;
+    if (pathOf(it) && pathOf(it).play === 'once') it.again = now;
+    if (it.kind === 's') emitStop(it);
+  },
   pplay: (it, v) => { if (PATH_PLAYS.includes(v)) pathSet(it, () => ({ play: v })); },
   pstart: (it, v) => { if (v === 'always' || v === 'shown') pathSet(it, () => ({ start: v })); },
   pspeed: (it, d) => pathSet(it, P => ({ speed: stepOf(PATH_SPEEDS, P.speed, +d) })),
-  recDel: it => { if (it.rec.path && !recording(it)) { setRec(it.id, { path: undefined }); if (STU.recPlay === it.id) STU.recPlay = ''; recSay(it.id, '', ''); tcAttach(); } },
+  recDel: it => { if (it.rec.path && !recording(it)) { setRec(it.id, { path: undefined }); recSay(it.id, '', ''); tcAttach(); } },
 });

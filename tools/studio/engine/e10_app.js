@@ -384,6 +384,8 @@ const STUDIO = {
     const H = it.holder;
     return { drawn: H.matrixAutoUpdate ? null : H.matrix.toArray(), placed: new THREE.Matrix4().compose(H.position, H.quaternion, H.scale).toArray(), moving: !H.matrixAutoUpdate, rests: motionRests(it) };
   },
+  // an item's ghost where it is placed (shown, lit, its pose, its parts), or null (e6h_ghost.js)
+  ghost: id => ghostOf(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
@@ -429,6 +431,8 @@ return {
     for (const E of LIB.values()) if (E.root) disposeTree(E.root, true);
     LIB.clear(); SND.clear();
     if (GL.env) GL.env.dispose();
+    for (const id of [...GH.keys()]) ghostDrop(id);
+    if (GHOST.edges) GHOST.edges.dispose();
     BOX1.dispose(); HIDDEN.dispose(); LOOKS.dispose();
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);

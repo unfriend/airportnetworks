@@ -24,8 +24,8 @@
 // two headsets start driving one item at once, the claims settle it: for 'first' the earlier arrival, for 'nearest' the
 // newer driver (it started because it was nearer), ties by member id. 'item' needs no driver: every device works it out
 // from what it draws. Outside a room it reacts to this device's own head (a headset's, the camera in Walk view on a
-// page). Like a motion it rests at its placed pose while carried or selected (editing: motionRests), and starts from
-// there again.
+// page). Like a motion it rests at its placed pose while held here (carried, dragged by the arrows: motionRests) or paused
+// here, and starts from there again; selected, it goes on (its ghost shows where it is placed).
 //
 // Drawn through the pose pipeline (e6e_motion.js): POSE.base gives its placed part (behaveBase), then its recorded path
 // and its motion follow. POSE.base is set only while some item of the scene has a behaviour (behaveStep, every frame
@@ -195,6 +195,7 @@ function behStop(id, B) { if (!B.drive) return; B.drive = false; BEH.ends.add(id
 // (who it reacts to, driven here, drawn from a driver's samples or going home), and what this device sends
 function behaveStep(dt, pn) {
   BEH.n++;
+  restScan();   // (what rests this frame: held here, or Pause; e6e_motion.js)
   const items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour);
   POSE.base = items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
@@ -220,7 +221,7 @@ function behOne(it, hs, me, T, pn, dt) {
   const b = it.rec.behaviour;
   let B = BEH.st.get(it.id);
   if (!B) BEH.st.set(it.id, (B = { kind: b.kind, tx: 0, tz: 0, d: 0, p: null, q: null, s: null, who: '', inAt: new Map(), drive: false, since: 0, src: '', age: 0, on: false, n: 0 }));
-  // resting (carried, or selected while editing): at its placed pose, driving no more; not drawn last frame: from there
+  // resting (held here, or paused): at its placed pose, driving no more; not drawn last frame: from there
   if (motionRests(it)) { behStop(it.id, B); behReset(B); B.n = BEH.n; return; }
   if (B.n !== BEH.n - 1) behReset(B);
   B.n = BEH.n;
@@ -374,7 +375,7 @@ function behaveBlocks(it, B, dis) {
   if (b.kind === 'avoid') B.push(num('dist', 'Keeps away by', 'Less', 'More'), num('area', 'Stays near its place, within', 'Less', 'More'));
   if (b.kind !== 'look') B.push(num('speed', 'Moves at most', 'Slower', 'Faster'));
   B.push({ p: 'One person at a time, the same for everyone at a circle: ' + (b.who === 'first' ? 'the first to come within range, until they walk away' : 'the nearest within range') +
-    ' (people in a headset; pages never count). With nobody in range it goes back to where it is placed. While it is selected (editing) or carried it rests where it stands.', c: 'faint' });
+    ' (people in a headset; pages never count). With nobody in range it goes back to where it is placed. Selected, it goes on (a ghost where it is placed); carried, it rests there.', c: 'faint' });
 }
 // the card's actions (one Undo step each): a kind for people (its own distance, who and the rest kept where both have
 // them; None takes it away), Follow an item... (pointing at one, or the card's list: btarget), who, a number a step up or down

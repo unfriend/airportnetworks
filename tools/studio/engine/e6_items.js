@@ -18,7 +18,6 @@ const STU = {
   gpick: null,   // (a group picking its members: { id, made, step })
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
-  recPlay: '',   // (an item whose recorded path plays here though it is selected: just recorded, or Play it here; e6f_path.js)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -225,7 +224,8 @@ function removeItem(id) {
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.holder.parent) it.holder.parent.remove(it.holder);
-  if (GL.tc && GL.tc.object === it.holder) GL.tc.detach();
+  if (GL.tc && (GL.tc.object === it.holder || (GL.tc.object === TCP && TCP.userData.id === id))) GL.tc.detach();
+  ghostDrop(id);
   if (STU.sel === id) STU.sel = '';
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
@@ -376,7 +376,7 @@ function animStep(it, now, clockS) {
     it.action = clip ? it.mixer.clipAction(clip) : null;
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
-  }
+  } else if (motionsPaused()) return;   // (Pause: it holds the frame it shows; e6h_ghost.js)
   if (!it.action || !(it.dur > 0)) return;
   let t = r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
   t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
@@ -566,6 +566,7 @@ function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
+  restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
   for (const it of STU.items.values()) {
     if (it.kind === 'g') continue;   // (groups once their members have their places: groupsStep)
     // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
@@ -613,6 +614,7 @@ function itemsStep(dt, now) {
   for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
   groupsStep(editing);
   editStep(editing);
+  ghostStep(editing, now);   // (the ghosts at the placed poses, the page's arrows on them; e6h_ghost.js)
   emitStep(now);
 }
 // a sound: where it follows (gliding there from where it was when the room moved it), heard as far as it and what it
@@ -1150,15 +1152,16 @@ const ITEM_ACT = {
     if (o) poseRest(o);
     if (nd) setRec(it.id, { bone: name || undefined, o: offsetAt(nd, it.holder.position, followK(o)) });   // (a bone this model lacks: refused)
   },
-  onto: it => { const nd = followNode(it); if (nd) setRec(it.id, { o: undefined, p: followPoint(nd, null, new THREE.Vector3()).toArray() }); },
-  unfollow: it => setRec(it.id, { on: undefined, bone: undefined, o: undefined, p: it.holder.position.toArray() }),
+  // (measured where what it follows is placed, not where a motion draws it: e6e_motion.js)
+  onto: it => { const ob = followOf(it), nd = followNode(it); if (ob) poseRest(ob); if (nd) setRec(it.id, { o: undefined, p: followPoint(nd, null, new THREE.Vector3()).toArray() }); },
+  unfollow: it => { const ob = followOf(it), nd = !it.carry && followNode(it); if (ob) poseRest(ob); setRec(it.id, { on: undefined, bone: undefined, o: undefined, p: (nd ? followAt(it, nd, new THREE.Vector3()) : it.holder.position).toArray() }); },
   followPick: it => { if (it.kind === 's') STU.follow = STU.follow === it.id ? '' : it.id; },
   bones: it => { STU.bones = STU.bones === it.id ? '' : it.id; STU.bonePage = 0; },
   bonePage: (it, d) => { STU.bonePage = Math.max(0, STU.bonePage + (+d || 0)); },
   // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
   hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; XR.rec = ''; },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'recPlay'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -1195,7 +1198,6 @@ function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
   if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
-  if (STU.recPlay && STU.recPlay !== id) STU.recPlay = '';   // (it rests again once something else is selected)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)

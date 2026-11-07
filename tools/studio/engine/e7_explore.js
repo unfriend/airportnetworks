@@ -134,7 +134,7 @@ function paneBlocks(tab) {
       if (STU.saveNote) B.push({ p: STU.saveNote, c: 'red' });
     }
     if (STU.draft) B.push({ p: `Your unsaved changes from ${hhmm(STU.draft.at)}:`, c: 'amber' }, { row: [{ id: 'restore', label: 'Restore', act: 'restore', primary: true }, { id: 'discard', label: 'Discard', act: 'discard' }] });
-    if (STU.scene && ed && STU.listing === 'ok') settingsBlocks(B, st);   // (the scene's settings, saved with it: e6d_shapes.js)
+    if (STU.scene && ed && STU.listing === 'ok') { pauseBlocks(B, true); settingsBlocks(B, st); }   // (Pause, this device's: e6h_ghost.js; the scene's settings, saved with it: e6d_shapes.js)
     if (STU.scene) {
       B.push({ row: [
         { id: 'seen', label: 'Reset what I have seen', act: 'seen', dis: !STU.seen.size },
@@ -153,7 +153,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. P: pause what moves. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -425,7 +425,6 @@ function itemBlocks(it, B, ed) {
   lockBlocks(it, B, dis);   // (Lock in place: e6d_shapes.js)
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') || (m === 'scale' && recording(it)) })) });
-  if (!XR.on && ed && STU.recPlay === it.id) B.push({ page: true, p: 'Playing here: its arrows come back once it rests (Playing here, above, or select it again).', c: 'faint' });
   B.splice(1, 0, ...lockTop(it));   // (what holds it in place, at the card's top)
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
@@ -444,7 +443,7 @@ const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '
 // or remove items... (a pick mode), its place and size (about its pivot, the middle of its members on the floor),
 // Duplicate, Ungroup and Delete (every member)
 function groupBlocks(g, B, dis, ed) {
-  const mv = dis || !!lockWhy(g), dl = dis || !!lockWhy(g, true), ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = groupBox(g, new THREE.Box3()), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
+  const mv = dis || !!lockWhy(g), dl = dis || !!lockWhy(g, true), ms = members(g), picking = !!(STU.gpick && STU.gpick.id === g.id), b = atPlaced(groupMeasured(g), () => groupBox(g, new THREE.Box3())), sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
   const n = k => ms.filter(m => m.kind === k).length, parts = [['o', 'object'], ['s', 'sound'], ['c', 'cube']].filter(([k]) => n(k)).map(([k, w]) => `${n(k)} ${w}${n(k) > 1 ? 's' : ''}`);
   B.push({ h: g.rec.name, sub: 'Group' }, { kv: [['Members', ms.length ? `${ms.length}: ${parts.join(', ')}` : 'none here']].concat(sz ? [['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`]] : []) },
     { p: 'Its members move, turn and size together, about the middle of the group on the floor. A click on a member selects the group; a second click on it selects that member alone.', c: 'faint' });
@@ -622,6 +621,7 @@ function act(a, v) {
     shape: () => addShape(v),
     empty: () => addEmpty(),
     setting: () => setSetting(v),
+    pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
     scenemake: () => sceneMake(NS.name),
@@ -800,7 +800,7 @@ function pickables() {
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
   }
-  return L;
+  return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
 }
 // the nearest thing a ray finds: a corner first, then the nearest object, sound or cut-out, a cube only when nothing
 // else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
@@ -815,7 +815,8 @@ function rayPick(ray, o) {
   const objOnly = !!(STU.follow || STU.cutTo || STU.gpick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return o && o.inside ? insidePick(ray.ray) : null;
-  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? ray.ray.clone() : null };
+  const gh = !!c.object.userData.ghost;   // (its ghost: the ray met it where it is placed, not where it is drawn)
+  return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? Object.assign(ray.ray.clone(), { ghost: gh }) : null, ghost: gh };
 }
 // the object whose unseen box holds the ray's origin (the controller, or a page's camera in Walk view), the smallest if
 // several (a figure standing in a room scan: the figure); the point where the ray leaves that box (the pointer's dot)
@@ -907,6 +908,7 @@ function bindCanvas() {
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
     else if ({ w: 1, e: 1, r: 1 }[k]) tcSetMode({ w: 'translate', e: 'rotate', r: 'scale' }[k]);
+    else if (k === 'p') pauseSet(!MPAUSE.on);   // (Pause: everything at its placed pose; e6h_ghost.js)
   });
   document.addEventListener('keyup', ev => KEYS.delete(ev.key.toLowerCase()));
   window.addEventListener('blur', () => KEYS.clear());
@@ -968,7 +970,9 @@ function walkStep(dt) {
 // TransformControls on the selected item (page, editing): move, turn and size; a cube stays level and takes its size
 // per axis, a sound only moves, an object sizes as a whole, a cut-out turns freely and takes its size per axis, a group
 // (its pivot, the middle of its members on the floor) turns about the vertical only and sizes as a whole. A drag is one
-// change (Undo), and while it lasts the room's records do not move the item (a group's members) here
+// change (Undo), and while it lasts the room's records do not move the item (a group's members) here. An item that moves
+// (a motion, a recorded path, a behaviour) has them on its ghost, where it is placed (TCP, e6h_ghost.js): each change goes
+// into its placed pose as a drag of the item itself would, and it rests there while dragged
 function tcSetup() {
   if (!THREE.TransformControls) return;
   const tc = new THREE.TransformControls(GL.camera, GL.canvas);
@@ -979,7 +983,14 @@ function tcSetup() {
     if (e.value) { if (it) { it.carry = true; it.gl = null; if (it.kind === 'g') groupHold(it); else beginChange([it.id]); } }
     else { if (it) { it.carry = false; tcRead(it); if (it.kind === 'g') groupRelease(it); } if (!(REC && REC.by === 'page')) endChange(); X.tcUp = performance.now(); }   // (a page's recording: one change from Record to Stop)
   });
-  tc.addEventListener('objectChange', () => { const it = tc.object && STU.items.get(tc.object.userData.id); if (it) tcRead(it); });
+  tc.addEventListener('objectChange', () => {
+    const it = tc.object && STU.items.get(tc.object.userData.id);
+    if (!it) return;
+    const px = tc.object === TCP;
+    if (px) { it.holder.position.copy(TCP.position); it.holder.quaternion.copy(TCP.quaternion); it.holder.scale.copy(TCP.scale); }
+    tcRead(it);
+    if (px) tcProxy(it);   // (what tcRead made of it: a cube's yaw, an object's one size)
+  });
   GL.scene.add(tc);
   GL.tc = tc;
 }
@@ -1021,12 +1032,14 @@ function tcAttach() {
   const tc = GL.tc;
   if (!tc) return;
   const it = STU.items.get(STU.sel);
-  // (locked in place: no arrows; playing its recorded path here: none until it rests; recording one: no Size)
-  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it) || STU.recPlay === it.id) { if (tc.object) tc.detach(); return; }
+  // (locked in place: no arrows; recording a path: no Size)
+  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }
   const m = it.kind === 's' || ((it.kind === 'e' || recording(it)) && X.tcMode === 'scale') ? 'translate' : X.tcMode;
   tc.setMode(m);
   tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
   tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
   tc.showY = true;
-  if (tc.object !== it.holder) tc.attach(it.holder);
+  const T = tcTarget(it);   // (its own holder, or its ghost's stand-in while it moves: e6h_ghost.js)
+  if (T === TCP) tcProxy(it);
+  if (tc.object !== T) tc.attach(T);
 }
