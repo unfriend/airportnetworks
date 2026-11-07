@@ -402,6 +402,9 @@ const unit = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
 // the physical room: the room frame, the shared space's origin, this headset's local-floor and local origins
 let ROOM = [2, 0, 1, 0.3];
 const SHARED = [-1, 0, 0.5, 1.1], FLOOR = [0.4, 0, -0.7, -0.5], LOCAL = [0.9, 1.6, 0.2, 0.8];
+// the calibration spots are tape crosses on the floor (v122), touched with the controller's tip on it: its target ray's
+// origin TIP over the true floor (y 0 in the pretend room; shared.js's FLOOR_TIP)
+const TIP = 0.02;
 const frameFor = (P, uuid, by, at) => ({ uuid, o: unapply(SHARED, [P[0], P[1], P[2]]), x: rot(-SHARED[3], rot(P[3], [1, 0, 0])), by, at, src: 'marks' });
 
 // a pretend headset session in a page (WebXR in software, as tools/smoke.mjs does): fake spaces and frames
@@ -3126,8 +3129,10 @@ async function smoothRound() {
 // Line up to calibrate on the spots (not lined up, by eye, in the laptop's list); entering again, the startup flow asks by
 // eye instead of opening at Check; No, Next, Check at A 3 cm off: green, the guide and the menu close; 40 cm off: red,
 // back to Line up; Calibrate there on the spots, on to Check by itself, Check at B: green; the laptop's list says checked
-// at which spot. With --shots its pictures: guide-*.png (the menu's canvas on each page and case, waiting, green, red, the
-// Circles tab, alone, no shared space, calibrating, the question by eye; the laptop's Setting up a room)
+// at which spot. The spots are tape crosses on the floor (v122: TIP over the true floor); at the end floor spots
+// (floorSpots: headsets whose own floors are 20 cm too high and 15 cm too low on the true floor, the refusals, an older
+// calibration). With --shots its pictures: guide-*.png (the menu's canvas on each page and case, waiting, green, red, the
+// Circles tab, alone, no shared space, calibrating, the question by eye, spot A refused; the laptop's Setting up a room)
 async function guideRound() {
   const A = await open('#stories');
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
@@ -3368,7 +3373,7 @@ async function guideRound() {
   // ------------------------------------------------------------ the spots --
   // the first headset (the room's origin, no spots in the room) calibrates on two from Line up: its calibration sets the
   // room (rm, and a frame from the spots for its shared space); on to Check by itself; Check at A 3 cm off: green, done
-  const SA = [1.0, 0.76, -0.8], SB = [2.8, 0.76, -0.2];
+  const SA = [1.0, TIP, -0.8], SB = [2.8, TIP, -0.2];   // (tape crosses on the floor: v122)
   await H1.evaluate(() => { HOST.collab.guideOpen(1); window.__xr.step(); });
   const q1 = await G(H1);
   await menuPic(H1, 'guide-14-first-red-line.png');
@@ -3379,7 +3384,7 @@ async function guideRound() {
   await menuPic(H1, 'guide-15-check-spots.png');
   check('guide: the first headset with no spots in the room is asked to pick two (Line up, the room\'s first, the red check\'s why above it); its calibration sets the room (rm and a frame from the spots for the shared space), and the guide goes on to Check by itself',
     q1.step === 1 && q1.case === 'first' && cal1 && to2 && q2.src === 'marks' && q2.case === 'check' && Array.isArray(q2.spots) && Math.abs(q2.spots[1] - Math.hypot(SB[0] - SA[0], SB[2] - SA[2])) < 0.01 &&
-      rm[0] && rm[0].v && rm[0].v.by === rm[2] && Math.abs(rm[0].v.a - SA[1]) < 0.01 && rm[1] && rm[1].v && rm[1].v.g === 'marks' && rm[1].v.by === rm[2] && await has(H1, 'guide:selfA') === true && await has(H1, 'guide:selfB') === true,
+      rm[0] && rm[0].v && rm[0].v.by === rm[2] && Math.abs(rm[0].v.a - TIP) < 1e-3 && rm[0].v.f === 1 && rm[1] && rm[1].v && rm[1].v.g === 'marks' && rm[1].v.by === rm[2] && await has(H1, 'guide:selfA') === true && await has(H1, 'guide:selfB') === true,
     JSON.stringify({ q1: [q1.step, q1.case, q1.red], cal1, to2, q2: [q2.step, q2.case, q2.src, q2.spots], rm }));
   const s1 = await selfCheck(H1, 'A', [SA[0] + 0.03, SA[1], SA[2]]);
   const q3 = await G(H1);
@@ -3467,8 +3472,129 @@ async function guideRound() {
   const l5 = await listed(/lined up \(the room's spots, checked 2 cm at spot B\)/) && await listed(/lined up \(the room's spots, checked 3 cm at spot A\)/) && await listed(/2 of 2 headsets in the room lined up, 2 checked/);
   await laptopPic('guide-19-laptop-spots.png', /checked 2 cm at spot B/);
   check('guide: the laptop\'s list says each headset lined up from the room\'s spots and checked at its spot (2 of 2, 2 checked)', l5, await diag());
+  await floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfCheck, G, menuPic });
   for (const H of [H1, H2]) await H.evaluate(() => window.__xr.end()).catch(() => {});
   for (const p of [A, H1, H2]) await p.context().close();
+}
+
+// ---- floor spots (v122; the end of the guide round, so --guide runs it): the spots are tape crosses on the floor, so a
+// calibration's floor is the floor under them (mark A's touch less FLOOR_TIP), whatever a headset's own floor says. The
+// first headset back with its own floor 20 cm too high (and a room scan's floor plane) finds its spots again, the room's
+// floor on the true floor; calibrating on them again, spot B 5 cm higher is refused (back to spot A), then spot A on a
+// table (75 cm), then the spots on the floor: the room's floor on the true floor within 1 cm, its rm { a: FLOOR_TIP, f: 1 }
+// and the log's touch heights (over its floor and over the scan's). The second with its own floor 15 cm too low the same,
+// within 1 cm of the first, writing nothing to the room's floor; lined up through the shared space instead (its own floor
+// kept there), Check at A on the spot says the 15 cm are in height. A calibration from before v122 (no f: two table
+// corners) found again keeps the old rule: its own floor while the room's floor is other spots (and the room's floor spots
+// left alone), the floor under it that an older device's rm says for its corners
+async function floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfCheck, G, menuPic }) {
+  const FUP = [FLOOR[0], 0.2, FLOOR[2], FLOOR[3]], FDN = [FLOOR[0], -0.15, FLOOR[2], FLOOR[3]];   // (each headset's floor: 20 cm too high, 15 cm too low)
+  const SA = [1.0, TIP, -0.8], SB = [2.8, TIP, -0.2], dAB = Math.hypot(SB[0] - SA[0], SB[2] - SA[2]);
+  // the room's frame as the pretend room has it: its origin and x axis in the room, what the headset's floor says, the room's floor
+  const roomOf = H => H.evaluate(() => {
+    const X = window.__xr, f = HOST.room.frame, R = HOST.room.internals(), M = HOST.collab.internals().keys.get('rm');
+    return { src: HOST.room.src, o: f ? new THREE.Vector3(...f.o).applyMatrix4(X.W.floor).toArray().map(v => +v.toFixed(4)) : null,
+      x: f ? new THREE.Vector3(...f.x).transformDirection(X.W.floor).toArray().map(v => +v.toFixed(4)) : null, y: f ? +f.o[1].toFixed(4) : null,
+      mk: HOST.room.marks, note: HOST.room.floorNote(), f: R.saved ? R.saved.f : null, rm: M ? M.v : null, state: HOST.room.state };
+  });
+  const since = (H, mark) => H.evaluate(m => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf(m); return L.slice(i + 1); }, mark);
+  const lastNote = H => H.evaluate(() => HOST.collab.notes().slice(-1)[0] || null);
+  const calib = H => H.evaluate(() => { const c = HOST.room.internals().calib; return [HOST.room.state, c ? c.step : '']; });
+  const back = async (H, head, floor, o) => {   // (a new session on that floor, in the shared space, its spots found again)
+    await H.evaluate(() => window.__xr.end());
+    await xr(H, head, Object.assign({ floor }, o || {}));
+    await H.evaluate(p => { if (p) window.__xr.frame.detectedPlanes = new Set([{ semanticLabel: 'floor', planeSpace: { world: new THREE.Matrix4() }, polygon: [] }]); window.__xr.begin(); }, !!(o && o.plane));
+    await frames(H, 300);
+    await inSpace(H);
+    return stepUntil(H, () => HOST.room.src === 'anchor' && !!HOST.room.frame, null, 15000);
+  };
+  // the first headset, its own floor 20 cm too high, with a room scan whose floor plane is the true floor: its spots found
+  // again put the room's floor on the true floor
+  const f1 = await back(H1, [0, 1.6, 0, 0], FUP, { plane: true, features: ['local-floor', 'anchors', 'shared', 'plane-detection'] });
+  const r1 = await roomOf(H1);
+  check('floor spots: a headset whose own floor is 20 cm too high finds its floor spots again: the room\'s floor on the true floor (within 1 cm), and it says its floor is 20 cm higher',
+    f1 && r1.src === 'anchor' && near(r1.o, [SA[0], 0, SA[2]], 0.01) && Math.abs(r1.y + 0.2) < 0.01 && r1.f === 1 && /floor is 20 cm higher than the room/.test(r1.note), JSON.stringify(r1));
+  // calibrating on them again: spot B 5 cm higher than spot A refused (back to A), spot A on a table refused, then both on the floor
+  await H1.evaluate(() => { HOST.collab.guideOpen(1); window.__xr.step(); });
+  const c0 = await tap(H1, 'guide:cal');
+  await H1.evaluate(() => window.__collabLog.push({ ev: 'test floor spots' }));
+  await touch(H1, SA); await touch(H1, [SB[0], SB[1] + 0.05, SB[2]]);
+  const s1 = await calib(H1), n1 = await lastNote(H1);
+  await touch(H1, [SA[0], 0.75, SA[2]]);
+  const s2 = await calib(H1), n2 = await lastNote(H1);
+  await menuPic(H1, 'guide-20-not-on-floor.png');
+  check('floor spots: spot B 5 cm higher than spot A is refused, back to spot A (Spots at different heights: both on the floor)',
+    c0 && s1[0] === 'mark-a' && s1[1] === 'a' && !!n1 && n1.title === 'Spots at different heights' && /^Spot B is 5 cm higher than spot A\. Both spots must be on the floor/.test(n1.text), JSON.stringify({ c0, s1, n1 }));
+  check('floor spots: spot A on a table (75 cm up, 55 cm over this headset\'s floor) is refused at once (not on the floor), still at spot A',
+    s2[0] === 'mark-a' && s2[1] === 'a' && !!n2 && n2.title === 'Not on the floor' && /^Spot A is 55 cm above this headset's floor: the spots must be on the floor/.test(n2.text), JSON.stringify({ s2, n2 }));
+  await touch(H1, SA); await touch(H1, SB);
+  await H1.evaluate(() => window.__xr.ctrl(0, null));
+  await stepUntil(H1, () => HOST.room.src === 'marks', null, 5000);
+  const r2 = await roomOf(H1), l1 = (await since(H1, 'test floor spots')).filter(e => /^(mark refused|floor spots)$/.test(e.ev));
+  const sp = l1.find(e => e.ev === 'floor spots') || null, h1Id = await H1.evaluate(() => HOST.collab.id);
+  check('floor spots: on the floor they are taken, the room\'s floor on the true floor (within 1 cm) though this headset\'s floor is 20 cm too high; the room\'s floor is floor spots (rm: a 2 cm, f 1)',
+    r2.src === 'marks' && near(r2.o, [SA[0], 0, SA[2]], 0.01) && r2.f === 1 && !!r2.mk && Math.abs(r2.mk[0] - TIP) < 2e-3 && Math.abs(r2.mk[1] - dAB) < 0.01 &&
+      !!r2.rm && r2.rm.f === 1 && Math.abs(r2.rm.a - TIP) < 1e-3 && r2.rm.by === h1Id && /floor is 20 cm higher than the room/.test(r2.note), JSON.stringify(r2));
+  check('floor spots: the log has the refusals and the touch heights, over this headset\'s floor (-18 cm) and over the room scan\'s floor plane (2 cm)',
+    l1.filter(e => e.ev === 'mark refused').map(e => e.why).join() === 'heights,high' && !!sp && Math.abs(sp.a + 0.18) < 3e-3 && Math.abs(sp.b + 0.18) < 3e-3 &&
+      Array.isArray(sp.scan) && Math.abs(sp.scan[0] - TIP) < 3e-3 && Math.abs(sp.scan[1] - TIP) < 3e-3 && sp.tip === TIP, JSON.stringify(l1));
+  // the second headset, its own floor 15 cm too low: its floor spots found again, then calibrated on again, the room's
+  // floor within 1 cm of the first's, nothing written to the room's floor (the same spots: within 10 cm of the distance)
+  const rmWas = JSON.stringify((await roomOf(H1)).rm);
+  await H2.evaluate(() => window.__collabLog.push({ ev: 'test floor spots' }));
+  const f2 = await back(H2, [0.6, 1.6, 0.4, 0.3], FDN);
+  const r3a = await roomOf(H2);
+  await H2.evaluate(() => { HOST.collab.guideOpen(1); window.__xr.step(); });
+  const c2 = await tap(H2, 'guide:cal');
+  await touch(H2, SA); await touch(H2, SB);
+  await H2.evaluate(() => window.__xr.ctrl(0, null));
+  await stepUntil(H2, () => HOST.room.src === 'marks', null, 5000);
+  await frames(H2, 1200);   // (its room's floor looked at again meanwhile)
+  const r3b = await roomOf(H2), r1b = await roomOf(H1), cl2 = (await since(H2, 'test floor spots')).filter(e => e.ev === 'floor claimed');
+  check('floor spots: a second headset whose own floor is 15 cm too low finds its floor spots again and calibrates on them again: the room\'s floor within 1 cm of the first headset\'s (origin and direction)',
+    f2 && r3a.src === 'anchor' && near(r3a.o, [SA[0], 0, SA[2]], 0.01) && c2 && r3b.src === 'marks' && r3b.f === 1 && near(r3b.o, r1b.o, 0.01) && near(r3b.x, r1b.x, 0.005) &&
+      Math.abs(r3b.y - 0.15) < 0.01 && /floor is 15 cm lower than the room/.test(r3b.note), JSON.stringify({ f2, r3a, r3b, r1b }));
+  check('floor spots: the second headset writes nothing to the room\'s floor (the same spots, within 10 cm of the distance)', !cl2.length && JSON.stringify(r3b.rm) === rmWas,
+    JSON.stringify({ cl2, rm: r3b.rm, rmWas }));
+  // lined up through the shared space instead (Forget: it keeps its own floor there), Check at A with the tip on spot A:
+  // 15 cm out, all of it in height (this headset's floor against the room's)
+  await H2.evaluate(() => HOST.room.forget());
+  const ad = await stepUntil(H2, () => HOST.room.src === 'adopted' && !!HOST.room.marks, null, 20000);
+  await H2.evaluate(() => { HOST.collab.guideOpen(2); window.__xr.step(); });
+  const sc = await selfCheck(H2, 'A', SA), gc = await G(H2);
+  check('floor spots: a headset lined up through the shared space keeps its own floor (15 cm too low); Check at A on the spot says so: 15 cm out at spot A (15 cm in height)',
+    ad && sc && gc.check.text === '15 cm out at spot A (15 cm in height): fine for walking about; calibrate on the spots for close work' &&
+      await H2.evaluate(() => HOST.collab.notes().some(n => n.title === '15 cm out (15 cm in height)')), JSON.stringify({ ad, sc, check: gc.check, src: gc.src }));
+  // a calibration from before v122 (no f: two table corners, 1.2 m apart), found again: the old rule. The room's floor is
+  // other spots, so its own floor; the room's floor spots left alone (their headset is here)
+  await H1.evaluate(() => window.__xr.end());   // (no session: nobody writes the room's floor spots again below)
+  const TA = [1.4, 0.76, 0.5], TB = [2.6, 0.76, 0.5];
+  await H2.evaluate(() => window.__xr.end());
+  await H2.evaluate(([F, a, b]) => {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z), W = new THREE.Matrix4().compose(V(F[0], F[1], F[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), F[3]), V(1, 1, 1)).invert();
+    const lf = p => V(...p).applyMatrix4(W).toArray().map(v => Math.round(v * 1000) / 1000), ha = 'old-a-' + Date.now(), hb = 'old-b-' + Date.now();
+    window.__handles.set(ha, new THREE.Matrix4().makeTranslation(...a)); window.__handles.set(hb, new THREE.Matrix4().makeTranslation(...b));
+    const S = { v: 2, a: lf(a), b: lf(b), at: Date.now() - 86400000, anchors: [ha, hb] };
+    localStorage.setItem('roomFrame', JSON.stringify(S)); HOST.room.internals().saved = S;
+    window.__collabLog.push({ ev: 'test old marks' });
+  }, [FDN, TA, TB]);
+  const rmOld = JSON.stringify((await roomOf(H2)).rm);
+  await xr(H2, [0.6, 1.6, 0.4, 0.3], { floor: FDN, features: ['local-floor', 'anchors'] });
+  await H2.evaluate(() => window.__xr.begin());
+  const fo = await stepUntil(H2, () => HOST.room.src === 'anchor' && !!HOST.room.frame, null, 15000);
+  await frames(H2, 1200);
+  const o1 = await roomOf(H2), oc = (await since(H2, 'test old marks')).filter(e => e.ev === 'floor claimed');
+  check('floor spots: a calibration from before v122 (no f, two table corners) found again keeps the old rule: its own floor (the room\'s floor is other spots), the room\'s floor spots left alone',
+    fo && o1.src === 'anchor' && !o1.f && Math.abs(o1.y) < 3e-3 && Math.abs(o1.o[1] + 0.15) < 0.01 && !!o1.mk && Math.abs(o1.mk[0] - 0.91) < 0.01 && Math.abs(o1.mk[1] - 1.2) < 0.01 &&
+      !oc.length && JSON.stringify(o1.rm) === rmOld, JSON.stringify({ fo, o1, oc, rmOld }));
+  // ...and an older device's floor for those corners (rm: mark A 76 cm over the true floor, no f): the room stands on it
+  const aId = await A.evaluate(() => HOST.collab.id);
+  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: 0.76, d: 1.2, by: aId, at: Date.now() });
+  const ot = await stepUntil(H2, () => Math.abs(HOST.room.frame.o[1] - 0.15) < 0.01, null, 10000);
+  const o2 = await roomOf(H2);
+  check('floor spots: ...and with an older device\'s floor for those corners (rm without f) it stands the room on it, as before v122 (the room\'s floor on the true floor)',
+    ot && Math.abs(o2.o[1]) < 0.01 && !!o2.mk && Math.abs(o2.mk[0] - 0.76) < 0.01 && !!o2.rm && o2.rm.by === aId, JSON.stringify(o2));
+  await H2.evaluate(() => { localStorage.removeItem('roomFrame'); window.__xr.end(); });
 }
 
 // ---- the relay's password (--token runs only this part; a relay of its own with COLLAB_TOKEN, a minute or two). A page
@@ -6129,7 +6255,7 @@ try {
   check('calibration: a headset with no shared space and no marks asks to calibrate', await H.evaluate(() => HOST.room.state === 'calibrate'), await H.evaluate(() => HOST.room.state));
   check('a new session sees no story until it walks into a circle (the last session\'s station is not its own)', await H.evaluate(() => !HOST.collab.mine() && !HOST.collab.live() && HOST.room.away()),
     JSON.stringify(await H.evaluate(() => [HOST.collab.mine(), !!HOST.collab.live(), HOST.room.away()])));
-  const markA = [1.0, 0.75, -0.4], markB = [2.2, 0.75, 0.9];
+  const markA = [1.0, TIP, -0.4], markB = [2.2, TIP, 0.9];   // (floor spots)
   const touch = async p => {   // held still on the mark, then the trigger (a second pull within 0.6 s would be ignored)
     await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
     await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 100);
@@ -6182,20 +6308,27 @@ try {
   check('calibration: the marks are drawn where they were touched (A at the origin, B along x), and the panel says the room rests on them',
     !!cal.mk && Math.abs(cal.mk[0] - fa[1]) < 2e-3 && Math.abs(cal.mk[1] - dAB) < 2e-3 && Math.abs(cal.mk[2] - fb[1]) < 2e-3 && /own marks, held by two anchors/.test(cal.line),
     JSON.stringify({ mk: cal.mk, line: cal.line, want: [fa[1], dAB, fb[1]] }));
-  // the room's floor under the marks: the first calibration sets it (mark A's height); a headset whose floor is
-  // lower (a Guardian floor set wrong) stands the room on the marks instead, and says so
-  const rm0 = ((await roomInfo(code)).keys.rm || {}).v || null;
-  // (the anchors are read every 0.5 s and the value comes through the relay: a slow machine may need a few frames)
-  const floorTo = async y => { for (let k = 0; k < 16; k++) { await frames(H, 250); if (Math.abs(await H.evaluate(() => HOST.room.frame.o[1]) - y) < 3e-3) break; } };
-  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1] - 0.15), d: r3(dAB), by: aId, at: Date.now() });
-  await floorTo(0.15);
-  const fl = await H.evaluate(() => ({ y: HOST.room.frame.o[1], mk: HOST.room.marks, note: HOST.room.floorNote() }));
-  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1]), d: r3(dAB), by: aId, at: Date.now() });
-  await floorTo(0);
-  const fl0 = await H.evaluate(() => HOST.room.frame.o[1]);
-  check('the room\'s floor: the first calibration sets it; a floor 15 cm lower than the room\'s is allowed for (the room stands on the marks)',
-    !!rm0 && Math.abs(rm0.a - fa[1]) < 2e-3 && Math.abs(rm0.d - dAB) < 2e-3 && Math.abs(fl.y - 0.15) < 3e-3 && Math.abs(fl.mk[0] - (fa[1] - 0.15)) < 3e-3 &&
-    /floor is 15 cm lower/.test(fl.note) && Math.abs(fl0) < 3e-3, JSON.stringify({ rm0, fl, fl0 }));
+  // the room's floor: floor spots set it, the floor under them (key rm: { a: FLOOR_TIP, d, f: 1 }, the headset's own);
+  // an older device's floor for them (rm with a lower a and no f) moves nothing here, and this headset writes the room's
+  // floor spots again (the headsets' floors 20 cm apart on floor spots: the guide round, guideRound)
+  const rm0 = ((await roomInfo(code)).keys.rm || {}).v || null, hIdC = await H.evaluate(() => HOST.collab.id);
+  await H.evaluate(() => window.__collabLog.push({ ev: 'test old floor' }));
+  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1] + 0.15), d: r3(dAB), by: aId, at: Date.now() });
+  // (the room's floor looked at twice a second, and the value comes through the relay: a slow machine may need a few frames)
+  const claimedAgain = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test old floor'); return L.slice(i + 1).find(e => e.ev === 'floor claimed') || null; });
+  let rmB = null, seenOld = null;
+  for (let k = 0; k < 24; k++) {
+    await frames(H, 250);
+    const v = ((await roomInfo(code)).keys.rm || {}).v || null;
+    seenOld = await claimedAgain();
+    if (seenOld && v && v.f === 1 && v.by === hIdC) { rmB = v; break; }
+  }
+  const fl = await H.evaluate(() => ({ y: HOST.room.frame.o[1], mk: HOST.room.marks, note: HOST.room.floorNote(), saved: HOST.room.internals().saved.f,
+    log: window.__collabLog.filter(e => e.ev === 'floor spots').slice(-1)[0] || null }));
+  check('the room\'s floor: floor spots set it, the floor under them (rm: a 2 cm, f 1); an older device\'s floor for them changes nothing here, and the room gets the floor spots back',
+    !!rm0 && rm0.f === 1 && Math.abs(rm0.a - TIP) < 1e-3 && Math.abs(rm0.d - dAB) < 2e-3 && rm0.by === hIdC && fl.saved === 1 && Math.abs(fl.y) < 3e-3 && Math.abs(fl.mk[0] - TIP) < 3e-3 &&
+    !fl.note && !!rmB && Math.abs(rmB.a - TIP) < 1e-3 && !!seenOld && seenOld.was === aId && seenOld.f === 1 && !!fl.log && Math.abs(fl.log.a - TIP) < 3e-3 && Math.abs(fl.log.b - TIP) < 3e-3 && fl.log.scan === null,
+    JSON.stringify({ rm0, rmB, seenOld, fl }));
   // the Guardian origin moves within the session (a reset with a transform): the frame follows at once
   const F2 = [0.1, 0, -0.2, 0.2];
   const moved = await H.evaluate(F2 => { window.__xr.floorReset(F2, 0.3); return HOST.room.frame; }, F2);
