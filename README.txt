@@ -99,14 +99,21 @@ scene for everyone at it; several studio circles can stand in a room.
 - Motions: an object, a shape or an empty can spin, wobble, bob, pulse, orbit
   or sway on its own (Motion on its card, with its speed, how far, its axis and
   whether it runs always or from when a cube shows it). Its place is not
-  changed; while selected or carried it rests so it can be placed.
+  changed, and it keeps moving while selected so you see it at once.
+- Placing what moves: while something you selected moves away from its place,
+  a pale ghost stands where it is placed. On a page its arrows stand on the
+  ghost; in a headset the grip on the ghost (or on the thing) carries it from
+  there. Motions: paused (the Scene tab, its card, or P on a page) stands
+  everything still on this device while you place things.
 - Recorded paths: an object, a shape, an empty or a sound can play back a
   movement you made. In a headset press Record its movement on its card, then
   carry it with a grip (the sticks turn it and push it) and let go; on a page
   press Record, move it with the arrows or its card's buttons, then Stop. It
   plays from where it stands (Loop, Once or Back and forth, Always or When
   shown, slower or faster); moving it moves its whole path. A group has none:
-  record its members one by one.
+  record its members one by one. While you record, a ghost stays where it
+  began: end there (it lights up) and a loop closes smoothly, its still start
+  and end cut (Keep it as recorded undoes that).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

@@ -1062,8 +1062,9 @@ headset so only react to one headset, example closest or first player who walks 
   never changes**. `POSE.base` is set only while some item of the scene has a behaviour (`behaveStep`, every frame before
   `itemsStep`), so a scene without one is drawn exactly as before; while one has, every object, shape and empty goes
   through the pipeline (those without one at their placed pose).
-- **Resting**: as a motion, while this device carries it or, editing, has it selected (or its group, or a sound or a
-  cut-out on it): at its placed pose, no longer driven here (its last sample says so), and from there again after.
+- **Resting**: as a motion (v122: "The ghost, Pause and placing what moves" below), it goes on while selected and rests
+  while this device holds it (carried, dragged by the arrows) or Pause is on here: at its placed pose, no longer driven
+  here (its last sample says so), and from there again after.
 - **Its rows** on the card of an object, a shape and an empty, before its Motion rows (page and headset alike, editing on,
   not refused by a lock: a behaviour does not move its place): *Behaviour: None / Look at / Follow / Keep away / Follow an
   item...* (a kind for people keeps `who`, `range`, `speed` and `area` where both have them and takes its own `dist`;
@@ -1073,7 +1074,8 @@ headset so only react to one headset, example closest or first player who walks 
   (avoid), through 0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10 m, *Stays near its place, within* (avoid: 0.2, 0.5,
   1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20 m), *Moves at most* (*Slower* / *Faster* through 0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8,
   1, 1.5, 2, 3, 4, 5 m/s; not for look), and a line saying it is one person at a time, the same for everyone at a circle,
-  pages never counting, and that it rests while selected or carried; for an item *Follows: <name>*, *Moves at most* and
+  pages never counting, and that it goes on while selected (a ghost where it is placed) and rests while carried; for an
+  item *Follows: <name>*, *Moves at most* and
   a line. One Undo step each (the pick itself none). A group's *Duplicate*: a copy whose behaviour follows an item of the
   group follows that item's copy.
 - **For tests and the console**: `STUDIO.behave(id)` (who, whether this device drives it, where it is drawn from: `'me'`,
@@ -1126,18 +1128,23 @@ this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6
   placed poses (`poseCut`), so they stay on the same part of the model. The holder's place, turn and scale stay the
   placed pose, which every edit reads and writes: **the record never changes**. A group's members move only by their own
   motions. `STUDIO.pose(id)` gives the drawn and placed matrices (tests).
-- **Resting**: while this device carries it (a grip, its group carried, the page's arrows on it) or, editing, has it
-  selected (or its group, or a sound or a cut-out on it, or a group holding such a sound), it is drawn at its placed pose,
-  so it can be placed; what is measured against it (a sound attached, a bone picked, a group's move) is measured there
-  (`poseRest`). Others at the station still see it move.
+- **Resting** (v122; until v121 it also rested while selected): it goes on while selected, editing or not, so the card's
+  rows show on it at once; it is drawn at its placed pose only while this device holds it (`motionRests`, from
+  `restScan`'s list made once a frame: carried by a grip or the sticks, its group carried, the page's arrows dragged on it
+  or its group, its path being recorded, or a sound or a cut-out on it carried, or a group holding a sound on it carried)
+  and while Pause is on here. What is measured against it (a sound attached, a bone picked, *Move onto it*, *Stop
+  following*, a group's pivot, box, moves and *On the floor*, sizes, a cut-out's frame) is measured at its placed pose
+  (`poseRest` in an action; `atPlaced`, the holders put at their placed poses for the measure, inside a frame). Others at
+  the station still see it move. See "The ghost, Pause and placing what moves" below.
 - **Its rows** on the card of an object, a shape and an empty (page and headset alike, editing on, not refused by a lock:
   a motion does not move its place): *Motion: None / Spin / Wobble / Bob / Pulse / Orbit / Sway* (a kind its own speed and
   amount, the axis and start kept), *Speed* (*Slower* / *Faster* through 0.5, 1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 45, 60, 90,
   120 a minute; *The other way* for a spin and an orbit), *How far* (a wobble's and a sway's degrees, a bob's metres; *By*
   for a pulse, *Round a circle of* for an orbit; *Less* / *More* through each kind's steps; none for a spin), *Axis*
   (*Upright (y)*, *Side to side (x)*, *Front to back (z)*; none for a pulse), *Starts: Always / When shown*, and a line
-  that it is drawn over where it stands, its place not changed, and rests while selected or carried. One Undo step each,
-  shared (its field in `state()`) and saved. Its sub-line in lists says so (*spins*, *wobbles*...).
+  that it is drawn over where it stands, its place not changed, goes on while selected (a ghost where it is placed) and
+  rests while carried. One Undo step each, shared (its field in `state()`) and saved. Its sub-line in lists says so
+  (*spins*, *wobbles*...). Then *Motions: playing / paused* and *Start again* (below).
 - **Shared rooms**: the record is its item's field, so a motion is shared as placing is; the phase of `'always'` comes
   from the room's clock on every device. FORMAT networks-35 (v120).
 - **Untested on a headset**: how the motions look and feel life size (a spinning scan around you, a fast orbit), their
@@ -1176,9 +1183,8 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
   bones, its cut-outs). A sound that follows something moves with that: its own path waits (kept) until it follows nothing.
   Switched to its GLB (which holds its model turned by `r`), an object's keys are turned so it moves as before:
   `d' = r d`, `q' = r q r^-1` (`pathTurned`, in `switchedRec`).
-- **Resting**: as a motion, it rests at its placed pose while this device carries it or, editing, has it selected (or its
-  group...), except just after it was recorded, or with *Play it here* on its card (`STU.recPlay`: it plays though
-  selected, without the page's arrows, until something else is selected or it is carried).
+- **Resting**: as a motion, it plays on while selected (v122) and rests at its placed pose while this device holds it or
+  Pause is on here. *Play it here* (`STU.recPlay`, v120 and v121) went with that: *Start again* takes its place (below).
 - **Recording** (`REC`, this device's own: nothing goes into its record or to the room while it runs):
   - In a headset: *Record its movement* on its card arms it (`XR.rec`, as *Hold it*: one disarms the other; another
     selection, editing off or the session's end disarm it). The next grip of either hand, on it or anywhere (not at a
@@ -1196,8 +1202,8 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
     its middle, an object's model's box's middle, or 1 degree: 4 mm and 0.9 degrees there, the rest left for rounding to
     the mm, 4 decimals and the ms), and the path written into its record, its place and turn as they were when the
     recording began: one change, one Undo step. *Record again* keeps the old path's `play`, `start` and `speed` (a first
-    one: loop, always, 1). It plays at once (`STU.recPlay`), and its card says *Recorded 3.0 s in 27 keys (from 91
-    samples)*.
+    one: loop, always, 1). It plays at once, and its card says *Recorded 3.0 s in 27 keys (from 91 samples)*. A path that
+    plays in a loop is joined first ("The recording's ghost and the loop join" below).
   - Refused in words on its card: too short (under 0.1 s), not moved (no key 5 mm or 1 degree from where it began), more
     than 600 keys once simplified, the scene's 6,000, the shared state's 224 KB; a locked item (*Lock in place*: refused as
     a move is, with a knock), a sound that follows something (*Stop following to record its own path*), a group (*record
@@ -1205,8 +1211,9 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
 - **Its rows** on the card of an object, a shape, an empty and a sound (page and headset, editing on): *Recorded path* (with
   its length and keys) and *Record* / *Record again* (page; *Stop* and *Cancel* while it records) or *Record its
   movement* (headset; *Now press a grip (again: cancel)* while armed); with a path *Plays: Loop / Once / Back and forth*,
-  *Starts: Always / When shown*, *Speed: ×1* (*Slower*, *Faster* through ×0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4), *Play it
-  here* (this device's) and *Delete recording*; one Undo step each but Play it here. How it plays is not refused by a lock
+  *Starts: Always / When shown*, *Speed: ×1* (*Slower*, *Faster* through ×0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4) and *Delete
+  recording*; one Undo step each; what the last recording's join did, with *Keep it as recorded*; then *Motions: playing /
+  paused* and *Start again* (below). How it plays is not refused by a lock
   (its place stays, as with a motion). Its sub-line in lists says *recorded path*. `RECLAST` (the last recording, with its
   samples) and `recClock` (the recorder's clock, ms) are for tests.
 - **Shared rooms**: the path is part of its item's record, so it is shared as placing is; `'always'` takes its phase from
@@ -1214,6 +1221,87 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
 - **Untested on a headset**: recording with real grips and sticks (the pose sampled from a real carry at the headset's
   frame rate), how a path plays back life size, its phase across real headsets at a station, the stall of simplifying a
   long recording on a Quest (a 120 s one is 3,600 samples), the cost of many items on paths.
+
+## The ghost, Pause and placing what moves (the owner, 7 November 2026)
+
+The owner, after v121: "when selecting animations on the item motion tab they should also show on the item as a
+preview", and, asked whether a selected item should keep moving: "to make placing easier add a pause motion button but i
+also want to be able to move moving/animated items to select their exact place". `engine/e6h_ghost.js`.
+
+- **It goes on while selected**: an item with a motion, a recorded path or a behaviour moves while it is selected (editing
+  or not), and rests at its placed pose only while this device holds it or Pause is on ("Motions": Resting). So a motion
+  picked on its card shows on it at once.
+- **The ghost**: while a selected item (or a member of a selected group) is drawn more than 1 cm or 1 degree from where it
+  is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy
+  stands at its placed pose (`GH`, `ghostStep` at the end of `itemsStep`), and for 0.6 s after it was last that far, so a
+  spin passing through its place does not blink it. An object's: a copy of its model sharing its geometry with one ghost
+  material (pale blue-white, opacity 0.25, no depth written, drawn with the see-through things after the opaque ones), a
+  skinned mesh drawn as a plain one (frozen in its rest pose), and a model of more than 100,000 triangles only its outline
+  box (`GHOST.tris`); a shape's its shape; an empty's its cross and dot; a sound's its speaker. Each part where it stands on
+  its holder (its matrix relative to the holder's as built), the ghost's own matrix the placed pose (the holder's place,
+  turn and scale). Built once per selection (again when its model or a shape's kind changes) and freed when the selection
+  changes: its two materials disposed, never the geometry it shares (the model's, the looks', the shared box's). None while
+  a model is still loading. It is pointed at as the item (an unseen box at its unseen box's place, `userData.ghost`, among
+  `pickables`): the trigger or a click on it selects the item, and the grip on it, or on the item where it is drawn,
+  carries the item from its placed pose (resting in the hand as ever); let go, it moves on from its new place. *Hold it* as
+  ever.
+- **The page's arrows on the ghost**: while the selected item is drawn by the pipeline (its holder's `matrixAutoUpdate`
+  off), `TransformControls` hold a stand-in, `TCP`, kept at its placed pose (`tcTarget`, `tcProxy`, `tcStep` every frame;
+  never switched during a drag); each change of the stand-in goes into the holder's place, turn and scale and then
+  `tcRead`, exactly as a drag of the item itself, and the item rests there while dragged (it is carried), so it is drawn
+  where it will go; let go, it moves on from there. Its card's buttons act on the placed pose as ever. Resting (Pause, a
+  recording) the arrows are on the item itself again.
+- **A cut-out on a moving model**: the click or trigger that selects an object keeps its ray in the object's own frame as
+  it was drawn then (`cutRay`: the holder's matrix at that moment, or its placed pose when the ray met its ghost), and
+  *Cut out a part* casts it onto the model at its placed pose: the cut-out goes on the part of the model the click met,
+  however it has moved since.
+- **Pause** (`MPAUSE`, this device's own: never in `state()`, never saved, off again as soon as editing is off, never for
+  a visitor): *Motions: playing / paused* on the Scene pane while editing (page and headset, with a line), the same switch
+  on the card of anything that moves (a motion, a recorded path, a behaviour or a model's animation that plays), and P on a
+  page (not while typing). While paused every item stands at its placed pose (no motion, path or behaviour drawn: a
+  behaviour this device drives is given up, its last sample saying so, and the others draw it as the room has it), the
+  models' animations hold the frame they show (`animStep` does not set their time), and sounds play on. Played again,
+  everything goes on by its clock (an *Always* one at the room's moment).
+- **Start again** (this device's, no change recorded): on the card of an item whose path or motion starts *When shown*,
+  or whose path plays *Once*: its *shown* clock from now (`it.shownAt`: a motion, a path, a model's animation started when
+  shown, a sound from its beginning), and a path that plays once played once more from now (`it.again`).
+- **For tests**: `STUDIO.ghost(id)` (`{ shown, lit, at, parts, outline, hits }`, or null), `GH`, `GHOST`, `TCP`,
+  `MPAUSE`, `pauseSet(on)`.
+- **Untested on a headset**: how the ghost reads life size (its opacity over a real room in AR), pointing at a ghost and
+  carrying an item by it with real controllers, Pause from the headset's panel, the cost of a ghost copy of a big model.
+
+## The recording's ghost and the loop join (the owner, 7 November 2026)
+
+The owner: "when animating a 'ghost' of the model should stay in the initial place so that one can hit it again for
+better loops, these loops could then even autosmooth if the start and the end are close". `engine/e6f_path.js` and
+`engine/e6h_ghost.js`.
+
+- **The ghost at the start**: while a path is recorded (a headset's armed grip carrying it, or a page's *Record*), its
+  ghost stands at the pose the recording started from (`REC.p0`, `REC.q0`, `REC.s0`), the whole time, also while carried.
+- **Hitting it** (`recGhost`, every frame of the recording): once the carried item has been more than 15 cm (its middle)
+  or 30 degrees from its start (`REC.away`), coming back within 5 cm and 10 degrees lights the ghost (brighter, greenish
+  white), with a soft tick at the ghost (the shell's sound effects, `hover`, forced) and a short gentle pulse on the hand
+  that carries it (`buzz(c, 0.1, 25)`); it dims as it leaves again. Let go (headset) or *Stop* (page) while it is lit, its
+  end is put exactly on its start.
+- **The loop join** (`pathJoin`), only for a path that plays *Loop* (a new recording's way; *Record again* keeps the old
+  path's, so *Once* and *Back and forth* stay as recorded, their end put on their start only when let go at the ghost):
+  - the still moments are cut: at its start, the samples until it has moved more than 1 cm (its middle) or 1 degree from
+    its first (the last still one its new start, the times shifted to 0); at its end, the samples after it last moved
+    that far from its final pose (the first still one its new end);
+  - then, when its end is within 15 cm and 20 degrees of its start, its last 0.5 s (a quarter of it when it is shorter
+    than 2 s) is bent so that it arrives exactly at its start with the start's speed: its place along a cubic Hermite from
+    its place and speed at the bend's beginning to its start's place and the speed of its first 0.1 s, its turn by a
+    correction towards its start's eased in and out (smoothstep); its last sample is its first's pose exactly;
+  - then it is simplified as ever. So it loops with no jump and no pause; its last key is its first key's pose.
+- **The card** (page and headset, this device, while the recording is held in `RECLAST`): *Loop closed: its end met its
+  start (6 cm, 4° apart; 0.4 s of stillness cut)* with *Keep it as recorded* (the path written from the raw samples,
+  simplified, without the cut and the bend: one Undo step), or *Its end is 40 cm from its start, so it jumps back each loop:
+  record again and end at the ghost to close it.* (with the stillness cut said, and *Keep it as recorded*, when some was);
+  for *Once* or *Back and forth* let go at the ghost, *Its end met its start (4 cm, 3° apart): put exactly on it.* While it
+  records the card says to end at its ghost, and when it is lit that letting go there closes it. Nothing new in the record:
+  no `FORMAT` change.
+- **Untested on a headset**: finding the ghost by hand, the tick and the pulse on a real controller, how a joined loop
+  looks life size.
 
 ## Fewer triangles (the owner, 6 November 2026)
 
@@ -1441,6 +1529,9 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
   in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
   "Testing" in `AGENTS.md`.
+- The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
+  on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
+  loop join: "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,
