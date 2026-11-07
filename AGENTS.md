@@ -493,7 +493,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     shows changed (`menuSig`: the menu's content, `cver`, counted by `drawPanel` with the light of the button pointed at
     left out, the mirrored panels' texture versions and the height shown) and at most every 1.5 s (`MSH.picMs`), or when
     only that light changed at most every 4 s (`MSH.hovMs`: a ray moving over the buttons redraws the menu all the time,
-    and every picture goes to everyone in the room), encoded with `toBlob` off the frame; and `{ k: 'closed' }` once
+    and every picture goes to everyone in the room), encoded with `toBlob` off the frame, and never sent when its bytes are
+    those of the last one made (v121: what `cver` follows, people walking between circles among it, changes more often
+    than what a tab shows; `menuSent().same` counts them); and `{ k: 'closed' }` once
     when the menu closes, the setting goes off, the station changes or the session ends (`menuShareEnd`). A headset at
     that station whose latest picture is older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every
     1.5 s) and gets the last one made (also when a newer one did not fit); only a headset at that station keeps a

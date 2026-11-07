@@ -1767,6 +1767,9 @@
       if (due && full !== MSH.failed) {
         menuPicture().then(P => {
           if (!P) { MSH.failed = full; return; }
+          // (the same picture as the last one: nothing goes out. What the menu draws from, people walking between
+          // circles among it, changes more often than what a tab shows, and each picture goes to everyone in the room)
+          if (P === MSH.img) { MSH.sig = sig; MSH.full = full; MSH.same = (MSH.same || 0) + 1; return; }
           MSH.n++; MSH.img = P; MSH.sig = sig; MSH.full = full;
           if (MSH.st && menuShareTo() === MSH.st) picOut();
         });
@@ -7350,7 +7353,7 @@
     // a test polling whether one is there reads no pixels back)
     menuShot: master => menuPicture().then(u => (master && MSH.master ? MSH.master.toDataURL('image/png') : u)),   // (the picture as made now; master: before the JPEG)
     // (cur: the last picture made shows what the menu shows now, the light of what is pointed at aside, and none is being made)
-    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), ns: MSH.sent.ns.slice(), cv: MSH.sent.cv.slice(), got: MSH.got,
+    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), ns: MSH.sent.ns.slice(), cv: MSH.sent.cv.slice(), got: MSH.got, same: MSH.same || 0,
       cur: !!OV.panel && !MSH.busy && MSH.sig === menuSig() }),
     menus: (full, px = true) => [...MENUS].map(([id, E]) => {
       const o = E.o, g = o && o.g;
