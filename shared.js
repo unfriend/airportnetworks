@@ -1723,7 +1723,7 @@
   const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 1500, hovMs: 4000, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
     steps: [[540, 0.75], [480, 0.66], [420, 0.58], [360, 0.5], [300, 0.42], [240, 0.35], [180, 0.3]],
     st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
-    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [] }, got: 0 };   // (got: pictures taken from others, for tests)
+    sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [], ns: [] }, got: 0 };   // (got: pictures taken from others, for tests; at and ns: when each picture went and its number, a want's answer an old one)
   const MENUS = new Map();   // others' menus shown to their circle, by member: { code, st, at, n, nWant, img, dec, buf, pose, o, ... }
   const menuShareOn = () => MSH.on;
   function setMenuShare(on) { MSH.on = !!on; put('xrMenuShare', MSH.on ? 'circle' : null); log('menu share', { on: MSH.on }); changed(); }
@@ -1786,7 +1786,7 @@
   function picOut() {
     const t = performance.now(), ps = menuPose();
     MSH.picAt = t; MSH.want = false; MSH.last = ps; MSH.poseAt = t; MSH.moving = false;
-    MSH.sent.pics++; MSH.sent.at.push(t); if (MSH.sent.at.length > 40) MSH.sent.at.shift();
+    MSH.sent.pics++; MSH.sent.at.push(t); MSH.sent.ns.push(MSH.n); if (MSH.sent.at.length > 40) { MSH.sent.at.shift(); MSH.sent.ns.shift(); }
     menuOut(MSH.st, Object.assign({ k: 'pic', n: MSH.n, img: MSH.img }, ps, { ts: Math.round(now()) }));
   }
   // 'closed' to the station it went to (the menu closed, the setting off, another station, the session's end)
@@ -1842,7 +1842,7 @@
   function menuIn(st, d, by) {
     if (!by || by === C.id || !d || typeof d !== 'object') return;
     let E = MENUS.get(by);
-    if (d.k === 'closed') { if (E && E.st === st) menuDrop(by); return; }
+    if (d.k === 'closed') { if (E && E.st === st) menuDrop(by, 'closed'); return; }
     if (d.k === 'want') { if (d.to === C.id && MSH.st === st && MSH.img) MSH.want = true; return; }
     if (d.k !== 'pose' && d.k !== 'pic') return;
     if (!v3(d.p) || !validQ(d.q) || !(d.w > 0.05 && d.w < 4) || !(d.h > 0.02 && d.h < 8)) return;
@@ -1858,16 +1858,18 @@
       E.n = d.n; E.img = d.img; E.pics++; E.bytes = d.img.length; MSH.got++;
     }
   }
-  function menuDrop(id) {
+  // (why, in the log: 'closed' as they said, 'quiet' after MSH.gone without a sample, 'room' another room)
+  function menuDrop(id, why) {
     const E = MENUS.get(id);
     if (!E) return;
     MENUS.delete(id);
+    log('menu gone', { by: id, why: why || '' });
     if (E.o) { E.o.g.parent && E.o.g.parent.remove(E.o.g); E.o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) x.material.dispose(); }); E.o.tex.dispose(); E.o.tagTex.dispose(); }
     changed();
   }
   // gone MSH.gone after its last sample (a headset taken off, gone from the room), or once the room is another
   function menusExpire(t) {
-    for (const [id, E] of MENUS) if (t - E.at > MSH.gone || E.code !== C.code) menuDrop(id);
+    for (const [id, E] of MENUS) if (t - E.at > MSH.gone || E.code !== C.code) menuDrop(id, E.code !== C.code ? 'room' : 'quiet');
   }
   // who shows their menu at a station now (the Shared dialog's people list)
   const showsMenu = id => { const E = MENUS.get(id); return !!E && E.code === C.code && performance.now() - E.at <= MSH.gone; };
@@ -7341,13 +7343,16 @@
     menuShare: on => { if (on !== undefined) setMenuShare(on); return menuShareOn(); },   // My menu: my circle (this headset's own)
     // for tests: what this headset sent of its menu (got: the pictures it took from others), and the others' menus it
     // holds (lit: the share of a sample of the picture's pixels that are not dark, low: below its top quarter and inside
-    // its edges; hit: pointable, which they never are; full: each picture as a PNG too, url)
+    // its edges; hit: pointable, which they never are; full: each picture as a PNG too, url; px false: no lit and low, so
+    // a test polling whether one is there reads no pixels back)
     menuShot: master => menuPicture().then(u => (master && MSH.master ? MSH.master.toDataURL('image/png') : u)),   // (the picture as made now; master: before the JPEG)
-    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), got: MSH.got }),
-    menus: full => [...MENUS].map(([id, E]) => {
+    // (cur: the last picture made shows what the menu shows now, the light of what is pointed at aside, and none is being made)
+    menuSent: () => ({ on: MSH.on, st: MSH.st, n: MSH.n, step: MSH.step, img: MSH.img.length, pics: MSH.sent.pics, poses: MSH.sent.poses, closed: MSH.sent.closed, most: MSH.sent.most, bytes: MSH.sent.bytes, at: MSH.sent.at.slice(), ns: MSH.sent.ns.slice(), got: MSH.got,
+      cur: !!OV.panel && !MSH.busy && MSH.sig === menuSig() }),
+    menus: (full, px = true) => [...MENUS].map(([id, E]) => {
       const o = E.o, g = o && o.g;
       let lit = 0, low = 0;
-      if (E.cv && E.cv.width) {
+      if (px && E.cv && E.cv.width) {
         const W = E.cv.width, H = E.cv.height, d = E.cv.getContext('2d').getImageData(0, 0, W, H).data;
         let n = 0, k = 0, nl = 0, kl = 0;
         for (let y = 0; y < H; y += 3) for (let x = 0; x < W; x += 3) {
