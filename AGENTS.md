@@ -1397,8 +1397,9 @@ empty's). The plan is
 - The room setup guide, its startup flow and Touch the spot (v107; the owner, 2 November 2026: "a guided room setup and
   an alignment check, so a group can start a shared room from zero and know whether the headsets line up"; "make it so
   that we can run the touch the spot"; v109, 3 November: "just do the calibrated marks but make it part of the startup
-  flow to check and make people check and calibrate if needed": two fixed spots, such as two table corners or two tape
-  crosses, are more accurate than two people touching controllers). Nothing in how alignment works changed: `lineUp()`
+  flow to check and make people check and calibrate if needed": two fixed spots are more accurate than two people
+  touching controllers; v122, 7 November, floor spots: the two spots are tape crosses on the floor, which set the room's
+  floor too, "The room's floor is under the marks" below). Nothing in how alignment works changed: `lineUp()`
   (in `shared.js`, after `status()`) only says in plain words what the frame rests on: *Room ready* (this headset's
   shared space's origin is the room's, `R.src` `'shared'`; the notice of that name), *Lined up through the shared space*
   (`'adopted'`; *Lined up from the room's spots (shared space)* when that frame was made from spots,
@@ -1411,11 +1412,12 @@ empty's). The plan is
   - The room's spots (`roomMk()`): `[height of A, A to B, height of B]` in room coordinates, as this headset puts them: a
     frame from spots has its origin at spot A and its x axis towards B, so A is at `(0, hA, 0)` and B at `(d, hB, 0)`.
     This headset's own (`R.mk`, `own()`), or those of the frame it took through the shared space (`R.mk` from its `m`),
-    else the room's key `rm` (A's height over the room's floor and the distance; B as high as A); null while the room
-    has none. `byMarks()`: this headset's frame rests on them; `roomSpots()`: the room has them (`rm`) or `byMarks()`.
+    else the room's key `rm` (A's height over the room's floor, `FLOOR_TIP` for floor spots, and the distance; B as high
+    as A); null while the room has none. `byMarks()`: this headset's frame rests on them; `roomSpots()`: the room has them (`rm`) or `byMarks()`.
   - The guide (`guidePage`, `PNL.page` `'guide'`, `PNL.gs` its page, in place of the rest of the Circles tab as the
-    code page is): four pages, *Before you start* (the room scan, the same browser version, address and Wi-Fi, two fixed
-    spots A and B about 2 m apart, table corners or tape crosses, drawn: `drawTape`), *Line up*, *Check that you line up*
+    code page is): four pages, *Before you start* (the room scan, the same browser version, address and Wi-Fi, two tape
+    crosses on the floor, A and B, about 2 m apart and 1 m at least, touched with the controller's tip on the floor, which
+    set the room and its floor, drawn: `drawTape`), *Line up*, *Check that you line up*
     and *Not lined up?* (Re-align and Check again, Calibrate, Fresh shared space where the relay serves the page), with
     Back, Next (Done on the last) and Close (*Skip for now* while the flow shows it), and over them a live status
     (`guideStatus`: the room, `lineUp()` in its colour, *Headsets lined up: n of m, k checked*, an amber note for another
@@ -1423,8 +1425,9 @@ empty's). The plan is
     B; Stop calibrating), `'check'` (lined up by the room's spots: Check, or Calibrate again), `'room'` (the room has
     its spots and this headset is not lined up by them, or its last check was out: *Calibrate on them*, the reason in red
     above; spots gone, new ones become the room's), `'first'` (no spots yet and this headset is the room's first,
-    nobody else here or its origin: *Pick two fixed spots at least 1 m apart ... touch spot A, then spot B*, which sets
-    the room for everyone: `claimFloor` and `publishOwn` as ever) or `'none'` (no spots yet, another headset is first:
+    nobody else here or its origin: *Put two tape crosses on the floor, at least 1 m apart ... its tip on spot A, ...
+    then spot B*, which sets the room and its floor for everyone: `claimFloor` and `publishOwn` as ever) or `'none'` (no
+    spots yet, another headset is first:
     *Check with someone*, or Calibrate). *Check* has, once the room has its spots (`roomMk()`), *Check at A* and *Check
     at B* (a check on its own, `selfCheck`) and below them *Check here* with someone; without spots only Touch the spot.
     *Room setup* on the Circles tab (with `lineUp()`'s words beside it) opens it at the page last shown; only a headset
@@ -1484,7 +1487,11 @@ empty's). The plan is
     where this headset puts that spot (`roomMk()`); nothing is sent. The orange crosses hide while any check or a
     calibration is armed (`drawMarks`, `tipMode()`), so the tip goes to the spot itself. The same limits and words as
     Touch the spot, with the spot: *Lined up: 3 cm at spot A*, *14 cm out at spot A: fine for walking about; calibrate
-    on the spots for close work*, *40 cm out at spot A: not lined up*. It checks this headset against the spots; Touch
+    on the spots for close work*, *40 cm out at spot A: not lined up*. Since v122 (floor spots) both kinds of check say
+    the height part when it is 2 cm or more (`hPart`, `CK.res.h`: *Lined up: 3 cm at spot A (2 cm in height)*, *14 cm out
+    at spot A (12 cm in height): ...*, in the menu's line and the notice's title): the spots are on the floor, so it is
+    mostly how this headset's floor differs from the room's, which tells a headset lined up through the shared space
+    (that keeps its own floor) that its floor is off. It checks this headset against the spots; Touch
     the spot checks two headsets against each other (it alone catches two headsets that calibrated on the spots in
     opposite orders).
   - Touch the spot (`CK`): *Check here* (the guide's check page, and the Debug tab beside Re-align) arms it; the next
@@ -1516,8 +1523,8 @@ empty's). The plan is
     tests: `HOST.collab.guide()` (`{ open, step, status, check, lined: [lined up, headsets, checked], flow, case, ok, red,
     spots, menu }`), `guideOpen(k)` (by hand: the flow as it is), `checkArm(on, spot)`, `guideTimes({ win, late })` and
     `autoGuide(on)` (its opening by itself; the pretend headsets in `tools/collab.mjs` turn it off unless asked, `guide:
-    true` in `installXR`, as they do `autoAll`). How it works on real Quests (how accurately a tip finds a table corner
-    or a tape cross, the points' accuracy, the guide's timing and whether it feels light, the notices) is untested.
+    true` in `installXR`, as they do `autoAll`). How it works on real Quests (how accurately a tip finds a tape cross on
+    the floor, the points' accuracy, the guide's timing and whether it feels light, the notices) is untested.
   - The room's arc waits for that first calibration: the room's first headset becomes the room's origin through its
     shared space within about 8 s, and a calibration on the spots then moves the origin to spot A, so `allFirst` places
     nothing while the flow is on show asking it to calibrate (`guideShown()` with `R.calib` or `lineCase() === 'first'`);
@@ -1962,15 +1969,38 @@ empty's). The plan is
   no room scan (`scanCheck`, `R.noScan`: run Space Setup, Physical space
   features on), since the shared space and anchors rest on that scan. People
   elsewhere (VR) use their own floor.
-- The room's floor is under the marks, not under each headset: key `rm`
-  `{ a, d, by, at }` is mark A's height over the floor of the first headset
-  that calibrated (and the marks' distance: marks within 10 cm of it are the
-  same marks; taken over by a newer calibration of the same headset, other
-  marks, or a calibrated headset when its writer has left). A headset
-  whose floor differs puts the room's origin that far above its own floor
-  (`frame.o[1]`, from the anchors' heights, so a floor that jumps does not move
-  the room), and the panel says so ("Your floor is 28 cm lower than the
-  room's").
+- The room's floor is under the marks, not under each headset. Floor spots (v122; the owner, 7 November 2026: "is it
+  possible to make the floor also set by the two points for calibration? Meaning i would put these on the floor and that
+  would be where the virtual floor sits too? Asking because the floor was off so many times now in various headsets",
+  then "floor spots sounds good, lets try that"): the two spots are tape crosses on the floor, touched with the
+  controller's tip on the floor, pointing down, so a calibration's floor is the floor under its spots: in local-floor
+  coordinates mark A's touch height less `FLOOR_TIP` (0.02 m, the controller's target-ray origin over the floor with its
+  tip on it, held pointing down: a guess until measured on a Quest), whatever this headset's own (Guardian) floor says
+  (`floorUnder`, `fromMarks`, `marksMk` = `[FLOOR_TIP, d, FLOOR_TIP + B's height - A's]`, the same wherever the floor
+  under the marks is worked out: a calibration, its anchors followed or found again, `refloor`, a reset, waking,
+  Re-align), so every headset that calibrates on the spots gets the same floor. Its saved marks say so (`f: 1` in
+  `roomFrame`, `R.saved`, `onFloor()`), and so does the room's key `rm`: `{ a: FLOOR_TIP, d, f: 1, by, at }` (`a`
+  mark A's height over the room's floor, `d` the marks' distance: marks within 10 cm of it, `SAME`, are the same
+  marks). Older devices read `a` and `d` as before (their floor is their mark A less `a`: the same floor), so no
+  `FORMAT` change. A floor-spot calibration writes `rm` when the room has none, its `rm` lacks `f`, its distance
+  differs by more than `SAME` or its writer has left (`claimFloor`, at a calibration, when its marks are found again,
+  and twice a second while `rm` is missing, its writer gone or without `f`); two headsets on the same spots never write
+  it in turn, and its own frame never waits for it. When the second spot is touched (`mark()`) spots more than 3 cm
+  apart in height are refused (`SPOTS_DH`: *Spots at different heights*, back to spot A), and spot A more than 45 cm
+  over this headset's floor is refused at once as it is touched (`SPOTS_UP`, *Not on the floor*: a Guardian floor was
+  seen up to 28 cm off, a table is 70 cm or more). The log says `floor spots` with A's and B's touch heights over this
+  headset's floor and, when the session has plane detection and a plane labelled floor (`scanFloorAt`, the lowest,
+  every 2 s), over the room scan's floor too, and `mark refused` with why: later logs measure `FLOOR_TIP` and the
+  headsets' floors. A calibration from before v122 (no `f`: its spots may be table corners) keeps the old rule: `rm`
+  is mark A's height over the floor of the first headset that calibrated (taken over by a newer calibration of the
+  same headset, other marks, or a calibrated headset when its writer has left; never over the room's floor spots while
+  their writer is here), and a headset whose floor differs puts the room's origin that far above its own floor; other
+  marks (another distance): its own floor. Either way the origin's height comes from the anchors' heights, so a floor
+  that jumps does not move the room, and the panel says how this headset's floor differs ("Your floor is 28 cm lower
+  than the room's", `floorNote`). Headsets lined up through the shared space keep their own floor (`reconcile`,
+  `R.hS`, unchanged): Check at A says the difference as the height part. Untested on a headset: `FLOOR_TIP` (how high
+  the target-ray origin really is with the tip on the floor, and how people hold the controller), the two refusals'
+  limits, floors that differ between real headsets.
 - Why (the relay's logs of two Quest 3s in one room): the shared space came
   with the same id on both at once but was at first just one headset's own
   floor, jumped by 40 cm and 74 degrees when colocation found something, then
@@ -2097,10 +2127,13 @@ empty's). The plan is
   docs: 8 persistent anchors per site, deleted with the site's browsing
   history; the browser's author: a limited set across all sites. Clearing the
   browser's data is the remedy (not confirmed on our headsets).
-- Calibrating: a mark is where the controller's ray origin was held still 70 to
+- Calibrating: the two spots are tape crosses on the floor (v122), touched with
+  the controller pointing down, its tip on the floor; a mark is where the
+  controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
-  apart; a second pull within 0.6 s is ignored, and marks more than 5 cm
-  apart in height get a note. Orange
+  apart; a second pull within 0.6 s is ignored; spot A more than 45 cm over
+  this headset's floor is refused, and spots more than 3 cm apart in height go
+  back to spot A (above: "The room's floor is under the marks"). Orange
   crosses show the marks where this headset puts them (while the headset's menu
   is open, and 30 s after aligning). The panel's room section also shows the
   shared space's id and *Forget calibration* (`HOST.room.forget()`, press
@@ -4449,9 +4482,9 @@ before v109 (`all01` without `arc`, alone, written by a raw socket) the arc once
 pictures: `all-1-arc.png`, the arc's cards as the first headset sees them, `all-2-picked.png`, a story picked there,
 `all-3-lobby.png`, the All stories circle seen from the lobby, and `all-4-circle.png`, the arc turned into a circle, its
 ring under its cards), the room setup guide (`guideRound`, after the All stories
-round in the main run; `--guide` runs only it, a room of its own, about five minutes: a page starts the room with a
+round in the main run; `--guide` runs only it, a room of its own, about six minutes: a page starts the room with a
 station far off; the first pretend headset enters AR alone and its startup flow opens by itself at *Line up* as the
-room's first with no spots (*Pick two fixed spots*), *Skip for now* closing it and the menu it opened; it becomes the
+room's first with no spots (*Put two tape crosses on the floor*), *Skip for now* closing it and the menu it opened; it becomes the
 room's origin, *Room ready*; the second lines up through the shared space and its flow opens at *Line up* (no spots
 yet: *Check with someone*), the first's staying shut, both counting 2 of 2 lined up, none checked; the pages: Back
 greyed on the first, Next, Back, *Skip for now*, *Room setup* opening it again where it was (with Close), *Check here*
@@ -4460,8 +4493,9 @@ tips 3 cm apart, the first waiting, then green on both, the flow done, and *chec
 apart, red on both, *Not lined up?* opened by itself on both, the laptop's list saying so; Re-align taking the red
 result away and a check alone timing out (the window shortened to 14 s); the second back with no shared space: its flow
 again (every session), skipped, *Not lined up?* by itself once late (shortened), saying why; back again lined up, the
-flow again, skipped. Then the spots: the first headset (the room's origin) calibrates on two from *Line up* (case
-*first*, the red check's reason above), which writes `rm` and a frame from the spots for the space, and the guide goes on
+flow again, skipped. Then the spots (tape crosses on the floor: every touch at the true floor plus `FLOOR_TIP`, `TIP`
+in the test): the first headset (the room's origin) calibrates on two from *Line up* (case
+*first*, the red check's reason above), which writes `rm` (`{ a: FLOOR_TIP, f: 1 }`) and a frame from the spots for the space, and the guide goes on
 to *Check* by itself; *Check at A* 3 cm off spot A: green, the flow done, the guide closed; the second, taking that frame
 through the shared space, asked by eye (v119: the orange crosses on the two spots within 2 cm, drawn over everything, the
 question 0.75 to 1 m in front, on top and the ray's first target, the guide shut), *Yes* standing as a check (by eye,
@@ -4471,9 +4505,23 @@ laptop's list *not lined up (its crosses off the spots, by eye)*), skipped; ente
 (flow *eye*, why *start*, the guide shut) instead of opening at *Check*; *No*, *Next*, *Check at A* 3 cm off:
 green, the guide and its menu closed, the laptop's list *checked 3 cm at spot A*; 40 cm off: red, back to *Line up*
 (case *room*, why); Calibrate there on the spots, on to *Check* by itself, *Check at B* 2 cm off: green (the room's `rm`
-still the first's); the laptop's list *lined up (the room's spots, checked ... at spot ...)* for both, 2 checked; with
+still the first's); the laptop's list *lined up (the room's spots, checked ... at spot ...)* for both, 2 checked. Then
+floor spots (v122, `floorSpots`): the first headset back in a new session with its own floor 20 cm too high and a room
+scan whose floor plane is the true floor, its spots found again by their anchors: the room's floor on the true floor
+within 1 cm and *Your floor is 20 cm higher*; calibrating on them again, spot B 5 cm higher refused (*Spots at different
+heights*, back to spot A), spot A on a table (75 cm, 55 cm over its floor) refused at once (*Not on the floor*), then
+both on the floor taken: the room's floor on the true floor within 1 cm, `rm` `{ a: FLOOR_TIP, f: 1 }` its own, and the
+log's `mark refused` (heights, high) and `floor spots` (touch heights -18 cm over its floor, 2 cm over the scan's
+floor); the second back with its own floor 15 cm too low, its spots found again (the true floor within 1 cm), then
+calibrated on again: its room's origin and direction within 1 cm of the first's, *Your floor is 15 cm lower*, nothing
+written to `rm` (no `floor claimed`, `rm` unchanged); Forget, lined up through the shared space (its own floor kept),
+*Check at A* with the tip on spot A: *15 cm out at spot A (15 cm in height)*; a calibration from before v122 (no `f`,
+two table corners 1.2 m apart, put in its `roomFrame` with anchors at the corners) found again: its own floor (the
+room's floor is other spots), *f* absent, nothing written to `rm`; an older device's `rm` for those corners (`a` 0.76,
+no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
-space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
+space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
+spot A refused as not on the floor (`guide-20-not-on-floor.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
@@ -4557,7 +4605,9 @@ leaving the room brings the Stories screen back, joining one closes it), anchors
 found by their handles after waking and found by a later try (meanwhile the
 panel asks to leave AR and enter it again; a jump with their handles saved
 keeps the calibration), the room's floor from
-the first calibration (a lower floor allowed for), no mark from a double
+floor spots (v122: the marks touched at the true floor plus `FLOOR_TIP`; `rm` `{ a: FLOOR_TIP, d, f: 1 }` this
+headset's own; an older device's `rm` for them, a higher `a` and no `f`, moving nothing here, and this headset writing
+the room's floor spots again; the log's `floor spots`), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone
 here published (not joined: nothing taken), a headset back in AR whose space

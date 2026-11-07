@@ -118,7 +118,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
 | `st.<id>.view` | `{ v, story }`, `v` the story's `collab.view()`: its explore view, shared by the headsets at the station (since networks-26; with `ts` and `h` while someone turns it: AGENTS.md "Others' moves, smooth") | the scene placed alike |
-| `rm` | `{ a, d, by, at }`: mark A's height over the floor of the first headset that calibrated, and the marks' distance | the room's floor, alike on every headset |
+| `rm` | `{ a, d, f, by, at }`: mark A's height over the room's floor and the marks' distance; since v122 floor spots (`f: 1`, `a` the controller's tip height, 2 cm: the spots are on the floor), before that A's height over the floor of the first headset that calibrated | the room's floor, alike on every headset |
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer

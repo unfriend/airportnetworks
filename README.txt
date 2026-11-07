@@ -254,36 +254,41 @@ circle like any other (its Stories screen while it shows its cards, and its row
 in the Shared dialog has a story picker), and the lobby has no Follow.
 Room setup (in a headset the menu's Circles tab, Room setup; on a page the
 Shared dialog's Setting up a room) takes a group through starting a shared room
-from zero, and it is part of every headset's start. Before the event every
-Quest scans the room once, all run the same Quest Browser version, the same
-bookmarked address and the same Wi-Fi, and the room has two fixed spots, A and
-B, about 2 m apart: two corners of a table that stays put, or two tape crosses
-on the floor with an arrow from A to B. Each time a headset enters AR in a
-shared room (in VR: answered In this room), its menu opens by itself at Line
-up, which says how it lines up now and what to do: the room's first headset
-picks the two spots and calibrates on them (Calibrate: the bright ring at the
-controller's tip on spot A, the trigger, then spot B), which sets the room for
-everyone; the others calibrate on the same spots, or, already lined up by them
-(their calibration found again, or through the shared space from someone who
-calibrated), are asked by eye instead: the two orange crosses show where the
-headset puts the spots and a small panel asks Are both crosses on your spots? Yes
-counts as a check; No, calibrate again opens Line up. The same question comes
-after waking, a Re-align, or whenever the room may have moved in the headset.
-Check: press Check at A and touch spot A
-itself; up to 10 cm is green, up to 25 cm amber (fine for walking about), and
-either closes the menu (lined up, for this session); more is red and goes back
-to Line up to calibrate again. Skip for now closes it until a red check or until
-the headset is still not lined up 20 s after entering AR with another headset
-there. Touch the spot checks two headsets against each other: two people hold a
-controller's tip on one spot (one after the other, or tip to tip) and each
-presses Check here within 20 s of the other (the only check while the room has
-no spots). The page's dialog lists every headset, how it lines up and whether it
-was checked; the guide's last page says what to do when one is not lined up:
-Re-align, calibrate on the spots, or a fresh shared space.
+from zero, and it is part of every headset's start. Before the event every Quest
+scans the room once, all run the same Quest Browser version, the same bookmarked
+address and the same Wi-Fi, and the room has two tape crosses on the floor, A
+and B, about 2 m apart (1 m at least), with an arrow from A to B: they set the
+room and its floor (since v122), so every headset that calibrates on them stands
+the room on the real floor, whatever its own floor says. Each time a headset
+enters AR in a shared room (in VR: answered In this room), its menu opens by
+itself at Line up, which says how it lines up now and what to do: the room's
+first headset calibrates on the two spots (Calibrate: the controller pointing
+down, the bright ring at its tip on spot A on the floor, the trigger, then spot
+B), which sets the room and its floor for everyone (spots at different heights,
+or spot A on a table, are refused: touch them again on the floor); the others
+calibrate on the same spots, or, already lined up by them (their calibration
+found again, or through the shared space from someone who calibrated), are asked
+by eye instead: the two orange crosses show where the headset puts the spots and
+a small panel asks Are both crosses on your spots? Yes counts as a check; No,
+calibrate again opens Line up. The same question comes after waking, a Re-align,
+or whenever the room may have moved in the headset. Check: press Check at A and
+touch spot A itself, on the floor (the result says how much of it is in height
+when that is 2 cm or more: a headset whose floor differs); up to 10 cm is green,
+up to 25 cm amber (fine for walking about), and either closes the menu (lined
+up, for this session); more is red and goes back to Line up to calibrate again.
+Skip for now closes it until a red check or until the headset is still not lined
+up 20 s after entering AR with another headset there. Touch the spot checks two
+headsets against each other: two people hold a controller's tip on one spot (one
+after the other, or tip to tip) and each presses Check here within 20 s of the
+other (the only check while the room has no spots). The page's dialog lists
+every headset, how it lines up and whether it was checked; the guide's last page
+says what to do when one is not lined up: Re-align, calibrate on the spots, or a
+fresh shared space.
 Calibrating on the same two spots lines every headset up
-(Calibrate: touch spot A, then spot B, with the ring at the front of a
-controller; orange crosses then show where the headset puts the spots, and two
-anchors keep the calibration for next time and after the headset was off; if
+(Calibrate: touch spot A, then spot B, on the floor with the ring at the tip
+of a controller held pointing down; orange crosses then show where the headset
+puts the spots, and two anchors keep the calibration for next time and after
+the headset was off; if
 the panel says the anchor store is full, clearing Quest Browser's site data may
 help, see relay/README.md; if after standby it says to leave AR and enter it
 again, do that: the headset finds its spots again in a new AR session). A headset's own calibration is

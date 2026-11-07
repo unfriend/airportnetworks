@@ -113,8 +113,10 @@ local network found each other this way, and then shared a peer-to-peer room; he
   accepted certificate per address.
 - [ ] From a headset, `https://<address>:8787/api/ping` answers `{"now":...}` (with a password: `/api/health` answers
   `{"ok":true,...}`, and `/api/ping` says `missing or wrong token`, which is right).
-- [ ] Two fixed spots, A and B, about 2 m apart in the middle of the play area (1 m at least): two corners of a table
-  that stays put, or two tape crosses on the floor with an arrow from A to B, left all day (and for the next session).
+- [ ] Two tape crosses **on the floor**, A and B, about 2 m apart in the middle of the play area (1 m at least), with an
+  arrow from A to B, left all day (and for the next session). Since v122 they set the room's floor too: every headset
+  that calibrates on them stands the room on the real floor, whatever its own floor says (no table corners: a spot more
+  than 45 cm over a headset's floor is refused).
   Every headset calibrates on them as it starts and checks on them; the first headset's calibration makes them the
   room's. Label them A and B: a headset that touches them the other way round stands the room the other way round.
 - [ ] Floor for **Arrange all**: sixteen stations in two rows, eight and eight behind them, about 17 m by 4 m starting 1.2 m in front of you.
@@ -138,17 +140,20 @@ local network found each other this way, and then shared a peer-to-peer room; he
    *Lined up from the room's spots (shared space)*, *Lined up from the room's spots, found again*, *Room
    ready*, or *Not lined up yet* with why: no shared space, not in the others' shared space, no room scan, another
    Quest Browser version, or nothing after 20 s). It says what to do:
-   - **The first headset** (no spots in the room yet): *Pick two fixed spots at least 1 m apart*: press **Calibrate**,
-     hold the bright ring at the controller's tip still on spot A and pull the trigger, then on spot B. That sets the
-     room for everyone, today and next time.
+   - **The first headset** (no spots in the room yet): *Put two tape crosses on the floor*: press **Calibrate**, hold
+     the controller pointing down, the bright ring at its tip still on spot A on the floor, and pull the trigger, then
+     on spot B. That sets the room and its floor for everyone, today and next time. Spots at different heights (more
+     than 3 cm: the tip held off the floor) go back to spot A; spot A on a table is refused.
    - **The others**, one by one: if the room has its spots and the headset is not lined up by them, *Calibrate on them*
      (spot A, then spot B). A headset already lined up by them (its own calibration found again, or through the shared
      space from someone who calibrated) is asked by eye instead: the two orange crosses show where it puts the spots and
      a small panel asks *Are both crosses on your spots?* **Yes** counts as its check (*checked by eye* on the laptop);
      **No, calibrate again** opens *Line up*. The same question comes after a headset wakes, after **Re-align** and
      whenever the room may have moved in it: look at both crosses before you answer.
-   - **Check** (every headset, once a session): press **Check at A**, hold the ring still on spot A itself (not on the
-     orange cross: it hides while you check) and pull the trigger. Green (up to 10 cm) or amber (10 to 25 cm): *Lined
+   - **Check** (every headset, once a session): press **Check at A**, hold the ring still on spot A itself, on the floor
+     (not on the orange cross: it hides while you check), and pull the trigger. The result says how much of it is in
+     height when that is 2 cm or more (*14 cm out at spot A (12 cm in height)*): a headset lined up through the shared
+     space keeps its own floor, so that is its floor being off; calibrate it on the spots. Green (up to 10 cm) or amber (10 to 25 cm): *Lined
      up*, and the menu closes. Red (over 25 cm): back to *Line up* with why; calibrate on the spots and check again.
      **Check at B** works too. One or two presses for a headset already lined up.
    - **Skip for now** closes it for this session; it comes back only after a red check, when the headset is still not
@@ -370,7 +375,9 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - the room setup guide and its startup flow (v107, v109): whether it opens at the right moments (as every headset
   enters a room, at Check when it is lined up by the spots already; after a red check; not lined up 20 s in), whether it
   feels light for a headset already lined up (Check at A, the trigger, done), how its pages read, how accurately a
-  controller's tip finds a table corner or a tape cross (Check at A on a headset that is lined up: a few cm?), and
+  controller's tip finds a tape cross on the floor (Check at A on a headset that is lined up: a few cm?), the floor
+  spots (v122: is the room's floor on the real floor in every headset, also one whose own floor is off? The headsets'
+  logs say `floor spots` with the touch heights, which measure the 2 cm the tip is taken to be over the floor), and
   **Touch the spot** on real headsets: how near two tips held on the same spot come out when the headsets do line up
   (the green limit is 10 cm), and the laptop's list during a setup;
 - comfort and frame rate with other people drawn;
