@@ -1,9 +1,14 @@
 // Headless smoke test for the sixteen stories, the design room and the studio.
-//   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
+//   node tools/smoke.mjs [base-url] [--only <words>]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
-const base = process.argv[2] || 'http://127.0.0.1:8123/';
+// --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
+// studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures)
+const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
+const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
+// (a block of steps runs when --only names it, a step of it or nothing)
+const runs = tag => !ONLY || tag.startsWith(ONLY) || ONLY.startsWith(tag);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -13,7 +18,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-const step = async (name, fn) => { const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); };
+const step = async (name, fn) => { if (ONLY && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); };
 const smokeStep = step;
 
 await page.goto(base + 'index.html');
@@ -55,7 +60,7 @@ const LAND_CHECK = `{
   const low = (rows[1].length ? rows[1][0] : rows[0][0]).mesh.position.y - ch(rows[0][0]) / 2;
   if (top > 0.65 || low < -0.65) throw new Error('the Stories screen reaches from ' + top.toFixed(2) + ' to ' + low.toFixed(2) + ' m of the eyes');
 }`;
-for (const key of STORY_KEYS) {
+for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -1047,7 +1052,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
 // eyes (nothing at the wrist: the watch went in v103), from 0.4 s on, drawn in a scene of its own (never in the story's, its listeners
 // the shell's); it fades out over the story's first frames; in AR the room still shows through (the clear colour stays
 // see-through)
-{
+if (runs('headset')) {
   // the main page parked meanwhile (the Stories screen, its story paused and its frame loop stopped): a story left
   // running there shares the GPU process with this page and slowed its frames so much that the card's fade timed out
   await page.evaluate(() => { HOST.openPicker(); HOST.cur.peek('GL.renderer.setAnimationLoop(null)'); });
@@ -1231,7 +1236,7 @@ await step('design: the intro ends at the table', async () => {
 // the headset's card, a picture shown, cancelled and saved; the Upload pane's share and picture); the gaps between a
 // picture's pieces filled (an atlas ball made in the page: far fewer black pixels at 10 %, in the preview and the GLB);
 // the headset panels' panes and its Stories screen (no Upload tab); Download
-{
+if (runs('studio')) {
   const stp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
   stp.on('pageerror', e => errors.push('studio: ' + (e.stack || e.message)));
   stp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio: ' + m.text()); });
@@ -2487,7 +2492,7 @@ await step('design: the intro ends at the table', async () => {
 // tex and that loads back textured, the object switched to it where it stands; Add a texture on an untextured model
 // with UVs; roughness and metalness packed into one; a bump made a normal map; the Upload pane's plan ('only', 'ext',
 // 'similar', a picture dropped onto a row, Not this and Use) and its GLBs (no relay: downloads); the headset's lines
-{
+if (runs('studio textures')) {
   const { PX } = await import('./studio/test/pictures.mjs');
   const txp = await browser.newPage({ viewport: { width: 1280, height: 760 }, acceptDownloads: true });
   txp.on('pageerror', e => errors.push('studio textures: ' + (e.stack || e.message)));
@@ -2722,7 +2727,7 @@ await step('design: the intro ends at the table', async () => {
 // and the arrows' size scaling its offset; the switch to a GLB (the figure, a turn baked in, its whole model; the dancer,
 // a bone) keeping it within 1 mm; her deletion (it stays, following nothing; Undo); a cube hiding her silencing it and
 // showing her again starting it from its beginning; the shared state with the new fields, bad values; the headset's card
-{
+if (runs('studio follow')) {
   const fop = await browser.newPage({ viewport: { width: 900, height: 560 } });
   fop.on('pageerror', e => errors.push('studio follow: ' + (e.stack || e.message)));
   fop.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio follow: ' + m.text()); });
@@ -3086,7 +3091,7 @@ await step('design: the intro ends at the table', async () => {
 // wall moved, turned and sized with the door on the same part of it; the dancer's posed head; Convert to GLB of the figure
 // keeping its box where it was; the shared state, bad records, a state without the wall, 16 on one model; layout.json; the
 // page's card, the Add pane, the Items pane and the arrows; a pretend headset's grips and a corner; the headset's card
-{
+if (runs('studio cuts')) {
   const cxp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   cxp.on('pageerror', e => errors.push('studio cuts: ' + (e.stack || e.message)));
   cxp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio cuts: ' + m.text()); });
@@ -3524,7 +3529,7 @@ await step('design: the intro ends at the table', async () => {
 // floor and a size past the limits; Duplicate, Ungroup, Delete and Undo; an item moving into another group, a group left
 // with one member going; a cube's pick toggling a whole group; the state and layout.json; a pretend headset's trigger and
 // grips, and the headset's cards
-{
+if (runs('studio groups')) {
   const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   gp.on('pageerror', e => errors.push('studio groups: ' + (e.stack || e.message)));
   gp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio groups: ' + m.text()); });
@@ -3934,7 +3939,7 @@ await step('design: the intro ends at the table', async () => {
 // the near side As in the file); Both sides through a cut-out in its near side shows its far inner side, As in the file
 // nothing (lit and as scanned); kept through a rebuild of its file and the figure's switch to its GLB; the state and
 // layout.json; the cards' rows (page and headset)
-{
+if (runs('studio faces')) {
   const fp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   fp.on('pageerror', e => errors.push('studio faces: ' + (e.stack || e.message)));
   fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio faces: ' + m.text()); });
@@ -4067,7 +4072,7 @@ await step('design: the intro ends at the table', async () => {
 // with a locked member saying which, an object with a locked cut-out not deleted) and Unlock, one Undo step each; the
 // scene's settings rows (page and headset) and the shell's hooks told (stubbed) at a pretend station, away, for another
 // scene and when the studio goes; the lobby hook forgetting what was seen; the state and layout.json with all of it
-{
+if (runs('studio shapes')) {
   const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   sp.on('pageerror', e => errors.push('studio shapes: ' + (e.stack || e.message)));
   sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio shapes: ' + m.text()); });
@@ -4427,7 +4432,7 @@ await step('design: the intro ends at the table', async () => {
 // pages never counting); going on while selected (editing), resting while carried or paused and starting again from its place; a driver's samples
 // drawn 120 ms behind them (on one page, by a pretend other device's effect); the cards' rows (page and headset, Follow an
 // item... by pointing and by the list), one Undo step each; the state and layout.json, bad values refused, a group's copy
-{
+if (runs('studio behaviours')) {
   const bp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   bp.on('pageerror', e => errors.push('studio behaviours: ' + (e.stack || e.message)));
   bp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio behaviours: ' + m.text()); });
@@ -4660,7 +4665,7 @@ await step('design: the intro ends at the table', async () => {
 // cut-out on it is selected (their arrows on them where they are drawn, a drag of them not jumping) and while carried; selected and
 // moving, a ghost where it is placed, the page's arrows on it, Pause (the Scene pane, a card, P), Start again;
 // the cards' rows (page and headset), one Undo step each; the state and layout.json, bad values refused
-{
+if (runs('studio motions')) {
   const mp = await browser.newPage({ viewport: { width: 1280, height: 800 } }), mp2 = await browser.newPage({ viewport: { width: 640, height: 400 } });
   for (const p of [mp, mp2]) {
     p.on('pageerror', e => errors.push('studio motions: ' + (e.stack || e.message)));
@@ -5005,7 +5010,7 @@ await step('design: the intro ends at the table', async () => {
 // more than 600 keys, the scene's 6,000, the shared state's 224 KB, 120 s kept, a lock, a following sound, a group); a page's
 // recording through the arrows and its card's buttons (one Undo step), the cards' rows on page and headset; the state and
 // layout.json round trip, norm's rules, the scene's 6,000 in a layout and from the room, a GLB switch turning its keys
-{
+if (runs('studio paths')) {
   const rp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   rp.on('pageerror', e => errors.push('studio paths: ' + (e.stack || e.message)));
   rp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio paths: ' + m.text()); });
@@ -5395,6 +5400,239 @@ await step('design: the intro ends at the table', async () => {
     await rp.close();
   });
 }
+// The studio's trigger cubes that change pictures on objects (tools/studio/SPEC.md, "Trigger cubes that change textures"),
+// on a page of its own at the test scene, with two solid pictures made in the page and served as the scene's own
+// (tex/magenta.png, tex/lime.png), Twin (a second object of box.glb) and three cubes put in for these steps: pixels read
+// back from renders show the box's front in a cube's picture with a pretend head in the cube and its own outside (Twin
+// unchanged); two cubes on one slot, the one entered last wins; a cube that stays holds until Reset what I have seen and
+// the lobby; Change texture's preview on the box wins while open; as scanned a colour change shows and a normal-map entry
+// is left out (lit takes it), a material as scanned made while a picture is on taking its own; the state and layout.json
+// round trip, norm's rules, entries a layout lacks; the page's card (Change a texture... through to the entry, a press
+// flashing the box, ✕, Undo; nothing with editing off or for a visitor) and the headset's; the Items card's line;
+// deleting and duplicating the box (a cube, a group too), the figure switched to its GLB keeping its entry
+if (runs('studio texture swaps')) {
+  const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  tp.on('pageerror', e => errors.push('studio texture swaps: ' + (e.stack || e.message)));
+  tp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio texture swaps: ' + m.text()); });
+  const ss = s => tp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => tp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio texture swaps: ' + b)); };
+  // (in the page: the scene drawn from a camera of its own and read back where scene points land, only objects drawn; a
+  // pretend head (null: nobody) and a frame's steps)
+  const HELP = `window.__tx = window.__tx || {
+    shot: (eye, tgt, pts) => {
+      const W = 320, H = 200, r = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(60, W / H, 0.02, 200);
+      GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(...eye))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(...tgt))); cam.updateMatrixWorld();
+      const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.flashBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o').map(i => i.holder));
+      const keep = hid.map(o => o.visible);
+      hid.forEach(o => { o.visible = false; });
+      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
+      r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
+      return px;
+    },
+    at: p => { shownFor(p); itemsStep(0, performance.now()); return 0; },
+  }`;
+  // (the box's and Twin's front faces, seen from in front of both; a pixel's colour in words)
+  const cls = p => (p[0] - p[1] > 50 && p[2] - p[1] > 50 ? 'magenta' : p[1] - p[0] > 50 && p[1] - p[2] > 50 ? 'lime' : 'own');
+  const look = async head => (await ss(`(window.__tx.at(${JSON.stringify(head)}), window.__tx.shot([-0.3, 0.35, 0.4], [-0.3, 0.25, -1.75], [[-1, 0.25, -1.75], [0.4, 0.25, -1.75]]))`)).map(cls);
+  const OUT = [3, 1, 6], A = [2.7, 1, 2], AB = [3.3, 1, 2], B = [3.9, 1, 2], C = [7, 1, 2];
+  const E = o => Object.assign({ on: 'box001', mat: 0, slot: 'map', file: 'tex/magenta.png' }, o);
+
+  await step('studio texture swaps: pixels: the box in a cube\'s picture with a pretend head in it and its own outside, Twin (the same file) unchanged; two cubes on one slot, the one entered last wins; a cube that stays holds until Reset what I have seen and the lobby; Change texture\'s preview wins while open', async () => {
+    await tp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await tp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio texture swaps: the test scene did not load'); return; }
+    // two solid pictures made in the page, served as the scene's own
+    const pics = await tp.evaluate(() => Object.fromEntries([['magenta', '#ff00ff'], ['lime', '#3cff28']].map(([n, c]) => { const cv = document.createElement('canvas'); cv.width = cv.height = 8; const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 8, 8); return [n, cv.toDataURL('image/png').split(',')[1]]; })));
+    await tp.route('**/scenes/test/tex/*.png*', route => { const n = /tex\/(\w+)\.png/.exec(route.request().url()); route.fulfill({ body: Buffer.from(pics[n && pics[n[1]] ? n[1] : 'magenta'], 'base64'), contentType: 'image/png' }); });
+    await ss(`(${HELP}, setFiles(STU.files.concat([{ path: 'tex/magenta.png', bytes: 90, at: 7, kind: 'image' }, { path: 'tex/lime.png', bytes: 90, at: 7, kind: 'image' }])), setRec('box001', { anim: 'off' }),
+      putItem('twn001', 'o', norm('o', { name: 'Twin', file: 'box.glb', p: [0.4, 0.25, -2], anim: 'off' })),
+      putItem('txa001', 'c', norm('c', { name: 'Magenta', p: [3, 1, 2], size: [1, 2, 1], tex: [${JSON.stringify(E())}] })),
+      putItem('txb001', 'c', norm('c', { name: 'Lime', p: [3.6, 1, 2], size: [1, 2, 1], tex: [${JSON.stringify(E({ file: 'tex/lime.png' }))}] })),
+      putItem('txc001', 'c', norm('c', { name: 'Stays', p: [7, 1, 2], size: [1, 2, 1], mode: 'stay', tex: [${JSON.stringify(E({ file: 'tex/lime.png' }))}] })), 0)`);
+    const out = [];
+    if (!await until(`!!STU.items.get('twn001').model && ['tex/magenta.png', 'tex/lime.png'].every(p => (STUDIO.tex().pics[p] || {}).state === 'ready')`, 30000)) { out.push('the pictures were not read: ' + JSON.stringify(await ss('STUDIO.tex()'))); bad(out); return; }
+    const pv = await ss(`STUDIO.tex().pics`);
+    if (!pv['tex/magenta.png'].t[0] || pv['tex/magenta.png'].t[1] || pv['tex/magenta.png'].w !== 8) out.push('a picture for a GLB: read once, one texture without flipping, made ahead: ' + JSON.stringify(pv));
+    const seq = [['outside', OUT, 'own'], ['in Magenta', A, 'magenta'], ['in both, Lime entered last', AB, 'lime'], ['in Lime only', B, 'lime'], ['in both, Magenta entered last', AB, 'magenta'], ['outside', OUT, 'own'],
+      ['in Stays', C, 'lime'], ['out of Stays', OUT, 'lime'], ['in Magenta after Stays', A, 'magenta'], ['out of Magenta, Stays still on', OUT, 'lime']];
+    for (const [w, h, want] of seq) { const got = await look(h); if (got[0] !== want || got[1] !== 'own') out.push(`${w}: the box ${got[0]} (not ${want}), Twin ${got[1]}`); }
+    const on = await ss(`(window.__tx.at(${JSON.stringify(A)}), JSON.stringify(STUDIO.tex('box001').on) + JSON.stringify(STUDIO.tex('twn001').on))`);
+    if (on !== '[["map","lit","magenta.png"]][]') out.push('the box\'s materials in Magenta (Twin\'s none): ' + on);
+    await ss(`(resetSeen(), 0)`);
+    if ((await look(OUT))[0] !== 'own') out.push('Reset what I have seen did not give its own picture back');
+    await look(C); await look(OUT);
+    await ss(`(studioLobby(), 0)`);
+    if ((await look(OUT))[0] !== 'own') out.push('the lobby hook did not give its own picture back');
+    // Change texture's preview on the box wins while it is open (its own back), the cube's again once it closes
+    await look(A);
+    await ss(`(select('box001'), ctOpen('box001'), 0)`);
+    const held = [await ss(`CT.id`), (await look(A))[0], await ss(`STUDIO.tex('box001').sig`)];
+    await ss(`(ctClose(), select(''), 0)`);
+    const after = (await look(A))[0];
+    if (held[0] !== 'box001' || held[1] !== 'own' || held[2] !== 'held' || after !== 'magenta') out.push('Change texture\'s preview on it (open, then closed): ' + JSON.stringify([held, after]));
+    await look(OUT);
+    bad(out);
+  });
+
+  await step('studio texture swaps: as scanned a colour change shows and a normal-map entry is left out, lit takes it; a material as scanned made while a picture is on takes its own', async () => {
+    const out = [];
+    await ss(`(setRec('txa001', { tex: [${JSON.stringify(E())}, ${JSON.stringify(E({ slot: 'normalMap', file: 'tex/lime.png' }))}] }), window.__tx.at(${JSON.stringify(OUT)}))`);
+    const own = await ss(`JSON.stringify(STUDIO.tex('box001').mats)`);
+    // in Magenta lit (nothing as scanned made yet), then as scanned there: made from its own pictures, the cube's on it
+    await look(A);
+    const lit = await ss(`[JSON.stringify(STUDIO.tex('box001').on), !!STU.items.get('box001').model.meshes[0].userData.scan]`);
+    await ss(`(setRec('box001', { light: 'scan' }), 0)`);
+    const sc = [(await look(A))[0], await ss(`JSON.stringify(STUDIO.tex('box001').on.slice().sort())`), await ss(`JSON.stringify(STUDIO.tex('box001').mats)`)];
+    await look(OUT);
+    const scOut = await ss(`STUDIO.tex('box001').mats`);
+    if (lit[0] !== '[["map","lit","magenta.png"],["normalMap","lit","lime.png"]]' || lit[1]) out.push('lit in Magenta: its colour and normal map: ' + JSON.stringify(lit));
+    if (sc[0] !== 'magenta' || sc[1] !== '[["map","lit","magenta.png"],["map","scan","magenta.png"],["normalMap","lit","lime.png"]]' || /"scan",\{[^}]*normalMap/.test(sc[2])) out.push('as scanned in Magenta: the colour shown, no normal map on the scanned material: ' + JSON.stringify(sc));
+    const litOwn = JSON.parse(own)[0][0][1], scanOwn = scOut[0].find(x => x[0] === 'scan');
+    if (!scanOwn || scanOwn[1].map !== litOwn.map || scOut[0].find(x => x[0] === 'lit')[1].map !== litOwn.map || ('normalMap' in scOut[0].find(x => x[0] === 'lit')[1]) !== ('normalMap' in litOwn)) out.push('out of the cube, lit and as scanned their own pictures (the scanned one made while the cube\'s was on): ' + JSON.stringify([own, scOut]));
+    await ss(`(setRec('box001', { light: 'lit' }), setRec('txa001', { tex: [${JSON.stringify(E())}] }), 0)`);
+    bad(out);
+  });
+
+  await step('studio texture swaps: the state and layout.json carry a cube\'s entries and give them back; norm\'s rules (bad entries dropped, one per object, material and slot, 16 at most, not a list: a bad record); a layout\'s bad entries counted and those for objects it lacks dropped', async () => {
+    const st = await ss(`(() => {
+      const J = x => JSON.stringify(x), E = o => Object.assign(${JSON.stringify(E())}, o), s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const N = x => norm('c', Object.assign({ p: [0, 1, 0] }, x)), many = Array.from({ length: 17 }, (_, i) => E({ mat: i }));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const lay = readLayout({ studio: 1, objects: [{ id: 'box001', file: 'box.glb', p: [0, 0, 0] }], cubes: [{ id: 'cub001', p: [0, 1, 0], tex: [E(), E({ on: 'gon001' }), E({ slot: 'bumpMap' }), E({ mat: -1 }), 'x', E({ file: '../x.png' })] }, { id: 'cub002', p: [0, 1, 0], tex: 'nope' }] });
+      STU.badTex = 3; const said = paneBlocks('scene').some(b => /3 of the trigger cubes' texture changes in layout.json could not be read/.test(b.p || '')); STU.badTex = 0;
+      return [J(s['c.txa001'].tex), J(collabState()) === a, J(N({ tex: [E()] }).tex), 'tex' in N({ tex: [] }), 'tex' in N({ tex: null }), N({ tex: 'x' }), N({ tex: {} }),
+        'tex' in N({ tex: [E({ on: 'BOX' }), E({ mat: -1 }), E({ mat: 1.5 }), E({ mat: 256 }), E({ slot: 'bumpMap' }), E({ file: '../a.png' }), E({ file: 'box.glb' }), {}, null, [E()]] }),
+        J(N({ tex: [E(), E({ file: 'tex/lime.png' })] }).tex), N({ tex: many }).tex.length, J(N(N({ tex: many }))) === J(N({ tex: many })), J(N({ tex: [E({ extra: 1 })] }).tex[0]),
+        J(L.cubes.find(c => c.id === 'txa001').tex) === J(s['c.txa001'].tex), J(back.items.find(x => x.id === 'txa001').rec) === J(STU.items.get('txa001').rec), back.texBad, 'tex' in L.cubes.find(c => c.id === 'cube01'),
+        J(lay.items.find(x => x.id === 'cub001').rec.tex), lay.texBad, lay.bad, said];
+    })()`);
+    const want = [JSON.stringify([E()]), true, JSON.stringify([E()]), false, false, null, null, false, JSON.stringify([E()]), 16, true, JSON.stringify(E()), true, true, 0, false, JSON.stringify([E()]), 4, 1, true];
+    if (JSON.stringify(st) !== JSON.stringify(want)) bad(['the state, norm and layout.json: ' + JSON.stringify(st) + ' (wanted ' + JSON.stringify(want) + ')']);
+  });
+
+  await step('studio texture swaps: the page\'s card: Change a texture... (the object from the list or by a click in the scene, a slot, a picture) adds an entry, one Undo step; its row flashes the object in amber; ✕ takes it off, one Undo step; the Items card says so; nothing with editing off or for a visitor', async () => {
+    const out = [];
+    await ss(`(select('txa001'), X.tab = 'item', renderPanes(), 0)`);
+    // (one pick at a time: Pick what it shows ends a texture pick, and the other way round)
+    const one = await ss(`[(itemAct('pickFor', 'show', 'txa001'), itemAct('txPick', null, 'txa001'), [STU.pick, !!STU.txp]), (itemAct('pickFor', 'show', 'txa001'), [!!STU.pick, STU.txp]), (STU.pick = null, renderPanes(), 0)]`);
+    if (JSON.stringify(one) !== '[[null,true],[true,null],0]') out.push('one pick at a time: ' + JSON.stringify(one));
+    const u0 = await ss('UNDO.length');
+    await tp.click('#pane-item [data-act="i:txPick"]');
+    const p1 = await ss(`[STU.txp && STU.txp.step, !!document.querySelector('#pane-item [data-act="i:txOn"][data-v="twn001"]'), UNDO.length]`);
+    await tp.click('#pane-item [data-act="i:txOn"][data-v="box001"]');
+    const p2 = await ss(`[STU.txp && STU.txp.step, STU.txp && STU.txp.on, STU.txp && STU.txp.slot, !!document.querySelector('#pane-item [data-act="i:txPic"][data-v="tex/lime.png"]')]`);
+    await tp.click('#pane-item [data-act="i:txBack"]');
+    await ss(`(pressItem('twn001'), renderPanes(), 0)`);   // (a click on Twin in the scene, as clickAt hands it on)
+    const p3 = await ss(`[STU.txp && STU.txp.step, STU.txp && STU.txp.on, STU.sel]`);
+    await tp.click('#pane-item [data-act="i:txSlot"][data-v="emissiveMap"]');
+    await tp.click('#pane-item [data-act="i:txPic"][data-v="tex/lime.png"]');
+    const p4 = await ss(`[JSON.stringify(STU.items.get('txa001').rec.tex), UNDO.length, STU.txp, renderPanes() || document.querySelectorAll('#pane-item [data-act="i:untex"]').length, document.querySelector('#pane-item').textContent.includes('Twin · Glow → lime.png')]`);
+    if (p1[0] !== 'obj' || !p1[1] || p1[2] !== u0 || p2[0] !== 'pic' || p2[1] !== 'box001' || p2[2] !== 'map' || !p2[3] || p3[0] !== 'pic' || p3[1] !== 'twn001' || p3[2] !== 'txa001') out.push('the pick: ' + JSON.stringify([p1, p2, p3]));
+    if (p4[0] !== JSON.stringify([E(), E({ on: 'twn001', slot: 'emissiveMap', file: 'tex/lime.png' })]) || p4[1] !== u0 + 1 || p4[2] !== null || p4[3] !== 2 || !p4[4]) out.push('the entry added, one Undo step: ' + JSON.stringify(p4));
+    // Twin in it: lime glows on Twin, the box magenta (lit and on its material as scanned, made above), for a head in the
+    // cube (Twin's material its own clone)
+    const tw = await ss(`(window.__tx.at(${JSON.stringify(A)}), [JSON.stringify(STUDIO.tex('twn001').on), JSON.stringify(STUDIO.tex('box001').on), (window.__tx.at(${JSON.stringify(OUT)}), JSON.stringify(STUDIO.tex('twn001').on))])`);
+    if (tw[0] !== '[["emissiveMap","lit","lime.png"]]' || tw[1] !== '[["map","lit","magenta.png"],["map","scan","magenta.png"]]' || tw[2] !== '[]') out.push('Twin\'s glow and the box\'s colour in the cube, none outside: ' + JSON.stringify(tw));
+    // its row flashes the box in amber; ✕ takes the second entry off (one Undo step), Undo puts it back
+    await ss(`(select('txa001'), renderPanes(), 0)`);
+    await tp.click('#pane-item [data-act="i:txFlash"][data-v="box001"]');
+    const fl = await ss(`(editStep(true), [STU.flash && STU.flash.id, STU.flash && STU.flash.tex, GL.flashBox.visible, GL.flashBox.material.color.getHex() === 0xffc24a, UNDO.length])`);
+    if (fl[0] !== 'box001' || !fl[1] || !fl[2] || !fl[3] || fl[4] !== u0 + 1) out.push('its row flashes the box in amber (no Undo step): ' + JSON.stringify(fl));
+    await tp.click('#pane-item [data-act="i:untex"][data-v="1"]');
+    const un = await ss(`[JSON.stringify(STU.items.get('txa001').rec.tex), UNDO.length, (undo(), JSON.stringify(STU.items.get('txa001').rec.tex))]`);
+    if (un[0] !== JSON.stringify([E()]) || un[1] !== u0 + 2 || un[2] !== p4[0]) out.push('✕ and Undo: ' + JSON.stringify(un));
+    // the Items card's line
+    const card = await ss(`(() => { const c = paneBlocks('items').flatMap(b => b.grid || []).find(x => x.v === 'txa001'); return c && c.sub; })()`);
+    if (card !== 'Cube · shows 0, hides 0, textures 2') out.push('the Items card\'s line: ' + card);
+    // editing off, and a visitor: no pick and no change
+    const off = await ss(`(() => {
+      const r0 = JSON.stringify(STU.items.get('txa001').rec);
+      setEdit(false); itemAct('txPick', null, 'txa001'); itemAct('untex', 0, 'txa001'); const a = [STU.txp, JSON.stringify(STU.items.get('txa001').rec) === r0];
+      setEdit(true); OPT.visit = true; select('txa001'); itemAct('txPick', null, 'txa001'); itemAct('untex', 0, 'txa001');
+      const pick = paneBlocks('item').flatMap(b => b.row || []).find(x => x.id === 'txpick');
+      const b = [STU.txp, JSON.stringify(STU.items.get('txa001').rec) === r0, !!(pick && pick.dis)];
+      OPT.visit = false; return a.concat(b);
+    })()`);
+    if (JSON.stringify(off) !== '[null,true,null,true,true]') out.push('editing off and a visitor: ' + JSON.stringify(off));
+    bad(out);
+  });
+
+  await step('studio texture swaps: the headset\'s card: its rows, Change a texture... by the trigger on the box, a slot and a picture pressed on the panel, ✕', async () => {
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = () => { const out = []; for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); out.push(...XR.main.regions.map(z => z.id)); } X.scroll = {}; return [...new Set(out)]; };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('txa001'); X.tab = 'item'; X.scroll = {}; draw();
+      const u0 = UNDO.length, rows = ids(), r = [rows.includes('txflash:0') && rows.includes('untex:1') && rows.includes('txpick')];
+      r.push(press('txpick'), STU.txp && STU.txp.step);
+      pressItem('box001');   // (the trigger on the box, as xrPress hands it on)
+      r.push(STU.txp && STU.txp.on, ids().includes('txpic:tex/magenta.png'));
+      r.push(press('txslot:aoMap'), STU.txp && STU.txp.slot, press('txpic:tex/magenta.png'), JSON.stringify(STU.items.get('txa001').rec.tex.slice(-1)[0]), UNDO.length - u0);
+      r.push(press('untex:2'), STU.items.get('txa001').rec.tex.length, UNDO.length - u0);
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    const want = [true, true, 'obj', 'box001', true, true, 'aoMap', true, JSON.stringify(E({ slot: 'aoMap' })), 1, true, 2, 2];
+    if (JSON.stringify(xr) !== JSON.stringify(want)) bad(['the headset\'s card: ' + JSON.stringify(xr) + ' (wanted ' + JSON.stringify(want) + ')']);
+  });
+
+  await step('studio texture swaps: deleting the box takes its entries out of every cube (one Undo step brings them back); duplicating it adds entries for the copy beside its own; a cube\'s copy keeps its entries; a group\'s copy; the figure switched to its GLB keeps its entry, its materials found again', async () => {
+    const out = [];
+    await ss(`(setRec('txa001', { tex: [${JSON.stringify(E())}] }), 0)`);
+    const d = await ss(`(() => {
+      const J = x => JSON.stringify(x), T = id => J((STU.items.get(id).rec.tex || []).map(e => e.on)), u0 = UNDO.length, r = [];
+      deleteItem('box001');
+      r.push(T('txa001'), 'tex' in STU.items.get('txb001').rec, 'tex' in STU.items.get('txc001').rec, UNDO.length - u0);
+      undo();
+      r.push(T('txa001'), T('txb001'), T('txc001'));
+      const nid = duplicateItem('box001');
+      r.push(J(STU.items.get('txa001').rec.tex.map(e => e.on === nid ? 'copy' : e.on)), J(STU.items.get('txc001').rec.tex.map(e => e.on === nid ? 'copy' : e.on)), UNDO.length - u0);
+      undo();
+      const cid = duplicateItem('txa001');
+      r.push(J(STU.items.get(cid).rec.tex) === J(STU.items.get('txa001').rec.tex));
+      undo();
+      putItem('grp001', 'g', norm('g', { name: 'Pair', items: ['box001', 'txb001'] }));
+      const before = new Set(STU.items.keys()), gid = duplicateGroup(STU.items.get('grp001')), made = [...STU.items.keys()].filter(k => !before.has(k));
+      const bc = made.find(k => STU.items.get(k).kind === 'o'), cc = made.find(k => STU.items.get(k).kind === 'c');
+      r.push(!!gid, J(STU.items.get(cc).rec.tex.map(e => e.on === bc ? 'copy' : e.on)), J(STU.items.get('txa001').rec.tex.map(e => e.on === bc ? 'copy' : e.on)));
+      undo(); removeItem('grp001');
+      return r;
+    })()`);
+    const want = ['[]', false, false, 1, '["box001"]', '["box001"]', '["box001"]', '["box001","copy"]', '["box001","copy"]', 1, true, true, '["copy"]', '["box001","copy"]'];
+    if (JSON.stringify(d) !== JSON.stringify(want)) out.push('delete, duplicate, a cube\'s copy, a group\'s copy: ' + JSON.stringify(d) + ' (wanted ' + JSON.stringify(want) + ')');
+    // the materials found again: by meshes and names, by names, and none when not known; an entry's material changed in a switch's change
+    const rm = await ss(`(() => {
+      const J = x => JSON.stringify(x), a = { name: 'a', meshes: ['m1'] }, b = { name: 'b', meshes: ['m2'] }, n = x => Object.assign({}, x, { meshes: [] });
+      const r = [J(texRemap([a, b], [b, a])), J(texRemap([n(a), n(b)], [n(b), n(a)])), J(texRemap([{ name: '', meshes: [] }], [{ name: '', meshes: [] }, { name: '', meshes: [] }])), texRemap(null, [a])];
+      change(() => texSwitched(new Set(['box001']), [3]));
+      r.push(STU.items.get('txa001').rec.tex[0].mat);
+      undo();
+      r.push(STU.items.get('txa001').rec.tex[0].mat);
+      return r;
+    })()`);
+    if (JSON.stringify(rm) !== '["[1,0]","[1,0]","[-1]",null,3,0]') out.push('texRemap and texSwitched: ' + JSON.stringify(rm));
+    // the figure with an entry, converted to a GLB and switched to it: its entry kept (the same object), on the material
+    // found again, put on its GLB's model for a head in the cube
+    await ss(`(setRec('txa001', { tex: [${JSON.stringify(E())}, ${JSON.stringify(E({ on: 'fig001' }))}] }), STUDIO.lastGLB = null, convertFile('figure.fbx'), 0)`);
+    if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000) || !await ss('STUDIO.lastGLB.ok')) { out.push('figure.fbx was not converted: ' + await ss('CV.note')); bad(out); return; }
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    const pat = '**/scenes/test/models/figure.glb*';
+    await tp.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    const mats = await ss(`[JSON.stringify(STUDIO.lastGLB.mats0), JSON.stringify(STUDIO.lastGLB.mats), JSON.stringify(texRemap(STUDIO.lastGLB.mats0, STUDIO.lastGLB.mats))]`);
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record, texRemap(STUDIO.lastGLB.mats0, STUDIO.lastGLB.mats)))`);
+    const sw = await until(`(() => { const f = STU.items.get('fig001'); return f.rec.file === 'models/figure.glb' && !!f.model && f.built === f.E.gen; })()`, 30000);
+    const g = await ss(`[JSON.stringify(STU.items.get('txa001').rec.tex[1]), (window.__tx.at(${JSON.stringify(A)}), JSON.stringify(STUDIO.tex('fig001').on)), (window.__tx.at(${JSON.stringify(OUT)}), JSON.stringify(STUDIO.tex('fig001').on))]`);
+    if (!sw || mats[2] !== '[0]' || g[0] !== JSON.stringify(E({ on: 'fig001' })) || g[1] !== '[["map","lit","magenta.png"]]' || g[2] !== '[]') out.push('the figure switched to its GLB keeps its entry: ' + JSON.stringify({ sw, mats, g }));
+    await ss(`(undo(), setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), 0)`);
+    await tp.unroute(pat);
+    bad(out);
+    await tp.close();
+  });
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
@@ -5523,7 +5761,7 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
 // staying in your hand). Kept across a reload (a device's old labels choice, under the old key, left behind), set by a
 // link. In a page of its own (its own storage, as a new device), with a pretend headset whose frames the test drives: a
 // scene story (qubits), a life-size one (flock) and a hand-written one (airports)
-{
+if (!ONLY) {
   const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   sp.on('pageerror', e => errors.push('settings: ' + (e.stack || e.message)));
   sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('settings: ' + m.text()); });
@@ -6227,7 +6465,7 @@ function OCCL_FAKE() {
       return s;
     } } });
 }
-{
+if (runs('occlusion')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
   const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
   const op = await ctx.newPage();
@@ -6377,7 +6615,7 @@ function OCCL_FAKE() {
 // as it starts, the chapter arrows, Next at a slideshow stop, Text opening the panel (HOST.focus() false, a resize sent)
 // and closing it, explore's drawer closed by default then open and closed, nothing on the Stories screen; #focus=off
 // giving the layout as ever, and a desktop page off and unchanged
-{
+if (!ONLY) {
   const ready = () => HOST.cur && HOST.cur.collab.scene() && document.getElementById('loading').classList.contains('gone');
   const watch = p => {
     p.on('pageerror', e => errors.push(e.stack || e.message));
