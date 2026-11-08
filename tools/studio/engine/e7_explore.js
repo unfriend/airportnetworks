@@ -124,6 +124,7 @@ function paneBlocks(tab) {
     if (STU.listing === 'loading' || STU.listing === 'waiting') B.push({ p: 'Reading the scene...', c: 'faint' });
     if (STU.note) B.push({ p: STU.note, c: 'amber' });
     if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
+    if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -310,7 +311,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
-  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}`; state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
@@ -408,7 +409,8 @@ function itemBlocks(it, B, ed) {
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
-    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
+    texCubeBlocks(it, B, dis);   // (the pictures it puts on objects while you are in it: e6i_tex.js)
+    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides, amber to what it changes the pictures of.', c: 'faint' });
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
@@ -685,7 +687,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -894,7 +896,7 @@ function pickables() {
 function rayPick(ray, o) {
   GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
-  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   const gh = !!c.object.userData.ghost;   // (its ghost: the ray met it where it is placed, not where it is drawn)
@@ -985,7 +987,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
-    if (k === 'escape' && (STU.pick || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
+    if (k === 'escape' && (STU.pick || STU.txp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
@@ -1004,7 +1006,7 @@ function clickAt(mx, my) {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.follow && !STU.cutTo && !STU.gpick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.cutTo && !STU.gpick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -1021,6 +1023,7 @@ function pressItem(id, ray) {
   if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
+  if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
   if (ray && it.kind === 'o') cutRay(id, ray);

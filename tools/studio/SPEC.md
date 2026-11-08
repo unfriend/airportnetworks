@@ -169,7 +169,9 @@ placed by itself).
   ],
   "cubes": [
     { "id": "c81mzt", "name": "Doorway", "p": [1.2, 1, -2], "yaw": 0, "size": [1.2, 2, 1.2], "mode": "while",
-      "show": ["k3f9qa", "s0ab12"], "hide": [] }
+      "show": ["k3f9qa", "s0ab12"], "hide": [] },
+    { "id": "n1ght0", "name": "Night", "p": [-2, 1, -1], "yaw": 0, "size": [1.2, 2, 1.2], "mode": "stay", "show": [], "hide": [],
+      "tex": [{ "on": "k3f9qa", "mat": 0, "slot": "map", "file": "pictures/atelier-night.jpg" }] }
   ],
   "sounds": [
     { "id": "s0ab12", "name": "Birds", "file": "sounds/birds.mp3", "p": [0, 2, -3], "vol": 0.8, "r": 1.5,
@@ -243,6 +245,14 @@ placed by itself).
   0.25 to 4 (1 by default); `null` reads as absent, anything else that is not such a path makes the record bad, and an
   item whose path would take the layout's paths past 6,000 keys is dropped and counted. A layout without it reads as
   before.
+- A cube's `tex` (optional, kept only when it has an entry, v124; "Trigger cubes that change textures" below): at most 16
+  entries `{ on, mat, slot, file }`, `on` an object's id, `mat` an integer 0 to 255 (the material's index as Change
+  texture lists the object's materials), `slot` one of `'map'`, `'normalMap'`, `'roughnessMap'`, `'metalnessMap'`,
+  `'aoMap'`, `'emissiveMap'`, `'alphaMap'`, `file` a picture of the scene (a path in its listing with a picture's
+  extension). An entry that is not one is dropped, and so is a second one for the same object, material and slot; a
+  `tex` that is not a list (and not `null`, read as absent) makes the cube bad. Read from a layout, the dropped entries
+  are counted (*3 of the trigger cubes' texture changes in layout.json could not be read*), and an entry for an object
+  the layout does not hold is dropped as the cube's lists drop such ids. A layout without it reads as before.
 - Limits: 300 objects, 100 cubes, 60 sounds, 100 cut-outs (and 16 on one object: "Cut-outs"), 50 groups, 200 shapes, 100
   empties; a `file` is a path in the scene's listing (at most 200 characters, no
   `..`); a list of ids in a cube only names items of this scene (others dropped when read). A sound that follows an
@@ -268,6 +278,54 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
   brighter while you are inside it), lines from a selected cube to what it shows (green) and hides (red), and objects a
   cube now hides from you drawn faint (about 0.3) instead of hidden, so they can still be picked; sounds play as a
   visitor would hear them. Not editing: cubes and sound markers are not drawn at all.
+
+## Trigger cubes that change textures (the owner, 8 November 2026)
+
+The owner: "trigger cube replace texture mode so that it can replace a texture on a model in the scene", then "no
+crossfade needed". `tools/studio/engine/e6i_tex.js`.
+
+- **What it does.** A cube's `tex` entries put a picture of the scene in one slot of one material of an object while the
+  cube is active for you (inside it, or a `stay` cube once entered): for each object, material and slot, of the active
+  cubes' entries the one from the cube entered last wins (the rule of `show` and `hide`, by when each was entered); with
+  none active the object's own picture is back. A switch, no fade. Each person's own, as everything a cube does: only the
+  cube's record goes to the room. As scanned shows only a colour picture (`map`); the other slots apply when lit (and a
+  slot its kind of material does not have, a Phong material's roughness or metalness, does nothing). Reset what I have
+  seen and the lobby give the own pictures back (they forget what was entered). Models only (an object's id).
+- **On the object's own materials** (its clones, `libClone`, lit and as scanned): another object of the same file never
+  changes with it. What each material had is kept and put back (the slot, and the factors a picture changes: roughness and
+  metalness set to 1, a black glow made white, an opacity picture making it see-through), as Change texture's preview
+  does. A material as scanned made while a cube's picture is on is made from the object's own pictures (`applyLight` puts
+  them back first; the cube's go on again in the same frame).
+- **The pictures** are read as the scene opens or an entry arrives (`CONV.picture`, as Change texture reads them: TIFF,
+  PSD and DDS too), drawn down to 2,048 px (or `&maxtex=` when lower), once per file, and sent to the GPU then
+  (`renderer.initTexture`), in each flip the objects need (a glTF's pictures are not flipped, the other loaders' are), so
+  the switch shows the picture in the same frame. Kept by the scene's opening and the file's time (a picture changed on the
+  relay is read again); freed when no entry names it.
+- **Previews win.** While Change texture or Fewer triangles is open on an object, the cubes put nothing on it (its own
+  pictures go back as either opens); once it closes, the cubes' state applies again.
+- **Editing** (the cube's card, page and headset alike; not for a visitor, `&visit`, nor with editing off; a cube locked in
+  place takes them as it takes its lists): *Changes textures*, one row per entry (*Box · Colour → paint.png*, the
+  material's name too when the object has several): a press flashes the object in amber for 1.6 s (green and red are the
+  lists'), ✕ takes it off (one Undo step). *Change a texture...* picks the object (pointing at it in the scene, the trigger
+  or a click, or the card's list of objects), then its material (a list, when it has more than one), the slot (Colour,
+  Normal, Roughness, Metalness, Occlusion, Glow, Opacity; Colour first) and a picture (the scene's pictures as Change
+  texture lists them, likeliest first; a headset eight at a time): the entry is added, one Undo step (one already there for
+  that object, material and slot is replaced). *Another object...* goes back a step, *Cancel* ends it (as do Escape,
+  another selection and editing off). A selected cube's lines run amber to what it changes the pictures of. The Items
+  pane's cube card says *Cube · shows 2, hides 1, textures 1*.
+- **Copies and deletions.** Deleting an object takes its entries out of every cube in the same step (Undo brings them
+  back). Duplicating an object adds, in every cube, an entry for the copy beside each of the original's; duplicating a cube
+  copies its entries; a group's copy: a cube of the group puts its pictures on the copies of the group's objects, a cube
+  outside it gains entries for them beside the originals' (16 a cube kept: the copies' past that are left out).
+- **A GLB switch** (Convert to GLB, Fewer triangles' and Change texture's Save) keeps the entries: the object keeps its id.
+  The converter keeps the materials in their order where it was tried (the test scene's figure), but glTF may list the
+  parts of a mesh with several materials in another order; so the conversion says how its materials came out (`toGLB`'s `mats`, by name and their meshes' names, and
+  the original's, `texMatsOf`) and each entry's material is found again in the GLB (`texRemap`: by its meshes' names and its
+  own name, else its meshes', else a name only it has, else the same place when there are as many), in the switch's change.
+  *Switch to the GLB* on a card (a GLB made earlier) has no such word: the entries keep their index there.
+- **Shared rooms.** `c.<id>` carries `tex` as `layout.json` does; FORMAT `networks-36` (v124: an older device would strip
+  the field and write the cube back).
+- Untested on a headset: how the switch looks on a Quest, the memory with many 2,048 px pictures there.
 
 ## Sounds (emitters)
 
@@ -428,7 +486,7 @@ The panes (page HTML and headset canvas twins, the same content):
   newer story*. Sounds that follow a model changed a sound's `state()` and so `FORMAT` (`networks-30`, v112); cut-outs
   added a kind of field (`x.<id>`) and so `FORMAT` again (`networks-31`, v113); groups (`g.<id>`) and an object's
   `faces` changed it once more (`networks-32`, v114); shapes (`p.<id>`), empties (`e.<id>`), `locked` on any record and
-  the scene's `settings` once more (`networks-34`, v119).
+  the scene's `settings` once more (`networks-34`, v119); a cube's texture changes (`tex`) once more (`networks-36`, v124).
 - Outside a room: what is placed is kept on this device too (`studioDraft.<relay or folder>.<scene>`, written a second
   after each change); opening the scene with a draft newer than the saved layout and different from it offers *Your
   unsaved changes from <time>: Restore / Discard*.
@@ -1586,6 +1644,9 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
   in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
   "Testing" in `AGENTS.md`.
+- Trigger cubes that change textures (v124): the smoke test's *studio texture swaps* steps (on the test scene, with two
+  solid pictures made in the page, a second object of `box.glb` and three cubes put in for them; `node tools/smoke.mjs
+  <url> --only 'studio texture swaps'` runs them alone): "Testing" in `AGENTS.md`.
 - The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
   on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
   loop join: "Testing" in `AGENTS.md`.

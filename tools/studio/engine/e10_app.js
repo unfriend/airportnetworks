@@ -352,6 +352,7 @@ const STUDIO = {
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
     pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
+    badTex: STU.badTex, txp: STU.txp,   // (the cubes' texture changes a layout lost; a cube's texture pick: e6i_tex.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
@@ -386,6 +387,9 @@ const STUDIO = {
   },
   // an item's ghost where it is placed (shown, lit, its pose, its parts), or null (e6h_ghost.js)
   ghost: id => ghostOf(id),
+  // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
+  // entries on, and every material's pictures by slot, lit and as scanned)
+  tex: id => texState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
@@ -423,6 +427,7 @@ return {
     TIMERS.clear();
     watchStop();
     pvClear();   // (the pictures' object URLs given back)
+    for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }

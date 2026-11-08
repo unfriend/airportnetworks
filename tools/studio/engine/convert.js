@@ -1092,6 +1092,9 @@ function makeConverter(THREE, hooks) {
     const t1 = performance.now();
     const gb = await new Promise((res, rej) => new T.GLTFLoader().parse(glb.slice(0), '', res, rej));
     const back = gb.scene, after = stats(back, gb.animations);
+    // (its materials with texture coordinates as loaded back, by name and their meshes' names: the studio finds a trigger
+    // cube's material again in them, as the order may differ from the original's)
+    const mats = matsOf(back).filter(e => e.uv).map(e => ({ name: e.name || '', meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))] }));
     after.parse = performance.now() - t1;
     const tol = Math.max(0.002, 0.005 * Math.max(...before.size)), why = [];
     if (after.tris !== ref.tris) why.push(`triangles ${ref.tris} became ${after.tris}`);
@@ -1185,7 +1188,7 @@ function makeConverter(THREE, hooks) {
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, mats, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 

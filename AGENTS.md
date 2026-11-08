@@ -229,7 +229,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   cut-outs; `engine/e6c_groups.js` the groups; `engine/e6d_shapes.js` the shapes, empties, locks, the scene's settings and the
   lobby hook; `engine/e6e_motion.js` the motions and the pose pipeline that draws an item; `engine/e6f_path.js` the
   recorded paths, the recorder and its loop join; `engine/e6g_behave.js` the behaviours; `engine/e6h_ghost.js` the ghost
-  where a moving item is placed, the page's arrows on it, and Pause), two sets (`stage`, the
+  where a moving item is placed, the page's arrows on it, and Pause; `engine/e6i_tex.js` the trigger cubes that change
+  pictures on objects), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -2644,7 +2645,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path`, and an object's, a shape's and an empty's its `behaviour` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path`, and an object's, a shape's and an empty's its `behaviour` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3673,8 +3674,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
-  ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
+  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex }` (lists of item
+  ids; `tex` optional, kept only when it has an entry, v124: up to 16 `{ on, mat, slot, file }`, "Trigger cubes that change
+  textures" below; an entry that is not one dropped, and counted when read from a layout; a layout without it reads as
+  before), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
   the object it follows, its bone's name, the offset in the target's frame; "Sounds" below), a cut-out `{ id, name, on,
   p, q, size }` in `cuts` (the object it cuts, and its middle, a full turn and its size in that object's frame, turned
   but not scaled; "Cut-outs" below; a layout without `cuts`, v112's, reads as before), a group `{ id, name, items }` in
@@ -3712,6 +3715,41 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   while you are in it), a selected cube's lines go green to what it shows and red to what it hides, and objects a cube
   hides from you are drawn faint (about 0.3) so they can still be picked; not editing, cubes and sound markers are not
   drawn at all.
+- **Trigger cubes that change textures** (v124; the owner, 8 November 2026: "trigger cube replace texture mode so that
+  it can replace a texture on a model in the scene", then "no crossfade needed"; `tools/studio/SPEC.md`, "Trigger cubes
+  that change textures"; `engine/e6i_tex.js`). A cube's record may hold `tex`, up to 16 entries `{ on, mat, slot, file }`:
+  an object's id (models only), one of its materials (its index as Change texture lists the object's materials, `ctMats`:
+  those with texture coordinates), a slot (`map`, `normalMap`, `roughnessMap`, `metalnessMap`, `aoMap`, `emissiveMap`,
+  `alphaMap`) and a picture of the scene (`normTex`: an entry that is not one is dropped, as is a second for the same
+  object, material and slot; `tex` not a list makes the cube bad; read from a layout, the dropped ones are counted,
+  `STU.badTex`, and those for objects the layout lacks dropped as its lists drop ids). While a cube is active for you its
+  entries apply: for each object, material and slot, of the active cubes' entries the one from the cube entered last wins
+  (`c.since`, show and hide's rule); with none, the object's own picture is back. A switch, no fade; each person's own, as
+  every cube is (only the cube's record goes to the room). As scanned shows only a colour picture; the other slots apply
+  lit (a slot its material has not, Phong's roughness, does nothing). On the object's own materials (its clones,
+  `libClone`): another object of the same file never changes with it; what each had is kept and put back (`texOn`,
+  `texOff`, as `ctShow` does; `applyLight` puts the own pictures back first, so a material as scanned made meanwhile takes
+  its own), only when what an object wants changes (`texStep`, each frame after the models are built: its entries, the
+  pictures ready, lit or as scanned, its model built again; nothing at all while no cube has an entry and none is on).
+  The pictures are read as the scene opens or an entry arrives (`CONV.picture`: TIFF, PSD and DDS too; at most 2,048 px,
+  or `&maxtex=` when lower; kept by the scene's opening and the file's time), sent to the GPU then
+  (`renderer.initTexture`) in each flip the objects need (glTF's not flipped), so the switch is in the same frame, and
+  freed when nothing names them. Reset what I have seen and the lobby hook give the own pictures back (they forget what
+  was entered). Change texture's and Fewer triangles' previews on the same object win while open (`texHold`: its own
+  pictures back as either opens), then the cubes' state applies again. The cube's card (page and headset; not for a
+  visitor, nor with editing off; a cube locked in place takes them as it takes its lists): *Changes textures*, a row per
+  entry (*Box · Colour → paint.png*; a press flashes the object in amber, ✕ takes it off, one Undo step) and *Change a
+  texture...* (`STU.txp`: the object, pointed at (the trigger or a click, `pressItem`) or from the card's list, then its
+  material when it has more than one, the slot, Colour first, and a picture as Change texture lists them, a headset eight
+  at a time: the entry added, one Undo step; *Another object...*, *Cancel*, Escape, another selection and editing off end
+  it); a selected cube's lines run amber to the objects it changes; the Items card *Cube · shows 2, hides 1, textures 1*.
+  Deleting an object takes its entries out of every cube in the same step; duplicating it adds, in every cube, an entry
+  for the copy beside each of its own (`texCopy`); a cube's copy keeps its entries; a group's copy maps them (a cube of
+  the group onto the copies, one outside it gains entries for them). A GLB switch keeps them (the object keeps its id):
+  the conversion says how its materials came out (`toGLB`'s `mats`, the original's `texMatsOf`) and each entry's material
+  is found again there (`texRemap`, `texSwitched`, in the switch's change; glTF may list a mesh with several materials in
+  another order); *Switch to the GLB* on a card keeps the index. `STUDIO.tex(id)` for tests. FORMAT `networks-36`. Untested
+  on a headset: how the switch looks on a Quest, the memory with many 2,048 px pictures there.
 - **Sounds** (emitters): a sound file placed at a point, played through the shell's context (`HOST.audio.fx()`, never
   one of its own), each through an HRTF `PannerNode` (inverse distance, full volume within `r`, `rolloff` 1,
   `maxDistance` 50 m) and its own gain. The listener is the head in a headset (the shell's `HOST.sfx.listen`) and the
@@ -4324,7 +4362,13 @@ and fails on console errors:
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
 node tools/smoke.mjs http://127.0.0.1:8123/
+node tools/smoke.mjs http://127.0.0.1:8123/ --only studio       # only the studio's pages
 ```
+
+`--only <words>` (v124) runs only the steps whose names start with the words and the blocks that hold them (each block
+of steps is guarded by its name, `runs(...)`; the blocks of mixed names, the headset settings and focus mode, run only
+without it): `--only studio` the studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own
+steps; the release run is the whole test.
 
 It needs Playwright with a Chromium build (`npm i --no-save playwright` and
 `npx playwright install chromium` once, or a global install; see
@@ -4572,6 +4616,33 @@ object's, a shape's, an empty's, a sound's) and giving them back, `norm`'s rules
 later, at most 120 s, 8 finite numbers a key, a turn of length 0, play, start and speed, a cube's and a cut-out's
 ignored, a following sound's kept and not played), a layout and a state from the room past 6,000 keys, and a GLB switch
 of the figure turning its keys (drawn where it was, its turn times the baked one).
+Its *studio texture swaps* steps run on a page of their own at `&scene=test` (v124; `--only 'studio texture swaps'` runs
+them alone, about two minutes), with two solid 8 px pictures made in the page and served as the scene's own
+(`tex/magenta.png`, `tex/lime.png`), *Twin* (a second object of `box.glb`) and three cubes put in for them (*Magenta* and
+*Lime* overlapping, both on the box's colour, and *Stays*, a cube that stays, on it in lime): the pictures read once, a
+GLB's without flipping and sent to the GPU ahead; pixels read back from renders of the box's and Twin's fronts with a
+pretend head moved about: outside its own, in *Magenta* magenta, in both *Lime* (entered last), in *Lime* alone lime, in
+both again *Magenta* (entered last), outside its own, in *Stays* lime and still lime outside, in *Magenta* after it
+magenta and lime again outside, Twin its own throughout and its materials untouched; Reset what I have seen and the lobby
+hook giving its own back; Change texture's preview opened on the box with the head in *Magenta* (its own shown, the box
+`held`), the cube's again once it closes; as scanned (its material as scanned made while the cube's picture was on: from
+its own) the colour change shown and a normal-map entry on its lit material only, out of the cube both materials' own
+pictures; the state and `layout.json` carrying `tex` and giving it back, `norm`'s rules (an entry that is not one
+dropped: an id that is not one, a material of -1, 1.5 or 256, a slot it has not, a path with `..`, a model's file, `{}`,
+`null`, a list; a second for the same object, material and slot; 17 kept as 16; `null` or `[]` absent; a string or an
+object a bad cube; an unknown field dropped), a layout's four bad entries counted (`texBad`) and one for an object it
+lacks dropped, a cube whose `tex` is a string bad, the Scene pane's sentence; the page's card: *Change a texture...*, the
+object from the card's list, *Another object...*, Twin by a click in the scene (`pressItem`), Glow and *lime.png*: the
+entry added (one Undo step), Twin glowing lime in the cube and the box magenta, nothing outside; its row flashing the box
+in amber (no Undo step); ✕ (one Undo step) and Undo; the Items card *Cube · shows 0, hides 0, textures 2*; editing off and
+a visitor (`OPT.visit`): no pick, no change, the button greyed; the headset's card (its rows, *Change a texture...*
+pressed, the trigger on the box, Occlusion and *magenta.png* pressed on the panel, the entry added, ✕: one Undo step
+each); deleting the box taking its entries out of all three cubes (one Undo step, Undo bringing them back), duplicating it
+adding an entry for the copy beside the box's in *Magenta* and *Stays*, a cube's copy keeping its entries, a group (the
+box and *Lime*) copied (the cube's copy on the box's copy, *Magenta* gaining an entry for it); `texRemap` (two materials
+swapped by meshes and names, by names, none known) and `texSwitched` (a material's index changed in a switch's change,
+Undo); and the figure, with an entry, converted to a GLB in the page and switched to it: its entry kept, its material found
+again (`[0]`), put on its GLB's model in the cube and off outside.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict

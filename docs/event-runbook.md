@@ -283,8 +283,8 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 
 ## 4. The studio: your own scenes
 
-The studio (`#studio`) shows your own models, see-through trigger cubes that show and hide them as people walk in and
-out, and sounds placed in the room, life size; the relay on the laptop serves the files and saves where everything
+The studio (`#studio`) shows your own models, see-through trigger cubes that show and hide them (or change their
+pictures) as people walk in and out, and sounds placed in the room, life size; the relay on the laptop serves the files and saves where everything
 stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the formats) and
 [relay/README.md](../relay/README.md) ("Your own scenes").
 
@@ -326,7 +326,8 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
   on its row in the Shared dialog (editing is refused while locked; the circle itself: **Lock circles**).
 - [ ] A visitor's headset or screen on its own: the link `https://<address>:8787/#studio&scene=<name>&visit` (no
   editing and no uploads at all), with `&anchor=on` to keep the scene at one spot in the real room.
-- [ ] Each person's trigger cubes are their own: what one headset's place reveals, another's may not.
+- [ ] Each person's trigger cubes are their own: what one headset's place reveals, another's may not (also a picture a
+  cube changes on a model).
 - [ ] The scene's sounds follow each device's **Sound** button only (not **Sound effects** or **Narration**).
 
 ## 5. When things go wrong
@@ -393,7 +394,8 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
   reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;
 - the studio (section 4): a scene's size and placement in AR and VR, carrying, sizing and stretching things with the
-  grips, the VR stick walk, objects on the real floor in AR, the trigger cubes as people walk, the scene's sounds through
+  grips, the VR stick walk, objects on the real floor in AR, the trigger cubes as people walk (and the pictures they
+  change on models: the switch, and a Quest's memory with many 2,048 px pictures), the scene's sounds through
   the headset (streamed long ones too), the frame rate with a big scan (the 397,066-triangle atelier), **Studio here**
   and standing in its circle, and a visitor's headset with `&visit`;
 - the room setup guide and its startup flow (v107, v109): whether it opens at the right moments (as every headset

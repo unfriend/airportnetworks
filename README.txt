@@ -115,6 +115,12 @@ scene for everyone at it; several studio circles can stand in a room.
   record its members one by one. While you record, a ghost stays where it
   began: end there (it lights up) and a loop closes smoothly, its still start
   and end cut (Keep it as recorded undoes that).
+- A trigger cube can change a model's picture while you are in it: on the
+  cube's card Change a texture..., point at the model (or pick it), then its
+  material, a slot (Colour first) and one of the scene's pictures. Walk in and
+  the picture switches at once, walk out and its own is back (a cube that stays
+  keeps it); the one entered last wins. Only that object changes, not others of
+  the same file, and each person sees what their own place does.
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth
