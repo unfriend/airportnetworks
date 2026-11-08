@@ -282,6 +282,16 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   story change, look here first.
 - Stories must create the renderer with `HOST.makeRenderer(...)`, never
   `new THREE.WebGLRenderer`.
+- Controllers after standby (`HOST.inputsGuard` in `index.html`, v124; the owner, 8 November 2026: "sometimes after
+  sleep the controllers cannot click on buttons and one has to open the quest menu and close it again"). three.js r128
+  moves its controllers every frame by index from `session.inputSources` but hands a select or squeeze to a controller
+  only through a map it fills on `inputsourceschange`, so a source the browser replaces without that event keeps its ray
+  and loses its presses. Each frame of a headset session (`HOST.loading.wrap`, outermost) the sources are compared with
+  those last seen with a real event; from the session going hidden until a minute after it is visible again (a sleep), a
+  change nobody announced is announced by a synthetic `inputsourceschange` (what
+  went, what came; `synthetic: true`), which three.js's handler maps afresh, the stories hearing `disconnected` and
+  `connected` as for a real one. Logged as `inputs replaced`. Whether this is what a Quest does after waking is untested:
+  the headsets' logs will say.
 - Loading (29 October 2026, the owner: "some rooms like 'the future' take a little time to load"). A story builds in
   steps, each a task of its own (its `LOAD` queue, see "Inside a story"), and reports each with
   `HOST.progress(done, total, label)` (stories guard it, `if (HOST.progress)`, so an older shell still works). The
@@ -977,8 +987,9 @@ probe, `roomSync` and `shapeSig` it reuses.
   probe has looked when the depth gives its own range, else metres; the probe (the room test's auto reading: a 16 x 16
   grid of raw values read back, a few times at most a session until it has values, an integer texture refused by a
   float sampler tried with an integer one) decides once. The depth's own view is taken as the eye's (on the Quest it
-  matched to 0 cm and 0.03 degrees). Depth sensing is paused while unused (`pauseDepthSensing`, `resumeDepthSensing`,
-  where offered).
+  matched to 0 cm and 0.03 degrees). Depth sensing runs for the whole AR session, whatever the setting (v124: until
+  then it was paused while unused, and a Quest whose depth was paused from the session's first frame, the setting at
+  *nothing*, never gave it back when the setting was turned on again: the owner, 8 November 2026).
 - **Room.** `frame.detectedPlanes` and `detectedMeshes` (when the session enabled them) drawn depth-only in the story's
   scene, each part posed every frame by `frame.getPose(its space, renderer.xr.getReferenceSpace())`, built again only
   when its shape really changes (`shapeSig`: a plane by its corners, a mesh by its sizes and a sample of its values,
@@ -995,7 +1006,7 @@ probe, `roomSync` and `shapeSig` it reuses.
   the probe; the room's parts), `line()` (the Debug tab's *Real world* line), `parts()`, `sig()`.
 - **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
   room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
-  the floor), the cost with a big room scan and depth together in a heavy story, `pauseDepthSensing` on Quest Browser,
+  the floor), the cost with a big room scan and depth together in a heavy story, depth sensing left running while the setting is *nothing*,
   CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
 
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
@@ -4152,7 +4163,7 @@ real-world occlusion (v119: a pretend AR headset driven through three.js r128's 
 texture array made in the page each frame, window depth with no far plane, and a pretend room scan; a magenta test plane
 read back from the layer's framebuffer hidden where the real world is nearer and drawn where it is farther, in both
 eyes, also the other way round, an eye without depth unoccluded, the real world 2 cm nearer not hiding it; the room's
-wall hiding what stands behind it with depth paused; off; both; the menu never hidden; the default *room and people*
+wall hiding what stands behind it, depth sensing never paused or resumed (v124); off; both; the menu never hidden; the default *room and people*
 and the menu's row going round, kept; a story's own cleared by a story change and the objects hung in the next story's
 scene; nothing drawn after the session ends; CPU depth; `#occl=off`; `HOST.xr.request`'s ladder (a TypeError naming
 `'unsigned-short'`, another refusal) and VR as ever; the session line in every story),

@@ -183,13 +183,11 @@ void main() {
     S = null;
     hide();
   }
-  // depth sensing paused while nothing uses it (where the browser offers it)
-  function pauseDepth(p) {
-    if (!S || S.paused === p) return;
-    S.paused = p;
-    const s = S.session, f = p ? s.pauseDepthSensing : s.resumeDepthSensing;
-    if (typeof f === 'function') try { f.call(s); } catch (e) { warn('pausing the depth', e); }
-  }
+  // Depth sensing is never paused (v124; until then it was paused while nothing used it). The owner, 8 November 2026:
+  // "When real world hides is set to nothing on startup it never can be turned on and one needs to exit the headset and
+  // go in again with it enabled": a Quest whose depth sensing was paused from the session's first frame did not give it
+  // back after resumeDepthSensing. Whatever the reason, the depth now runs for the whole AR session (the setting only
+  // decides what is drawn with it)
 
   // ---------------------------------------------------------------------------------------------- the depth
   // one 1 x 1 texture of zeros of a kind (an eye without depth this frame: every pixel discarded, never the other eye's
@@ -490,7 +488,6 @@ void main() {
     const ref = r.xr.getReferenceSpace();
     S.views = null;
     try { const vp = f.getViewerPose(ref); S.views = vp ? vp.views : null; } catch (e) { /* not this frame */ }
-    if (S.depth.enabled) pauseDepth(!wantD);
     let d = false, rm = false;
     if (S.D) S.D.eyes = [];
     if (wantD && S.views) {

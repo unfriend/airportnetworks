@@ -6281,19 +6281,19 @@ function OCCL_FAKE() {
     await shows('the real world 2 cm nearer than the plane', '1111');
     await op.evaluate(() => { window.__occl.near = 0.5; });
   });
-  await step('occlusion: room: the scan\'s wall hides what stands behind it, depth paused; off: nothing hidden; both: both', async () => {
+  await step('occlusion: room: the scan\'s wall hides what stands behind it, depth never paused (v124); off: nothing hidden; both: both', async () => {
     const p0 = await op.evaluate(() => window.__occl.pauses);
     await op.evaluate(() => { HOST.occlusion.set('room'); window.__occl.near = window.__occl.far = 4; });
     await shows('room, the wall on the left', '0101');
     const s = await st(), p1 = await op.evaluate(() => window.__occl.pauses);
-    if (s.quad || !s.roomShown || !s.paused || !s.room || s.room.planes !== 1 || s.room.built < 1 || p1 !== p0 + 1) errors.push('occlusion: room state ' + JSON.stringify(s) + ' pauses ' + p0 + ' -> ' + p1);
+    if (s.quad || !s.roomShown || s.paused || !s.room || s.room.planes !== 1 || s.room.built < 1 || p1 !== p0) errors.push('occlusion: room state ' + JSON.stringify(s) + ' pauses ' + p0 + ' -> ' + p1);
     await op.evaluate(() => { HOST.occlusion.set('off'); window.__occl.near = window.__occl.far = 0.5; });
     await shows('off, the real world near everywhere', '1111');
     if ((await st()).root) errors.push('occlusion: off still draws its objects');
     await op.evaluate(() => { HOST.occlusion.set('both'); window.__occl.near = 4; window.__occl.far = 0.5; });
     await shows('both: the wall on the left, people on the right', '0000');
-    const r = await op.evaluate(() => window.__occl.resumes);
-    if (r < 1) errors.push('occlusion: depth sensing never resumed');
+    const r = await op.evaluate(() => [window.__occl.pauses, window.__occl.resumes]);
+    if (r[0] || r[1]) errors.push('occlusion: depth sensing paused or resumed (it runs for the whole session since v124): ' + r);
   });
   await step('occlusion: the menu is never hidden (the real world nearer everywhere)', async () => {
     await op.evaluate(() => { window.__occl.near = window.__occl.far = 0.3; HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });

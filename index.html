@@ -1934,6 +1934,7 @@ HOST.loading = (() => {
       if (!fn || fn === loop) return fn;
       if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
+      if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js: announced again, before the story's frame)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
@@ -1956,6 +1957,54 @@ HOST.progress = (done, total, label) => HOST.loading.progress(done, total, label
 // draws both eyes), with the shell's things in the story's scene (rings, icons, the menu, the read-out itself), and how
 // long the function took (the frame's code: scripts and handing the drawing to the GPU, not the GPU's own time). Each
 // second's means, as stats() ({ tri, calls, js: ms, n: frames, at }); the loading scene's frames are never counted
+// Controllers after standby (v124; the owner, 8 November 2026: "sometimes after sleep the controllers cannot click on
+// buttons and one has to open the quest menu and close it again and then they work"). three.js r128 moves its controllers
+// every frame by index from session.inputSources, but hands a select or squeeze to a controller only through a map it
+// fills on inputsourceschange: a source the browser replaces without that event (as a Quest may after waking) keeps its
+// ray and loses its presses until the next real event (opening and closing the system menu sends one). So each frame of
+// a headset session the sources are compared with those last seen with the event, and from the session going hidden
+// until a minute after it is visible again (a sleep, the headset taken off) a change nobody announced is announced to
+// three.js by a synthetic inputsourceschange (what went and what came, or nothing but the new order): its handler maps
+// every source to its controller again, and the stories hear 'disconnected' and 'connected' as for a real one. Outside
+// that window it only watches (a pretend headset in the tests swaps its sources by hand). Logged (inputs replaced), so
+// the headsets' logs say whether it happens.
+HOST.inputsGuard = (function () {
+  const G = { s: null, seen: [], fixes: 0, hidden: false, visAt: 0, win: 60000 };
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const armed = () => G.hidden || (G.visAt > 0 && performance.now() - G.visAt < G.win);
+  function step() {
+    const s = HOST.session;
+    if (!s) { G.s = null; G.seen = []; G.hidden = false; G.visAt = 0; return; }
+    let now;
+    try { now = Array.from(s.inputSources || []); } catch (e) { return; }
+    if (s !== G.s) {
+      G.s = s; G.seen = now; G.hidden = false; G.visAt = 0;
+      s.addEventListener('inputsourceschange', e => { if (!e.synthetic && G.s === s) try { G.seen = Array.from(s.inputSources || []); } catch (er) { /* gone */ } });
+      s.addEventListener('visibilitychange', () => {
+        if (G.s !== s) return;
+        if (s.visibilityState === 'hidden') G.hidden = true;
+        else if (s.visibilityState === 'visible' && G.hidden) { G.hidden = false; G.visAt = performance.now(); }
+      });
+      return;
+    }
+    if (same(now, G.seen)) return;
+    const added = now.filter(x => !G.seen.includes(x)), removed = G.seen.filter(x => !now.includes(x));
+    G.seen = now;
+    if (!armed()) return;
+    G.fixes++;
+    let e;
+    try { e = new XRInputSourcesChangeEvent('inputsourceschange', { session: s, added, removed }); } catch (er) { e = new Event('inputsourceschange'); e.added = added; e.removed = removed; e.session = s; }
+    try { Object.defineProperty(e, 'synthetic', { value: true }); } catch (er) { /* frozen */ }
+    try { if (HOST.collab && HOST.collab.log) HOST.collab.log('inputs replaced', { added: added.length, removed: removed.length, n: now.length, vis: s.visibilityState }); } catch (er) { /* no log */ }
+    try { s.dispatchEvent(e); } catch (er) { console.warn('announcing the controllers again:', er); }
+  }
+  return {
+    wrap(fn) { return function (t, f) { if (f) try { step(); } catch (e) { /* never in the story's way */ } return fn(t, f); }; },
+    state: () => ({ fixes: G.fixes, seen: G.seen.length, armed: armed() }),
+    win(ms) { if (ms > 0) G.win = ms; return G.win; },
+  };
+})();
+
 HOST.perf = (function () {
   const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null };
   const on = () => !!(HOST.session && HOST.xr.fps && HOST.xr.fps());
