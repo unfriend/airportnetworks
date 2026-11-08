@@ -16,7 +16,7 @@
 const FT_DEFAULT = 0.2, FT_PICKS = [0.1, 0.2, 0.5];
 const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0, fill: null, fsw: [], fLight: '' };
 const CT = { id: '', mat: 0, slot: 'map', pic: null, tex: null, saved: null, busy: false, gen: 0, note: '', noteC: 'muted', page: 0, saving: false, after: 0, light: '', model: null };
-const CT_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];
+const CT_SLOTS = TXS_SLOTS;   // (the slots a trigger cube changes too: e6i_tex.js)
 const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
 // an object these work on: a model of the scene, in, editing on (never a visitor's kiosk)
 const canLite = it => !!(it && it.kind === 'o' && editOn() && !OPT.visit && it.model && it.E && it.E.state === 'ready' && it.E.info && STU.fileMap.has(it.rec.file) && MODEL_EXT.includes(extOf(it.rec.file)));
@@ -92,6 +92,7 @@ async function ftPreview() {
   if (!it || !it.model || !it.E || !it.E.root) return;
   const gen = ++FT.gen, b = liteSrc(it), keep = FT.keep, k = Math.min(1, Math.round(b.n0 * keep) / Math.max(1, b.cur));
   ftUnswap(); ftDispose();
+  texHold(it);   // (a trigger cube's pictures off meanwhile: its own are filled; e6i_tex.js)
   FT.busy = true; FT.note = ''; dirty(true);
   await new Promise(r => later(r, 40));   // (the note shows before the work holds the page)
   if (gen !== FT.gen) return;
@@ -257,6 +258,7 @@ async function ctPick(path, file) {
 function ctShow(it) {
   const m = ctMats(it)[CT.mat];
   if (!m || !CT.tex || !it.model) return;
+  texHold(it);   // (a trigger cube's pictures off while this preview is open: its own are what it saves from; e6i_tex.js)
   const slot = CT.slot, saved = [];
   for (const x of ctTargets(it, m)) {
     if (x.scan && slot !== 'map') continue;   // (as scanned shows only its colour picture)

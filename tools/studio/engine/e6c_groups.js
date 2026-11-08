@@ -231,7 +231,8 @@ function groupDupWhy(g) {
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the
-// group follows its copy; each copy also joins the lists of the cubes outside the group its original is in (as cubeCopy)
+// group follows its copy; each copy also joins the lists of the cubes outside the group its original is in (as cubeCopy),
+// and a picture a cube puts on an object of the group goes on its copy too (a cube of the group: on the copy instead)
 function duplicateGroup(g) {
   if (!editOn() || groupDupWhy(g)) return '';
   const ms = members(g), ids = new Set(ms.map(m => m.id)), b = atPlaced(groupMeasured(g), () => groupBox(g, new THREE.Box3()));
@@ -247,7 +248,9 @@ function duplicateGroup(g) {
     }
     for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), locked: undefined })));
+    // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
+    const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
@@ -261,6 +264,8 @@ function duplicateGroup(g) {
       const more = l => l.concat([...map].filter(([a]) => l.includes(a)).map(([, z]) => z));
       const sh = more(c.rec.show), hi = more(c.rec.hide);
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
+      // (and a picture it puts on an object of the group, on that object's copy too, beside it)
+      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: c.rec.tex.flatMap(e => (map.has(e.on) ? [e, Object.assign({}, e, { on: map.get(e.on) })] : [e])) });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });

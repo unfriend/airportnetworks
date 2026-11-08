@@ -132,6 +132,8 @@ async function convertFile(path, o = {}) {
       tex.clear();
       for (const [k, x] of again) tex.set(k, x);
     }
+    // (its materials as the studio lists them, to find a trigger cube's material again in the GLB: e6i_tex.js)
+    const mats0 = texMatsOf(m.root);
     // pictures laid on in slots: fetched, read and put on their materials (the GLB made again from itself has the earlier
     // ones in it already)
     const gltf = ['glb', 'gltf'].includes(extOf(path));
@@ -150,7 +152,7 @@ async function convertFile(path, o = {}) {
     // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
     const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
-    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture, mats0, mats: r.mats };
     const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
@@ -164,7 +166,7 @@ async function convertFile(path, o = {}) {
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
-      const n = out === path ? 0 : switchToGLB(path, out, r.record);
+      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats));
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
@@ -244,8 +246,10 @@ async function convertAll() {
 // (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
 // figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
 // 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it.
-// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path
-function switchToGLB(orig, glb, rec) {
+// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path. A trigger
+// cube's texture changes on such an object keep it (its id is the same); their materials are found again in the GLB when
+// the conversion says how its materials came out (tmap, texRemap: e6i_tex.js), else they keep their index
+function switchToGLB(orig, glb, rec, tmap) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
   const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
@@ -268,6 +272,7 @@ function switchToGLB(orig, glb, rec) {
       const k = kOf(x.rec.on);
       setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).multiplyScalar(k).toArray().map(v => keep(v, 1000)), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray(), size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) });
     }
+    texSwitched(ids, tmap);   // (a trigger cube's texture changes on them, on the same materials in the GLB)
   });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;

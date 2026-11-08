@@ -11,11 +11,12 @@
 // each change is a new record (the shared room keeps the old one to compare with).
 const STU = {
   scene: '', listing: 'none', files: [], fileMap: new Map(), items: new Map(),
-  saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
+  saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, badTex: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
+  txp: null,   // (a cube picking an object, its material, a slot and a picture for its texture changes: { id, step, on, mat, slot, page }; e6i_tex.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
 };
@@ -69,6 +70,9 @@ function norm(kind, x) {
     if (Math.abs(yaw) > 3.1416) yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
     const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(okId))].slice(0, 400) : null);
     const r = { name: name('Cube'), p: P, yaw: nz(r4(yaw)), size: sz.map(v => r3(Math.min(100, Math.max(0.05, v)))), mode: one('mode', ['while', 'stay'], 'while'), show: ids('show'), hide: ids('hide') };
+    // the pictures it puts on objects while it is active for you, kept only when there are any (an entry that is not one
+    // dropped, at most 16: e6i_tex.js); not a list (and not null) makes the record bad
+    if (x.tex != null) { const t = Array.isArray(x.tex) ? normTex(x.tex) : null; if (!t) return null; if (t.length) r.tex = t; }
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -230,6 +234,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
+  if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
@@ -289,6 +294,7 @@ function dropModel(it) {
   }
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
+  it.txOn = null; it.txSig = '';   // (a cube's pictures were on its materials, gone with them: e6i_tex.js)
 }
 function buildModel(it) {
   const E = it.E;
@@ -329,6 +335,7 @@ function placeFresh(it, at) {
 }
 function applyLight(it) {
   if (!it.model) return;
+  texOff(it);   // (its own pictures first, so a material as scanned made now takes its own colour picture: the cubes' go on again, e6i_tex.js)
   const mode = it.rec.light;
   for (const m of it.model.meshes) {
     if (mode === 'scan' && !m.userData.scan) m.userData.scan = Array.isArray(m.userData.lit) ? m.userData.lit.map(scanMat) : scanMat(m.userData.lit);
@@ -607,6 +614,7 @@ function itemsStep(dt, now) {
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
+  texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
   // model goes where its bone is now
@@ -666,7 +674,8 @@ function editStep(editing) {
     t.updateWorldMatrix(true, false);
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
-  // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it
+  // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it, amber
+  // for a picture the cube puts on it
   const fl = editing && STU.flash && performance.now() - STU.flash.at < FLASH_MS ? STU.items.get(STU.flash.id) : null, FB = GL.flashBox;
   FB.visible = !!fl;
   if (fl) {
@@ -674,14 +683,14 @@ function editStep(editing) {
     else { const b = _flb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fls.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fls).max(_flm); FB.matrix.compose(_sw, _flq, _fls); }
     FB.matrixWorldNeedsUpdate = true;
     const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
-    FB.material.color.setHex(hid ? 0xff5a4b : 0x3ee08f);
+    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it)
     FB.material.opacity = 0.35 + 0.65 * Math.abs(Math.cos((performance.now() - STU.flash.at) / FLASH_MS * Math.PI * 4));
   } else if (STU.flash && !editing) STU.flash = null;
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
   if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]]]) for (const id of list) {
+    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]]]) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -900,7 +909,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -1055,14 +1064,17 @@ function deleteItem(id) {
   if (STU.pick && gone.has(STU.pick.id)) STU.pick = null;
   sfxAct('snap', 'stage', 'centre');
 }
-// items deleted together (within a change): an object's cut-outs go with it; the cubes that list them let them go; the
-// sounds that follow a deleted object and stay stand where they are, following nothing; the groups that hold them let them
-// go, and one left with fewer than 2 members goes too (not the one picking its members now). Undo brings all back
+// items deleted together (within a change): an object's cut-outs go with it; the cubes that list them let them go (and the
+// pictures they put on them); the sounds that follow a deleted object and stay stand where they are, following nothing;
+// the groups that hold them let them go, and one left with fewer than 2 members goes too (not the one picking its members
+// now). Undo brings all back
 function deleteItems(list) {
   const gone = new Set();
   for (const id of list) { gone.add(id); for (const x of cutsOn(id)) gone.add(x.id); }
   const out = l => l.filter(i => !gone.has(i));
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
+  // (and the pictures they put on a deleted object: e6i_tex.js)
+  for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -1086,6 +1098,8 @@ function duplicateItem(id) {
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
+    // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
+    if (it.kind === 'o') texCopy(id, nid);
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -1129,7 +1143,7 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; },
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; },   // (one pick at a time: its texture pick ends, e6i_tex.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -1200,6 +1214,7 @@ function select(id) {
   if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
+  if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)

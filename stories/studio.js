@@ -16789,7 +16789,7 @@ function openScene(name, how, again) {
   pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    bad: 0, badTex: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
@@ -16815,7 +16815,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
@@ -16876,10 +16876,12 @@ async function refreshFiles(changed) {
 // cuts (v112's), without groups (v113's) or without shapes, empties and settings (v118's) reads as before (its settings a
 // new scene's: other circles shown, the real world hiding it as each headset has it); bad settings are counted and taken so.
 // An object's, a shape's, an empty's and a sound's recorded path (v120, e6f_path.js) is part of its record: a bad one makes
-// its item bad, and so does one that would take the scene's paths past 6,000 keys
+// its item bad, and so does one that would take the scene's paths past 6,000 keys. A cube's texture changes (v124,
+// e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
+// its lists drop such ids
 const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, at: 0, by: '', settings: normSettings() };
+  const out = { items: [], bad: 0, texBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
@@ -16896,11 +16898,15 @@ function readLayout(j) {
       const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
       if (!rec || (rec.path && keys + rec.path.k.length > PATH_MAX.scene)) { out.bad++; continue; }
       ids.add(id); n++; if (rec.path) keys += rec.path.k.length;
+      if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       out.items.push({ id, kind, rec });
     }
   }
-  for (const x of out.items) if (x.kind === 'c') { x.rec.show = x.rec.show.filter(i => ids.has(i)); x.rec.hide = x.rec.hide.filter(i => ids.has(i)); }
   const kinds = new Map(out.items.map(x => [x.id, x.kind]));
+  for (const x of out.items) if (x.kind === 'c') {
+    x.rec.show = x.rec.show.filter(i => ids.has(i)); x.rec.hide = x.rec.hide.filter(i => ids.has(i));
+    if (x.rec.tex) { const t = x.rec.tex.filter(e => kinds.get(e.on) === 'o'); if (t.length) x.rec.tex = t; else delete x.rec.tex; }
+  }
   out.items = out.items.filter(x => {
     if (x.kind !== 'g') return true;
     x.rec.items = x.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i)));
@@ -16974,7 +16980,7 @@ async function loadSaved() {
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
     putLayout(L.items, L.settings);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -16994,7 +17000,7 @@ function uploadLayout(text) {
   if (!j || j.studio !== 1) { STU.upNote = 'That file is not a studio layout (layout.json with "studio": 1).'; dirty(true); return; }
   const L = readLayout(j);
   putLayout(L.items, L.settings);
-  STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
+  STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (L.texBad ? ` ${L.texBad} of the cubes' texture changes could not be read.` : '') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
 }
 
@@ -18989,6 +18995,9 @@ function makeConverter(THREE, hooks) {
     const t1 = performance.now();
     const gb = await new Promise((res, rej) => new T.GLTFLoader().parse(glb.slice(0), '', res, rej));
     const back = gb.scene, after = stats(back, gb.animations);
+    // (its materials with texture coordinates as loaded back, by name and their meshes' names: the studio finds a trigger
+    // cube's material again in them, as the order may differ from the original's)
+    const mats = matsOf(back).filter(e => e.uv).map(e => ({ name: e.name || '', meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))] }));
     after.parse = performance.now() - t1;
     const tol = Math.max(0.002, 0.005 * Math.max(...before.size)), why = [];
     if (after.tris !== ref.tris) why.push(`triangles ${ref.tris} became ${after.tris}`);
@@ -19082,7 +19091,7 @@ function makeConverter(THREE, hooks) {
     disposeTree(back);
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
-    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+    return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, mats, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
@@ -19459,11 +19468,12 @@ function sndClear() { SND.clear(); sndTotal = 0; }
 // each change is a new record (the shared room keeps the old one to compare with).
 const STU = {
   scene: '', listing: 'none', files: [], fileMap: new Map(), items: new Map(),
-  saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
+  saved: '', savedAt: 0, savedBy: '', layoutAt: 0, bad: 0, badTex: 0, note: '', saveNote: '', upNote: '', saving: false, loadAsk: 0, draft: null, mine: 0,
   sel: '', hover: '', pick: null, edit: false, gen: 0, write: false, t0: performance.now(), seen: new Set(), act: 0, libRev: 0, rev: 0, head: null,
   follow: '', bones: '', bonePage: 0,   // (a sound picking an object to follow; its card's list of bones open, and its page)
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
+  txp: null,   // (a cube picking an object, its material, a slot and a picture for its texture changes: { id, step, on, mat, slot, page }; e6i_tex.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
 };
@@ -19517,6 +19527,9 @@ function norm(kind, x) {
     if (Math.abs(yaw) > 3.1416) yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
     const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(okId))].slice(0, 400) : null);
     const r = { name: name('Cube'), p: P, yaw: nz(r4(yaw)), size: sz.map(v => r3(Math.min(100, Math.max(0.05, v)))), mode: one('mode', ['while', 'stay'], 'while'), show: ids('show'), hide: ids('hide') };
+    // the pictures it puts on objects while it is active for you, kept only when there are any (an entry that is not one
+    // dropped, at most 16: e6i_tex.js); not a list (and not null) makes the record bad
+    if (x.tex != null) { const t = Array.isArray(x.tex) ? normTex(x.tex) : null; if (!t) return null; if (t.length) r.tex = t; }
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -19678,6 +19691,7 @@ function removeItem(id) {
   if (STU.hover === id) STU.hover = '';
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
+  if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
@@ -19737,6 +19751,7 @@ function dropModel(it) {
   }
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
+  it.txOn = null; it.txSig = '';   // (a cube's pictures were on its materials, gone with them: e6i_tex.js)
 }
 function buildModel(it) {
   const E = it.E;
@@ -19777,6 +19792,7 @@ function placeFresh(it, at) {
 }
 function applyLight(it) {
   if (!it.model) return;
+  texOff(it);   // (its own pictures first, so a material as scanned made now takes its own colour picture: the cubes' go on again, e6i_tex.js)
   const mode = it.rec.light;
   for (const m of it.model.meshes) {
     if (mode === 'scan' && !m.userData.scan) m.userData.scan = Array.isArray(m.userData.lit) ? m.userData.lit.map(scanMat) : scanMat(m.userData.lit);
@@ -20055,6 +20071,7 @@ function itemsStep(dt, now) {
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
+  texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
   // model goes where its bone is now
@@ -20114,7 +20131,8 @@ function editStep(editing) {
     t.updateWorldMatrix(true, false);
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
-  // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it
+  // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it, amber
+  // for a picture the cube puts on it
   const fl = editing && STU.flash && performance.now() - STU.flash.at < FLASH_MS ? STU.items.get(STU.flash.id) : null, FB = GL.flashBox;
   FB.visible = !!fl;
   if (fl) {
@@ -20122,14 +20140,14 @@ function editStep(editing) {
     else { const b = _flb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fls.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fls).max(_flm); FB.matrix.compose(_sw, _flq, _fls); }
     FB.matrixWorldNeedsUpdate = true;
     const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
-    FB.material.color.setHex(hid ? 0xff5a4b : 0x3ee08f);
+    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it)
     FB.material.opacity = 0.35 + 0.65 * Math.abs(Math.cos((performance.now() - STU.flash.at) / FLASH_MS * Math.PI * 4));
   } else if (STU.flash && !editing) STU.flash = null;
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
   if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]]]) for (const id of list) {
+    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]]]) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -20348,7 +20366,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -20503,14 +20521,17 @@ function deleteItem(id) {
   if (STU.pick && gone.has(STU.pick.id)) STU.pick = null;
   sfxAct('snap', 'stage', 'centre');
 }
-// items deleted together (within a change): an object's cut-outs go with it; the cubes that list them let them go; the
-// sounds that follow a deleted object and stay stand where they are, following nothing; the groups that hold them let them
-// go, and one left with fewer than 2 members goes too (not the one picking its members now). Undo brings all back
+// items deleted together (within a change): an object's cut-outs go with it; the cubes that list them let them go (and the
+// pictures they put on them); the sounds that follow a deleted object and stay stand where they are, following nothing;
+// the groups that hold them let them go, and one left with fewer than 2 members goes too (not the one picking its members
+// now). Undo brings all back
 function deleteItems(list) {
   const gone = new Set();
   for (const id of list) { gone.add(id); for (const x of cutsOn(id)) gone.add(x.id); }
   const out = l => l.filter(i => !gone.has(i));
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
+  // (and the pictures they put on a deleted object: e6i_tex.js)
+  for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -20534,6 +20555,8 @@ function duplicateItem(id) {
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
+    // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
+    if (it.kind === 'o') texCopy(id, nid);
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -20577,7 +20600,7 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; },
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; },   // (one pick at a time: its texture pick ends, e6i_tex.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -20648,6 +20671,7 @@ function select(id) {
   if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
+  if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
@@ -21215,7 +21239,8 @@ function groupDupWhy(g) {
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
 // the group lists the copies of what it listed in the group (the rest as it was); a sound that follows an object in the
-// group follows its copy; each copy also joins the lists of the cubes outside the group its original is in (as cubeCopy)
+// group follows its copy; each copy also joins the lists of the cubes outside the group its original is in (as cubeCopy),
+// and a picture a cube puts on an object of the group goes on its copy too (a cube of the group: on the copy instead)
 function duplicateGroup(g) {
   if (!editOn() || groupDupWhy(g)) return '';
   const ms = members(g), ids = new Set(ms.map(m => m.id)), b = atPlaced(groupMeasured(g), () => groupBox(g, new THREE.Box3()));
@@ -21231,7 +21256,9 @@ function duplicateGroup(g) {
     }
     for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), locked: undefined })));
+    // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
+    const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
@@ -21245,6 +21272,8 @@ function duplicateGroup(g) {
       const more = l => l.concat([...map].filter(([a]) => l.includes(a)).map(([, z]) => z));
       const sh = more(c.rec.show), hi = more(c.rec.hide);
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
+      // (and a picture it puts on an object of the group, on that object's copy too, beside it)
+      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: c.rec.tex.flatMap(e => (map.has(e.on) ? [e, Object.assign({}, e, { on: map.get(e.on) })] : [e])) });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
@@ -22683,6 +22712,287 @@ function tcStep() {
   const T = tcTarget(it);
   if (T !== tc.object) tcAttach(); else if (T === TCP) tcProxy(it);
 }
+// ====================================================== CUBES THAT RE-TEXTURE ==
+// A trigger cube may change pictures on objects while it is active for you (the owner, 8 November 2026: "trigger cube
+// replace texture mode so that it can replace a texture on a model in the scene", then "no crossfade needed";
+// tools/studio/SPEC.md, "Trigger cubes that change textures"). Its record's tex: up to 16 entries { on, mat, slot, file }:
+// the object it changes (an object's id; models only), one of its materials (its index as Change texture lists the
+// object's materials: those with texture coordinates, ctMats), a slot (three.js's names: map, normalMap, roughnessMap,
+// metalnessMap, aoMap, emissiveMap, alphaMap) and a picture of the scene (its path in the listing). For each object,
+// material and slot, of the active cubes' entries the one from the cube entered last wins (show and hide's rule, c.since);
+// with none, the object's own picture is back. A switch, no fade; each person's own, as every cube is (only the cube's
+// record goes to the room). As scanned shows only a colour picture (map); the other slots apply when lit. The pictures
+// are read as the scene opens or an entry arrives (drawn down to 2,048 px, or the studio's own limit if lower) and sent to
+// the GPU then, so the switch is at once; freed when no entry names them. On the object's own materials (its clones,
+// libClone): another object of the same file never changes with it. Change texture's and Fewer triangles' previews on
+// the same object win while they are open (its own pictures put back as they open), then the cubes' state applies again
+const TXS_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'], TXS_MAX = 16, TXS_PX = 2048;
+// (pics: each picture named, by its path: { state, img, t: [flipY off, on], gen, at, err }; want: each picture's flips
+// wanted, by the formats of the objects it goes on; sig, files: what texNeed last looked at)
+const TXS = { pics: new Map(), want: new Map(), sig: '', files: null, rev: 0, any: false, live: false };
+const isGltf = f => ['glb', 'gltf'].includes(extOf(f));
+// a cube's entries as a record keeps them: each one an object's id, a material's index (0 to 255), a slot and a picture
+// of the scene; one that is not is dropped, as is a second for the same object, material and slot; at most 16
+function normTex(list) {
+  const out = [], seen = new Set();
+  for (const e of list) {
+    if (out.length >= TXS_MAX) break;
+    if (!e || typeof e !== 'object' || Array.isArray(e) || !okId(e.on) || !Number.isInteger(e.mat) || e.mat < 0 || e.mat > 255 || !TXS_SLOTS.includes(e.slot) || !okFile(e.file) || !CONV.IM.isPicture(e.file)) continue;
+    const k = e.on + '|' + e.mat + '|' + e.slot;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file });
+  }
+  return out;
+}
+// an entry in words: "Box · Colour → paint.png" (the material's name too when its object has more than one)
+function texWords(e) {
+  const o = STU.items.get(e.on), ms = o && o.kind === 'o' && o.model ? ctMats(o) : [], m = ms[e.mat];
+  return `${o ? o.rec.name : 'an object not here'}${ms.length > 1 && m ? ' · ' + matLabel(m) : ''} · ${SLOT_NAME[e.slot]} → ${baseName(e.file)}`;
+}
+
+// ------------------------------------------------------------ pictures --
+// the pictures the cubes' entries name for objects here: read once (each kept by the scene's opening and the file's
+// time, so a picture changed on the relay is read again), sent to the GPU in the flips the objects need (a glTF's
+// pictures are not flipped, the other loaders' are), freed when nothing names them
+function texNeed() {
+  const want = new Map();
+  if (STU.listing === 'ok') for (const c of STU.items.values()) {
+    if (c.kind !== 'c' || !c.rec.tex) continue;
+    for (const e of c.rec.tex) {
+      const o = STU.items.get(e.on);
+      if (!o || o.kind !== 'o' || !STU.fileMap.has(e.file)) continue;
+      if (!want.has(e.file)) want.set(e.file, new Set());
+      want.get(e.file).add(!isGltf(o.rec.file));
+    }
+  }
+  TXS.want = want;
+  TXS.any = [...STU.items.values()].some(c => c.kind === 'c' && c.rec.tex);
+  for (const [p, P] of [...TXS.pics]) { const f = STU.fileMap.get(p); if (!want.has(p) || P.gen !== STU.gen || P.at !== (f ? f.at : 0)) texFree(p); }
+  for (const [p, flips] of want) {
+    const P = TXS.pics.get(p);
+    if (!P) texLoad(p);
+    else if (P.state === 'ready') for (const fl of flips) texOf(p, fl);
+  }
+}
+async function texLoad(p) {
+  const f = STU.fileMap.get(p), P = { state: 'loading', img: null, t: [null, null], gen: STU.gen, at: f ? f.at : 0, err: '' };
+  TXS.pics.set(p, P);
+  try {
+    const img = await CONV.picture(fileUrl(p, true), { max: Math.min(TXS_PX, OPT.maxtex), ext: extOf(p) });
+    if (TXS.pics.get(p) !== P || GL.gone) return;   // (freed meanwhile)
+    P.img = img; P.state = 'ready';
+    for (const fl of TXS.want.get(p) || []) texOf(p, fl);
+  } catch (e) { if (TXS.pics.get(p) === P) { P.state = 'failed'; P.err = String((e && e.message) || e); } }
+  TXS.rev++; dirty();
+}
+// a picture as a texture in one flip (made once, and sent to the GPU at once: the switch then shows it in the same frame)
+function texOf(p, flip) {
+  const P = TXS.pics.get(p);
+  if (!P || P.state !== 'ready') return null;
+  const i = flip ? 1 : 0;
+  if (!P.t[i]) {
+    const t = P.t[i] = new THREE.Texture(P.img);
+    t.name = baseName(p); t.flipY = !!flip; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.LinearEncoding; t.needsUpdate = true;   // (as Change texture's: the renderer's output is linear)
+    try { GL.renderer.initTexture(t); } catch (e) { /* sent when first drawn */ }
+  }
+  return P.t[i];
+}
+function texFree(p) {
+  const P = TXS.pics.get(p);
+  TXS.pics.delete(p);
+  if (P) { for (const t of P.t) if (t) t.dispose(); P.img = null; }
+}
+const texReady = p => { const P = TXS.pics.get(p); return !!(P && P.state === 'ready'); };
+
+// ------------------------------------------------------------ each frame --
+// once the cubes are worked out for this frame (triggerStep) and every object's model is built: what each object wants
+// (per material and slot, the entry of the active cube entered last), put on its materials only when that changed (its
+// pictures ready, lit or as scanned, its model built again: its signature); while Change texture or Fewer triangles is
+// open on it, nothing (their previews win)
+function texStep() {
+  const s0 = STU.gen + '|' + STU.rev + '|' + STU.listing;
+  if (TXS.sig !== s0 || TXS.files !== STU.files) { TXS.sig = s0; TXS.files = STU.files; texNeed(); }
+  if (!TXS.any && !TXS.live) return;   // (no cube changes a picture and none is on: nothing to do)
+  const want = new Map();
+  let live = false;
+  for (const c of STU.items.values()) {
+    if (c.kind !== 'c' || !c.act || !c.rec.tex) continue;
+    for (const e of c.rec.tex) {
+      let m = want.get(e.on);
+      if (!m) want.set(e.on, (m = new Map()));
+      const k = e.mat + '|' + e.slot, w = m.get(k);
+      if (!w || c.since > w.since) m.set(k, { e, since: c.since });
+    }
+  }
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'o') continue;
+    const held = CT.id === it.id || FT.id === it.id, m = !held && it.model ? want.get(it.id) : null, list = m ? [...m.values()].map(w => w.e) : [];
+    const sig = held ? 'held' : !it.model ? '' : list.map(e => `${e.mat}|${e.slot}|${e.file}|${+texReady(e.file)}`).sort().join(',') + '|' + it.light + '|' + it.built;
+    if (sig !== it.txSig) {
+      it.txSig = sig;
+      texOff(it);
+      if (list.length) texOn(it, list);
+    }
+    if (it.txOn && it.txOn.length) live = true;
+  }
+  TXS.live = live;
+}
+// an entry's picture on the object's own materials (lit and, for a colour picture, as scanned), what each had kept to put
+// back: as Change texture's preview puts one on (ctShow)
+function texOn(it, list) {
+  const ms = ctMats(it), flip = !isGltf(it.rec.file), out = [];
+  for (const e of list) {
+    const x = ms[e.mat], t = texOf(e.file, flip), slot = e.slot;
+    if (!x || !t) continue;
+    for (const g of ctTargets(it, x)) {
+      if (g.scan && slot !== 'map') continue;   // (as scanned shows only its colour picture)
+      const mt = g.mat;
+      if (!(slot in mt)) continue;   // (a slot its kind of material has not: Phong has no roughness or metalness)
+      const k = { mat: mt, slot, scan: g.scan, was: mt[slot] || null, r: mt.roughness, me: mt.metalness, em: mt.emissive ? mt.emissive.clone() : null, tr: mt.transparent, bt: mt.userData.base ? mt.userData.base.t : undefined };
+      mt[slot] = t;
+      if (slot === 'aoMap') { const gm = g.mesh.geometry; if (gm && gm.attributes.uv && !gm.attributes.uv2) gm.setAttribute('uv2', gm.attributes.uv); }
+      if (slot === 'emissiveMap' && mt.emissive && mt.emissive.r + mt.emissive.g + mt.emissive.b === 0) mt.emissive.setRGB(1, 1, 1);
+      if (slot === 'alphaMap') { mt.transparent = true; if (mt.userData.base) mt.userData.base.t = true; }
+      if (slot === 'roughnessMap' && 'roughness' in mt) mt.roughness = 1;   // (the picture says how rough: its factor multiplies it)
+      if (slot === 'metalnessMap' && 'metalness' in mt) mt.metalness = 1;
+      if (!k.was || slot === 'alphaMap') mt.needsUpdate = true;   // (a slot filled, or emptied below, changes its program; one swapped for another does not)
+      out.push(k);
+    }
+  }
+  it.txOn = out; it.aSet = -1;
+}
+// its own pictures back
+function texOff(it) {
+  const L = it.txOn;
+  it.txOn = null;
+  if (!L) return;
+  for (const k of L) {
+    const mt = k.mat;
+    mt[k.slot] = k.was;
+    if ('roughness' in mt) mt.roughness = k.r;
+    if ('metalness' in mt) mt.metalness = k.me;
+    if (k.em && mt.emissive) mt.emissive.copy(k.em);
+    mt.transparent = k.tr;
+    if (mt.userData.base && k.bt !== undefined) mt.userData.base.t = k.bt;
+    if (!k.was || k.slot === 'alphaMap') mt.needsUpdate = true;
+  }
+  it.aSet = -1;
+}
+// a preview of the object's own opens (Change texture, Fewer triangles): its own pictures back first, the cubes' left
+// until it closes (texStep sees it held)
+function texHold(it) { if (it && it.kind === 'o') { texOff(it); it.txSig = 'held'; } }
+
+// ------------------------------------------------------------ copies, deletions, conversions --
+// an object's copy (Duplicate): beside each of the original's entries, in every cube, one for the copy (a cube's 16 kept)
+function texCopy(from, to) {
+  for (const c of [...STU.items.values()]) {
+    if (c.kind !== 'c' || !c.rec.tex || !c.rec.tex.some(e => e.on === from)) continue;
+    setRec(c.id, { tex: c.rec.tex.flatMap(e => (e.on === from ? [e, Object.assign({}, e, { on: to })] : [e])) });
+  }
+}
+// what a model's materials are, for a conversion (CONV.matsOf's, with texture coordinates: Change texture's order) by
+// their names and their meshes' names
+const texMatsOf = root => CONV.matsOf(root).filter(e => e.uv).map(e => ({ name: e.name || '', meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))] }));
+// each material of the original found again in its GLB (null: not known): by its meshes' names and its own name, else
+// its meshes', else its name when only one has it, else the same place when the GLB has as many (the converter keeps
+// the order but for a mesh with several materials, whose parts glTF may list in another order)
+function texRemap(before, after) {
+  if (!before || !after) return null;
+  return before.map((b, i) => {
+    const has = a => b.meshes.length && a.meshes.some(n => b.meshes.includes(n));
+    let j = after.findIndex(a => has(a) && a.name === b.name);
+    if (j < 0 && b.meshes.length) { const L = after.filter(has); if (L.length === 1) j = after.indexOf(L[0]); }
+    if (j < 0 && b.name && after.filter(a => a.name === b.name).length === 1) j = after.findIndex(a => a.name === b.name);
+    if (j < 0 && before.length === after.length) j = i;
+    return j;
+  });
+}
+// the entries on objects switched to their GLB (switchToGLB: in its change), their materials found again there
+function texSwitched(ids, map) {
+  if (!map) return;
+  for (const c of [...STU.items.values()]) {
+    if (c.kind !== 'c' || !c.rec.tex || !c.rec.tex.some(e => ids.has(e.on) && map[e.mat] >= 0 && map[e.mat] !== e.mat)) continue;
+    setRec(c.id, { tex: c.rec.tex.map(e => (ids.has(e.on) && map[e.mat] >= 0 ? Object.assign({}, e, { mat: map[e.mat] }) : e)) });
+  }
+}
+
+// ------------------------------------------------------------ the cube's card --
+// Changes textures: each entry (a press flashes its object; ✕ takes it off, one Undo step), and Change a texture...: an
+// object (pointed at, or from the card's list), then its material (when it has more than one), a slot (Colour first) and
+// one of the scene's pictures (as Change texture lists them), which adds the entry (one Undo step)
+function texCubeBlocks(c, B, dis) {
+  const L = c.rec.tex || [], P = STU.txp && STU.txp.id === c.id ? STU.txp : null, objs = [...STU.items.values()].filter(o => o.kind === 'o'), full = L.length >= TXS_MAX;
+  if (!L.length) B.push({ kv: [['Changes textures', 'nothing']] });
+  L.forEach((e, k) => B.push({ label: k ? '' : `Changes textures (${L.length})`, row: [
+    { id: `txflash:${k}`, label: texWords(e), act: 'i:txFlash', v: e.on },
+    { id: `untex:${k}`, label: '✕', act: 'i:untex', v: k, dis }] }));
+  B.push({ row: [{ id: 'txpick', label: P ? 'Cancel' : 'Change a texture...', act: 'i:txPick', on: !!P, dis: dis || (!P && (full || !objs.length)) }] });
+  if (full) B.push({ p: `${TXS_MAX} texture changes: the most a cube takes.`, c: 'amber' });
+  else if (!objs.length && !L.length) B.push({ p: 'A cube can change a picture on an object while you are in it: place one first.', c: 'faint' });
+  if (P && P.step === 'obj') {
+    B.push({ p: (XR.on ? 'Point at an object and pull the trigger' : 'Click an object, or pick it here') + ': then its material, a slot and a picture.', c: 'amber' },
+      { list: objs.map(o => ({ id: 'txon:' + o.id, label: o.rec.name, sub: baseName(o.rec.file), act: 'i:txOn', v: o.id, dis })) });
+  } else if (P) {
+    const o = STU.items.get(P.on);
+    B.push({ kv: [['Object', o ? o.rec.name : 'not in the scene']] }, { row: [{ id: 'txback', label: 'Another object...', act: 'i:txBack', dis }] });
+    const ms = o && o.model ? ctMats(o) : [];
+    if (!o || !o.model) B.push({ p: `${o ? o.rec.name + '\'s' : 'Its'} model is not here yet: its materials show once it is.`, c: 'faint' });
+    else if (!ms.length) B.push({ p: `${o.rec.name} has no texture coordinates (UVs): a picture cannot be laid on it.`, c: 'amber' });
+    else {
+      const m = ms[P.mat] || ms[0], cur = m.pics[P.slot], colourFirst = (a, b) => TXS_SLOTS.indexOf(a[0]) - TXS_SLOTS.indexOf(b[0]);
+      if (ms.length > 1) B.push({ label: 'Its material', list: ms.map((x, i) => ({ id: 'txmat:' + i, label: matLabel(x), sub: Object.entries(x.pics).sort(colourFirst).map(([k, n]) => `${SLOT_NAME[k]}: ${n}`).join(' · ') || 'no pictures', act: 'i:txMat', v: i, on: x === m, dis })) });
+      B.push({ label: 'Slot', row: TXS_SLOTS.map(k => ({ id: 'txslot:' + k, label: SLOT_NAME[k] + (m.pics[k] ? ' •' : ''), act: 'i:txSlot', v: k, on: P.slot === k, dis })) },
+        { kv: [['Now', cur || 'none']] });
+      const pics = CONV.texRank(cur && cur !== 'inside the file' ? cur : m.name || stem(o.rec.file), scenePictures(), { dir: dirOf(o.E.path) }, 1000);
+      const row = p => ({ id: 'txpic:' + p, label: baseName(p), sub: (dirOf(p) || 'the scene\'s top') + ' · ' + SLOT_NAME[CONV.slotOf(p)].toLowerCase(), act: 'i:txPic', v: p, dis });
+      const per = 8, pages = Math.max(1, Math.ceil(pics.length / per)), pg = Math.min(P.page, pages - 1);
+      if (!pics.length) B.push({ p: 'The scene has no pictures: put some in its folder.', c: 'faint' });
+      else B.push({ page: true, label: `Pick a picture (${pics.length})`, list: pics.map(row) }, { xr: true, label: `Pick a picture (${pics.length})`, list: pics.slice(pg * per, pg * per + per).map(row) });
+      if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(pics.length, pg * per + per)} of ${pics.length}`, row: [{ id: 'txpg:-', label: '◂ Previous', act: 'i:txPg', v: -1, dis: pg <= 0 }, { id: 'txpg:+', label: 'Next ▸', act: 'i:txPg', v: 1, dis: pg >= pages - 1 }] });
+      if (['roughnessMap', 'metalnessMap'].includes(P.slot) && !ctTargets(o, m).some(x => x.mat.isMeshStandardMaterial)) B.push({ p: 'Its material shows no roughness or metalness here (a GLB\'s does: Convert to GLB first).', c: 'faint' });
+    }
+  }
+  B.push({ p: 'While you are in the cube, its pictures are shown on those objects in place of their own, for you only (as everything a cube does); they go back as you leave it (a cube that stays keeps them). As scanned shows only a Colour picture.', c: 'faint' });
+}
+Object.assign(ITEM_ACT, {
+  // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
+  // material, the slot and a page of pictures; a picture adds the entry (one for that object, material and slot: another
+  // there takes its place)
+  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; } },   // (one pick at a time)
+  txOn: (c, oid) => {
+    const o = STU.items.get(oid);
+    if (!STU.txp || STU.txp.id !== c.id || !o || o.kind !== 'o') return;
+    const ms = o.model ? ctMats(o) : [];
+    Object.assign(STU.txp, { step: 'pic', on: oid, mat: Math.max(0, ms.findIndex(x => x.pics.map)), slot: 'map', page: 0 });
+  },
+  txBack: c => { if (STU.txp && STU.txp.id === c.id) Object.assign(STU.txp, { step: 'obj', on: '' }); },
+  txMat: (c, i) => { if (STU.txp && STU.txp.id === c.id) STU.txp.mat = Math.max(0, +i || 0); },
+  txSlot: (c, k) => { if (STU.txp && STU.txp.id === c.id && TXS_SLOTS.includes(k)) STU.txp.slot = k; },
+  txPg: (c, d) => { if (STU.txp && STU.txp.id === c.id) STU.txp.page = Math.max(0, STU.txp.page + (+d || 0)); },
+  txPic: (c, p) => {
+    const P = STU.txp, o = P && STU.items.get(P.on);
+    if (c.kind !== 'c' || !P || P.id !== c.id || P.step !== 'pic' || !o || !o.model || !ctMats(o)[P.mat] || !STU.fileMap.has(p)) return;
+    const L = (c.rec.tex || []).filter(e => !(e.on === P.on && e.mat === P.mat && e.slot === P.slot));
+    if (L.length >= TXS_MAX) return;
+    setRec(c.id, { tex: L.concat({ on: P.on, mat: P.mat, slot: P.slot, file: p }) });
+    STU.txp = null;
+  },
+  untex: (c, k) => { const L = (c.rec.tex || []).slice(); if (!(+k >= 0 && +k < L.length)) return; L.splice(+k, 1); setRec(c.id, { tex: L.length ? L : undefined }); },
+  txFlash: (c, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now(), tex: true } : null; },
+});
+PANE_ONLY.push('txPick', 'txOn', 'txBack', 'txMat', 'txSlot', 'txPg', 'txFlash');
+// for tests: the pictures read, and what an object shows now (per material and slot, by its lit materials)
+function texState(id) {
+  const out = { pics: Object.fromEntries([...TXS.pics].map(([p, P]) => [p, { state: P.state, w: P.img ? P.img.width : 0, h: P.img ? P.img.height : 0, t: P.t.map(t => !!t), err: P.err }])) };
+  const it = id && STU.items.get(id);
+  if (it && it.kind === 'o' && it.model) {
+    out.on = (it.txOn || []).map(k => [k.slot, k.scan ? 'scan' : 'lit', k.mat[k.slot] ? k.mat[k.slot].name : '']);
+    out.sig = it.txSig || '';
+    out.mats = ctMats(it).map(x => ctTargets(it, x).map(g => [g.scan ? 'scan' : 'lit', Object.fromEntries(TXS_SLOTS.filter(k => g.mat[k]).map(k => [k, g.mat[k].name || texName(g.mat[k])]))]));
+  }
+  return out;
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -22809,6 +23119,7 @@ function paneBlocks(tab) {
     if (STU.listing === 'loading' || STU.listing === 'waiting') B.push({ p: 'Reading the scene...', c: 'faint' });
     if (STU.note) B.push({ p: STU.note, c: 'amber' });
     if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
+    if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -22993,7 +23304,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
-  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}`; state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
@@ -23089,7 +23400,8 @@ function itemBlocks(it, B, ed) {
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
-    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides.', c: 'faint' });
+    texCubeBlocks(it, B, dis);   // (the pictures it puts on objects while you are in it: e6i_tex.js)
+    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides, amber to what it changes the pictures of.', c: 'faint' });
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
@@ -23366,7 +23678,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -23575,7 +23887,7 @@ function pickables() {
 function rayPick(ray, o) {
   GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
-  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   const gh = !!c.object.userData.ghost;   // (its ghost: the ray met it where it is placed, not where it is drawn)
@@ -23666,7 +23978,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
-    if (k === 'escape' && (STU.pick || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
+    if (k === 'escape' && (STU.pick || STU.txp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
@@ -23685,7 +23997,7 @@ function clickAt(mx, my) {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.follow && !STU.cutTo && !STU.gpick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.cutTo && !STU.gpick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -23702,6 +24014,7 @@ function pressItem(id, ray) {
   if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
+  if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
   if (ray && it.kind === 'o') cutRay(id, ray);
@@ -23941,6 +24254,8 @@ async function convertFile(path, o = {}) {
       tex.clear();
       for (const [k, x] of again) tex.set(k, x);
     }
+    // (its materials as the studio lists them, to find a trigger cube's material again in the GLB: e6i_tex.js)
+    const mats0 = texMatsOf(m.root);
     // pictures laid on in slots: fetched, read and put on their materials (the GLB made again from itself has the earlier
     // ones in it already)
     const gltf = ['glb', 'gltf'].includes(extOf(path));
@@ -23959,7 +24274,7 @@ async function convertFile(path, o = {}) {
     // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
     const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
     CONV.disposeTree(m.root);
-    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
+    STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture, mats0, mats: r.mats };
     const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
     if (gen !== STU.gen || GL.gone) return false;
     if (!r.ok) { CV.note = `${baseName(path)} was not converted (nothing changed): ${r.why}.`; CV.noteC = 'red'; return false; }
@@ -23973,7 +24288,7 @@ async function convertFile(path, o = {}) {
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
-      const n = out === path ? 0 : switchToGLB(path, out, r.record);
+      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats));
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
@@ -24053,8 +24368,10 @@ async function convertAll() {
 // (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
 // figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
 // 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it.
-// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path
-function switchToGLB(orig, glb, rec) {
+// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path. A trigger
+// cube's texture changes on such an object keep it (its id is the same); their materials are found again in the GLB when
+// the conversion says how its materials came out (tmap, texRemap: e6i_tex.js), else they keep their index
+function switchToGLB(orig, glb, rec, tmap) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
   const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
@@ -24077,6 +24394,7 @@ function switchToGLB(orig, glb, rec) {
       const k = kOf(x.rec.on);
       setRec(x.id, { p: new THREE.Vector3().fromArray(x.rec.p).applyQuaternion(r).multiplyScalar(k).toArray().map(v => keep(v, 1000)), q: r.clone().multiply(new THREE.Quaternion().fromArray(x.rec.q)).toArray(), size: x.rec.size.map(v => clamp(v * k, 0.01, 50)) });
     }
+    texSwitched(ids, tmap);   // (a trigger cube's texture changes on them, on the same materials in the GLB)
   });
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;
@@ -24803,7 +25121,7 @@ async function upVia(url, body, onP) {
 const FT_DEFAULT = 0.2, FT_PICKS = [0.1, 0.2, 0.5];
 const FT = { id: '', keep: FT_DEFAULT, pv: null, busy: false, gen: 0, t: 0, note: '', noteC: 'muted', saving: false, after: 0, fill: null, fsw: [], fLight: '' };
 const CT = { id: '', mat: 0, slot: 'map', pic: null, tex: null, saved: null, busy: false, gen: 0, note: '', noteC: 'muted', page: 0, saving: false, after: 0, light: '', model: null };
-const CT_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'];
+const CT_SLOTS = TXS_SLOTS;   // (the slots a trigger cube changes too: e6i_tex.js)
 const pct = v => (v * 100 >= 10 || v === 0 ? Math.round(v * 100) : +(v * 100).toPrecision(2)) + ' %';
 // an object these work on: a model of the scene, in, editing on (never a visitor's kiosk)
 const canLite = it => !!(it && it.kind === 'o' && editOn() && !OPT.visit && it.model && it.E && it.E.state === 'ready' && it.E.info && STU.fileMap.has(it.rec.file) && MODEL_EXT.includes(extOf(it.rec.file)));
@@ -24879,6 +25197,7 @@ async function ftPreview() {
   if (!it || !it.model || !it.E || !it.E.root) return;
   const gen = ++FT.gen, b = liteSrc(it), keep = FT.keep, k = Math.min(1, Math.round(b.n0 * keep) / Math.max(1, b.cur));
   ftUnswap(); ftDispose();
+  texHold(it);   // (a trigger cube's pictures off meanwhile: its own are filled; e6i_tex.js)
   FT.busy = true; FT.note = ''; dirty(true);
   await new Promise(r => later(r, 40));   // (the note shows before the work holds the page)
   if (gen !== FT.gen) return;
@@ -25044,6 +25363,7 @@ async function ctPick(path, file) {
 function ctShow(it) {
   const m = ctMats(it)[CT.mat];
   if (!m || !CT.tex || !it.model) return;
+  texHold(it);   // (a trigger cube's pictures off while this preview is open: its own are what it saves from; e6i_tex.js)
   const slot = CT.slot, saved = [];
   for (const x of ctTargets(it, m)) {
     if (x.scan && slot !== 'map') continue;   // (as scanned shows only its colour picture)
@@ -25853,7 +26173,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -25863,7 +26183,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.follow && !STU.gpick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.gpick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -27564,6 +27884,7 @@ const STUDIO = {
     convert: { busy: CV.busy, note: CV.note, done: CV.done.slice() },
     pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
+    badTex: STU.badTex, txp: STU.txp,   // (the cubes' texture changes a layout lost; a cube's texture pick: e6i_tex.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
@@ -27598,6 +27919,9 @@ const STUDIO = {
   },
   // an item's ghost where it is placed (shown, lit, its pose, its parts), or null (e6h_ghost.js)
   ghost: id => ghostOf(id),
+  // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
+  // entries on, and every material's pictures by slot, lit and as scanned)
+  tex: id => texState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
@@ -27635,6 +27959,7 @@ return {
     TIMERS.clear();
     watchStop();
     pvClear();   // (the pictures' object URLs given back)
+    for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
