@@ -3946,7 +3946,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   size steps per side (5 cm) and every side, *Turn 90°*, *Preview: As seen / Cut / Whole* (this device only, while
   editing; *Cut* cuts whatever the cubes say, so a door a cube opens can be sized with its hole in sight), *Duplicate*
   (beside it, in its cubes' lists), *Delete*, every change one Undo step. While editing its box is drawn in one warm
-  red-orange, dashed edges, solid corner ticks over everything, *✂ Door*, its corner balls when selected; the pointer
+  red-orange, dashed edges, solid corner ticks over everything, *✂ Door*, its corner balls when selected, and nothing
+  see-through (v125; the owner, 8 November 2026: "Framerate bad in studio edit mode when cutouts are active, they should
+  not have this transparency": its faint fill went, a layer the size of the box on screen, two seen from outside;
+  pointed at or selected its edges light up instead, lighter, their dashes denser and its ticks a third of each edge
+  long, `LOOKS.CUT_LOOK`); the pointer
   finds the nearest object, sound or cut-out, passing over an object's unseen box when the ray goes on into one of its
   own cut-outs (and over cut-outs while picking an object for a sound or a cut-out); the page's arrows move,
   turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
@@ -4693,7 +4697,7 @@ stretching it; nothing of a box drawn when not editing (only the hole); the Item
 Preview pressed there); v124: the wall's cut-outs locked from its card (one Undo step): the door cutting as before, its box hidden and
 never pointed at, sizing it, deleting it or the wall and a new cut-out on the wall refused, the card and the Items pane
 saying so, the state and `layout.json` carrying `cutsLocked` (a bad one refused, false not kept), a copy of the wall not
-locked, unlocked its box back, Undo bringing it all back. v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
+locked, unlocked its box back, Undo bringing it all back; v125: no see-through fill (the door's box with no mesh that shows, its edges lit when pointed at or selected, lighter with denser dashes and ticks a third long, plain again after; the pixel at its middle the same with its box drawn as without, plain, pointed at and selected). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
 pointing at nothing: the figure pointed at, its dot on its box, the trigger selecting it; pointing at the box from there:
 the box; outside every box: nothing, and the trigger clearing; editing off: nothing; Walk view with the camera in her box:
 a click on nothing selects her, one on the floor walks), *Hold it* (on her headset card only; armed, a grip of the other

@@ -2,7 +2,9 @@
 // colour with brighter edges, its name over it and, when selected, a ball at each corner to stretch it by. A sound: a
 // small speaker (a ball and a cone) in its colour, a faint ring on the floor where it stops being at full volume and, for
 // a sound that follows a model, a faint line to what it follows. A cut-out: a box with dashed red-orange edges and solid
-// ticks at its corners (never a cube's see-through fill and solid edges). A group (selected, while editing): a faint
+// ticks at its corners, and nothing see-through (v125: its faint fill cost a headset's frame rate, a box round you or
+// several large ones filling the view two layers deep each; pointed at or selected its edges light up instead: brighter,
+// their dashes denser, its ticks longer). A group (selected, while editing): a faint
 // dashed box round all its members, in its colour (its name is the selection's label). A shape: a cube, a ball, a
 // cylinder or a plane, lit in its colour, or (hiding things) drawn into the depth only, so it hides what stands behind it
 // and is otherwise invisible (while editing a see-through fill and its edges show where it is). An empty: a small axis
@@ -100,33 +102,42 @@ const LOOKS = (function () {
   }
   // a cut-out (a box that hides the part of a model inside it): one warm red-orange for all of them, its edges dashed
   // (drawn where they are seen), a solid tick along each edge at every corner (over everything, so a box inside a model
-  // still shows), a faint fill, its name over it and, when selected, a ball at each corner to stretch it by; `body` is
-  // scaled to its size (its unseen box is what the pointer finds), `deco` is not
+  // still shows), its name over it and, when selected, a ball at each corner to stretch it by; nothing see-through (v125:
+  // a fill, however faint, is a layer the size of the box on screen, two where it is seen from outside, and a few large
+  // boxes or one round you cost a headset's frame rate while editing). Pointed at or selected, its edges light up:
+  // lighter, their dashes denser, its ticks a third of each edge long instead of a fifth. `body` is scaled to its size
+  // (its unseen box is what the pointer finds), `deco` is not
   const CUT_COL = '#ff5a36';
   const cutGeo = (function () {
     const dash = new THREE.EdgesGeometry(box);
     new THREE.LineSegments(dash).computeLineDistances();   // (each edge 1 long: about seven dashes on every edge, whatever its size)
-    // the corners' ticks: from each corner a fifth of the way along each of its three edges
-    const P = [];
-    for (let k = 0; k < 8; k++) {
-      const c = [k & 1 ? 0.5 : -0.5, k & 2 ? 0.5 : -0.5, k & 4 ? 0.5 : -0.5];
-      for (let a = 0; a < 3; a++) { const e = c.slice(); e[a] -= Math.sign(c[a]) * 0.2; P.push(...c, ...e); }
-    }
-    const ticks = new THREE.BufferGeometry();
-    ticks.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-    return { dash, ticks };
+    // the corners' ticks: from each corner a share of the way along each of its three edges
+    const ticksOf = f => {
+      const P = [];
+      for (let k = 0; k < 8; k++) {
+        const c = [k & 1 ? 0.5 : -0.5, k & 2 ? 0.5 : -0.5, k & 4 ? 0.5 : -0.5];
+        for (let a = 0; a < 3; a++) { const e = c.slice(); e[a] -= Math.sign(c[a]) * f; P.push(...c, ...e); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+      return g;
+    };
+    return { dash, ticks: ticksOf(0.2), ticksLit: ticksOf(1 / 3) };
   })();
+  // its edges and ticks as they are drawn: plain, or lit (pointed at or selected)
+  const CUT_LOOK = {
+    plain: { mix: 0, dash: 0.07, gap: 0.05, line: 0.75, tick: 0.8 },
+    lit: { mix: 0.4, dash: 0.06, gap: 0.02, line: 1, tick: 1 },
+  };
   function cut(id) {
-    const col = new THREE.Color(CUT_COL);
+    const col = new THREE.Color(CUT_COL), white = new THREE.Color(1, 1, 1);
     const body = new THREE.Group(), deco = new THREE.Group();
     const hit = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ visible: false }));
-    const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.05, depthWrite: false, side: THREE.DoubleSide }));
-    fill.renderOrder = 5;
     const line = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col, dashSize: 0.07, gapSize: 0.05, transparent: true, opacity: 0.8, depthWrite: false }));
     line.renderOrder = 6;
-    const ticks = new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(new THREE.Color(1, 1, 1), 0.3), transparent: true, opacity: 0.95, depthTest: false, depthWrite: false }));
+    const ticks = new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(white, 0.3), transparent: true, opacity: 0.95, depthTest: false, depthWrite: false }));
     ticks.renderOrder = 8; ticks.frustumCulled = false;
-    body.add(hit, fill, line, ticks);
+    body.add(hit, line, ticks);
     const name = tag(30);
     deco.add(name);
     const corners = [];
@@ -135,19 +146,24 @@ const LOOKS = (function () {
       c.scale.setScalar(0.04); c.renderOrder = 9; c.userData.corner = k; c.visible = false;
       deco.add(c); corners.push(c);
     }
+    let lookOf = null;
     return {
-      body, deco, hit, fill, line, ticks, name, corners, col: CUT_COL,
-      // hot: the pointer on it; selected: its corners shown; off: it cuts nothing now (hidden for you, previewed whole,
-      // or its object not here), drawn fainter
+      body, deco, hit, line, ticks, name, corners, col: CUT_COL,
+      // hot: the pointer on it, selected: its corners shown (either lights its edges up); off: it cuts nothing now
+      // (hidden for you, previewed whole, or its object not here), drawn fainter
       look(o) {
-        const k = o.off ? 0.45 : 1;
-        fill.material.opacity = ((o.hot ? 0.12 : 0.05) + (o.selected ? 0.04 : 0)) * k;
-        line.material.opacity = (o.selected || o.hot ? 1 : 0.75) * k;
-        ticks.material.opacity = (o.selected || o.hot ? 1 : 0.8) * k;
+        const k = o.off ? 0.45 : 1, L = o.selected || o.hot ? CUT_LOOK.lit : CUT_LOOK.plain;
+        if (L !== lookOf) {
+          lookOf = L;
+          line.material.color.copy(col).lerp(white, L.mix); line.material.dashSize = L.dash; line.material.gapSize = L.gap;
+          ticks.material.color.copy(col).lerp(white, 0.3 + L.mix / 2); ticks.geometry = L === CUT_LOOK.lit ? cutGeo.ticksLit : cutGeo.ticks;
+        }
+        line.material.opacity = L.line * k;
+        ticks.material.opacity = L.tick * k;
         for (const c of corners) { c.visible = !!o.selected; c.scale.setScalar(o.hotCorner === c.userData.corner ? 0.06 : 0.04); }
         name.visible = !(o.hot || o.selected);   // (the engine's label names it then)
       },
-      drop() { hit.material.dispose(); fill.material.dispose(); line.material.dispose(); ticks.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
+      drop() { hit.material.dispose(); line.material.dispose(); ticks.material.dispose(); for (const c of corners) c.material.dispose(); name.userData.drop(); },
     };
   }
   // a group: a faint dashed box (about seven dashes an edge, whatever its size) round its members, over everything, in its
@@ -265,6 +281,6 @@ const LOOKS = (function () {
     g.add(name);
     return { group: g, body, fill, name, drop() { fill.material.dispose(); line.material.dispose(); name.userData.drop(); } };
   }
-  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, CUT_COL,
-    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); axGeo.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, CUT_COL, CUT_LOOK,
+    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();

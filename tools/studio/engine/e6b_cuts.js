@@ -112,7 +112,7 @@ function cutLook(x, editing) {
   // (its name over the box's top, upright in the scene whatever the box's turn)
   L.name.position.set(0, cutHalfHeight(x) + 0.04, 0).applyQuaternion(_cq.copy(L.deco.quaternion).invert());
   L.look({ selected: STU.sel === x.id && editing, hot: STU.hover === x.id, hotCorner: STU.hotCorner && STU.hotCorner.id === x.id ? STU.hotCorner.k : -1, off: !x.cutting });
-  for (const m of [L.fill.material, L.line.material, L.ticks.material]) m.opacity *= x.a;
+  for (const m of [L.line.material, L.ticks.material]) m.opacity *= x.a;
   L.name.userData.set('✂ ' + r.name + cutWords(x, ob), L.col, 0.075);
 }
 // what its label and the Items pane add: why it cuts nothing, or how it is previewed ('' cutting as it is)
