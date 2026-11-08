@@ -226,8 +226,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
   `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
   `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
-  Fewer triangles and Change texture on a card and the Upload pane's share and picture; `engine/e7e_pics.js`, the Add
-  pane's pictures of the models (v120: made with every GLB and by Make pictures, kept in `previews/`); `engine/e6b_cuts.js` the
+  Fewer triangles and Change texture on a card and the Upload pane's share; `engine/e7e_pics.js`, the Add
+  pane's pictures of the models (v120: made with every GLB and by Make pictures, kept in `previews/`); `engine/e7f_viewer.js`,
+  the viewer (v125: a model over the whole window, from Preview, Look closer and Look); `engine/e6b_cuts.js` the
   cut-outs; `engine/e6c_groups.js` the groups; `engine/e6d_shapes.js` the shapes, empties, locks, the scene's settings and the
   lobby hook; `engine/e6e_motion.js` the motions and the pose pipeline that draws an item; `engine/e6f_path.js` the
   recorded paths, the recorder and its loop join; `engine/e6g_behave.js` the behaviours; `engine/e6h_ghost.js` the ghost
@@ -2688,7 +2689,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path`, and an object's, a shape's and an empty's its `behaviour` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path`, and an object's, a shape's and an empty's its `behaviour` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3658,8 +3659,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   texture's path, recorded in `asset.extras.studio.tex`). Both save from a headset too (with a relay that takes uploads;
   the rule that a headset converts nothing lifted for these two). A lighter GLB made again from its original keeps its
   share. The Upload pane: each model's *Triangles kept* (20 % by default), about how many (`CONV.triCount`, from its
-  bytes) and *Preview* (one row at a time: all its triangles and the share kept, drawn side by side). Nothing in the
-  layout or `collab.state()` (no `FORMAT` change).
+  bytes) and *Preview*, which opens the viewer over the whole window (v125, "The viewer" below; until then a small
+  picture of both side by side), as does *Look closer* on the card while Fewer triangles is open. Nothing in the layout or
+  `collab.state()` (no `FORMAT` change).
   - The fill: no black seams (v120; the owner, 6 November 2026: "The reduction works really well but leaves black
     artifacts in the textured models ... maybe just needs changes to the texture like adding fade out color around all
     tiles"; `tools/studio/SPEC.md`, "Fewer triangles"). Why: a scan's texture is an atlas of many small pieces with black,
@@ -3687,6 +3689,22 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     pictures filled too (copies, worked out once while it is open, laid on the object's own materials, put back and
     freed by Cancel, Save's end or another object; `STUDIO.state().lite.ft.fill`). `convert.mjs --no-fill`. How the
     filled seams look on a Quest and the time the fill takes there are untested.
+- **The viewer** (v125; the owner, 8 November 2026: "Studio uploader needs better preview, also for the reductions, can
+  use the whole viewport, show the model and be able to spin it etc"; `tools/studio/SPEC.md`, "The viewer";
+  `engine/e7f_viewer.js`). Pages only, never in a headset. A model over the whole window, opened by an Upload row's
+  *Preview*, by *Look closer* on a placed model's Fewer triangles card and by *Look* on each model card of the Add pane (a
+  small button over the picture's corner: a press on the card still places it). An overlay (`#stuViewer`, z-index 14) over
+  the studio's own canvas, raised to 13 while it is open: **never a second renderer**; the studio's frame goes on (items,
+  sounds, the shared room) but draws the viewer's scene in place of its own (`vwDraw`, from `frame`). The model lit as the
+  studio lights its scene or as scanned, framed on its box over a floor grid, its size and triangles said; drag to spin, the
+  wheel or a pinch to zoom, a right drag, a Shift drag or two fingers to pan, a double click (or *Frame it*) to frame it
+  again; it turns by itself until touched. For a model being made lighter (an Upload row's, Look closer's): *All triangles*,
+  *Lighter* or *Side by side* (the window's halves, one camera; top and bottom on a tall window), the share on a slider (the lighter one made again as it is
+  let go, `CONV.reduce` on the model as read), both counts, the lighter one's pictures filled as Save fills them;
+  *Wireframe* (dark edges a hair nearer than its faces) and *Textures* on or off, *Lit* / *As scanned*. Close or Esc: all
+  it made freed, the canvas back under the page, the share chosen back on the row or the card; while open the keyboard is
+  its own (the studio's keys never reach the scene). Nothing in the layout or the room, no Undo step. `STUDIO.viewer()`
+  for tests. Untested: a big scan in it on a slow laptop, pinch and two-finger pan on a real touch screen.
 - **Pictures in the Add pane** (v120; the owner, 6 November 2026: "Models in add dialogue should have preview images and
   show in a grid ... 3d preview? overkill?", then "add pane with pictures sounds good, leave 3d models for now";
   `tools/studio/SPEC.md`, "Pictures in the Add pane"; `engine/e7e_pics.js`). A picture is a 256 x 256 JPEG of a model (lit
@@ -3717,7 +3735,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex }` (lists of item
+  start: 'always' | 'shown', faces, tint, bright }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `tint` (`'#rrggbb'`) and `bright` (0.25 to 4, 1 never kept) optional, v125: "Tint and brightness" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex }` (lists of item
   ids; `tex` optional, kept only when it has an entry, v124: up to 16 `{ on, mat, slot, file }`, "Trigger cubes that change
   textures" below; an entry that is not one dropped, and counted when read from a layout; a layout without it reads as
   before), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
@@ -3918,6 +3936,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   record's `faces`), and with its cut-outs' addition. A row on the object's card (page and headset): *Faces: As in the file
   / Both sides / Inside out*, one Undo step, shared and saved (FORMAT networks-32). The file is never changed. Untested on
   a headset: a scan inside out seen from within, the cost of double sides on a big scan.
+- **Tint and brightness** (v125; the owner, 8 November 2026: "Studio: add tinting and brightness for models placed in the
+  scene"; `tools/studio/SPEC.md`, "Tint and brightness"). An object's optional `tint` (`'#rrggbb'`, lower case) and
+  `bright` (a factor, 0.25 to 4, to 2 decimals; 1 is none), each kept only when set (anything else makes the record bad, a
+  brightness out of range held at its limit; FORMAT networks-37). On the object's own materials, lit and as scanned: each
+  material's colour as loaded (`userData.col0`, kept as `libClone` and `scanMat` make it) times the tint, times the
+  brightness (`applyTint`, `tintMat`; past 1 a texture brightens too), so two copies of one file may differ; put on again
+  whenever its model is built (a file changed on the relay, a GLB switch, which keeps the record), and untouched by Change
+  texture's and Fewer triangles' previews and the cubes' texture changes (they swap pictures, never a colour). Rows on the
+  object's card (page and headset, editing on, never refused by a lock in place): *Tint: None* and the shapes' ten
+  swatches, on a page *Any colour* (a colour field, taken once chosen), and *Brightness: n %* with *Darker* (×0.8),
+  *Brighter* (×1.25), held at 25 % and 400 %, and *Reset*; one Undo step each, shared and saved. A group selected has the
+  same rows for every object of it in one step (Darker and Brighter on each one's own). The file is never changed; the
+  Add and Items panes' pictures stay the file's. Untested on a headset: how tints look on a Quest.
 - **Shapes, empties, locks, the scene's settings and the lobby** (v119; the owner, 6 November 2026: "Needs invisible
   occlusion cubes and other primitives to hide things and just in general"; "Needs empty objects for example to place
   sounds in space"; "an option to lock things in space so we cannot accidentally move them"; "an option to hide all other
@@ -4604,7 +4635,30 @@ out* its far inner side, which a cut-out taking the far half away removes (and l
 a cut-out in its near side *Both sides* showing its far inner side through the hole and *As in the file* nothing, lit and
 as scanned; *Inside out* kept through a rebuild of its file (`fileChanged`) and the figure's *Both sides* through *Convert
 to GLB* and the switch; the state and `layout.json` with `faces` (`null` read as absent, other values refused); the page's Faces row (one Undo
-step each) and the headset's. Its *studio shapes* steps run on a seventh page, at `&scene=test` (v119): the Add pane's four shapes and an empty
+step each) and the headset's. Its *studio tint* steps (v125) run on a page of their own, at `&scene=rig` (the box still, and
+*Twin*, a copy of its file, beside it; `--only 'studio tint'`): pixels read back from renders of both near sides: a red tint
+(`#ff5a4b`) making the box redder, brightness 2 brighter and 0.5 darker, Twin unchanged, lit and as scanned; the box's
+materials its colour as loaded times the tint times 1.5, each its own; kept through a rebuild of its file (`fileChanged`)
+and the figure's *Convert to GLB* and switch; the state and `layout.json` with `tint` and `bright` and back, `norm`'s rules
+(a colour lower-cased, other values refused, a brightness held at 0.25 and 4, 1 dropped, rounded to 2 decimals); the
+page's rows (a swatch, *Any colour*, Darker, Brighter, Reset greyed at 100 %, None: one Undo step each; Darker held at 25 %
+and greyed; not refused by a lock in place), a group's rows (both objects in one step, *Brightness: they differ*, Brighter
+on each one's own) and the headset's (a swatch and Brighter pressed on its panel, no colour field there). Its *studio
+viewer* steps (v125) run on a page of their own, at `&scene=test` (`--only 'studio viewer'`), the viewer's pixels read from
+the canvas in the same task as it draws: an Add card's Look (none in a headset; the overlay at z-index 14 over the whole
+window, the canvas raised to 13, Close focused; the box, 12 triangles, 0.5 m, 5 cm grid squares, turning by itself; drawn
+in the middle with the background at the sides; a click stopping it, a drag of 100 by 20 px turning it 40 degrees round
+and 6 up, the wheel zooming out by e^0.24, a right drag panning, a double click framing it again exactly; Wireframe
+changing over 1,000 pixels; Textures off taking every picture off and on putting them back; As scanned; Delete, Ctrl+Z
+and P reaching nothing behind it; Esc: the overlay gone, the canvas under the page again, nothing written, Undo unchanged,
+the studio drawing again); an Upload row's Preview (the test originals dropped: the figure stood up, 1.7 m, its 12
+triangles, drawn in the middle; Close leaving *Seen in the viewer* on its row; then a dense ball made in the page: 24,320
+triangles, 20 % kept within 1 %, *All: 24,320 · Lighter: 4,8xx*; the wireframe changing more pixels for all its triangles
+than for the lighter one; Side by side drawing both, the left half with more edges, each said over it; the slider at 50 %
+making it again within 2 %; Close putting 50 % and what was seen on the row; nothing written); and Fewer triangles' Look
+closer on the ball placed and tinted red (its tint on the viewer's materials and drawn red, 24,320 triangles at the card's
+20 %; the slider at 30 % showing it side by side; Esc putting 30 % on the card, its preview made again; nothing written).
+Its *studio shapes* steps run on a seventh page, at `&scene=test` (v119): the Add pane's four shapes and an empty
 (their records, geometries and names), a shape's card (a colour's swatch, *Hides things*, size per side and every side, its
 kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties cards, the
 headset's card (its rows, a colour pressed); pixels read back from renders: a shape that hides things between the camera
@@ -5192,7 +5246,8 @@ corners in the scene's frame within 1 cm of the first page's on each, cutting th
 it under `cuts` (the cuts scene left out of the copy); a group made on a page (the box, the figure, Tone and Doorway),
 turned and sized on its card there, taken by every page and the headset (each member within 1 cm of the first page's, the
 records the same), a Faces setting (the box inside out) from another page reaching every device's materials, and the
-saved `layout.json` carrying `groups` and `faces`; a shape that hides things and an empty with Tone following it made on
+saved `layout.json` carrying `groups` and `faces`; a tint and a brightness (v125: the box red, 125 %) set on a third page
+reaching every page's and the headset's record and the box's own materials, and saved; a shape that hides things and an empty with Tone following it made on
 a page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the same
 records, the sound at the empty), a third page's card refused by the lock, the headset at the circle telling its shell
 (the hook recorded) to hide the other circles, the saved `layout.json` carrying `shapes`, `empties` and `settings` (v119);

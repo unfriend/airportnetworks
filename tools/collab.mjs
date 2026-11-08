@@ -4053,7 +4053,8 @@ async function tokenRound() {
 // the box taken by every page and the headset (its corners within 1 cm, cutting there), and the saved layout.json carrying
 // it under cuts; a group made on a page (the box, the figure, Tone and Doorway) and turned and sized there, taken by every
 // page and the headset (each member within 1 cm), a Faces setting from another page reaching every device's materials, and
-// the saved layout.json carrying groups and faces; a shape that hides things and an empty with a sound following it made on a
+// the saved layout.json carrying groups and faces; a tint and a brightness set on a page (v125) reaching every device's
+// record and the box's own materials, and saved; a shape that hides things and an empty with a sound following it made on a
 // page, the shape locked and the scene's other circles hidden on another, reaching every page and the headset (the lock
 // refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); motions
 // (v120: a wobble and an orbit set on two pages drawn in the same phase on every page and the headset at one held room time,
@@ -4466,6 +4467,21 @@ async function studioRound(dir) {
       JSON.stringify({ gId, recs: gs.map(g => g && g[0]), gFar, fIn, gSaved, gLg, faces: gLb && gLb.faces }));
     if (gId) await sp(A, `(itemAct('faces', 'file', 'box001'), select('${gId}'), itemAct('ungroup'), select(''), 0)`);
     }   // (a block of its own: the R2 part below names its own gs and gSaved)
+
+    // ---- a tint and a brightness (v125): set on one page (the box red, 125 %), on every device's record and the box's own
+    // materials (each one's colour as loaded times the tint times 1.25); the saved layout.json carries them
+    {
+    await sp(C, `(setEdit(true), itemAct('tint', '#ff5a4b', 'box001'), itemAct('bright', 1.25, 'box001'), 0)`);
+    const tIn = [];
+    for (const p of [A, B, C, H]) tIn.push(await sUntil(p, `(() => { const it = STU.items.get('box001'); if (!it || it.rec.tint !== '#ff5a4b' || it.rec.bright !== 1.25 || !it.model) return false; const T = new THREE.Color('#ff5a4b');
+      return it.model.meshes.every(m => [].concat(m.userData.lit || []).every(x => !x.color || x.color.equals(new THREE.Color().fromArray(x.userData.col0).multiply(T).multiplyScalar(1.25)))); })()`, 10000));
+    await sp(A, 'saveLayout()');
+    const tSaved = await sUntil(A, `!STU.saving && !unsaved() && !STU.saveNote`, 10000);
+    const tLb = ((layoutOf() || {}).objects || []).find(x => x.id === 'box001');
+    check('studio: a tint and a brightness set on a page (the box red, 125 %) reach every page\'s and the headset\'s record and the box\'s own materials; the saved layout.json carries them',
+      tIn.every(Boolean) && tSaved && !!tLb && tLb.tint === '#ff5a4b' && tLb.bright === 1.25, JSON.stringify({ tIn, tSaved, tint: tLb && tLb.tint, bright: tLb && tLb.bright }));
+    await sp(C, `(itemAct('tint', '', 'box001'), itemAct('bright', 'reset', 'box001'), 0)`);
+    }
 
     // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it
     // made on a page; the box locked and the scene's other circles hidden on another page; every page and the headset take

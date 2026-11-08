@@ -309,7 +309,8 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
   drop the files or whole folders, read the plan (one row per thing it will make; a missing texture is said there), keep
   **For Quest** on, **Convert and upload**, then **Open the scene**. Models become GLB in `models/`, sounds mono in
   `sounds/`, and what you gave is kept in `originals/`. `ffmpeg` on the laptop makes long sounds mono MP3 (without it
-  they are kept as given).
+  they are kept as given). A big scan: **Preview** on its row shows it over the whole window, all its triangles beside
+  the share kept (20 %), to spin and look at closely before it is converted.
 - [ ] Place things: **Edit** on the Scene pane (laptop: click, then the arrows, W E R; **Walk** to try the cubes; a
   headset: trigger to pick, grip to carry, both grips to size). **Save** writes the scene's `layout.json` in its folder
   (the one before goes into its `.history/`). Mind the cards' warnings: about 300,000 triangles a model and 500,000 a

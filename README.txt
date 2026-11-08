@@ -145,6 +145,14 @@ its circle) moves every item there again, for everyone (one Undo step).
 - Faces on a model's card: As in the file, Both sides (walls and leaves seen
   from behind too), or Inside out (a model whose faces point the wrong way, or a
   room to see from inside). Each placed copy has its own; the file is unchanged.
+- Tint and Brightness on a model's card: a colour (ten swatches, or any colour on
+  a laptop) its colours are multiplied by, and Darker, Brighter and Reset (25 % to
+  400 %). Each placed copy has its own; a group selected sets all its models.
+- Looking closely (a laptop or desktop): Preview on an Upload row, Look closer on
+  a model's Fewer triangles card and Look on an Add card show the model over the
+  whole window. Drag to spin, wheel to zoom, right-drag to pan, double-click to
+  frame it; for a model being made lighter, All triangles, Lighter or Side by side
+  and the share on a slider; Wireframe and Textures. Esc or Close goes back.
 - Saving: Save writes the scene's layout.json in its folder on the laptop (the
   one before is kept in the scene's .history/, the last 20). With
   --scenes-readonly nothing is written: Download layout.json instead.

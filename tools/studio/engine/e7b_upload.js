@@ -754,7 +754,7 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
-function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.pvRow = null; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
+function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
   if (!name) return;
@@ -885,7 +885,7 @@ const UP_ACT = {
   'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
   'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
   'up:run': () => upRun(),
-  'up:pv': v => upPreview(+v),   // (a model's picture with its share kept: e7d_lite.js)
+  'up:pv': v => { const r = UP.rows[+v]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) vwOpen({ kind: 'up', ri: +v }); },   // (the viewer, over the whole window: e7f_viewer.js)
   'up:clear': () => upClear(),
   'up:open': () => upOpen(),
   'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },

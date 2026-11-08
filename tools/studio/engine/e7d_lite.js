@@ -54,6 +54,8 @@ function ftBlocks(it, B) {
     if (FT.fill && FT.fill.n) B.push({ p: `${FT.fill.n === 1 ? 'Its picture is' : 'Its pictures are'} shown with the gaps between ${FT.fill.n === 1 ? 'its' : 'their'} pieces filled with the colours round them, as Save fills ${FT.fill.n === 1 ? 'it' : 'them'}: no black seams.`, c: 'faint' });
   }
   if (FT.note) B.push({ p: FT.note, c: FT.noteC });
+  // (the whole window: the model on its own, all its triangles and the share kept side by side, spun about: e7f_viewer.js)
+  B.push({ page: true, row: [{ id: 'ft:look', label: 'Look closer', act: 'ft:look', v: it.id, dis: sv }] });
   const why = liteWhy();
   B.push({ row: [{ id: 'ft:save', label: sv ? 'Saving...' : 'Save', act: 'ft:save', primary: true, dis: !!why || FT.busy || sv }, { id: 'ft:cancel', label: 'Cancel', act: 'ft:cancel', dis: sv }] },
     { p: why || liteSaveWords(it, b, `with about ${fmt(T)} triangles`), c: why ? 'amber' : 'faint' });
@@ -336,6 +338,7 @@ const LITE_ACT = {
   'ft:step': v => ftSet(FT.keep + +v, false),
   'ft:save': () => ftSave(),
   'ft:cancel': () => ftClose(),
+  'ft:look': v => { if (FT.id === v) vwOpen({ kind: 'ft', id: v }); },   // (a page's: the viewer, e7f_viewer.js)
   'ct:open': v => ctOpen(v),
   'ct:mat': v => { if (CT.saving) return; ctUnshow(); CT.mat = +v; ctAgain(); },
   'ct:slot': v => { if (CT.saving || !CT_SLOTS.includes(v)) return; ctUnshow(); CT.slot = v; ctAgain(); },
@@ -368,52 +371,19 @@ function liteBind() {
   ex.addEventListener('change', ev => go(ev, true));
 }
 
-// ---- the Upload pane: each model's share (20 % to start), its triangles about (read from its bytes: CONV.triCount),
-// and a picture of it with all its triangles and with the share kept, one row at a time
+// ---- the Upload pane: each model's share (20 % to start) and its triangles about (read from its bytes: CONV.triCount);
+// Preview opens the viewer over the whole window (e7f_viewer.js: all its triangles and the share kept, side by side), and
+// the share chosen there comes back to the row
 function liteRow(r, ri) {
   const can = r.state === 'plan' && !UP.busy, k = r.keep === undefined ? FT_DEFAULT : r.keep, n = r.tris, pv = r.pv;
-  const busy = !!(UP.pvRow && UP.pvRow.pv && UP.pvRow.pv.busy);
   let h = `<span class="stu-range lite"><label for="stuRangeUp${ri}">Triangles kept</label><input type="range" id="stuRangeUp${ri}" data-range="up:keep" data-v="${ri}" min="2" max="100" step="1" value="${Math.round(k * 100)}"${can ? '' : ' disabled'}><b data-range-out>${Math.round(k * 100)} %</b>` +
-    `<button class="btn" type="button" data-act="up:pv" data-v="${ri}"${can && !busy ? '' : ' disabled'}>${pv && pv.busy ? 'Working...' : 'Preview'}</button></span>`;
+    `<button class="btn" type="button" data-act="up:pv" data-v="${ri}" title="Look at it over the whole window: all its triangles and the share kept"${can && !VW.open ? '' : ' disabled'}>Preview</button></span>`;
   h += `<small class="x">${n ? `About ${fmt(Math.round(n * (k < 0.995 ? k : 1)))} of its ${fmt(n)} triangles${k >= 0.995 ? ' (all of them)' : ''}.` : 'Its triangles are counted when it is read (Preview).'}</small>`;
-  if (pv && pv.img) h += `<img class="stu-pv" src="${pv.img}" alt="${esc(`${r.main.name}: all its triangles, and ${Math.round(pv.keep * 100)} % kept`)}"><small class="x">${esc(pv.words)}${pv.keep !== k ? ' (a preview of ' + Math.round(pv.keep * 100) + ' %: press Preview again)' : ''}</small>`;
-  else if (pv && pv.note) h += `<small class="n">${esc(pv.note)}</small>`;
+  if (pv && pv.words) h += `<small class="x">${esc(pv.words)}${pv.keep !== k ? ' (at ' + Math.round(pv.keep * 100) + ' %)' : ''}</small>`;
   return h;
 }
-async function upPreview(ri) {
-  const r = UP.rows[ri];
-  if (!r || r.kind !== 'model' || UP.busy || r.state !== 'plan' || (UP.pvRow && UP.pvRow.pv && UP.pvRow.pv.busy)) return;
-  for (const x of UP.rows) if (x !== r) x.pv = null;   // (one at a time: a picture each is enough memory)
-  const keep = r.keep === undefined ? FT_DEFAULT : r.keep, gen = UP.gen;
-  r.pv = { busy: true, keep }; UP.pvRow = r; upChanged();
-  let m = null;
-  try {
-    await new Promise(res => later(res, 30));
-    m = (await upLoad(r)).m;
-    if (gen !== UP.gen) return;
-    // (stood up as the studio will stand it: its guess's turn; framed on what it is)
-    const wrap = new THREE.Group(), size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size);
-    wrap.quaternion.fromArray(g.q); wrap.add(m.root);
-    const before = thumbOf(wrap, 240, 180), red = keep < 0.995 ? await CONV.reduce(m.root, keep, { inPlace: true }) : null;
-    const n = red ? red.from : CONV.stats(m.root, []).tris, to = red ? red.to : n, after = red ? thumbOf(wrap, 240, 180) : before;
-    r.tris = n;
-    r.pv = { keep, img: pairPic(before, after, `All: ${fmt(n)}`, `${Math.round(keep * 100)} %: ${fmt(to)}`), words: red ? `${fmt(n)} triangles became ${fmt(to)}` + (red.notes.length > 1 ? ': ' + red.notes.slice(1).join('; ') : '') + '.' : `${fmt(n)} triangles, all kept.` };
-  } catch (e) { r.pv = { note: 'No preview: ' + (e.message || e) }; }
-  finally { if (m) CONV.disposeTree(m.root); r.main.buf = null; upChanged(); }
-}
-// two pictures side by side with their words
-function pairPic(a, b, la, lb) {
-  const c = document.createElement('canvas'), w = a.width, h = a.height;
-  c.width = w * 2 + 4; c.height = h;
-  const x = c.getContext('2d');
-  x.fillStyle = '#04070d'; x.fillRect(0, 0, c.width, h);
-  x.drawImage(a, 0, 0); x.drawImage(b, w + 4, 0);
-  x.font = '600 13px B612, "Segoe UI", Arial, sans-serif'; x.textBaseline = 'top';
-  for (const [t, ox] of [[la, 0], [lb, w + 4]]) { x.fillStyle = 'rgba(4,7,13,0.75)'; x.fillRect(ox + 4, 4, Math.ceil(x.measureText(t).width) + 10, 20); x.fillStyle = '#e7eef8'; x.fillText(t, ox + 9, 7); }
-  return c.toDataURL('image/png');
-}
 // a small picture of a model, drawn by the page's renderer into a target of its own (the scene's frame untouched): a
-// three-quarter view, lit evenly, the edges of its triangles drawn faintly over it (so how many shows)
+// three-quarter view, lit evenly, the edges of its triangles drawn faintly over it (so how many shows); for tests
 function thumbOf(root, w, h, wired = true) {
   const R = GL.renderer, sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(35, w / h, 0.001, 1e5), rt = new THREE.WebGLRenderTarget(w, h);
   sc.add(new THREE.HemisphereLight(0xffffff, 0x404858, 1.1));

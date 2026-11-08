@@ -218,8 +218,9 @@ function frame(now, xrFrame) {
   updateExtraLabels();
   paneStep(performance.now());
   if (xr) xrUpdate(S);
-  GL.renderer.render(GL.scene, GL.camera);
-  if (!xr) {
+  if (VW.open && !xr) vwDraw(dt);   // (the viewer over the whole window: its scene in place of the studio's, e7f_viewer.js)
+  else { if (VW.open) vwClose(); GL.renderer.render(GL.scene, GL.camera); }   // (a headset session: the viewer is a page's)
+  if (!xr && !VW.open) {
     GL.world.updateMatrixWorld(true);
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));
     else placeLabels(LBL.exploreAll(), L => (L.kind === 'set' ? setLabelAlpha(L, S) : L.txt ? L.show : 0));
@@ -387,6 +388,8 @@ const STUDIO = {
   },
   // an item's ghost where it is placed (shown, lit, its pose, its parts), or null (e6h_ghost.js)
   ghost: id => ghostOf(id),
+  // the viewer (e7f_viewer.js): open or not, what it shows, how, its camera
+  viewer: () => vwState(),
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
   // entries on, and every material's pictures by slot, lit and as scanned)
   tex: id => texState(id),
@@ -421,6 +424,7 @@ return {
   dispose() {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
+    try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     for (const t of TIMERS) clearTimeout(t);
