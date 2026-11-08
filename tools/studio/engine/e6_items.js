@@ -58,6 +58,10 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    // its tint (#rrggbb, lower case) and brightness (a factor, 0.25 to 4, to 2 decimals; 1 is none), each kept only when
+    // set (v125): its colours as loaded times the tint, times the brightness (applyTint); anything else makes it bad
+    if (x.tint != null) r.tint = typeof x.tint === 'string' && /^#[0-9a-f]{6}$/i.test(x.tint) ? x.tint.toLowerCase() : null;
+    if (x.bright != null) { if (!fin(x.bright) || x.bright <= 0) r.bright = null; else { const k = r2(Math.min(4, Math.max(0.25, x.bright))); if (k !== 1) r.bright = k; } }
     // its cut-outs locked (v124), kept only when set: true; absent, false or null: not; anything else makes it bad
     if (x.cutsLocked === true) r.cutsLocked = true; else if (x.cutsLocked != null && x.cutsLocked !== false) r.cutsLocked = null;
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);   // (its behaviour, kept only when set: e6g_behave.js)
@@ -266,7 +270,10 @@ function applyRec(it, was, glide) {
   if (it.kind === 'o') {
     if (!was || was.file !== r.file) itemFile(it);
     if (!was || was.light !== r.light) applyLight(it);
-    else if (was.faces !== r.faces) applyFaces(it);
+    else {
+      if (was.faces !== r.faces) applyFaces(it);
+      if (was.tint !== r.tint || was.bright !== r.bright) applyTint(it);
+    }
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
   } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
@@ -345,6 +352,7 @@ function applyLight(it) {
   }
   if (it.model.cut) cutMats(it);   // (as scanned, made just now: cut as the lit ones are)
   applyFaces(it);   // (and drawn on the sides its record says)
+  applyTint(it);   // (in the colours its record says)
   it.light = mode; it.aSet = -1;
 }
 // its faces (rec.faces): as in its file (each material's own side, as loaded: side0), both sides, or inside out (only the
@@ -360,6 +368,24 @@ function applyFaces(it) {
     const want = f !== undefined ? f : mat.userData.side0;
     if (mat.side !== want) { mat.side = want; mat.needsUpdate = true; }
   }
+}
+// its tint and brightness (rec.tint, rec.bright; v125): each of its own materials' colour as loaded (col0, kept as each is
+// cloned: libClone, scanMat) times the tint, times the brightness (three.js's colours may go past 1, which brightens a
+// texture too); lit and as scanned, so two objects of one file may differ. Put on again whenever its model is built (a
+// file changed on the relay, a switch to its GLB: through applyLight), and left alone by what changes its pictures
+// (Change texture's and Fewer triangles' previews, a cube's texture changes), which never touch a material's colour
+const _tint = new THREE.Color();
+function applyTint(it) {
+  if (!it.model) return;
+  for (const m of it.model.meshes) for (const key of ['lit', 'scan']) for (const mat of [].concat(m.userData[key] || [])) tintMat(mat, it.rec);
+}
+// one material in a record's tint and brightness (an object's own; the viewer's copies of it too, e7f_viewer.js)
+function tintMat(mat, r) {
+  if (!mat.color || !mat.color.isColor) return;
+  if (!mat.userData.col0) mat.userData.col0 = mat.color.toArray();
+  mat.color.fromArray(mat.userData.col0);
+  if (r.tint) mat.color.multiply(_tint.set(r.tint));
+  if (r.bright && r.bright !== 1) mat.color.multiplyScalar(r.bright);
 }
 // an object's fade: its materials' own opacity times a (see-through and not hiding what is behind while it fades)
 function setObjAlpha(it, a) {
@@ -1115,6 +1141,8 @@ function objBox(it, q, s) {
 }
 // the item pane's actions (page and headset alike)
 const _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion();
+// the objects a tint or a brightness goes on: an object, or a group's objects
+const tintOf = it => (it.kind === 'o' ? [it] : it.kind === 'g' ? members(it).filter(m => m.kind === 'o') : []);
 const ITEM_ACT = {
   light: (it, v) => setRec(it.id, { light: v }),
   anim: (it, v) => setRec(it.id, { anim: v }),
@@ -1127,6 +1155,10 @@ const ITEM_ACT = {
   floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
   // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
   faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
+  // its tint ('' none) and brightness (×0.8, ×1.25, held at 25 % and 400 %; 'reset' 100 %): an object's own, or every
+  // object of a group selected, in one step (tintOf)
+  tint: (it, v) => { const t = v ? String(v).toLowerCase() : ''; if (t && !/^#[0-9a-f]{6}$/.test(t)) return; for (const o of tintOf(it)) setRec(o.id, { tint: t || undefined }); },
+  bright: (it, v) => { const k = v === 'reset' ? 0 : +v; if (v !== 'reset' && !(k > 0)) return; for (const o of tintOf(it)) setRec(o.id, { bright: k ? r2(Math.min(4, Math.max(0.25, (o.rec.bright || 1) * k))) : undefined }); },
   // sizes about its foot (the middle of its lowest side stays where it is); the sounds that follow it keep their place on it
   // (a group: every member, about its pivot)
   size: (it, k) => {

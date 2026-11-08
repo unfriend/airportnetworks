@@ -164,7 +164,7 @@ placed by itself).
     { "id": "k3f9qa", "name": "Atelier", "file": "annette.fbx", "p": [0, 0, 0], "q": [0, 0, 0, 1], "s": 0.01,
       "light": "scan", "clip": "", "anim": "loop", "start": "always", "faces": "both" },
     { "id": "f4n001", "name": "Fan", "file": "models/fan.glb", "p": [2, 2.4, -1], "q": [0, 0, 0, 1], "s": 1,
-      "light": "lit", "clip": "", "anim": "loop", "start": "always",
+      "light": "lit", "clip": "", "anim": "loop", "start": "always", "tint": "#ffb43b", "bright": 1.25,
       "motion": { "kind": "spin", "speed": 30, "amount": 0, "axis": "y", "start": "always" } }
   ],
   "cubes": [
@@ -993,6 +993,30 @@ The owner: "double sided and flip inside out settings per model?". Each placed o
 - **Untested on a headset**: how a scan inside out looks from within it, and the cost of double-sided materials on a
   big scan on a Quest.
 
+## Tint and brightness (the owner, 8 November 2026)
+
+The owner: "Studio: add tinting and brightness for models placed in the scene".
+
+- **The record**: an object's optional `tint` (`'#rrggbb'`, lower case; absent: none) and `bright` (a factor, 0.25 to 4,
+  to 2 decimals; absent: 1, and 1 is never kept), each kept only when set. A tint that is not a colour, or a brightness
+  that is not a number above 0, makes the record bad; a brightness out of range is held at 0.25 or 4 (`norm`, as for the
+  other numbers). `FORMAT` networks-37 (v125: an object's record changed shape).
+- **On its own materials**: each material's colour as loaded (`userData.col0`, kept as each object's clone is made,
+  `libClone`, and as its as-scanned copy is made, `scanMat`, from the colour as loaded, not the tinted one) times the tint,
+  times the brightness (`applyTint`, `tintMat`); lit and as scanned. three.js's colours may go past 1, so a brightness over
+  100 % brightens a texture too. Two objects of one file never share a tint (each has its own materials). Put on again
+  whenever its model is built (a file changed on the relay, a switch to its GLB, which keeps the record's fields: through
+  `applyLight`); Change texture's and Fewer triangles' previews and the cubes' texture changes swap pictures only, never a
+  colour, so the tint stays through them. The model's file is never changed.
+- **Its rows** on an object's card (page and headset alike, editing on; never refused by a lock in place, as Faces is not:
+  they move nothing): *Tint: None* and the ten swatches the shapes use, on a page also *Any colour* (an `<input
+  type="color">`, taken once chosen: one change), and *Brightness: n %* with *Darker* (×0.8), *Brighter* (×1.25), held
+  at 25 % and 400 % (greyed there), and *Reset*. One Undo step each, shared (`o.<id>`) and saved. A group selected shows
+  the same rows: a swatch sets every object of the group in one step, Darker and Brighter multiply each one's own
+  brightness (*Brightness: they differ* when they do), Reset puts every one back to 100 %.
+- The Items pane's and the Add pane's pictures stay the file's (untinted).
+- **Untested on a headset**: how tints look on a Quest's display.
+
 ## Shapes and empties (the owner, 6 November 2026)
 
 The owner: "Needs invisible occlusion cubes and other primitives to hide things and just in general"; "Needs empty objects
@@ -1470,9 +1494,11 @@ since this is where we experience the models in the end"; yes to the button on m
   texture, a missing texture: `convertFile` takes the replaced GLB's `tris.keep` unless a share is asked); one made again
   from itself is not made lighter again.
 - **The Upload pane:** each model's row has *Triangles kept* (a slider, 20 % by default), *About N of its M triangles*
-  (`triCount`), and *Preview*: one row at a time, the model read, stood up as the studio will stand it, and drawn twice by
-  the page's renderer into a target of its own (all its triangles, then the share kept, their edges drawn faintly over
-  them: `thumbOf`), side by side with their counts. Converting uses each row's share; its line says the triangles.
+  (`triCount`), and *Preview*, which opens the viewer over the whole window ("The viewer" below; until v125 a small picture
+  of both side by side). Converting uses each row's share; its line says the triangles, and once the viewer has shown it,
+  *Seen in the viewer: N triangles became M.*
+- **Look closer** (a page's, on the card while Fewer triangles is open): the viewer with the object as placed, at the
+  card's share.
 - `convert.mjs --keep <share>` (0.02 to 1): the same, its report saying how far it came.
 - The fill's limits: a picture shared by a tiling model and an atlas is left alone; a picture whose pieces were baked
   without any margin still shows the colour of the piece next to it at a seam once lighter (the nearest colour, not
@@ -1480,7 +1506,7 @@ since this is where we experience the models in the end"; yes to the button on m
   filled seams look on a Quest is untested.
 - Never in `layout.json` or `collab.state()` (no `FORMAT` change): what is shared is the switch to the GLB.
 - `STUDIO.state().lite` (`{ ft, ct }`), `STUDIO.tris(id)` (what an object's model draws now) and `thumbOf(root, w, h,
-  wired)` for tests.
+  wired)` (a small picture of a model, its edges drawn faintly over it) for tests.
 
 ## Change texture (the owner, 6 November 2026)
 
@@ -1498,6 +1524,49 @@ The owner: "a change texture button on models placed in the scene where one can 
   `asset.extras.studio.tex` as a slot laid on (`{ name: '', mat, slot, from, how: 'chosen' }`); every object of that file
   switches where it stands. From a headset too, with a relay that takes uploads. Add a texture stays on the page for a
   slot that is empty; the missing-name buttons too.
+
+## The viewer (the owner, 8 November 2026)
+
+The owner: "Studio uploader needs better preview, also for the reductions, can use the whole viewport, show the model and
+be able to spin it etc". `engine/e7f_viewer.js`.
+
+- **Pages only**, never in a headset (nor while one presents: it closes then). Opened by an Upload row's *Preview*, by
+  *Look closer* on a placed model's Fewer triangles card, and by *Look* on each model card of the Add pane (a small button
+  over the picture's corner: a plain press on the card still places the model). From the Add pane it shows what a press
+  would place (the GLB that stands for an original, else the file): the scene's model when it is loaded here (a copy with
+  its own materials), else fetched and read as the converter reads it (its pictures at the studio's limit), freed after.
+  From an Upload row: the dropped model read as the conversion will read it, stood up by its guess. From Look closer: the
+  placed object's file, turned and sized as placed, its faces, tint and brightness as it has them.
+- **Over the whole window**: an overlay (`#stuViewer`, z-index 14) with its controls, over the studio's own canvas raised
+  to z-index 13 (`GL.canvas.style.zIndex`, put back on close). **Never a second renderer**: while it is open the studio's
+  frame goes on (its items, sounds, the shared room) but draws the viewer's scene in place of its own (`vwDraw`, from
+  `frame`), and places no labels.
+- **The model**: lit as the studio lights its scene (a sky and ground light, the sun over your left shoulder and the cool
+  rim from behind, both following the camera; glTF's soft room), or as scanned (*Lit* / *As scanned*: an as-scanned copy of
+  each material, as the studio makes one); a model it read itself drawn as the studio draws the scene's (its pictures
+  linear, an FBX's opacity-0 material solid). Framed on its box from a little above and in front, over a floor grid at its
+  foot (squares of a round step about a tenth of its widest side: 1 cm to 10 m), its size and triangles said at the top.
+- **The camera**: drag to spin (0.4 degrees a pixel round, 0.3 up, held within 85 degrees), the wheel or a pinch to zoom
+  (`exp(deltaY × 0.0012)`, 0.05 to 60 times its size), a right drag, a Shift drag or two fingers to pan, a double click to
+  frame it again (*Frame it* too, which also turns it back to the start). It turns by itself (12 degrees a second) until it
+  is touched.
+- **A model being made lighter** (an Upload row's, Look closer's): *All triangles*, *Lighter* or *Side by side* (the window's
+  two halves, one camera: all on the left, the lighter on the right, each said over it), the share on a slider (2 to
+  100 %; its words follow it, and the lighter one is made again as it is let go, `CONV.reduce` on the model as read, its own
+  geometries swapped in for the drawing only; a share chosen while showing all its triangles shows them side by side),
+  *All: N · Lighter: M*. The lighter one's pictures are filled as Save fills them (`CONV.fillModel(root, { copy: true })`,
+  worked out once, laid on the lighter one only). A placed model's share is of the original it was made from, as on the
+  card.
+- **Wireframe** (its triangles' edges in dark lines over it, a hair nearer than its faces) and **Textures** (off: no
+  picture on any material; a program is built again only when a picture comes or goes, never when one is swapped).
+- **Close or Esc**: everything the viewer made freed, the canvas back under the page, focus back where it was; the share
+  chosen goes back to where it was opened from (the Upload row's slider; Fewer triangles' share, previewed again on the
+  card). While it is open the keyboard is the viewer's: the studio's keys (Delete, Ctrl+Z, P, W, E, R) never reach the
+  scene behind it. **Nothing goes into the layout or the room**, and no Undo step.
+- For tests: `STUDIO.viewer()` (`vwState()`: open, what it shows and how, its camera), `vwOpen(src)`, `vwClose()`,
+  `vwDraw(dt)`.
+- **Untested**: a big scan in it on a slow laptop (reading it, a reduction of a few hundred thousand triangles, the fill),
+  pinch and two-finger pan on a real touch screen.
 
 ## Pictures in the Add pane (the owner, 6 November 2026)
 
@@ -1650,6 +1719,11 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
   on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
   loop join: "Testing" in `AGENTS.md`.
+- Tint and brightness (v125): the smoke test's *studio tint* steps (on the rig test scene, with Twin, a copy of the box's
+  file, put in for them; `--only 'studio tint'`) and `tools/collab.mjs --studio`'s step for a tint set on one page:
+  "Testing" in `AGENTS.md`.
+- The viewer (v125): the smoke test's *studio viewer* steps (on the test scene, the test originals dropped and a dense ball
+  made in the page; `--only 'studio viewer'`): "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

@@ -1242,7 +1242,7 @@ await step('design: the intro ends at the table', async () => {
 // figure switched to it keeping its corners within 1 mm, one Undo step); the Upload pane with no relay (the test scene's
 // originals dropped: the plan's rows, grouping and names, converting offered as downloads, #studio&upload opening it);
 // Fewer triangles and Change texture on a dense ball made in the page (the preview in place, Save with tris, the switch,
-// the headset's card, a picture shown, cancelled and saved; the Upload pane's share and picture); the gaps between a
+// the headset's card, a picture shown, cancelled and saved; the Upload pane's share and its Preview, the viewer); the gaps between a
 // picture's pieces filled (an atlas ball made in the page: far fewer black pixels at 10 %, in the preview and the GLB);
 // the headset panels' panes and its Stories screen (no Upload tab); Download
 if (runs('studio')) {
@@ -2148,7 +2148,7 @@ if (runs('studio')) {
   });
   // Fewer triangles and Change texture (tools/studio/SPEC.md): a dense, bumpy ball with a red and green checker made in the
   // page (24,320 triangles; nothing committed), served as ball.glb and placed twice
-  await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and picture', async () => {
+  await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and Preview (the viewer)', async () => {
     const bad = [];
     const b64 = await ss(`(async () => {
       exporterLoad();
@@ -2286,10 +2286,12 @@ if (runs('studio')) {
     let up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].tris, document.querySelector('#stuRangeUp0') && document.querySelector('#stuRangeUp0').value, document.querySelector('#pane-upload .stu-plan').textContent.replace(/\\s+/g, ' ')])`);
     if (up[0] !== 0.2 || up[1] !== n0 || up[2] !== '20' || !/About 4,864 of its 24,320 triangles\./.test(up[3])) bad.push('the Upload row\'s share: ' + JSON.stringify(up).slice(0, 500));
     await stp.evaluate(() => { const r = document.querySelector('#stuRangeUp0'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    // (Preview opens the viewer over the whole window, v125: its own steps are 'studio viewer'; closed, what it saw is on the row)
     await stp.click('#pane-upload [data-act="up:pv"]');
-    await until(`!!UP.rows[0].pv && !UP.rows[0].pv.busy`, 30000);
-    up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].pv, !!document.querySelector('#pane-upload img.stu-pv')])`);
-    if (up[0] !== 0.3 || !up[1].img || !/^24,320 triangles became 7,[23]\d\d\.$/.test(up[1].words) || !up[2]) bad.push('the Upload row\'s picture: ' + JSON.stringify(up).slice(0, 300));
+    await until(`VW.open && !VW.busy && !!VW.root && VW.n1 < VW.cur`, 60000);
+    await ss('(vwClose(), 0)');
+    up = await ss(`(renderPanes(), [UP.rows[0].keep, UP.rows[0].pv, /Seen in the viewer/.test(document.querySelector('#pane-upload .stu-plan').textContent)])`);
+    if (up[0] !== 0.3 || !up[1] || !/^Seen in the viewer: 24,320 triangles became 7,[23]\d\d\.$/.test(up[1].words) || !up[2]) bad.push('the Upload row\'s Preview (the viewer): ' + JSON.stringify(up).slice(0, 300));
     await stp.click('#pane-upload [data-act="up:run"]');
     await until(`!UP.busy && UP.rows[0].state === 'done'`, 60000);
     const ug = await ss(`(async () => { const a = document.querySelector('#pane-upload .stu-plan a[download]'), j = a ? CONV.glbJSON(await (await fetch(a.href)).arrayBuffer()) : null; return [UP.rows[0].msg, j && j.asset.extras.studio.tris]; })()`);
@@ -4105,6 +4107,351 @@ if (runs('studio faces')) {
     if (!xr[0] || xr[1] !== 'inside' || !xr[2]) out.push('the headset\'s Faces row: ' + JSON.stringify(xr));
     bad(out);
     await fp.close();
+  });
+}
+// The studio's tint and brightness (v125; tools/studio/SPEC.md, "Tint and brightness"), on a page of its own at the rig
+// test scene: its box and Twin, a copy of the same file beside it. Pixels read back from renders (each one's near side): a
+// red tint makes the box redder, brightness 2 brighter and 0.5 darker, Twin unchanged, lit and as scanned; kept through a
+// rebuild of its file and the figure's switch to its GLB; the state and layout.json, norm's rules; the page's rows
+// (swatches, any colour, Darker, Brighter, Reset; one Undo step each, not refused by a lock), a group's rows setting every
+// object of it at once, and the headset's rows
+if (runs('studio tint')) {
+  const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  tp.on('pageerror', e => errors.push('studio tint: ' + (e.stack || e.message)));
+  tp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio tint: ' + m.text()); });
+  const ss = s => tp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => tp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio tint: ' + b)); };
+  // (in the page: the scene drawn from a camera of its own and read back where scene points land, nothing but objects
+  // drawn; how far an object's materials are from their colours as loaded times its record's tint and brightness)
+  const HELP = `window.__tn = window.__tn || {
+    shot: (eye, tgt, pts) => {
+      const W = 320, H = 200, r = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(60, W / H, 0.02, 200);
+      itemsStep(0, performance.now()); GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(...eye))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(...tgt))); cam.updateMatrixWorld();
+      const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o').map(i => i.holder));
+      const keep = hid.map(o => o.visible);
+      hid.forEach(o => { o.visible = false; });
+      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
+      r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
+      return px;
+    },
+    mats: id => { const it = STU.items.get(id), T = new THREE.Color(it.rec.tint || '#ffffff'), k = it.rec.bright || 1; let worst = 0, n = 0, c = null;
+      for (const m of it.model.meshes) for (const key of ['lit', 'scan']) for (const mat of [].concat(m.userData[key] || [])) { const w = new THREE.Color().fromArray(mat.userData.col0).multiply(T).multiplyScalar(k); worst = Math.max(worst, Math.abs(w.r - mat.color.r), Math.abs(w.g - mat.color.g), Math.abs(w.b - mat.color.b)); n++; if (!c && key === 'lit') c = mat.color.toArray().map(v => +v.toFixed(3)); }
+      return { n, worst, c }; },
+  }`;
+  const sum = p => p[0] + p[1] + p[2], red = p => p[0] / Math.max(1, sum(p)), dpx = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  const eye = [2.05, 0.35, -0.3], tgt = [2.05, 0.25, -2], pts = [[1.5, 0.25, -1.75], [2.6, 0.25, -1.75]];
+  const shot = set => ss(`(${set}, window.__tn.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pts)}))`);
+
+  await step('studio tint: pixels: a red tint makes the box redder, brightness 2 brighter and 0.5 darker, Twin (the same file) unchanged, lit and as scanned', async () => {
+    await tp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await tp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio tint: the rig scene did not load'); return; }
+    // (the box still; Twin, a copy of its file, beside it; editing off: nothing of editing drawn)
+    await ss(`(${HELP}, setRec('box001', { anim: 'off' }), putItem('twn001', 'o', norm('o', { name: 'Twin', file: 'box.glb', p: [2.6, 0.25, -2], clip: 'Bob', anim: 'off' })), setEdit(false), 0)`);
+    if (!await until(`!!STU.items.get('twn001').model && STU.items.get('twn001').a > 0.99`, 30000)) { errors.push('studio tint: Twin did not load'); return; }
+    const out = [];
+    for (const light of ['lit', 'scan']) {
+      const b0 = await shot(`setRec('box001', { light: '${light}', tint: undefined, bright: undefined })`), rd = await shot(`setRec('box001', { tint: '#ff5a4b' })`);
+      const b2 = await shot(`setRec('box001', { tint: undefined, bright: 2 })`), b5 = await shot(`setRec('box001', { bright: 0.5 })`);
+      if (!(red(rd[0]) > red(b0[0]) + 0.1 && rd[0][1] < b0[0][1] - 40)) out.push(`${light}: a red tint did not make it redder: ` + JSON.stringify({ b0: b0[0], red: rd[0] }));
+      if (!(sum(b2[0]) > sum(b0[0]) + 60)) out.push(`${light}: brightness 2 did not make it brighter: ` + JSON.stringify({ b0: b0[0], b2: b2[0] }));
+      if (!(sum(b5[0]) < sum(b0[0]) * 0.7)) out.push(`${light}: brightness 0.5 did not make it darker: ` + JSON.stringify({ b0: b0[0], b5: b5[0] }));
+      const tw = [rd, b2, b5].map(x => dpx(x[1], b0[1]));
+      if (tw.some(d => d > 6)) out.push(`${light}: Twin (the same file) changed with the box: ` + JSON.stringify({ b0: b0[1], tw }));
+    }
+    await ss(`setRec('box001', { light: 'lit', tint: '#ff5a4b', bright: 1.5 })`);
+    const m = await ss(`[window.__tn.mats('box001'), window.__tn.mats('twn001'), STU.items.get('box001').model.meshes[0].material !== STU.items.get('twn001').model.meshes[0].material]`);
+    if (m[0].worst > 1e-6 || JSON.stringify(m[0].c) !== '[1.5,0.529,0.441]' || m[1].c.join() !== '1,1,1' || !m[2]) out.push('the materials\' colours (the box\'s its colour as loaded times the tint times 1.5, Twin\'s as loaded, each its own): ' + JSON.stringify(m));
+    bad(out);
+  });
+
+  await step('studio tint: kept through a rebuild of its file and the figure\'s switch to its GLB; the state and layout.json carry tint and bright and give them back; norm\'s rules', async () => {
+    const out = [];
+    // a rebuild of its file (as when the relay says it changed): the tint and brightness on its new materials
+    await ss(`(STUDIO.gen0 = STU.items.get('box001').built, fileChanged('box.glb'), 0)`);
+    const rb = await until(`STU.items.get('box001').built !== STUDIO.gen0 && !!STU.items.get('box001').model && STU.items.get('box001').built === STU.items.get('box001').E.gen`, 30000);
+    const m1 = await ss(`window.__tn.mats('box001')`);
+    if (!rb || m1.worst > 1e-6 || JSON.stringify(m1.c) !== '[1.5,0.529,0.441]') out.push('a rebuild of its file did not keep the tint and brightness: ' + JSON.stringify([rb, m1]));
+    // the figure, tinted and darker, converted to a GLB and switched to it: kept (the record and the new model's materials)
+    await ss(`(putItem('fig001', 'o', norm('o', { name: 'Figure', file: 'figure.fbx', p: [3, 0, -2], q: [-0.7071, 0, 0, 0.7071], s: 0.01, clip: 'Take 001', anim: 'off', tint: '#46d9ff', bright: 0.8 })), setEdit(true), 0)`);
+    if (!await until(`!!STU.items.get('fig001').model`, 60000)) { out.push('the figure did not load'); bad(out); return; }
+    await ss(`(STUDIO.lastGLB = null, convertFile('figure.fbx'), 0)`);
+    if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000) || !await ss('STUDIO.lastGLB.ok')) { out.push('figure.fbx was not converted: ' + await ss('CV.note')); bad(out); return; }
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    const pat = '**/scenes/rig/models/figure.glb*';
+    await tp.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record))`);
+    const sw = await until(`(() => { const f = STU.items.get('fig001'); return f.rec.file === 'models/figure.glb' && !!f.model && f.built === f.E.gen; })()`, 30000);
+    const f1 = await ss(`[STU.items.get('fig001').rec.tint, STU.items.get('fig001').rec.bright, window.__tn.mats('fig001')]`);
+    if (!sw || f1[0] !== '#46d9ff' || f1[1] !== 0.8 || !f1[2].n || f1[2].worst > 1e-6) out.push('the figure switched to its GLB keeps its tint and brightness: ' + JSON.stringify({ sw, f1 }));
+    await ss(`(undo(), removeItem('fig001'), setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), 0)`);
+    await tp.unroute(pat);
+    // the state and layout.json: kept only when set, given back as given; norm's rules
+    const st = await ss(`(() => {
+      const J = x => JSON.stringify(x), s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const N = x => norm('o', Object.assign({ file: 'box.glb', p: [0, 0, 0] }, x));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      return [s['o.box001'].tint, s['o.box001'].bright, J(collabState()) === a, N({}).tint === undefined && N({}).bright === undefined,
+        N({ tint: '#FF5A4B' }).tint, N({ tint: 'red' }), N({ tint: '#ff5a4' }), N({ tint: 7 }), !!N({ tint: null }) && !('tint' in N({ tint: null })),
+        N({ bright: 5 }).bright, N({ bright: 0.1 }).bright, 'bright' in N({ bright: 1 }), N({ bright: 1.234 }).bright, N({ bright: '2' }), N({ bright: 0 }), N({ bright: -1 }), !!N({ bright: null }) && !('bright' in N({ bright: null })),
+        L.objects.find(o => o.id === 'box001').tint, back.items.find(x => x.id === 'box001').rec.bright, back.bad, 'tint' in L.objects.find(o => o.id === 'dan001'), 'bright' in L.objects.find(o => o.id === 'dan001')];
+    })()`);
+    if (JSON.stringify(st) !== '["#ff5a4b",1.5,true,true,"#ff5a4b",null,null,null,true,4,0.25,false,1.23,null,null,null,true,"#ff5a4b",1.5,0,false,false]') out.push('the state and layout.json with tint and bright, norm\'s rules: ' + JSON.stringify(st));
+    await ss(`setRec('box001', { tint: undefined, bright: undefined })`);
+    bad(out);
+  });
+
+  await step('studio tint: the page\'s rows (a swatch, any colour, Darker, Brighter, Reset, None; one Undo step each, not refused by a lock in place), a group\'s rows setting every object of it in one step, and the headset\'s rows', async () => {
+    const out = [];
+    await ss(`(setEdit(true), select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length'), rec = () => ss(`[STU.items.get('box001').rec.tint || '', STU.items.get('box001').rec.bright || 1, UNDO.length]`);
+    // (a button pressed by its selector, found again as it is clicked: the pane is drawn again now and then)
+    const press = async sel => { const st = await tp.evaluate(sel => { HOST.cur.peek('renderPanes()'); const b = document.querySelector(sel); return !b ? 'none' : b.disabled ? 'disabled' : 'ok'; }, sel); if (st !== 'ok') return st === 'none' ? false : st; await tp.click(sel); return true; };
+    const got = [];
+    got.push([await press('#pane-item [data-act="i:tint"][data-v="#ff5a4b"]'), ...await rec()]);
+    const on = await tp.evaluate(() => (HOST.cur.peek('renderPanes()'), document.querySelector('#pane-item [data-act="i:tint"][data-v="#ff5a4b"]').getAttribute('aria-pressed')));
+    // any colour (the page's colour field: taken once chosen)
+    await tp.evaluate(() => { const i = document.querySelector('#stuTint'); i.value = '#3366CC'; i.dispatchEvent(new Event('change', { bubbles: true })); });
+    got.push(['colour', ...await rec()]);
+    got.push([await press('#pane-item [data-act="i:bright"][data-v="0.8"]'), ...await rec()]);
+    got.push([await press('#pane-item [data-act="i:bright"][data-v="1.25"]'), ...await rec()]);
+    got.push([await press('#pane-item [data-act="i:bright"][data-v="1.25"]'), ...await rec()]);
+    const words = await tp.evaluate(() => (HOST.cur.peek('renderPanes()'), /Brightness: 125 %/.test(document.querySelector('#pane-item').textContent)));
+    got.push([await press('#pane-item [data-act="i:bright"][data-v="reset"]'), ...await rec()]);
+    got.push([await press('#pane-item [data-act="i:bright"][data-v="reset"]'), ...await rec()]);
+    got.push([await press('#pane-item [data-act="i:tint"][data-v=""]'), ...await rec()]);
+    const want = [[true, '#ff5a4b', 1, u0 + 1], ['colour', '#3366cc', 1, u0 + 2], [true, '#3366cc', 0.8, u0 + 3], [true, '#3366cc', 1, u0 + 4], [true, '#3366cc', 1.25, u0 + 5], [true, '#3366cc', 1, u0 + 6], ['disabled', '#3366cc', 1, u0 + 6], [true, '', 1, u0 + 7]];
+    if (JSON.stringify(got) !== JSON.stringify(want) || on !== 'true' || !words) out.push('the page\'s rows (each press and its record, one Undo step each): ' + JSON.stringify({ got, want, on, words }));
+    // held at 25 %: seven presses of Darker, then greyed
+    for (let i = 0; i < 7; i++) await press('#pane-item [data-act="i:bright"][data-v="0.8"]');
+    const low = [...await rec(), await press('#pane-item [data-act="i:bright"][data-v="0.8"]')];
+    if (low[1] !== 0.25 || low[3] !== 'disabled') out.push('Darker held at 25 % and greyed there: ' + JSON.stringify(low));
+    await press('#pane-item [data-act="i:bright"][data-v="reset"]');
+    // locked in place: a tint and a brightness still change it (they move nothing), nothing refused
+    await ss(`(setRec('box001', { locked: true }), STU.lockSaid = null, 0)`);
+    const lk = [await press('#pane-item [data-act="i:tint"][data-v="#3ee08f"]'), await press('#pane-item [data-act="i:bright"][data-v="1.25"]'), ...await rec(), await ss('!!STU.lockSaid')];
+    await ss(`setRec('box001', { locked: undefined, tint: undefined, bright: undefined })`);
+    if (lk[0] !== true || lk[1] !== true || lk[2] !== '#3ee08f' || lk[3] !== 1.25 || lk[5]) out.push('locked in place, the tint and the brightness still change: ' + JSON.stringify(lk));
+    // a group of the box and Twin: its rows set both in one step; their brightness each its own, said when they differ
+    await ss(`(putItem('grp001', 'g', norm('g', { name: 'Pair', items: ['box001', 'twn001'] })), select('grp001'), renderPanes(), 0)`);
+    const g0 = await ss('UNDO.length'), both = () => ss(`[STU.items.get('box001').rec.tint || '', STU.items.get('twn001').rec.tint || '', STU.items.get('box001').rec.bright || 1, STU.items.get('twn001').rec.bright || 1, UNDO.length]`);
+    const gg = [];
+    gg.push([await press('#pane-item [data-act="i:tint"][data-v="#46d9ff"]'), ...await both()]);
+    gg.push([await press('#pane-item [data-act="i:bright"][data-v="0.8"]'), ...await both()]);
+    await ss(`setRec('box001', { bright: 2 })`);
+    const differ = await tp.evaluate(() => (HOST.cur.peek('renderPanes()'), /Brightness: they differ/.test(document.querySelector('#pane-item').textContent)));
+    gg.push([await press('#pane-item [data-act="i:bright"][data-v="1.25"]'), ...await both()]);
+    const gwant = [[true, '#46d9ff', '#46d9ff', 1, 1, g0 + 1], [true, '#46d9ff', '#46d9ff', 0.8, 0.8, g0 + 2], [true, '#46d9ff', '#46d9ff', 2.5, 1, g0 + 3]];
+    if (JSON.stringify(gg) !== JSON.stringify(gwant) || !differ) out.push('a group\'s rows (both objects in one step; Brighter each by its own): ' + JSON.stringify({ gg, gwant, differ }));
+    while (await ss('UNDO.length') > u0) await ss('undo()');
+    await ss(`(removeItem('grp001'), setRec('box001', { tint: undefined, bright: undefined }), setRec('twn001', { tint: undefined, bright: undefined }), 0)`);
+    // the headset's rows: a swatch and Brighter pressed on its panel (no colour field there: a page's)
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = new Set(), press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); XR.main.regions.forEach(z => ids.add(z.id)); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('box001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('tint:#3ee08f'), press('bright:+'), STU.items.get('box001').rec.tint, STU.items.get('box001').rec.bright, ['tint:none', 'tint:#ff5a4b', 'bright:-'].every(i => ids.has(i)), [...ids].some(i => /stuTint/.test(i))];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== '[true,true,"#3ee08f",1.25,true,false]') out.push('the headset\'s rows: ' + JSON.stringify(xr));
+    await ss(`setRec('box001', { tint: undefined, bright: undefined })`);
+    bad(out);
+    await tp.close();
+  });
+}
+// The studio's viewer (v125; tools/studio/SPEC.md, "The viewer"), on a page of its own at the test scene: a model over the
+// whole window from an Add card's Look, an Upload row's Preview (the test originals dropped, then a dense ball made in the
+// page) and Fewer triangles' Look closer on a placed model. Pixels read from the canvas as the viewer draws it (in the same
+// task, before the browser shows the frame): the model in the middle, two side by side; a drag turning the camera, the
+// wheel zooming, a double click framing it again; the slider making the lighter one again (its count); Wireframe,
+// Textures, As scanned; Close and Esc back as it was (the scene drawn again, nothing written, Undo unchanged), the share
+// back on the row or the card
+if (runs('studio viewer')) {
+  const vp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  vp.on('pageerror', e => errors.push('studio viewer: ' + (e.stack || e.message)));
+  vp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio viewer: ' + m.text()); });
+  const ss = s => vp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => vp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio viewer: ' + b)); };
+  // (the viewer drawn now and read back at points given as shares of the window, and the mean of a patch round each; its
+  // background is 10, 17, 29)
+  const PX = `(pts => { vwDraw(0); const R = GL.renderer, gl = R.getContext(), s = R.getDrawingBufferSize(new THREE.Vector2()), n = 15, b = new Uint8Array(n * n * 4);
+    return pts.map(([fx, fy]) => { gl.readPixels(Math.round(fx * s.x) - 7, Math.round((1 - fy) * s.y) - 7, n, n, gl.RGBA, gl.UNSIGNED_BYTE, b); let r = 0, g = 0, bl = 0; for (let i = 0; i < b.length; i += 4) { r += b[i]; g += b[i + 1]; bl += b[i + 2]; } const k = n * n; return [Math.round(r / k), Math.round(g / k), Math.round(bl / k)]; }); })`;
+  const px = pts => ss(`${PX}(${JSON.stringify(pts)})`);
+  // (how many pixels the wireframe changes: drawn without it and with it, the whole window read back; in all, its left half
+  // and its right half)
+  const WIRE = `(() => { const R = GL.renderer, gl = R.getContext(), s = R.getDrawingBufferSize(new THREE.Vector2()), n = s.x * s.y * 4, a = new Uint8Array(n), b = new Uint8Array(n), w = VW.wire;
+    VW.wire = false; vwDraw(0); gl.readPixels(0, 0, s.x, s.y, gl.RGBA, gl.UNSIGNED_BYTE, a); VW.wire = true; vwDraw(0); gl.readPixels(0, 0, s.x, s.y, gl.RGBA, gl.UNSIGNED_BYTE, b); VW.wire = w;
+    const d = [0, 0, 0]; for (let i = 0; i < n; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 30) { d[0]++; d[(i / 4) % s.x < s.x / 2 ? 1 : 2]++; } return d; })()`;
+  const sum3 = p => p[0] + p[1] + p[2], BG = [10, 17, 29], off = p => Math.abs(p[0] - BG[0]) + Math.abs(p[1] - BG[1]) + Math.abs(p[2] - BG[2]), dpx = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  const before = () => ss(`[UNDO.length, JSON.stringify(collabState()), unsaved(), STU.items.size]`);
+  // the dense ball (24,320 triangles, a red and green checker), made in the page as the Fewer triangles step makes it
+  const ballB64 = () => ss(`(async () => {
+    exporterLoad();
+    const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
+    g.computeVertexNormals();
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { x.fillStyle = (i + j) % 2 ? '#e02020' : '#20c020'; x.fillRect(i * 8, j * 8, 8, 8); }
+    const root = new T.Group(); root.add(new T.Mesh(g, new T.MeshStandardMaterial({ name: 'skin', map: new T.CanvasTexture(cv), roughness: 1, metalness: 0 })));
+    const glb = await new Promise(res => new T.GLTFExporter().parse(root, res, { binary: true }));
+    const u = new Uint8Array(glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s);
+  })()`);
+
+  await step('studio viewer: an Add card\'s Look: over the whole window (the canvas raised, the overlay over it), the model in the middle (pixels), a drag turning the camera, the wheel zooming, a right drag panning, a double click framing it again, Wireframe, Textures and As scanned; the studio\'s keys kept from the scene; Esc back as it was (the scene drawn again, nothing written, Undo unchanged); none in a headset', async () => {
+    await vp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await vp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready()`, 120000)) { errors.push('studio viewer: the test scene did not load'); return; }
+    const out = [];
+    await ss(`(setEdit(true), select('box001'), X.tab = 'add', renderPanes(), 0)`);
+    const b0 = await before(), looks = await vp.evaluate(() => [...document.querySelectorAll('#pane-add .stu-cw .stu-look')].map(b => b.dataset.v).join());
+    if (looks !== 'box.glb,figure.fbx') out.push('a Look on each model card of the Add pane: ' + looks);
+    // none in a headset (a page's only)
+    if (await ss(`(XR.on = true, act('look', 'box.glb'), XR.on = false, VW.open)`)) out.push('the viewer opened in a headset');
+    await vp.click('#pane-add .stu-look[data-v="box.glb"]');
+    if (!await until(`VW.open && !VW.busy && !!VW.root`, 30000)) { out.push('the viewer did not open: ' + JSON.stringify(await ss('vwState()'))); bad(out); return; }
+    const lay = await vp.evaluate(() => { const o = document.getElementById('stuViewer'), c = document.getElementById('gl'), r = o.getBoundingClientRect(); return [getComputedStyle(o).zIndex, c.style.zIndex, r.width, r.height, !!o.querySelector('[data-lite]').hidden, document.activeElement && document.activeElement.dataset.vw]; });
+    if (JSON.stringify(lay) !== '["14","13",1280,800,true,"close"]') out.push('over the whole window (the overlay at 14, the canvas raised to 13, no lighter row for an Add card, Close focused): ' + JSON.stringify(lay));
+    const st = await ss('vwState()');
+    if (st.kind !== 'add' || st.title !== 'box.glb' || st.lite || st.cur !== 12 || JSON.stringify(st.size) !== '[0.5,0.5,0.5]' || !st.spin || st.grid !== 0.05) out.push('what it shows (the box, 12 triangles, 0.5 m, grid squares of 5 cm, turning by itself): ' + JSON.stringify(st));
+    const p0 = await px([[0.5, 0.5], [0.04, 0.5], [0.96, 0.5]]);
+    if (off(p0[0]) < 90 || off(p0[1]) > 12 || off(p0[2]) > 12) out.push('the model in the middle of the window, the background at its sides: ' + JSON.stringify(p0));
+    // a click stops it turning; a drag turns the camera (0.4 degrees a pixel round, 0.3 up), the wheel zooms, a right
+    // drag pans, a double click frames it again
+    await vp.mouse.click(640, 400);
+    const a0 = await ss('[VW.az, VW.el, VW.dist, VW.tgt.toArray(), VW.spin]');
+    await vp.mouse.move(640, 400); await vp.mouse.down(); await vp.mouse.move(740, 420, { steps: 5 }); await vp.mouse.up();
+    const a1 = await ss('[VW.az, VW.el]');
+    const da = ((a1[0] - a0[0]) % 360 + 540) % 360 - 180;
+    if (a0[4] || Math.abs(da + 40) > 0.5 || Math.abs(a1[1] - a0[1] - 6) > 0.5) out.push('a drag of 100 by 20 px turned the camera 40 degrees round and 6 up: ' + JSON.stringify({ a0, a1, da }));
+    if (off((await px([[0.5, 0.5]]))[0]) < 90) out.push('the model left the middle when turned');
+    await vp.mouse.wheel(0, 200);
+    await until(`Math.abs(VW.dist / ${a0[2]} - Math.exp(0.24)) < 0.01`, 3000);
+    const z = await ss('VW.dist');
+    if (Math.abs(z / a0[2] - Math.exp(0.24)) > 0.01) out.push('the wheel did not zoom out by e^0.24: ' + JSON.stringify([a0[2], z]));
+    await vp.mouse.move(640, 400); await vp.mouse.down({ button: 'right' }); await vp.mouse.move(600, 400, { steps: 4 }); await vp.mouse.up({ button: 'right' });
+    const t1 = await ss('VW.tgt.toArray()');
+    if (Math.hypot(t1[0] - a0[3][0], t1[1] - a0[3][1], t1[2] - a0[3][2]) < 0.01) out.push('a right drag did not pan: ' + JSON.stringify([a0[3], t1]));
+    await vp.mouse.dblclick(640, 400);
+    const f = await ss('[VW.dist, VW.tgt.toArray()]');
+    if (Math.abs(f[0] - a0[2]) > 1e-6 || Math.hypot(f[1][0] - a0[3][0], f[1][1] - a0[3][1], f[1][2] - a0[3][2]) > 1e-6) out.push('a double click framed it again (its distance and target as at first): ' + JSON.stringify([a0, f]));
+    // Wireframe: its triangles' edges over it (the middle changes); Textures off: no pictures on its materials; As scanned
+    const w0 = await px([[0.5, 0.5]]);
+    await vp.click('#stuViewer [data-vw="wire"]');
+    const w1 = await ss(`[VW.wire, ${WIRE}]`), wl = await vp.evaluate(() => document.querySelector('#stuViewer [data-vw="wire"]').textContent);
+    await vp.click('#stuViewer [data-vw="wire"]');
+    await vp.click('#stuViewer [data-vw="tex"]');
+    const tx = await ss(`(vwDraw(0), [VW.tex, VW.mats.every(x => Object.keys(x.maps).every(k => x.mat[k] === null)), VW.mats.some(x => Object.keys(x.maps).length)])`), t0 = await px([[0.5, 0.5]]);
+    await vp.click('#stuViewer [data-vw="tex"]');
+    const tb = await ss(`(vwDraw(0), VW.mats.every(x => Object.keys(x.maps).every(k => x.mat[k] === x.maps[k])))`);
+    await vp.click('#stuViewer [data-vw="light"][data-v="scan"]');
+    const sc = await ss(`(vwDraw(0), [VW.light, VW.meshes.every(e => [].concat(e.m.material).every(m => m.isMeshBasicMaterial))])`);
+    await vp.click('#stuViewer [data-vw="light"][data-v="lit"]');
+    if (!w1[0] || w1[1][0] < 1000 || wl !== 'Wireframe: on' || await ss('VW.wire')) out.push('Wireframe: its edges over it (pixels changed), and off again: ' + JSON.stringify({ w1, wl }));
+    if (JSON.stringify(tx) !== '[false,true,true]' || !tb || dpx(t0[0], w0[0]) < 20) out.push('Textures off and on again: ' + JSON.stringify({ tx, tb, t0, w0 }));
+    if (JSON.stringify(sc) !== '["scan",true]') out.push('As scanned: ' + JSON.stringify(sc));
+    // the studio's keys never reach the scene behind it: Delete and Ctrl+Z with the box selected change nothing
+    await vp.keyboard.press('Delete'); await vp.keyboard.press('Control+z'); await vp.keyboard.press('p');
+    const k = await ss(`[STU.items.has('box001'), STU.sel, UNDO.length, MPAUSE.on]`);
+    if (JSON.stringify(k) !== JSON.stringify([true, 'box001', b0[0], false])) out.push('a key pressed while it is open reached the scene: ' + JSON.stringify(k));
+    // Esc: back as it was
+    const d0 = await ss('VW.drew'), f0 = await vp.evaluate(() => window.__frames);
+    await vp.keyboard.press('Escape');
+    const gone = await ss(`[VW.open, !!document.getElementById('stuViewer'), GL.canvas.style.zIndex, VW.root, VW.meshes.length]`);
+    await vp.waitForFunction(f0 => window.__frames > f0 + 2, f0, { timeout: 20000 }).catch(() => {});
+    const after = await before(), d1 = await ss('VW.drew');
+    if (JSON.stringify(gone) !== '[false,false,"",null,0]' || JSON.stringify(after) !== JSON.stringify(b0) || d1 > d0 + 1) out.push('Esc: back as it was (the overlay gone, the canvas under the page again, nothing written, Undo unchanged, the studio drawing): ' + JSON.stringify({ gone, b0, after, drew: [d0, d1] }));
+    await ss(`(select(''), X.tab = 'scene', renderPanes(), 0)`);
+    bad(out);
+  });
+
+  await step('studio viewer: an Upload row\'s Preview (the test originals dropped: the figure; then a dense ball): All triangles, Lighter and Side by side (two drawn), the slider making the lighter one again (its count), Close back to the pane with the share and what was seen on the row', async () => {
+    const out = [];
+    await ss(`(X.tab = 'upload', renderPanes(), 0)`);
+    await ss(`(async () => {
+      const get = async p => new File([await (await fetch('tools/studio/test/scenes/test/' + p)).arrayBuffer()], p.split('/').pop());
+      upTake([{ path: 'drop/figure.fbx', file: await get('figure.fbx') }, { path: 'drop/tex/figure.png', file: await get('figure.png') }, { path: 'drop/crate/crate.obj', file: await get('originals/crate.obj') },
+        { path: 'drop/crate/crate.mtl', file: await get('originals/crate.mtl') }, { path: 'drop/crate/crate.png', file: await get('originals/crate.png') }]);
+      return 0; })()`);
+    if (!await until(`!UP.planning && UP.rows.length === 2 && UP.rows.every(r => r.how !== 'measuring')`, 20000)) { out.push('the test originals made no plan: ' + JSON.stringify(await ss('STUDIO.state().upload')).slice(0, 300)); bad(out); return; }
+    const b0 = await before();
+    await ss('(renderPanes(), 0)');
+    await vp.click('#pane-upload [data-act="up:pv"][data-v="0"]');
+    if (!await until(`VW.open && !VW.busy && !!VW.root`, 30000)) { out.push('the figure\'s Preview did not open the viewer: ' + JSON.stringify(await ss('vwState()'))); bad(out); return; }
+    const fs = await ss('vwState()'), fp = await px([[0.5, 0.5], [0.04, 0.5]]), fl = await vp.evaluate(() => !document.querySelector('#stuViewer [data-lite]').hidden);
+    if (fs.kind !== 'up' || !fs.lite || fs.cur !== 12 || JSON.stringify(fs.size) !== '[0.4,1.7,0.3]' || !fl || off(fp[0]) < 40 || off(fp[1]) > 12) out.push('the figure from its row (stood up, 1.7 m, its 12 triangles, the lighter row shown; drawn in the middle): ' + JSON.stringify({ fs, fp, fl }));
+    await vp.click('#stuViewer [data-vw="close"]');
+    if (await ss('VW.open') || !await ss(`!!UP.rows[0].pv && /^Seen in the viewer: 12 triangles/.test(UP.rows[0].pv.words)`)) out.push('Close from the figure\'s row: ' + JSON.stringify(await ss('[VW.open, UP.rows[0].pv]')));
+    await ss('upClear()');
+    // the ball: 24,320 triangles, 20 % to start
+    const b64 = await ballB64();
+    await vp.evaluate(b64 => { const u = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); HOST.cur.peek('upTake')([{ path: 'ball.glb', file: new File([u], 'ball.glb') }]); }, b64);
+    if (!await until(`!UP.planning && UP.rows.length === 1`, 20000)) { out.push('the ball made no plan'); bad(out); return; }
+    await ss('(renderPanes(), 0)');
+    await vp.click('#pane-upload [data-act="up:pv"][data-v="0"]');
+    if (!await until(`VW.open && !VW.busy && !!VW.root && VW.n1 < VW.cur`, 60000)) { out.push('the ball\'s Preview did not make it lighter: ' + JSON.stringify(await ss('vwState()'))); bad(out); return; }
+    let s = await ss('vwState()');
+    if (s.cur !== 24320 || s.keep !== 0.2 || s.mode !== 'all' || Math.abs(s.n1 / 24320 - 0.2) > 0.01) out.push('the ball at 20 % (all its triangles shown first): ' + JSON.stringify(s));
+    const counts = await vp.evaluate(() => document.querySelector('#stuViewer .vw-counts').textContent);
+    if (!/^All: 24,320 · Lighter: 4,8\d\d$/.test(counts)) out.push('the counts: ' + counts);
+    // all its triangles, the lighter one and side by side: the wireframe's edges the more, the more triangles drawn
+    const eAll = await ss(WIRE);
+    await vp.click('#stuViewer [data-vw="mode"][data-v="lite"]');
+    const eLite = await ss(WIRE), geo = await ss(`(vwDraw(0), VW.meshes.every(e => e.m.geometry === VW.geos.get(e.g0)))`);
+    await vp.click('#stuViewer [data-vw="mode"][data-v="both"]');
+    const pBoth = await px([[0.25, 0.5], [0.75, 0.5], [0.02, 0.5], [0.98, 0.5]]), eBoth = await ss(WIRE), sides = await vp.evaluate(() => [...document.querySelectorAll('#stuViewer .vw-side')].map(e => (e.hidden ? '' : e.textContent)));
+    if (!geo || !(eAll[0] > eLite[0] * 1.2)) out.push('Lighter draws the lighter geometry (fewer edges under the wireframe than all its triangles): ' + JSON.stringify({ eAll, eLite, geo }));
+    if (off(pBoth[0]) < 40 || off(pBoth[1]) < 40 || off(pBoth[2]) > 12 || off(pBoth[3]) > 12 || !(eBoth[1] > eBoth[2] * 1.2) || !/^All triangles: 24,320$/.test(sides[0]) || !/^Lighter, 20 %: 4,8\d\d$/.test(sides[1])) out.push('Side by side: two drawn, all on the left (more edges), the lighter on the right, each said: ' + JSON.stringify({ pBoth, eBoth, sides }));
+    // the slider at 50 % (let go): the lighter one made again
+    await vp.evaluate(() => { const r = document.querySelector('#stuViewer [data-vw-keep]'); r.value = 50; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    if (!await until(`!VW.busy && VW.keep === 0.5`, 60000)) out.push('the slider at 50 % made nothing');
+    s = await ss('vwState()');
+    if (Math.abs(s.n1 / 24320 - 0.5) > 0.02 || s.mode !== 'both') out.push('the lighter one at 50 %: ' + JSON.stringify(s));
+    // Close: the share and what was seen back on the row; nothing written
+    await vp.click('#stuViewer [data-vw="close"]');
+    const row = await ss(`(renderPanes(), [VW.open, UP.rows[0].keep, UP.rows[0].pv && UP.rows[0].pv.words, document.querySelector('#stuRangeUp0').value, /Seen in the viewer: 24,320 triangles became 1[12],\\d\\d\\d\\./.test(document.querySelector('#pane-upload .stu-plan').textContent)])`);
+    if (row[0] || row[1] !== 0.5 || !/^Seen in the viewer: 24,320 triangles became 1[12],\d\d\d\.$/.test(row[2]) || row[3] !== '50' || !row[4]) out.push('Close: the share and what was seen on the row: ' + JSON.stringify(row));
+    const after = await before();
+    if (JSON.stringify(after) !== JSON.stringify(b0)) out.push('the Preview wrote something: ' + JSON.stringify({ b0, after }));
+    await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
+    bad(out);
+  });
+
+  await step('studio viewer: Fewer triangles\' Look closer on a placed model (the ball): the object\'s own tint, all its triangles and the share as on its card; the share chosen there back on the card as it closes (Esc)', async () => {
+    const out = [];
+    const ball = Buffer.from(await ballB64(), 'base64');
+    await vp.route('**/scenes/test/ball.glb*', r => r.fulfill({ body: ball, contentType: 'model/gltf-binary' }));
+    const u0 = await ss('UNDO.length');
+    const id = await ss(`(setEdit(true), setFiles(STU.files.concat({ path: 'ball.glb', bytes: ${ball.length}, at: 5, kind: 'model' })), addModel('ball.glb'))`);
+    if (!await until(`(() => { const a = STU.items.get('${id}'); return a && a.model && a.a > 0.99; })()`, 30000)) { out.push('the ball was not placed'); bad(out); return; }
+    await ss(`(setRec('${id}', { tint: '#ff5a4b' }), select('${id}'), X.tab = 'item', renderPanes(), 0)`);
+    await vp.click('#pane-item [data-act="ft:open"]');
+    if (!await until(`!!FT.pv && !FT.busy`, 30000)) { out.push('Fewer triangles made no preview'); bad(out); return; }
+    await ss('(renderPanes(), 0)');
+    const b0 = await before();
+    await vp.click('#pane-item [data-act="ft:look"]');
+    if (!await until(`VW.open && !VW.busy && !!VW.root && VW.n1 < VW.cur`, 60000)) { out.push('Look closer did not open the viewer: ' + JSON.stringify(await ss('vwState()'))); bad(out); return; }
+    const s = await ss('vwState()'), col = await ss(`VW.mats.filter(x => !x.mat.isMeshBasicMaterial).map(x => x.mat.color.toArray().map(v => +v.toFixed(3)).join()).join(';')`);
+    if (s.kind !== 'ft' || s.cur !== 24320 || s.keep !== 0.2 || Math.abs(s.n1 / 24320 - 0.2) > 0.01 || col !== '1,0.353,0.294') out.push('Look closer: the ball as placed (its tint), its triangles and the card\'s share: ' + JSON.stringify({ s, col }));
+    const p = await px([[0.5, 0.5]]);
+    if (!(p[0][0] > p[0][1] + 30)) out.push('the ball drawn red (its tint) in the middle: ' + JSON.stringify(p));
+    await vp.evaluate(() => { const r = document.querySelector('#stuViewer [data-vw-keep]'); r.value = 30; r.dispatchEvent(new Event('change', { bubbles: true })); });
+    if (!await until(`!VW.busy && VW.keep === 0.3 && VW.mode === 'both'`, 60000)) out.push('the slider at 30 %: ' + JSON.stringify(await ss('vwState()')));
+    await vp.keyboard.press('Escape');
+    if (!await until(`!VW.open && FT.keep === 0.3 && !!FT.pv && FT.pv.keep === 0.3 && !FT.busy`, 60000)) out.push('Esc: the card\'s share at 30 % (its preview made again): ' + JSON.stringify(await ss('[VW.open, STUDIO.state().lite.ft]')));
+    const after = await before();
+    if (JSON.stringify(after) !== JSON.stringify(b0)) out.push('Look closer wrote something: ' + JSON.stringify({ b0, after }));
+    await ss(`(ftClose(), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    while (await ss('UNDO.length') > u0) await ss('undo()');
+    await ss(`(setFiles(STU.files.filter(f => f.path !== 'ball.glb')), 0)`);
+    await vp.unroute('**/scenes/test/ball.glb*');
+    bad(out);
+    await vp.close();
   });
 }
 // The studio's shapes, empties, locks, the scene's settings and the lobby hook (tools/studio/SPEC.md, "Shapes and

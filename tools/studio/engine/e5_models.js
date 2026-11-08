@@ -257,6 +257,7 @@ function libClone(E) {
       if (c.isMeshStandardMaterial && !c.envMap && env) { c.envMap = env; c.envMapIntensity = 0.8; }
       c.userData.base = { t: c.transparent, o: c.opacity, d: c.depthWrite };
       c.userData.side0 = c.side;   // (its side as in the file: an object's Faces, applyFaces, may change it)
+      if (c.color && c.color.isColor) c.userData.col0 = c.color.toArray();   // (its colour as loaded: an object's tint and brightness, applyTint, change it)
       return c;
     };
     n.material = Array.isArray(n.material) ? n.material.map(one) : one(n.material);
@@ -268,12 +269,14 @@ function libClone(E) {
 // as scanned: unlit, its own colours (photogrammetry, whose light is in its texture)
 function scanMat(m) {
   const side = m.userData.side0 !== undefined ? m.userData.side0 : m.side;   // (as in the file, whatever its Faces made the lit one)
+  const col = m.userData.col0 ? new THREE.Color().fromArray(m.userData.col0) : m.color || new THREE.Color(1, 1, 1);   // (as loaded, whatever its tint made the lit one)
   const c = new THREE.MeshBasicMaterial({
-    map: m.map || null, color: m.map ? 0xffffff : (m.color || new THREE.Color(1, 1, 1)), vertexColors: !!m.vertexColors, side,
+    map: m.map || null, color: m.map ? 0xffffff : col, vertexColors: !!m.vertexColors, side,
     transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest || 0, skinning: !!m.skinning, morphTargets: !!m.morphTargets,
   });
   c.userData.base = { t: c.transparent, o: c.opacity, d: c.depthWrite };
   c.userData.side0 = side;
+  c.userData.col0 = c.color.toArray();
   return c;
 }
 // the card's numbers for an object as placed: its size in metres (its box turned and scaled), its triangles

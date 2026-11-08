@@ -168,7 +168,7 @@ function paneBlocks(tab) {
     // (models/ left out), its size in metres and triangles where known, else its bytes, and what it was made from or into
     const modelCard = (f, orig) => {
       const E = LIB.get(f.path), w = (E && (E.state === 'failed' || (E.info && E.info.tris > 300000) || E.missing.size)) || f.bytes > 60 << 20, g = L.stands.get(f.path);
-      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path.replace(/^models\//i, ''), title: f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'),
+      return { id: 'add:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path.replace(/^models\//i, ''), title: f.path, act: 'add', v: f.path, warn: w && !g, dis: full('o'), look: true,
         pic: g ? [g, f.path] : [f.path], kind: extOf(f.path).toUpperCase(), sub: modelWords(g ? STU.fileMap.get(g) || f : f),
         sub2: g ? `converted: ${baseName(g)}` : froms.has(f.path) ? `from ${baseName(froms.get(f.path))}` : '' };
     };
@@ -356,6 +356,7 @@ function itemBlocks(it, B, ed) {
     // its faces (this object's own: another of the same file keeps its own)
     B.push({ label: 'Faces', row: [['file', 'As in the file'], ['both', 'Both sides'], ['inside', 'Inside out']].map(([v, n]) => ({ id: 'faces:' + v, label: n, act: 'i:faces', v, on: (r.faces || 'file') === v, dis })) },
       { p: 'Inside out: for a model whose faces point the wrong way, or to see a room from inside. Both sides: thin walls and leaves seen from behind too.', c: 'faint' });
+    tintBlocks([it], B, dis);   // (its tint and brightness: this object's own)
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
@@ -496,6 +497,7 @@ function groupBlocks(g, B, dis, ed) {
   B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv || !ms.length }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !ms.length }] },
     { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: mv || !ms.length })) });
   if (g.note) B.push({ p: g.note, c: 'amber' });
+  if (n('o')) tintBlocks(ms.filter(m => m.kind === 'o'), B, dis);   // (every object of the group at once)
   // (a group has no recorded path: e6f_path.js)
   B.push({ p: 'A group has no recorded path of its own: record its members one by one (each plays its own, from where it stands, and moves with the group).', c: 'faint' });
   const why = ed ? groupDupWhy(g) : '';
@@ -506,6 +508,22 @@ function groupBlocks(g, B, dis, ed) {
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m, dis: mv })) });
   B.splice(1, 0, ...lockTop(g));
+}
+// ---- an object's tint and brightness (v125; a group's objects all at once): None or a swatch (the shapes' ten), on a page
+// any colour too; Darker and Brighter (×0.8, ×1.25, 25 % to 400 %) and Reset; one Undo step each, never refused by a lock
+// in place (it moves nothing), shared and saved
+const brightPct = b => Math.round(b * 100) + ' %';
+function tintBlocks(objs, B, dis) {
+  const one = (f, d) => { const v = objs.map(o => o.rec[f] || d); return v.every(x => x === v[0]) ? v[0] : null; };
+  const t = one('tint', ''), k = one('bright', 1), many = objs.length > 1;
+  B.push({ label: 'Tint' + (many && t === null ? ' (they differ)' : ''), row: [{ id: 'tint:none', label: 'None', act: 'i:tint', v: '', on: t === '', dis }]
+    .concat(SHAPE_COLS.map(([c, n]) => ({ id: 'tint:' + c, label: n, act: 'i:tint', v: c, on: t === c, sw: c, dis }))) },
+  { page: true, colour: { id: 'stuTint', act: 'i:tint', value: t || '#ffffff', label: 'Any colour', dis } },
+  { label: 'Brightness: ' + (k === null ? 'they differ' : brightPct(k)), row: [
+    { id: 'bright:-', label: 'Darker', act: 'i:bright', v: 0.8, dis: dis || (k !== null && k <= 0.25) },
+    { id: 'bright:+', label: 'Brighter', act: 'i:bright', v: 1.25, dis: dis || (k !== null && k >= 4) },
+    { id: 'bright:reset', label: 'Reset', act: 'i:bright', v: 'reset', dis: dis || k === 1 }] },
+  { p: (many ? 'Every object of the group: its' : 'Its') + ' colours times the tint, times the brightness (above 100 % its texture brightens too); ' + (many ? 'each object\'s own' : 'this object\'s own: another of the same file keeps its own') + ', for everyone and saved.', c: 'faint' });
 }
 // the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
 const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };
@@ -654,6 +672,7 @@ function act(a, v) {
     download: () => downloadLayout(),
     upload: () => { const u = $('#stuUpload'); if (u && editOn()) u.click(); },
     add: () => addModel(glbFor().get(v) || v),
+    look: () => { if (!XR.on && !OPT.visit) vwOpen({ kind: 'add', path: v }); },   // (an Add card's Look: the viewer, e7f_viewer.js)
     convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
     switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
@@ -717,6 +736,9 @@ function buildExplore() {
     .stu-ic.pk-hide:not(.sel) { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
     .stu-ic.pk-in:not(.sel) { border-color: var(--cyan); }
     .stu-card .pic { position: relative; }
+    .stu-cw { position: relative; display: flex; min-width: 0; } .stu-cw > .stu-card { flex: 1; }
+    .stu-look { position: absolute; left: 9px; top: 9px; font: inherit; font-size: 11.5px; line-height: 1; padding: 4px 7px; border-radius: 4px; border: 1px solid var(--line); background: rgba(4, 10, 20, 0.82); color: var(--ink); cursor: pointer; }
+    .stu-look:hover, .stu-look:focus-visible { border-color: var(--cyan); color: var(--cyan); }
     .stu-card .mks { position: absolute; top: 4px; right: 4px; display: flex; gap: 3px; }
     .stu-card .mk { font-style: normal; font-size: 11px; line-height: 1; padding: 3px 5px; border-radius: 4px; background: rgba(4, 10, 20, 0.8); color: var(--ink); }
     .stu-card .mk.mv { color: var(--cyan); font-weight: 700; }
@@ -764,6 +786,8 @@ function buildExplore() {
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
     .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
     .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
+    .stu-col { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .stu-col input { width: 40px; height: 28px; padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--chip); cursor: pointer; }
     .stu-range { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
     .stu-range input { flex: 1; min-width: 80px; accent-color: var(--cyan); }
     .stu-range b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -787,6 +811,7 @@ function buildExplore() {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
+    if (t.dataset && t.dataset.colour && !t.disabled) { t.blur(); act(t.dataset.colour, String(t.value).toLowerCase()); return; }   // (a colour field: the tint, once chosen)
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
@@ -822,20 +847,25 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
+  // (a colour field: any colour, taken once it is chosen: its 'change' event, buildExplore)
+  if (b.colour) { const q = b.colour; return lab + `<label class="stu-col"><input type="color" id="${esc(q.id)}" data-colour="${esc(q.act)}" value="${esc(q.value)}"${q.dis ? ' disabled' : ''}><span>${esc(q.label || '')}</span></label>`; }
   // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
   // (a group's heading in the Items pane: a press selects the group)
   if (b.gh) { const x = b.gh; return lab + `<button type="button" class="stu-gh${x.sel ? ' sel' : ''}" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"><i class="stu-sw" style="background:${esc(x.col || '')}"></i><span>${esc(x.label)}${x.lock ? ' 🔒' : ''}</span><small>${esc(x.sub || '')}</small></button>`; }
   if (b.grid && b.grid.some(x => x.item)) return lab + `<div class="stu-grid">${b.grid.map(itemCardHTML).join('')}</div>`;
-  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); return `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+  // (an Add card's Look: the model over the whole window, e7f_viewer.js; a button of its own over the picture's corner, so
+  // a press on the card still places it)
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
-    `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`; }).join('')}</div>`;
+    `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`;
+    return x.look ? `<div class="stu-cw">${card}<button type="button" class="stu-look" data-act="look" data-v="${esc(x.v)}" data-id="look:${esc(x.v)}" title="Look at ${esc(x.label)} over the whole window, spun about">Look</button></div>` : card; }).join('')}</div>`;
   if (b.list) return lab + `<ul class="stu-list">${b.list.map(x => `<li data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"${x.dis ? ' aria-disabled="true"' : ''} style="${x.col ? `border-left-color:${x.col};` : ''}">
     <span>${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>
     ${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</li>`).join('')}</ul>`;
   return '';
 }
 function renderPanes() {
-  if (X.sliding) { X.dirty = true; return; }   // (a slider held: drawn again once it is let go)
+  if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
   X.dirty = false; X.drawn = performance.now();
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));

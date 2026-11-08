@@ -54,7 +54,9 @@ drop into what the studio wants, and sorts it into the scene's folders:
    each sound is one row; anything left (a picture no model names, a text file) is kept as it is. A model whose texture
    is not there says so.
 4. **For Quest** (on by default: textures at most 2,048 px; off: 4,096) and **Replace files with the same name** (off: a
-   name already taken gets a number, `eva_001 2.glb`).
+   name already taken gets a number, `eva_001 2.glb`). Each model's row has **Triangles kept** (20 % to start) and
+   **Preview**: the model over the whole window ("Looking closely: the viewer" below), with all its triangles and the
+   share kept side by side; the share you choose there comes back to the row.
 5. **Convert and upload**: each row converts in the browser and uploads, with its progress. Then **Open the scene**:
    the studio on that scene, editing on, the Add list showing what was made.
 
@@ -74,6 +76,24 @@ In a scene, the Add list shows `models/`, `sounds/` and anything outside `origin
 for it: placing the original places the GLB. An FBX (or OBJ, PLY, STL, glTF) object's card has **Convert to GLB**, and
 Add has **Convert every model**: with a relay the GLB goes into `models/` and every object placed from the original
 switches to it where it stands; without one it is downloaded.
+
+## Looking closely: the viewer
+
+On a page (never in a headset), a model can be looked at over the whole window: **Preview** on an Upload row, **Look
+closer** on a placed model's card while **Fewer triangles** is open, and **Look** on each model card of the Add pane (a
+small button on the picture's corner; a press anywhere else on the card still places the model).
+
+- It shows the model lit as the studio lights a scene (or **As scanned**), over a floor grid, with its size and
+  triangles at the top. It turns by itself until you touch it. **Drag** to spin, the **wheel** or a **pinch** to zoom,
+  a **right drag**, a **Shift drag** or **two fingers** to pan, a **double click** (or **Frame it**) to frame it again.
+- For a model being made lighter (an Upload row, Look closer): **All triangles**, **Lighter** or **Side by side** (all of
+  them on the left, the lighter one on the right, one camera for both), the **Share kept** slider (the lighter one is made
+  again as you let it go: a big scan takes a moment), and both counts. The lighter one's pictures are shown with their
+  gaps filled, as the GLB will have them.
+- **Wireframe** draws its triangles' edges over it (the difference a share makes shows at once); **Textures: off** shows
+  its shape alone.
+- **Close** or **Esc** goes back to the studio as it was; the share you chose goes back to the row or the card. Nothing
+  you do in the viewer changes the scene, its layout or a shared room, and Undo does not see it.
 
 ## Pictures in the Add pane
 
@@ -195,6 +215,16 @@ cloth seen from behind too) or **Inside out** (only the inner side drawn: for a 
 a room you want to see from inside, as walls that vanish from outside). It is the object's own setting, so two copies of
 one file may differ; the file is never changed, and the setting stays when the model is converted to a GLB, switched to
 it or changed on the relay. It is shared in a room and saved in `layout.json`.
+
+## Tint and brightness
+
+Each placed object's card has **Tint**: **None**, or one of ten colours (the shapes' own); on a page also **Any colour**,
+a colour picker. The model's colours are multiplied by it, its textures too (white parts take the colour exactly, dark
+ones stay dark). **Brightness** goes **Darker** (×0.8) or **Brighter** (×1.25), from 25 % to 400 %, and **Reset** puts it
+back to 100 %; above 100 % a texture brightens too. Both are the object's own, so two copies of one file may differ; the
+file is never changed, and they stay when the model is converted to a GLB, switched to it or changed on the relay. With a
+group selected, the same rows set every object of the group at once. Shared in a room and saved in `layout.json`
+(`tint`, `bright`); a lock in place does not stop them (they move nothing).
 
 ## Shapes, empties, locks and the scene's settings
 
@@ -342,7 +372,8 @@ one by one; each plays its own and moves with the group).
   uses nearly whole, or that is see-through with clear gaps (nothing can be kept there) is left as it is. The GLB's card
   says *Textures: the gaps between the pieces of its picture are filled*.
 - **The Upload pane** gives each model the same: *Triangles kept* (20 % to start), about how many that is, and
-  **Preview**, a picture of it with all its triangles and with the share kept.
+  **Preview**, the viewer over the whole window. On a placed model's card, **Look closer** opens it too, at the card's
+  share (see "Looking closely: the viewer").
 - **Change texture** (a placed model's card): pick one of its materials, a slot (Colour, Normal, Roughness, Metalness,
   Occlusion, Glow, Opacity) and one of the scene's pictures (on a page also one from this computer). It shows at once on
   this device; **Save** puts it into the model's GLB (recorded there, never in the layout); **Cancel** puts its own back.
@@ -406,8 +437,9 @@ was found as and keeps it in the GLB's record.
   and texture names (both shared with `convert.mjs`), `engine/e7b_upload.js` GLB records, Convert to GLB, textures baked
   in and the Upload pane, `engine/e7c_direct.js` a relay's scenes in R2 (signed links read again before they lapse,
   uploads straight into the bucket), `engine/e7d_lite.js` Fewer triangles and Change texture on a card and the Upload
-  pane's share and preview, `engine/e7e_pics.js` the Add pane's pictures of the models (made with every GLB and by Make
-  pictures, kept in `previews/`).
+  pane's share, `engine/e7e_pics.js` the Add pane's pictures of the models (made with every GLB and by Make
+  pictures, kept in `previews/`), `engine/e7f_viewer.js` the viewer (a model over the whole window: Preview, Look closer,
+  Look).
 - `r2sync.mjs` scenes between an R2 bucket and a folder (`list`, `pull`, `push`; the relay's `R2_*` variables).
 - `sets/` the stage and the items' looks; `vendor/` three.js r128's own add-ons and meshoptimizer's simplifier (see its
   README).
