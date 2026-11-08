@@ -6260,21 +6260,23 @@ if (!ONLY) {
   const tabPlay = async () => {
     await sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('story'); });
     await tick(3);
-    const aim = `(() => { const O = HOST.collab.overlay(), F = XR.foot, r = F.regions.find(x => x.id === 'play' && x.fn); if (!r || !O.mirror.foot.visible) return false;
+    const aim = `(() => { const O = HOST.collab.overlay(), F = XR.foot, r = F.regions.find(x => x.id === 'play' && x.fn);
+      if (!r || !O.mirror.foot.visible) return 'no ' + (!r ? 'play button on the foot bar (' + F.regions.map(x => x.id).join(' ') + ')' : 'copy of the foot bar shown (menu ' + HOST.collab.menu + ', tab ' + HOST.collab.menuTab() + ')');
       GL.scene.updateMatrixWorld(true);
       const at = O.mirror.foot.localToWorld(new THREE.Vector3((r.x + r.w / 2) / F.w - 0.5, 0.5 - (r.y + r.h / 2) / F.h, 0)), n = new THREE.Vector3(0, 0, 1).applyQuaternion(O.mirror.foot.getWorldQuaternion(new THREE.Quaternion()));
       const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
       c.g.matrix.compose(at.clone().addScaledVector(n, 0.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), n.clone().negate()), new THREE.Vector3(1, 1, 1));
       c.g.matrixWorld.copy(c.g.matrix); return true; })()`;
     let ok = await sx(aim);
-    await tick(2); ok = ok && await sx(aim); await tick(1);   // (aimed again where the menu has settled)
-    const hov = await sx(`(h => !!h && h.kind === 'panel' && h.P === XR.foot && !!h.menu && (XR.foot.at(h.x, h.y) || {}).id === 'play')(XR.ctrls[0].hover)`);
+    await tick(2); if (ok === true) ok = await sx(aim); await tick(1);   // (aimed again where the menu has settled)
+    const hov = await sx(`(h => !!h && h.kind === 'panel' && h.P === XR.foot && !!h.menu && (XR.foot.at(h.x, h.y) || {}).id === 'play' ? true :
+      'the ray on ' + (h ? h.kind + (h.P === XR.foot ? ' foot' : h.P === XR.main ? ' main' : '') + (h.menu ? ' (the menu\\'s copy)' : '') : 'nothing'))(XR.ctrls[0].hover)`);
     await sx('(XR.ctrls[0].wantPress = true, 0)'); await tick(1);
     await sx(`(XR.ctrls[0].g.dispatchEvent({ type: 'selectend' }), 0)`); await tick(1);
     const now = await sx('APP.playing');
     await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
     await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(1);
-    return [ok && hov, now];
+    return [ok === true ? hov : ok, now];
   };
   // the controller i at p (in the room; the rig stands at the head, facing -z), turned yaw and pitched, in degrees
   const ctrl = (i, p, yaw, pitch) => sx(`(() => { const c = XR.ctrls[${i}]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
@@ -6320,7 +6322,7 @@ if (!ONLY) {
       const was = await sx('APP.playing'), ax = await aOrX(), [tab, now] = await tabPlay();
       await sx('(APP.playing = false, 0)'); await tick(1);
       if (!(was === false && ax === false)) bad.push(`cards hidden: A or X played or paused the story (${was} -> ${ax})`);
-      if (!(tab && now === true)) bad.push(`cards hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
+      if (!(tab === true && now === true)) bad.push(`cards hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
     }
     // cards on top, labels on top: the panels over everything as before
     await setCards('face'); await tick(3);
@@ -6598,7 +6600,7 @@ if (!ONLY) {
         const was = await sx('APP.playing'), ax = await aOrX(), [tab, now] = await tabPlay();
         await sx('(APP.playing = false, 0)'); await free(); await tick(1);
         if (!(was === false && ax === false)) bad.push(`hidden: A or X played or paused the story (${was} -> ${ax})`);
-        if (!(tab && now === true)) bad.push(`hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
+        if (!(tab === true && now === true)) bad.push(`hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
       }
       await sx('APP.enterExplore()'); await tick(3);
       const vx = await vis(), hx = await pointed();
@@ -6773,6 +6775,9 @@ if (!ONLY) {
     await sp.evaluate(() => HOST.collab.panelOpen(true));
     for (let k = 0; k < 40 && await btn() !== 'on'; k++) { await sp.waitForTimeout(50); await tick(1); }
     const was = await btn();
+    // (the story all built first: a story asked for while one still builds is dropped outside a room, HOST.start's busy,
+    // and on a slow machine openXR can return while its last steps still run)
+    await sp.waitForFunction(() => !HOST.busy, null, { timeout: 60000 }).catch(() => {});
     await sp.evaluate(() => { const r = HOST.collab.menuFind('design'); if (r && r.fn) r.fn(); });
     const opened = await sp.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && typeof ST !== "undefined" && ST.items.length > 0'), null, { timeout: 60000 })
       .then(() => true, () => false);
