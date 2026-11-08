@@ -4665,24 +4665,30 @@ async function studioRound(dir) {
     const recs = p => sp(p, `JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`);
     const before = JSON.parse(await recs(A));
     await sp(A, `(setEdit(true), select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
-    const u1 = await sp(A, 'UNDO.length');
+    // (Undo steps told by the last one's identity: A's list may be at its 30 already, the oldest going as one comes)
+    const lastStep = () => sp(A, `(() => { const u = UNDO[UNDO.length - 1]; if (!u) return 'none'; if (!u.__tag) u.__tag = 't' + Math.random().toString(36).slice(2); return u.__tag + ':' + u.length; })()`);
+    const u1 = await lastStep();
     const pr1 = await click(A, '#pane-scene [data-act="circle"]');
-    const refused = await sp(A, `[CIRC.note, UNDO.length, JSON.stringify(STU.items.get('box001').rec.p)]`);
+    const refused = await sp(A, `[CIRC.note, JSON.stringify(STU.items.get('box001').rec.p)]`);
+    const u1b = await lastStep();
     await sp(A, `(select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
-    const u2 = await sp(A, 'UNDO.length');
+    const u2 = await lastStep();
     const pr2 = await click(A, '#pane-scene [data-act="circle"]');
-    const u3 = await sp(A, 'UNDO.length');
+    const u3 = await lastStep();
+    const nMoved = await sp(A, `[...STU.items.values()].filter(it => ['o', 'p', 'e', 'c', 's'].includes(it.kind)).length`);
     const c = Math.cos(st1.yaw), sn = Math.sin(st1.yaw), want = {};
     for (const [id, r] of before) if (IDS.includes(id) && !(r.on)) want[id] = [st1.x + c * r.p[0] + sn * r.p[2], r.p[1], st1.z - sn * r.p[0] + c * r.p[2]];
     const after = await recs(A), same = [];
     for (const p of [B, C, H]) same.push(await sUntil(p, `${JSON.stringify(after)} === JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`, 10000));
     const A2 = new Map(JSON.parse(after)), mvd = Math.max(...Object.entries(want).map(([id, w]) => dist(A2.get(id).p, w)));
     const cubeYaw = A2.get('cube01') ? A2.get('cube01').yaw : null, cube0 = before.find(b => b[0] === 'cube01')[1].yaw;
-    const R2 = await hRoom();
+    // (the room's records glide in over 0.25 s on the headset's own frames: drawn once they have landed)
+    let R2 = await hRoom();
+    for (let k = 0; k < 40 && off(R2) >= 0.001; k++) { await sleep(250); R2 = await hRoom(); }
     check(`studio: Move the scene to this circle on a page is refused while an item is locked (it says which, nothing changes), then moves every item to the circle's spot transform of its old place (within ${(mvd * 1000).toFixed(3)} mm; the cube turned with it), one Undo step, every device's records the same and the headset drawing them there (within ${(off(R2) * 1000).toFixed(3)} mm)`,
-      pr1 && /Box/.test(refused[0]) && /locked/.test(refused[0]) && refused[1] === u1 && refused[2] === JSON.stringify(before.find(b => b[0] === 'box001')[1].p) &&
-        pr2 && u3 === u2 + 1 && Object.keys(want).length >= 3 && mvd < 0.001 && angle(cubeYaw, cube0 + st1.yaw) < 0.001 && same.every(Boolean) && off(R2) < 0.001,
-      JSON.stringify({ pr1, refused, u1, u2, u3, pr2, mvd, cubeYaw, cube0, same, note: await sp(A, 'CIRC.note'), R2 }));
+      pr1 && /Box/.test(refused[0]) && /locked/.test(refused[0]) && u1b === u1 && refused[1] === JSON.stringify(before.find(b => b[0] === 'box001')[1].p) &&
+        pr2 && u3 !== u2 && u3.endsWith(':' + nMoved) && Object.keys(want).length >= 3 && mvd < 0.001 && angle(cubeYaw, cube0 + st1.yaw) < 0.001 && same.every(Boolean) && off(R2) < 0.001,
+      JSON.stringify({ pr1, refused, u1, u1b, u2, u3, nMoved, pr2, mvd, cubeYaw, cube0, yaw: st1.yaw, same, note: await sp(A, 'CIRC.note'), R2 }));
     await sp(A, 'undo()');
     const back = [];
     for (const p of [A, B, C, H]) back.push(await sUntil(p, `${JSON.stringify(JSON.stringify(before))} === JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`, 10000));
