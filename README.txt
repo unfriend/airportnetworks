@@ -316,7 +316,16 @@ screens
 see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:
 the screen shows whichever station they stand at, switching as they walk, for
-people watching without a headset). In a headset you stay in a story once you
+people watching without a headset). An Android phone with AR (Chrome with Google
+Play Services for AR) can film the room: Camera mode in its Shared dialog, or
+the room's link with &camera added (#s=XYZ&camera: one big Start the camera
+button), shows the room through the phone's camera as the headsets see it,
+with the stories, the circles and the people in headsets. Aim at spot A on
+the floor and tap Set spot A, then spot B, so it lines up with the headsets;
+Follow a person or a circle in its small overlay; Panels, People, Sound,
+Subtitles and Hide are the phone's own (a double tap brings the controls back),
+and Exit ends it. It changes nothing in the room. Film it with Android's own
+screen recorder (untested on a real phone). In a headset you stay in a story once you
 have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
 models (point at one to see its card), and with the circles walked into a

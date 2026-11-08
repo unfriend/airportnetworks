@@ -254,7 +254,7 @@ const MAX_ROOMS = 2000, MAX_BATCH = 500, FX_RATE = 60, SET_RATE = 120;   // rate
 const KEY = /^[\w-]+(?:\.[\w:-]+)*$/, ID = /^[\w-]{1,64}$/, CODE = /^[A-Z]{3}$/;
 const STATION = /^st\.([\w-]{1,32})(?:\.|$)/;           // st.<id> and its state keys st.<id>.*
 const DELETABLE = /^(st|pose)\./;                       // the only keys that may be written as null
-const KINDS = ['ar', 'vr', 'desktop'];
+const KINDS = ['ar', 'vr', 'desktop', 'cam'];   // (cam: a phone in camera mode, v124: never a headset)
 const log = (...a) => { if (!OPT.quiet) console.log(new Date().toISOString(), ...a); };
 process.stdout.on('error', () => {});   // a closed log must not stop the relay
 const str = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');

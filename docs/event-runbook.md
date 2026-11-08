@@ -237,6 +237,24 @@ local network found each other this way, and then shared a peer-to-peer room; he
     when someone at the laptop follows a station or picks a story by hand; **Stop following** ends it. Tell the laptop
     which name is the guide's (shown under **You** in the headset's menu; typed in the Shared dialog on the headset's
     page before entering VR or AR, or **Another name** in the menu).
+12. **Filming a session (camera mode)**: an Android phone with AR (Chrome, with Google Play Services for AR) shows the
+    room through its camera as the headsets see it: the stories at their circles, the circles' models and cards, and
+    the people in headsets (rays and name tags). It changes nothing in the room and no headset counts it as a headset.
+    - Start it: in the phone's Shared dialog press **Camera mode** (shown only on a phone with AR, in a room), or open
+      the room's link with `&camera` added (`<address>#s=XYZ&camera`) and tap **Start the camera**. Allow the camera.
+    - Line it up on the room's two spots (the tape crosses the headsets calibrated on): aim the crosshair at spot A
+      (move the phone slowly until it finds the floor: a ring shows where it aims) and tap **Set spot A**, then the same
+      for spot B. The bar then says *Lined up on spot A and spot B*. It lines up again each time it starts (the phone
+      keeps no anchors), and asks again by itself if it loses its place; **Calibrate again** does it by hand.
+    - **Follow**: a person in a headset (the camera shows whichever circle they are at, switching as they walk) or a
+      circle. Walking with the phone never enters a circle.
+    - For a clean picture: **Panels: hidden** (the story's panels, on this phone only), **People: hidden**, **Subtitles:
+      on** (the narration's words at the foot), **Sound**, then **Hide** (a double tap on the picture brings the
+      controls back).
+    - Record with Android's own screen recorder (quick settings, **Screen record**; choose to record the device's audio
+      for the narration). **Exit** ends the camera; the page then follows on as a laptop does.
+    - Untested on a real phone: how closely it lines up on a tape cross, the frame rate of a heavy story on a phone,
+      the overlay in Chrome's AR, and the recording itself. Try it before the event.
 
 ## 3. Kiosk: one headset or screen on its own
 
@@ -357,6 +375,9 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
   room; the design room's table at its circle (**Design room here**): its size and height, and picking props up there;
 - follow a person: a laptop following a guide in a headset as they walk from circle to circle (how quickly it
   switches, and that it stays put between circles);
+- camera mode on a real Android phone: the hit test on a tape cross and how closely the phone lines up with the
+  headsets, a heavy story's frame rate on a phone, Chrome's DOM overlay (the bar, Set spot A, a double tap), and
+  filming it with Android's screen recorder (picture and sound);
 - after the ten-headset test (29 October 2026, which went very well): staying in your story out of its circle (and
   its narration heard from there), **Lock circles** and **Lock this story** in use, and other people shown only at your
   circle (**People: everyone** to see them all);

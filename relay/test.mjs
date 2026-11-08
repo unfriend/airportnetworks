@@ -179,6 +179,12 @@ try {
     const mb = await A.next(is('members', m => m.members.some(x => x.name === 'Bob')));
     ok(mb && mb.members.find(x => x.id === 'b1').kind === 'desktop', 'others hear of the joiner; an unknown kind is desktop');
     ok((await state(R)).members.length === 2, 'two members in the stored room');
+    // a phone in camera mode (v124) says it is a camera: kind cam, kept as it is
+    const Cm = await joined(R, 'c9', { name: 'Camera', kind: 'cam', here: true, version: 'v1' });
+    const mc = await A.next(is('members', m => m.members.some(x => x.id === 'c9' && x.name === 'Camera')));
+    ok(mc && mc.members.find(x => x.id === 'c9').kind === 'cam', 'a phone in camera mode is kind cam (v124)');
+    Cm.ws.close(); await Cm.done;
+    await A.next(is('members', m => !m.members.some(x => x.id === 'c9')));
   });
 
   await step('writes: seq, acknowledgement, order, last writer wins', async () => {
