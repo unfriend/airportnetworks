@@ -4104,9 +4104,9 @@ async function studioRound(dir) {
   const tmp = n => fs.mkdtempSync(path.join(os.tmpdir(), 'collab-' + n + '-'));
   const SC = tmp('scenes'), SC2 = tmp('scenes-pass'), logs = tmp('logs-pass'), TEST = path.join(root, 'tools', 'studio', 'test', 'scenes');
   fs.cpSync(TEST, SC, { recursive: true }); fs.cpSync(TEST, SC2, { recursive: true });
-  // (the textures, rig and cuts test scenes left out: the pages here list exactly two scenes; a model of each of the first
-  // two comes into test/ below)
-  for (const d of [SC, SC2]) for (const n of ['textures', 'rig', 'cuts']) fs.rmSync(path.join(d, n), { recursive: true, force: true });
+  // (the textures, rig, cuts and puppet test scenes left out: the pages here list exactly two scenes; a model of each of the
+  // first two comes into test/ below)
+  for (const d of [SC, SC2]) for (const n of ['textures', 'rig', 'cuts', 'puppet']) fs.rmSync(path.join(d, n), { recursive: true, force: true });
   fs.mkdirSync(path.join(SC, 'quiet'));
   fs.copyFileSync(path.join(SC, 'test', 'tone.wav'), path.join(SC, 'quiet', 'tone.wav'));
   if (dir) fs.mkdirSync(dir, { recursive: true });

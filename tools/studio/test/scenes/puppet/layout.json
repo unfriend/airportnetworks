@@ -1,0 +1,10 @@
+{
+  "studio": 1,
+  "scene": "puppet",
+  "saved": "2026-11-08T12:00:00.000Z",
+  "objects": [
+    {"id":"pup001","name":"Puppet","file":"rig.glb","p":[0,0,-2],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Walk","anim":"loop","start":"always"}
+  ],
+  "cubes": [],
+  "sounds": []
+}

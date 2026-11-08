@@ -43,6 +43,16 @@
 //               model in centimetres, whose GLB has a turn and a scale baked in)
 //   layout.json the wall with Door, a cut-out a cube (Doorway) in front of it shows (the wall opens as you walk up),
 //               two boxes of one file, the first with a Hole in a corner, the dancer and the figure
+// and the fifth, tools/studio/test/scenes/puppet/, for the trackers' solver (tools/studio/engine/ik.js, checked by
+// tools/studio/test-ik.mjs; tools/trackers/SPEC.md, "The solver (ik.js)"):
+//   rig.glb     our own humanoid with Mixamo's bone names (mixamorig:Hips ... mixamorig:RightToe_End: 25 bones in a T-pose,
+//               facing +z, its hips 1 m up), each bone's frame as Mixamo's (y along the bone), under an Armature scaled
+//               0.01 (the bones in centimetres, as Mixamo's files are); an eight- or twelve-sided tube per bone skinned to
+//               it, blended half and half at each joint (about 1,600 triangles, two materials), and a walk in place,
+//               Walk (1.1 s, 12 keys: the hips sway, bob and turn, the spine counter-turns, the head stays level, the
+//               legs and arms swing, the elbows bend only about their hinge, forward, and the knees only about theirs,
+//               back). Never Mixamo's own files
+//   layout.json the rig, walking
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
 // usage (from the repository root): node tools/studio/test/make.mjs
@@ -599,13 +609,177 @@ let ctotal = 0;
 fs.mkdirSync(cout, { recursive: true });
 for (const [f, b] of Object.entries(cfiles)) { fs.writeFileSync(path.join(cout, f), b); ctotal += b.length; }
 
+// ---- the puppet scene: a humanoid with Mixamo's bone names, for the trackers' solver (tools/studio/engine/ik.js)
+// (quaternions as [x, y, z, w], three.js's order: qm(a, b) is a then b applied first, qv turns a vector)
+const qm = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+const qc = a => [-a[0], -a[1], -a[2], a[3]];
+const qa = (ax, ang) => { const n = Math.hypot(...ax), s = Math.sin(ang / 2) / n; return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; };
+const vx = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vd = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], vs = (a, b) => a.map((v, i) => v - b[i]), vk = (a, k) => a.map(v => v * k);
+const vn = a => vk(a, 1 / Math.hypot(...a));
+const qv = (q, v) => { const u = q.slice(0, 3), t = vk(vx(u, v), 2), w = vx(u, t); return [0, 1, 2].map(i => v[i] + q[3] * t[i] + w[i]); };
+// (a rotation from its matrix's columns, as three.js's Quaternion.setFromRotationMatrix)
+function qFromCols(X, Y, Z) {
+  const [m11, m21, m31] = X, [m12, m22, m32] = Y, [m13, m23, m33] = Z, tr = m11 + m22 + m33;
+  if (tr > 0) { const s = 0.5 / Math.sqrt(tr + 1); return [(m32 - m23) * s, (m13 - m31) * s, (m21 - m12) * s, 0.25 / s]; }
+  if (m11 > m22 && m11 > m33) { const s = 2 * Math.sqrt(1 + m11 - m22 - m33); return [0.25 * s, (m12 + m21) / s, (m13 + m31) / s, (m32 - m23) / s]; }
+  if (m22 > m33) { const s = 2 * Math.sqrt(1 + m22 - m11 - m33); return [(m12 + m21) / s, 0.25 * s, (m23 + m32) / s, (m13 - m31) / s]; }
+  const s = 2 * Math.sqrt(1 + m33 - m11 - m22); return [(m13 + m31) / s, (m23 + m32) / s, 0.25 * s, (m21 - m12) / s];
+}
+// the skeleton in a T-pose (metres, facing +z, its left at +x): [Mixamo's name without its prefix, parent, where it stands]
+const PUPPET_BONES = [['Hips', '', [0, 1, 0]], ['Spine', 'Hips', [0, 1.1, 0.005]], ['Spine1', 'Spine', [0, 1.22, 0]], ['Spine2', 'Spine1', [0, 1.35, -0.01]],
+  ['Neck', 'Spine2', [0, 1.5, 0]], ['Head', 'Neck', [0, 1.6, 0.02]], ['HeadTop_End', 'Head', [0, 1.78, 0.02]],
+  ...[['Left', 1], ['Right', -1]].flatMap(([S, x]) => [[S + 'Shoulder', 'Spine2', [0.06 * x, 1.45, -0.01]], [S + 'Arm', S + 'Shoulder', [0.19 * x, 1.45, -0.02]],
+    [S + 'ForeArm', S + 'Arm', [0.46 * x, 1.45, -0.02]], [S + 'Hand', S + 'ForeArm', [0.71 * x, 1.45, -0.02]]]),
+  ...[['Left', 1], ['Right', -1]].flatMap(([S, x]) => [[S + 'UpLeg', 'Hips', [0.1 * x, 0.94, 0]], [S + 'Leg', S + 'UpLeg', [0.1 * x, 0.52, 0.01]],
+    [S + 'Foot', S + 'Leg', [0.1 * x, 0.09, -0.01]], [S + 'ToeBase', S + 'Foot', [0.1 * x, 0.02, 0.12]], [S + 'Toe_End', S + 'ToeBase', [0.1 * x, 0.02, 0.2]]])];
+const WALK_T = 1.1;
+// the walk in place at time t: each bone's turn as a rotation in the rig's axes at rest (applied in its parent's frame at
+// rest), and the hips' move. The elbows bend only about their hinge (the arm's line x forward: forward) and the knees only
+// about theirs (x: back), as the solver's two-bone chains assume
+function walkPose(t) {
+  const ph = 2 * Math.PI * t / WALK_T, s = Math.sin(ph), c = Math.cos(ph), X = [1, 0, 0], Y = [0, 1, 0], Z = [0, 0, 1];
+  const knee = x => 0.14 + 0.6 * Math.max(0, x) ** 2;   // (bent most as the leg swings through)
+  return {
+    hip: [0.03 * s, -0.015 + 0.015 * Math.cos(2 * ph), 0],
+    D: {
+      Hips: qm(qa(Y, -0.1 * s), qa(Z, 0.04 * s)),
+      Spine: qm(qa(Y, 0.04 * s), qa(X, 0.015)), Spine1: qm(qa(Y, 0.04 * s), qa(X, 0.015)), Spine2: qm(qa(Y, 0.05 * s), qa(X, 0.01)),
+      Neck: qm(qa(Y, -0.015 * s), qa(X, -0.02)), Head: qm(qa(Y, -0.015 * s), qa(X, -0.02)),
+      LeftUpLeg: qa(X, -0.42 * s), RightUpLeg: qa(X, 0.42 * s), LeftLeg: qa(X, knee(c)), RightLeg: qa(X, knee(-c)),
+      LeftFoot: qa(X, 0.42 * s - 0.8 * knee(c)), RightFoot: qa(X, -0.42 * s - 0.8 * knee(-c)),
+      LeftArm: qm(qa(X, 0.35 * s), qa(Z, -1.25)), RightArm: qm(qa(X, -0.35 * s), qa(Z, 1.25)),
+      LeftForeArm: qa([0, -1, 0], 0.5 + 0.35 * Math.max(0, -s)), RightForeArm: qa(Y, 0.5 + 0.35 * Math.max(0, s)),
+      LeftHand: qa(X, 0.12 * s), RightHand: qa(X, -0.12 * s),
+    },
+  };
+}
+function puppetGlb() {
+  const B = PUPPET_BONES, idx = Object.fromEntries(B.map(([n], i) => [n, i])), pos = B.map(b => b[2]);
+  const kids = B.map(([n]) => B.map(([, p], k) => (p === n ? k : -1)).filter(k => k >= 0));
+  // each bone's frame at rest, as Mixamo's: y along the bone to its first child (the hand: on from its forearm; an end bone:
+  // its parent's), z forward where it can be (else up), x = y x z
+  const RW = [];
+  B.forEach(([n, par], i) => {
+    const pi = par ? idx[par] : -1, to = kids[i].length ? pos[kids[i][0]] : null;
+    if (!to && /_End$/.test(n)) { RW[i] = RW[pi]; return; }
+    const Yd = vn(to ? vs(to, pos[i]) : vs(pos[i], pos[pi])), ref = Math.abs(Yd[2]) > 0.7 ? [0, 1, 0] : [0, 0, 1];
+    const Zd = vn(vs(ref, vk(Yd, vd(ref, Yd)))), Xd = vx(Yd, Zd);
+    RW[i] = qFromCols(Xd, Yd, Zd);
+  });
+  const RL = B.map(([, par], i) => (par ? qm(qc(RW[idx[par]]), RW[i]) : RW[i]));
+  const TL = B.map(([, par], i) => vk(par ? qv(qc(RW[idx[par]]), vs(pos[i], pos[idx[par]])) : pos[i], 100));   // (centimetres, in the parent's frame)
+  // the body: a tube per bone [bone, from, to, radius across x, radius across z, sides, material (0 the suit, 1 skin), end
+  // blended with its first child]
+  const seg = [['Hips', [0, 0.86, 0], pos[idx.Spine], 0.15, 0.1, 12, 0, true], ['Spine', pos[idx.Spine], pos[idx.Spine1], 0.14, 0.1, 12, 0, true],
+    ['Spine1', pos[idx.Spine1], pos[idx.Spine2], 0.15, 0.1, 12, 0, true], ['Spine2', pos[idx.Spine2], pos[idx.Neck], 0.17, 0.11, 12, 0, true],
+    ['Neck', pos[idx.Neck], pos[idx.Head], 0.05, 0.05, 8, 1, true], ['Head', pos[idx.Head], pos[idx.HeadTop_End], 0.09, 0.1, 12, 1, false]];
+  for (const S of ['Left', 'Right']) {
+    const at = n => pos[idx[S + n]], hand = at('Hand'), dir = vn(vs(hand, at('ForeArm')));
+    seg.push([S + 'Shoulder', at('Shoulder'), at('Arm'), 0.05, 0.05, 8, 0, true], [S + 'Arm', at('Arm'), at('ForeArm'), 0.045, 0.045, 8, 0, true],
+      [S + 'ForeArm', at('ForeArm'), hand, 0.04, 0.04, 8, 0, true], [S + 'Hand', hand, hand.map((v, k) => v + dir[k] * 0.17), 0.02, 0.045, 8, 1, false],
+      [S + 'UpLeg', at('UpLeg'), at('Leg'), 0.07, 0.07, 8, 0, true], [S + 'Leg', at('Leg'), at('Foot'), 0.05, 0.05, 8, 0, true],
+      [S + 'Foot', at('Foot'), at('ToeBase'), 0.04, 0.045, 8, 0, true], [S + 'ToeBase', at('ToeBase'), at('Toe_End'), 0.035, 0.045, 8, 0, false]);
+  }
+  const prims = [0, 1].map(() => ({ P: [], N: [], J: [], Wt: [], I: [] }));
+  for (const [name, A, Bp, rx, rz, n, mat, endBlend] of seg) {
+    const g = prims[mat], j = idx[name], par = B[j][1] ? idx[B[j][1]] : -1, kid = endBlend ? kids[j][0] : -1;
+    const d = vn(vs(Bp, A)), bx = qv(RW[j], [1, 0, 0]), X = vn(vs(bx, vk(d, vd(bx, d)))), Zc = vx(X, d);
+    const wAt = f => (f === 0 && par >= 0 && name !== 'Hips' ? [[j, par], [0.5, 0.5]] : f === 1 && kid >= 0 ? [[j, kid], [0.5, 0.5]] : [[j, 0], [1, 0]]);
+    const vert = (p, nrm, f) => { const [jj, ww] = wAt(f); g.P.push(...p); g.N.push(...nrm); g.J.push(jj[0], jj[1], 0, 0); g.Wt.push(ww[0], ww[1], 0, 0); };
+    const F = [0, 0.22, 0.78, 1], b0 = g.P.length / 3;
+    for (const f of F) {
+      const c = A.map((v, k) => v + (Bp[k] - v) * f);
+      for (let k = 0; k < n; k++) {
+        const th = 2 * Math.PI * k / n, cs = Math.cos(th), sn = Math.sin(th);
+        vert(c.map((v, i) => v + X[i] * cs * rx + Zc[i] * sn * rz), vn(X.map((v, i) => v * cs / rx + Zc[i] * sn / rz)), f);
+      }
+    }
+    const ca = g.P.length / 3; vert(A, vk(d, -1), 0); vert(Bp, d, 1);
+    for (let r = 0; r < F.length - 1; r++) for (let k = 0; k < n; k++) {
+      const a = b0 + r * n + k, b = b0 + r * n + (k + 1) % n, cc = b0 + (r + 1) * n + (k + 1) % n, dd = b0 + (r + 1) * n + k;
+      g.I.push(a, dd, cc, a, cc, b);
+    }
+    const last = b0 + (F.length - 1) * n;
+    for (let k = 0; k < n; k++) { g.I.push(ca, b0 + k, b0 + (k + 1) % n); g.I.push(ca + 1, last + (k + 1) % n, last + k); }
+  }
+  const parts = [], views = [], acc = [];
+  let off = 0;
+  const add = (buf, target) => { const pad = (4 - (off % 4)) % 4; if (pad) { parts.push(Buffer.alloc(pad)); off += pad; } views.push(Object.assign({ buffer: 0, byteOffset: off, byteLength: buf.length }, target ? { target } : {})); parts.push(buf); off += buf.length; return views.length - 1; };
+  const f32 = a => Buffer.from(new Float32Array(a).buffer), u16 = a => Buffer.from(new Uint16Array(a).buffer), u8 = a => Buffer.from(new Uint8Array(a).buffer);
+  const mm = (a, n) => [0, 1, 2, 3].slice(0, n).map(i => a.filter((_, k) => k % n === i)).map(c => [Math.min(...c), Math.max(...c)]);
+  const accessor = (a, type, n, target, bounds) => { const v = add(f32(a), target); acc.push(Object.assign({ bufferView: v, componentType: 5126, count: a.length / n, type }, bounds ? { min: mm(a, n).map(x => x[0]), max: mm(a, n).map(x => x[1]) } : {})); return acc.length - 1; };
+  const primitives = prims.map((g, k) => {
+    const aP = accessor(g.P, 'VEC3', 3, 34962, true), aN = accessor(g.N, 'VEC3', 3, 34962), aW = accessor(g.Wt, 'VEC4', 4, 34962);
+    acc.push({ bufferView: add(u8(g.J), 34962), componentType: 5121, count: g.J.length / 4, type: 'VEC4' }); const aJ = acc.length - 1;
+    acc.push({ bufferView: add(u16(g.I), 34963), componentType: 5123, count: g.I.length, type: 'SCALAR' }); const aI = acc.length - 1;
+    return { attributes: { POSITION: aP, NORMAL: aN, JOINTS_0: aJ, WEIGHTS_0: aW }, indices: aI, material: k };
+  });
+  // each bone's inverse bind matrix: the inverse of where it stands with its frame and the Armature's 0.01 (column-major)
+  const ax = q => [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(e => qv(q, e));
+  const aIBM = accessor(B.flatMap((_, i) => { const A3 = ax(RW[i]); return [0, 1, 2].flatMap(c => [0, 1, 2].map(r => 100 * A3[r][c])).flatMap((v, k) => (k % 3 === 2 ? [v, 0] : [v])).concat(A3.map(a => -100 * vd(a, pos[i])), 1); }), 'MAT4', 16);
+  // Walk: 12 keys and the first again, each animated bone's local turn (its turn in the rig's axes carried into its parent's
+  // frame at rest, then its own rest turn) and the hips' place (centimetres)
+  // (the times and every track's values in one buffer view: a smaller JSON chunk)
+  const K = 12, times = Array.from({ length: K + 1 }, (_, k) => +(k * WALK_T / K).toFixed(5)), anim = [...times], outs = [];
+  const animated = Object.keys(walkPose(0).D), samplers = [], channels = [];
+  const track = (node, path, vals) => { outs.push([anim.length, path === 'rotation' ? 'VEC4' : 'VEC3']); anim.push(...vals.flat()); samplers.push({ input: -1, output: -1, interpolation: 'LINEAR' }); channels.push({ sampler: samplers.length - 1, target: { node, path } }); };
+  const nodeOf = i => 2 + i;
+  track(nodeOf(0), 'translation', times.map(t => vk(pos[0].map((v, k) => v + walkPose(t).hip[k]), 100).map(v => +v.toFixed(4))));
+  for (const n of animated) {
+    const i = idx[n], par = B[i][1] ? idx[B[i][1]] : -1, pw = par >= 0 ? RW[par] : [0, 0, 0, 1];
+    let prev = null;
+    track(nodeOf(i), 'rotation', times.map(t => {
+      let q = qm(qm(qc(pw), qm(walkPose(t).D[n], pw)), RL[i]);
+      if (prev && vd(q, prev) + q[3] * prev[3] < 0) q = q.map(v => -v);
+      prev = q; return q.map(v => +v.toFixed(6));
+    }));
+  }
+  const vAnim = add(f32(anim));
+  acc.push({ bufferView: vAnim, componentType: 5126, count: times.length, type: 'SCALAR', min: [0], max: [times[K]] }); const aT = acc.length - 1;
+  outs.forEach(([at, type], k) => { acc.push({ bufferView: vAnim, byteOffset: at * 4, componentType: 5126, count: times.length, type }); Object.assign(samplers[k], { input: aT, output: acc.length - 1 }); });
+  const r6 = a => a.map(v => +v.toFixed(6));
+  const bin = Buffer.concat(parts), json = {
+    asset: { version: '2.0', generator: 'tools/studio/test/make.mjs' }, scene: 0, scenes: [{ nodes: [0] }],
+    nodes: [{ name: 'puppet', children: [1, 2 + B.length] }, { name: 'Armature', scale: [0.01, 0.01, 0.01], children: [2] },
+      ...B.map(([name], i) => Object.assign({ name: 'mixamorig:' + name, translation: r6(TL[i]), rotation: r6(RL[i]) }, kids[i].length ? { children: kids[i].map(nodeOf) } : {})),
+      { name: 'body', mesh: 0, skin: 0 }],
+    meshes: [{ name: 'body', primitives }],
+    skins: [{ joints: B.map((_, i) => nodeOf(i)), inverseBindMatrices: aIBM, skeleton: nodeOf(0) }],
+    materials: [{ name: 'suit', pbrMetallicRoughness: { baseColorFactor: [0.32, 0.45, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.75 } }, { name: 'skin', pbrMetallicRoughness: { baseColorFactor: [0.93, 0.76, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.6 } }],
+    accessors: acc, bufferViews: views, buffers: [{ byteLength: bin.length + ((4 - (bin.length % 4)) % 4) }],
+    animations: [{ name: 'Walk', channels, samplers }],
+  };
+  let js = Buffer.from(JSON.stringify(json));
+  js = Buffer.concat([js, Buffer.alloc((4 - (js.length % 4)) % 4, 0x20)]);
+  const bb = Buffer.concat([bin, Buffer.alloc((4 - (bin.length % 4)) % 4)]);
+  const head = Buffer.alloc(12); head.write('glTF', 0, 'ascii'); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + js.length + 8 + bb.length, 8);
+  const ch = (t, d) => { const b = Buffer.alloc(8); b.writeUInt32LE(d.length, 0); b.write(t, 4, 'ascii'); return Buffer.concat([b, d]); };
+  return { glb: Buffer.concat([head, ch('JSON', js), ch('BIN\0', bb)]), tris: prims.reduce((n, g) => n + g.I.length / 3, 0) };
+}
+const pout = path.join(here, 'scenes/puppet');
+fs.rmSync(pout, { recursive: true, force: true });
+const puppet = puppetGlb();
+const puppetLayout = {
+  studio: 1, scene: 'puppet', saved: '2026-11-08T12:00:00.000Z',
+  objects: [{ id: 'pup001', name: 'Puppet', file: 'rig.glb', p: [0, 0, -2], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Walk', anim: 'loop', start: 'always' }],
+  cubes: [], sounds: [],
+};
+const pfiles = { 'rig.glb': puppet.glb, 'layout.json': Buffer.from(layoutText(puppetLayout)) };
+let ptotal = 0;
+fs.mkdirSync(pout, { recursive: true });
+for (const [f, b] of Object.entries(pfiles)) { fs.writeFileSync(path.join(pout, f), b); ptotal += b.length; }
+
 scan(path.join(here, 'scenes'));
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 rtotal += fs.statSync(path.join(rout, 'files.json')).size;
 ctotal += fs.statSync(path.join(cout, 'files.json')).size;
+ptotal += fs.statSync(path.join(pout, 'files.json')).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
 ttotal += fs.statSync(path.join(tout, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);
 console.log(`wrote tools/studio/test/scenes/textures/ (${Object.keys(tfiles).length} files): ${(ttotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/scenes/rig/ (${Object.keys(rfiles).join(', ')}): ${(rtotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/scenes/cuts/ (${Object.keys(cfiles).join(', ')}): ${(ctotal / 1024).toFixed(1)} KB with its listing`);
+console.log(`wrote tools/studio/test/scenes/puppet/ (rig.glb: ${PUPPET_BONES.length} bones, ${puppet.tris} triangles, ${(puppet.glb.length / 1024).toFixed(1)} KB; layout.json): ${(ptotal / 1024).toFixed(1)} KB with its listing`);
