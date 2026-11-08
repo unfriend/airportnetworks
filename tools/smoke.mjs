@@ -4841,15 +4841,20 @@ await step('design: the intro ends at the table', async () => {
     if (!xr[0] || !/"kind":"pulse","speed":30,"amount":0.1/.test(xr[1]) || !xr[2] || !/"amount":0.15/.test(xr[3]) || !xr[4] || xr[5]) out.push('the headset\'s Motion rows: ' + JSON.stringify(xr));
     bad(out);
   });
-  await step('studio motions: selected and moving, a ghost where it is placed (a big model only its box), gone when deselected; the page\'s arrows on the ghost (a drag moves its record, the item drawn there while dragged, moving again after); a pretend headset\'s grip on the ghost carrying it; Pause (the Scene pane, a card, P): everything at its placed pose, a clip held, nothing written to the room, editing off playing again; Start again; a cut-out on a spinning model and a sound on an orbiting empty selected: what they are on rests, their arrows on them, a drag not jumping; a cut-out made where a click met a moving model', async () => {
+  await step('studio motions: moving while editing, a ghost where it is placed, selected or not (v124; a big model only its box), none with editing off or once it rests; the page\'s arrows on the ghost (a drag moves its record, the item drawn there while dragged, moving again after); a pretend headset\'s grip on the ghost carrying it; Pause (the Scene pane, a card, P): everything at its placed pose, a clip held, nothing written to the room, editing off playing again; Start again; a cut-out on a spinning model and a sound on an orbiting empty selected: what they are on rests, their arrows on them, a drag not jumping; a cut-out made where a click met a moving model', async () => {
     const out = await ss(`(() => {
       const M = window.__mo, o = [], V = M.V, it = STU.items.get('mot001'), H = it.holder, placed = () => new THREE.Matrix4().compose(H.position, H.quaternion, H.scale);
       const same = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= (e || 1e-9));
       setEdit(true); select(''); setRec('emp001', { motion: undefined }); setRec('mot001', { motion: { kind: 'bob', speed: 15, amount: 1 } });
       M.at('mot001', 1);   // (a quarter of a bob: drawn 1 m above where it is placed)
-      if (STUDIO.ghost('mot001')) o.push('a ghost before it was selected');
-      select('mot001'); M.at('mot001', 1);
+      // (v124: while editing every item that moves has its ghost, selected or not; with editing off none)
       let g = STUDIO.ghost('mot001');
+      if (!g || !g.shown || !same(g.at, placed().toArray())) o.push('editing, moving and not selected: no ghost at its placed pose: ' + JSON.stringify(g));
+      setEdit(false); M.at('mot001', 1);
+      if (STUDIO.ghost('mot001') || GH.size) o.push('editing off: a ghost stayed');
+      setEdit(true); M.at('mot001', 1);
+      select('mot001'); M.at('mot001', 1);
+      g = STUDIO.ghost('mot001');
       if (!g || !g.shown || g.parts !== 1 || g.hits !== 1 || !same(g.at, placed().toArray()) || !STUDIO.pose('mot001').moving) o.push('selected and moving: no ghost at its placed pose: ' + JSON.stringify(g));
       // the page's arrows: on the ghost's stand-in; a drag goes into its placed pose (one Undo step), the item resting there meanwhile
       tcSetMode('translate');
@@ -4880,15 +4885,20 @@ await step('design: the intro ends at the table', async () => {
       const nm = (() => { let n = 0; STU.items.get('box001').model.o.traverse(x => { if (x.isMesh && x.visible) n++; }); return n; })();
       g = STUDIO.ghost('box001');
       if (!g || !g.shown || g.outline || g.parts !== nm) o.push('an object\\'s ghost (its model\\'s ' + nm + ' meshes): ' + JSON.stringify(g));
-      GHOST.tris = 1; select(''); M.at('box001', 1); select('box001'); M.at('box001', 1); g = STUDIO.ghost('box001'); GHOST.tris = 100000;
+      GHOST.tris = 1; ghostDrop('box001'); M.at('box001', 1); g = STUDIO.ghost('box001'); GHOST.tris = 100000; ghostDrop('box001'); M.at('box001', 1);
       if (!g || !g.outline) o.push('a big model\\'s ghost is not its outline box: ' + JSON.stringify(g));
       setRec('emp001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } }); select('emp001'); M.at('emp001', 1); g = STUDIO.ghost('emp001');
-      if (!g || !g.shown || g.parts !== 2 || STUDIO.ghost('box001')) o.push('an empty\\'s ghost (its cross and dot), the box\\'s freed: ' + JSON.stringify([g, STUDIO.ghost('box001')]));
+      if (!g || !g.shown || g.parts !== 2 || !(STUDIO.ghost('box001') || {}).shown) o.push('an empty\\'s ghost (its cross and dot), the box\\'s kept while it moves: ' + JSON.stringify([g, STUDIO.ghost('box001')]));
       putItem('sgh001', 's', norm('s', { name: 'Walker', file: 'tone.wav', p: [1, 1.2, -1], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]] } })); select('sgh001'); M.at('sgh001', 1); g = STUDIO.ghost('sgh001');
       if (!g || !g.shown || g.parts !== 2) o.push('a sound\\'s ghost (its speaker): ' + JSON.stringify(g));
       removeItem('sgh001'); setRec('emp001', { motion: undefined });
       select(''); M.at('box001', 1);
-      if (GH.size || STUDIO.ghost('box001')) o.push('deselected, a ghost stayed');
+      if (!(STUDIO.ghost('box001') || {}).shown) o.push('deselected while editing, the moving box lost its ghost');
+      setRec('box001', { motion: undefined }); M.at('box001', 1);
+      if (STUDIO.ghost('box001')) o.push('its motion gone (at rest), its ghost stayed');
+      setEdit(false); M.at('mot001', 1);
+      if (GH.size) o.push('editing off, a ghost stayed: ' + [...GH.keys()]);
+      setEdit(true);
       return o;
     })()`);
     // Pause: the Scene pane's switch, a card's and P; everything at its placed pose, the box's clip held, nothing written

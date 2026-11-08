@@ -6,7 +6,9 @@
 // on while it is selected (motionRests, e6e_motion.js; a cut-out on it or a sound following it, selected, holds it still
 // at its placed pose instead: they have no ghost, so their arrows stand on it there), and:
 // - its ghost: while a selected item (or a selected group's member) is drawn more than 1 cm or 1 degree from where it is
-//   placed, a see-through copy stands there (an object's model sharing its geometry with one pale material, a skinned one
+//   placed, a see-through copy stands there; and since v124 (the owner, 8 November 2026: "in edit mode Ghosts should
+//   always be visible for animated things") every item that moves while editing has one, selected or not, so it can
+//   be pointed at and placed where it stands; one that rests (Pause, held, a cut-out on it selected) has none (an object's model sharing its geometry with one pale material, a skinned one
 //   frozen in its rest pose, a model of more than 100,000 triangles only its outline box; a shape its shape; an empty its
 //   cross; a sound its speaker), built once per selection and freed when the selection changes (its materials; never the
 //   geometry it shares). It is pointed at as the item (the trigger selects, the grip carries it from where it is placed).
@@ -91,14 +93,18 @@ function ghostFar(it) {
 }
 // every frame (itemsStep, after the items have their poses): the ghosts wanted (the selected item, or a selected group's
 // members, while they are drawn away from where they are placed, and for 0.6 s after so a spin passing through its place
-// does not blink it; and a path being recorded: where it began), each at its pose, lit while a recording is back at it;
-// then the page's arrows on the right one
+// does not blink it; while editing, every other item that moves now, it.mX, as long as it moves; and a path being
+// recorded: where it began), each at its pose, lit while a recording is back at it; at most GHOST.build new ones a frame
+// (a scene full of moving things, editing turned on); then the page's arrows on the right one
 const _ghq = new THREE.Quaternion();
+GHOST.build = 4;
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');
+  if (editing) for (const it of STU.items.values()) if (it.mX && ['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id)) want.set(it.id, 'edit');
   for (const [id, G] of GH) if (!want.has(id) || G.it !== STU.items.get(id)) ghostDrop(id);
+  let built = 0;
   for (const [id, how] of want) {
     const it = STU.items.get(id), rec = how === 'rec';
     let G = GH.get(id);
@@ -106,7 +112,13 @@ function ghostStep(editing, now) {
     if (G && far) G.far = now;
     const vis = rec || far || (!!G && now - G.far < GHOST.hold);
     if (!vis && !G) continue;
-    if (!G || G.key !== ghostKey(it)) { if (G) ghostDrop(id); G = ghostBuild(it); if (!G) continue; GH.set(id, G); G.far = far ? now : -1e9; }
+    if (!G || G.key !== ghostKey(it)) {
+      if (!G && built >= GHOST.build) continue;
+      if (G) ghostDrop(id);
+      G = ghostBuild(it); built++;
+      if (!G) continue;
+      GH.set(id, G); G.far = far ? now : -1e9;
+    }
     G.g.visible = vis;
     if (!vis) continue;
     const H = it.holder;

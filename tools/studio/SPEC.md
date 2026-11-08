@@ -1238,8 +1238,9 @@ also want to be able to move moving/animated items to select their exact place".
   or not), and rests at its placed pose only while this device holds it, a cut-out on it or a sound following it is
   selected here, or Pause is on ("Motions": Resting). So a motion
   picked on its card shows on it at once.
-- **The ghost**: while a selected item (or a member of a selected group) is drawn more than 1 cm or 1 degree from where it
-  is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy
+- **The ghost**: while editing, every item that moves now (v124; the owner, 8 November 2026: "in edit mode Ghosts should
+  always be visible for animated things"; until v124 only the selected item or a selected group's members), while it is
+  drawn more than 1 cm or 1 degree from where it is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy
   stands at its placed pose (`GH`, `ghostStep` at the end of `itemsStep`), and for 0.6 s after it was last that far, so a
   spin passing through its place does not blink it. An object's: a copy of its model sharing its geometry with one ghost
   material (pale blue-white, opacity 0.25, no depth written, drawn with the see-through things after the opaque ones), a

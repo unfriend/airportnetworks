@@ -3852,8 +3852,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   want to be able to move moving/animated items to select their exact place"; `tools/studio/SPEC.md`, "The ghost, Pause
   and placing what moves"; `engine/e6h_ghost.js`). An item with a motion, a recorded path or a behaviour goes on while it
   is selected. While a selected item (or a selected group's member) is drawn more than 1 cm or 1 degree from its placed
-  pose (`ghostFar`, from `it.mX`; and for 0.6 s after, so a spin through its place does not blink it), its ghost stands
-  there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
+  pose (`ghostFar`, from `it.mX`; and for 0.6 s after, so a spin through its place does not blink it), and since v124
+  every item that moves while editing, selected or not (the owner, 8 November 2026: "in edit mode Ghosts should always
+  be visible for animated things"; at most `GHOST.build`, 4, new ones a frame; none once it rests, none with editing
+  off), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
   blue-white material (opacity 0.25, no depth written; a skinned mesh as a plain one, its rest pose; a model of more than
   100,000 triangles only its outline box, `GHOST.tris`), a shape's shape, an empty's cross and dot, a sound's speaker;
   built once per selection and freed when it changes (its materials disposed, never the shared geometry). The ghost is
