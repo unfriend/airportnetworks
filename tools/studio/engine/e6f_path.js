@@ -301,6 +301,7 @@ function recEnd(save) {
   it.carry = false;   // (so its record puts it back at once: applyRec)
   const back = it.kind === 's' ? { p: R.p0.toArray() } : { p: R.p0.toArray(), q: R.q0.toArray() };
   let res = save && editOn() ? recPath(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  R.c0 = res.c0 || 0;   // (the stillness cut from its start: the tests read it)
   // (one kept as a file, or with a voice: written once its files are in the scene, a change of its own; it stands where
   // it is placed meanwhile)
   const keep = !!res.path && (!!res.keys || !!R.v);

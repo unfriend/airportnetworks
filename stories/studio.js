@@ -22168,6 +22168,7 @@ function recEnd(save) {
   it.carry = false;   // (so its record puts it back at once: applyRec)
   const back = it.kind === 's' ? { p: R.p0.toArray() } : { p: R.p0.toArray(), q: R.q0.toArray() };
   let res = save && editOn() ? recPath(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  R.c0 = res.c0 || 0;   // (the stillness cut from its start: the tests read it)
   // (one kept as a file, or with a voice: written once its files are in the scene, a change of its own; it stands where
   // it is placed meanwhile)
   const keep = !!res.path && (!!res.keys || !!R.v);
@@ -23265,14 +23266,15 @@ function texState(id) {
 // own (made here), gen (the scene's opening), err, failAt }). KEEP: items whose last recording's files are going in now
 const PF = new Map(), KEEP = new Map();
 const keepSig = () => [...KEEP.values()].map(k => k.text).join('|') + ':' + [...PF.values()].map(f => f.state).join('');
-// a path's keys: its own, or its file's once read (null meanwhile)
+// a path's keys: its own, or its file's once read (null meanwhile). A file the listing does not show yet (its watch slow,
+// or none) is asked for all the same, again every 10 s while it is not there
 function pathK(P) {
   if (P.k) return P.k;
   let f = PF.get(P.src);
   if (f && f.gen !== STU.gen) { PF.delete(P.src); f = null; }   // (another scene's, or this one opened again)
   if (f && f.own) return f.k;
-  const L = STU.fileMap.get(P.src);
-  if (L && (!f || (f.state !== 'loading' && (f.at !== L.at || (f.state === 'bad' && performance.now() - f.failAt > 10000))))) pfLoad(P.src, L);
+  const L = STU.fileMap.get(P.src) || { at: 0 };
+  if (STU.scene && (!f || (f.state !== 'loading' && (f.at !== L.at || (f.state === 'bad' && performance.now() - f.failAt > 10000))))) pfLoad(P.src, L);
   return f && f.k ? f.k : null;
 }
 async function pfLoad(src, L) {
@@ -29028,6 +29030,7 @@ return {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
+    try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     for (const t of TIMERS) clearTimeout(t);

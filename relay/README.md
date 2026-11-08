@@ -579,6 +579,15 @@ go back, copy one of them over `layout.json`; the studio's *Load saved* then tak
 a line and an item a line, so it reads (and compares in git) well. `--scenes-readonly` writes nothing: *Save* says why
 and the page offers *Download layout.json*.
 
+**Recordings kept as files** (v125). `recordings/<a name>.json` is a recorded path the studio keeps as a file of the
+scene (one longer than 2 minutes, or of more than 600 keys: `tools/studio/SPEC.md`, "Ten minutes, as a file"), `{ studio: 1,
+recording: 1, item, len, n, k }`. It is listed and told with a kind of its own, `recording`, served as `application/json`
+(stored in R2 and signed as such), and takes uploads and copies of at most 4 MB (and `--max-upload`: 413 *a recording in
+recordings/ is at most 4 MB*). A `.json` anywhere else outside `originals/` is refused (400); anything else in `recordings/`
+goes by its own rules (a sound there is a sound). The studio never writes over one (a new recording is a new file), so
+the voices recorded with movements (`sounds/<name>-voice-<n>.wav`, or `.mp3` made by `ffmpeg` from a longer one) are the
+only files it replaces as it records.
+
 **Pictures of the models** (v120). `previews/<a model's path>.jpg` is the studio's Add pane picture of that model (a
 256 x 256 JPEG the studio makes with every GLB it writes, and on *Make pictures*: `tools/studio/SPEC.md`, "Pictures in
 the Add pane"). The listing gives such a file the kind `preview` (never `image`: the studio never takes it for a
@@ -600,7 +609,7 @@ scenes in a Cloudflare R2 bucket (`--scenes r2`: [Scenes in Cloudflare R2](#scen
 | request | answer |
 | --- | --- |
 | `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save, upload, ffmpeg, maxUpload }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` and `upload` false with `--scenes-readonly`; `ffmpeg` whether long sounds are made MP3 here; `maxUpload` the most one upload may be, in bytes ([Uploading](#uploading-the-upload-page)) |
-| `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`), `preview` (`previews/<a model's path>.jpg`, above) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
+| `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`), `preview` (`previews/<a model's path>.jpg`, above), `recording` (`recordings/<name>.json`, above) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
 | `GET /scenes/<name>/<path>` | the file (also `HEAD`): its type by extension, `ETag` from its size and time (304 when it matches), `Cache-Control: no-cache`, single byte ranges (206, 416), CORS (`Access-Control-Expose-Headers: ETag, Content-Range, Accept-Ranges`). The path is decoded once; `..` (as sent or escaped), backslashes, NUL, dot files and folders (`.history/`), more than 4 folders deep, and anything whose real path (a link followed) leaves the scene's folder: 404, the refusals said in the log by their path (never their query), at most 20 lines a minute |
 | `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
 | `GET /api/scenes/watch` | Server-Sent Events (with a password `?token=`: an `EventSource` cannot send headers), below |
@@ -1262,7 +1271,10 @@ onto itself and bad bodies 400 with nothing written, no such scene, file or a fo
 said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log); the models' pictures
 (v120: `previews/<path>.jpg` taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name
 under `previews/`, too deep and `Previews/` in another case 400, exactly 200 KB taken and past it 413 by its length and as it streams, nothing left
-behind, `--max-upload` elsewhere as before, copies by the same rule); and the password on
+behind, `--max-upload` elsewhere as before, copies by the same rule); recordings kept as files (v125: `recordings/<name>.json`
+taken, listed and told with the kind `recording`, served as `application/json`, a sound there by its own kind, a `.json`
+anywhere else, `.JSON`, too deep or a temporary name 400, past the smaller of 4 MB and `--max-upload` 413 by its length and
+as it streams, copies by the same rule; with R2 through the relay and straight into the bucket as `application/json`); and the password on
 making a scene, a file, a sound and a copy; and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks
 every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the
 bucket listed, its CORS rule as a browser meets it), the list and a scene by the same rules with a signed link per file

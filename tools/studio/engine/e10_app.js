@@ -429,6 +429,7 @@ return {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
+    try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     for (const t of TIMERS) clearTimeout(t);

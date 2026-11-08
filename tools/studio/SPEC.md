@@ -218,6 +218,11 @@ placed by itself).
   `[0, 0, 0]`: none). A `bone` or an `o` without `on` is dropped, whatever it holds; with `on`, an `on` that is not an
   id, a `bone` that is not a string or an `o` that is not three numbers makes the record bad. `p` stays: where the sound
   stands when it follows nothing, or when what it follows is not in the scene. The layout's version stays `studio: 1`.
+- A sound's `sync`, `skip` and `len` (optional, kept only when set, v125; "A voice with the movement" under "Recorded
+  paths"): `sync` the id of the item whose recorded path it plays with, `skip` the seconds into its file where that path's
+  start is (-10 to 600, to the ms; 0 is none; negative: it starts that much after the path), `len` how long of it plays
+  (seconds, to 600, to the ms). A `skip` or a `len` without `sync` is dropped; with `sync`, a `sync` that is not an id, a
+  `skip` that is not a number or a `len` that is not a positive number makes the record bad.
 - A cut-out's `on` (required: the id of the object it cuts), `p`, `q` and `size` ("Cut-outs" below): in that object's
   frame, turned but not scaled (metres), `p` to the mm, `q` a full turn (4 decimals), each side 1 cm to 50 m to the mm.
   A layout without `cuts` (v112's) reads as before.
@@ -244,9 +249,11 @@ placed by itself).
 - An object's, a shape's, an empty's or a sound's `path` (optional, kept only when set; "Recorded paths" below): `{ k, play,
   start, speed }`, `k` 2 to 600 keys `[t, dx, dy, dz, qx, qy, qz, qw]` (the first `t` 0, strictly increasing, the last at
   most 120), `play` `'loop'` (the default), `'once'` or `'bounce'`, `start` `'always'` (the default) or `'shown'`, `speed`
-  0.25 to 4 (1 by default); `null` reads as absent, anything else that is not such a path makes the record bad, and an
-  item whose path would take the layout's paths past 6,000 keys is dropped and counted. A layout without it reads as
-  before.
+  0.25 to 4 (1 by default); or, for a recording kept as a file of the scene (v125), `{ src, len, n, play, start, speed }`:
+  `src` its file, a path under `recordings/` ending in `.json` (the listing's rules), `len` its length (more than 0 to 600
+  s, to the ms), `n` its keys (an integer, 2 to 40,000), and no `k`. `null` reads as absent, anything else that is not such
+  a path makes the record bad, and an item whose path would take the layout's paths past 6,000 keys (those in records: a
+  file's keys are not counted) is dropped and counted. A layout without it reads as before.
 - A cube's `tex` (optional, kept only when it has an entry, v124; "Trigger cubes that change textures" below): at most 16
   entries `{ on, mat, slot, file }`, `on` an object's id, `mat` an integer 0 to 255 (the material's index as Change
   texture lists the object's materials), `slot` one of `'map'`, `'normalMap'`, `'roughnessMap'`, `'metalnessMap'`,
@@ -1352,7 +1359,85 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
   the room's clock on every device. FORMAT networks-35 (v120, with the motions).
 - **Untested on a headset**: recording with real grips and sticks (the pose sampled from a real carry at the headset's
   frame rate), how a path plays back life size, its phase across real headsets at a station, the stall of simplifying a
-  long recording on a Quest (a 120 s one is 3,600 samples), the cost of many items on paths.
+  long recording on a Quest (a 120 s one is 3,600 samples, a 10 minute one 18,000), the cost of many items on paths.
+
+### Ten minutes, as a file (the owner, 8 November 2026)
+
+The owner: "Add voice recording option to the motion recorder, make length up to ten minutes possible?" (this subsection
+and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
+
+- **How long**: with a relay that takes uploads (`canUpload()`) a recording may run up to 600 s (`recCap`, `PATH_MAX.long`)
+  and stops by itself there, kept (*stopped at 10 minutes: the longest a path may be*); without one, up to 120 s as before
+  (*stopped at 120 s: the longest a path may be without a relay that takes uploads*).
+- **In the record, or as a file**: one that fits the old limits (at most 120 s and 600 keys once simplified) stays in the
+  record as before. A longer one, or one of more than 600 keys, is kept as a file of the scene,
+  `recordings/<the item's name>-<n>.json` (the first `n` free from 1; a recording is never written over, so Undo can give
+  an older record back with its file): `{ studio: 1, recording: 1, item, len, n, k }`, its keys as a record keeps them
+  (rounded alike; at most 40,000 and 600 s), at most 4 MB (the relay's rule). It goes up as the converter's GLBs do
+  (`upSend`: through the relay, or straight into R2), a name taken meanwhile the next; the record's path is then `{ src,
+  len, n, play, start, speed }`, written once the file is in (the item stands where it is placed meanwhile, *Keeping the
+  recording: its file goes into the scene...* on its card), one change, one Undo step. Refused in words: more than 40,000
+  keys, and without a relay that takes uploads one that needs a file (*A recording longer than 2 minutes needs a relay
+  that takes uploads*, or *This movement needs 700 keys: a path holds 600 at most in the layout, and a longer one is kept
+  as a file of the scene, which needs a relay that takes uploads*).
+- **Playing**: the device that made it keeps its keys at once (`PF`, `own`); every other device reads the file
+  (`pathK`, `pfLoad`: `call()`, so the relay's password as a header, or R2's signed link) once it is in the scene's
+  listing, and again when its time there changes (a failure is tried again 10 s later or when it changes; its card says
+  why). Until its keys are in the item rests where it is placed (`POSE.path` returns nothing). Everything a path does
+  works the same: loop, once, back and forth, its speed, Start again, the loop join and *Keep it as recorded* (which makes
+  a file of its own when it needs one), Pause, the ghost. Its card says *Recorded path: 4:12, 3,812 keys, kept as a file*
+  and *Kept as the file recordings/Box-1.json: ...*.
+- **Limits**: the scene's 6,000 keys and the shared state's 224 KB count only keys in records (`pathN`; a file's are not in
+  the state). A copy (Duplicate, a group's) names the same file.
+- **A GLB switch**: an object switched to its GLB whose path is a file gets a new file with its keys turned
+  (`pathFilesTurned`, before the switch's change: its keys turned as `pathTurned` turns a record's, written as
+  `recordings/<its name>-<n>.json`), its record naming that one; one whose keys are not in, or with no relay that takes
+  uploads, keeps its file.
+- FORMAT networks-37 (`src` on a path; `sync` on a sound's record, below).
+
+### A voice with the movement (the owner, 8 November 2026)
+
+- **The switch**: *With my voice: on / off* among the recorder's rows (an object's, a shape's and an empty's card, page and
+  headset; not a sound's), this device's own (`studioRecVoice` in `localStorage`, kept). Turned on, it asks for the
+  microphone at once (`getUserMedia({ audio })`, 15 s at most; the stream is let go and opened again as a recording
+  begins). A refusal or no answer is said on the card (*The microphone was refused: allow it for this page...*; in a
+  headset *No answer about the microphone: in a headset the browser may not show its question...*); the headset's card
+  always says to turn it on on the 2D page first, before entering VR (untested on a Quest). Greyed without a relay that
+  takes uploads (*Your voice is kept as a sound of the scene: it needs a relay that takes uploads*) or a browser that
+  cannot record (`MediaRecorder`).
+- **While it records** (`voiceBegin`): the microphone is recorded with it (`MediaRecorder`, Opus in WebM where the browser
+  has it, a chunk a second), from when it opens (`V.t0`, real time; the recording's own began at `R.real0`); its card
+  shows *● Your voice: ●●●●○○○○*, a level from an analyser on the shell's context (`HOST.audio.fx()`, connected to nothing
+  else, so nothing is heard and no context is the studio's own; none while the shell has no context: *recording*).
+- **Kept** (`recKeep`, `voiceKeep`): only with a recording that is kept; cancelled or refused, what came is let go. Made a
+  mono sound as the Upload pane makes sounds: up to 20 s decoded in the page by `monoWav` (the one `OfflineAudioContext`,
+  `e7b_upload.js`) into a 16-bit WAV at 48 kHz; longer, sent to the relay's `ffmpeg` for a mono MP3 (`.../sound`); with
+  no `ffmpeg` kept as it came (`.webm`, `.ogg` or `.m4a`). Uploaded to `sounds/<the item's name>-voice-<n>.<ext>`, and
+  placed (`voicePlace`) as a sound item named *<item> voice*, following the recorded item (on its *Head* bone when its model
+  has one, else at its top, as it is placed), volume 1, full volume within 1.5 m, `loop: false`, with `sync` (the item's
+  id), `skip` and `len`: `skip` = the stillness the loop join cut from the path's start (`res.c0`) less how late the
+  microphone began after the recording (`lead`), `len` = the path's length (at most what the voice has from `skip`). The
+  path and the sound are written in one change: one Undo step (the files stay in the scene). *Record again* with the voice
+  on replaces that sound's file (the same path, `replace=1`, when it is of the same kind; else a new file named in its
+  record): one sound per recorded item (`voiceOf`: the first by id whose `sync` names it). *Keep it as recorded* keeps the
+  voice and moves its `skip` with the path's start. Its card says *Your voice is Box voice (mono WAV, 48000 Hz, 4.0 s): it
+  follows Box and plays with its path.*
+- **Playing with the path** (`syncAt`, from `emitStep`, `emitStart` and `streamStart`): while the item's path plays (its
+  keys in, the item not resting), the voice starts each time the path starts its loop (with a path that plays once, once;
+  back and forth, on the way there), on the path's clock (`pathClock`: at a station the room's), so everyone at a circle
+  hears it at the same moment: at the path's pass `e` seconds in, the voice is at `skip + e` in its file, to `skip + len`.
+  A decoded voice is started 20 ms ahead at where it will be then (`AudioBufferSourceNode.start(when, offset, duration)`),
+  a negative `skip` by starting that much later; a streamed one (over 20 s) is set to its moment and stopped at its end;
+  a new pass stops it and starts it again. At a path speed other than ×1 it plays at its own pace from each start (its
+  card says so). It is heard only while it and the item are shown for you, and follows the Sound button as every sound of
+  the scene does. A sound whose `sync` names an item with no recorded path (the recording deleted, or the item gone) plays
+  as a sound of its own by its own *Plays* (its card: *no longer synced*). `STUDIO.voice(id)` (its last start, where its
+  voice and its path are now) is for tests.
+- **Shared rooms**: the sound is an item, its file a file of the scene, so every device fetches it and plays it from the
+  room's clock. A group's copy of a voice plays with the copy of its item.
+- **Untested**: the microphone in a Quest session (whether Quest Browser shows its question there), how a voice sounds
+  following a model there, a voice longer than 20 s made MP3 by a real relay's `ffmpeg` (the tests record a few seconds),
+  Safari's `MediaRecorder` (MP4).
 
 ## The ghost, Pause and placing what moves (the owner, 7 November 2026)
 
@@ -1750,6 +1835,9 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
   in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
   "Testing" in `AGENTS.md`.
+- Ten minutes as a file and a voice with the movement (v125): the smoke test's *studio recorder* steps (a relay of its own
+  on a copy of the test scene, Chromium's fake microphone; `--only 'studio recorder'`), relay/test.mjs's `recordings:` and
+  R2 steps and `tools/collab.mjs --studio`'s step for a ten-minute recording and a voice: "Testing" in `AGENTS.md`.
 - Trigger cubes that change textures (v124): the smoke test's *studio texture swaps* steps (on the test scene, with two
   solid pictures made in the page, a second object of `box.glb` and three cubes put in for them; `node tools/smoke.mjs
   <url> --only 'studio texture swaps'` runs them alone): "Testing" in `AGENTS.md`.
