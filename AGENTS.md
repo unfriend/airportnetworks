@@ -63,6 +63,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   loaded once by `HOST.lowpoly()` (the design room's table, the stations' icons).
 - `version.json` - the latest release, for live updates: written by
   `tools/release.mjs`, never by hand, never cached.
+- `whatsnew.json` - what is new in the latest release and what to test (developer mode's box, `HOST.dev`): written by
+  hand at every release, never cached, not in `SHELL` ("Developer mode" below).
 - `stories/<key>.js` - one story each, wrapped in
   `HOST.register('<key>', function (HOST) { ... })`. Everything a story
   defines is local to that function. Each returns
@@ -675,6 +677,33 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   (the two are independent; labels hidden hides neither), and the Stories
   screen never changes with it.
   Not in a story's `state()`. How it feels on a headset is untested.
+- Developer mode (v125, `HOST.dev` in `index.html`, `NEWS` in `shared.js`; the owner, 8 November 2026: "A box at the
+  beginning of a session that tells me the most recent changes and what i should test, optionally enabled when in
+  'developer mode' a switch in the menu"). This device's own, off by default (`devMode` in `localStorage`, `#dev=on|off`
+  in a link); its switch is at the Stories screen's foot (`#btnDev`, small, beside *What is new*, `#btnNews`), in More
+  (focus mode's and a narrow top bar's) and on the headset menu's Settings tab (*Developer mode: on/off*, under Frame
+  rate). What is new is `whatsnew.json` at the app's root, `{ version, date, new, test, untested }` (short sentences;
+  New, Please test and Untested), written by hand at every release; fetched past every cache as `version.json` is
+  (`?t=`, `no-store`; the service worker passes it through, the relay serves it `no-store`, never in `SHELL`), at most
+  40 sentences a list.
+  - On a page, while it is on: a card (`#devCard`) over the Stories screen, or over the story a link opened, once a
+    page load (`HOST.dev.boot()`, after the first story has started), with the release's number from the file (*What
+    is new in v124*), its date and the three lists; *Got it* keeps it away for that version on this device (`devSeen`),
+    *Later* (also Escape and the back button) until the next page load. Never in a headset session. *What is new* (the
+    Stories screen's foot, More) opens it any time.
+  - In a headset session, while it is on: at the start of every session until Got it for that version, the menu opens
+    by itself at *What is new*, a page of the Debug tab in place of its content (`newsPage`, `PNL.page` `'news'`, as the
+    room setup guide is of Circles), as tall as its lists need (its type 22, 20 or 18 px, the largest that fits the
+    1920 px canvas; what still does not fit counted), with *Got it* and *Later*; either closes the menu it opened, and
+    closing it any other way (another tab, the menu closed) counts as Later. It comes last of what a session shows by
+    itself: after the startup flow in a shared room (the room setup guide, the check by eye) and after the welcome
+    (*Getting around*: once it has shown and gone; with it off, 2.5 s into the session), 0.8 s after the last of them,
+    never over the open menu (it waits until it is closed), the questions, a calibration or a check, never in camera mode.
+    The Debug tab's *What is new* opens the page any time (*Got it* and *Back*).
+  - A file that cannot be fetched is said in one line (*Could not fetch what is new (whatsnew.json): the server answered
+    404.*). Nothing in a room's keys or `collab.state()` (no `FORMAT` change). `HOST.dev.on()`, `set(on)`, `load(again)`,
+    `data()`, `seen()`, `card(open)`, `state()`; `HOST.collab.whatsNew()` (`{ shown, fl, menu }`), `devOpen()` and
+    `welcomeMs(ms)` are for tests. How the page reads in a headset (about 1 m tall with v124's lists) is untested.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -1970,7 +1999,7 @@ which an older device writing `look` would drop, and the studio's `state()` gain
     off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
     `HOST.xr`), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
-    settings"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
+    settings"), *Developer mode: on/off* (v125, this device's own, a note beside it: "Developer mode"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
     a line that these four and Sound effects are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
@@ -2005,10 +2034,12 @@ which an older device writing `look` would drop, and the studio's `state()` gain
     the spot) and what the check says, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
     space, then *I am elsewhere* / *in the room*), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
-    Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
+    Back), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
+    "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 970, Debug about 840; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
+  guide's tallest page about 1090; Settings about 970, Debug about 840; What is new as tall as its lists, up to the
+  canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
@@ -4217,6 +4248,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   (`HOST.shell`); commit both. `node tools/release.mjs --check` says whether
   they are current. Without it, running pages do not see the release until
   they reload (and a new shell refuses to be written without a new `VERSION`).
+- At every release, rewrite `whatsnew.json` by hand for the new `VERSION` (`version`, `date`, and short sentences under
+  `new`, `test` and `untested`: what changed, what the owner should try on a headset and a phone, what nobody could
+  check here; a handful each, so the headset's page stays readable). `node tools/release.mjs` warns and `--check` fails
+  while it names another release ("Developer mode" above).
 - Never let the page and its story files come from different versions: a new
   `index.html` with an old story file looks fine but misbehaves (Repeat ended
   in explore mode because the old story never called `HOST.ended()`). Hosts
@@ -4372,6 +4407,16 @@ node tools/smoke.mjs http://127.0.0.1:8123/ --only studio       # only the studi
 of steps is guarded by its name, `runs(...)`; the blocks of mixed names, the headset settings and focus mode, run only
 without it): `--only studio` the studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own
 steps; the release run is the whole test.
+
+Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
+nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories
+screen with the served file's lists; Got it keeping it away for that version across a reload, a stand-in file of another
+version showing it again (an empty list without its heading), Later and Escape until the next load; a link into a story
+showing it over the story; What is new by hand; a file answered 404 said in one line; the switch and `#dev=off`; More's
+two items at 600 px. Then a pretend headset session (as the headset settings' steps make one), the welcome on and made
+1.5 s long: the menu opening at What is new only once the welcome has shown and gone, Later closing it and the menu
+(again the next session), Got it closing them and keeping the version (not the next session); with the welcome off, a
+moment into the session; developer mode off, never; the Settings row and the Debug tab's What is new (Back to the tab).
 
 It needs Playwright with a Chromium build (`npm i --no-save playwright` and
 `npx playwright install chromium` once, or a global install; see

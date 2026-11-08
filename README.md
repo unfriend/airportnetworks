@@ -94,6 +94,14 @@ Meta Quest Browser).
   in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
+- **Developer mode** (for testers; off by default, this device's own): the small
+  switch at the foot of the Stories screen (also in *More* on a phone, and in a
+  headset in the menu's Settings tab), or `#dev=on` in a link. While it is on, a
+  box says what is new in this release and what to test: over the Stories screen
+  when the app opens, and in a headset at the start of each session, after the
+  welcome. *Got it* hides it until the next release on this device; *Later* until
+  the app opens again (in a headset, the next session). *What is new* shows it any
+  time. Its lists are `whatsnew.json`, rewritten at every release.
 
 ## Running and deploying
 
@@ -330,6 +338,7 @@ The protein data is meant for teaching, not research.
 | `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
 | `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
 | `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `AGENTS.md`, "Hot reload and live updates") |
+| `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `AGENTS.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -342,7 +351,7 @@ The protein data is meant for teaching, not research.
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
 | `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
-| `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current) |
+| `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current, and whether `whatsnew.json` names this release) |
 | `tools/live.mjs` | test of hot reload and live updates: a copy of the app changed as a release or an editor would, on a static host and through the relay's `--watch` |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |

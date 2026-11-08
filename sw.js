@@ -118,8 +118,8 @@ self.addEventListener('fetch', e => {
   // the shared rooms' relay (when it serves the app): its API is live, never cached
   if (url.origin === self.location.origin && /\/api\//.test(url.pathname)) return;
   // the latest release's version file (tools/release.mjs): always the server's, never kept (HOST.live compares it
-  // with what this page runs)
-  if (url.origin === self.location.origin && /\/version\.json$/.test(url.pathname)) return;
+  // with what this page runs); and what is new in it (whatsnew.json, developer mode's box: HOST.dev), likewise
+  if (url.origin === self.location.origin && /\/(version|whatsnew)\.json$/.test(url.pathname)) return;
   // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));

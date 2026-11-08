@@ -3664,8 +3664,8 @@
     if (on) askClose('menu');   // (the question whether to go into a circle goes when the menu opens)
     PNL.open = on; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
     if (!on && MG.src) menuPut();   // (closed while carried)
-    PNL.self = on && /^(question|empty|guide)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
-    if (PNL.self) PNL.tab = 'circles';
+    PNL.self = on && /^(question|empty|guide|news)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used; what is new on Debug)
+    if (PNL.self) PNL.tab = why === 'news' ? 'debug' : 'circles';
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
@@ -3721,7 +3721,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4124,6 +4124,13 @@
         note('This headset\'s own: frames a second, triangles and draw calls', y);
         y += 76;
       }
+      // developer mode (HOST.dev, this device's own): what is new in this release and what to test, as each session starts
+      if (HOST.dev && HOST.dev.set) {
+        const dv = devOn();
+        button(S, 'devmode', x, y, bw, 60, dv ? 'Developer mode: on' : 'Developer mode: off', () => HOST.dev.set(!dv), { on: dv, px: 22 });
+        note('What is new and what to test, as each session starts', y);
+        y += 76;
+      }
       // your menu shown to the people at your circle while it is open, to explain it to them (this headset's own, never the
       // room's: MSH)
       button(S, 'menushare', x, y, bw, 60, MSH.on ? 'My menu: my circle' : 'My menu: only me', () => setMenuShare(!MSH.on), { on: MSH.on, px: 23 });
@@ -4186,6 +4193,8 @@
     if (PNL.tab === 'debug') {
       // Sound check: in place of the rest of the tab
       if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
+      // what is new in this release (developer mode, HOST.dev): likewise
+      if (PNL.page === 'news') { finish(newsPage(S, x, y, w)); return; }
       // the room's alignment: calibrate, re-align, here or elsewhere, the shared space and the frame it rests on
       label('Alignment');
       const cal = R.state === 'mark-a' || R.state === 'mark-b';
@@ -4232,6 +4241,12 @@
       button(S, 'people', x, y, bw, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 21, on: !pa });
       button(S, 'sound', x + bw + 16, y, bw, 56, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
       y += 72;
+      // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
+      if (HOST.dev && HOST.dev.load) {
+        button(S, 'whatsnew', x, y, bw, 56, 'What is new', () => devOpen('hand'), { px: 23 });
+        note('This release: what changed and what to test', y);
+        y += 72;
+      }
       // what to tell someone helping: the release, the room's connection, the browser, the frame rate
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       for (const l of debugLines()) { ctx.fillText(fit(ctx, l, w), x, y); y += 30; }
@@ -4470,6 +4485,54 @@
     button(S, 'snd:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; }, { px: 23 });
     button(S, 'snd:reset', x + bw + 16, y, bw, 58, 'Reset the sound', () => A.reset(), { px: 23 });
     return y + 58 + 28;
+  }
+  // What is new (developer mode: HOST.dev's whatsnew.json) in place of the rest of the Debug tab: the release, its date
+  // and three lists (New, Please test, Untested), as tall as they need (the canvas is 1920 px; what does not fit is
+  // counted), then Got it (not again for this release on this headset) and Later (this session; Back when opened by
+  // hand). A file that could not be fetched is said in one line
+  function newsPage(S, x, y, w) {
+    const ctx = S.ctx, D = HOST.dev, d = D && D.data(), bw = (w - 16) / 2, flow = NEWS.fl === 1, v = d ? D.short(d.version) : '';
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, d ? 'What is new in ' + v : 'What is new', d && d.date ? w - 220 : w), x, y);
+    if (d && d.date) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textAlign = 'right'; ctx.fillText(fit(ctx, d.date, 210), x + w, y + 6); ctx.textAlign = 'left'; }
+    y += 50;
+    if (!d) {
+      const busy = !D || D.busy();
+      ctx.font = FONT(23); ctx.fillStyle = busy ? MUTED : AMBER;
+      y += wrapText(ctx, busy ? 'Fetching what is new...' : 'Could not fetch what is new (whatsnew.json): ' + (D.err() || 'not yet asked') + '.', x, y, w, 30, 3) + 20;
+    } else {
+      // the lists at the largest type that lets them all fit above the buttons (22, 20 or 18 px), else at the smallest,
+      // what does not fit counted
+      const end = S.h - 220, SECT = [['new', 'New', CYAN], ['test', 'Please test', AMBER], ['untested', 'Untested', MUTED]].filter(z => d[z[0]].length);
+      const lines = (s, tw) => { let n = 0, cur = ''; for (const wd of String(s).split(/\s+/).filter(Boolean)) { const t = cur ? cur + ' ' + wd : wd; if (cur && ctx.measureText(t).width > tw) { n++; cur = wd; } else cur = t; } return Math.min(4, n + (cur ? 1 : 0)); };
+      const SIZES = [[22, 29], [20, 26], [18, 24]];
+      let px = 18, lh = 24;
+      for (const [p, h] of SIZES) {
+        ctx.font = FONT(p);
+        let H = 0;
+        for (const [k] of SECT) { H += 36 + 14; for (const s of d[k]) H += lines(s, w - 26) * h + 8; }
+        px = p; lh = h;
+        if (y + H <= end) break;
+      }
+      let more = 0;
+      for (const [k, title, col] of SECT) {
+        const L = d[k];
+        if (y > end - 90) { more += L.length; continue; }
+        ctx.font = FONT(22, 700); ctx.fillStyle = col; ctx.fillText(title.toUpperCase(), x, y); y += 36;
+        for (let i = 0; i < L.length; i++) {
+          if (y > end - 40) { more += L.length - i; break; }
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 8, y + lh / 2 - 1, 5, 0, 2 * Math.PI); ctx.fill();
+          ctx.font = FONT(px); ctx.fillStyle = INK; y += wrapText(ctx, L[i], x + 26, y, w - 26, lh, 4) + 8;
+        }
+        y += 14;
+      }
+      if (more) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, `And ${more} more: see whatsnew.json, or What is new on a page`, w), x, y); y += 40; }
+    }
+    button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(!!d), { primary: true, px: 25 });
+    button(S, 'news:later', x + bw + 16, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
+    y += 78;
+    ctx.font = FONT(20); ctx.fillStyle = MUTED;
+    y += wrapText(ctx, (d ? `Got it: not shown again for ${v} on this headset. ` : '') + (flow ? 'Later: next session. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
+    return y + 18;
   }
   function connLine() {
     if (C.local) return 'on this device';
@@ -4804,6 +4867,67 @@
     rr(ctx, -44, -34, 20, 46, 9); ctx.fillStyle = CYAN; ctx.fill();   // (the trigger, under the index finger)
     rr(ctx, 6, 8, 18, 58, 8); ctx.fillStyle = AMBER; ctx.fill();   // (the grip, under the middle finger)
     ctx.restore();
+  }
+
+  // ------------------------------------------------------ what is new --
+  // Developer mode (v125; the owner, 8 November 2026: "A box at the beginning of a session that tells me the most recent
+  // changes and what i should test, optionally enabled when in 'developer mode' a switch in the menu"; HOST.dev in
+  // index.html: this device's own, off by default): at the start of every headset session, until Got it for this release
+  // on this headset, the menu opens by itself at What is new (newsPage, a page of the Debug tab in place of its content, as
+  // the room setup guide is of Circles), with the release's lists from whatsnew.json, Got it and Later. It comes last of
+  // what a session shows by itself: after the startup flow (the room setup guide, the check by eye) and after the welcome
+  // (Getting around: once it has shown and gone; with it off, as in tests, a moment into the session), never over the
+  // menu (it waits until it is closed), the questions, a calibration or a check, never in camera mode. Got it or Later
+  // closes the menu when this opened it; closed any other way (another tab, the menu closed) counts as Later. Opened by
+  // hand (the Debug tab's What is new) it is the same page with Got it and Back. fl: 0 not yet this session, 1 on show,
+  // 2 done (Got it, or seen already), 3 later
+  const NEWS = { s: null, t0: 0, fl: 0, menu: false, ready: 0, gap: 800 };
+  const devOn = () => !!(HOST.dev && HOST.dev.on && HOST.dev.on());
+  const devShown = () => !!(PNL.open && PNL.tab === 'debug' && PNL.page === 'news');
+  function devCan(t) {
+    if (!R.session || !HD.ok || !OV.root || !OV.root.visible || CAM.on || camMode()) return false;
+    if (PNL.open || PNL.kp || ASK.id || askHere() || eyeShown() || tipMode() || R.calib || R.again) return false;
+    // after the welcome: shown and gone (with it off, a moment into the session, as it would come)
+    if (WEL.auto ? !WEL.done || welShown() : t - NEWS.t0 < WEL.wait) return false;
+    // after the startup flow in a shared room: not while it is to come or shows (WEL.late into the session, as the
+    // welcome, it no longer waits for a flow that has not started)
+    const late = t - NEWS.t0 > WEL.late;
+    if (C.code && GD.auto && guideOn() && (GD.fl === 1 || GD.due || (!late && !GD.fl))) return false;
+    if (C.code && GD.auto && (EYEQ.ask || EYEQ.due)) return false;
+    return true;
+  }
+  function devStep(t) {
+    if (NEWS.s !== R.session) {
+      Object.assign(NEWS, { s: R.session, t0: t, fl: 0, menu: false, ready: 0 });
+      if (R.session && devOn() && HOST.dev.load) HOST.dev.load(true);   // (fetched afresh as each session starts)
+    }
+    if (!R.session) return;
+    if (NEWS.fl === 1 && !devShown()) { NEWS.fl = 3; NEWS.menu = false; log('whatsnew', { flow: 'closed' }); }   // (another tab, the menu closed: as Later)
+    if (NEWS.fl || !devOn() || !devCan(t)) { NEWS.ready = 0; return; }
+    if (!NEWS.ready) NEWS.ready = t;   // (a moment after the last thing before it has gone)
+    if (t - NEWS.ready < NEWS.gap || HOST.dev.busy()) return;
+    if (HOST.dev.seen()) { NEWS.fl = 2; log('whatsnew', { flow: 'seen' }); return; }   // (Got it for this release, on this headset)
+    devOpen('auto');
+  }
+  // the page, by itself (why 'auto': the menu opened for it when closed) or by hand ('hand': the Debug tab's button)
+  function devOpen(why) {
+    const was = PNL.open, auto = why === 'auto';
+    if (!PNL.open) menuOpen(true, auto ? 'news' : 'api');
+    PNL.tab = 'debug'; PNL.page = 'news'; PNL.code = ''; PNL.pass = ''; PNL.home = false;
+    PNL.used = performance.now();   // (a menu open for a while would otherwise close as unused on the next frame)
+    if (auto) { NEWS.fl = 1; NEWS.menu = !was; }
+    if (HOST.dev && HOST.dev.load) HOST.dev.load(!auto);   // (by hand: fetched again, past every cache)
+    log('whatsnew', { why, v: HOST.dev && HOST.dev.data() ? HOST.dev.data().version : '' });
+    if (OV.panel) OV.panel.sig = '';
+  }
+  // Got it (got: this release not again on this headset) or Later: the flow done or later for this session, the menu
+  // closed when the flow opened it, else back to the Debug tab
+  function devClose(got) {
+    if (got && HOST.dev) HOST.dev.gotIt();
+    const flow = NEWS.fl === 1;
+    if (flow) { NEWS.fl = got ? 2 : 3; log('whatsnew', { flow: got ? 'got it' : 'later' }); }
+    if (flow && NEWS.menu) menuOpen(false, 'news'); else PNL.page = 'main';
+    NEWS.menu = false;
   }
 
   // ------------------------------------------------------ the frame rate --
@@ -5275,6 +5399,7 @@
     if (C.code && R.session && !CAM.on) { guideStep(t); eyeStep(t); }   // (never a camera's: it lines up from its overlay)
     if (CAM.on) camStep(f, t);
     welStep(t);   // (Getting around, once a session; never a camera's: welCan)
+    devStep(t);   // (developer mode: what is new, after the startup flow and the welcome; never a camera's: devCan)
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
@@ -8008,7 +8133,11 @@
     // not yet), text: what it says, mode: 'ask', 'walk', 'arc' or '' (no circles), hands: for tracked hands, done }; its
     // opening by itself (tests turn it off: autoWelcome(false), which also closes one on show)
     welcome: () => ({ shown: welShown(), at: WEL.at, text: WEL.text, mode: WEL.mode, hands: WEL.hands, done: WEL.done }),
-    autoWelcome: on => { if (on !== undefined) { WEL.auto = !!on; if (!on) welClose('off'); } return WEL.auto; }, askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
+    autoWelcome: on => { if (on !== undefined) { WEL.auto = !!on; if (!on) welClose('off'); } return WEL.auto; }, welcomeMs: ms => { if (ms > 0) WEL.ms = +ms; return WEL.ms; },
+    // what is new in a headset (developer mode, HOST.dev): { shown: the menu on its page now, fl: this session's flow (0 not
+    // yet, 1 on show, 2 done, 3 later), menu: the flow opened the menu }; devOpen(): the page by hand, as the Debug tab's
+    // button does
+    whatsNew: () => ({ shown: devShown(), fl: NEWS.fl, menu: NEWS.menu }), devOpen: () => devOpen('hand'), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now
     hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),

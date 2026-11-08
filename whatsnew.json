@@ -1,0 +1,30 @@
+{
+  "version": "networks-v124",
+  "date": "8 November 2026",
+  "new": [
+    "Sound by mode: pages stay silent until Sound is pressed; a headset starts with the sound effects on and the narration off.",
+    "In a headset the story panel's Sound button turns the narration on, and it stays on in the next session.",
+    "Shared rooms: Narration On for all and Off for all (the menu's Circles tab, the Shared dialog); a headset's own press holds until the lobby.",
+    "Getting around: a welcome panel once a session in a headset, after lining up: how to go into the circles, and what the trigger, grip and a stick's click do.",
+    "After standby: no Leave AR message; the headset looks for its spots by itself, and the check by eye still asks.",
+    "Camera mode: an Android phone in AR, lined up on spot A and spot B, follows a person or a circle for filming.",
+    "Studio: trigger cubes can change a model's texture while you stand inside them.",
+    "Studio: moving items show their ghost while editing, and an object's cut-outs can be locked.",
+    "Fixes: Real world hides can be turned on again in a session that began with it off; controller clicks work at once after a sleep."
+  ],
+  "test": [
+    "Quest, VR and AR: effects on and narration off at the start; the story panel's Sound button turns the narration on; still on next session.",
+    "Two headsets in a room: On for all and Off for all; then one headset's own press, and the lobby giving the room's choice back.",
+    "The welcome after lining up: its words for walking in and for asking first; it closes after 14 s or when the menu opens; with hands, the pinch's words.",
+    "A headset asleep for a few minutes in a room: no Leave AR message, the check by eye asks, the circles still line up.",
+    "After a sleep: the trigger clicks at once, without opening the Quest menu first.",
+    "Real world hides set to nothing, then AR, then turned on again: people and the room hide the scene.",
+    "Camera mode on an Android phone: line up on the two spots, follow a person and a circle, film it with the screen recorder.",
+    "Studio: a cube that changes a texture while you stand in it; ghosts while editing; locked cut-outs that do not move."
+  ],
+  "untested": [
+    "Everything in a headset and on a phone: this release was checked only in headless Chromium.",
+    "How the welcome panel reads, and how the narration switch sounds, on a Quest.",
+    "How well camera mode lines up on a real floor."
+  ]
+}

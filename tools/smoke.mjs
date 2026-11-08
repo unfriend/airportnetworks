@@ -7035,6 +7035,218 @@ if (!ONLY) {
     await ctx.close();
   });
 }
+// Developer mode (v125, HOST.dev in index.html; NEWS in shared.js): this device's own, off by default. While on, what is
+// new in this release (whatsnew.json, served by the test server; a stand-in served instead where a step says so) shows as
+// a card over the Stories screen or the story a link opened, once a page load until Got it for that version (devSeen);
+// Later until the next page load. In a headset session the menu opens by itself at its page (the Debug tab's) after the
+// welcome, Got it or Later closing it again; Got it for that version: not again; off: never. The menu's Settings row and
+// the Debug tab's What is new. In a page of its own (its own storage, as a new device)
+if (runs('developer mode')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 } });
+  const dp = await ctx.newPage();
+  dp.on('pageerror', e => errors.push('developer mode: ' + (e.stack || e.message)));
+  dp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('developer mode: ' + m.text()); });
+  const open = async (hash, key) => {
+    await dp.goto('about:blank');
+    await dp.goto(base + 'index.html' + (hash || ''));
+    await dp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.dev && HOST.cur && HOST.curKey === (k || HOST.list[0].key) && HOST.cur.collab.scene(), key || '', { timeout: 60000 });
+  };
+  // the card as it shows: open, its title, date, the headings and items under each, the note
+  const card = () => dp.evaluate(() => {
+    const c = document.getElementById('devCard'), lists = {};
+    for (const h of c.querySelectorAll('#devBody h3')) lists[h.className] = [...h.nextElementSibling.querySelectorAll('li')].map(li => li.textContent);
+    return { open: !c.hidden && getComputedStyle(c).display !== 'none', title: document.getElementById('devTitle').textContent, date: document.getElementById('devDate').textContent,
+      lists, msg: (c.querySelector('#devBody .msg') || {}).textContent || '', picking: HOST.picking, key: HOST.curKey, on: HOST.dev.on() };
+  });
+  const cardOpen = ms => dp.waitForFunction(() => !document.getElementById('devCard').hidden && !HOST.dev.busy(), null, { timeout: ms || 30000 }).then(() => true, () => false);
+  const ls = k => dp.evaluate(k => localStorage.getItem(k), k);
+  let file = null;
+  // a stand-in for whatsnew.json (or a status: the file not there)
+  const serve = async o => { await dp.unroute('**/whatsnew.json*'); if (o) await dp.route('**/whatsnew.json*', r => (typeof o === 'number' ? r.fulfill({ status: o, body: 'no' }) : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) }))); };
+  await step('developer mode: off by default, nothing shown; the switch and What is new at the Stories screen\'s foot', async () => {
+    await open('');
+    file = await dp.evaluate(() => fetch('whatsnew.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()));
+    if (!file || !/^networks-v\d+$/.test(file.version) || !['new', 'test', 'untested'].every(k => Array.isArray(file[k]) && file[k].length)) errors.push('developer mode: whatsnew.json is not a release\'s lists: ' + JSON.stringify(file));
+    await dp.waitForTimeout(2500);
+    const c = await card(), b = await dp.evaluate(() => ['btnDev', 'btnNews'].map(id => { const e = document.getElementById(id); return e && getComputedStyle(e).display !== 'none' ? e.textContent + '/' + (e.getAttribute('aria-pressed') || '') : ''; }));
+    if (c.on || c.open || await ls('devMode') !== null || !c.picking) errors.push('developer mode: not off by default with nothing shown on the Stories screen: ' + JSON.stringify(c));
+    if (b.join() !== 'Developer mode: off/false,What is new/') errors.push('developer mode: the Stories screen\'s foot has ' + JSON.stringify(b));
+  });
+  await step('developer mode: #dev=on shows the card over the Stories screen with the file\'s lists; Got it keeps it away for that version; another version shows it again; Later and Escape until the next load', async () => {
+    const short = v => v.replace(/^networks-/, '');
+    await open('#dev=on');
+    const shown = await cardOpen(), c1 = await card();
+    if (!shown || !c1.on || !c1.picking || c1.title !== 'What is new in ' + short(file.version) || c1.date !== file.date || JSON.stringify(c1.lists) !== JSON.stringify({ new: file.new, test: file.test, untested: file.untested }) || await ls('devMode') !== 'on')
+      errors.push('developer mode: #dev=on did not show the file\'s card over the Stories screen: ' + JSON.stringify(c1));
+    await dp.click('#devGot');
+    const c2 = await card();
+    if (c2.open || await ls('devSeen') !== file.version) errors.push('developer mode: Got it did not close the card and keep its version: ' + JSON.stringify([c2.open, await ls('devSeen')]));
+    await dp.reload(); await dp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.dev && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    await dp.waitForTimeout(2500);
+    if ((await card()).open) errors.push('developer mode: the card came again after Got it for the same version');
+    // another release's file: shown again (no Untested heading when its list is empty)
+    await serve({ version: 'networks-v999', date: '1 January 2027', new: ['A new thing.'], test: ['Test the new thing.', 'And this.'], untested: [] });
+    await dp.reload();
+    const again = await cardOpen(60000), c3 = await card();
+    if (!again || c3.title !== 'What is new in v999' || JSON.stringify(c3.lists) !== JSON.stringify({ new: ['A new thing.'], test: ['Test the new thing.', 'And this.'] })) errors.push('developer mode: another version\'s file did not show again: ' + JSON.stringify(c3));
+    await dp.click('#devLater');
+    const c4 = await card();
+    if (c4.open || await ls('devSeen') !== file.version) errors.push('developer mode: Later did not close the card, or it kept the new version: ' + JSON.stringify([c4.open, await ls('devSeen')]));
+    await dp.reload();
+    const back = await cardOpen(60000);
+    await dp.keyboard.press('Escape');
+    const c5 = await card();
+    if (!back || c5.open || !c5.picking) errors.push('developer mode: after Later the next load did not show it again, or Escape did not close it (leaving the Stories screen): ' + JSON.stringify([back, c5]));
+  });
+  await step('developer mode: a link into a story shows the card over the story; What is new by hand; a file that cannot be fetched said in one line; #dev=off', async () => {
+    await open('#airports', 'airports');
+    const shown = await cardOpen(), c1 = await card();
+    if (!shown || c1.picking || c1.key !== 'airports' || c1.title !== 'What is new in v999') errors.push('developer mode: a link into a story did not show the card over it: ' + JSON.stringify(c1));
+    await dp.click('#devGot');
+    // by hand (seen already): beside the switch on the Stories screen
+    await dp.evaluate(() => HOST.openPicker());
+    await dp.click('#btnNews');
+    const hand = await cardOpen(), c2 = await card();
+    if (!hand || c2.title !== 'What is new in v999') errors.push('developer mode: What is new did not open it by hand: ' + JSON.stringify(c2));
+    await dp.click('#devLater');
+    // the file not there: one line
+    await serve(404);
+    await dp.evaluate(() => localStorage.removeItem('devSeen'));
+    await dp.reload();
+    const bad = await cardOpen(60000), c3 = await card();
+    if (!bad || c3.msg !== 'Could not fetch what is new (whatsnew.json): the server answered 404.' || Object.keys(c3.lists).length || c3.title !== 'What is new') errors.push('developer mode: a file that cannot be fetched: ' + JSON.stringify(c3));
+    await dp.click('#devLater');
+    await serve(null);
+    // the switch at the Stories screen's foot, and #dev=off
+    await dp.click('#btnDev');
+    const off = await dp.evaluate(() => [HOST.dev.on(), localStorage.getItem('devMode'), document.getElementById('btnDev').textContent]);
+    await dp.click('#btnDev');
+    await open('#dev=off');
+    await dp.waitForTimeout(2000);
+    const c4 = await card();
+    if (off.join() !== 'false,off,Developer mode: off' || c4.on || c4.open || await ls('devMode') !== 'off') errors.push('developer mode: the switch or #dev=off: ' + JSON.stringify([off, c4]));
+  });
+  await step('developer mode: More has Developer mode and What is new where it shows', async () => {
+    await dp.setViewportSize({ width: 600, height: 760 });
+    await open('#airports&t=10', 'airports');
+    await dp.waitForTimeout(500);
+    if (!await dp.evaluate(() => getComputedStyle(document.getElementById('fcMore')).display !== 'none')) { errors.push('developer mode: no More at 600 px'); return; }
+    await dp.click('#fcMore');
+    const m = await dp.evaluate(() => [...document.querySelectorAll('#fcMenu button')].map(b => b.textContent + '/' + (b.getAttribute('aria-pressed') || '')));
+    if (!m.includes('Developer mode: off/false') || !m.includes('What is new/')) errors.push('developer mode: More holds ' + m.join(', '));
+    await dp.click('#fcMenu button[data-dev="on"]');
+    const on = await dp.evaluate(() => HOST.dev.on());
+    await dp.click('#fcMore');
+    await dp.click('#fcMenu button[data-news]');
+    const shown = await cardOpen(), c = await card();
+    if (!on || !shown || c.picking) errors.push('developer mode: More\'s items did not turn it on or open the card over the story: ' + JSON.stringify([on, c]));
+    await dp.click('#devLater');
+    await dp.setViewportSize({ width: 1280, height: 760 });
+  });
+  // a pretend headset session (as the headset settings' steps make one: the story's frame loop stopped, its frames and
+  // the shell's driven here), with the welcome on and shorter (1.5 s), so what is new comes after it
+  const sx = s => dp.evaluate(s => HOST.cur.peek(s), s);
+  const xr = async (key, welcome) => {
+    await open('#' + key, key);
+    await dp.evaluate(w => {
+      HOST.collab.autoWelcome(w); HOST.collab.welcomeMs(1500); HOST.dev.card(false);
+      window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
+      const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
+      window.__frame = { getViewerPose: pose };
+      window.__raf = [];
+      HOST.renderer.xr.getReferenceSpace = () => ({});
+      HOST.renderer.setAnimationLoop(null);
+      window.__s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [],
+        addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => window.__raf.push(cb) };
+      HOST.session = window.__s;
+      HOST.cur.peek('(XR.session = window.__s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.playing = false)');
+      window.__tick = (n = 1) => {
+        for (let i = 0; i < n; i++) {
+          HOST.cur.peek(`(() => {
+            xrBegin(window.__frame, 0.016);
+            const hand = typeof xrPlaceGlobe === 'function', pn = performance.now();
+            let S;
+            if (APP.mode === 'story') { const ts = storyT(APP.t); S = storyState(ts); if (hand) xrPlaceGlobe(storyCam(ts)); else { xrPlace(storyCam(ts)); K.U.uTime.value = ts; updateSets(S, ts, 0.016, true); } }
+            else { S = hand ? exploreStep(0.016) : exploreStep(0.016, pn); orbitStep(pn); if (hand) xrPlaceGlobe(orbit.cur); else { xrPlace(orbit.cur); updateSets(S, pn / 1000, 0.016, false); } }
+            if (hand) applyUniforms(S, APP.mode === 'explore');
+            GL.scene.updateMatrixWorld(true); xrUpdate(S); GL.scene.updateMatrixWorld(true);
+          })()`);
+          for (const cb of window.__raf.splice(0)) cb(performance.now(), window.__frame);
+        }
+      };
+    }, !!welcome);
+  };
+  // frames for up to ms (10 a second), until what is new shows: [ms, welcome shown, what is new shown] each
+  const run = ms => dp.evaluate(async ms => {
+    const out = [], t0 = performance.now();
+    while (performance.now() - t0 < ms) {
+      window.__tick(1);
+      const w = HOST.collab.welcome(), n = HOST.collab.whatsNew();
+      out.push([Math.round(performance.now() - t0), w.shown ? 1 : 0, n.shown ? 1 : 0]);
+      if (n.shown) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return out;
+  }, ms);
+  const press = id => dp.evaluate(id => { window.__tick(1); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__tick(1); return !!(r && r.fn); }, id);
+  const st = () => dp.evaluate(() => ({ ...HOST.collab.whatsNew(), open: HOST.collab.menu, tab: HOST.collab.overlay().panel.regions.map(r => r.id).filter(i => /^news:/.test(i)), seen: localStorage.getItem('devSeen') }));
+  await step('developer mode in a headset: after the welcome the menu opens at what is new; Later closes it (again next session); Got it closes it and not again; off, never', async () => {
+    const bad = [];
+    await serve(null);
+    await dp.evaluate(() => { localStorage.setItem('devMode', 'on'); localStorage.removeItem('devSeen'); });
+    // with developer mode on: the welcome first, then (once it has gone) the menu at what is new
+    await xr('qubits', true);
+    const r1 = await run(15000), s1 = await st();
+    const wFirst = r1.findIndex(x => x[1]), wLast = r1.map(x => x[1]).lastIndexOf(1), nAt = r1.findIndex(x => x[2]);
+    if (wFirst < 0 || nAt < 0 || nAt <= wLast || r1.some(x => x[1] && x[2])) bad.push('not after the welcome: ' + JSON.stringify(r1.filter((x, i) => !i || x[1] !== r1[i - 1][1] || x[2] !== r1[i - 1][2])));
+    if (!(s1.shown && s1.fl === 1 && s1.menu && s1.open && s1.tab.join() === 'news:got,news:later')) bad.push('the menu did not open at what is new (its Got it and Later): ' + JSON.stringify(s1));
+    await press('news:later');
+    const s2 = await st();
+    if (s2.shown || s2.open || s2.fl !== 3 || s2.seen !== null) bad.push('Later did not close it and the menu (nothing kept): ' + JSON.stringify(s2));
+    // the next session: again, and Got it
+    await xr('qubits', true);
+    const r3 = await run(15000), s3 = await st();
+    if (!r3.some(x => x[2]) || !s3.shown || s3.fl !== 1) bad.push('after Later it did not show again the next session: ' + JSON.stringify(s3));
+    await press('news:got');
+    const s4 = await st();
+    if (s4.shown || s4.open || s4.fl !== 2 || s4.seen !== file.version) bad.push('Got it did not close it and the menu, keeping its version: ' + JSON.stringify(s4));
+    // the next session: not again (seen); with the welcome off as in the other tests, the same
+    await xr('qubits', false);
+    const r5 = await run(6000), s5 = await st();
+    if (r5.some(x => x[2]) || s5.fl !== 2 || s5.open) bad.push('after Got it it showed again the next session: ' + JSON.stringify(s5));
+    // with the welcome off it still comes, a moment into the session
+    await dp.evaluate(() => localStorage.removeItem('devSeen'));
+    await xr('qubits', false);
+    const r6 = await run(10000), s6 = await st();
+    if (!r6.some(x => x[2]) || r6.find(x => x[2])[0] < 2000 || !s6.shown) bad.push('with the welcome off it did not come a moment into the session: ' + JSON.stringify([r6.slice(-1), s6]));
+    await press('news:later');
+    // developer mode off: never
+    await dp.evaluate(() => { localStorage.setItem('devMode', 'off'); localStorage.removeItem('devSeen'); });
+    await xr('qubits', true);
+    const r7 = await run(9000), s7 = await st();
+    if (r7.some(x => x[2]) || s7.fl !== 0 || s7.open || !r7.some(x => x[1])) bad.push('developer mode off: it showed (or the welcome did not): ' + JSON.stringify([s7, r7.some(x => x[1])]));
+    if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset: ' + b));
+  });
+  await step('developer mode in a headset: the menu\'s Settings row turns it on and off; the Debug tab\'s What is new opens its page by hand, Back to the tab', async () => {
+    const bad = [];
+    await dp.evaluate(() => { HOST.collab.panelOpen(true); window.__tick(2); });
+    const t1 = await press('devmode'), on = await dp.evaluate(() => [HOST.dev.on(), localStorage.getItem('devMode')]);
+    const t2 = await press('devmode'), off = await dp.evaluate(() => HOST.dev.on());
+    if (!t1 || !t2 || on.join() !== 'true,on' || off) bad.push('the Settings row: ' + JSON.stringify([t1, on, t2, off]));
+    const t3 = await press('whatsnew');
+    await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 10000 });
+    await dp.evaluate(() => window.__tick(2));
+    const s1 = await st();
+    if (!t3 || !s1.shown || s1.fl !== 0 || !s1.open || s1.tab.join() !== 'news:got,news:later') bad.push('the Debug tab\'s What is new: ' + JSON.stringify([t3, s1]));
+    await press('news:later');
+    const s2 = await st(), ids = await dp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
+    if (s2.shown || !s2.open || !ids.includes('whatsnew')) bad.push('Back did not go back to the Debug tab (the menu open): ' + JSON.stringify([s2, ids.slice(0, 12)]));
+    await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
+    if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset: ' + b));
+  });
+  await ctx.close();
+}
 await step('old links forward to the app', async () => {
   await page.goto(base + 'spatial.html#t=20');
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });

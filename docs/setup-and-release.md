@@ -156,7 +156,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
-| Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both |
+| Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both; or `whatsnew.json` names another release: rewrite it (step 5c) |
 | Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds (the studio's scenes and uploads about 15 s more) | the protocol changed, the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`), or the studio's scenes, saving, watch, uploads, `ffmpeg` or `/upload` no longer answer as `relay/README.md` says |
 | Room and depth test | `node tools/room-test.mjs` | Playwright, port 8131 free (it starts its own relay) | after changing `room-test/` | about a minute | the pretend headset's depth no longer hides the test things where it should (three.js r128's external texture, the per-eye pass), or the report misses a field |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
@@ -239,6 +239,12 @@ is GitHub Pages' custom domain for `main`.
    a new shell or format after asking (Reload now or Later). It refuses a changed shell without a new `VERSION`. A
    story that only works with the new shell gets it as its `needs` by itself; give a story an older `needs` in
    `stories/list.js` only when you know it runs on older shells.
+5c. **Write what is new:** rewrite `whatsnew.json` by hand for the new `VERSION`: `{ "version": "networks-vNNN",
+   "date": "...", "new": [...], "test": [...], "untested": [...] }`, short plain sentences (what changed, what the owner
+   should try on a headset and a phone, what nobody could check here; a handful each, so the headset's page stays
+   readable). Developer mode shows it on pages and at the start of each headset session (AGENTS.md, "Developer mode").
+   It is fetched fresh every time and is not in `SHELL`, so it needs no `VERSION` bump of its own;
+   `node tools/release.mjs` warns, and `--check` fails, while it names another release.
 6. **Update the docs.**
    - AGENTS.md first: it is the single source of truth for structure.
    - README.md and README.txt: they hold the same notes, so keep them in step.
