@@ -676,7 +676,18 @@ function act(a, v) {
     look: () => { if (!XR.on && !OPT.visit) vwOpen({ kind: 'add', path: v }); },   // (an Add card's Look: the viewer, e7f_viewer.js)
     convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
-    switch: async () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null, null, await pathFilesTurned(v, rec || null)); } },
+    // (a recorded path kept as a file is turned into a new file first: one that cannot be leaves its object as it was, said)
+    switch: async () => {
+      const g = glbFor().get(v);
+      if (!g) return;
+      const rec = glbRec(g), files = [...STU.items.values()].some(it => it.kind === 'o' && it.rec.file === v && it.rec.path && it.rec.path.src);
+      CV.item = STU.sel;
+      if (files) { CV.note = `Switching to ${g}: its recorded path, kept as a file, is turned first...`; CV.noteC = 'muted'; dirty(true); }
+      const pm = await pathFilesTurned(v, rec || null);
+      switchToGLB(v, g, rec || null, null, pm);
+      const held = heldWords(pm, v, g);
+      if (files || held) { CV.note = held || `Switched to ${g}: its recorded path, kept as a file, turned with it.`; CV.noteC = held ? 'amber' : 'green'; dirty(true); }
+    },
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),

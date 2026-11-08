@@ -4116,13 +4116,22 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     them; the first `n` free, never written over, so Undo can give an older record back with its file; at most 4 MB, the
     relay's rule), uploaded as the converter's GLBs are (`upSend`: through the relay or straight into R2), and the
     record's path is then `{ src, len, n, play, start, speed }`, written once the file is in (one change, one Undo step;
-    the item stands where it is placed meanwhile). The device that made it keeps its keys (`PF`, `own`); every other
+    the item stands where it is placed meanwhile: the change a page's recording ends, the item put back where it began,
+    is empty and dropped). A recording of more than 2 minutes of samples is simplified a slice of about 8 ms at a time
+    between timer tasks (`recSoon`, `simplifySoon`, `simpStart`/`simpRun`: the same keys as `pathSimplify` at once; the
+    card says *Simplifying the recording*), so a headset never stalls on it (measured in headless Chromium: 18,000 jittery
+    samples, 43 ms of work at once in 6 slices, the longest 8 ms; the ten-minute test's 18,000 smooth ones in 17 slices,
+    the longest 19 ms; untested on a Quest); its upload's share on the card. The device that made it keeps its keys (`PF`, `own`); every other
     device reads the file (`pathK`, `pfLoad`, through `call()`: the password as a header, R2's signed link) once it is
     listed, and again when it changes; until then the item rests where it is placed. The scene's 6,000 keys and the
     shared state's 224 KB count only keys in records (`pathN`). Without a relay that takes uploads a recording that needs
     a file is refused in words (*A recording longer than 2 minutes needs a relay that takes uploads*; more than 600 keys:
     *... a longer one is kept as a file of the scene, which needs a relay that takes uploads*). A GLB switch writes its keys
-    turned into a new file first (`pathFilesTurned`, then `switchToGLB`'s `pmap`). Loop, once, back and forth, speed,
+    turned into a new file first (`pathFileTurned`, `pathFilesTurned`, then `switchToGLB`'s `pmap`); an object whose file
+    cannot be turned (no relay that takes uploads, its keys not read within 5 s, the upload refused) is not switched: it
+    stays on its original, where it plays as before, and its card (`it.swNote`, page and headset) and the conversion's note
+    (`heldWords`) say why, *Switch to the GLB* trying again. *Move the scene to this circle* turns a sound's own path kept
+    as a file into a new file the same way first (`sceneToCircleFiles`), or is refused in words, nothing moved. Loop, once, back and forth, speed,
     Start again, the loop join and *Keep it as recorded* work for both kinds. Its card: *Recorded path: 4:12, 3,812 keys,
     kept as a file* and the file's name. FORMAT networks-37 (`src` on a path, `sync` on a sound).
   - **A voice with the movement** (v125; `tools/studio/SPEC.md`, "A voice with the movement"; `engine/e6j_voice.js`).
@@ -4136,15 +4145,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     without it as it came), uploaded to `sounds/<the item's name>-voice-<n>`, and placed as a sound item *<item> voice*
     following the recorded item (its *Head* bone when it has one, else its top), `loop: false`, its record's `sync` (the
     item's id), `skip` (the stillness the loop join cut from the path's start less how late the microphone began; negative:
-    it starts that much later) and `len` (the path's length); the path and the sound one change, one Undo step (the files
-    stay). *Record again* with it on replaces that sound's file (one sound per recorded item: `voiceOf`). It plays from each
-    start of the path (`syncAt`: each loop; once; on the way there with back and forth), on the path's clock, so everyone at
-    a circle hears it at the same moment (a decoded voice started 20 ms ahead at where it will be, `start(when, offset,
-    duration)`; a streamed one set to its moment); at a path speed other than ×1 at its own pace from each start (its card
-    says so). The recording deleted (or its item gone), it plays as a sound of its own, its card saying *no longer synced*.
-    A group's copy of a voice plays with its item's copy. `STUDIO.voice(id)` and `STUDIO.pf(src)` for tests. Untested: the
-    microphone in a Quest session, how a voice sounds following a model there, a voice over 20 s through a real relay's
-    `ffmpeg`, Safari's `MediaRecorder`.
+    it starts that much later, its card says so) and `len` (where it ends in the path's own time: its file's end, `dur -
+    skip`, at most the path's end, so a voice whose microphone began late is not cut short at its end); the path and the
+    sound one change, one Undo step (the files stay). *Record again* with it on writes a new file (the first `n` free, never
+    the old one written over) and points that sound at it (one sound per recorded item: `voiceOf`), so Undo gives the old
+    file back and no device keeps playing an old copy of a file changed under it. It plays from each start of the path
+    (`syncAt`: each loop; once; on the way there with back and forth), on the path's clock, so everyone at a circle hears it
+    at the same moment (a decoded voice started 20 ms ahead at where it will be, `start(when, offset, duration)`; a streamed
+    one, longer than 20 s, set to its moment as its element can take it, 50 ms ahead to begin with, then kept there:
+    `syncStream` compares its element with the path's clock about twice a second and sets it again when it is more than 80
+    ms off, ahead by how late its last setting came in, `S.lag`); either at its level at once at each start (not faded in);
+    at a path speed other than ×1 at its own pace from each start (its card says so). The recording deleted (or its item gone), it plays as a sound of its own, its card saying *no longer synced*.
+    A group's copy of a voice plays with its item's copy. `STUDIO.voice(id)` (a streamed one's element, drift and settings
+    too), `STUDIO.pf(src)` and `SIMP.last` for tests. Untested: the microphone in a Quest session, how a voice sounds
+    following a model there, a voice over 20 s through a real relay's `ffmpeg`, a streamed voice kept on the path's clock
+    in Quest Browser (its element's seeking) and across real headsets, Safari's `MediaRecorder`.
 - **The ghost, Pause and placing what moves** (v122; the owner, 7 November 2026: "when selecting animations on the item
   motion tab they should also show on the item as a preview"; "to make placing easier add a pause motion button but i also
   want to be able to move moving/animated items to select their exact place"; `tools/studio/SPEC.md`, "The ghost, Pause
@@ -4803,21 +4818,36 @@ Its *studio recorder* steps (v125; `--only 'studio recorder'` runs them alone, a
 relay of its own (`--static . --scenes` on a temporary copy of the test scene, ports from 8930: uploads land there and are
 read back from the disk) in a browser of its own with Chromium's fake microphone (`--use-fake-ui-for-media-stream
 --use-fake-device-for-media-stream`): a ten-minute page recording of the box (18,000 frames of a circle on the recorder's
-clock, the test's) stopping by itself at 10 minutes and kept as `recordings/Box-1.json` through the relay (its record's
+clock, the test's) stopping by itself at 10 minutes, simplified a slice at a time (`SIMP.last`: at least 2 slices, the
+longest under 100 ms) and kept as `recordings/Box-1.json` through the relay (its record's
 `src`, `len` and `n`, more than 600 keys, the file's `n`, `k` and `len` the same, one Undo step, its place unchanged, its
 card's line), drawn at 10, 50 and 90 % in within 5 mm and 1 degree of the samples and a loop later the same, then its keys
-dropped here and read back from the scene as another device reads them; a 3 s one still in the record; the refusals with
+dropped here and read back from the scene as another device reads them; 18,000 jittery samples (a shaky hand for ten
+minutes, made in the page) simplified at once, a slice at a time and by the simplifier as it was before slices, the same
+keys all three ways (its times printed, the longest slice under 100 ms); a 3 s one still in the record; the refusals with
 the relay's uploads turned off (its longest 120 s, a recording past 2 minutes, more than 600 keys: in words, nothing
 changed, no file); `norm`'s rules for `src`, `len` and `n`; the state and `layout.json` giving a file's path back (the
 scene's 6,000 not counting it); the figure given that path and switched to a GLB, a new file `recordings/Figure-1.json` with
-its keys turned, drawn where it was (within 1.5 mm); then *With my voice* turned on (the card's switch says so), a page
+its keys turned, drawn where it was (within 1.5 mm), and with the relay's uploads off (or its file not in the scene, said
+within 3 s) not switched at all: the figure left on `figure.fbx` with its path, no Undo step, its card and the note saying
+why (*Not switched to models/figure-x.glb: its recorded path is kept as the file ...*); *Move the scene to this circle* at
+a pretend station's circle (2 m off, turned a quarter) with a sound whose own path is a file: refused in words with the
+uploads off, nothing moved; with them, a new file `recordings/Walking-1.json`, the sound drawn where it was turned with the
+scene (within 1.5 mm), one Undo step, Undo giving its file back; then *With my voice* turned on (the card's switch says so), a page
 recording of 4 s in real time (0.6 s still, then round) with the fake microphone: its sound `sounds/Box-voice-1.wav` on the
 relay's disk (a mono 16-bit WAV at 48 kHz) placed as *Box voice* following the box with `sync`, `loop: false`, `skip` the
-loop join's cut start less how late the microphone began (within 2 ms) and `len` the path's, the path and the sound one
-Undo step; with the sound on, its voice where the path's clock says within 50 ms as it plays and again at the path's next
-pass; *Record again* replacing the same file (no second sound or file); the state and `layout.json` round trip; `norm`'s
-rules for `sync`, `skip` and `len`; the recording deleted leaving the sound, its card saying *no longer synced*, and Undo
-taking each step back. It prints what it measured (keys, the drawn distance, the voice's offset).
+loop join's cut start less how late the microphone began (within 2 ms) and `len` to the path's end (`dur - skip`, at most
+the path's), the path and the sound one Undo step; with the sound on, its voice where the path's clock says within 50 ms
+as it plays and again at the path's next pass; *Record again* with the microphone 1.5 s late (`getUserMedia` delayed in
+the page, the movement begun at once): a new file `sounds/Box-voice-2.wav` (the first one's on the disk unchanged), the
+same sound pointed at it, `skip` below 0 and `len` to the path's end, more than the file's length (the old rule cut it),
+still synced 0.3 s before its end and heard within 50 ms of the path's clock; the state and `layout.json` round trip;
+`norm`'s rules for `sync`, `skip` and `len`; the recording deleted leaving the sound, its card saying *no longer synced*,
+and Undo taking each step back (the voice's first file again). Then a streamed voice: `sounds/long.wav` (25 s) synced to a
+40 s path of the box, playing through its element: its moment within 80 ms of the path's clock as it plays (median 60
+ms, at most 120 over 3 s, sampled every 0.2 s), put 0.5 s off and set again within 3 s, and started again (as a new pass)
+at its level at once. It prints what it measured (keys, the drawn distance, the simplification's slices, the voices'
+offsets).
 
 Its *studio texture swaps* steps run on a page of their own at `&scene=test` (v124; `--only 'studio texture swaps'` runs
 them alone, about two minutes), with two solid 8 px pictures made in the page and served as the scene's own

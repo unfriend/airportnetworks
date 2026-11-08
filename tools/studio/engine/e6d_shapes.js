@@ -228,19 +228,51 @@ function circleSpot() {
     return st && st.story === XR_HERE && fin(st.x) && fin(st.z) ? { x: st.x, z: st.z, yaw: fin(st.yaw) ? st.yaw : 0 } : null;
   } catch (e) { return null; }
 }
+// (a sound's own recorded path kept as a file, its keys in the scene's axes: turned into a new file first, sceneToCircleFiles;
+// one that cannot be refuses the move, nothing changed)
 function sceneToCircle() {
   CIRC.note = ''; CIRC.c = '';
-  const S = atStation() && editOn() ? circleSpot() : null;
+  const S = circleCan();
   if (!S) return false;
+  const files = Math.abs(S.yaw) > 1e-6 ? [...STU.items.values()].filter(it => it.kind === 's' && it.rec.path && it.rec.path.src) : [];
+  if (files.length) { circleSay('Moving: the recorded paths kept as files are turned first...', 'muted'); sceneToCircleFiles(S, files); return true; }
+  return circleMove(S, null);
+}
+// the spot, or null (said why)
+function circleCan() {
+  const S = atStation() && editOn() ? circleSpot() : null;
+  if (!S) return null;
   const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
-  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return false; }
+  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return null; }
   const held = [];
   for (const it of its) for (const n of lockNames(it)) if (!held.includes(n)) held.push(n);
   if (held.length) {
     circleSay(`Refused: ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} locked in place: the scene does not move until ${held.length > 1 ? 'they are' : 'that is'} unlocked.`, 'red');
     sfxAct('knock', 'world', null, { gain: 0.5 });
+    return null;
+  }
+  return S;
+}
+async function sceneToCircleFiles(S, files) {
+  const gen = STU.gen, r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw).toArray(), pm = new Map();
+  for (const it of files) {
+    try { pm.set(it.id, { src: it.rec.path.src, path: await pathFileTurned(it, it.rec.path, r) }); } catch (e) {
+      if (gen === STU.gen) circleSay(`Refused (nothing moved): ${it.rec.name}'s ${e.message.replace(/^its /, '')}.`, 'red');
+      return false;
+    }
+  }
+  if (gen !== STU.gen) return false;
+  // (as it was asked: the same circle, and each sound's path the one turned)
+  const S2 = circleCan();
+  if (!S2) return false;
+  if (Math.abs(S2.x - S.x) > 1e-6 || Math.abs(S2.z - S.z) > 1e-6 || Math.abs(S2.yaw - S.yaw) > 1e-6 || [...STU.items.values()].some(it => it.kind === 's' && it.rec.path && it.rec.path.src && !(pm.has(it.id) && pm.get(it.id).src === it.rec.path.src))) {
+    circleSay('Refused (nothing moved): the circle or a recorded path changed meanwhile. Press it again.', 'amber');
     return false;
   }
+  return circleMove(S, pm);
+}
+function circleMove(S, pm) {
+  const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
   const c = Math.cos(S.yaw), sn = Math.sin(S.yaw), r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw);
   const at = p => [clamp(S.x + c * p[0] + sn * p[2], -1000, 1000), p[1], clamp(S.z - sn * p[0] + c * p[2], -1000, 1000)];
   const turned = q => r.clone().multiply(new THREE.Quaternion().fromArray(q)).normalize().toArray();
@@ -248,11 +280,11 @@ function sceneToCircle() {
     for (const it of its) {
       const R = it.rec;
       if (it.kind === 'c') setRec(it.id, { p: at(R.p), yaw: R.yaw + S.yaw });
-      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pathTurned(R.path, r.toArray()) } : {}));
+      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pm && pm.has(it.id) ? pm.get(it.id).path : pathTurned(R.path, r.toArray()) } : {}));
       else setRec(it.id, { p: at(R.p), q: turned(R.q) });
     }
   }, its.map(it => it.id));
-  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).`, 'muted');
+  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).` + (pm && pm.size ? ` ${pm.size === 1 ? 'A sound\'s recorded path kept as a file was' : pm.size + ' sounds\' recorded paths kept as files were'} turned into a new file.` : ''), 'muted');
   sfxAct('place', 'world', null);
   return true;
 }

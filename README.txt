@@ -127,7 +127,8 @@ its circle) moves every item there again, for everyone (one Undo step).
   every device fetches. With my voice: on (on the recorder's rows; allow the
   microphone, on the 2D page first for a headset) records your voice with the
   movement and keeps it as a sound that follows the thing and plays with its
-  path, from each start of it, for everyone at the circle at the same moment.
+  path, from each start of it, for everyone at the circle at the same moment
+  (Record again makes a new voice file; Undo brings the old one back).
 - A trigger cube can change a model's picture while you are in it: on the
   cube's card Change a texture..., point at the model (or pick it), then its
   material, a slot (Colour first) and one of the scene's pictures. Walk in and

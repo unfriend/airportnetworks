@@ -220,8 +220,8 @@ placed by itself).
   stands when it follows nothing, or when what it follows is not in the scene. The layout's version stays `studio: 1`.
 - A sound's `sync`, `skip` and `len` (optional, kept only when set, v125; "A voice with the movement" under "Recorded
   paths"): `sync` the id of the item whose recorded path it plays with, `skip` the seconds into its file where that path's
-  start is (-10 to 600, to the ms; 0 is none; negative: it starts that much after the path), `len` how long of it plays
-  (seconds, to 600, to the ms). A `skip` or a `len` without `sync` is dropped; with `sync`, a `sync` that is not an id, a
+  start is (-10 to 600, to the ms; 0 is none; negative: it starts that much after the path), `len` where it ends in that
+  path's own time (seconds, to 600, to the ms: its file's end, `dur - skip`, at most the path's end). A `skip` or a `len` without `sync` is dropped; with `sync`, a `sync` that is not an id, a
   `skip` that is not a number or a `len` that is not a positive number makes the record bad.
 - A cut-out's `on` (required: the id of the object it cuts), `p`, `q` and `size` ("Cut-outs" below): in that object's
   frame, turned but not scaled (metres), `p` to the mm, `q` a full turn (4 decimals), each side 1 cm to 50 m to the mm.
@@ -1376,7 +1376,15 @@ and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
   (rounded alike; at most 40,000 and 600 s), at most 4 MB (the relay's rule). It goes up as the converter's GLBs do
   (`upSend`: through the relay, or straight into R2), a name taken meanwhile the next; the record's path is then `{ src,
   len, n, play, start, speed }`, written once the file is in (the item stands where it is placed meanwhile, *Keeping the
-  recording: its file goes into the scene...* on its card), one change, one Undo step. Refused in words: more than 40,000
+  recording: its file goes into the scene (n %)...* on its card), one change, one Undo step (on a page the change from
+  Record to Stop puts the item back where it began, so it is empty and dropped: the recording is still one step).
+  **Simplified a slice at a time**: a recording of more than 2 minutes of samples (more than 3,600, with a relay that takes
+  uploads) is simplified between timer tasks, about 8 ms a slice (`recSoon`, `simplifySoon`; `pathSimplify` is the same
+  step function, `simpStart` and `simpRun`, run to its end at once, so the keys are the same either way; each sample's
+  middle worked out once), *Simplifying the recording (18,001 samples): a moment...* on its card meanwhile, so a headset
+  never stalls on up to 18,000 samples (measured in headless Chromium: 18,000 jittery samples, 43 ms of work at once, in
+  6 slices, the longest 8 ms; untested on a Quest). What is refused before simplifying is said at once (one past 2
+  minutes with no relay that takes uploads). `SIMP.last` keeps the last one's numbers for the tests. Refused in words: more than 40,000
   keys, and without a relay that takes uploads one that needs a file (*A recording longer than 2 minutes needs a relay
   that takes uploads*, or *This movement needs 700 keys: a path holds 600 at most in the layout, and a longer one is kept
   as a file of the scene, which needs a relay that takes uploads*).
@@ -1390,9 +1398,18 @@ and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
 - **Limits**: the scene's 6,000 keys and the shared state's 224 KB count only keys in records (`pathN`; a file's are not in
   the state). A copy (Duplicate, a group's) names the same file.
 - **A GLB switch**: an object switched to its GLB whose path is a file gets a new file with its keys turned
-  (`pathFilesTurned`, before the switch's change: its keys turned as `pathTurned` turns a record's, written as
-  `recordings/<its name>-<n>.json`), its record naming that one; one whose keys are not in, or with no relay that takes
-  uploads, keeps its file.
+  (`pathFileTurned` for each, from `pathFilesTurned`, before the switch's change: its keys turned as `pathTurned` turns a
+  record's, written as `recordings/<its name>-<n>.json`), its record naming that one. One that cannot be (no relay that
+  takes uploads; its keys not read within 5 s, or its file unreadable; the upload refused) is not switched at all: it stays
+  on its original, where its path plays as before (switched, its holder would turn by the baked turn and its old keys would
+  play turned), and its card says why (`it.swNote`: *Not switched to models/figure.glb: its recorded path is kept as the
+  file ..., and turning it needs a relay that takes uploads. It stays on figure.fbx, where it plays as before; Switch to
+  the GLB tries again.*), as does the conversion's note (`heldWords`), amber; *Switch to the GLB* on its card tries again.
+- **Move the scene to this circle** (v125, "Placement in a headset"): a sound's own recorded path is in the scene's axes,
+  so it is turned with the scene; one kept as a file is first written turned into a new file (`sceneToCircleFiles`, as a
+  GLB switch does), then everything moves in one change; one that cannot be refuses the move in words (*Refused (nothing
+  moved): Walking's recorded path is kept as the file ..., and turning it needs a relay that takes uploads.*), and a circle
+  or a recording changed meanwhile asks to press it again.
 - FORMAT networks-37 (`src` on a path; `sync` on a sound's record, below).
 
 ### A voice with the movement (the owner, 8 November 2026)
@@ -1416,10 +1433,12 @@ and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
   placed (`voicePlace`) as a sound item named *<item> voice*, following the recorded item (on its *Head* bone when its model
   has one, else at its top, as it is placed), volume 1, full volume within 1.5 m, `loop: false`, with `sync` (the item's
   id), `skip` and `len`: `skip` = the stillness the loop join cut from the path's start (`res.c0`) less how late the
-  microphone began after the recording (`lead`), `len` = the path's length (at most what the voice has from `skip`). The
-  path and the sound are written in one change: one Undo step (the files stay in the scene). *Record again* with the voice
-  on replaces that sound's file (the same path, `replace=1`, when it is of the same kind; else a new file named in its
-  record): one sound per recorded item (`voiceOf`: the first by id whose `sync` names it). *Keep it as recorded* keeps the
+  microphone began after the recording (`lead`), `len` = where it ends in the path's own time, its file's end `dur - skip`
+  (a microphone that began late, `skip` below 0, ends that much later in the path's time too), at most the path's length.
+  The path and the sound are written in one change: one Undo step (the files stay in the scene). *Record again* with the
+  voice on writes a new file (the first `n` free; a voice file is never written over) and points that sound at it: one
+  sound per recorded item (`voiceOf`: the first by id whose `sync` names it); Undo gives the old record back with its old
+  file, which every device still has as it was. *Keep it as recorded* keeps the
   voice and moves its `skip` with the path's start. Its card says *Your voice is Box voice (mono WAV, 48000 Hz, 4.0 s): it
   follows Box and plays with its path.*
 - **Playing with the path** (`syncAt`, from `emitStep`, `emitStart` and `streamStart`): while the item's path plays (its
@@ -1427,17 +1446,23 @@ and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
   back and forth, on the way there), on the path's clock (`pathClock`: at a station the room's), so everyone at a circle
   hears it at the same moment: at the path's pass `e` seconds in, the voice is at `skip + e` in its file, to `skip + len`.
   A decoded voice is started 20 ms ahead at where it will be then (`AudioBufferSourceNode.start(when, offset, duration)`),
-  a negative `skip` by starting that much later; a streamed one (over 20 s) is set to its moment and stopped at its end;
-  a new pass stops it and starts it again. At a path speed other than ×1 it plays at its own pace from each start (its
+  a negative `skip` by starting that much later; a streamed one (over 20 s, the usual ten-minute voice) is set to where
+  its path is as its element can take a new moment (its metadata in), 50 ms ahead to begin with, and kept there as it
+  plays (`syncStream`: about twice a second, once it has played 150 ms, its element's moment against the path's; more than
+  80 ms off, set again, ahead by how late its last setting came in, `S.lag`, learnt from a setting checked within 3 s of it,
+  at most 0.5 s), and stopped at its end; a new pass stops it and starts it again. Either starts at its level at once (no
+  fade-in over its first word). At a path speed other than ×1 it plays at its own pace from each start (its
   card says so). It is heard only while it and the item are shown for you, and follows the Sound button as every sound of
   the scene does. A sound whose `sync` names an item with no recorded path (the recording deleted, or the item gone) plays
   as a sound of its own by its own *Plays* (its card: *no longer synced*). `STUDIO.voice(id)` (its last start, where its
-  voice and its path are now) is for tests.
+  voice and its path are now; a streamed one's element, its last difference, how often it was set again, its lead) is for
+  tests.
 - **Shared rooms**: the sound is an item, its file a file of the scene, so every device fetches it and plays it from the
   room's clock. A group's copy of a voice plays with the copy of its item.
 - **Untested**: the microphone in a Quest session (whether Quest Browser shows its question there), how a voice sounds
-  following a model there, a voice longer than 20 s made MP3 by a real relay's `ffmpeg` (the tests record a few seconds),
-  Safari's `MediaRecorder` (MP4).
+  following a model there, a voice longer than 20 s made MP3 by a real relay's `ffmpeg` (the tests record a few seconds;
+  a streamed voice is tested with the test scene's 25 s WAV), a streamed voice kept on the path's clock in Quest Browser
+  and across real headsets, Safari's `MediaRecorder` (MP4).
 
 ## The ghost, Pause and placing what moves (the owner, 7 November 2026)
 

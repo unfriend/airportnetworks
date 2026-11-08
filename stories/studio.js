@@ -19738,7 +19738,7 @@ function applyRec(it, was, glide) {
   else if (!it.carry) { it.gl = null; poseOf(it); it.holder.position.copy(_pp); it.holder.quaternion.copy(_pq); it.holder.scale.copy(_ps); }
   const r = it.rec;
   if (it.kind === 'o') {
-    if (!was || was.file !== r.file) itemFile(it);
+    if (!was || was.file !== r.file) { itemFile(it); if (was) it.swNote = ''; }   // (a GLB switch's note on it: switchToGLB)
     if (!was || was.light !== r.light) applyLight(it);
     else {
       if (was.faces !== r.faces) applyFaces(it);
@@ -20280,11 +20280,16 @@ function emitStep(now) {
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
     const want = quiet ? 0 : it.fa * it.rec.vol;   // (its own fade times that of the object it follows)
     if (it.ended && it.rec.sync && syncOf(it)) it.ended = false;   // (a voice playing with a path is never over: it starts with each pass)
-    if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now);
-    else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now);
+    if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now, want);
+    else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now, want);
     if (!it.src) continue;
-    // (a voice that plays with a path: stopped at its end, and as a new pass begins, to start again with it: e6j_voice.js)
-    if (it.rec.sync && syncOf(it)) { const sy = syncAt(it, now, F ? F.dur : 0); if (!sy || sy.pass !== it.syncPass) { emitStop(it); continue; } }
+    // (a voice that plays with a path: stopped at its end, and as a new pass begins, to start again with it: e6j_voice.js;
+    // streamed, kept on the path's clock as it plays: syncStream)
+    if (it.rec.sync && syncOf(it)) {
+      const sy = syncAt(it, now, F ? F.dur : 0);
+      if (!sy || sy.pass !== it.syncPass) { emitStop(it); continue; }
+      if (it.st && it.src === it.st.el) syncStream(it, sy, now);
+    }
     any = true;
     if (it.gt !== want) { try { it.gain.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } it.gt = want; }
     it.holder.getWorldPosition(_ep);
@@ -20322,7 +20327,7 @@ function emitOffset(it, dur, now) {
   t = Math.max(0, t);
   return t < dur - 0.05 ? t : -1;
 }
-function emitStart(it, ctx, buf, now) {
+function emitStart(it, ctx, buf, now, want) {
   // (a voice that plays with a path: where its path will be as it starts, 20 ms on; none: it waits for the next start)
   const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now + 20, buf.duration || 1) : null;
   if (sync && !sy) return;
@@ -20331,7 +20336,7 @@ function emitStart(it, ctx, buf, now) {
   try {
     const src = ctx.createBufferSource(), g = ctx.createGain(), p = ctx.createPanner();
     src.buffer = buf; src.loop = !sy && !!it.rec.loop;
-    g.gain.value = 0;
+    g.gain.value = sy ? want || 0 : 0;   // (a voice with a path at its level at once: its first word is not faded in)
     p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
     it.holder.getWorldPosition(_ep); setPos(p, _ep);
     src.connect(g); g.connect(p); p.connect(ctx.destination);
@@ -20341,7 +20346,7 @@ function emitStart(it, ctx, buf, now) {
       src.start(when, off, Math.max(0.05, sy.left - Math.max(0, -sy.at)));
       it.syncPass = sy.pass; it.syncLog = { c0: when, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
     } else src.start(ctx.currentTime + 0.02, off);
-    Object.assign(it, { src, gain: g, pan: p, gt: -1, zeroAt: 0 });
+    Object.assign(it, { src, gain: g, pan: p, gt: sy ? want || 0 : -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
 // stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
@@ -20358,8 +20363,10 @@ function emitStop(it, drop) {
   for (const n of [s, it.gain, it.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
   it.gain = it.pan = null;
 }
-// a streamed sound: its element (made once per context) set to the moment it should be at, and played
-function streamStart(it, ctx, F, now) {
+// a streamed sound: its element (made once per context) set to the moment it should be at, and played. A voice with a
+// path (sy) is set where its path is as its element can take a new moment (its metadata in), ahead by how late its last
+// setting came in (S.lag; 50 ms to begin with), and at its level at once; syncStream keeps it there as it plays
+function streamStart(it, ctx, F, now, want) {
   let S = it.st;
   if (S && (S.ctx !== ctx || S.url !== fileUrl(F.path, true))) { streamDrop(it); S = null; }   // (a new context, or R2's link read again)
   // (a voice that plays with a path: where its path is now; it waits until its moment in its file has come)
@@ -20376,6 +20383,7 @@ function streamStart(it, ctx, F, now) {
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
       el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; } });
+      el.addEventListener('playing', () => { if (it.st && it.st.el === el) it.st.playAt = performance.now(); });
       // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
       el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
       const url = fileUrl(F.path, true);
@@ -20385,13 +20393,36 @@ function streamStart(it, ctx, F, now) {
   }
   const el = S.el;
   el.loop = !sy && !!it.rec.loop;
-  if (sy) { it.syncPass = sy.pass; it.syncLog = { c0: ctx.currentTime, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e }; }
-  // (before its metadata an element ignores a new time: set once it has it)
-  const seek = () => { try { el.currentTime = off; } catch (e) { /* not seekable yet */ } };
+  if (sy) {
+    it.syncPass = sy.pass; it.syncLog = { c0: ctx.currentTime, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
+    S.playAt = 0; S.chk = 0; S.fixAt = 0;
+    try { S.gain.gain.setValueAtTime(want || 0, ctx.currentTime); } catch (e) { /* closed */ }
+  }
+  // (before its metadata an element ignores a new time: set once it has it; a voice with a path where its path is then)
+  const seek = () => {
+    try {
+      const s2 = sy ? syncAt(it, performance.now(), F.dur || 1) : null;
+      el.currentTime = s2 && s2.pass === sy.pass ? Math.max(0, s2.at + (S.lag != null ? S.lag : 0.05)) : off;
+    } catch (e) { /* not seekable yet */ }
+  };
   if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
   const pr = el.play();
   if (pr && pr.catch) pr.catch(() => { if (it.src === el) { emitStop(it); it.stFail = performance.now(); } });   // (not allowed yet: again in 2 s)
-  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: -1, zeroAt: 0 });
+  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: sy ? want || 0 : -1, zeroAt: 0 });
+}
+// a streamed voice kept on its path's clock (the room's at a station, so every device hears it at the same moment): once it
+// has played 150 ms, about twice a second its element's moment against where the path says it should be; more than 80 ms
+// off, it is set there again, ahead by how late its last setting came in (S.lag, learnt from a setting checked within 3 s
+// of it: at most 0.5 s). S.drift: the last difference (s; above 0 the element behind), S.fixes: how often it was set again
+function syncStream(it, sy, now) {
+  const S = it.st, el = S.el;
+  if (el.paused || el.seeking || el.readyState < 3 || !S.playAt || now - S.playAt < 150 || now - (S.chk || 0) < 500) return;
+  S.chk = now;
+  const d = S.drift = sy.at - el.currentTime;
+  if (Math.abs(d) <= 0.08) return;
+  if (S.fixAt && now - S.fixAt < 3000) S.lag = clamp((S.lag != null ? S.lag : 0.05) + d, 0, 0.5);
+  S.fixAt = now; S.fixes = (S.fixes || 0) + 1;   // (checked again half a second on, once it has taken the new moment)
+  try { el.currentTime = Math.max(0, sy.at + (S.lag != null ? S.lag : 0.05)); } catch (e) { /* not seekable now */ }
 }
 function streamDrop(it) {
   const S = it.st;
@@ -21617,19 +21648,51 @@ function circleSpot() {
     return st && st.story === XR_HERE && fin(st.x) && fin(st.z) ? { x: st.x, z: st.z, yaw: fin(st.yaw) ? st.yaw : 0 } : null;
   } catch (e) { return null; }
 }
+// (a sound's own recorded path kept as a file, its keys in the scene's axes: turned into a new file first, sceneToCircleFiles;
+// one that cannot be refuses the move, nothing changed)
 function sceneToCircle() {
   CIRC.note = ''; CIRC.c = '';
-  const S = atStation() && editOn() ? circleSpot() : null;
+  const S = circleCan();
   if (!S) return false;
+  const files = Math.abs(S.yaw) > 1e-6 ? [...STU.items.values()].filter(it => it.kind === 's' && it.rec.path && it.rec.path.src) : [];
+  if (files.length) { circleSay('Moving: the recorded paths kept as files are turned first...', 'muted'); sceneToCircleFiles(S, files); return true; }
+  return circleMove(S, null);
+}
+// the spot, or null (said why)
+function circleCan() {
+  const S = atStation() && editOn() ? circleSpot() : null;
+  if (!S) return null;
   const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
-  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return false; }
+  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return null; }
   const held = [];
   for (const it of its) for (const n of lockNames(it)) if (!held.includes(n)) held.push(n);
   if (held.length) {
     circleSay(`Refused: ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} locked in place: the scene does not move until ${held.length > 1 ? 'they are' : 'that is'} unlocked.`, 'red');
     sfxAct('knock', 'world', null, { gain: 0.5 });
+    return null;
+  }
+  return S;
+}
+async function sceneToCircleFiles(S, files) {
+  const gen = STU.gen, r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw).toArray(), pm = new Map();
+  for (const it of files) {
+    try { pm.set(it.id, { src: it.rec.path.src, path: await pathFileTurned(it, it.rec.path, r) }); } catch (e) {
+      if (gen === STU.gen) circleSay(`Refused (nothing moved): ${it.rec.name}'s ${e.message.replace(/^its /, '')}.`, 'red');
+      return false;
+    }
+  }
+  if (gen !== STU.gen) return false;
+  // (as it was asked: the same circle, and each sound's path the one turned)
+  const S2 = circleCan();
+  if (!S2) return false;
+  if (Math.abs(S2.x - S.x) > 1e-6 || Math.abs(S2.z - S.z) > 1e-6 || Math.abs(S2.yaw - S.yaw) > 1e-6 || [...STU.items.values()].some(it => it.kind === 's' && it.rec.path && it.rec.path.src && !(pm.has(it.id) && pm.get(it.id).src === it.rec.path.src))) {
+    circleSay('Refused (nothing moved): the circle or a recorded path changed meanwhile. Press it again.', 'amber');
     return false;
   }
+  return circleMove(S, pm);
+}
+function circleMove(S, pm) {
+  const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
   const c = Math.cos(S.yaw), sn = Math.sin(S.yaw), r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw);
   const at = p => [clamp(S.x + c * p[0] + sn * p[2], -1000, 1000), p[1], clamp(S.z - sn * p[0] + c * p[2], -1000, 1000)];
   const turned = q => r.clone().multiply(new THREE.Quaternion().fromArray(q)).normalize().toArray();
@@ -21637,11 +21700,11 @@ function sceneToCircle() {
     for (const it of its) {
       const R = it.rec;
       if (it.kind === 'c') setRec(it.id, { p: at(R.p), yaw: R.yaw + S.yaw });
-      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pathTurned(R.path, r.toArray()) } : {}));
+      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pm && pm.has(it.id) ? pm.get(it.id).path : pathTurned(R.path, r.toArray()) } : {}));
       else setRec(it.id, { p: at(R.p), q: turned(R.q) });
     }
   }, its.map(it => it.id));
-  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).`, 'muted');
+  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).` + (pm && pm.size ? ` ${pm.size === 1 ? 'A sound\'s recorded path kept as a file was' : pm.size + ' sounds\' recorded paths kept as files were'} turned into a new file.` : ''), 'muted');
   sfxAct('place', 'world', null);
   return true;
 }
@@ -21906,7 +21969,8 @@ Object.assign(ITEM_ACT, {
 // uploads), more than the scene's 6,000, or a scene whose shared state would pass 224 KB with it (the relay takes 256 KB a
 // value; layout.json takes 2 MB). At 600 s (120 s without a relay that takes uploads) the recording stops by itself and
 // is kept. A recording kept as a file, or with a voice (With my voice, e6j_voice.js), is written once its files are in
-// the scene: the item stands where it is placed meanwhile, and the record is one change then (one Undo step).
+// the scene: the item stands where it is placed meanwhile, and the record is one change then (one Undo step). One of
+// more than 2 minutes of samples is first simplified a slice at a time between frames (recSoon, simplifySoon).
 //
 // The ghost and the loop join (the owner, 7 November 2026: "when animating a 'ghost' of the model should stay in the
 // initial place so that one can hit it again for better loops, these loops could then even autosmooth if the start and the
@@ -22156,7 +22220,9 @@ function pathJoin(R, play) {
   return { S, info };
 }
 // the end: kept (simplified and written into its record) or not; either way it stands where it stood as it began. A
-// headset's ends as the hand lets go (xrLetGo, whose change it is in); a page's ends its own change
+// headset's ends as the hand lets go (xrLetGo, whose change it is in); a page's ends its own change. A long one (more than
+// 2 minutes of samples) is simplified a slice at a time between frames (recSoon), then kept as recKeep keeps a file: the
+// change ended here is then empty (the item back where it began) and dropped, so the recording is still one Undo step
 function recEnd(save) {
   const R = REC;
   if (!R) return;
@@ -22167,7 +22233,17 @@ function recEnd(save) {
   if (!it) { voiceDrop(R); recSay(R.id, '', ''); if (R.by === 'page' && SNAP) endChange(); return; }
   it.carry = false;   // (so its record puts it back at once: applyRec)
   const back = it.kind === 's' ? { p: R.p0.toArray() } : { p: R.p0.toArray(), q: R.q0.toArray() };
-  let res = save && editOn() ? recPath(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  const prep = save && editOn() ? recPrep(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  if (prep.soon) {
+    R.c0 = prep.c0;
+    setRec(it.id, back);
+    recSoon(it, R, prep);
+    if (R.by === 'page') endChange();
+    tcAttach();
+    dirty(true);
+    return;
+  }
+  let res = prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
   R.c0 = res.c0 || 0;   // (the stillness cut from its start: the tests read it)
   // (one kept as a file, or with a voice: written once its files are in the scene, a change of its own; it stands where
   // it is placed meanwhile)
@@ -22182,6 +22258,19 @@ function recEnd(save) {
   if (R.by === 'page') endChange();
   tcAttach();
   dirty(true);
+}
+// a long recording simplified a slice at a time (simplifySoon), then kept (recKeep: its file, its voice) or refused in
+// words; raw: Keep it as recorded. It stands where it is placed meanwhile, and no other recording of it begins (KEEP)
+async function recSoon(it, R, prep, raw) {
+  const id = it.id, gen = STU.gen, K = { text: `Simplifying the recording (${fmt(prep.rel.length)} samples): a moment...` };
+  KEEP.set(id, K); dirty(true);
+  const keep = await simplifySoon(prep.rel, R.mid, gen);
+  if (KEEP.get(id) === K) KEEP.delete(id);
+  if (!keep || gen !== STU.gen || GL.gone || STU.items.get(id) !== it) { voiceDrop(R); dirty(true); return; }
+  const res = recFinish(it, R, prep, keep);
+  R.c0 = res.c0 || 0;
+  if (!res.path) { recSay(id, res.why, 'amber'); voiceDrop(R); return; }
+  recKeep(it, R, res, raw);
 }
 // what a recording kept came to, in words
 const recWords = (R, res) => `Recorded ${secs(pathLen(res.path))} in ${fmt(pathCount(res.path))} keys (from ${fmt(R.S.length)} samples)` + (res.path.src ? `, kept as the file ${res.path.src}` : '') +
@@ -22199,14 +22288,24 @@ function joinNote(J, P) {
 }
 // the samples as a path: relative to where it began (d = q0^-1 (p - p0), q = q0^-1 q), simplified, rounded, its play,
 // start and speed those of the path it had (a new one: loop, always, 1); or why not. Joined (pathJoin) unless raw (Keep it
-// as recorded): res.join says what was done
+// as recorded): res.join says what was done. In two parts: recPrep (the join, the samples relative to where it began, and
+// what is refused before simplifying; soon: a long one, to be simplified a slice at a time) and recFinish (the keys kept)
 function recPath(it, R, raw) {
+  const prep = recPrep(it, R, raw);
+  return prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
+}
+function recPrep(it, R, raw) {
   const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
   const c0 = J.info && J.info.c0 ? J.info.c0 : 0;   // (the stillness cut from its start: its voice is cut alike, e6j_voice.js)
   if (S.length < 2 || S[S.length - 1][0] < 0.1) return { why: hand ? 'Too short to keep: hold the grip a moment longer.' : 'Too short to keep: record a moment longer.' };
+  // (its length is its last sample's: refused here, before simplifying, when it needs a file and nothing keeps one)
+  if (nz(r3(S[S.length - 1][0])) > PATH_MAX.secs && !canUpload()) return { why: 'A recording longer than 2 minutes needs a relay that takes uploads (it is kept as a file of the scene).' };
   const qi = R.q0.clone().invert(), rel = S.map(s => ({ t: s[0], d: new THREE.Vector3(s[1], s[2], s[3]).sub(R.p0).applyQuaternion(qi), q: qi.clone().multiply(new THREE.Quaternion(s[4], s[5], s[6], s[7])).normalize() }));
   for (let i = 1; i < rel.length; i++) if (rel[i].q.dot(rel[i - 1].q) < 0) rel[i].q.set(-rel[i].q.x, -rel[i].q.y, -rel[i].q.z, -rel[i].q.w);   // (one hemisphere)
-  const keep = pathSimplify(rel, R.mid), k = [];
+  return { rel, J, c0, soon: rel.length > PATH_MAX.secs * PATH_HZ && canUpload() };
+}
+function recFinish(it, R, prep, keep) {
+  const { rel, J, c0 } = prep, old = it.rec.path, k = [];
   for (const i of keep) {
     const e = [nz(r3(rel[i].t))].concat(rel[i].d.toArray().map(v => nz(r3(v))), quatOf(rel[i].q.toArray()));
     if (k.length && !(e[0] > k[k.length - 1][0])) k[k.length - 1] = [k[k.length - 1][0]].concat(e.slice(1)); else k.push(e);   // (strictly later once rounded)
@@ -22235,25 +22334,58 @@ function recPath(it, R, raw) {
   return { path, join: J.info || null, c0 };
 }
 // the keys to keep (indices, first and last always): split where the straight line and slerp between two kept keys
-// stray most, while any sample strays from them by more than 4 mm at its middle (mid, its turned frame) or 0.9 degrees
-function pathSimplify(rel, mid) {
-  const n = rel.length, keep = new Uint8Array(n), todo = [[0, n - 1]], pm = new THREE.Vector3(), qm = new THREE.Quaternion(), wa = new THREE.Vector3(), wb = new THREE.Vector3();
-  const tm = PATH_TOL.m, ta = PATH_TOL.deg * Math.PI / 180;
+// stray most, while any sample strays from them by more than 4 mm at its middle (mid, its turned frame) or 0.9 degrees.
+// As a step function (simpStart, simpRun), so that a long recording's (up to 18,000 samples) is worked out a slice at a
+// time between frames (simplifySoon): a headset never stalls on it. The same keys either way
+const _sp1 = new THREE.Vector3(), _sp2 = new THREE.Vector3(), _sq1 = new THREE.Quaternion();
+function simpStart(rel, mid) {
+  const n = rel.length, keep = new Uint8Array(n);
   keep[0] = keep[n - 1] = 1;
-  while (todo.length) {
-    const [a, b] = todo.pop(), A = rel[a], B = rel[b];
-    if (b - a < 2) continue;
-    let worst = 1, wi = -1;
-    for (let i = a + 1; i < b; i++) {
-      const f = (rel[i].t - A.t) / (B.t - A.t), r = rel[i];
-      pm.copy(A.d).lerp(B.d, f); qm.copy(A.q).slerp(B.q, f);
-      const e = Math.max(wa.copy(mid).applyQuaternion(qm).add(pm).distanceTo(wb.copy(mid).applyQuaternion(r.q).add(r.d)) / tm, qm.angleTo(r.q) / ta);
-      if (e > worst) { worst = e; wi = i; }
+  // (each sample's middle, worked out once)
+  return { rel, mid, keep, M: rel.map(r => mid.clone().applyQuaternion(r.q).add(r.d)), todo: [[0, n - 1]], cur: null, evals: 0 };
+}
+// a slice of it: until the clock passes until (ms; Infinity: all of it); true once done
+function simpRun(S, until) {
+  const { rel, mid, keep, M } = S, tm = PATH_TOL.m, ta = PATH_TOL.deg * Math.PI / 180;
+  for (;;) {
+    let c = S.cur;
+    if (!c) {
+      const iv = S.todo.pop();
+      if (!iv) return true;
+      if (iv[1] - iv[0] < 2) continue;
+      c = S.cur = { a: iv[0], b: iv[1], i: iv[0] + 1, worst: 1, wi: -1 };
     }
-    if (wi >= 0) { keep[wi] = 1; todo.push([a, wi], [wi, b]); }
+    const A = rel[c.a], B = rel[c.b];
+    for (; c.i < c.b; c.i++) {
+      const r = rel[c.i], f = (r.t - A.t) / (B.t - A.t);
+      _sp1.copy(A.d).lerp(B.d, f); _sq1.copy(A.q).slerp(B.q, f);
+      const e = Math.max(_sp2.copy(mid).applyQuaternion(_sq1).add(_sp1).distanceTo(M[c.i]) / tm, _sq1.angleTo(r.q) / ta);
+      if (e > c.worst) { c.worst = e; c.wi = c.i; }
+      if ((++S.evals & 255) === 0 && performance.now() > until) { c.i++; return false; }
+    }
+    S.cur = null;
+    if (c.wi >= 0) { keep[c.wi] = 1; S.todo.push([c.a, c.wi], [c.wi, c.b]); }
   }
-  const out = [];
-  for (let i = 0; i < n; i++) if (keep[i]) out.push(i);
+}
+const simpOut = S => { const out = []; for (let i = 0; i < S.keep.length; i++) if (S.keep[i]) out.push(i); return out; };
+function pathSimplify(rel, mid) { const S = simpStart(rel, mid); simpRun(S, Infinity); return simpOut(S); }
+// a slice of about SIMP.slice ms a timer task (timers run in a headset's session, where the window's frames stop), until
+// done (its keys), or null when the scene was opened again or the studio went meanwhile. SIMP.last: the last one's numbers
+// for the tests (samples, keys, its time in all, its work, its slices, the longest)
+const SIMP = { slice: 8, last: null };
+async function simplifySoon(rel, mid, gen) {
+  const t0 = performance.now(), S = simpStart(rel, mid);
+  let work = 0, longest = 0, slices = 0;
+  for (let a = t0; ;) {
+    const done = simpRun(S, a + SIMP.slice), d = performance.now() - a;
+    work += d; longest = Math.max(longest, d); slices++;
+    if (done) break;
+    await new Promise(r => later(r, 0));
+    if (gen !== STU.gen || GL.gone) return null;
+    a = performance.now();
+  }
+  const out = simpOut(S);
+  SIMP.last = { n: rel.length, keys: out.length, ms: performance.now() - t0, work, slices, longest, evals: S.evals };
   return out;
 }
 // why copies of these records cannot be made, for their recorded paths ('' they can): the scene's 6,000 keys, and a shared
@@ -22282,6 +22414,7 @@ function pathBlocks(it, B, dis, mv) {
   if (!PATH_ITEMS.includes(it.kind)) return;
   const P = it.rec.path, rec = recording(it), armed = XR.rec === it.id, fol = it.kind === 's' && !!it.rec.on, busy = (!!REC && !rec) || KEEP.has(it.id);
   const head = 'Recorded path' + (P ? `: ${secs(pathLen(P))}, ${fmt(pathCount(P))} keys` + (P.src ? ', kept as a file' : '') : '');
+  if (it.swNote && it.kind === 'o') B.push({ p: it.swNote, c: 'amber' });   // (a GLB switch that left it on its original: switchToGLB)
   if (rec) {
     const t = Math.max(0, (recClock() - REC.t0) / 1000), most = REC.cap === PATH_MAX.long ? '10 minutes' : '120 s';
     const lit = REC.lit ? ' At its ghost: let go here and its end goes exactly on its start.' : ' To loop smoothly, end at its ghost (it lights).';
@@ -22358,7 +22491,9 @@ Object.assign(ITEM_ACT, {
   reckeep: it => {
     const R = RECLAST;
     if (!R || R.id !== it.id || !it.rec.path || recording(it) || KEEP.has(it.id)) return;
-    const res = recPath(it, R, true);
+    const prep = recPrep(it, R, true);
+    if (prep.soon) { recSoon(it, R, prep, true); return; }   // (a long one: simplified a slice at a time)
+    const res = prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
     if (res.path && (res.keys || (R.v && R.v.kept))) { recKeep(it, R, res, true); return; }
     if (res.path && setRec(it.id, { path: res.path })) recSay(it.id, `Kept as recorded: ${secs(pathLen(res.path))} in ${fmt(pathCount(res.path))} keys.`, 'muted');
     else recSay(it.id, res.why || 'The recording could not be kept.', 'amber');
@@ -23251,14 +23386,17 @@ function texState(id) {
 // shell's context, HOST.audio.fx(), connected to nothing else: no context of the studio's own). Kept with the recording:
 // made a mono sound as the Upload pane makes sounds (up to 20 s a 16-bit WAV decoded in the page by monoWav, e7b_upload.js,
 // the one OfflineAudioContext; longer, the relay's ffmpeg makes it a mono MP3; with no ffmpeg it is kept as it came, a WebM
-// or the like), uploaded to sounds/<the item's name>-voice-<n> (Record again with the voice on: the same file replaced when
-// its kind is the same), and placed as a sound item, "<item> voice", following the recorded item (on its Head bone when it
-// has one, else at its top), whose record says it plays with that item's path: sync (the item's id), skip (seconds into its
-// file where the path's start is: what the loop join cut from the path's start, less how late the microphone started;
-// negative: the voice starts that much after the path) and len (how long of it plays). It starts each time the path starts
-// its loop (once, with one that plays once; on the way there, with one that goes back and forth), on the path's clock, so
-// everyone at a circle hears it at the same moment (syncAt, from emitStep); at a path speed other than ×1 it plays at its
-// own pace from each start. The path and the voice are written in one change (one Undo step: files stay in the scene).
+// or the like), uploaded to sounds/<the item's name>-voice-<n> (the first n free: a voice file is never written over, so
+// Record again with the voice on writes a new one and points the sound at it, and Undo gives the old one back), and placed
+// as a sound item, "<item> voice", following the recorded item (on its Head bone when it has one, else at its top), whose
+// record says it plays with that item's path: sync (the item's id), skip (seconds into its file where the path's start is:
+// what the loop join cut from the path's start, less how late the microphone started; negative: the voice starts that much
+// after the path) and len (where in the path's own time it ends: its file's end, at most the path's). It starts each time
+// the path starts its loop (once, with one that plays once; on the way there, with one that goes back and forth), on the
+// path's clock, so everyone at a circle hears it at the same moment (syncAt, from emitStep; a streamed one, longer than 20
+// s, is set again whenever its element is more than 80 ms off the path's clock: syncStream, e6_items.js); at a path speed
+// other than ×1 it plays at its own pace from each start. The path and the voice are written in one change (one Undo
+// step: files stay in the scene).
 // Deleting the recording leaves the sound, no longer synced: it plays as a sound of its own (its card says so).
 
 // ----------------------------------------------------------- long recordings --
@@ -23299,13 +23437,13 @@ function numbered(base, ext, past) {
   for (let n = m ? +m[1] + 1 : 1; ; n++) { const p = `${base}-${n}.${ext}`; if (!STU.fileMap.has(p) && !PF.has(p)) return p; }
 }
 // a recording's keys up as a file (a name taken meanwhile: the next); its path, its keys kept here at once
-async function recFile(it, k, len) {
+async function recFile(it, k, len, onP) {
   const scene = STU.scene, gen = STU.gen, base = 'recordings/' + safeSeg(words(it.rec.name, 60));
   const text = JSON.stringify({ studio: 1, recording: 1, item: it.rec.name, len, n: k.length, k });
   let p = numbered(base, 'json');
   for (let tries = 0; ; tries++) {
     try {
-      const j = await upSend(fileApi(scene, p, false), new Blob([text], { type: 'application/json' }));
+      const j = await upSend(fileApi(scene, p, false), new Blob([text], { type: 'application/json' }), onP);
       const out = (j && j.path) || p;
       if (gen === STU.gen) { PF.set(out, { k, state: 'ok', at: 0, own: true, gen, err: '', failAt: 0 }); refreshFiles(new Set([out])); }
       return out;
@@ -23315,12 +23453,13 @@ async function recFile(it, k, len) {
 // The recording kept once its files are in the scene (a long one's keys, its voice): then the path, and its voice's sound,
 // written in one change (one Undo step). raw: Keep it as recorded (its voice's sound kept as it is, only where it starts)
 async function recKeep(it, R, res, raw) {
-  const id = it.id, gen = STU.gen, K = { text: res.keys ? 'Keeping the recording: its file goes into the scene...' : 'Keeping the recording with your voice...' };
+  const id = it.id, gen = STU.gen, useV = !!R.v && (!raw || !!R.v.kept);   // (Keep it as recorded: its voice only when it was kept)
+  const K = { text: res.keys ? 'Keeping the recording: its file goes into the scene...' : useV ? 'Keeping the recording with your voice...' : 'Keeping the recording...' };
   KEEP.set(id, K); dirty(true);
   let path = res.path, voice = null, vwhy = '';
   try {
-    if (res.keys) path = normPath(Object.assign({}, res.path, { src: await recFile(it, res.keys, pathLen(res.path)) }));
-    if (R.v) {
+    if (res.keys) path = normPath(Object.assign({}, res.path, { src: await recFile(it, res.keys, pathLen(res.path), f => { const t = `Keeping the recording: its file goes into the scene (${Math.round(f * 100)} %)...`; if (t !== K.text) { K.text = t; dirty(); } }) }));
+    if (useV) {
       K.text = 'Keeping your voice: it goes into the scene as a sound...'; dirty(true);
       try { voice = await voiceKeep(it, R); } catch (e) { vwhy = e.status === 401 ? AUTH_NOTE : e.message; }
     }
@@ -23335,28 +23474,49 @@ async function recKeep(it, R, res, raw) {
   let ok = false, vid = '';
   change(() => { ok = !!setRec(id, { path }); if (ok && voice) vid = voicePlace(it, voice, path, res); });
   if (!ok) { recSay(id, 'The recording could not be kept.', 'amber'); return; }
-  const vs = !R.v ? '' : vid ? ` Your voice is ${STU.items.get(vid).rec.name} (${voice.made}): it follows ${it.rec.name} and plays with its path.` : voice ? ` Your voice is in the scene as ${voice.file}, but no sound could be placed (a scene holds ${LIMITS.s} sounds).` : ` Your voice was not kept: ${vwhy || 'nothing came from the microphone'}.`;
+  const vs = !useV ? '' : vid ? ` Your voice is ${STU.items.get(vid).rec.name} (${voice.made}): it follows ${it.rec.name} and plays with its path.` : voice ? ` Your voice is in the scene as ${voice.file}, but no sound could be placed (a scene holds ${LIMITS.s} sounds).` : ` Your voice was not kept: ${vwhy || 'nothing came from the microphone'}.`;
   if (raw) recSay(id, `Kept as recorded: ${secs(pathLen(path))} in ${fmt(pathCount(path))} keys` + (path.src ? `, as the file ${path.src}.` : '.') + vs, 'muted');
   else {
-    recSay(id, recWords(R, { path }) + ' It plays now; its ghost shows where it is placed.' + vs, R.capped || (R.v && !vid) ? 'amber' : 'green', joinNote(res.join, path));
+    recSay(id, recWords(R, { path }) + ' It plays now; its ghost shows where it is placed.' + vs, R.capped || (useV && !vid) ? 'amber' : 'green', joinNote(res.join, path));
     sfxAct('rise', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray(), { dur: 0.5, gain: 0.5 });
   }
   tcAttach();
 }
-// an object switched to its GLB (switchToGLB) whose recorded path is kept as a file: its keys turned as a path in a record
-// is (pathTurned) and written as a new file, so its record names that one ({ id: its new path }); one that cannot be (its
-// keys not in, no relay that takes uploads) keeps its file, said
+// a recording kept as a file, turned by rq (as pathTurned turns one in a record: d' = r d, q' = r q r^-1) and written as a
+// new file (the old one stays, so Undo can give it back): its path; or an Error saying why not (no relay that takes
+// uploads, its keys not read within 5 s, the upload refused). An object switched to its GLB (pathFilesTurned) and a scene
+// moved to its circle (sceneToCircle, e6d_shapes.js: a sound's own path) turn theirs so
+async function pathFileTurned(it, P, rq) {
+  if (!canUpload()) throw new Error(`its recorded path is kept as the file ${P.src}, and turning it needs a relay that takes uploads`);
+  let K = pathK(P);
+  for (let i = 0; !K && i < 50; i++) {
+    await new Promise(r => later(r, 100));
+    K = pathK(P);
+    const f = PF.get(P.src);
+    if (!K && f && f.state === 'bad') break;
+  }
+  if (!K) { const f = PF.get(P.src); throw new Error(`its recorded path's file ${P.src} ` + (f && f.state === 'bad' ? 'could not be read' : 'was not read within 5 s')); }
+  const k = normKeys(keysTurned(K, rq), PATH_MAX.fileKeys, PATH_MAX.long);
+  if (!k) throw new Error(`its recorded path's keys could not be turned`);
+  try { return normPath(Object.assign({}, P, { src: await recFile(it, k, P.len) })); } catch (e) { throw new Error(`its recorded path, turned, could not go into the scene (${e.status === 401 ? AUTH_NOTE : e.message})`); }
+}
+// before an object switched to its GLB (switchToGLB): each object on orig whose recorded path is kept as a file, with the
+// turn baked into the GLB, gets its keys turned into a new file ({ id: its path }); one that cannot ({ id: why not, a
+// string }) is not switched (switchToGLB leaves it on its original, where it plays as before, and says why on its card)
 async function pathFilesTurned(orig, rec) {
   const E = LIB.get(orig), g = rec || (E && E.guess) || { q: [0, 0, 0, 1] }, out = new Map();   // (as switchToGLB takes it)
   if (!g.q || (Math.abs(g.q[3]) > 0.999999)) return out;   // (nothing turned)
   for (const it of [...STU.items.values()].filter(x => x.kind === 'o' && x.rec.file === orig && x.rec.path && x.rec.path.src)) {
-    const P = it.rec.path;
-    let K = pathK(P);
-    for (let i = 0; !K && i < 50 && STU.fileMap.has(P.src); i++) { await new Promise(r => later(r, 100)); K = pathK(P); }
-    if (!K || !canUpload()) continue;
-    try { out.set(it.id, normPath(Object.assign({}, P, { src: await recFile(it, normKeys(keysTurned(K, g.q), PATH_MAX.fileKeys, PATH_MAX.long) || K, P.len) }))); } catch (e) { /* kept as it was */ }
+    try { out.set(it.id, await pathFileTurned(it, it.rec.path, g.q)); } catch (e) { out.set(it.id, e.message); }
   }
   return out;
+}
+// what a switch left on its original, in words ('' none): for the conversion's note
+function heldWords(pmap, orig, glb) {
+  const held = pmap ? [...pmap].filter(([, v]) => typeof v === 'string') : [];
+  if (!held.length) return '';
+  return held.map(([id, why]) => `${(STU.items.get(id) || { rec: { name: id } }).rec.name} was not switched from ${baseName(orig)} to ${glb}: ${why}.`).join(' ') +
+    (held.length > 1 ? ' They stay as they were' : ' It stays as it was') + ' (Switch to the GLB on its card tries again).';
 }
 
 // ------------------------------------------------------------------ the voice --
@@ -23464,27 +23624,27 @@ async function voiceKeep(it, R) {
   if (V.kept) return V.kept;   // (Keep it as recorded: the same sound)
   const blob = await V.done;
   if (!blob || !blob.size) throw new Error(V.err || 'nothing came from the microphone');
-  const scene = STU.scene, old = voiceOf(it.id), base = 'sounds/' + safeSeg(words(it.rec.name, 60) + '-voice');
+  const scene = STU.scene, base = 'sounds/' + safeSeg(words(it.rec.name, 60) + '-voice');
   let ext = V.ext, body = blob, via = 'file', made = `kept as it came (${V.ext.toUpperCase()}: this relay has no ffmpeg)`, dur = V.dur;
   if (V.dur <= STREAM_S) {
     const w = await monoWav(await blob.arrayBuffer(), 48000);
     ext = 'wav'; body = new Blob([w.wav], { type: 'audio/wav' }); dur = w.dur; made = `mono WAV, ${w.rate} Hz, ${secs(w.dur)}`;
   } else if (SRC.ffmpeg) { ext = 'mp3'; via = 'sound'; made = `mono MP3 by the relay's ffmpeg, ${secs(V.dur)}`; }
-  // (Record again: the sound's own file replaced when it is of the same kind)
-  const same = old && old.rec.file.startsWith('sounds/') && extOf(old.rec.file) === ext ? old.rec.file : '';
-  let p = same || numbered(base, ext), j = null;
+  // (Record again: a new file, never the old one written over: the sound is pointed at it, and Undo gives the old one back,
+  // which every device still has as it was)
+  let p = numbered(base, ext), j = null;
   for (let tries = 0; ; tries++) {
     try {
       if (via === 'sound') {
         for (let k = 0; ; k++) {
-          try { j = await upSend(soundApi(scene, p, !!same), body); break; } catch (e) { if (e.status !== 429 || k > 8) throw e; await new Promise(r => later(r, 1000 * Math.max(2, e.retry || 3))); }
+          try { j = await upSend(soundApi(scene, p, false), body); break; } catch (e) { if (e.status !== 429 || k > 8) throw e; await new Promise(r => later(r, 1000 * Math.max(2, e.retry || 3))); }
         }
-      } else j = await upSend(fileApi(scene, p, !!same), body);
+      } else j = await upSend(fileApi(scene, p, false), body);
       break;
     } catch (e) {
-      if (e.status === 409 && !same && tries < 20) { p = numbered(base, ext, p); continue; }
+      if (e.status === 409 && tries < 20) { p = numbered(base, ext, p); continue; }
       // (the relay has no ffmpeg after all: as it came)
-      if (via === 'sound' && e.status === 501) { via = 'file'; ext = V.ext; made = `kept as it came (${V.ext.toUpperCase()}: this relay has no ffmpeg)`; p = same && extOf(same) === ext ? same : numbered(base, ext); continue; }
+      if (via === 'sound' && e.status === 501) { via = 'file'; ext = V.ext; made = `kept as it came (${V.ext.toUpperCase()}: this relay has no ffmpeg)`; p = numbered(base, ext); continue; }
       throw e;
     }
   }
@@ -23505,9 +23665,10 @@ function voiceSpot(it) {
   });
 }
 // its sound placed (or, recorded again, its file and start changed), in the change that writes the path; its id ('' none:
-// the scene's sounds are full)
+// the scene's sounds are full). len: where it ends in the path's own time, its file's end (path time dur - skip: a voice
+// whose microphone began late, skip below 0, ends that much later too), at most the path's end
 function voicePlace(it, v, path, res) {
-  const skip = r3(clamp((res.c0 || 0) - v.lead, -10, 600)), len = r3(Math.min(pathLen(path), v.dur - Math.max(0, skip)));
+  const skip = r3(clamp((res.c0 || 0) - v.lead, -10, 600)), len = r3(Math.min(pathLen(path), v.dur - skip));
   const sync = { file: v.file, sync: it.id, skip: skip || undefined, len: len > 0.05 ? len : undefined, loop: false };
   const old = voiceOf(it.id);
   if (old) return setRec(old.id, sync) ? old.id : '';
@@ -23528,16 +23689,19 @@ function syncAt(it, now, dur) {
   const D = pathLen(P), u = Math.max(0, pathClock(ob, P, now, sceneClock(now)) * P.speed);
   if (!(D > 0)) return null;
   const per = P.play === 'bounce' ? 2 * D : D, pass = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - pass * per) / P.speed;
-  const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - Math.max(0, skip));
+  const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - skip);   // (in the path's time: its file ends at dur - skip)
   return e < len - 0.05 ? { at: skip + e, left: len - e, pass, e } : null;
 }
 // (for tests: a synced sound's start, and where its voice and its path are now)
 function voiceState(id) {
   const it = STU.items.get(id);
   if (!it || it.kind !== 's') return null;
-  const now = performance.now(), F = it.F, ctx = EM.ctx, L = it.syncLog || null;
+  const now = performance.now(), F = it.F, ctx = EM.ctx, L = it.syncLog || null, S = it.st && it.src === it.st.el ? it.st : null;
   const s = syncAt(it, now, F && F.dur ? F.dur : Infinity);
-  return { sync: it.rec.sync || '', synced: !!syncOf(it), playing: !!it.src, log: L, ctxNow: ctx ? ctx.currentTime : null, now: s, voiceNow: L && ctx ? L.at + (ctx.currentTime - L.c0) : null };
+  // (a streamed one: its element's own moment, and how its keeping on the path's clock went: syncStream, e6_items.js)
+  const stream = S ? { t: S.el.currentTime, paused: S.el.paused, drift: S.drift == null ? null : S.drift, fixes: S.fixes || 0, lag: S.lag || 0, gain: it.gt } : null;
+  return { sync: it.rec.sync || '', synced: !!syncOf(it), playing: !!it.src, log: L, ctxNow: ctx ? ctx.currentTime : null, now: s, stream,
+    voiceNow: S ? (S.el.paused ? null : S.el.currentTime) : L && ctx ? L.at + (ctx.currentTime - L.c0) : null };
 }
 
 // ------------------------------------------------------------------- the card --
@@ -23560,7 +23724,7 @@ function voiceRows(it, B, during) {
   else B.push({ page: true, p: VOICE.on ? 'While it records, so does the microphone: kept as a sound that follows it and plays with its path, for everyone.' : 'On: the microphone records while it does, kept as a sound that follows it and plays with its path.', c: 'faint' },
     { xr: true, p: 'In a headset the browser may not show its question about the microphone: turn this on on the 2D page first, before entering VR (untested on a Quest).', c: 'faint' });
   const vs = voiceOf(it.id);
-  if (vs) B.push({ p: `Its voice: ${vs.rec.name}. Record again with your voice on to replace its sound.`, c: 'muted' });
+  if (vs) B.push({ p: `Its voice: ${vs.rec.name} (${vs.rec.file}). Record again with your voice on for a new one: a new file, the old one kept in the scene (Undo gives it back).`, c: 'muted' });
 }
 // a sound that plays with a path, on its own card
 function syncBlocks(it, B) {
@@ -23569,7 +23733,7 @@ function syncBlocks(it, B) {
   const ob = STU.items.get(r.sync), P = ob ? pathOf(ob) : null;
   if (!ob) B.push({ p: 'Recorded with a movement whose item is not in the scene: no longer synced, it plays as a sound of its own (Plays below).', c: 'amber' });
   else if (!P) B.push({ p: `Recorded with ${ob.rec.name}'s movement, which has no recorded path now: no longer synced, it plays as a sound of its own (Plays below). Record ${ob.rec.name}'s movement again with your voice to sync it again.`, c: 'amber' });
-  else B.push({ p: `Plays with ${ob.rec.name}'s recorded path: from each start of it (${P.play === 'once' ? 'once, as it plays once' : P.play === 'bounce' ? 'on the way there' : 'each loop'}), on its clock, so everyone at a circle hears it at the same moment.` + (P.speed !== 1 ? ` At ×${P.speed} the voice plays at its own pace from each start.` : '') + ((r.skip || 0) > 0 ? ` It starts ${secs(r.skip)} into its file.` : ''), c: 'muted' });
+  else B.push({ p: `Plays with ${ob.rec.name}'s recorded path: from each start of it (${P.play === 'once' ? 'once, as it plays once' : P.play === 'bounce' ? 'on the way there' : 'each loop'}), on its clock, so everyone at a circle hears it at the same moment.` + (P.speed !== 1 ? ` At ×${P.speed} the voice plays at its own pace from each start.` : '') + ((r.skip || 0) > 0 ? ` It starts ${secs(r.skip)} into its file.` : (r.skip || 0) < 0 ? ` It starts ${secs(-r.skip)} after the path does (the microphone began that much late).` : ''), c: 'muted' });
 }
 ITEM_ACT.recVoice = () => voiceSwitch();
 PANE_ONLY.push('recVoice');
@@ -24251,7 +24415,18 @@ function act(a, v) {
     look: () => { if (!XR.on && !OPT.visit) vwOpen({ kind: 'add', path: v }); },   // (an Add card's Look: the viewer, e7f_viewer.js)
     convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
-    switch: async () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null, null, await pathFilesTurned(v, rec || null)); } },
+    // (a recorded path kept as a file is turned into a new file first: one that cannot be leaves its object as it was, said)
+    switch: async () => {
+      const g = glbFor().get(v);
+      if (!g) return;
+      const rec = glbRec(g), files = [...STU.items.values()].some(it => it.kind === 'o' && it.rec.file === v && it.rec.path && it.rec.path.src);
+      CV.item = STU.sel;
+      if (files) { CV.note = `Switching to ${g}: its recorded path, kept as a file, is turned first...`; CV.noteC = 'muted'; dirty(true); }
+      const pm = await pathFilesTurned(v, rec || null);
+      switchToGLB(v, g, rec || null, null, pm);
+      const held = heldWords(pm, v, g);
+      if (files || held) { CV.note = held || `Switched to ${g}: its recorded path, kept as a file, turned with it.`; CV.noteC = held ? 'amber' : 'green'; dirty(true); }
+    },
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
@@ -24904,10 +25079,11 @@ async function convertFile(path, o = {}) {
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
-      // (a recorded path kept as a file, turned into a new file first: e6j_voice.js)
-      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), await pathFilesTurned(path, r.record));
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
-      CV.noteC = 'green';
+      // (a recorded path kept as a file, turned into a new file first: e6j_voice.js; an object whose file could not be
+      // turned is not switched, and the note says why)
+      const pm = out === path ? null : await pathFilesTurned(path, r.record), n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), pm), held = heldWords(pm, path, out);
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost + (held ? ' ' + held : '');
+      CV.noteC = held ? 'amber' : 'green';
       CV.done.push(out);
       // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
       // only, and is never a reason the conversion failed
@@ -24985,13 +25161,18 @@ async function convertAll() {
 // (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
 // figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
 // 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it.
-// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path. A trigger
+// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path; one kept as
+// a file was turned into a new file before (pmap, pathFilesTurned: e6j_voice.js), and an object whose file could not be
+// (pmap gives why, a string) is left on its original, where it plays as before, its card saying why (it.swNote). A trigger
 // cube's texture changes on such an object keep it (its id is the same); their materials are found again in the GLB when
 // the conversion says how its materials came out (tmap, texRemap: e6i_tex.js), else they keep their index
 function switchToGLB(orig, glb, rec, tmap, pmap) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
-  const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
+  const all = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig), held = id => !!pmap && typeof pmap.get(id) === 'string';
+  for (const it of all) it.swNote = held(it.id) ? `Not switched to ${glb}: ${pmap.get(it.id)}. It stays on ${baseName(orig)}, where it plays as before; Switch to the GLB tries again.` : '';
+  const list = all.filter(it => !held(it.id));
+  dirty(true);
   if (!list.length) return 0;
   change(() => {
     // (the sounds on its whole model, also those naming a bone its model here lacks, which follow the whole model too;
@@ -25019,7 +25200,7 @@ function switchToGLB(orig, glb, rec, tmap, pmap) {
 const switchedRec = (r, glb, g, P) => {
   const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
   // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned; one kept as a file, its new file: P)
-  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P || pathTurned(r.path, g.q) } : {});
+  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P && typeof P === 'object' ? P : pathTurned(r.path, g.q) } : {});
 };
 // a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
 function saveFile(data, name, type) {

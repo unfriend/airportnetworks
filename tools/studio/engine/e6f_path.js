@@ -39,7 +39,8 @@
 // uploads), more than the scene's 6,000, or a scene whose shared state would pass 224 KB with it (the relay takes 256 KB a
 // value; layout.json takes 2 MB). At 600 s (120 s without a relay that takes uploads) the recording stops by itself and
 // is kept. A recording kept as a file, or with a voice (With my voice, e6j_voice.js), is written once its files are in
-// the scene: the item stands where it is placed meanwhile, and the record is one change then (one Undo step).
+// the scene: the item stands where it is placed meanwhile, and the record is one change then (one Undo step). One of
+// more than 2 minutes of samples is first simplified a slice at a time between frames (recSoon, simplifySoon).
 //
 // The ghost and the loop join (the owner, 7 November 2026: "when animating a 'ghost' of the model should stay in the
 // initial place so that one can hit it again for better loops, these loops could then even autosmooth if the start and the
@@ -289,7 +290,9 @@ function pathJoin(R, play) {
   return { S, info };
 }
 // the end: kept (simplified and written into its record) or not; either way it stands where it stood as it began. A
-// headset's ends as the hand lets go (xrLetGo, whose change it is in); a page's ends its own change
+// headset's ends as the hand lets go (xrLetGo, whose change it is in); a page's ends its own change. A long one (more than
+// 2 minutes of samples) is simplified a slice at a time between frames (recSoon), then kept as recKeep keeps a file: the
+// change ended here is then empty (the item back where it began) and dropped, so the recording is still one Undo step
 function recEnd(save) {
   const R = REC;
   if (!R) return;
@@ -300,7 +303,17 @@ function recEnd(save) {
   if (!it) { voiceDrop(R); recSay(R.id, '', ''); if (R.by === 'page' && SNAP) endChange(); return; }
   it.carry = false;   // (so its record puts it back at once: applyRec)
   const back = it.kind === 's' ? { p: R.p0.toArray() } : { p: R.p0.toArray(), q: R.q0.toArray() };
-  let res = save && editOn() ? recPath(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  const prep = save && editOn() ? recPrep(it, R) : { why: 'Recording cancelled: nothing changed.' };
+  if (prep.soon) {
+    R.c0 = prep.c0;
+    setRec(it.id, back);
+    recSoon(it, R, prep);
+    if (R.by === 'page') endChange();
+    tcAttach();
+    dirty(true);
+    return;
+  }
+  let res = prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
   R.c0 = res.c0 || 0;   // (the stillness cut from its start: the tests read it)
   // (one kept as a file, or with a voice: written once its files are in the scene, a change of its own; it stands where
   // it is placed meanwhile)
@@ -315,6 +328,19 @@ function recEnd(save) {
   if (R.by === 'page') endChange();
   tcAttach();
   dirty(true);
+}
+// a long recording simplified a slice at a time (simplifySoon), then kept (recKeep: its file, its voice) or refused in
+// words; raw: Keep it as recorded. It stands where it is placed meanwhile, and no other recording of it begins (KEEP)
+async function recSoon(it, R, prep, raw) {
+  const id = it.id, gen = STU.gen, K = { text: `Simplifying the recording (${fmt(prep.rel.length)} samples): a moment...` };
+  KEEP.set(id, K); dirty(true);
+  const keep = await simplifySoon(prep.rel, R.mid, gen);
+  if (KEEP.get(id) === K) KEEP.delete(id);
+  if (!keep || gen !== STU.gen || GL.gone || STU.items.get(id) !== it) { voiceDrop(R); dirty(true); return; }
+  const res = recFinish(it, R, prep, keep);
+  R.c0 = res.c0 || 0;
+  if (!res.path) { recSay(id, res.why, 'amber'); voiceDrop(R); return; }
+  recKeep(it, R, res, raw);
 }
 // what a recording kept came to, in words
 const recWords = (R, res) => `Recorded ${secs(pathLen(res.path))} in ${fmt(pathCount(res.path))} keys (from ${fmt(R.S.length)} samples)` + (res.path.src ? `, kept as the file ${res.path.src}` : '') +
@@ -332,14 +358,24 @@ function joinNote(J, P) {
 }
 // the samples as a path: relative to where it began (d = q0^-1 (p - p0), q = q0^-1 q), simplified, rounded, its play,
 // start and speed those of the path it had (a new one: loop, always, 1); or why not. Joined (pathJoin) unless raw (Keep it
-// as recorded): res.join says what was done
+// as recorded): res.join says what was done. In two parts: recPrep (the join, the samples relative to where it began, and
+// what is refused before simplifying; soon: a long one, to be simplified a slice at a time) and recFinish (the keys kept)
 function recPath(it, R, raw) {
+  const prep = recPrep(it, R, raw);
+  return prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
+}
+function recPrep(it, R, raw) {
   const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
   const c0 = J.info && J.info.c0 ? J.info.c0 : 0;   // (the stillness cut from its start: its voice is cut alike, e6j_voice.js)
   if (S.length < 2 || S[S.length - 1][0] < 0.1) return { why: hand ? 'Too short to keep: hold the grip a moment longer.' : 'Too short to keep: record a moment longer.' };
+  // (its length is its last sample's: refused here, before simplifying, when it needs a file and nothing keeps one)
+  if (nz(r3(S[S.length - 1][0])) > PATH_MAX.secs && !canUpload()) return { why: 'A recording longer than 2 minutes needs a relay that takes uploads (it is kept as a file of the scene).' };
   const qi = R.q0.clone().invert(), rel = S.map(s => ({ t: s[0], d: new THREE.Vector3(s[1], s[2], s[3]).sub(R.p0).applyQuaternion(qi), q: qi.clone().multiply(new THREE.Quaternion(s[4], s[5], s[6], s[7])).normalize() }));
   for (let i = 1; i < rel.length; i++) if (rel[i].q.dot(rel[i - 1].q) < 0) rel[i].q.set(-rel[i].q.x, -rel[i].q.y, -rel[i].q.z, -rel[i].q.w);   // (one hemisphere)
-  const keep = pathSimplify(rel, R.mid), k = [];
+  return { rel, J, c0, soon: rel.length > PATH_MAX.secs * PATH_HZ && canUpload() };
+}
+function recFinish(it, R, prep, keep) {
+  const { rel, J, c0 } = prep, old = it.rec.path, k = [];
   for (const i of keep) {
     const e = [nz(r3(rel[i].t))].concat(rel[i].d.toArray().map(v => nz(r3(v))), quatOf(rel[i].q.toArray()));
     if (k.length && !(e[0] > k[k.length - 1][0])) k[k.length - 1] = [k[k.length - 1][0]].concat(e.slice(1)); else k.push(e);   // (strictly later once rounded)
@@ -368,25 +404,58 @@ function recPath(it, R, raw) {
   return { path, join: J.info || null, c0 };
 }
 // the keys to keep (indices, first and last always): split where the straight line and slerp between two kept keys
-// stray most, while any sample strays from them by more than 4 mm at its middle (mid, its turned frame) or 0.9 degrees
-function pathSimplify(rel, mid) {
-  const n = rel.length, keep = new Uint8Array(n), todo = [[0, n - 1]], pm = new THREE.Vector3(), qm = new THREE.Quaternion(), wa = new THREE.Vector3(), wb = new THREE.Vector3();
-  const tm = PATH_TOL.m, ta = PATH_TOL.deg * Math.PI / 180;
+// stray most, while any sample strays from them by more than 4 mm at its middle (mid, its turned frame) or 0.9 degrees.
+// As a step function (simpStart, simpRun), so that a long recording's (up to 18,000 samples) is worked out a slice at a
+// time between frames (simplifySoon): a headset never stalls on it. The same keys either way
+const _sp1 = new THREE.Vector3(), _sp2 = new THREE.Vector3(), _sq1 = new THREE.Quaternion();
+function simpStart(rel, mid) {
+  const n = rel.length, keep = new Uint8Array(n);
   keep[0] = keep[n - 1] = 1;
-  while (todo.length) {
-    const [a, b] = todo.pop(), A = rel[a], B = rel[b];
-    if (b - a < 2) continue;
-    let worst = 1, wi = -1;
-    for (let i = a + 1; i < b; i++) {
-      const f = (rel[i].t - A.t) / (B.t - A.t), r = rel[i];
-      pm.copy(A.d).lerp(B.d, f); qm.copy(A.q).slerp(B.q, f);
-      const e = Math.max(wa.copy(mid).applyQuaternion(qm).add(pm).distanceTo(wb.copy(mid).applyQuaternion(r.q).add(r.d)) / tm, qm.angleTo(r.q) / ta);
-      if (e > worst) { worst = e; wi = i; }
+  // (each sample's middle, worked out once)
+  return { rel, mid, keep, M: rel.map(r => mid.clone().applyQuaternion(r.q).add(r.d)), todo: [[0, n - 1]], cur: null, evals: 0 };
+}
+// a slice of it: until the clock passes until (ms; Infinity: all of it); true once done
+function simpRun(S, until) {
+  const { rel, mid, keep, M } = S, tm = PATH_TOL.m, ta = PATH_TOL.deg * Math.PI / 180;
+  for (;;) {
+    let c = S.cur;
+    if (!c) {
+      const iv = S.todo.pop();
+      if (!iv) return true;
+      if (iv[1] - iv[0] < 2) continue;
+      c = S.cur = { a: iv[0], b: iv[1], i: iv[0] + 1, worst: 1, wi: -1 };
     }
-    if (wi >= 0) { keep[wi] = 1; todo.push([a, wi], [wi, b]); }
+    const A = rel[c.a], B = rel[c.b];
+    for (; c.i < c.b; c.i++) {
+      const r = rel[c.i], f = (r.t - A.t) / (B.t - A.t);
+      _sp1.copy(A.d).lerp(B.d, f); _sq1.copy(A.q).slerp(B.q, f);
+      const e = Math.max(_sp2.copy(mid).applyQuaternion(_sq1).add(_sp1).distanceTo(M[c.i]) / tm, _sq1.angleTo(r.q) / ta);
+      if (e > c.worst) { c.worst = e; c.wi = c.i; }
+      if ((++S.evals & 255) === 0 && performance.now() > until) { c.i++; return false; }
+    }
+    S.cur = null;
+    if (c.wi >= 0) { keep[c.wi] = 1; S.todo.push([c.a, c.wi], [c.wi, c.b]); }
   }
-  const out = [];
-  for (let i = 0; i < n; i++) if (keep[i]) out.push(i);
+}
+const simpOut = S => { const out = []; for (let i = 0; i < S.keep.length; i++) if (S.keep[i]) out.push(i); return out; };
+function pathSimplify(rel, mid) { const S = simpStart(rel, mid); simpRun(S, Infinity); return simpOut(S); }
+// a slice of about SIMP.slice ms a timer task (timers run in a headset's session, where the window's frames stop), until
+// done (its keys), or null when the scene was opened again or the studio went meanwhile. SIMP.last: the last one's numbers
+// for the tests (samples, keys, its time in all, its work, its slices, the longest)
+const SIMP = { slice: 8, last: null };
+async function simplifySoon(rel, mid, gen) {
+  const t0 = performance.now(), S = simpStart(rel, mid);
+  let work = 0, longest = 0, slices = 0;
+  for (let a = t0; ;) {
+    const done = simpRun(S, a + SIMP.slice), d = performance.now() - a;
+    work += d; longest = Math.max(longest, d); slices++;
+    if (done) break;
+    await new Promise(r => later(r, 0));
+    if (gen !== STU.gen || GL.gone) return null;
+    a = performance.now();
+  }
+  const out = simpOut(S);
+  SIMP.last = { n: rel.length, keys: out.length, ms: performance.now() - t0, work, slices, longest, evals: S.evals };
   return out;
 }
 // why copies of these records cannot be made, for their recorded paths ('' they can): the scene's 6,000 keys, and a shared
@@ -415,6 +484,7 @@ function pathBlocks(it, B, dis, mv) {
   if (!PATH_ITEMS.includes(it.kind)) return;
   const P = it.rec.path, rec = recording(it), armed = XR.rec === it.id, fol = it.kind === 's' && !!it.rec.on, busy = (!!REC && !rec) || KEEP.has(it.id);
   const head = 'Recorded path' + (P ? `: ${secs(pathLen(P))}, ${fmt(pathCount(P))} keys` + (P.src ? ', kept as a file' : '') : '');
+  if (it.swNote && it.kind === 'o') B.push({ p: it.swNote, c: 'amber' });   // (a GLB switch that left it on its original: switchToGLB)
   if (rec) {
     const t = Math.max(0, (recClock() - REC.t0) / 1000), most = REC.cap === PATH_MAX.long ? '10 minutes' : '120 s';
     const lit = REC.lit ? ' At its ghost: let go here and its end goes exactly on its start.' : ' To loop smoothly, end at its ghost (it lights).';
@@ -491,7 +561,9 @@ Object.assign(ITEM_ACT, {
   reckeep: it => {
     const R = RECLAST;
     if (!R || R.id !== it.id || !it.rec.path || recording(it) || KEEP.has(it.id)) return;
-    const res = recPath(it, R, true);
+    const prep = recPrep(it, R, true);
+    if (prep.soon) { recSoon(it, R, prep, true); return; }   // (a long one: simplified a slice at a time)
+    const res = prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
     if (res.path && (res.keys || (R.v && R.v.kept))) { recKeep(it, R, res, true); return; }
     if (res.path && setRec(it.id, { path: res.path })) recSay(it.id, `Kept as recorded: ${secs(pathLen(res.path))} in ${fmt(pathCount(res.path))} keys.`, 'muted');
     else recSay(it.id, res.why || 'The recording could not be kept.', 'amber');

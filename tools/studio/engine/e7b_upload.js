@@ -166,10 +166,11 @@ async function convertFile(path, o = {}) {
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
-      // (a recorded path kept as a file, turned into a new file first: e6j_voice.js)
-      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), await pathFilesTurned(path, r.record));
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
-      CV.noteC = 'green';
+      // (a recorded path kept as a file, turned into a new file first: e6j_voice.js; an object whose file could not be
+      // turned is not switched, and the note says why)
+      const pm = out === path ? null : await pathFilesTurned(path, r.record), n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), pm), held = heldWords(pm, path, out);
+      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost + (held ? ' ' + held : '');
+      CV.noteC = held ? 'amber' : 'green';
       CV.done.push(out);
       // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
       // only, and is never a reason the conversion failed
@@ -247,13 +248,18 @@ async function convertAll() {
 // (p' = r p, q' = r q; sizes are metres, kept), so each hole stays where it was. The new scale is kept to 4 significant
 // figures, so where s / b is not exact (b not a power of ten) the model is drawn k = s' b / s times its old size (within
 // 5e-4): its cut-outs' middles and sizes and its sounds' offsets are scaled by k too, so they stay on the same part of it.
-// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path. A trigger
+// A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path; one kept as
+// a file was turned into a new file before (pmap, pathFilesTurned: e6j_voice.js), and an object whose file could not be
+// (pmap gives why, a string) is left on its original, where it plays as before, its card saying why (it.swNote). A trigger
 // cube's texture changes on such an object keep it (its id is the same); their materials are found again in the GLB when
 // the conversion says how its materials came out (tmap, texRemap: e6i_tex.js), else they keep their index
 function switchToGLB(orig, glb, rec, tmap, pmap) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
-  const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
+  const all = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig), held = id => !!pmap && typeof pmap.get(id) === 'string';
+  for (const it of all) it.swNote = held(it.id) ? `Not switched to ${glb}: ${pmap.get(it.id)}. It stays on ${baseName(orig)}, where it plays as before; Switch to the GLB tries again.` : '';
+  const list = all.filter(it => !held(it.id));
+  dirty(true);
   if (!list.length) return 0;
   change(() => {
     // (the sounds on its whole model, also those naming a bone its model here lacks, which follow the whole model too;
@@ -281,7 +287,7 @@ function switchToGLB(orig, glb, rec, tmap, pmap) {
 const switchedRec = (r, glb, g, P) => {
   const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
   // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned; one kept as a file, its new file: P)
-  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P || pathTurned(r.path, g.q) } : {});
+  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P && typeof P === 'object' ? P : pathTurned(r.path, g.q) } : {});
 };
 // a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
 function saveFile(data, name, type) {
