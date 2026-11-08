@@ -209,6 +209,7 @@ function paneBlocks(tab) {
     B.push({ label: 'Cut-out box', row: [{ id: 'cutbox', label: so ? `Cut-out box on ${so.rec.name}` : 'Cut-out box: select a model first', act: 'cutbox', dis: !canCut(so) }] },
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
+    if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
     for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
@@ -304,7 +305,8 @@ function itemCard(it, C) {
     state.unshift(r.name.toLowerCase().startsWith(stem(r.file).toLowerCase()) ? '' : baseName(r.file));
     // its cut-outs as tags: a press selects one (picking for a cube, puts it on the list); a cube selected, their Shows and Hides
     const xs = cutsOn(it.id);
-    if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
+    if (xs.length && r.cutsLocked) card.tags = [{ id: 'cutl:' + it.id, label: `🔒 ✂ ${xs.length} cut-out${xs.length > 1 ? 's' : ''} locked`, title: 'Its cut-outs are locked: unlock them on its card', act: 'sel', v: it.id, on: false, sel: false, pk: '', ticks: null }];
+    else if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
@@ -363,10 +365,12 @@ function itemBlocks(it, B, ed) {
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
-    const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
-    B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
+    const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX, cl = !!r.cutsLocked;
+    B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }]
+      .concat(cuts.length || cl ? [{ id: 'cutslock', label: cl ? '🔒 Cut-outs locked' : 'Lock cut-outs', act: 'i:cutslock', on: cl, dis }] : []) });
     if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
-    if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
+    if (cl) B.push({ p: 'Its cut-outs are locked: they cut as before, but their boxes are hidden and they cannot be moved, sized or deleted (for everyone, and saved). Press again to unlock and show them.', c: 'amber' });
+    else if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
     behaveBlocks(it, B, dis);   // (a behaviour: what it does when people come close, e6g_behave.js)
     motionBlocks(it, B, dis);   // (a motion drawn over where it stands: e6e_motion.js)
@@ -873,7 +877,7 @@ function pickables() {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
-    else if (it.kind === 'x') { if (it.holder.visible) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
+    else if (it.kind === 'x') { if (it.holder.visible && !cutsHid(it)) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);

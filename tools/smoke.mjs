@@ -3511,6 +3511,41 @@ await step('design: the intro ends at the table', async () => {
     if (!r.err && (r.miss.length || !r.whole[0] || !r.whole[1])) out.push('the headset\'s card: ' + JSON.stringify({ miss: r.miss, whole: r.whole }));
     if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
     bad(out);
+  });
+  await step('studio cuts: an object\'s cut-outs locked (v124): its card\'s switch (one Undo step); the door cutting as before, its box hidden and never pointed at; sizing it, deleting it, deleting the wall and a new cut-out on it refused; the card and the Items pane say so; the state and layout.json carry cutsLocked, a bad one refused; a copy\'s not locked; unlocked, its box back', async () => {
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, step = () => itemsStep(0.1, performance.now()), settle = () => { for (let i = 0; i < 12; i++) step(); };   // (0.1 s a step: the boxes' 0.4 s fade done)
+      const w = STU.items.get('wal001'), x = STU.items.get('dor001'), hit = () => pickables().includes(x.look.hit);
+      setEdit(true); select('wal001'); settle();
+      if (!x.holder.visible || !hit()) o.push('unlocked: the door\\'s box not drawn or not pointable');
+      const u0 = UNDO.length, s0 = x.rec.size.join(), c0 = !!x.cutting, n0 = STU.items.size;
+      itemAct('cutslock', null, 'wal001'); settle();
+      if (w.rec.cutsLocked !== true || UNDO.length !== u0 + 1) o.push('locking: ' + J([w.rec.cutsLocked, UNDO.length - u0]));
+      if (x.holder.visible || hit()) o.push('locked: the door\\'s box still drawn or pointable');
+      if (!!x.cutting !== c0) o.push('locked: the door stopped or started cutting');
+      itemAct('csize', 2, 'dor001'); itemAct('del', null, 'dor001'); itemAct('del', null, 'wal001'); itemAct('cut', null, 'wal001');
+      if (x.rec.size.join() !== s0 || STU.items.size !== n0 || !STU.items.get('wal001') || !STU.items.get('dor001') || UNDO.length !== u0 + 1) o.push('locked: sized, deleted or cut: ' + J([x.rec.size, STU.items.size - n0, UNDO.length - u0]));
+      select('wal001'); X.tab = 'item'; renderPanes();
+      const card = document.querySelector('#pane-item').textContent;
+      if (!/Cut-outs locked/.test(card) || card.includes('✂ ' + x.rec.name) || !/cut-outs are locked/.test(card)) o.push('the wall\\'s card while locked: ' + card.slice(0, 300));
+      X.tab = 'items'; renderPanes();
+      const items = document.querySelector('#pane-items');
+      if (!/1 cut-out locked/.test(items.textContent) || items.querySelector('[data-v="dor001"]')) o.push('the Items pane while locked: ' + items.textContent.slice(0, 300));
+      const st = collabState(), lay = layoutOut(), lw = (lay.objects || []).find(q => q.id === 'wal001');
+      if (!st['o.wal001'] || st['o.wal001'].cutsLocked !== true || !lw || lw.cutsLocked !== true) o.push('state or layout without cutsLocked: ' + J([st['o.wal001'] && st['o.wal001'].cutsLocked, lw && lw.cutsLocked]));
+      if (norm('o', Object.assign({}, w.rec, { cutsLocked: 'yes' })) !== null || 'cutsLocked' in norm('o', Object.assign({}, w.rec, { cutsLocked: false }))) o.push('norm: a bad cutsLocked taken, or false kept');
+      itemAct('dup', null, 'wal001'); settle();
+      const nid = STU.sel, nw = STU.items.get(nid), nx = nw ? cutsOn(nid) : [];
+      if (!nw || nw.rec.cutsLocked || !nx.length || !nx.every(c => c.holder.visible)) o.push('a copy: ' + J([nid, nw && nw.rec.cutsLocked, nx.length]));
+      undo(); settle();
+      itemAct('cutslock', null, 'wal001'); settle();
+      if (w.rec.cutsLocked || !x.holder.visible || !hit() || UNDO.length !== u0 + 2) o.push('unlocked: ' + J([w.rec.cutsLocked, x.holder.visible, hit(), UNDO.length - u0]));
+      undo(); undo(); select(''); X.tab = 'scene'; renderPanes(); settle();
+      if (w.rec.cutsLocked || !x.holder.visible) o.push('undone: still locked');
+      return o;
+    })()`).catch(e => [e.message]);
+    if (await ss('unsaved()')) r.push('the layout did not come back after the cut-out lock\'s checks');
+    bad(r);
     await cxp.close();
   });
 }

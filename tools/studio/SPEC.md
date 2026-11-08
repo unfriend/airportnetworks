@@ -808,6 +808,14 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
 - **Untested on a headset**: how the holes look on a Quest (the open edges, a scan's thin walls), the shader's cost on a
   Quest with a 400,000-triangle scan and 16 boxes, the grip, both grips and a corner on a real controller, and the one
   raycast against a big scan as the button is pressed (a moment on a laptop; longer on a Quest).
+- **Cut-outs locked** (v124; the owner, 8 November 2026: "add cutout lock mode where the cutouts for an object are locked
+  and cannot be moved anymore, cutout boxes should be hidden then but show again if it is unlocked"): *Lock cut-outs* on
+  an object's card writes `cutsLocked: true` into the object's record (kept only when set; anything but a boolean makes
+  the record bad; a copy's are not locked; one Undo step, shared and saved). Its cut-outs cut as before; their boxes are
+  never drawn or pointed at; they do not move, size, turn or go, whichever way is tried (as a lock in place holds an
+  item); no cut-out is added to the object or moved onto it; the object is not deleted until they are unlocked. Its card
+  says so in place of their list, the Items pane shows one tag for them (a press selects the object), and *🔒 Cut-outs
+  locked* unlocks them, their boxes showing again while editing.
 
 ## Groups (the owner, 5 November 2026)
 

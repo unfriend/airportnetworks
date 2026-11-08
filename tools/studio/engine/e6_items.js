@@ -57,6 +57,8 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    // its cut-outs locked (v124), kept only when set: true; absent, false or null: not; anything else makes it bad
+    if (x.cutsLocked === true) r.cutsLocked = true; else if (x.cutsLocked != null && x.cutsLocked !== false) r.cutsLocked = null;
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);   // (its behaviour, kept only when set: e6g_behave.js)
     if (x.motion != null) r.motion = normMotion(x.motion);   // (its motion, kept only when set: e6e_motion.js)
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
@@ -580,7 +582,7 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    const tgt = it.kind === 'c' || it.kind === 'x' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
+    const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
@@ -1082,7 +1084,7 @@ function duplicateItem(id) {
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
     // (a copy is never locked: it is new, to be put where it goes)
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined },
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }

@@ -19,7 +19,13 @@ const CUT_MAX = 16, CUT_DEF = [0.8, 2, 0.4];
 const cutObj = x => { const o = x && x.kind === 'x' ? STU.items.get(x.rec.on) : null; return o && o.kind === 'o' ? o : null; };
 const cutsOn = id => [...STU.items.values()].filter(x => x.kind === 'x' && x.rec.on === id);
 // an object can take another cut-out (16 at most on one model, 100 in a scene)
-const canCut = ob => !!ob && ob.kind === 'o' && canAdd('x') && cutsOn(ob.id).length < CUT_MAX;
+const canCut = ob => !!ob && ob.kind === 'o' && !ob.rec.cutsLocked && canAdd('x') && cutsOn(ob.id).length < CUT_MAX;
+// an object's cut-outs locked (v124; the owner, 8 November 2026: "add cutout lock mode where the cutouts for an object are
+// locked and cannot be moved anymore, cutout boxes should be hidden then but show again if it is unlocked"): the
+// object's record says cutsLocked; its cut-outs cut as before, but their boxes are never drawn or pointed at, they do not
+// move, size, turn or go (lockNames), no cut-out is added to it or moved onto it, and the object is not deleted until
+// they are unlocked. On its card, shared and saved; a copy's are not locked
+const cutsHid = x => { const o = cutObj(x); return !!(o && o.rec.cutsLocked); };
 // where its record puts a cut-out in the scene's frame: in the object's frame, turned but not scaled, at the object's
 // place, turn and size as shown now (followK: between both grips' writes, or while a size from the room glides in);
 // dangling, its record in the scene's frame
@@ -259,7 +265,7 @@ function cutTurn(x) { setRec(x.id, { q: new THREE.Quaternion().fromArray(x.rec.q
 function cutOnto(x, oid) {
   const ob = STU.items.get(oid);
   STU.cutTo = '';
-  if (x.kind !== 'x' || !ob || ob.kind !== 'o' || x.rec.on === oid || cutsOn(oid).length >= CUT_MAX) return;
+  if (x.kind !== 'x' || !ob || ob.kind !== 'o' || x.rec.on === oid || cutsOn(oid).length >= CUT_MAX || ob.rec.cutsLocked) return;
   setRec(x.id, Object.assign({ on: oid }, cutRecOf(x, ob)));
 }
 // the card's actions (page and headset alike)
@@ -276,5 +282,15 @@ Object.assign(ITEM_ACT, {
     if (v === 'whole') STU.whole.add(x.id); else if (v === 'cut') STU.cutF.add(x.id);
   },
   cutPick: x => { if (x.kind === 'x') STU.cutTo = STU.cutTo === x.id ? '' : x.id; },
+  // an object's cut-outs locked or not (one Undo step); locking one whose cut-out is selected selects the object
+  cutslock: ob => {
+    if (ob.kind !== 'o') return;
+    const on = !ob.rec.cutsLocked;
+    setRec(ob.id, { cutsLocked: on ? true : undefined });
+    const s = STU.items.get(STU.sel);
+    if (on && s && s.kind === 'x' && s.rec.on === ob.id) select(ob.id);
+    if (STU.cutTo && on) STU.cutTo = '';
+    sfxAct(on ? 'knock' : 'rise', 'world', null, { gain: 0.4, dur: 0.4 });
+  },
   cutOn: (x, oid) => cutOnto(x, oid),
 });

@@ -19505,6 +19505,8 @@ function norm(kind, x) {
       anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
+    // its cut-outs locked (v124), kept only when set: true; absent, false or null: not; anything else makes it bad
+    if (x.cutsLocked === true) r.cutsLocked = true; else if (x.cutsLocked != null && x.cutsLocked !== false) r.cutsLocked = null;
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);   // (its behaviour, kept only when set: e6g_behave.js)
     if (x.motion != null) r.motion = normMotion(x.motion);   // (its motion, kept only when set: e6e_motion.js)
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
@@ -20028,7 +20030,7 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    const tgt = it.kind === 'c' || it.kind === 'x' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
+    const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
     it.a = approach(it.a, tgt, fade);
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
@@ -20530,7 +20532,7 @@ function duplicateItem(id) {
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
     // (a copy is never locked: it is new, to be put where it goes)
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined },
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
@@ -20723,7 +20725,13 @@ const CUT_MAX = 16, CUT_DEF = [0.8, 2, 0.4];
 const cutObj = x => { const o = x && x.kind === 'x' ? STU.items.get(x.rec.on) : null; return o && o.kind === 'o' ? o : null; };
 const cutsOn = id => [...STU.items.values()].filter(x => x.kind === 'x' && x.rec.on === id);
 // an object can take another cut-out (16 at most on one model, 100 in a scene)
-const canCut = ob => !!ob && ob.kind === 'o' && canAdd('x') && cutsOn(ob.id).length < CUT_MAX;
+const canCut = ob => !!ob && ob.kind === 'o' && !ob.rec.cutsLocked && canAdd('x') && cutsOn(ob.id).length < CUT_MAX;
+// an object's cut-outs locked (v124; the owner, 8 November 2026: "add cutout lock mode where the cutouts for an object are
+// locked and cannot be moved anymore, cutout boxes should be hidden then but show again if it is unlocked"): the
+// object's record says cutsLocked; its cut-outs cut as before, but their boxes are never drawn or pointed at, they do not
+// move, size, turn or go (lockNames), no cut-out is added to it or moved onto it, and the object is not deleted until
+// they are unlocked. On its card, shared and saved; a copy's are not locked
+const cutsHid = x => { const o = cutObj(x); return !!(o && o.rec.cutsLocked); };
 // where its record puts a cut-out in the scene's frame: in the object's frame, turned but not scaled, at the object's
 // place, turn and size as shown now (followK: between both grips' writes, or while a size from the room glides in);
 // dangling, its record in the scene's frame
@@ -20963,7 +20971,7 @@ function cutTurn(x) { setRec(x.id, { q: new THREE.Quaternion().fromArray(x.rec.q
 function cutOnto(x, oid) {
   const ob = STU.items.get(oid);
   STU.cutTo = '';
-  if (x.kind !== 'x' || !ob || ob.kind !== 'o' || x.rec.on === oid || cutsOn(oid).length >= CUT_MAX) return;
+  if (x.kind !== 'x' || !ob || ob.kind !== 'o' || x.rec.on === oid || cutsOn(oid).length >= CUT_MAX || ob.rec.cutsLocked) return;
   setRec(x.id, Object.assign({ on: oid }, cutRecOf(x, ob)));
 }
 // the card's actions (page and headset alike)
@@ -20980,6 +20988,16 @@ Object.assign(ITEM_ACT, {
     if (v === 'whole') STU.whole.add(x.id); else if (v === 'cut') STU.cutF.add(x.id);
   },
   cutPick: x => { if (x.kind === 'x') STU.cutTo = STU.cutTo === x.id ? '' : x.id; },
+  // an object's cut-outs locked or not (one Undo step); locking one whose cut-out is selected selects the object
+  cutslock: ob => {
+    if (ob.kind !== 'o') return;
+    const on = !ob.rec.cutsLocked;
+    setRec(ob.id, { cutsLocked: on ? true : undefined });
+    const s = STU.items.get(STU.sel);
+    if (on && s && s.kind === 'x' && s.rec.on === ob.id) select(ob.id);
+    if (STU.cutTo && on) STU.cutTo = '';
+    sfxAct(on ? 'knock' : 'rise', 'world', null, { gain: 0.4, dur: 0.4 });
+  },
   cutOn: (x, oid) => cutOnto(x, oid),
 });
 
@@ -21368,7 +21386,8 @@ function lockNames(it, del) {
   if (GROUP_KINDS.includes(it.kind)) add(groupOf(it.id));
   const ms = it.kind === 'g' ? members(it) : [it];
   if (it.kind === 'g') ms.forEach(add);
-  if (del) for (const m of ms) if (m.kind === 'o') cutsOn(m.id).forEach(add);
+  if (del) for (const m of ms) if (m.kind === 'o') { cutsOn(m.id).forEach(add); if (m.rec.cutsLocked && cutsOn(m.id).length && !L.includes(m.rec.name + ' (its cut-outs)')) L.push(m.rec.name + ' (its cut-outs)'); }
+  if (it.kind === 'x') { const ob = cutObj(it); if (ob && ob.rec.cutsLocked && !L.includes(ob.rec.name + ' (its cut-outs)')) L.push(ob.rec.name + ' (its cut-outs)'); }
   return L;
 }
 const lockWhy = (it, del) => lockNames(it, del).join(', ');
@@ -21394,6 +21413,8 @@ function lockLine(it) {
     return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: the group cannot be deleted until ${them(cuts)} unlocked.` : '';
   }
   if (mine) return 'Locked in place: it does not move, turn, size or go until it is unlocked.';
+  if (it.kind === 'x' && cutsHid(it)) return `${cutObj(it).rec.name}'s cut-outs are locked: it does not move, size or go until they are unlocked on ${cutObj(it).rec.name}'s card.`;
+  if (it.kind === 'o' && it.rec.cutsLocked && cutsOn(it.id).length && !cuts.length) return 'Its cut-outs are locked: it cannot be deleted until they are unlocked.';
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null;
   if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
   return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
@@ -22906,6 +22927,7 @@ function paneBlocks(tab) {
     B.push({ label: 'Cut-out box', row: [{ id: 'cutbox', label: so ? `Cut-out box on ${so.rec.name}` : 'Cut-out box: select a model first', act: 'cutbox', dis: !canCut(so) }] },
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
+    if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
     for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
@@ -23001,7 +23023,8 @@ function itemCard(it, C) {
     state.unshift(r.name.toLowerCase().startsWith(stem(r.file).toLowerCase()) ? '' : baseName(r.file));
     // its cut-outs as tags: a press selects one (picking for a cube, puts it on the list); a cube selected, their Shows and Hides
     const xs = cutsOn(it.id);
-    if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
+    if (xs.length && r.cutsLocked) card.tags = [{ id: 'cutl:' + it.id, label: `🔒 ✂ ${xs.length} cut-out${xs.length > 1 ? 's' : ''} locked`, title: 'Its cut-outs are locked: unlock them on its card', act: 'sel', v: it.id, on: false, sel: false, pk: '', ticks: null }];
+    else if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
@@ -23060,10 +23083,12 @@ function itemBlocks(it, B, ed) {
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
-    const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX;
-    B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }] });
+    const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX, cl = !!r.cutsLocked;
+    B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }]
+      .concat(cuts.length || cl ? [{ id: 'cutslock', label: cl ? '🔒 Cut-outs locked' : 'Lock cut-outs', act: 'i:cutslock', on: cl, dis }] : []) });
     if (it.cutNote) B.push({ p: it.cutNote, c: 'amber' });
-    if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
+    if (cl) B.push({ p: 'Its cut-outs are locked: they cut as before, but their boxes are hidden and they cannot be moved, sized or deleted (for everyone, and saved). Press again to unlock and show them.', c: 'amber' });
+    else if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
     behaveBlocks(it, B, dis);   // (a behaviour: what it does when people come close, e6g_behave.js)
     motionBlocks(it, B, dis);   // (a motion drawn over where it stands: e6e_motion.js)
@@ -23570,7 +23595,7 @@ function pickables() {
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
-    else if (it.kind === 'x') { if (it.holder.visible) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
+    else if (it.kind === 'x') { if (it.holder.visible && !cutsHid(it)) { L.push(it.look.hit); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); } }
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);

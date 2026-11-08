@@ -3544,7 +3544,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
+  start: 'always' | 'shown', faces }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide }` (lists of item
   ids), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o }` (the last three optional, kept only when set:
   the object it follows, its bone's name, the offset in the target's frame; "Sounds" below), a cut-out `{ id, name, on,
   p, q, size }` in `cuts` (the object it cuts, and its middle, a full turn and its size in that object's frame, turned
@@ -3657,7 +3657,14 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   finds the nearest object, sound or cut-out, passing over an object's unseen box when the ray goes on into one of its
   own cut-outs (and over cut-outs while picking an object for a sound or a cut-out); the page's arrows move,
   turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
-  size it, a corner stretches it. Not editing, only the hole. The Items pane shows each object's cut-outs as tags on its card.
+  size it, a corner stretches it. Not editing, only the hole. The Items pane shows each object's cut-outs as tags on its card. *Lock cut-outs* on the object's card (v124; the owner, 8 November 2026: "add cutout lock mode where the cutouts
+  for an object are locked and cannot be moved anymore, cutout boxes should be hidden then but show again if it is
+  unlocked"): the object's record gains `cutsLocked: true` (kept only when set; anything but a boolean makes it bad; a
+  copy's are not locked; shared and saved, in v124's `FORMAT` networks-36); its cut-outs cut as before, but their boxes
+  are never drawn or pointed at (`cutsHid`), they do not move, size, turn or go (`lockNames`), no cut-out is added to it
+  or moved onto it (`canCut`, `cutOnto`), the object is not deleted until they are unlocked, its card says so in place of
+  their list and the Items pane shows one tag (*🔒 ✂ 2 cut-outs locked*, a press selecting the object); *🔒 Cut-outs
+  locked* again unlocks them and their boxes show again. One Undo step each.
   `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31, v113). Untested on a headset: how the holes look on a
   Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
 - **Groups** (the owner, 5 November 2026: "grouping things (models, sounds, etc) in studio mode so that they move together";
@@ -4296,7 +4303,10 @@ one object made in reverse id order (the 16 lowest cutting, the 17th said); a cu
 in the cube's list; Box B sized with a 30 m cut-out held at 50 m and said on its card; *Cut out a part* from a ray at the
 dancer's posed head landing on her as drawn; a pretend headset's grip carrying one, both grips sizing it and a corner
 stretching it; nothing of a box drawn when not editing (only the hole); the Items pane (the wall's cut-outs tags on its card) and the headset's card (its rows;
-Preview pressed there). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
+Preview pressed there); v124: the wall's cut-outs locked from its card (one Undo step): the door cutting as before, its box hidden and
+never pointed at, sizing it, deleting it or the wall and a new cut-out on the wall refused, the card and the Items pane
+saying so, the state and `layout.json` carrying `cutsLocked` (a bad one refused, false not kept), a copy of the wall not
+locked, unlocked its box back, Undo bringing it all back. v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
 pointing at nothing: the figure pointed at, its dot on its box, the trigger selecting it; pointing at the box from there:
 the box; outside every box: nothing, and the trigger clearing; editing off: nothing; Walk view with the camera in her box:
 a click on nothing selects her, one on the floor walks), *Hold it* (on her headset card only; armed, a grip of the other

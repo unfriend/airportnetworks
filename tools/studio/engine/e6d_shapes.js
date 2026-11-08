@@ -86,7 +86,8 @@ function lockNames(it, del) {
   if (GROUP_KINDS.includes(it.kind)) add(groupOf(it.id));
   const ms = it.kind === 'g' ? members(it) : [it];
   if (it.kind === 'g') ms.forEach(add);
-  if (del) for (const m of ms) if (m.kind === 'o') cutsOn(m.id).forEach(add);
+  if (del) for (const m of ms) if (m.kind === 'o') { cutsOn(m.id).forEach(add); if (m.rec.cutsLocked && cutsOn(m.id).length && !L.includes(m.rec.name + ' (its cut-outs)')) L.push(m.rec.name + ' (its cut-outs)'); }
+  if (it.kind === 'x') { const ob = cutObj(it); if (ob && ob.rec.cutsLocked && !L.includes(ob.rec.name + ' (its cut-outs)')) L.push(ob.rec.name + ' (its cut-outs)'); }
   return L;
 }
 const lockWhy = (it, del) => lockNames(it, del).join(', ');
@@ -112,6 +113,8 @@ function lockLine(it) {
     return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: the group cannot be deleted until ${them(cuts)} unlocked.` : '';
   }
   if (mine) return 'Locked in place: it does not move, turn, size or go until it is unlocked.';
+  if (it.kind === 'x' && cutsHid(it)) return `${cutObj(it).rec.name}'s cut-outs are locked: it does not move, size or go until they are unlocked on ${cutObj(it).rec.name}'s card.`;
+  if (it.kind === 'o' && it.rec.cutsLocked && cutsOn(it.id).length && !cuts.length) return 'Its cut-outs are locked: it cannot be deleted until they are unlocked.';
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null;
   if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
   return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
