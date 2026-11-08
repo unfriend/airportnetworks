@@ -1183,24 +1183,23 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
-   - **The next round of fixes** (queued, the owner, 8 November 2026; not started):
-     (a) *no "Leave AR" message after standby* ("The leave ar message after standby or resume can go away, alignment
-     nearly always good and has a check now too"): `lostMarks` stops showing *Leave AR and enter it again*, and
-     `R.reenter` no longer makes `lineUp()` say not lined up (`w: 'marks'`) or the panel's line ask to leave AR. The
-     headset still looks for its spots' anchors on the retries' schedule, and the check by eye still asks after waking.
-     Re-align's *Spots not found* says to calibrate if the crosses are off, without asking to leave AR. About 1 hour,
-     0.3M tokens (the tests that expect the message change with it).
-     (b) *sound defaults by mode* ("On mobile and desktop default to no sounds and no narration until manually enabled,
-     in ar and vr default to sounds but no narration"): pages as now (the Sound button off until pressed). A headset
-     session gets its own defaults, kept apart from its 2D page: sound on (the effects) and the Narration switch off.
-     A room that never wrote `look`'s `voice` leaves it to each device, so headsets start without narration there too.
-     The proposal is that in a headset the story panel's Sound button turns the narration on and off. Two questions
-     were put to the owner on 8 November: on a page, does pressing Sound bring the narration too (as now), or does the
-     narration need its own switch; and does a headset remember a narration turned on for its next session, or start
-     without it every session (better for an event's visitors). About 2 to 3 hours, 0.8 to 1M tokens (`tools/audio.mjs`
-     and the smoke test's sound steps change with the defaults).
-   - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day, nothing started):
-     (1) *a human mesh worn and animated with Vive trackers* (wear trackers, line yourself up with a rigged mesh, press,
+   - **The next round (v124, being built, the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
+     ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
+     too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
+     and vr default to sounds but no narration"; then "narration in headsets should stay on when its turned on once but
+     should also have a global setting where i can turn it off or on for every headset in the room at once (each headset
+     could still turn it on or off individually and this would then reset once the headset goes into the lobby"): pages as
+     before, a headset session with its own mute (off) and narration (off, remembered once on), a room-wide *On for all*
+     / *Off for all* (`look.vg`, FORMAT networks-36) and each headset's own choice in a room until it goes to the lobby;
+     (c) a welcome toast in headsets after lining up ("click the rooms to enter in case its in click to enter mode and
+     to move to them if its in that mode, also quickly explain the controllers, the button for clicking and the button
+     for grabbing"); (d) camera mode on an Android phone (idea 2 below; the owner checked that Android's screen
+     recorder records Chrome's AR with the camera image); (e) a trigger cube that changes a texture (idea 3, no
+     crossfade). On a page the owner's question whether Sound should bring the narration too was left open: it does, as
+     before (one press);
+   - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day): 2 and 3 are being built in v124;
+     1 is on the maybe list ("we can skip for now but lets keep this on our maybe list"); 4 is skipped for now.
+     (1) *a human mesh worn and animated with Vive trackers* (maybe list) (wear trackers, line yourself up with a rigged mesh, press,
      and the mesh follows you; record takes). Quest Browser does not see Vive trackers, so they need a Windows PC with
      SteamVR (or HTC's VIVE Hub) and their dongle or base stations. A small bridge program would read their poses and
      send them to the relay. The trackers' space would be lined up with the room by setting a tracker on spot A and
@@ -1222,7 +1221,7 @@ Before handing over (or making anything more public), someone has to decide thes
      scene's pictures), applied while the cube is active for you and decided by the cube entered last, as show and hide
      are, using Change texture's machinery. Per person, as every cube is; `FORMAT` networks-36. About 4 to 6 hours and
      about 2M tokens; a crossfade instead of a switch adds about 2 hours.
-     (4) *uploading from Google Drive*: works today with Google Drive for desktop (Drive as a folder on the laptop,
+     (4) *uploading from Google Drive* (skipped for now): works today with Google Drive for desktop (Drive as a folder on the laptop,
      dragged onto the Upload page or picked with *Choose a folder*). Built in: *From Google Drive...* in the Upload
      pane through Google's Picker (the `drive.file` scope, non-sensitive), feeding the pane's plan as dropped files.
      That needs a Google Cloud project with an OAuth client and an API key (free, about 30 minutes of the owner's
