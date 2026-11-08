@@ -430,6 +430,8 @@ try {
     ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
     r = await req('GET', '/version.json');
     ok(r.status === 200 && r.headers['content-type'] === 'application/json' && r.headers['cache-control'] === 'no-store', 'the release\'s version file: never kept (no-store)');
+    r = await req('GET', '/whatsnew.json');
+    ok(r.status === 200 && r.headers['content-type'] === 'application/json' && r.headers['cache-control'] === 'no-store' && r.buf.equals(file('whatsnew.json')), 'what is new in the release (developer mode): never kept (no-store)');
     const mp3 = file('audio/narration.mp3'), size = mp3.length;
     r = await req('HEAD', '/audio/narration.mp3');
     ok(r.headers['content-type'] === 'audio/mpeg' && r.headers['accept-ranges'] === 'bytes' && +r.headers['content-length'] === size, 'the narration: audio/mpeg, ranges');

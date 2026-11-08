@@ -209,6 +209,16 @@ Slideshow on the Stories screen (in a headset, in the menu's Settings tab).
 It is remembered on the device; #slides=on (or #slides=off) in a link sets it
 for every story. In a shared room a stop pauses the station for everyone there,
 like a pause by hand.
+Developer mode (for testers; off by default, this device's own): the small
+switch at the foot of the Stories screen (also in More on a phone, and in a
+headset in the menu's Settings tab), or #dev=on in a link. While it is on, a
+box says what is new in this release and what to test: over the Stories screen
+when the app opens, and in a headset at the start of each session (the menu
+opens at it once the welcome has gone). Got it hides it until the next release
+on this device; Later until the app opens again (in a headset, the next
+session). What is new, beside the switch and on the headset menu's Debug tab,
+shows it any time. The lists come from whatsnew.json, rewritten at every
+release.
 Anchor (in the headset's menu) keeps the network and the panels at one spot
 in the real room, for every story: through taking the headset off and on (the
 next wearer still starts on the Stories menu), recentring, leaving VR and
@@ -363,10 +373,10 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate, My menu and Real world hides, this headset's own; Sound, this headset's own on or
+for every story; Frame rate, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
-Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over

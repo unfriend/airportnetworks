@@ -29,7 +29,9 @@
   `sw.js` or how files load, run `tools/update.mjs` (see Testing in `AGENTS.md`).
 - Releasing: after the `VERSION` bump, run `node tools/release.mjs` (it writes
   `version.json` and stamps the shell's release into `index.html`; commit both;
-  `--check` says whether they are current). Running pages take a release from
+  `--check` says whether they are current), and rewrite `whatsnew.json` by hand
+  for the release (developer mode's box: what is new, what to test, what is
+  untested; `--check` fails while it names another release). Running pages take a release from
   it ("Hot reload and live updates" in `AGENTS.md`). The list of stories is
   `stories/list.js`. After touching `HOST.live`, `HOST.swap`, `HOST.load`, the
   release script or the relay's `--watch`, run `node tools/live.mjs`; a swap in

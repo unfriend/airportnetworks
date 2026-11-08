@@ -558,6 +558,25 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
 #hhCard b { display: block; font-size: 19px; margin-bottom: 4px; }
 #hhCard p { margin: 0 0 12px; color: var(--muted); line-height: 1.4; }
 #hhCard .row { gap: 10px; }
+/* developer mode (HOST.dev): what is new in this release and what to test, a card over the Stories screen (or the story
+   a link opened), and the switch and What is new at the Stories screen's foot */
+#devCard { position: fixed; z-index: 11; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(36rem, calc(100vw - 32px));
+  max-height: calc(100dvh - 86px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; background: var(--panel-solid); color: var(--ink);
+  border: 1px solid var(--cyan); border-radius: 12px; padding: 16px 18px 18px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); font-size: 15px; }
+#devCard[hidden] { display: none; }
+body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height: calc(100dvh - var(--fc-top) - 20px); }
+#devCard .head { display: flex; align-items: baseline; gap: 12px; }
+#devCard h2 { margin: 0; font-size: 20px; flex: 1; }
+#devCard .date { color: var(--muted); font-size: 13px; }
+#devCard h3 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+#devCard h3.new { color: var(--cyan); } #devCard h3.test { color: var(--amber); }
+#devCard ul { margin: 0; padding-left: 1.2em; }
+#devCard li { margin: 0 0 6px; line-height: 1.4; }
+#devCard .msg { margin: 12px 0 0; line-height: 1.4; }
+#devCard .note { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+#devCard .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+#picker .devrow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+#picker .rep.dev { font-size: 12px; padding: 5px 12px; color: #93a4ba; }
 #hhGo { font-size: 17px; padding: 11px 22px; display: inline-flex; align-items: center; gap: 8px; }
 #hhGo svg { width: 18px; height: 18px; }
 #hhGo[hidden] { display: none; }
@@ -626,6 +645,13 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
   <p id="hhText"></p>
   <div class="row"><button class="btn primary" id="hhGo" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6l5.6 3.1v6.6L8 14.4l-5.6-3.1V4.7zM2.4 4.7L8 7.8l5.6-3.1M8 7.8v6.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Enter AR</button><button class="btn" id="hhNo" type="button">Not now</button></div>
 </div>
+<!-- developer mode: what is new in this release and what to test (HOST.dev, whatsnew.json) -->
+<div id="devCard" hidden role="dialog" aria-labelledby="devTitle">
+  <div class="head"><h2 id="devTitle">What is new</h2><span class="date" id="devDate"></span></div>
+  <div id="devBody"></div>
+  <div class="row"><button class="btn primary" id="devGot" type="button">Got it</button><button class="btn" id="devLater" type="button">Later</button></div>
+  <p class="note" id="devNote"></p>
+</div>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
     <h1 id="pickTitle">Networks, in sixteen stories</h1>
@@ -660,6 +686,7 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
       </div>
       <pre aria-live="off"></pre>
     </div>
+    <div class="devrow"><button class="rep dev" type="button" id="btnDev" aria-pressed="false" title="For testers: what is new in this release and what to test, as the app opens and as each headset session starts">Developer mode: off</button><button class="rep dev" type="button" id="btnNews" title="What is new in this release, and what to test">What is new</button></div>
   </div>
 </div>
 <div id="shared" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
@@ -2452,8 +2479,8 @@ HOST.focus = (function () {
     if (over > 0) p.scrollTop += over;
   }
   // More (focus mode's, and a narrow top bar's: HOST.handheld): what the top bar has no room for now (the mode button
-  // stays there on a wide screen), then Full screen where the browser has it, and Focus view in a story (the Stories
-  // screen has its own)
+  // stays there on a wide screen), then Full screen where the browser has it, Focus view in a story (the Stories
+  // screen has its own), Developer mode and What is new (HOST.dev; the Stories screen's foot has them too)
   function menu(open) {
     const m = el('fcMenu'), b = el('fcMore');
     if (!open) { if (!m.hidden) { m.hidden = true; b.setAttribute('aria-expanded', 'false'); } return; }
@@ -2464,8 +2491,10 @@ HOST.focus = (function () {
     const hh = HOST.handheld, more = [];
     if (hh && hh.fsOK()) more.push([hh.fsOn() ? 'Exit full screen' : 'Full screen', { full: '1' }, hh.fsOn()]);
     if (!HOST.picking && HOST.curKey) more.push(F.on ? ['Focus view: on', { fc: 'off' }, true] : ['Focus view: off', { fc: 'on' }, false]);
+    // (developer mode, this device's own, and what is new in this release: HOST.dev)
+    if (HOST.dev) more.push(HOST.dev.on() ? ['Developer mode: on', { dev: 'off' }, true] : ['Developer mode: off', { dev: 'on' }, false], ['What is new', { news: '1' }, null]);
     if (left.length && more.length) m.appendChild(Object.assign(document.createElement('div'), { className: 'sep' }));
-    for (const [label, data, on] of more) add(label, data).setAttribute('aria-pressed', on ? 'true' : 'false');
+    for (const [label, data, on] of more) { const x = add(label, data); if (on !== null) x.setAttribute('aria-pressed', on ? 'true' : 'false'); }
     m.hidden = false; b.setAttribute('aria-expanded', 'true');
   }
   function close() {
@@ -2557,6 +2586,8 @@ HOST.focus = (function () {
     menu(false);
     if (b.dataset.fc) { const on = b.dataset.fc === 'on'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); set(on); return; }
     if (b.dataset.full) { HOST.handheld.fullscreen(); return; }   // (within the tap: the browser asks for one)
+    if (b.dataset.dev) { HOST.dev.set(b.dataset.dev === 'on'); return; }
+    if (b.dataset.news) { HOST.dev.card(true, 'hand'); return; }
     const o = el(b.dataset.for);
     if (o) o.click();
   });
@@ -2741,6 +2772,7 @@ HOST.hist = (function () {
   // what back closes first: true when it closed something
   function closeOne() {
     if (!document.getElementById('shared').hidden && HOST.collab) { HOST.collab.dialog(false); return true; }
+    if (HOST.dev && HOST.dev.close()) return true;   // (what is new: as Later)
     if (HOST.handheld && HOST.handheld.close()) return true;
     return !!(HOST.focus && HOST.focus.close());
   }
@@ -2757,6 +2789,106 @@ HOST.hist = (function () {
     HOST.setUrl(HOST.picking);
   });
   return { replace, push, back, closeOne, state: () => ({ up: H.up, self: H.self, pops: H.pops, len: history.length }) };
+})();
+// ------------------------------------------------------------------ developer mode --
+// Developer mode (v125; the owner, 8 November 2026: "A box at the beginning of a session that tells me the most recent
+// changes and what i should test, optionally enabled when in 'developer mode' a switch in the menu"): this device's own
+// (devMode in localStorage, off by default; #dev=on|off in a link; the switch at the Stories screen's foot, in More, and
+// in the headset menu's Settings tab). What is new is whatsnew.json at the app's root, written by hand at every release
+// ({ version, date, new, test, untested }: short sentences; tools/release.mjs says when it does not name the release),
+// fetched past every cache as version.json is. While developer mode is on it shows once a page load as a card over the
+// Stories screen (or over the story a link opened) until Got it for that version (devSeen: this device's), Later
+// hiding it until the next page load; in a headset session the shell's menu shows it at the start of every session, after
+// the startup flow and the welcome (shared.js, NEWS). What is new opens any time: beside the switch, in More, and on the
+// headset menu's Debug tab. A file that cannot be fetched is said in one line
+HOST.dev = (function () {
+  const el = id => document.getElementById(id);
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+  const D = { on: get('devMode') === 'on', data: null, err: '', busy: null, at: 0, later: false, open: false, why: '', n: 0 };
+  const short = v => String(v || '').replace(/^networks-/, '');
+  // the file's lists as plain strings (at most 40 a list, 500 characters each); null when it is not such a file
+  function shape(o) {
+    if (!o || typeof o !== 'object' || typeof o.version !== 'string' || !o.version.trim()) return null;
+    const list = a => (Array.isArray(a) ? a : []).filter(s => typeof s === 'string' && s.trim()).slice(0, 40).map(s => s.trim().slice(0, 500));
+    return { version: o.version.trim(), date: typeof o.date === 'string' ? o.date.trim().slice(0, 60) : '', new: list(o.new), test: list(o.test), untested: list(o.untested) };
+  }
+  // the file, past every cache (?t=, no-store; the service worker passes it through); one fetch at a time, and none again
+  // within 2 s unless asked by hand. A failed fetch keeps what an earlier one gave
+  function load(again) {
+    if (D.busy) return D.busy;
+    if (!again && (D.data || D.err) && performance.now() - D.at < 2000) return Promise.resolve(D.data);
+    D.busy = (async () => {
+      let data = null, err = '';
+      try {
+        const r = await fetch('whatsnew.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) err = 'the server answered ' + r.status;
+        else { try { data = shape(await r.json()); } catch (e) { /* not JSON */ } if (!data) err = 'it is not in the expected shape'; }
+      } catch (e) { err = navigator.onLine === false ? 'this device is offline' : 'it could not be reached'; }
+      if (data) { D.data = data; D.err = ''; } else D.err = err;
+      D.at = performance.now(); D.busy = null; D.n++;
+      if (D.open) render();
+      return D.data;
+    })();
+    return D.busy;
+  }
+  const seen = () => !!D.data && get('devSeen') === D.data.version;
+  function gotIt() { if (D.data) put('devSeen', D.data.version); }
+  // the card's lists (New, Please test, Untested), or one line while it is fetched or when it could not be
+  function render() {
+    const d = D.data, body = el('devBody');
+    el('devTitle').textContent = d ? 'What is new in ' + short(d.version) : 'What is new';
+    el('devDate').textContent = d ? d.date : '';
+    body.textContent = '';
+    const add = (tag, text, cls) => { const e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e; };
+    if (!d) body.appendChild(add('p', D.busy ? 'Fetching what is new...' : 'Could not fetch what is new (whatsnew.json): ' + (D.err || 'not yet asked') + '.', 'msg'));
+    else for (const [k, title] of [['new', 'New'], ['test', 'Please test'], ['untested', 'Untested']]) {
+      if (!d[k].length) continue;
+      body.appendChild(add('h3', title, k));
+      const ul = add('ul');
+      for (const s of d[k]) ul.appendChild(add('li', s));
+      body.appendChild(ul);
+    }
+    el('devNote').textContent = d ? `Got it: not shown again for ${short(d.version)} on this device. Later: until the app opens again.` : '';
+  }
+  // the card: open (why: 'start' as the app opens, 'hand' from a button) or closed (true when it was open)
+  function card(open, why) {
+    const c = el('devCard');
+    if (!open) { if (c.hidden) return false; c.hidden = true; D.open = false; return true; }
+    D.open = true; D.why = why || 'hand'; c.hidden = false;
+    render();
+    load(why === 'hand');
+    setTimeout(() => { if (D.open) el('devGot').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus)
+    return true;
+  }
+  // as the app opens (boot, once the first story has started): over the Stories screen or the story, once a page load,
+  // until Got it for this version; never in a headset session (its menu has its own)
+  async function boot() {
+    if (!D.on || D.later || HOST.session || HOST.landingVR) return;
+    await load();
+    if (!D.on || D.later || D.open || HOST.session || seen()) return;
+    card(true, 'start');
+  }
+  function sync() {
+    const b = el('btnDev');
+    if (b) { b.textContent = D.on ? 'Developer mode: on' : 'Developer mode: off'; b.setAttribute('aria-pressed', D.on ? 'true' : 'false'); }
+  }
+  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); }
+  el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
+  el('devLater').addEventListener('click', () => { D.later = true; card(false); });
+  el('btnDev').addEventListener('click', () => set(!D.on));
+  el('btnNews').addEventListener('click', () => card(true, 'hand'));
+  sync();
+  return {
+    on: () => D.on, set, load, seen, gotIt, short, card, boot,
+    data: () => D.data, err: () => D.err, busy: () => !!D.busy,
+    // Escape and the back button: the card closes as Later (true when it was open)
+    close: () => { if (!D.open) return false; D.later = true; return card(false); },
+    // for the headset menu's signature (it redraws when the file comes)
+    sig: () => [D.on, D.busy ? 1 : 0, D.n, D.err, D.data ? D.data.version : '', seen() ? 1 : 0].join('|'),
+    // for tests
+    state: () => ({ on: D.on, open: D.open, why: D.why, later: D.later, version: D.data ? D.data.version : '', err: D.err, seen: seen(), n: D.n }),
+  };
 })();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on
 // the last picture) and the story should just stop, false that it opens explore mode as usual
@@ -3253,8 +3385,8 @@ HOST.cards = function () {
   });
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
-    // (the card of HOST.handheld, More, and in focus mode the story's text or explore's drawer close first)
-    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (!HOST.handheld.close() && !HOST.focus.close() && HOST.picking) HOST.closePicker();
+    // (what is new (HOST.dev), the card of HOST.handheld, More, and in focus mode the story's text or explore's drawer close first)
+    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (!HOST.dev.close() && !HOST.handheld.close() && !HOST.focus.close() && HOST.picking) HOST.closePicker();
   });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
@@ -3271,6 +3403,7 @@ HOST.cards = function () {
   if (hp.has('voice')) HOST.xr.setVoiceOwn(hp.get('voice') !== 'off');   // (both this device's own: the page's and a headset session's)
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)
   if (hp.has('focus')) HOST.focus.set(hp.get('focus') !== 'off');
+  if (hp.has('dev')) HOST.dev.set(hp.get('dev') !== 'off');   // (developer mode: this device's own)
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
@@ -3283,6 +3416,7 @@ HOST.cards = function () {
   HOST.start(key, true, back).then(() => {
     if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
     HOST.live.restored(back);
+    HOST.dev.boot();   // (developer mode: what is new, over the Stories screen or the story the link opened)
   });
 })();
 

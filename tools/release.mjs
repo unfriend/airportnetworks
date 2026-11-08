@@ -2,7 +2,8 @@
 // version.json at the app's root and stamps the shell's release into index.html (HOST.shell). Run it as the last step of
 // a release, after bumping VERSION in sw.js (docs/setup-and-release.md), and commit both files.
 // usage (from the repository root): node tools/release.mjs          -> writes version.json (and index.html's stamp)
-//                                   node tools/release.mjs --check  -> exits 1 if either is not current
+//                                   node tools/release.mjs --check  -> exits 1 if either is not current, or if
+//                                                                      whatsnew.json does not name this release
 //                                   --root <dir>: another copy of the app (the live test's)
 // version.json: { app, version (sw.js VERSION), format (shared.js FORMAT), shell: { n, id }, list, stories: { <key>:
 // { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js, sfx.js and occlusion.js; its id is their fingerprint
@@ -14,6 +15,9 @@
 // (its entry's own needs, else the shell of the release in which its file last changed). A page compares: another shell
 // or format, or a story that needs a newer shell, is asked about (Reload now or Later); a new or changed story is taken.
 // The fingerprint is index.html's HOST.fingerprint (and relay/server.mjs's), so the three agree.
+// whatsnew.json (developer mode's box, HOST.dev: { version, date, new, test, untested }, lists of short sentences) is
+// written by hand at every release; this script only checks it: a file that does not name sw.js's VERSION (or is not in
+// that shape) is a warning, and --check fails on it, so a release does not go out with an old box.
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -70,13 +74,26 @@ for (const m of list.concat(extra)) {
 const out = JSON.stringify({ app: 'networks', version, format, shell: { n, id }, list: fingerprint(JSON.stringify(list)), stories }, null, 2) + '\n';
 const stamped = index.replace(STAMP, `shell: { n: ${n}, id: '${id}', format: '${format}' },`);
 
+// what is new in this release (whatsnew.json, by hand): it names this release, and its lists are sentences
+let news = '';
+if (!fs.existsSync(path.join(root, 'whatsnew.json'))) news = `there is no whatsnew.json: write one for ${version} (what is new, what to test, what is untested)`;
+else {
+  let w = null;
+  try { w = JSON.parse(read('whatsnew.json')); } catch (e) { news = 'whatsnew.json is not valid JSON'; }
+  if (w && w.version !== version) news = `whatsnew.json is for ${typeof w.version === 'string' && w.version ? w.version : 'no release'}, not ${version}: rewrite it for this release (what is new, what to test, what is untested)`;
+  else if (w && !['new', 'test', 'untested'].every(k => Array.isArray(w[k]) && w[k].every(x => typeof x === 'string'))) news = 'whatsnew.json: new, test and untested must each be a list of sentences';
+}
+const warn = () => { if (news) console.log('Warning: ' + news); };
+
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
   const ok = hadOut === out && stamped === index;
   console.log(ok ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
-  process.exit(ok ? 0 : 1);
+  warn();
+  process.exit(ok && !news ? 0 : 1);
 }
 if (stamped !== index) fs.writeFileSync(path.join(root, 'index.html'), stamped);
 if (hadOut !== out) fs.writeFileSync(path.join(root, 'version.json'), out);
 console.log(`wrote version.json (${version}, format ${format}, shell ${n} ${id}, ${list.length} stories)` + (stamped !== index ? " and index.html's stamp" : ''));
+warn();

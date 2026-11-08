@@ -932,7 +932,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server; room-test/ is
 // the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app.)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'lowpoly.js']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 
@@ -958,8 +958,9 @@ async function serve(req, res, url) {
     const real = await fs.promises.realpath(file);   // a link must lead to an app file too, not out of the folder
     if (!st.isFile() || !appFile(path.relative(REAL, real).split(path.sep))) throw new Error('not an app file');
   } catch { return plain(res, 404, 'Not found'); }
-  // (the release's version file is never kept: live updates compare it with what a page runs)
-  return sendFile(req, res, file, st, { cache: segs.join('/') === 'version.json' ? 'no-store' : 'no-cache' });
+  // (the release's version file and what is new in it are never kept: live updates compare the first with what a page
+  // runs, and developer mode shows the second)
+  return sendFile(req, res, file, st, { cache: /^(version|whatsnew)\.json$/.test(segs.join('/')) ? 'no-store' : 'no-cache' });
 }
 // a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
