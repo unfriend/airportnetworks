@@ -168,9 +168,10 @@
   const bare = v => { if (!v || typeof v !== 'object' || Array.isArray(v) || !('ts' in v || 'h' in v)) return v; const o = Object.assign({}, v); delete o.ts; delete o.h; return o; };
   const sig = (k, v) => J(SM_RE.test(k) ? bare(v) : v);
   const now = () => clock() + C.offset;   // the relay's clock
-  // camera mode (v124, "camera mode" below): a phone filming the room in AR; on while its session runs (want: Start pressed,
-  // the next AR session is the camera's). Its kind is 'cam' (the relay's members, presence), never a headset's
-  const CAM = { ok: null, want: false, wantAt: 0, asked: 0, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
+  // camera mode (v124, "camera mode" below): a phone filming the room in AR; on while its session runs (want: Start pressed;
+  // sess: the session its own request gave, the only one that is the camera's). Its kind is 'cam' (the relay's members,
+  // presence), never a headset's
+  const CAM = { ok: null, want: false, wantAt: 0, asked: 0, sess: null, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
     hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set() };
   const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
@@ -4369,7 +4370,8 @@
           ctx.fillText(fit(ctx, (m.name || 'Someone') + (m.id === C.id ? ' (you)' : ''), 250), x + 36, y);
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
-          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
+          const cam = m.id === C.id ? CAM.on : m.kind === 'cam' || !!(P && P.cam);   // (a phone in camera mode: a camera, never a headset here or elsewhere)
+          ctx.fillText(fit(ctx, (cam ? 'camera (filming)' : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -5529,7 +5531,8 @@
     else if (s) { R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || ''; put('roomFrame', null); }
   } catch (e) { R.saved = null; }
   if (R.oldAnchor && HOST.anchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // deleted at the next session
-  const storeSaved = () => put('roomFrame', R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
+  // (a camera keeps no marks: it lines up afresh each session, camera mode)
+  const storeSaved = () => put('roomFrame', !CAM.on && R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
   const sharedIdOf = s => (s && (s.UUId || s.uuid || s.UUID)) || '';
   const kFrame = id => 'rf.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // the frame published for a shared space
   const kSplit = id => 'rs.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // a shared space found split (splitCheck)
@@ -7099,10 +7102,10 @@
   // what a camera would have written (refused: publish, fx), once per key in the log
   function camQuiet(keys) { for (const k of keys) if (!CAM.sent.has(k)) { CAM.sent.add(k); log('camera writes nothing', { k }); } }
   // Start the camera (the dialog's button, the link's page): within the tap, the story on show starts its AR session, as
-  // Enter AR does (the next AR session is the camera's: CAM.want)
+  // Enter AR does (the session that request gives is the camera's: CAM.want, CAM.sess)
   function camStart(why) {
     if (!camOffered() || HOST.session) { log('camera refused', { why, ok: CAM.ok, room: !!C.code, local: C.local, session: !!HOST.session }); camShow(); return false; }
-    Object.assign(CAM, { want: true, wantAt: performance.now(), asked: 0, err: '', phase: 'starting' });
+    Object.assign(CAM, { want: true, wantAt: performance.now(), asked: 0, sess: null, err: '', phase: 'starting' });
     log('camera', { start: why });
     if (DLG.open) dialog(false);
     camShow();
@@ -7127,15 +7130,27 @@
       camBuild();
       let p;
       try { p = ask0(mode, { features: ['hit-test', 'dom-overlay'], init: { domOverlay: { root: CAM.el } } }); } catch (e) { p = Promise.reject(e); }
-      return Promise.resolve(p).catch(e => { if (CAM.want) camFailed(e); throw e; });
+      // (the session this request gives is the camera's, and only that one: camSession; noted before the story, which
+      // awaits this promise, makes it HOST.session)
+      return Promise.resolve(p).then(sess => { if (CAM.want) CAM.sess = sess || null; return sess; }, e => { if (CAM.want) camFailed(e); throw e; });
     };
   }
   // the session started (watch, first): the camera's when Start was pressed for it; ended: camera mode off (the page
   // follows on as a page does)
   function camSession(s) {
+    if (s && CAM.want && (!CAM.sess || s !== CAM.sess)) {   // another session (not the one its own request gave): not the camera's
+      log('camera: not this session', { asked: !!CAM.asked });
+      Object.assign(CAM, { want: false, sess: null, phase: CAM.link ? 'start' : 'off' });
+      camShow();
+      return;
+    }
     if (s && CAM.want) {
-      Object.assign(CAM, { want: false, on: true, phase: 'live', hidden: false, list: false, src: null, srcBusy: false, noHit: false, hit: null, hitAt: 0 });
+      Object.assign(CAM, { want: false, sess: null, on: true, phase: 'live', hidden: false, list: false, src: null, srcBusy: false, noHit: false, hit: null, hitAt: 0 });
       CAM.sent.clear();
+      // it lines up afresh each session: no marks kept from before (a phone's Chrome keeps no anchor handles; a browser
+      // that did would only race its own Set spot A), and their handles let go
+      if (R.saved || R.anchors) { dropAnchors(); R.saved = null; }
+      storeSaved();
       log('camera on', { overlay: (s.domOverlayState && s.domOverlayState.type) || '', features: s.enabledFeatures ? [...s.enabledFeatures] : null, who: C.who, st: C.follow });
       quiet(() => s.addEventListener('select', camSelect));   // (no DOM overlay: a tap on the screen sets the spot)
       camShow();
@@ -7841,7 +7856,8 @@
     scenes: () => scenesFetch(), addScene: (name, b) => addScene(name, b), sceneOf: id => sceneOf(C.stById.get(id)),
     // panels per story (HOST.panels calls the first two): at a station of the story, the station's (null elsewhere), set for
     // everyone at its circle; any station's, read and set by its id (the page's dialog)
-    panels: key => (CAM.on && !CAM.panels ? 'hidden' : panelsAt(key)), setPanels,   // (a camera may hide them for itself: camera mode) stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
+    panels: key => (CAM.on && !CAM.panels ? 'hidden' : panelsAt(key)), setPanels,   // (a camera may hide them for itself: camera mode)
+    stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
     fresh: () => freshAsk(), get gen() { return SG; },   // a fresh shared space (two calls: the first arms it); this page's generation
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     // the heads of the people in a headset at this device's live station, its own among them, in room coordinates with the

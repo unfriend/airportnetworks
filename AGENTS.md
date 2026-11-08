@@ -1671,16 +1671,20 @@ empty's). The plan is
     the story on show starts its AR session as Enter AR does. `HOST.xr.request` (index.html) takes `extra` ({ features,
     init }), and `shared.js` wraps it: while `CAM.want`, AR also asks for `hit-test` and `dom-overlay` (`domOverlay: {
     root: #camera }`) on every rung of its ladder (depth sensing kept). A refusal shows on the camera's page; no request
-    within 3 s (a story still loading) says to try again. The session that starts while `CAM.want` is the camera's
-    (`camSession`, first in `watch`): `CAM.on`, `HOST.collab.cameraMode()` true (other parts of the shell guard on it).
+    within 3 s (a story still loading) says to try again. The camera's session is only the one its own request gave
+    (`CAM.sess`, noted as the request resolves, before the story makes it `HOST.session`; `camSession`, first in `watch`):
+    `CAM.on`, `HOST.collab.cameraMode()` true (other parts of the shell guard on it). Any other session that starts
+    meanwhile is not the camera's, and Start's wish (`CAM.want`) goes with it.
   - Lining up: no shared space and no controller tip on a phone. The overlay shows a crosshair in the middle of the
     screen; a hit test from the viewer space straight ahead (`requestHitTestSource`, `getHitTestResults` every frame,
     `camStep`) finds where the aim meets the floor (a ring there, `OV.camRet`); *Move the phone slowly so it finds the
     floor* until it does, then *Aim at spot A and tap Set spot A* and spot B. `camMark` hands that point, raised by
     `FLOOR_TIP` as a controller's tip held on the floor is, to the calibration (`markAt`, split out of `mark`), so the
     floor spots' rule (v122) gives the camera the headsets' room and floor (a test: within 1 cm and 0.5 degrees). A
-    camera calibrates on the spots each session (Chrome has anchors but no persistent handles: `HOST.anchor.keep` gives
-    no handle, nothing is kept in `roomFrame`, and its anchors hold the room for the session), and again by itself once
+    camera calibrates on the spots afresh each session (Chrome has anchors but no persistent handles: `HOST.anchor.keep`
+    gives no handle, and its anchors hold the room for the session): a camera never keeps marks in `roomFrame`
+    (`storeSaved`), and its session starts with none (`R.saved` cleared, any handles let go), so nothing is looked for
+    (`restore`) while it asks for spot A; and again by itself once
     the room is lost (a reset without anchors to follow); *Calibrate again* in the overlay. It never writes the room's
     floor (`claimFloor`). Without the DOM overlay (domOverlayState missing) a tap on the screen (the session's `select`)
     sets the spot. The room setup guide, its startup flow and the check by eye never open (`guideOn`, `eyeRoom`), nor the
@@ -1700,8 +1704,10 @@ empty's). The plan is
     the hub's kinds take `cam`; an older relay makes it `desktop`, which never counts as a headset either). Other devices
     mark it (`P.cam`): never drawn in a headset (no head, hands or tag), never in `heads()` (the studio's behaviours), never
     among the headsets that line up (`linedUp`, `othersIn`, the pages' guide list) or offered Follow (only kinds `ar` and
-    `vr`); what a headset shows of its own (the welcome toast) guards on `cameraMode()`. The pages' people list says
-    *camera (filming)* and the room map draws a small box for it.
+    `vr`); what a headset shows of its own (the welcome toast) guards on `cameraMode()`. The pages' people list and the
+    headset menu's people rows say *camera (filming)* (never *here* or *elsewhere*), and the room map draws a small box
+    for it. A station card's *Here:* line names it *Camera*, as it names the pages at that circle: people can see a
+    camera films there.
   - Taps on the camera image press nothing: the overlay root covers the screen and cancels every select
     (`beforexrselect`), and `ray()` takes a camera's rays as the shell's with nothing to press (a guard for a browser
     that does not honour it). Taps on the overlay's buttons are the overlay's. A double tap on the image (two within
@@ -4882,16 +4888,20 @@ no guide, flow, check by eye, menu or notice in 3D, the room's `rm` the headset'
 circles and Nobody, and following the headset the phone's station and story are its, the rig at the station's spot
 (within 3 cm), its clock the station's once the headset plays (within 1 s), the headset drawn where its presence puts it
 (its tag; no head or hands over a person in the room); the headset hears a camera (`P.cam`) and never draws or counts it
-(heads, lined up 1 of 1), and the page cannot follow it; the headset walks into the other circle and the phone follows;
+(heads, lined up 1 of 1), and the page cannot follow it; the headset's menu (its Circles tab's people, read as its canvas
+is written) lists the phone as *camera (filming)*, never *here* or *elsewhere*; the headset walks into the other circle and the phone follows;
 the phone standing 2.5 s in the first circle changes nothing; a screen ray on the story's own panel is the shell's and
 presses nothing, and `beforexrselect` is cancelled on the overlay and its buttons; *Panels: hidden* hides the story's
 panels on the phone only (the headset at the same circle keeps them, no `ui` key written), and back; *People: hidden*
 draws nobody, and back; *Subtitles: on* shows the caption at the foot once the headset plays; nothing sent by the phone
 but its presence and no key of the room its; the page's people list says *camera (filming)* with no Follow; *Hide* and a
 double tap (two taps 0.6 s apart are none); *Exit* ends the session (camera mode off, the overlay gone, a page again for
-the room) and the page follows the headset on; a link with `&camera`: its own page, *Start the camera* once joined, no
-dialog; with `--shots` its pictures, `camera-*.png`: the overlay while aiming, following, panels hidden, subtitles, and the
-link's page). `--design` runs only the design room
+the room) and the page follows the headset on; Start pressed and then an AR session its own request did not give (set
+directly, Enter AR stood aside): not the camera's, Start's wish dropped; started again with marks and two handles planted
+as a browser that keeps handles would have them: Set spot A at once, not lined up, no marks kept or looked for, the
+handles let go, nothing in `roomFrame`, and *Exit* again; a link with `&camera`: its own page, *Start the camera* once
+joined, no dialog; with `--shots` its pictures, `camera-*.png`: the overlay while aiming, following,
+panels hidden, subtitles, and the link's page). `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
 canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
 `--token` runs only the relay's password (`tokenRound`, not in the main run; a relay of its own with `COLLAB_TOKEN`, a

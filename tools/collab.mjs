@@ -4807,12 +4807,13 @@ async function homeRound() {
 // from the overlay: the phone's live station and story are the headset's, its rig at the station's spot, its clock the
 // station's once the headset plays, the headset drawn where its presence puts it (its tag; no head or hands over a person
 // in the room); the headset never draws the camera, nor counts it (lined up, heads for the studio's behaviours) and the page
-// cannot follow it; the headset walks into the other circle and the phone follows; the phone walked into a circle changes
+// cannot follow it; the headset's menu names it a camera; the headset walks into the other circle and the phone follows; the phone walked into a circle changes
 // nothing; a tap on its image presses nothing (its ray on the story's panel is the shell's with nothing to press, and
 // beforexrselect is cancelled on the overlay); Panels hidden hides the story's panels on the phone only (nothing written);
 // People hidden draws nobody; the subtitles strip shows the caption; nothing sent by the phone but its presence (kind cam),
 // no key of the room by it; the page's list says camera; Hide and a double tap; Exit ends the session and the page follows
-// on. Then a link with &camera: its own page, Start the camera. dir: pictures (camera-*.png)
+// on; a session its own request did not give is not the camera's; started again it lines up afresh (no marks kept or
+// looked for). Then a link with &camera: its own page, Start the camera. dir: pictures (camera-*.png)
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const QUEST_UA = 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/40.2.0.4.30 SamsungBrowser/4.0 Chrome/130.0.0.0 VR Safari/537.36';
 // a page as a device: its user agent, and navigator.xr pretending immersive-ar is offered (ar); requestSession records what
@@ -4963,6 +4964,18 @@ async function cameraRound(dir) {
       !!drawn && drawn.g && drawn.tag && !drawn.avatar && dist(drawn.p, [S1.x, 1.6, S1.z]) < 0.05, JSON.stringify(drawn));
     check('camera: the headset hears the phone as a camera and never counts it: not drawn, not among the heads at its circle, lined up 1 of 1; the page cannot follow it',
       hSide.pres && hSide.cam && !hSide.drawn && hSide.heads.join() === hId && hSide.lined[1] === 1 && aFollow === false, JSON.stringify({ hSide, aFollow }));
+    // the headset's menu (its Circles tab, the people): the phone as a camera, never a headset here or elsewhere (what its
+    // canvas is given to write is read as it draws)
+    const mrow = await H.evaluate(async () => {
+      const X = window.__xr, seen = [], f0 = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { seen.push(String(t)); return f0.call(this, t, ...a); };
+      try { HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } }
+      finally { CanvasRenderingContext2D.prototype.fillText = f0; HOST.collab.panelOpen(false); X.step(); }
+      const i = seen.indexOf('Camera');
+      return { name: i >= 0, row: i >= 0 ? seen.slice(i, i + 2) : [], here: seen.filter(x => /^, (here|elsewhere)/.test(x)) };
+    });
+    check('camera: the headset\'s menu lists the phone among the people as a camera (camera (filming)), never as a headset here or elsewhere',
+      mrow.name && mrow.row.length === 2 && /^camera \(filming\)/.test(mrow.row[1]) && !mrow.here.length, JSON.stringify(mrow));
     await pics('camera-2-following.png');
     // the headset walks into the other circle: the phone follows; the phone walked into a circle changes nothing
     const inH2 = await walk(H, S2, K2, 0, 150000);
@@ -5001,12 +5014,14 @@ async function cameraRound(dir) {
     const panels = p => p.evaluate(() => HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), [XR.main.mesh.visible, XR.foot.mesh.visible].join()'));
     await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').click());
     await Promise.all([run(H, 600), run(P, 600)]);
-    const pn = { phone: await panels(P), headset: await panels(H), ui: (await roomInfo(rc)).keys['st.' + S2.id + '.ui'] || null, label: await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').textContent) };
+    const pn = { phone: await panels(P), headset: await panels(H), ui: (await roomInfo(rc)).keys['st.' + S2.id + '.ui'] || null, label: await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').textContent),
+      // (the station's own panels, as the page's dialog reads and sets them, unchanged on both: the camera's are its own)
+      st: [await P.evaluate(id => HOST.collab.stationPanels(id), S2.id), await H.evaluate(id => typeof HOST.collab.setStationPanels === 'function' && HOST.collab.stationPanels(id), S2.id)] };
     await pics('camera-3-panels-hidden.png');
     await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').click()); await frames(P, 400);
     pn.back = await panels(P);
     check('camera: Panels hidden hides the story\'s panels on the phone only (the headset at the same circle keeps them; nothing written), and shown again', pn.phone === 'false,false' && pn.headset === 'true,true' && !pn.ui &&
-      pn.label === 'Panels: hidden' && pn.back === 'true,true', JSON.stringify(pn));
+      pn.label === 'Panels: hidden' && pn.back === 'true,true' && pn.st.join() === 'shown,shown', JSON.stringify(pn));
     await P.evaluate(() => document.querySelector('#camera [data-cam="people"]').click());
     await Promise.all([run(H, 600), run(P, 600)]);
     const pp = await P.evaluate(id => { const o = HOST.collab.overlay().people.get(id); return { drawn: !!(o && o.g.visible), label: document.querySelector('#camera [data-cam="people"]').textContent }; }, hId);
@@ -5048,6 +5063,47 @@ async function cameraRound(dir) {
     const mA2 = await until(A, id => { const m = HOST.collab.members.find(q => q.id === id); return !!m && m.kind === 'desktop' && m.name !== 'Camera'; }, pId, 8000);
     check('camera: Exit ends the session (camera mode off, its overlay gone, a page again for the room) and the page follows the headset on', x.ended === 1 && !x.session && !x.cam && !x.shown &&
       x.c.follow === 'person:' + hId && x.c.station === S2.id && x.key === K2 && mA2, JSON.stringify({ x, mA2 }));
+    // only the session its own request gave is the camera's: Start pressed, then another AR session (not through the
+    // request: here set directly, Enter AR stood aside) is not taken, and Start's wish goes with it
+    const other = await P.evaluate(() => {
+      const b = document.getElementById('btnAR'), n0 = window.__collabLog.n || 0;   // (the log keeps its last 1000: by number)
+      if (b) b.id = 'btnAR-aside';
+      let r;
+      try {
+        const asked = HOST.collab.cameraStart('test'), want = HOST.collab.camera().want;
+        HOST.mode = 'immersive-ar'; HOST.session = window.__xr.session;
+        r = { asked, want, on: HOST.collab.cameraMode(), after: HOST.collab.camera().want, phase: HOST.collab.camera().phase, told: window.__collabLog.some(e => e.n > n0 && e.ev === 'camera: not this session') };
+      } finally { HOST.session = null; HOST.mode = null; if (b) b.id = 'btnAR'; }
+      r.off = !HOST.collab.cameraMode() && !HOST.collab.camera().want;
+      return r;
+    });
+    check('camera: an AR session its own request did not give is not the camera\'s (Start\'s wish dropped with it)',
+      other.asked && other.want && !other.on && !other.after && other.told && other.off, JSON.stringify(other));
+    // started again: it lines up afresh (Set spot A at once), with no marks kept from before; marks that a browser kept with
+    // handles (planted here: a phone's Chrome keeps none) are let go, never looked for
+    await P.evaluate(installXR, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
+    const i1 = await P.evaluate(() => {
+      const R = HOST.room.internals(), X = window.__xr;
+      X.handles.set('old1', new THREE.Matrix4()); X.handles.set('old2', new THREE.Matrix4().makeTranslation(2, 0, 0));
+      R.saved = { v: 2, a: [0, 0.02, 0], b: [2, 0.02, 0], at: 1, anchors: ['old1', 'old2'], f: 1 };
+      localStorage.setItem('roomFrame', JSON.stringify(R.saved));
+      HOST.renderer.xr.setSession = async () => {}; HOST.collab.dialog(true);
+      return window.__collabLog.n || 0;
+    });
+    await until(P, () => !!document.querySelector('#shared [data-sh="camera"]'), null, 4000);
+    await P.evaluate(() => document.querySelector('#shared [data-sh="camera"]').click());
+    const on2 = await until(P, () => HOST.collab.cameraMode() && !!HOST.session, null, 10000);
+    await frames(P, 600);
+    const again = await P.evaluate(i1 => {
+      const R = HOST.room.internals(), c = HOST.collab.camera(), L = window.__collabLog.filter(e => e.n > i1);
+      return { on: c.on, calib: c.calib, lined: c.lined, state: HOST.room.state, saved: R.saved, tried: !!R.anchorTried, stored: localStorage.getItem('roomFrame'),
+        kept: ['old1', 'old2'].filter(u => window.__xr.handles.has(u)), looked: L.filter(e => /anchors (not found|found again)|^restor/.test(e.ev)).map(e => e.ev) };
+    }, i1);
+    check('camera: started again, it lines up afresh (Set spot A at once, not lined up), no marks kept or looked for (the old handles let go, nothing stored)',
+      on2 && again.on && again.calib === 'a' && !again.lined && again.state === 'mark-a' && again.saved === null && !again.tried && again.stored === null && !again.kept.length && !again.looked.length,
+      JSON.stringify(again));
+    await P.evaluate(() => document.querySelector('#camera [data-cam="exit"]').click());
+    await until(P, () => !HOST.session && !HOST.collab.cameraMode(), null, 5000);
     // a link with &camera: its own page with one big button, Start the camera (the dialog does not open)
     L = await openDevice('#s=' + rc + '&camera&flock', { width: 412, height: 860 }, ANDROID_UA, true);
     const lk = await until(L, () => { const e = document.getElementById('camera'), b = e && e.querySelector('.cam-go'); return !!(e && !e.hidden && b && !b.disabled && !b.hidden); }, null, 20000);
