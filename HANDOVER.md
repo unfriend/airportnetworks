@@ -1183,6 +1183,52 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
+   - **The next round of fixes** (queued, the owner, 8 November 2026; not started):
+     (a) *no "Leave AR" message after standby* ("The leave ar message after standby or resume can go away, alignment
+     nearly always good and has a check now too"): `lostMarks` stops showing *Leave AR and enter it again*, and
+     `R.reenter` no longer makes `lineUp()` say not lined up (`w: 'marks'`) or the panel's line ask to leave AR. The
+     headset still looks for its spots' anchors on the retries' schedule, and the check by eye still asks after waking.
+     Re-align's *Spots not found* says to calibrate if the crosses are off, without asking to leave AR. About 1 hour,
+     0.3M tokens (the tests that expect the message change with it).
+     (b) *sound defaults by mode* ("On mobile and desktop default to no sounds and no narration until manually enabled,
+     in ar and vr default to sounds but no narration"): pages as now (the Sound button off until pressed). A headset
+     session gets its own defaults, kept apart from its 2D page: sound on (the effects) and the Narration switch off.
+     A room that never wrote `look`'s `voice` leaves it to each device, so headsets start without narration there too.
+     The proposal is that in a headset the story panel's Sound button turns the narration on and off. Two questions
+     were put to the owner on 8 November: on a page, does pressing Sound bring the narration too (as now), or does the
+     narration need its own switch; and does a headset remember a narration turned on for its next session, or start
+     without it every session (better for an event's visitors). About 2 to 3 hours, 0.8 to 1M tokens (`tools/audio.mjs`
+     and the smoke test's sound steps change with the defaults).
+   - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day, nothing started):
+     (1) *a human mesh worn and animated with Vive trackers* (wear trackers, line yourself up with a rigged mesh, press,
+     and the mesh follows you; record takes). Quest Browser does not see Vive trackers, so they need a Windows PC with
+     SteamVR (or HTC's VIVE Hub) and their dongle or base stations. A small bridge program would read their poses and
+     send them to the relay. The trackers' space would be lined up with the room by setting a tracker on spot A and
+     spot B. Then: inverse kinematics for arms and legs, the "stand in it and press" pose, retargeting onto common
+     skeletons (Mixamo, Biped, VRM), live for everyone at the circle, and a take recorded as a clip in a GLB that the
+     studio already plays. About 3 to 4 days, 12 to 16M tokens, and sessions with the owner wearing them (nothing of
+     it can be judged headless). Cheaper first step: a probe of Quest Browser's own experimental WebXR body tracking
+     (since Quest Browser 32, March 2024; the upper body tracked, the legs only estimated). The probe would take 1 to 2
+     hours and 0.5M tokens; if it works, the puppet without trackers would take about 2 days and 8 to 10M tokens. For
+     making animations alone it is overkill: Mixamo (free auto-rigging and clips) and phone-video motion capture give FBX
+     clips the studio already converts and plays. It pays off for live puppetry in front of people.
+     (2) *a camera mode*: an Android phone in AR (ARCore) lined up with the room, showing the circles, the stories and
+     the people over the camera, following a person or a circle, its own interface hidden, so a screen recording shows
+     the mixed view. It would line up by aiming a crosshair at spot A and spot B (WebXR hit test on the floor), and use
+     an HTML overlay for Follow, Calibrate and Hide. About 1 day, 3 to 4M tokens. Check first, on the phone: does
+     Android's own screen recorder capture the camera image of Chrome's AR (reports say pages cannot record it
+     themselves). If it does not, in-page recording through Chrome's camera access would add about 3 to 4 hours.
+     (3) *a trigger cube that changes a texture*: a third list on a cube (an object, a material, a slot and one of the
+     scene's pictures), applied while the cube is active for you and decided by the cube entered last, as show and hide
+     are, using Change texture's machinery. Per person, as every cube is; `FORMAT` networks-36. About 4 to 6 hours and
+     about 2M tokens; a crossfade instead of a switch adds about 2 hours.
+     (4) *uploading from Google Drive*: works today with Google Drive for desktop (Drive as a folder on the laptop,
+     dragged onto the Upload page or picked with *Choose a folder*). Built in: *From Google Drive...* in the Upload
+     pane through Google's Picker (the `drive.file` scope, non-sensitive), feeding the pane's plan as dropped files.
+     That needs a Google Cloud project with an OAuth client and an API key (free, about 30 minutes of the owner's
+     setup) and Google's own scripts, loaded only when pressed (an exception to the rule of no external scripts). An
+     institution's Google Workspace may need its admin to allow the app. About 3 to 4 hours, 1 to 1.5M tokens. An
+     import on the relay from a share link (big files straight into R2) would add about 2 to 3 hours;
    - whether to add a voice assistant;
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
    - **German for every story** (on hold, the owner, 29 October 2026: keep it low for now). The stories' text in German
