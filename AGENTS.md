@@ -71,7 +71,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` to the shell (`collab`: its
   shared-room hooks, see "Shared rooms"; `caption`: its line on show, for the
   headset's subtitles; `recenter`: its Recenter, for the headset's menu; `panels`: its two headset panels, for the
-  menu's Story tab; optionally `lobby`, called as this headset goes to a Back to the lobby circle: the studio's).
+  menu's Story tab; optionally `lobby`, called as this headset goes to a Back to the lobby circle: the studio's; and
+  `ownSticks: true` where the page walks you with its own sticks, so the shell's moving with the sticks leaves it alone:
+  the studio's).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -534,6 +536,34 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     made in the page at most every 1.5 s, about 45 KB to everyone in the room each time: the relay, and a peer-to-peer
     room's host, send every effect to every member, so with the Story tab of a playing story shown, its clock changing
     every second, about 30 KB a second to each of them), and Quest Browser's `toBlob`.
+  - Moving with the sticks (v125, `index.html`, after `HOST.xr`; the owner, 8 November 2026: "Add Movement in vr mode,
+    maybe with sticks, switchable by double pressing a stick?"): an eighth setting, each headset's own, never the room's
+    and never in `collab.state()` (`HOST.xr.walk()`, `setWalk(on)`, `xrWalk` in `localStorage`, off by default,
+    `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by a stick clicked twice within 0.4 s (`sticks`
+    in `shared.js`, a notice *Moving with the sticks: on* / *off*; so a single click opens or closes the menu only once
+    0.4 s have passed with no second click of that stick) or the menu's *Moving with the sticks* row (Settings, under
+    Moving and Subtitles). It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
+    shared room (`HOST.collab.joined`: the room's frame and the others' view of you need where you really stand) and
+    while the story on show does not move you itself (the studio's own stick walk: `ownSticks: true` in its returned
+    object); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`, `'none'`, `'session'`; `''` it applies), and
+    there a double click says so in a notice and the menu's row is greyed with the reason under it. The left stick
+    moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's
+    square past it), the right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back
+    under 0.3). A controller whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps
+    its stick for the story (a carried scene's reach) and moves you not at all meanwhile. How: three.js r128 has no
+    `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
+    `HOST.session` is set, before three.js starts its loop) and, before any callback of a frame reads it, puts its own
+    `getViewerPose`, `getPose` (for an input source's ray or grip, or a hand's joint), `getJointPose` and `fillPoses` on
+    that frame object (instance-level: a Proxy fails WebXR's brand checks), each answering for three.js's reference
+    space from `base.getOffsetReferenceSpace(T)`, `T` the travel's inverse as an `XRRigidTransform`, made again only
+    when the travel changes. Other spaces are left alone: an anchor's pose stays in the real room (an anchored place
+    stays put and you move past it), as do `HOST.room`'s own spaces and the room scan's. The travel stays when the
+    setting is turned off (you stay where you moved to), and goes at the session's end and once a shared room is joined.
+    Stories need nothing for the move: their head, controllers and rays, the menu, the sounds' listener and the
+    subtitles all follow three.js's space; their own stick use (an explore view's spin and zoom) waits while
+    `xrWalking()` is true (the same line in every story). `HOST.xr.travel()` (`{ space, x, z, yaw }`) and `walkReset()`
+    are for tests. Untested on a headset: how it feels on a Quest (comfort, the speed, the turn), and an anchor placed
+    while moved (made at the moved coordinates in the real room, so the next session finds it elsewhere).
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -551,8 +581,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     (`renderOrder` 50). Hidden: no story panel at all, neither `XR.main` nor
     `XR.foot`, in story and explore mode (not drawn and not pointable); the
     headset Stories screen stays (never stuck), the shell's menu stays (to
-    switch back; its Story tab still shows the story's panels and works), and A
-    or X still plays and pauses. Shown, the story's
+    switch back; its Story tab still shows the story's panels and works: play and
+    pause are there, A and X do nothing since v125). Shown, the story's
     Panels row (below) applies on top. In the shell, station cards are drawn on
     top (after the scenes, before the story's panels, depth-tested) or, in 3D,
     as the labels' signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1,
@@ -666,7 +696,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   "i would want that for every story as an independent per story toggle maybe
   inside the clock menu"): `'shown'` (as ever), `'controls'` (only the foot bar,
   `XR.foot`: play and pause, the chapter arrows, the clock, Next; good with
-  subtitles on) or `'hidden'` (no story panel; A or X still plays and pauses).
+  subtitles on) or `'hidden'` (no story panel; play and pause on the menu's Story tab: A and X do nothing since v125).
   Each story keeps its own value, the design room too: `get(key)`,
   `set(key, v)`, `next(key)`, `sig(key)`. Outside a shared room it is the
   device's (`xrPanels` in `localStorage`, `{ key: value }`, shown left out); at a
@@ -1965,8 +1995,11 @@ which an older device writing `look` would drop, and the studio's `state()` gain
   `HOST.collab.welcome()` (`{ shown, at, text, mode: 'ask' | 'walk' | 'arc' | '', hands, done }`) is for tests. How it
   reads and where it stands on a real headset, and its timing after a real alignment, are untested. The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
-  story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
-  0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
+  story uses it: they use the stick's axes; since v125 it opens or closes once 0.4 s have passed with no second click of
+  that stick, `CLK`: the same stick clicked twice turns moving with the sticks on or off and never the menu, the other
+  stick clicked meanwhile counts as the same click, so both at once still toggle it once; "Moving with the sticks" under
+  "Four headset settings"; `buttons[4]`, A and X, plays and pauses nothing since v125), or with tracked hands two
+  pinches of the left hand within 0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
   station (the shell's hover) or a story panel (the `near` the story passes to `HOST.collab.ray`), so two pinches
   meant for a panel's button stay the button's; the scene counts as nothing, since in the flock, the robots and the
   pass story's sea the scene is everywhere the ray goes, and the story gets those two pinches too; not the right
@@ -2009,7 +2042,9 @@ which an older device writing `look` would drop, and the studio's `state()` gain
     on/off* (`HOST.slides.setGlobal`, for every story, shown when `HOST.slides` exists, a note beside it), *Repeat:
     off* / *all* / *one* (`set:repeat`, `HOST.setRepeat`, each press the next, this headset's own, a note beside it:
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
-    `HOST.xr`), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
+    `HOST.xr`), *Moving with the sticks: on/off* (v125, this headset's own, the whole width with a note under it,
+    greyed with the reason in AR, in a shared room and in the studio: "Moving with the sticks" under "Four headset
+    settings"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
     settings"), *Developer mode: on/off* (v125, this device's own, a note beside it: "Developer mode"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
@@ -2588,6 +2623,12 @@ reference, `tools/flock/engine/`):
   (away from any station: in no circle yet this session, the story hidden and
   paused; walked out of its circle a headset keeps its station, so it is not
   away); a shell without `HOST.room.away` gives the old behaviour.
+- Moving with the sticks (v125), the line after `xrSig`:
+  `const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());` (the shell moves this headset with the
+  sticks in VR: "Moving with the sticks" under "Four headset settings"); in `xrPoint` the explore view's spin and zoom by
+  the stick waits on it, `if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking())`, while a carried scene's
+  reach by its stick in `carry` does not (its grip is held, so the shell leaves that stick to the story). The studio, with
+  its own stick walk, says `ownSticks: true` in its returned object. No story reads A or X (`buttons[4]`) since v125.
 - The All stories circle's lines (v104), after `xrAway`:
   `const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());` and
   `const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());`; `xrSig` ends with
@@ -4161,7 +4202,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   so the sticks never reach it; nothing scrolls the panel meanwhile. A line on the headset's card under *Carry it* says
   it. In VR, while nothing is carried, the left stick
   walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
-  rig; per device, reset by Recenter, never written to the room); in AR you walk for real, and objects stand on the real
+  rig; per device, reset by Recenter, never written to the room; so the studio says `ownSticks: true` and the shell's
+  moving with the sticks, v125, leaves it alone); in AR you walk for real, and objects stand on the real
   floor (the session's `local-floor`, its height in the renderer's space from `frame.getPose`; at a station the room's).
   From the inside (v118; the owner, 5 November 2026: "models should be able to be touched/moved from the inside"): when
   the ray finds nothing at all and the controller is inside an object's unseen box (a room scan you stand in), that
@@ -4406,7 +4448,8 @@ both panels drawn and pointable); the two story panels in 3D in the scene
 (depth-tested, writing depth, `renderOrder` -1, `alphaTest` above 0, their
 materials built again only when the mode changes, the ray still reaching each),
 on top as before, and with cards hidden neither panel drawn or pointable in
-story and explore mode, the labels staying, A or X still playing; back again
+story and explore mode, the labels staying, A or X doing nothing and the menu's Story tab's copy of the foot bar
+playing; back again
 from hidden; the Stories screen's panels on top throughout; a free grip turning the scene 90 degrees with the hand, the
 point held staying in it, staying when let go and facing you again with free
 moving off; the panel tilting with the hand; the flock's grip taking only the
@@ -4419,7 +4462,7 @@ German, the hook in all sixteen; panels per story: shown by default, the menu's
 Panels row going round (controls only, hidden, shown) with the story following,
 no row on the Stories screen (its panels staying), each value in story and
 explore mode (controls only: the foot bar alone, the text panel neither drawn
-nor pointable; hidden: neither, A or X still playing), cards hidden still
+nor pointable; hidden: neither, A or X doing nothing and the Story tab's copy of the foot bar playing), cards hidden still
 hiding both and labels hidden neither, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
 opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`; the frame-rate read-out (v118: off by
@@ -4470,6 +4513,24 @@ node tools/smoke.mjs http://127.0.0.1:8123/ --only studio       # only the studi
 of steps is guarded by its name, `runs(...)`; the blocks of mixed names, the headset settings and focus mode, run only
 without it): `--only studio` the studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own
 steps; the release run is the whole test.
+
+Its *stick moving* steps (v125, `--only 'stick moving'`, a page of their own, a minute or two; a pretend VR headset whose
+frames go first through the session's own `requestAnimationFrame`, the shell's hook and its own callback, and then the
+story's frame with the same frame object, as three.js's would: a reference space that makes offset spaces, a new frame
+each tick answering for the head, two controllers with gamepads and an anchor from where they really are; 60 frames a
+second on the test's clock): off by default; one click of a stick opening the menu only after 0.4 s; a stick clicked
+twice turning it on (its notice, `xrWalk`, no menu then or later), both sticks at once one click (the menu once), kept
+across a reload, the right stick clicked twice turning it off, two clicks 0.6 s apart the menu twice; the left stick
+pushed forward for a second moving the head three.js sees 1.5 m where it faces (within 5 cm), the story's own head with
+it, the left controller's ray with it, the anchor not; a push of 0.6 to the right a quarter of the speed to the right;
+the dead zone nothing; a flick of the right stick turning 30 degrees about the head (held, no more), a flick left back;
+forward after a turn where the head now faces; the setting off moving nothing and keeping where you are; in the airports'
+explore mode the stick's spin and zoom left alone while it applies and working again when it is off, the grip held on
+the globe (`squeezestart`) its reach still following the stick with no moving, let go the stick moving you again; the
+menu's row on and pressed both ways; in AR, in a pretend shared room (`HOST.collab.joined`; the travel back to none) and
+with the story's `ownSticks`: the sticks moving nothing, two clicks saying why in a notice, the row greyed; the studio's
+`ownSticks: true`; `#walk=off` and `#walk=on`; the `xrWalking` line in every story and `STORY_EXTRA` page, every
+explore stick waiting on it, and no story reading `buttons[4]`.
 
 Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
 nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories
@@ -5055,7 +5116,8 @@ first; swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the circles lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
 first with nothing at the wrist, and a notice saying how to open it;
-opened and closed by a click of the left stick or the right, floating in front of you (0.8 m ahead, a little below
+opened and closed by a click of the left stick or the right (each read 0.5 s after its click: since v125 a single click
+acts once 0.4 s have passed with no second one), floating in front of you (0.8 m ahead, a little below
 your eyes, turned to you; Close and its four tabs at its top); the grip carrying it, let go staying where it was put
 (also with the head turned away) and opening there again next time; its Story tab showing the story's own panels
 (their textures), a press there working the story's panel (Replay story, Explore now) and the grip there moving the

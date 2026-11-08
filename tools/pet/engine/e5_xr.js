@@ -4,7 +4,7 @@
 // rotations and scaling of the scene, the side panel is redrawn on a canvas you
 // point at, and labels become sprites on top or signs in the scene. Controllers: point and pull the trigger
 // to click, drag the scene with the trigger or grip, thumbstick spins and zooms,
-// A/X plays and pauses the story. Hand tracking: point and pinch.
+// A and X do nothing (play and pause are on the panel). Hand tracking: point and pinch.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -84,9 +84,11 @@ const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face'
 const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
 const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
+// the shell moving this headset with the sticks in VR (HOST.xr.walking): the story's own stick use waits meanwhile
+const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
-// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
-// plays); a shell without it: shown
+// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: play and pause
+// on the menu's Story tab); a shell without it: shown
 const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE) : 'shown');
 // a headset in a shared room (the shell's HOST.room): no Stories screen there, a story runs only at its station (reached
 // by walking into its circle), and away from one it is hidden, not pointable, paused and silent. A shell without
@@ -260,7 +262,7 @@ function pickRay(o, d) {
 // ----------------------------------------------------------- controllers --
 function xrController(i) {
   const g = GL.renderer.xr.getController(i);
-  const c = { i, g, src: null, hover: null, press: null, grab: null, wantPress: false, b4: false, o: new THREE.Vector3(), d: new THREE.Vector3() };
+  const c = { i, g, src: null, hover: null, press: null, grab: null, wantPress: false, o: new THREE.Vector3(), d: new THREE.Vector3() };
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
   c.ray = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
   c.ray.renderOrder = 60;
@@ -436,17 +438,14 @@ function xrPoint(c, dt) {
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
-  // thumbstick: spin and zoom the globe; A/X: play or pause the story
+  // thumbstick: spin and zoom the globe (not while the sticks move you: the shell's, xrWalking)
   const gp = c.src.gamepad;
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
-    if (APP.mode === 'explore' && !c.press && !c.grab) {
+    if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking()) {
       if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), xrMinD(), 40); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[0] -= ax * dt * 60; }
     }
-    const b4 = !!(gp.buttons[4] && gp.buttons[4].pressed);
-    if (b4 && !c.b4 && APP.mode === 'story') APP.togglePlay();
-    c.b4 = b4;
   }
   c.ray.scale.z = dist;
   if (hit) {
@@ -510,7 +509,7 @@ function xrUpdate(S) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
     for (const P of XR.land) P.mesh.visible = land;
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
-    // clock stay, and A or X still plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
+    // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';

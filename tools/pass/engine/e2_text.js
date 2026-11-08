@@ -193,21 +193,21 @@ const STR = {
   'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names are the scientific ones.',
     'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen der Proteine sind die wissenschaftlichen, auf Englisch.'],
   // the headset's panels and tips
-  'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen.'],
   // moving freely (the shell's setting): what the grip holds turns with the hand too
-  'xr.hint.free': ['Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it. A or X: play and pause.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel festhalten, verschieben und drehen, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  'xr.hint.free': ['Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel festhalten, verschieben und drehen, mit beiden Händen größer oder kleiner machen.'],
   // among the fish the grip moves the school instead (outside a shared room this headset's only; at a station the
   // station's, for everyone there, as the panel: fish.room, in place of the shell's hint, which offers resizing)
-  'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel. A or X: play and pause.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel. A oder X: Abspielen und Anhalten.'],
-  'xr.hint.fish.free': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move and turn the panel. A or X: play and pause.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel verschieben und drehen. A oder X: Abspielen und Anhalten.'],
-  'xr.hint.fish.room': ['Trigger (or pinch): use buttons. Grip: in the sea move the school, on this panel move the panel, for everyone here. A or X: play and pause.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben, an der Tafel die Tafel, für alle hier. A oder X: Abspielen und Anhalten.'],
-  'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again in the menu.',
-    'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Menü.'],
+  'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel.'],
+  'xr.hint.fish.free': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move and turn the panel.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel verschieben und drehen.'],
+  'xr.hint.fish.room': ['Trigger (or pinch): use buttons. Grip: in the sea move the school, on this panel move the panel, for everyone here.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben, an der Tafel die Tafel, für alle hier.'],
+  'xr.hint.anchor': ['Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Verankert: Verschieben geht mit „Place again“ im Menü.'],
   'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
   'tip.city': ['{0} · {1} routes', '{0} · {1} Flugrouten'],
 };

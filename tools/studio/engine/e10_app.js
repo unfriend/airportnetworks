@@ -408,6 +408,8 @@ return {
   // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
+  // its own stick walk in VR (stickWalk, e8_xr.js): the shell's moving with the sticks (HOST.xr.walking) leaves it alone
+  ownSticks: true,
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each; one

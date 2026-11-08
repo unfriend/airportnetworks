@@ -6167,8 +6167,8 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
 // each other: the scenes' small labels on top (sprites over everything; the default), in 3D (upright signs in the
 // scene, depth-tested, turned to you) or hidden; the cards (the story panels here) in 3D (in the scene as the labels'
 // signs are; the default), on top (over everything, as before) or hidden (no story panel at all, in story and explore
-// mode; A or X still plays); and free moving (the grip holds the scene and the panel like a real object, what you hold
-// staying in your hand). Kept across a reload (a device's old labels choice, under the old key, left behind), set by a
+// mode; A or X does nothing since v125, the menu's Story tab plays); and free moving (the grip holds the scene and the
+// panel like a real object, what you hold staying in your hand). Kept across a reload (a device's old labels choice, under the old key, left behind), set by a
 // link. In a page of its own (its own storage, as a new device), with a pretend headset whose frames the test drives: a
 // scene story (qubits), a life-size one (flock) and a hand-written one (airports)
 if (!ONLY) {
@@ -6246,6 +6246,38 @@ if (!ONLY) {
     return h;
   };
   const pointBoth = async () => [await pointAt('main'), await pointAt('foot')];
+  // A or X (xr-standard button 4) pressed and let go on a controller: nothing since v125 (the owner, 8 November 2026:
+  // "Dont use a and x on controllers for play pause in stories"); gives whether the story plays afterwards
+  const aOrX = async () => {
+    const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
+    await btn(true); await tick(1); await btn(false); await tick(1);
+    const now = await sx('APP.playing');
+    await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
+    return now;
+  };
+  // play and pause through the menu's Story tab: its copy of the story's foot panel, the play button there pointed at by
+  // a controller's ray and pressed (the story's own button, through the copy); gives [pointed at it, playing after]
+  const tabPlay = async () => {
+    await sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('story'); });
+    await tick(3);
+    const aim = `(() => { const O = HOST.collab.overlay(), F = XR.foot, r = F.regions.find(x => x.id === 'play' && x.fn);
+      if (!r || !O.mirror.foot.visible) return 'no ' + (!r ? 'play button on the foot bar (' + F.regions.map(x => x.id).join(' ') + ')' : 'copy of the foot bar shown (menu ' + HOST.collab.menu + ', tab ' + HOST.collab.menuTab() + ')');
+      GL.scene.updateMatrixWorld(true);
+      const at = O.mirror.foot.localToWorld(new THREE.Vector3((r.x + r.w / 2) / F.w - 0.5, 0.5 - (r.y + r.h / 2) / F.h, 0)), n = new THREE.Vector3(0, 0, 1).applyQuaternion(O.mirror.foot.getWorldQuaternion(new THREE.Quaternion()));
+      const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
+      c.g.matrix.compose(at.clone().addScaledVector(n, 0.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), n.clone().negate()), new THREE.Vector3(1, 1, 1));
+      c.g.matrixWorld.copy(c.g.matrix); return true; })()`;
+    let ok = await sx(aim);
+    await tick(2); if (ok === true) ok = await sx(aim); await tick(1);   // (aimed again where the menu has settled)
+    const hov = await sx(`(h => !!h && h.kind === 'panel' && h.P === XR.foot && !!h.menu && (XR.foot.at(h.x, h.y) || {}).id === 'play' ? true :
+      'the ray on ' + (h ? h.kind + (h.P === XR.foot ? ' foot' : h.P === XR.main ? ' main' : '') + (h.menu ? ' (the menu\\'s copy)' : '') : 'nothing'))(XR.ctrls[0].hover)`);
+    await sx('(XR.ctrls[0].wantPress = true, 0)'); await tick(1);
+    await sx(`(XR.ctrls[0].g.dispatchEvent({ type: 'selectend' }), 0)`); await tick(1);
+    const now = await sx('APP.playing');
+    await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
+    await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(1);
+    return [ok === true ? hov : ok, now];
+  };
   // the controller i at p (in the room; the rig stands at the head, facing -z), turned yaw and pitched, in degrees
   const ctrl = (i, p, yaw, pitch) => sx(`(() => { const c = XR.ctrls[${i}]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
     c.g.matrix.compose(new THREE.Vector3(${p.join(',')}), new THREE.Quaternion().setFromEuler(new THREE.Euler(${(pitch || 0) * Math.PI / 180}, ${(yaw || 0) * Math.PI / 180}, 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
@@ -6279,19 +6311,18 @@ if (!ONLY) {
     const F = await labels();
     if (!(F.sprites > 0 && !F.signs && F.onTop)) bad.push(`labels on top: ${F.sprites} sprites (over everything: ${F.onTop}), ${F.signs} signs`);
     if (!F.panels.every(PANEL.fixed)) bad.push(`labels on top, cards in 3D (${where}): the story panels are not in the scene: ${JSON.stringify(F.panels)}`);
-    // cards hidden, labels on top: the labels stay; neither panel drawn or pointable; A or X still plays
+    // cards hidden, labels on top: the labels stay; neither panel drawn or pointable; A or X does nothing (v125), the
+    // menu's Story tab plays
     await setCards('hidden'); await tick(3);
     const CH = await labels(), hitCH = await pointBoth();
     if (!(CH.sprites === F.sprites && CH.onTop && !CH.signs)) bad.push(`cards hidden: the labels went (${CH.sprites} sprites for ${F.sprites}, ${CH.signs} signs)`);
     if (CH.main || CH.foot || hitCH.some(h => h.startsWith('panel'))) bad.push(`cards hidden (${where}): text panel shown ${CH.main}, foot ${CH.foot}, a ray at each hovers ${hitCH}`);
     if (!landOnTop(CH)) bad.push('cards hidden: the Stories screen\'s panels are not on top: ' + JSON.stringify(CH.land));
     if (story) {
-      const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
-      const was = await sx('APP.playing');
-      await btn(true); await tick(1); await btn(false); await tick(1);
-      const now = await sx('APP.playing');
-      await sx('(APP.playing = false, XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
-      if (!(was === false && now === true)) bad.push(`cards hidden: A or X does not play with the panels gone (${was} -> ${now})`);
+      const was = await sx('APP.playing'), ax = await aOrX(), [tab, now] = await tabPlay();
+      await sx('(APP.playing = false, 0)'); await tick(1);
+      if (!(was === false && ax === false)) bad.push(`cards hidden: A or X played or paused the story (${was} -> ${ax})`);
+      if (!(tab === true && now === true)) bad.push(`cards hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
     }
     // cards on top, labels on top: the panels over everything as before
     await setCards('face'); await tick(3);
@@ -6531,7 +6562,7 @@ if (!ONLY) {
     if (miss.length) errors.push('the focus mode framing lines are missing in ' + miss.join(', '));
   });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
-  // and explore panel neither drawn nor pointable) or hidden (neither; A or X still plays), in story and explore mode;
+  // and explore panel neither drawn nor pointable) or hidden (neither; A or X does nothing, the menu's Story tab plays), in story and explore mode;
   // each story its own (the design room too), kept across a reload, set by a link for the story it opens; cards hidden
   // still hides both, labels hidden neither; no row on the Stories screen, whose panels stay
   await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; cards hidden hides both', async () => {
@@ -6541,7 +6572,6 @@ if (!ONLY) {
     const vis = async () => { await tick(2); return sx('(XR.main.mesh.visible ? "main" : "-") + "," + (XR.foot.mesh.visible ? "foot" : "-")'); };
     const want = { shown: 'main,foot', controls: '-,foot', hidden: '-,-' }, hits = { shown: 'panel:main,panel:foot', controls: 'x,panel:foot', hidden: 'x,x' };
     const pointed = async () => (await pointBoth()).map(h => (h.startsWith('panel') ? h : 'x')).join();
-    const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
     const free = () => sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
     const ready = k => sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.panels && HOST.curKey === k, k, { timeout: 30000 });
     await openXR('qubits');
@@ -6559,18 +6589,18 @@ if (!ONLY) {
     if (await row() || !land) bad.push(`on the Stories screen: a Panels row ${await row()}, its panels shown ${land}`);
     await sx('(XR.stories = false, APP.enterStory(0), APP.playing = false, 0)'); await tick(3);
     await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(2);
-    // each value in story and explore mode: what shows and what the pointer reaches; A or X still plays while hidden
+    // each value in story and explore mode: what shows and what the pointer reaches; while hidden A or X does nothing and
+    // the menu's Story tab plays
     for (const m of ['shown', 'controls', 'hidden']) {
       await sp.evaluate(m => HOST.panels.set('qubits', m), m);
       await sx('(APP.mode === "story" || APP.enterStory(0), APP.playing = false, 0)');
       const v = await vis(), h = await pointed();
       if (v !== want[m] || h !== hits[m]) bad.push(`${m} (story): ${v}, the pointer at each panel ${h}`);
       if (m === 'hidden') {
-        const was = await sx('APP.playing');
-        await btn(true); await tick(1); await btn(false); await tick(1);
-        const now = await sx('APP.playing');
+        const was = await sx('APP.playing'), ax = await aOrX(), [tab, now] = await tabPlay();
         await sx('(APP.playing = false, 0)'); await free(); await tick(1);
-        if (!(was === false && now === true)) bad.push(`hidden: A or X does not play (${was} -> ${now})`);
+        if (!(was === false && ax === false)) bad.push(`hidden: A or X played or paused the story (${was} -> ${ax})`);
+        if (!(tab === true && now === true)) bad.push(`hidden: the menu's Story tab did not play it (its play button pointed at through the copy: ${tab}, playing ${now})`);
       }
       await sx('APP.enterExplore()'); await tick(3);
       const vx = await vis(), hx = await pointed();
@@ -6745,6 +6775,9 @@ if (!ONLY) {
     await sp.evaluate(() => HOST.collab.panelOpen(true));
     for (let k = 0; k < 40 && await btn() !== 'on'; k++) { await sp.waitForTimeout(50); await tick(1); }
     const was = await btn();
+    // (the story all built first: a story asked for while one still builds is dropped outside a room, HOST.start's busy,
+    // and on a slow machine openXR can return while its last steps still run)
+    await sp.waitForFunction(() => !HOST.busy, null, { timeout: 60000 }).catch(() => {});
     await sp.evaluate(() => { const r = HOST.collab.menuFind('design'); if (r && r.fn) r.fn(); });
     const opened = await sp.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && typeof ST !== "undefined" && ST.items.length > 0'), null, { timeout: 60000 })
       .then(() => true, () => false);
@@ -6758,6 +6791,265 @@ if (!ONLY) {
     if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
   });
   await sp.close();
+}
+// Moving with the sticks in VR (v125: HOST.xr.walk, walking and walkWhy in index.html; a stick clicked twice, shared.js's
+// sticks; the owner, 8 November 2026: "Add Movement in vr mode, maybe with sticks, switchable by double pressing a
+// stick?"). In a page of its own with a pretend VR headset whose frames go first through the session's own
+// requestAnimationFrame (the shell's hook, then its own callback) and then the story's frame with the same frame object,
+// as three.js's would: a reference space that makes offset spaces, a new frame object each tick answering for the head,
+// two controllers with gamepads and an anchor from where they really are. The frames' clock is the test's (60 a second);
+// the clicks' is the page's (0.4 s for a double click)
+if (runs('stick moving')) {
+  const wp = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  wp.on('pageerror', e => errors.push('stick moving: ' + (e.stack || e.message)));
+  wp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('stick moving: ' + m.text()); });
+  const sx = s => wp.evaluate(s => HOST.cur.peek(s), s);
+  const tick = (n, ms) => wp.evaluate(([n, ms]) => window.__wtick(n, ms), [n || 1, ms || 1000 / 60]);
+  const openW = async (key, hash) => {
+    await wp.goto('about:blank');
+    await wp.goto(base + 'index.html#' + key + (hash || ''));
+    await wp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 60000 });
+    await wp.evaluate(() => {
+      const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
+      const W = window.__w = { head: { p: [0, 1.6, 0], yaw: 0 }, t: 5000, raf: [], last: null };
+      const sp = name => ({ name, addEventListener() {}, removeEventListener() {} });
+      const REF = W.ref = sp('local');
+      REF.getOffsetReferenceSpace = T => Object.assign(sp('moved'), { base: REF, T });
+      // a pose in a space: the reference space's own, or one offset from it (the inverse of its offset times the pose)
+      const into = (s, m) => (s === REF ? m.clone() : s && s.base === REF ? new M4().fromArray(s.T.matrix).invert().multiply(m) : null);
+      const pose = m => { if (!m) return null; const p = new V3(), q = new Q(); m.decompose(p, q, new V3()); return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) }, views: [], emulatedPosition: false }; };
+      const at = (x, y, z, yaw) => new M4().compose(new V3(x, y, z), new Q().setFromAxisAngle(new V3(0, 1, 0), yaw || 0), new V3(1, 1, 1));
+      const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
+      const L = W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Lray'), gripSpace: sp('Lgrip'), gamepad: pad() };
+      const R = W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Rray'), gripSpace: sp('Rgrip'), gamepad: pad() };
+      W.anchor = sp('anchor');
+      const real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)], [W.anchor, at(0, 1, -2)]]);
+      W.frame = () => ({ getViewerPose: s => pose(into(s, at(...W.head.p, W.head.yaw))), getPose: (s, b) => (real.has(s) ? pose(into(b, real.get(s))) : null), getJointPose: () => null });
+      const ls = {};
+      W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R],
+        addEventListener(type, fn) { (ls[type] = ls[type] || []).push(fn); }, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb),
+        fire(type, e) { for (const fn of ls[type] || []) fn(e); } };
+      HOST.renderer.xr.getReferenceSpace = () => REF;
+      HOST.renderer.setAnimationLoop(null);
+      HOST.session = W.s; HOST.mode = 'immersive-vr';
+      HOST.cur.peek('(XR.session = window.__w.s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.playing = false)');
+      window.__wtick = (n = 1, ms = 1000 / 60) => {
+        for (let i = 0; i < n; i++) {
+          W.t += ms;
+          const f = W.last = W.frame();
+          for (const cb of W.raf.splice(0)) cb(W.t, f);
+          HOST.cur.peek(`(() => {
+            xrBegin(window.__w.last, ${ms / 1000});
+            const hand = typeof xrPlaceGlobe === 'function', pn = performance.now();
+            let S;
+            if (APP.mode === 'story') { const ts = storyT(APP.t); S = storyState(ts); if (hand) xrPlaceGlobe(storyCam(ts)); else { xrPlace(storyCam(ts)); K.U.uTime.value = ts; updateSets(S, ts, 0.016, true); } }
+            else { S = hand ? exploreStep(0.016) : exploreStep(0.016, pn); orbitStep(pn); if (hand) xrPlaceGlobe(orbit.cur); else { xrPlace(orbit.cur); updateSets(S, pn / 1000, 0.016, false); } }
+            if (hand) applyUniforms(S, APP.mode === 'explore');
+            GL.scene.updateMatrixWorld(true); xrUpdate(S); GL.scene.updateMatrixWorld(true);
+          })()`);
+        }
+      };
+      window.__wtick(3);
+    });
+  };
+  // the head, a controller's ray and the anchor as three.js would see them now, in its reference space: positions and the
+  // head's yaw (degrees, 0 facing -z, turning left positive)
+  const SEEN = `(() => { const W = window.__w, f = W.last, p = x => x ? [x.transform.position.x, x.transform.position.y, x.transform.position.z] : null;
+    const v = f.getViewerPose(W.ref), o = v.transform.orientation, fw = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(o.x, o.y, o.z, o.w));
+    return { head: p(v), yaw: Math.atan2(-fw.x, -fw.z) * 180 / Math.PI, ray: p(f.getPose(W.L.targetRaySpace, W.ref)), grip: p(f.getPose(W.R.gripSpace, W.ref)), anchor: p(f.getPose(W.anchor, W.ref)),
+      story: HOST.cur.peek('XR.head.toArray()'), travel: HOST.xr.travel(), walking: HOST.xr.walking(), why: HOST.xr.walkWhy() }; })()`;
+  const seen = () => wp.evaluate(s => eval(s), SEEN);
+  const stick = (hand, x, y) => wp.evaluate(([hand, x, y]) => { const a = window.__w[hand].gamepad.axes; a[2] = x; a[3] = y; }, [hand, x, y]);
+  // a stick's click (button 3) pressed and let go, once or twice in a row, one headset frame each (well within 0.4 s)
+  const click = (hand, times) => wp.evaluate(([hand, times]) => { const b = window.__w[hand].gamepad.buttons[3];
+    for (let k = 0; k < times; k++) { b.pressed = true; window.__wtick(1); b.pressed = false; window.__wtick(1); } }, [hand, times || 1]);
+  const note = () => wp.evaluate(() => { const n = HOST.collab.notes().slice(-1)[0] || {}; return [n.title || '', n.text || ''].join(': '); });
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+  await step('stick moving: off by default; a stick clicked twice turns it on and off (a notice, kept across a reload); one click opens the menu only after 0.4 s, two never', async () => {
+    const bad = [];
+    await openW('qubits');
+    if (await wp.evaluate(() => HOST.xr.walk() || localStorage.getItem('xrWalk') !== null)) bad.push('not off by default');
+    // one click: no menu at once, the menu 0.4 s later
+    await click('L', 1);
+    const m0 = await wp.evaluate(() => HOST.collab.menu);
+    await wp.waitForTimeout(500); await tick(1);
+    const m1 = await wp.evaluate(() => HOST.collab.menu);
+    if (m0 || !m1) bad.push(`one click of the left stick: the menu open at once ${m0}, after 0.5 s ${m1}`);
+    await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
+    // twice: on, its notice, and no menu, then or later
+    await click('L', 2);
+    const on = await wp.evaluate(() => [HOST.xr.walk(), localStorage.getItem('xrWalk'), HOST.collab.menu]), n1 = await note();
+    await wp.waitForTimeout(500); await tick(1);
+    const m2 = await wp.evaluate(() => HOST.collab.menu);
+    if (!(on[0] && on[1] === 'on' && !on[2] && !m2)) bad.push('the left stick clicked twice: ' + JSON.stringify({ on, menuLater: m2 }));
+    if (!n1.startsWith('Moving with the sticks: on: Left stick: move. Right stick: turn.')) bad.push('its notice: ' + n1);
+    // both sticks at once: one click, the menu once (open, not open and shut)
+    await wp.evaluate(() => { const l = window.__w.L.gamepad.buttons[3], r = window.__w.R.gamepad.buttons[3]; l.pressed = r.pressed = true; window.__wtick(1); l.pressed = r.pressed = false; window.__wtick(1); });
+    await wp.waitForTimeout(500); await tick(2);
+    const both = await wp.evaluate(() => [HOST.collab.menu, HOST.xr.walk()]);
+    if (!(both[0] && both[1])) bad.push('both sticks clicked at once: the menu open ' + both[0] + ', still moving ' + both[1]);
+    await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
+    // kept across a reload; the right stick clicked twice turns it off
+    await wp.reload(); await wp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 60000 });
+    if (!await wp.evaluate(() => HOST.xr.walk())) bad.push('not kept across a reload');
+    await openW('qubits');
+    await click('R', 2);
+    const off = await wp.evaluate(() => [HOST.xr.walk(), localStorage.getItem('xrWalk')]), n2 = await note();
+    if (off[0] || off[1] !== 'off' || !n2.startsWith('Moving with the sticks: off')) bad.push('the right stick clicked twice: ' + JSON.stringify(off) + ' ' + n2);
+    // two clicks 0.6 s apart: the menu twice (open, shut), never moving
+    await wp.waitForTimeout(500);
+    await click('L', 1); await wp.waitForTimeout(600); await tick(1);
+    const a = await wp.evaluate(() => HOST.collab.menu);
+    await click('L', 1); await wp.waitForTimeout(500); await tick(1);
+    const b = await wp.evaluate(() => [HOST.collab.menu, HOST.xr.walk()]);
+    if (!(a && !b[0] && !b[1])) bad.push('two clicks 0.6 s apart: ' + JSON.stringify({ first: a, second: b }));
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  await step('stick moving: the left stick moves you 1.5 m in a second where your head faces, the controllers with you, an anchor not; a flick of the right stick turns 30 degrees about your head', async () => {
+    const bad = [];
+    if (!await wp.evaluate(() => HOST.curKey === 'qubits' && !!window.__wtick)) await openW('qubits');
+    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); window.__w.head = { p: [0.3, 1.6, 0.2], yaw: 0.4 }; });
+    await tick(2);
+    const s0 = await seen();
+    // forward, full push, 60 frames of 1/60 s
+    await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
+    const s1 = await seen(), want = [0.3 - 1.5 * Math.sin(0.4), 1.6, 0.2 - 1.5 * Math.cos(0.4)];
+    if (!(s0.walking && dist(s1.head, want) < 0.05)) bad.push(`forward for a second: the head at ${s1.head.map(v => v.toFixed(3))}, not ${want.map(v => v.toFixed(3))} (walking ${s0.walking}, why '${s0.why}')`);
+    if (dist(s1.story, s1.head) > 1e-3) bad.push('the story\'s head is not where three.js sees it: ' + JSON.stringify([s1.story, s1.head]));
+    const moved = s1.head.map((v, k) => v - s0.head[k]);
+    if (dist(s1.ray, s0.ray.map((v, k) => v + moved[k])) > 1e-3) bad.push('the left controller\'s ray did not come along: ' + JSON.stringify([s0.ray, s1.ray]));
+    if (dist(s1.anchor, s0.anchor) > 1e-6) bad.push('the anchor moved: ' + JSON.stringify([s0.anchor, s1.anchor]));
+    // half a push to the right: a quarter of the speed (the rate the push's square past the dead zone), to the right
+    await stick('L', 0.6, 0); await tick(60); await stick('L', 0, 0); await tick(1);
+    const s2 = await seen(), k = ((0.6 - 0.2) / 0.8) ** 2 * 1.5, right = [Math.cos(0.4), 0, -Math.sin(0.4)];
+    if (dist(s2.head, s1.head.map((v, i) => v + right[i] * k)) > 0.03) bad.push(`a push of 0.6 to the right: ${dist(s2.head, s1.head).toFixed(3)} m, not ${k.toFixed(3)} m to the right`);
+    // within the dead zone: nothing
+    await stick('L', 0.15, -0.1); await tick(30); await stick('L', 0, 0); await tick(1);
+    const s3 = await seen();
+    if (dist(s3.head, s2.head) > 1e-6) bad.push('the dead zone moved you ' + dist(s3.head, s2.head));
+    // the right stick: a flick right turns 30 degrees right about the head, held it turns no more; left turns back
+    await stick('R', 0.9, 0); await tick(10);
+    const s4 = await seen();
+    await stick('R', 0, 0); await tick(1); await stick('R', -0.9, 0); await tick(1); await stick('R', 0, 0); await tick(1);
+    const s5 = await seen(), d = (a, b) => ((a - b + 540) % 360) - 180;
+    if (Math.abs(d(s4.yaw, s3.yaw) + 30) > 0.5 || dist(s4.head, s3.head) > 1e-3) bad.push(`a flick right: the head turned ${d(s4.yaw, s3.yaw).toFixed(2)} degrees and moved ${dist(s4.head, s3.head).toFixed(4)} m (not -30 about itself)`);
+    if (Math.abs(d(s5.yaw, s3.yaw)) > 0.5 || dist(s5.head, s3.head) > 1e-3) bad.push(`and a flick left: ${d(s5.yaw, s3.yaw).toFixed(2)} degrees from before`);
+    // turned, forward is the new facing: forward 0.5 s after a flick right
+    await stick('R', 0.9, 0); await tick(1); await stick('R', 0, 0); await tick(1);
+    const s6 = await seen();
+    await stick('L', 0, -1); await tick(30); await stick('L', 0, 0); await tick(1);
+    const s7 = await seen(), y6 = s6.yaw * Math.PI / 180, fw = [-Math.sin(y6), 0, -Math.cos(y6)];
+    if (dist(s7.head, s6.head.map((v, i) => v + fw[i] * 0.75)) > 0.03) bad.push('forward after a turn is not where the head now faces: ' + JSON.stringify([s6, s7]));
+    // the setting off: the sticks move nothing, and you stay where you moved to
+    await wp.evaluate(() => HOST.xr.setWalk(false));
+    await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await stick('R', 0.9, 0); await tick(2); await stick('R', 0, 0); await tick(1);
+    const s8 = await seen();
+    if (dist(s8.head, s7.head) > 1e-6 || Math.abs(d(s8.yaw, s7.yaw)) > 1e-3 || !s8.travel.space) bad.push('with the setting off: ' + JSON.stringify([s7.head, s8.head, s8.travel]));
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  await step('stick moving: the airports\' explore spin and zoom wait while it applies, and work again once it is off; a carried globe\'s reach still follows its stick, with no moving then', async () => {
+    const bad = [];
+    await openW('airports');
+    await sx('(APP.enterExplore(), 0)'); await tick(3); await sx('(orbit.to = null, 0)');
+    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); });
+    // the story's left controller is the session's left source, pointing down at the floor (at nothing)
+    await sx(`(() => { const c = XR.ctrls[0]; c.src = window.__w.L; c.g.visible = true;
+      c.g.matrix.compose(new THREE.Vector3(-0.2, 1.1, -0.3), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0)), new THREE.Vector3(1, 1, 1));
+      c.g.matrixWorld.copy(c.g.matrix); return 0; })()`);
+    const o0 = await sx('orbit.cur.slice()'), t0 = await seen();
+    await stick('L', 0.8, 0.5); await tick(20); await stick('L', 0, 0); await tick(1);
+    const o1 = await sx('orbit.cur.slice()'), t1 = await seen();
+    if (JSON.stringify(o1) !== JSON.stringify(o0) || dist(t1.head, t0.head) < 0.1) bad.push('walking: the explore view moved ' + JSON.stringify([o0, o1]) + ', you moved ' + dist(t1.head, t0.head).toFixed(3) + ' m');
+    await wp.evaluate(() => HOST.xr.setWalk(false));
+    await stick('L', 0.8, 0.5); await tick(20); await stick('L', 0, 0); await tick(1);
+    const o2 = await sx('orbit.cur.slice()'), t2 = await seen();
+    if (Math.abs(o2[1] - o1[1]) < 1 || Math.abs(o2[2] - o1[2]) < 1e-3 || dist(t2.head, t1.head) > 1e-6) bad.push('not walking: the explore view did not spin and zoom, or you moved: ' + JSON.stringify([o1, o2, dist(t2.head, t1.head)]));
+    // the grip on the globe held: its stick pushes and pulls the globe (its reach); you do not move
+    await wp.evaluate(() => HOST.xr.setWalk(true));
+    await sx('(XR.ctrls[0].hover = { kind: "globe", i: -1 }, xrGrab(XR.ctrls[0], true), 0)');
+    await wp.evaluate(() => { window.__w.L.gamepad.buttons[1].pressed = true; window.__w.s.fire('squeezestart', { inputSource: window.__w.L }); });
+    const r0 = await sx('XR.ctrls[0].grab ? XR.ctrls[0].grab.reach : null'), t3 = await seen();
+    await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await tick(1);
+    const r1 = await sx('XR.ctrls[0].grab ? XR.ctrls[0].grab.reach : null'), t4 = await seen();
+    if (!(r0 === 1 && r1 !== null && r1 < 0.9) || dist(t4.head, t3.head) > 1e-6) bad.push(`the grip held: the reach ${r0} -> ${r1}, you moved ${dist(t4.head, t3.head).toFixed(4)} m`);
+    // let go (squeezeend; the button still reads pressed for a moment), the stick moves you again
+    await sx('(xrGrab(XR.ctrls[0], false), 0)');
+    await wp.evaluate(() => { window.__w.L.gamepad.buttons[1].pressed = false; window.__w.s.fire('squeezeend', { inputSource: window.__w.L }); });
+    await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await tick(1);
+    const t5 = await seen();
+    if (dist(t5.head, t4.head) < 0.2) bad.push('let go, the stick did not move you again: ' + dist(t5.head, t4.head).toFixed(3));
+    await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  await step('stick moving: nothing in AR, in a shared room (back where you stand) or where the story moves you itself (the studio); the menu\'s row, greyed there; #walk=on and off', async () => {
+    const bad = [];
+    await openW('qubits');
+    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); });
+    await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await tick(1);
+    const s0 = await seen();
+    if (!(s0.walking && s0.travel.space && Math.abs(s0.travel.z) + Math.abs(s0.travel.x) > 0.3)) bad.push('it did not move you first: ' + JSON.stringify(s0.travel));
+    // the menu's row (Settings): on, pressable
+    await wp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); }); await tick(2);
+    const row = () => wp.evaluate(() => { const r = HOST.collab.menuFind('walk'); return r ? (r.fn ? 'on' : 'greyed') : 'none'; });
+    const r1 = await row();
+    await wp.evaluate(() => { const r = HOST.collab.menuFind('walk'); if (r && r.fn) r.fn(); }); await tick(2);
+    const w1 = await wp.evaluate(() => HOST.xr.walk());
+    await wp.evaluate(() => { const r = HOST.collab.menuFind('walk'); if (r && r.fn) r.fn(); }); await tick(2);
+    const w2 = await wp.evaluate(() => HOST.xr.walk());
+    if (r1 !== 'on' || w1 || !w2) bad.push(`the menu's row: ${r1}, pressed ${w1}, again ${w2}`);
+    // each place where it does not apply: the sticks move nothing, two clicks say why, the row greyed (none: no region)
+    const cases = [
+      ['AR', () => { window.__w.s.environmentBlendMode = 'alpha-blend'; HOST.mode = 'immersive-ar'; }, () => { window.__w.s.environmentBlendMode = 'opaque'; HOST.mode = 'immersive-vr'; }, 'ar', 'Not in AR'],
+      ['the studio', () => { HOST.cur.ownSticks = true; }, () => { delete HOST.cur.ownSticks; }, 'own', 'Not here'],
+      ['a shared room', () => { window.__joined = Object.getOwnPropertyDescriptor(HOST.collab, 'joined'); Object.defineProperty(HOST.collab, 'joined', { get: () => true, configurable: true }); },
+        () => { Object.defineProperty(HOST.collab, 'joined', window.__joined); }, 'room', 'Not in a shared room'],
+    ];
+    for (const [where, on, off, why, says] of cases) {
+      await wp.waitForTimeout(500);
+      const a = await seen();
+      await wp.evaluate(on); await tick(1);
+      await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await stick('R', 0.9, 0); await tick(2); await stick('R', 0, 0); await tick(1);
+      const b = await seen();
+      await click('L', 2);
+      const n = await note(), r = await row(), w = await wp.evaluate(() => HOST.xr.walk());
+      await wp.evaluate(off); await tick(1);
+      const room = where === 'a shared room';
+      if (b.why !== why || b.walking) bad.push(`${where}: walkWhy '${b.why}', walking ${b.walking}`);
+      if (room ? (b.travel.space || b.travel.x || b.travel.z || b.travel.yaw || dist(b.head, [0.0, 1.6, 0]) > 1e-6) : dist(b.head, a.head) > 1e-6 || Math.abs(b.yaw - a.yaw) > 1e-3)
+        bad.push(`${where}: ${room ? 'not back where you stand' : 'the sticks moved you'}: ` + JSON.stringify([a.head, b.head, b.travel]));
+      if (!n.startsWith('Moving with the sticks: ' + says) || !w) bad.push(`${where}: two clicks said '${n}' and left it ${w ? 'on' : 'off'}`);
+      if (r !== 'none') bad.push(`${where}: the menu's row is ${r}, not greyed`);
+    }
+    await wp.evaluate(() => HOST.collab.panelOpen(false));
+    // the studio says so in its returned object
+    if (!await wp.evaluate(async () => /\n {2}ownSticks: true,\n/.test(await (await fetch('stories/studio.js')).text()))) bad.push('the studio does not say ownSticks: true');
+    // a link
+    await openW('qubits', '&walk=off');
+    const l1 = await wp.evaluate(() => HOST.xr.walk());
+    await openW('qubits', '&walk=on');
+    const l2 = await wp.evaluate(() => [HOST.xr.walk(), HOST.xr.walking()]);
+    if (l1 || !l2[0] || !l2[1]) bad.push('#walk=off then on: ' + JSON.stringify([l1, l2]));
+    await wp.evaluate(() => { try { localStorage.removeItem('xrWalk'); } catch (e) { /* storage blocked */ } });
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  // the same lines in every story and every page in STORY_EXTRA: the helper beside xrSig, the explore stick waiting on it,
+  // and no story playing or pausing on A or X (button 4)
+  await step('stick moving: every story keeps the xrWalking line; none plays or pauses on A or X', async () => {
+    const miss = await wp.evaluate(async keys => (await Promise.all(keys.map(async k => {
+      const t = await (await fetch('stories/' + k + '.js')).text(), why = [];
+      if (!t.includes('const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());')) why.push('no xrWalking line');
+      if (/APP\.mode === 'explore' && !c\.press && !c\.grab(?! && !xrWalking\(\))/.test(t)) why.push('an explore stick not waiting on it');
+      if (t.includes('buttons[4]')) why.push('button 4 still read');
+      return why.length ? k + ': ' + why.join(', ') : '';
+    }))).filter(Boolean), [...STORY_KEYS, ...EXTRA]);
+    if (miss.length) errors.push('stick moving: ' + miss.join('; '));
+  });
+  await wp.close();
 }
 // Real-world occlusion in AR (HOST.occlusion, occlusion.js) with a pretend AR headset (its frames driven by the test
 // through three.js r128's own WebXR path), its depth a real WebGL2 texture array made in the page, a new one each frame

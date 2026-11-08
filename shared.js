@@ -3721,7 +3721,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4117,6 +4117,15 @@
       button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
       button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
       y += 76;
+      // moving with the sticks in VR (HOST.xr.walk: this headset's own, never the room's; a stick clicked twice too),
+      // greyed where it does not apply (AR, a shared room, a page with its own stick walk), saying why
+      if (HOST.xr.setWalk) {
+        const wo = HOST.xr.walk(), wy = HOST.xr.walkWhy();
+        button(S, 'walk', x, y, w, 60, wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
+        y += 68;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, wy ? WALK_WHY[wy] || '' : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 2) + 14;
+      }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {
         const fo = fpsOn();
@@ -5272,28 +5281,50 @@
     pokeSheet(OV.eye, EYEQ.poke, 'eye');
   }
   // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
-  // axes and button 4), a stick held down as its controller appears being no click. The frame-rate read-out turns on and
-  // off with a double press of B or Y (button 5; the owner, 6 November 2026: "Fps counter should start with a hotkey like
-  // double press b or y"; no story uses it): two presses of one controller's within BY.gap ms, a button held as its
-  // controller appears counting nothing
-  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 };
+  // axes), a stick held down as its controller appears being no click. Since v125 a stick clicked twice within CLK.gap ms
+  // turns moving with the sticks on or off (HOST.xr.walk, index.html; the owner, 8 November 2026: "Add Movement in vr
+  // mode, maybe with sticks, switchable by double pressing a stick?"), so a single click opens or closes the menu only
+  // once CLK.gap has passed with no second click of that stick (the other stick clicked meanwhile, as both at once, is
+  // the same click: one toggle). The frame-rate read-out turns on and off with a double press of B or Y (button 5; the
+  // owner, 6 November 2026: "Fps counter should start with a hotkey like double press b or y"; no story uses it): two
+  // presses of one controller's within BY.gap ms, a button held as its controller appears counting nothing
+  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 };
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
+  // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note
+  const WALK_WHY = { ar: 'Not in AR: there you walk for real.', room: 'Not in a shared room: the others need to see where you really stand.',
+    own: 'Not here: this page moves you with its own sticks.', none: 'This browser cannot move you.', session: 'Only in a VR session.' };
+  function walkPress() {
+    const why = HOST.xr && HOST.xr.walkWhy ? HOST.xr.walkWhy() : 'none';
+    if (why) { log('walk refused', { why }); notice('Moving with the sticks', WALK_WHY[why] || '', 4000); return; }
+    const on = !HOST.xr.walk();
+    HOST.xr.setWalk(on);
+    log('walk', { on, by: 'stick' });
+    sfx(on ? 'toggleOn' : 'toggleOff', null);
+    notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn. Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
+    changed();
+  }
   function sticks() {
     let list = [];
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
-    let click = false, twice2 = false;
+    const clicks = [];
+    let twice2 = false;
     const t = performance.now();
     for (const src of list) {
       const gp = src && !src.hand && src.gamepad, b = pressed(gp, 3);
       if (!src) continue;
       const was = STK.get(src);
       STK.set(src, b);
-      if (b && was === false) click = true;
+      if (b && was === false) clicks.push(src);
       const y = pressed(gp, 5), w = BY.m.get(src) || { b: undefined, at: 0 };
       if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
       w.b = y; BY.m.set(src, w);
     }
-    if (click && HOST.session) toggleMenu('stick');   // (both sticks clicked at once: one toggle)
+    // a first click waiting: no second one in time, the menu; the same stick again, moving with the sticks (never the
+    // menu); the other stick meanwhile, the same click
+    const wait = !!CLK.src && t - CLK.at < CLK.gap;
+    if (CLK.src && !wait) { CLK.src = null; if (HOST.session) toggleMenu('stick'); }
+    if (wait && clicks.includes(CLK.src)) { CLK.src = null; if (HOST.session) walkPress(); }
+    else if (!wait && clicks.length) { CLK.src = clicks[0]; CLK.at = t; }
     if (twice2 && HOST.session && HOST.xr && HOST.xr.setFps) {
       const on = !fpsOn();
       HOST.xr.setFps(on);
@@ -7323,7 +7354,7 @@
     get gripHint() {
       // (the flock and the robots are life size: only their panel moves)
       const m = meta(HOST.curKey) || {};
-      return 'Trigger (or pinch): use buttons. A or X: play and pause. ' + (!placing() ? 'Grip on a station\'s ring or card: move the station.' : stLocked(sesSt()) ?
+      return 'Trigger (or pinch): use buttons. ' + (!placing() ? 'Grip on a station\'s ring or card: move the station.' : stLocked(sesSt()) ?
         'This story is locked: unlock it in the menu to move things.' : m.life ? 'Grip: move this panel for everyone.' : 'Grip: move the scene or this panel for everyone; both grips resize the scene.');
     },
     get moving() { return MV.id; },
