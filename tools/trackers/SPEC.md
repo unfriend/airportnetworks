@@ -7,6 +7,12 @@ already here and that one could also host the page". Phase 1 (trackers in the ro
 phase 3 (live puppetry of a Mixamo-rigged character, takes recorded as clips) are to be built after v124. Phase 2 (camera
 tracking for compositing) and phase 4 (headsets lined up through a tracker on each) wait on the maybe list.
 
+The owner's setup and answers (8 November 2026): a Valve Index is on the PC (so SteamVR has its headset: no null
+driver), each tracker has its own USB dongle, lining up by hand first (reference trackers on the spots stay a later
+option), and two lighter body setups as well as the full one (below): "a minimal version that only needs one tracker at
+each foot and uses the headset and the controllers and ik for the rest if possible, maybe also a version where one can
+just use the headset and the controllers if possible".
+
 This file is the contract between the lanes that build it. Status: planned, nothing built.
 
 ## The picture
@@ -34,8 +40,10 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   `python bridge.py [--port 47800] [--rate 90]`. A PC without a SteamVR headset needs SteamVR's null driver
   (`requireHmd` false, the null driver enabled): the README says how.
 - Reads `getDeviceToAbsoluteTrackingPose` in the standing universe (SteamVR's own room setup: y up, the floor at 0; the
-  lining up below makes its origin and turn irrelevant) for every tracked device of class GenericTracker (and base
-  stations, for the map), at most `--rate` a second.
+  lining up below makes its origin and turn irrelevant) for every tracked device of class GenericTracker, the headset
+  (the Index) and its two controllers (for a performer wearing the Index, and to line the Index's own page up), and the
+  base stations (for the map), at most `--rate` a second; `k` is `'trk'`, `'hmd'`, `'ctl'` (with `h: 'l' | 'r'`) or
+  `'base'`.
 - Sends one UDP datagram a reading to 127.0.0.1:<port>: `{ v: 1, t: <bridge ms>, d: [{ s: <serial>, k: 'trk' | 'base',
   p: [x, y, z] (m, 4 decimals), q: [x, y, z, w] (4 decimals), lv: [3] (m/s), av: [3] (rad/s), ok: <pose valid and
   running ok>, b: <battery 0..1 or null> }] }`, under 8 KB (11 trackers are about 1.5 KB). Serial numbers are the
@@ -50,7 +58,9 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   password, as the API) lists them raw: serial, kind, ok, battery, `p`, `q`, age.
 - The room's key `trk` (written by pages or headsets in the room; never refused by either lock):
   `{ on, ref: { a: <serial>, b: <serial> } | null, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name> },
-  by, at }`. `on`: this room uses the PC's trackers (only such rooms get them). Lining up, two ways:
+  by, at }`. `on`: this room uses the PC's trackers (only such rooms get them). Lining up, two ways (by hand is built
+  first; reference trackers later, the owner: "start with lining up by hand for now, leave the other option for maybe
+  later"):
   - **Reference trackers** (`ref`): two trackers lying flat on spot A and spot B for good, their pose origin (the base's
     mount) on the floor. The room's frame is the floor spots' (as the headsets' since v122): its origin the floor point
     under spot A, x along the floor towards spot B, y up. Worked out from the two trackers' positions averaged over the
@@ -81,6 +91,12 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   which is which by moving it). The room map shows them as small dots with their names.
 - Headsets: *Trackers: shown / hidden* on the menu's Debug tab (this headset's own): each tracker drawn as a small puck
   with its name, depth-tested.
+- The Index in the room (the owner: "a vive index is there too, that could then even join the page in webvr"): the PC's
+  browser enters VR with the Index (Chrome or Edge on Windows through SteamVR's OpenXR) and joins the room as a VR
+  headset in the room (*In this room*). It needs no shared space and no spots: the bridge reports the Index's pose in
+  SteamVR's space, the page knows its own pose in its `local-floor` at the same moments, and the lining up by hand turns
+  SteamVR's space into the room's, so its room frame follows from the three (a frame source of its own, `'trackers'`,
+  steadier than any Quest's). Tethered, so it stays near the PC; it sees the room in VR.
 
 ## The studio, phase 1: props that follow a tracker
 
@@ -99,23 +115,37 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 - Mixamo rigs only for now: a model whose bones are Mixamo's (`mixamorig:Hips`, `Spine`, `Spine1`, `Spine2`, `Neck`,
   `Head`, `LeftShoulder`, `LeftArm`, `LeftForeArm`, `LeftHand`, `LeftUpLeg`, `LeftLeg`, `LeftFoot`, the right side, as
   three.js names them once loaded, `mixamorigHips`...). Others are told so on the card.
-- Trackers worn: hips (belt), head, both hands (wrists), both feet are needed (6); chest, both elbows and both knees
-  improve it (up to 11). With two reference trackers on the spots that leaves 7 to 9 for the body; lining up by hand
-  leaves all of them.
-- The object's record gains `puppet: { on, map: { hips, head, lhand, rhand, lfoot, rfoot, chest?, lelbow?, relbow?, lknee?,
-  rknee?: <serial> }, cal: { <slot>: [x, y, z, qx, qy, qz, qw] }, s }`: which tracker drives which part, each part's
+- Three ways to wear it (the owner: the full set, "a minimal version that only needs one tracker at each foot and uses the
+  headset and the controllers and ik for the rest", and "a version where one can just use the headset and the
+  controllers"):
+  - **Full**: trackers on the hips (belt), head, both wrists and both feet (6), and optionally the chest, both elbows and
+    both knees (up to 11). Lined up by hand, every tracker is free for the body.
+  - **Feet and headset**: a tracker on each foot; the head and hands from the performer's headset and controllers; the
+    hips worked out from the head and the feet (below the head, back a little, turned with the feet and the head).
+  - **Headset only**: the headset and its two controllers; the hips from the head; the legs stepped by the solver (feet
+    kept planted and moved in a step when the hips leave them behind), so walking reads, not exactly.
+  The headset and controllers are either the Index (through the bridge, in SteamVR's space with the trackers: exact, 90
+  times a second) or a Quest (its own poses on that Quest, its presence in room coordinates on everyone else's, 15 a
+  second and smoothed; lined up with the room through the spots, so a few centimetres off the trackers). *Headset only*
+  with a Quest needs no PC at all and works in any room, peer to peer too.
+- The object's record gains `puppet: { on, rig: 'full' | 'feet' | 'head', by: <the performer's member id when a Quest's
+  head and hands drive it, or 'index'>, map: { hips?, head?, lhand?, rhand?, lfoot?, rfoot?, chest?, lelbow?, relbow?,
+  lknee?, rknee?: <serial> }, cal: { <slot>: [x, y, z, qx, qy, qz, qw] }, s }`: which tracker drives which part, each part's
   offset from its tracker to its bone found at the lining up, and the character's scale then. Shared and saved; every
   device solves the same pose from the same tracker stream (nothing per bone is sent).
 - *Line up with the performer* (its card, page and headset): the performer stands in a T-pose (Mixamo's rest pose) facing
-  the character's way; a 5 s countdown, then the trackers are given their parts (automatically from the T-pose: highest
+  the character's way; a 5 s countdown, then the trackers (and in the lighter setups the headset and controllers) are
+  given their parts (automatically from the T-pose: highest
   the head, lowest two the feet, the hands furthest out, left and right by the facing, the hips the one nearest the middle
   at hip height, chest, elbows and knees by height and side; changeable on the card), the character scaled so its hips
   are as high as the performer's, and each part's offset taken. One Undo step.
 - The solver (`tools/studio/engine/ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
   their tracker (place and turn); the spine bent between the hips and the chest (or the head) tracker; neck and head
-  from the head tracker; arms and legs by two-bone inverse kinematics to the hand and foot trackers, the elbows and knees
-  towards their trackers where worn, else a natural bend; hands and feet turned as their trackers. While it is on, the
-  model's own clip is off.
+  from the head tracker (or headset); arms and legs by two-bone inverse kinematics to the hand and foot targets, the elbows
+  and knees towards their trackers where worn, else a natural bend; hands and feet turned as their targets; the hips
+  worked out where no tracker gives them, and the steps of *Headset only*. While it is on, the model's own clip is off.
+  A take is best recorded on the device that has the poses first: the PC for the Index and trackers, the performer's
+  own Quest for a Quest's head and hands.
 - *Record a take* (its card; a 3 s countdown, *Stop*, at most 120 s): the solved bones sampled 30 times a second on the
   tracker stream's clock, made into a clip *Take n*, and the object's GLB made again with all its clips and the new one
   (through the converter, as Convert to GLB: the old file kept under `originals/`, every object of that file switched,
@@ -139,6 +169,7 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 
 After v124 is merged. Two lanes at once, then one: (A) the bridge, the fake, the relay and its tests, the shell and the
 Trackers section, the collab round's plumbing; (B) the solver, the test rig and `test-ik.mjs`; then (C) the studio: props,
-the puppet and takes. One Sonnet review and one fix round each. Estimated 3.5 to 4.5 days of agent work, 15 to 20M tokens.
+the puppet and takes. One Sonnet review and one fix round each. Estimated 4.5 to 6 days of agent work, 19 to 26M tokens (the two lighter body setups and the Index in the room add
+about a day and 4 to 6M to the first estimate).
 Untested until tried with the owner's PC, trackers and headsets: the bridge on Windows, `TRK_FLOOR`, lag through the PC's
 relay, how the puppet looks and how a performer's trackers stay on.
