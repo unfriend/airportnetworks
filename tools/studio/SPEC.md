@@ -1551,7 +1551,8 @@ be able to spin it etc". `engine/e7f_viewer.js`.
   frame it again (*Frame it* too, which also turns it back to the start). It turns by itself (12 degrees a second) until it
   is touched.
 - **A model being made lighter** (an Upload row's, Look closer's): *All triangles*, *Lighter* or *Side by side* (the window's
-  two halves, one camera: all on the left, the lighter on the right, each said over it), the share on a slider (2 to
+  two halves, one camera: all on the left, the lighter on the right, each said over it; on a window taller than it is
+  wide, as a phone held upright, all at the top and the lighter below), the share on a slider (2 to
   100 %; its words follow it, and the lighter one is made again as it is let go, `CONV.reduce` on the model as read, its own
   geometries swapped in for the drawing only; a share chosen while showing all its triangles shows them side by side),
   *All: N · Lighter: M*. The lighter one's pictures are filled as Save fills them (`CONV.fillModel(root, { copy: true })`,

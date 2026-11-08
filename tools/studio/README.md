@@ -87,7 +87,7 @@ small button on the picture's corner; a press anywhere else on the card still pl
   triangles at the top. It turns by itself until you touch it. **Drag** to spin, the **wheel** or a **pinch** to zoom,
   a **right drag**, a **Shift drag** or **two fingers** to pan, a **double click** (or **Frame it**) to frame it again.
 - For a model being made lighter (an Upload row, Look closer): **All triangles**, **Lighter** or **Side by side** (all of
-  them on the left, the lighter one on the right, one camera for both), the **Share kept** slider (the lighter one is made
+  them on the left, the lighter one on the right, one camera for both; on a phone held upright, top and bottom), the **Share kept** slider (the lighter one is made
   again as you let it go: a big scan takes a moment), and both counts. The lighter one's pictures are shown with their
   gaps filled, as the GLB will have them.
 - **Wireframe** draws its triangles' edges over it (the difference a share makes shows at once); **Textures: off** shows

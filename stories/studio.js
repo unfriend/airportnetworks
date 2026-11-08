@@ -23426,7 +23426,6 @@ function itemBlocks(it, B, ed) {
     // its faces (this object's own: another of the same file keeps its own)
     B.push({ label: 'Faces', row: [['file', 'As in the file'], ['both', 'Both sides'], ['inside', 'Inside out']].map(([v, n]) => ({ id: 'faces:' + v, label: n, act: 'i:faces', v, on: (r.faces || 'file') === v, dis })) },
       { p: 'Inside out: for a model whose faces point the wrong way, or to see a room from inside. Both sides: thin walls and leaves seen from behind too.', c: 'faint' });
-    tintBlocks([it], B, dis);   // (its tint and brightness: this object's own)
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
@@ -23436,6 +23435,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: rs })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
+    tintBlocks([it], B, dis);   // (its tint and brightness, this object's own: after its place and size, as these are)
     // its cut-outs (boxes that hide the part of the model inside them), and a new one
     const cuts = cutsOn(it.id), cfull = cuts.length >= CUT_MAX, cl = !!r.cutsLocked;
     B.push({ label: `Cut-outs (${cuts.length})`, row: [{ id: 'cut', label: 'Cut out a part', act: 'i:cut', dis: dis || !canCut(it) }]
@@ -26196,7 +26196,9 @@ function vwPass(lite, aspect) {
     try { R.render(VW.scene, VW.cam); } finally { R.autoClear = ac; VW.scene.background = bg; VW.scene.overrideMaterial = null; VW.grid.visible = true; e[10] = e10; }
   }
 }
-// the viewer's frame: it turns by itself until touched; one view, or two side by side (the window's halves, one camera)
+// the viewer's frame: it turns by itself until touched; one view, or two side by side (the window's halves, one camera:
+// left and right, or on a window taller than it is wide, as a phone's held upright, top and bottom)
+const vwTall = () => { const s = GL.renderer.getSize(_vws); return s.y > s.x * 1.1; };
 function vwDraw(dt) {
   if (!VW.open || !VW.scene) return;
   if (!canView()) { vwClose(); return; }
@@ -26204,9 +26206,14 @@ function vwDraw(dt) {
   if (VW.spin && VW.root && dt) VW.az = (VW.az + VW_SPIN * dt) % 360;
   const two = VW.lite && VW.mode === 'both';
   if (two) {
+    const tall = vwTall(), hw = Math.round(w / 2), hh = Math.round(h / 2);
     R.setScissorTest(true);
     try {
-      for (const [i, lite] of [[0, false], [1, true]]) { const x = Math.round(i * w / 2), ww = Math.round(w / 2); R.setViewport(x, 0, ww, h); R.setScissor(x, 0, ww, h); vwPass(lite, ww / h); }
+      // (all its triangles on the left or at the top; a viewport's y counts from the bottom)
+      for (const [i, lite] of [[0, false], [1, true]]) {
+        const [x, y, ww, vh] = tall ? [0, i ? 0 : h - hh, w, hh] : [i * hw, 0, hw, h];
+        R.setViewport(x, y, ww, vh); R.setScissor(x, y, ww, vh); vwPass(lite, ww / vh);
+      }
     } finally { R.setScissorTest(false); R.setViewport(0, 0, w, h); }
   } else vwPass(VW.lite && VW.mode === 'lite', w / h);
   VW.drew++;
@@ -26222,7 +26229,8 @@ function vwFrame(reset) {
   const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
   VW.size = size.toArray(); VW.R = Math.max(1e-3, size.length() / 2);
   VW.tgt.copy(c);
-  const s = GL.renderer.getSize(_vws), aspect = (VW.lite && VW.mode === 'both' ? s.x / 2 : s.x) / Math.max(1, s.y), v = VW.cam.fov * D2R, hz = 2 * Math.atan(Math.tan(v / 2) * aspect);
+  const s = GL.renderer.getSize(_vws), two = VW.lite && VW.mode === 'both', tall = vwTall();
+  const aspect = (two && !tall ? s.x / 2 : s.x) / Math.max(1, two && tall ? s.y / 2 : s.y), v = VW.cam.fov * D2R, hz = 2 * Math.atan(Math.tan(v / 2) * aspect);
   VW.dist = VW.R / Math.sin(Math.min(v, hz) / 2) * 1.08;
   if (reset) { VW.az = 35; VW.el = 18; }
   // the grid: a nice step (1 cm to 10 m) about a tenth of its widest side along the floor, two of its sides wide, at its foot
@@ -26280,6 +26288,7 @@ function vwBuild() {
     #stuViewer .vw-side { position: absolute; top: 0; padding: 6px 10px; border-radius: 6px; background: rgba(6, 11, 20, 0.75); font-size: 13px; pointer-events: none; font-variant-numeric: tabular-nums; }
     #stuViewer .vw-side[hidden] { display: none; }
     #stuViewer .vw-split { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: rgba(149, 166, 189, 0.45); pointer-events: none; }
+    #stuViewer .vw-split.tall { top: 50%; bottom: auto; left: 0; right: 0; width: auto; height: 2px; margin: -1px 0 0; }
     #stuViewer .vw-split[hidden] { display: none; }
   </style>
   <div class="vw-hit" data-vw-hit></div>
@@ -26363,6 +26372,8 @@ function vwBind(el) {
     ev.stopPropagation();
   };
   window.addEventListener('keydown', VW.keyFn, true);
+  VW.sizeFn = () => { if (VW.open) vwUi(); };   // (a window resized: its labels placed again, the top bar may wrap)
+  window.addEventListener('resize', VW.sizeFn);
 }
 const vwZoom = f => { VW.dist = clamp(VW.dist * f, VW.R * 0.05, VW.R * 60); };
 function vwPan(dx, dy) {
@@ -26403,10 +26414,10 @@ function vwUi(drag) {
   if (w) { w.textContent = 'Wireframe: ' + (VW.wire ? 'on' : 'off'); w.setAttribute('aria-pressed', String(VW.wire)); }
   if (t) { t.textContent = 'Textures: ' + (VW.tex ? 'on' : 'off'); t.setAttribute('aria-pressed', String(VW.tex)); }
   const two = VW.lite && VW.mode === 'both';
-  const sl = q('[data-side="l"]'), sr = q('[data-side="r"]'), sp = q('.vw-split'), top = (q('.vw-top') || { offsetHeight: 0 }).offsetHeight + 8;
-  if (sp) sp.hidden = !two;
+  const sl = q('[data-side="l"]'), sr = q('[data-side="r"]'), sp = q('.vw-split'), top = (q('.vw-top') || { offsetHeight: 0 }).offsetHeight + 8, tall = vwTall();
+  if (sp) { sp.hidden = !two; sp.classList.toggle('tall', tall); }
   if (sl) { sl.hidden = !two; sl.textContent = `All triangles: ${fmt(VW.cur)}`; sl.style.left = '12px'; sl.style.top = top + 'px'; }
-  if (sr) { sr.hidden = !two; sr.textContent = `Lighter, ${Math.round(VW.keep * 100)} %: ${drawn}`; sr.style.left = 'calc(50% + 12px)'; sr.style.top = top + 'px'; }
+  if (sr) { sr.hidden = !two; sr.textContent = `Lighter, ${Math.round(VW.keep * 100)} %: ${drawn}`; sr.style.left = tall ? '12px' : 'calc(50% + 12px)'; sr.style.top = tall ? 'calc(50% + 8px)' : top + 'px'; }
 }
 
 // ---- closing: everything the viewer made freed, the canvas back under the page, the share back to its row or card
@@ -26415,7 +26426,8 @@ function vwClose() {
   const src = VW.src, keep = VW.keep, lite = VW.lite && !!VW.root;
   VW.open = false; VW.gen++; VW.rgen++;
   if (VW.keyFn) window.removeEventListener('keydown', VW.keyFn, true);
-  VW.keyFn = null; VW.pts.clear();
+  if (VW.sizeFn) window.removeEventListener('resize', VW.sizeFn);
+  VW.keyFn = VW.sizeFn = null; VW.pts.clear();
   vwFillFree(); vwGeosFree();
   if (VW.root) {
     VW.tex = true; vwApply(false);   // (its own geometries and pictures back on it, so what it owns is all freed below)

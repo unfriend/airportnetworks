@@ -3658,7 +3658,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   studio lights its scene or as scanned, framed on its box over a floor grid, its size and triangles said; drag to spin, the
   wheel or a pinch to zoom, a right drag, a Shift drag or two fingers to pan, a double click (or *Frame it*) to frame it
   again; it turns by itself until touched. For a model being made lighter (an Upload row's, Look closer's): *All triangles*,
-  *Lighter* or *Side by side* (the window's halves, one camera), the share on a slider (the lighter one made again as it is
+  *Lighter* or *Side by side* (the window's halves, one camera; top and bottom on a tall window), the share on a slider (the lighter one made again as it is
   let go, `CONV.reduce` on the model as read), both counts, the lighter one's pictures filled as Save fills them;
   *Wireframe* (dark edges a hair nearer than its faces) and *Textures* on or off, *Lit* / *As scanned*. Close or Esc: all
   it made freed, the canvas back under the page, the share chosen back on the row or the card; while open the keyboard is
