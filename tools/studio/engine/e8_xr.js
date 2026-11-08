@@ -25,12 +25,17 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 
 // ------------------------------------------------------------ scene pose --
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-// The scene is life size round you: its origin at the rig's floor point (outside a room where you stood as the session
-// or the studio began, facing your way, or the anchored place; at a station its spot, 1.6 m over the room's floor).
-// The floor is the session's local-floor where it has one (its height in the renderer's local space), else a standing
-// eye height under the rig. The VR stick walk moves the scene (XR.walk, in the rig's frame), never the rig; views do
-// not move it
+// The scene is life size round you: outside a room its origin at the rig's floor point (where you stood as the session
+// or the studio began, facing your way, or the anchored place), the floor the session's local-floor where it has one
+// (its height in the renderer's local space), else a standing eye height under the rig. At a station in a shared room
+// (v125; the owner, 8 November 2026: "align all things to the room marks and have the circle only be the entry") the
+// scene's frame is the room's (xrRoomBase: the floor at y = 0, the origin and axes the room's; on a room calibrated on
+// its floor spots spot A, x towards spot B), so every item stands at one place in the real room whichever circle shows
+// it and wherever that circle stands: the rig (and the panels on it) is the station's spot, and the scene hangs from it
+// at the room's origin, so moving or turning the circle moves nothing of the scene. The VR stick walk moves the scene
+// (XR.walk, in the rig's frame), never the rig; views do not move it
 const XR_EYE = 1.6, XR_AHEAD = 0;
+const _xRB = new THREE.Matrix4(), _xRW = new THREE.Matrix4(), _xRS = new THREE.Vector3();
 function xrPlace(v) {
   XR.R = 1; XR.hitR = 1; XR.target.set(0, 0, 0);
   const fy = XR.atSt || XR.floorY === null ? -XR_EYE : XR.floorY - GL.rig.position.y;
@@ -38,6 +43,20 @@ function xrPlace(v) {
   GL.world.quaternion.setFromAxisAngle(_xY, XR.walk.yaw);
   GL.world.position.set(XR.walk.x, fy, XR.walk.z);
   XR.globeBase.set(0, fy, 0);
+  if (XR.atSt && xrRoomBase(_xRB)) {
+    _xRW.makeRotationY(XR.walk.yaw).setPosition(XR.walk.x, 0, XR.walk.z).multiply(_xRB);
+    _xRW.decompose(GL.world.position, GL.world.quaternion, _xRS);
+  }
+}
+// the room's frame in the rig's (into out), or null: the shell's room matrix (room coordinates to the renderer's space,
+// as it places the rig at the station: HOST.room.place) seen from the rig as it stands this frame. A shell without
+// HOST.room.matrix: null (the scene at the spot, as before v125)
+function xrRoomBase(out) {
+  let m = null;
+  try { m = HOST.room && HOST.room.matrix ? HOST.room.matrix() : null; } catch (e) { m = null; }
+  if (!m) return null;
+  GL.rig.updateMatrix();
+  return out.copy(GL.rig.matrix).invert().multiply(m);
 }
 // Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
 // it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
@@ -730,7 +749,7 @@ function xrBegin(frame, dt) {
     // (asked only once the headset has a pose, so a new anchor goes where things really are)
     const A = HOST.anchor.frame(frame, ref);
     if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
-    XR.atSt = !!(A && A.room);   // (at a station the rig is its spot, 1.6 m over the room's floor)
+    XR.atSt = !!(A && A.room);   // (at a station the rig is its spot, 1.6 m over the room's floor; the scene the room's: xrPlace)
     // the real floor: the session's local-floor, as a height in the renderer's local space
     if (XR.floorSpace) { try { const fp = frame.getPose(XR.floorSpace, ref); if (fp) XR.floorY = fp.transform.position.y; } catch (e) { XR.floorSpace = null; } }
     // in a shared room no Stories screen: a story is reached by walking into its station's circle, and at its station it

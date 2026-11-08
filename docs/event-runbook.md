@@ -319,9 +319,13 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
 
 **On the day**
 
-- [ ] In a shared room: stand where the scene should be and press **Studio here** in the menu (Settings tab), or **Add a
-  station**, the studio, on a page; walk into its circle; everyone at it sees one scene and its layout. Arrange all
-  leaves it where it is.
+- [ ] In a shared room: press **Studio here** in the menu (Settings tab), or **Add a station**, the studio, on a page;
+  walk into its circle; everyone at it sees one scene and its layout. Since v125 the scene stands on the room's spots
+  (spot A its origin, x towards spot B), not round its circle: the circle is only the way in, and moving or turning it
+  moves nothing of the scene, so line the room up on its spots first, then place things where they belong in the room;
+  two circles of one scene show it at the same place. A scene placed before v125 stood round its circle: at the circle,
+  with Edit on, **Move the scene to this circle** (the Scene pane) puts every item there again, for everyone (one Undo
+  step; refused while something is locked in place, saying which). Arrange all leaves the circle where it is.
 - [ ] Then lock it so nobody moves things by accident: **Lock this story** in the menu at its circle, or **Lock story**
   on its row in the Shared dialog (editing is refused while locked; the circle itself: **Lock circles**).
 - [ ] A visitor's headset or screen on its own: the link `https://<address>:8787/#studio&scene=<name>&visit` (no
@@ -397,7 +401,8 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
   grips, the VR stick walk, objects on the real floor in AR, the trigger cubes as people walk (and the pictures they
   change on models: the switch, and a Quest's memory with many 2,048 px pictures), the scene's sounds through
   the headset (streamed long ones too), the frame rate with a big scan (the 397,066-triangle atelier), **Studio here**
-  and standing in its circle, and a visitor's headset with `&visit`;
+  and standing in its circle, the scene on the room's spots (v125: whether it stands where it should in a real room, and
+  holds still while its circle is moved), and a visitor's headset with `&visit`;
 - the room setup guide and its startup flow (v107, v109): whether it opens at the right moments (as every headset
   enters a room, at Check when it is lined up by the spots already; after a red check; not lined up 20 s in), whether it
   feels light for a headset already lined up (Check at A, the trigger, done), how its pages read, how accurately a

@@ -1,7 +1,7 @@
 // The stage: what a scene stands on when it brings nothing of its own. Life size: 1 unit is 1 m, the floor at y = 0,
-// the scene's origin in the middle (in a shared room its circle's spot), -z the way it faces. A dark floor with a faint
-// 1 m grid fading out with distance, a small mark at the origin pointing the scene's way, and a soft sky. In
-// passthrough nothing of it is drawn (stage_floor 0): the scene stands on your real floor.
+// the scene's origin in the middle (in a shared room the room's origin since v125), -z the way it faces. A dark floor
+// with a faint 1 m grid fading out with distance, a small mark at the origin pointing the scene's way, and a soft sky.
+// In passthrough nothing of it is drawn (stage_floor 0): the scene stands on your real floor.
 SETS.stage = function (K) {
   const group = new THREE.Group(), disposable = [];
   const keep = x => (disposable.push(x), x);

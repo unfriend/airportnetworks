@@ -202,6 +202,67 @@ function settingsStep() {
 }
 function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false); hookCall('occ', null); }
 
+// -------------------------------------------------- the scene moved to its circle --
+// Since v125 a scene at a station stands on the room's frame (the floor at y = 0, the origin and axes the room's: on a
+// room calibrated on its floor spots spot A, x towards spot B; xrPlace in e8_xr.js): its circle is only the way in, and
+// moving or turning the circle moves nothing of it. A layout made before v125 was placed round its circle (the scene's
+// origin at the circle's spot, facing its way). Move the scene to this circle (the Scene pane while editing at a studio
+// station in a room, page and headset alike) puts it back there: every item's placed pose taken through this circle's
+// spot (x' = spot + its turn x): the objects', shapes' and empties' places and turns, the cubes' places and yaws, the
+// sounds' places (one following something keeps its offset on it; its own place is where it stands when what it follows
+// is not there) and a sound's own recorded path (its keys are in the scene's axes: turned with it). Nothing in an
+// item's own frame changes (cut-outs, offsets, the others' paths, motions, behaviours). One change (one Undo step),
+// every record written, for everyone at the circle and saved as any change. Refused while the scene is locked (Lock
+// this story: not offered then, editing being off) or while an item is locked in place (it says which)
+const CIRC = { note: '', c: '', at: 0, sc: '' };
+const CIRC_KINDS = ['o', 'p', 'e', 'c', 's'];
+// what the last press came to, on the Scene pane for 12 s (for that scene only)
+function circleSay(note, c) {
+  Object.assign(CIRC, { note, c, at: performance.now(), sc: STU.scene });
+  later(() => { if (CIRC.note && performance.now() - CIRC.at >= 11900) { CIRC.note = ''; dirty(true); } }, 12000);
+}
+// this circle's spot as the room has it ({ x, z, yaw }), or null: not at a studio station
+function circleSpot() {
+  try {
+    const st = HOST.collab && HOST.collab.live && HOST.collab.live();
+    return st && st.story === XR_HERE && fin(st.x) && fin(st.z) ? { x: st.x, z: st.z, yaw: fin(st.yaw) ? st.yaw : 0 } : null;
+  } catch (e) { return null; }
+}
+function sceneToCircle() {
+  CIRC.note = ''; CIRC.c = '';
+  const S = atStation() && editOn() ? circleSpot() : null;
+  if (!S) return false;
+  const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
+  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return false; }
+  const held = [];
+  for (const it of its) for (const n of lockNames(it)) if (!held.includes(n)) held.push(n);
+  if (held.length) {
+    circleSay(`Refused: ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} locked in place: the scene does not move until ${held.length > 1 ? 'they are' : 'that is'} unlocked.`, 'red');
+    sfxAct('knock', 'world', null, { gain: 0.5 });
+    return false;
+  }
+  const c = Math.cos(S.yaw), sn = Math.sin(S.yaw), r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw);
+  const at = p => [clamp(S.x + c * p[0] + sn * p[2], -1000, 1000), p[1], clamp(S.z - sn * p[0] + c * p[2], -1000, 1000)];
+  const turned = q => r.clone().multiply(new THREE.Quaternion().fromArray(q)).normalize().toArray();
+  change(() => {
+    for (const it of its) {
+      const R = it.rec;
+      if (it.kind === 'c') setRec(it.id, { p: at(R.p), yaw: R.yaw + S.yaw });
+      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pathTurned(R.path, r.toArray()) } : {}));
+      else setRec(it.id, { p: at(R.p), q: turned(R.q) });
+    }
+  }, its.map(it => it.id));
+  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).`, 'muted');
+  sfxAct('place', 'world', null);
+  return true;
+}
+function circleBlocks(B, st) {
+  if (!st || !circleSpot()) return;
+  B.push({ label: 'The scene and its circle', row: [{ id: 'circle', label: 'Move the scene to this circle', act: 'circle', dis: !editOn() || !STU.items.size }] },
+    { p: 'Since v125 the scene stands on the room\'s spots and its circle is only the way in: moving the circle moves nothing of it. A scene placed before then stood round its circle: this moves every item there again, for everyone (one Undo step).', c: 'faint' });
+  if (CIRC.note && CIRC.sc === STU.scene) B.push({ p: CIRC.note, c: CIRC.c || 'muted' });
+}
+
 // -------------------------------------------------------------- the lobby --
 // Walking into the room's Back to the lobby circle (the shell calls HOST.cur.lobby(), where the headsets charge): this
 // device forgets what it has seen, as Reset what I have seen does, and more: the cubes that stay once entered, and

@@ -1872,8 +1872,14 @@ which an older device writing `look` would drop, and the studio's `state()` gain
     studio circles may stand in a room. Wherever the shell names a station (the cards, the dialog's rows and map, the
     menu's lists and Story tab, people and Follow lines, the question of circles asked first) a studio station whose
     state names a scene is *Studio: <scene>* (`sceneOf`, `stTitle`; a plain circle too, once a scene is picked there). `HOST.collab.scenes()`, `addScene(name, b)` and
-    `sceneOf(id)` are for tests. Its scene is life size round the circle's spot
-  (moving the circle moves the scene), and everyone at the station sees one scene and one layout: `state()` is the
+    `sceneOf(id)` are for tests. Its scene is life size on the room's frame (v125; the owner, 8 November 2026: "align all
+  things to the room marks and have the circle only be the entry, so that moving the circle does not move the studios
+  scene content"): its origin and axes the room's (the floor at y = 0; on a room calibrated on its floor spots spot A, x
+  towards spot B), so every item stands at one place in the real room whichever circle shows it and wherever that circle
+  stands (two studio circles of one scene show it at the same place); the circle is only the way in (walked into, or *Go
+  in*), its panels float at it, and moving or turning it (the grip, the map, Move here) moves nothing of the scene (until
+  v124 the scene stood round the circle's spot and moved with it; *Move the scene to this circle*, "The studio" below,
+  puts a layout made then back round its circle). Everyone at the station sees one scene and one layout: `state()` is the
   scene's name and one field per item ("What each story shares" below; the studio came with no `FORMAT` change, an older
   device showing the station as *A newer story*; sounds that follow a model changed a sound's record, networks-30;
   cut-outs added a field per cut-out, networks-31; groups a field per group and Faces an object's `faces`, networks-32). What each person's place reveals (the trigger cubes), editing, the selection, Walk, the
@@ -3731,8 +3737,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   'x' | 'y' | 'z', start: 'always' | 'shown' }` (kept only when set; "Motions" below; a layout without it, v119's, reads as
   before), and an object's, a shape's, an empty's or a sound's recorded `path` `{ k: [[t, dx, dy, dz, qx, qy, qz, qw],
   ...], play: 'loop' | 'once' | 'bounce', start: 'always' | 'shown', speed }` (kept only when set; "Recorded paths" below;
-  2 to 600 keys an item, 6,000 a scene, at most 120 s; a layout without it reads as before). Metres in the scene's frame (the floor at y = 0, the origin
-  at the circle's spot or where you stood, -z the way it faces); `p` to the mm, `q` to 4 decimals, `s` 4 significant
+  2 to 600 keys an item, 6,000 a scene, at most 120 s; a layout without it reads as before). Metres in the scene's frame (the floor at y = 0; at a station
+  in a shared room the room's frame since v125, the origin and axes the room's: spot A and x towards spot B on a room
+  calibrated on its floor spots; outside a room where you stood, -z the way you faced; until v124 the circle's spot); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
   `[a-z0-9]`, unique in the scene; `name` at most 60 characters (the file's name, numbered when placed again: *eva_001
   2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object), 50 groups, 200 shapes, 100 empties; a `file` is a path in the scene's listing (200 characters, no `..`); a
@@ -3973,8 +3980,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   cm and held at their limits; a bad one makes the record bad. One person at a time among those in a headset at its
   circle (pages never count; outside a room this device's own head, a page's camera in Walk view too), chosen alike on
   every device from the shell's `HOST.collab.heads()` (the heads of the people in a headset at this device's live
-  station, its own among them, from presence in room coordinates with the relay's time of each, and the station's spot,
-  which turns them into the scene's frame): that person's headset drives it, moving it every frame from its own head
+  station, its own among them, from presence in room coordinates with the relay's time of each; since v125 room
+  coordinates are the scene's at a station, no turn needed: "Placement in a headset" below): that person's headset drives it, moving it every frame from its own head
   (exact) and sending its move along the floor and its turn (the quiet effect `beh`, about ten times a second, every item
   it drives in one; once more with an end when it stops), every other device drawing it 120 ms behind those samples
   (the relay's clock), between them; ended or silent for 1 s, nobody in range, it goes home by itself, alike everywhere;
@@ -4185,11 +4192,32 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   source offers *Download layout.json*. Outside a room what is placed is also kept on this device
   (`studioDraft.<source>.<scene>` in `localStorage`, a second after each change), and opening the scene with a draft
   newer than the saved layout and different from it offers *Your unsaved changes from <time>: Restore / Discard*.
-- **Placement in a headset**: life size, as the design room's table. The scene's origin is the rig's floor point:
-  outside a room where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
-  Anchor is on, so an exhibit comes back at the same place in the real room); at a station its spot, so moving the
-  circle moves the scene, and a room calibrated on its spots keeps it put. The grip on nothing moves only the panel. In
-  VR a dark floor with a faint 1 m grid and a soft sky (`stage`); in passthrough none of it.
+- **Placement in a headset**: life size, as the design room's table. Outside a room the scene's origin is the rig's
+  floor point: where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
+  Anchor is on, so an exhibit comes back at the same place in the real room). At a station in a shared room (v125; the
+  owner, 8 November 2026: "In studio mode align all things to the room marks and have the circle only be the entry, so
+  that moving the circle does not move the studios scene content") the scene's frame is the room's: room coordinates as
+  `shared.js` keeps them (the floor at y = 0, the origin and axes the room's; on a room calibrated on its floor spots,
+  spot A on the floor and x towards spot B). The rig stays the station's spot (its panels float there), and `xrPlace`
+  hangs the scene from it at the room's origin (`xrRoomBase`: the inverse of the rig times the shell's room matrix,
+  `HOST.room.matrix()`, each frame, so the scene holds still while the circle glides), so every item stands at the same
+  place in the real room whichever circle shows it and wherever that circle stands, and moving or turning the circle
+  (the grip, the map, Move here; Arrange all leaves studio circles alone anyway) moves nothing of it; walking into the
+  circle (or *Go in*) still enters the studio there. The VR stick walk still moves the scene for one headset. Pages draw
+  the scene in its own frame, as before. A layout made before v125 stood round its circle: **Move the scene to this
+  circle** (the Scene pane while editing at a studio station in a room, page and headset alike, with a note that since
+  v125 the scene stands on the room's spots and its circle is only the way in; `sceneToCircle`, `circleBlocks` in
+  `engine/e6d_shapes.js`) takes every item's placed pose through this circle's spot (`x' = spot + turn(yaw) x`, the
+  station's record's `x`, `z` and `yaw`): the objects', shapes' and empties' places and turns, the cubes' places and yaws,
+  the sounds' places (one following something keeps its offset `o`; its own `p` is where it stands when what it follows
+  is not there) and a sound's own recorded path (its keys are in the scene's axes, so turned with it: `pathTurned`);
+  nothing in an item's own frame (cut-outs, offsets, the other items' paths, motions, behaviours; a motion about the
+  scene's x or z axis keeps that axis, so turns by other than quarter turns change its direction in the room). One change
+  (one Undo step), every record written, shared and saved; refused while the scene is locked (*Lock this story*: editing
+  is off then, so it is not offered) or while an item is locked in place (*Refused: Box is locked in place...*, naming
+  each, as a group's move does). The grip on nothing moves only the panel. In VR a dark floor with a faint 1 m grid and a
+  soft sky (`stage`, round the scene's origin: at a station the room's); in passthrough none of it. Untested on a
+  headset: how a scene on the room's frame feels at a circle across the room, and that a real room's frame lines it up.
 - **Shared rooms**: "The studio in a room" under "Shared rooms"; `state()` in "What each story shares". Items from the
   room glide there in 0.25 s unless carried here (the carry wins until let go); one effect, `beh`, a behaviour's driver's
   samples ("Behaviours" above); `view()` null; `place` and
@@ -5177,7 +5205,14 @@ pose along it, within 1 mm); a 25 s sound streamed; From another scene (v118: a 
 the folder with an FBX naming its picture and an OBJ with its MTL and picture: copied into the open scene from a page's
 Add pane with the picture at the same paths and the same bytes, placed, one Undo step, taken by every page and the
 headset with its picture; the OBJ and what it names under `originals/`, its model in; a second copy of the FBX a new name,
-this scene's picture kept; the headset's Add pane offering it); a circle made for one scene written as the shell will
+this scene's picture kept; the headset's Add pane offering it); the scene on the room's frame (v125: the headset at
+the studio's circle, away from the room's origin, drawing the box, the figure, the cube and the sound where their records
+put them in room coordinates, their world places turned back through its room frame, within 1 mm; the circle moved 2 m
+and turned 90 degrees from a page (`HOST.collab.move`, as the room map moves it): every item where it was in the room
+frame by frame while the circle glides, within 1 mm, the headset still at the station, its rig at the new spot; *Move the
+scene to this circle* on a page refused while the box is locked (naming it, nothing changed), then every item at the
+circle's spot transform of its old place within 1 mm, the cube's yaw turned with it, one Undo step, every page's and the
+headset's records the same and the headset drawing them there; Undo taking it back everywhere); a circle made for one scene written as the shell will
 (`st.<id>` and `st.<id>.x` naming `quiet`, with a saved layout of a sound and a cube): two pages following it open it and
 write the layout, the room holding each item once, the first station keeping its scene; New scene on the headset's panel
 with the shell's keypad stubbed (`HOST.collab.keypad`): made on the relay and opened at its station, the page following it

@@ -212,6 +212,11 @@ it or changed on the relay. It is shared in a room and saved in `layout.json`.
 - **The scene's settings** (Scene, while editing): *Other circles: Hidden* hides the other circles' rings, cards and icons
   for everyone at this studio's circle in a shared room; *Real world hides the scene* sets whether real things hide the
   scene in AR (*As each headset has it*, *Always* or *Never*). Both are saved with the scene.
+- **The scene and its circle** (v125): in a shared room the scene stands on the room's spots (spot A its origin, x
+  towards spot B), not round its circle: the circle is only the way in, and moving or turning it moves nothing of the
+  scene; two circles of one scene show it at the same place. A scene placed before v125 stood round its circle: *Move the
+  scene to this circle* (Scene, while editing at its circle) moves every item there again, for everyone (one Undo step;
+  refused while something is locked in place, saying which).
 - **The lobby**: when a headset walks into the room's *Back to the lobby* circle, it forgets what it has seen in the
   studio, so the scene starts afresh for the next person who puts it on.
 

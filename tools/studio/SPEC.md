@@ -198,8 +198,10 @@ placed by itself).
 }
 ```
 
-- Coordinates: metres in the scene's frame: the floor at y = 0, +y up, the scene's origin where its circle's spot is
-  (outside a room where you stood when the studio opened, or the anchored place), -z the way it faces. `p` to the mm
+- Coordinates: metres in the scene's frame: the floor at y = 0, +y up; at a station in a shared room the room's frame
+  (v125: the room's origin and axes, on a room calibrated on its floor spots spot A and x towards spot B; until v124 the
+  circle's spot, facing its way), outside a room where you stood when the studio opened (or the anchored place), -z the
+  way you faced. `p` to the mm
   (3 decimals), `q` a quaternion (4 decimals), `s` a factor (4 significant figures), a cube's `size` to the mm and its
   `yaw` (radians, 4 decimals; cubes stay level), `vol` 0 to 2 (2 decimals), `r` the distance within which a sound is at
   full volume (0.1 to 20 m, 2 decimals).
@@ -493,11 +495,45 @@ The panes (page HTML and headset canvas twins, the same content):
 
 ## Placement in a headset
 
-Life size, like the design room: the scene's origin at the rig's floor point (outside a room: where you stood as the
+Life size, like the design room. Outside a room the scene's origin is the rig's floor point: where you stood as the
 session or the studio began, facing your way; anchored with `HOST.anchor` when Anchor is on, so an exhibit comes back
-at the same place in the real room; at a station: the station's spot, so moving the circle moves the scene, and a
-scene calibrated to the room's spots stays put while the circle does). The grip on nothing moves only the panel. In VR a
-dark floor with a faint 1 m grid and a soft sky; in passthrough nothing of those.
+at the same place in the real room.
+
+At a station in a shared room (v125; the owner, 8 November 2026: "In studio mode align all things to the room marks and
+have the circle only be the entry, so that moving the circle does not move the studios scene content") the scene's frame
+is the room's: room coordinates as `shared.js` keeps them (the floor at y = 0, the origin and axes the room's; on a room
+calibrated on its floor spots, spot A on the floor and x towards spot B). The rig stays the station's spot (1.6 m over
+the room's floor, facing the station's way; the panels float there), and the studio hangs its scene from the rig at the
+room's origin (`xrPlace` with `xrRoomBase` in `engine/e8_xr.js`: the rig's inverse times the shell's room matrix,
+`HOST.room.matrix()`, every frame, so the scene holds still while the circle glides somewhere else). So:
+
+- every item stands at the same place in the real room whichever circle shows it and wherever that circle stands; two
+  studio circles of one scene show it at the same place;
+- moving or turning the circle (the grip, the room map, Move here; Arrange all leaves studio circles alone anyway)
+  changes nothing of the scene; walking into the circle (or *Go in*) still enters the studio there;
+- behaviours take the people's heads in room coordinates as the scene's (`HOST.collab.heads()`, no turn by the spot);
+  the effect `beh`'s samples were in the scene's frame already;
+- the VR stick walk still moves the scene for one headset; pages draw the scene in its own frame, as before; a shell
+  without `HOST.room.matrix` gives the old placement (the scene at the spot).
+
+**Move the scene to this circle.** A layout made before v125 stood round its circle (the scene's origin at the circle's
+spot, facing its way). The Scene pane, while editing at a studio station in a room (page and headset alike), has *Move
+the scene to this circle* with a note: *Since v125 the scene stands on the room's spots and its circle is only the way in:
+moving the circle moves nothing of it. A scene placed before then stood round its circle: this moves every item there
+again, for everyone (one Undo step).* It takes every item's placed pose through this circle's spot, from the station's
+record (`p' = (x, 0, z) + turn(yaw) p`, the station's `x`, `z`, `yaw` as the shell places the rig there;
+`sceneToCircle` in `engine/e6d_shapes.js`): the objects', shapes' and empties' `p` and `q`, the cubes' `p` and `yaw`, the
+sounds' `p` (one following something keeps its offset `o` on what it follows; its own `p` is where it stands when that is
+not there) and a sound's own recorded `path` (its keys are in the scene's axes: turned with it, `pathTurned`). Nothing in
+an item's own frame changes: cut-outs, offsets, the other items' paths, motions and behaviours are relative and stay (a
+motion about the scene's x or z axis keeps its axis, so a turn of other than a quarter turn changes its direction in the
+room). One change, one Undo step, every record written (as a group's move writes its members), so shared and saved.
+Refused while the scene is locked (*Lock this story*: editing is off then, so it is not offered) or while an item is
+locked in place, saying which (*Refused: Box is locked in place: the scene does not move until that is unlocked.*).
+
+The grip on nothing moves only the panel. In VR a dark floor with a faint 1 m grid and a soft sky (round the scene's
+origin: at a station the room's); in passthrough nothing of those. Untested on a headset: how a scene on the room's frame
+feels from a circle across the room, and that a real room's frame lines it up.
 
 ## GLB first, and converting (the owner, 4 November 2026)
 
@@ -1111,8 +1147,8 @@ headset so only react to one headset, example closest or first player who walks 
   id. Nobody: it goes home (its placed pose) by itself, at most `speed` (turning at most half a turn a second).
 - **Shared at a station**: everyone there sees it react to the same one person. Every device works out who that is from
   the same heads: the shell's `HOST.collab.heads()` (the heads of the people in a headset at this device's live station,
-  its own among them, from presence, in room coordinates with the relay's time of each), turned into the scene's frame
-  (whose origin is the station's spot: back to the spot, turned back by its yaw), this headset's own as the studio has it
+  its own among them, from presence, in room coordinates with the relay's time of each), which are the scene's
+  (since v125 the scene stands on the room's frame at a station: "Placement in a headset"), this headset's own as the studio has it
   (exact). That person's headset **drives** it: it moves it every frame from its own head and sends where it put it, its
   move along the floor and its turn from its placed pose (`[id, tx, tz, d, since]`, to the mm and the milliradian), about
   ten times a second as one quiet effect of the studio's, `beh` (`{ at: the relay's time, b: [...] }`, every item it
@@ -1650,6 +1686,11 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
   on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
   loop join: "Testing" in `AGENTS.md`.
+- The scene on the room's frame and *Move the scene to this circle* (v125): `tools/collab.mjs --studio`'s step after From
+  another scene (the headset at a circle away from the room's origin drawing every item at its record's place in room
+  coordinates; the circle moved 2 m and turned 90 degrees, every item staying put frame by frame; the button refused while
+  an item is locked, then every item at the circle's spot transform of its old place, one Undo step, the same on every
+  device): "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

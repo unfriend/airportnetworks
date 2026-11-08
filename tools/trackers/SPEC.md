@@ -105,8 +105,9 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   pose in the tracker's frame (metres to the mm, turned but not scaled; 4 decimals). Its card (page and headset, editing
   on): *Follows a tracker: None / <name or serial>...*; choosing one keeps the item where it stands now (the offset from
   the tracker's pose now); *Snap onto it* sets the offset to zero; one Undo step each, shared and saved.
-- Drawn through the pose pipeline as its base stage (as behaviours are, `POSE.base`): the tracker's room pose turned into
-  the scene's frame at the studio's station (its spot and facing), times the offset; a motion and a path draw over it;
+- Drawn through the pose pipeline as its base stage (as behaviours are, `POSE.base`): the tracker's room pose, which is
+  the scene's frame at a studio station since v125 (the scene stands on the room's frame there, its circle only the way
+  in: no turn by the station's spot and facing needed), times the offset; a motion and a path draw over it;
   the record never changes. Not seen: its last pose held; never seen here: its placed pose. Rests at its placed pose
   while held here or paused, as everything that moves (v122). A sound may follow such an item as any other.
 - `FORMAT` networks-37 (the studio's `state()` changes shape).
