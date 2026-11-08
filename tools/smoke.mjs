@@ -5336,6 +5336,13 @@ if (runs('studio motions')) {
         if (cl) { setRec('box001', { anim: 'loop', clip: cl }); M.at('box001', 1); M.at('box001', 1.3);
           const gc = STUDIO.ghost('box001');
           if (!gc || !gc.shown || !same(gc.at, STU.items.get('box001').holder.matrix.toArray(), 1e-6)) o.push('its clip playing while editing: no ghost where it is placed: ' + JSON.stringify(gc));
+          // selected, it keeps it (its holder stays at its placed pose, so it is never far): the page's arrows on its holder,
+          // where the ghost stands (tcTarget), and still after a moment of its clip
+          select('box001'); M.at('box001', 1.6); M.at('box001', 1.9);
+          const bh = STU.items.get('box001').holder, gs = STUDIO.ghost('box001');
+          if (!gs || !gs.shown || !same(gs.at, bh.matrix.toArray(), 1e-6)) o.push('selected with its clip playing, its ghost went: ' + JSON.stringify(gs));
+          if (GL.tc && (GL.tc.object !== bh || tcTarget(STU.items.get('box001')) !== bh)) o.push('selected with its clip playing, the arrows are not on its holder (its ghost)');
+          select(''); M.at('box001', 1);
           }
         else o.push('the box has no clip to check its ghost with'); }
       setRec('box001', { anim: 'off' }); M.at('box001', 1);

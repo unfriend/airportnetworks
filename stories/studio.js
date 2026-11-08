@@ -22800,7 +22800,8 @@ const _ghq = new THREE.Quaternion();
 GHOST.build = 4;
 // a model its own clip moves (v125; the owner, 8 November 2026: "I do not see the ghosts of moving things in studio mode",
 // of models whose animation moves them while their place stays): while editing its ghost stands where it is placed, in
-// its rest pose, the whole time its clip plays
+// its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
+// ghostFar alone would hide it)
 const clipMoves = it => it.kind === 'o' && !!it.model && !!it.action && it.dur > 0 && it.rec.anim !== 'off';
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
@@ -22814,7 +22815,9 @@ function ghostStep(editing, now) {
     let G = GH.get(id);
     const far = !rec && ghostFar(it);
     if (G && far) G.far = now;
-    const vis = rec || how === 'clip' || far || (!!G && now - G.far < GHOST.hold);
+    // (a model its clip moves: shown the whole time it plays, selected or not; its holder stays at its placed pose, so the
+    // page's arrows stand on the holder there, where the ghost is: tcTarget)
+    const vis = rec || far || (!rec && clipMoves(it)) || (!!G && now - G.far < GHOST.hold);
     if (!vis && !G) continue;
     if (!G || G.key !== ghostKey(it)) {
       if (!G && built >= GHOST.build) continue;
