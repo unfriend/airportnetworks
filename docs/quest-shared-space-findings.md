@@ -100,8 +100,11 @@ what we do about it.
 - **Anchors.** Anchors made during the session were not tracked again after waking. We wait up to 5 s, then look
   them up again by their persistent handles. Waking never drops a calibration: asking to calibrate after every
   wake was worse. After a standby the handles found nothing in the same session either (twenty tries over ten
-  minutes), while a new AR session found both anchors at once. So the panel then asks to leave AR and enter it
-  again, and a jump of the origin keeps a calibration whose handles are saved instead of asking for a new one.
+  minutes), while a new AR session found both anchors at once. So the panel then asked to leave AR and enter it
+  again, and a jump of the origin keeps a calibration whose handles are saved instead of asking for a new one. Since
+  v124 (the owner, 8 November 2026: "The leave ar message after standby or resume can go away, alignment nearly
+  always good and has a check now too") no message asks that: the headset keeps looking for its anchors, still counts
+  as lined up, and the check by eye asks whether the crosses sit on the spots.
 - **After a night** (seen once, no logs yet): one of two headsets was offset, the other right. Our reading: the
   space can come back made again under the same id, around whichever headset woke first. So we hold the frame the
   resets carried until the space agrees, judge a space that disagrees only after 20 s, write our own frame into it

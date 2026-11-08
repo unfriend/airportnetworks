@@ -9,6 +9,15 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
+// every page here starts with the headsets' welcome off (v124, Getting around: once a session, in front of a pretend
+// headset's view, which the steps that read pixels or panels back do not expect); browser.newPage makes its context
+// through browser.newContext, so this covers both
+const newContext = browser.newContext.bind(browser);
+browser.newContext = async (o = {}) => {
+  const ctx = await newContext(o);
+  await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+  return ctx;
+};
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));

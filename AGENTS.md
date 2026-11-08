@@ -713,27 +713,37 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     within 30 s. A Web Audio engine that runs after all is taken back.
     `follow()` only trusts a clock that is known to move, so a stuck engine never
     freezes a story.
-  - The mute (the Sound button: the page's bar, focus mode's foot bar, a
-    narrated story's headset foot panel, and *Sound: on/off* on the headset
-    menu's Settings tab, `HOST.audio.mute(on)`) is **on by default** (v109; the
-    owner, November 2026: "Default to sound off in all modes"): a device plays
+  - Sound by mode (v124; the owner, 8 November 2026: "On mobile and desktop default to no sounds and no narration until
+    manually enabled, in ar and vr default to sounds but no narration"; "narration in headsets should stay on when its
+    turned on once"). A headset session (VR or AR on any device, the Quest and a phone's AR alike: `HOST.inXR()`, a
+    session in `HOST.session` or the renderer presenting) has its own mute and narration, apart from the page's; leaving
+    the session, the page's apply again. The hum, both engines and the watchdog are unchanged.
+  - The mute (the Sound button: the page's bar, focus mode's foot bar, and
+    *Sound: on/off* on the headset menu's Settings tab, `HOST.audio.mute(on)`,
+    `HOST.audio.muted` the one that applies now). On a page it is **on by default** (v109; the
+    owner, November 2026: "Default to sound off in all modes", kept for pages): a device plays
     nothing, narration, effects, backgrounds or the vacuum, until it turns the
     sound on, and its choice is saved under `narrationMuted3` (only `'0'` keeps
     the sound on; a new key, so every device started muted once; the older
     `narrationMuted`, a mute saved when *Play sound* was pressed in the headset,
-    and `narrationMuted2`, sound on by default, are removed). Muted, a story
+    and `narrationMuted2`, sound on by default, are removed). In a headset session it is **off by default**
+    (v124): effects play at once (Enter VR or AR is a tap, so the engines start), and only the menu's *Sound* row turns
+    it on there, saved as `xrMuted` (`'1'` keeps the session muted); the page's own stays as it was. Muted, a story
     runs on its own clock with its subtitles, as with the Narration switch off.
     The bar's button says *Sound off* (title *Turn the sound on*); a press turns
     it on (it is a tap, so it starts the engines too); with no recording (a
     story without one, the design room) it stays, for the effects (*Sound off*,
     *Sound on* or *Play sound*). `#sound=on|off` in a link sets it (saved).
     *Play sound* (and any press while loading with the sound on) only starts the
-    engines; it never mutes. Reset in Sound check turns it on. The Narration
-    switch (v100, `HOST.xr.voice()`, in a room the room's; see "The two sound
+    engines; it never mutes. Reset in Sound check turns both mutes off. The Narration
+    switch (v100, `HOST.xr.voice()`, the narration that applies now; see "The two sound
     switches" under "Sound effects") is a second, finer way to silence it:
     `sync` plays nothing and `speaking()` is false while it is off, so the story
     runs on its own clock and the effects do not duck; the mute (the Sound
-    button) stays this device's quick mute of everything.
+    button) stays this device's quick mute of everything. In a headset session the story panel's Sound button
+    (every story's `hb('sound', ...)`, calling `HOST.audio.toggle()` and drawing `AUD.label()` and `AUD.on()`: a shell
+    change, no story file touched) is this headset's narration switch: it says *Narration on* or *Narration off*, lit
+    while on, and a press turns this headset's narration on or off (`HOST.xr.setVoice`), never the mute.
   - Sound check (`#soundcheck`, a button on the page's Stories screen; in the
     headset a page of its menu, the shell's `soundPage`, in or out of a shared
     room; since v109 no longer a panel of the headset Stories screen) shows `HOST.audio.report()`, plays a beep through each
@@ -808,17 +818,39 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `HOST.xr.setVoice(on)`: off, the narration is silent on both engines,
     `HOST.audio`'s `voiceOff()` in its `sync` and `speaking`, and the story runs
     on its own clock as when muted; the effects and the subtitles go on, nothing
-    ducks). Both on by default. In a shared room they are the room's, for every
-    headset and page in it (key `look`, `sfx` and `voice`, beside the headsets'
+    ducks). Sound effects on by default, and the narration on a page (`narrationOn`, only `'off'` saved keeps it off).
+    In a shared room the effects are the room's, for every
+    headset and page in it (key `look`, `sfx`, beside the headsets'
     four settings; set by anyone, never refused by either lock; one the room
     never wrote stays each device's own, so a device that turned it off keeps it
     off, and another setting written leaves it out of the key),
-    else this device's own (`sfxOn`, only `'off'` saved keeps them off;
-    `narrationOn` likewise), which keeps a room's last value after leaving it,
-    as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link.
+    else this device's own (`sfxOn`, only `'off'` saved keeps them off),
+    which keeps a room's last value after leaving it,
+    as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link (the latter both of this device's own
+    narration values, the page's and a headset session's: `HOST.xr.setVoiceOwn`).
+  - The narration (v124; the owner, 8 November 2026: "narration in headsets should stay on when its turned on once but
+    should also have a global setting where i can turn it off or on for every headset in the room at once (each headset
+    could still turn it on or off individually and this would then reset once the headset goes into the lobby"). What
+    applies (`HOST.xr.voice()`, and why, `HOST.xr.voiceWhy()`: `'room'`, `'own'` or `'mine'`):
+    - On a page: in a room the room's (`look`'s `voice`, once written), else `narrationOn`. A page's press (Sound check,
+      the Shared dialog) in a room is the room's for everyone (below), outside a room its own.
+    - In a headset session outside a room: this headset's own (`xrNarration`), **off by default** and remembered once
+      turned on (the menu's *Narration* row, the story panel's button).
+    - In a headset session in a room: this headset's own for the room if it changed it there (an override, `{ code, vg,
+      on }` kept as `xrNarrRoom`, never written to the room, so it survives a new session in the same room), else the
+      room's `voice` when written, else this headset's own (off by default). The override goes when the room's `vg` moves
+      on (a press for everyone: every headset follows it at once), when this headset goes to Back to the lobby (walking
+      in or *Go in*: where the shell calls the story's `lobby` hook, `HOST.xr.voiceDrop('lobby')`) and when it leaves the
+      room (`voiceDrop('leave')`; another room's code drops it too).
+    - For everyone (`HOST.xr.setVoiceAll(on)`, `HOST.collab.setVoiceAll(on)`): a write of `look` with `voice` and `vg`
+      one more (FORMAT networks-36: an older device writing `look` would drop `vg`), so a press always means "set every
+      headset and page here to this". From the headset menu's Circles tab (*Narration for everyone here*: *On for all*
+      and *Off for all*, `voiceall:on` and `voiceall:off`, lit by the room's value, with a note) and the page's Shared
+      dialog (its Sound row's Narration in a room). Every write of `look` keeps `vg` (`setLook`).
     Rows: the headset's menu (*Sound: on/off*, this headset's mute, then *Sound
     effects: on/off* and *Narration: on/off* side by side under Subtitles and
-    Panels, then *Effects volume* with a note),
+    Panels, then *Effects volume* with a note: the volume and the narration this headset's own, until the lobby, Sound
+    effects the room's), the Circles tab's *Narration for everyone here*,
     the page's Shared dialog (a Sound row under the room's parts, shown in a
     room for everyone there and outside a room for this device) and Sound check
     (Sound effects: on/off, a volume slider, Try them, Narration: on/off). The
@@ -1113,10 +1145,10 @@ whole ms, and `h: 1` while it is still held: "Others' moves, smooth" below),
 page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
 with the station's other keys when it shows another story; FORMAT networks-25), `lock` (the circles lock, `{ on, by, at }`,
 below; FORMAT networks-6),
-`look` (the headsets' four settings, the two sound switches and the circles walked into or asked first, `{ labels, cards, free, subs, sfx, voice, ask, by, at }`: set by anyone,
+`look` (the headsets' four settings, the two sound switches and the circles walked into or asked first, `{ labels, cards, free, subs, sfx, voice, ask, vg, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
 lock; a room without it gives labels on top, cards in 3D, no subtitles and circles asked first (since v120; walked into before), and leaves a sound switch it never wrote to each device; free moving turned off takes
-every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33, asked first by default since networks-35), and per shared space `rf.<space id>` (the room's frame in it) and
+every `q` out of the stations' places and panels in the same write; `ask`: "Circles asked first" below, FORMAT networks-33, asked first by default since networks-35; `vg`: a number every press of Narration for everyone moves on, so each headset's own narration in the room goes, kept by every write of `look`: "The narration" under "Sound effects", FORMAT networks-36), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
@@ -1419,7 +1451,8 @@ empty's). The plan is
   *Lining up with the room...*, or *Not lined up yet* with why (`LU_WHY`: no shared space, not in the others' shared
   space (`R.notJoined`), the space split (`splitHere`), no room scan (`R.noScan`, for a frame taken through the space),
   another Quest Browser version (the frame's writer's, `otherVersion`; `versionNote` before it lines up), the shared
-  space switched off, its spots not found (`R.reenter`), or nothing after 20 s). The user-facing words say *spot A* and
+  space switched off, or nothing after 20 s; since v124 its own spots' anchors not found again after waking, `R.reenter`,
+  no longer count: the check by eye asks instead). The user-facing words say *spot A* and
   *spot B* (the code still says marks: `mark()`, `R.saved`, `R.mk`, key `rm`).
   - The room's spots (`roomMk()`): `[height of A, A to B, height of B]` in room coordinates, as this headset puts them: a
     frame from spots has its origin at spot A and its x axis towards B, so A is at `(0, hA, 0)` and B at `(d, hB, 0)`.
@@ -1794,9 +1827,33 @@ empty's). The plan is
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
   start of every session, and nothing of it shows then: no watch (the owner, 1 November 2026: "Watch can be totally
   hidden now, not needed anymore if we can open the menu with stick click or double pinch"; until v102 a clock showed
-  the time on the left wrist, and the loading ring sat there too). A notice titled *The menu*, 2.5 s into a session, says how to open it
+  the time on the left wrist, and the loading ring sat there too). The welcome, *Getting around* (v124, below), says how
+  to open it; with the welcome off (tests) a notice titled *The menu*, 2.5 s into a session, says it as before
   (set as the session starts, in `watch`: *Click a stick to open the menu*, or with tracked hands *Pinch twice with your left hand, pointing at
-  nothing*), unless it is open by then. The menu opens and closes with a click of either stick
+  nothing*), unless it is open by then.
+- Getting around (v124; the owner, 8 November 2026: "a little popup toast at the beginning after alignment that tells
+  people to click the rooms to enter in case its in click to enter mode and to move to them if its in that mode, also
+  quickly explain the controllers, the button for clicking and the button for grabbing"; `WEL`, `welStep`, `drawWelcome`,
+  `OV.wel`): once a session in a headset, a small panel in front of you (its own sheet, not a notice, so `notes()` is
+  unchanged: 760 x 360 px, 0.56 m wide, 1.05 m ahead and 2 cm under the eyes, eased with the head as the notices are
+  and above where they show, over everything, `renderOrder` 54, never pointable) for 14 s (`WEL.ms`, *Closes by itself
+  in n s*), with a soft chime. Its words: *Getting around*; in a room with circles (the room's arc aside), by the room's
+  setting, *Point at a circle's card or icon and press the trigger to go in.* (asked first) or *Walk into a circle to go
+  in.* (walked into); in a room with only the room's arc, *Point at a story's card in front of you and press the trigger
+  to start it.*; then *Trigger (index finger): click.*, *Grip (middle finger): grab and move things.* and *Click a
+  stick: the menu.*, beside a controller drawn from the side with its trigger in cyan and its grip in amber. With tracked
+  hands (the left input source a hand): *pinch* for the trigger in the circles' line, *Pinch: click.* and *Pinch twice
+  with your left hand: the menu.* (a hand grabs nothing: the grip comes from squeeze events only). In a shared room it
+  waits until this headset is lined up (`lineUp().k` `'ok'`, or `'away'` or `'alone'` where nothing lines up) and nothing
+  else is in front of it: not while the startup flow is to come or shows (the room setup guide, the check by eye), nor
+  while calibrating, checking or re-aligning, nor over the circles' question, the once-per-room question, the menu or
+  its keypad; outside a room 2.5 s into the session (`WEL.wait`). It closes early when the menu opens (or the circles'
+  question, the check by eye or a calibration comes), and does not come again that session. Never in camera mode
+  (`HOST.collab.cameraMode()`, where a version has it). Its opening by itself: `HOST.collab.autoWelcome(on)` (off also
+  closes one on show), or `localStorage` `collabAutoWelcome` = `off` before the page loads (every page `tools/collab.mjs`,
+  `tools/smoke.mjs` and `tools/audio.mjs` open has it, as `collabAutoAll`; `installXR`'s `welcome: true` turns it on);
+  `HOST.collab.welcome()` (`{ shown, at, text, mode: 'ask' | 'walk' | 'arc' | '', hands, done }`) is for tests. How it
+  reads and where it stands on a real headset, and its timing after a real alignment, are untested. The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
   0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
@@ -1846,10 +1903,11 @@ empty's). The plan is
     settings"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
-    a line that these four and the two sound switches are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
-    mute, the Sound button's, `HOST.audio.mute`: off until turned on, v109; a press is a tap, so it starts the engines
-    too; a note beside it); *Sound effects: on/off* and *Narration: on/off* side by side (the two sound switches, for every story; in a room the room's: "The two sound switches"),
-    then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* and *Studio* side by
+    a line that these four and Sound effects are the room's takes its place); *Sound: on/off* (`set:sound`, this headset's
+    mute in the session, `HOST.audio.mute`: on until turned off there, v124, saved as `xrMuted`; a press is a tap, so it
+    starts the engines too; a note beside it); *Sound effects: on/off* and *Narration: on/off* side by side (Sound effects
+    for every story, in a room the room's: "The two sound switches"; Narration this headset's own, in a room until the
+    lobby: "The narration"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* and *Studio* side by
     side (outside a room each opens its page; in a room *Design room here* and *Studio here* put its circle at your
     feet: "The design room in a room", "The studio in a room"), a note under each.
   - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
@@ -1857,7 +1915,8 @@ empty's). The plan is
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
     stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all
     rings* and *On this network*; *Circles: walk in* / *Circles: ask first* with a note (the room's, "Circles asked
-    first"); above them, for a headset in the room with the others, *Room setup* and how it lines up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
+    first"); *Narration for everyone here*: *On for all* and *Off for all* (v124, "The narration" under "Sound effects");
+    above them, for a headset in the room with the others, *Room setup* and how it lines up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
     possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
     boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
@@ -2125,14 +2184,17 @@ empty's). The plan is
   (`restore`, `retryDue`; "Spots found again"); a retry does not hold the room
   in 'restoring', and a calibration from last time not found at session start
   is looked for the same way. Waking never drops a calibration
-  (asking to calibrate after every wake was worse). Not found after waking, the
-  panel asks to leave AR and enter it again (`lostMarks`, `R.reenter`, log
-  `marks lost`; in a test after a standby twenty tries over ten minutes failed
-  and a new AR session found them at once), and so does a reset without a
+  (asking to calibrate after every wake was worse). Not found after waking
+  (`lostMarks`, `R.reenter`, log `marks lost`; in a test after a standby twenty tries over ten minutes failed and a new
+  AR session found them at once), and likewise after a reset without a
   transform or a jump of the origin while the anchors are not held but their
-  handles are saved: the calibration is kept and its anchors looked for again
-  at once (only a calibration with no saved handles asks to calibrate again).
-  Found after all, the request goes.
+  handles are saved: the calibration is kept, its anchors are looked for again
+  (at once, then on the retries' schedule; only a calibration with no saved handles asks to calibrate again), the
+  headset still counts as lined up (`lineUp`), the Debug tab's line says *Your own marks (looking for their anchors
+  again)*, and in AR in a room with spots the check by eye asks (`eyeWant('lost')`). Until v124 a notice and the panel
+  asked to leave AR and enter it again; the owner, 8 November 2026: "The leave ar message after standby or resume can
+  go away, alignment nearly always good and has a check now too". Re-align that finds no spots says *Spots not found*:
+  the headset keeps looking, and to calibrate again if the orange crosses are off the two spots.
 - The browser's store of saved anchors can be full ("Maximum number of
   anchors reached!": one Quest 3 refused every handle with 9 listed for the
   site, another saved with 11, so the limit is not simply per site). At
@@ -4448,7 +4510,12 @@ After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
 rule (an `AudioContext` starts locked and only a real tap unlocks it; an
 `<audio>` element plays only once started inside a tap; its pages start as a
-device that turned the sound on, `narrationMuted3` `'0'`) and checks the sound
+device that turned the sound on, `narrationMuted3` `'0'`, whose headset turned its narration on, `xrNarration` `'on'`,
+with the headsets' welcome off) and checks a headset session's own sound (v124: on a fresh device a pretend session
+unmuted with effects playing and its narration off, the story panel's button saying *Narration off*; that button turning
+the narration on, playing, remembered across a reload and a new session; the page's own mute, *Sound off*, unchanged
+after the session; the menu's Sound row the session's mute, `xrMuted`, its Narration row the session's, `xrNarration`,
+and a controller's press on the story panel's button turning the narration off and on), the sound
 off by default (a fresh device, also one with the sound on under the old key,
 showing *Sound off*, a tap playing the story silently, no narration and no
 effects, until Sound is pressed; a page without a recording (the design room) having the button
@@ -4827,7 +4894,20 @@ finds it, a minute or two, running the main run's own steps, `standbySteps`): th
 headset's own floor, standby with the floor 15 cm lower and a wrong space held off, the room back where it was and at the
 same height once the space agrees, read once the room has looked at the space again (up to 8 s of frames; the fixed
 800 ms read before missed that look whenever one of a software-drawn page's 1 to 4 s frames fell there, as in every
-main run of v119 and v120), and woken again on the first floor. `--design` runs only the design room
+main run of v119 and v120), and woken again on the first floor. `--narration` runs only the narration in headsets and
+the welcome (`narrationRound`, also in the main run after your menu shown to your circle; a room of its own with a story
+circle and the lobby, a page and two pretend headsets lined up through the shared space, a few minutes): the narration
+off by default in a session (the session's mute off, the panel's button *Narration off*; the page's own on, its mute on);
+the page's Shared dialog's Narration pressed twice (Off for all, then On for all, `look`'s `vg` 1 and 2) reaching both
+headsets; one headset's own Off from its menu an override (`xrNarrRoom` `{ code, vg, on }`), the other staying on,
+`look` unchanged and nothing written by it; the other's story panel button the same; Off for all and On for all from a
+headset's menu (Circles) dropping both overrides (`vg` 3 and 4); an override kept through a new session (between
+sessions the page follows the room's); walking into Back to the lobby dropping it (the log's `narration own dropped`,
+`lobby`); no `look` ever written by the headset with its own; leaving the room dropping it. The welcome: not before
+lining up (3.5 s with no shared space id), then once, asked first (the trigger's words and the controllers' buttons, in
+front, not pointable, no notice *The menu*); the menu opening closing it, not again that session; walked into, the walk's
+words; not while the room setup guide shows, then once it is closed; tracked hands, the pinch's words and no grip;
+outside a room 2.5 s in, never while a stub of `HOST.collab.cameraMode` says camera mode. `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
 canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
 `--token` runs only the relay's password (`tokenRound`, not in the main run; a relay of its own with `COLLAB_TOKEN`, a

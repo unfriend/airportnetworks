@@ -717,7 +717,7 @@ body.focus:not(.picking) #hhCard { top: calc(var(--fc-top) + 10px); }
       <p class="hint">Follow a person in a headset: this page shows whichever station they stand at, switching as they walk (for people watching on a screen instead of wearing a headset).</p>
     </div>
     <h3>Sound</h3>
-    <div class="row sh-sound"><span>On this device (in a shared room, the room's):</span><button class="btn" type="button" data-sh="sfx" aria-pressed="true" title="Clicks, chimes and the stories' own sounds (whooshes, beeps, picks), for every story">Sound effects: on</button><button class="btn" type="button" data-sh="voice" aria-pressed="true" title="The stories' spoken narration, for every story (subtitles and sound effects go on without it)">Narration: on</button></div>
+    <div class="row sh-sound"><span>On this device (in a shared room, the room's):</span><button class="btn" type="button" data-sh="sfx" aria-pressed="true" title="Clicks, chimes and the stories' own sounds (whooshes, beeps, picks), for every story">Sound effects: on</button><button class="btn" type="button" data-sh="voice" aria-pressed="true" title="The stories' spoken narration, for every story (subtitles and sound effects go on without it); in a shared room for every page and headset there, also those that changed their own">Narration: on</button></div>
     <h3>You</h3>
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
@@ -793,16 +793,23 @@ for (const proto of [EventTarget.prototype, THREE.EventDispatcher.prototype]) {
 // Stories screen, page and headset) shows what happens, plays test beeps and can pick an engine.
 // Stories: AUD = HOST.audio.narration(url, { ready, error }); AUD.sync(playing, t) and
 // t = AUD.follow(t) every frame; AUD.seeked() after a jump; AUD.label(), AUD.on() for panels.
+// A headset session runs (VR or AR, on any device: a Quest, a phone's AR): the sound's defaults there are the
+// session's own (HOST.audio's mute, HOST.xr's narration), kept apart from the page's
+HOST.inXR = () => !!HOST.session || !!(HOST.renderer && HOST.renderer.xr && HOST.renderer.xr.isPresenting);
 HOST.audio = (function () {
   const AC = window.AudioContext || window.webkitAudioContext;
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
   const A = {
     ctx: null, gain: null, hum: null, el: null, elFor: '', elBlob: '', primed: false, priming: false, starting: false, blocked: '', blockedAt: 0,
-    // the mute (the Sound button: this device's quick mute of everything), on until this device turns the sound on (the
-    // owner, November 2026: "Default to sound off in all modes"); a new key, so every device starts muted once (older
-    // keys: narrationMuted saved a mute when "Play sound" was pressed in the headset; narrationMuted2, sound on by default)
-    muted: get('narrationMuted3') !== '0', pref: get('soundEngine') || 'auto', bad: { webaudio: '', media: '' },
+    // the mute (the Sound button: this device's quick mute of everything), one for the page and one for a headset session
+    // (the owner, 8 November 2026: "On mobile and desktop default to no sounds and no narration until manually enabled, in
+    // ar and vr default to sounds but no narration"). The page's (pmuted) is on until this device turns the sound on
+    // (v109's "Default to sound off in all modes", kept for pages; a new key then, so every device started muted once:
+    // narrationMuted saved a mute when "Play sound" was pressed in the headset; narrationMuted2, sound on by default). A
+    // session's (xmuted, v124) is off until it is turned off there (the menu's Sound row), kept as xrMuted; the narration in
+    // a session is off by default all the same (HOST.xr.voice)
+    pmuted: get('narrationMuted3') !== '0', xmuted: get('xrMuted') === '1', pref: get('soundEngine') || 'auto', bad: { webaudio: '', media: '' },
     cur: null, session: null, files: new Map(), mediaOn: false, tapped: false, tapAt: -1e9, lastTap: '', ranAt: -1e9,
     tryAt: 0, tryWhy: '', resumeAt: 0, cycleAt: 0, errorAt: 0,
     shown: '', on: 0, checkAt: 0, ct: null, rate: null, stalls: 0, errors: 0, cycling: false, mt: null, mrate: null, mStalls: 0,
@@ -819,6 +826,8 @@ HOST.audio = (function () {
   // listeners added here belong to the shell, not to the story that happens to be running
   const quiet = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const running = () => !!A.ctx && A.ctx.state === 'running';
+  // the mute that applies now: a headset session's own, else the page's
+  const muted = () => (HOST.inXR() ? A.xmuted : A.pmuted);
   // the Narration switch (HOST.xr.voice(): in a shared room the room's, else this device's narrationOn) turned off: the
   // narration is silent on both engines and the story runs on its own clock, as when muted; the effects and subtitles go on
   const voiceOff = () => !!(HOST.xr && HOST.xr.voice && !HOST.xr.voice());
@@ -1013,7 +1022,7 @@ HOST.audio = (function () {
         if (s.visibilityState === 'hidden') { hush(); hum(false); } else { hum(humWanted()); resume(); }
         A.ct = null; A.mt = null; changed();
       });
-      s.addEventListener('end', () => { if (A.session === s) { A.session = null; hum(false); } note('headset session ended'); });
+      s.addEventListener('end', () => { if (A.session === s) { A.session = null; hum(false); } note('headset session ended'); setTimeout(changed, 0); });   // (the page's own mute and narration again)
     });
     note('headset session started');
     unlock(); // still close to the Enter VR click, which browsers count for a few seconds
@@ -1203,7 +1212,7 @@ HOST.audio = (function () {
       if (A.cur !== N) return;
       check();
       if (N.state !== 'ok') return;
-      want = want && !A.muted && !voiceOff() && !away() && (!N.duration || t < N.duration - 0.05);
+      want = want && !muted() && !voiceOff() && !away() && (!N.duration || t < N.duration - 0.05);
       const e = engine(N);
       if (!want || e !== 'webaudio' || !running()) stopSource(N);
       if (!want || e !== 'media') { if (A.mediaOn) mediaStop(); }
@@ -1228,14 +1237,16 @@ HOST.audio = (function () {
       const d = p - t;
       return Math.abs(d) < 0.6 ? t + d * 0.2 : p;
     };
-    N.label = () => label(N);
-    N.on = () => label(N) === 'Sound on';
+    // (in a headset session the story panel's Sound button is this headset's narration switch: Narration on or off, and
+    // a press, toggle(), turns it on or off; the menu's Sound row is the session's mute)
+    N.label = () => (HOST.inXR() && label(N) ? (voiceOff() ? 'Narration off' : 'Narration on') : label(N));
+    N.on = () => (HOST.inXR() ? !!label(N) && !voiceOff() : label(N) === 'Sound on');
     changed();
     return N;
   }
   function label(N) {
     if (!N || N.state === 'none') return '';
-    if (A.muted) return 'Sound off';   // (also while loading: off is what it is until a press)
+    if (muted()) return 'Sound off';   // (also while loading: off is what it is until a press)
     if (N.state === 'loading') return 'Sound loading';
     if (engine(N) === 'webaudio') {
       if (A.bad.webaudio && A.pref === 'auto') return 'Sound unavailable'; // both engines are out
@@ -1248,7 +1259,7 @@ HOST.audio = (function () {
   }
   // the Sound button's label: the narration's, or with none (a story without a recording, the design room) the sound as a
   // whole, since the button silences the effects too and the sound starts off: off, on, or waiting for a tap
-  const shown = () => label(A.cur) || (!AC ? '' : A.muted ? 'Sound off' : running() ? 'Sound on' : 'Play sound');
+  const shown = () => label(A.cur) || (!AC ? '' : muted() ? 'Sound off' : running() ? 'Sound on' : 'Play sound');
   // the page's Sound button (headset panels read label() every frame) and Sound check
   function changed() {
     const l = shown();
@@ -1258,23 +1269,32 @@ HOST.audio = (function () {
     b.hidden = !l;
     b.textContent = l || 'Sound on';
     b.setAttribute('aria-pressed', l === 'Sound on' ? 'true' : 'false');
-    b.title = A.muted ? 'Turn the sound on' : l === 'Sound on' ? 'Turn the sound off (narration and effects)' : 'Start the sound';
+    b.title = muted() ? 'Turn the sound on' : l === 'Sound on' ? 'Turn the sound off (narration and effects)' : 'Start the sound';
     if (HOST.soundCheckShown) HOST.soundCheckShown();
   }
   // the Sound button: "Play sound" (or loading) only starts the engines, and so does the press
-  // that just started them; "Sound on" turns the sound off, "Sound off" on again (saved: this device's choice)
+  // that just started them; "Sound on" turns the sound off, "Sound off" on again (saved: this device's choice).
+  // In a headset session (the story panel's Sound button) it is this headset's narration switch instead (v124)
   function toggle() {
+    if (HOST.inXR()) {
+      unlock();   // (a press: it starts the engines too)
+      const on = !(HOST.xr && HOST.xr.voice && HOST.xr.voice());
+      if (HOST.xr && HOST.xr.setVoice) HOST.xr.setVoice(on);
+      note(on ? 'narration turned on in the headset' : 'narration turned off in the headset');
+      changed(); return;
+    }
     const l = shown();
-    if (!A.muted && (l !== 'Sound on' || performance.now() - A.on < 800)) { unlock(); return; }
-    mute(!A.muted);
+    if (!muted() && (l !== 'Sound on' || performance.now() - A.on < 800)) { unlock(); return; }
+    mute(!muted());
   }
-  // the mute set as such (the headset menu's Sound row, #sound=on|off in a link), saved as a press of the Sound button is
+  // the mute set as such (the headset menu's Sound row, #sound=on|off in a link), saved as a press of the Sound button is:
+  // in a headset session the session's (xrMuted), else the page's (narrationMuted3)
   function mute(on) {
     on = !!on;
-    if (on !== A.muted) {
-      A.muted = on;
-      put('narrationMuted3', on ? '1' : '0');
-      note(on ? 'sound turned off' : 'sound turned on');
+    const xr = HOST.inXR();
+    if (on !== muted()) {
+      if (xr) { A.xmuted = on; put('xrMuted', on ? '1' : '0'); } else { A.pmuted = on; put('narrationMuted3', on ? '1' : '0'); }
+      note((on ? 'sound turned off' : 'sound turned on') + (xr ? ' in the headset' : ''));
     }
     if (on) hush(); else unlock();
     changed();
@@ -1320,15 +1340,17 @@ HOST.audio = (function () {
     unlock();
   }
   function reset() {
-    A.muted = false; A.pref = 'auto'; A.bad = { webaudio: '', media: '' };
+    A.pmuted = false; A.xmuted = false; A.pref = 'auto'; A.bad = { webaudio: '', media: '' };
     A.stalls = 0; A.mStalls = 0; A.errors = 0; A.blocked = '';
-    put('narrationMuted3', '0'); put('soundEngine', 'auto');
+    put('narrationMuted3', '0'); put('xrMuted', '0'); put('soundEngine', 'auto');
     note('sound settings reset');
     if (A.ctx && A.ctx.state === 'closed') makeContext();
     if (A.cur) startDecode(A.cur);
     unlock();
   }
-  // the lines Sound check shows, on the page and in the headset
+  // the lines Sound check shows, on the page and in the headset (why the narration is off: the room's, a headset session's
+  // own, or this headset's own in the room until the lobby)
+  const WHY_OFF = { room: ', for everyone in this room', 'room+': ', for everyone in this room', 'own+': ', this headset\'s own', 'mine+': ', this headset\'s own in this room until the lobby' };
   function report() {
     const c = A.ctx, el = A.el, N = A.cur, ua = navigator.userActivation, e = engine(N);
     const num = x => (x == null || !isFinite(x) ? '-' : x.toFixed(1));
@@ -1342,7 +1364,7 @@ HOST.audio = (function () {
       'File: ' + (N ? N.url + ' - ' + ({ loading: 'loading', none: 'none for this story', ok: 'found' }[N.state]) +
         (N.state === 'ok' ? ', decoding ' + ({ idle: 'not needed', loading: 'running', ok: 'done', failed: 'failed' }[N.decode] || '-') : '') +
         (N.duration ? ', ' + Math.round(N.duration) + ' s long' : '') : 'no story'),
-      'Narration ' + (A.muted ? 'turned off here: the sound is off on this device (the Sound button)' : voiceOff() ? 'switched off (Narration: off' + (HOST.collab && HOST.collab.look && HOST.collab.look() && (HOST.collab.val('look') || {}).voice === false ? ', for everyone in this room)' : ')') : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
+      'Narration ' + (muted() ? 'turned off here: the sound is off on this ' + (HOST.inXR() ? 'headset (the menu\'s Sound row)' : 'device (the Sound button)') : voiceOff() ? 'switched off (Narration: off' + (WHY_OFF[HOST.xr && HOST.xr.voiceWhy ? HOST.xr.voiceWhy() + (HOST.inXR() ? '+' : '') : ''] || '') + ')' : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
         (ua ? '. Page has had a tap: ' + (ua.hasBeenActive ? 'yes' : 'no') : ''),
       'Page ' + document.visibilityState + (A.session ? ', headset view ' + A.session.visibilityState : ', no headset session'),
       ...(HOST.xr ? [HOST.xr.line()] : []),
@@ -1357,10 +1379,10 @@ HOST.audio = (function () {
   // reopened), else null: silent before the first tap and while only the <audio> element plays
   const fx = () => (A.ctx && running() && activated() && !away() && !A.bad.webaudio && A.pref !== 'media' && !A.cycling ? A.ctx : null);
   // the narration sounds now, through either engine (the effects duck under it)
-  const speaking = () => !!A.cur && !A.muted && !voiceOff() && (!!(A.cur.src && running()) || (A.mediaOn && !A.el.paused && A.elFor === A.cur.url));
+  const speaking = () => !!A.cur && !muted() && !voiceOff() && (!!(A.cur.src && running()) || (A.mediaOn && !A.el.paused && A.elFor === A.cur.url));
   document.getElementById('btnSound').addEventListener('click', toggle);
   return {
-    get ctx() { return A.ctx; }, get el() { return A.el; }, get muted() { return A.muted; }, get pref() { return A.pref; },
+    get ctx() { return A.ctx; }, get el() { return A.el; }, get muted() { return muted(); }, get pref() { return A.pref; },
     running, narration, unlock, toggle, mute, watch, drop, beep, setEngine, reset, report, zone, fx, speaking, engine: () => engine(A.cur), state: () => A,
   };
 })();
@@ -1416,9 +1438,18 @@ HOST.xr = (function () {
   // effects, sfx.js; this device's own is sfxOn) and voice() (the narration: off, it is silent on both engines and the
   // story runs on its own clock, as when muted; the effects and subtitles go on; this device's own is narrationOn), both
   // on unless turned off (a room that never wrote one leaves it to each device); #sfx=on|off and #voice=on|off in a link.
-  // The Sound button (the bar's, the headset panel's) stays this device's quick mute of everything, and the effects'
-  // volume this device's own.
-  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true };
+  // The Sound button (the bar's) stays this device's quick mute of everything, and the effects' volume this device's own.
+  // The narration in a headset session (v124; the owner, 8 November 2026: "in ar and vr default to sounds but no
+  // narration", "narration in headsets should stay on when its turned on once but should also have a global setting where
+  // i can turn it off or on for every headset in the room at once (each headset could still turn it on or off
+  // individually and this would then reset once the headset goes into the lobby"): its own value (xvoice, kept as
+  // xrNarration), off until it is turned on there (the menu's Narration row, the story panel's button), and remembered;
+  // in a room the room's (look's voice, once written) unless this headset changed its own there: an override for that
+  // room ({ code, vg, on }, xrNarrRoom), never written to the room, dropped when the room's vg moves on (a press of
+  // Narration for everyone: the menu's On for all / Off for all, the page's Shared dialog), when this headset goes to Back
+  // to the lobby (voiceDrop, from shared.js) and when it leaves the room. Pages keep narrationOn and, in a room, the room's
+  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, xvoice: false };
+  let ovr = null;
   try {
     const l = localStorage.getItem('xrLabels2'), c = localStorage.getItem('xrCards'), f = localStorage.getItem('xrFree'), u = localStorage.getItem('xrSubs');
     if (LABELS.includes(l)) own.labels = l;
@@ -1427,7 +1458,10 @@ HOST.xr = (function () {
     if (u === 'on' || u === 'off') own.subs = u === 'on';
     // (on by default: only a device that turned them off keeps them off)
     own.sfx = localStorage.getItem('sfxOn') !== 'off'; own.voice = localStorage.getItem('narrationOn') !== 'off';
-  } catch (e) { /* storage blocked */ }
+    own.xvoice = localStorage.getItem('xrNarration') === 'on';   // (off by default: only a headset that turned it on keeps it on)
+    const o = JSON.parse(localStorage.getItem('xrNarrRoom') || 'null');
+    if (o && typeof o.code === 'string' && typeof o.on === 'boolean' && Number.isFinite(o.vg)) ovr = { code: o.code, vg: o.vg, on: o.on };
+  } catch (e) { /* storage blocked, or a broken value */ }
   // The frame-rate read-out (the menu's Frame rate row; the owner, 5 November 2026): this headset's own, never a room's,
   // off by default, kept as xrFps; #fps=on|off in a link. While on, in a headset session, the shell draws a small read-out
   // low in the view (shared.js, drawFps) with the frame rate and HOST.perf's counts of the story's frame
@@ -1437,14 +1471,48 @@ HOST.xr = (function () {
     try {
       localStorage.setItem('xrLabels2', own.labels); localStorage.setItem('xrCards', own.cards); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
       localStorage.setItem('sfxOn', own.sfx ? 'on' : 'off'); localStorage.setItem('narrationOn', own.voice ? 'on' : 'off');
+      localStorage.setItem('xrNarration', own.xvoice ? 'on' : 'off');
     } catch (e) { /* storage blocked */ }
   };
+  const keepOvr = () => { try { if (ovr) localStorage.setItem('xrNarrRoom', JSON.stringify(ovr)); else localStorage.removeItem('xrNarrRoom'); } catch (e) { /* storage blocked */ } };
   // in a shared room the room's ({ labels, cards, free, subs, sfx, voice }), else null
   const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
   const look = () => room() || own;
   function setLook(o) {
     if (HOST.collab && HOST.collab.setLook && HOST.collab.setLook(o)) return;   // in a room: written for everyone there
     Object.assign(own, o); keepOwn();
+  }
+  // the narration: this headset's override in the room L (or null: none, or one for another room, or one the room's vg has
+  // moved past, which is dropped: a press for everyone since), and what decides it now ('room', 'own' or 'mine': the
+  // override; on a page 'room' or 'own')
+  function override(L) {
+    if (!ovr || !L || !L.code) return null;
+    if (ovr.code !== L.code || ovr.vg !== (L.vg || 0)) { ovr = null; keepOvr(); return null; }
+    return ovr;
+  }
+  function voiceWhy() {
+    const L = room();
+    if (!HOST.inXR()) return L && L.vset ? 'room' : 'own';
+    if (L && override(L)) return 'mine';
+    return L && L.vset ? 'room' : 'own';
+  }
+  function voice() {
+    const why = voiceWhy(), L = room();
+    if (!HOST.inXR()) return look().voice !== false;
+    return why === 'mine' ? ovr.on : why === 'room' ? L.voice !== false : own.xvoice;
+  }
+  // this device's own narration (the menu's Narration row, the story panel's button, Sound check): in a headset session
+  // its own (outside a room) or its override for this room; on a page in a room the room's, for everyone (a page follows
+  // the room's narration, so its press is the room's), else narrationOn
+  function setVoice(on) {
+    on = !!on;
+    const L = room();
+    if (HOST.inXR()) {
+      if (L && L.code) { ovr = { code: L.code, vg: L.vg || 0, on }; keepOvr(); } else { own.xvoice = on; keepOwn(); }
+      return;
+    }
+    if (L && HOST.collab.setVoiceAll && HOST.collab.setVoiceAll(on)) return;
+    own.voice = on; keepOwn();
   }
   // The session itself (every story's xrStart): VR with its features as ever; AR also asks for depth sensing (real-world
   // occlusion, occlusion.js: GPU first, the formats a Quest 3 gave first, the depth seen from the eye itself), with the
@@ -1484,8 +1552,14 @@ HOST.xr = (function () {
     // the sound switches (absent, as from an older shared.js: on)
     sfx: () => look().sfx !== false,
     setSfx(on) { setLook({ sfx: !!on }); },
-    voice: () => look().voice !== false,
-    setVoice(on) { setLook({ voice: !!on }); },
+    // the narration that applies to this device now (a headset session's, else the page's), this device's own setting,
+    // the room's for every headset and page in it (a press for everyone: vg moves on, so every headset's own goes), both
+    // own values at once (#voice=on|off in a link), why it is what it is ('room', 'own', 'mine'), and this headset's
+    // override dropped (shared.js: 'lobby', 'leave')
+    voice, setVoice, voiceWhy,
+    setVoiceAll(on) { if (HOST.collab && HOST.collab.setVoiceAll && HOST.collab.setVoiceAll(!!on)) return; setVoice(on); },
+    setVoiceOwn(on) { own.voice = own.xvoice = !!on; keepOwn(); },
+    voiceDrop(why) { if (ovr) { ovr = null; keepOvr(); if (HOST.collab && HOST.collab.log) HOST.collab.log('narration own dropped', { why }); } },
     sig: () => { const L = look(); return L.labels + '/' + L.cards + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     fps: () => fps,
     setFps(on) { fps = !!on; try { localStorage.setItem('xrFps', fps ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
@@ -3191,7 +3265,7 @@ HOST.cards = function () {
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
-  if (hp.has('voice')) HOST.xr.setVoice(hp.get('voice') !== 'off');
+  if (hp.has('voice')) HOST.xr.setVoiceOwn(hp.get('voice') !== 'off');   // (both this device's own: the page's and a headset session's)
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)
   if (hp.has('focus')) HOST.focus.set(hp.get('focus') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);

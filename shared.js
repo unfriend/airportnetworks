@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-35';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-36';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -501,6 +501,7 @@
     C.pres.clear();
     R.left();
     HOST.audio.zone(null);
+    if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('leave');   // (this headset's own narration in the room goes with it)
     if (!switching) { HOST.setUrl(HOST.picking); changed(); }
   }
   function send(m) {
@@ -2020,8 +2021,10 @@
       if (how !== 'walk') return;
       log('lobby', { st: id, was: C.live });
       C.mine = ''; C.live = ''; C.picked = false; VW.id = '';
-      // the story loaded hears it (the studio forgets what this headset has seen there: its cubes start afresh)
+      // the story loaded hears it (the studio forgets what this headset has seen there: its cubes start afresh), and this
+      // headset's own narration in the room goes: the room's again (v124)
       try { if (HOST.cur && typeof HOST.cur.lobby === 'function') HOST.cur.lobby(); } catch (e) { log('lobby hook failed', { e: e && e.message }); }
+      if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('lobby');
       changed();
       return;
     }
@@ -2304,13 +2307,18 @@
   // (ask true, the default since v120, FORMAT networks-35: walking in does nothing, a press on a circle asks) or walked into
   // (ask false; v118, FORMAT networks-33, askFirst below), a setting of the room's only (outside a room there are no
   // circles). Tests that walk into circles start as before (localStorage collabAskDefault = walk before the page loads,
-  // as collabAutoAll; HOST.collab.askDefault(on)): a room that never wrote ask then walks in
+  // as collabAutoAll; HOST.collab.askDefault(on)): a room that never wrote ask then walks in. The narration (voice) is
+  // the room's for pages; a headset in a session may change its own in the room until the lobby (HOST.xr's override,
+  // never written here), and vg, a number every press of Narration for everyone moves on (setVoiceAll: the menu's On for
+  // all and Off for all, the page's dialog; v124, FORMAT networks-36: an older device writing look would drop it), drops
+  // every headset's own at once. look() also says the room's code, its vg and whether it wrote voice (vset)
   const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: get('collabAskDefault') !== 'walk' };
   const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
   function look() {
     if (!C.code || !C.welcomed) return null;
     const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : SOUNDS.includes(k) ? mine(k) : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
-    return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice'), ask: b('ask') };
+    return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice'), ask: b('ask'),
+      vg: v && Number.isFinite(v.vg) ? v.vg : 0, vset: !!(v && typeof v.voice === 'boolean'), code: C.code };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
@@ -2320,6 +2328,8 @@
     const v = { labels: mo('labels'), cards: mo('cards'), free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice'), ask: bo('ask') };
     // (a sound switch neither set now nor written before stays out: another setting must not hand this device's own to all)
     for (const k of SOUNDS) if (typeof o[k] !== 'boolean' && !(was && typeof was[k] === 'boolean')) delete v[k];
+    const vg = Number.isFinite(o.vg) ? Math.round(o.vg) : was && Number.isFinite(was.vg) ? was.vg : null;   // (kept by every write)
+    if (vg !== null) v.vg = vg;
     const pairs = [['look', Object.assign({}, v, { by: C.id, at: Math.round(now()) })]];
     // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
     if (L.free && !v.free) {
@@ -2342,6 +2352,14 @@
   // panel in front of you (ASK): Go in does what walking in does, the story staying at its circle. Pages are as ever
   const askFirst = () => { const L = look(); return !!(L && L.ask); };
   function setAsk(on) { if (!setLook({ ask: !!on })) return false; log('circles ask', { on: !!on }); return true; }
+  // Narration for everyone (v124): the room's narration on or off for every headset and page in it, whatever each headset
+  // set for itself (vg moves on, so their own go); false outside a room (nothing is set)
+  function setVoiceAll(on) {
+    const L = look();
+    if (!L || !setLook({ voice: !!on, vg: (L.vg || 0) + 1 })) return false;
+    log('narration for everyone', { on: !!on, vg: (L.vg || 0) + 1 });
+    return true;
+  }
   // Panels per story (HOST.panels: shown, controls only or hidden) and each story's lock: in a room each station's, for
   // everyone at its circle (key st.<id>.ui: { panels, lock, story, by, at }; a station without it, or with one written for
   // its story before it changed: shown, not locked), set from a headset's menu at that station or from the page's dialog
@@ -3014,6 +3032,9 @@
     OV.eye = sheet(720, 290, 0.42, 55);
     OV.eye.mesh.userData.shell = { kind: 'eye' };
     OV.root.add(OV.eye.mesh); OV.eye.mesh.visible = false;
+    // the welcome (WEL: Getting around), as the notices are drawn, a little larger; never pointed at
+    OV.wel = sheet(760, 360, 0.56, 54);
+    OV.root.add(OV.wel.mesh); OV.wel.mesh.visible = false;
     OV.fps = sheet(800, 120, 0.36, 52);
     OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
@@ -3674,7 +3695,7 @@
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
       PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
@@ -4104,13 +4125,14 @@
         y += 76;
       } else if (C.code) {
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, 'These four and the two sound switches: for everyone here', w), x, y - 4); y += 30;   // (Sound is this headset's own)
+        ctx.fillText(fit(ctx, 'These four and Sound effects: for everyone here', w), x, y - 4); y += 30;   // (Sound and Narration are this headset's own)
       }
-      // the sound on this headset (the Sound button's mute: off until turned on, the owner, November 2026: "Default to sound
-      // off in all modes"; this headset's own; a press here counts as a tap, so it starts the engines too), then the sound
-      // switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in a room the
-      // room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next step) is
-      // always this headset's own
+      // the sound on this headset (its mute in a headset session: on until turned off there, v124; the owner, 8 November
+      // 2026: "in ar and vr default to sounds but no narration"; this headset's own; a press here counts as a tap, so it
+      // starts the engines too), then sound effects (sfx.js; in a room the room's, for everyone in it, pages too, else this
+      // headset's own: the owner, 30 October 2026) and the narration (this headset's own: off until turned on, then
+      // remembered; in a room the room's until changed here, then this headset's until the lobby or a press of Narration
+      // for everyone, on the Circles tab). The effects' volume (each press the next step) is always this headset's own
       const mu = !!HOST.audio.muted;
       button(S, 'set:sound', x, y, bw, 60, mu ? 'Sound: off' : 'Sound: on', () => (HOST.audio.mute ? HOST.audio.mute(!mu) : HOST.audio.toggle()), { on: !mu, px: 23 });
       note(mu ? 'Nothing plays on this headset until it is on' : 'This headset\'s own: narration and effects', y);
@@ -4121,7 +4143,7 @@
         if (HOST.xr.setVoice) button(S, 'voice', x + bw + 16, y, bw, 60, vo ? 'Narration: on' : 'Narration: off', () => HOST.xr.setVoice(!vo), { on: vo, px: 23 });
         y += 76;
         button(S, 'sfxvol', x, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
-        ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'The volume is this headset\'s own; both switches the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
+        ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'Volume and Narration: this headset\'s own (until the lobby); Sound effects: the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
         y += 76;
       }
       // the design room and the studio, side by side: outside a room each opens (the props table, your own scenes); in a
@@ -4337,6 +4359,15 @@
       button(S, 'askfirst', x, y, bw, 56, af ? 'Circles: ask first' : 'Circles: walk in', () => setAsk(!af), { px: 21, on: af });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       wrapText(ctx, af ? 'For everyone here: press a card or icon to go in; no rings' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
+      y += 72;
+      // Narration for everyone (v124; the owner: "a global setting where i can turn it off or on for every headset in the
+      // room at once"): each press sets every headset and page here to it, whatever each headset chose for itself (which
+      // it may change again on its own, until the lobby); lit: the room's narration as written
+      const LV = look(), rv = LV && LV.vset ? LV.voice !== false : null;
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      ctx.fillText(fit(ctx, 'Narration for everyone here (each headset may change its own until the lobby):', w), x, y - 4); y += 30;
+      button(S, 'voiceall:on', x, y, bw, 56, 'On for all', () => setVoiceAll(true), { px: 22, on: rv === true, tog: false });   // (it sounds as turning on, lit or not)
+      button(S, 'voiceall:off', x + bw + 16, y, bw, 56, 'Off for all', () => setVoiceAll(false), { px: 22, on: rv === false, tog: true });
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
@@ -4633,6 +4664,115 @@
       if (!EYEQ.chimed) { EYEQ.chimed = true; sfx('notice', S.mesh.position); log('eye shown', { why: EYEQ.why }); }   // (once a question, not again as it moves back in front)
     }
     S.mesh.visible = EYEQ.placed;
+  }
+
+  // ------------------------------------------------------ getting around --
+  // The welcome (v124; the owner, 8 November 2026: "a little popup toast at the beginning after alignment that tells people
+  // to click the rooms to enter in case its in click to enter mode and to move to them if its in that mode, also quickly
+  // explain the controllers, the button for clicking and the button for grabbing"): once a session in a headset, a small
+  // panel in front of you (its own sheet, not a notice: placed as notices are, a little larger and a little higher, drawn
+  // over everything) for WEL.ms, closing early when the menu opens (or the circles' question, the check by eye or a
+  // calibration comes). It says how to go into the circles (in a room with circles, by the room's setting: asked first,
+  // point and press; walked into, walk in; the room's arc, a card in front of you) and what the buttons do (the trigger
+  // clicks, the grip grabs, a stick's click opens the menu; with tracked hands a pinch clicks and two of the left hand open
+  // the menu: a hand grabs nothing, the shell and the stories take the grip from squeeze events only). In a shared room
+  // it waits until this headset is lined up (lineUp: 'ok', or 'away' or 'alone' where nothing lines up) and nothing else
+  // is in front of it: not while the startup flow is to come or shows (the room setup guide, the check by eye), nor while
+  // calibrating, checking or re-aligning, nor over the circles' question, the once-per-room question or the menu; outside
+  // a room WEL.wait into the session. It took the place of the notice The menu (v103), whose words it says; with it off
+  // (tests: HOST.collab.autoWelcome(false), or localStorage collabAutoWelcome = off before the page loads, as
+  // collabAutoAll) that notice shows as before. Never in camera mode (HOST.collab.cameraMode, where a version has it)
+  const WEL = { s: null, t0: 0, at: 0, until: 0, done: false, placed: false, text: '', mode: '', hands: false, ms: 14000, wait: 2500,
+    auto: get('collabAutoWelcome') !== 'off' };
+  const camMode = () => !!(HOST.collab && HOST.collab.cameraMode && HOST.collab.cameraMode());
+  // what it says now: { mode ('ask', 'walk', 'arc', or '' with no circles or no room), hands, go (the circles' line),
+  // keys: [[what, its colour, what it does], ...] }
+  function welWords() {
+    const hands = !!HAND.hand, cs = C.code && C.welcomed ? C.st.filter(s => !(s.kind === ALL && s.arc)) : [];
+    let mode = '', go = '';
+    if (cs.length) {
+      mode = askFirst() ? 'ask' : 'walk';
+      go = mode === 'walk' ? 'Walk into a circle to go in.' : hands ? 'Point at a circle\'s card or icon and pinch to go in.' : 'Point at a circle\'s card or icon and press the trigger to go in.';
+    } else if (C.code && C.welcomed && arcSt()) {
+      mode = 'arc';
+      go = hands ? 'Point at a story\'s card in front of you and pinch to start it.' : 'Point at a story\'s card in front of you and press the trigger to start it.';
+    }
+    const keys = hands ? [['Pinch', CYAN, ': click.'], ['Pinch twice with your left hand', AMBER, ': the menu.']]
+      : [['Trigger', CYAN, ' (index finger): click.'], ['Grip', AMBER, ' (middle finger): grab and move things.'], ['Click a stick', INK, ': the menu.']];
+    return { mode, hands, go, keys };
+  }
+  const welShown = () => !!(WEL.until && performance.now() < WEL.until);
+  // nothing else in front of you now, and (in a room) lined up
+  function welCan(t) {
+    if (!R.session || !HD.ok || !OV.root || !OV.root.visible || camMode()) return false;
+    if (t - WEL.t0 < WEL.wait || PNL.open || ASK.id || PNL.kp) return false;
+    if (!C.code) return true;
+    if (!C.welcomed || askHere() || R.calib || tipMode() || R.again) return false;
+    if (!/^(ok|away|alone)$/.test(lineUp().k)) return false;
+    if (GD.auto && guideOn() && (!GD.fl || GD.due)) return false;   // (the startup flow comes first: the guide, the check by eye)
+    if (eyeShown() || (GD.auto && (EYEQ.ask || EYEQ.due))) return false;
+    return true;
+  }
+  function welClose(why) {
+    if (!WEL.until) return;
+    WEL.until = 0; WEL.placed = false;
+    log('welcome closed', { why });
+  }
+  function welStep(t) {
+    if (WEL.s !== R.session) { welClose('session'); Object.assign(WEL, { s: R.session, t0: t, at: 0, done: false, text: '', mode: '', hands: false }); }
+    if (!R.session) return;
+    if (welShown()) {
+      const why = PNL.open ? 'menu' : ASK.id ? 'ask' : eyeShown() ? 'eye' : tipMode() ? 'calibrating' : camMode() ? 'camera' : !WEL.auto ? 'off' : '';
+      if (why) welClose(why);
+      return;
+    }
+    if (WEL.until) welClose('time');
+    if (WEL.done || !WEL.auto || !welCan(t)) return;
+    WEL.done = true; WEL.at = t; WEL.until = t + WEL.ms; WEL.placed = false;
+    const W = welWords();
+    WEL.mode = W.mode; WEL.hands = W.hands;
+    WEL.text = ['Getting around', W.go, ...W.keys.map(k => k[0] + k[2])].filter(Boolean).join(' ');
+    log('welcome', { mode: W.mode, hands: W.hands });
+  }
+  function drawWelcome() {
+    const S = OV.wel, show = welShown() && HD.ok;
+    if (!show) { S.mesh.visible = false; return; }
+    const W = welWords(), left = Math.max(1, Math.ceil((WEL.until - performance.now()) / 1000));
+    WEL.mode = W.mode; WEL.hands = W.hands;
+    WEL.text = ['Getting around', W.go, ...W.keys.map(k => k[0] + k[2])].filter(Boolean).join(' ');
+    const sig = WEL.text + '|' + left;
+    if (sig !== S.sig) {
+      S.sig = sig;
+      const ctx = S.ctx, w = S.w, tw = W.hands ? w - 60 : w - 250;   // (the text beside the drawn controller)
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      rr(ctx, 3, 3, w - 6, S.h - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = CYAN; ctx.stroke();
+      ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText('Getting around', 30, 26);
+      let y = 80;
+      if (W.go) { ctx.font = FONT(25); ctx.fillStyle = INK; y += wrapText(ctx, W.go, 30, y, tw, 32, 2) + 12; }
+      for (const [k, col, rest] of W.keys) {
+        ctx.font = FONT(24, 700); ctx.fillStyle = col; ctx.fillText(k, 30, y);
+        const kw = ctx.measureText(k).width;
+        ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, rest, Math.max(40, tw - kw)), 30 + kw, y);
+        y += 36;
+      }
+      ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText('Closes by itself in ' + left + ' s', 30, S.h - 42);
+      if (!W.hands) welController(ctx, w - 105, 190);
+      S.tex.needsUpdate = true;
+    }
+    // a metre ahead and a little below eye level, turned to you, eased as the notices are (above where they show)
+    _v.set(0, -0.02, -1.05).applyQuaternion(HD.q).add(HD.p);
+    if (!WEL.placed) { S.mesh.position.copy(_v); WEL.placed = true; sfx('notice', _v.clone()); } else S.mesh.position.lerp(_v, 0.08);
+    S.mesh.lookAt(HD.p);
+    S.mesh.visible = true;
+  }
+  // a controller from the side, its trigger (cyan) and its grip (amber) marked in the colours of their words beside it
+  function welController(ctx, cx, cy) {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(0.38);
+    ctx.lineWidth = 7; ctx.strokeStyle = MUTED; ctx.beginPath(); ctx.ellipse(0, -62, 54, 30, 0, 0, Math.PI * 2); ctx.stroke();   // (its ring)
+    rr(ctx, -27, -46, 54, 128, 26); ctx.fillStyle = '#2a3548'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = MUTED; ctx.stroke();   // (its handle)
+    rr(ctx, -44, -34, 20, 46, 9); ctx.fillStyle = CYAN; ctx.fill();   // (the trigger, under the index finger)
+    rr(ctx, 6, 8, 18, 58, 8); ctx.fillStyle = AMBER; ctx.fill();   // (the grip, under the middle finger)
+    ctx.restore();
   }
 
   // ------------------------------------------------------ the frame rate --
@@ -5099,6 +5239,7 @@
       presenceOut(t);
     } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
     if (C.code && R.session) { guideStep(t); eyeStep(t); }
+    welStep(t);   // (Getting around, once a session)
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
@@ -5344,6 +5485,7 @@
     if (OV.panelG.visible) { if (MG.src) carryMenu(); else floatMenu(dt, inUse); }
     mirrorStep();
     drawNote(HD.ok ? HD.p : null, HD.q);
+    drawWelcome();
     drawSubs(dt);
     // the question whether to go into a circle (its hover: the ray's, else the fingertip's), and the frame rate
     OV.ask.hover = ASK.poke.hov; OV.eye.hover = EYEQ.poke.hov;
@@ -5694,13 +5836,15 @@
   }
   const savedHandles = () => !!(R.saved && R.saved.anchors.length === 2);
   // this headset's marks are not found in this session (after standby, or the origin moved with no anchors to
-  // follow): the frame held so far stays, the orange crosses show, and the panel asks to leave AR and enter it again
+  // follow): the frame held so far stays, the orange crosses show, the check by eye asks, and the anchors are looked for
+  // again on the retries' schedule (restore, retryDue). Until v124 a notice asked to leave AR and enter it again; the
+  // owner, 8 November 2026: "The leave ar message after standby or resume can go away, alignment nearly always good and
+  // has a check now too". R.reenter stays as a flag (the log, the Debug tab's line), never "not lined up"
   function lostMarks(why) {
     R.showUntil = performance.now() + 30000;
     if (R.reenter) return;
     R.reenter = true; log('marks lost', { why });
     eyeWant('lost');
-    notice('Leave AR and enter it again', 'Leave AR and enter it again: the headset finds your spots then (after standby it does not, in the same session). Until then things may stand off the two spots.', 12000);
     changed();
   }
   // floor <- shared, this frame (only inside the frame callback). This reading of getPose is right: it keeps a
@@ -6097,7 +6241,7 @@
       if (R.again) {   // Re-align: the marks found again by their anchors (the frame moves to them), or not
         if (R.anchors && R.anchorsOK) { R.again = 0; notice('Re-aligned', 'Found your spots again. Check: the orange crosses sit on the two spots.', 6000); changed(); }
         else if (t - R.again > 10000 || (R.anchorTried && !R.anchorBusy && !R.anchors)) {
-          R.again = 0; notice('Spots not found', 'The headset did not find your spots in this session. Leave AR and enter it again: they come back then. If the orange crosses are still off the two spots, calibrate again.', 12000); changed();
+          R.again = 0; notice('Spots not found', 'The headset did not find your spots\' anchors this time: it keeps looking. If the orange crosses are off the two spots, calibrate again.', 12000); changed();
         }
       }
       return;
@@ -6384,7 +6528,7 @@
     if (!own() && R.sharedId && splitHere()) { const Q = val(kSplit(R.sharedId)); return `The shared space puts calibrated headsets here ${Math.round(Q.d * 100)} cm apart: calibrate on the two spots`; }
     if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
-    if (own() && R.reenter) return 'Marks not found in this session: leave AR and enter it again';
+    if (own() && R.reenter) return 'Your own marks (looking for their anchors again)';
     if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
     return '';
@@ -6550,7 +6694,7 @@
     if (R.calib) return Object.assign(o, { k: 'wait', w: 'calib', text: R.calib.step === 'a' ? 'Calibrating: touch spot A' : 'Calibrating: touch spot B' });
     const late = !!GD.from && performance.now() - GD.from > CK.late, split = !!R.sharedId && splitHere();
     let k = 'wait', h = '', w = '';
-    if (R.aligned && R.frame && own()) { h = 'marks'; if (R.reenter) w = 'marks'; }
+    if (R.aligned && R.frame && own()) h = 'marks';   // (its anchors not found since waking, R.reenter: still lined up; the check by eye asks)
     else if (R.aligned && R.frame && (R.src === 'shared' || R.src === 'adopted')) {
       h = R.src === 'shared' ? 'origin' : 'shared';
       w = R.notJoined ? 'other' : split ? 'split' : R.src === 'adopted' && R.noScan ? 'scan' : R.src === 'adopted' && otherVersion() ? 'version' : '';
@@ -6945,7 +7089,8 @@
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
     // controllers or hands are known), unless it is open by then
-    if (s) setTimeout(() => { if (R.session === s && !PNL.open) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
+    // (since v124 the welcome says it, with the controllers' buttons: WEL; with it off, as in tests, this notice as before)
+    if (s) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
@@ -7074,7 +7219,7 @@
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
       else if (act === 'ask') setAsk(!askFirst());
       else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
-      else if (act === 'voice') HOST.xr.setVoice(!HOST.xr.voice());
+      else if (act === 'voice') { const L = look(); if (L) setVoiceAll(!L.voice); else HOST.xr.setVoice(!HOST.xr.voice()); }   // (in a room: for everyone, every headset's own going)
       else if (act === 'panels') { const S = sessOf(C.stById.get(arg)), v = stPanels(S); if (S) setStPanels(S.id, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles; an All stories circle's: its session's)
       else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
       else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
@@ -7260,7 +7405,7 @@
     const sfb = $('[data-sh="sfx"]'), vob = $('[data-sh="voice"]'), sso = $('.sh-sound span');
     if (sso) sso.textContent = joined ? 'For everyone in this room, pages and headsets:' : 'On this device (in a shared room, the room\'s):';
     if (sfb) { const on = !!HOST.sfx && HOST.sfx.on(); sfb.hidden = !HOST.sfx; sfb.textContent = on ? 'Sound effects: on' : 'Sound effects: off'; sfb.setAttribute('aria-pressed', String(on)); }
-    if (vob) { const on = HOST.xr.voice(); vob.textContent = on ? 'Narration: on' : 'Narration: off'; vob.setAttribute('aria-pressed', String(on)); }
+    if (vob) { const L = look(), on = L ? L.voice !== false : HOST.xr.voice(); vob.textContent = on ? 'Narration: on' : 'Narration: off'; vob.setAttribute('aria-pressed', String(on)); }
     $('.sh-colors').innerHTML = COLORS.map(c => `<button type="button" data-sh="color:${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${c === C.color}"></button>`).join('');
   }
   // Setting up a room (the room setup guide, as text on a page): every headset in the room and how it lines up, from its
@@ -7465,7 +7610,12 @@
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
     // or null) and how long it shows (tests). askDefault(on): what a room that never wrote ask does here (true, asked
     // first, since v120; tests that walk into circles turn it off, also by localStorage collabAskDefault = walk)
-    askFirst: () => askFirst(), setAsk: on => setAsk(on), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
+    askFirst: () => askFirst(), setAsk: on => setAsk(on), setVoiceAll: on => setVoiceAll(on),
+    // the welcome (Getting around, once a session in a headset): { shown: on show now, at: when it showed this session (0
+    // not yet), text: what it says, mode: 'ask', 'walk', 'arc' or '' (no circles), hands: for tracked hands, done }; its
+    // opening by itself (tests turn it off: autoWelcome(false), which also closes one on show)
+    welcome: () => ({ shown: welShown(), at: WEL.at, text: WEL.text, mode: WEL.mode, hands: WEL.hands, done: WEL.done }),
+    autoWelcome: on => { if (on !== undefined) { WEL.auto = !!on; if (!on) welClose('off'); } return WEL.auto; }, askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now
     hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),
