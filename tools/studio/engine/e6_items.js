@@ -97,6 +97,16 @@ function norm(kind, x) {
       const O = o ? o.map(v => nz(r3(v))) : null;
       if (O && O.some(v => v !== 0)) r.o = O;
     }
+    // a voice recorded with an item's movement (v125, e6j_voice.js), kept only when set: the item whose recorded path it
+    // plays with (sync: its id), where in its file that path's start is (skip: s, -10 to 600, to the ms; 0 none) and how
+    // long of it plays (len: s, to 600, to the ms); a skip or a len without sync is dropped
+    if (x.sync != null) {
+      if (!okId(x.sync) || (has('skip') && !fin(x.skip)) || (has('len') && !(fin(x.len) && x.len > 0))) return null;
+      r.sync = x.sync;
+      const sk = has('skip') ? nz(r3(clamp(x.skip, -10, 600))) : 0;
+      if (sk) r.skip = sk;
+      if (has('len')) r.len = r3(Math.min(600, Math.max(0.001, x.len)));
+    }
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
     return lockOf(x, r);
   }
@@ -809,9 +819,12 @@ function emitStep(now) {
     const F = it.F;
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
     const want = quiet ? 0 : it.fa * it.rec.vol;   // (its own fade times that of the object it follows)
+    if (it.ended && it.rec.sync && syncOf(it)) it.ended = false;   // (a voice playing with a path is never over: it starts with each pass)
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now);
     else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now);
     if (!it.src) continue;
+    // (a voice that plays with a path: stopped at its end, and as a new pass begins, to start again with it: e6j_voice.js)
+    if (it.rec.sync && syncOf(it)) { const sy = syncAt(it, now, F ? F.dur : 0); if (!sy || sy.pass !== it.syncPass) { emitStop(it); continue; } }
     any = true;
     if (it.gt !== want) { try { it.gain.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } it.gt = want; }
     it.holder.getWorldPosition(_ep);
@@ -850,17 +863,24 @@ function emitOffset(it, dur, now) {
   return t < dur - 0.05 ? t : -1;
 }
 function emitStart(it, ctx, buf, now) {
-  const off = emitOffset(it, buf.duration || 1, now);
+  // (a voice that plays with a path: where its path will be as it starts, 20 ms on; none: it waits for the next start)
+  const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now + 20, buf.duration || 1) : null;
+  if (sync && !sy) return;
+  const off = sy ? Math.max(0, sy.at) : emitOffset(it, buf.duration || 1, now);
   if (off < 0) { it.ended = true; return; }
   try {
     const src = ctx.createBufferSource(), g = ctx.createGain(), p = ctx.createPanner();
-    src.buffer = buf; src.loop = !!it.rec.loop;
+    src.buffer = buf; src.loop = !sy && !!it.rec.loop;
     g.gain.value = 0;
     p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
     it.holder.getWorldPosition(_ep); setPos(p, _ep);
     src.connect(g); g.connect(p); p.connect(ctx.destination);
-    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!it.rec.loop) it.ended = true; };
-    src.start(ctx.currentTime + 0.02, off);
+    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; };
+    if (sy) {
+      const when = ctx.currentTime + 0.02 + Math.max(0, -sy.at);   // (a voice that starts after its path: that much later)
+      src.start(when, off, Math.max(0.05, sy.left - Math.max(0, -sy.at)));
+      it.syncPass = sy.pass; it.syncLog = { c0: when, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
+    } else src.start(ctx.currentTime + 0.02, off);
     Object.assign(it, { src, gain: g, pan: p, gt: -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
@@ -882,7 +902,10 @@ function emitStop(it, drop) {
 function streamStart(it, ctx, F, now) {
   let S = it.st;
   if (S && (S.ctx !== ctx || S.url !== fileUrl(F.path, true))) { streamDrop(it); S = null; }   // (a new context, or R2's link read again)
-  const off = emitOffset(it, F.dur || 1, now);
+  // (a voice that plays with a path: where its path is now; it waits until its moment in its file has come)
+  const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now, F.dur || 1) : null;
+  if (sync && (!sy || sy.at < 0)) return;
+  const off = sy ? sy.at : emitOffset(it, F.dur || 1, now);
   if (off < 0) { it.ended = true; return; }
   if (!S) {
     try {
@@ -892,7 +915,7 @@ function streamStart(it, ctx, F, now) {
       g.gain.value = 0;
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
-      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop) it.ended = true; } });
+      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; } });
       // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
       el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
       const url = fileUrl(F.path, true);
@@ -901,7 +924,8 @@ function streamStart(it, ctx, F, now) {
     } catch (e) { it.ended = true; return; }
   }
   const el = S.el;
-  el.loop = !!it.rec.loop;
+  el.loop = !sy && !!it.rec.loop;
+  if (sy) { it.syncPass = sy.pass; it.syncLog = { c0: ctx.currentTime, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e }; }
   // (before its metadata an element ignores a new time: set once it has it)
   const seek = () => { try { el.currentTime = off; } catch (e) { /* not seekable yet */ } };
   if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
@@ -1293,9 +1317,9 @@ function collabApply(v) {
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
     let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
-    if (rec && rec.path && keys + rec.path.k.length > PATH_MAX.scene) rec = null;
+    if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += rec.path.k.length;
+    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }

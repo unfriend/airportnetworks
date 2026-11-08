@@ -388,6 +388,10 @@ const STUDIO = {
   },
   // an item's ghost where it is placed (shown, lit, its pose, its parts), or null (e6h_ghost.js)
   ghost: id => ghostOf(id),
+  // a sound that plays with a recorded path (e6j_voice.js): its start, where its voice and its path are now; and a recording
+  // kept as a file: its keys here (k: how many; own: made here; state)
+  voice: id => voiceState(id),
+  pf: src => { const f = PF.get(src); return f ? { n: f.k ? f.k.length : 0, own: !!f.own, state: f.state, at: f.at, err: f.err } : null; },
   // the viewer (e7f_viewer.js): open or not, what it shows, how, its camera
   viewer: () => vwState(),
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its

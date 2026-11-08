@@ -166,7 +166,8 @@ async function convertFile(path, o = {}) {
       await refreshFiles(new Set([out]));
       const f = STU.fileMap.get(out);
       GLBREC.set(out, { at: f ? f.at : 0, rec: CONV.glbRecord({ asset: { extras: { studio: r.record } } }), p: null });
-      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats));
+      // (a recorded path kept as a file, turned into a new file first: e6j_voice.js)
+      const n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), await pathFilesTurned(path, r.record));
       CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost;
       CV.noteC = 'green';
       CV.done.push(out);
@@ -249,7 +250,7 @@ async function convertAll() {
 // A recorded path's keys are turned too (d' = r d, q' = r q r^-1: switchedRec), so it moves along the same path. A trigger
 // cube's texture changes on such an object keep it (its id is the same); their materials are found again in the GLB when
 // the conversion says how its materials came out (tmap, texRemap: e6i_tex.js), else they keep their index
-function switchToGLB(orig, glb, rec, tmap) {
+function switchToGLB(orig, glb, rec, tmap, pmap) {
   if (!editOn()) return 0;
   const E = LIB.get(orig), g = rec || (E && E.guess) || { s: 1, q: [0, 0, 0, 1] };
   const list = [...STU.items.values()].filter(it => it.kind === 'o' && it.rec.file === orig);
@@ -264,7 +265,7 @@ function switchToGLB(orig, glb, rec, tmap) {
     const cuts = [...STU.items.values()].filter(x => x.kind === 'x' && ids.has(x.rec.on));
     const bone = [...STU.items.values()].filter(f => f.kind === 's' && ids.has(f.rec.on) && f.rec.o && !turn.includes(f));
     const K = new Map(), s0 = new Map(list.map(it => [it.id, it.rec.s]));
-    for (const it of list) { const ok = setRec(it.id, switchedRec(it.rec, glb, g)), k = ok ? it.rec.s * (g.s || 1) / s0.get(it.id) : 1; K.set(it.id, Math.abs(k - 1) > 1e-9 ? k : 1); }
+    for (const it of list) { const ok = setRec(it.id, switchedRec(it.rec, glb, g, pmap && pmap.get(it.id))), k = ok ? it.rec.s * (g.s || 1) / s0.get(it.id) : 1; K.set(it.id, Math.abs(k - 1) > 1e-9 ? k : 1); }
     const kOf = id => K.get(id) || 1, keep = (v, a) => clamp(v, -a, a);
     for (const f of turn) setRec(f.id, { o: new THREE.Vector3().fromArray(f.rec.o).applyQuaternion(r).multiplyScalar(kOf(f.rec.on)).toArray().map(v => keep(v, 1000)) });
     for (const f of bone) if (kOf(f.rec.on) !== 1) setRec(f.id, { o: f.rec.o.map(v => keep(v * kOf(f.rec.on), 1000)) });
@@ -277,10 +278,10 @@ function switchToGLB(orig, glb, rec, tmap) {
   sfxAct('rise', 'stage', 'centre', { dur: 0.5, gain: 0.5 });
   return list.length;
 }
-const switchedRec = (r, glb, g) => {
+const switchedRec = (r, glb, g, P) => {
   const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
-  // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned)
-  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: pathTurned(r.path, g.q) } : {});
+  // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned; one kept as a file, its new file: P)
+  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P || pathTurned(r.path, g.q) } : {});
 };
 // a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
 function saveFile(data, name, type) {
