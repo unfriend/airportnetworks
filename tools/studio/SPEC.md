@@ -885,10 +885,13 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   of it is see-through (v125; the owner, 8 November 2026: "Framerate bad in studio edit mode when cutouts are active,
   they should not have this transparency since it is not needed anyway i think"): its very faint fill went, since each
   box filled its outline on screen once more (twice seen from outside, both faces drawn), so a few large boxes, or one
-  round you, cost a headset's frame rate while editing. Pointed at or selected, its edges light up instead
+  round you, cost a headset's frame rate while editing (measured in headless Chromium's software drawing on the cuts
+  test scene with 15 boxes, one round the camera, at 2560 x 1600: an editing frame took 543 ms with the fills and 401
+  without, about what not editing takes, 380 to 410; close to the wall 809 and 478, against 436; the ghosts, a model
+  drawn faint and the trigger cube's fill made no difference there). Pointed at or selected, its edges light up instead
   (`LOOKS.CUT_LOOK.lit`): lighter (40 % towards white), their dashes denser (about twelve an edge, three quarters of it
-  drawn, against about eight and under three fifths), its ticks a third of each edge long. The pointer still finds its unseen box. The pointer (a click, a controller's ray) finds the nearest object, sound or
-  cut-out, but passes over an object's unseen box when the ray goes on into one of that object's own cut-outs (it lies
+  drawn, against about eight and under three fifths), its ticks a third of each edge long. The pointer (a click, a
+  controller's ray) finds the nearest object, sound or cut-out (its unseen box), but passes over an object's unseen box when the ray goes on into one of that object's own cut-outs (it lies
   within that box, which would otherwise always be in front); a nearer object or sound is still found first. Picking the
   object a sound follows or a cut-out cuts, cut-outs are passed through. Not editing, nothing of it is drawn: only the
   hole.
