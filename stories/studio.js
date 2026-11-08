@@ -15882,9 +15882,9 @@ return (meshoptLoad.s = MeshoptSimplifier);
 // items: a cube's see-through box, a sound's speaker, a model's grey box while it loads.
 const SETS = {};
 // The stage: what a scene stands on when it brings nothing of its own. Life size: 1 unit is 1 m, the floor at y = 0,
-// the scene's origin in the middle (in a shared room its circle's spot), -z the way it faces. A dark floor with a faint
-// 1 m grid fading out with distance, a small mark at the origin pointing the scene's way, and a soft sky. In
-// passthrough nothing of it is drawn (stage_floor 0): the scene stands on your real floor.
+// the scene's origin in the middle (in a shared room the room's origin since v125), -z the way it faces. A dark floor
+// with a faint 1 m grid fading out with distance, a small mark at the origin pointing the scene's way, and a soft sky.
+// In passthrough nothing of it is drawn (stage_floor 0): the scene stands on your real floor.
 SETS.stage = function (K) {
   const group = new THREE.Group(), disposable = [];
   const keep = x => (disposable.push(x), x);
@@ -21531,6 +21531,67 @@ function settingsStep() {
 }
 function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false); hookCall('occ', null); }
 
+// -------------------------------------------------- the scene moved to its circle --
+// Since v125 a scene at a station stands on the room's frame (the floor at y = 0, the origin and axes the room's: on a
+// room calibrated on its floor spots spot A, x towards spot B; xrPlace in e8_xr.js): its circle is only the way in, and
+// moving or turning the circle moves nothing of it. A layout made before v125 was placed round its circle (the scene's
+// origin at the circle's spot, facing its way). Move the scene to this circle (the Scene pane while editing at a studio
+// station in a room, page and headset alike) puts it back there: every item's placed pose taken through this circle's
+// spot (x' = spot + its turn x): the objects', shapes' and empties' places and turns, the cubes' places and yaws, the
+// sounds' places (one following something keeps its offset on it; its own place is where it stands when what it follows
+// is not there) and a sound's own recorded path (its keys are in the scene's axes: turned with it). Nothing in an
+// item's own frame changes (cut-outs, offsets, the others' paths, motions, behaviours). One change (one Undo step),
+// every record written, for everyone at the circle and saved as any change. Refused while the scene is locked (Lock
+// this story: not offered then, editing being off) or while an item is locked in place (it says which)
+const CIRC = { note: '', c: '', at: 0, sc: '' };
+const CIRC_KINDS = ['o', 'p', 'e', 'c', 's'];
+// what the last press came to, on the Scene pane for 12 s (for that scene only)
+function circleSay(note, c) {
+  Object.assign(CIRC, { note, c, at: performance.now(), sc: STU.scene });
+  later(() => { if (CIRC.note && performance.now() - CIRC.at >= 11900) { CIRC.note = ''; dirty(true); } }, 12000);
+}
+// this circle's spot as the room has it ({ x, z, yaw }), or null: not at a studio station
+function circleSpot() {
+  try {
+    const st = HOST.collab && HOST.collab.live && HOST.collab.live();
+    return st && st.story === XR_HERE && fin(st.x) && fin(st.z) ? { x: st.x, z: st.z, yaw: fin(st.yaw) ? st.yaw : 0 } : null;
+  } catch (e) { return null; }
+}
+function sceneToCircle() {
+  CIRC.note = ''; CIRC.c = '';
+  const S = atStation() && editOn() ? circleSpot() : null;
+  if (!S) return false;
+  const its = [...STU.items.values()].filter(it => CIRC_KINDS.includes(it.kind));
+  if (!its.length) { circleSay('Nothing is placed here yet.', 'muted'); return false; }
+  const held = [];
+  for (const it of its) for (const n of lockNames(it)) if (!held.includes(n)) held.push(n);
+  if (held.length) {
+    circleSay(`Refused: ${held.join(', ')} ${held.length > 1 ? 'are' : 'is'} locked in place: the scene does not move until ${held.length > 1 ? 'they are' : 'that is'} unlocked.`, 'red');
+    sfxAct('knock', 'world', null, { gain: 0.5 });
+    return false;
+  }
+  const c = Math.cos(S.yaw), sn = Math.sin(S.yaw), r = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), S.yaw);
+  const at = p => [clamp(S.x + c * p[0] + sn * p[2], -1000, 1000), p[1], clamp(S.z - sn * p[0] + c * p[2], -1000, 1000)];
+  const turned = q => r.clone().multiply(new THREE.Quaternion().fromArray(q)).normalize().toArray();
+  change(() => {
+    for (const it of its) {
+      const R = it.rec;
+      if (it.kind === 'c') setRec(it.id, { p: at(R.p), yaw: R.yaw + S.yaw });
+      else if (it.kind === 's') setRec(it.id, Object.assign({ p: at(R.p) }, R.path ? { path: pathTurned(R.path, r.toArray()) } : {}));
+      else setRec(it.id, { p: at(R.p), q: turned(R.q) });
+    }
+  }, its.map(it => it.id));
+  circleSay(`Moved: ${its.length} item${its.length === 1 ? '' : 's'} now stand${its.length === 1 ? 's' : ''} round this circle (Undo takes it back).`, 'muted');
+  sfxAct('place', 'world', null);
+  return true;
+}
+function circleBlocks(B, st) {
+  if (!st || !circleSpot()) return;
+  B.push({ label: 'The scene and its circle', row: [{ id: 'circle', label: 'Move the scene to this circle', act: 'circle', dis: !editOn() || !STU.items.size }] },
+    { p: 'Since v125 the scene stands on the room\'s spots and its circle is only the way in: moving the circle moves nothing of it. A scene placed before then stood round its circle: this moves every item there again, for everyone (one Undo step).', c: 'faint' });
+  if (CIRC.note && CIRC.sc === STU.scene) B.push({ p: CIRC.note, c: CIRC.c || 'muted' });
+}
+
 // -------------------------------------------------------------- the lobby --
 // Walking into the room's Back to the lobby circle (the shell calls HOST.cur.lobby(), where the headsets charge): this
 // device forgets what it has seen, as Reset what I have seen does, and more: the cubes that stay once entered, and
@@ -22195,10 +22256,11 @@ Object.assign(ITEM_ACT, {
 // are more than range + 0.5 m away). Distances along the floor, from its middle as drawn; speed in metres a second.
 //
 // Shared: at a station everyone sees it react to the same one person. Who that is is worked out alike on every device
-// from the heads the shell knows (HOST.collab.heads(): presence, in room coordinates, turned into the scene's frame, whose
-// origin is the station's spot); that person's headset drives it (its own head is exact), moving it every frame and
-// sending where it put it about ten times a second (the quiet effect 'beh', every item it drives in one message); every
-// other device draws it 120 ms behind those samples (the relay's clock), between them. With nobody in range (the
+// from the heads the shell knows (HOST.collab.heads(): presence, in room coordinates, which are the scene's at a station
+// since v125: the scene stands on the room's frame, its circle only the way in); that person's headset drives it (its
+// own head is exact), moving it every frame and sending where it put it about ten times a second (the quiet effect
+// 'beh', every item it drives in one message); every other device draws it 120 ms behind those samples (the relay's
+// clock), between them. With nobody in range (the
 // driver's last sample says so) or no sample for 1 s it goes back to where it is placed by itself, alike everywhere. If
 // two headsets start driving one item at once, the claims settle it: for 'first' the earlier arrival, for 'nearest' the
 // newer driver (it started because it was nearer), ties by member id. 'item' needs no driver: every device works it out
@@ -22270,14 +22332,12 @@ function behHeads(T) {
   const own = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room) ? { id: behMe(), me: true, p: p.clone(), f: behFace(), ts: T } : null;
   let H = null;
   try { H = room && HOST.collab.heads ? HOST.collab.heads() : null; } catch (e) { /* an older shell */ }
-  if (H && H.st && Array.isArray(H.list)) {
-    // (room to scene: back to the spot, then turned back by its yaw)
-    const c = Math.cos(H.st.yaw), s = Math.sin(H.st.yaw);
+  if (H && Array.isArray(H.list)) {
+    // (room coordinates are the scene's at a station since v125: the scene stands on the room's frame, xrPlace)
     for (const h of H.list) {
       if (h.me && own) continue;
-      const x = h.head[0] - H.st.x, z = h.head[2] - H.st.z;
       _beF.set(0, 0, -1).applyQuaternion(_beQ.set(h.head[3], h.head[4], h.head[5], h.head[6]));
-      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(c * x - s * z, h.head[1], s * x + c * z), f: flat2(c * _beF.x - s * _beF.z, s * _beF.x + c * _beF.z), ts: h.ts });
+      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: h.ts });
     }
   }
   if (own) out.push(own);
@@ -23173,7 +23233,7 @@ function paneBlocks(tab) {
       if (STU.saveNote) B.push({ p: STU.saveNote, c: 'red' });
     }
     if (STU.draft) B.push({ p: `Your unsaved changes from ${hhmm(STU.draft.at)}:`, c: 'amber' }, { row: [{ id: 'restore', label: 'Restore', act: 'restore', primary: true }, { id: 'discard', label: 'Discard', act: 'discard' }] });
-    if (STU.scene && ed && STU.listing === 'ok') { pauseBlocks(B, true); settingsBlocks(B, st); }   // (Pause, this device's: e6h_ghost.js; the scene's settings, saved with it: e6d_shapes.js)
+    if (STU.scene && ed && STU.listing === 'ok') { pauseBlocks(B, true); settingsBlocks(B, st); circleBlocks(B, st); }   // (Pause, this device's: e6h_ghost.js; the scene's settings, saved with it, and Move the scene to this circle: e6d_shapes.js)
     if (STU.scene) {
       B.push({ row: [
         { id: 'seen', label: 'Reset what I have seen', act: 'seen', dis: !STU.seen.size },
@@ -23698,6 +23758,7 @@ function act(a, v) {
     shape: () => addShape(v),
     empty: () => addEmpty(),
     setting: () => setSetting(v),
+    circle: () => sceneToCircle(),
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
@@ -23722,7 +23783,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -25986,12 +26047,17 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 
 // ------------------------------------------------------------ scene pose --
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-// The scene is life size round you: its origin at the rig's floor point (outside a room where you stood as the session
-// or the studio began, facing your way, or the anchored place; at a station its spot, 1.6 m over the room's floor).
-// The floor is the session's local-floor where it has one (its height in the renderer's local space), else a standing
-// eye height under the rig. The VR stick walk moves the scene (XR.walk, in the rig's frame), never the rig; views do
-// not move it
+// The scene is life size round you: outside a room its origin at the rig's floor point (where you stood as the session
+// or the studio began, facing your way, or the anchored place), the floor the session's local-floor where it has one
+// (its height in the renderer's local space), else a standing eye height under the rig. At a station in a shared room
+// (v125; the owner, 8 November 2026: "align all things to the room marks and have the circle only be the entry") the
+// scene's frame is the room's (xrRoomBase: the floor at y = 0, the origin and axes the room's; on a room calibrated on
+// its floor spots spot A, x towards spot B), so every item stands at one place in the real room whichever circle shows
+// it and wherever that circle stands: the rig (and the panels on it) is the station's spot, and the scene hangs from it
+// at the room's origin, so moving or turning the circle moves nothing of the scene. The VR stick walk moves the scene
+// (XR.walk, in the rig's frame), never the rig; views do not move it
 const XR_EYE = 1.6, XR_AHEAD = 0;
+const _xRB = new THREE.Matrix4(), _xRW = new THREE.Matrix4(), _xRS = new THREE.Vector3();
 function xrPlace(v) {
   XR.R = 1; XR.hitR = 1; XR.target.set(0, 0, 0);
   const fy = XR.atSt || XR.floorY === null ? -XR_EYE : XR.floorY - GL.rig.position.y;
@@ -25999,6 +26065,20 @@ function xrPlace(v) {
   GL.world.quaternion.setFromAxisAngle(_xY, XR.walk.yaw);
   GL.world.position.set(XR.walk.x, fy, XR.walk.z);
   XR.globeBase.set(0, fy, 0);
+  if (XR.atSt && xrRoomBase(_xRB)) {
+    _xRW.makeRotationY(XR.walk.yaw).setPosition(XR.walk.x, 0, XR.walk.z).multiply(_xRB);
+    _xRW.decompose(GL.world.position, GL.world.quaternion, _xRS);
+  }
+}
+// the room's frame in the rig's (into out), or null: the shell's room matrix (room coordinates to the renderer's space,
+// as it places the rig at the station: HOST.room.place) seen from the rig as it stands this frame. A shell without
+// HOST.room.matrix: null (the scene at the spot, as before v125)
+function xrRoomBase(out) {
+  let m = null;
+  try { m = HOST.room && HOST.room.matrix ? HOST.room.matrix() : null; } catch (e) { m = null; }
+  if (!m) return null;
+  GL.rig.updateMatrix();
+  return out.copy(GL.rig.matrix).invert().multiply(m);
 }
 // Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
 // it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
@@ -26691,7 +26771,7 @@ function xrBegin(frame, dt) {
     // (asked only once the headset has a pose, so a new anchor goes where things really are)
     const A = HOST.anchor.frame(frame, ref);
     if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
-    XR.atSt = !!(A && A.room);   // (at a station the rig is its spot, 1.6 m over the room's floor)
+    XR.atSt = !!(A && A.room);   // (at a station the rig is its spot, 1.6 m over the room's floor; the scene the room's: xrPlace)
     // the real floor: the session's local-floor, as a height in the renderer's local space
     if (XR.floorSpace) { try { const fp = frame.getPose(XR.floorSpace, ref); if (fp) XR.floorY = fp.transform.position.y; } catch (e) { XR.floorSpace = null; } }
     // in a shared room no Stories screen: a story is reached by walking into its station's circle, and at its station it

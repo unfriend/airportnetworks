@@ -4621,6 +4621,74 @@ async function studioRound(dir) {
     await sp(A, `(${JSON.stringify([id1, id2, cp3 && cp3.id])}.forEach(i => i && deleteItem(i)), FROM.open = false, select(''), X.tab = 'scene', 0)`);
     }
 
+    // ---- the scene on the room's frame (v125; the owner, 8 November 2026: "align all things to the room marks and have the
+    // circle only be the entry"): the headset at the studio's circle (not at the room's origin) draws every item where its
+    // record puts it in room coordinates (its world place turned back through the headset's room frame, within 1 mm); the
+    // circle moved 2 m and turned 90 degrees as the page's room map moves it, the items stay where they are in the room
+    // (frame by frame while the circle glides there) and the headset stays at its station, its rig at the new spot; Move
+    // the scene to this circle on a page (its Scene pane, editing on) refused while an item is locked (it says which), then
+    // moving every item to the circle's spot transform of its old place (within 1 mm), one Undo step, every device's
+    // records the same and the headset drawing them there; Undo takes it back
+    {
+    const IDS = ['box001', 'fig001', 'cube01', 'snd001'];
+    // where the headset draws each item, in room coordinates (a frame of its own, the renderer told it presents for it)
+    const hRoom = () => H.evaluate(ids => {
+      const X = window.__xr, xr = HOST.renderer.xr, P = s => HOST.cur.peek(s);
+      X.step();
+      xr.isPresenting = true;
+      try { P('(xrPlace(orbit.cur), GL.rig.updateMatrixWorld(true), GL.world.updateMatrixWorld(true), 0)'); } finally { xr.isPresenting = false; }
+      const out = {};
+      for (const id of ids) {
+        const it = P(`STU.items.get('${id}')`);
+        if (!it) continue;
+        const w = it.holder.getWorldPosition(new THREE.Vector3()), r = HOST.room.toRoom(w);
+        out[id] = { at: [r.x, r.y, r.z], p: it.rec.p.slice() };
+      }
+      const rig = HOST.room.toRoom(P('GL.rig').getWorldPosition(new THREE.Vector3()));
+      return { out, atSt: P('XR.atSt'), mine: HOST.collab.mine(), placing: HOST.room.placing(), rig: [rig.x, rig.y, rig.z] };
+    }, IDS);
+    const off = R0 => Math.max(...Object.values(R0.out).map(o => dist(o.at, o.p)));
+    const st0 = await A.evaluate(id => HOST.collab.station(id), sid);
+    const R0 = await hRoom();
+    check(`studio: at a studio circle away from the room's origin (${st0.x.toFixed(2)}, ${st0.z.toFixed(2)}, turned ${st0.yaw.toFixed(2)}) the headset draws every item where its record puts it in room coordinates (within ${(off(R0) * 1000).toFixed(3)} mm)`,
+      Math.hypot(st0.x, st0.z) > 0.5 && R0.atSt && R0.mine === sid && Object.keys(R0.out).length === IDS.length && off(R0) < 0.001, JSON.stringify({ st0, R0 }));
+    // the circle moved 2 m and turned a quarter, as the room map moves it (from a page)
+    const to = { x: st0.x + 2, z: st0.z, yaw: st0.yaw + Math.PI / 2 };
+    await B.evaluate(([id, to]) => HOST.collab.move(id, to), [sid, to]);
+    let worst = 0, R1 = null;
+    for (let k = 0; k < 40; k++) { R1 = await hRoom(); worst = Math.max(worst, off(R1)); await sleep(30); }
+    for (let k = 0; k < 30 && dist(R1.rig, [to.x, 1.6, to.z]) > 0.002; k++) { await frames(H, 100); R1 = await hRoom(); worst = Math.max(worst, off(R1)); }
+    const st1 = await A.evaluate(id => HOST.collab.station(id), sid);
+    check(`studio: the circle moved 2 m and turned 90 degrees on a page (as its room map moves it): every item stays where it is in the room on the headset, frame by frame while the circle glides there (within ${(worst * 1000).toFixed(3)} mm), and the headset stays at its station, its rig at the new spot`,
+      Math.abs(st1.x - to.x) < 0.01 && angle(st1.yaw, to.yaw) < 0.01 && worst < 0.001 && R1.atSt && R1.mine === sid && R1.placing && dist(R1.rig, [to.x, 1.6, to.z]) < 0.002, JSON.stringify({ st1, worst, R1 }));
+    // Move the scene to this circle (a page's Scene pane): refused while an item is locked, then every item moved there
+    const recs = p => sp(p, `JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`);
+    const before = JSON.parse(await recs(A));
+    await sp(A, `(setEdit(true), select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    const u1 = await sp(A, 'UNDO.length');
+    const pr1 = await click(A, '#pane-scene [data-act="circle"]');
+    const refused = await sp(A, `[CIRC.note, UNDO.length, JSON.stringify(STU.items.get('box001').rec.p)]`);
+    await sp(A, `(select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    const u2 = await sp(A, 'UNDO.length');
+    const pr2 = await click(A, '#pane-scene [data-act="circle"]');
+    const u3 = await sp(A, 'UNDO.length');
+    const c = Math.cos(st1.yaw), sn = Math.sin(st1.yaw), want = {};
+    for (const [id, r] of before) if (IDS.includes(id) && !(r.on)) want[id] = [st1.x + c * r.p[0] + sn * r.p[2], r.p[1], st1.z - sn * r.p[0] + c * r.p[2]];
+    const after = await recs(A), same = [];
+    for (const p of [B, C, H]) same.push(await sUntil(p, `${JSON.stringify(after)} === JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`, 10000));
+    const A2 = new Map(JSON.parse(after)), mvd = Math.max(...Object.entries(want).map(([id, w]) => dist(A2.get(id).p, w)));
+    const cubeYaw = A2.get('cube01') ? A2.get('cube01').yaw : null, cube0 = before.find(b => b[0] === 'cube01')[1].yaw;
+    const R2 = await hRoom();
+    check(`studio: Move the scene to this circle on a page is refused while an item is locked (it says which, nothing changes), then moves every item to the circle's spot transform of its old place (within ${(mvd * 1000).toFixed(3)} mm; the cube turned with it), one Undo step, every device's records the same and the headset drawing them there (within ${(off(R2) * 1000).toFixed(3)} mm)`,
+      pr1 && /Box/.test(refused[0]) && /locked/.test(refused[0]) && refused[1] === u1 && refused[2] === JSON.stringify(before.find(b => b[0] === 'box001')[1].p) &&
+        pr2 && u3 === u2 + 1 && Object.keys(want).length >= 3 && mvd < 0.001 && angle(cubeYaw, cube0 + st1.yaw) < 0.001 && same.every(Boolean) && off(R2) < 0.001,
+      JSON.stringify({ pr1, refused, u1, u2, u3, pr2, mvd, cubeYaw, cube0, same, note: await sp(A, 'CIRC.note'), R2 }));
+    await sp(A, 'undo()');
+    const back = [];
+    for (const p of [A, B, C, H]) back.push(await sUntil(p, `${JSON.stringify(JSON.stringify(before))} === JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`, 10000));
+    check('studio: Undo takes the move back on every page and the headset', back.every(Boolean), JSON.stringify({ back }));
+    }
+
     // ---- a circle made for one scene, as the shell writes it (st.<id> with the studio, st.<id>.x naming the scene, in one
     // batch): two pages following it open that scene and write its saved layout alike (each item once in the room), and
     // the first station keeps its own scene

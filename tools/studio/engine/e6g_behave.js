@@ -16,10 +16,11 @@
 // are more than range + 0.5 m away). Distances along the floor, from its middle as drawn; speed in metres a second.
 //
 // Shared: at a station everyone sees it react to the same one person. Who that is is worked out alike on every device
-// from the heads the shell knows (HOST.collab.heads(): presence, in room coordinates, turned into the scene's frame, whose
-// origin is the station's spot); that person's headset drives it (its own head is exact), moving it every frame and
-// sending where it put it about ten times a second (the quiet effect 'beh', every item it drives in one message); every
-// other device draws it 120 ms behind those samples (the relay's clock), between them. With nobody in range (the
+// from the heads the shell knows (HOST.collab.heads(): presence, in room coordinates, which are the scene's at a station
+// since v125: the scene stands on the room's frame, its circle only the way in); that person's headset drives it (its
+// own head is exact), moving it every frame and sending where it put it about ten times a second (the quiet effect
+// 'beh', every item it drives in one message); every other device draws it 120 ms behind those samples (the relay's
+// clock), between them. With nobody in range (the
 // driver's last sample says so) or no sample for 1 s it goes back to where it is placed by itself, alike everywhere. If
 // two headsets start driving one item at once, the claims settle it: for 'first' the earlier arrival, for 'nearest' the
 // newer driver (it started because it was nearer), ties by member id. 'item' needs no driver: every device works it out
@@ -91,14 +92,12 @@ function behHeads(T) {
   const own = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room) ? { id: behMe(), me: true, p: p.clone(), f: behFace(), ts: T } : null;
   let H = null;
   try { H = room && HOST.collab.heads ? HOST.collab.heads() : null; } catch (e) { /* an older shell */ }
-  if (H && H.st && Array.isArray(H.list)) {
-    // (room to scene: back to the spot, then turned back by its yaw)
-    const c = Math.cos(H.st.yaw), s = Math.sin(H.st.yaw);
+  if (H && Array.isArray(H.list)) {
+    // (room coordinates are the scene's at a station since v125: the scene stands on the room's frame, xrPlace)
     for (const h of H.list) {
       if (h.me && own) continue;
-      const x = h.head[0] - H.st.x, z = h.head[2] - H.st.z;
       _beF.set(0, 0, -1).applyQuaternion(_beQ.set(h.head[3], h.head[4], h.head[5], h.head[6]));
-      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(c * x - s * z, h.head[1], s * x + c * z), f: flat2(c * _beF.x - s * _beF.z, s * _beF.x + c * _beF.z), ts: h.ts });
+      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: h.ts });
     }
   }
   if (own) out.push(own);

@@ -68,7 +68,13 @@ Studio in the headset's menu, Settings tab; in a shared room Studio here puts
 its circle at your feet, for everyone at it). In a shared room each scene can be
 a circle of its own: Add (the Shared dialog, or Add here in the headset's menu)
 lists Studio: <scene> for every scene of the relay, and the circle opens that
-scene for everyone at it; several studio circles can stand in a room.
+scene for everyone at it; several studio circles can stand in a room. Since
+v125 a scene in a shared room stands on the room's spots (spot A its origin,
+x towards spot B), not round its circle: the circle is only the way in, and
+moving or turning it moves nothing of the scene, so a scene stands at the same
+place in the room whichever circle shows it. A scene placed before then stood
+round its circle: Move the scene to this circle (the Scene pane, editing on, at
+its circle) moves every item there again, for everyone (one Undo step).
 - Upload (<address>/upload, or the studio's Upload tab on a laptop or desktop):
   pick a scene or New scene, drop files or whole folders, read the plan, then
   Convert and upload. Models (FBX, OBJ with its MTL, glTF, GLB, PLY, STL) become
