@@ -5848,6 +5848,400 @@ if (runs('studio paths')) {
     await rp.close();
   });
 }
+// The studio's recorder (v125, tools/studio/SPEC.md, "Recorded paths": "Ten minutes, as a file" and "A voice with the
+// movement"), on a page of its own served by a relay of its own (--static . --scenes on a temporary copy of the test scene:
+// uploads land there and are read back from the disk), in a browser of its own with Chromium's fake microphone: a ten-minute
+// page recording (the recorder's clock the test's) kept as recordings/Box-1.json, its record's src, len and n, the box drawn
+// along it at three moments within 5 mm of the samples and looping, the file read back as another device reads it; a short
+// one still in the record; the refusals without a relay that takes uploads; norm's rules for src, the state and layout.json;
+// a GLB switch writing a turned file; then With my voice: a page recording with the fake microphone, its sound uploaded as a
+// mono WAV and placed following the box with sync, skip and len, its start against the path's clock within 50 ms (and again
+// at the next pass), cut with the loop join, Record again replacing its file, one Undo step, the state and layout round trip,
+// norm's rules, and the recording deleted leaving it no longer synced
+if (runs('studio recorder')) {
+  const { spawn } = await import('node:child_process');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rec-'));
+  fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
+  let RL = null;
+  for (let p = 8930; p < 8960 && !RL; p++) {
+    const R = { proc: null, port: 0, out: '' };
+    const ok = await new Promise(res => {
+      R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', '--static', '.', '--scenes', SC, '--quiet'],
+        { cwd: ROOT, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
+      const t = setTimeout(() => res(false), 15000);
+      R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
+      R.proc.stderr.on('data', d => { R.out += d; });
+      R.proc.on('exit', () => { clearTimeout(t); res(false); });
+    });
+    if (ok) RL = R; else if (R.proc.exitCode === null) R.proc.kill();
+  }
+  const rb = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined,
+    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+  const rctx = await rb.newContext({ viewport: { width: 1280, height: 800 } });
+  await rctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+  const rp = await rctx.newPage();
+  rp.on('pageerror', e => errors.push('studio recorder: ' + (e.stack || e.message)));
+  rp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio recorder: ' + m.text()); });
+  const ss = s => rp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => rp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio recorder: ' + b)); };
+  const onDisk = rel => path.join(SC, 'test', ...rel.split('/'));
+  // (in the page: an item drawn at a scene clock T, a pose's parts and middle; a page recording of the box n frames of 1/30 s
+  // on the test's clock, move(i, H, p0) placing it)
+  const HELP = `window.__rc = window.__rc || {
+    V: (...a) => new THREE.Vector3(...a), Q: (...a) => new THREE.Quaternion(...a), T: 1000,
+    at: (id, T) => { const sc = sceneClock; sceneClock = () => T; try { itemsStep(0, performance.now()); } finally { sceneClock = sc; } const H = STU.items.get(id).holder; return H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix.clone(); },
+    dec: m => { const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return { p, q, s }; },
+    mid: (it, p, q, s) => (it.kind === 'o' && it.model ? it.proxy.position.clone().multiply(s).applyQuaternion(q).add(p) : p.clone()),
+    record: (id, n, move, stop) => {
+      const P = window.__rc, it = STU.items.get(id), H = it.holder, p0 = H.position.clone();
+      recClock = () => P.T;
+      select(id); itemAct('rec');
+      if (!REC || REC.by !== 'page') return { began: false, note: REC_NOTE.text };
+      const cap = REC.cap;
+      for (let i = 1; i <= n && REC; i++) { P.T += 1000 / 30; move(i, H, p0); recStep(); }
+      const left = !!REC;
+      if (REC && stop !== false) itemAct(stop === 'cancel' ? 'recCancel' : 'recStop');
+      return { began: true, cap, left };
+    },
+  }`;
+  // (a circle 2 m across every 20 s, a slow rise and fall, a slow turn: a long movement that is never still)
+  const CIRCLE = `(i, H, p0) => { const s = i / 30, a = 2 * Math.PI * s / 20; H.position.set(p0.x + Math.sin(a), p0.y + 0.2 * Math.sin(a / 3), p0.z + 1 - Math.cos(a)); H.quaternion.setFromEuler(new THREE.Euler(0, a / 2, 0)); }`;
+  const ready = async () => {
+    await rp.goto(`http://127.0.0.1:${RL.port}/index.html#studio&scene=test&edit`);
+    await rp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    return until(`STUDIO.ready() && !!STU.items.get('box001').model && canUpload()`, 120000);
+  };
+  try {
+    await step('studio recorder: a ten-minute page recording (the recorder\'s clock the test\'s) simplified a slice at a time (the longest slice under 100 ms) and kept as the file recordings/Box-1.json through the relay, its record\'s src, len and n, one Undo step, its place kept, drawn along it at three moments within 5 mm and 1 degree of the samples and looping; the file read back as another device reads it', async () => {
+      if (!RL) { bad(['no relay of its own started']); return; }
+      if (!await ready()) { bad(['the test scene did not load from the relay: ' + JSON.stringify(await ss('[SRC.kind, SRC.upload, SRC.save, STU.listing]').catch(e => e.message))]); return; }
+      await ss(`(${HELP}, setEdit(true), select(''), 0)`);
+      const r0 = await ss(`(() => {
+        const P = window.__rc, it = STU.items.get('box001'), rec0 = JSON.stringify(it.rec);
+        window.__rc.u0 = UNDO.length; window.__rc.rec0 = rec0;
+        const res = P.record('box001', 18100, ${CIRCLE});
+        return { res, rec: REC ? 'running' : 'ended', capped: !!(RECLAST && RECLAST.capped), S: RECLAST && RECLAST.S.length, keep: KEEP.has('box001'), note: REC_NOTE.text, cap: res.cap };
+      })()`);
+      const out = [];
+      if (!r0.res.began || r0.cap !== 600 || r0.res.left || !r0.capped || !(r0.S >= 18000)) out.push('the recording did not run to 10 minutes: ' + JSON.stringify(r0));
+      if (!await until(`!KEEP.has('box001') && !!(STU.items.get('box001').rec.path && STU.items.get('box001').rec.path.src)`, 60000)) { bad(out.concat('not kept as a file: ' + JSON.stringify(await ss('[REC_NOTE.text, KEEP.size]')))); return; }
+      const r = await ss(`(() => {
+        const P = window.__rc, out = [], it = STU.items.get('box001'), Pth = it.rec.path, R = RECLAST, S = R.S;
+        if (Pth.src !== 'recordings/Box-1.json' || 'k' in Pth || Pth.play !== 'loop' || Pth.start !== 'always' || Pth.speed !== 1 || !(Pth.n > 600) || !(Pth.len > 599 && Pth.len <= 600)) out.push('its record: ' + JSON.stringify(Pth));
+        if (JSON.stringify(Object.assign({}, it.rec, { path: undefined })) !== P.rec0) out.push('its place changed: ' + JSON.stringify(it.rec.p));
+        if (UNDO.length !== P.u0 + 1) out.push('not one Undo step: ' + (UNDO.length - P.u0));
+        // (simplified a slice at a time between frames: e6f_path.js, simplifySoon)
+        const L = SIMP.last;
+        if (!L || !(L.n >= 18000) || !(L.slices >= 2) || !(L.longest <= 100) || L.keys !== Pth.n) out.push('not simplified a slice at a time: ' + JSON.stringify(L));
+        P.simp = L;
+        const f = STUDIO.pf(Pth.src);
+        if (!f || !f.own || f.n !== Pth.n || f.state !== 'ok') out.push('its keys not held here: ' + JSON.stringify(f));
+        if (!/^Recorded 10:00 in [\\d,]+ keys \\(from [\\d,]+ samples\\), kept as the file recordings\\/Box-1\\.json, stopped at 10 minutes/.test(REC_NOTE.text)) out.push('its note: ' + REC_NOTE.text);
+        // drawn at three moments (10 %, 50 % and 90 % in) where the samples were, and a loop later the same
+        const p0 = P.V(...it.rec.p), q0 = P.Q(...it.rec.q), s0 = P.V(it.rec.s, it.rec.s, it.rec.s), c0 = R.c0 || 0;
+        P.worst = [0, 0]; P.info = [Pth.n, Pth.len, S.length];
+        select('');
+        for (const fr of [0.1, 0.5, 0.9]) {
+          const sm = S[Math.floor(S.length * fr)], t = sm[0] - c0;
+          for (const T of [t, t + Pth.len]) {
+            const M = P.dec(P.at('box001', T)), w = P.mid(it, P.V(sm[1], sm[2], sm[3]), P.Q(sm[4], sm[5], sm[6], sm[7]), s0), d = P.mid(it, M.p, M.q, M.s).distanceTo(w), a = M.q.angleTo(P.Q(sm[4], sm[5], sm[6], sm[7]));
+            P.worst = [Math.max(P.worst[0], d), Math.max(P.worst[1], a * 180 / Math.PI)];
+            if (!(d <= 0.005) || !(a <= Math.PI / 180)) out.push('drawn at ' + T.toFixed(3) + ' s ' + (d * 1000).toFixed(2) + ' mm and ' + (a * 180 / Math.PI).toFixed(2) + '° from the sample');
+          }
+        }
+        // (as another device reads it: its keys not held here, fetched from the scene once it is listed)
+        window.__rc.src = Pth.src;
+        PF.delete(Pth.src);
+        P.at('box001', 1);
+        return out;
+      })()`);
+      out.push(...r);
+      const file = onDisk('recordings/Box-1.json');
+      let j = null;
+      try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { out.push('no file on the relay\'s disk: ' + e.message); }
+      const rec = await ss(`STU.items.get('box001').rec.path`);
+      if (j && (j.studio !== 1 || j.recording !== 1 || j.item !== 'Box' || j.n !== rec.n || j.k.length !== rec.n || j.len !== rec.len || j.k[0][0] !== 0 || j.k[j.k.length - 1][0] !== rec.len || fs.statSync(file).size > 4 << 20)) out.push('its file: ' + JSON.stringify([j.studio, j.recording, j.item, j.n, j.k.length, j.len, rec]));
+      if (!await until(`(() => { const f = STUDIO.pf(window.__rc.src); return !!(f && f.state === 'ok' && !f.own); })()`, 20000)) out.push('not read back from the scene: ' + JSON.stringify(await ss('STUDIO.pf(window.__rc.src)')));
+      else {
+        const r2 = await ss(`(() => {
+          const P = window.__rc, it = STU.items.get('box001'), Pth = it.rec.path, S = RECLAST.S, sm = S[Math.floor(S.length * 0.7)], s0 = P.V(it.rec.s, it.rec.s, it.rec.s);
+          const M = P.dec(P.at('box001', sm[0] - (RECLAST.c0 || 0))), d = P.mid(it, M.p, M.q, M.s).distanceTo(P.mid(it, P.V(sm[1], sm[2], sm[3]), P.Q(sm[4], sm[5], sm[6], sm[7]), s0));
+          return [STUDIO.pf(Pth.src).n === Pth.n, d];
+        })()`);
+        if (!r2[0] || !(r2[1] <= 0.005)) out.push('read back: ' + JSON.stringify(r2));
+      }
+      const info = await ss('[window.__rc.info, window.__rc.worst, window.__rc.simp]').catch(() => null);
+      if (info && info[0]) console.log(`     (${info[0][2]} samples kept as ${info[0][0]} keys, ${info[0][1]} s, ${(fs.statSync(file).size / 1024).toFixed(0)} KB; drawn within ${(info[1][0] * 1000).toFixed(2)} mm and ${info[1][1].toFixed(3)}° of the samples; simplified in ${info[2] ? `${info[2].ms.toFixed(0)} ms, ${info[2].work.toFixed(0)} ms of work in ${info[2].slices} slices, the longest ${info[2].longest.toFixed(1)} ms` : '?'})`);
+      bad(out);
+    });
+    await step('studio recorder: 18,000 jittery samples (ten minutes of a shaky hand) simplified a slice at a time: the same keys as at once and as the simplifier before slices; its time in all and its longest slice', async () => {
+      const r = await rp.evaluate(() => HOST.cur.peek(`(async () => {
+        let sd = 7, x = 0, y = 0, z = 0, a = 0;
+        const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647, rel = [];
+        for (let i = 0; i < 18000; i++) { x += (rnd() - 0.5) * 0.02; y += (rnd() - 0.5) * 0.02; z += (rnd() - 0.5) * 0.02; a += (rnd() - 0.5) * 0.05; rel.push({ t: i / 30, d: new THREE.Vector3(x, y, z), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0)) }); }
+        const mid = new THREE.Vector3(0, 0.25, 0);
+        // (the simplifier as it was before slices, v125's first: the reference)
+        const before = (rel, mid) => {
+          const n = rel.length, keep = new Uint8Array(n), todo = [[0, n - 1]], pm = new THREE.Vector3(), qm = new THREE.Quaternion(), wa = new THREE.Vector3(), wb = new THREE.Vector3(), tm = 0.004, ta = 0.9 * Math.PI / 180;
+          keep[0] = keep[n - 1] = 1;
+          while (todo.length) {
+            const [a, b] = todo.pop(), A = rel[a], B = rel[b];
+            if (b - a < 2) continue;
+            let worst = 1, wi = -1;
+            for (let i = a + 1; i < b; i++) { const f = (rel[i].t - A.t) / (B.t - A.t), r = rel[i]; pm.copy(A.d).lerp(B.d, f); qm.copy(A.q).slerp(B.q, f); const e = Math.max(wa.copy(mid).applyQuaternion(qm).add(pm).distanceTo(wb.copy(mid).applyQuaternion(r.q).add(r.d)) / tm, qm.angleTo(r.q) / ta); if (e > worst) { worst = e; wi = i; } }
+            if (wi >= 0) { keep[wi] = 1; todo.push([a, wi], [wi, b]); }
+          }
+          const out = []; for (let i = 0; i < n; i++) if (keep[i]) out.push(i); return out;
+        };
+        const t0 = performance.now(), A = pathSimplify(rel, mid), t1 = performance.now(), O = before(rel, mid), t2 = performance.now(), B = await simplifySoon(rel, mid, STU.gen);
+        return { n: rel.length, keys: A.length, once: A.join() === O.join(), soon: !!B && B.join() === A.join(), msOnce: t1 - t0, msBefore: t2 - t1, L: SIMP.last };
+      })()`));
+      const out = [];
+      if (!r.once || !r.soon || r.n !== 18000 || !(r.keys > 1000) || !r.L || !(r.L.slices >= 2) || !(r.L.longest <= 100)) out.push(JSON.stringify(r));
+      if (r.L) console.log(`     (${r.n} jittery samples kept as ${r.keys} keys: at once ${r.msOnce.toFixed(0)} ms (as before slices ${r.msBefore.toFixed(0)} ms); a slice at a time ${r.L.ms.toFixed(0)} ms in all, ${r.L.work.toFixed(0)} ms of work in ${r.L.slices} slices, the longest ${r.L.longest.toFixed(1)} ms)`);
+      bad(out);
+    });
+    await step('studio recorder: a short one still in the record (no file); the refusals without a relay that takes uploads (its longest 120 s, a recording past 2 minutes, more than 600 keys); norm\'s rules for src; the state and layout.json give a file\'s path back; a GLB switch writes its keys turned into a new file, and one that cannot (no relay that takes uploads, its file not in the scene) leaves the object on its original and says why on its card; Move the scene to this circle turns a sound\'s file into a new one, or is refused in words', async () => {
+      const r = await ss(`(() => {
+        const P = window.__rc, out = [], J = x => JSON.stringify(x), it = STU.items.get('pth501') || putItem('pth501', 'e', norm('e', { name: 'Walker', p: [0, 1, -1] })), u0 = UNDO.length;
+        const files0 = STU.files.filter(f => f.path.startsWith('recordings/')).length;
+        let x = P.record('pth501', 90, ${CIRCLE});
+        const p1 = it.rec.path;
+        if (!x.began || !p1 || !p1.k || 'src' in p1 || UNDO.length !== u0 + 1 || KEEP.has('pth501')) out.push('a short one: ' + J([x, p1 && Object.keys(p1), UNDO.length - u0]));
+        undo();
+        // without a relay that takes uploads (its uploads off): 120 s at most; past 2 minutes, or more than 600 keys, refused
+        SRC.upload = false;
+        x = P.record('pth501', 10, ${CIRCLE}, 'cancel');
+        if (x.cap !== 120) out.push('its longest without uploads: ' + x.cap);
+        SRC.upload = true;
+        x = P.record('pth501', 3900, ${CIRCLE}, false);
+        SRC.upload = false;
+        itemAct('recStop');
+        SRC.upload = true;
+        if (x.cap !== 600 || 'path' in it.rec || !/A recording longer than 2 minutes needs a relay that takes uploads/.test(REC_NOTE.text)) out.push('past 2 minutes: ' + J([x, REC_NOTE.text]));
+        SRC.upload = false;
+        x = P.record('pth501', 700, (i, H, p0) => H.position.set(p0.x + 0.3 + (i % 2 ? 0.02 : -0.02), p0.y + i * 0.0005, p0.z));
+        SRC.upload = true;
+        if ('path' in it.rec || !/needs [\\d,]+ keys: a path holds 600 at most in the layout, and a longer one is kept as a file of the scene, which needs a relay that takes uploads/.test(REC_NOTE.text)) out.push('more than 600 keys: ' + REC_NOTE.text);
+        if (UNDO.length !== u0 || STU.files.filter(f => f.path.startsWith('recordings/')).length !== files0) out.push('a refusal changed something');
+        // norm's rules
+        const N = pth => { const r = norm('e', { p: [0, 0, 0], path: pth }); return r ? r.path : null; };
+        const res = [J(N({ src: 'recordings/a b-1.json', len: 300.0004, n: 9000, speed: 2 })), J(N({ src: 'recordings/x/y.json', len: 0.001, n: 2 }))].concat([
+          { src: 'a.json', len: 5, n: 9 }, { src: 'recordings/a.txt', len: 5, n: 9 }, { src: 'recordings/../a.json', len: 5, n: 9 }, { src: 'recordings/.a.json', len: 5, n: 9 }, { src: 'recordings/a/b/c/d/e.json', len: 5, n: 9 },
+          { src: 'recordings/a.json~', len: 5, n: 9 }, { src: 'recordings/a.json', len: 0, n: 9 }, { src: 'recordings/a.json', len: 600.5, n: 9 }, { src: 'recordings/a.json', len: 'x', n: 9 }, { src: 'recordings/a.json', n: 9 },
+          { src: 'recordings/a.json', len: 5, n: 1 }, { src: 'recordings/a.json', len: 5, n: 40001 }, { src: 'recordings/a.json', len: 5, n: 2.5 }, { src: 'recordings/a.json', len: 5, n: 9, k: [[0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1]] }, { src: 7, len: 5, n: 9 },
+        ].map(N));
+        const want = [J({ src: 'recordings/a b-1.json', len: 300, n: 9000, play: 'loop', start: 'always', speed: 2 }), J({ src: 'recordings/x/y.json', len: 0.001, n: 2, play: 'loop', start: 'always', speed: 1 })].concat(Array(15).fill(null));
+        if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
+        // the state and layout.json: the file's path given back (and a scene's 6,000 not counting it)
+        const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+        const L = layoutOut(), back = readLayout(JSON.parse(J(L))), bp = back.items.find(q => q.id === 'box001').rec.path;
+        if (J(collabState()) !== a || J(bp) !== J(STU.items.get('box001').rec.path) || back.bad || pathKeys('') !== 0) out.push('the state and layout: ' + J([bp, back.bad, pathKeys('')]));
+        removeItem('pth501');
+        return out;
+      })()`);
+      // a GLB switch: the figure (stood up from Z up) given the long path's file, switched to a GLB holding it turned: a new
+      // file with its keys turned, drawn where it was
+      const g = await rp.evaluate(async () => {
+        const peek = s => HOST.cur.peek(s);
+        peek(`setRec('fig001', { path: Object.assign({}, STU.items.get('box001').rec.path) }), window.__rc.before = window.__rc.dec(window.__rc.at('fig001', 33.3)), 0`);
+        await peek(`(async () => { const g = { s: 0.01, q: [-0.7071, 0, 0, 0.7071] }, u0 = UNDO.length; const pm = await pathFilesTurned('figure.fbx', g); window.__rc.n = switchToGLB('figure.fbx', 'models/figure-x.glb', g, null, pm); window.__rc.du = UNDO.length - u0; })()`);
+        return peek(`(() => { const P = window.__rc, it = STU.items.get('fig001'), after = P.dec(P.at('fig001', 33.3)), r = P.Q(-0.7071, 0, 0, 0.7071).normalize(), src = it.rec.path.src;
+          return { n: P.n, du: P.du, src, own: (STUDIO.pf(src) || {}).own, d: after.p.distanceTo(P.before.p), a: after.q.clone().multiply(r).angleTo(P.before.q) }; })()`);
+      });
+      if (g.n !== 1 || g.du !== 1 || g.src !== 'recordings/Figure-1.json' || !g.own || !(g.d <= 0.0015) || !(g.a <= 3e-4) || !fs.existsSync(onDisk('recordings/Figure-1.json'))) r.push('a GLB switch: ' + JSON.stringify(g));
+      await ss(`(undo(), setRec('fig001', { path: undefined }), 0)`);
+      // a switch that cannot turn its file (no relay that takes uploads; its file not in the scene): not switched, said
+      const h = await rp.evaluate(async () => {
+        const peek = s => HOST.cur.peek(s);
+        return peek(`(async () => {
+          const g = { s: 0.01, q: [-0.7071, 0, 0, 0.7071] }, out = [], it = STU.items.get('fig001'), u0 = UNDO.length, src = STU.items.get('box001').rec.path.src;
+          setRec('fig001', { path: Object.assign({}, STU.items.get('box001').rec.path) });
+          SRC.upload = false;
+          let pm = await pathFilesTurned('figure.fbx', g), n = switchToGLB('figure.fbx', 'models/figure-x.glb', g, null, pm);
+          SRC.upload = true;
+          const w1 = heldWords(pm, 'figure.fbx', 'models/figure-x.glb');
+          select('fig001'); X.tab = 'item'; renderPanes();
+          const card = document.querySelector('#pane-item').textContent;
+          out.push({ n, file: it.rec.file, src: it.rec.path.src === src, du: UNDO.length - u0, note: it.swNote, w1, card: card.includes(it.swNote) && !!it.swNote });
+          setRec('fig001', { path: { src: 'recordings/none-1.json', len: 5, n: 9, play: 'loop', start: 'always', speed: 1 } });
+          const t0 = performance.now();
+          pm = await pathFilesTurned('figure.fbx', g); n = switchToGLB('figure.fbx', 'models/figure-x.glb', g, null, pm);
+          out.push({ n, file: it.rec.file, ms: performance.now() - t0, note: it.swNote, du: UNDO.length - u0 });
+          setRec('fig001', { path: undefined }); it.swNote = ''; select('');
+          return out;
+        })()`);
+      });
+      if (h[0].n !== 0 || h[0].file !== 'figure.fbx' || !h[0].src || h[0].du !== 0 || !/^Not switched to models\/figure-x\.glb: its recorded path is kept as the file recordings\/Box-1\.json, and turning it needs a relay that takes uploads\. It stays on figure\.fbx/.test(h[0].note || '') || !h[0].card ||
+        !/^Figure was not switched from figure\.fbx to models\/figure-x\.glb: its recorded path is kept as the file recordings\/Box-1\.json, and turning it needs a relay that takes uploads\. It stays as it was \(Switch to the GLB on its card tries again\)\.$/.test(h[0].w1)) r.push('a switch with no relay that takes uploads: ' + JSON.stringify(h[0]));
+      if (h[1].n !== 0 || h[1].file !== 'figure.fbx' || h[1].du !== 0 || !(h[1].ms < 3000) || !/its recorded path's file recordings\/none-1\.json could not be read/.test(h[1].note || '')) r.push('a switch whose file is not in the scene: ' + JSON.stringify(h[1]));
+      // Move the scene to this circle (a pretend station's circle, its spot 2 m off and turned a quarter): a sound's own recorded
+      // path kept as a file turned into a new file, drawn where it was turned with the scene; refused with no relay that takes
+      // uploads, nothing moved
+      const c = await rp.evaluate(async () => {
+        const peek = s => HOST.cur.peek(s);
+        return peek(`(async () => {
+          const P = window.__rc, out = [], src = STU.items.get('box001').rec.path;
+          putItem('snd501', 's', norm('s', { name: 'Walking', file: 'tone.wav', p: [0.5, 1, -1], vol: 1, r: 1.5, loop: true, start: 'always', path: Object.assign({}, src) }));
+          const T = 33.3, before = P.dec(P.at('snd501', T)).p, recs0 = JSON.stringify([...STU.items.values()].map(x => x.rec));
+          const as = atStation, cs = circleSpot, S = { x: 2, z: -1, yaw: Math.PI / 2 };
+          const wait = async re => { for (let i = 0; i < 100 && !re.test(CIRC.note); i++) await new Promise(r => setTimeout(r, 100)); return CIRC.note; };
+          try {
+            atStation = () => true; circleSpot = () => S;
+            SRC.upload = false;
+            CIRC.note = ''; sceneToCircle();
+            const n1 = await wait(/^Refused|^Moved/);
+            out.push({ note: n1, same: JSON.stringify([...STU.items.values()].map(x => x.rec)) === recs0 });
+            SRC.upload = true;
+            const u0 = UNDO.length;
+            CIRC.note = ''; sceneToCircle();
+            const n2 = await wait(/^Refused|^Moved/), sr = STU.items.get('snd501').rec;
+            const after = P.dec(P.at('snd501', T)).p, want = new THREE.Vector3(S.x + before.z, before.y, S.z - before.x);
+            out.push({ note: n2, src: sr.path.src, own: (STUDIO.pf(sr.path.src) || {}).own, d: after.distanceTo(want), du: UNDO.length - u0 });
+            undo();
+            out.push({ back: STU.items.get('snd501').rec.path.src === src.src && P.dec(P.at('snd501', T)).p.distanceTo(before) < 1e-6 });
+          } finally { atStation = as; circleSpot = cs; SRC.upload = true; removeItem('snd501'); CIRC.note = ''; }
+          return out;
+        })()`);
+      });
+      if (!/^Refused \(nothing moved\): Walking's recorded path is kept as the file recordings\/Box-1\.json, and turning it needs a relay that takes uploads\.$/.test(c[0].note) || !c[0].same) r.push('the move to the circle with no relay that takes uploads: ' + JSON.stringify(c[0]));
+      if (!/^Moved: \d+ items now stand round this circle \(Undo takes it back\)\. A sound's recorded path kept as a file was turned into a new file\.$/.test(c[1].note) || c[1].src !== 'recordings/Walking-1.json' || !c[1].own || !(c[1].d <= 0.0015) || c[1].du !== 1 || !fs.existsSync(onDisk('recordings/Walking-1.json')) || !c[2].back) r.push('the move to the circle: ' + JSON.stringify(c));
+      bad(r);
+    });
+    await step('studio recorder: With my voice (the fake microphone): a page recording with it, its sound uploaded as a mono WAV and placed following the box (sync, skip, len), the path and the sound one Undo step, cut with the loop join; heard from the path\'s start within 50 ms (and at its next pass); Record again with the microphone 1.5 s late writing a new file (the old one kept) and the sound pointed at it, its skip below 0 and its len to the path\'s end, heard within 50 ms and still synced 0.3 s before its end; the state and layout round trip; norm\'s rules; the recording deleted leaving it no longer synced; Undo giving the first file back', async () => {
+      const out = [];
+      await ss(`(setRec('box001', { path: undefined }), select('box001'), X.tab = 'item', HOST.audio.mute(false), recClock = () => performance.now(), 0)`);
+      await ss(`(itemAct('recVoice'), 0)`);
+      if (!await until('VOICE.on && !VOICE.asking', 15000)) { bad(['With my voice did not turn on: ' + JSON.stringify(await ss('VOICE'))]); return; }
+      await ss(`(renderPanes(), 0)`);
+      const sw = await rp.evaluate(() => (document.querySelector('#pane-item [data-id="recvoice"]') || {}).textContent || '');
+      if (!/With my voice: on/.test(sw)) out.push('the switch on the card: ' + sw);
+      // a recording of 4 s, real time: 0.6 s still, then round, while the microphone records
+      const u0 = await ss('UNDO.length');
+      // (late: the movement begins as the recording does, before the microphone is on)
+      const rec = async late => {
+        await ss(`(select('box001'), itemAct('rec'), window.__rc.p0 = STU.items.get('box001').holder.position.clone(), window.__rc.r0 = performance.now(), 0)`);
+        const move = `(window.__rc.iv = setInterval(() => { if (!REC) return; const s = Math.max(0, (performance.now() - window.__rc.r0) / 1000 - 0.6), a = 2 * Math.PI * s / 3, H = STU.items.get('box001').holder, p0 = window.__rc.p0; H.position.set(p0.x + 0.5 * Math.sin(a), p0.y, p0.z + 0.5 - 0.5 * Math.cos(a)); recStep(); }, 20), 0)`;
+        if (late) await ss(move);
+        if (!await until(`!!(REC && REC.v && REC.v.state === 'on')`, 10000)) return 'the microphone did not start: ' + JSON.stringify(await ss('REC && REC.v && [REC.v.state, REC.v.err]'));
+        if (!late) await ss(move);
+        await rp.waitForTimeout(4000);
+        const lvl = await ss('REC && REC.v ? [REC.v.lvl, !!REC.v.an] : null');
+        await ss(`(clearInterval(window.__rc.iv), itemAct('recStop'), 0)`);
+        if (!await until(`!KEEP.has('box001') && !!voiceOf('box001')`, 30000)) return 'no voice placed: ' + JSON.stringify(await ss('[REC_NOTE.text, KEEP.size]'));
+        return lvl;
+      };
+      const l1 = await rec();
+      if (typeof l1 === 'string') { bad(out.concat(l1)); return; }
+      const v = await ss(`(() => { const s = voiceOf('box001'), R = RECLAST; return { id: s.id, rec: s.rec, path: STU.items.get('box001').rec.path, plen: STU.items.get('box001').rec.path ? pathLen(STU.items.get('box001').rec.path) : 0, c0: R.c0, lead: (R.v.t0 - R.real0) / 1000, dur: R.v.kept && R.v.kept.dur, undo: UNDO.length, note: REC_NOTE.text }; })()`);
+      if (v.undo !== u0 + 1) out.push('the path and its voice not one Undo step: ' + (v.undo - u0));
+      if (v.rec.file !== 'sounds/Box-voice-1.wav' || v.rec.on !== 'box001' || v.rec.sync !== 'box001' || v.rec.loop !== false || v.rec.name !== 'Box voice' || !v.path || !v.path.k) out.push('its record: ' + JSON.stringify(v));
+      if (!(v.c0 > 0.3) || Math.abs((v.rec.skip || 0) - (v.c0 - v.lead)) > 0.002 || !(Math.abs(v.lead) < 1) || !(Math.abs(v.rec.len - Math.min(v.plen, v.dur - (v.rec.skip || 0))) <= 0.002)) out.push('cut with the loop join: ' + JSON.stringify([v.c0, v.lead, v.rec.skip, v.rec.len, v.dur]));
+      if (!/Your voice is Box voice \(mono WAV, 48000 Hz/.test(v.note)) out.push('its note: ' + v.note);
+      const wav = fs.existsSync(onDisk('sounds/Box-voice-1.wav')) ? fs.readFileSync(onDisk('sounds/Box-voice-1.wav')) : null;
+      if (!wav || wav.toString('latin1', 0, 4) !== 'RIFF' || wav.readUInt16LE(22) !== 1 || wav.readUInt16LE(34) !== 16 || wav.readUInt32LE(24) !== 48000 || !(wav.length > 48000 * 2 * 3)) out.push('its file: ' + (wav ? JSON.stringify([wav.toString('latin1', 0, 4), wav.readUInt16LE(22), wav.readUInt16LE(34), wav.readUInt32LE(24), wav.length]) : 'none'));
+      // heard from the path's start: its voice where the path's clock says, now and at its next pass
+      await ss(`(select(''), 0)`);
+      const vid = v.id;
+      if (!await until(`!!STUDIO.voice('${vid}').playing`, 20000)) out.push('the voice did not play: ' + JSON.stringify(await ss(`[STUDIO.voice('${vid}'), STU.items.get('${vid}').F && STU.items.get('${vid}').F.state, !!HOST.audio.fx()]`)));
+      else {
+        const off = async () => ss(`(() => { const s = STUDIO.voice('${vid}'); return s.now && s.log && s.voiceNow != null ? { d: s.voiceNow - ((s.log.skip || 0) + s.now.e), pass: s.log.pass, e: s.now.e } : null; })()`);
+        const a = await off();
+        if (!a || !(Math.abs(a.d) <= 0.05)) out.push('its start against the path\'s clock: ' + JSON.stringify(a));
+        if (a) console.log(`     (the voice ${(a.d * 1000).toFixed(1)} ms from the path's clock as it plays; skip ${v.rec.skip} s, len ${v.rec.len} s, the microphone ${(v.lead * 1000).toFixed(0)} ms late, the level meter ${JSON.stringify(l1)})`);
+        const p0 = a ? a.pass : -1;
+        if (!await until(`(() => { const s = STUDIO.voice('${vid}'); return !!(s.log && s.log.pass > ${p0} && s.playing); })()`, 15000)) out.push('not started again at the next pass: ' + JSON.stringify(await ss(`STUDIO.voice('${vid}')`)));
+        else { await rp.waitForTimeout(300); const b = await off(); if (!b || !(Math.abs(b.d) <= 0.05)) out.push('at its next pass: ' + JSON.stringify(b)); else console.log(`     (at its next pass ${(b.d * 1000).toFixed(1)} ms)`); }
+      }
+      // Record again, the microphone 1.5 s late: a new file (the old one kept as it was), the same sound pointed at it; its skip
+      // below 0 (it starts that much after the path) and its len to the path's end (its file's end, dur - skip), heard where
+      // the path's clock says and still synced 0.3 s before its end
+      const st0 = fs.statSync(onDisk('sounds/Box-voice-1.wav'));
+      await rp.evaluate(() => { const md = navigator.mediaDevices, g = md.getUserMedia.bind(md); window.__gum = g; md.getUserMedia = c => new Promise(r => setTimeout(r, 1500)).then(() => g(c)); });
+      const l2 = await rec(true);
+      await rp.evaluate(() => { navigator.mediaDevices.getUserMedia = window.__gum; });
+      if (typeof l2 === 'string') out.push('again: ' + l2);
+      else {
+        const w = await ss(`(() => { const s = voiceOf('box001'), R = RECLAST, P = STU.items.get('box001').rec.path, D = pathLen(P), sc = sceneClock;
+          let end = null, past = null;
+          try { sceneClock = () => 10 * D + (s.rec.len - 0.3); end = syncAt(s, performance.now(), R.v.kept.dur); } finally { sceneClock = sc; }
+          return { id: s.id, file: s.rec.file, n: [...STU.items.values()].filter(x => x.kind === 's' && x.rec.sync === 'box001').length, skip: s.rec.skip, len: s.rec.len, plen: D, dur: R.v.kept.dur, lead: (R.v.t0 - R.real0) / 1000, c0: R.c0, end }; })()`), st1 = fs.statSync(onDisk('sounds/Box-voice-1.wav'));
+        if (w.id !== vid || w.file !== 'sounds/Box-voice-2.wav' || w.n !== 1 || st1.mtimeMs !== st0.mtimeMs || !fs.existsSync(onDisk('sounds/Box-voice-2.wav'))) out.push('Record again: ' + JSON.stringify([w, st0.mtimeMs, st1.mtimeMs]));
+        if (!(w.lead > 1.3) || !(w.skip < -0.5) || Math.abs(w.skip - (w.c0 - w.lead)) > 0.002 || !(Math.abs(w.len - Math.min(w.plen, w.dur - w.skip)) <= 0.002) || !(w.len > w.dur + 0.5) ||
+          !w.end || !(Math.abs(w.end.at - (w.skip + w.len - 0.3)) <= 0.002) || !(w.end.at < w.dur)) out.push('the microphone 1.5 s late: ' + JSON.stringify(w));
+        else console.log(`     (the microphone ${(w.lead * 1000).toFixed(0)} ms late: skip ${w.skip} s, len ${w.len} s of a ${w.plen} s path, its file ${w.dur.toFixed(2)} s; 0.3 s before its end it plays from ${w.end.at.toFixed(2)} s into its file)`);
+        if (!await until(`(() => { const s = STUDIO.voice('${vid}'); return !!(s.playing && s.log && s.log.skip < 0); })()`, 20000)) out.push('the late voice did not play: ' + JSON.stringify(await ss(`STUDIO.voice('${vid}')`)));
+        else {
+          const c = await ss(`(() => { const s = STUDIO.voice('${vid}'); return s.now && s.log && s.voiceNow != null ? { d: s.voiceNow - ((s.log.skip || 0) + s.now.e), e: s.now.e } : null; })()`);
+          if (!c || !(Math.abs(c.d) <= 0.05)) out.push('the late voice against the path\'s clock: ' + JSON.stringify(c));
+          else console.log(`     (the late voice ${(c.d * 1000).toFixed(1)} ms from the path's clock)`);
+        }
+      }
+      // the state and layout round trip; norm's rules for sync, skip and len
+      const r = await ss(`(() => {
+        const out = [], J = x => JSON.stringify(x), s = collabState(), a = J(s); collabApply(JSON.parse(a));
+        const L = layoutOut(), back = readLayout(JSON.parse(J(L))), br = back.items.find(q => q.id === '${vid}').rec;
+        if (J(collabState()) !== a || J(br) !== J(STU.items.get('${vid}').rec) || !('sync' in s['s.${vid}'])) out.push('the state and layout: ' + J(br));
+        const N = x => norm('s', Object.assign({ file: 'tone.wav', p: [0, 0, 0] }, x));
+        const res = [N({ sync: 'box001', skip: 0.4567, len: 3.21 }), N({ sync: 'box001', skip: -11, len: 700 }), N({ sync: 'box001', skip: 0 }), N({ skip: 1, len: 2 }), N({ sync: 'bad' }), N({ sync: 'box001', skip: 'x' }), N({ sync: 'box001', len: 0 })]
+          .map(r => (r ? [r.sync, r.skip, r.len] : null));
+        if (J(res) !== J([['box001', 0.457, 3.21], ['box001', -10, 600], ['box001', null, null], [null, null, null], null, null, null])) out.push('norm\\'s rules: ' + J(res));
+        // deleted, the recording leaves its voice, no longer synced (its card says so)
+        const u0 = UNDO.length;
+        select('box001'); itemAct('recDel'); select('${vid}'); X.tab = 'item'; renderPanes();
+        const txt = document.querySelector('#pane-item').textContent;
+        if (!STU.items.has('${vid}') || syncOf(STU.items.get('${vid}')) || !/no longer synced/.test(txt) || UNDO.length !== u0 + 1) out.push('the recording deleted: ' + J([STU.items.has('${vid}'), UNDO.length - u0, /no longer synced/.test(txt)]));
+        undo(); select('');
+        if (!syncOf(STU.items.get('${vid}'))) out.push('Undo did not sync it again');
+        return out;
+      })()`);
+      out.push(...r);
+      // one Undo step takes the voice and the path back (the voice its first file again, which was never written over)
+      const u = await ss(`(() => { undo(); return [!!voiceOf('box001'), 'path' in STU.items.get('box001').rec, voiceOf('box001') && voiceOf('box001').rec.file]; })()`);
+      if (u[0] !== true || u[1] !== true || u[2] !== 'sounds/Box-voice-1.wav') out.push('Undo of Record again: ' + JSON.stringify(u));
+      const u2 = await ss(`(() => { undo(); return [!!voiceOf('box001'), 'path' in STU.items.get('box001').rec, STU.items.has('${vid}')]; })()`);
+      if (u2[0] !== false || u2[1] !== false || u2[2] !== false) out.push('Undo of the first: ' + JSON.stringify(u2));
+      await ss(`(HOST.audio.mute(true), 0)`);
+      bad(out);
+    });
+    await step('studio recorder: a streamed voice (the 25 s sounds/long.wav, longer than 20 s) with a 40 s path: started where the path is and at its level at once, kept within 80 ms of the path\'s clock as it plays, set again within 3 s when its element is put 0.5 s off (and started again the same way)', async () => {
+      const out = [];
+      await rp.click('#explore .tabs button[data-tab="scene"]');   // (a tap)
+      await ss(`(HOST.audio.mute(false), select(''), setRec('box001', { path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [40, 0.5, 0, 0, 0, 0, 0, 1]], play: 'loop', start: 'shown', speed: 1 } }), STU.items.get('box001').shownAt = performance.now(),
+        putItem('vst501', 's', norm('s', { name: 'Long voice', file: 'sounds/long.wav', p: [0, 1, 0], on: 'box001', o: [0, 0.5, 0], vol: 1, r: 1.5, start: 'always', loop: false, sync: 'box001' })), 0)`);
+      const go = await until(`(() => { const s = STUDIO.voice('vst501'); return !!(s && s.stream && !s.stream.paused && s.now && s.stream.t > 0.3); })()`, 20000);
+      if (!go) { bad(['the streamed voice did not play: ' + JSON.stringify(await ss(`[STUDIO.voice('vst501'), STU.items.get('vst501').F && STU.items.get('vst501').F.state]`))]); await ss(`(removeItem('vst501'), setRec('box001', { path: undefined }), HOST.audio.mute(true), 0)`); return; }
+      // (sampled over 3 s: the path's moment in its file against the element's)
+      const sample = async (ms, every) => { const d = []; for (let t = 0; t < ms; t += every) { const s = await ss(`(() => { const s = STUDIO.voice('vst501'); return s.now && s.stream && !s.stream.paused ? s.now.at - s.stream.t : null; })()`); if (s != null) d.push(s); await rp.waitForTimeout(every); } return d; };
+      const stat = d => { const a = d.map(Math.abs).sort((x, y) => x - y); return { n: a.length, med: a[Math.floor(a.length / 2)], max: a[a.length - 1] }; };
+      await rp.waitForTimeout(1000);
+      const s1 = stat(await sample(3000, 200));
+      if (!(s1.n >= 8) || !(s1.med <= 0.06) || !(s1.max <= 0.12)) out.push('as it plays: ' + JSON.stringify(s1));
+      // put 0.5 s off: set again
+      const f0 = await ss(`(() => { const S = STU.items.get('vst501').st; const f = S.fixes || 0; S.el.currentTime += 0.5; return f; })()`);
+      const fixed = await until(`(() => { const s = STUDIO.voice('vst501'); return !!(s.stream && s.stream.fixes > ${f0} && s.now && !s.stream.paused && Math.abs(s.now.at - s.stream.t) <= 0.08); })()`, 3000);
+      const s2 = stat(await sample(1500, 250));
+      if (!fixed || !(s2.med <= 0.08)) out.push('put 0.5 s off: ' + JSON.stringify([fixed, s2, await ss(`STUDIO.voice('vst501').stream`)]));
+      // started again (as at a new pass): where its path is, at its level at once
+      const g = await ss(`(() => { const it = STU.items.get('vst501'); emitStop(it); emitStep(performance.now()); return { gt: it.gt, want: it.fa * it.rec.vol, src: !!it.src, log: it.syncLog }; })()`);
+      if (!g.src || !(g.want > 0.5) || g.gt !== g.want) out.push('started again: ' + JSON.stringify(g));
+      await rp.waitForTimeout(1500);
+      const s3 = stat(await sample(1500, 250));
+      if (!(s3.med <= 0.08)) out.push('started again, as it plays: ' + JSON.stringify(s3));
+      const st = await ss(`STUDIO.voice('vst501').stream`);
+      console.log(`     (the streamed voice from the path's clock: median ${(s1.med * 1000).toFixed(0)} ms, at most ${(s1.max * 1000).toFixed(0)} ms over ${s1.n} samples; put 0.5 s off, back within 80 ms (median ${(s2.med * 1000).toFixed(0)} ms after); started again, median ${(s3.med * 1000).toFixed(0)} ms; set again ${st && st.fixes} times, its lead ${st && (st.lag * 1000).toFixed(0)} ms)`);
+      await ss(`(removeItem('vst501'), setRec('box001', { path: undefined }), HOST.audio.mute(true), 0)`);
+      bad(out);
+    });
+  } finally {
+    await rb.close();
+    if (RL && RL.proc.exitCode === null) RL.proc.kill();
+    try { fs.rmSync(SC, { recursive: true, force: true }); } catch (e) { /* left */ }
+  }
+}
 // The studio's trigger cubes that change pictures on objects (tools/studio/SPEC.md, "Trigger cubes that change textures"),
 // on a page of its own at the test scene, with two solid pictures made in the page and served as the scene's own
 // (tex/magenta.png, tex/lime.png), Twin (a second object of box.glb) and three cubes put in for these steps: pixels read

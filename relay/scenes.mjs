@@ -26,14 +26,20 @@ export const SCENE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg':
   '.wav': 'audio/wav', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.fbx': 'application/octet-stream', '.bin': 'application/octet-stream', '.tga': 'image/x-tga',
   '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds',
   '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
-export const typeOf = p => (kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
+export const typeOf = p => (isRecording(p) ? 'application/json' : kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
 // a model's picture for the studio's Add pane: previews/<the model's path>.jpg, a JPEG the studio makes with each GLB it
 // writes (and on Make pictures), at most 200 KB. Listed with a kind of its own, 'preview' (never a picture a texture could
 // be, never a model), so the studio knows which models have one; anything else in previews/ is listed as 'other'. An
 // upload under previews/ takes only such a picture (uploadPath)
 export const PREVIEWS = 'previews', MAX_PREVIEW = 200 << 10;
 export const isPreview = rel => { rel = String(rel); return rel.startsWith(PREVIEWS + '/') && rel.endsWith('.jpg') && rel.length > PREVIEWS.length + 5; };
-export const kindAt = rel => (String(rel).startsWith(PREVIEWS + '/') ? (isPreview(rel) ? 'preview' : 'other') : kindOf(rel));
+// a recorded path kept as a file of its scene (tools/studio/SPEC.md, "Recorded paths": one longer than 2 minutes, or of
+// more than 600 keys, v125): recordings/<the item's name>-<n>.json, the studio's own JSON, at most 4 MB. Listed with a kind of
+// its own, 'recording', and served as JSON; anything else in recordings/ by its own kind, as anywhere. An upload of a .json
+// goes only there (uploadPath)
+export const RECORDINGS = 'recordings', MAX_RECORDING = 4 << 20;
+export const isRecording = rel => { rel = String(rel); return rel.startsWith(RECORDINGS + '/') && rel.endsWith('.json') && rel.length > RECORDINGS.length + 6; };
+export const kindAt = rel => (String(rel).startsWith(PREVIEWS + '/') ? (isPreview(rel) ? 'preview' : 'other') : isRecording(rel) ? 'recording' : kindOf(rel));
 // an editor's or a download's temporary file (a copy in progress, a swap file): never listed, never told
 export const TEMP = /(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i;
 // a name a listing leaves out: dot files, temporary files, and names no URL path could carry back here
@@ -164,8 +170,8 @@ export const layoutAt = st => (st ? Math.floor(st.mtimeMs) : null);
 // ---- uploads (SPEC "The upload page": POST /api/scenes/<name>/file and .../sound). A path the relay may write: inside the
 // scene by the listing's own rules, so whatever is written is listed (no dot or temporary names, at most 4 folders deep),
 // never the scene's own files at its top, and outside originals/ (where the files go as they were given) only a model,
-// sound, image or data file; under previews/ only a model's picture (.jpg), which is at most MAX_PREVIEW (max: the
-// relay takes the smaller of it and --max-upload). Names a common file system could not keep as given are refused too (Windows' reserved
+// sound, image or data file; under previews/ only a model's picture (.jpg), which is at most MAX_PREVIEW, and under
+// recordings/ also a recording (.json), at most MAX_RECORDING (max: the relay takes the smaller of it and --max-upload). Names a common file system could not keep as given are refused too (Windows' reserved
 // characters and device names, a name ending in a space or a dot), so a scene copied to another computer stays whole.
 export const ORIGINALS = 'originals', MAX_PATH = 200;
 const UPLOAD_KINDS = new Set(['model', 'audio', 'image', 'data']);
@@ -189,8 +195,9 @@ export function uploadPath(p) {
   // (only in lower case: on a file system that ignores case, as Windows' and macOS's do, Previews/ is that same folder,
   // and a file put there would land among the pictures past their rule, listed as an ordinary image)
   if (segs[0].toLowerCase() === PREVIEWS) return { error: `${PREVIEWS}/ is written in lower case: no other folder at the top of a scene has that name` };
+  if (isRecording(p)) return { rel: p, segs, kind: 'recording', max: MAX_RECORDING };
   const kind = kindOf(p);
-  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: 'outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin)' };
+  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: `outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin), and recordings (.json) in ${RECORDINGS}/` };
   return { rel: p, segs, kind };
 }
 

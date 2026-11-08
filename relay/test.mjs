@@ -1805,6 +1805,40 @@ if (me === 'hang') setInterval(() => {}, 1000);
       `copies: a picture copied with it (${c1.status}); one over 200 KB (${c2.status}) or not a .jpg (${c3.status}) refused`);
   });
 
+  // a recorded path kept as a file of its scene (tools/studio/SPEC.md, "Recorded paths", v125): recordings/<name>.json, at
+  // most 4 MB, listed with a kind of its own
+  await step('recordings: recordings/ takes a recording kept as a file (.json, at most 4 MB and --max-upload), listed and told with its kind recording, served as JSON; a .json anywhere else refused, another kind there by its own rules; copies by the same rule', async () => {
+    const J = Buffer.from(JSON.stringify({ studio: 1, recording: 1, item: 'Box', len: 1, n: 2, k: [[0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0, 0, 1]] }));
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const r = await upf('recordings/Box-1.json', J), a = r.json();
+    ok(r.status === 200 && a.path === 'recordings/Box-1.json' && a.bytes === J.length && fs.readFileSync(at('recordings/Box-1.json')).equals(J), '200: a recording where it goes, its folder made');
+    const told = await w.next(ev('scene', d => d.path === 'recordings/Box-1.json'), 3000);
+    ok(told && told.data.kind === 'recording' && told.data.gone === false, 'the watch tells it with its kind, recording');
+    w.close();
+    const okd = [await upf('recordings/sub/Box 2-1.json', J), await upf('recordings/voice.wav', bytes(64))];
+    ok(okd.every(x => x.status === 200), 'a folder deeper, and a sound in recordings/ by its own kind: 200 (' + okd.map(x => x.status).join(' ') + ')');
+    const one = (await req('GET', '/api/scenes/one', { at: UP.port })).json(), kindAt = p => (one.files.find(x => x.path === p) || {}).kind;
+    ok(kindAt('recordings/Box-1.json') === 'recording' && kindAt('recordings/sub/Box 2-1.json') === 'recording' && kindAt('recordings/voice.wav') === 'audio',
+      'listed with its kind, recording (a sound there: audio): ' + [kindAt('recordings/Box-1.json'), kindAt('recordings/sub/Box 2-1.json'), kindAt('recordings/voice.wav')].join(' '));
+    const sv = await req('GET', '/scenes/one/recordings/Box-1.json', { at: UP.port }), sj = await req('GET', '/scenes/one/recordings/voice.wav', { at: UP.port });
+    ok(sv.status === 200 && sv.headers['content-type'] === 'application/json' && sv.buf.equals(J) && !sv.headers['content-disposition'] && sj.headers['content-type'] === 'audio/wav', 'served as JSON (' + sv.headers['content-type'] + ')');
+    const before = tree(), bad = [];
+    for (const p of ['recordings/a.JSON', 'recordings/a.txt', 'recordings/.a.json', 'recordings/a/b/c/d/e.json', 'data/a.json', 'a.json', 'recordings/a.json~']) bad.push((await upf(p, J)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'a .json anywhere but recordings/ (or .JSON, text, a dot file, too deep, a temporary name): 400, nothing written (' + bad.join(' ') + ')');
+    ok(/recordings \(\.json\) in recordings\//.test((await upf('data/a.json', J)).json().error), 'it says where a recording goes');
+    const { uploadPath, typeOf, kindAt: ka } = await import('./scenes.mjs'), u = uploadPath('recordings/a.json');
+    ok(u.kind === 'recording' && u.max === 4 << 20 && !uploadPath('models/a.glb').max && typeOf('recordings/a.json') === 'application/json' && typeOf('originals/a.json') === 'application/octet-stream' && ka('originals/a.json') === 'other',
+      'uploadPath: a recording at most 4 MB; typeOf: JSON; a .json elsewhere other');
+    const b1 = await upf('recordings/big.json', bytes(MB + 1)), b2 = await upf('recordings/big2.json', bytes(MB + 10), { chunked: true });
+    ok(b1.status === 413 && b2.status === 413 && !fs.existsSync(at('recordings/big.json')) && !leftovers().length, `past the smaller of 4 MB and --max-upload (1 MB here): 413 by its length (${b1.status}) and as it streams (${b2.status}); nothing left behind`);
+    const cp = b => send(UP.port, '/api/scenes/new%20one/copy', Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const c1 = await cp({ from: 'one', path: 'recordings/Box-1.json' }), c2 = await cp({ from: 'one', path: 'recordings/Box-1.json', as: 'data/Box-1.json' });
+    ok(c1.status === 200 && fs.readFileSync(path.join(U, 'new one', 'recordings', 'Box-1.json')).equals(J) && c2.status === 400, `copies: a recording copied with it (${c1.status}); as a .json elsewhere refused (${c2.status})`);
+    for (const p of ['recordings']) { fs.rmSync(at(p), { recursive: true, force: true }); fs.rmSync(path.join(U, 'new one', p), { recursive: true, force: true }); }   // (the steps after know the scenes without them)
+  });
+
   await step('uploads: POST /api/scenes/<name>/sound: ffmpeg (a stand-in) makes a mono MP3 at 96 kbit/s and 44.1 kHz; its failures, its limit, two at once, none at all', async () => {
     const W = bytes(40000), r = await snd('sounds/a.mp3', W), a = r.json();
     const note = ffNotes('ok').pop() || { args: [] }, args = note.args, input = args[args.indexOf('-i') + 1], out = args[args.length - 1];
@@ -2131,6 +2165,30 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok((await req('POST', '/api/scenes/one/put?path=x.glb&size=1', { at: UP.port })).status === 501 && (await req('GET', '/api/scenes/new%20one/put?path=x.glb&size=1', { at: RR.port })).status === 405,
       'a relay whose scenes are a folder: 501; GET: 405');
     ok(noLeak(RR.out) && !(await req('POST', '/api/scenes/new%20one/put?path=..%2Fx&size=1', { at: RR.port })).text.includes('X-Amz'), 'no signed link in the log or in an error');
+    w.close();
+  });
+
+  await step('R2: recordings/ by the same rule: a recording through the relay and straight into the bucket, stored and signed as application/json, listed and told as kind recording', async () => {
+    const J = Buffer.from(JSON.stringify({ studio: 1, recording: 1, item: 'Box', len: 1, n: 2, k: [[0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0, 0, 1]] }));
+    const upr = (p, body, o = {}) => send(RR.port, `/api/scenes/new%20one/file?path=${encodeURIComponent(p)}${o.replace ? '&replace=1' : ''}`, body, o);
+    const api = (what, q) => req('POST', `/api/scenes/new%20one/${what}?${q}`, { at: RR.port });
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const r = await upr('recordings/Box-1.json', J);
+    ok(r.status === 200 && obj('new one/recordings/Box-1.json').body.equals(J) && obj('new one/recordings/Box-1.json').type === 'application/json', 'through the relay: 200, into the bucket as application/json');
+    ok(!!(await w.next(ev('scene', d => d.path === 'recordings/Box-1.json' && d.kind === 'recording'), 3000)), 'the watch tells it as kind recording');
+    const L = (await rget('/api/scenes/new%20one')).json(), f = L.files.find(x => x.path === 'recordings/Box-1.json');
+    ok(!!f && f.kind === 'recording' && typeof f.url === 'string' && f.url.startsWith(S3.url), 'listed as kind recording, with its signed link');
+    const g = await fetch(f.url);
+    ok(g.status === 200 && Buffer.from(await g.arrayBuffer()).equals(J), 'its link gives the recording');
+    const p = await api('put', 'path=recordings%2FBox-2.json&size=' + J.length), pj = p.json();
+    ok(p.status === 200 && pj.headers['Content-Type'] === 'application/json' && pj.path === 'recordings/Box-2.json', 'put: a signed link for it, its type application/json');
+    const up = await fetch(pj.url, { method: 'PUT', headers: pj.headers, body: J }), d = await api('done', 'path=recordings%2FBox-2.json&size=' + J.length);
+    ok(up.status === 200 && d.status === 200 && obj('new one/recordings/Box-2.json').body.equals(J) && !!(await w.next(ev('scene', x => x.path === 'recordings/Box-2.json' && x.kind === 'recording'), 3000)), 'the PUT and done: 200, told as kind recording');
+    const s2 = [await api('put', 'path=data%2Fa.json&size=10'), await upr('data/a.json', J)];
+    ok(s2.every(x => x.status === 400), `a .json elsewhere: 400 (${s2.map(x => x.status).join(' ')})`);
+    ok(noLeak(RR.out), 'no signed link or key in the log');
+    for (const k of S3.keys()) if (k.startsWith(PFX + 'new one/recordings/')) S3.del(k);   // (the steps after know the scene without them)
     w.close();
   });
 

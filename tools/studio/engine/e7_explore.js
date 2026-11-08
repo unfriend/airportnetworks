@@ -439,9 +439,10 @@ function itemBlocks(it, B, ed) {
     pathBlocks(it, B, dis, mv);
   } else {
     const F = it.F;
-    B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
+    B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
       ['Follows', r.on ? followWords(it) + (r.o ? `, ${cmOrM(Math.hypot(...r.o))} from it` : ', on it') : 'nothing']] });
     followBlocks(it, B, dis);
+    syncBlocks(it, B);   // (a voice recorded with a movement: e6j_voice.js)
     if (F && (F.state === 'failed' || F.state === 'over')) B.push({ p: F.err, c: 'amber' });
     else if (F && F.stream) B.push({ p: `Streamed (${Math.floor(F.dur / 60)} min ${Math.round(F.dur % 60)} s: longer than 20 s), so it is not held in memory.`, c: 'faint' });
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
@@ -675,7 +676,18 @@ function act(a, v) {
     look: () => { if (!XR.on && !OPT.visit) vwOpen({ kind: 'add', path: v }); },   // (an Add card's Look: the viewer, e7f_viewer.js)
     convert: () => { CV.item = STU.sel; convertFile(v); },
     convertAll: () => convertAll(),
-    switch: () => { const g = glbFor().get(v); if (g) { const rec = glbRec(g); switchToGLB(v, g, rec || null); } },
+    // (a recorded path kept as a file is turned into a new file first: one that cannot be leaves its object as it was, said)
+    switch: async () => {
+      const g = glbFor().get(v);
+      if (!g) return;
+      const rec = glbRec(g), files = [...STU.items.values()].some(it => it.kind === 'o' && it.rec.file === v && it.rec.path && it.rec.path.src);
+      CV.item = STU.sel;
+      if (files) { CV.note = `Switching to ${g}: its recorded path, kept as a file, is turned first...`; CV.noteC = 'muted'; dirty(true); }
+      const pm = await pathFilesTurned(v, rec || null);
+      switchToGLB(v, g, rec || null, null, pm);
+      const held = heldWords(pm, v, g);
+      if (files || held) { CV.note = held || `Switched to ${g}: its recorded path, kept as a file, turned with it.`; CV.noteC = held ? 'amber' : 'green'; dirty(true); }
+    },
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),

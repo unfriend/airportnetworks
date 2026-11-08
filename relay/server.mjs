@@ -30,7 +30,7 @@ import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
-  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER } from './scenes.mjs';
+  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 
 const PROTO = 1;
@@ -1202,9 +1202,11 @@ async function folderSend(req, res, segs, raw) {
   try { real = await fs.promises.realpath(file); st = await fs.promises.stat(real); } catch { return plain(res, 404, 'Not found'); }
   if (!inside(dir, real)) return refusedPath(res, raw, 'a link out of its folder');
   if (!st.isFile()) return plain(res, 404, 'Not found');
-  // (only a model's, picture's, sound's or data's own type: anything else, such as a page or a script kept in originals/,
-  // is plain bytes to save, never run on this origin, where the app and its password live; and nothing here runs anyway)
-  const k = kindOf(real), type = k === 'other' ? 'application/octet-stream' : TYPES[path.extname(real).toLowerCase()] || 'application/octet-stream';
+  // (only a model's, picture's, sound's or data's own type, and a recording's JSON: anything else, such as a page or a
+  // script kept in originals/, is plain bytes to save, never run on this origin, where the app and its password live; and
+  // nothing here runs anyway)
+  const rec = isRecording(segs.slice(1).join('/')), k = rec ? 'recording' : kindOf(real);
+  const type = rec ? 'application/json' : k === 'other' ? 'application/octet-stream' : TYPES[path.extname(real).toLowerCase()] || 'application/octet-stream';
   return sendFile(req, res, real, st, { squeeze: false, type, extra: { 'Access-Control-Expose-Headers': 'ETag, Content-Range, Accept-Ranges',
     'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", ...(k === 'other' ? { 'Content-Disposition': 'attachment' } : {}) } });
 }
@@ -1273,10 +1275,12 @@ async function writeLayout(dir, text) {
 // nothing behind (nor the folders made for it, when they are empty). All behind the password, as every scene endpoint.
 const NO_SAVE = 'saving is off on this relay (--scenes-readonly): nothing is written';
 const TOO_BIG = `a file is at most ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB here (--max-upload)`;
-// the most a file at that path may hold (uploadPath's want): --max-upload, and a model's picture under previews/ less
-// (relay/scenes.mjs, MAX_PREVIEW: uploadPath gives it as want.max), with its own words
+// the most a file at that path may hold (uploadPath's want): --max-upload, and a model's picture under previews/ or a
+// recording under recordings/ less (relay/scenes.mjs, MAX_PREVIEW and MAX_RECORDING: uploadPath gives it as want.max),
+// with its own words
 const capOf = want => Math.min(MAX_UPLOAD, want && want.max ? want.max : Infinity);
-const bigFor = want => (capOf(want) < MAX_UPLOAD ? `a picture in previews/ is at most ${Math.round(capOf(want) / 1024)} KB` : TOO_BIG);
+const capWord = want => (want && want.kind === 'recording' ? 'a recording in recordings/' : 'a picture in previews/');
+const bigFor = want => (capOf(want) < MAX_UPLOAD ? `${capWord(want)} is at most ${want.kind === 'recording' ? +(capOf(want) / (1 << 20)).toFixed(2) + ' MB' : Math.round(capOf(want) / 1024) + ' KB'}` : TOO_BIG);
 const UPLOAD_IDLE = 120000;   // an upload with no byte for this long is given up (server.requestTimeout is off for slow ones)
 const DRAIN = 16 << 20;
 const FF = { running: 0, procs: new Set() };
@@ -1941,8 +1945,8 @@ async function direct(req, res, url, name, what) {
     // another way, and is not the relay's to remove)
     if (pend && pend.sign === 'type' && st.at >= pend.at - 120000 && Date.now() - pend.at <= PUT_TTL * 1000) {
       await RX.del(key); r2Forget(); PENDING.delete(key);
-      log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket by its link: more than ${capOf(want) < MAX_UPLOAD ? 'a picture in previews/ takes' : '--max-upload'})`);
-    } else log(`scenes: ${name}: ${want.rel} in the bucket is ${mb(st.size)}, more than ${capOf(want) < MAX_UPLOAD ? 'a picture in previews/ takes' : '--max-upload'}: left there (it did not come by a link of this relay's)`);
+      log(`scenes: ${name}: removed ${want.rel} (${mb(st.size)} came straight into the bucket by its link: more than ${capOf(want) < MAX_UPLOAD ? capWord(want) + ' takes' : '--max-upload'})`);
+    } else log(`scenes: ${name}: ${want.rel} in the bucket is ${mb(st.size)}, more than ${capOf(want) < MAX_UPLOAD ? capWord(want) + ' takes' : '--max-upload'}: left there (it did not come by a link of this relay's)`);
     return no(413, bigFor(want));
   }
   if (said !== undefined && st.size !== said) return no(400, `${want.rel} holds ${st.size} bytes, not the ${said} said`);

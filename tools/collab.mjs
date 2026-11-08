@@ -338,7 +338,9 @@ if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1))
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 // (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
-const LAUNCH_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'];
+// (the fake microphone, granted without asking: the studio's voice recorded with a movement, v125)
+const LAUNCH_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection',
+  '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: LAUNCH_ARGS });
 // every device starts with the room's automatic All stories circles off (a page's arc in a room with no stations, the
 // first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
@@ -4059,7 +4061,9 @@ async function tokenRound() {
 // refusing a third page's card, the headset told to hide the other circles there) and saved in layout.json (v119); motions
 // (v120: a wobble and an orbit set on two pages drawn in the same phase on every page and the headset at one held room time,
 // saved in layout.json); a recorded path (v120: the headset records the box's movement with a grip; every page takes the
-// path and, with the headset, draws the box at the same pose along it at one held room time); From another scene (a model of a second scene copied into the open
+// path and, with the headset, draws the box at the same pose along it at one held room time); a ten-minute recording kept as
+// a file and a voice (v125: made on a page, Chromium's fake microphone; every device draws the box at the same pose at one held
+// room time, puts the voice at the same moment of its file, and two hear it where the room's clock says); From another scene (a model of a second scene copied into the open
 // one with the files it names, an OBJ under originals/, a name taken: a new one; every device taking it); a circle made
 // for one scene as the shell writes it opening that scene and writing its saved layout on the pages that follow it; New
 // scene from the headset's panel (the shell's keypad stubbed) opening the new scene at its station; a long sound streamed (an
@@ -4585,6 +4589,77 @@ async function studioRound(dir) {
       rRec.armed && rRec.began && rRec.keys > 1 && rRec.same && Math.abs(rRec.D - 2) < 0.002 && rTook.every(Boolean) && rMoved && rFar[0] < 0.001 && rFar[1] < 0.001,
       JSON.stringify({ rRec, rTook, rFar, rAt: rAt.map(r => r && [r[0] && r[0].moving, r[1] === rAt[0][1]]) }));
     await sp(B, `(setEdit(true), itemAct('recDel', null, 'box001'), select(''), 0)`);
+    }
+
+    // ---- a ten-minute recording and a voice (v125): C records the box's movement for 10 minutes on the page (the recorder's
+    // clock the test's), kept as the file recordings/Box-1.json through the relay; every page and the headset take its record
+    // (the same src, len and n), read the file from the relay and, at one room time held on each, draw the box at the same
+    // pose (within 1 mm of C's). Then C records it again with its voice (Chromium's fake microphone, real time): the path and
+    // the voice's sound (sounds/Box-voice-1.wav, following the box, sync box001) reach everyone; at one room time held on each
+    // every device puts the voice at the same moment of its file (within 1 ms), and with the sound on, B and C hear it where
+    // the room's clock says (within 50 ms). (C's own Undo list; the items taken away after)
+    {
+    for (const p of [A, B, C, H]) await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!b && !b.rec.path && !b.gl; })()`, 15000);
+    await sleep(500);
+    const lRec = await sp(C, `(() => {
+      const it = STU.items.get('box001'), H = it.holder, rc = recClock, p0 = H.position.clone();
+      let T = 1000; recClock = () => T;
+      try {
+        setEdit(true); select('box001'); itemAct('rec');
+        const began = !!(REC && REC.by === 'page'), cap = REC ? REC.cap : 0;
+        for (let i = 1; i <= 18100 && REC; i++) { T += 1000 / 30; const a = 2 * Math.PI * (i / 30) / 20; H.position.set(p0.x + Math.sin(a), p0.y + 0.2 * Math.sin(a / 3), p0.z + 1 - Math.cos(a)); H.quaternion.setFromEuler(new THREE.Euler(0, a / 2, 0)); recStep(); }
+        select('');
+        return { began, cap, left: !!REC };
+      } finally { recClock = rc; }
+    })()`);
+    const lKept = lRec.began && await sUntil(C, `(() => { const b = STU.items.get('box001'); return !KEEP.has('box001') && !!(b.rec.path && b.rec.path.src); })()`, 60000);
+    const lP = lKept ? await sp(C, `STU.items.get('box001').rec.path`) : null, lTook = [];
+    for (const p of [A, B, H]) lTook.push(!!lP && await sUntil(p, `(() => { const b = STU.items.get('box001'), P = b && b.rec.path, f = P && STUDIO.pf(P.src); return !!(P && P.src === '${lP && lP.src}' && P.n === ${lP ? lP.n : 0} && f && f.state === 'ok' && f.n === P.n) && !b.gl; })()`, 20000));
+    const lT = (Math.round(Date.now() / 1000) + 123.456) * 1000, lAt = [];
+    for (const p of [C, A, B, H]) {
+      lAt.push(await sp(p, `(() => { const n = HOST.collab.now; HOST.collab.now = () => ${lT}; try {
+        select(''); const now = performance.now(); itemsStep(0, now); return STUDIO.pose('box001');
+      } finally { HOST.collab.now = n; } })()`));
+    }
+    const pd = (a, b) => Math.hypot(a.drawn[12] - b.drawn[12], a.drawn[13] - b.drawn[13], a.drawn[14] - b.drawn[14]);
+    const lFar = lAt.every(r => r && r.drawn) ? Math.max(...lAt.map(r => pd(r, lAt[0]))) : Infinity;
+    const lMoved = lAt.every(r => r && r.moving) && lAt[0] && lAt[0].drawn && Math.hypot(lAt[0].drawn[12] - lAt[0].placed[12], lAt[0].drawn[13] - lAt[0].placed[13], lAt[0].drawn[14] - lAt[0].placed[14]) > 0.05;
+    const lFile = (() => { try { const j = JSON.parse(fs.readFileSync(path.join(SC, 'test', 'recordings', 'Box-1.json'), 'utf8')); return [j.n, j.k.length, j.len]; } catch (e) { return null; } })();
+    check(`studio: a ten-minute recording made on a page (${lP ? lP.n : 0} keys over ${lP ? lP.len : 0} s) is kept as the file recordings/Box-1.json through the relay; every page and the headset take its record, read the file and, at one held room time, draw the box at the same pose (within ${(lFar * 1000).toFixed(3)} mm of the first page's)`,
+      lRec.began && lRec.cap === 600 && !lRec.left && !!lP && lP.src === 'recordings/Box-1.json' && lP.n > 600 && lP.len > 599 && lTook.every(Boolean) && lMoved && lFar < 0.001 && !!lFile && lFile[0] === lP.n && lFile[1] === lP.n && lFile[2] === lP.len,
+      JSON.stringify({ lRec, lKept, lP, lTook, lFar, lMoved, lFile }));
+    // the voice: recorded with C's fake microphone, 4 s in real time (0.6 s still, then round)
+    await C.evaluate(() => HOST.audio.mute(false));
+    await B.evaluate(() => HOST.audio.mute(false));
+    await sp(C, `(setEdit(true), select('box001'), itemAct('recVoice'), 0)`);
+    const vOn = await sUntil(C, 'VOICE.on && !VOICE.asking', 15000);
+    if (vOn) {
+      await sp(C, `(recClock = () => performance.now(), select('box001'), itemAct('rec'), window.__vr = { p0: STU.items.get('box001').holder.position.clone(), r0: performance.now() }, 0)`);
+      await sUntil(C, `!!(REC && REC.v && REC.v.state === 'on')`, 10000);
+      await sp(C, `(window.__vr.iv = setInterval(() => { if (!REC) return; const s = Math.max(0, (performance.now() - window.__vr.r0) / 1000 - 0.6), a = 2 * Math.PI * s / 3, H = STU.items.get('box001').holder, p0 = window.__vr.p0; H.position.set(p0.x + 0.5 * Math.sin(a), p0.y, p0.z + 0.5 - 0.5 * Math.cos(a)); recStep(); }, 20), 0)`);
+      await sleep(4000);
+      await sp(C, `(clearInterval(window.__vr.iv), itemAct('recStop'), select(''), 0)`);
+    }
+    const vKept = vOn && await sUntil(C, `!KEEP.has('box001') && !!voiceOf('box001') && !!STU.items.get('box001').rec.path.k`, 30000);
+    const vRec = vKept ? await sp(C, `(() => { const s = voiceOf('box001'); return { id: s.id, rec: s.rec }; })()`) : null, vTook = [];
+    for (const p of [A, B, H]) vTook.push(!!vRec && await sUntil(p, `(() => { const s = STU.items.get('${vRec && vRec.id}'), F = s && s.F; return !!(s && JSON.stringify(s.rec) === ${JSON.stringify(JSON.stringify(vRec && vRec.rec))} && F && (F.state === 'ready' || F.state === 'bytes' || F.state === 'decoding') && STU.items.get('box001').rec.path && STU.items.get('box001').rec.path.k); })()`, 20000));
+    // (at one held room time every device puts the voice at the same moment of its file)
+    const vT = (Math.round(Date.now() / 1000) + 61.234) * 1000, vAt = [];
+    for (const p of [C, A, B, H]) vAt.push(!!vRec && await sp(p, `(() => { const n = HOST.collab.now; HOST.collab.now = () => ${vT}; try { select(''); const it = STU.items.get('${vRec && vRec.id}'), s = syncAt(it, performance.now(), 600); return s ? s.at : null; } finally { HOST.collab.now = n; } })()`));
+    const vFar = vAt.every(x => typeof x === 'number') ? Math.max(...vAt.map(x => Math.abs(x - vAt[0]))) : Infinity;
+    // (and with the sound on, B and C hear it where the room's clock says)
+    const vHeard = [];
+    for (const p of [C, B]) {
+      const ok = !!vRec && await sUntil(p, `!!STUDIO.voice('${vRec && vRec.id}').playing`, 20000);
+      vHeard.push(ok ? await sp(p, `(() => { const s = STUDIO.voice('${vRec.id}'); return s.now && s.log && s.voiceNow != null ? s.voiceNow - ((s.log.skip || 0) + s.now.e) : null; })()`) : null);
+    }
+    const vWav = (() => { try { const b = fs.readFileSync(path.join(SC, 'test', 'sounds', 'Box-voice-1.wav')); return [b.toString('latin1', 0, 4), b.readUInt16LE(22), b.readUInt32LE(24)]; } catch (e) { return null; } })();
+    check(`studio: a voice recorded with the movement on a page (Chromium's fake microphone) reaches every page and the headset as a sound following the box (sync box001, ${vWav ? 'a mono WAV' : 'no file'}); at one held room time every device puts it at the same moment of its file (within ${(vFar * 1000).toFixed(3)} ms), and B and C hear it where the room's clock says (${vHeard.map(x => (x == null ? '?' : (x * 1000).toFixed(1) + ' ms')).join(', ')})`,
+      vOn && vKept && !!vRec && vRec.rec.sync === 'box001' && vRec.rec.on === 'box001' && vRec.rec.file === 'sounds/Box-voice-1.wav' && vTook.every(Boolean) && vFar < 0.001 && vHeard.every(x => typeof x === 'number' && Math.abs(x) <= 0.05) && !!vWav && vWav[0] === 'RIFF' && vWav[1] === 1,
+      JSON.stringify({ vOn, vKept, vRec, vTook, vAt, vHeard, vWav, note: await sp(C, 'REC_NOTE.text') }));
+    await C.evaluate(() => HOST.audio.mute(true));
+    await B.evaluate(() => HOST.audio.mute(true));
+    await sp(C, `(VOICE.on && itemAct('recVoice', null, 'box001'), voiceOf('box001') && deleteItem(voiceOf('box001').id), itemAct('recDel', null, 'box001'), select(''), 0)`);
     }
 
     // ---- a long sound (25 s) streamed: an element on the shell's context, nothing decoded; another device, muted, silent

@@ -313,19 +313,37 @@ one by one; each plays its own and moves with the group).
   was done (*Loop closed: its end met its start (6 cm, 4° apart; 0.4 s of stillness cut)*), or how far apart they were
   when it could not close it; **Keep it as recorded** undoes the tidying (one Undo step). Once and Back and forth are kept
   as recorded.
-- Up to 120 s (it stops there by itself and keeps what it has). The recording is thinned out to the keys that matter (a key
-  wherever leaving it out would move it more than 5 mm or turn it more than 1 degree) and kept in its record as one
-  change: Undo takes it back. It then plays at once, also while selected; carried, it rests where it is placed (its
-  ghost shows where that is).
+- Up to 10 minutes with a relay that takes uploads, 120 s without (it stops there by itself and keeps what it has). The
+  recording is thinned out to the keys that matter (a key wherever leaving it out would move it more than 5 mm or turn it
+  more than 1 degree) and kept in its record as one change: Undo takes it back. One longer than 2 minutes, or with more
+  than 600 keys, is kept as a file of the scene, `recordings/<its name>-<n>.json` (its card says *kept as a file*), which
+  every device fetches; it needs a relay that takes uploads (without one such a recording is refused in words). Files are
+  never written over, so Undo can bring an older recording back with its file. A long one is worked out a little at a
+  time (*Simplifying the recording* on its card for a moment), so a headset does not freeze. It then plays at once, also while selected; carried, it rests where it is placed (its
+  ghost shows where that is). Switching a model whose recording is such a file to its GLB writes the recording turned into
+  a new file; when that cannot be done (no relay that takes uploads) the model is not switched and its card says why.
 - It plays from where the thing stands: move it or turn it (arrows, grips, Turn 90°, its group) and its whole path moves
   with it. **Plays**: **Loop**, **Once** (then it stays at the end) or **Back and forth**; **Starts**: **Always** (on the
   room's clock, so everyone at a circle sees the same moment) or **When shown** (from when a trigger cube shows it to
   you; *Once* goes with *When shown*: with *Always* it has long played at a circle); **Slower** and **Faster** (a quarter
   to four times); **Delete recording**. A motion (Spin, Bob...) is added on top, and a sound or a cut-out on it comes
   along. **Record again** keeps how it plays.
-- Limits, said on its card when a recording is refused: 600 keys a path (a long, shaky movement may need more: record a
-  shorter or calmer one), 6,000 in a scene, and a scene small enough to share in a room. A locked item cannot be
-  recorded, nor can a sound that follows something (stop following first). Shared in a room and saved in `layout.json`.
+- Limits, said on its card when a recording is refused: 600 keys a path in the layout (more is kept as a file, up to
+  40,000), 6,000 in a scene (a file's keys not counted), and a scene small enough to share in a room. A locked item cannot
+  be recorded, nor can a sound that follows something (stop following first). Shared in a room and saved in
+  `layout.json`.
+- **With my voice** (an object's, a shape's or an empty's card, needs a relay that takes uploads): turned on, it asks for
+  the microphone (allow it; in a headset the browser may not show that question, so turn it on on the 2D page first,
+  before entering VR). While you record, your voice is recorded too (a small level meter on the card). Kept with the
+  recording, it becomes a mono sound of the scene, `sounds/<its name>-voice-<n>.wav` (longer than 20 s: an MP3 made by the
+  relay's ffmpeg), placed as *<its name> voice* following it (on its head bone when it has one, else at its top), and it
+  plays with its recorded path: from each start of it (each loop; once; on the way there with back and forth), on the
+  room's clock, so everyone at a circle hears it at the same moment; the still start the loop's tidying cuts is cut from
+  the voice too; if the microphone started late, the voice starts that much after the path and still plays to its end.
+  A long voice (more than 20 s) is streamed and kept on the path's clock as it plays. At another speed than ×1 it plays at
+  its own pace from each start. Record again with it on makes a new voice file and points the sound at it (the old file
+  stays, so Undo brings it back). Deleting the recording leaves the sound, no longer synced (its card says so). The path
+  and its voice are one Undo step.
 
 ## In a headset: from the inside, Hold it, the sticks
 

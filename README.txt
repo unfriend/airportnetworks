@@ -121,6 +121,14 @@ its circle) moves every item there again, for everyone (one Undo step).
   record its members one by one. While you record, a ghost stays where it
   began: end there (it lights up) and a loop closes smoothly, its still start
   and end cut (Keep it as recorded undoes that).
+- Longer recordings and your voice (v125): with a relay that takes uploads a
+  recording may run up to ten minutes; one past two minutes (or with many
+  keys) is kept as a file of the scene, recordings/<name>-<n>.json, which
+  every device fetches. With my voice: on (on the recorder's rows; allow the
+  microphone, on the 2D page first for a headset) records your voice with the
+  movement and keeps it as a sound that follows the thing and plays with its
+  path, from each start of it, for everyone at the circle at the same moment
+  (Record again makes a new voice file; Undo brings the old one back).
 - A trigger cube can change a model's picture while you are in it: on the
   cube's card Change a texture..., point at the model (or pick it), then its
   material, a slot (Colour first) and one of the scene's pictures. Walk in and
