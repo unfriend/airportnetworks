@@ -213,7 +213,7 @@ the Stories screen; on the Stories screen it leaves as usual. On touch screens
 the timeline and the bars keep clear of the screen's edges, where iOS takes a
 swipe as back or home.
 Slideshow: a story stops at the end of each chapter, with all its text shown,
-until you press Next (or Play, or A or X in a headset). The narration finishes
+until you press Next (or Play). The narration finishes
 the chapter's last words before it waits. Next is at the foot of the story
 panel (on a phone, beside Play), and in a headset under the panel where the
 chapter's name was. Turn it on for one story
@@ -377,7 +377,8 @@ circle, or Lock story per station in the Shared dialog; among the fish of Pass i
 grip in the sea moves the school, for everyone there too); each station keeps
 its story, so the story panel has no Stories button there: another story is
 another station. In a headset the menu is closed at first (a note at the start
-says how to open it). Click either stick to open the menu (with hand tracking,
+says how to open it). Click either stick to open the menu (it opens a moment
+after the click, as two quick clicks move you with the sticks; with hand tracking,
 pinch twice quickly with your left hand while it points at nothing); it floats
 in front of you, about 80 cm away, with the time in its header, and the same, or
 Close, closes it again; unused for 20 seconds it closes by itself. Point at it
@@ -399,8 +400,8 @@ front of them) or hidden. Cards, the larger ones (the story's text panel and
 its play and pause bar, the stations' cards over the circles and people's name
 tags): in 3D (the default: they stand in the scene, hidden by what is in front
 of them), on top (drawn over everything, as before) or hidden (no story panels
-at all, in the story and in explore mode, no station cards and no name tags; A
-or X still plays and pauses, and the menu brings them back). The
+at all, in the story and in explore mode, no station cards and no name tags;
+the menu's Story tab still plays and pauses, and the menu brings them back). The
 two are independent; each press goes to the next. Moving:
 free (the default: the grip holds the scene like a real object and turns it
 with your hand, two hands turn it too; the story panel can tilt; Recenter
@@ -415,7 +416,17 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. My menu
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. Moving
+with the sticks (off by default, this headset's own, never the room's; #walk=on
+in a link): click either stick twice quickly, or use its row on the Settings tab,
+and in VR the left stick moves you along the floor where you look and a flick of
+the right stick turns you 30 degrees; a controller whose grip is held keeps its
+stick for what it carries. Not in AR (there you walk for real), not in a shared
+room (the others need to see where you really stand) and not in the studio (its
+sticks walk you through the scene already): there two clicks say so. Turned off,
+you stay where you moved to; a new session starts where you stand. A and X play
+and pause nothing (play and pause are on the story's panels and the menu's Story
+tab). My menu
 (this headset's own, never the room's): only me (the default) or my circle. With
 my circle, in a shared room the other headsets at your circle see your menu while
 it is open, as a picture where it floats with your name over it, so you can show
@@ -429,7 +440,8 @@ Setup on the Quest) and people, hands and anything moving, from the headset's de
 menu, the notices, the subtitles and whatever is set on top are never hidden; a studio
 scene may ask for its own, until the next story. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
-under the panel, good with subtitles) or hidden (A or X still plays); each story
+under the panel, good with subtitles) or hidden (play and pause on the menu's
+Story tab); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also
 per station in the Shared dialog); #panels=controls in a link sets it for the
 story the link opens.
