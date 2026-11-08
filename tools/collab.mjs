@@ -6430,20 +6430,22 @@ try {
     const mid = () => S.mesh.getWorldPosition(new V());
     const where = () => { const m = mid(), h = headNow(), d = m.clone().sub(h), f = gaze(); f.y = 0; f.normalize(); const dl = d.clone(); dl.y = 0; dl.normalize();
       return { dist: +d.length().toFixed(3), flat: +Math.hypot(d.x, d.z).toFixed(3), ahead: +dl.dot(f).toFixed(3), faces: +new V(0, 0, 1).applyQuaternion(O.panelG.quaternion).dot(h.clone().sub(m).normalize()).toFixed(3), p: m.toArray().map(v => +v.toFixed(3)) }; };
-    // the left stick's click (button 3), pressed and let go: open; again: closed; the right stick's the same
+    // the left stick's click (button 3), pressed and let go: open; again: closed; the right stick's the same. Since v125 a
+    // click opens or closes the menu once 0.4 s have passed with no second click (two are moving with the sticks): each
+    // click is let go, then 0.5 s pass before the menu is read
     const btn = { pressed: false }, rbtn = { pressed: false };
     X.session.inputSources[1].gamepad = { buttons: [{}, {}, {}, btn], axes: [0, 0, 0, 0], hapticActuators: [] };
     await steps(2);
-    btn.pressed = true; await steps(2); out.stick = HOST.collab.menu; btn.pressed = false; await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3); out.stick = HOST.collab.menu;
     out.float = where(); out.pscale = O.panelG.scale.x; out.d0 = HOST.collab.menuPos().d;
     out.ids = S.regions.map(r => r.id).slice(0, 5);
-    btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(2);
     out.stickClosed = !HOST.collab.menu && !O.panelG.visible;
     const right = X.session.inputSources[0] || (X.session.inputSources[0] = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null, targetRaySpace: {} });
     right.gamepad = { buttons: [{}, {}, {}, rbtn], axes: [0, 0, 0, 0], hapticActuators: [] };
     await steps(2);
-    rbtn.pressed = true; await steps(2); out.rstick = HOST.collab.menu; rbtn.pressed = false; await steps(2);
-    rbtn.pressed = true; await steps(2); rbtn.pressed = false; await steps(2); out.rstickClosed = !HOST.collab.menu;
+    rbtn.pressed = true; await steps(2); rbtn.pressed = false; await wait(500); await steps(2); out.rstick = HOST.collab.menu;
+    rbtn.pressed = true; await steps(2); rbtn.pressed = false; await wait(500); await steps(2); out.rstickClosed = !HOST.collab.menu;
     right.gamepad = null;
     // the right controller held low, pointing at the floor (nothing of the menu)
     const at = () => X.aim(0, new M4().compose(head.clone().add(new V(0.3, -0.6, 0)), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(0, -1, 0)), new V(1, 1, 1)));
