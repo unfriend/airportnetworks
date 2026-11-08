@@ -21291,7 +21291,7 @@ function duplicateGroup(g) {
       const sh = more(c.rec.show), hi = more(c.rec.hide);
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
       // (and a picture it puts on an object of the group, on that object's copy too, beside it)
-      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: c.rec.tex.flatMap(e => (map.has(e.on) ? [e, Object.assign({}, e, { on: map.get(e.on) })] : [e])) });
+      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: texWithCopies(c.rec.tex, e => map.get(e.on) || '') });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
@@ -22921,8 +22921,15 @@ function texHold(it) { if (it && it.kind === 'o') { texOff(it); it.txSig = 'held
 function texCopy(from, to) {
   for (const c of [...STU.items.values()]) {
     if (c.kind !== 'c' || !c.rec.tex || !c.rec.tex.some(e => e.on === from)) continue;
-    setRec(c.id, { tex: c.rec.tex.flatMap(e => (e.on === from ? [e, Object.assign({}, e, { on: to })] : [e])) });
+    setRec(c.id, { tex: texWithCopies(c.rec.tex, e => (e.on === from ? to : '')) });
   }
+}
+// a cube's entries and, after them, a copy of each entry whose object was copied (to(e): the copy's id, '' none), only as
+// many as its 16 leave room for: its own entries are never pushed out (the review of v124)
+function texWithCopies(L, to) {
+  const out = L.slice();
+  for (const e of L) { const t = to(e); if (t && out.length < TXS_MAX) out.push(Object.assign({}, e, { on: t })); }
+  return out;
 }
 // what a model's materials are, for a conversion (CONV.matsOf's, with texture coordinates: Change texture's order) by
 // their names and their meshes' names

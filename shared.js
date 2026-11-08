@@ -2330,6 +2330,15 @@
     return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice'), ask: b('ask'),
       vg: v && Number.isFinite(v.vg) ? v.vg : 0, vset: !!(v && typeof v.voice === 'boolean'), code: C.code };
   }
+  // the room's look as last known while the room is away for a moment (a relay reconnecting, a peer-to-peer host taking
+  // over: look() is null until the welcome), so what a headset reads of it (its narration above all) does not flip to its
+  // own meanwhile; writes still need look() (the review of v124)
+  let lookLast = null;
+  function lookKept() {
+    const L = look();
+    if (L) { lookLast = L; return L; }
+    return C.code && lookLast && lookLast.code === C.code ? lookLast : null;
+  }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
     const L = look(), was = val('look');
@@ -4699,7 +4708,7 @@
   // a room WEL.wait into the session. It took the place of the notice The menu (v103), whose words it says; with it off
   // (tests: HOST.collab.autoWelcome(false), or localStorage collabAutoWelcome = off before the page loads, as
   // collabAutoAll) that notice shows as before. Never in camera mode (HOST.collab.cameraMode, where a version has it)
-  const WEL = { s: null, t0: 0, at: 0, until: 0, done: false, placed: false, text: '', mode: '', hands: false, ms: 14000, wait: 2500,
+  const WEL = { s: null, t0: 0, at: 0, until: 0, done: false, placed: false, text: '', mode: '', hands: false, ms: 14000, wait: 2500, late: 30000,
     auto: get('collabAutoWelcome') !== 'off' };
   const camMode = () => !!(HOST.collab && HOST.collab.cameraMode && HOST.collab.cameraMode());
   // what it says now: { mode ('ask', 'walk', 'arc', or '' with no circles or no room), hands, go (the circles' line),
@@ -4725,9 +4734,12 @@
     if (t - WEL.t0 < WEL.wait || PNL.open || ASK.id || PNL.kp) return false;
     if (!C.code) return true;
     if (!C.welcomed || askHere() || R.calib || tipMode() || R.again) return false;
-    if (!/^(ok|away|alone)$/.test(lineUp().k)) return false;
-    if (GD.auto && guideOn() && (!GD.fl || GD.due)) return false;   // (the startup flow comes first: the guide, the check by eye)
-    if (eyeShown() || (GD.auto && (EYEQ.ask || EYEQ.due))) return false;
+    // (WEL.late into the session it shows even when not lined up, or with the startup flow still waiting, between them:
+    // a headset that cannot line up is otherwise never told how to open the menu; the review of v124)
+    const late = t - WEL.t0 > WEL.late;
+    if (!late && !/^(ok|away|alone)$/.test(lineUp().k)) return false;
+    if (!late && GD.auto && guideOn() && (!GD.fl || GD.due)) return false;   // (the startup flow comes first: the guide, the check by eye)
+    if (eyeShown() || (!late && GD.auto && (EYEQ.ask || EYEQ.due))) return false;
     return true;
   }
   function welClose(why) {
@@ -4769,7 +4781,9 @@
       for (const [k, col, rest] of W.keys) {
         ctx.font = FONT(24, 700); ctx.fillStyle = col; ctx.fillText(k, 30, y);
         const kw = ctx.measureText(k).width;
-        ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, rest, Math.max(40, tw - kw)), 30 + kw, y);
+        // (a line too long beside the drawing is drawn smaller, down to 19 px, before anything is cut: the review of v124)
+        let fs = 24; ctx.font = FONT(fs); while (fs > 19 && ctx.measureText(rest).width > tw - kw) ctx.font = FONT(--fs);
+        ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, rest, Math.max(40, tw - kw)), 30 + kw, y);
         y += 36;
       }
       ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText('Closes by itself in ' + left + ' s', 30, S.h - 42);
@@ -7984,7 +7998,7 @@
     },
     // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice, ask }; null outside a room),
     // set for everyone there (HOST.xr calls these)
-    look, setLook,
+    look, lookKept, setLook,
     // the room's circles walked into (false) or asked first (true: walking in does nothing, a press on a circle asks), set
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
     // or null) and how long it shows (tests). askDefault(on): what a room that never wrote ask does here (true, asked

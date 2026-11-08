@@ -43,6 +43,32 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v124 (8 November 2026; FORMAT networks-36, shell 124), on `dev`: sound by mode, narration for everyone, a
+  welcome in headsets, camera mode, cubes that change textures, and five smaller items.** All asked for by the owner on
+  8 November. Built in three lanes (one review each, one fix round for the camera lane), the rest by hand:
+  - *Sound by mode* (shell): pages as before (silent until Sound). A headset session has its own: the sound on (effects
+    and clicks) and the narration off, remembered once turned on; the story panel's Sound button there is the narration
+    switch (*Sound off* while the session is muted, a press turning it on). In a room *On for all* / *Off for all* (the
+    menu's Circles tab, the page's Shared dialog) write `look`'s `voice` and `vg`; a headset's own press is an override
+    for that room (`xrNarrRoom`), dropped by a press for everyone, at the lobby or on leaving. The room's look is kept
+    while the room reconnects (`lookKept`), so the narration does not flip meanwhile.
+  - *Getting around* (shell): a welcome panel once a session after lining up (or 30 s in, whatever happens), saying how
+    to go into circles (asked first or walked into) and what the trigger, grip and a stick's click do (pinches with hands).
+  - *No Leave AR message after standby* (shell): the headset keeps looking for its spots' anchors without a message and
+    counts as lined up; the check by eye still asks.
+  - *Camera mode* (shell, `--camera`): an Android phone in AR in a room, lined up by aiming at spot A and spot B (a hit
+    test on the floor), following a person or a circle, its own overlay (Panels, People, Subtitles, Hide, Exit), an
+    observer that writes nothing and is never counted as a headset; Android's screen recorder films it (the owner checked).
+  - *Trigger cubes that change textures* (studio): a cube's `tex` entries (an object, a material, a slot, a picture; up to
+    16) applied while it is active for you, the one entered last winning; no fade. `tools/smoke.mjs --only <words>` runs one
+    part of the smoke test.
+  - By hand: depth sensing never paused (Real world hides set to *nothing* at the start could not be turned on in that
+    session); controllers replaced around a sleep announced to three.js again (`HOST.inputsGuard`: clicks lost after a
+    sleep until the Quest menu was opened; logged as `inputs replaced`); every moving item's ghost while editing; an
+    object's cut-outs locked (`cutsLocked`: hidden boxes, not moved or deleted).
+  - Tests (the policy of 7 November: the full suites before `main` only): the lanes' own rounds passed (`--narration` 15,
+    `--guide` 38, `--camera` 27, the studio's texture steps 6, the new audio step), the cut-out lock's step run alone
+    passed; the full suites have not run on v124. Untested on devices: everything in a headset and on a phone.
 - **networks-v123 (7 November 2026; FORMAT networks-35, shell 123), on `dev`: floor spots without a limit on how high
   spot A is.** The owner tried v122: a Quest whose own floor was off put spot A 92 cm over it, and v122's 45 cm limit
   refused it ("that was an error by the headset floor and exactly what i want to avoid ... remove the limit for now").
@@ -1183,7 +1209,7 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
-   - **The next round (v124, being built, the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
+   - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
      and vr default to sounds but no narration"; then "narration in headsets should stay on when its turned on once but
@@ -1198,7 +1224,9 @@ Before handing over (or making anything more public), someone has to decide thes
      crossfade). On a page the owner's question whether Sound should bring the narration too was left open: it does, as
      before (one press);
    - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day): 2 and 3 are being built in v124;
-     1 is on the maybe list ("we can skip for now but lets keep this on our maybe list"); 4 is skipped for now.
+     1 was on the maybe list, then (the same day, with 9 to 11 Vive Tracker 3.0, three base stations, a Valve Index and a
+     Windows PC with SteamVR) "we go for 1 and 3 with mixamo rigs for now, 2 and 4 we can save up for maybe later": the
+     plan is `tools/trackers/SPEC.md` (v125, after v124); 4 is skipped for now.
      (1) *a human mesh worn and animated with Vive trackers* (maybe list) (wear trackers, line yourself up with a rigged mesh, press,
      and the mesh follows you; record takes). Quest Browser does not see Vive trackers, so they need a Windows PC with
      SteamVR (or HTC's VIVE Hub) and their dongle or base stations. A small bridge program would read their poses and

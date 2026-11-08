@@ -743,7 +743,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 123, id: '3102c8dbd1649e7a', format: 'networks-35' },
+  shell: { n: 124, id: '50c58e9ffd4bc78c', format: 'networks-36' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1239,8 +1239,9 @@ HOST.audio = (function () {
     };
     // (in a headset session the story panel's Sound button is this headset's narration switch: Narration on or off, and
     // a press, toggle(), turns it on or off; the menu's Sound row is the session's mute)
-    N.label = () => (HOST.inXR() && label(N) ? (voiceOff() ? 'Narration off' : 'Narration on') : label(N));
-    N.on = () => (HOST.inXR() ? !!label(N) && !voiceOff() : label(N) === 'Sound on');
+    // (the session's sound turned off in the menu: the button says so, and a press turns the sound on again: the review of v124)
+    N.label = () => (HOST.inXR() && label(N) && !muted() ? (voiceOff() ? 'Narration off' : 'Narration on') : label(N));
+    N.on = () => (HOST.inXR() ? !!label(N) && !muted() && !voiceOff() : label(N) === 'Sound on');
     changed();
     return N;
   }
@@ -1278,6 +1279,7 @@ HOST.audio = (function () {
   function toggle() {
     if (HOST.inXR()) {
       unlock();   // (a press: it starts the engines too)
+      if (muted()) { mute(false); return; }   // (Sound off in the session: the press turns the sound on first)
       const on = !(HOST.xr && HOST.xr.voice && HOST.xr.voice());
       if (HOST.xr && HOST.xr.setVoice) HOST.xr.setVoice(on);
       note(on ? 'narration turned on in the headset' : 'narration turned off in the headset');
@@ -1476,7 +1478,7 @@ HOST.xr = (function () {
   };
   const keepOvr = () => { try { if (ovr) localStorage.setItem('xrNarrRoom', JSON.stringify(ovr)); else localStorage.removeItem('xrNarrRoom'); } catch (e) { /* storage blocked */ } };
   // in a shared room the room's ({ labels, cards, free, subs, sfx, voice }), else null
-  const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
+  const room = () => (HOST.collab && HOST.collab.lookKept ? HOST.collab.lookKept() : HOST.collab && HOST.collab.look ? HOST.collab.look() : null);   // (as last known while the room is away a moment)
   const look = () => room() || own;
   function setLook(o) {
     if (HOST.collab && HOST.collab.setLook && HOST.collab.setLook(o)) return;   // in a room: written for everyone there

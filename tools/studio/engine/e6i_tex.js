@@ -174,8 +174,15 @@ function texHold(it) { if (it && it.kind === 'o') { texOff(it); it.txSig = 'held
 function texCopy(from, to) {
   for (const c of [...STU.items.values()]) {
     if (c.kind !== 'c' || !c.rec.tex || !c.rec.tex.some(e => e.on === from)) continue;
-    setRec(c.id, { tex: c.rec.tex.flatMap(e => (e.on === from ? [e, Object.assign({}, e, { on: to })] : [e])) });
+    setRec(c.id, { tex: texWithCopies(c.rec.tex, e => (e.on === from ? to : '')) });
   }
+}
+// a cube's entries and, after them, a copy of each entry whose object was copied (to(e): the copy's id, '' none), only as
+// many as its 16 leave room for: its own entries are never pushed out (the review of v124)
+function texWithCopies(L, to) {
+  const out = L.slice();
+  for (const e of L) { const t = to(e); if (t && out.length < TXS_MAX) out.push(Object.assign({}, e, { on: t })); }
+  return out;
 }
 // what a model's materials are, for a conversion (CONV.matsOf's, with texture coordinates: Change texture's order) by
 // their names and their meshes' names

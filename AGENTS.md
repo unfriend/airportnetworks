@@ -1175,7 +1175,9 @@ shapes, empties, locks and scene settings came in v119: its `state()` gained a f
 behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an older device would walk into; the studio's
 `state()` gained an optional `motion` on an object's, a shape's and an empty's record and, with the recorder, an optional
 recorded `path` on those and on a sound's, and in the same round an optional `behaviour` on an object's, a shape's and an
-empty's). The plan is
+empty's; networks-36 in v124: `look` gained `vg`, the generation of the room-wide narration (*On for all* / *Off for all*),
+which an older device writing `look` would drop, and the studio's `state()` gained an optional `tex` on a cube's record
+(the texture changes) and an optional `cutsLocked` on an object's). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -4945,9 +4947,9 @@ one headset first; a page opened at the old address moved too; that room has
 no stations: entered from the start screen, the headset shows no Stories
 screen and no story, only the menu, opened by itself with Arrange all;
 leaving the room brings the Stories screen back, joining one closes it), anchors not
-found by their handles after waking and found by a later try (meanwhile the
-panel asks to leave AR and enter it again; a jump with their handles saved
-keeps the calibration), the room's floor from
+found by their handles after waking and found by a later try (meanwhile, since
+v124, no message: still lined up, the Debug line says it looks again; a jump with
+their handles saved keeps the calibration), the room's floor from
 floor spots (v122: the marks touched at the true floor plus `FLOOR_TIP`; `rm` `{ a: FLOOR_TIP, d, f: 1 }` this
 headset's own; an older device's `rm` for them, a higher `a` and no `f`, moving nothing here, and this headset writing
 the room's floor spots again; the log's `floor spots`), no mark from a double

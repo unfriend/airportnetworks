@@ -265,7 +265,7 @@ function duplicateGroup(g) {
       const sh = more(c.rec.show), hi = more(c.rec.hide);
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
       // (and a picture it puts on an object of the group, on that object's copy too, beside it)
-      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: c.rec.tex.flatMap(e => (map.has(e.on) ? [e, Object.assign({}, e, { on: map.get(e.on) })] : [e])) });
+      if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: texWithCopies(c.rec.tex, e => map.get(e.on) || '') });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
