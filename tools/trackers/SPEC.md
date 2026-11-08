@@ -13,7 +13,8 @@ option), and two lighter body setups as well as the full one (below): "a minimal
 each foot and uses the headset and the controllers and ik for the rest if possible, maybe also a version where one can
 just use the headset and the controllers if possible".
 
-This file is the contract between the lanes that build it. Status: planned, nothing built.
+This file is the contract between the lanes that build it. Status: planned; only the solver of phase 3 is built (v125,
+"The solver (ik.js)" below), and nothing uses it yet.
 
 ## The picture
 
@@ -155,6 +156,65 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   (through the converter, as Convert to GLB: the old file kept under `originals/`, every object of that file switched,
   a new picture), with a relay that takes uploads; else downloaded. The clip then plays as any other.
 
+## The solver (`ik.js`)
+
+Built in v125 as phase 3's groundwork (lane B above): `tools/studio/engine/ik.js`, a plain module like `convert.js` and
+`images.js` (`makeIK(THREE)`: no DOM, nothing fetched or drawn), checked in Node by `tools/studio/test-ik.mjs`. It is not
+in `tools/studio/build.mjs` yet, so nothing in the app uses it; the studio's side (lane C) wires it in. Its contract is
+the comment at its top. Everything is in three.js's world frame (the targets, the floor, up +y): the studio turns room
+or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
+
+- `rigOf(root)`: the bones by Mixamo's names as three.js gives them (`mixamorigHips`), leniently (any case,
+  `mixamorig1:`, no prefix), in Mixamo's chains, with the rest pose as the bones stand now (call it on the model as loaded;
+  `rig.toRest()` puts it back), or a sentence why not: *Not a Mixamo rig: no bone named mixamorig:Spine, ...*, *This
+  model has no bones: ...*, *Its bones are not in Mixamo's order: ...*.
+- `assign(rig, targets, setup)`: the parts from a T-pose facing the character's way, by the rule above (`full`, 6 to 11
+  trackers); `feet` the two feet by side; `head` nothing (the caller names the headset and controllers). Too few, or no
+  hand found on both sides, is said in words.
+- `calibrate(rig, targets, map, setup, o)`: the performer stands in the character in a T-pose (the character's bones
+  are read where it stands, so the studio moves it to the performer first, or the performer steps into it). `s`: the
+  hips tracker's height over the character's hips (`full`), or the headset's over the character's eyes (its head bone
+  plus 45 % of the way to the top of its head: `feet` and `head`); `o.scale` false keeps the size. Each worn slot's
+  offset `[x, y, z, qx, qy, qz, qw]` (metres to 0.1 mm, 5 decimals) to its bone at rest with the character scaled by `s`
+  about its origin; the elbows and knees to the joint (the forearm's and shin's origin, rigid with either bone the
+  tracker is strapped to). Plain JSON: `map`, `cal` and `s` are the record's, and `floor` (the floor's height then, where
+  `head` plants its feet) joins them. The caller scales the character by `s` before solving. Refused in words: a part not
+  tracked, a hips tracker not 0.4 to 1.5 m up, a headset not 0.6 to 2.3 m up.
+- `solve(rig, cal, targets, dt, state)`: as "The solver" above. The hips from their tracker, else under the head (their
+  height and place so that the head is where its target is, turned with the head, and in `feet` 60 % with the feet,
+  lowered when a foot could not be reached); the spine spread evenly from the hips to the chest (its tracker, else half
+  way to the head's turn); the neck half way to the head; the shoulders with the chest. Two-bone chains to the hands and
+  feet: the elbows and knees towards their trackers, else elbows down, back and a little out and knees forward (with the
+  hips and the foot); the hinges are worked out from the facing at rest (elbows bend forward, knees back), and a limb
+  nearly straight, or a pole within 3 degrees of its line, keeps the hinge carried from rest. A target not seen this
+  frame: its last pose; one never seen: not solved (*Nothing tracks the left hand yet.*). `head`: each foot planted until
+  its home (under the hips as at rest) is 16 % of the leg's length away or 0.6 rad turned, or the leg cannot reach it
+  (6 mm), then a 0.3 s arc to its home plus where the hips are going; one at a time, by turns, unless a planted foot
+  cannot be reached. Deterministic: the same targets, `dt` and `state` give the same pose number for number.
+- `restPose(rig, part)` (`'eye'`: where a headset is worn), `sample(rig, t)` and `clipOf(samples, name)`: the bones'
+  local turns and the hips' place made into a `THREE.AnimationClip` (track names bind by the bones' names, or their
+  uuids where a name has `. [ ] : /`).
+
+The test rig: `tools/studio/test/scenes/puppet/rig.glb` (`tools/studio/test/make.mjs`, about 60 KB, never Mixamo's files):
+25 bones with Mixamo's names in a T-pose, each bone's frame as Mixamo's (y along the bone) under an Armature scaled 0.01,
+an eight- or twelve-sided tube per bone (1,568 triangles, two materials) and a walk in place, Walk, whose elbows and knees
+bend only about their hinges. `test-ik.mjs` (42 checks, under a second) loads it twice with three.js's GLTFLoader, one
+walking as the performer, and fixes trackers (random offsets), a headset and controllers to its bones. As it stands:
+`full` with 6 trackers puts the hands and feet within 0.06 mm of the truth and turns the hips, head, hands and feet within
+0.01 degrees (the arms' and legs' twist is a guess there: up to 12 and 3 degrees); with 11 trackers, the performer away
+from the origin and turned, every bone within 1.2 degrees; a performer 1.1 times as big gives `s` 1.1 and the same; `feet`
+puts the feet and hands within 0.06 mm and the hips within 2.1 cm; `head` keeps the head within 0.05 mm, the hands within
+1.3 mm and the hips within 1.9 cm, takes no step standing, 12 by turns walking 2.4 m and lets no planted foot move more
+than 4.6 mm; a take replays the solved pose exactly.
+
+Not done yet: the studio's side (the card, the record, wearing it, takes saved as GLB: lane C); a character lined up
+anywhere but where the performer stands (no offset between the two); shoulders that shrug as the arms rise, a spine
+that bends more at its top than its foot, a forearm's twist shared with it (Mixamo's sits on the hand); rigs other than
+Mixamo's, elbows or knees that bend another way, non-uniform scales. *Headset only* (`head`) stays unused (deferred
+above): its steps are quick and short (about three a second, 0.4 m), since straight legs reach little unless the head
+drops, and five of its twelve steps in the test were forced by reach. How any of it looks on a real character worn with
+real trackers, a headset and controllers is untested.
+
 ## Tests
 
 - `relay/test.mjs`: the UDP intake (bad datagrams ignored), `/api/ping`, `/api/trackers` with the password, lining up
@@ -163,6 +223,7 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 - `tools/studio/test-ik.mjs` (Node, seconds): a generated Mixamo-named test rig (`tools/studio/test/make.mjs`, our own
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.
+  Built in v125: what it checks and its numbers are in "The solver (ik.js)" above.
 - `tools/collab.mjs --trackers`: the fake bridge with SteamVR's space turned and moved against the room, two reference
   trackers on the spots, a prop tracker going round, a performer walking; a page's Trackers section, a pretend headset at
   a studio station: trackers in room coordinates within 2 mm, a shape following a tracker within 5 mm on every device at

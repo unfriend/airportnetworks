@@ -245,7 +245,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `test/pictures.mjs`, and models that name them by each rung of the ladder; and `test/scenes/rig/`, about 35 KB: a small
   skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; and
   `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
-  and the figure, for cut-outs; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  and the figure, for cut-outs; and `test/scenes/puppet/`, about 60 KB: `rig.glb`, our own humanoid with Mixamo's bone
+  names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  `engine/ik.js` (v125, not yet in the build: nothing uses it yet) is the trackers' solver for phase 3 of
+  `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver (ik.js)" there),
+  a plain module like `convert.js`, checked by `test-ik.mjs`.
   For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
   lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
   `push`).
@@ -5309,7 +5313,12 @@ pieces (v120: `cover` marking the texels whose centres its triangles hold, a tin
 three shaded pieces on black: the covered texels unchanged, no black left, the texels beside a piece exact copies of
 its edge colours, alpha kept or filled, a picture drawn down 2 and 4 times with a dark halo without `rim` and none with
 it, a strip two texels wide keeping its own, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
-`tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`).
+`tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`). `node tools/studio/test-ik.mjs` (v125, under a
+second, no browser) checks the trackers' solver (`tools/studio/engine/ik.js`) on the puppet test scene's rig loaded twice,
+one walking as the performer: the parts found (and refused in words), which tracker is which from a T-pose, and every
+frame of the whole body (6 and 11 trackers, a performer 1.1 times the size), the feet and a headset, and a headset alone
+(stepped feet) against the truth, the same output twice, and a take replayed; run it after changing `ik.js` or the
+puppet in `tools/studio/test/make.mjs`.
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),

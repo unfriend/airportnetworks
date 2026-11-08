@@ -1,6 +1,7 @@
 {
   "scenes": [
     {"name":"cuts","files":6,"bytes":29180,"at":1793813629855,"layout":true},
+    {"name":"puppet","files":1,"bytes":60232,"at":1794161184110,"layout":true},
     {"name":"rig","files":5,"bytes":35152,"at":1793813629855,"layout":true},
     {"name":"test","files":8,"bytes":240767,"at":1793813629811,"layout":true},
     {"name":"textures","files":22,"bytes":19718,"at":1793813629842,"layout":false}

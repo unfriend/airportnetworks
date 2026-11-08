@@ -416,6 +416,9 @@ was found as and keeps it in the GLB's record.
   `test/pictures.mjs` in every kind the studio reads, and models that name them by each rung), the rig scene
   `test/scenes/rig/` (about 35 KB: a small skinned dancer whose bones are named in mixed conventions, with a voice that
   follows her head), the cuts scene `test/scenes/cuts/` (about 30 KB: a wall with a door a cube opens, two boxes of one
-  file with a hole in one, the dancer and the figure) and their listings;
+  file with a hole in one, the dancer and the figure), the puppet scene `test/scenes/puppet/` (about 60 KB: `rig.glb`, our
+  own humanoid with Mixamo's bone names in a T-pose and a walk, for the trackers' solver) and their listings;
   `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).
+- `engine/ik.js` the trackers' solver (v125; not yet in the build): a Mixamo character worn with trackers, a headset and
+  controllers (`tools/trackers/SPEC.md`, "The solver (ik.js)"); `node tools/studio/test-ik.mjs` checks it in Node.
