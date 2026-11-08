@@ -3098,8 +3098,8 @@ function bindCanvas() {
 // setup (plane and mesh detection), or is a virtual room round you. The side
 // panel is redrawn on a canvas you point at, and labels become sprites on top
 // or signs in the room. Controllers: point and pull the trigger to click, or
-// at the floor to spill crumbs; the grip moves the panel; A/X plays and pauses
-// the story. Hand tracking: point and pinch.
+// at the floor to spill crumbs; the grip moves the panel; A and X do nothing
+// (play and pause are on the panel). Hand tracking: point and pinch.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -3344,9 +3344,11 @@ const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face'
 const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
 const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
+// the shell moving this headset with the sticks in VR (HOST.xr.walking): the story's own stick use waits meanwhile
+const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
-// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
-// plays); a shell without it: shown
+// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: play and pause
+// on the menu's Story tab); a shell without it: shown
 const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE) : 'shown');
 // a headset in a shared room (the shell's HOST.room): no Stories screen there, a story runs only at its station (reached
 // by walking into its circle), and away from one it is hidden, not pointable, paused and silent. A shell without
@@ -3500,7 +3502,7 @@ function xrTip() {}
 // ----------------------------------------------------------- controllers --
 function xrController(i) {
   const g = GL.renderer.xr.getController(i);
-  const c = { i, g, src: null, hover: null, press: null, grab: null, wantPress: false, b4: false, o: new THREE.Vector3(), d: new THREE.Vector3() };
+  const c = { i, g, src: null, hover: null, press: null, grab: null, wantPress: false, o: new THREE.Vector3(), d: new THREE.Vector3() };
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
   c.ray = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
   c.ray.renderOrder = 60;
@@ -3646,13 +3648,6 @@ function xrPoint(c, dt) {
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
-  // A/X: play or pause the story
-  const gp = c.src.gamepad;
-  if (gp) {
-    const b4 = !!(gp.buttons[4] && gp.buttons[4].pressed);
-    if (b4 && !c.b4 && APP.mode === 'story') APP.togglePlay();
-    c.b4 = b4;
-  }
   c.ray.scale.z = dist;
   if (hit) {
     c.dot.visible = true;
@@ -3718,7 +3713,7 @@ function xrUpdate(S) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
     for (const P of XR.land) P.mesh.visible = land;
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
-    // clock stay, and A or X still plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
+    // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
@@ -4168,7 +4163,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons, or point at the floor to spill crumbs. A or X: play and pause. Anchored: to move the panel, use Place again in the menu.' : 'Trigger (or pinch): use buttons, or point at the floor to spill crumbs. Grip: ' + (XR.free ? 'move and turn' : 'move') + ' this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons, or point at the floor to spill crumbs. Anchored: to move the panel, use Place again in the menu.' : 'Trigger (or pinch): use buttons, or point at the floor to spill crumbs. Grip: ' + (XR.free ? 'move and turn' : 'move') + ' this panel.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 

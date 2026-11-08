@@ -257,7 +257,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again in the menu.' : 'Trigger (or pinch): use buttons. Grip: ' + (XR.free ? 'move and turn' : 'move') + ' this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : 'Trigger (or pinch): use buttons. Grip: ' + (XR.free ? 'move and turn' : 'move') + ' this panel.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
