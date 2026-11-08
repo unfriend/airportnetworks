@@ -2,8 +2,8 @@
 
 `stories/studio.js` (built from this folder: `node tools/studio/build.mjs`, `--check`) is a page of the app that is not a
 story, like the design room: `#studio`. A **scene** is a folder of files (models, their textures, sounds) and its
-`layout.json`, where everything placed stands: objects, see-through trigger cubes that show and hide them as you walk
-in and out, and sounds placed in the room. The contract is `SPEC.md`.
+`layout.json`, where everything placed stands: objects, see-through trigger cubes that show and hide them (or change
+their pictures) as you walk in and out, and sounds placed in the room. The contract is `SPEC.md`.
 
 ## Running it
 
@@ -125,6 +125,24 @@ shown** it starts from its beginning each time she appears. Everyone at a statio
 bone's name is kept as the studio reads it, and found again leniently (an FBX's *mixamorig:Head* is *mixamorigHead* in
 its GLB). The short list (*Head*, *Neck*, *Chest*, *Hips*, the hands and the feet) knows Mixamo, 3ds Max's Biped, Unreal,
 Rigify and VRM names.
+
+## Trigger cubes that change pictures
+
+A trigger cube can also put another picture on an object while you are in it (the owner: "trigger cube replace texture
+mode", no crossfade). On the cube's card, with **Edit** on (page or headset): **Change a texture...**, then point at the
+object (or click it, or pick it from the list), its material when it has more than one, the slot (**Colour** first, then
+Normal, Roughness, Metalness, Occlusion, Glow, Opacity) and one of the scene's pictures. Each change is a row under
+**Changes textures** (*Box · Colour → night.png*): a press flashes the object in amber, ✕ takes it off. Up to 16 a cube.
+
+- Walk into the cube and the object shows that picture at once; walk out and its own is back (a cube that **stays** keeps
+  it). Two cubes changing the same slot: the one you entered last wins. Each person sees what their own place does.
+- **As scanned** shows only a Colour picture; the other slots need the object lit (Roughness and Metalness show on a GLB's
+  materials).
+- Only that object changes: another object of the same file keeps its own picture. The model's file is never changed.
+- Deleting the object takes its rows out of every cube; duplicating it (or its group) adds rows for the copy; switching it
+  to its GLB keeps them. **Reset what I have seen** and the lobby put every object's own pictures back.
+- The pictures are read when the scene opens (drawn down to 2,048 px), so the switch is instant; many big pictures cost a
+  headset memory (untested on a Quest).
 
 ## Cut-outs: a door in a wall
 
