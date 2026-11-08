@@ -1226,7 +1226,10 @@ Before handing over (or making anything more public), someone has to decide thes
    - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day): 2 and 3 are being built in v124;
      1 was on the maybe list, then (the same day, with 9 to 11 Vive Tracker 3.0, three base stations, a Valve Index and a
      Windows PC with SteamVR) "we go for 1 and 3 with mixamo rigs for now, 2 and 4 we can save up for maybe later": the
-     plan is `tools/trackers/SPEC.md` (v125, after v124); 4 is skipped for now.
+     plan is `tools/trackers/SPEC.md` (the solver from v125, the rest in v126); 4 is skipped for now. Deferred within it (the
+     owner, 8 November 2026): a character worn with the headset and controllers alone, whose legs would need stepping of
+     their own ("skip that part for now, note it down for later and maybe the quest body tracking can solve it"): first a
+     probe of Quest Browser's experimental WebXR body tracking (1 to 2 hours, 0.5M tokens).
      (1) *a human mesh worn and animated with Vive trackers* (maybe list) (wear trackers, line yourself up with a rigged mesh, press,
      and the mesh follows you; record takes). Quest Browser does not see Vive trackers, so they need a Windows PC with
      SteamVR (or HTC's VIVE Hub) and their dongle or base stations. A small bridge program would read their poses and

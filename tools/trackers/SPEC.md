@@ -115,20 +115,24 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 - Mixamo rigs only for now: a model whose bones are Mixamo's (`mixamorig:Hips`, `Spine`, `Spine1`, `Spine2`, `Neck`,
   `Head`, `LeftShoulder`, `LeftArm`, `LeftForeArm`, `LeftHand`, `LeftUpLeg`, `LeftLeg`, `LeftFoot`, the right side, as
   three.js names them once loaded, `mixamorigHips`...). Others are told so on the card.
-- Three ways to wear it (the owner: the full set, "a minimal version that only needs one tracker at each foot and uses the
+- Three ways to wear it, two of them built first (the owner: the full set, "a minimal version that only needs one tracker at each foot and uses the
   headset and the controllers and ik for the rest", and "a version where one can just use the headset and the
   controllers"):
   - **Full**: trackers on the hips (belt), head, both wrists and both feet (6), and optionally the chest, both elbows and
     both knees (up to 11). Lined up by hand, every tracker is free for the body.
   - **Feet and headset**: a tracker on each foot; the head and hands from the performer's headset and controllers; the
     hips worked out from the head and the feet (below the head, back a little, turned with the feet and the head).
-  - **Headset only**: the headset and its two controllers; the hips from the head; the legs stepped by the solver (feet
-    kept planted and moved in a step when the hips leave them behind), so walking reads, not exactly.
+  - **Headset only** (deferred, the owner, 8 November 2026: "skip that part for now, note it down for later and maybe the
+    quest body tracking can solve it"): the headset and its two controllers; the hips from the head; the legs would need
+    stepping of their own (feet kept planted and moved in a step when the hips leave them behind), which no JavaScript
+    library does. Not offered for now; first a probe of Quest Browser's experimental WebXR body tracking (`body-tracking`,
+    since Quest Browser 32: the upper body tracked, the legs estimated by the headset), which could give the whole body
+    without our own stepping. If the solver of v125 has stepping code, it stays unused until then.
   The headset and controllers are either the Index (through the bridge, in SteamVR's space with the trackers: exact, 90
   times a second) or a Quest (its own poses on that Quest, its presence in room coordinates on everyone else's, 15 a
   second and smoothed; lined up with the room through the spots, so a few centimetres off the trackers). *Headset only*
-  with a Quest needs no PC at all and works in any room, peer to peer too.
-- The object's record gains `puppet: { on, rig: 'full' | 'feet' | 'head', by: <the performer's member id when a Quest's
+  with a Quest would need no PC at all and work in any room, peer to peer too (deferred, above).
+- The object's record gains `puppet: { on, rig: 'full' | 'feet' (and later 'head'), by: <the performer's member id when a Quest's
   head and hands drive it, or 'index'>, map: { hips?, head?, lhand?, rhand?, lfoot?, rfoot?, chest?, lelbow?, relbow?,
   lknee?, rknee?: <serial> }, cal: { <slot>: [x, y, z, qx, qy, qz, qw] }, s }`: which tracker drives which part, each part's
   offset from its tracker to its bone found at the lining up, and the character's scale then. Shared and saved; every
