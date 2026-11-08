@@ -649,6 +649,29 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
       too (an icon and *AR*, a cyan edge), and once per device (`arInvite` in `localStorage`, set as it shows) a card,
       *See it in your room*, about 3.5 s after a story first shows (`#hhCard`): Enter AR (the top bar's button, within
       the tap) or Not now. How a story feels in a phone's AR session (taps on the screen as input) is untested.
+    - The menu in a phone's AR session (v125, the phone AR section of `shared.js`: `PH`, `phAsk`, `phRows`, `phTap`; the
+      owner, 8 November 2026: "No access to menu in ar on android, make it one button on the top right"). A phone has no
+      stick to click and no hand to pinch. Its AR session (a phone or a tablet, `phoneDev`: never a headset's browser,
+      `IS_HEADSET`; a phone's or tablet's user agent, `DEV`, or `HOST.handheld.hand`; not camera mode, which keeps its own
+      overlay) also asks for `dom-overlay` (optional, on every rung of `HOST.xr.request`'s
+      ladder, through camera mode's wrapper; a refusal other than `NotAllowedError` or `SecurityError` asks once more
+      without it) with its own root, `#xrPhone` (made once, its CSS injected once, its listeners added with `HOST.quiet`);
+      a headset's browser asks for nothing new. Granted (`domOverlayState`), the overlay shows one round menu button (52
+      px, three lines) at the top right inside the safe areas, only during that session. The root passes taps through
+      (`pointer-events: none`, `auto` on its controls; `beforexrselect` cancelled only on the button and the sheet), so a
+      tap on the scene still points and presses. The button opens a sheet (at the foot in portrait, on the right in
+      landscape, scrollable, buttons at least 48 px) with the menu's main rows, each calling what the headset menu's
+      Settings row calls and showing its state (its words and `aria-pressed`): Exit AR, Recenter, Sound (this session's
+      mute), Narration (this session's), Sound effects, Subtitles, Slideshow, Frame rate, Labels and Cards, Panels (the
+      story on show's), Real world hides, and *The full menu* (`menuOpen(true, 'phone')`: the shell's 3D menu in front of
+      you for the rest, a tap on the screen pointing at it and pressing it; the row then says *Close the full menu*).
+      Close, or the button again, closes the sheet; nothing new is stored. Without the overlay: two quick taps on the
+      screen (a `screen` input source, each taken at its `selectend`, once the story has pointed its ray; within 0.4 s)
+      pointing at none of the panels open and close the 3D menu, as the left hand's two pinches do. The menu's hints, the
+      notice *The menu* and the welcome (*Tap: point at a thing and press it.*, *The round button, top right: the menu.*,
+      no controller drawn) say so on a phone. `HOST.collab.phone()` and `phoneSheet(on)` are for tests (the smoke test's
+      `phone ar` block). Untested on a real phone: the overlay itself, the safe areas, taps passing through, Chrome's own
+      AR controls beside the button, the 3D menu's size and distance on a phone's screen.
     - Full screen (the Fullscreen API: Android's Chrome, iPad's Safari, desktops): asked for within the tap on a story's
       card on the Stories screen on a phone or tablet (`storyTap`; a refusal is quiet), and from More. Never while a
       headset session runs or Enter VR or AR (or the card's) was pressed in the last 8 s, and never again by itself: a
@@ -4481,6 +4504,25 @@ two items at 600 px. Then a pretend headset session (as the headset settings' st
 (again the next session), Got it closing them and keeping the version (not the next session); with the welcome off, a
 moment into the session; developer mode off, never; the Settings row and the Debug tab's What is new (Back to the tab).
 
+Its *phone ar* steps (v125, `--only 'phone ar'`, two pages of their own, a minute or two): a pretend Android phone
+(Chrome's user agent, touch, 412 x 860; a pretend `navigator.xr` that records what it is asked for; the airports story's
+own `xrStart` through three.js r128's WebXR path, frames driven by the test; screen taps as Chrome makes them: a
+transient `screen` input source, `selectstart`, a frame, `select`, `selectend`). No button on the page; the AR request
+asking for `dom-overlay` once with `#xrPhone` as its root, depth sensing still asked; the round button in the session in
+the window's top right corner (52 px, a 50 % radius, an icon, *Menu*), the root letting the middle of the screen
+through; `beforexrselect` cancelled on the button, the sheet, a row and the sheet's heading, not on the root, the page or
+the canvas; the sheet's thirteen rows in order, none under 44 px tall, each toggle (Sound, Narration, Sound effects,
+Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides) changing what `HOST` says to what the headset
+menu's row would and its words and `aria-pressed` saying so, Recenter asking the story to recentre, and the headset
+menu's Settings tab having each of those rows; The full menu opening the 3D menu (logged as by `phone`, the sheet
+closed), its row then *Close the full menu* and closing it, Close and the button closing the sheet; the notice *The
+menu* saying *Tap the round button at the top right for the menu.* and the welcome a phone's words (no trigger, no
+stick); Exit AR ending the session and the button gone; without the overlay (not granted) no button, two quick taps at
+nothing opening and closing the 3D menu (logged as by `tap`), two 0.6 s apart not, and two at the open menu's margin
+(pointed at, the menu's hover) leaving it open; a headset's user agent asking for no `dom-overlay` and showing no
+button. Camera mode's request is checked in `node tools/collab.mjs --camera` (its root `#camera`, `dom-overlay` once, no
+phone button).
+
 It needs Playwright with a Chromium build (`npm i --no-save playwright` and
 `npx playwright install chromium` once, or a global install; see
 `docs/setup-and-release.md`). A 404 for a missing narration MP3 is expected and ignored.
@@ -5188,7 +5230,8 @@ its view straight ahead against the floor, `X.noFloor` while it has found none, 
 persistent handles, no shared space, and `end()`), a few minutes): the Shared dialog's *Camera mode* on the phone (with
 its line), none on the page or in the headset's browser; the headset calibrated on the room's floor spots (its tip on
 each) and walked into the first circle; *Camera mode* pressed: the story's own `xrStart` asks, through `HOST.xr.request`,
-for `hit-test` and `dom-overlay` with `#camera` as the root (and depth sensing still); the overlay shown, the dialog
+for `hit-test` and `dom-overlay` (once) with `#camera` as the root (and depth sensing still; v125: no phone AR menu button,
+`#xrPhone`, shown); the overlay shown, the dialog
 closed, *Move the phone slowly* and *Set spot A* greyed before the floor is found; the page hears a member of kind `cam`
 named *Camera*; aimed at spot A (*Aim at spot A and tap Set spot A*, the hit on the spot, the ring there), Set, then spot
 B: lined up, the phone's room the headset's (origin within 1 cm, direction within 0.5 degrees, its own floor 5 cm off);

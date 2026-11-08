@@ -387,6 +387,9 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - camera mode on a real Android phone: the hit test on a tape cross and how closely the phone lines up with the
   headsets, a heavy story's frame rate on a phone, Chrome's DOM overlay (the bar, Set spot A, a double tap), and
   filming it with Android's screen recorder (picture and sound);
+- the menu in a phone's AR session (not camera mode): the round button at the top right (where it sits beside Chrome's
+  own AR controls, within the safe areas), its sheet's switches, taps on the scene still pointing and pressing, and
+  The full menu in front of the phone, pressed by tapping it;
 - after the ten-headset test (29 October 2026, which went very well): staying in your story out of its circle (and
   its narration heard from there), **Lock circles** and **Lock this story** in use, and other people shown only at your
   circle (**People: everyone** to see them all);
