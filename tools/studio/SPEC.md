@@ -880,9 +880,14 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   every cube list it is in); *Delete*. Every change one Undo step.
 - **Drawn while editing** (`LOOKS.cut`): one warm red-orange for all cut-outs, its edges dashed (about seven dashes an
   edge) where they are seen, a solid tick a fifth of each edge long at every corner over everything (so a box inside a
-  model still shows), a very faint fill, *✂ Door* over it (*· hidden for you*, *· hidden for you, previewed cut*, *· cut*,
-  *· whole*, *· cuts nothing*, *· cuts nothing (16 at most)*), brighter when pointed at or selected, fainter while it cuts
-  nothing; selected, a ball at each corner. The pointer (a click, a controller's ray) finds the nearest object, sound or
+  model still shows), *✂ Door* over it (*· hidden for you*, *· hidden for you, previewed cut*, *· cut*, *· whole*, *·
+  cuts nothing*, *· cuts nothing (16 at most)*), fainter while it cuts nothing; selected, a ball at each corner. Nothing
+  of it is see-through (v125; the owner, 8 November 2026: "Framerate bad in studio edit mode when cutouts are active,
+  they should not have this transparency since it is not needed anyway i think"): its very faint fill went, since each
+  box filled its outline on screen once more (twice seen from outside, both faces drawn), so a few large boxes, or one
+  round you, cost a headset's frame rate while editing. Pointed at or selected, its edges light up instead
+  (`LOOKS.CUT_LOOK.lit`): lighter (40 % towards white), their dashes denser (about twelve an edge, three quarters of it
+  drawn, against about eight and under three fifths), its ticks a third of each edge long. The pointer still finds its unseen box. The pointer (a click, a controller's ray) finds the nearest object, sound or
   cut-out, but passes over an object's unseen box when the ray goes on into one of that object's own cut-outs (it lies
   within that box, which would otherwise always be in front); a nearer object or sound is still found first. Picking the
   object a sound follows or a cut-out cuts, cut-outs are passed through. Not editing, nothing of it is drawn: only the
@@ -900,8 +905,9 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   *Door*, which the cube *Doorway* shows, two boxes of one file, the first with a *Hole*, the dancer and the figure), and a
   step of `tools/collab.mjs --studio` ("Testing" in `AGENTS.md`).
 - **Untested on a headset**: how the holes look on a Quest (the open edges, a scan's thin walls), the shader's cost on a
-  Quest with a 400,000-triangle scan and 16 boxes, the grip, both grips and a corner on a real controller, and the one
-  raycast against a big scan as the button is pressed (a moment on a laptop; longer on a Quest).
+  Quest with a 400,000-triangle scan and 16 boxes, the frame rate while editing many cut-outs (without their fill, v125)
+  and how the lit edges read there, the grip, both grips and a corner on a real controller, and the one raycast against a
+  big scan as the button is pressed (a moment on a laptop; longer on a Quest).
 - **Cut-outs locked** (v124; the owner, 8 November 2026: "add cutout lock mode where the cutouts for an object are locked
   and cannot be moved anymore, cutout boxes should be hidden then but show again if it is unlocked"): *Lock cut-outs* on
   an object's card writes `cutsLocked: true` into the object's record (kept only when set; anything but a boolean makes

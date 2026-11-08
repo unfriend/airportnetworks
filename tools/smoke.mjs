@@ -3528,6 +3528,43 @@ if (runs('studio cuts')) {
     if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
     bad(out);
   });
+  await step('studio cuts: no see-through fill while editing (v125, the frame rate): a cut-out draws only its dashed edges, its ticks, its name and (selected) its corners, its box unseen; pointed at or selected its edges light up (lighter, denser dashes, ticks a third of each edge long); a pixel inside the box the same with its box drawn as without, plain, pointed at and selected (pixels)', async () => {
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, step = () => itemsStep(0.1, performance.now()), settle = () => { for (let i = 0; i < 12; i++) step(); };
+      setEdit(true); select(''); STU.hover = ''; STU.cutF.add('dor001'); settle();   // (previewed cut: the door cuts its hole, drawn at full strength)
+      const x = STU.items.get('dor001'), L = x.look, pos = L.ticks.geometry.attributes.position;
+      // what it draws: no mesh with a material that shows (its unseen box only), no fill at all
+      const shown = []; x.holder.traverse(n => { if (n.isMesh && n.material.visible !== false) shown.push(n.uuid); });
+      if (shown.length || 'fill' in L || !x.holder.visible || !L.line.visible || !L.ticks.visible || !pickables().includes(L.hit)) o.push('drawn: ' + J({ meshes: shown.length, fill: 'fill' in L, vis: [x.holder.visible, L.line.visible, L.ticks.visible] }));
+      const tick = () => { const P = L.ticks.geometry.attributes.position; return Math.round(Math.hypot(P.getX(1) - P.getX(0), P.getY(1) - P.getY(0), P.getZ(1) - P.getZ(0)) * 1000) / 1000; };
+      const lookNow = () => ({ col: L.line.material.color.getHexString(), dash: L.line.material.dashSize, gap: L.line.material.gapSize, tick: tick(), op: Math.round(L.line.material.opacity * 100) / 100, corners: L.corners.filter(c => c.visible).length });
+      const plain = lookNow();
+      if (plain.col !== 'ff5a36' || plain.dash !== 0.07 || plain.gap !== 0.05 || plain.tick !== 0.2 || plain.op !== 0.75 || plain.corners) o.push('plain: ' + J(plain));
+      STU.hover = 'dor001'; step();
+      const hot = lookNow();
+      if (hot.col === 'ff5a36' || hot.dash !== 0.06 || hot.gap !== 0.02 || hot.tick !== 0.333 || hot.op !== 1 || hot.corners) o.push('pointed at: ' + J(hot));
+      STU.hover = ''; select('dor001'); step();
+      const sel = lookNow();
+      if (sel.col !== hot.col || sel.dash !== 0.06 || sel.tick !== 0.333 || sel.op !== 1 || sel.corners !== 8) o.push('selected: ' + J(sel));
+      select(''); step();
+      if (J(lookNow()) !== J(plain)) o.push('plain again: ' + J(lookNow()));
+      // the pixel at the box's middle (the hole: what is behind the wall), drawn with its box and without, in each look
+      const W = 400, H = 250, rd = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 200);
+      GL.world.updateMatrixWorld(true);
+      cam.position.copy(GL.items.localToWorld(new THREE.Vector3(0.6, 1.15, -0.4))); cam.lookAt(GL.items.localToWorld(new THREE.Vector3(0.6, 1, -3))); cam.updateMatrixWorld();
+      const c = x.holder.getWorldPosition(new THREE.Vector3()).project(cam), px = () => { const b = new Uint8Array(4); rd.setRenderTarget(rt); rd.render(GL.scene, cam); rd.readRenderTargetPixels(rt, Math.round((c.x + 1) / 2 * W), Math.round((c.y + 1) / 2 * H), 1, 1, b); rd.setRenderTarget(null); return [b[0], b[1], b[2]]; };
+      const pair = () => { const a = px(); x.holder.visible = L.deco.visible = false; const b = px(); x.holder.visible = L.deco.visible = true; return [a, b]; };
+      const d = ([a, b]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+      const seen = { plain: pair() };
+      STU.hover = 'dor001'; step(); seen.hot = pair();
+      STU.hover = ''; select('dor001'); step(); seen.sel = pair();
+      select(''); STU.cutF.delete('dor001'); settle(); rt.dispose();
+      for (const [k, v] of Object.entries(seen)) if (d(v) > 3) o.push('the box\\'s middle ' + k + ', with its box and without: ' + J(v));
+      return o;
+    })()`).catch(e => [e.message]);
+    bad(r);
+  });
+
   await step('studio cuts: an object\'s cut-outs locked (v124): its card\'s switch (one Undo step); the door cutting as before, its box hidden and never pointed at; sizing it, deleting it, deleting the wall and a new cut-out on it refused; the card and the Items pane say so; the state and layout.json carry cutsLocked, a bad one refused; a copy\'s not locked; unlocked, its box back', async () => {
     const r = await ss(`(() => {
       const o = [], J = JSON.stringify, step = () => itemsStep(0.1, performance.now()), settle = () => { for (let i = 0; i < 12; i++) step(); };   // (0.1 s a step: the boxes' 0.4 s fade done)
