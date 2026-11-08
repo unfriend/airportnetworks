@@ -331,6 +331,7 @@ const HOME_ONLY = argv.includes('--home');   // (only the relay the main site of
 const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
 const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviours shared: behaveRound, a relay of its own with --scenes)
 const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
+const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
@@ -429,13 +430,17 @@ function installXR(o) {
   window.__handles = X.handles;   // saved anchors outlive a session, as on a headset
   const sp = name => ({ name, addEventListener(t, fn) { (X.resets[name] = X.resets[name] || []).push(fn); }, removeEventListener() {} });
   X.spaces = { local: sp('local'), 'local-floor': sp('local-floor'), shared: Object.assign(sp('shared'), { UUId: o.sharedId || '' }) };
+  // a phone (o.phone: camera mode's round): its viewer space is where its camera is (the head), aimed by X.look
+  if (o.phone) X.spaces.viewer = Object.defineProperty(sp('viewer'), 'world', { get: () => X.W.head });
   const world = s => s.world || X.W[{ local: 'local', 'local-floor': 'floor', shared: 'shared' }[s.name]];
   const pose = m => {
     const p = V(), q = new THREE.Quaternion(), sc = V();
     m.decompose(p, q, sc);
     return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) } };
   };
-  const mkAnchor = w => { const a = { anchorSpace: { world: w }, delete() {},
+  // (a phone's Chrome: anchors without persistent handles)
+  const mkAnchor = w => o.phone ? { anchorSpace: { world: w }, delete() {} } : mkAnchorQ(w);
+  const mkAnchorQ = w => { const a = { anchorSpace: { world: w }, delete() {},
     requestPersistentHandle: () => {   // a full store (o.cap handles) refuses, with Quest Browser's words
       if (o.cap && X.handles.size >= o.cap) return Promise.reject(new DOMException('Failed to execute \'requestPersistentHandle\' on \'XRAnchor\': Maximum number of anchors reached!', 'InvalidStateError'));
       const u = 'room' + ++X.n + Math.random().toString(36).slice(2, 6); X.handles.set(u, w); return Promise.resolve(u);
@@ -451,15 +456,27 @@ function installXR(o) {
       return Promise.resolve(mkAnchor(w));
     },
   };
+  // a phone's hit test (o.phone): its view straight ahead meets the floor (y 0 of the pretend room) where it points down,
+  // nothing while it has not found the floor yet (X.noFloor) or points up
+  if (o.phone) X.frame.getHitTestResults = src => {
+    if (!src || src !== X.hitSrc || X.noFloor) return [];
+    const p = V().setFromMatrixPosition(X.W.head), d = V(0, 0, -1).transformDirection(X.W.head);
+    if (d.y > -0.05) return [];
+    const at = p.addScaledVector(d, -p.y / d.y);
+    return [{ getPose: b => pose(world(b).clone().invert().multiply(new THREE.Matrix4().makeTranslation(at.x, 0, at.z))) }];
+  };
   X.sl = []; X.ev = {};
   X.session = { mode: o.mode, enabledFeatures: o.features, visibilityState: 'visible', renderState: {},
     addEventListener(t, fn) { if (t === 'visibilitychange') X.sl.push(fn); else (X.ev[t] = X.ev[t] || []).push(fn); },
     removeEventListener(t, fn) { X.sl = X.sl.filter(f => f !== fn); if (X.ev[t]) X.ev[t] = X.ev[t].filter(f => f !== fn); }, inputSources: [],
-    requestReferenceSpace: t => (t === 'local' || o.features.includes(t) ? Promise.resolve(X.spaces[t]) : Promise.reject(new Error(t + ' not supported'))),
+    requestReferenceSpace: t => (t === 'local' || o.features.includes(t) || (o.phone && t === 'viewer') ? Promise.resolve(X.spaces[t]) : Promise.reject(new Error(t + ' not supported'))),
     requestAnimationFrame(cb) { X.raf.push(cb); return X.raf.length; },
     restorePersistentAnchor: u => (X.handles.has(u) ? Promise.resolve(mkAnchor(X.handles.get(u))) : Promise.reject(new Error('unknown'))),
     deletePersistentAnchor: u => { if (X.stuck) return Promise.reject(new DOMException('cannot delete', 'InvalidStateError')); X.handles.delete(u); return Promise.resolve(); },
     get persistentAnchors() { return [...X.handles.keys()]; } };
+  // (and a phone's session ends as a person ends it: Exit, camera mode's)
+  if (o.phone) Object.assign(X.session, { domOverlayState: o.overlay === false ? undefined : { type: 'screen' }, end: () => { X.ended = (X.ended || 0) + 1; X.end(); return Promise.resolve(); },
+    requestHitTestSource: q => (q && q.space === X.spaces.viewer ? Promise.resolve(X.hitSrc = { space: q.space, cancel() { if (X.hitSrc === this) X.hitSrc = null; } }) : Promise.reject(new Error('no such space'))) });
   const xr = HOST.renderer.xr;
   X.getRef = X.getRef || xr.getReferenceSpace;
   xr.getReferenceSpace = () => X.spaces.local;
@@ -475,6 +492,8 @@ function installXR(o) {
     for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
   };
   X.head = h => { X.W.head = M(h); };
+  // the phone held at eye (room coordinates), its camera looking at target: where its view straight ahead goes
+  X.look = (eye, target) => { X.W.head = new THREE.Matrix4().lookAt(V(...eye), V(...target), Y).setPosition(V(...eye)); };
   // the headset taken off (hidden) or put on again (visible): its listeners in the order they were added
   X.visibility = v => { X.session.visibilityState = v; for (const fn of X.sl.slice()) fn({ session: X.session }); };
   // a session event (squeezestart, squeezeend) to the listeners the page added
@@ -4958,6 +4977,328 @@ async function homeRound() {
   } finally { await b2.close(); }
 }
 
+// ---- camera mode (cameraRound; --camera runs only it, also in the main run after the studio's behaviours): a room of its
+// own with two story circles, a page, a pretend headset (Quest Browser's user agent) calibrated on the room's floor spots,
+// and a pretend Android phone (Chrome's user agent; immersive-ar offered by a pretend navigator.xr; a pretend AR session
+// that the story's own xrStart starts, through HOST.xr.request, with a viewer pose it aims, a hit test of its view straight
+// ahead against the floor, the DOM overlay's state, no shared space and anchors without persistent handles). The Shared
+// dialog's Camera mode button on the phone only (not on the page, not in the headset's browser); the session asked for
+// hit-test and dom-overlay with #camera as its root (and depth sensing still); the overlay; nothing guided or asked by eye,
+// no menu; before the floor is found Move the phone slowly; spot A and spot B aimed at and set: the phone's room is the
+// headset's (origin within 1 cm, direction within 0.5 degrees) and nothing written for it (no rm); following the headset
+// from the overlay: the phone's live station and story are the headset's, its rig at the station's spot, its clock the
+// station's once the headset plays, the headset drawn where its presence puts it (its tag; no head or hands over a person
+// in the room); the headset never draws the camera, nor counts it (lined up, heads for the studio's behaviours) and the page
+// cannot follow it; the headset's menu names it a camera; the headset walks into the other circle and the phone follows; the phone walked into a circle changes
+// nothing; a tap on its image presses nothing (its ray on the story's panel is the shell's with nothing to press, and
+// beforexrselect is cancelled on the overlay); Panels hidden hides the story's panels on the phone only (nothing written);
+// People hidden draws nobody; the subtitles strip shows the caption; nothing sent by the phone but its presence (kind cam),
+// no key of the room by it; the page's list says camera; Hide and a double tap; Exit ends the session and the page follows
+// on; a session its own request did not give is not the camera's; started again it lines up afresh (no marks kept or
+// looked for). Then a link with &camera: its own page, Start the camera. dir: pictures (camera-*.png)
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const QUEST_UA = 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/40.2.0.4.30 SamsungBrowser/4.0 Chrome/130.0.0.0 VR Safari/537.36';
+// a page as a device: its user agent, and navigator.xr pretending immersive-ar is offered (ar); requestSession records what
+// it is asked for and gives the page's pretend session (installXR), and every set and fx the page sends is recorded
+async function openDevice(hash, size, ua, ar) {
+  const phone = ua === ANDROID_UA, ctx = await browser.newContext({ viewport: size, userAgent: ua, isMobile: phone, hasTouch: phone });
+  await ctx.addInitScript(ar => {
+    const fake = { isSessionSupported: m => Promise.resolve(m === 'immersive-ar' ? ar : false), addEventListener() {}, removeEventListener() {},
+      requestSession: (m, init) => {
+        const r = init && init.domOverlay && init.domOverlay.root;
+        (window.__xrAsks = window.__xrAsks || []).push({ m, feats: (init && init.optionalFeatures) || [], root: r ? r.id : '', depth: !!(init && init.depthSensing) });
+        const X = window.__xr;
+        return X && X.session ? Promise.resolve(X.session) : Promise.reject(new DOMException('no pretend session', 'NotSupportedError'));
+      } };
+    try { Object.defineProperty(Navigator.prototype, 'xr', { get: () => fake, configurable: true }); } catch (e) { /* kept */ }
+    const s0 = WebSocket.prototype.send;
+    WebSocket.prototype.send = function (d) {
+      try { const m = JSON.parse(d); if (m && (m.t === 'set' || m.t === 'fx')) (window.__sent = window.__sent || []).push({ t: m.t, k: m.k || '', keys: m.batch ? m.batch.map(p => p[0]) : [], at: performance.now() }); } catch (e) { /* not ours */ }
+      return s0.call(this, d);
+    };
+  }, ar);
+  const page = await ctx.newPage();
+  page.on('pageerror', e => errors.push(e.stack || e.message));
+  page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+  await page.goto(base() + 'index.html' + hash, { timeout: 90000 });
+  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+  return page;
+}
+async function cameraRound(dir) {
+  const ROOM0 = ROOM;
+  ROOM = [2, 0, 1, 0.3];   // (the room as the headset calibrates it: spot A its origin, spot B 2 m along its x axis)
+  const K1 = 'qubits', K2 = HEADSET_STORY, SA = apply(ROOM, [0, 0, 0]), SB = apply(ROOM, [2, 0, 0]);
+  const PL = [-1.2, 1.4, 0.6, -0.9], PF = [-1, 0.05, 0.4, -0.7];   // (the phone's local and local-floor origins: its floor estimated 5 cm off)
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { HOST.collab.add(k[0], { x: 0.5, z: -2.5, yaw: 0 }); HOST.collab.add(k[1], { x: 4, z: -2.5, yaw: 0 }); }, [K1, K2]);
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const sts = await A.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2);
+  const H = await openDevice('#s=' + rc + '&flock', { width: 320, height: 200 }, QUEST_UA, true);
+  const P = await openDevice('#s=' + rc + '&flock', { width: 412, height: 860 }, ANDROID_UA, true);
+  let L = null;
+  const pics = async (file, page) => { if (dir) await (page || P).screenshot({ path: path.join(dir, file) }); };
+  try {
+    for (const p of [H, P]) { await until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(p, 'flock'); }
+    const hId = await H.evaluate(() => HOST.collab.id), pId = await P.evaluate(() => HOST.collab.id);
+    // the Shared dialog's Camera mode button: on the phone (its dialog opens by itself as it joins by a link), not on the
+    // page (no AR) nor in the headset's browser (a headset)
+    const dlgCam = p => p.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300)); const b = document.querySelector('#shared [data-sh="camera"]');
+      return { offered: HOST.collab.cameraOffered(), button: !!b, text: b ? b.closest('.sh-cam').textContent.replace(/\s+/g, ' ').trim() : '' }; });
+    await until(P, () => !!document.querySelector('#shared [data-sh="camera"]'), null, 8000);
+    const dP = await dlgCam(P), dA = await dlgCam(A), dH = await dlgCam(H);
+    await A.evaluate(() => HOST.collab.dialog(false)); await H.evaluate(() => HOST.collab.dialog(false));
+    check('camera: the Shared dialog\'s Camera mode button on a phone with AR, with a line saying what it is (none on a desktop page, none in a headset\'s browser)',
+      dP.offered && dP.button && /phone's camera/.test(dP.text) && /screen recorder/.test(dP.text) && !dA.button && !dA.offered && !dH.button && !dH.offered, JSON.stringify({ dP, dA, dH }));
+    // the headset: lined up on the room's floor spots (its controller's tip on each tape cross), then into the first circle
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 600);
+    const touch = async p => { await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650); await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150); };
+    await H.evaluate(() => HOST.room.calibrate());
+    await touch([SA[0], TIP, SA[2]]); await touch([SB[0], TIP, SB[2]]);
+    await H.evaluate(() => window.__xr.ctrl(0, null)); await frames(H, 400);
+    // a device's room in the pretend room: its origin and the yaw of its x axis
+    // frames for a while on a page; the headset's frames running while fn waits for something (its presence goes out only
+    // from them)
+    const run = (p, ms) => p.evaluate(async ms => { window.__go = true; const t0 = performance.now(); while (window.__go && performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); } }, ms);
+    const whileH = async fn => { const go = run(H, 240000); try { return await fn(); } finally { await H.evaluate(() => { window.__go = false; }); await go; } };
+    const roomOf = p => p.evaluate(() => {
+      const X = window.__xr, m = HOST.room.matrix(), o = new THREE.Vector3().applyMatrix4(m).applyMatrix4(X.W.local), x = new THREE.Vector3(1, 0, 0).transformDirection(m).transformDirection(X.W.local);
+      return { o: o.toArray().map(v => +v.toFixed(4)), yaw: Math.atan2(-x.z, x.x), src: HOST.room.src, aligned: HOST.room.aligned };
+    });
+    const rH = await roomOf(H);
+    check('camera: the headset is lined up on the room\'s floor spots (its room the pretend room\'s)', rH.aligned && rH.src === 'marks' && dist(rH.o, SA) < 0.01 && angle(rH.yaw, ROOM[3]) < 0.005, JSON.stringify(rH));
+    const inH = await walk(H, S1, K1, 0, 150000);
+    check('camera: the headset walks into the first circle', inH && await H.evaluate(id => HOST.collab.mine() === id, S1.id));
+    // the phone: Camera mode pressed in its dialog starts the story's AR session (as Enter AR does)
+    await P.evaluate(installXR, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
+    await P.evaluate(() => { window.__xr.noFloor = true; HOST.renderer.xr.setSession = async () => {}; window.__sent = []; HOST.collab.dialog(true); });
+    await until(P, () => !!document.querySelector('#shared [data-sh="camera"]'), null, 4000);
+    await P.evaluate(() => document.querySelector('#shared [data-sh="camera"]').click());
+    const on = await until(P, () => HOST.collab.cameraMode() && !!HOST.session, null, 10000);
+    await frames(P, 600);
+    const ask = await P.evaluate(() => (window.__xrAsks || []).slice(-1)[0]), c0 = await P.evaluate(() => HOST.collab.camera());
+    const ov = await P.evaluate(() => { const e = document.getElementById('camera'); return { shown: !!e && !e.hidden, live: !!e && e.classList.contains('live'), dlg: !document.getElementById('shared').hidden, aim: !!e && e.classList.contains('aim'),
+      step: e && e.querySelector('.cam-step').textContent, set: e && e.querySelector('[data-cam="set"]').disabled, mode: HOST.mode }; });
+    check('camera: Camera mode starts the story\'s AR session through HOST.xr.request, asking also for hit-test and dom-overlay (its root #camera) with depth sensing still asked',
+      on && !!ask && ask.m === 'immersive-ar' && ask.feats.includes('hit-test') && ask.feats.includes('dom-overlay') && ask.feats.includes('depth-sensing') && ask.root === 'camera' && ask.depth && ov.mode === 'immersive-ar',
+      JSON.stringify({ on, ask, ov }));
+    check('camera: the overlay shows (the dialog closed): before the floor is found, the crosshair and "Move the phone slowly", Set spot A greyed',
+      ov.shown && ov.live && !ov.dlg && ov.aim && /Move the phone slowly so it finds the floor/.test(ov.step) && ov.set === true && c0.on && c0.calib === 'a' && !c0.lined, JSON.stringify({ ov, c0 }));
+    const mA = await A.evaluate(id => { const m = HOST.collab.members.find(x => x.id === id); return m && { kind: m.kind, name: m.name }; }, pId);
+    check('camera: the page hears the phone as a camera (kind cam, named Camera)', !!mA && mA.kind === 'cam' && mA.name === 'Camera', JSON.stringify(mA));
+    // aimed at spot A, then spot B: the floor found, Set spot A and Set spot B
+    // the phone carried smoothly to eye, looking at target (a frame every 4 cm or so: a pose that jumps is taken for the
+    // origin moving, which starts a calibration again, as it should on a phone)
+    const glide = (eye, target) => P.evaluate(async ([e1, t1]) => {
+      const X = window.__xr, V = THREE.Vector3, p0 = new V().setFromMatrixPosition(X.W.head), t0 = p0.clone().addScaledVector(new V(0, 0, -1).transformDirection(X.W.head), 1.5);
+      const e = new V(...e1), t = new V(...t1), n = Math.max(12, Math.ceil(Math.max(p0.distanceTo(e), t0.distanceTo(t)) / 0.04));
+      for (let k = 1; k <= n; k++) { const f = k / n; X.look(p0.clone().lerp(e, f).toArray(), t0.clone().lerp(t, f).toArray()); X.step(); await new Promise(r => setTimeout(r, 16)); }
+    }, [eye, target]);
+    const aimAt = async p => { await glide([p[0] + 0.35, 1.35, p[2] + 0.85], p); await frames(P, 700); };
+    // Set spot A (or B) tapped between two of the phone's frames, as on a phone whose frames run all the time (the aim is
+    // taken only while fresh: a test that pauses the frames, a picture say, would find it stale)
+    const setSpot = () => P.evaluate(async () => { const X = window.__xr; X.step(); X.step(); document.querySelector('#camera [data-cam="set"]').click(); for (let k = 0; k < 4; k++) { X.step(); await new Promise(r => setTimeout(r, 16)); } });
+    const hitW = () => P.evaluate(() => { const c = HOST.collab.camera(), X = window.__xr; return c.hit && new THREE.Vector3(...c.hit).applyMatrix4(X.W.local).toArray(); });
+    await P.evaluate(() => { window.__xr.noFloor = false; });
+    await aimAt(SA);
+    const wA = await P.evaluate(() => HOST.collab.camera().words), hA = await hitW(), ret = await P.evaluate(() => HOST.collab.overlay().camRet.visible);
+    await pics('camera-1-aim.png');
+    await setSpot(); await frames(P, 200);
+    const c1 = await P.evaluate(() => HOST.collab.camera());
+    await aimAt(SB);
+    await setSpot(); await frames(P, 500);
+    const c2 = await P.evaluate(() => HOST.collab.camera()), rP = await roomOf(P);
+    check('camera: aimed at spot A (the floor found: "Aim at spot A and tap Set spot A", the hit on the spot, a ring on the floor there), Set spot A, then spot B: the phone is lined up',
+      wA && /Aim at spot A and tap Set spot A/.test(wA[1]) && !!hA && dist(hA, SA) < 0.005 && ret && c1.calib === 'b' && c2.lined && !c2.calib, JSON.stringify({ wA, hA, ret, c1, c2 }));
+    check('camera: the phone\'s room is the headset\'s (origin within 1 cm, direction within 0.5 degrees), its floor the spots\' (its own 5 cm off)',
+      rP.aligned && dist(rP.o, rH.o) < 0.01 && angle(rP.yaw, rH.yaw) < 0.5 * Math.PI / 180, JSON.stringify({ rP, rH }));
+    const g = await P.evaluate(() => ({ guide: HOST.collab.guide().open, flow: HOST.collab.guide().flow, eye: HOST.collab.eye().ask, menu: HOST.collab.menu, note: HOST.collab.overlay().note.mesh.visible }));
+    const rm = (await roomInfo(rc)).keys.rm;
+    check('camera: no room setup guide, startup flow, check by eye, menu or notice in 3D on the phone; the room\'s floor (rm) is the headset\'s, not written by the phone',
+      !g.guide && !g.flow && !g.eye && !g.menu && !g.note && !!rm && rm.by === hId, JSON.stringify({ g, rm }));
+    // following the headset: its station, its story, the rig at its spot, the station's clock, the headset drawn
+    await P.evaluate(() => document.querySelector('#camera [data-cam="follow"]').click());
+    await until(P, id => !!document.querySelector(`#camera [data-cam="who:${id}"]`), hId, 3000);
+    const list = await P.evaluate(() => [...document.querySelectorAll('#camera .cam-list button')].map(b => b.dataset.cam));
+    await P.evaluate(id => document.querySelector(`#camera [data-cam="who:${id}"]`).click(), hId);
+    // (the headset's frames run meanwhile: its presence, which says where it is, goes out only from them)
+    const f1 = await whileH(async () => await until(P, k => HOST.curKey === k, K1, 30000) && await ready(P, K1, 120000));
+    if (f1) { await P.evaluate(() => HOST.cur.peek('xrAdopt()')); }
+    await frames(P, 600);
+    const c3 = await P.evaluate(() => HOST.collab.camera()), rig = await rigOf(P), want = rigAt(S1, PL);
+    check('camera: the overlay lists the people in a headset and the circles; following the headset, the phone\'s live station is the headset\'s, its story loaded there and its rig at the station\'s spot',
+      list.includes('who:' + hId) && list.includes('st:' + S1.id) && list.includes('st:' + S2.id) && list.includes('none') && f1 && c3.follow === 'person:' + hId && c3.station === S1.id &&
+      dist(rig.slice(0, 3), want.slice(0, 3)) < 0.03 && angle(rig[3], want[3]) < 0.02, JSON.stringify({ list, f1, c3, rig, want }));
+    await peek(H, 'APP.playing || APP.togglePlay()');
+    await Promise.all([frames(H, 2500), frames(P, 2500)]);
+    const clk = await P.evaluate(id => { const v = HOST.collab.val('st.' + id + '.play'), t = HOST.cur.peek('APP.t'); return { key: HOST.curKey, live: HOST.collab.live() && HOST.collab.live().id, v, t, exp: v && (v.playing ? v.t + (HOST.collab.now() - v.at) / 1000 : v.t), playing: HOST.cur.peek('APP.playing') }; }, S1.id);
+    // where the phone draws the headset (its presence, room coordinates), and what the headset makes of the phone
+    await Promise.all([run(H, 1500), run(P, 1500)]);
+    const drawn = await P.evaluate(id => { const o = HOST.collab.overlay().people.get(id); return o && { g: o.g.visible, p: o.e && o.e.p.toArray(), avatar: o.avatar.visible, tag: o.tag.visible || o.sign.visible }; }, hId);
+    const hSide = await H.evaluate(id => ({ drawn: HOST.collab.overlay().people.has(id), heads: (HOST.collab.heads() || { list: [] }).list.map(x => x.id), lined: HOST.collab.guide().lined, pres: !!HOST.collab.people().get(id), cam: !!(HOST.collab.people().get(id) || {}).cam }), pId);
+    const aFollow = await A.evaluate(id => HOST.collab.followPerson(id), pId);
+    check('camera: the phone plays on the station\'s clock once the headset plays (within 1 s)', !!clk.v && clk.v.playing && clk.playing && Math.abs(clk.t - clk.exp) < 1, JSON.stringify(clk));
+    check('camera: the phone draws the headset where its presence puts it (its name tag; no head or hands over a person in the room, as a headset in AR)',
+      !!drawn && drawn.g && drawn.tag && !drawn.avatar && dist(drawn.p, [S1.x, 1.6, S1.z]) < 0.05, JSON.stringify(drawn));
+    check('camera: the headset hears the phone as a camera and never counts it: not drawn, not among the heads at its circle, lined up 1 of 1; the page cannot follow it',
+      hSide.pres && hSide.cam && !hSide.drawn && hSide.heads.join() === hId && hSide.lined[1] === 1 && aFollow === false, JSON.stringify({ hSide, aFollow }));
+    // the headset's menu (its Circles tab, the people): the phone as a camera, never a headset here or elsewhere (what its
+    // canvas is given to write is read as it draws)
+    const mrow = await H.evaluate(async () => {
+      const X = window.__xr, seen = [], f0 = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { seen.push(String(t)); return f0.call(this, t, ...a); };
+      try { HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } }
+      finally { CanvasRenderingContext2D.prototype.fillText = f0; HOST.collab.panelOpen(false); X.step(); }
+      const i = seen.indexOf('Camera');
+      return { name: i >= 0, row: i >= 0 ? seen.slice(i, i + 2) : [], here: seen.filter(x => /^, (here|elsewhere)/.test(x)) };
+    });
+    check('camera: the headset\'s menu lists the phone among the people as a camera (camera (filming)), never as a headset here or elsewhere',
+      mrow.name && mrow.row.length === 2 && /^camera \(filming\)/.test(mrow.row[1]) && !mrow.here.length, JSON.stringify(mrow));
+    await pics('camera-2-following.png');
+    // the headset walks into the other circle: the phone follows; the phone walked into a circle changes nothing
+    const inH2 = await walk(H, S2, K2, 0, 150000);
+    const f2 = await whileH(async () => await until(P, k => HOST.curKey === k, K2, 30000) && await ready(P, K2, 120000));
+    if (f2) await P.evaluate(() => HOST.cur.peek('xrAdopt()'));
+    await frames(P, 500);
+    const c4 = await P.evaluate(() => HOST.collab.camera());
+    check('camera: the headset walks into the other circle and the phone follows (its station and story)', inH2 && f2 && c4.station === S2.id && c4.follow === 'person:' + hId, JSON.stringify({ inH2, f2, c4 }));
+    { const w = apply(ROOM, [S1.x, 1.5, S1.z]); await glide(w, [w[0], 0, w[2] - 1.5]); }
+    await Promise.all([run(H, 2500), run(P, 2500)]);
+    const c5 = await P.evaluate(() => HOST.collab.camera());
+    check('camera: the phone walked into the first circle (standing in it 2.5 s) changes nothing', c5.station === S2.id && c5.follow === 'person:' + hId, JSON.stringify(c5));
+    // a tap on the image presses nothing: a screen's ray on the story's own panel is the shell's, with nothing to press; the
+    // overlay cancels every select (beforexrselect)
+    { const w = apply(ROOM, [S2.x, 1.5, S2.z + 0.4]); await glide(w, [w[0], 1.2, w[2] - 2]); }
+    await frames(P, 300);
+    const tap = await P.evaluate(async () => {
+      const X = window.__xr, V = THREE.Vector3, main = HOST.cur.peek('XR.main.mesh'), t = main.getWorldPosition(new V());
+      const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), d = t.clone().sub(head).normalize();
+      X.aim(0, new THREE.Matrix4().compose(head, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), d), new V(1, 1, 1)));
+      X.session.inputSources[0].targetRayMode = 'screen';
+      const c = HOST.cur.peek('XR.ctrls')[0], on = new THREE.Raycaster(head, d).intersectObject(main).length > 0, was = HOST.cur.peek('[APP.mode, APP.playing].join()');
+      X.step(); X.step();
+      const hov = c.hover && c.hover.kind;
+      c.wantPress = true; X.step(); const press = c.press; X.step();
+      X.ctrl(0, null); X.session.inputSources.length = 0;
+      const ev = el => { const e = new Event('beforexrselect', { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
+      const root = document.getElementById('camera');
+      return { visible: main.visible, on, hov, press: !!press, same: HOST.cur.peek('[APP.mode, APP.playing].join()') === was, image: ev(root), button: ev(root.querySelector('[data-cam="hide"]')) };
+    });
+    check('camera: a tap on the image presses nothing (a screen ray on the story\'s panel is the shell\'s, nothing pressed; beforexrselect cancelled on the overlay and its buttons)',
+      tap.visible && tap.on && tap.hov === 'shell' && !tap.press && tap.same && tap.image && tap.button, JSON.stringify(tap));
+    // Panels hidden: the story's panels hidden on the phone only, nothing written; People hidden: nobody drawn
+    // (the pretend session never presents, so the story's own xrUpdate, which shows and hides its panels every frame, is
+    // run here, as other rounds do)
+    const panels = p => p.evaluate(() => HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), [XR.main.mesh.visible, XR.foot.mesh.visible].join()'));
+    await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').click());
+    await Promise.all([run(H, 600), run(P, 600)]);
+    const pn = { phone: await panels(P), headset: await panels(H), ui: (await roomInfo(rc)).keys['st.' + S2.id + '.ui'] || null, label: await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').textContent),
+      // (the station's own panels, as the page's dialog reads and sets them, unchanged on both: the camera's are its own)
+      st: [await P.evaluate(id => HOST.collab.stationPanels(id), S2.id), await H.evaluate(id => typeof HOST.collab.setStationPanels === 'function' && HOST.collab.stationPanels(id), S2.id)] };
+    await pics('camera-3-panels-hidden.png');
+    await P.evaluate(() => document.querySelector('#camera [data-cam="panels"]').click()); await frames(P, 400);
+    pn.back = await panels(P);
+    check('camera: Panels hidden hides the story\'s panels on the phone only (the headset at the same circle keeps them; nothing written), and shown again', pn.phone === 'false,false' && pn.headset === 'true,true' && !pn.ui &&
+      pn.label === 'Panels: hidden' && pn.back === 'true,true' && pn.st.join() === 'shown,shown', JSON.stringify(pn));
+    await P.evaluate(() => document.querySelector('#camera [data-cam="people"]').click());
+    await Promise.all([run(H, 600), run(P, 600)]);
+    const pp = await P.evaluate(id => { const o = HOST.collab.overlay().people.get(id); return { drawn: !!(o && o.g.visible), label: document.querySelector('#camera [data-cam="people"]').textContent }; }, hId);
+    await P.evaluate(() => document.querySelector('#camera [data-cam="people"]').click());
+    await Promise.all([run(H, 600), run(P, 600)]);
+    pp.back = await P.evaluate(id => { const o = HOST.collab.overlay().people.get(id); return !!(o && o.g.visible); }, hId);
+    check('camera: People hidden draws nobody, shown again the headset', !pp.drawn && pp.label === 'People: hidden' && pp.back, JSON.stringify(pp));
+    // the subtitles: the caption on show as a strip at the foot (the headset plays its circle's story)
+    await peek(H, 'APP.playing || APP.togglePlay()');
+    await P.evaluate(() => document.querySelector('#camera [data-cam="subs"]').click());
+    let sub = null;
+    for (let k = 0; k < 12; k++) {
+      await Promise.all([run(H, 700), run(P, 700)]);
+      sub = await P.evaluate(() => { const s = document.querySelector('#camera .cam-sub'); return { shown: !s.hidden, text: s.textContent, cap: HOST.collab.caption().text, label: document.querySelector('#camera [data-cam="subs"]').textContent }; });
+      if (sub.shown && sub.text) break;
+    }
+    await pics('camera-4-subtitles.png');
+    check('camera: Subtitles on shows the narration\'s caption as a strip at the foot', sub.label === 'Subtitles: on' && sub.shown && !!sub.text, JSON.stringify(sub));
+    // nothing sent by the phone but its presence, and no key of the room by it
+    const sent = await P.evaluate(id => (window.__sent || []).filter(m => !(m.t === 'fx' && m.k === 'p.' + id)), pId);
+    const presN = await P.evaluate(id => (window.__sent || []).filter(m => m.t === 'fx' && m.k === 'p.' + id).length, pId), info = await roomInfo(rc);
+    const byP = Object.entries(info.keys).filter(([, e]) => e.by === pId).map(([k]) => k), quietP = await P.evaluate(() => HOST.collab.camera().quiet);
+    check('camera: the phone sends nothing but its presence (no write to the room, no effect), and no key of the room is its', !sent.length && presN > 5 && !byP.length, JSON.stringify({ sent: sent.slice(0, 8), presN, byP, quietP }));
+    // the page's list: a camera, with no Follow
+    const row = await A.evaluate(async id => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 400));
+      const li = [...document.querySelectorAll('#shared .sh-people li')].find(l => /Camera/.test(l.textContent)); const r = li ? { text: li.textContent.replace(/\s+/g, ' ').trim(), follow: !!li.querySelector('[data-sh^="who:"]') } : null; HOST.collab.dialog(false); return r; }, pId);
+    check('camera: the page\'s people list shows the phone as a camera, with no Follow', !!row && /camera \(filming\)/.test(row.text) && !row.follow, JSON.stringify(row));
+    // Hide, and a double tap on the image brings the controls back (a single one does not)
+    const vis = () => P.evaluate(() => { const e = document.getElementById('camera'); return { hid: e.classList.contains('hid'), bar: getComputedStyle(e.querySelector('.cam-bar')).display !== 'none', state: HOST.collab.camera().hidden }; });
+    const tapImg = () => P.evaluate(() => { const e = document.getElementById('camera'); e.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 200, clientY: 500 })); });
+    await P.evaluate(() => document.querySelector('#camera [data-cam="hide"]').click());
+    const h1 = await vis(); await tapImg(); await sleep(600); await tapImg(); const h2 = await vis(); await sleep(600);
+    await tapImg(); await sleep(120); await tapImg(); const h3 = await vis();
+    check('camera: Hide hides the controls; two taps 0.6 s apart do not bring them back, a double tap does', h1.hid && !h1.bar && h1.state && h2.state && !h3.hid && h3.bar && !h3.state, JSON.stringify({ h1, h2, h3 }));
+    // Exit: the session ends, camera mode off, and the page follows on as a page does (the headset's station)
+    await P.evaluate(() => document.querySelector('#camera [data-cam="exit"]').click());
+    await sleep(400);
+    const x = await P.evaluate(() => { const e = document.getElementById('camera'); return { ended: window.__xr.ended || 0, session: !!HOST.session, cam: HOST.collab.cameraMode(), shown: !e.hidden || getComputedStyle(e).display !== 'none', c: HOST.collab.camera(), key: HOST.curKey }; });
+    const mA2 = await until(A, id => { const m = HOST.collab.members.find(q => q.id === id); return !!m && m.kind === 'desktop' && m.name !== 'Camera'; }, pId, 8000);
+    check('camera: Exit ends the session (camera mode off, its overlay gone, a page again for the room) and the page follows the headset on', x.ended === 1 && !x.session && !x.cam && !x.shown &&
+      x.c.follow === 'person:' + hId && x.c.station === S2.id && x.key === K2 && mA2, JSON.stringify({ x, mA2 }));
+    // only the session its own request gave is the camera's: Start pressed, then another AR session (not through the
+    // request: here set directly, Enter AR stood aside) is not taken, and Start's wish goes with it
+    const other = await P.evaluate(() => {
+      const b = document.getElementById('btnAR'), n0 = window.__collabLog.n || 0;   // (the log keeps its last 1000: by number)
+      if (b) b.id = 'btnAR-aside';
+      let r;
+      try {
+        const asked = HOST.collab.cameraStart('test'), want = HOST.collab.camera().want;
+        HOST.mode = 'immersive-ar'; HOST.session = window.__xr.session;
+        r = { asked, want, on: HOST.collab.cameraMode(), after: HOST.collab.camera().want, phase: HOST.collab.camera().phase, told: window.__collabLog.some(e => e.n > n0 && e.ev === 'camera: not this session') };
+      } finally { HOST.session = null; HOST.mode = null; if (b) b.id = 'btnAR'; }
+      r.off = !HOST.collab.cameraMode() && !HOST.collab.camera().want;
+      return r;
+    });
+    check('camera: an AR session its own request did not give is not the camera\'s (Start\'s wish dropped with it)',
+      other.asked && other.want && !other.on && !other.after && other.told && other.off, JSON.stringify(other));
+    // started again: it lines up afresh (Set spot A at once), with no marks kept from before; marks that a browser kept with
+    // handles (planted here: a phone's Chrome keeps none) are let go, never looked for
+    await P.evaluate(installXR, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
+    const i1 = await P.evaluate(() => {
+      const R = HOST.room.internals(), X = window.__xr;
+      X.handles.set('old1', new THREE.Matrix4()); X.handles.set('old2', new THREE.Matrix4().makeTranslation(2, 0, 0));
+      R.saved = { v: 2, a: [0, 0.02, 0], b: [2, 0.02, 0], at: 1, anchors: ['old1', 'old2'], f: 1 };
+      localStorage.setItem('roomFrame', JSON.stringify(R.saved));
+      HOST.renderer.xr.setSession = async () => {}; HOST.collab.dialog(true);
+      return window.__collabLog.n || 0;
+    });
+    await until(P, () => !!document.querySelector('#shared [data-sh="camera"]'), null, 4000);
+    await P.evaluate(() => document.querySelector('#shared [data-sh="camera"]').click());
+    const on2 = await until(P, () => HOST.collab.cameraMode() && !!HOST.session, null, 10000);
+    await frames(P, 600);
+    const again = await P.evaluate(i1 => {
+      const R = HOST.room.internals(), c = HOST.collab.camera(), L = window.__collabLog.filter(e => e.n > i1);
+      return { on: c.on, calib: c.calib, lined: c.lined, state: HOST.room.state, saved: R.saved, tried: !!R.anchorTried, stored: localStorage.getItem('roomFrame'),
+        kept: ['old1', 'old2'].filter(u => window.__xr.handles.has(u)), looked: L.filter(e => /anchors (not found|found again)|^restor/.test(e.ev)).map(e => e.ev) };
+    }, i1);
+    check('camera: started again, it lines up afresh (Set spot A at once, not lined up), no marks kept or looked for (the old handles let go, nothing stored)',
+      on2 && again.on && again.calib === 'a' && !again.lined && again.state === 'mark-a' && again.saved === null && !again.tried && again.stored === null && !again.kept.length && !again.looked.length,
+      JSON.stringify(again));
+    await P.evaluate(() => document.querySelector('#camera [data-cam="exit"]').click());
+    await until(P, () => !HOST.session && !HOST.collab.cameraMode(), null, 5000);
+    // a link with &camera: its own page with one big button, Start the camera (the dialog does not open)
+    L = await openDevice('#s=' + rc + '&camera&flock', { width: 412, height: 860 }, ANDROID_UA, true);
+    const lk = await until(L, () => { const e = document.getElementById('camera'), b = e && e.querySelector('.cam-go'); return !!(e && !e.hidden && b && !b.disabled && !b.hidden); }, null, 20000);
+    const lv = await L.evaluate(() => { const e = document.getElementById('camera'); return { pre: e.classList.contains('pre'), go: e.querySelector('.cam-go').textContent, dlg: !document.getElementById('shared').hidden }; });
+    await pics('camera-5-link.png', L);
+    check('camera: a link with &camera opens its own page: Start the camera (once joined; the dialog not opened)', lk && lv.pre && lv.go === 'Start the camera' && !lv.dlg, JSON.stringify(lv));
+  } finally {
+    ROOM = ROOM0;
+    for (const p of [H, P]) await p.evaluate(() => window.__xr && window.__xr.end()).catch(() => {});
+    for (const p of [A, H, P, L].filter(Boolean)) await p.context().close().catch(() => {});
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -4980,6 +5321,7 @@ try {
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
   if (STANDBY_ONLY) { await standbyRound(); break main; }
   if (NARR_ONLY) { await narrationRound(); break main; }
+  if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -7242,6 +7584,8 @@ try {
   await homeRound();
   // ------------------------------ the studio's behaviours shared (a relay of its own, with --scenes) --
   await behaveRound();
+  // ------------------------------------------- camera mode (a phone filming the room; a room of its own) --
+  await cameraRound(shots);
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -7322,8 +7666,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

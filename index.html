@@ -1517,15 +1517,16 @@ HOST.xr = (function () {
   // The session itself (every story's xrStart): VR with its features as ever; AR also asks for depth sensing (real-world
   // occlusion, occlusion.js: GPU first, the formats a Quest 3 gave first, the depth seen from the eye itself), with the
   // room test's ladder: a TypeError naming a value (a browser that does not know 'unsigned-short') asks again without it,
-  // any other refusal asks again without depth at all
+  // any other refusal asks again without depth at all. extra ({ features, init }): what camera mode (shared.js) asks for too,
+  // on every rung (hit-test and dom-overlay, with the overlay's root)
   const DEPTH = { usage: ['gpu-optimized', 'cpu-optimized'], formats: ['unsigned-short', 'luminance-alpha', 'float32'] };
-  async function request(mode) {
-    const feats = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice();
+  async function request(mode, extra) {
+    const feats = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice().concat((extra && extra.features) || []), more = (extra && extra.init) || {};
     asked = mode;
     if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
     let usage = DEPTH.usage.slice(), formats = DEPTH.formats.slice();
     for (let k = 0; k < 6 && usage.length && formats.length; k++) {
-      const init = { optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } };
+      const init = Object.assign({ optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } }, more);
       try { return await navigator.xr.requestSession(mode, init); } catch (e) {
         const named = v => e && e.name === 'TypeError' && String(e.message || '').includes("'" + v + "'");
         const u = usage.filter(v => !named(v)), f = formats.filter(v => !named(v));
@@ -1535,7 +1536,7 @@ HOST.xr = (function () {
       }
     }
     asked = mode;
-    return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+    return navigator.xr.requestSession(mode, Object.assign({ optionalFeatures: feats }, more));
   }
   return {
     features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },

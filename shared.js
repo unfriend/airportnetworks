@@ -168,11 +168,16 @@
   const bare = v => { if (!v || typeof v !== 'object' || Array.isArray(v) || !('ts' in v || 'h' in v)) return v; const o = Object.assign({}, v); delete o.ts; delete o.h; return o; };
   const sig = (k, v) => J(SM_RE.test(k) ? bare(v) : v);
   const now = () => clock() + C.offset;   // the relay's clock
-  const kind = () => (HOST.session ? (HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
+  // camera mode (v124, "camera mode" below): a phone filming the room in AR; on while its session runs (want: Start pressed;
+  // sess: the session its own request gave, the only one that is the camera's). Its kind is 'cam' (the relay's members,
+  // presence), never a headset's
+  const CAM = { ok: null, want: false, wantAt: 0, asked: 0, sess: null, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
+    hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set() };
+  const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
   // counts as here; in VR the shell's panel asks once per room (askHere), and the answer is kept per room code
-  // (in a room on this device there are no others: a headset is always here)
-  const here = () => { const k = kind(); return k !== 'desktop' && (C.local || (C.hereSet !== null ? C.hereSet : k === 'ar')); };
+  // (in a room on this device there are no others: a headset is always here; a camera always is)
+  const here = () => { const k = kind(); return k === 'cam' || (k !== 'desktop' && (C.local || (C.hereSet !== null ? C.hereSet : k === 'ar'))); };
   const askHere = () => !!(C.code && !C.local && kind() === 'vr' && C.hereSet === null);
   const heres = () => { try { return JSON.parse(get('collabHere') || '{}') || {}; } catch (e) { return {}; } };
   const member = id => C.members.find(m => m.id === id);
@@ -656,7 +661,7 @@
   }
   // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen)
   function hello() {
-    send({ t: 'hello', name: C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV });
+    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV });   // (a camera: named so in the lists)
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
@@ -733,6 +738,7 @@
   }
   // stored writes: one batch, one seq; the value shown here at once (optimistic), acknowledged when it comes back
   function publish(pairs, force) {
+    if (CAM.on) { camQuiet(pairs.map(p => p[0])); return false; }   // (a camera writes nothing to the room: camera mode)
     const out = [];
     for (const [k, v] of pairs) {
       const s = sig(k, v);
@@ -962,7 +968,7 @@
         const version = typeof msg.version === 'string' ? msg.version.slice(0, 64) : '';
         if (version && version !== FORMAT) return this.kick(m, 'version', 'the room runs version ' + FORMAT);
         Object.assign(m, { name: typeof msg.name === 'string' ? msg.name.trim().slice(0, 32) : '', color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
-          kind: ['ar', 'vr', 'desktop'].includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, dev: typeof msg.dev === 'string' ? msg.dev.slice(0, 8) : '' });
+          kind: ['ar', 'vr', 'desktop', 'cam'].includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, dev: typeof msg.dev === 'string' ? msg.dev.slice(0, 8) : '' });
         this.cast({ t: 'members', members: this.people() });
         if (this.onhello) this.onhello(m);
         return;
@@ -1882,7 +1888,10 @@
   const showsMenu = id => { const E = MENUS.get(id); return !!E && E.code === C.code && performance.now() - E.at <= MSH.gone; };
 
   // ----------------------------------------------------------- ephemeral --
-  function fx(k, v) { return send({ t: 'fx', k, v }); }
+  function fx(k, v) {
+    if (CAM.on && k !== 'p.' + C.id) { camQuiet([k]); return false; }   // (a camera sends its presence only: camera mode)
+    return send({ t: 'fx', k, v });
+  }
   function onFx(m) {
     if (typeof m.k !== 'string') return;
     if (m.k.startsWith('p.')) {
@@ -1891,6 +1900,7 @@
       let P = C.pres.get(id);
       if (!P) C.pres.set(id, (P = { id }));
       P.at = performance.now(); P.st = typeof v.st === 'string' ? v.st : '';
+      P.cam = v.kind === 'cam';   // (a phone in camera mode: never drawn, never a person in a headset)
       P.bv = typeof v.bv === 'string' ? v.bv.slice(0, 8) : '';   // its Quest Browser version (versionNote)
       P.sp = typeof v.sp === 'string' ? v.sp.slice(0, 64) : ''; P.al = typeof v.al === 'string' ? v.al.slice(0, 8) : '';   // its shared space and what aligns it (alignedHere)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
@@ -2014,7 +2024,7 @@
     const s = C.stById.get(id);
     if (!s) return;
     // ('arc': the room's arc, taken without walking in or following by hand: arcStep)
-    const fol = how === 'follow' || how === 'person' || (how === 'arc' && !HOST.session);
+    const fol = how === 'follow' || how === 'person' || (how === 'arc' && (!HOST.session || CAM.on));   // (a camera follows, as a page)
     // Back to the lobby: walking into it ends the headset's station (no story: away, the room as before any circle);
     // never a station of its own, so nothing follows it
     if (s.kind === LOBBY_ST) {
@@ -2110,7 +2120,7 @@
   // the room or starts a headset session
   function followPerson(id) {
     const m = member(id);
-    if (!m || id === C.id || HOST.session || !C.code || (m.kind !== 'ar' && m.kind !== 'vr')) return false;   // (a person in a headset, as the dialog offers)
+    if (!m || id === C.id || (HOST.session && !CAM.on) || !C.code || (m.kind !== 'ar' && m.kind !== 'vr')) return false;   // (a person in a headset, as the dialog offers; a camera follows too)
     C.who = id; C.whoName = m.name || 'Someone'; C.whoSt = ''; C.whoGone = 0; C.whoLeft = '';
     log('follow person', { who: id, kind: m.kind });
     whoStep(performance.now());
@@ -2128,7 +2138,7 @@
   // is connected: they have left; a socket of theirs back within it, as after a relay restart, keeps them followed)
   function whoStep(t) {
     if (!C.who) return;
-    if (HOST.session) { whoStop('headset'); return; }
+    if (HOST.session && !CAM.on) { whoStop('headset'); return; }   // (a camera follows during its session: camera mode)
     const m = member(C.who);
     if (m) { C.whoGone = 0; C.whoName = m.name || C.whoName; }
     else if (C.status === 'open' && C.welcomed) {
@@ -3052,6 +3062,10 @@
     OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
     OV.aims = [aim(), aim()]; OV.calA = cross();
     OV.root.add(OV.aims[0], OV.aims[1], OV.calA);
+    // camera mode: where the phone's aim meets the floor while it lines up (a ring lying on the floor, over everything)
+    OV.camRet = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.065, 40).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+    OV.camRet.renderOrder = 75; OV.camRet.visible = false; OV.root.add(OV.camRet);
     OV.root.visible = false;
   }
   const MARK = 0xffb43b;
@@ -3456,10 +3470,11 @@
   function drawPeople(dt) {
     const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
     const vr = HOST.mode !== 'immersive-ar', cm = cardMode();
-    for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head) dropPerson(id);
-    const L = liveSt(), all = !L || peopleAll();
+    // (a camera, camera mode: never drawn; a camera itself draws everyone in a headset, or nobody: its People switch)
+    for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head || C.pres.get(id).cam || (CAM.on && !CAM.people)) dropPerson(id);
+    const L = liveSt(), all = !L || peopleAll() || CAM.on;
     for (const [id, P] of C.pres) {
-      if (!P.head) continue;
+      if (!P.head || P.cam || (CAM.on && !CAM.people)) continue;
       const o = personFor(id), m = member(id) || {}, col = m.color || '#f2f6fc', name = m.name || 'Someone';
       o.g.visible = all || P.st === L.id;
       if (!o.g.visible) { o.e = null; continue; }   // (shown again where they are then, not gliding from where they were)
@@ -3629,6 +3644,7 @@
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   function menuOpen(on, why) {
     on = !!on;
+    if (on && CAM.on) return;   // (a camera has no menu: its overlay, camera mode)
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
     // (opened or closed by hand: a sound from where it floats, or will; not when it opens or closes by itself, or for a test)
     if (on !== PNL.open && HOST.session && /^(stick|pinch|close)$/.test(why || '')) {
@@ -4385,7 +4401,8 @@
           ctx.fillText(fit(ctx, (m.name || 'Someone') + (m.id === C.id ? ' (you)' : ''), 250), x + 36, y);
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
-          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
+          const cam = m.id === C.id ? CAM.on : m.kind === 'cam' || !!(P && P.cam);   // (a phone in camera mode: a camera, never a headset here or elsewhere)
+          ctx.fillText(fit(ctx, (cam ? 'camera (filming)' : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -4473,14 +4490,14 @@
   function notice(title, text, ms) {
     // (a soft chime from where it shows, a metre ahead; not again for the same notice within 2 s)
     const t = performance.now();
-    if (HOST.session && HD.ok && !(NOTE.title === title && t - (NOTE.at || -1e9) < 2000)) sfx('notice', new THREE.Vector3(0, -0.22, -1).applyQuaternion(HD.q).add(HD.p));
+    if (HOST.session && HD.ok && !CAM.on && !(NOTE.title === title && t - (NOTE.at || -1e9) < 2000)) sfx('notice', new THREE.Vector3(0, -0.22, -1).applyQuaternion(HD.q).add(HD.p));
     NOTE.at = t;
     NOTE.title = title; NOTE.text = text || ''; NOTE.until = ms === 0 ? Infinity : t + (ms || 4500);
     NOTES.push({ title, text: NOTE.text }); if (NOTES.length > 8) NOTES.shift();   // (the last few, for tests; kept on this page only)
     log('notice', { title });
   }
   function drawNote(head, hq) {
-    const S = OV.note, on = performance.now() < NOTE.until && !!head;
+    const S = OV.note, on = performance.now() < NOTE.until && !!head && !CAM.on;   // (a camera's overlay says what it needs: camera mode)
     S.mesh.visible = on;
     if (!on) return;
     const sig = NOTE.title + NOTE.text;
@@ -4786,7 +4803,7 @@
   const _e = new THREE.Euler(0, 0, 0, 'YXZ'), _q2 = new THREE.Quaternion();
   const fpsOn = () => !!(HOST.xr && HOST.xr.fps && HOST.xr.fps());
   function drawFps() {
-    const S = OV.fps, on = fpsOn() && HD.ok;
+    const S = OV.fps, on = fpsOn() && HD.ok && !CAM.on;
     S.mesh.visible = on;
     if (!on) return;
     const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500;
@@ -5002,7 +5019,7 @@
     return SUB.res;
   }
   function drawSubs(dt) {
-    const S = OV.sub, on = !!(HOST.xr && HOST.xr.subs && HOST.xr.subs()) && HD.ok && !away(), t = performance.now();
+    const S = OV.sub, on = !!(HOST.xr && HOST.xr.subs && HOST.xr.subs()) && HD.ok && !away() && !CAM.on, t = performance.now();   // (a camera's own strip is its overlay's)
     let want = '', id = '';
     if (on) { const r = captionNow(t); want = r[0]; id = r[1]; }
     S.want = want; S.wantId = id;
@@ -5038,6 +5055,10 @@
     h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN; h.near = near != null ? near : Infinity;   // (near: a story panel on the ray)
     (h.hist = h.hist || []).push([h.at, o.x, o.y, o.z]);   // the last half second, for a calibration mark (steady)
     while (h.hist.length && h.at - h.hist[0][0] > 500) h.hist.shift();
+    // a camera (camera mode): a tap on its image presses nothing, the story's or the shell's (its overlay also keeps taps from
+    // the session: beforexrselect). Taken as the shell's, at the ray's origin (on the camera itself: nothing drawn there), whose
+    // press then finds nothing to press
+    if (CAM.on) { C.hov.set(i, null); h.hk = ''; return { kind: 'shell', point: o.clone(), dist: 0 }; }
     if (!OV.root || !OV.root.visible || !OV.root.parent) return null;
     RC.set(o, d); RC.far = 30;   // a station across a large room can be picked too
     const tip = tipMode();
@@ -5233,13 +5254,13 @@
       R.hr.copy(HD.p).applyMatrix4(R.mi);
       _v.set(0, 0, -1).applyQuaternion(HD.q).transformDirection(R.mi);
       R.hyaw = Math.atan2(-_v.x, -_v.z); R.headOK = true;
-      zoneStep(t);
-      allFirst(t);
+      if (!CAM.on) { zoneStep(t); allFirst(t); }   // (a camera walks into no circle and places no arc: camera mode)
       arcStep(t);
       presenceOut(t);
     } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
-    if (C.code && R.session) { guideStep(t); eyeStep(t); }
-    welStep(t);   // (Getting around, once a session)
+    if (C.code && R.session && !CAM.on) { guideStep(t); eyeStep(t); }   // (never a camera's: it lines up from its overlay)
+    if (CAM.on) camStep(f, t);
+    welStep(t);   // (Getting around, once a session; never a camera's: welCan)
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
@@ -5365,7 +5386,7 @@
       if (v && typeof v === 'object' && v.arc === undefined && !C.pending.has('st.' + s.id)) { log('arc again', { st: s.id }); publish([['st.' + s.id, Object.assign({}, bare(v), { arc: true })]]); }
       return;
     }
-    if (HOST.session) { if (R.session && R.aligned && here() && C.live !== A.id) choose(A.id, 'arc'); }
+    if (HOST.session && !CAM.on) { if (R.session && R.aligned && here() && C.live !== A.id) choose(A.id, 'arc'); }   // (a camera: as a page)
     else if (C.follow !== A.id && C.arcOff !== C.code + '|' + A.id && !C.who) choose(A.id, 'arc');
   }
   // a page that starts a room, or joins one with no stations, makes the arc at the room's origin facing -z (where the
@@ -5402,6 +5423,8 @@
     C.presAt = t;
     _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(HD.q);
     const head = [r3(R.hr.x), r3(R.hr.y), r3(R.hr.z), r3(_q.x), r3(_q.y), r3(_q.z), r3(_q.w)], hands = [];
+    // a camera (camera mode): where it is (for the pages' room maps), the circle it shows, that it is a camera; no hands
+    if (CAM.on) { fx('p.' + C.id, { st: C.mine || '', head, hands, kind: 'cam', ts: Math.round(now()) }); return; }
     for (const [i, h] of C.rays) {
       if (C.frameN - h.n > 2) continue;   // a controller the story no longer points with (counted in frames: a slow frame is no reason)
       let len = 0;
@@ -5420,12 +5443,12 @@
     const L = liveSt();
     if (!C.code || !L) return null;
     const S = shown(L), list = [], t = performance.now();
-    if (R.session && R.headOK) {   // (this headset in its session, lined up: its head now)
+    if (R.session && R.headOK && !CAM.on) {   // (this headset in its session, lined up: its head now; a camera is nobody)
       _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(HD.q);
       list.push({ id: C.id, me: true, head: [R.hr.x, R.hr.y, R.hr.z, _q.x, _q.y, _q.z, _q.w], ts: Math.round(now()) });
     }
     for (const [id, P] of C.pres) {
-      if (!P.head || P.st !== L.id || t - P.at > 2000) continue;
+      if (!P.head || P.cam || P.st !== L.id || t - P.at > 2000) continue;
       const s = P.buf && P.buf.s.length ? P.buf.s[P.buf.s.length - 1] : null;
       list.push({ id, me: false, head: P.head.slice(), ts: s ? s.ts : Math.round(now()) });
     }
@@ -5436,13 +5459,14 @@
   function statusOut(t) {
     if (t - C.presAt < 1000) return;
     C.presAt = t;
+    if (CAM.on) { fx('p.' + C.id, { st: C.mine || '', kind: 'cam', ts: Math.round(now()) }); return; }   // (a camera not lined up yet)
     fx('p.' + C.id, { st: C.mine || '', bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
   const ZN = { p: [0, 0, 0], head: [0, 0, 0], f: [0, 0, 0], u: [0, 0, 0] }, _u = new THREE.Vector3();
   function soundZone() {
     const L = liveSt();
-    if (!C.code || !HD.ok || !R.placing() || !L) { HOST.audio.zone(null); return; }
+    if (!C.code || !HD.ok || !R.placing() || !L || CAM.on) { HOST.audio.zone(null); return; }   // (a camera hears the story as a page does)
     const [cx, cz] = content(L);
     _v.set(cx, 1.4, cz).applyMatrix4(R.m).toArray(ZN.p);
     HD.p.toArray(ZN.head);
@@ -5465,6 +5489,7 @@
       drawMenus();   // (the others' menus shown to your circle)
     }
     drawMarks();
+    camDraw();   // (camera mode: where the phone's aim meets the floor, while it lines up)
     // the menu floats in front of you (FLOAT, floatMenu; carried by the grip, MG). It is drawn first, so it is placed by
     // its height this frame. Without a relay too: a room on this headset places the stories
     const t = performance.now(), atMenu = h => h.target.kind === 'panel' || h.target.kind === 'storypanel';
@@ -5648,7 +5673,8 @@
     else if (s) { R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || ''; put('roomFrame', null); }
   } catch (e) { R.saved = null; }
   if (R.oldAnchor && HOST.anchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // deleted at the next session
-  const storeSaved = () => put('roomFrame', R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
+  // (a camera keeps no marks: it lines up afresh each session, camera mode)
+  const storeSaved = () => put('roomFrame', !CAM.on && R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
   const sharedIdOf = s => (s && (s.UUId || s.uuid || s.UUID)) || '';
   const kFrame = id => 'rf.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // the frame published for a shared space
   const kSplit = id => 'rs.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // a shared space found split (splitCheck)
@@ -5687,6 +5713,7 @@
   // them has left; never over the room's floor spots while whoever set them is here. Asked when a calibration is made or
   // found again, and twice a second while the room's floor is missing, its writer gone, or (floor spots) not on the floor
   function claimFloor(a, b) {
+    if (CAM.on) return;   // (a camera's spots are the room's own: it writes nothing, camera mode)
     const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]), ok = !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)), same = ok && Math.abs(M.d - d) <= SAME;
     const here = ok && (M.by === C.id || member(M.by));
     if (onFloor()) {
@@ -6625,7 +6652,12 @@
     if (t - R.markAt < 600) { log('mark ignored', { why: 'too soon' }); return; }   // a double pull (or a bouncing trigger)
     R.markAt = t;
     const s = steady(h), p = s.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
-    log('mark', { step: R.calib.step, p: p.toArray().map(r3), moved: r3(s.distanceTo(h.o)) });
+    markAt(p, { moved: r3(s.distanceTo(h.o)) });
+  }
+  // a mark at p (local-floor coordinates): the controller's tip held on a spot (mark), or a camera's aim at it on the floor
+  // raised by FLOOR_TIP, as a tip held on it would be (camera mode: camMark)
+  function markAt(p, how) {
+    log('mark', Object.assign({ step: R.calib.step, p: p.toArray().map(r3) }, how));
     if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Spot A taken', 'Now spot B on the floor, a metre or more from A (about 2 m is best): the ring at the tip on it, hold still and pull the trigger.', 0); return; }
     const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z, dh = p.y - a.y;
     if (Math.hypot(dx, dz) < 0.5) { notice('Spots too close', 'Spot B must be at least 50 cm from spot A (a metre or more is better). Touch spot B again.', 0); return; }
@@ -6906,7 +6938,7 @@
     ok: null,   // this session's check that stood ({ how: 'a', 'b' or 'p', d, at }) until the frame it was made in changes
     spots: null };   // whether the room had its spots as the flow first opened (false: when they come, it asks once more)
   put('roomGuide', null);   // (v107 opened it once per device)
-  const guideOn = () => !!(HOST.session && C.code && !C.local && here() && !askHere());
+  const guideOn = () => !!(HOST.session && C.code && !C.local && here() && !askHere() && !CAM.on);   // (never a camera's: camera mode)
   const othersIn = () => C.members.some(m => m.id !== C.id && (m.kind === 'ar' || m.kind === 'vr') && m.here !== false);
   const guideShown = () => !!(PNL.open && PNL.tab === 'circles' && PNL.page === 'guide' && guideOn());
   // what Line up says to do: 'calib' (calibrating now), 'check' (lined up by the room's spots: on to Check), 'room' (the
@@ -7082,6 +7114,7 @@
   // the headset session started (or ended): the shell's own frame callback, the spaces, the lifecycle guard
   function watch(s) {
     if (s === R.session) return;
+    camSession(s);   // (camera mode: this session is the camera's when Start was pressed for it)
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset();
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
@@ -7089,15 +7122,17 @@
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
     // controllers or hands are known), unless it is open by then
-    // (since v124 the welcome says it, with the controllers' buttons: WEL; with it off, as in tests, this notice as before)
-    if (s) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
+    // (since v124 the welcome says it, with the controllers' buttons: WEL; with it off, as in tests, this notice as before;
+    // never a camera's)
+    if (s && !CAM.on) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
-    if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; C.liveSig = ''; C.cardsOpen = false; }
-    whoStop('headset');   // (a headset walks: following a person is for pages)
+    // (a camera keeps what it follows, a person or a station: it walks into nothing, camera mode)
+    if ((C.live || C.follow) && !CAM.on) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; C.liveSig = ''; C.cardsOpen = false; }
+    if (!CAM.on) whoStop('headset');   // (a headset walks: following a person is for pages)
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -7169,6 +7204,343 @@
   // the session code above reaches the room frame through R
   Object.assign(R, { joined: HOST.room.joined, left: HOST.room.left, realign: HOST.room.realign, placing, status, update, calibrate, cancel, mark, originCheck, sample, upload, asked });
 
+  // ============================================================== camera mode ==
+  // Camera mode (v124; the owner, 8 November 2026: "Camera mode, where an android in ar mode is aligned with the room and
+  // then acts as a camera, i can just record the screen to see what people see in vr with the real world overlaid, would
+  // make sense combined with the follow feature to give people outside an option to see the things too"; Android's own
+  // screen recorder records Chrome's AR session with the camera image, so nothing is recorded in the page). A phone whose
+  // browser offers immersive-ar (not a headset's browser), in a shared room: the Shared dialog's Camera mode button, or a
+  // link with &camera (its own page, one big button: a tap must start a session), starts an AR session the way Enter AR
+  // does (the story on show owns it), asking also for hit-test and dom-overlay (HOST.xr.request, wrapped below), the
+  // overlay's root this page's #camera. Lining up: no shared space and no controller tip on a phone, so its overlay shows a
+  // crosshair in the middle of the screen, and Set spot A and Set spot B take where the phone's aim meets the floor (a hit
+  // test from its view straight ahead) as the calibration's marks (markAt), raised by FLOOR_TIP as a controller's tip held
+  // on the floor is (the floor spots' rule, v122), so the camera's room is the headsets' to the centimetre the aim
+  // allows. Chrome keeps no anchors for next time (no persistent handles): a camera lines up again each session (the
+  // anchors it makes still hold the room for the session). The room setup guide, its startup flow and the check by eye
+  // never open (guideOn, eyeRoom), and no menu (menuOpen), notice, subtitle strip or frame rate is drawn in 3D: the
+  // overlay says what is needed. It shows what a headset in the room at its circle sees: the station it follows placed
+  // at its spot (place: the rig there, as a headset's), the other circles' icons and cards, and everyone in a headset
+  // (People: shown; as in a headset in AR, a head and hands only for people elsewhere: the camera sees the others). It
+  // follows a person (C.who: whichever circle their presence says, also during its session: whoStep) or a circle (Follow),
+  // never one walked into (zoneStep, allFirst skipped), and the room's arc as a page does. An observer: it writes nothing
+  // to the room (publish refuses every key) and sends only its presence (fx), { st, head, kind: 'cam' } (a camera on the
+  // pages' room maps and lists; never drawn in a headset, never a person in a headset for the studio's behaviours,
+  // heads); its hello says kind 'cam' and the name Camera (the relay and the hub keep 'cam'; an older relay makes it a
+  // desktop, which also never counts as a headset). Taps on its image press nothing (its overlay cancels every select,
+  // beforexrselect, and ray() takes a camera's ray as the shell's with nothing to press); a double tap on the image
+  // brings a hidden overlay back. Its own settings, never the room's: Panels (the story's panels hidden here only:
+  // HOST.collab.panels), People, Sound (this device's mute), Subtitles (the narration's captions as a strip at the foot,
+  // captionNow, as focus mode shows them), Hide; Exit ends the session and the page then follows as a page does.
+  // Untested on a real phone: the hit test on a tape cross, a heavy story's frame rate, dom-overlay on real Chrome, the
+  // recording
+  const CAM_NOTE = { 'Spots too close': 'Spot B must be at least 50 cm from spot A: aim at spot B again.',
+    'Spots at different heights': 'The two spots were found at different heights: aim at spot A again, both on the floor.',
+    'Calibrate again': 'The phone lost its place: aim at spot A again, then spot B.' };
+  // a phone with AR (asked once; a headset's browser never: it is the room's headset)
+  (function camCheck() {
+    if (IS_HEADSET || !navigator.xr || !navigator.xr.isSessionSupported) { CAM.ok = false; return; }
+    try { navigator.xr.isSessionSupported('immersive-ar').then(ok => { CAM.ok = !!ok; changed(); }, () => { CAM.ok = false; }); } catch (e) { CAM.ok = false; }
+  })();
+  const camOffered = () => !!(CAM.ok === true && C.code && !C.local);
+  const camOverlaid = () => !!(R.session && R.session.domOverlayState && R.session.domOverlayState.type);
+  const camHitFresh = () => !!(CAM.hit && performance.now() - CAM.hitAt < 500);
+  // what a camera would have written (refused: publish, fx), once per key in the log
+  function camQuiet(keys) { for (const k of keys) if (!CAM.sent.has(k)) { CAM.sent.add(k); log('camera writes nothing', { k }); } }
+  // Start the camera (the dialog's button, the link's page): within the tap, the story on show starts its AR session, as
+  // Enter AR does (the session that request gives is the camera's: CAM.want, CAM.sess)
+  function camStart(why) {
+    if (!camOffered() || HOST.session) { log('camera refused', { why, ok: CAM.ok, room: !!C.code, local: C.local, session: !!HOST.session }); camShow(); return false; }
+    Object.assign(CAM, { want: true, wantAt: performance.now(), asked: 0, sess: null, err: '', phase: 'starting' });
+    log('camera', { start: why });
+    if (DLG.open) dialog(false);
+    camShow();
+    const b = document.getElementById('btnAR');
+    if (b) b.click();
+    const at = CAM.wantAt;
+    setTimeout(() => { if (CAM.want && CAM.wantAt === at && !CAM.asked && !HOST.session) camFailed(null, 'The story is still loading: try again in a moment.'); }, 3000);
+    return true;
+  }
+  function camFailed(e, text) {
+    Object.assign(CAM, { want: false, phase: 'start', err: text || 'AR did not start' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again; this phone needs Google Play Services for AR.' });
+    log('camera failed', { e: e && e.message, text });
+    camShow();
+  }
+  // HOST.xr.request (index.html): camera mode also asks for the hit test and the DOM overlay (its root, #camera), on every
+  // rung of the request's ladder; a refusal shows on the camera's page
+  if (HOST.xr && typeof HOST.xr.request === 'function') {
+    const ask0 = HOST.xr.request;
+    HOST.xr.request = mode => {
+      if (mode !== 'immersive-ar' || !CAM.want) return ask0(mode);
+      CAM.asked = performance.now();
+      camBuild();
+      let p;
+      try { p = ask0(mode, { features: ['hit-test', 'dom-overlay'], init: { domOverlay: { root: CAM.el } } }); } catch (e) { p = Promise.reject(e); }
+      // (the session this request gives is the camera's, and only that one: camSession; noted before the story, which
+      // awaits this promise, makes it HOST.session)
+      return Promise.resolve(p).then(sess => { if (CAM.want) CAM.sess = sess || null; return sess; }, e => { if (CAM.want) camFailed(e); throw e; });
+    };
+  }
+  // the session started (watch, first): the camera's when Start was pressed for it; ended: camera mode off (the page
+  // follows on as a page does)
+  function camSession(s) {
+    if (s && CAM.want && (!CAM.sess || s !== CAM.sess)) {   // another session (not the one its own request gave): not the camera's
+      log('camera: not this session', { asked: !!CAM.asked });
+      Object.assign(CAM, { want: false, sess: null, phase: CAM.link ? 'start' : 'off' });
+      camShow();
+      return;
+    }
+    if (s && CAM.want) {
+      Object.assign(CAM, { want: false, sess: null, on: true, phase: 'live', hidden: false, list: false, src: null, srcBusy: false, noHit: false, hit: null, hitAt: 0 });
+      CAM.sent.clear();
+      // it lines up afresh each session: no marks kept from before (a phone's Chrome keeps no anchor handles; a browser
+      // that did would only race its own Set spot A), and their handles let go
+      if (R.saved || R.anchors) { dropAnchors(); R.saved = null; }
+      storeSaved();
+      log('camera on', { overlay: (s.domOverlayState && s.domOverlayState.type) || '', features: s.enabledFeatures ? [...s.enabledFeatures] : null, who: C.who, st: C.follow });
+      quiet(() => s.addEventListener('select', camSelect));   // (no DOM overlay: a tap on the screen sets the spot)
+      camShow();
+      return;
+    }
+    if (!s && CAM.on) {
+      try { if (CAM.src && CAM.src.cancel) CAM.src.cancel(); } catch (e) { /* gone with the session */ }
+      Object.assign(CAM, { on: false, phase: 'off', link: false, src: null, hit: null, hidden: false, list: false });
+      log('camera off', { who: C.who, st: C.follow });
+      camShow(); changed();
+    }
+  }
+  // a tap on the screen reaches the session only without the DOM overlay (with it, the overlay cancels every one):
+  // while lining up, it sets the spot
+  function camSelect() { if (CAM.on && !camOverlaid() && R.calib) camMark('tap'); }
+  // every frame of a camera's session (tick): where its aim meets the floor (a hit test from its view straight ahead, the
+  // screen's middle), and lining up from the start or again once the room is lost
+  function camStep(f, t) {
+    const s = R.session;
+    if (!s) return;
+    if (!CAM.src && !CAM.srcBusy && !CAM.noHit) {
+      CAM.srcBusy = true;
+      let p;
+      try { p = Promise.resolve(s.requestReferenceSpace('viewer')).then(v => s.requestHitTestSource({ space: v })); } catch (e) { p = Promise.reject(e); }
+      p.then(src => {
+        if (R.session !== s || !CAM.on) { try { src.cancel(); } catch (e) { /* gone */ } return; }
+        CAM.src = src; log('camera hit test', { ok: true });
+      }, e => { if (R.session === s) { CAM.noHit = true; log('camera hit test', { ok: false, e: e && e.message }); } }).then(() => { CAM.srcBusy = false; });
+    }
+    const local = refSpace();
+    if (CAM.src && f && local && f.getHitTestResults) {
+      let P = null;
+      try { const rs = f.getHitTestResults(CAM.src) || []; P = rs.length ? rs[0].getPose(local) : null; } catch (e) { P = null; }
+      if (P) { const q = P.transform.position; (CAM.hit = CAM.hit || new THREE.Vector3()).set(q.x, q.y, q.z); CAM.hitAt = t; }
+    }
+    if (!R.calib && !R.frame && R.lfOK && C.code) calibrate();   // (a camera lines up on the room's spots each session)
+    if (t - (CAM.drawAt || 0) > 200) { CAM.drawAt = t; camRender(); }
+  }
+  // Set spot A (or B): where the aim meets the floor now, raised as a controller's tip held on it (FLOOR_TIP), is the mark
+  function camMark(how) {
+    const t = performance.now();
+    if (!CAM.on || !R.lfOK) return false;
+    if (!R.calib) calibrate();
+    if (!camHitFresh() || t - R.markAt < 600) { log('camera mark', { none: !camHitFresh(), how }); return false; }
+    R.markAt = t;
+    const p = CAM.hit.clone().applyMatrix4(R.lfi);
+    p.y += FLOOR_TIP;
+    markAt(p, { by: 'camera', how });
+    camRender();
+    return true;
+  }
+  // the floor point aimed at, a ring on the floor while lining up (not while the overlay is hidden)
+  function camDraw() {
+    const G = OV.camRet;
+    if (!G) return;
+    G.visible = !!(CAM.on && R.calib && camHitFresh() && !CAM.hidden);
+    if (G.visible) G.position.copy(CAM.hit);
+  }
+  function camExit() {
+    CAM.list = false;
+    log('camera exit', {});
+    try { if (R.session && R.session.end) Promise.resolve(R.session.end()).catch(() => {}); } catch (e) { /* ended already */ }
+  }
+  // the overlay (the DOM overlay's root in the session; before it, the camera's own page): built once, its listeners the
+  // shell's (a story change must not remove them)
+  function camShow() {
+    if (CAM.link && CAM.phase === 'off' && !CAM.on && !HOST.session) CAM.phase = 'start';
+    const want = CAM.on || CAM.phase === 'start' || CAM.phase === 'starting';
+    if (!want && !CAM.el) return;
+    camBuild();
+    CAM.el.hidden = !want;
+    camRender();
+  }
+  function camBuild() {
+    if (CAM.el) return CAM.el;
+    const st = document.createElement('style');
+    st.textContent = CAM_CSS;
+    document.head.appendChild(st);
+    const el = document.createElement('div');
+    el.id = 'camera'; el.className = 'pre'; el.hidden = true;
+    el.innerHTML = `<div class="cam-pre" role="dialog" aria-label="Camera mode"><h2>Camera mode</h2>
+      <p>This phone shows the room through its camera, with the stories, the circles and the people as the headsets see them. Start Android's screen recorder to film it.</p>
+      <p>Then aim at spot A on the floor (the room's tape cross) and tap Set spot A, then spot B, and pick whom to follow.</p>
+      <p class="cam-why" hidden></p><p class="cam-err" hidden></p>
+      <button class="cam-go" type="button" data-cam="go">Start the camera</button><button type="button" data-cam="close">Not now</button></div>
+      <div class="cam-live"><div class="cam-bar"><p class="cam-status"></p><p class="cam-note" hidden></p><div class="cam-btns">
+        <button type="button" data-cam="follow" aria-expanded="false">Follow: nobody</button><button type="button" data-cam="cal">Calibrate again</button>
+        <button type="button" data-cam="panels">Panels: shown</button><button type="button" data-cam="people">People: shown</button>
+        <button type="button" data-cam="sound">Sound: off</button><button type="button" data-cam="subs">Subtitles: off</button>
+        <button type="button" data-cam="hide">Hide</button><button type="button" data-cam="exit">Exit</button></div>
+        <div class="cam-list" hidden></div></div>
+        <div class="cam-aim"><i class="cam-cross"></i><p class="cam-step"></p><button type="button" class="primary" data-cam="set">Set spot A</button></div>
+        <p class="cam-sub" hidden></p><p class="cam-hint" hidden>Tap twice to show the controls again</p></div>`;
+    document.body.appendChild(el);
+    CAM.el = el;
+    quiet(() => {
+      el.addEventListener('beforexrselect', ev => ev.preventDefault());   // (a tap on the overlay, or on the image through it, is never the session's)
+      el.addEventListener('click', camClick);
+      el.addEventListener('pointerup', camTap);
+    });
+    return el;
+  }
+  function camClick(ev) {
+    const b = ev.target.closest && ev.target.closest('[data-cam]');
+    if (!b || b.disabled || !CAM.el.contains(b)) return;
+    const i = b.dataset.cam.indexOf(':'), act = i < 0 ? b.dataset.cam : b.dataset.cam.slice(0, i), arg = i < 0 ? '' : b.dataset.cam.slice(i + 1);
+    CAM.taps.length = 0;   // (a press on a button is no tap on the image)
+    if (act === 'go') { camStart('button'); return; }
+    if (act === 'close') { CAM.phase = 'off'; CAM.link = false; camShow(); return; }
+    if (act === 'set') camMark('button');
+    else if (act === 'cal') calibrate();   // (the room stays where it was until both spots are set again)
+    else if (act === 'follow') CAM.list = !CAM.list;
+    else if (act === 'who') { if (followPerson(arg)) CAM.list = false; }
+    else if (act === 'st') { if (C.stById.has(arg)) { choose(arg, 'follow'); CAM.list = false; } }
+    else if (act === 'none') { unfollow(); CAM.list = false; }
+    else if (act === 'panels') CAM.panels = !CAM.panels;
+    else if (act === 'people') CAM.people = !CAM.people;
+    else if (act === 'sound') HOST.audio.mute(!HOST.audio.muted);
+    else if (act === 'subs') CAM.subs = !CAM.subs;
+    else if (act === 'hide') { CAM.hidden = true; CAM.list = false; CAM.hintAt = performance.now(); }
+    else if (act === 'exit') { camExit(); return; }
+    log('camera', { act, arg });
+    camRender();
+  }
+  // two taps on the image within 0.4 s and 60 px of each other: a hidden overlay comes back
+  function camTap(ev) {
+    if (!CAM.on || (ev.target.closest && ev.target.closest('button, .cam-bar'))) return;
+    const T = CAM.taps;
+    T.push([performance.now(), ev.clientX, ev.clientY]);
+    while (T.length > 2) T.shift();
+    if (T.length === 2 && T[1][0] - T[0][0] < 400 && Math.hypot(T[1][1] - T[0][1], T[1][2] - T[0][2]) < 60) {
+      T.length = 0;
+      if (CAM.hidden) { CAM.hidden = false; log('camera', { act: 'shown' }); camRender(); }
+    }
+  }
+  // the overlay's words: [what the camera is doing, what to do now ('' nothing), a refusal]
+  function camWords() {
+    if (!R.lfOK) return ['Starting the camera...', '', ''];
+    if (CAM.noHit) return ['This phone\'s browser finds no floor (no hit test): camera mode needs Chrome on Android with ARCore.', '', ''];
+    const n = performance.now() < NOTE.until && NOTE.at && performance.now() - NOTE.at < 9000 ? CAM_NOTE[NOTE.title] || '' : '';
+    if (R.calib) {
+      const ab = R.calib.step === 'b' ? 'B' : 'A';
+      return [R.frame ? 'Lining up again: the room stays where it was until both spots are set.' : 'Not lined up yet: set the room\'s two spots.',
+        camHitFresh() ? `Aim at spot ${ab} and tap Set spot ${ab}` : 'Move the phone slowly so it finds the floor', n];
+    }
+    if (R.aligned && R.frame && R.src === 'marks') return ['Lined up on spot A and spot B', '', n];
+    return [lineUp().text || 'Lining up with the room...', '', n];
+  }
+  function camFollowing() {
+    const L = C.stById.get(C.follow);
+    if (C.who) { const m = member(C.who), at = C.stById.get(C.whoSt); return 'Follow: ' + ((m && m.name) || C.whoName || 'Someone') + (at ? ' · ' + stTitle(at) : ''); }
+    return L ? 'Follow: ' + stTitle(L) : 'Follow: nobody';
+  }
+  function camRender() {
+    const el = CAM.el;
+    if (!el || el.hidden) return;
+    const q = s => el.querySelector(s), text = (s, v) => { const n = q(s); if (n && n.textContent !== v) n.textContent = v; };
+    const show = (s, on) => { const n = q(s); if (n && n.hidden === !!on) n.hidden = !on; }, pressed = (s, on) => { const n = q(s); if (n && n.getAttribute('aria-pressed') !== String(on)) n.setAttribute('aria-pressed', String(on)); };
+    el.classList.toggle('live', CAM.on); el.classList.toggle('pre', !CAM.on);
+    if (!CAM.on) {   // the camera's own page: Start the camera (a tap starts the session)
+      const why = IS_HEADSET ? 'Camera mode is for a phone: in a headset, the room is all around you already.' :
+        CAM.ok === false ? 'This device cannot start AR: camera mode needs Chrome on an Android phone with Google Play Services for AR.' :
+          !C.code ? 'Joining the room...' : C.local ? 'This room is on this device only: camera mode needs a room the headsets are in.' : CAM.ok === null ? 'Asking this phone for AR...' : '';
+      text('.cam-why', why); show('.cam-why', !!why);
+      text('.cam-err', CAM.err); show('.cam-err', !!CAM.err);
+      const go = q('.cam-go');
+      go.hidden = IS_HEADSET || CAM.ok === false;
+      go.disabled = !camOffered() || CAM.phase === 'starting';
+      text('.cam-go', CAM.phase === 'starting' ? 'Starting the camera...' : 'Start the camera');
+      return;
+    }
+    const [status, step, note] = camWords();
+    el.classList.toggle('hid', CAM.hidden);
+    el.classList.toggle('aim', !!R.calib && !CAM.hidden);
+    text('.cam-status', status); text('.cam-note', note); show('.cam-note', !!note);
+    text('.cam-step', step);
+    const ab = R.calib && R.calib.step === 'b' ? 'B' : 'A', set = q('[data-cam="set"]');
+    text('[data-cam="set"]', 'Set spot ' + ab); set.disabled = !camHitFresh();
+    text('[data-cam="follow"]', camFollowing()); q('[data-cam="follow"]').setAttribute('aria-expanded', String(CAM.list));
+    text('[data-cam="panels"]', CAM.panels ? 'Panels: shown' : 'Panels: hidden'); pressed('[data-cam="panels"]', CAM.panels);
+    text('[data-cam="people"]', CAM.people ? 'People: shown' : 'People: hidden'); pressed('[data-cam="people"]', CAM.people);
+    const mu = !!(HOST.audio && HOST.audio.muted);
+    text('[data-cam="sound"]', mu ? 'Sound: off' : 'Sound: on'); pressed('[data-cam="sound"]', !mu);
+    text('[data-cam="subs"]', CAM.subs ? 'Subtitles: on' : 'Subtitles: off'); pressed('[data-cam="subs"]', CAM.subs);
+    show('.cam-hint', CAM.hidden && performance.now() - (CAM.hintAt || 0) < 2500);
+    // whom to follow: the people in a headset (as a page follows them), the circles (not the lobby), or nobody
+    const ppl = C.members.filter(m => m.id !== C.id && (m.kind === 'ar' || m.kind === 'vr')), sts = C.st.filter(s => s.kind !== LOBBY_ST);
+    const lsig = CAM.list ? [C.who, C.follow, ppl.map(m => m.id + m.name + m.color), sts.map(s => s.id + s.story)].join('|') : '';
+    const ls = q('.cam-list');
+    if (ls.dataset.sig !== lsig) {
+      ls.dataset.sig = lsig;
+      ls.innerHTML = !CAM.list ? '' : '<p>A person in a headset: the camera shows whichever circle they are at.</p>' +
+        (ppl.length ? ppl.map(m => `<button type="button" data-cam="who:${esc(m.id)}" aria-pressed="${C.who === m.id}"><i style="background:${esc(m.color || '#888')}"></i>${esc(m.name || 'Someone')}</button>`).join('') : '<span>Nobody in a headset yet.</span>') +
+        '<p>Or a circle:</p>' + sts.map(s => `<button type="button" data-cam="st:${esc(s.id)}" aria-pressed="${!C.who && C.follow === s.id}"><i style="background:${esc(meta(lookKey(s)).col)}"></i>${esc(stTitle(s))}</button>`).join('') +
+        `<button type="button" data-cam="none" aria-pressed="${!C.who && !C.follow}">Nobody</button>`;
+    }
+    show('.cam-list', CAM.list && !CAM.hidden);
+    // the narration's captions, as focus mode shows them on a page (the headsets' own words: captionNow)
+    const sub = CAM.subs && !away() ? captionNow(performance.now())[0] : '';
+    text('.cam-sub', sub); show('.cam-sub', !!sub && !R.calib);
+  }
+  function camState() {
+    const L = liveSt();
+    return { on: CAM.on, want: CAM.want, phase: CAM.phase, ok: CAM.ok, offered: camOffered(), link: CAM.link, err: CAM.err, overlaid: camOverlaid(),
+      lined: !!(CAM.on && R.aligned && R.frame && R.src === 'marks'), src: R.src, calib: R.calib ? R.calib.step : '', hit: camHitFresh() ? CAM.hit.toArray() : null, noHit: CAM.noHit,
+      follow: C.who ? 'person:' + C.who : C.follow ? 'station:' + C.follow : '', station: C.live, story: L ? L.story : '',
+      hidden: CAM.hidden, panels: CAM.panels, people: CAM.people, subs: CAM.subs, list: CAM.list, words: CAM.on ? camWords() : null, quiet: [...CAM.sent] };
+  }
+  const CAM_CSS = `
+#camera { position: fixed; inset: 0; z-index: 90; font: 14px/1.35 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #e7eef8; -webkit-tap-highlight-color: transparent; }
+#camera[hidden] { display: none !important; }
+#camera.pre { background: rgba(4, 10, 20, 0.95); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+#camera.live { background: transparent; }
+#camera.live .cam-pre, #camera.pre .cam-live { display: none; }
+#camera .cam-pre { max-width: 440px; text-align: center; }
+#camera .cam-pre h2 { font-size: 22px; margin: 0 0 12px; }
+#camera .cam-pre p { color: #a9b8cc; margin: 0 0 10px; }
+#camera .cam-pre .cam-why { color: #e7eef8; }
+#camera .cam-err, #camera .cam-note { color: #ffb43b; }
+#camera button { font: inherit; font-size: 13px; color: #e7eef8; background: rgba(149, 166, 189, 0.2); border: 1px solid rgba(149, 166, 189, 0.4); border-radius: 8px; padding: 7px 10px; min-height: 36px; }
+#camera button[aria-pressed="true"] { border-color: #46d9ff; background: rgba(70, 217, 255, 0.22); }
+#camera button.primary, #camera .cam-go { background: #46d9ff; color: #04131c; font-weight: 700; border-color: #46d9ff; }
+#camera button:disabled { opacity: 0.45; }
+#camera .cam-go { display: block; width: 100%; font-size: 20px; padding: 16px; margin: 18px 0 10px; }
+#camera .cam-bar { position: absolute; left: 8px; right: 8px; top: calc(8px + env(safe-area-inset-top)); background: rgba(4, 10, 20, 0.72); border-radius: 12px; padding: 8px 10px; }
+#camera .cam-bar p { margin: 0 0 6px; font-size: 13px; }
+#camera .cam-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#camera .cam-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 45vh; overflow-y: auto; }
+#camera .cam-list p { flex-basis: 100%; margin: 4px 0 0; color: #a9b8cc; font-size: 12px; }
+#camera .cam-list span { color: #a9b8cc; font-size: 12px; }
+#camera .cam-list i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+#camera .cam-aim { display: none; position: absolute; inset: 0; pointer-events: none; }
+#camera.aim .cam-aim { display: block; }
+#camera .cam-cross { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border: 2px solid #46d9ff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+#camera .cam-cross::before, #camera .cam-cross::after { content: ""; position: absolute; left: 50%; top: 50%; background: #46d9ff; }
+#camera .cam-cross::before { width: 2px; height: 70px; margin: -35px 0 0 -1px; }
+#camera .cam-cross::after { width: 70px; height: 2px; margin: -1px 0 0 -35px; }
+#camera .cam-step { position: absolute; left: 16px; right: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); margin: 0; text-align: center; font-size: 17px; font-weight: 700; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+#camera .cam-aim button { pointer-events: auto; position: absolute; left: 50%; bottom: calc(36px + env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 18px; padding: 14px 28px; }
+#camera.hid .cam-bar, #camera.hid .cam-aim { display: none; }
+#camera .cam-sub { position: absolute; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 760px; margin: 0 auto; text-align: center; background: rgba(4, 10, 20, 0.78); border-radius: 10px; padding: 6px 12px; font-size: clamp(16px, 2.2vmin + 10px, 26px); line-height: 1.3; }
+#camera .cam-hint { position: absolute; left: 16px; right: 16px; top: 46%; margin: 0; text-align: center; font-size: 15px; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+`;
+
   // ============================================================ the page's dialog ==
   // The Shared button (top bar and Stories screen): the relay, the open rooms, your name and colour, and when
   // joined the room map (stations and people from above), Follow per station, Arrange all, Add, Remove.
@@ -7211,6 +7583,7 @@
       else if (act === 'leave') leave(false, true);
       else if (act === 'follow') { choose(arg, 'follow'); dialog(false); if (!C.cardsOpen) HOST.closePicker(); }   // (an All stories circle's cards: its Stories screen stays)
       else if (act === 'unfollow') unfollow();
+      else if (act === 'camera') { camStart('dialog'); return; }   // (camera mode: within this tap, as Enter AR)
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
@@ -7356,6 +7729,8 @@
       const L = C.stById.get(C.follow);
       $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(stTitle(L)) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
+        // camera mode: a phone that has AR shows the room through its camera, for filming
+        (camOffered() && !HOST.session ? `<div class="row sh-cam"><button class="btn primary" type="button" data-sh="camera">Camera mode</button><span>Show this room through this phone's camera, as the headsets see it, for filming: Android's screen recorder records it.</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
         // (the lobby: no Follow, no panels, no lock; an All stories circle: its story picked here, back to its cards, and
@@ -7396,7 +7771,7 @@
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? 'camera (filming)' : 'screen', cam: 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
       guideList();
@@ -7473,7 +7848,10 @@
       for (const r of P.hands) { const len = r[6] > 0.05 ? r[6] : 1.2; ctx.beginPath(); ctx.moveTo(X(r[0]), Y(r[2])); ctx.lineTo(X(r[0] + r[3] * len), Y(r[2] + r[5] * len)); ctx.stroke(); }
       const fq = new THREE.Vector3(0, 0, -1).applyQuaternion(_q.set(h[3], h[4], h[5], h[6])), a = Math.atan2(fq.x, -fq.z);
       ctx.save(); ctx.translate(X(h[0]), Y(h[2])); ctx.rotate(a);
-      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath();
+      if (P.cam) { ctx.rect(-7, -4, 14, 10); ctx.moveTo(-4, -4); ctx.lineTo(0, -11); ctx.lineTo(4, -4); }   // (a camera, camera mode: a box looking ahead)
+      else { ctx.moveTo(0, -11); ctx.lineTo(7, 7); ctx.lineTo(0, 3); ctx.lineTo(-7, 7); ctx.closePath(); }
+      ctx.fill();
       ctx.restore();
       ctx.fillStyle = col; ctx.fillText(m.name || 'Someone', X(h[0]) + 12, Y(h[2]) + 12);
     }
@@ -7518,6 +7896,7 @@
     changing = setTimeout(() => {
       changing = 0;
       renderDialog();
+      camRender();   // (camera mode's overlay, when it shows)
       document.querySelectorAll('[data-open-shared]').forEach(b => {
         b.classList.toggle('on', !!C.code);
         b.textContent = C.code ? 'Shared: ' + C.code : 'Shared';
@@ -7628,7 +8007,8 @@
     scenes: () => scenesFetch(), addScene: (name, b) => addScene(name, b), sceneOf: id => sceneOf(C.stById.get(id)),
     // panels per story (HOST.panels calls the first two): at a station of the story, the station's (null elsewhere), set for
     // everyone at its circle; any station's, read and set by its id (the page's dialog)
-    panels: key => panelsAt(key), setPanels, stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
+    panels: key => (CAM.on && !CAM.panels ? 'hidden' : panelsAt(key)), setPanels,   // (a camera may hide them for itself: camera mode)
+    stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
     fresh: () => freshAsk(), get gen() { return SG; },   // a fresh shared space (two calls: the first arms it); this page's generation
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     // the heads of the people in a headset at this device's live station, its own among them, in room coordinates with the
@@ -7681,6 +8061,7 @@
     // the console. With no room in the link, a room used on this network in the last week is joined again by itself
     boot(hp) {
       if (hp.has('debug')) DEBUG = true;
+      if (hp.has('camera')) CAM.link = true;   // (camera mode's link: one big button, Start the camera)
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
       if (hp.has('peer')) setPeer(hp.get('peer'), 'link');
       if (hp.has('net')) pretendNet(hp.get('net'));   // (a pretend network, for tests: #net=<word>, off)
@@ -7691,10 +8072,15 @@
       // (no relay known: peer to peer, else the room on this device, as last kept here; it goes to a relay once one is entered)
       detect().then(() => {
         join(code);
+        if (CAM.link) { camShow(); return; }   // (camera mode's link: its own page, no dialog)
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);
       });
     },
     internals: () => C,
     smooth: () => ({ SMOOTH, BUF, RT }),   // (for tests: others' moves, smoothed)
+    // camera mode (a phone filming the room in AR): whether this device is in it now (other parts of the shell guard on it),
+    // where it stands for tests ({ on, lined, follow, station, hidden, panels, people, ... }), offered here, and started (within
+    // a tap, as Enter AR is)
+    cameraMode: () => CAM.on, camera: () => camState(), cameraOffered: () => camOffered(), cameraStart: why => camStart(why || 'api'),
   };
 })();
