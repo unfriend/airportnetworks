@@ -98,6 +98,12 @@
 // per story, the pretend headset aligned through the shared space as in the main run, then the main run's own steps,
 // standbySteps: the shared space at the head and as its own floor, standby with the floor moved 15 cm and a wrong space
 // held off, the room back at the same height once the space agrees, woken again on the first floor; a minute or two);
+// --narration only the narration in headsets and the welcome (narrationRound, also in the main run after your menu shown to
+// your circle: a room of its own with a story circle and the lobby, a page and two pretend headsets; the narration off by
+// default in a session; the page's dialog's Narration for everyone (look's vg); one headset's own Off (its menu, its story
+// panel's button) an override never written to the room; Off for all and On for all from a headset's menu dropping them;
+// an override kept through a new session, dropped in the lobby and on leaving; the welcome after lining up, asked first,
+// walked into, tracked hands, once a session, not while the guide shows, outside a room, never in camera mode);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -324,6 +330,7 @@ const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's sc
 const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
 const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
 const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviours shared: behaveRound, a relay of its own with --scenes)
+const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
@@ -336,11 +343,14 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 // first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
 // ({ arc: true } with a context's options, or open(hash, size, true)). Likewise every device starts with a room that never
 // wrote look's ask walking into its circles, as before v120 (collabAskDefault = walk), since nearly every round walks in:
-// only the round of the circles asked first takes the new default ({ ask: true }, or open(hash, size, arc, true))
+// only the round of the circles asked first takes the new default ({ ask: true }, or open(hash, size, arc, true)). And every
+// device starts with the headsets' welcome (v124, Getting around: once a session, in front of the headset) off, so a
+// pretend headset's view and its notices are as before (the notice The menu shows instead); installXR turns it on for a
+// session that asks ({ welcome: true }: the narration round's)
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
-  const { arc, ask, ...rest } = o, ctx = await newContext(rest);
-  if (!arc || !ask) await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask });
+  const { arc, ask, welcome, ...rest } = o, ctx = await newContext(rest);
+  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome });
   return ctx;
 };
 const fails = [], errors = [];
@@ -412,6 +422,7 @@ const frameFor = (P, uuid, by, at) => ({ uuid, o: unapply(SHARED, [P[0], P[1], P
 function installXR(o) {
   if (HOST.collab.autoAll) HOST.collab.autoAll(!!o.autoAll);   // (the first headset's All stories circle: only where a test asks for it)
   if (HOST.collab.autoGuide) HOST.collab.autoGuide(!!o.guide);   // (the room setup guide opening by itself: likewise)
+  if (HOST.collab.autoWelcome) HOST.collab.autoWelcome(!!o.welcome);   // (the welcome, Getting around, once a session: likewise)
   const V = (x, y, z) => new THREE.Vector3(x, y, z), Y = V(0, 1, 0);
   const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(Y, a[3]), V(1, 1, 1));
   const X = window.__xr = { W: { local: M(o.local), floor: M(o.floor), shared: M(o.shared), head: M(o.head) }, raf: [], made: [], handles: window.__handles || new Map(), resets: {}, n: 0 };
@@ -1939,6 +1950,177 @@ async function askRound(dir) {
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, H]) await p.context().close();
+  }
+}
+
+// ---- the narration in headsets and the welcome (narrationRound; --narration runs only it, also in the main run after your
+// menu shown to your circle): a room of its own with a story circle and Back to the lobby, a page and two pretend headsets
+// lined up through the shared space, a few minutes. The narration (v124): off by default in a headset session (the room
+// never wrote it; the page's own on), the session's mute off; the page's Shared dialog's Narration pressed twice (Off for
+// all, then On for all, each moving look's vg on) reaching both headsets; one headset's own Off (its menu's Narration row)
+// an override for this room only, kept on the headset and never written to the room, the other headset staying on; the
+// other's story panel button (its Sound button, the narration in a session) the same; Off for all and On for all from a
+// headset's menu (the Circles tab) dropping both overrides; an override surviving a new session; walking into Back to the
+// lobby dropping it; leaving the room dropping it. The welcome (Getting around): not before lining up, then once, asked
+// first (the trigger's words, the controllers' buttons), closed early by the menu and not again that session; walked into
+// (the walk's words); not while the room setup guide shows, then after; tracked hands (the pinch's words, no grip);
+// outside a room 2.5 s in, never in camera mode (a stub of the other lane's HOST.collab.cameraMode)
+async function narrationRound() {
+  const K1 = 'qubits';
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { HOST.collab.add(k, { x: 0, z: 0, yaw: 0 }); HOST.collab.add('lobby', { x: -1.8, z: -2.6, yaw: 0.3 }); }, K1);
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const H1 = await open('#s=' + rc, { width: 320, height: 200 }), H2 = await open('#s=' + rc, { width: 320, height: 200 });
+  for (const H of [H1, H2]) { await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(H, 'airports'); }
+  const aId = await A.evaluate(() => HOST.collab.id), h1 = await H1.evaluate(() => HOST.collab.id), h2 = await H2.evaluate(() => HOST.collab.id);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] };
+  // the shared space's id comes: lined up through it (the room's frame for U1)
+  const lineUpH = async H => {
+    await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    for (let k = 0; k < 24 && !(await H.evaluate(() => HOST.room.aligned)); k++) await frames(H, 250);
+    return H.evaluate(() => HOST.room.aligned);
+  };
+  // a new session (the last one ended), lined up unless o.later; o.hands: the left input source a tracked hand
+  const session = async (H, o = {}) => {
+    await H.evaluate(() => { if (window.__xr && HOST.session) window.__xr.end(); });
+    await H.evaluate(installXR, Object.assign({}, xrOpts, o));
+    if (o.hands) await H.evaluate(() => { window.__xr.session.inputSources.push({ handedness: 'left', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: {}, hand: new Map([['wrist', {}]]) }); });
+    await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
+    await frames(H, 300);
+    return o.later ? false : lineUpH(H);
+  };
+  // the narration as a headset has it: [voice(), why, its override kept on it (xrNarrRoom), the session's mute, the story panel's label]
+  const NV = () => { const o = localStorage.getItem('xrNarrRoom'); return { on: HOST.xr.voice(), why: HOST.xr.voiceWhy(), ovr: o && JSON.parse(o), muted: HOST.audio.muted,
+    label: HOST.cur.peek('AUD ? AUD.label() : ""'), look: HOST.collab.look() && { voice: HOST.collab.look().voice, vg: HOST.collab.look().vg, vset: HOST.collab.look().vset } }; };
+  const nv = H => H.evaluate(NV);
+  const voiceIs = (H, on, why) => until(H, ([on, why]) => { window.__xr.step(); return HOST.xr.voice() === on && (!why || HOST.xr.voiceWhy() === why); }, [on, why], 8000);
+  // a press of a button in the headset's menu (whichever tab has it)
+  const menuTap = (H, id) => H.evaluate(async id => {
+    const X = window.__xr; HOST.collab.panelOpen(true); X.step(); X.step();
+    const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn();
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    HOST.collab.panelOpen(false); X.step();
+    return !!(r && r.fn);
+  }, id);
+  // the page's Shared dialog's Narration button pressed: [its text before, after]
+  const dlgVoice = () => A.evaluate(async () => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
+    const b = () => document.querySelector('[data-sh="voice"]'), was = b().textContent;
+    b().click(); await new Promise(r => setTimeout(r, 300));
+    const now = b().textContent; HOST.collab.dialog(false);
+    return [was, now];
+  });
+  const lookOfRoom = async () => { const e = (await roomInfo(rc)).keys.look; return e ? { v: e.v, seq: e.seq, by: e.by } : null; };
+  const WEL = H => H.evaluate(() => { window.__xr.step(); const w = HOST.collab.welcome(), O = HOST.collab.overlay();
+    const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test welcome'), menuNote = L.slice(i + 1).some(e => e.ev === 'notice' && e.title === 'The menu');
+    return Object.assign(w, { vis: !!(O.wel && O.wel.mesh.visible), hit: !!(O.wel && O.hit.includes(O.wel.mesh)), lu: HOST.collab.guide().status.k, menuNote }); });
+  const welWhen = async (H, want, ms) => { const t0 = Date.now(); let w; do { await frames(H, 250); w = await WEL(H); } while (!want(w) && Date.now() - t0 < ms); return w; };
+  try {
+    // ---- the narration
+    const al = (await session(H1)) && (await session(H2));
+    const n1 = await nv(H1), n2 = await nv(H2), pa = await A.evaluate(() => [HOST.xr.voice(), HOST.xr.voiceWhy(), HOST.audio.muted]);
+    check('narration: in a headset session it is off by default (the room never wrote it), the session\'s mute off, the story panel\'s button saying Narration off; the page\'s own on, its mute on',
+      al && [n1, n2].every(n => n.on === false && n.why === 'own' && !n.ovr && n.muted === false && n.label === 'Narration off' && n.look && !n.look.vset) && pa.join() === 'true,own,true', JSON.stringify({ n1, n2, pa }));
+    // the page's dialog: Off for all, then On for all (each a write of look with vg moved on), both headsets following
+    const d1 = await dlgVoice(), l1 = await lookOfRoom(), off1 = await voiceIs(H1, false, 'room') && await voiceIs(H2, false, 'room');
+    const d2 = await dlgVoice(), l2 = await lookOfRoom(), on2 = await voiceIs(H1, true, 'room') && await voiceIs(H2, true, 'room');
+    check('narration: the page\'s Shared dialog sets it for everyone (Off for all, then On for all, look\'s vg moving on each time), both headsets following',
+      d1.join() === 'Narration: on,Narration: off' && d2.join() === 'Narration: off,Narration: on' && !!l1 && l1.v.voice === false && l1.v.vg === 1 && !!l2 && l2.v.voice === true && l2.v.vg === 2 &&
+      l2.by === aId && off1 && on2, JSON.stringify({ d1, d2, l1, l2, off1, on2, H1: await nv(H1) }));
+    // one headset's own Off (its menu's Narration row): an override for this room, kept on it, never written to the room
+    const q0 = (await roomInfo(rc)).seq, lk0 = await lookOfRoom();
+    const t1 = await menuTap(H1, 'voice'), own1 = await voiceIs(H1, false, 'mine');
+    await frames(H2, 600);
+    const o1 = await nv(H1), o2 = await nv(H2), lk1 = await lookOfRoom();
+    const wrote1 = Object.entries((await roomInfo(rc)).keys).filter(([, e]) => e.seq > q0 && e.by === h1).map(([k]) => k);
+    check('narration: one headset\'s own Off (its menu) is an override for this room ({ code, vg, on } kept on the headset), the other headset staying on, nothing written to the room',
+      t1 && own1 && !!o1.ovr && o1.ovr.code === rc && o1.ovr.vg === 2 && o1.ovr.on === false && o2.on === true && o2.why === 'room' && !!lk1 && lk1.seq === lk0.seq && !wrote1.length,
+      JSON.stringify({ t1, o1, o2, lk0, lk1, wrote1 }));
+    // the other headset's story panel button (its Sound button: the narration in a session) likewise
+    const p2 = await H2.evaluate(() => { HOST.cur.peek('audioToggle()'); window.__xr.step(); window.__xr.step(); return null; });
+    const own2 = await voiceIs(H2, false, 'mine'), o2b = await nv(H2), lk2 = await lookOfRoom();
+    check('narration: the story panel\'s button in a session turns this headset\'s narration off (an override; its label Narration off), nothing written to the room',
+      p2 === null && own2 && !!o2b.ovr && o2b.ovr.on === false && o2b.label === 'Narration off' && lk2.seq === lk0.seq, JSON.stringify({ o2b, lk2 }));
+    // Off for all, then On for all, from a headset's menu (the Circles tab): every override goes, both follow the room
+    const m3 = await menuTap(H2, 'voiceall:off'), off3 = await voiceIs(H1, false, 'room') && await voiceIs(H2, false, 'room'), l3 = await lookOfRoom();
+    const m4 = await menuTap(H2, 'voiceall:on'), on4 = await voiceIs(H1, true, 'room') && await voiceIs(H2, true, 'room'), l4 = await lookOfRoom(), o4 = [await nv(H1), await nv(H2)];
+    check('narration: Off for all and On for all from a headset\'s menu (Circles) set every headset, the overrides dropped (vg moving on)',
+      m3 && off3 && m4 && on4 && l3.v.voice === false && l3.v.vg === 3 && l4.v.voice === true && l4.v.vg === 4 && l4.by === h2 && o4.every(n => !n.ovr), JSON.stringify({ m3, m4, l3, l4, o4 }));
+    // an override survives a new session in the same room
+    await menuTap(H1, 'voice');
+    const pre = await voiceIs(H1, false, 'mine');
+    await H1.evaluate(() => window.__xr.end());
+    const pg = await nv(H1);   // (between sessions: the page's, the room's)
+    const re = await session(H1), kept = await voiceIs(H1, false, 'mine'), o5 = await nv(H1);
+    check('narration: an override survives a new session in the same room (between them the page follows the room\'s)',
+      pre && re && kept && pg.on === true && pg.why === 'room' && !!o5.ovr && o5.ovr.vg === 4, JSON.stringify({ pg, o5 }));
+    // walking into Back to the lobby drops it: the room's again
+    const SL = (await A.evaluate(() => HOST.collab.stations())).find(s => s.kind === 'lobby');
+    await goRoom(H1, SL.x, 1.6, SL.z, 0);
+    await frames(H1, 2500);
+    const lob = await voiceIs(H1, true, 'room'), o6 = await nv(H1), dropped = await H1.evaluate(() => window.__collabLog.some(e => e.ev === 'narration own dropped' && e.why === 'lobby'));
+    check('narration: walking into Back to the lobby drops this headset\'s own (the room\'s again)', lob && !o6.ovr && dropped, JSON.stringify({ o6, dropped }));
+    // nothing of an override ever written to the room: look only from the page and H2's room-wide presses
+    const wroteAll = Object.entries((await roomInfo(rc)).keys).filter(([k, e]) => e.by === h1 && /look|voice|narr/.test(k)).map(([k]) => k);
+    check('narration: no override was written to the room (the headset with its own wrote no look)', !wroteAll.length, JSON.stringify(wroteAll));
+    // ---- the welcome (Getting around), on H2: asked first, not before lining up, then once
+    await A.evaluate(() => HOST.collab.setAsk(true));
+    await until(H2, () => HOST.collab.askFirst(), null, 8000);
+    await H2.evaluate(() => window.__collabLog.push({ ev: 'test welcome' }));
+    await session(H2, { welcome: true, later: true });
+    const w0 = await welWhen(H2, w => w.done, 3500);
+    const lined = await lineUpH(H2), w1 = await welWhen(H2, w => w.shown, 10000);
+    check('welcome: not before this headset is lined up; then once, asked first: the trigger\'s words and the controllers\' buttons, in front of it, not pointable, no notice The menu',
+      !w0.done && w0.lu !== 'ok' && lined && w1.shown && w1.vis && !w1.hit && w1.lu === 'ok' && w1.mode === 'ask' && !w1.hands &&
+      /Point at a circle's card or icon and press the trigger to go in\./.test(w1.text) && /Trigger \(index finger\): click\./.test(w1.text) &&
+      /Grip \(middle finger\): grab and move things\./.test(w1.text) && /Click a stick: the menu\./.test(w1.text) && !w1.menuNote, JSON.stringify({ w0, w1 }));
+    // the menu opening closes it early, and it does not come back this session
+    await H2.evaluate(() => { HOST.collab.panelOpen(true); window.__xr.step(); window.__xr.step(); });
+    const w2 = await WEL(H2);
+    await H2.evaluate(() => HOST.collab.panelOpen(false));
+    const w3 = await welWhen(H2, w => w.shown, 3000);
+    check('welcome: the menu opening closes it early, and it does not come again in the same session', !w2.shown && !w2.vis && !w3.shown && w3.at === w1.at, JSON.stringify({ w2, w3 }));
+    // walked into: the walk's words
+    await A.evaluate(() => HOST.collab.setAsk(false));
+    await until(H2, () => !HOST.collab.askFirst(), null, 8000);
+    await session(H2, { welcome: true });
+    const w4 = await welWhen(H2, w => w.shown, 10000);
+    check('welcome: a new session shows it again; with the circles walked into, the walk\'s words', w4.shown && w4.mode === 'walk' && /Walk into a circle to go in\./.test(w4.text) && w4.at > 0, JSON.stringify(w4));
+    // not while the room setup guide shows (the menu with it), then once it is closed
+    await session(H2, { welcome: true, later: true });
+    await H2.evaluate(() => HOST.collab.guideOpen(1));
+    await lineUpH(H2);
+    const w5 = await welWhen(H2, w => w.done, 3500), g5 = await H2.evaluate(() => HOST.collab.guide().open);
+    await H2.evaluate(() => HOST.collab.panelOpen(false));
+    const w6 = await welWhen(H2, w => w.shown, 8000);
+    check('welcome: not while the room setup guide shows; once it is closed, it shows', g5 && !w5.done && w6.shown, JSON.stringify({ g5, w5, w6 }));
+    // tracked hands (the left input source a hand), asked first: the pinch's words, no grip
+    await A.evaluate(() => HOST.collab.setAsk(true));
+    await until(H2, () => HOST.collab.askFirst(), null, 8000);
+    await session(H2, { welcome: true, hands: true });
+    const w7 = await welWhen(H2, w => w.shown, 10000);
+    check('welcome: with tracked hands, the pinch\'s words (a pinch clicks, two of the left hand open the menu; nothing grabs)', w7.shown && w7.hands && w7.mode === 'ask' &&
+      /pinch to go in\./.test(w7.text) && /Pinch: click\./.test(w7.text) && /Pinch twice with your left hand: the menu\./.test(w7.text) && !/Grip|Trigger/.test(w7.text), JSON.stringify(w7));
+    // ---- leaving the room drops an override; outside a room the welcome comes 2.5 s in, never in camera mode
+    await menuTap(H1, 'voice');
+    const pre8 = await voiceIs(H1, false, 'mine');
+    await H1.evaluate(() => HOST.collab.leave());
+    const o8 = await nv(H1);
+    check('narration: leaving the room drops this headset\'s own (outside a room the headset\'s own: off, never turned on here)', pre8 && !o8.ovr && o8.on === false && o8.why === 'own', JSON.stringify(o8));
+    await H1.evaluate(() => { HOST.collab.cameraMode = () => true; });
+    await session(H1, { welcome: true, later: true });
+    const w8 = await welWhen(H1, w => w.done, 4000);
+    await H1.evaluate(() => { delete HOST.collab.cameraMode; });
+    const w9 = await welWhen(H1, w => w.shown, 4000);
+    check('welcome: outside a room it shows a moment into the session (no circles\' line), never in camera mode', !w8.done && w9.shown && w9.mode === '' && /Getting around Trigger/.test(w9.text), JSON.stringify({ w8, w9 }));
+  } finally {
+    for (const H of [H1, H2]) await H.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
+    for (const p of [A, H1, H2]) await p.context().close();
   }
 }
 
@@ -4797,6 +4979,7 @@ try {
   if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
   if (STANDBY_ONLY) { await standbyRound(); break main; }
+  if (NARR_ONLY) { await narrationRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -6437,9 +6620,13 @@ try {
   const nfr5 = (await sinceWake()).includes('anchors not found');
   await frames(H, 100);
   const lost5 = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), state: HOST.room.state,
-    lost: window.__collabLog.filter(e => e.ev === 'marks lost').slice(-1)[0] || null, note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
-  check('off and on again, the marks not found in the session: the frame held, and the panel asks to leave AR and enter it again',
-    lost5.reenter === true && /leave AR and enter it again/.test(lost5.line) && !!lost5.lost && lost5.lost.why === 'wake' && lost5.state !== 'calibrate', JSON.stringify(lost5));
+    lost: window.__collabLog.filter(e => e.ev === 'marks lost').slice(-1)[0] || null, note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title,
+    notes: HOST.collab.notes().map(n => n.title), lu: HOST.collab.guide().status }));
+  // (v124, the owner: "The leave ar message after standby or resume can go away": no notice asks to leave AR, and the
+  // headset still counts as lined up while it looks for its anchors again)
+  check('off and on again, the marks not found in the session: the frame held, the anchors looked for again, no notice to leave AR, still lined up',
+    lost5.reenter === true && /looking for their anchors again/.test(lost5.line) && !/leave AR/i.test(lost5.line) && !!lost5.lost && lost5.lost.why === 'wake' &&
+    lost5.state !== 'calibrate' && !lost5.notes.some(t => /leave AR/i.test(t)) && !(lost5.lu && lost5.lu.w === 'marks'), JSON.stringify(lost5));
   await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
   for (let k = 0; k < 90 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
   const far5 = unapply(Fr5, markA), fbr5 = unapply(Fr5, markB), cxr5 = unit([fbr5[0] - far5[0], 0, fbr5[2] - far5[2]]);
@@ -6450,10 +6637,10 @@ try {
     hidN === 2 && nfr5 && rtw.log.includes('anchors found again') && ['marks', 'anchor'].includes(rtw.src) && !!rtw.frame && near(rtw.frame.o, [far5[0], 0, far5[2]], 3e-3) &&
     near(rtw.frame.x, cxr5, 3e-3) && !rtw.log.includes('calibrate'), JSON.stringify(Object.assign(rtw, { hidN, nfr5, want: [far5, cxr5] })));
   const back5 = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine() }));
-  check('the marks found after all: the panel no longer asks to leave AR', back5.reenter === false && !/leave AR/.test(back5.line), JSON.stringify(back5));
+  check('the marks found after all: the panel no longer says it is looking', back5.reenter === false && !/looking for their anchors/.test(back5.line), JSON.stringify(back5));
   // a jump of the origin while the marks' anchors are not found (their tries over) but their handles are saved: the
-  // calibration is kept (a new AR session finds the marks), the panel asks to leave AR and enter it again, and the
-  // anchors are looked for again at once
+  // calibration is kept (a new AR session finds the marks), the panel says it is looking for their anchors again (no
+  // notice to leave AR since v124), and the anchors are looked for again at once
   const jmp = await H.evaluate(() => {
     const X = window.__xr, R = HOST.room.internals(), ids = (R.saved && R.saved.anchors) || [];
     window.__hidden = ids.map(u => [u, X.handles.get(u)]);
@@ -6467,16 +6654,18 @@ try {
   });
   const sinceJump = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test jump'); return L.slice(i + 1); });
   for (let k = 0; k < 40 && !(await sinceJump()).some(e => e.ev === 'anchors not found'); k++) await frames(H, 250);
-  const jl = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), saved: !!localStorage.getItem('roomFrame') }));
+  const jl = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), saved: !!localStorage.getItem('roomFrame'),
+    notes: HOST.collab.notes().map(n => n.title) }));
   jl.log = (await sinceJump()).map(e => e.ev + (e.why ? ':' + e.why : ''));
-  check('a jump of the origin with saved anchors not found: the calibration kept, and the panel asks to leave AR and enter it again',
-    jmp.n === 2 && jl.state !== 'calibrate' && !!jl.frame && !!jmp.f0 && near(jl.frame.o, jmp.f0, 1e-3) && jl.reenter === true && /leave AR/.test(jl.line) && jl.saved &&
+  check('a jump of the origin with saved anchors not found: the calibration kept, the panel says it looks for their anchors again (no notice to leave AR)',
+    jmp.n === 2 && jl.state !== 'calibrate' && !!jl.frame && !!jmp.f0 && near(jl.frame.o, jmp.f0, 1e-3) && jl.reenter === true && /looking for their anchors again/.test(jl.line) &&
+    !jl.notes.some(t => /leave AR/i.test(t)) && jl.saved &&
     jl.log.includes('marks lost:jump') && jl.log.includes('anchors not found'), JSON.stringify(Object.assign(jl, { jmp })));
   await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
   for (let k = 0; k < 90 && !(await sinceJump()).some(e => e.ev === 'anchors found again'); k++) await frames(H, 250);
   const jb = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, src: HOST.room.src }));
   jb.found = (await sinceJump()).some(e => e.ev === 'anchors found again');
-  check('...and found on the next try: the panel no longer asks to leave AR', jb.found && jb.reenter === false && ['marks', 'anchor'].includes(jb.src), JSON.stringify(jb));
+  check('...and found on the next try: no longer looking', jb.found && jb.reenter === false && ['marks', 'anchor'].includes(jb.src), JSON.stringify(jb));
   // next session (or a reload): the anchors at mark A and mark B bring the frame back; handles nobody knows go
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(() => window.__handles.set('junk-left-over', new THREE.Matrix4()));
@@ -7035,6 +7224,8 @@ try {
   await askRound(shots);
   // ------------------------------------ your menu shown to your circle (a room of its own) --
   await menusRound(shots);
+  // --------------------------- the narration in headsets and the welcome (a room of its own) --
+  await narrationRound();
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -7131,8 +7322,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

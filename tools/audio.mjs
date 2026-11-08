@@ -23,6 +23,15 @@
 // Narration switch silencing the narration only (the story's clock running on, the effects playing, nothing ducked),
 // the Sound effects switch the effects only, both from the Shared dialog's row, kept across a reload, and set by
 // #voice=off|on and #sfx=off in a link.
+// A headset session's own sound (v124; the owner, 8 November 2026: "On mobile and desktop default to no sounds and no
+// narration until manually enabled, in ar and vr default to sounds but no narration"): on a fresh device a pretend session
+// is unmuted (effects play) with its narration off (the story panel's button saying Narration off), a press of that
+// button (HOST.audio.toggle in a session) turning the narration on, remembered (xrNarration) across a reload and a new
+// session, and the page's own mute unchanged after it (still Sound off); the menu's Sound row is the session's mute
+// (xrMuted), its Narration row the session's narration, and a press on the story panel's button in a session (as a
+// controller presses it) turns the narration off and on, its label saying so. The pages here start as a device whose
+// headset turned its narration on (xrNarration 'on') and with the headsets' welcome off (collabAutoWelcome 'off'),
+// unless a step seeds otherwise.
 // The stories' sounds (phase 2): a cue at its time (the log, the engine, the output), none while paused or over a jump,
 // the next one playing on, the first again after Replay; a continuous sound while the clock is inside its span, gone
 // after a pause and after a jump out; the voice limit kept in the busiest moment of the airports, the tour, the soil
@@ -42,7 +51,7 @@ const errors = [];
 // localStorage before each load (a key given null is left as it is); the sound turned on unless the seed says otherwise
 async function open(url, fault = '', seed = null) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  seed = Object.assign({ narrationMuted3: '0' }, seed || {});
+  seed = Object.assign({ narrationMuted3: '0', xrNarration: 'on', collabAutoWelcome: 'off' }, seed || {});
   await page.addInitScript(([fault, seed]) => {
     for (const [k, v] of Object.entries(seed)) if (v !== null) localStorage.setItem(k, v);
     let tapAt = -1e9;
@@ -399,9 +408,9 @@ await step('backgrounds: only the flock and the pass story', async () => {
   await page.click('#picker .card[data-story="flock"]');
   await page.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
   const b = await fxUntil('the flock\'s background', s => s.bed === 'flock' && s.bedKind === 'dusk', 8000);
-  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it, without saving it)
+  await page.evaluate(() => { HOST.audio.state().pmuted = true; });   // (as the Sound button sets the page's mute, without saving it)
   await fxUntil('no background while the sound is off', s => !s.bed, 4000);
-  await page.evaluate(() => { HOST.audio.state().muted = false; });
+  await page.evaluate(() => { HOST.audio.state().pmuted = false; });
   await fxUntil('the background back', s => s.bed === 'flock', 6000);
   await page.click('#btnOther');
   await fxUntil('no background on the Stories screen', s => !s.bed, 4000);
@@ -545,10 +554,11 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     const ids = () => HOST.collab.menuIds(), tap = id => { const x = HOST.collab.menuFind(id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
     HOST.collab.panelOpen(true); window.__tick(3);
     const out = { row: ids().includes('sfx') && ids().includes('sfxvol') && ids().includes('voice'), v0: HOST.sfx.volume() };
-    // Sound (this device's mute, the Sound button's): off, then on again, saved each time
-    out.mute = ids().includes('set:sound') && [tap('set:sound'), HOST.audio.muted, localStorage.getItem('narrationMuted3'), tap('set:sound'), HOST.audio.muted, localStorage.getItem('narrationMuted3')].join();
+    // Sound (in a session the session's mute, v124: xrMuted; the page's, narrationMuted3, left as it is): off, then on
+    // again, saved each time
+    out.mute = ids().includes('set:sound') && [tap('set:sound'), HOST.audio.muted, localStorage.getItem('xrMuted'), tap('set:sound'), HOST.audio.muted, localStorage.getItem('xrMuted'), localStorage.getItem('narrationMuted3')].join();
     out.vol = tap('sfxvol') && HOST.sfx.volume(); out.off = tap('sfx') && HOST.sfx.on(); out.on = tap('sfx') && HOST.sfx.on();
-    out.voff = tap('voice') && HOST.xr.voice(); out.von = tap('voice') && HOST.xr.voice();
+    out.voff = tap('voice') && HOST.xr.voice(); out.vsave = localStorage.getItem('xrNarration'); out.von = tap('voice') && HOST.xr.voice();
     HOST.collab.panelOpen(false);
     window.__head.p = [0.5, 1.7, -0.2]; window.__tick(2);
     const L = HOST.audio.ctx.listener;
@@ -565,12 +575,59 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
       const s = HOST.sfx.state();
       return [r.id, s.played - n0, s.last, s.spatial, SFXQ.log[SFXQ.log.length - 1][0]].join();
     })()`);
+    // (after the press above: its click is not held back by the gap after the clicks of these presses)
+    // the story panel's Sound button in a session: this headset's narration (Narration on / off), pressed as a controller does
+    out.panel = HOST.cur.peek(`(() => {
+      let P = null, r = null;
+      for (const Q of [XR.main, XR.foot]) { const x = Q && Q.regions.find(q => q.id === 'sound' && q.fn); if (x && !r) { P = Q; r = x; } }
+      if (!r) return 'no Sound button on the story panel';
+      const c = XR.ctrls[0], at = () => [AUD.label(), AUD.on(), HOST.xr.voice()].join('/');
+      const press = () => { c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: new THREE.Vector3(0.3, 1.4, -0.9) }; xrPress(c); xrRelease(c); c.hover = null; };
+      const a = at(); press(); const b = at(), saved = localStorage.getItem('xrNarration'); press();
+      return [a, b, saved, at()].join();
+    })()`);
     HOST.session = null; window.__s = null;
     out.flat = !!HOST.sfx.play('click', { at: [1.5, 1.7, -0.2], force: true }) && HOST.sfx.state().spatial;
     return out;
   });
-  if (!r.row || r.mute !== 'true,true,1,true,false,0' || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
-  console.log(`ok   the headset menu has Sound (off and on again, saved), Sound effects, Narration (off and on again) and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
+  if (!r.row || r.mute !== 'true,true,1,true,false,0,0' || r.vsave !== 'off' || r.panel !== 'Narration on/true/true,Narration off/false/false,off,Narration on/true/true' || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
+  console.log(`ok   the headset menu has Sound (the session's mute: off and on again, saved as xrMuted, the page's untouched), Sound effects, Narration (off and on again, saved as xrNarration), the story panel's button turning the narration off and on (${r.panel.split(',').slice(0, 2).join(' -> ')}), and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
+});
+await page.close();
+// a fresh device (no sound turned on anywhere): a headset session's own defaults (v124): unmuted, effects playing, the
+// narration off (Narration off on the story panel's button), a press of that button turning it on, remembered across a
+// reload and a new session, and the page's own mute as it was (Sound off) after the session
+page = await open(base, '', { narrationMuted3: null, xrNarration: null });
+await step('a headset session: its own sound (unmuted, no narration), the page\'s own after it', async () => {
+  await until('narration ready', p => p.state === 'ok' && p.decode === 'ok');
+  await page.click('#picker .card[data-story="airports"]');   // (a tap on the page: Sound off, nothing plays)
+  await until('the story, its engine started by the tap', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok' && p.ctx === 'running');
+  const pg = await page.evaluate(() => [HOST.audio.muted, HOST.cur.peek('AUD.label()'), HOST.xr.voice()].join());
+  // a session begins (Enter AR or VR is a tap: the context already runs here)
+  await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s; HOST.cur.peek('APP.playing || APP.togglePlay()'); });
+  const xs = await page.evaluate(() => ({ muted: HOST.audio.muted, label: HOST.cur.peek('AUD.label()'), on: HOST.cur.peek('AUD.on()'), voice: HOST.xr.voice(), why: HOST.xr.voiceWhy(),
+    fx: !!HOST.sfx.play('notice', { force: true }), saved: [localStorage.getItem('xrMuted'), localStorage.getItem('xrNarration')].join() }));
+  await wait(1500);
+  const silent = await probe();
+  if (pg !== 'true,Sound off,true' || xs.muted !== false || xs.label !== 'Narration off' || xs.on !== false || xs.voice !== false || xs.why !== 'own' || !xs.fx || silent.pos !== null)
+    throw new Error('the session\'s defaults: ' + JSON.stringify({ pg, xs, silent }));
+  // the story panel's button (in a session it calls HOST.audio.toggle, as every story's does): the narration on, remembered
+  await page.evaluate(() => HOST.cur.peek('audioToggle()'));
+  await playing('the narration turned on in the session');
+  const on = await page.evaluate(() => [HOST.cur.peek('AUD.label()'), HOST.cur.peek('AUD.on()'), localStorage.getItem('xrNarration')].join());
+  if (on !== 'Narration on,true,on') throw new Error('turned on: ' + on);
+  // the session ends: the page's own mute again (Sound off, nothing plays), its own narration untouched
+  await page.evaluate(() => { HOST.session = null; fakeSession.dispatchEvent(new Event('end')); });
+  await until('silent after the session (the page\'s mute)', p => p.pos === null, 4000);
+  const after = await page.evaluate(() => [HOST.audio.muted, HOST.cur.peek('AUD.label()'), document.getElementById('btnSound').textContent, localStorage.getItem('narrationMuted3'), localStorage.getItem('narrationOn')].join());
+  if (!/^true,Sound off,Sound off,,(on)?$/.test(after)) throw new Error('after the session: ' + after);   // (the page's own narration as it was: on, written or not)
+  // remembered across a reload and a new session
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && HOST.cur.peek('typeof AUD !== "undefined" && !!AUD'), null, { timeout: 60000 });
+  const re = await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s;
+    const out = [HOST.xr.voice(), HOST.cur.peek('AUD.label()'), HOST.audio.muted].join(); HOST.session = null; s.dispatchEvent(new Event('end')); return out; });
+  if (re !== 'true,Narration on,false') throw new Error('after a reload, a new session: ' + re);
+  console.log(`ok   a session's own sound: unmuted with effects, the narration off (Narration off), on by the panel's button and playing, the page's Sound off again after it, remembered across a reload (${re})`);
 });
 await page.close();
 page = await open(base + '#airports&sfx=off', '', { sfxOn: 'on' });

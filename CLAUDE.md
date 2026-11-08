@@ -50,13 +50,18 @@
   are the shell's too (`HOST.sfx`, `sfx.js`): they play only through
   `HOST.audio`'s context (`HOST.audio.fx()`), on by default (the owner approved
   them; the Sound button silences them with the narration). The Sound button
-  itself, this device's mute (`HOST.audio.mute()`, `narrationMuted3`), starts
-  muted on every device until it is pressed (the owner: "Default to sound off in
-  all modes"; its tests seed the sound on where they need it). Two switches, each
+  itself, this device's mute (`HOST.audio.mute()`), starts muted on every page
+  until it is pressed (`narrationMuted3`; the owner: "Default to sound off in all modes", then, 8 November 2026, "On
+  mobile and desktop default to no sounds and no narration until manually enabled, in ar and vr default to sounds but
+  no narration"); a headset session (VR or AR, `HOST.inXR()`) has its own mute, off by default (`xrMuted`), and its own
+  narration, off by default and remembered once turned on (`xrNarration`); the story panel's Sound button is the
+  narration's switch in a session. Its tests seed the sound on where they need it. Two switches, each
   for every story at once: Sound effects (`HOST.xr.sfx()`, through `HOST.sfx.on()`
-  and `set()`) and Narration (`HOST.xr.voice()`: off, the narration is silent and
-  the story runs on its clock; effects and subtitles go on); in a room the room's
-  (key `look`; one the room never wrote stays the device's own), else the device's own (`sfxOn`, `narrationOn`); the effects'
+  and `set()`) and Narration (`HOST.xr.voice()`, the narration that applies now: off, the narration is silent and
+  the story runs on its clock; effects and subtitles go on); Sound effects in a room the room's
+  (key `look`; one the room never wrote stays the device's own), else the device's own (`sfxOn`); the narration on a page
+  the room's or `narrationOn`, in a session in a room this headset's own for the room until the lobby (`xrNarrRoom`,
+  never written to the room) else the room's, which Narration for everyone sets (`look`'s `vg` moves on); the effects'
   volume is always the device's own. Only the flock and the pass story have a
   background, and `vacuum` is the only continuous sound (the owner, 30 October
   2026: the other backgrounds and the machines' hum went; never bring them back

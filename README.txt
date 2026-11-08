@@ -299,8 +299,9 @@ of a controller held pointing down; orange crosses then show where the headset
 puts the spots, and two anchors keep the calibration for next time and after
 the headset was off; if
 the panel says the anchor store is full, clearing Quest Browser's site data may
-help, see relay/README.md; if after standby it says to leave AR and enter it
-again, do that: the headset finds its spots again in a new AR session). A headset's own calibration is
+help, see relay/README.md; after standby the headset looks for its spots again
+by itself and asks whether the orange crosses sit on them: if not, calibrate
+again). A headset's own calibration is
 never overridden, and the room's floor comes from the spots, so a headset
 with a wrong floor still shows things at the same height. Headsets without
 marks line up through Quest Browser's experimental shared space (on unless
@@ -466,11 +467,16 @@ one is a human recording; every other story has a synthetic voice, made by tools
 and for the pass story's German Piper's Thorsten); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
-on/off button (top bar, VR panel, and Sound in the headset's menu under
-Settings). The sound is off until you turn it on (on every page and headset, in
-every mode): the button says Sound off, and a press turns the narration and the
-effects on; each device remembers its choice, and #sound=on or #sound=off in a
-link sets it. Muted, a story runs on its own clock with its subtitles. Browsers
+on/off button (top bar, and Sound in the headset's menu under Settings). On a
+page (a phone, a tablet, a computer) the sound is off until you turn it on: the
+button says Sound off, and a press turns the narration and the effects on; each
+device remembers its choice, and #sound=on or #sound=off in a link sets it. In a
+headset (VR or AR) the effects are on from the start and the narration is off
+until you turn it on with the story panel's button (Narration on / Narration
+off) or the menu's Narration row; the headset remembers it. In a shared room the
+menu's Circles tab has Narration for everyone here (On for all, Off for all),
+and the page's Shared dialog the same: each headset can still change its own
+afterwards, until it goes to Back to the lobby. Muted, a story runs on its own clock with its subtitles. Browsers
 only start sound after a tap or click: the first one in the app (Enter VR
 counts) starts it for every story, also when you change story inside the
 headset. If the button says Play sound, press it. Without the file the story runs silently, at a pace that leaves time
@@ -486,9 +492,9 @@ flock and Pass it on only, all made in code) are on unless turned off. Two
 switches, each for every story at once: Sound effects and Narration (off: the
 narration is silent and the story runs on its own clock; subtitles and effects
 go on). They are in the headset's menu, the page's Shared dialog and Sound check,
-and #sfx=off or #voice=off in a link sets them; in a shared room they are the
-room's, for every page and headset in it, once someone there sets them (until
-then each device keeps its own). The effects' volume (Sound check, the
+and #sfx=off or #voice=off in a link sets them; in a shared room Sound effects is
+the room's, for every page and headset in it, once someone there sets it (until
+then each device keeps its own), and the narration as above. The effects' volume (Sound check, the
 headset's menu) is each device's own. The Sound button (off until pressed) silences the narration
 and the effects together on that device, and the effects dip under the
 narration while it plays. tools/sfx.html is a sound board that plays every one and renders a
