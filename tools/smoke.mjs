@@ -4943,11 +4943,20 @@ if (runs('studio motions')) {
       removeItem('sgh001'); setRec('emp001', { motion: undefined });
       select(''); M.at('box001', 1);
       if (!(STUDIO.ghost('box001') || {}).shown) o.push('deselected while editing, the moving box lost its ghost');
-      setRec('box001', { motion: undefined }); M.at('box001', 1);
-      if (STUDIO.ghost('box001')) o.push('its motion gone (at rest), its ghost stayed');
+      const bx0 = { anim: STU.items.get('box001').rec.anim, clip: STU.items.get('box001').rec.clip };
+      setRec('box001', { motion: undefined, anim: 'off' }); M.at('box001', 1);
+      if (STUDIO.ghost('box001')) o.push('its motion gone and its clip off (at rest), its ghost stayed');
+      // (v125: a model its own clip moves has its ghost while editing, where it is placed, though its place stays)
+      { const E = STU.items.get('box001').E, cl = E && E.clips[0] ? E.clips[0].name : '';
+        if (cl) { setRec('box001', { anim: 'loop', clip: cl }); M.at('box001', 1); M.at('box001', 1.3);
+          const gc = STUDIO.ghost('box001');
+          if (!gc || !gc.shown || !same(gc.at, STU.items.get('box001').holder.matrix.toArray(), 1e-6)) o.push('its clip playing while editing: no ghost where it is placed: ' + JSON.stringify(gc));
+          }
+        else o.push('the box has no clip to check its ghost with'); }
+      setRec('box001', { anim: 'off' }); M.at('box001', 1);
       setEdit(false); M.at('mot001', 1);
       if (GH.size) o.push('editing off, a ghost stayed: ' + [...GH.keys()]);
-      setEdit(true);
+      setEdit(true); setRec('box001', bx0); M.at('box001', 1);
       return o;
     })()`);
     // Pause: the Scene pane's switch, a card's and P; everything at its placed pose, the box's clip held, nothing written

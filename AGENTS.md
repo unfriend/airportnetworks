@@ -4031,7 +4031,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pose (`ghostFar`, from `it.mX`; and for 0.6 s after, so a spin through its place does not blink it), and since v124
   every item that moves while editing, selected or not (the owner, 8 November 2026: "in edit mode Ghosts should always
   be visible for animated things"; at most `GHOST.build`, 4, new ones a frame; none once it rests, none with editing
-  off), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
+  off), and since v125 a model its own clip moves while editing, the whole time its clip plays (`clipMoves`: the owner, "I do
+  not see the ghosts of moving things in studio mode"; its parts taken in their rest pose), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
   blue-white material (opacity 0.25, no depth written; a skinned mesh as a plain one, its rest pose; a model of more than
   100,000 triangles only its outline box, `GHOST.tris`), a shape's shape, an empty's cross and dot, a sound's speaker;
   built once per selection and freed when it changes (its materials disposed, never the shared geometry). The ghost is

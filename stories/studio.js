@@ -22640,8 +22640,12 @@ function ghostBuild(it) {
   const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = false; g.add(o); return o; };
   const hit = (n, geo) => { const h = add(new THREE.Mesh(geo, HIDDEN), n, 0); h.userData.id = it.id; h.userData.ghost = true; G.hits.push(h); };
   if (it.kind === 'o') {
+    // (a model its clip moves: its parts taken in their rest pose, then its clip's frame put back at once, as it was)
+    const rest = !!(it.action && it.model.rest);
+    if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
     if (!(it.E && it.E.info) || it.E.info.tris > GHOST.tris) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
     else it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, mat), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
+    if (rest && it.mixer) { it.mixer.update(0); H.updateWorldMatrix(true, true); }
     hit(it.proxy, BOX1);
   } else if (it.kind === 'p') { add(new THREE.Mesh(it.look.mesh.geometry, mat), it.look.mesh, 3); hit(it.look.mesh, it.look.mesh.geometry); }
   else {
@@ -22683,11 +22687,15 @@ function ghostFar(it) {
 // (a scene full of moving things, editing turned on); then the page's arrows on the right one
 const _ghq = new THREE.Quaternion();
 GHOST.build = 4;
+// a model its own clip moves (v125; the owner, 8 November 2026: "I do not see the ghosts of moving things in studio mode",
+// of models whose animation moves them while their place stays): while editing its ghost stands where it is placed, in
+// its rest pose, the whole time its clip plays
+const clipMoves = it => it.kind === 'o' && !!it.model && !!it.action && it.dur > 0 && it.rec.anim !== 'off';
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');
-  if (editing) for (const it of STU.items.values()) if (it.mX && ['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id)) want.set(it.id, 'edit');
+  if (editing) for (const it of STU.items.values()) if (['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id) && (it.mX || clipMoves(it))) want.set(it.id, it.mX ? 'edit' : 'clip');
   for (const [id, G] of GH) if (!want.has(id) || G.it !== STU.items.get(id)) ghostDrop(id);
   let built = 0;
   for (const [id, how] of want) {
@@ -22695,7 +22703,7 @@ function ghostStep(editing, now) {
     let G = GH.get(id);
     const far = !rec && ghostFar(it);
     if (G && far) G.far = now;
-    const vis = rec || far || (!!G && now - G.far < GHOST.hold);
+    const vis = rec || how === 'clip' || far || (!!G && now - G.far < GHOST.hold);
     if (!vis && !G) continue;
     if (!G || G.key !== ghostKey(it)) {
       if (!G && built >= GHOST.build) continue;
