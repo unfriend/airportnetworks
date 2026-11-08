@@ -202,7 +202,13 @@ Phones and tablets: on a narrow screen the top bar keeps Stories, Sound, AR and
 a ... menu with the rest (Explore now, Install, Shared, VR, Full screen, Focus
 view). Where the phone has AR (Android's Chrome with ARCore; iPhones and iPads
 have none), Enter AR stays in the top bar, and the first time a story opens a
-small card offers it once ("See it in your room"). Opening a story from the
+small card offers it once ("See it in your room"). In AR on a phone, a round
+menu button at the top right opens a sheet with the menu's main switches (Exit
+AR, Recenter, Sound, Narration, Sound effects, Subtitles, Slideshow, Frame rate,
+Labels, Cards, Panels, Real world hides) and The full menu, the headset's menu
+in front of you (tap its buttons on the screen); a tap anywhere else points at
+the scene as before. Where the phone's browser gives no such button, tap twice
+quickly on the screen, pointing at nothing, to open and close the menu. Opening a story from the
 Stories screen on a phone or tablet goes full screen where the browser allows it
 (Android's Chrome, iPad's Safari); Full screen in the ... menu switches it. An
 iPhone cannot go full screen in Safari: a tip says once to add the app to the

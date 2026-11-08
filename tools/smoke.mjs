@@ -4,7 +4,8 @@
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
-// studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures)
+// studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
+// --only 'phone ar': a phone's AR session, its menu button and sheet)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -7200,7 +7201,7 @@ if (runs('occlusion')) {
     const ds = r[0] && r[0].init.depthSensing, f = r[0] && r[0].init.optionalFeatures;
     if (r.length !== 1 || !ds || ds.usagePreference.join() !== 'gpu-optimized,cpu-optimized' || ds.dataFormatPreference.join() !== 'unsigned-short,luminance-alpha,float32' || ds.matchDepthView !== true)
       errors.push('occlusion: the AR request: ' + JSON.stringify(r));
-    const want = await op.evaluate(() => HOST.xr.features('immersive-ar').concat('depth-sensing').join());
+    const want = await op.evaluate(() => HOST.xr.features('immersive-ar').concat('depth-sensing').join());   // (a desktop's page: no phone's overlay)
     if (!f || f.join() !== want) errors.push('occlusion: the AR features: ' + f + ' (want ' + want + ')');
   });
   await step('occlusion: people (depth): the plane hidden where the real world is nearer, drawn where it is farther, both eyes; read as a depth buffer\'s', async () => {
@@ -7311,6 +7312,233 @@ if (runs('occlusion')) {
     if (miss.length) errors.push('the session line is missing in ' + miss.join(', '));
   });
   await ctx.close();
+}
+// A phone's AR session (v125, --only 'phone ar'): a pretend Android phone (Chrome's user agent, touch, a pretend
+// navigator.xr offering immersive-ar that records what it is asked for; the story's own xrStart through three.js r128's
+// WebXR path, frames driven here; screen taps as Chrome makes them: a transient 'screen' input source, selectstart, a
+// frame, select and selectend). The request asks for dom-overlay with #xrPhone as its root; the round menu button only in
+// the session, inside the window's top right; beforexrselect cancelled on the button and the sheet and not elsewhere; the
+// sheet's rows acting as the headset menu's and showing their state; The full menu opening the 3D menu; Close; Exit AR
+// ending the session; the welcome's words for a phone; a headset's user agent asking for nothing new; without the overlay,
+// two quick screen taps at nothing opening and closing the 3D menu, two slow ones and two at the menu not
+function PHONE_FAKE() {
+  try { localStorage.setItem('arInvite', 'shown'); } catch (e) { /* storage blocked */ }
+  const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
+  const F = window.__phone = { o: { overlay: true }, session: null, time: 0, inits: [], ends: 0 };
+  const pose = (m, q) => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } });
+  const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
+  class Session extends EventTarget {
+    constructor(mode, feats, overlay) {
+      super(); this.mode = mode; this.renderState = { depthNear: 0.1, depthFar: 1000, baseLayer: null }; this.inputSources = []; this.visibilityState = 'visible';
+      this.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque'; this.enabledFeatures = feats; this.cbs = new Map(); this.n = 0;
+      if (overlay) this.domOverlayState = { type: 'screen' };
+    }
+    updateRenderState(s) { Object.assign(this.renderState, s); }
+    async requestReferenceSpace(type) { return space({ type, floor: type === 'local-floor' }); }
+    requestAnimationFrame(cb) { const id = ++this.n; this.cbs.set(id, cb); return id; }
+    cancelAnimationFrame(id) { this.cbs.delete(id); }
+    async end() { if (this.ended) return; this.ended = true; F.ends++; this.dispatchEvent(new Event('end')); }
+  }
+  window.XRSession = Session;
+  WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
+  window.XRWebGLLayer = class { constructor(s, gl) { this.framebufferWidth = gl.drawingBufferWidth; this.framebufferHeight = gl.drawingBufferHeight; this.framebuffer = null; this.antialias = true; }
+    getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(70, 0.5, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
+  F.frame = () => ({
+    session: F.session,
+    getViewerPose: () => Object.assign(pose(ident()), { views }),
+    getPose: s => (s && s.ray ? pose(s.ray, s.q) : s && s.floor ? pose(tr(0, -1.6, 0)) : null),
+  });
+  F.step = (n = 1) => {
+    for (let i = 0; i < n; i++) {
+      F.time += 1000 / 60;
+      const cbs = [...F.session.cbs.values()]; F.session.cbs.clear();
+      const fr = F.frame();
+      for (const cb of cbs) cb(F.time, fr);
+    }
+  };
+  // a tap on the screen as Chrome makes one: a transient 'screen' input source whose ray goes from the phone along dir (the
+  // phone's view), selectstart, a frame (the story points its ray), select and selectend, the source gone, a frame
+  F.tap = dir => {
+    const s = F.session, d = new THREE.Vector3().fromArray(dir).normalize(), m = new THREE.Matrix4().lookAt(new THREE.Vector3(), d, Math.abs(d.y) > 0.99 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0));
+    const q = new THREE.Quaternion().setFromRotationMatrix(m), src = { targetRayMode: 'screen', handedness: 'none', profiles: ['generic-touchscreen'], gamepad: null,
+      targetRaySpace: space({ ray: Float32Array.from(m.elements), q: { x: q.x, y: q.y, z: q.z, w: q.w } }) };
+    const ev = (type, o) => { const e = new Event(type); Object.assign(e, o); s.dispatchEvent(e); };
+    s.inputSources = [src];
+    ev('inputsourceschange', { session: s, added: [src], removed: [] });
+    ev('selectstart', { inputSource: src, frame: F.frame() });
+    F.step(1);
+    ev('select', { inputSource: src, frame: F.frame() });
+    ev('selectend', { inputSource: src, frame: F.frame() });
+    s.inputSources = [];
+    ev('inputsourceschange', { session: s, added: [], removed: [src] });
+    return performance.now();
+  };
+  Object.defineProperty(navigator, 'xr', { configurable: true, value: {
+    isSessionSupported: async m => m === 'immersive-ar' || m === 'immersive-vr', addEventListener() {}, removeEventListener() {},
+    requestSession: async (mode, init) => {
+      const r = init.domOverlay && init.domOverlay.root;
+      F.inits.push({ mode, feats: (init.optionalFeatures || []).slice(), root: r ? r.id || '?' : '', depth: !!init.depthSensing });
+      const feats = (init.optionalFeatures || []).filter(f => f !== 'depth-sensing' && (f !== 'dom-overlay' || (F.o.overlay && r)));
+      const s = new Session(mode, ['viewer', 'local', ...feats], feats.includes('dom-overlay'));
+      F.session = s;
+      return s;
+    } } });
+}
+if (runs('phone ar')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+  const QUEST = 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/40.2.0.4.30 SamsungBrowser/4.0 Chrome/130.0.0.0 VR Safari/537.36';
+  const device = async ua => {
+    const phone = ua === ANDROID, ctx = await browser.newContext({ viewport: phone ? { width: 412, height: 860 } : { width: 800, height: 600 }, userAgent: ua, isMobile: phone, hasTouch: phone });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('phone ar: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('phone ar: ' + m.text()); });
+    await p.addInitScript(PHONE_FAKE);
+    await p.goto(base + 'index.html#airports');
+    await p.waitForFunction(() => HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && HOST.collab && HOST.collab.phone, null, { timeout: 40000 });
+    return { ctx, p };
+  };
+  const start = p => p.evaluate(() => { const F = window.__phone; F.inits.length = 0; return HOST.cur.peek('xrStart("immersive-ar")'); })
+    .then(() => p.waitForFunction(() => window.__phone.session && !window.__phone.session.ended && HOST.session === window.__phone.session && HOST.mode === 'immersive-ar', null, { timeout: 20000 }))
+    .then(() => p.evaluate(() => window.__phone.step(4)));
+  // frames for a while (real time passes: the welcome waits 2.5 s into the session)
+  const frames = async (p, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { await p.evaluate(() => window.__phone.step(1)); await p.waitForTimeout(40); } };
+  const ph = p => p.evaluate(() => HOST.collab.phone());
+  const press = (p, id) => p.click(`#xrPhone [data-xp="${id}"]`);
+  const BEHIND = [0, 0.3, 1];   // (a tap on the screen whose ray goes nowhere: nothing of the story or the shell there)
+  const { ctx, p } = await device(ANDROID);
+  await step('phone ar: no menu button on the page; the AR request asks for dom-overlay with #xrPhone as its root (depth sensing still); the round button in the session, in the top right corner', async () => {
+    const s0 = await ph(p);
+    if (s0.button || s0.root || s0.ar) errors.push('phone ar: before the session ' + JSON.stringify(s0));
+    await start(p);
+    const r = await p.evaluate(() => window.__phone.inits), s = await ph(p);
+    const ask = r[0] || {};
+    if (r.length !== 1 || ask.mode !== 'immersive-ar' || ask.root !== 'xrPhone' || ask.feats.filter(f => f === 'dom-overlay').length !== 1 || !ask.feats.includes('depth-sensing') || !ask.depth)
+      errors.push('phone ar: the request ' + JSON.stringify(r));
+    const [x, y, w, h] = s.rect || [];
+    if (!s.ar || !s.shown || !s.overlaid || !s.button || s.open || s.sheet || !(w >= 44 && w <= 60 && h === w && x + w <= 412 - 6 && x + w >= 412 - 30 && y >= 6 && y <= 30))
+      errors.push('phone ar: in the session ' + JSON.stringify(s));
+    const look = await p.evaluate(() => { const b = document.querySelector('#xrPhone .xp-btn'), r = document.getElementById('xrPhone'), cs = getComputedStyle(b);
+      return { root: getComputedStyle(r).pointerEvents, btn: cs.pointerEvents, radius: cs.borderRadius, icon: !!b.querySelector('svg path'), label: b.getAttribute('aria-label'), at: document.elementFromPoint(206, 430) === r || r.contains(document.elementFromPoint(206, 430)) }; });
+    if (look.root !== 'none' || look.btn !== 'auto' || look.radius !== '50%' || !look.icon || look.label !== 'Menu' || look.at) errors.push('phone ar: the overlay ' + JSON.stringify(look));
+  });
+  await step('phone ar: beforexrselect cancelled on the button and the sheet, not on the root or the page', async () => {
+    await press(p, 'menu');
+    const r = await p.evaluate(() => {
+      const fire = n => { const e = new Event('beforexrselect', { bubbles: true, cancelable: true }); n.dispatchEvent(e); return e.defaultPrevented; };
+      const q = s => document.querySelector(s);
+      return { btn: fire(q('#xrPhone .xp-btn')), sheet: fire(q('#xrPhone .xp-sheet')), row: fire(q('#xrPhone .xp-rows [data-xp="subs"]')), head: fire(q('#xrPhone .xp-head h2')),
+        root: fire(q('#xrPhone')), body: fire(document.body), canvas: fire(q('canvas')) };
+    });
+    if (!r.btn || !r.sheet || !r.row || !r.head || r.root || r.body || r.canvas) errors.push('phone ar: beforexrselect cancelled ' + JSON.stringify(r));
+  });
+  await step('phone ar: the sheet\'s rows act as the headset menu\'s and show their state (Sound, Narration, Sound effects, Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides, Recenter)', async () => {
+    const s = await ph(p);
+    const ids = s.rows.map(r => r.id).join();
+    if (!s.open || !s.sheet || ids !== 'exit,recenter,sound,voice,sfx,subs,slides,fps,labels,cards,panels,occl,full') errors.push('phone ar: the sheet ' + JSON.stringify(s));
+    const big = await p.evaluate(() => [...document.querySelectorAll('#xrPhone .xp-sheet button')].filter(b => b.getBoundingClientRect().height < 44).map(b => b.textContent));
+    if (big.length) errors.push('phone ar: buttons under 44 px tall: ' + big);
+    // what HOST says, and what the row says (its text and aria-pressed)
+    const HOSTSAYS = {
+      sound: () => !HOST.audio.muted, voice: () => HOST.xr.voice(), sfx: () => HOST.sfx.on(), subs: () => HOST.xr.subs(), slides: () => !!HOST.slides.global(), fps: () => HOST.xr.fps(),
+      labels: () => HOST.xr.labels(), cards: () => HOST.xr.cards(), panels: () => HOST.panels.get('airports'), occl: () => HOST.occlusion.own() };
+    const read = id => p.evaluate(([id, f]) => { const v = (0, eval)('(' + f + ')')(); const r = HOST.collab.phone().rows.find(x => x.id === id); return { v, r }; }, [id, HOSTSAYS[id].toString()]);
+    const SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' }, PS = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
+    const words = { sound: v => 'Sound: ' + (v ? 'on' : 'off'), voice: v => 'Narration: ' + (v ? 'on' : 'off'), sfx: v => 'Sound effects: ' + (v ? 'on' : 'off'), subs: v => 'Subtitles: ' + (v ? 'on' : 'off'),
+      slides: v => 'Slideshow: ' + (v ? 'on' : 'off'), fps: v => 'Frame rate: ' + (v ? 'on' : 'off'), labels: v => 'Labels: ' + SAY[v], cards: v => 'Cards: ' + SAY[v], panels: v => 'Panels: ' + PS[v] };
+    const lit = { labels: v => v !== 'hidden', cards: v => v !== 'hidden', panels: v => v === 'shown', occl: v => v !== 'off' };
+    const NEXT = { labels: { face: 'fixed', fixed: 'hidden', hidden: 'face' }, cards: { fixed: 'face', face: 'hidden', hidden: 'fixed' }, panels: { shown: 'controls', controls: 'hidden', hidden: 'shown' }, occl: { both: 'room', room: 'depth', depth: 'off', off: 'both' } };
+    for (const id of ['sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl']) {
+      const a = await read(id);
+      await press(p, id);
+      const b = await read(id), want = NEXT[id] ? NEXT[id][a.v] : !a.v;
+      const text = id === 'occl' ? 'Real world hides: ' + await p.evaluate(v => HOST.occlusion.say(v), b.v) : words[id](b.v);
+      const on = String(lit[id] ? lit[id](b.v) : !!b.v);
+      if (b.v !== want || !b.r || b.r.text !== text || b.r.on !== on) errors.push(`phone ar: the ${id} row: ${JSON.stringify(a)} -> ${JSON.stringify(b)} (want ${JSON.stringify(want)}, "${text}", ${on})`);
+    }
+    const rc = await p.evaluate(() => { HOST.cur.peek('XR.needRecenter = false'); return 0; }).then(() => press(p, 'recenter')).then(() => p.evaluate(() => HOST.cur.peek('XR.needRecenter')));
+    if (rc !== true) errors.push('phone ar: Recenter did not recentre (XR.needRecenter ' + rc + ')');
+    // the headset menu's own rows say the same (the menu's Settings tab drawn with them)
+    const m = await p.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); const ids = HOST.collab.menuIds(); HOST.collab.panelOpen(false); return ids; });
+    for (const id of ['exit', 'recenter', 'set:sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl']) if (!m.includes(id)) errors.push('phone ar: the headset menu has no ' + id + ' row');
+  });
+  await step('phone ar: The full menu opens the 3D menu (the sheet closes), its row then says so and closes it; Close and the button close the sheet', async () => {
+    const s0 = await ph(p);
+    if (!s0.open) await press(p, 'menu');
+    await press(p, 'full');
+    await p.evaluate(() => window.__phone.step(2));
+    const s1 = await ph(p);
+    if (!s1.menu || s1.open || s1.sheet || !s1.button) errors.push('phone ar: The full menu ' + JSON.stringify(s1));
+    const by = await p.evaluate(() => (window.__collabLog || []).filter(l => l.ev === 'menu').slice(-1)[0]);
+    if (!by || by.by !== 'phone' || by.open !== true) errors.push('phone ar: the menu opened by ' + JSON.stringify(by));
+    await press(p, 'menu');
+    const s2 = await ph(p), fr = s2.rows.find(r => r.id === 'full');
+    if (!fr || fr.text !== 'Close the full menu' || fr.on !== 'true') errors.push('phone ar: the full menu\'s row while it is open ' + JSON.stringify(fr));
+    await press(p, 'full');
+    const s3 = await ph(p);
+    if (s3.menu) errors.push('phone ar: Close the full menu left it open');
+    await press(p, 'close');
+    const s4 = await ph(p);
+    await press(p, 'menu'); const s5 = await ph(p);
+    await press(p, 'menu'); const s6 = await ph(p);
+    if (s4.open || s4.sheet || !s5.open || !s5.sheet || s6.open || s6.sheet || !s6.button) errors.push('phone ar: Close and the button ' + JSON.stringify([s4, s5, s6].map(s => [s.open, s.sheet, s.button])));
+    const ex = await p.evaluate(() => document.querySelector('#xrPhone .xp-btn').getAttribute('aria-expanded'));
+    if (ex !== 'false') errors.push('phone ar: the button\'s aria-expanded ' + ex);
+  });
+  await step('phone ar: the welcome says how a phone points and opens the menu (no controller drawn); the notice too', async () => {
+    // (the session began with the welcome off, as in every test: the notice The menu said it, 2.5 s in)
+    const n = await p.evaluate(() => HOST.collab.notes().filter(x => x.title === 'The menu').map(x => x.text));
+    if (n.slice(-1)[0] !== 'Tap the round button at the top right for the menu.') errors.push('phone ar: the notice The menu said ' + JSON.stringify(n));
+    const w = await p.evaluate(() => { HOST.collab.autoWelcome(true); return HOST.collab.welcome(); });
+    await frames(p, 2900);
+    const w1 = await p.evaluate(() => HOST.collab.welcome());
+    if (!w1.shown || !w1.phone || !/Tap: point at a thing and press it\./.test(w1.text) || !/The round button, top right: the menu\./.test(w1.text) || /Trigger|stick/.test(w1.text))
+      errors.push('phone ar: the welcome ' + JSON.stringify({ w, w1 }));
+    await p.evaluate(() => HOST.collab.autoWelcome(false));
+  });
+  await step('phone ar: Exit AR ends the session; the button gone', async () => {
+    await press(p, 'menu');
+    await press(p, 'exit');
+    await p.waitForFunction(() => !HOST.session, null, { timeout: 10000 });
+    const s = await ph(p), e = await p.evaluate(() => window.__phone.ends);
+    if (s.button || s.root || s.sheet || s.ar || e !== 1) errors.push('phone ar: after Exit ' + JSON.stringify({ s, ends: e }));
+  });
+  await step('phone ar: without the overlay, two quick taps on the screen at nothing open and close the 3D menu; two slow ones, and two at the menu, do not', async () => {
+    await p.evaluate(() => { window.__phone.o.overlay = false; });
+    await start(p);
+    const s = await ph(p), ask = await p.evaluate(() => window.__phone.inits[0]);
+    if (s.overlaid || s.button || s.shown || !s.ar || !ask || ask.root !== 'xrPhone') errors.push('phone ar: without the overlay ' + JSON.stringify({ s, ask }));
+    const two = (gap, dir) => p.evaluate(async ([gap, dir]) => { const F = window.__phone, a = F.tap(dir); if (gap) await new Promise(r => setTimeout(r, gap)); const b = F.tap(dir); F.step(1); return [Math.round(b - a), HOST.collab.menu]; }, [gap, dir || BEHIND]);
+    const r1 = await two(0), r2 = await two(0);
+    if (r1[0] >= 400 || r2[0] >= 400) errors.push('phone ar: two taps took ' + r1[0] + ' and ' + r2[0] + ' ms (too slow a machine to judge)');
+    else if (!r1[1] || r2[1]) errors.push('phone ar: two quick taps: the menu ' + r1[1] + ', again ' + r2[1]);
+    const by = await p.evaluate(() => (window.__collabLog || []).filter(l => l.ev === 'menu').slice(-2).map(l => l.open + ':' + l.by).join());
+    if (by !== 'true:tap,false:tap') errors.push('phone ar: the menu by the taps: ' + by);
+    await p.waitForTimeout(500);
+    const r3 = await two(600);
+    if (r3[1]) errors.push('phone ar: two slow taps (' + r3[0] + ' ms apart) opened the menu');
+    // the menu open: two quick taps at it (its left margin, no button there) leave it open
+    await p.waitForTimeout(500);
+    await p.evaluate(() => { HOST.collab.panelOpen(true); window.__phone.step(3); });
+    const at = await p.evaluate(() => { const m = HOST.collab.overlay().panel.mesh, w = m.geometry.parameters.width; return m.localToWorld(new THREE.Vector3(-w * 0.49, 0, 0)).toArray(); });
+    const r4 = await p.evaluate(at => { const F = window.__phone, a = F.tap(at), hv = HOST.collab.internals().hov.get(0), b = F.tap(at); F.step(1); return [Math.round(b - a), HOST.collab.menu, hv && hv.target && hv.target.kind]; }, at);
+    if (!r4[1] || r4[2] !== 'panel') errors.push('phone ar: two quick taps at the menu (' + at.map(v => v.toFixed(2)) + ', ' + r4[0] + ' ms apart, pointing at ' + r4[2] + ') closed it');
+    await p.evaluate(() => HOST.collab.panelOpen(false));
+    await p.evaluate(() => window.__phone.session.end());
+    await p.waitForFunction(() => !HOST.session, null, { timeout: 10000 });
+    await p.evaluate(() => { window.__phone.o.overlay = true; });
+  });
+  await ctx.close();
+  await step('phone ar: a headset\'s browser asks for nothing new (no dom-overlay, no root) and shows no menu button', async () => {
+    const { ctx: c2, p: q } = await device(QUEST);
+    await start(q);
+    const r = await q.evaluate(() => window.__phone.inits), s = await ph(q);
+    if (r.length !== 1 || r[0].feats.includes('dom-overlay') || r[0].root || s.button || s.root || s.ar) errors.push('phone ar: in a headset ' + JSON.stringify({ r, s }));
+    await c2.close();
+  });
 }
 // Focus mode (HOST.focus): on by default on a phone and an iPad (touch), the 3D on its own between two slim bars (nothing
 // overlapping, also on a 360 px phone), the subtitles the shell's own captions changing with the clock, a chapter's title

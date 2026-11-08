@@ -3656,7 +3656,7 @@
     if (on && CAM.on) return;   // (a camera has no menu: its overlay, camera mode)
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
     // (opened or closed by hand: a sound from where it floats, or will; not when it opens or closes by itself, or for a test)
-    if (on !== PNL.open && HOST.session && /^(stick|pinch|close)$/.test(why || '')) {
+    if (on !== PNL.open && HOST.session && /^(stick|pinch|tap|phone|close)$/.test(why || '')) {
       const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.pos.d).applyQuaternion(HD.q).add(HD.p) : null;
       sfx(on ? 'open' : 'close', at);
     }
@@ -3674,8 +3674,12 @@
   // where a press on the open menu sounds from (a headset; null on a screen)
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // how the menu opens, for the notices, and how it closes, for its header
-  const menuWhere = () => (HAND.hand ? 'pinch twice with your left hand' : 'click a stick');
-  const menuHint = () => (HAND.hand ? 'Pinch twice (left hand)' : 'Click a stick') + ' to close; unused, it closes after ' + Math.round(IDLE.ms / 1000) + ' s';
+  // (a phone's AR session, v125: the round button at the top right where it has its overlay, else two taps on the screen)
+  const menuVia = () => (phAR() ? (camOverlaid() ? 'button' : 'taps') : HAND.hand ? 'hand' : 'stick');
+  const menuWhere = () => ({ button: 'tap the round button at the top right, then The full menu', taps: 'tap twice on the screen, pointing at nothing', hand: 'pinch twice with your left hand', stick: 'click a stick' })[menuVia()];
+  const menuHint = () => ({ button: 'Tap Close', taps: 'Tap twice on nothing', hand: 'Pinch twice (left hand)', stick: 'Click a stick' })[menuVia()] + ' to close; unused, it closes after ' + Math.round(IDLE.ms / 1000) + ' s';
+  const menuHow = () => ({ button: 'Tap the round button at the top right for the menu.', taps: 'Tap twice on the screen, pointing at nothing, to open the menu.',
+    hand: 'Pinch twice with your left hand, pointing at nothing, to open the menu.', stick: 'Click a stick to open the menu.' })[menuVia()];
   // Remove takes two presses (page and headset): the first arms it for 3 s ("Remove for everyone?")
   const armed = id => !!(C.rm && C.rm.id === id && performance.now() < C.rm.until);
   function removeAsk(id) {
@@ -4786,18 +4790,20 @@
   // what it says now: { mode ('ask', 'walk', 'arc', or '' with no circles or no room), hands, go (the circles' line),
   // keys: [[what, its colour, what it does], ...] }
   function welWords() {
-    const hands = !!HAND.hand, cs = C.code && C.welcomed ? C.st.filter(s => !(s.kind === ALL && s.arc)) : [];
+    const hands = !!HAND.hand, phone = phAR(), cs = C.code && C.welcomed ? C.st.filter(s => !(s.kind === ALL && s.arc)) : [];
     let mode = '', go = '';
     if (cs.length) {
       mode = askFirst() ? 'ask' : 'walk';
-      go = mode === 'walk' ? 'Walk into a circle to go in.' : hands ? 'Point at a circle\'s card or icon and pinch to go in.' : 'Point at a circle\'s card or icon and press the trigger to go in.';
+      go = mode === 'walk' ? 'Walk into a circle to go in.' : phone ? 'Tap a circle\'s card or icon to go in.' : hands ? 'Point at a circle\'s card or icon and pinch to go in.' : 'Point at a circle\'s card or icon and press the trigger to go in.';
     } else if (C.code && C.welcomed && arcSt()) {
       mode = 'arc';
-      go = hands ? 'Point at a story\'s card in front of you and pinch to start it.' : 'Point at a story\'s card in front of you and press the trigger to start it.';
+      go = phone ? 'Tap a story\'s card in front of you to start it.' : hands ? 'Point at a story\'s card in front of you and pinch to start it.' : 'Point at a story\'s card in front of you and press the trigger to start it.';
     }
-    const keys = hands ? [['Pinch', CYAN, ': click.'], ['Pinch twice with your left hand', AMBER, ': the menu.']]
-      : [['Trigger', CYAN, ' (index finger): click.'], ['Grip', AMBER, ' (middle finger): grab and move things.'], ['Click a stick', INK, ': the menu.']];
-    return { mode, hands, go, keys };
+    // (a phone's AR session, v125: a tap points and presses; the menu is its round button, or two taps without its overlay)
+    const keys = phone ? [['Tap', CYAN, ': point at a thing and press it.'], camOverlaid() ? ['The round button, top right', AMBER, ': the menu.'] : ['Tap twice on nothing', AMBER, ': the menu.']]
+      : hands ? [['Pinch', CYAN, ': click.'], ['Pinch twice with your left hand', AMBER, ': the menu.']]
+        : [['Trigger', CYAN, ' (index finger): click.'], ['Grip', AMBER, ' (middle finger): grab and move things.'], ['Click a stick', INK, ': the menu.']];
+    return { mode, hands, phone, go, keys };
   }
   const welShown = () => !!(WEL.until && performance.now() < WEL.until);
   // nothing else in front of you now, and (in a room) lined up
@@ -4831,7 +4837,7 @@
     if (WEL.done || !WEL.auto || !welCan(t)) return;
     WEL.done = true; WEL.at = t; WEL.until = t + WEL.ms; WEL.placed = false;
     const W = welWords();
-    WEL.mode = W.mode; WEL.hands = W.hands;
+    WEL.mode = W.mode; WEL.hands = W.hands; WEL.phone = W.phone;
     WEL.text = ['Getting around', W.go, ...W.keys.map(k => k[0] + k[2])].filter(Boolean).join(' ');
     log('welcome', { mode: W.mode, hands: W.hands });
   }
@@ -4839,12 +4845,12 @@
     const S = OV.wel, show = welShown() && HD.ok;
     if (!show) { S.mesh.visible = false; return; }
     const W = welWords(), left = Math.max(1, Math.ceil((WEL.until - performance.now()) / 1000));
-    WEL.mode = W.mode; WEL.hands = W.hands;
+    WEL.mode = W.mode; WEL.hands = W.hands; WEL.phone = W.phone;
     WEL.text = ['Getting around', W.go, ...W.keys.map(k => k[0] + k[2])].filter(Boolean).join(' ');
     const sig = WEL.text + '|' + left;
     if (sig !== S.sig) {
       S.sig = sig;
-      const ctx = S.ctx, w = S.w, tw = W.hands ? w - 60 : w - 250;   // (the text beside the drawn controller)
+      const ctx = S.ctx, w = S.w, tw = W.hands || W.phone ? w - 60 : w - 250;   // (the text beside the drawn controller; none on a phone)
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
       rr(ctx, 3, 3, w - 6, S.h - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = CYAN; ctx.stroke();
       ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText('Getting around', 30, 26);
@@ -4859,7 +4865,7 @@
         y += 36;
       }
       ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText('Closes by itself in ' + left + ' s', 30, S.h - 42);
-      if (!W.hands) welController(ctx, w - 105, 190);
+      if (!W.hands && !W.phone) welController(ctx, w - 105, 190);
       S.tex.needsUpdate = true;
     }
     // a metre ahead and a little below eye level, turned to you, eased as the notices are (above where they show)
@@ -5429,6 +5435,7 @@
     } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
     if (C.code && R.session && !CAM.on) { guideStep(t); eyeStep(t); }   // (never a camera's: it lines up from its overlay)
     if (CAM.on) camStep(f, t);
+    phStep();   // (a phone's AR: its menu button and sheet)
     welStep(t);   // (Getting around, once a session; never a camera's: welCan)
     devStep(t);   // (developer mode: what is new, after the startup flow and the welcome; never a camera's: devCan)
     soundZone();
@@ -7286,6 +7293,7 @@
     if (s === R.session) return;
     camSession(s);   // (camera mode: this session is the camera's when Start was pressed for it)
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset();
+    phSession(s);   // (a phone's AR: its menu button, or two taps on the screen)
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
@@ -7294,7 +7302,7 @@
     // controllers or hands are known), unless it is open by then
     // (since v124 the welcome says it, with the controllers' buttons: WEL; with it off, as in tests, this notice as before;
     // never a camera's)
-    if (s && !CAM.on) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
+    if (s && !CAM.on) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', menuHow(), 6000); }, 2500);
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
@@ -7441,6 +7449,7 @@
   if (HOST.xr && typeof HOST.xr.request === 'function') {
     const ask0 = HOST.xr.request;
     HOST.xr.request = mode => {
+      if (mode === 'immersive-ar' && !CAM.want && phoneDev()) return phAsk(ask0, mode);   // (a phone's AR: its menu button, below)
       if (mode !== 'immersive-ar' || !CAM.want) return ask0(mode);
       CAM.asked = performance.now();
       camBuild();
@@ -7709,6 +7718,177 @@
 #camera.hid .cam-bar, #camera.hid .cam-aim { display: none; }
 #camera .cam-sub { position: absolute; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 760px; margin: 0 auto; text-align: center; background: rgba(4, 10, 20, 0.78); border-radius: 10px; padding: 6px 12px; font-size: clamp(16px, 2.2vmin + 10px, 26px); line-height: 1.3; }
 #camera .cam-hint { position: absolute; left: 16px; right: 16px; top: 46%; margin: 0; text-align: center; font-size: 15px; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
+`;
+
+  // ============================================================== a phone's AR ==
+  // A phone's (or a tablet's) AR session (v125; the owner, 8 November 2026: "No access to menu in ar on android, make it one
+  // button on the top right"): a phone has no stick to click and no hand to pinch, so the shell's menu could not be opened in
+  // its AR session. Such a session (a phone or a tablet, phoneDev, never a headset's browser; AR; not camera mode, which
+  // keeps its own overlay) also asks for the DOM overlay ('dom-overlay', optional, on every rung of HOST.xr.request's
+  // ladder; a refusal other than the person's or the browser's asks once more without it), its root this page's #xrPhone: one round menu
+  // button at the top right, inside the safe areas. The root lets taps through to the session everywhere else
+  // (pointer-events none on it, auto on its controls; beforexrselect cancelled only on its controls), so a tap on the scene
+  // still points and presses as before. The button opens a sheet (HTML: at the foot in portrait, on the right in landscape,
+  // scrollable, large buttons) with the menu's main rows, each doing what the headset menu's row does and showing its state
+  // (phRows): Exit AR, Recenter, Sound (this session's mute), Narration (this session's), Sound effects, Subtitles,
+  // Slideshow, Frame rate, Labels and Cards, Panels (the story on show's), Real world hides, and The full menu (the shell's
+  // own menu in front of you, for the rest: a tap on the screen points at it and presses it). Close, or the button again,
+  // closes the sheet; nothing new is stored. Without the overlay (domOverlayState missing): two quick taps on the screen (a
+  // 'screen' input source, within PH.gap ms) pointing at none of the panels open and close the menu, as the left hand's
+  // two pinches do (phTap). Untested on a real phone: the overlay, the safe areas, taps passing through, Chrome's own AR
+  // controls beside the button
+  const PH = { el: null, sess: null, asking: false, open: false, sig: '', tapAt: 0, gap: 400 };
+  // a phone or a tablet (never a headset's browser: a phone's or a tablet's user agent, or the shell's own test for one,
+  // HOST.handheld: a touch screen whose smaller side is at most 1100 px); its AR session now (not a camera); its menu
+  // button shown (its own request's session, granted the overlay)
+  const phoneDev = () => !IS_HEADSET && (DEV === 'phone' || !!(HOST.handheld && HOST.handheld.hand));
+  const phAR = () => !!(R.session && HOST.session && phoneDev() && !CAM.on && HOST.mode === 'immersive-ar');
+  const phShown = () => !!(R.session && PH.sess === R.session && !CAM.on && camOverlaid());
+  // HOST.xr.request in a phone's AR (the camera mode's wrapper calls this): the overlay asked for too, its root #xrPhone
+  // (shown, its controls not yet, while the session is asked for: a root not displayed may not be taken)
+  function phAsk(ask0, mode) {
+    phBuild();
+    PH.asking = true; PH.el.hidden = false;
+    const done = s => { PH.asking = false; PH.sess = s || null; phStep(); return s; };
+    let p;
+    try { p = ask0(mode, { features: ['dom-overlay'], init: { domOverlay: { root: PH.el } } }); } catch (e) { p = Promise.reject(e); }
+    return Promise.resolve(p).then(done, e => {
+      if (e && /^(NotAllowedError|SecurityError)$/.test(e.name)) { PH.asking = false; phStep(); throw e; }   // (the person or the browser said no)
+      log('phone AR asks again without the overlay', { e: e && e.message });
+      return Promise.resolve(ask0(mode)).then(done, e2 => { PH.asking = false; phStep(); throw e2; });
+    });
+  }
+  // the session started or ended (watch): two taps on the screen heard (they open the menu only without the overlay)
+  function phSession(s) {
+    if (s && phoneDev()) quiet(() => s.addEventListener('selectend', phTap));
+    if (!s) { PH.open = false; PH.tapAt = 0; }
+    phStep();
+  }
+  // without the overlay: two quick taps on the screen pointing at none of the panels (not at the menu, a station or a
+  // story's panel; the scene counts as nothing, as for the pinches) open and close the menu. Taken as each tap ends, once
+  // the story has pointed its ray (its rays are pointed in frames, and a tap begins before its first)
+  function phTap(e) {
+    const src = e && e.inputSource, s = R.session;
+    if (!src || src.targetRayMode !== 'screen' || !s || !phAR() || camOverlaid()) return;
+    let i = -1;
+    try { i = [...s.inputSources].indexOf(src); } catch (e2) { /* gone */ }
+    const t = performance.now(), h = C.rays.get(i), panel = !!h && t - h.at < 250 && h.near < Infinity;
+    if (i < 0 || hovOf(i) || panel || tipMode()) { PH.tapAt = 0; return; }   // (pointing at a panel: the story's, or the shell's)
+    if (PH.tapAt && t - PH.tapAt < PH.gap) { PH.tapAt = 0; toggleMenu('tap'); return; }
+    PH.tapAt = t;
+  }
+  // every frame of a session (tick), and as it starts or ends: the button only in a phone's AR with the overlay
+  function phStep() {
+    if (!PH.el) return;
+    const on = phShown(), hide = !on && !PH.asking;
+    if (!on) PH.open = false;
+    PH.el.classList.toggle('live', on);
+    if (PH.el.hidden !== hide) PH.el.hidden = hide;
+    if (on) phRender();
+  }
+  // the sheet's rows, as the headset menu's (its Settings tab): what each does and what it shows now ({ id, label, on: lit
+  // or not, null a plain button; fn: null greyed; wide; note })
+  const PH_SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
+  function phRows() {
+    const rows = [], add = (id, label, on, fn, o) => rows.push(Object.assign({ id, label, on, fn: fn || null }, o));
+    add('exit', 'Exit AR', null, () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+    const rc = recenterRow();
+    add('recenter', rc.label, null, rc.fn);
+    const mu = !!HOST.audio.muted;
+    add('sound', mu ? 'Sound: off' : 'Sound: on', !mu, () => (HOST.audio.mute ? HOST.audio.mute(!mu) : HOST.audio.toggle()));
+    if (HOST.xr.setVoice) { const vo = !HOST.xr.voice || HOST.xr.voice(); add('voice', vo ? 'Narration: on' : 'Narration: off', vo, () => HOST.xr.setVoice(!vo)); }
+    if (HOST.sfx) { const so = HOST.sfx.on(); add('sfx', so ? 'Sound effects: on' : 'Sound effects: off', so, () => HOST.sfx.set(!so)); }
+    const su = HOST.xr.subs();
+    add('subs', su ? 'Subtitles: on' : 'Subtitles: off', su, () => HOST.xr.setSubs(!su));
+    if (HOST.slides) { const sl = !!HOST.slides.global(); add('slides', sl ? 'Slideshow: on' : 'Slideshow: off', sl, () => HOST.slides.setGlobal(!sl)); }
+    if (HOST.xr.setFps) { const fo = fpsOn(); add('fps', fo ? 'Frame rate: on' : 'Frame rate: off', fo, () => HOST.xr.setFps(!fo)); }
+    const lm = HOST.xr.labels(), nl = { face: 'fixed', fixed: 'hidden', hidden: 'face' }[lm];
+    add('labels', 'Labels: ' + PH_SAY[lm], lm !== 'hidden', () => HOST.xr.setLabels(nl));
+    if (HOST.xr.setCards) {
+      const cm = cardMode(), nc = { fixed: 'face', face: 'hidden', hidden: 'fixed' }[cm];
+      add('cards', 'Cards: ' + PH_SAY[cm], cm !== 'hidden', () => HOST.xr.setCards(nc));
+    }
+    const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
+    add('panels', pm ? 'Panels: ' + PANELS_SAY[pm] : 'Panels', pm ? pm === 'shown' : null, pm ? () => HOST.panels.set(pk, HOST.panels.next(pk)) : null,
+      { wide: true, note: !pm ? 'No story on show' : C.code ? 'Panels for this circle; labels, cards, subtitles and sound effects for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only' });
+    if (HOST.occlusion && HOST.occlusion.set) {
+      const O = HOST.occlusion, om = O.own(), ov = O.over();
+      add('occl', 'Real world hides: ' + O.say(om), om !== 'off', () => O.set(O.next(om)), { wide: true, note: ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : 'Real things in front of a scene hide it, as in the room' });
+    }
+    add('full', PNL.open ? 'Close the full menu' : 'The full menu', PNL.open, () => { menuOpen(!PNL.open, 'phone'); if (PNL.open) PH.open = false; },
+      { wide: true, note: 'Everything else, in front of you: tap its buttons on the screen' });
+    return rows;
+  }
+  function phBuild() {
+    if (PH.el) return PH.el;
+    const st = document.createElement('style');
+    st.textContent = PH_CSS;
+    document.head.appendChild(st);
+    const el = document.createElement('div');
+    el.id = 'xrPhone'; el.hidden = true;
+    el.innerHTML = `<button type="button" class="xp-btn xp-ctl" data-xp="menu" aria-label="Menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg></button>
+      <div class="xp-sheet xp-ctl" role="dialog" aria-label="Menu" hidden><div class="xp-head"><h2>Menu</h2><button type="button" data-xp="close">Close</button></div><div class="xp-rows"></div></div>`;
+    document.body.appendChild(el);
+    PH.el = el;
+    quiet(() => {
+      // (a tap on the button or the sheet is never the session's; anywhere else it reaches the scene, as before)
+      el.addEventListener('beforexrselect', ev => { if (ev.target && ev.target.closest && ev.target.closest('.xp-ctl')) ev.preventDefault(); });
+      el.addEventListener('click', phClick);
+    });
+    return el;
+  }
+  function phClick(ev) {
+    const b = ev.target && ev.target.closest && ev.target.closest('[data-xp]');
+    if (!b || b.disabled || !PH.el.contains(b)) return;
+    const id = b.dataset.xp;
+    PH.tapAt = 0;
+    if (id === 'menu') PH.open = !PH.open;
+    else if (id === 'close') PH.open = false;
+    else { const r = phRows().find(x => x.id === id); if (!r || !r.fn) return; r.fn(); }
+    log('phone menu', { id, open: PH.open });
+    PH.sig = '';
+    phStep();
+  }
+  // the button's state and, open, the sheet's rows (drawn again only when what they say changes)
+  function phRender() {
+    const el = PH.el, sh = el.querySelector('.xp-sheet'), b = el.querySelector('.xp-btn');
+    if (b.getAttribute('aria-expanded') !== String(PH.open)) b.setAttribute('aria-expanded', String(PH.open));
+    if (sh.hidden === PH.open) sh.hidden = !PH.open;
+    if (!PH.open) { PH.sig = ''; return; }
+    const rows = phRows(), sig = J(rows.map(r => [r.id, r.label, r.on, !!r.fn, r.note || '']));
+    if (sig === PH.sig) return;
+    PH.sig = sig;
+    el.querySelector('.xp-rows').innerHTML = rows.map(r => `<button type="button"${r.wide ? ' class="wide"' : ''} data-xp="${esc(r.id)}"${typeof r.on === 'boolean' ? ` aria-pressed="${r.on}"` : ''}${r.fn ? '' : ' disabled'}>${esc(r.label)}</button>` +
+      (r.note ? `<p class="xp-note">${esc(r.note)}</p>` : '')).join('');
+  }
+  function phState() {
+    const q = s => PH.el && PH.el.querySelector(s), b = q('.xp-btn'), sh = q('.xp-sheet'), vis = n => !!(n && n.getClientRects().length && getComputedStyle(n).display !== 'none');
+    return { ar: phAR(), shown: phShown(), asking: PH.asking, overlaid: camOverlaid(), root: !!PH.el && !PH.el.hidden, button: vis(b), open: PH.open, sheet: vis(sh), menu: PNL.open,
+      rect: b && vis(b) ? (r => [r.left, r.top, r.width, r.height].map(Math.round))(b.getBoundingClientRect()) : null,
+      rows: PH.el ? [...PH.el.querySelectorAll('.xp-rows [data-xp]')].map(n => ({ id: n.dataset.xp, text: n.textContent, on: n.getAttribute('aria-pressed'), off: n.disabled })) : [] };
+  }
+  const PH_CSS = `
+#xrPhone { position: fixed; inset: 0; z-index: 91; pointer-events: none; font: 15px/1.35 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #e7eef8; -webkit-tap-highlight-color: transparent; }
+#xrPhone[hidden] { display: none !important; }
+#xrPhone .xp-btn, #xrPhone .xp-sheet { display: none; pointer-events: auto; }
+#xrPhone.live .xp-btn { display: grid; }
+#xrPhone.live .xp-sheet:not([hidden]) { display: block; }
+#xrPhone .xp-btn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); width: 52px; height: 52px; padding: 0; place-items: center; border-radius: 50%; background: rgba(4, 10, 20, 0.72); border: 2px solid rgba(231, 238, 248, 0.8); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); color: #e7eef8; }
+#xrPhone .xp-btn[aria-expanded="true"] { background: #46d9ff; border-color: #46d9ff; color: #04131c; }
+#xrPhone .xp-btn svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+#xrPhone .xp-sheet { position: absolute; left: calc(8px + env(safe-area-inset-left)); right: calc(8px + env(safe-area-inset-right)); bottom: calc(8px + env(safe-area-inset-bottom)); max-height: min(72vh, calc(100% - 84px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 12px 14px 14px; background: rgba(4, 10, 20, 0.92); border: 1px solid rgba(149, 166, 189, 0.35); border-radius: 16px; }
+@media (orientation: landscape) and (min-width: 560px) {
+  #xrPhone .xp-sheet { left: auto; top: calc(76px + env(safe-area-inset-top)); width: min(380px, 48vw); max-height: none; }
+}
+#xrPhone .xp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+#xrPhone .xp-head h2 { font-size: 19px; margin: 0; }
+#xrPhone .xp-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#xrPhone .xp-rows .wide, #xrPhone .xp-note { grid-column: 1 / -1; }
+#xrPhone .xp-sheet button { font: inherit; font-size: 15px; color: #e7eef8; background: rgba(149, 166, 189, 0.2); border: 1px solid rgba(149, 166, 189, 0.4); border-radius: 10px; padding: 10px 12px; min-height: 48px; text-align: left; }
+#xrPhone .xp-sheet button[aria-pressed="true"] { border-color: #46d9ff; background: rgba(70, 217, 255, 0.22); font-weight: 700; }
+#xrPhone .xp-sheet button:disabled { opacity: 0.45; }
+#xrPhone .xp-head button { min-width: 84px; text-align: center; }
+#xrPhone .xp-note { margin: -4px 2px 4px; font-size: 12.5px; color: #a9b8cc; }
 `;
 
   // ============================================================ the page's dialog ==
@@ -8163,7 +8343,7 @@
     // the welcome (Getting around, once a session in a headset): { shown: on show now, at: when it showed this session (0
     // not yet), text: what it says, mode: 'ask', 'walk', 'arc' or '' (no circles), hands: for tracked hands, done }; its
     // opening by itself (tests turn it off: autoWelcome(false), which also closes one on show)
-    welcome: () => ({ shown: welShown(), at: WEL.at, text: WEL.text, mode: WEL.mode, hands: WEL.hands, done: WEL.done }),
+    welcome: () => ({ shown: welShown(), at: WEL.at, text: WEL.text, mode: WEL.mode, hands: WEL.hands, phone: !!WEL.phone, done: WEL.done }),
     autoWelcome: on => { if (on !== undefined) { WEL.auto = !!on; if (!on) welClose('off'); } return WEL.auto; }, welcomeMs: ms => { if (ms > 0) WEL.ms = +ms; return WEL.ms; },
     // what is new in a headset (developer mode, HOST.dev): { shown: the menu on its page now, fl: this session's flow (0 not
     // yet, 1 on show, 2 done, 3 later), menu: the flow opened the menu }; devOpen(): the page by hand, as the Debug tab's
@@ -8256,5 +8436,8 @@
     // where it stands for tests ({ on, lined, follow, station, hidden, panels, people, ... }), offered here, and started (within
     // a tap, as Enter AR is)
     cameraMode: () => CAM.on, camera: () => camState(), cameraOffered: () => camOffered(), cameraStart: why => camStart(why || 'api'),
+    // a phone's AR session (v125): its menu button and sheet ({ ar, shown, overlaid, button, open, sheet, menu, rect, rows }),
+    // and the sheet opened or closed as the button does (tests)
+    phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },
   };
 })();

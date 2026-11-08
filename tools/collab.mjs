@@ -5172,9 +5172,10 @@ async function cameraRound(dir) {
     await frames(P, 600);
     const ask = await P.evaluate(() => (window.__xrAsks || []).slice(-1)[0]), c0 = await P.evaluate(() => HOST.collab.camera());
     const ov = await P.evaluate(() => { const e = document.getElementById('camera'); return { shown: !!e && !e.hidden, live: !!e && e.classList.contains('live'), dlg: !document.getElementById('shared').hidden, aim: !!e && e.classList.contains('aim'),
-      step: e && e.querySelector('.cam-step').textContent, set: e && e.querySelector('[data-cam="set"]').disabled, mode: HOST.mode }; });
-    check('camera: Camera mode starts the story\'s AR session through HOST.xr.request, asking also for hit-test and dom-overlay (its root #camera) with depth sensing still asked',
-      on && !!ask && ask.m === 'immersive-ar' && ask.feats.includes('hit-test') && ask.feats.includes('dom-overlay') && ask.feats.includes('depth-sensing') && ask.root === 'camera' && ask.depth && ov.mode === 'immersive-ar',
+      step: e && e.querySelector('.cam-step').textContent, set: e && e.querySelector('[data-cam="set"]').disabled, mode: HOST.mode, phone: HOST.collab.phone ? HOST.collab.phone() : null }; });
+    check('camera: Camera mode starts the story\'s AR session through HOST.xr.request, asking also for hit-test and dom-overlay (its root #camera, once; not a phone AR\'s #xrPhone, whose menu button never shows) with depth sensing still asked',
+      on && !!ask && ask.m === 'immersive-ar' && ask.feats.includes('hit-test') && ask.feats.filter(f => f === 'dom-overlay').length === 1 && ask.feats.includes('depth-sensing') && ask.root === 'camera' && ask.depth && ov.mode === 'immersive-ar' &&
+        !(ov.phone && (ov.phone.button || ov.phone.root || ov.phone.ar)),
       JSON.stringify({ on, ask, ov }));
     check('camera: the overlay shows (the dialog closed): before the floor is found, the crosshair and "Move the phone slowly", Set spot A greyed',
       ov.shown && ov.live && !ov.dlg && ov.aim && /Move the phone slowly so it finds the floor/.test(ov.step) && ov.set === true && c0.on && c0.calib === 'a' && !c0.lined, JSON.stringify({ ov, c0 }));
