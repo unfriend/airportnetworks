@@ -4889,8 +4889,10 @@ forward after a turn where the head now faces; the setting off moving nothing an
 explore mode the stick's spin and zoom left alone while it applies and working again when it is off, the grip held on
 the globe (`squeezestart`) its reach still following the stick with no moving, let go the stick moving you again; the
 menu's row on and pressed both ways; in a pretend shared room elsewhere (v128: `HOST.collab.joined`, `code` and `here()`
-stubbed, `here()` false): the travel gone as the room is joined, the left stick 1.5 m where you face, a flick 30 degrees,
-`walkWhy` `''` and the row pressable, then in the room with the others (`here()` true) back where you stand, the sticks
+stubbed, `here()` false): moved and turned before it is joined, the travel gone as the room is joined (back where you
+stand), the left stick 1.5 m where you face, a flick 30 degrees, `walkWhy` `''` and the row pressable, another room's code
+while moved taking the travel back again, then moved and turned once more and in the room with the others (`here()` true)
+back where you stand, the sticks
 moving nothing, two clicks saying *Not while you are in the room with the others*, the row greyed, and elsewhere again
 the stick moving you; in AR, in a pretend shared room with an older `shared.js` (no `here()`: any room, the travel back
 to none) and with the story's `ownSticks`: the sticks moving nothing, two clicks saying why in a notice, the row greyed; the studio's

@@ -8051,7 +8051,7 @@ if (runs('stick moving')) {
     if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
   });
 
-  await step('stick moving: in a shared room elsewhere it moves you (the travel gone as the room is joined; the row pressable), in the room with the others nothing (back where you stand); nothing in AR or where the story moves you itself (ownSticks); the menu\'s row, greyed there; #walk=on and off', async () => {
+  await step('stick moving: in a shared room elsewhere it moves you (moved and turned, the travel gone as the room is joined, and again as another is; the row pressable), in the room with the others nothing (back where you stand); nothing in AR or where the story moves you itself (ownSticks); the menu\'s row, greyed there; #walk=on and off', async () => {
     const bad = [];
     await openW('qubits');
     await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); });
@@ -8072,22 +8072,34 @@ if (runs('stick moving')) {
     // yet): the travel goes as the room is joined (its frame is made from where you really stand), then the left stick
     // moves you 1.5 m where you face, a flick turns you 30 degrees, the row pressable; in the room with the others
     // (here() true: "In this room"): back where you stand and nothing moves, the row greyed
+    // moved and turned just before the room is joined (a flick right too), so the join's reset has travel to take back
+    await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
+    const p0 = await seen(), dg = (a, b) => ((a - b + 540) % 360) - 180;
+    if (noMove(p0.travel) || dist(p0.head, [0, 1.6, 0]) < 0.3 || Math.abs(dg(p0.yaw, 0) + 30) > 0.5) bad.push('not moved and turned before the room is joined: ' + JSON.stringify({ travel: p0.travel, head: p0.head, yaw: p0.yaw }));
     await wp.waitForTimeout(500);
     await wp.evaluate(() => { const C = HOST.collab; window.__room = { joined: Object.getOwnPropertyDescriptor(C, 'joined'), code: Object.getOwnPropertyDescriptor(C, 'code'), here: C.here };
-      Object.defineProperty(C, 'joined', { get: () => true, configurable: true }); Object.defineProperty(C, 'code', { get: () => 'WLK', configurable: true });
+      window.__code = 'WLK'; Object.defineProperty(C, 'joined', { get: () => true, configurable: true }); Object.defineProperty(C, 'code', { get: () => window.__code, configurable: true });
       window.__here = false; C.here = () => window.__here === true; });
     try {
       await tick(2);
       const e0 = await seen();
-      if (e0.why !== '' || !e0.walking || !noMove(e0.travel) || dist(e0.head, [0, 1.6, 0]) > 1e-6) bad.push('a shared room joined, elsewhere: ' + JSON.stringify({ why: e0.why, walking: e0.walking, travel: e0.travel, head: e0.head }) + ' (want it applying, the travel gone)');
+      if (e0.why !== '' || !e0.walking || !noMove(e0.travel) || dist(e0.head, [0, 1.6, 0]) > 1e-6 || Math.abs(e0.yaw) > 1e-3) bad.push('a shared room joined, elsewhere: ' + JSON.stringify({ why: e0.why, walking: e0.walking, travel: e0.travel, head: e0.head, yaw: e0.yaw }) + ' (want it applying, the travel gone: back where you stand)');
       await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
       const e1 = await seen();
       if (dist(e1.head, [0, 1.6, -1.5]) > 0.05) bad.push('elsewhere in a room, forward for a second: the head at ' + e1.head.map(v => v.toFixed(3)) + ', not 0, 1.6, -1.5');
       await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
-      const e2 = await seen(), dg = (a, b) => ((a - b + 540) % 360) - 180;
+      const e2 = await seen();
       if (Math.abs(dg(e2.yaw, e1.yaw) + 30) > 0.5 || dist(e2.head, e1.head) > 1e-3) bad.push(`elsewhere in a room, a flick right: turned ${dg(e2.yaw, e1.yaw).toFixed(2)} degrees, moved ${dist(e2.head, e1.head).toFixed(4)} m`);
       const er = await row();
       if (er !== 'on') bad.push('elsewhere in a room, the menu\'s row is ' + er + ', not pressable');
+      // another room joined while moved (WLK to WLB, still elsewhere): the travel gone again, back where you stand; then
+      // moved and turned once more, so answering "In this room" below has travel to take back
+      await wp.evaluate(() => { window.__code = 'WLB'; }); await tick(2);
+      const b0 = await seen();
+      if (b0.why !== '' || !b0.walking || !noMove(b0.travel) || dist(b0.head, [0, 1.6, 0]) > 1e-6 || Math.abs(b0.yaw) > 1e-3) bad.push('another room joined while moved: ' + JSON.stringify({ why: b0.why, walking: b0.walking, travel: b0.travel, head: b0.head, yaw: b0.yaw }) + ' (want the travel gone)');
+      await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
+      const b1 = await seen();
+      if (noMove(b1.travel) || dist(b1.head, [0, 1.6, 0]) < 0.3 || Math.abs(dg(b1.yaw, 0) + 30) > 0.5) bad.push('in the other room, the sticks did not move and turn you: ' + JSON.stringify({ travel: b1.travel, head: b1.head, yaw: b1.yaw }));
       // answered "In this room": back where you stand, the sticks move nothing, two clicks say why, the row greyed
       await wp.waitForTimeout(500);
       await wp.evaluate(() => { window.__here = true; }); await tick(2);
