@@ -408,8 +408,15 @@ return {
   // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
-  // its own stick walk in VR (stickWalk, e8_xr.js): the shell's moving with the sticks (HOST.xr.walking) leaves it alone
-  ownSticks: true,
+  // the sticks (e8_xr.js): the studio's own (walk, turn, steer what you carry, scroll) while the shell's moving with the
+  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): also in a shared room, where
+  // the studio moves its scene itself (room: stickMove), and while a grip is held (carry: it comes along in the hand)
+  sticks: {
+    room: true, carry: true,
+    say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.']
+      : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click a stick twice to move with them.']),
+    note: 'Here, on: the sticks move you, also while you carry something (it comes along). Off: the studio\'s sticks (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
+  },
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each; one

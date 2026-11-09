@@ -6843,10 +6843,11 @@ if (runs('stick moving')) {
   wp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('stick moving: ' + m.text()); });
   const sx = s => wp.evaluate(s => HOST.cur.peek(s), s);
   const tick = (n, ms) => wp.evaluate(([n, ms]) => window.__wtick(n, ms), [n || 1, ms || 1000 / 60]);
-  const openW = async (key, hash) => {
+  // (ready: what else to wait for inside the story before the pretend headset takes over, such as the studio's scene)
+  const openW = async (key, hash, ready) => {
     await wp.goto('about:blank');
     await wp.goto(base + 'index.html#' + key + (hash || ''));
-    await wp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 60000 });
+    await wp.waitForFunction(([k, r]) => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup' + (r ? ' && (' + r + ')' : '')), [key, ready || ''], { timeout: 60000 });
     await wp.evaluate(() => {
       const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
       const W = window.__w = { head: { p: [0, 1.6, 0], yaw: 0 }, t: 5000, raf: [], last: null };
@@ -6861,7 +6862,7 @@ if (runs('stick moving')) {
       const L = W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Lray'), gripSpace: sp('Lgrip'), gamepad: pad() };
       const R = W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Rray'), gripSpace: sp('Rgrip'), gamepad: pad() };
       W.anchor = sp('anchor');
-      const real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)], [W.anchor, at(0, 1, -2)]]);
+      const real = W.real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)], [W.anchor, at(0, 1, -2)]]);
       W.frame = () => ({ getViewerPose: s => pose(into(s, at(...W.head.p, W.head.yaw))), getPose: (s, b) => (real.has(s) ? pose(into(b, real.get(s))) : null), getJointPose: () => null });
       const ls = {};
       W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R],
@@ -6876,6 +6877,7 @@ if (runs('stick moving')) {
           W.t += ms;
           const f = W.last = W.frame();
           for (const cb of W.raf.splice(0)) cb(W.t, f);
+          if (W.pre) W.pre(f);   // (what three.js would do with the frame before the story's: the studio's controllers placed)
           HOST.cur.peek(`(() => {
             xrBegin(window.__w.last, ${ms / 1000});
             const hand = typeof xrPlaceGlobe === 'function', pn = performance.now();
@@ -7023,7 +7025,7 @@ if (runs('stick moving')) {
     if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
   });
 
-  await step('stick moving: nothing in AR, in a shared room (back where you stand) or where the story moves you itself (the studio); the menu\'s row, greyed there; #walk=on and off', async () => {
+  await step('stick moving: nothing in AR, in a shared room (back where you stand) or where the story moves you itself (ownSticks); the menu\'s row, greyed there; #walk=on and off', async () => {
     const bad = [];
     await openW('qubits');
     await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); });
@@ -7042,7 +7044,7 @@ if (runs('stick moving')) {
     // each place where it does not apply: the sticks move nothing, two clicks say why, the row greyed (none: no region)
     const cases = [
       ['AR', () => { window.__w.s.environmentBlendMode = 'alpha-blend'; HOST.mode = 'immersive-ar'; }, () => { window.__w.s.environmentBlendMode = 'opaque'; HOST.mode = 'immersive-vr'; }, 'ar', 'Not in AR'],
-      ['the studio', () => { HOST.cur.ownSticks = true; }, () => { delete HOST.cur.ownSticks; }, 'own', 'Not here'],
+      ['a page with its own sticks', () => { HOST.cur.ownSticks = true; }, () => { delete HOST.cur.ownSticks; }, 'own', 'Not here'],
       ['a shared room', () => { window.__joined = Object.getOwnPropertyDescriptor(HOST.collab, 'joined'); Object.defineProperty(HOST.collab, 'joined', { get: () => true, configurable: true }); },
         () => { Object.defineProperty(HOST.collab, 'joined', window.__joined); }, 'room', 'Not in a shared room'],
     ];
@@ -7063,8 +7065,8 @@ if (runs('stick moving')) {
       if (r !== 'none') bad.push(`${where}: the menu's row is ${r}, not greyed`);
     }
     await wp.evaluate(() => HOST.collab.panelOpen(false));
-    // the studio says so in its returned object
-    if (!await wp.evaluate(async () => /\n {2}ownSticks: true,\n/.test(await (await fetch('stories/studio.js')).text()))) bad.push('the studio does not say ownSticks: true');
+    // the studio switches its sticks with the setting (its returned object's sticks: in a room too, and while carrying)
+    if (!await wp.evaluate(async () => { const t = await (await fetch('stories/studio.js')).text(); return /\n {2}sticks: \{\n {4}room: true, carry: true,\n/.test(t) && !/\n {2}ownSticks: /.test(t); })) bad.push('the studio does not say sticks: { room: true, carry: true } (or still says ownSticks)');
     // a link
     await openW('qubits', '&walk=off');
     const l1 = await wp.evaluate(() => HOST.xr.walk());
@@ -7072,6 +7074,140 @@ if (runs('stick moving')) {
     const l2 = await wp.evaluate(() => [HOST.xr.walk(), HOST.xr.walking()]);
     if (l1 || !l2[0] || !l2[1]) bad.push('#walk=off then on: ' + JSON.stringify([l1, l2]));
     await wp.evaluate(() => { try { localStorage.removeItem('xrWalk'); } catch (e) { /* storage blocked */ } });
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  // the studio (v125; the owner, 8 November 2026: "i want stick movement in studio mode too, just make it switchable with
+  // the double stick click"): a stick clicked twice switches its sticks between its own (walk, turn, steer what you
+  // carry) and moving you (the shell's travel; the same setting, HOST.xr.walk), also while something is carried, which
+  // comes along in the hand; in a shared room the studio moves its scene itself (the shell's travel off there), by the
+  // shell's rules. The test scene, editing on; the pretend controllers pointing down at the floor in front, placed each
+  // frame where the frame (the shell's travel in it) puts them, as three.js would
+  const STU_HASH = '&scenes=tools/studio/test/scenes&scene=test&edit';
+  const stuOpen = async () => {
+    await openW('studio', STU_HASH, 'typeof STUDIO !== "undefined" && STUDIO.ready() && STU.items.has("box001") && !!STU.items.get("box001").model');
+    await sx(`(() => { APP.enterExplore(); setEdit(true);
+      const W = window.__w, V = THREE.Vector3, Q = THREE.Quaternion, M = THREE.Matrix4, down = new Q().setFromAxisAngle(new V(1, 0, 0), -Math.PI / 2);
+      W.real.set(W.L.targetRaySpace, new M().compose(new V(-0.2, 1.1, -0.3), down, new V(1, 1, 1)));
+      W.real.set(W.R.targetRaySpace, new M().compose(new V(0.2, 1.1, -0.3), down, new V(1, 1, 1)));
+      XR.ctrls[0].src = W.L; XR.ctrls[1].src = W.R; XR.ctrls[0].g.visible = XR.ctrls[1].g.visible = true;
+      W.pre = f => { for (const c of XR.ctrls.slice(0, 2)) { const p = c.src && f.getPose(c.src.targetRaySpace, W.ref); if (p) { c.g.matrix.fromArray(p.transform.matrix); c.g.matrixWorld.copy(c.g.matrix); } } };
+      return 0; })()`);
+    await tick(3);
+  };
+  // the box's place in three.js's space and in the scene, the right hand's, XR.walk, the carry's reach, size and turn, the
+  // sticks' mode (stickMode) and the card's line under Carry it
+  const stuSeen = () => sx(`(() => { const it = STU.items.get('box001'), c = XR.ctrls[1], g = c.grab, B = []; holdBlocks(it, B, false);
+    return { walk: [XR.walk.x, XR.walk.z, XR.walk.yaw], box: it.holder.getWorldPosition(new THREE.Vector3()).toArray(), boxP: it.holder.position.toArray(),
+      hand: new THREE.Vector3().setFromMatrixPosition(c.g.matrix).toArray(), grab: g ? [g.target, g.id, g.reach, g.kz, g.sth] : null, mode: stickMode(),
+      card: B.map(b => b.p || '').join(' | ') }; })()`);
+  const grabBox = on => sx(on ? `(XR.ctrls[1].hover = { kind: 'item', id: 'box001' }, xrGrab(XR.ctrls[1], true), window.__w.R.gamepad.buttons[1].pressed = true, window.__w.s.fire('squeezestart', { inputSource: window.__w.R }), XR.ctrls[1].grab ? XR.ctrls[1].grab.id : '')`
+    : `(xrGrab(XR.ctrls[1], false), window.__w.R.gamepad.buttons[1].pressed = false, window.__w.s.fire('squeezeend', { inputSource: window.__w.R }), 0)`);
+  // the menu's Moving with the sticks row (Settings): pressable, greyed or none
+  const rowOK = async () => {
+    await wp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
+    await tick(2);
+    return wp.evaluate(() => { const r = HOST.collab.menuFind('walk'); HOST.collab.panelOpen(false); return r ? (r.fn ? 'on' : 'greyed') : 'none'; });
+  };
+  const rel = u => u.box.map((v, k) => v - u.hand[k]), dg = (x, y) => ((x - y + 540) % 360) - 180;
+
+  await step('stick moving: in the studio a stick clicked twice switches its sticks (its words, the row pressable): its own walk, then moving you (the left stick 1.5 m, the right a 30 degree flick, XR.walk kept); a carried box not steered but coming along in the hand; switched back, steering again; no jump either way', async () => {
+    const bad = [];
+    await stuOpen();
+    await wp.evaluate(() => { HOST.xr.setWalk(false); HOST.xr.walkReset(); });
+    await tick(2);
+    const w0 = await wp.evaluate(() => [HOST.xr.walk(), HOST.xr.walkWhy(), HOST.xr.walking(), !!(HOST.cur.sticks && HOST.cur.sticks.room && HOST.cur.sticks.carry)]);
+    if (w0[0] || w0[1] !== '' || w0[2] || !w0[3]) bad.push('the studio\'s sticks to start with: ' + JSON.stringify(w0) + ' (want off, why \'\', not walking, its sticks said)');
+    const row0 = await rowOK();
+    if (row0 !== 'on') bad.push('the menu\'s row in the studio is ' + row0 + ', not pressable');
+    // its own: the left stick walks you through the scene (XR.walk), the shell moves nothing
+    const a0 = await seen(), u0 = await stuSeen();
+    await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
+    const a1 = await seen(), u1 = await stuSeen();
+    if (u1.mode !== 'own' || Math.abs(u1.walk[1] - u0.walk[1] - 1.5) > 0.03 || dist(a1.head, a0.head) > 1e-6 || a1.travel.space) bad.push('the studio\'s own walk: ' + JSON.stringify({ mode: u1.mode, walk: [u0.walk, u1.walk], head: [a0.head, a1.head], travel: a1.travel }));
+    if (!/^Sticks: the studio's\. Carried, the sticks steer it: .*Click a stick twice to move with them instead\.$/.test(u1.card.split(' | ').pop())) bad.push('the card under Carry it, the studio\'s: ' + u1.card);
+    // clicked twice: moving you, its words; nothing jumps
+    await click('L', 2);
+    const n1 = await note(), a2 = await seen(), u2 = await stuSeen();
+    if (!(await wp.evaluate(() => HOST.xr.walk())) || n1 !== 'Sticks: moving you: Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.') bad.push('clicked twice: ' + n1);
+    if (u2.mode !== 'move' || !a2.walking || dist(a2.head, a1.head) > 1e-6 || dist(u2.walk, u1.walk) > 1e-9) bad.push('switching to moving moved something: ' + JSON.stringify({ mode: u2.mode, head: [a1.head, a2.head], walk: [u1.walk, u2.walk] }));
+    if (!/^Sticks: moving you\. Carried, it comes along/.test(u2.card.split(' | ').pop())) bad.push('the card under Carry it, moving: ' + u2.card);
+    if (await rowOK() !== 'on') bad.push('the menu\'s row, moving: greyed');
+    // moving: the left stick 1.5 m in a second where the head faces, the right a 30 degree flick; XR.walk as it was
+    await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
+    const a3 = await seen(), u3 = await stuSeen();
+    if (Math.abs(dist(a3.head, a2.head) - 1.5) > 0.05 || a3.head[2] > a2.head[2] - 1.4 || dist(u3.walk, u2.walk) > 1e-9) bad.push('moving, the left stick: ' + JSON.stringify({ head: [a2.head, a3.head], walk: [u2.walk, u3.walk] }));
+    await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
+    const a4 = await seen(), u4 = await stuSeen();
+    if (Math.abs(dg(a4.yaw, a3.yaw) + 30) > 0.5 || dist(a4.head, a3.head) > 1e-3 || dist(u4.walk, u3.walk) > 1e-9) bad.push(`moving, a flick right: turned ${dg(a4.yaw, a3.yaw).toFixed(2)} degrees, XR.walk ${JSON.stringify([u3.walk, u4.walk])}`);
+    // the box carried (the grip held, as the shell hears it): the left stick moves you all the same, the right stick up
+    // pushes nothing; the box stays in the hand, so it comes along through the scene
+    const g0 = await grabBox(true); await tick(2);
+    const a5 = await seen(), u5 = await stuSeen();
+    await stick('L', 0, -1); await stick('R', 0, -1); await tick(60); await stick('L', 0, 0); await stick('R', 0, 0); await tick(2);
+    const a6 = await seen(), u6 = await stuSeen();
+    if (g0 !== 'box001') bad.push('the grip did not take the box');
+    if (Math.abs(dist(a6.head, a5.head) - 1.5) > 0.05) bad.push('carrying, the left stick did not move you 1.5 m: ' + dist(a6.head, a5.head).toFixed(3));
+    if (!u6.grab || u6.grab[2] !== 1 || u6.grab[3] !== 1 || u6.grab[4] !== 0) bad.push('moving, the sticks steered the box: ' + JSON.stringify(u6.grab));
+    if (dist(rel(u6), rel(u5)) > 1e-3 || Math.abs(dist(u6.boxP, u5.boxP) - 1.5) > 0.05) bad.push('the box did not come along in the hand: ' + JSON.stringify({ rel: [rel(u5), rel(u6)], scene: [u5.boxP, u6.boxP] }));
+    // clicked twice again (still carrying): the studio's, its words; nothing jumps; the right stick up pushes the box away
+    await click('L', 2);
+    const n2 = await note(), a7 = await seen(), u7 = await stuSeen();
+    if (await wp.evaluate(() => HOST.xr.walk()) || n2 !== 'Sticks: the studio\'s: Walk, turn, steer what you carry. Click a stick twice to move with them.') bad.push('clicked twice again: ' + n2);
+    if (u7.mode !== 'own' || dist(a7.head, a6.head) > 1e-6 || dist(u7.walk, u6.walk) > 1e-9 || dist(u7.box, u6.box) > 1e-6) bad.push('switching back moved something: ' + JSON.stringify({ head: [a6.head, a7.head], walk: [u6.walk, u7.walk], box: [u6.box, u7.box] }));
+    await stick('R', 0, -1); await tick(30); await stick('R', 0, 0); await tick(1);
+    const a8 = await seen(), u8 = await stuSeen();
+    if (!u8.grab || !(u8.grab[2] > 2) || dist(a8.head, a7.head) > 1e-6) bad.push('the studio\'s sticks again: the reach ' + (u8.grab && u8.grab[2]) + ', you moved ' + dist(a8.head, a7.head).toFixed(4));
+    await grabBox(false); await tick(1);
+    await sx('(() => { while (UNDO.length) undo(); return 0; })()');
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  await step('stick moving: the studio at a pretend station in a shared room: moving applies there (the row pressable), the shell\'s travel stays off and the studio moves its scene by the shell\'s rules, also carrying (the box comes along); switched back, no jump; in AR two clicks say why', async () => {
+    const bad = [];
+    if (!await wp.evaluate(() => HOST.curKey === 'studio' && !!window.__wtick)) await stuOpen();
+    await wp.evaluate(() => { HOST.xr.setWalk(true); window.__joined = Object.getOwnPropertyDescriptor(HOST.collab, 'joined'); Object.defineProperty(HOST.collab, 'joined', { get: () => true, configurable: true }); });
+    try {
+      await tick(2);
+      const w0 = await wp.evaluate(() => [HOST.xr.walkWhy(), HOST.xr.walking(), HOST.xr.walkSelf(), HOST.xr.travel()]);
+      if (w0[0] !== '' || !w0[1] || !w0[2] || w0[3].space || w0[3].x || w0[3].z || w0[3].yaw) bad.push('in a room: ' + JSON.stringify(w0) + ' (want why \'\', walking, the studio moving you itself, no travel)');
+      if (await rowOK() !== 'on') bad.push('the menu\'s row in the studio in a room: greyed');
+      // the left stick: the scene comes 1.5 m towards you (you move 1.5 m through it), the head where it really is
+      const a0 = await seen(), u0 = await stuSeen();
+      await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
+      const a1 = await seen(), u1 = await stuSeen();
+      if (u1.mode !== 'move' || Math.abs(dist(u1.walk.slice(0, 2), u0.walk.slice(0, 2)) - 1.5) > 0.03 || dist(a1.head, a0.head) > 1e-6 || a1.travel.space) bad.push('in a room, the left stick: ' + JSON.stringify({ walk: [u0.walk, u1.walk], head: [a0.head, a1.head], travel: a1.travel }));
+      // a flick right: XR.walk turns 30 degrees about the head (the turn arms once the stick has been at rest)
+      await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
+      const u2 = await stuSeen();
+      if (Math.abs(u2.walk[2] - u1.walk[2] - Math.PI / 6) > 1e-6) bad.push('in a room, a flick right: XR.walk turned ' + ((u2.walk[2] - u1.walk[2]) * 180 / Math.PI).toFixed(2) + ' degrees');
+      // carrying: the box comes along in the hand as the scene moves, the sticks steer nothing
+      await grabBox(true); await tick(2);
+      const u3 = await stuSeen();
+      await stick('L', 0, -1); await stick('R', 0, -1); await tick(60); await stick('L', 0, 0); await stick('R', 0, 0); await tick(2);
+      const u4 = await stuSeen(), a4 = await seen();
+      if (Math.abs(dist(u4.walk.slice(0, 2), u3.walk.slice(0, 2)) - 1.5) > 0.03 || dist(a4.head, a1.head) > 1e-6) bad.push('in a room, carrying, the left stick: ' + JSON.stringify({ walk: [u3.walk, u4.walk], head: [a1.head, a4.head] }));
+      if (!u4.grab || u4.grab[2] !== 1 || u4.grab[3] !== 1 || u4.grab[4] !== 0) bad.push('in a room, moving, the sticks steered the box: ' + JSON.stringify(u4.grab));
+      if (dist(rel(u4), rel(u3)) > 1e-3 || Math.abs(dist(u4.boxP, u3.boxP) - 1.5) > 0.05) bad.push('in a room, the box did not come along in the hand: ' + JSON.stringify({ rel: [rel(u3), rel(u4)], scene: [u3.boxP, u4.boxP] }));
+      // clicked twice: the studio's; nothing jumps; the right stick up pushes the box away again
+      await click('L', 2);
+      const n1 = await note(), u5 = await stuSeen(), a5 = await seen();
+      if (await wp.evaluate(() => HOST.xr.walk()) || !n1.startsWith('Sticks: the studio\'s') || u5.mode !== 'own' || dist(u5.walk, u4.walk) > 1e-9 || dist(a5.head, a4.head) > 1e-6) bad.push('in a room, switching back: ' + JSON.stringify({ n1, mode: u5.mode, walk: [u4.walk, u5.walk] }));
+      await stick('R', 0, -1); await tick(30); await stick('R', 0, 0); await tick(1);
+      const u6 = await stuSeen();
+      if (!u6.grab || !(u6.grab[2] > 2) || dist(u6.walk, u5.walk) > 1e-9) bad.push('in a room, the studio\'s sticks again: ' + JSON.stringify(u6.grab));
+      await grabBox(false); await tick(1);
+      // in AR: two clicks say why, and nothing changes
+      await wp.waitForTimeout(500);
+      await wp.evaluate(() => { window.__w.s.environmentBlendMode = 'alpha-blend'; HOST.mode = 'immersive-ar'; });
+      await click('L', 2);
+      const n2 = await note(), w2 = await wp.evaluate(() => [HOST.xr.walk(), HOST.xr.walkWhy()]);
+      await wp.evaluate(() => { window.__w.s.environmentBlendMode = 'opaque'; HOST.mode = 'immersive-vr'; });
+      if (!n2.startsWith('Moving with the sticks: Not in AR') || w2[0] || w2[1] !== 'ar') bad.push('in AR: ' + JSON.stringify([n2, w2]));
+    } finally {
+      await wp.evaluate(() => { Object.defineProperty(HOST.collab, 'joined', window.__joined); HOST.xr.setWalk(false); });
+      await sx('(() => { while (UNDO.length) undo(); return 0; })()');
+    }
     if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
   });
 
