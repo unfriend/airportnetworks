@@ -2147,6 +2147,115 @@ if (runs('studio')) {
     await ss(`(upClear(), X.tab = 'scene', renderPanes(), 0)`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
   });
+  // v127 (the owner, 9 November 2026): Walk view's mouse (a drag looks the way the mouse goes, a click grabs it, a crosshair,
+  // a click at the crosshair, the hint only in Walk view, Esc deselecting nothing as the grab ends); the Upload pane's × (a
+  // model's files go with it) and one slider for every model; a selected model's timeline (held, slid, let go as it is
+  // deselected); Follow behind and at a side (the record, where it goes and how it faces, the card). A page of its own
+  await step('studio v127: Walk view\'s grabbed mouse, the Upload pane\'s × and one slider for every model, a model\'s timeline, Follow behind and at a side', async () => {
+    const bad = [];
+    await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until('STUDIO.ready()', 120000)) { errors.push('studio v127: the test scene did not load'); return; }
+    // ---- Walk view: a drag right looks right, up looks up; the hint shows only there
+    const tip = () => stp.evaluate(() => { const t = document.getElementById('stuWalkTip'); return !!t && getComputedStyle(t).display !== 'none'; });
+    await frames(2);
+    if (await tip()) bad.push('the Walk hint shows in Orbit view');
+    await ss(`(setView('walk'), WALK.yaw = 0, WALK.pitch = 0, WALK.to = null, 0)`);
+    await frames(2);
+    if (!await tip()) bad.push('the Walk hint does not show in Walk view');
+    await stp.mouse.move(640, 400); await stp.mouse.down(); await stp.mouse.move(700, 360, { steps: 6 }); await stp.mouse.up();
+    const yp = await ss('[WALK.yaw, WALK.pitch]');
+    if (!(yp[0] < -0.1 && yp[1] > 0.05)) bad.push('a drag right and up in Walk view did not look right and up: ' + JSON.stringify(yp));
+    // a click grabs the mouse (headless Chromium grants the lock): the crosshair, the hint gone; a click then acts at the
+    // crosshair (pointed down at the floor: it walks there); let go, Esc at once deselects nothing
+    await ss(`(WALK.pos.set(5, 1.6, 5), WALK.yaw = 0, WALK.pitch = -0.9, walkStep(0), 0)`);   // (looking down at open floor)
+    await stp.mouse.click(640, 400);
+    const grabbed = await until('GRAB.on && document.pointerLockElement === GL.canvas', 5000);
+    if (!grabbed) bad.push('a click in Walk view did not grab the mouse: ' + JSON.stringify(await ss('[GRAB.on, GRAB.no]')));
+    else {
+      await frames(2);
+      if (await tip()) bad.push('the Walk hint shows while the mouse is grabbed');
+      if (!await stp.evaluate(() => { const e = document.getElementById('stuGrab'); return !!e && e.style.display !== 'none' && /Esc lets go/.test(e.textContent); })) bad.push('no crosshair while the mouse is grabbed');
+      // a click with the mouse grabbed acts at the crosshair, the middle of the page, wherever the mouse is (clickAt watched:
+      // where headless Chromium's grabbed mouse is, and how it turns the view on the way, are its own)
+      await ss('(window.__clickAt = clickAt, clickAt = (x, y) => { window.__clicked = [x, y]; }, 0)');
+      await stp.mouse.click(900, 300);
+      const ck = await stp.evaluate(() => window.__clicked || null);
+      await ss('(clickAt = window.__clickAt, delete window.__clicked, 0)');
+      if (!ck || ck[0] !== 640 || ck[1] !== 380) bad.push('a click with the mouse grabbed did not act at the crosshair (the middle of the page, 640, 380): ' + JSON.stringify(ck));
+      await ss(`(WALK.to = null, select('box001'), 0)`);
+      if (await ss('STU.sel') !== 'box001') bad.push('the box could not be selected (editing on again) before Esc');
+      await stp.evaluate(() => document.exitPointerLock());
+      await stp.keyboard.press('Escape');   // (as a browser does: Esc is what ends the grab)
+      await until('!GRAB.on', 5000);
+      if (await ss('STU.sel') !== 'box001') bad.push('Esc as the grab ended deselected the box');
+      if (await stp.evaluate(() => { const e = document.getElementById('stuGrab'); return !!e && e.style.display !== 'none'; })) bad.push('the crosshair stays after the grab ended');
+    }
+    await ss(`(select(''), WALK.to = null, 0)`);
+    await stp.mouse.click(640, 400);   // (grabbed again, then Orbit view: it lets go)
+    if (await until('GRAB.on', 5000)) { await ss(`(setView('orbit'), 0)`); if (!await until('!GRAB.on && document.pointerLockElement !== GL.canvas', 5000)) bad.push('leaving Walk view did not let go of the mouse'); }
+    else await ss(`(setView('orbit'), 0)`);
+    // ---- the Upload pane: four rows, a × on each; the crate's row taken out with its MTL and texture; the all-models slider
+    await ss(`(async () => { const get = async p => new File([await (await fetch('tools/studio/test/scenes/test/' + p)).arrayBuffer()], p.split('/').pop());
+      upTake([{ path: 'drop/figure.fbx', file: await get('figure.fbx') }, { path: 'drop/tex/figure.png', file: await get('figure.png') }, { path: 'drop/crate/crate.obj', file: await get('originals/crate.obj') },
+        { path: 'drop/crate/crate.mtl', file: await get('originals/crate.mtl') }, { path: 'drop/crate/crate.png', file: await get('originals/crate.png') }, { path: 'drop/tone.wav', file: await get('tone.wav') },
+        { path: 'drop/notes.txt', file: new File(['hello'], 'notes.txt') }]); return 0; })()`);
+    if (!await until(`!UP.planning && UP.rows.length === 4`, 20000)) bad.push('the drop made no plan of four rows: ' + JSON.stringify(await ss('STUDIO.state().upload')).slice(0, 300));
+    else {
+      await ss('(renderPanes(), 0)');
+      const nx = await stp.evaluate(() => document.querySelectorAll('#pane-upload .stu-plan .stu-x').length);
+      await stp.click('#pane-upload .stu-plan li:nth-child(2) .stu-x');
+      const ax = await ss(`[UP.rows.map(r => r.kind + ':' + r.main.path).join(), UP.entries.map(e => e.path).join()]`);
+      if (nx !== 4 || ax[0] !== 'model:drop/figure.fbx,sound:drop/tone.wav,keep:drop/notes.txt' || ax[1] !== 'drop/figure.fbx,drop/tex/figure.png,drop/tone.wav,drop/notes.txt') bad.push('the × on the crate\'s row: ' + JSON.stringify({ nx, ax }));
+      await stp.evaluate(() => { const r = document.querySelector('#stuRangeUpAll'); r.value = 45; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+      const ka = await ss(`(renderPanes(), [UP.keepAll, UP.rows.filter(r => r.kind === 'model').map(r => r.keep).join(), document.querySelector('#stuRangeUp0').value])`);
+      if (ka[0] !== 0.45 || ka[1] !== '0.45' || ka[2] !== '45') bad.push('the all-models slider at 45 %: ' + JSON.stringify(ka));
+      await stp.click('#pane-upload .stu-plan li:nth-child(1) .stu-x');
+      await stp.click('#pane-upload .stu-plan li:nth-child(1) .stu-x');
+      await stp.click('#pane-upload .stu-plan li:nth-child(1) .stu-x');
+      if (await ss('UP.rows.length + UP.entries.length') !== 0) bad.push('every row taken out leaves something: ' + JSON.stringify(await ss('[UP.rows.length, UP.entries.length]')));
+      await ss(`(UP.keepAll = null, upClear(), 0)`);
+    }
+    // ---- the timeline: the box's Spin (2 s, loop), selected while editing: Pause holds it, the slider moves it, Play goes
+    // on from there, deselected it follows the scene's clock again
+    await ss(`(select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    const tl = await ss(`[!!document.querySelector('#stuRangeAnim'), /Timeline: [\\d.]+ s of 2\\.0 s/.test(document.querySelector('#pane-item').textContent), !!document.querySelector('#pane-item [data-act="an:play"]')]`);
+    if (tl.join() !== 'true,true,true') bad.push('the box\'s card has no timeline: ' + JSON.stringify(tl));
+    await stp.click('#pane-item [data-act="an:play"]');   // (Pause)
+    await frames(1);
+    const p0 = await ss(`STU.items.get('box001').action.time`);
+    await frames(3);
+    const p1 = await ss(`[STU.items.get('box001').action.time, !!ANIM.mine && !ANIM.mine.p, document.querySelector('#pane-item [data-act="an:play"]').textContent]`);
+    if (Math.abs(p1[0] - p0) > 1e-6 || !p1[1] || p1[2] !== 'Play') bad.push('Pause did not hold the box: ' + JSON.stringify([p0, p1]));
+    await stp.evaluate(() => { const r = document.querySelector('#stuRangeAnim'); r.value = 5; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await frames(2);
+    const sk = await ss(`[+STU.items.get('box001').action.time.toFixed(3), ANIM.mine && ANIM.mine.p]`);
+    if (sk[0] !== 0.5 || sk[1] !== false) bad.push('the slider at 0.5 s: ' + JSON.stringify(sk));
+    await stp.click('#pane-item [data-act="an:play"]');   // (Play: on from 0.5 s)
+    await frames(2);
+    const pa = await ss(`STU.items.get('box001').action.time`);
+    await stp.waitForTimeout(300); await frames(2);
+    const pl = await ss(`[STU.items.get('box001').action.time, !!ANIM.mine && ANIM.mine.p]`);
+    if (!(pa >= 0.5) || Math.abs(pl[0] - pa) < 1e-3 || !pl[1]) bad.push('Play did not go on from where the slider held it: ' + JSON.stringify([pa, pl]));   // (Spin loops every 2 s: a slow page may wrap round between the two)
+    await ss(`(select(''), 0)`);
+    await frames(2);
+    const fr = await ss(`[ANIM.mine, Math.abs(STU.items.get('box001').action.time - (((sceneClock(performance.now()) % 2) + 2) % 2))]`);
+    if (fr[0] !== null || !(fr[1] < 0.3)) bad.push('deselected, the box did not go back to the scene\'s clock: ' + JSON.stringify(fr));
+    // ---- Follow behind and at a side: the record (in front is no side), where each puts it and how it faces, the card
+    const nb = await ss(`JSON.stringify([normBehaviour({ kind: 'follow', side: 'behind' }), normBehaviour({ kind: 'follow', side: 'front' }), normBehaviour({ kind: 'follow', side: 'up' }), normBehaviour({ kind: 'avoid', side: 'left' })])`);
+    if (nb !== JSON.stringify([{ kind: 'follow', who: 'nearest', range: 3, dist: 1, speed: 0.6, side: 'behind' }, { kind: 'follow', who: 'nearest', range: 3, dist: 1, speed: 0.6 }, null, { kind: 'avoid', who: 'nearest', range: 3, dist: 1.5, speed: 0.6, area: 2 }])) bad.push('Follow\'s side in its record: ' + nb);
+    const wt = await ss(`(() => { const it = STU.items.get('box001'), h = { p: new THREE.Vector3(0, 1.6, 0), f: [0, -1] }, y0 = behYaw0(it);
+      return ['front', 'behind', 'left', 'right'].map(sd => { const w = behWant(it, { kind: 'follow', dist: 1, side: sd === 'front' ? undefined : sd }, { tx: 0, tz: 0, d: 0 }, h, new THREE.Vector3(0, 0.25, 0)); return [+w.tx.toFixed(2), +w.tz.toFixed(2), +Math.abs(wrapA(w.d + y0)).toFixed(2)]; }); })()`);
+    if (JSON.stringify(wt) !== '[[0,-1,0],[0,1,3.14],[-1,0,3.14],[1,0,3.14]]') bad.push('Follow in front, behind, left and right of a person looking along -z (move and facing): ' + JSON.stringify(wt));
+    await ss(`(select('box001'), setRec('box001', { behaviour: { kind: 'follow', dist: 1, speed: 1, range: 3, who: 'nearest' } }), X.tab = 'item', renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="i:bside"][data-v="left"]');
+    const sc = await ss(`(renderPanes(), [STU.items.get('box001').rec.behaviour.side, /Stays at their left at/.test(document.querySelector('#pane-item').textContent)])`);
+    await stp.click('#pane-item [data-act="i:bside"][data-v="front"]');
+    const sf = await ss(`'side' in STU.items.get('box001').rec.behaviour`);
+    if (sc.join() !== 'left,true' || sf) bad.push('the card\'s Where row: ' + JSON.stringify({ sc, sf }));
+    await ss(`(setRec('box001', { behaviour: undefined }), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio v127: ' + b));
+  });
   // Fewer triangles and Change texture (tools/studio/SPEC.md): a dense, bumpy ball with a red and green checker made in the
   // page (24,320 triangles; nothing committed), served as ball.glb and placed twice
   await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and Preview (the viewer)', async () => {

@@ -4618,8 +4618,12 @@ async function studioRound(dir) {
     await sp(B, `(setView('orbit'), 0)`);
 
     // ---- Save from the headset's panel: layout.json written (the old one in .history/), every page saved; a second
-    const hPanel = (tab, id) => sp(H, `(() => { X.tab = ${JSON.stringify(tab)}; X.scroll = {}; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-      const r = XR.main.regions.find(q => q.id === ${JSON.stringify(id)}); if (r && r.fn) { r.fn(); return true; } return false; })()`);
+    // (a button below the card's fold, as a model's Turn 90° under its timeline since v127: scrolled down to, as a person would)
+    const hPanel = (tab, id) => sp(H, `(() => { X.tab = ${JSON.stringify(tab)}; X.scroll = {};
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } return XR.main.regions.find(q => q.id === ${JSON.stringify(id)}); };
+      let r = draw();
+      for (let k = 0; k < 12 && !(r && r.fn) && (X.scroll[X.tab] || 0) < (X.scrollMax[X.tab] || 0); k++) { X.scroll[X.tab] = (X.scroll[X.tab] || 0) + Math.round(X.scrollView * 0.5); r = draw(); }
+      if (r && r.fn) { r.fn(); return true; } return false; })()`);
     const layoutOf = () => { try { return JSON.parse(fs.readFileSync(path.join(SC, 'test', 'layout.json'), 'utf8')); } catch (e) { return null; } };
     const hist = () => { try { return fs.readdirSync(path.join(SC, 'test', '.history')).length; } catch (e) { return 0; } };
     const boxOf = L => (L && (L.objects || []).find(o => o.id === 'box001')) || {};
@@ -4854,6 +4858,29 @@ async function studioRound(dir) {
     check('studio: a tint and a brightness set on a page (the box red, 125 %) reach every page\'s and the headset\'s record and the box\'s own materials; the saved layout.json carries them',
       tIn.every(Boolean) && tSaved && !!tLb && tLb.tint === '#ff5a4b' && tLb.bright === 1.25, JSON.stringify({ tIn, tSaved, tint: tLb && tLb.tint, bright: tLb && tLb.bright }));
     await sp(C, `(itemAct('tint', '', 'box001'), itemAct('bright', 'reset', 'box001'), 0)`);
+    }
+
+    // ---- a model's timeline held for the circle (v127): the box selected on a page while editing, its Spin held at 1.0 s
+    // there, every other page and the headset draw that frame (a quiet effect, nothing stored); deselected, they all go
+    // back to the scene's clock. And Follow's side (v127) in a record: set on a page, on every device's
+    {
+    const onClock = `(() => { const it = STU.items.get('box001'), c = sceneClock(performance.now()), w = ((c % it.dur) + it.dur) % it.dur; return !ANIM.heard.has('box001') && Math.min(Math.abs(it.action.time - w), it.dur - Math.abs(it.action.time - w)) < 0.25; })()`;
+    await sp(C, `(setEdit(true), select('box001'), animSet(STU.items.get('box001'), 1, false), 0)`);
+    const aMine = await sp(C, `[!!ANIM.mine, atStation()]`);
+    const aIn = [];
+    for (const p of [A, B, H]) aIn.push(await sUntil(p, `ANIM.heard.has('box001') && Math.abs(STU.items.get('box001').action.time - 1) < 0.02`, 8000));
+    await sp(C, `(select(''), 0)`);
+    const aOut = [];
+    for (const p of [A, B, H]) aOut.push(await sUntil(p, onClock, 8000));
+    check('studio: a model\'s timeline held on a page (the box\'s Spin at 1.0 s) is the frame every other page and the headset draw; deselected there, every device goes back to the scene\'s clock',
+      aMine.join() === 'true,true' && aIn.every(Boolean) && aOut.every(Boolean), JSON.stringify({ aMine, aIn, aOut }));
+    await sp(C, `(setRec('box001', { behaviour: { kind: 'follow', side: 'left' } }), 0)`);
+    const sIn = [];
+    for (const p of [A, B, H]) sIn.push(await sUntil(p, `(STU.items.get('box001').rec.behaviour || {}).side === 'left'`, 8000));
+    await sp(C, `(setRec('box001', { behaviour: undefined }), 0)`);
+    const sOut = [];
+    for (const p of [A, B, H]) sOut.push(await sUntil(p, `!STU.items.get('box001').rec.behaviour`, 8000));
+    check('studio: Follow at their left set on a page is in every page\'s and the headset\'s record, and goes with it', sIn.every(Boolean) && sOut.every(Boolean), JSON.stringify({ sIn, sOut }));
     }
 
     // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it

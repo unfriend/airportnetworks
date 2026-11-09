@@ -440,6 +440,19 @@ walks there; this is where cubes trigger on a page). In Walk view the camera ins
 the headset's controller does (above): a click that finds nothing and not the floor (the floor is for walking) selects
 that object, and the pointer names it. Delete, Duplicate (D) and Undo (Ctrl+Z) from the keyboard too.
 
+Walk view's mouse (v127; the owner, 9 November 2026: "mouse movement switch left right and also grab mouse focus with
+esc to ungrab", then "like most games, in both cases", "walk view only for now"): a drag looks the way the mouse goes
+(right looks right, up looks up: `walkLook`, 0.004 rad a pixel). A click with a mouse (not a touch or a pen) grabs it:
+the browser's pointer lock on the canvas (`grabTry`, `GRAB`). While grabbed the mouse turns you (`movementX` and `Y`,
+0.0025 rad a pixel, each event held to 200 px), W A S D and the arrows walk as before, a crosshair shows in the middle
+with *Esc lets go of the mouse* under it, and a click (the left button) acts at the crosshair: `clickAt` at the page's
+middle, so it selects what is there while editing, else walks to the floor there; what is under it lights up while
+editing. Esc lets go (the browser's own; the studio's own Esc, which deselects, does nothing as the grab ends: within
+0.4 s of it), and so does leaving Walk view, explore mode, the page or the studio (`grabStep`, every frame; `grabEnd`
+in `dispose`). The first click only grabs. A browser that refuses the lock (`GRAB.no`) clicks as before. A line beside
+the View buttons, *Click the view to look with the mouse, Esc lets go*, shows in Walk view on a device with a fine
+pointer while not grabbed. Orbit view is unchanged.
+
 The panes (page HTML and headset canvas twins, the same content):
 - **Scene**: its name and the scenes to pick from (a station's scene is for everyone at it); *Edit* on/off; *Save*
   (the relay: *Saved 22:41* or why not), *Unsaved changes* when what is placed differs from what was last saved or
@@ -704,7 +717,15 @@ then sorted into a folder if possible".
   the pane (or *Choose files*); the pane shows the plan, one row per thing it will make, before anything happens;
   *Convert and upload*; progress per row; then *Open the scene* (the studio on that scene, editing on) and what was made.
   *For Quest* (textures at most 2,048 px) is on by default; off, 4,096. *Replace files with the same name* is off by
-  default (a new name is numbered: `eva_001 2.glb`).
+  default (a new name is numbered: `eva_001 2.glb`). v127 (the owner, 9 November 2026: "add option to remove items from
+  upload list before uploading, one slider for all models reduction when uploading"):
+  - a **×** at the top right of every row still to make takes it out of the plan (`upDrop`): its files leave what was
+    dropped (`UP.entries`), a model's with what it needs (its MTL, `.bin`) and its pictures, unless another row still
+    uses them; nothing of it is converted, uploaded or kept in `originals/`. Rows made or working have none;
+  - **Triangles kept, every model**, a slider above the plan while it has a model still to make, sets every such row's
+    share as it moves (2 to 100 %; the rows' own sliders follow on the page at once). A row's own slider can still differ
+    after (a line then says some have a share of their own), and the rows of a later drop start at it (`UP.keepAll`,
+    `upKeep()`; 20 % until it is moved).
 - **Grouping.** A model file and the files it needs from what was dropped (the textures it names, found by base name,
   case-insensitively, wherever they were in the dropped folders; an OBJ's MTL and the MTL's textures; a glTF's `.bin`
   and textures) are one model. Each sound is one sound. Anything left (an image no model names, an unknown file) is
@@ -1179,8 +1200,12 @@ headset so only react to one headset, example closest or first player who walks 
   kept only when set (none: absent), with only the fields its kind uses, in this order:
   - `'look'` `{ who, range }`: its front (its `+z` as it is placed: a glTF model's own front; a shape's and an empty's
     `+z`) turns to face the person, about the vertical through its middle (its place does not change);
-  - `'follow'` `{ who, range, dist, speed }`: comes to the person and stays about `dist` in front of them (where they
-    look, along the floor), at its own height, turned to them as `look` turns it;
+  - `'follow'` `{ who, range, dist, speed, side }`: comes to the person and stays about `dist` in front of them (where they
+    look, along the floor), at its own height, turned to them as `look` turns it; with `side` (v127; the owner, 9
+    November 2026: "follow mode should also be able to be behind someone", then "should be able to just walk behind them
+    and left right sounds good too") `'behind'`, `'left'` or `'right'` it stays `dist` behind them or at their left or
+    right instead (their left: where they look turned a quarter to the left, `[f.z, -f.x]`), facing the way they look, so
+    it walks with them; in front (the default) is no `side` at all, so a record from before v127 reads as it did;
   - `'avoid'` `{ who, range, dist, speed, area }`: keeps at least `dist` away from the person along the floor, never more
     than `area` from where it is placed; where it stands while it is far enough, pushed straight away from them when they
     come closer, to the far side of its area when its edge would leave it too close; home once home is `dist + 0.2 m`
@@ -1192,7 +1217,8 @@ headset so only react to one headset, example closest or first player who walks 
 
   `who`: `'nearest'` (the default) or `'first'`. `range` (default 3 m, 0.5 to 20), `dist` (follow 1 m, avoid 1.5 m; 0.2
   to 10), `speed` (default 0.6 m/s, 0.05 to 5) and `area` (default 2 m, 0.2 to 20), each to the cm and held at its
-  limits; `target` an item's id (required for `'item'`). A kind it does not know, a `who` it does not know, a number that
+  limits; `target` an item's id (required for `'item'`); `side` one of `'front'`, `'behind'`, `'left'`, `'right'`
+  (`'front'` kept as none). A kind it does not know, a `who` or a `side` it does not know, a number that
   is not one or an `'item'` without a good `target` makes the record bad (the layout counts it; the room's record is
   ignored and the item kept); fields its kind does not use are dropped. Cubes, sounds, cut-outs and groups have none.
 - **Who it reacts to**: one person at a time, among the people in a headset at its circle (pages never count; outside a
@@ -1232,7 +1258,9 @@ headset so only react to one headset, example closest or first player who walks 
   item...* (a kind for people keeps `who`, `range`, `speed` and `area` where both have them and takes its own `dist`;
   *Follow an item...* starts a pick: a click, the trigger or a pinch on an object, a shape or an empty, or the card's list,
   sets it; *Cancel*), *Reacts to: Nearest / First to come close*, *Notices people within* (*Less* / *More* through 0.5, 1,
-  1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20 m), *Stays in front of them at* (follow: *Closer* / *Further*) or *Keeps away by*
+  1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20 m), for follow *Where: In front / Behind / Left / Right* (v127; behind or at a side a
+  line says it faces the way they look), *Stays in front of them at* (*behind them*, *at their left*, *at their right*;
+  follow: *Closer* / *Further*) or *Keeps away by*
   (avoid), through 0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10 m, *Stays near its place, within* (avoid: 0.2, 0.5,
   1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20 m), *Moves at most* (*Slower* / *Faster* through 0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8,
   1, 1.5, 2, 3, 4, 5 m/s; not for look), and a line saying it is one person at a time, the same for everyone at a circle,
@@ -1313,6 +1341,39 @@ this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6
   from the room's clock on every device. FORMAT networks-35 (v120).
 - **Untested on a headset**: how the motions look and feel life size (a spinning scan around you, a fast orbit), their
   phase across real headsets at a station, the cost of many moving items on a Quest.
+
+## A model's timeline (the owner, 9 November 2026)
+
+The owner: "Studio mode items that have an animation should show a timeline and play pause in edit mode when selected",
+then "play and pause for everyone in the circle", "pause and scrubbing is temporary, once the item is not selected
+anymore or editing is switched off it goes back to its regular behaviour". `engine/e6m_anim.js` (v127).
+
+- **Where**: the card of an object whose clip plays (*Loop* or *Once*, not *Off*), selected here while editing is on,
+  under its Animation rows, page and headset alike (`animCan`, `animBlocks`): *Timeline: 1.2 s of 2.0 s*, then *Pause*
+  (or *Play* while held paused), *Start* (held at 0 s, paused), *−1 s* and *+1 s* (a second back or on, kept within the
+  clip, playing on if it was), *The scene's clock* (lets go; pressable only while this device holds it); on a page also a
+  slider in tenths of a second (`stuRangeAnim`, `animSeek`) and a line saying how it plays now and that a hold lasts while
+  it is selected with editing on.
+- **A hold** (`ANIM.mine` `{ id, t, p, at, key }`: the clip's time `t` at the moment `at`, playing `p` or not, for the
+  clip and mode `key` it was made with): where the clip is from then on is `t`, plus the time since `at` while it plays,
+  wrapped for Loop, held at the end for Once (`animAt`). `at` is the relay's clock at a station (`behNow`), so every device
+  works it out alike; elsewhere this page's. A hold shows even while Pause (v122) holds everything else.
+- **Shared at a station**: the holding device tells everyone at its circle with a quiet effect of the studio's, `anim`
+  (`{ at, a: [id, t, p] }`: the clip's time at `at`, sent at once on each change and four times a second while it holds;
+  `{ at, a: [id], end: 1 }` when it lets go). The others keep the latest word per object (`ANIM.heard`; an older word
+  from another holder is ignored while the newer one is fresh) and draw that frame; one not heard from for 1.2 s is let
+  go by itself. Nothing is stored in the room or saved in `layout.json`, no record changes, nothing goes into Undo, and
+  `FORMAT` does not change (an older device ignores the effect and plays on its clock).
+- **It lets go** (`animStep2`, every frame, `animFree`), back to the scene's clock (or from when shown) for everyone, when
+  the object is no longer selected here, editing goes off, the object goes, its clip stops or changes (its `key`), or
+  *The scene's clock* is pressed. Two holding one object at once each see their own; the others follow the latest word.
+- **Drawing the card**: a page's card follows the clip every frame without drawing the pane again (`animCardStep`: the
+  label's time, the slider and its words), and while its slider is being moved the pane is not drawn again under the hand
+  (`ANIM.drag`; `animSig(false)` held). The headset's card is drawn again every half second while it shows
+  (`animSig(true)` in `sigMain`); its line under the rows is the page's only, so Place and Size stay near, one scroll down.
+- **For tests**: `animState()` (`{ mine, heard }`), `animSet(it, t, p)`, `ANIM_ACT`.
+- **Untested on a headset**: the card's rows and how readable the time is; how in step a held frame looks for several
+  people at a circle over real Wi-Fi.
 
 ## Recorded paths (the owner, 6 November 2026)
 

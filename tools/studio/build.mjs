@@ -11,9 +11,9 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
 // (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that
 // tools/studio/convert.mjs loads in its headless page too)
-const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'ik', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e6g_behave', 'e6h_ghost', 'e6i_tex', 'e6j_voice', 'e6k_trk', 'e6l_puppet', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e7f_viewer', 'e8_xr', 'e9_panels', 'e10_app'];
+const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'ik', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e6g_behave', 'e6h_ghost', 'e6i_tex', 'e6j_voice', 'e6k_trk', 'e6l_puppet', 'e6m_anim', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e7f_viewer', 'e8_xr', 'e9_panels', 'e10_app'];
 // (e6e_motion: simple motions, and the pipeline that draws an item's pose; e6f_path: recorded paths, the recorder;
-// e6g_behave: behaviours, shared from the headset they react to; e6h_ghost: the ghost where a moving item is placed, the
+// e6g_behave: behaviours, shared from the headset they react to; e6m_anim: a selected model's timeline while editing; e6h_ghost: the ghost where a moving item is placed, the
 // page's arrows on it, and Pause; e6i_tex: trigger cubes that change pictures on objects; e6j_voice: recordings past 2
 // minutes kept as files of the scene, and a voice recorded with the movement; ik: the trackers' solver, a module as convert is
 // (tools/studio/test-ik.mjs runs it in Node); e6k_trk: props that follow one of the PC's Vive trackers; e6l_puppet: a Mixamo

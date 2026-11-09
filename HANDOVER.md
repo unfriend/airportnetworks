@@ -49,30 +49,31 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **At the handover (9 November 2026): where each branch is and what comes next.**
   - *The branches.* `main` is networks-v121 (`5524684`, released on 7 November): what visitors get at
     https://stories.lbi-netmed.com/ (GitHub Pages) and what the main site's relay runs (https://main.lab.lbi-netmed.com/).
-    `dev` is networks-v126 (`f150cb3`, FORMAT networks-38; the handover's docs after it): the test place, https://stories.lab.lbi-netmed.com/, which
-    Coolify deploys on every push to `dev`. Between them are v122 to v126 (the entries below). The AI agents' working
-    branch, `claude/trusting-hypatia-ca5qv0`, is the same commit as `dev`. Nothing is half done on any branch, and no
-    file of the app changed after the release (only docs), so no `VERSION` bump is due.
+    `dev` is networks-v127 (FORMAT networks-39; v126 was `f150cb3` with the handover's docs after it): the test place,
+    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Between them are v122 to v127 (the
+    entries below). The AI agents' working branch for v127, `claude/affectionate-pasteur-stzjl3`, is the same commit as
+    `dev`; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs. Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123) and checked that Android's screen
-    recorder films camera mode's AR. Nothing else of v123 to v126 has been tried on a headset, a phone or the trackers'
-    PC. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v126 and what of v125 is still untried.
+    recorder films camera mode's AR. Nothing else of v123 to v127 has been tried on a headset, a phone or the trackers'
+    PC. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v127; v126's and v125's are in their entries below.
   - *Before `main` moves again* (the release flow, `docs/setup-and-release.md` section 4):
     1. Try `dev` on the devices (a Quest, an Android phone, the Windows PC with SteamVR and the trackers:
        `tools/trackers/README.md`).
-    2. Run the full suites, none of which has run on v124, v125 or v126: the smoke test, `node tools/audio.mjs` (sound
+    2. Run the full suites, none of which has run whole on v124 to v127: the smoke test, `node tools/audio.mjs` (sound
        changed in v124), `node relay/test.mjs`, `node tools/collab.mjs` (about a quarter of an hour, more with the new
        rounds), `node tools/live.mjs` (the release script changed) and `node tools/update.mjs` against v121 (`sw.js`'s
        rules changed: `whatsnew.json` passes through); also `node tools/studio/test-ik.mjs` and
        `node tools/studio/test-images.mjs`.
-    3. Settle the known failure: `node tools/collab.mjs --studio` failed its tint step in two runs ("no device got the
-       tint"), while the smoke test's own tint steps pass. Not diagnosed: a test's timing or a real bug in how a tint
-       reaches the other devices (`applyTint` and `tintMat` in `tools/studio/engine/` read correctly).
+    3. Watch the studio round: `node tools/collab.mjs --studio` failed its tint step in two runs on v126 ("no device got
+       the tint"), not diagnosed; on v127 (9 November) its tint step passed in three runs, which ended all good, one
+       failure (since fixed: the test) and, once, the voice-with-the-movement check (every device's moment of the file
+       `null`), which passed in the other two: a timing to keep an eye on.
     4. Look at the touch-emulation blocks of the smoke test (`--only phones`, `--only 'focus mode'`, the occlusion
        steps on a pretend phone): since v125 a pretend phone's AR request also asks for `dom-overlay`, which a test that
        checks the exact list of features would trip over (a review's note).
-    5. Then bump nothing (v126 is released on `dev`): fast-forward `main` to `dev` and push (`git push origin
-       dev:main`). That also redeploys the main site's relay on Coolify. `FORMAT` goes from networks-35 to networks-38,
-       so a page still on v121 is asked to reload and cannot share a room with a v126 device until it has.
+    5. Then bump nothing (v127 is released on `dev`): fast-forward `main` to `dev` and push (`git push origin
+       dev:main`). That also redeploys the main site's relay on Coolify. `FORMAT` goes from networks-35 to networks-39,
+       so a page still on v121 is asked to reload and cannot share a room with a v127 device until it has.
   - *Open points the reviews found and nobody fixed* (none blocks a release; each is a few hours or less):
     - The Index lined up by the trackers (`trkEstimate` in `shared.js`): the trackers' samples carry the time the
       bridge read them, the head its predicted pose for the display; with the stillness gate at 0.5 m/s a slow drift
@@ -100,6 +101,27 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v127 (9 November 2026; FORMAT networks-39, shell 127), on `dev`: the owner's studio batch after the handover.**
+  Built in one lane by the integrator (one Sonnet review). What the owner asked, and what was skipped:
+  - *Walk view's mouse* on a page ("mouse movement switch left right and also grab mouse focus with esc to ungrab", then
+    "like most games, in both cases", "walk view only"): a drag looks the way the mouse goes; a click grabs the mouse
+    (pointer lock), a crosshair, a click acts there, Esc lets go (`GRAB` in `tools/studio/engine/e7_explore.js`).
+  - *The Upload pane*: a × on each row still to make (its files go with it), and *Triangles kept, every model* for all
+    model rows at once.
+  - *A model's timeline* while editing (`tools/studio/engine/e6m_anim.js`): Pause / Play, Start, −1 s, +1 s, a slider on a
+    page, for everyone at the circle (a quiet effect, `anim`), temporary: deselected or editing off, back to the scene's
+    clock. Nothing stored.
+  - *Follow behind and at a side*: `side` on a `follow` behaviour (`'behind'`, `'left'`, `'right'`; in front none), facing
+    the way the person looks; FORMAT networks-39.
+  - Skipped by the owner: a browser window in AR (a web page or YouTube cannot be drawn into a WebXR session: only video
+    files or a desktop's shared tab could be; for later), light estimation (the owner checks the Quest first), and the
+    report that a new scene and its uploads did not show in AR (the owner tests it first).
+  - Tests: the smoke test's `--only 'studio v127'` (new: the grab, the ×, the slider, the timeline, Follow's sides) and
+    `node tools/collab.mjs --studio` (new: a timeline held on a page drawn alike on every page and the headset and let go;
+    Follow's side in every record) passed; the studio round's headset Save step now scrolls its card to Turn 90°, which
+    the timeline's row pushed below the fold. The cheap checks for `dev` passed; the full suites did not run.
+  - Untested: the grabbed mouse in a real browser (headless Chromium sends its moves oddly), everything on a headset (the
+    timeline's card, a held frame at a circle, being followed from behind or beside).
 - **networks-v126 (9 November 2026; FORMAT networks-38, shell 126), on `dev`: Vive trackers, phases 1 and 3.** The owner,
   8 November: "we go for 1 and 3 with mixamo rigs for now" (about 9 to 11 Vive Tracker 3.0, three base stations, a Windows
   PC with SteamVR and a Valve Index that also runs the relay). `tools/trackers/SPEC.md` is the contract,

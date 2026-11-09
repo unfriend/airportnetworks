@@ -361,6 +361,7 @@ function itemBlocks(it, B, ed) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
+      animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
     puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
@@ -661,6 +662,7 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
@@ -725,7 +727,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -791,7 +793,8 @@ function buildExplore() {
     .stu-drop span { color: var(--muted); font-size: 13px; }
     .stu-in input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
     .stu-plan { list-style: none; padding: 0; margin: 4px 0 12px; }
-    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; }
+    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; position: relative; }
+    .stu-plan li .btn.stu-x { position: absolute; top: 4px; right: 4px; padding: 0 7px; font-size: 16px; line-height: 22px; } .stu-plan li .t { padding-right: 28px; }
     .stu-plan li > small, .stu-plan li > .bar, .stu-plan li > a { grid-column: 2; }
     .stu-plan li .k { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-top: 2px; }
     .stu-plan li .t { word-break: break-all; }
@@ -832,7 +835,8 @@ function buildExplore() {
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
     if (t.dataset && t.dataset.colour && !t.disabled) { t.blur(); act(t.dataset.colour, String(t.value).toLowerCase()); return; }   // (a colour field: the tint, once chosen)
   });
-  $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
+  $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>` +
+    `<div class="grp" id="stuWalkTip" style="display:none"><span>Click the view to look with the mouse, Esc lets go</span></div>`;   // (Walk view with a mouse: grabStep)
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   uploadBind();
   liteBind();
@@ -864,7 +868,7 @@ function blockHTML(b) {
   if (b.kv) return `<dl class="stats">${b.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
   const lab = b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '';
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
-  if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
+  if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}"${r.fmt ? ` data-fmt="${esc(r.fmt)}"` : ''} aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
   // (a colour field: any colour, taken once it is chosen: its 'change' event, buildExplore)
   if (b.colour) { const q = b.colour; return lab + `<label class="stu-col"><input type="color" id="${esc(q.id)}" data-colour="${esc(q.act)}" value="${esc(q.value)}"${q.dis ? ' disabled' : ''}><span>${esc(q.label || '')}</span></label>`; }
@@ -899,6 +903,8 @@ function renderPanes() {
 }
 let paneLast = '';
 function paneStep(now) {
+  grabStep();   // (Walk view's grabbed mouse let go where it no longer applies; its hint)
+  animStep2();   // (a timeline's hold let go where it no longer applies, told at the circle; a page's card follows the clip)
   if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
@@ -981,11 +987,12 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', ev => {
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
-    if (!down.tc) cv.setPointerCapture(ev.pointerId);
+    if (!down.tc && !GRAB.on) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* the pointer locked: nothing to capture */ } }
     orbit.held = true;
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
   });
   cv.addEventListener('pointermove', ev => {
+    if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
@@ -1004,7 +1011,7 @@ function bindCanvas() {
     }
     if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
     if (!down || !down.moved) return;
-    if (X.view === 'walk') { WALK.yaw += dx * 0.004; WALK.pitch = clamp(WALK.pitch + dy * 0.004, -1.3, 1.3); WALK.to = null; return; }
+    if (X.view === 'walk') { walkLook(dx, dy, LOOK_DRAG); return; }
     orbit.to = null;
     if (down.b === 2 || down.shift) {
       // pan: the target slides along the floor (right button or Shift)
@@ -1015,7 +1022,11 @@ function bindCanvas() {
   const end = ev => {
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && !down.tc && ev.type === 'pointerup' && performance.now() - X.tcUp > 200) clickAt(ev.clientX, ev.clientY);
+    // a click: grabbed, it acts at the crosshair (the left button); in Walk view with a mouse, the first one grabs it
+    if (APP.mode === 'explore' && down && !down.moved && !down.tc && ev.type === 'pointerup' && performance.now() - X.tcUp > 200) {
+      if (GRAB.on) { if (down.b === 0) clickAt(window.innerWidth / 2, window.innerHeight / 2); }
+      else if (!grabTry(ev, down.b)) clickAt(ev.clientX, ev.clientY);
+    }
     if (!pts.size) { down = null; orbit.held = false; }
   };
   cv.addEventListener('pointerup', end);
@@ -1036,6 +1047,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
+    if (k === 'escape' && (GRAB.on || performance.now() - GRAB.gone < 400)) return;   // (Esc lets go of the mouse: the browser's own, nothing else)
     if (k === 'escape' && (STU.pick || STU.txp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
@@ -1045,6 +1057,75 @@ function bindCanvas() {
   });
   document.addEventListener('keyup', ev => KEYS.delete(ev.key.toLowerCase()));
   window.addEventListener('blur', () => KEYS.clear());
+  document.addEventListener('pointerlockchange', () => grabSet(document.pointerLockElement === cv));
+  document.addEventListener('pointerlockerror', () => { GRAB.no = true; grabSet(false); });
+}
+// Walk view's mouse (v127; the owner, 9 November 2026: "mouse movement switch left right and also grab mouse focus with
+// esc to ungrab", then "like most games, in both cases"): dragging and the grabbed mouse look the way the mouse goes
+// (right looks right, up looks up). In Walk view a click with the mouse grabs it (the browser's pointer lock: no
+// pointer, the mouse turns you, W A S D walk, a crosshair in the middle where a click selects or walks); Esc lets go (the
+// browser's own, and nothing else: no item deselected). Leaving Walk view, explore mode or the page lets go too. Orbit
+// view as before. A browser that refuses the lock (GRAB.no) clicks as before
+const GRAB = { on: false, gone: 0, no: false, tip: null, el: null, mq: null };
+const LOOK_DRAG = 0.004, LOOK_GRAB = 0.0025;
+function walkLook(dx, dy, k) {
+  WALK.yaw -= dx * k;
+  WALK.pitch = clamp(WALK.pitch - dy * k, -1.3, 1.3);
+  WALK.to = null;
+}
+const grabCan = () => !GRAB.no && !XR.on && APP.mode === 'explore' && X.view === 'walk' && typeof GL.canvas.requestPointerLock === 'function';
+// a click in Walk view with a mouse: the mouse grabbed (true), else false (the click then acts as ever); refused (an
+// older browser's error comes as pointerlockerror), the click acts after all
+function grabTry(ev, b) {
+  if (ev.pointerType !== 'mouse' || b !== 0 || !grabCan()) return false;
+  let r;
+  try { r = GL.canvas.requestPointerLock(); } catch (e) { GRAB.no = true; return false; }
+  const x = ev.clientX, y = ev.clientY;
+  if (r && typeof r.catch === 'function') r.catch(() => { GRAB.no = true; grabSet(false); clickAt(x, y); });
+  return true;
+}
+function grabSet(on) {
+  if (on === GRAB.on) return;
+  GRAB.on = on;
+  if (!on) GRAB.gone = performance.now();
+  STU.hover = '';
+  grabDraw();
+  dirty(true);
+}
+// the grabbed mouse's move: you turn (each event held to 200 px: a browser's odd jump), and what is under the crosshair
+// lights up while editing
+function grabLook(ev) {
+  if (APP.mode !== 'explore' || X.view !== 'walk') return;
+  walkLook(clamp(ev.movementX || 0, -200, 200), clamp(ev.movementY || 0, -200, 200), LOOK_GRAB);
+  if (editOn() && !(GL.tc && GL.tc.axis)) {
+    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = rayPick(ray, { inside: walkInside(ray) });
+    STU.hover = h ? h.id : '';
+  }
+}
+// each frame: let go when Walk view, explore mode or the page is left; the crosshair and the Walk hint follow
+function grabStep() {
+  if (GRAB.on && (X.view !== 'walk' || APP.mode !== 'explore' || XR.on || HOST.picking || GL.gone)) { try { document.exitPointerLock(); } catch (e) { /* gone */ } }
+  if (!GRAB.mq) GRAB.mq = matchMedia('(pointer: fine)');
+  const tip = !GRAB.on && !GRAB.no && !XR.on && APP.mode === 'explore' && X.view === 'walk' && GRAB.mq.matches;
+  if (tip !== GRAB.tip) { GRAB.tip = tip; const t = $('#stuWalkTip'); if (t) t.style.display = tip ? '' : 'none'; }   // (#viewctl .grp is flex: hidden alone would not hide it)
+}
+// the crosshair and its line, over the middle of the page while the mouse is grabbed (made once, taken away by dispose)
+function grabDraw() {
+  if (!GRAB.el && GRAB.on) {
+    const el = document.createElement('div');
+    el.id = 'stuGrab';
+    el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:6;text-align:center;color:#e7eef8;font:12px/1.3 Inter,"Segoe UI",Arial,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)';
+    el.innerHTML = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="display:block;margin:0 auto;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))"><path d="M11 3v6M11 13v6M3 11h6M13 11h6" stroke="#e7eef8" stroke-width="2" stroke-linecap="round"/></svg>' +
+      '<div style="position:absolute;left:50%;top:30px;transform:translateX(-50%);white-space:nowrap">Esc lets go of the mouse</div>';
+    document.body.appendChild(el);
+    GRAB.el = el;
+  }
+  if (GRAB.el) GRAB.el.style.display = GRAB.on ? '' : 'none';
+}
+function grabEnd() {
+  if (document.pointerLockElement === GL.canvas) { try { document.exitPointerLock(); } catch (e) { /* gone */ } }
+  if (GRAB.el) { GRAB.el.remove(); GRAB.el = null; }
+  GRAB.on = false;
 }
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there

@@ -412,12 +412,14 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
+const UP = { keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
 const upRelay = () => SRC.kind === 'relay' && SRC.upload && SRC.state === 'ok';
 const upChanged = () => { UP.rev++; dirty(); };
+// the share of triangles a new model row starts at: what the all-models slider says once moved (v127), else 20 %
+const upKeep = () => (UP.keepAll === null ? FT_DEFAULT : UP.keepAll);
 // files dropped or chosen: [{ path, file }] (a dropped folder's structure kept in path)
 function upTake(list) {
   if (UP.busy) return;
@@ -449,7 +451,7 @@ async function upPlan() {
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
   const rows = [];
   for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
-    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path, keep: FT_DEFAULT, tris: null, pv: null };
+    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path, keep: upKeep(), tris: null, pv: null };
     try {
       if (!e.buf) e.buf = await e.file.arrayBuffer();
       if (gen !== UP.gen) return;
@@ -766,6 +768,21 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
+// a row taken out of the plan before uploading (v127, the owner: "add option to remove items from upload list before
+// uploading"): its files leave what was dropped, a model's with the files it needs and its pictures, unless another row
+// still uses them; nothing of it is converted, uploaded or kept in originals/. A row made or working stays
+function upDrop(ri) {
+  const r = UP.rows[ri];
+  if (!r || r.state !== 'plan' || UP.busy) return;
+  UP.rows.splice(ri, 1);
+  const still = new Set(UP.rows.filter(x => x.kind !== 'keep').flatMap(x => x.src));
+  const gone = new Set(r.src.filter(e => !still.has(e)));
+  UP.entries = UP.entries.filter(e => !gone.has(e));
+  if (VW.open && VW.src && VW.src.kind === 'up') vwClose();   // (the viewer of a row: its number moved)
+  upRebuild();
+  if (!UP.rows.length) UP.entries = [];
+  upChanged();
+}
 function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
@@ -811,6 +828,14 @@ function uploadBlocks(B) {
   if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
   if (UP.rows.length) {
     const n = k => UP.rows.filter(r => r.kind === k).length;
+    // (v127, the owner: "one slider for all models reduction when uploading": every model row still to make, at once; a
+    // row's own slider can still differ after, and a later drop starts at it)
+    const mods = UP.rows.filter(r => r.kind === 'model' && r.state === 'plan'), ka = upKeep();
+    if (mods.length) {
+      const differ = mods.some(r => Math.abs((r.keep === undefined ? FT_DEFAULT : r.keep) - ka) > 0.004);
+      B.push({ label: 'Triangles kept, every model', range: { id: 'stuRangeUpAll', act: 'up:keepall', v: '', min: 2, max: 100, value: Math.round(ka * 100), out: Math.round(ka * 100) + ' %', dis: busy, aria: 'Triangles kept, every model' } });
+      if (differ) B.push({ p: 'Some models below have a share of their own: moving this sets them all.', c: 'faint' });
+    }
     B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
     if (UP.left.length) B.push({ p: `Left out: ${UP.left.length} hidden or system file${UP.left.length === 1 ? '' : 's'} (${UP.left.slice(0, 4).join(', ')}${UP.left.length > 4 ? '...' : ''}).`, c: 'faint' });
     const todo = UP.rows.some(r => r.state !== 'done');
@@ -829,7 +854,8 @@ function uploadHTML(b) {
   if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
-    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+    const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy ? ' disabled' : ''}>×</button>` : '';
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
@@ -899,6 +925,7 @@ const UP_ACT = {
   'up:run': () => upRun(),
   'up:pv': v => { const r = UP.rows[+v]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) vwOpen({ kind: 'up', ri: +v }); },   // (the viewer, over the whole window: e7f_viewer.js)
   'up:clear': () => upClear(),
+  'up:drop': v => upDrop(+v),
   'up:open': () => upOpen(),
   'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },
   'up:unuse': v => { const [ri, n] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n); if (x && r.state === 'plan') { Object.assign(x, { entry: null, how: '' }); upRebuild(); upChanged(); } },

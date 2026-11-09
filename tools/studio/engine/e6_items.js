@@ -426,10 +426,12 @@ function animStep(it, now, clockS) {
     it.action = clip ? it.mixer.clipAction(clip) : null;
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
-  } else if (motionsPaused()) return;   // (Pause: it holds the frame it shows; e6h_ghost.js)
+  } else if (motionsPaused() && !animHold(it)) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows)
   if (!it.action || !(it.dur > 0)) return;
-  let t = r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
-  t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
+  // (held from a card's timeline, here or by someone at this circle: e6m_anim.js)
+  const H = animHold(it);
+  let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
+  if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
   it.action.time = t;
   it.mixer.update(0);
 }
@@ -1362,4 +1364,7 @@ function collabApply(v) {
   for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
   dirty();
 }
-function studioEffect(type, data, by) { if (type === 'beh') behaveHeard(data, by); }   // (a behaviour's driver's samples: e6g_behave.js)
+function studioEffect(type, data, by) {
+  if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
+  else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
+}

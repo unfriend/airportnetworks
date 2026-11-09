@@ -20406,10 +20406,12 @@ function animStep(it, now, clockS) {
     it.action = clip ? it.mixer.clipAction(clip) : null;
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
-  } else if (motionsPaused()) return;   // (Pause: it holds the frame it shows; e6h_ghost.js)
+  } else if (motionsPaused() && !animHold(it)) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows)
   if (!it.action || !(it.dur > 0)) return;
-  let t = r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
-  t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
+  // (held from a card's timeline, here or by someone at this circle: e6m_anim.js)
+  const H = animHold(it);
+  let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
+  if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
   it.action.time = t;
   it.mixer.update(0);
 }
@@ -21342,7 +21344,10 @@ function collabApply(v) {
   for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
   dirty();
 }
-function studioEffect(type, data, by) { if (type === 'beh') behaveHeard(data, by); }   // (a behaviour's driver's samples: e6g_behave.js)
+function studioEffect(type, data, by) {
+  if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
+  else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
+}
 
 // =============================================================== CUT-OUTS ==
 // A cut-out is a box that hides the part of one object's model inside it (a door in a wall), without changing the
@@ -23035,7 +23040,7 @@ Object.assign(ITEM_ACT, {
 // the fields its kind uses:
 // - look { who, range }: its front (+z as it is placed: a glTF model's own front) turns to face the person, about the
 //   vertical through its middle;
-// - follow { who, range, dist, speed }: comes to the person and stays about dist in front of them (where they look), at
+// - follow { who, range, dist, speed, side }: comes to the person and stays about dist in front of them (where they look), at
 //   its own height, turned to them as look turns it;
 // - avoid { who, range, dist, speed, area }: keeps at least dist away from the person, never more than area from where it
 //   is placed, and goes home once home is dist + 0.2 m clear of them;
@@ -23065,7 +23070,13 @@ Object.assign(ITEM_ACT, {
 // (tx, tz) and a turn about the vertical through its placed middle (d) from its placed pose, so it holds whatever the
 // room does to the record (the samples carry these three); an item's keeps a whole pose.
 const BEH_KINDS = ['look', 'follow', 'avoid', 'item'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
-const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed'] };
+const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed'] };
+// where Follow keeps it (v127; the owner, 9 November 2026: "follow mode should also be able to be behind someone", "should
+// be able to just walk behind them and left right sounds good too"): in front of them, turned to them (the default, kept
+// as no side at all, as before v127); behind them or at their left or right, facing the way they look (it walks with them)
+const BEH_SIDE = ['front', 'behind', 'left', 'right'];
+const BEH_SIDE_WORD = { front: 'In front', behind: 'Behind', left: 'Left', right: 'Right' };
+const BEH_SIDE_AT = { front: 'Stays in front of them at', behind: 'Stays behind them at', left: 'Stays at their left at', right: 'Stays at their right at' };
 // each number's default, least and most (to the cm, held there), and the card's steps
 const BEH_NUM = {
   range: { d: 3, min: 0.5, max: 20, steps: [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20] },
@@ -23085,6 +23096,7 @@ function normBehaviour(x) {
     const v = x[k], has = v !== undefined;
     if (k === 'who') { if (has && !BEH_WHO.includes(v)) return null; r.who = has ? v : 'nearest'; }
     else if (k === 'target') { if (!okId(v)) return null; r.target = v; }
+    else if (k === 'side') { if (has && !BEH_SIDE.includes(v)) return null; if (has && v !== 'front') r.side = v; }
     else { const N = BEH_NUM[k]; if (has && !fin(v)) return null; r[k] = clamp(r2(has ? v : k === 'dist' ? BEH_DIST[x.kind] : N.d), N.min, N.max); }
   }
   return r;
@@ -23200,7 +23212,12 @@ function behWant(it, b, B, h, M0) {
   const yaw0 = behYaw0(it), Mx = M0.x + B.tx, Mz = M0.z + B.tz;
   const face = (x, z) => (Math.hypot(h.p.x - x, h.p.z - z) > 0.05 ? wrapA(Math.atan2(h.p.x - x, h.p.z - z) - yaw0) : B.d);   // (its front to them; right over it: as it is)
   if (b.kind === 'look') return { tx: 0, tz: 0, d: face(M0.x, M0.z) };
-  if (b.kind === 'follow') return { tx: h.p.x + h.f[0] * b.dist - M0.x, tz: h.p.z + h.f[1] * b.dist - M0.z, d: face(Mx, Mz) };
+  if (b.kind === 'follow') {
+    // (in front: where they look, turned to them; behind or at a side: there, facing the way they look. h.f is where they
+    // look along the floor, [x, z]; their left is [f.z, -f.x])
+    const sd = b.side || 'front', [fx, fz] = h.f, [ox, oz] = sd === 'behind' ? [-fx, -fz] : sd === 'left' ? [fz, -fx] : sd === 'right' ? [-fz, fx] : [fx, fz];
+    return { tx: h.p.x + ox * b.dist - M0.x, tz: h.p.z + oz * b.dist - M0.z, d: sd === 'front' ? face(Mx, Mz) : wrapA(Math.atan2(fx, fz) - yaw0) };
+  }
   // avoid: home once home is clear of them; where it is while it is far enough; else pushed to dist from them, within its area
   if (Math.hypot(M0.x - h.p.x, M0.z - h.p.z) >= b.dist + BEH_HOME) return { tx: 0, tz: 0, d: 0 };
   const r = Math.hypot(Mx - h.p.x, Mz - h.p.z);
@@ -23402,7 +23419,12 @@ function behaveBlocks(it, B, dis) {
   }
   B.push({ label: 'Reacts to', row: [{ id: 'bwho:nearest', label: 'Nearest', act: 'i:bwho', v: 'nearest', on: b.who === 'nearest', dis }, { id: 'bwho:first', label: 'First to come close', act: 'i:bwho', v: 'first', on: b.who === 'first', dis }] },
     num('range', 'Notices people within', 'Less', 'More'));
-  if (b.kind === 'follow') B.push(num('dist', 'Stays in front of them at', 'Closer', 'Further'));
+  if (b.kind === 'follow') {
+    const sd = b.side || 'front';
+    B.push({ label: 'Where', row: BEH_SIDE.map(k => ({ id: 'bside:' + k, label: BEH_SIDE_WORD[k], act: 'i:bside', v: k, on: sd === k, dis })) },
+      num('dist', BEH_SIDE_AT[sd], 'Closer', 'Further'));
+    if (sd !== 'front') B.push({ p: 'It faces the way they look, so it walks with them.', c: 'faint' });
+  }
   if (b.kind === 'avoid') B.push(num('dist', 'Keeps away by', 'Less', 'More'), num('area', 'Stays near its place, within', 'Less', 'More'));
   if (b.kind !== 'look') B.push(num('speed', 'Moves at most', 'Slower', 'Faster'));
   B.push({ p: 'One person at a time, the same for everyone at a circle: ' + (b.who === 'first' ? 'the first to come within range, until they walk away' : 'the nearest within range') +
@@ -23428,6 +23450,13 @@ Object.assign(ITEM_ACT, {
     setRec(it.id, { behaviour: { kind: 'item', target: oid, speed: b && b.speed } });
   },
   bwho: (it, v) => { if (BEH_WHO.includes(v)) behSet(it, b => (b.who ? { who: v } : {})); },
+  bside: (it, v) => {   // (Follow's side; in front is no side at all)
+    const b = it.rec.behaviour;
+    if (!BEH_SIDE.includes(v) || !b || b.kind !== 'follow' || !MOTION_ITEMS.includes(it.kind) || (b.side || 'front') === v) return;
+    const n = Object.assign({}, b);
+    if (v === 'front') delete n.side; else n.side = v;
+    setRec(it.id, { behaviour: n });
+  },
   bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => (b[k] !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, b[k], +d) } : {})); },
 });
 PANE_ONLY.push('bpick');
@@ -24824,6 +24853,152 @@ function pupState(id) {
     take: T ? { id: T.id, phase: T.phase, n: T.samples.length, name: T.name } : null, note: PUP.noteId === id ? PUP.note : '', clip: !!(it && it.action) };
 }
 
+// ============================================================== TIMELINE ==
+// A selected model's animation while editing (v127; the owner, 9 November 2026: "items that have an animation should show
+// a timeline and play pause in edit mode when selected", then "play and pause for everyone in the circle", "pause and
+// scrubbing is temporary, once the item is not selected anymore or editing is switched off it goes back to its regular
+// behaviour"). The card of an object whose clip plays (Loop or Once) shows where the clip is, Play / Pause, Start, a
+// second back and on, The scene's clock, and on a page a slider. A press holds the clip here (ANIM.mine: the clip's time
+// t at the clock's at, playing or not), and at a station this device tells everyone at its circle, as a quiet effect of
+// the studio's ('anim', a few times a second and at once on each change: { at, a: [id, t, p] }), so they draw the same
+// frame. Nothing is stored or saved: no record changes, no Undo step, no FORMAT change. It lets go (back to the scene's
+// clock, or from when shown, for everyone) when the object is no longer selected here, editing is off, its clip stops
+// or changes, or The scene's clock is pressed; a device that hears nothing for 1.2 s lets go by itself. Two holding one
+// object at once: the latest word wins on the others; each sees its own
+const ANIM = { mine: null, heard: new Map(), sent: 0, drag: false, sigPage: '', log: null };
+const ANIM_SEND = 250, ANIM_FRESH = 1200;
+// (ms: the relay's clock at a station, the same moment everywhere; else this page's: behNow, e6g_behave.js)
+const animNow = () => behNow();
+// the hold that applies to an item here: this device's own, else a fresh one heard, else null
+function animHold(it) {
+  if (ANIM.mine && ANIM.mine.id === it.id) return ANIM.mine;
+  const h = ANIM.heard.get(it.id);
+  if (h && performance.now() - h.got > ANIM_FRESH) { ANIM.heard.delete(it.id); return null; }
+  return h || null;
+}
+// a clip's time in its range (Loop wraps round, Once stops at its end)
+function animWrap(it, t) {
+  const d = it.dur;
+  return it.rec.anim === 'loop' ? ((t % d) + d) % d : Math.min(Math.max(0, t), d - 1e-4);
+}
+// where a hold has the clip now (its time, moved on since if it plays)
+const animAt = (it, H) => animWrap(it, H.p ? H.t + (animNow() - H.at) / 1000 : H.t);
+// where the clip is now here (held, or on the scene's clock, or from when shown)
+function animTime(it) {
+  if (!it.action || !(it.dur > 0)) return 0;
+  const H = animHold(it);
+  if (H) return animAt(it, H);
+  const now = performance.now();
+  return animWrap(it, it.rec.start === 'shown' ? (now - it.shownAt) / 1000 : sceneClock(now));
+}
+// can the timeline show for this item here: an object selected while editing whose clip plays
+const animCan = it => !!it && it.kind === 'o' && editOn() && STU.sel === it.id && !!it.action && it.dur > 0 && it.rec.anim !== 'off';
+// this device's hold set (t at now, playing or not) and told at once (quiet: a page's slider moving, its pane not drawn
+// again under the hand until it is let go)
+function animSet(it, t, p, quiet) {
+  if (!animCan(it)) return;
+  ANIM.mine = { id: it.id, t: animWrap(it, t), p: !!p, at: animNow(), key: it.animKey };
+  ANIM.sent = 0;
+  animSend();
+  if (!quiet) dirty(true);
+}
+function animFree(why) {
+  const m = ANIM.mine;
+  if (!m) return;
+  ANIM.mine = null;
+  if (atStation()) { try { HOST.collab.effect('anim', { at: Math.round(animNow()), a: [m.id], end: 1 }, true); } catch (e) { /* not in a room now */ } }
+  if (ANIM.log) ANIM.log.push(['free', m.id, why || '']);
+  dirty(true);
+}
+function animSend() {
+  const m = ANIM.mine;
+  if (!m || !atStation()) return;
+  const now = performance.now();
+  if (now - ANIM.sent < ANIM_SEND) return;
+  ANIM.sent = now;
+  // (the clip's time at this moment, so a late word is still right: at is the relay's time)
+  const it = STU.items.get(m.id), T = animNow();
+  try { HOST.collab.effect('anim', { at: Math.round(T), a: [m.id, +(it ? animAt(it, m) : m.t).toFixed(3), m.p ? 1 : 0] }, true); } catch (e) { /* not in a room now */ }
+}
+// each frame: this device's hold let go where it no longer applies, else told now and then
+function animStep2() {
+  const m = ANIM.mine;
+  if (m) {
+    const it = STU.items.get(m.id);
+    if (!it || !editOn() || STU.sel !== m.id || !it.action || !(it.dur > 0) || it.rec.anim === 'off' || it.animKey !== m.key) animFree(!it ? 'gone' : !editOn() ? 'edit' : STU.sel !== m.id ? 'sel' : 'clip');
+    else animSend();
+  }
+  animCardStep();
+}
+// a word from another device at the circle (studioEffect): its hold, or its end
+function animHeard(d, by) {
+  if (!d || !Array.isArray(d.a) || !okId(d.a[0])) return;
+  const id = d.a[0], was = ANIM.heard.get(id);
+  if (d.end) { if (!was || was.by === by) ANIM.heard.delete(id); return; }
+  if (!fin(d.a[1]) || !fin(d.at)) return;
+  if (was && was.by !== by && was.at > d.at && performance.now() - was.got < ANIM_FRESH) return;   // (an older word from another holder)
+  ANIM.heard.set(id, { t: +d.a[1], p: !!d.a[2], at: +d.at, by, got: performance.now() });
+}
+// the card's buttons (page and headset): Play / Pause, Start, a second back and on, The scene's clock; a page's slider
+const ANIM_ACT = {
+  'an:play': () => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it), !(H ? H.p : true)); },
+  'an:start': () => { const it = STU.items.get(STU.sel); if (animCan(it)) animSet(it, 0, false); },
+  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, Math.min(Math.max(0, animTime(it) + (+v || 0)), it.dur - 1e-4), H ? H.p : false); },
+  'an:free': () => animFree('button'),
+};
+// the page's slider (tenths of a second): the clip held there, playing on if it was
+function animSeek(v, done) {
+  const it = STU.items.get(STU.sel);
+  if (!animCan(it)) return;
+  const H = ANIM.mine && ANIM.mine.id === it.id ? ANIM.mine : null;
+  ANIM.drag = !done;
+  animSet(it, Math.min(Math.max(0, v / 10), it.dur - 1e-4), H ? H.p : false, !done);
+}
+const animTxt = (t, d) => `${t.toFixed(1)} s of ${d.toFixed(1)} s`;
+// the rows, after the Animation rows of an object's card
+function animBlocks(it, B) {
+  if (!animCan(it)) return;
+  const H = animHold(it), mine = !!(ANIM.mine && ANIM.mine.id === it.id), t = animTime(it), room = atStation(), p = H ? H.p : true;
+  const who = !H ? (it.rec.start === 'shown' ? 'from when it was shown' : room ? 'on the scene\'s clock, the same for everyone here' : 'on the scene\'s clock')
+    : mine ? (room ? 'held by you, for everyone at this circle' : 'held here') : 'held by someone else at this circle';
+  B.push({ label: 'Timeline: ' + animTxt(t, it.dur), row: [
+    { id: 'an:play', label: p ? 'Pause' : 'Play', act: 'an:play', on: !!H && !H.p },
+    { id: 'an:start', label: 'Start', act: 'an:start' },
+    { id: 'an:back', label: '−1 s', act: 'an:step', v: -1 },
+    { id: 'an:on', label: '+1 s', act: 'an:step', v: 1 },
+    { id: 'an:free', label: 'The scene\'s clock', act: 'an:free', on: !H, dis: !mine },
+  ] });
+  B.push({ page: true, range: { id: 'stuRangeAnim', act: 'an:seek', v: '', min: 0, max: Math.max(1, Math.round(it.dur * 10)), step: 1, value: Math.round(t * 10), out: t.toFixed(1) + ' s', fmt: 's', aria: 'Where the animation is, in seconds' } });
+  // (the line under it on a page only: a headset's card keeps its place and size rows in sight)
+  B.push({ page: true, p: 'It plays ' + who + '. Pause, a slider or a step holds it there ' + (room ? 'for everyone at this circle' : 'here') + ' while it stays selected and editing is on; then it goes back to playing as before.', c: 'faint' });
+}
+// a page's card: the time and the slider follow the clip every frame (the pane is not drawn again for that), unless the
+// slider is being moved
+function animCardStep() {
+  if (XR.on || APP.mode !== 'explore') return;
+  const s = document.getElementById('stuRangeAnim');
+  if (!s) return;
+  const it = STU.items.get(STU.sel);
+  if (!animCan(it)) return;
+  const t = animTime(it), o = s.parentNode && s.parentNode.querySelector('[data-range-out]');
+  if (!ANIM.drag) s.value = Math.round(t * 10);
+  if (o) o.textContent = t.toFixed(1) + ' s';
+  const l = s.closest('.stu-range') && s.closest('.stu-range').previousElementSibling;
+  const tl = l && l.previousElementSibling && l.previousElementSibling.classList.contains('stu-l') ? l.previousElementSibling : null;
+  if (tl && /^Timeline: /.test(tl.textContent)) tl.textContent = 'Timeline: ' + animTxt(t, it.dur);
+}
+// what the panes follow: the page's (who holds it, playing or not; the time goes in by animCardStep), the headset's (its
+// card drawn again every half second while the timeline shows)
+function animSig(xr) {
+  if (!xr && ANIM.drag) return ANIM.sigPage;   // (the slider held: the pane stays as it is under the hand)
+  const it = STU.items.get(STU.sel);
+  if (!animCan(it)) { if (!xr) ANIM.drag = false; return (xr ? '' : (ANIM.sigPage = '')); }
+  const H = animHold(it), s = [H ? (ANIM.mine && ANIM.mine.id === it.id ? 'm' : 'h') + +H.p : '-', xr ? Math.floor(animTime(it) * 2) : ''].join('');
+  if (!xr) ANIM.sigPage = s;
+  return s;
+}
+const animState = () => ({ mine: ANIM.mine && Object.assign({}, ANIM.mine), heard: Object.fromEntries([...ANIM.heard].map(([k, v]) => [k, Object.assign({}, v)])) });
+
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
 // list of blocks (paneBlocks) that the page draws as HTML (renderPanes) and the headset as its canvas twin
@@ -25186,6 +25361,7 @@ function itemBlocks(it, B, ed) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
+      animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
     puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
@@ -25486,6 +25662,7 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
   if (TEX_ACT[a]) { if (!XR.on && !OPT.visit && editOn()) TEX_ACT[a](v); dirty(true); return; }
@@ -25550,7 +25727,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -25616,7 +25793,8 @@ function buildExplore() {
     .stu-drop span { color: var(--muted); font-size: 13px; }
     .stu-in input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
     .stu-plan { list-style: none; padding: 0; margin: 4px 0 12px; }
-    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; }
+    .stu-plan li { display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; padding: 7px 8px; border-left: 3px solid var(--line); margin-bottom: 4px; background: var(--chip); border-radius: 4px; position: relative; }
+    .stu-plan li .btn.stu-x { position: absolute; top: 4px; right: 4px; padding: 0 7px; font-size: 16px; line-height: 22px; } .stu-plan li .t { padding-right: 28px; }
     .stu-plan li > small, .stu-plan li > .bar, .stu-plan li > a { grid-column: 2; }
     .stu-plan li .k { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-top: 2px; }
     .stu-plan li .t { word-break: break-all; }
@@ -25657,7 +25835,8 @@ function buildExplore() {
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
     if (t.dataset && t.dataset.colour && !t.disabled) { t.blur(); act(t.dataset.colour, String(t.value).toLowerCase()); return; }   // (a colour field: the tint, once chosen)
   });
-  $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>`;
+  $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>` +
+    `<div class="grp" id="stuWalkTip" style="display:none"><span>Click the view to look with the mouse, Esc lets go</span></div>`;   // (Walk view with a mouse: grabStep)
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   uploadBind();
   liteBind();
@@ -25689,7 +25868,7 @@ function blockHTML(b) {
   if (b.kv) return `<dl class="stats">${b.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
   const lab = b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '';
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
-  if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}" aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
+  if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}"${r.fmt ? ` data-fmt="${esc(r.fmt)}"` : ''} aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
   // (a colour field: any colour, taken once it is chosen: its 'change' event, buildExplore)
   if (b.colour) { const q = b.colour; return lab + `<label class="stu-col"><input type="color" id="${esc(q.id)}" data-colour="${esc(q.act)}" value="${esc(q.value)}"${q.dis ? ' disabled' : ''}><span>${esc(q.label || '')}</span></label>`; }
@@ -25724,6 +25903,8 @@ function renderPanes() {
 }
 let paneLast = '';
 function paneStep(now) {
+  grabStep();   // (Walk view's grabbed mouse let go where it no longer applies; its hint)
+  animStep2();   // (a timeline's hold let go where it no longer applies, told at the circle; a page's card follows the clip)
   if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
@@ -25806,11 +25987,12 @@ function bindCanvas() {
   cv.addEventListener('pointerdown', ev => {
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
-    if (!down.tc) cv.setPointerCapture(ev.pointerId);
+    if (!down.tc && !GRAB.on) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* the pointer locked: nothing to capture */ } }
     orbit.held = true;
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
   });
   cv.addEventListener('pointermove', ev => {
+    if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
@@ -25829,7 +26011,7 @@ function bindCanvas() {
     }
     if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
     if (!down || !down.moved) return;
-    if (X.view === 'walk') { WALK.yaw += dx * 0.004; WALK.pitch = clamp(WALK.pitch + dy * 0.004, -1.3, 1.3); WALK.to = null; return; }
+    if (X.view === 'walk') { walkLook(dx, dy, LOOK_DRAG); return; }
     orbit.to = null;
     if (down.b === 2 || down.shift) {
       // pan: the target slides along the floor (right button or Shift)
@@ -25840,7 +26022,11 @@ function bindCanvas() {
   const end = ev => {
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && !down.tc && ev.type === 'pointerup' && performance.now() - X.tcUp > 200) clickAt(ev.clientX, ev.clientY);
+    // a click: grabbed, it acts at the crosshair (the left button); in Walk view with a mouse, the first one grabs it
+    if (APP.mode === 'explore' && down && !down.moved && !down.tc && ev.type === 'pointerup' && performance.now() - X.tcUp > 200) {
+      if (GRAB.on) { if (down.b === 0) clickAt(window.innerWidth / 2, window.innerHeight / 2); }
+      else if (!grabTry(ev, down.b)) clickAt(ev.clientX, ev.clientY);
+    }
     if (!pts.size) { down = null; orbit.held = false; }
   };
   cv.addEventListener('pointerup', end);
@@ -25861,6 +26047,7 @@ function bindCanvas() {
     if ((ev.ctrlKey || ev.metaKey) && k === 'z') { if (editOn()) { undo(); ev.preventDefault(); } return; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
+    if (k === 'escape' && (GRAB.on || performance.now() - GRAB.gone < 400)) return;   // (Esc lets go of the mouse: the browser's own, nothing else)
     if (k === 'escape' && (STU.pick || STU.txp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
@@ -25870,6 +26057,75 @@ function bindCanvas() {
   });
   document.addEventListener('keyup', ev => KEYS.delete(ev.key.toLowerCase()));
   window.addEventListener('blur', () => KEYS.clear());
+  document.addEventListener('pointerlockchange', () => grabSet(document.pointerLockElement === cv));
+  document.addEventListener('pointerlockerror', () => { GRAB.no = true; grabSet(false); });
+}
+// Walk view's mouse (v127; the owner, 9 November 2026: "mouse movement switch left right and also grab mouse focus with
+// esc to ungrab", then "like most games, in both cases"): dragging and the grabbed mouse look the way the mouse goes
+// (right looks right, up looks up). In Walk view a click with the mouse grabs it (the browser's pointer lock: no
+// pointer, the mouse turns you, W A S D walk, a crosshair in the middle where a click selects or walks); Esc lets go (the
+// browser's own, and nothing else: no item deselected). Leaving Walk view, explore mode or the page lets go too. Orbit
+// view as before. A browser that refuses the lock (GRAB.no) clicks as before
+const GRAB = { on: false, gone: 0, no: false, tip: null, el: null, mq: null };
+const LOOK_DRAG = 0.004, LOOK_GRAB = 0.0025;
+function walkLook(dx, dy, k) {
+  WALK.yaw -= dx * k;
+  WALK.pitch = clamp(WALK.pitch - dy * k, -1.3, 1.3);
+  WALK.to = null;
+}
+const grabCan = () => !GRAB.no && !XR.on && APP.mode === 'explore' && X.view === 'walk' && typeof GL.canvas.requestPointerLock === 'function';
+// a click in Walk view with a mouse: the mouse grabbed (true), else false (the click then acts as ever); refused (an
+// older browser's error comes as pointerlockerror), the click acts after all
+function grabTry(ev, b) {
+  if (ev.pointerType !== 'mouse' || b !== 0 || !grabCan()) return false;
+  let r;
+  try { r = GL.canvas.requestPointerLock(); } catch (e) { GRAB.no = true; return false; }
+  const x = ev.clientX, y = ev.clientY;
+  if (r && typeof r.catch === 'function') r.catch(() => { GRAB.no = true; grabSet(false); clickAt(x, y); });
+  return true;
+}
+function grabSet(on) {
+  if (on === GRAB.on) return;
+  GRAB.on = on;
+  if (!on) GRAB.gone = performance.now();
+  STU.hover = '';
+  grabDraw();
+  dirty(true);
+}
+// the grabbed mouse's move: you turn (each event held to 200 px: a browser's odd jump), and what is under the crosshair
+// lights up while editing
+function grabLook(ev) {
+  if (APP.mode !== 'explore' || X.view !== 'walk') return;
+  walkLook(clamp(ev.movementX || 0, -200, 200), clamp(ev.movementY || 0, -200, 200), LOOK_GRAB);
+  if (editOn() && !(GL.tc && GL.tc.axis)) {
+    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = rayPick(ray, { inside: walkInside(ray) });
+    STU.hover = h ? h.id : '';
+  }
+}
+// each frame: let go when Walk view, explore mode or the page is left; the crosshair and the Walk hint follow
+function grabStep() {
+  if (GRAB.on && (X.view !== 'walk' || APP.mode !== 'explore' || XR.on || HOST.picking || GL.gone)) { try { document.exitPointerLock(); } catch (e) { /* gone */ } }
+  if (!GRAB.mq) GRAB.mq = matchMedia('(pointer: fine)');
+  const tip = !GRAB.on && !GRAB.no && !XR.on && APP.mode === 'explore' && X.view === 'walk' && GRAB.mq.matches;
+  if (tip !== GRAB.tip) { GRAB.tip = tip; const t = $('#stuWalkTip'); if (t) t.style.display = tip ? '' : 'none'; }   // (#viewctl .grp is flex: hidden alone would not hide it)
+}
+// the crosshair and its line, over the middle of the page while the mouse is grabbed (made once, taken away by dispose)
+function grabDraw() {
+  if (!GRAB.el && GRAB.on) {
+    const el = document.createElement('div');
+    el.id = 'stuGrab';
+    el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:6;text-align:center;color:#e7eef8;font:12px/1.3 Inter,"Segoe UI",Arial,sans-serif;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)';
+    el.innerHTML = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" style="display:block;margin:0 auto;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))"><path d="M11 3v6M11 13v6M3 11h6M13 11h6" stroke="#e7eef8" stroke-width="2" stroke-linecap="round"/></svg>' +
+      '<div style="position:absolute;left:50%;top:30px;transform:translateX(-50%);white-space:nowrap">Esc lets go of the mouse</div>';
+    document.body.appendChild(el);
+    GRAB.el = el;
+  }
+  if (GRAB.el) GRAB.el.style.display = GRAB.on ? '' : 'none';
+}
+function grabEnd() {
+  if (document.pointerLockElement === GL.canvas) { try { document.exitPointerLock(); } catch (e) { /* gone */ } }
+  if (GRAB.el) { GRAB.el.remove(); GRAB.el = null; }
+  GRAB.on = false;
 }
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
@@ -26417,12 +26673,14 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
+const UP = { keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
 const upRelay = () => SRC.kind === 'relay' && SRC.upload && SRC.state === 'ok';
 const upChanged = () => { UP.rev++; dirty(); };
+// the share of triangles a new model row starts at: what the all-models slider says once moved (v127), else 20 %
+const upKeep = () => (UP.keepAll === null ? FT_DEFAULT : UP.keepAll);
 // files dropped or chosen: [{ path, file }] (a dropped folder's structure kept in path)
 function upTake(list) {
   if (UP.busy) return;
@@ -26454,7 +26712,7 @@ async function upPlan() {
   const find = (n, near) => { const L = byName.get(baseName(n).toLowerCase()); if (!L) return null; const dir = near.path.slice(0, near.path.lastIndexOf('/') + 1); return L.find(e => e.path.startsWith(dir) && e.path.slice(dir.length) === baseName(n)) || L.find(e => e.path.startsWith(dir)) || L[0]; };
   const rows = [];
   for (const e of E.filter(x => MODEL_EXT.includes(x.ext))) {
-    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path, keep: FT_DEFAULT, tris: null, pv: null };
+    const r = { kind: 'model', main: e, src: [e], deps: [], names: [], adds: [], out: [], notes: [], notes0: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path, keep: upKeep(), tris: null, pv: null };
     try {
       if (!e.buf) e.buf = await e.file.arrayBuffer();
       if (gen !== UP.gen) return;
@@ -26771,6 +27029,21 @@ async function upFile(scene, p, body, onP) {
 // a file the relay would refuse (over its --max-upload), said before anything is sent
 const tooBig = r => (upRelay() && SRC.maxUpload ? r.src.filter(e => e.file.size > SRC.maxUpload).map(e => `${e.name} is ${mb(e.file.size)}: more than this relay takes (${mb(SRC.maxUpload)}; --max-upload).`) : []);
 const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], { type })); UP.blobs.push(u); return u; };
+// a row taken out of the plan before uploading (v127, the owner: "add option to remove items from upload list before
+// uploading"): its files leave what was dropped, a model's with the files it needs and its pictures, unless another row
+// still uses them; nothing of it is converted, uploaded or kept in originals/. A row made or working stays
+function upDrop(ri) {
+  const r = UP.rows[ri];
+  if (!r || r.state !== 'plan' || UP.busy) return;
+  UP.rows.splice(ri, 1);
+  const still = new Set(UP.rows.filter(x => x.kind !== 'keep').flatMap(x => x.src));
+  const gone = new Set(r.src.filter(e => !still.has(e)));
+  UP.entries = UP.entries.filter(e => !gone.has(e));
+  if (VW.open && VW.src && VW.src.kind === 'up') vwClose();   // (the viewer of a row: its number moved)
+  upRebuild();
+  if (!UP.rows.length) UP.entries = [];
+  upChanged();
+}
 function upClear() { if (UP.busy) return; UP.gen++; UP.entries = []; UP.rows = []; UP.left = []; UP.ran = false; UP.note = ''; UP.planning = false; UP.sent = new Set(); for (const u of UP.blobs) URL.revokeObjectURL(u); UP.blobs = []; dirty(true); }
 function upOpen() {
   const name = UP.scene;
@@ -26816,6 +27089,14 @@ function uploadBlocks(B) {
   if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
   if (UP.rows.length) {
     const n = k => UP.rows.filter(r => r.kind === k).length;
+    // (v127, the owner: "one slider for all models reduction when uploading": every model row still to make, at once; a
+    // row's own slider can still differ after, and a later drop starts at it)
+    const mods = UP.rows.filter(r => r.kind === 'model' && r.state === 'plan'), ka = upKeep();
+    if (mods.length) {
+      const differ = mods.some(r => Math.abs((r.keep === undefined ? FT_DEFAULT : r.keep) - ka) > 0.004);
+      B.push({ label: 'Triangles kept, every model', range: { id: 'stuRangeUpAll', act: 'up:keepall', v: '', min: 2, max: 100, value: Math.round(ka * 100), out: Math.round(ka * 100) + ' %', dis: busy, aria: 'Triangles kept, every model' } });
+      if (differ) B.push({ p: 'Some models below have a share of their own: moving this sets them all.', c: 'faint' });
+    }
     B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
     if (UP.left.length) B.push({ p: `Left out: ${UP.left.length} hidden or system file${UP.left.length === 1 ? '' : 's'} (${UP.left.slice(0, 4).join(', ')}${UP.left.length > 4 ? '...' : ''}).`, c: 'faint' });
     const todo = UP.rows.some(r => r.state !== 'done');
@@ -26834,7 +27115,8 @@ function uploadHTML(b) {
   if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
-    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}><span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+    const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy ? ' disabled' : ''}>×</button>` : '';
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
@@ -26904,6 +27186,7 @@ const UP_ACT = {
   'up:run': () => upRun(),
   'up:pv': v => { const r = UP.rows[+v]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) vwOpen({ kind: 'up', ri: +v }); },   // (the viewer, over the whole window: e7f_viewer.js)
   'up:clear': () => upClear(),
+  'up:drop': v => upDrop(+v),
   'up:open': () => upOpen(),
   'up:use': v => { const [ri, n, q] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n), e = UP.entries.find(y => y.path === q); if (x && e && r.state === 'plan') { Object.assign(x, { entry: e, how: 'chosen' }); upRebuild(); upChanged(); } },
   'up:unuse': v => { const [ri, n] = JSON.parse(v), r = UP.rows[ri], x = r && r.names.find(y => y.name === n); if (x && r.state === 'plan') { Object.assign(x, { entry: null, how: '' }); upRebuild(); upChanged(); } },
@@ -27352,7 +27635,22 @@ const LITE_ACT = {
 // at once when let go; an Upload row keeps its share
 const LITE_RANGE = {
   'ft:set': (v, _, done) => { if (editOn()) ftSet(v / 100, done); },
+  'an:seek': (v, _, done) => animSeek(v, done),   // (a selected model's timeline: e6m_anim.js)
   'up:keep': (v, ri, done) => { const r = UP.rows[+ri]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) { r.keep = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100)); if (done) upChanged(); } },
+  // (every model row still to make, as it moves: their own sliders follow on the page at once)
+  'up:keepall': (v, _, done) => {
+    if (UP.busy) return;
+    const k = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100));
+    UP.keepAll = k;
+    UP.rows.forEach((r, ri) => {
+      if (r.kind !== 'model' || r.state !== 'plan') return;
+      r.keep = k;
+      const i = document.getElementById('stuRangeUp' + ri), o = i && i.parentNode.querySelector('[data-range-out]');
+      if (i) i.value = Math.round(k * 100);
+      if (o) o.textContent = Math.round(k * 100) + ' %';
+    });
+    if (done) upChanged();
+  },
 };
 function liteBind() {
   const ex = $('#explore');
@@ -27364,7 +27662,7 @@ function liteBind() {
     const t = ev.target;
     if (!t || !t.dataset || !t.dataset.range) return;
     const o = t.parentNode && t.parentNode.querySelector('[data-range-out]');
-    if (o) o.textContent = t.value + ' %';
+    if (o) o.textContent = t.dataset.fmt === 's' ? (t.value / 10).toFixed(1) + ' s' : t.value + ' %';
     if (!OPT.visit && LITE_RANGE[t.dataset.range]) LITE_RANGE[t.dataset.range](+t.value, t.dataset.v, done);
   };
   ex.addEventListener('input', ev => go(ev, false));
@@ -29449,7 +29747,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
+  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;
@@ -30378,6 +30676,7 @@ return {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
+    try { grabEnd(); } catch (e) { /* not grabbed */ }   // (Walk view's grabbed mouse let go, its crosshair taken away: e7_explore.js)
     try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);

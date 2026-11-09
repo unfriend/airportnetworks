@@ -1,26 +1,25 @@
 {
-  "version": "networks-v126",
+  "version": "networks-v127",
   "date": "9 November 2026",
   "new": [
-    "Vive trackers in the shared rooms: a small bridge on the SteamVR PC (tools/trackers/bridge.py) sends every tracker to the relay, which lines them up with the room by hand on spot A and spot B.",
-    "The Shared dialog's section The PC's trackers: use them in this room, Set spot A and Set spot B, a name for each tracker, a row that lights while its tracker moves.",
-    "Headsets: Trackers shown or hidden on the menu's Debug tab (small pucks where each tracker is).",
-    "The Index's own page in VR lines up with the room from the trackers, with no spots and no shared space.",
-    "Studio: props that follow a tracker (Follows a tracker, Snap onto it).",
-    "Studio: a Mixamo character worn with trackers, the whole body or feet with a headset; Line up with the performer from a T-pose; Record a take as a new clip."
+    "Studio, Walk view on a page: dragging now looks the way the mouse goes (right looks right, up looks up).",
+    "Studio, Walk view: a click grabs the mouse, like a game. The mouse turns you, W A S D walk, a crosshair shows, and a click acts at the crosshair. Esc lets go.",
+    "Upload pane: a × on each row takes it out of the plan before uploading (a model's textures and MTL go with it).",
+    "Upload pane: one slider, Triangles kept, every model, sets the reduction for all models at once; each row can still differ after.",
+    "Studio: a selected animated model shows a timeline while editing: Pause / Play, Start, −1 s, +1 s, a slider on a page. Pause and the slider act for everyone at the circle, until it is deselected or editing goes off.",
+    "Studio, Follow: Where: In front, Behind, Left or Right. Behind and at a side it faces the way the person looks and walks with them."
   ],
   "test": [
-    "On the PC: SteamVR and the trackers on, python bridge.py --list shows every tracker; then the relay with --lan --trackers (tools/trackers/README.md).",
-    "The Shared dialog: Use the PC's trackers, a tracker lying on spot A and then spot B, Set spot A and B, then names.",
-    "A Quest in the room: Trackers shown on the Debug tab; do the pucks sit on the real trackers?",
-    "The Index's page in VR in Chrome or Edge: does it line up by the trackers and match the Quests?",
-    "Studio at a circle: a shape following a tracker you carry; a Mixamo character worn with six trackers, lined up from a T-pose, and a take recorded.",
-    "From v125, still untried: moving with the sticks, the phone AR menu, developer mode, the studio's recorder with voice."
+    "On a desktop page in the studio's Walk view: drag left, right, up and down; then click the view, move the mouse, walk with W A S D, click something at the crosshair, press Esc.",
+    "Upload pane: drop a few models and sounds, take one out with ×, move the every-model slider, then Convert and upload.",
+    "A model with an animation, selected with editing on: Pause, slide, Play, Start, −1 s, +1 s; at a circle with a second headset, check both see the same frame and that deselecting gives it back.",
+    "Follow behind, left and right in a headset: walk around and check it stays there and faces your way.",
+    "A v126 device and a v127 device in one room: the older one is asked to reload (format networks-39)."
   ],
   "untested": [
-    "Everything with SteamVR and real trackers: this release was checked only with a fake bridge in headless Chromium.",
-    "The bridge on Windows, how high a tracker's pose origin sits over the floor (TRK_FLOOR, 0 until measured), the lag through the PC's relay.",
-    "How a worn character looks and how a performer's trackers stay on; a take from a model in centimetres.",
-    "Feet and headset with a Quest's head and hands (15 a second, smoothed) instead of the Index's."
+    "The grabbed mouse in a real browser: headless Chromium sends a grabbed mouse's moves oddly, so turning with it, and Esc ending the grab, were only checked by reading the code.",
+    "The timeline on a headset's card and how in step a held frame looks for several people at a circle over Wi-Fi.",
+    "Follow behind or at a side on a headset: how it feels to be followed so.",
+    "Not yet tried on any device; the full test suites did not run (dev gets the cheap checks; the suites run before main)."
   ]
 }

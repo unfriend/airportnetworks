@@ -244,7 +244,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   where a moving item is placed, the page's arrows on it, and Pause; `engine/e6i_tex.js` the trigger cubes that change
   pictures on objects; `engine/e6j_voice.js` (v125) recordings past 2 minutes kept as files of the scene and a voice
   recorded with the movement; `engine/e6k_trk.js` (v126) props that follow one of the PC's Vive trackers;
-  `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes), two sets (`stage`, the
+  `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
+  selected model's timeline while editing, held for its circle), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -1313,8 +1314,9 @@ which an older device writing `look` would drop, and the studio's `state()` gain
 optional `tint` and `bright` on an object's record, a recorded `path` kept as a file of the scene (`src`, `len`, `n` in
 place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `skip` and `len`; networks-38 in v126: the
 room's key `trk` (the PC's trackers: "Vive trackers" below) and, from the studio in the same release, its records' `trk`
-(an item following a tracker) and `puppet` (a Mixamo character worn with trackers)). The plan is
-`docs/shared-space-plan.md`.
+(an item following a tracker) and `puppet` (a Mixamo character worn with trackers); networks-39 in v127: the studio's
+`state()` gained an optional `side` on a `follow` behaviour (Follow behind or at a side), which an older device would
+drop). The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
   like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
@@ -2808,7 +2810,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3909,7 +3911,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   sent to the relay's `ffmpeg` for `sounds/<name>.mp3` (mono, 96 kbit/s, 44.1 kHz), and without it an MP3, M4A/AAC or
   OGG kept as it is (played from one point) and anything else a mono 22.05 kHz WAV. Every given file also goes into
   `originals/<the dropped folders>`. Without a relay that takes uploads the plan still shows and *Convert* offers each
-  GLB and WAV as a download.
+  GLB and WAV as a download. v127 (the owner, 9 November 2026: "add option to remove items from upload list before
+  uploading, one slider for all models reduction when uploading"): a × on every row still to make takes it out of the
+  plan (`upDrop`: its files leave what was dropped, a model's with the files it needs and its pictures, unless another
+  row still uses them; nothing of it is made, uploaded or kept), and *Triangles kept, every model* above the list sets
+  every model row's share at once as it moves (`UP.keepAll`, `upKeep()`; a row's own slider can still differ after, a
+  line then says so, and a later drop starts at it).
 - **Fewer triangles and Change texture** (v119; the owner, 6 November 2026: "models need to be way less triangles",
   "needs a percentage and should be adjustable per model with a preview", "20 percent by default for everything",
   "preview in ar/vr would really be helpful", and "a change texture button on models placed in the scene";
@@ -4279,8 +4286,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   then "behaviours should be shared for each headset so only react to one headset, example closest or first player who
   walks close"; `tools/studio/SPEC.md`, "Behaviours"; `engine/e6g_behave.js`). An object, a shape or an empty may have a
   `behaviour` in its record, with only its kind's fields: `look` `{ who, range }` (its front, `+z` as placed, turns to the
-  person about the vertical through its middle), `follow` `{ who, range, dist, speed }` (comes to about `dist` in front of
-  them, at its own height, turned to them), `avoid` `{ who, range, dist, speed, area }` (keeps `dist` away along the floor,
+  person about the vertical through its middle), `follow` `{ who, range, dist, speed, side }` (comes to about `dist` in front of
+  them, at its own height, turned to them; v127, the owner: "follow mode should also be able to be behind someone", "left
+  right sounds good too": `side` `'behind'`, `'left'` or `'right'` puts it there instead, facing the way they look, so it
+  walks with them; in front is no `side` at all, as before; FORMAT networks-39), `avoid` `{ who, range, dist, speed, area }` (keeps `dist` away along the floor,
   within `area` of its place, home once home is `dist + 0.2 m` clear of them) or `item` `{ target, speed }` (follows
   another object, shape or empty at the offset they are placed at, where that one is before its motion, `it.pre`, which
   `drawnPose` keeps, a little behind); `who` `'nearest'` (another nearer by 0.3 m takes over) or `'first'` (kept until
@@ -4299,7 +4308,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pipeline), so a path and a motion draw over it and **the record never changes**; as a motion, it goes on while selected
   and rests while held here or paused (v122). Its card (page and headset, before Motion): *Behaviour: None / Look at / Follow / Keep away
   / Follow an item...* (pointing at one, or the card's list), *Reacts to: Nearest / First to come close*, *Notices people
-  within*, *Stays in front of them at* or *Keeps away by*, *Stays near its place, within*, *Moves at most*; one Undo step
+  within*, Follow's *Where: In front / Behind / Left / Right* (v127), *Stays in front of them at* (*behind them*, *at their
+  left*, *at their right*) or *Keeps away by*, *Stays near its place, within*, *Moves at most*; one Undo step
   each; a group's copy follows its own. `STUDIO.behave(id)`, `BEH.fake` and `BEH.log` for tests. FORMAT networks-35
   (v120). Known limit: in VR the stick walk moves the scene for one headset alone, so near a boundary the others may choose
   differently for a moment. Untested on a headset: all of it at a real station (being followed, looked at or avoided life
@@ -4470,6 +4480,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   record or `state()`: no `FORMAT` change. `STUDIO.ghost(id)` for tests. Untested on a headset: how the ghost reads life
   size and over a real room, carrying an item by its ghost with real controllers, finding the ghost by hand while
   recording, the tick and the pulse on a real controller, how a joined loop looks there, Pause from the headset's panel.
+- **A model's timeline** (v127; the owner, 9 November 2026: "items that have an animation should show a timeline and play
+  pause in edit mode when selected", "play and pause for everyone in the circle", "pause and scrubbing is temporary";
+  `engine/e6m_anim.js`, `tools/studio/SPEC.md` "A model's timeline"): an object whose clip plays (Loop or Once), selected
+  while editing, shows under its Animation rows (page and headset) *Timeline: t s of d s*, *Pause* / *Play*, *Start*,
+  *−1 s*, *+1 s*, *The scene's clock*, and on a page a slider. A press holds the clip here (`ANIM.mine`: its time at a
+  moment of the clock, playing or not) and, at a station, everyone at the circle draws the same frame: a quiet effect of
+  the studio's, `anim` (`{ at, a: [id, t, p] }`, four times a second and at once on each change, `{ at, a: [id], end: 1 }`
+  at the end), the relay's clock as at; nothing stored or saved, no record change, no Undo step, no `FORMAT` change. It
+  lets go, back to the scene's clock (or from when shown) for everyone, when the object is no longer selected here,
+  editing goes off, its clip stops or changes, or *The scene's clock* is pressed; a device that hears nothing for 1.2 s
+  lets go by itself; two holding one at once, the latest word wins on the others. A hold shows through Pause (v122). The
+  page's card follows the clip every frame without drawing the pane again (`animCardStep`), and a slider being moved
+  holds the pane still until let go; the headset's card is drawn again every half second while it shows. On a headset's
+  card the rows push Place and Size a little down (scroll to them). `animState()` for tests. Untested on a headset: how
+  the card reads and how in step a held frame looks for several people at a circle.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -4515,7 +4540,13 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   On a page a click selects, `TransformControls` move, turn and size the selection (W, E, R, or its card's buttons;
   cubes take per-axis size from R; sounds only move), the views are *Orbit* (round the scene) and *Walk* (first person
   at 1.6 m: W A S D or the arrows, drag to look, a click on the floor walks there: where cubes trigger on a page), and
-  Delete, Duplicate (D) and Undo (Ctrl+Z) work from the keyboard. New items go 1.5 m in front of you on the floor (a
+  Delete, Duplicate (D) and Undo (Ctrl+Z) work from the keyboard. Walk view's mouse (v127; the owner, 9 November 2026:
+  "mouse movement switch left right and also grab mouse focus with esc to ungrab", "like most games, in both cases"): a
+  drag looks the way the mouse goes (right looks right, up looks up), and a click with a mouse grabs it (the browser's
+  pointer lock, `GRAB` in `engine/e7_explore.js`): the mouse turns you, W A S D walk, a crosshair in the middle where a
+  click selects or walks (`clickAt` at the page's middle), a line under the view saying how; Esc lets go (the browser's
+  own; the studio's Esc deselects nothing then), as do leaving Walk view, explore mode or the page. A browser that
+  refuses the lock clicks as before. Orbit view as before. New items go 1.5 m in front of you on the floor (a
   model's lowest point on it), selected.
 - **The panes** (page HTML and headset canvas twins, the same content): **Scene** (the scene and the scenes to pick
   from, a station's for everyone at it; *Edit*; *Save*, which says *Saved 22:41* (*by Anna* for another device's save)

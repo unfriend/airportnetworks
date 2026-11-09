@@ -352,7 +352,22 @@ const LITE_ACT = {
 // at once when let go; an Upload row keeps its share
 const LITE_RANGE = {
   'ft:set': (v, _, done) => { if (editOn()) ftSet(v / 100, done); },
+  'an:seek': (v, _, done) => animSeek(v, done),   // (a selected model's timeline: e6m_anim.js)
   'up:keep': (v, ri, done) => { const r = UP.rows[+ri]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) { r.keep = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100)); if (done) upChanged(); } },
+  // (every model row still to make, as it moves: their own sliders follow on the page at once)
+  'up:keepall': (v, _, done) => {
+    if (UP.busy) return;
+    const k = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100));
+    UP.keepAll = k;
+    UP.rows.forEach((r, ri) => {
+      if (r.kind !== 'model' || r.state !== 'plan') return;
+      r.keep = k;
+      const i = document.getElementById('stuRangeUp' + ri), o = i && i.parentNode.querySelector('[data-range-out]');
+      if (i) i.value = Math.round(k * 100);
+      if (o) o.textContent = Math.round(k * 100) + ' %';
+    });
+    if (done) upChanged();
+  },
 };
 function liteBind() {
   const ex = $('#explore');
@@ -364,7 +379,7 @@ function liteBind() {
     const t = ev.target;
     if (!t || !t.dataset || !t.dataset.range) return;
     const o = t.parentNode && t.parentNode.querySelector('[data-range-out]');
-    if (o) o.textContent = t.value + ' %';
+    if (o) o.textContent = t.dataset.fmt === 's' ? (t.value / 10).toFixed(1) + ' s' : t.value + ' %';
     if (!OPT.visit && LITE_RANGE[t.dataset.range]) LITE_RANGE[t.dataset.range](+t.value, t.dataset.v, done);
   };
   ex.addEventListener('input', ev => go(ev, false));

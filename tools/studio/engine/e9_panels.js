@@ -147,7 +147,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
+  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;

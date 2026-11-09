@@ -5,7 +5,7 @@
 // the fields its kind uses:
 // - look { who, range }: its front (+z as it is placed: a glTF model's own front) turns to face the person, about the
 //   vertical through its middle;
-// - follow { who, range, dist, speed }: comes to the person and stays about dist in front of them (where they look), at
+// - follow { who, range, dist, speed, side }: comes to the person and stays about dist in front of them (where they look), at
 //   its own height, turned to them as look turns it;
 // - avoid { who, range, dist, speed, area }: keeps at least dist away from the person, never more than area from where it
 //   is placed, and goes home once home is dist + 0.2 m clear of them;
@@ -35,7 +35,13 @@
 // (tx, tz) and a turn about the vertical through its placed middle (d) from its placed pose, so it holds whatever the
 // room does to the record (the samples carry these three); an item's keeps a whole pose.
 const BEH_KINDS = ['look', 'follow', 'avoid', 'item'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
-const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed'] };
+const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed'] };
+// where Follow keeps it (v127; the owner, 9 November 2026: "follow mode should also be able to be behind someone", "should
+// be able to just walk behind them and left right sounds good too"): in front of them, turned to them (the default, kept
+// as no side at all, as before v127); behind them or at their left or right, facing the way they look (it walks with them)
+const BEH_SIDE = ['front', 'behind', 'left', 'right'];
+const BEH_SIDE_WORD = { front: 'In front', behind: 'Behind', left: 'Left', right: 'Right' };
+const BEH_SIDE_AT = { front: 'Stays in front of them at', behind: 'Stays behind them at', left: 'Stays at their left at', right: 'Stays at their right at' };
 // each number's default, least and most (to the cm, held there), and the card's steps
 const BEH_NUM = {
   range: { d: 3, min: 0.5, max: 20, steps: [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20] },
@@ -55,6 +61,7 @@ function normBehaviour(x) {
     const v = x[k], has = v !== undefined;
     if (k === 'who') { if (has && !BEH_WHO.includes(v)) return null; r.who = has ? v : 'nearest'; }
     else if (k === 'target') { if (!okId(v)) return null; r.target = v; }
+    else if (k === 'side') { if (has && !BEH_SIDE.includes(v)) return null; if (has && v !== 'front') r.side = v; }
     else { const N = BEH_NUM[k]; if (has && !fin(v)) return null; r[k] = clamp(r2(has ? v : k === 'dist' ? BEH_DIST[x.kind] : N.d), N.min, N.max); }
   }
   return r;
@@ -170,7 +177,12 @@ function behWant(it, b, B, h, M0) {
   const yaw0 = behYaw0(it), Mx = M0.x + B.tx, Mz = M0.z + B.tz;
   const face = (x, z) => (Math.hypot(h.p.x - x, h.p.z - z) > 0.05 ? wrapA(Math.atan2(h.p.x - x, h.p.z - z) - yaw0) : B.d);   // (its front to them; right over it: as it is)
   if (b.kind === 'look') return { tx: 0, tz: 0, d: face(M0.x, M0.z) };
-  if (b.kind === 'follow') return { tx: h.p.x + h.f[0] * b.dist - M0.x, tz: h.p.z + h.f[1] * b.dist - M0.z, d: face(Mx, Mz) };
+  if (b.kind === 'follow') {
+    // (in front: where they look, turned to them; behind or at a side: there, facing the way they look. h.f is where they
+    // look along the floor, [x, z]; their left is [f.z, -f.x])
+    const sd = b.side || 'front', [fx, fz] = h.f, [ox, oz] = sd === 'behind' ? [-fx, -fz] : sd === 'left' ? [fz, -fx] : sd === 'right' ? [-fz, fx] : [fx, fz];
+    return { tx: h.p.x + ox * b.dist - M0.x, tz: h.p.z + oz * b.dist - M0.z, d: sd === 'front' ? face(Mx, Mz) : wrapA(Math.atan2(fx, fz) - yaw0) };
+  }
   // avoid: home once home is clear of them; where it is while it is far enough; else pushed to dist from them, within its area
   if (Math.hypot(M0.x - h.p.x, M0.z - h.p.z) >= b.dist + BEH_HOME) return { tx: 0, tz: 0, d: 0 };
   const r = Math.hypot(Mx - h.p.x, Mz - h.p.z);
@@ -372,7 +384,12 @@ function behaveBlocks(it, B, dis) {
   }
   B.push({ label: 'Reacts to', row: [{ id: 'bwho:nearest', label: 'Nearest', act: 'i:bwho', v: 'nearest', on: b.who === 'nearest', dis }, { id: 'bwho:first', label: 'First to come close', act: 'i:bwho', v: 'first', on: b.who === 'first', dis }] },
     num('range', 'Notices people within', 'Less', 'More'));
-  if (b.kind === 'follow') B.push(num('dist', 'Stays in front of them at', 'Closer', 'Further'));
+  if (b.kind === 'follow') {
+    const sd = b.side || 'front';
+    B.push({ label: 'Where', row: BEH_SIDE.map(k => ({ id: 'bside:' + k, label: BEH_SIDE_WORD[k], act: 'i:bside', v: k, on: sd === k, dis })) },
+      num('dist', BEH_SIDE_AT[sd], 'Closer', 'Further'));
+    if (sd !== 'front') B.push({ p: 'It faces the way they look, so it walks with them.', c: 'faint' });
+  }
   if (b.kind === 'avoid') B.push(num('dist', 'Keeps away by', 'Less', 'More'), num('area', 'Stays near its place, within', 'Less', 'More'));
   if (b.kind !== 'look') B.push(num('speed', 'Moves at most', 'Slower', 'Faster'));
   B.push({ p: 'One person at a time, the same for everyone at a circle: ' + (b.who === 'first' ? 'the first to come within range, until they walk away' : 'the nearest within range') +
@@ -398,6 +415,13 @@ Object.assign(ITEM_ACT, {
     setRec(it.id, { behaviour: { kind: 'item', target: oid, speed: b && b.speed } });
   },
   bwho: (it, v) => { if (BEH_WHO.includes(v)) behSet(it, b => (b.who ? { who: v } : {})); },
+  bside: (it, v) => {   // (Follow's side; in front is no side at all)
+    const b = it.rec.behaviour;
+    if (!BEH_SIDE.includes(v) || !b || b.kind !== 'follow' || !MOTION_ITEMS.includes(it.kind) || (b.side || 'front') === v) return;
+    const n = Object.assign({}, b);
+    if (v === 'front') delete n.side; else n.side = v;
+    setRec(it.id, { behaviour: n });
+  },
   bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => (b[k] !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, b[k], +d) } : {})); },
 });
 PANE_ONLY.push('bpick');

@@ -227,13 +227,13 @@ is GitHub Pages' custom domain for `main`.
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v126` on `dev` now, `main` at `networks-v121`, so `networks-v127` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v127` on `dev` now, `main` at `networks-v121`, so `networks-v128` next) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-38` on `dev` now; `main` has `networks-35`) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-39` on `dev` now; `main` has `networks-35`) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.
@@ -261,8 +261,8 @@ is GitHub Pages' custom domain for `main`.
    `node tools/release.mjs --check`): the build check, `node tools/release.mjs --check`, smoke, update, live updates,
    relay and shared rooms, plus sound if you touched sound and the room test if you touched it. All of them must pass.
 
-   **The first release run after v121 must be whole.** `main` is `networks-v121`; v122 to v126 are on `dev` only, and
-   the full suites have not run on v124, v125 or v126. Before `main` moves to them, run all of these (section 3 has
+   **The first release run after v121 must be whole.** `main` is `networks-v121`; v122 to v127 are on `dev` only, and
+   the full suites have not run whole on v124 to v127. Before `main` moves to them, run all of these (section 3 has
    what each needs):
 
    ```sh
