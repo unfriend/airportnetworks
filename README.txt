@@ -96,7 +96,10 @@ its circle) moves every item there again, for everyone (one Undo step).
 - Editing: Edit on the studio's Scene pane. On a laptop click an item and drag
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,
-  hold the grip to carry, both grips to size; in VR the sticks walk and turn.
+  hold the grip to carry, both grips to size; in VR the sticks walk and turn,
+  and steer what you carry. Click a stick twice for the other way of using
+  them: the sticks move you, also while you carry something, which comes along
+  (carry it far across the scene); twice again for the studio's own.
 - Behaviours: an object, a shape or an empty can look at people, follow them,
   keep away from them or follow another item (Behaviour on its card, with whom
   it reacts to: the nearest or the first to come close, and how far and how
@@ -427,9 +430,12 @@ with the sticks (off by default, this headset's own, never the room's; #walk=on
 in a link): click either stick twice quickly, or use its row on the Settings tab,
 and in VR the left stick moves you along the floor where you look and a flick of
 the right stick turns you 30 degrees; a controller whose grip is held keeps its
-stick for what it carries. Not in AR (there you walk for real), not in a shared
-room (the others need to see where you really stand) and not in the studio (its
-sticks walk you through the scene already): there two clicks say so. Turned off,
+stick for what it carries. Not in AR (there you walk for real) and not in a
+shared room (the others need to see where you really stand): there two clicks
+say so. In the studio the two clicks switch its sticks between its own (walk,
+turn, steer what you carry) and moving you, also while you carry something
+(it comes along in your hand) and in a shared room too (the scene moves, so the
+others still see you where you really stand). Turned off,
 you stay where you moved to; a new session starts where you stand. A and X play
 and pause nothing (play and pause are on the story's panels and the menu's Story
 tab). My menu

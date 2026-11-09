@@ -409,13 +409,13 @@ return {
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
   // the sticks (e8_xr.js): the studio's own (walk, turn, steer what you carry, scroll) while the shell's moving with the
-  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): also in a shared room, where
-  // the studio moves its scene itself (room: stickMove), and while a grip is held (carry: it comes along in the hand)
+  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): the studio moves you itself
+  // (stickMove: its scene, as its own walk does), in a shared room too and while a grip is held (what is carried comes
+  // along in the hand); the shell gives the notice and the menu's line in these words
   sticks: {
-    room: true, carry: true,
     say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.']
       : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click a stick twice to move with them.']),
-    note: 'Here, on: the sticks move you, also while you carry something (it comes along). Off: the studio\'s sticks (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
+    note: 'Here, on: the sticks move you (in a shared room too), also while you carry something, which comes along. Off: the studio\'s own (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
   },
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),

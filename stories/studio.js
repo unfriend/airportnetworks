@@ -26552,9 +26552,9 @@ const vwState = () => ({ open: VW.open, kind: VW.src ? VW.src.kind : '', title: 
 // left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
 // stick walks you through the scene and the right stick turns you (the scene moves, not you). Those are the studio's own
 // sticks; a stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
-// instead, also while something is carried, which comes along in the hand (stickMove). The grip on the panel moves the
-// panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's card,
-// e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
+// (the scene, by the shell's numbers), also while something is carried, which comes along in the hand (stickMove). The
+// grip on the panel moves the panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's
+// card, e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -26607,9 +26607,10 @@ function xrRoomBase(out) {
 }
 // Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
 // it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
-// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
+// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked), and
+// this headset's own stick walk goes back (XR.walk: you where you really stand in the scene again)
 function xrRecenterAsk() {
-  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter();
+  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) { XR.walk.x = XR.walk.z = XR.walk.yaw = 0; return HOST.room.recenter(); }
   if (HOST.anchor.on) HOST.anchor.again();
   XR.needRecenter = true;
   return true;
@@ -27156,8 +27157,8 @@ function carryGroup(c, dt) {
     if (_gv.length() > 30) _gv.setLength(30);
     _gv.applyQuaternion(_gq).add(c.o);
     T.t.copy(GL.items.worldToLocal(_gv)).sub(g.base.P);
-    // (moving freely it turns with the hand; the scene turned by the sticks meanwhile, stickMove in a room, taken off
-    // again, so it stays as the hand holds it)
+    // (moving freely it turns with the hand; the scene turned by the sticks meanwhile, stickMove, taken off again, so it
+    // stays as the hand holds it)
     T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y - (XR.walk.yaw - (G.wy0 || 0)) : 0) + G.sth;
     T.k = G.k0 * G.kz;
   }
@@ -27210,7 +27211,7 @@ function stickScroll(c, gp, dt) {
 // VR (not passthrough), nothing carried: the left stick walks you through the scene (it moves, not the rig), the right
 // stick turns you 30 degrees a flick, about where you stand. Not a stick whose ray is on the studio's panel (it scrolls
 // there: stickScroll); a turn held there waits for the stick to come back to the middle. The studio's own sticks: not
-// while they move you (moving with the sticks: stickMove, or the shell's travel)
+// while they move you (moving with the sticks: stickMove)
 function stickWalk(c, gp, dt) {
   if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || xrWalking() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
   const ax = gp.axes[2], ay = gp.axes[3], hand = c.src.handedness;
@@ -27235,25 +27236,29 @@ function stickWalk(c, gp, dt) {
     buzz(c, 0.2, 12);
   }
 }
-// Moving with the sticks (the shell's HOST.xr.walk, a stick clicked twice; the owner, 8 November 2026: "i want stick
-// movement in studio mode too, just make it switchable with the double stick click"): in VR the sticks then move you, by
-// the shell's rules, also while something is carried (it comes along in the hand: carry something far across the scene)
-// and wherever the ray is (the pane scrolls by its Up and More). Outside a shared room the shell moves you (its travel:
-// you, the panels and what you carry, past everything else), and the studio's own sticks rest (xrWalking: stickWalk,
-// holdSticks, stickScroll). In a shared room the shell does not (the room's frame and the others' view of you need where
-// you really stand: HOST.xr.walkSelf), so the studio moves its scene as its own walk does (XR.walk, the rig and the
-// room's circles and people staying where they really are, the others seeing you where you really stand), by the
-// shell's numbers: the left stick along the floor where your head faces, 1.5 m/s at full push (a dead zone of 0.2, the
-// rate the push's square past it), the right stick 30 degrees about your head a flick past 0.6, again once it is back
-// under 0.3. Switching either way keeps where you are: the travel and XR.walk both stay as they were
+// Moving with the sticks (the shell's HOST.xr.walk, a stick clicked twice, the same setting as in every story; the owner,
+// 8 November 2026: "i want stick movement in studio mode too, just make it switchable with the double stick click so that
+// i can switch between the two modes of stick operation in studio mode"): in VR, on, the sticks move you, by the shell's
+// numbers, also while something is carried (it comes along in the hand: carry something far across the scene) and
+// wherever the ray is (the pane scrolls by its Up and More); the studio's own sticks rest meanwhile (xrWalking:
+// stickWalk, holdSticks, stickScroll). The studio moves you itself, as its own walk does (XR.walk: the scene moves, the
+// rig and its panels stay with you), in a shared room too (the shell's travel stays as it is: HOST.xr.walkSelf), so the
+// panels behave alike in both modes, in a room and out, and the others see you where you really stand: the left stick
+// along the floor where your head faces, 1.5 m/s at full push (a dead zone of 0.2, the rate the push's square past it),
+// the right stick 30 degrees about your head a flick past 0.6, again once it is back under 0.3. Switching either way
+// keeps where you are (XR.walk stays as it was; Recenter takes it back, as for the studio's own walk). AR: you walk for
+// real, and the studio's sticks steer and scroll (the shell refuses the double click there and says why)
 const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3 };
 const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
-function stickMove(c, gp, dt) {
-  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return; }
+// once a frame for each controller, before any carry (xrBegin), so what a hand carries is placed on the scene as it now
+// stands: true when it moved the scene
+function stickMove(c, dt) {
+  const gp = c.src && c.g.visible && c.src.gamepad;
+  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
   const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0, hand = c.src.handedness;
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);
-    if (m <= MOVE.dz || !dt) return;
+    if (m <= MOVE.dz || !dt) return false;
     GL.rig.updateMatrixWorld(true);
     _gh.set(0, 0, -1).applyQuaternion(XR.headQ).applyQuaternion(_gr.copy(GL.rig.quaternion).invert());
     _gh.y = 0;
@@ -27261,14 +27266,17 @@ function stickMove(c, gp, dt) {
     _gh.normalize();
     const k = Math.min(1, (m - MOVE.dz) / (1 - MOVE.dz)), v = MOVE.speed * k * k * dt / m, fx = -ay * v, sx = ax * v;   // (forward and to the side)
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
-  } else if (hand === 'right') {
-    if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return; }
-    if (!c.moveArm || Math.abs(ax) < MOVE.flick) return;
-    c.moveArm = false;
-    const th = ax > 0 ? MOVE.turn : -MOVE.turn, h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
-    const dx = XR.walk.x - h.x, dz = XR.walk.z - h.z;
-    XR.walk.x = h.x + cs * dx + sn * dz; XR.walk.z = h.z - sn * dx + cs * dz; XR.walk.yaw += th;
+    return true;
   }
+  if (hand !== 'right') return false;
+  if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
+  if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
+  c.moveArm = false;
+  GL.rig.updateMatrixWorld(true);
+  const th = ax > 0 ? MOVE.turn : -MOVE.turn, h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
+  const dx = XR.walk.x - h.x, dz = XR.walk.z - h.z;
+  XR.walk.x = h.x + cs * dx + sn * dz; XR.walk.z = h.z - sn * dx + cs * dz; XR.walk.yaw += th;
+  return true;
 }
 // which the sticks are now, for the panels' lines: 'move' (they move you), 'own' (the studio's) or 'ar' (passthrough: you
 // walk for real; the studio's steer and scroll)
@@ -27314,7 +27322,6 @@ function xrPoint(c, dt) {
   if (gp) {
     stickScroll(c, gp, dt);
     stickWalk(c, gp, dt);
-    stickMove(c, gp, dt);
   }
   c.ray.scale.z = dist;
   if (hit) {
@@ -27360,6 +27367,10 @@ function xrBegin(frame, dt) {
       try { if ('fixedFoveation' in bl) bl.fixedFoveation = 0.5; } catch (e) { /* not supported */ }
     }
   }
+  // moving with the sticks (stickMove): the scene moved first, so a carried item is placed on it as it now stands
+  let moved = false;
+  for (const c of XR.ctrls) moved = stickMove(c, dt) || moved;
+  if (moved) xrPlace();
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
@@ -28633,13 +28644,13 @@ return {
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
   // the sticks (e8_xr.js): the studio's own (walk, turn, steer what you carry, scroll) while the shell's moving with the
-  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): also in a shared room, where
-  // the studio moves its scene itself (room: stickMove), and while a grip is held (carry: it comes along in the hand)
+  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): the studio moves you itself
+  // (stickMove: its scene, as its own walk does), in a shared room too and while a grip is held (what is carried comes
+  // along in the hand); the shell gives the notice and the menu's line in these words
   sticks: {
-    room: true, carry: true,
     say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.']
       : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click a stick twice to move with them.']),
-    note: 'Here, on: the sticks move you, also while you carry something (it comes along). Off: the studio\'s sticks (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
+    note: 'Here, on: the sticks move you (in a shared room too), also while you carry something, which comes along. Off: the studio\'s own (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
   },
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
