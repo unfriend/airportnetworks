@@ -237,7 +237,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   recorded paths, the recorder and its loop join; `engine/e6g_behave.js` the behaviours; `engine/e6h_ghost.js` the ghost
   where a moving item is placed, the page's arrows on it, and Pause; `engine/e6i_tex.js` the trigger cubes that change
   pictures on objects; `engine/e6j_voice.js` (v125) recordings past 2 minutes kept as files of the scene and a voice
-  recorded with the movement), two sets (`stage`, the
+  recorded with the movement; `engine/e6k_trk.js` (v126) props that follow one of the PC's Vive trackers;
+  `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -254,9 +255,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
   and the figure, for cut-outs; and `test/scenes/puppet/`, about 60 KB: `rig.glb`, our own humanoid with Mixamo's bone
   names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
-  `engine/ik.js` (v125, not yet in the build: nothing uses it yet) is the trackers' solver for phase 3 of
-  `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver (ik.js)" there),
-  a plain module like `convert.js`, checked by `test-ik.mjs`.
+  `engine/ik.js` (v125; in the build since v126, as `convert.js` is: `e6l_puppet.js` uses it) is the trackers' solver for
+  phase 3 of `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver
+  (ik.js)" there), a plain module like `convert.js`, checked by `test-ik.mjs`.
   For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
   lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
   `push`).
@@ -2796,7 +2797,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -3866,7 +3867,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   ...], play: 'loop' | 'once' | 'bounce', start: 'always' | 'shown', speed }` (kept only when set; "Recorded paths" below;
   2 to 600 keys an item, 6,000 a scene, at most 120 s; a layout without it reads as before), or for a recording kept as a
   file (v125) `{ src: 'recordings/<name>-<n>.json', len, n, play, start, speed }` (`len` more than 0 to 600 s, `n` 2 to
-  40,000 keys; not counted in the scene's 6,000). Metres in the scene's frame (the floor at y = 0; at a station
+  40,000 keys; not counted in the scene's 6,000), and (v126) an object's, a shape's or an empty's tracker, `trk` `{ id, o, q }`, and an object's `puppet` ("Vive trackers" below), each kept only when set. Metres in the scene's frame (the floor at y = 0; at a station
   in a shared room the room's frame since v125, the origin and axes the room's: spot A and x towards spot B on a room
   calibrated on its floor spots; outside a room where you stood, -z the way you faced; until v124 the circle's spot); `p` to the mm, `q` to 4 decimals, `s` 4 significant
   figures, `yaw` radians (cubes stay level), `vol` 0 to 2, `r` (full volume within, 0.1 to 20 m). `id` six characters
@@ -4430,6 +4431,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   samples ("Behaviours" above); `view()` null; `place` and
   `panel` as the design room's (only the panel moves). Its station's icon is its own miniature, `studio.stage`
   (skipped by `tools/design/build.mjs`: not a prop).
+- **Trackers** (v126): props that follow one of the PC's Vive trackers and a Mixamo character worn with trackers, its
+  lining up and its takes: "Vive trackers" below.
 - For tests and the console: `HOST.cur.peek('STUDIO.state()')` (where things stand: the source, scenes, the scene, its
   items, editing, the selection, unsaved changes, Saved).
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
@@ -4451,6 +4454,53 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   dragged from a desktop file manager (only a synthetic drop and *Choose files*), Safari, iPhone and Firefox
   (`OfflineAudioContext` rates, `webkitdirectory`), uploads from GitHub Pages to a relay elsewhere, a streamed sound on
   a renewed context or reaching its end without a loop, and a plain `.gltf` with an external `.bin` (no test file).
+
+## Vive trackers (`tools/trackers/SPEC.md`)
+
+The owner, 8 November 2026: "we go for 1 and 3 with mixamo rigs for now": phase 1, the PC's Vive trackers in the rooms,
+lined up with the room, props that follow them; phase 3, a Mixamo character worn with them (live puppetry), its takes
+recorded as clips. `tools/trackers/SPEC.md` is the contract between the lanes (the bridge and the relay, the shell, the
+studio). FORMAT `networks-38` (the room's key `trk`, and the studio's records' `trk` and `puppet`).
+
+### The studio: props on trackers and a character worn with them (v126)
+
+- **The trackers here** (`engine/e6k_trk.js`, `trkStep`, first in `behaveStep` each frame): the shell's
+  `HOST.collab.trackers()` (`{ id, name, p, q, ok, k }` in room coordinates; guarded: an older shell gives none), only at a
+  studio station, where the scene's frame is the room's (v125: a tracker's room pose is the scene's, nothing turned).
+  Each one's last pose is kept per station (`TRK.last`): a tracker not seen holds it; another station starts with none.
+- **Props** (phase 1): an object's, a shape's or an empty's record may carry `trk` `{ id, o, q }` (its tracker's serial;
+  the item's pose in the tracker's frame, to the mm, turned but not scaled, 4 decimals). Drawn by the pose pipeline's base
+  stage (`POSE.base` = `poseBase`: a tracker first, else a behaviour's, `behaveBase`; set only while the scene has
+  either), so a path and a motion draw over it and the record never changes; never seen here: where it is placed; it
+  rests at its placed pose while held here or paused. The card's *Follows a tracker* (page and headset, editing on):
+  *None*, the tracker (a list by the room's names, else serials), *Snap onto it*; choosing keeps it where it stands, None
+  leaves it where the tracker had it; one Undo step each, refused while locked in place. A sound may follow it. A copy
+  follows no tracker; a GLB switch turns the offset by the baked turn (`switchedRec`).
+- **A character worn with trackers** (phase 3; `engine/e6l_puppet.js` with `engine/ik.js`): an object rigged with
+  Mixamo's bone names (`IK.rigOf`; others told why on the card) may carry `puppet` `{ on, rig: 'full' | 'feet', by, map,
+  cal, s, floor }` (`'head'`, a headset alone, waits). *Wear it: whole body* (6 to 11 trackers) or *feet and headset* (a
+  tracker on each foot; the head and hands from the PC's Index, `by` `'index'`, its kinds `'h'`, `'l'`, `'r'` in the
+  stream, or from the performer's own headset, `by` their member id: this device's own head and controllers when it is the
+  performer, else `HOST.collab.body(by)`, guarded). *Line up with the performer*: a 5 s countdown (this device's own), the
+  performer in a T-pose in front of it facing its way; the parts assigned (`IK.assign`), the character moved along the
+  floor so its parts at rest are, on average, where their trackers are, sized (`IK.calibrate`, then again at the scale the
+  record keeps), one change, one Undo step; *Line up again, these parts*; refused while locked in place; why not in words.
+  On and lined up: its own clip off and its bones solved every frame (`IK.solve`, in `itemsStep` in place of `animStep`:
+  `pupStep`), alike on every device from the same trackers and record (nothing per bone sent); not solvable now: at rest,
+  the card says why; Pause holds it; its holder stays where it is placed (a ghost there while editing); a sound may follow
+  its head bone. *Its parts* (another tracker for a part, swapping; then lined up again), *Head and hands from*, *On* /
+  *Off*, *Stop wearing*. A copy is worn by nobody; a GLB switch keeps it.
+- **Takes**: *Record a take* (on and lined up): a 3 s countdown, the solved bones sampled 30 times a second on the room's
+  clock (`pupClock`) until *Stop* or 120 s, made a clip *Take n* (`IK.clipOf`, bound by the bones' names of the model the
+  converter reads: `takeInto`) and the object's GLB made again with its clips and the new one through the converter
+  (`convertFile` with `take`: with a relay that takes uploads into `models/`, the old one kept under `originals/` when it
+  was there already, else every object of the file switched to the new one, a new picture; else downloaded). It plays as
+  any clip.
+- For tests: `STUDIO.trk(id)`, `STUDIO.puppet(id)`; `pupClock` (a function the tests replace).
+- Untested on devices: everything with real trackers, SteamVR and the Index, a Quest's head and hands through
+  `HOST.collab.body` (the turns of its hands), how a character looks worn, how a performer's trackers stay on, the lining
+  up's placement in practice (a few cm where the trackers' own offsets do not average out, which turns with the
+  performer), takes made through a real relay.
 
 ## Conventions
 
@@ -5046,6 +5096,37 @@ box and *Lime*) copied (the cube's copy on the box's copy, *Magenta* gaining an 
 swapped by meshes and names, by names, none known) and `texSwitched` (a material's index changed in a switch's change,
 Undo); and the figure, with an entry, converted to a GLB in the page and switched to it: its entry kept, its material found
 again (`[0]`), put on its GLB's model in the cube and off outside.
+
+Its *studio trackers* steps (v126; `--only 'studio trackers'`, about a minute) run on a page of their own at `&scene=test`,
+a pretend studio station (`HOST.collab.live`) and its trackers given in the page (`HOST.collab.trackers` stubbed, so each
+frame's poses are exact; the shell's stream is the shell lane's), with a shape, a sound following it and an empty put in
+for them: the card's *Follows a tracker* (its list by name, else serial; pressed on the headset's card too); a tracker
+chosen (one Undo step) leaving the shape where it stands (within 2 mm), then the tracker moved and turned and the shape on
+it within 5 mm, its pose on it kept; the sound following it moving with it; a tracker gone from the list held, one not
+`ok` at the pose the shell keeps; carried and paused at its placed pose; *Snap onto it* (right on it, one Undo step, Undo);
+another station (none seen there) at its placed pose; *None* leaving it where the tracker had it (one Undo step, Undo);
+locked, no new tracker; the empty's tracker chosen on the headset's card and an object's; `norm`'s rules (defaults, rounding,
+bad ids, offsets and turns, a cube's and a sound's dropped), the state both ways (a bad `trk` from the room ignored) and
+`layout.json` both ways; a copy and a group's copies on no tracker; a GLB switch's turn (the model where it was on its
+tracker, within 1e-3); where the shell has its test hook `HOST.collab.trkIn`, a tracker fed through it as the relay sends
+`@trk` and a shape following it within 5 mm (skipped, and said, where it has none); and the rig scene's dancer refused in
+words (*Not a Mixamo rig...*, *Wear it* greyed), a box with no bones offering nothing.
+
+Its *studio puppet* steps (v126; `--only 'studio puppet'`, under two minutes) run on two pages at `&scene=puppet`, the puppet
+test scene's rig loaded a second time in the page by three.js's own GLTFLoader as the performer (its Walk the truth),
+trackers worn on its bones with seeded random offsets (as `tools/studio/test-ik.mjs` has them; the mean of their offsets
+along the floor made zero by the hips' or the headset's, so lining up puts the character right where the performer
+stands), given as the shell's trackers (the Index's kinds too) or as `HOST.collab.body`, frames run at held times: *Wear
+it* (whole body), the countdown on the card (Line up and Cancel pressed on the headset's card), then lined up from a
+T-pose (the six parts found, the character moved to the performer within 3 mm and sized, one Undo step; Undo, again);
+3.3 s of the walk with its hands and feet within 5 mm of the truth (0.06 mm), its clip off; Pause holding it; *Off* (on the
+headset's card) giving its clip back, *On* again; a sound on its head bone following it; `norm`'s rules, the state and
+`layout.json` both ways, a copy worn by nobody, locked not lined up; a second page with the first's record solving the same
+23 bones at one held moment (within 1 degree and 1 mm: 0.0000 of both); a 3 s take (its countdown, 91 keys, *Stop*)
+made into a GLB, downloaded (no relay), whose clips are *Walk* and *Take 1* (3 s, a track a bone and the hips' place),
+*Take 1* at 1.5 s within 0.1 degrees of the bones solved then; and *feet and headset* with the PC's Index (lined up: the
+feet and the Index's headset and controllers), then with a performer's own headset (`HOST.collab.body`): the feet within
+5 mm and the hands within 1 cm (0.05 and 0.06 mm); a part given another tracker (swapping), not lined up until it is again.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict
