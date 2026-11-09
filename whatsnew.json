@@ -1,25 +1,32 @@
 {
-  "version": "networks-v127",
+  "version": "networks-v128",
   "date": "9 November 2026",
   "new": [
-    "Studio, Walk view on a page: dragging now looks the way the mouse goes (right looks right, up looks up).",
-    "Studio, Walk view: a click grabs the mouse, like a game. The mouse turns you, W A S D walk, a crosshair shows, and a click acts at the crosshair. Esc lets go.",
-    "Upload pane: a × on each row takes it out of the plan before uploading (a model's textures and MTL go with it).",
-    "Upload pane: one slider, Triangles kept, every model, sets the reduction for all models at once; each row can still differ after.",
-    "Studio: a selected animated model shows a timeline while editing: Pause / Play, Start, −1 s, +1 s, a slider on a page. Pause and the slider act for everyone at the circle, until it is deselected or editing goes off.",
-    "Studio, Follow: Where: In front, Behind, Left or Right. Behind and at a side it faces the way the person looks and walks with them."
+    "Moving with the sticks in a shared room: a VR headset that is elsewhere (it answered Somewhere else) can now move with the sticks (click a stick twice). The others see it move, and moving into a circle with the sticks enters it, Back to the lobby too. In the room with the others it stays off: there you walk for real.",
+    "Studio, Follow: a Faces row. Them turns it to look at the person; Where they look faces the way they look. It works with every side (In front, Behind, Left, Right).",
+    "Studio, Follow an item: a Faces row. The item turns it to look at the item it follows; As placed keeps the turn it is placed at with that item.",
+    "Studio: a recorded path has a timeline too, under its Recorded path rows: Pause / Play, Start, −1 s, +1 s, The scene's clock and a slider on a page. Back and forth is one cycle there and back. A voice recorded with the movement follows it.",
+    "Studio, headset card: a timeline bar under each Timeline row (a model's clip and a recorded path). Point at it and press or drag with the trigger to move it; it stays held there for everyone at the circle.",
+    "Studio: Lock in place is now the first row on every card, right under the name.",
+    "The Vive trackers' bridge runs with uv: uv run tools/trackers/bridge.py fetches Python and openvr by itself the first time (winget install astral-sh.uv once)."
   ],
   "test": [
-    "On a desktop page in the studio's Walk view: drag left, right, up and down; then click the view, move the mouse, walk with W A S D, click something at the crosshair, press Esc.",
-    "Upload pane: drop a few models and sounds, take one out with ×, move the every-model slider, then Convert and upload.",
-    "A model with an animation, selected with editing on: Pause, slide, Play, Start, −1 s, +1 s; at a circle with a second headset, check both see the same frame and that deselecting gives it back.",
-    "Follow behind, left and right in a headset: walk around and check it stays there and faces your way.",
-    "A v126 device and a v127 device in one room: the older one is asked to reload (format networks-39)."
+    "Two headsets in a room, one in VR answering Somewhere else: click a stick twice, move into a circle and into Back to the lobby, and watch it move from the other headset. Then answer In this room in the menu and check you are back where you stand.",
+    "Studio at a circle: a model on Follow, Behind or at your Left, with Faces: Them; walk about. Then Faces: Where they look.",
+    "Studio: Follow an item with Faces: The item; move or animate the item it follows.",
+    "Studio, a model with a recorded path, editing on, selected: Pause, slide, −1 s, +1 s, Play, The scene's clock; at a circle with a second headset, check both see the same moment and that deselecting gives it back.",
+    "In the headset, the same with the new bar on the card: drag the playhead, for a model's own clip too (also a short one, about 1.3 s).",
+    "A recorded path with your voice: pause it on its timeline (silent), play it from the middle (the voice from there).",
+    "Lock in place at the top of the card, on a page and in the headset.",
+    "On the trackers' PC: winget install astral-sh.uv, then uv run tools/trackers/bridge.py --list.",
+    "A v127 device and a v128 device in one room: the older one is asked to reload (format networks-40)."
   ],
   "untested": [
-    "The grabbed mouse in a real browser: headless Chromium sends a grabbed mouse's moves oddly, so turning with it, and Esc ending the grab, were only checked by reading the code.",
-    "The timeline on a headset's card and how in step a held frame looks for several people at a circle over Wi-Fi.",
-    "Follow behind or at a side on a headset: how it feels to be followed so.",
-    "Not yet tried on any device; the full test suites did not run (dev gets the cheap checks; the suites run before main)."
+    "Everything on a real headset: how moving with the sticks elsewhere feels and how the others see a moving avatar over Wi-Fi; a recentre or a sleep while moved.",
+    "Faces on a headset: being looked at by a follower beside or behind you; an item turning to the one it follows, life size.",
+    "The headset's timeline bar: how it reads and drags with a real trigger, and its cost on a Quest (its strip redrawn up to ten times a second).",
+    "A held path's voice heard in Quest Browser.",
+    "uv on Windows, and the bridge with SteamVR and real trackers (still to be switched on).",
+    "The full test suites did not run (dev gets the cheap checks; the suites run before main)."
   ]
 }

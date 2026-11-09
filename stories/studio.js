@@ -24998,7 +24998,7 @@ function animStep2() {
     const m = mineOf(ch);
     if (!m) continue;
     const it = STU.items.get(m.id), C = ANIM_C[ch];
-    const why = !it ? 'gone' : !editOn() ? 'edit' : STU.sel !== m.id ? 'sel' : ch === 'path' && REC ? 'rec' : !C.can(it) || C.key(it) !== m.key ? ch : '';
+    const why = !it ? 'gone' : !editOn() ? 'edit' : STU.sel !== m.id ? 'sel' : ch === 'path' && recording(it) ? 'rec' : !C.can(it) || C.key(it) !== m.key ? ch : '';
     if (why) animFree(why, ch); else animSend(ch);
   }
   animCardStep();
@@ -25075,7 +25075,7 @@ function animBlocks(it, B, ch = 'clip') {
   B.push({ page: true, range: { id: C.range, act: P + 'seek', v: '', min: 0, max: Math.max(1, Math.round(d * 10)), step: 1, value: Math.round(t * 10), out: t.toFixed(1) + ' s', fmt: 's', aria: `Where the ${C.what} is, in seconds` } });
   // (the line under it on a page only: a headset's card keeps its place and size rows in sight)
   const what = ch === 'path' ? (H ? 'Its recorded path is ' : 'Its recorded path plays ') : 'It plays ';
-  B.push({ page: true, p: what + who + '. Pause, the slider or a step holds it there ' + (room ? 'for everyone at this circle' : 'here') + ' while it stays selected and editing is on; then it goes back to playing as before.' + (ch === 'path' && pathOf(it).play === 'bounce' ? ' Back and forth: there and back is one cycle.' : ''), c: 'faint' });
+  B.push({ page: true, p: what + who + '. Pause, the slider or a step holds it there' + (room ? ' for everyone at this circle' : '') + ' while it stays selected and editing is on; then it goes back to playing as before.' + (ch === 'path' && pathOf(it).play === 'bounce' ? ' Back and forth: there and back is one cycle.' : ''), c: 'faint' });
 }
 // a page's card: each timeline's time and slider follow it every frame (the pane is not drawn again for that), unless its
 // slider is being moved
