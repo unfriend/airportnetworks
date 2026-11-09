@@ -584,7 +584,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     any carry each frame): its scene moves (`XR.walk`, as its own walk does), so its panels stay with you as in its own
     mode, and the same in a shared room, where the others see you where you really stand (your presence is your real
     head; the shell's travel is never used in the studio). Switching keeps where you are (`XR.walk` stays); Recenter takes
-    it back, at a station too. The notice says *Sticks: moving you* or *Sticks: the studio's*, as do the menu row's note,
+    it back, at a station too. While a path is recorded the sticks move nothing (`REC`: the scene moving under the hand
+    would go into the path), and a story's travel left from before is taken back as the studio comes on show (the
+    shell's `step`, the page's `sticks`). Known limit: a two-hand carry of a group while moving may drift by the move
+    (one hand carries it right). The notice says *Sticks: moving you* or *Sticks: the studio's*, as do the menu row's note,
     the item card's line under *Carry it* and the foot panel's hint. AR: you walk for real; the double click says *Not in
     AR*. Untested on a headset: switching on a Quest, carrying something far while moving, how a carried item turned
     with you feels.
@@ -1298,7 +1301,9 @@ behaviours in v120: a room that never wrote `look`'s `ask` asks first, which an 
 recorded `path` on those and on a sound's, and in the same round an optional `behaviour` on an object's, a shape's and an
 empty's; networks-36 in v124: `look` gained `vg`, the generation of the room-wide narration (*On for all* / *Off for all*),
 which an older device writing `look` would drop, and the studio's `state()` gained an optional `tex` on a cube's record
-(the texture changes) and an optional `cutsLocked` on an object's). The plan is
+(the texture changes) and an optional `cutsLocked` on an object's; networks-37 in v125: the studio's `state()` gained an
+optional `tint` and `bright` on an object's record, a recorded `path` kept as a file of the scene (`src`, `len`, `n` in
+place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `skip` and `len`). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly

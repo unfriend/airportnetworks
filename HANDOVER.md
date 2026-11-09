@@ -43,6 +43,34 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v125 (9 November 2026; FORMAT networks-37, shell 125), on `dev`: developer mode, moving with the sticks in
+  VR, no play and pause on A and X, a menu button in phone AR, and a large studio round.** All asked for by the owner on
+  8 November. Built in eleven lanes over three rounds (a Sonnet review each, one fix round where a review found a serious
+  bug: the recorder's), two small fixes by hand at the merge:
+  - *Developer mode* (shell): this device's own switch (the Stories screen's foot, More, the headset menu); a box at the
+    start of a page or a session with `whatsnew.json` (rewritten by hand at every release, `tools/release.mjs --check`
+    fails while it names another), Got it per version and Later; only Later while the file cannot be fetched.
+  - *Moving with the sticks in VR* (shell, every story): a stick clicked twice turns it on or off (a single click opens
+    the menu 0.4 s later), the left stick moves you and the right turns you, by a moved reference space; never in AR or
+    a shared room, except the studio, which moves you itself (its two stick modes switch with the same setting, also in
+    a room). A and X play and pause nothing any more (the foot panel and the menu's Story tab do).
+  - *Phone AR* (shell): a round menu button at the top right through the DOM overlay, with the main switches and the full
+    3D menu; without the overlay two taps; a refused overlay asked again without it.
+  - *Studio*: tint and brightness on placed models; the viewer (a model over the whole window from Preview, Look and Look
+    closer, side by side with its lighter version); the scene at a circle on the room's frame (moving the circle moves
+    nothing; *Move the scene to this circle* for older layouts); recordings up to ten minutes as files of the scene
+    (`recordings/`) and a voice recorded with the movement; cut-out boxes without their see-through fill (the frame rate
+    while editing); ghosts for models their own clip moves; the trackers' solver (`engine/ik.js`, groundwork, not in the
+    build).
+  - By hand at the merge: the studio's sticks move nothing while a path is recorded (the review's finding: the move would
+    go into the path); a story's stick travel is taken back as the studio comes on show.
+  - Tests (the policy of 7 November: the full suites before `main` only): each lane's own blocks passed (among them
+    `--only 'stick moving'` 7, `'phone ar'` 9, `'developer mode'` 6, `'studio viewer'` 3, `'studio recorder'` 6, the studio
+    tint, motions and paths, `relay/test.mjs` 673, `test-ik.mjs` 42); the full suites have not run on v125. Open before
+    `main`: `collab --studio` failed its tint step in two runs ("no device got the tint"; the smoke test's own tint steps
+    pass) and once its first editing step (a page's 10 s wait; likely the busy machine); the room-frame block's Undo check
+    may count a following sound that the move does not change (a review's note, unrun); a two-hand carry of a group while
+    moving with the sticks in the studio may drift. Untested on devices: everything in a headset and on a phone.
 - **networks-v124 (8 November 2026; FORMAT networks-36, shell 124), on `dev`: sound by mode, narration for everyone, a
   welcome in headsets, camera mode, cubes that change textures, and five smaller items.** All asked for by the owner on
   8 November. Built in three lanes (one review each, one fix round for the camera lane), the rest by hand:

@@ -27877,7 +27877,8 @@ const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
 // stands: true when it moved the scene
 function stickMove(c, dt) {
   const gp = c.src && c.g.visible && c.src.gamepad;
-  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
+  // (not while a path is recorded: moving the scene under the hand would go into the recorded path)
+  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || REC || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
   const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0, hand = c.src.handedness;
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);

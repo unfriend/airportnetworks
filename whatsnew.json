@@ -1,30 +1,29 @@
 {
-  "version": "networks-v124",
-  "date": "8 November 2026",
+  "version": "networks-v125",
+  "date": "9 November 2026",
   "new": [
-    "Sound by mode: pages stay silent until Sound is pressed; a headset starts with the sound effects on and the narration off.",
-    "In a headset the story panel's Sound button turns the narration on, and it stays on in the next session.",
-    "Shared rooms: Narration On for all and Off for all (the menu's Circles tab, the Shared dialog); a headset's own press holds until the lobby.",
-    "Getting around: a welcome panel once a session in a headset, after lining up: how to go into the circles, and what the trigger, grip and a stick's click do.",
-    "After standby: no Leave AR message; the headset looks for its spots by itself, and the check by eye still asks.",
-    "Camera mode: an Android phone in AR, lined up on spot A and spot B, follows a person or a circle for filming.",
-    "Studio: trigger cubes can change a model's texture while you stand inside them.",
-    "Studio: moving items show their ghost while editing, and an object's cut-outs can be locked.",
-    "Fixes: Real world hides can be turned on again in a session that began with it off; controller clicks work at once after a sleep."
+    "Developer mode (the Stories screen's foot, More, the headset menu's Settings): this box, with what is new and what to test, at the start of a session.",
+    "Moving with the sticks in VR: click a stick twice to turn it on or off. The left stick moves you, the right stick turns you.",
+    "A and X no longer play and pause. Play and pause are on the story's foot panel and the menu's Story tab.",
+    "Phone AR on Android: a round menu button at the top right, with the main switches and the full menu.",
+    "Studio: a scene at a circle stands on the room's spots. Moving the circle no longer moves the scene (Move the scene to this circle puts an older layout back round its circle).",
+    "Studio: recordings up to ten minutes, and your voice recorded with the movement.",
+    "Studio: tint and brightness for placed models; a viewer that shows a model over the whole window, next to its lighter version.",
+    "Studio: a stick clicked twice switches between the studio's own sticks and moving you; cut-out boxes without their see-through fill; ghosts for models whose own animation moves them."
   ],
   "test": [
-    "Quest, VR and AR: effects on and narration off at the start; the story panel's Sound button turns the narration on; still on next session.",
-    "Two headsets in a room: On for all and Off for all; then one headset's own press, and the lobby giving the room's choice back.",
-    "The welcome after lining up: its words for walking in and for asking first; it closes after 14 s or when the menu opens; with hands, the pinch's words.",
-    "A headset asleep for a few minutes in a room: no Leave AR message, the check by eye asks, the circles still line up.",
-    "After a sleep: the trigger clicks at once, without opening the Quest menu first.",
-    "Real world hides set to nothing, then AR, then turned on again: people and the room hide the scene.",
-    "Camera mode on an Android phone: line up on the two spots, follow a person and a circle, film it with the screen recorder.",
-    "Studio: a cube that changes a texture while you stand in it; ghosts while editing; locked cut-outs that do not move."
+    "Quest in VR: click a stick twice, move with the left stick and turn with the right. How does it feel? One click still opens the menu.",
+    "A and X do nothing in a story; play and pause from the foot panel or the menu's Story tab.",
+    "Android phone in AR: the round button at the top right, its switches and The full menu.",
+    "Studio at a circle in a room: move the circle and check the items stay where they are; try Move the scene to this circle on an older layout.",
+    "Studio: record a movement with your voice (allow the microphone on the 2D page first), and a recording of a few minutes.",
+    "Studio while editing: the frame rate with cut-outs, tint and brightness, the ghosts of animated models, both stick modes.",
+    "Developer mode: this box at the start of a session, Got it and Later."
   ],
   "untested": [
     "Everything in a headset and on a phone: this release was checked only in headless Chromium.",
-    "How the welcome panel reads, and how the narration switch sounds, on a Quest.",
-    "How well camera mode lines up on a real floor."
+    "Whether the Quest shows the microphone question inside a session, and a long voice through the relay's ffmpeg.",
+    "The viewer with a big scan on a slow laptop, and pinch and two-finger pan on a touch screen.",
+    "The trackers' solver is groundwork only: nothing in the app uses it yet."
   ]
 }
