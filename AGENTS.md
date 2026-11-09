@@ -151,7 +151,13 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `--scenes r2` (v114) it keeps them in a Cloudflare R2 bucket instead ("The studio's scenes in R2" under "Shared
   rooms"): `r2.mjs` (AWS Signature Version 4 with `node:crypto`, signed requests and presigned links, the S3 client the
   relay and `tools/studio/r2sync.mjs` share), `test-r2.mjs` (the signer against AWS's published examples, byte for byte)
-  and `s3fake.mjs` (a stand-in S3 for the tests that checks every signature; never served, not part of the app).
+  and `s3fake.mjs` (a stand-in S3 for the tests that checks every signature; never served, not part of the app). With
+  `--trackers` (v126) it takes the PC's Vive trackers from `tools/trackers/bridge.py` on UDP 127.0.0.1 and sends them,
+  lined up, to the rooms that use them: `trackers.mjs` ("Vive trackers" below).
+- `tools/trackers/` - the Vive trackers (v126; "Vive trackers" below): `SPEC.md` (the plan and the contracts between the
+  lanes), `bridge.py` (SteamVR's poses to the relay on the same PC: Python 3 and pyopenvr; `--fake` without SteamVR),
+  `fake.mjs` (a fake bridge in Node, for the tests and for trying the rooms without the hardware) and `README.md`
+  (setting it up on the Windows PC).
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
   syncing; `shared-spaces.md`: one room frame for several headsets), and
@@ -2856,6 +2862,42 @@ circle with a card on pointing, two locks, people at your circle only) are
 untested on headsets: how a ring's card reads when pointed at, the story and its
 narration heard from out of the circle, the locks and the People toggle in use.
 
+## Vive trackers (`tools/trackers/`, `relay/trackers.mjs`)
+
+Vive Tracker 3.0s in the shared rooms (v126; the owner, 8 November 2026: "we go for 1 and 3 with mixamo rigs for now":
+phase 1, trackers in the rooms and props that follow them, and phase 3, a Mixamo character worn by a performer; about
+9 to 11 trackers, three base stations, a Windows PC with SteamVR and a Valve Index that also runs the relay). The
+contract between the lanes is `tools/trackers/SPEC.md`; setting it up, `tools/trackers/README.md`; the relay's side,
+`relay/README.md` ("The PC's Vive trackers").
+
+- **The bridge** (`tools/trackers/bridge.py`, Python 3 and pyopenvr, the standard library otherwise): browsers cannot
+  read the trackers, so this reads every device's pose from SteamVR (a background application, the standing universe:
+  y up, the floor at 0) about 90 times a second and sends one UDP datagram a reading to `127.0.0.1:<port>` (47800):
+  `{ v: 1, t, d: [{ s: <serial>, k: 'trk' | 'hmd' | 'ctl' | 'base', h?: 'l' | 'r', p, q, lv, av, ok, b }] }`, under 8 KB.
+  Serial numbers are the ids everywhere. `--list`, `--fake` (made-up devices, no SteamVR), `--seconds`, `--port`,
+  `--rate`. `tools/trackers/fake.mjs` is the same in Node for the tests (`startFake({ port, turn, move, devices })`:
+  SteamVR's space the room turned and moved by a known transform, so every pose's truth is known).
+- **The relay** (`--trackers [port]`, also in `RELAY_ARGS`; `relay/trackers.mjs`; nothing at all without it): takes the
+  datagrams on 127.0.0.1 only (bad ones ignored, counted, said in the log at most once a second), keeps each device's
+  latest reading with its own time, and answers `/api/ping` (`trackers: true`, `trackersSeen`), `GET /api/trackers` (every
+  device raw in SteamVR's space) and `GET /api/trackers/still?id=&ms=` (a tracker's position averaged while it lies still,
+  or why not: not seen, lost tracking, moved more than 5 mm), both with the password as the API.
+- **Lining up by hand** (the room's key `trk = { on, m: { a, b } | null, names, by, at }`, written by pages and headsets,
+  never refused by a lock): `m` holds the two points of a tracker lying on spot A and on spot B in SteamVR's space, and
+  the room's frame from them is exactly a headset's from its floor spots (`shared.js`'s `fromMarks` with the floor
+  spots' `floorUnder`, and `basis`; `TRK_FLOOR`, the tracker's pose origin over the floor lying on its base, 0 until
+  measured, in place of `FLOOR_TIP`): origin the floor under spot A, x level towards spot B, y up. `relay/test.mjs` runs
+  `shared.js`'s own code against `relay/trackers.mjs`'s. Reference trackers left on the spots wait for a later round.
+- **`@trk`**: to every member of a room whose `trk.on` holds and whose `m` gives a frame, sent by the relay itself
+  (`by: ''`, no member's fx rate), at most 60 a second (once a second while the bridge is silent): `{ t: 'fx', k: '@trk',
+  v: { at: <relay ms of the newest reading>, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw, vx, vy, vz, ok, kind], ...] },
+  by: '' }` in room coordinates (mm, 4 decimals; `ok` 0 also once a reading is 0.5 s old; `kind` `t`, `h`, `l`, `r`; no
+  base stations; a device silent 5 s left out). On but not lined up: `{ at, l: '', t: [] }` once a second. A member
+  whose socket holds over 256 KB unsent is skipped. Only rooms on that relay (peer to peer and on a device: none).
+- `FORMAT` networks-38 (the room's key `trk`; the studio's records' `trk` and `puppet`).
+- Untested until tried on the owner's PC: the bridge with SteamVR and real trackers (pyopenvr's calls, the rate on
+  Windows), `TRK_FLOOR`, the lag through the relay, how steady the lining up by hand is.
+
 ## Inside a story (all sixteen follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
@@ -5175,8 +5217,14 @@ start refusing missing settings (named, never a value), a wrong key or bucket an
 `--r2-check`, the start's upload-link check against the stand-in told (`quirks`) to refuse a signed length, both, or to
 ignore `If-None-Match`, `.../done` removing past `--max-upload` only what its own link brought, a save the bucket
 refuses costing no history, three uploads through the relay at once, a 5xx or nothing at the bucket's address at the
-start (listening anyway, found later), and `tools/studio/r2sync.mjs` with its conflicts and `.history/` copies); no
-browser, seconds; `node tools/peer.mjs` links two pages of
+start (listening anyway, found later), and `tools/studio/r2sync.mjs` with its conflicts and `.history/` copies), and the
+PC's Vive trackers (v126, `--trackers` with the fake bridge `tools/trackers/fake.mjs`; `node relay/test.mjs --trackers`
+runs only these, in seconds: nothing of it without `--trackers`; the UDP intake, `/api/ping`, `GET /api/trackers` raw
+within 0.1 mm; `/api/trackers/still` (still, moved, not seen, nudged, lost; bad asks); the room's frame from `m` against
+`shared.js`'s own `fromMarks`, `floorUnder` and `basis` run with three.js; a room lined up by hand getting `@trk` about 60
+times a second, every pose within 1 mm and 0.05 degrees of the truth; only rooms with `trk.on` and `m`, `l: ''` without;
+the bridge silent; bad datagrams counted; the password; `RELAY_ARGS`; a UDP port held; `bridge.py --fake` where
+`python3` is); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,

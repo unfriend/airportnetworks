@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs
+// Test of the relay: node relay/test.mjs (--trackers: only the Vive trackers' steps)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
 import { spawn, execFileSync } from 'node:child_process';
@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '..');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -125,6 +126,251 @@ async function step(name, fn) {
   const before = failed;
   try { await fn(); } catch (err) { failed++; console.log('  FAIL', name, '-', err.stack || err); }
   console.log(failed === before ? 'ok  ' : 'FAIL', name);
+}
+
+// ---- the PC's Vive trackers (--trackers; relay/trackers.mjs, tools/trackers/SPEC.md): the bridge's datagrams faked by
+// tools/trackers/fake.mjs (SteamVR's space turned and moved against the room by a known transform, so each pose's truth in
+// room coordinates is known). `node relay/test.mjs --trackers` runs only these (seconds)
+async function trackerSteps() {
+  const { startFake, qAngle } = await import('../tools/trackers/fake.mjs');
+  const { frameOf, toRoom, quatToRoom, TRK_FLOOR } = await import('./trackers.mjs');
+  const udpOf = p => +((/Trackers: the bridge's readings on UDP 127\.0\.0\.1:(\d+)/.exec(p.out) || [])[1] || 0);
+  const isTrk = m => m.t === 'fx' && m.k === '@trk';
+  // a member of a room on relay `at`, keeping each @trk with the time it came
+  async function member(at, room, id, extra = '') {
+    const ws = new WebSocket(`ws://127.0.0.1:${at}/api/ws?room=${room}&id=${id}${extra}`), c = { ws, got: [], other: [] };
+    ws.onmessage = e => { const m = JSON.parse(e.data); if (isTrk(m)) c.got.push({ m, rt: Date.now() }); else c.other.push(m); };
+    await new Promise(r => { ws.onopen = r; ws.onerror = r; });
+    for (let i = 0; i < 100 && !c.other.some(m => m.t === 'welcome'); i++) await sleep(10);
+    c.set = (k, v) => ws.send(JSON.stringify({ t: 'set', batch: [[k, v]], cid: k }));
+    c.window = async ms => { c.got.length = 0; await sleep(ms); return c.got.slice(); };
+    return c;
+  }
+  const roomAt = async at => (await req('POST', '/api/rooms', { body: { app: 'networks', version: 'v1' }, at })).json().code;
+  const SERIALS = ['LHR-FA4E0A01', 'LHR-FA4E0B02', 'LHR-FA4E0C03', 'LHR-FA4E0D04', 'LHR-FA4E0E05', 'LHR-FA4EF0D0', 'LHR-FA4EC0L1', 'LHR-FA4EC0R2'];
+  const BASES = ['LHB-FA4EBA01', 'LHB-FA4EBA02'];
+
+  await step('trackers: nothing without --trackers (no field in /api/ping, /api/trackers 404, no @trk for a room that asks)', async () => {
+    const p = (await req('GET', '/api/ping')).json();
+    ok(!('trackers' in p) && !('trackersSeen' in p), '/api/ping says nothing of trackers');
+    ok((await req('GET', '/api/trackers')).status === 404 && (await req('GET', '/api/trackers/still?id=LHR-FA4E0A01')).status === 404, '/api/trackers and its still: 404');
+    const code = await roomAt(port), c = await member(port, code, 'n1');
+    c.set('trk', { on: true, m: { a: [0, 0, 0], b: [2, 0, 0] }, names: {}, by: 'n1', at: Date.now() });
+    ok((await c.window(500)).length === 0 && !/Trackers:/.test(relay.out), 'no @trk to a room that uses trackers, no start line');
+    c.ws.close();
+  });
+
+  // a relay with --trackers 0 (a free port, said in its start line) and the fake bridge sending to it: SteamVR's space is
+  // the room turned 37 degrees about y and moved by (2.4, 0.012, -1.1) m
+  const T = await start(['--trackers', '0', '--ping', '0.2', '--timeout', '5']), udp = udpOf(T);
+  const F = startFake({ port: udp, turn: 37 * Math.PI / 180, move: [2.4, 0.012, -1.1] });
+  let spotA = null, spotB = null;
+  try {
+    await step('trackers (--trackers): the bridge\'s datagrams on UDP 127.0.0.1; /api/ping says so; GET /api/trackers lists them raw in SteamVR\'s space', async () => {
+      ok(udp > 0 && T.out.indexOf('Trackers:') < T.out.indexOf('listening on'), 'the start line says the UDP port (before the relay listens)');
+      let L = [];
+      for (let i = 0; i < 100 && L.length < 10; i++) { await sleep(20); L = (await req('GET', '/api/trackers', { at: T.port })).json().trackers; }
+      const p = (await req('GET', '/api/ping', { at: T.port })).json();
+      ok(p.trackers === true && p.trackersSeen === 5, `/api/ping: trackers true, trackersSeen 5 (${p.trackersSeen})`);
+      ok(L.length === 10 && L.map(d => d.k).join() === 'trk,trk,trk,trk,trk,hmd,ctl,ctl,base,base', 'every device listed, trackers first, then the headset, its controllers, base stations: ' + L.map(d => d.k).join());
+      const by = Object.fromEntries(L.map(d => [d.id, d]));
+      ok(by['LHR-FA4EC0L1']?.h === 'l' && by['LHR-FA4EC0R2']?.h === 'r' && !('h' in by['LHR-FA4E0A01']), 'controllers with their hand, nothing else');
+      ok(by['LHR-FA4E0A01'].b === 0.9 && by['LHR-FA4EF0D0'].b === null, 'batteries (0..1, null where there is none)');
+      ok(L.every(d => d.ok === true && d.age >= 0 && d.age < 300 && d.p.length === 3 && Math.abs(Math.hypot(...d.q) - 1) < 1e-3), 'ok, ages under 0.3 s, turns of length 1');
+      const a = F.raw([0, TRK_FLOOR, 0]), t = F.raw([1.5, 0.75, -0.5]);
+      ok(Math.hypot(...by['LHR-FA4E0A01'].p.map((x, i) => x - a[i])) < 1e-4 && Math.hypot(...by['LHR-FA4E0E05'].p.map((x, i) => x - t[i])) < 1e-4, 'raw positions as SteamVR has them (the room turned and moved), within 0.1 mm');
+      ok(qAngle(by['LHR-FA4E0E05'].q, F.rawQ([0, Math.sin(Math.PI / 12), 0, Math.cos(Math.PI / 12)])) < 0.02, 'raw turns as SteamVR has them');
+    });
+
+    await step('trackers: GET /api/trackers/still: a tracker lying still, its mean; one that moves, one not seen, one nudged 2 cm meanwhile, one losing tracking refused in words; bad asks 400', async () => {
+      const still = async (id, ms = 500) => (await req('GET', `/api/trackers/still?id=${encodeURIComponent(id)}&ms=${ms}`, { at: T.port })).json();
+      const t0 = Date.now(), A = await still('LHR-FA4E0A01'), dt = Date.now() - t0;
+      ok(A.ok === true && dt >= 490 && dt < 1500 && A.n >= 30 && A.n <= 60 && A.spread <= 0.1, `lying on spot A: ok, about 45 readings in 0.5 s (${A.n}, ${dt} ms), spread ${A.spread} mm`);
+      ok(Math.hypot(...A.p.map((x, i) => x - F.spots.a[i])) < 1e-4, 'its mean where the tracker on spot A is in SteamVR\'s space (0.1 mm)');
+      const B = await still('LHR-FA4E0B02');
+      ok(B.ok && Math.hypot(...B.p.map((x, i) => x - F.spots.b[i])) < 1e-4, 'spot B too');
+      spotA = A.p; spotB = B.p;
+      const C = await still('LHR-FA4E0C03', 300);
+      ok(C.ok === false && /moved \d+ mm/.test(C.error) && C.spread > 5, 'one going round a circle: refused, it moved: ' + C.error);
+      const N = await still('LHR-NOTHERE1', 300);
+      ok(N.ok === false && /not seen/.test(N.error), 'one never seen: refused at once: ' + N.error);
+      const E = 'LHR-FA4E0E05', e0 = F.devices.find(d => d.s === E).pose;
+      const ask = still(E, 600);
+      await sleep(250);
+      F.set(E, () => ({ ...e0(0), p: [1.52, 0.75, -0.5] }));
+      const Em = await ask;
+      F.set(E, e0);
+      ok(Em.ok === false && /moved/.test(Em.error) && Em.spread >= 9, `nudged 2 cm meanwhile: refused (${Em.spread} mm)`);
+      const askL = still('LHR-FA4E0A01', 500);
+      await sleep(150); F.lost('LHR-FA4E0A01', true); await sleep(100); F.lost('LHR-FA4E0A01', false);
+      const Lo = await askL;
+      ok(Lo.ok === false && /lost tracking/.test(Lo.error), 'losing tracking meanwhile: refused: ' + Lo.error);
+      const bad = await Promise.all(['/api/trackers/still', '/api/trackers/still?id=has%20space', '/api/trackers/still?id=LHR-FA4E0A01&ms=50', '/api/trackers/still?id=LHR-FA4E0A01&ms=9000'].map(u => req('GET', u, { at: T.port })));
+      ok(bad.every(r => r.status === 400), 'no id, a bad id, ms under 200 or over 5000: 400');
+      ok((await req('POST', '/api/trackers', { at: T.port, body: {} })).status === 405 && (await req('OPTIONS', '/api/trackers', { at: T.port, headers: { Origin: 'https://x.example', 'Access-Control-Request-Method': 'GET' } })).status === 204, 'POST 405; a preflight answered');
+    });
+
+    await step('trackers: the room\'s frame from m is a headset\'s from its floor spots (shared.js\'s own fromMarks, floorUnder and basis, run here with three.js): points, turns, handedness', async () => {
+      // shared.js's code itself, not a copy: a frame from floor spots (FLOOR_TIP as TRK_FLOOR), and the matrix that turns
+      // local-floor (here SteamVR's space) into room coordinates as R.mi does (R.lf the identity)
+      const src = fs.readFileSync(path.join(REPO, 'shared.js'), 'utf8');
+      const grab = re => { const m = re.exec(src); if (!m) throw new Error('shared.js has no ' + re); return m[0]; };
+      const code = [grab(/const level = x => \{[^\n]*\};/), grab(/const floorUnder = \(a, b\) => \{[\s\S]*?\n {2}\};/), grab(/const fromMarks = [^\n]*;/), grab(/function basis\(fr, out\) \{[\s\S]*?\n {2}\}/)].join('\n');
+      const THREE = createRequire(import.meta.url)(path.join(REPO, 'three.min.js'));
+      const S = new Function('THREE', 'FLOOR_TIP', 'const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _Y = new THREE.Vector3(0, 1, 0), onFloor = () => true, val = () => null, SAME = 0.1;\n' + code + '\nreturn { fromMarks, basis };')(THREE, TRK_FLOOR);
+      let dp = 0, dq = 0, n = 0;
+      const rnd = (lo, hi) => lo + Math.random() * (hi - lo);
+      for (let i = 0; i < 300; i++) {
+        const a = [rnd(-5, 5), rnd(-0.1, 0.1), rnd(-5, 5)], ang = rnd(-Math.PI, Math.PI), d = rnd(0.5, 6);
+        const b = [a[0] + d * Math.cos(ang), a[1] + rnd(-0.04, 0.04), a[2] + d * Math.sin(ang)];
+        const Mi = S.basis(S.fromMarks(a, b), new THREE.Matrix4()).invert(), F2 = frameOf({ a, b });
+        const R = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(Mi));
+        for (let j = 0; j < 5; j++) {
+          const p = [rnd(-8, 8), rnd(-1, 3), rnd(-8, 8)], q = new THREE.Quaternion(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize();
+          const want = new THREE.Vector3(...p).applyMatrix4(Mi), got = toRoom(F2, p);
+          dp = Math.max(dp, Math.hypot(want.x - got[0], want.y - got[1], want.z - got[2]));
+          const wq = R.clone().multiply(q), gq = quatToRoom(F2, [q.x, q.y, q.z, q.w]);
+          dq = Math.max(dq, qAngle([wq.x, wq.y, wq.z, wq.w], gq)); n++;
+        }
+      }
+      ok(dp < 1e-9 && dq < 1e-5, `${n} points and turns as shared.js turns a headset's into room coordinates: within ${dp.toExponential(1)} m and ${dq.toExponential(1)} degrees`);
+      const F1 = frameOf({ a: [1, 0.3, 1], b: [3, 0.31, 1] }), o = toRoom(F1, [1, 0.3 + TRK_FLOOR, 1]), x = toRoom(F1, [3, 0.31, 1]), z = toRoom(F1, [1, 0.3, 2]);
+      ok(Math.hypot(...o) < 1e-12 && Math.abs(x[0] - 2) < 1e-12 && Math.abs(x[2]) < 1e-12 && Math.abs(z[2] - 1) < 1e-12, 'spot A is the origin (its floor), x runs to spot B, z = x cross y (right-handed, as WebXR and SteamVR)');
+      ok(frameOf({ a: [0, 0, 0], b: [0.05, 0, 0.05] }) === null && frameOf({ a: [0, 0, 0], b: [0, 1, 0] }) === null && frameOf({ a: [0, 0, 'x'], b: [1, 0, 0] }) === null && frameOf(null) === null && frameOf({ a: [0, 0, 0] }) === null,
+        'no frame from points under 10 cm apart along the floor, one above the other, or not points');
+    });
+
+    await step('trackers: a room lined up by hand (trk with on and m, a room key) gets @trk about 60 times a second, every pose within 1 mm and 0.05 degrees of the truth; only such rooms', async () => {
+      const P = await roomAt(T.port), a1 = await member(T.port, P, 'a1'), b1 = await member(T.port, P, 'b1');
+      const Q = await roomAt(T.port), q1 = await member(T.port, Q, 'q1');        // no trk
+      const N = await roomAt(T.port), n1 = await member(T.port, N, 'n1');        // on, not lined up
+      const O = await roomAt(T.port), o1 = await member(T.port, O, 'o1');        // lined up, off
+      const Z = await roomAt(T.port), z1 = await member(T.port, Z, 'z1');        // on, its two points one above the other
+      a1.set('trk', { on: true, m: { a: spotA, b: spotB }, names: { 'LHR-FA4E0A01': 'Spot A' }, by: 'a1', at: Date.now() });
+      n1.set('trk', { on: true, m: null, names: {}, by: 'n1', at: Date.now() });
+      o1.set('trk', { on: false, m: { a: spotA, b: spotB }, names: {}, by: 'o1', at: Date.now() });
+      z1.set('trk', { on: true, m: { a: spotA, b: [spotA[0], spotA[1] + 1, spotA[2]] }, names: {}, by: 'z1', at: Date.now() });
+      await sleep(300);
+      [a1, b1, q1, n1, o1, z1].forEach(c => { c.got.length = 0; });
+      await sleep(2000);
+      const G = a1.got.slice(), Gb = b1.got.length;
+      ok(G.length >= 100 && G.length <= 125 && Math.abs(Gb - G.length) <= 6, `about 60 a second to each member (${G.length} and ${Gb} in 2 s)`);
+      ok(G.every(({ m }) => m.by === '' && m.v.l === 'hand' && Array.isArray(m.v.t)), 'sent by the relay itself (by \'\'), l \'hand\'');
+      const late = G.map(({ m, rt }) => rt - m.v.at).sort((x, y) => x - y);
+      ok(late[0] >= -5 && late[Math.floor(late.length / 2)] < 40, `at: the relay's time of the newest reading (median ${late[Math.floor(late.length / 2)]} ms before it came)`);
+      const ids = G.at(-1).m.v.t.map(x => x[0]);
+      ok(ids.join() === SERIALS.join() && !BASES.some(b => ids.includes(b)), 'every tracker, the headset and its controllers; never a base station');
+      ok(G.at(-1).m.v.t.map(x => x[12]).join('') === 'ttttthlr' && G.at(-1).m.v.t.every(x => x.length === 13 && x[11] === 1), 'kinds t, h, l, r; ok 1');
+      // each tuple against the pose the fake sent in that datagram, in room coordinates: the datagram is the one sent next
+      // to at whose circling tracker (1.3 m/s: 14 mm between readings) is where the message has it
+      let dp = 0, dq = 0, dv = 0, matched = 0;
+      const dist = (e, p) => Math.hypot(...e.p.map((y, i) => y - p[i]));
+      for (const { m } of G) {
+        const c = m.v.t.find(x => x[0] === 'LHR-FA4E0C03'), H = F.history.get('LHR-FA4E0C03').filter(h => h.at >= m.v.at - 40 && h.at <= m.v.at + 5);
+        if (!c || !H.length) continue;
+        const sent = H.reduce((best, e) => (dist(e, c.slice(1, 4)) < dist(best, c.slice(1, 4)) ? e : best)).at;
+        for (const x of m.v.t) {
+          const h = F.history.get(x[0]).find(e => e.at === sent), p = [x[1], x[2], x[3]];
+          if (!h) continue;
+          dp = Math.max(dp, dist(h, p) * 1000);
+          dq = Math.max(dq, qAngle(h.q, [x[4], x[5], x[6], x[7]]));
+          dv = Math.max(dv, Math.hypot(h.v[0] - x[8], h.v[1] - x[9], h.v[2] - x[10]));
+          matched++;
+        }
+      }
+      ok(matched >= G.length * 7 && dp <= 1 && dq <= 0.05, `${matched} poses in room coordinates within ${dp.toFixed(2)} mm and ${dq.toFixed(3)} degrees of the truth (1 mm, 0.05)`);
+      ok(dv < 0.01, `velocities turned into the room as well (within ${(dv * 1000).toFixed(1)} mm/s)`);
+      console.log(`  (measured: ${G.length} @trk in 2 s; ${matched} poses within ${dp.toFixed(2)} mm and ${dq.toFixed(3)} degrees, velocities ${(dv * 1000).toFixed(1)} mm/s; median ${late[Math.floor(late.length / 2)]} ms from a reading to its message)`);
+      const last = Object.fromEntries(G.at(-1).m.v.t.map(x => [x[0], x]));
+      ok(Math.hypot(...last['LHR-FA4E0A01'].slice(1, 4)) < 1e-3 && Math.hypot(last['LHR-FA4E0B02'][1] - 2, last['LHR-FA4E0B02'][2], last['LHR-FA4E0B02'][3]) < 1e-3,
+        'the tracker on spot A at the room\'s origin, on spot B 2 m along x');
+      ok(q1.got.length === 0 && o1.got.length === 0, 'nothing to a room without trk, or with trk off');
+      a1.ws.send(JSON.stringify({ t: 'fx', k: '@trk', v: { at: 1, l: 'hand', t: [] } }));   // (a member cannot pass one off as the relay's)
+      await sleep(200);
+      ok(a1.other.some(m => m.t === 'error' && m.code === 'bad') && !b1.got.some(({ m }) => m.v.at === 1), 'a member\'s own @trk refused (not a key a member may use)');
+      ok(n1.got.length >= 1 && n1.got.length <= 3 && n1.got.every(({ m }) => m.v.l === '' && m.v.t.length === 0 && m.v.at > 0), `on but not lined up: once a second, l '' and no trackers (${n1.got.length} in 2 s)`);
+      ok(z1.got.length >= 1 && z1.got.length <= 3 && z1.got.every(({ m }) => m.v.l === ''), 'two points one above the other: not lined up');
+      // m written again (spot B taken again by hand) moves the room; trk turned off stops it at once
+      n1.set('trk', { on: true, m: { a: spotA, b: spotB }, names: {}, by: 'n1', at: Date.now() });
+      await sleep(400);
+      ok(n1.got.at(-1)?.m.v.l === 'hand', 'm written into a room that was on: lined up from then on');
+      a1.set('trk', { on: false, m: { a: spotA, b: spotB }, names: {}, by: 'a1', at: Date.now() });
+      await sleep(200);
+      ok((await a1.window(500)).length === 0, 'trk turned off: none');
+      a1.set('trk', { on: true, m: { a: spotA, b: spotB }, names: {}, by: 'a1', at: Date.now() });
+      [a1, b1, q1, n1, o1, z1].forEach(c => c.ws.close());
+    });
+
+    await step('trackers: the bridge silent: @trk once a second, each tracker ok 0 from 0.5 s; one switched off left out after 5 s; then 60 a second again', async () => {
+      const P = await roomAt(T.port), c = await member(T.port, P, 's1');
+      c.set('trk', { on: true, m: { a: spotA, b: spotB }, names: {}, by: 's1', at: Date.now() });
+      await sleep(300);
+      F.pause(true);
+      const quiet = await c.window(2300);
+      ok(quiet.length >= 2 && quiet.length <= 4, `silent: once a second (${quiet.length} in 2.3 s)`);
+      ok(quiet.at(-1).m.v.t.length === 8 && quiet.at(-1).m.v.t.every(x => x[11] === 0), 'every tracker ok 0, its last pose kept');
+      F.off('LHR-FA4E0D04'); F.pause(false);
+      const back = await c.window(1000);
+      ok(back.length >= 50 && back.at(-1).m.v.t.find(x => x[0] === 'LHR-FA4E0D04')?.[11] === 0 && back.at(-1).m.v.t.filter(x => x[11] === 1).length === 7, `going again: about 60 a second (${back.length}), the one switched off ok 0`);
+      await sleep(2200);
+      const gone = (await c.window(300)).at(-1);
+      ok(gone && gone.m.v.t.length === 7 && !gone.m.v.t.some(x => x[0] === 'LHR-FA4E0D04'), 'not heard from for 5 s: left out');
+      F.off('LHR-FA4E0D04', false);
+      c.ws.close();
+    });
+
+    await step('trackers: bad datagrams ignored and counted (not JSON, not the bridge\'s, too big), bad readings left out one by one, the rest taken', async () => {
+      const at = T.out.length, ok1 = { s: 'LHR-600D0007', k: 'trk', p: [1, 2, 3], q: [0, 0, 0, 1], ok: true, b: 2 };
+      const r = x => ({ s: 'LHR-BAD00000', k: 'trk', p: [0, 0, 0], q: [0, 0, 0, 1], ok: true, b: null, ...x });
+      F.send('not json'); F.send('{}'); F.send({ v: 2, d: [] }); F.send({ v: 1, d: 'x' });
+      F.send({ v: 1, t: 1, d: [ok1], pad: 'x'.repeat(9000) });
+      F.send({ v: 1, t: 1, d: [r({ s: 'LHR BAD SPACE' }), r({ s: 'LHR-BAD00001', k: 'xyz' }), r({ s: 'LHR-BAD00002', p: [0, 0] }), r({ s: 'LHR-BAD00003', q: [0, 0, 0, 0] }),
+        r({ s: 'LHR-BAD00004', p: [0, 0, '1'] }), r({ s: 'LHR-BAD00005', p: [0, 0, 1e9] }), r({ s: 'LHR-BAD00006', ok: 'yes' }), ok1] });
+      await sleep(1600);
+      const said = T.out.slice(at), nd = [...said.matchAll(/(\d+) bad datagrams?/g)].reduce((s, m) => s + +m[1], 0), nr = [...said.matchAll(/(\d+) bad readings?/g)].reduce((s, m) => s + +m[1], 0);
+      ok(nd === 5 && nr === 7, `said in the log once a second: 5 bad datagrams and 7 bad readings (${nd}, ${nr})`);
+      const L = (await req('GET', '/api/trackers', { at: T.port })).json().trackers;
+      ok(L.some(d => d.id === 'LHR-600D0007' && d.b === null) && !L.some(d => /BAD/.test(d.id)) && L.length === 11, 'the good reading next to them taken (a battery out of range: null), none of the bad');
+      ok((await req('GET', '/api/ping', { at: T.port })).status === 200 && /LHR-600D0007 \(tracker\) seen/.test(T.out), 'the relay goes on; a new device said once in the log');
+    });
+  } finally { F.stop(); T.kill(); }
+
+  await step('trackers: with a password, /api/trackers and its still need it (Bearer or ?token=), as the API; never in a log line', async () => {
+    const PASS = 'trk' + crypto.randomBytes(5).toString('hex');
+    const P = await start(['--trackers', '0', '--ping', '0.2'], { COLLAB_TOKEN: PASS }), F2 = startFake({ port: udpOf(P) });
+    try {
+      await sleep(300);
+      ok((await req('GET', '/api/trackers', { at: P.port })).status === 401 && (await req('GET', '/api/trackers/still?id=LHR-FA4E0A01', { at: P.port })).status === 401, 'without it: 401');
+      const L = await req('GET', '/api/trackers', { at: P.port, headers: { Authorization: 'Bearer ' + PASS } }), S = await req('GET', `/api/trackers/still?id=LHR-FA4E0A01&ms=300&token=${PASS}`, { at: P.port });
+      ok(L.status === 200 && L.json().trackers.length === 10 && S.status === 200 && S.json().ok === true, 'with it (Bearer, ?token=): the list and a still tracker');
+      ok((await req('GET', '/api/ping?token=' + PASS, { at: P.port })).json().trackersSeen === 5 && !P.out.includes(PASS), '/api/ping with it says trackersSeen; the password in no log line');
+    } finally { F2.stop(); P.kill(); }
+  });
+
+  await step('trackers: --trackers in RELAY_ARGS; a UDP port another relay holds stops the start with a sentence; bridge.py --fake to the relay (when python3 is here)', async () => {
+    const E = await start(['--ping', '0.2'], { RELAY_ARGS: '--trackers 0' }), held = udpOf(E);
+    ok(held > 0 && (await req('GET', '/api/ping', { at: E.port })).json().trackers === true, 'RELAY_ARGS="--trackers 0"');
+    await start(['--trackers', String(held)]).then(p => { p.kill(); }, () => {});
+    await sleep(200);   // (its last line may come after its exit)
+    const refused = procs.at(-1).out;
+    ok(procs.at(-1).exitCode === 1 && new RegExp(`cannot listen on UDP 127\\.0\\.0\\.1:${held}`).test(refused), 'a port another relay holds: a sentence, exit 1: ' + refused.trim().split('\n')[0]);
+    let py = '';
+    try { py = execFileSync('python3', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* none */ }
+    if (!py) { console.log('  (no python3 here: bridge.py --fake not tried)'); E.kill(); return; }
+    const at = E.out.length;
+    execFileSync('python3', ['-I', path.join(REPO, 'tools/trackers/bridge.py'), '--fake', '--port', String(held), '--seconds', '1', '--quiet'], { stdio: 'ignore', timeout: 15000 });
+    const L = (await req('GET', '/api/trackers', { at: E.port })).json().trackers;
+    ok(L.length === 10 && L.map(d => d.k).join() === 'trk,trk,trk,trk,trk,hmd,ctl,ctl,base,base' && L.filter(d => d.h).map(d => d.h).join() === 'l,r', 'bridge.py --fake: its devices taken, with their kinds and hands');
+    await sleep(1100);
+    ok(!/bad (datagram|reading)/.test(E.out.slice(at)), 'none of its datagrams or readings ignored');
+    E.kill();
+  });
+}
+
+if (process.argv.includes('--trackers')) {   // only the trackers' steps
+  try { await trackerSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
 }
 
 try {
@@ -2435,6 +2681,8 @@ if (me === 'hang') setInterval(() => {}, 1000);
 
   NOFF.kill(); URO.kill();
   fs.rmSync(SC, { recursive: true, force: true });
+
+  await trackerSteps();
 
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');

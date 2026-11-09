@@ -26,7 +26,7 @@ is the reference for the relay itself.
 ## Running it
 
 ```sh
-node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir>|r2 [--max-upload <MB>] [--ffmpeg <path>] [--app <url>]]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem] [--proxy [n]] [--public] [--token <word>] [--scenes <dir>|r2 [--max-upload <MB>] [--ffmpeg <path>] [--app <url>]] [--trackers [<port>]]
 COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the environment (better: not in a command)
 ```
 
@@ -55,6 +55,7 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--no-ffmpeg` | off | never use `ffmpeg` (the studio then keeps long sounds as they are) |
 | `--ffmpeg-limit <s>` | 180 | one conversion may take this long, then it is stopped |
 | `--app <url>` | the `--origin`, else `https://stories.lbi-netmed.com/` | where `/upload` sends people when the relay does not serve the app itself |
+| `--trackers [<port>]` | off (47800 when given without a port) | the PC's Vive trackers: take the bridge's readings (`tools/trackers/bridge.py`) on UDP `127.0.0.1:<port>` (`0` picks a free one, which the start line says), list them at `/api/trackers` and send them, lined up, to the rooms that turn them on ([The PC's Vive trackers](#the-pcs-vive-trackers---trackers)). A port another program holds stops the start with a sentence |
 
 The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
 things; a flag given as well wins):
@@ -921,6 +922,71 @@ the same as its original's) and the milliseconds of its listing's times, `GetBuc
 endpoint, Quest Browser fetching and streaming from signed links, uploads of hundreds of MB from a page straight into the
 bucket, and the costs in practice.
 
+## The PC's Vive trackers (`--trackers`)
+
+Vive Tracker 3.0s with SteamVR on the Windows PC that also runs the relay (v126; the owner, 8 November 2026: "we go
+for 1 and 3 with mixamo rigs for now", 9 to 11 trackers, three base stations and a Valve Index). Browsers cannot read
+the trackers, so a small helper beside SteamVR, `tools/trackers/bridge.py`, sends their poses to the relay on the same
+PC, and the relay sends them to the rooms that use them, lined up with the room. Setting it up: [tools/trackers/README.md](../tools/trackers/README.md);
+the contract between the parts: [tools/trackers/SPEC.md](../tools/trackers/SPEC.md). The code: `relay/trackers.mjs`.
+
+```sh
+node relay/server.mjs --lan --trackers        # on the PC, with SteamVR running
+python tools/trackers/bridge.py               # (--port <n> when the relay has --trackers <n>)
+```
+
+**The bridge's datagrams.** UDP to `127.0.0.1:<port>` (47800 by default; the relay listens on `127.0.0.1` only, so
+nothing from the network reaches it), one datagram a reading of every device, about 90 a second, JSON, under 8 KB:
+`{ v: 1, t: <bridge ms>, d: [{ s: <serial>, k: 'trk' | 'hmd' | 'ctl' | 'base', h: 'l' | 'r' (controllers), p: [x, y, z]
+(m), q: [x, y, z, w], lv: [3] (m/s), av: [3] (rad/s), ok: <tracked well>, b: <battery 0..1 or null> }] }` in SteamVR's
+standing space (y up, -z ahead, right-handed, as WebXR's). The relay keeps each device's latest reading with its own
+time it came. A datagram that is not the bridge's (not JSON, no `v: 1` or `d`, over 8 KB) is ignored whole; a reading
+that is not right (a serial outside `[A-Za-z0-9_.:-]`, up to 64; an unknown kind; a position past 1 km; a turn that is
+not one; `ok` not true or false) is left out on its own; both are counted and said in the log at most once a second
+(`trackers: ignored 3 bad datagrams and 1 bad reading`). A battery outside 0 to 1 is taken as none. The log also says
+each device the first time it is seen, when the bridge starts sending and when it has been silent for 5 s.
+
+**The room's key `trk`** (written by pages and headsets in the room; never refused by either lock; the relay only
+reads it): `{ on, m, names, by, at }`. `on: true`: this room uses the PC's trackers (only such rooms get them).
+`m: { a: [x, y, z], b: [x, y, z] }` or null: the two points taken by hand, a tracker lying on its base on spot A and on
+spot B, in SteamVR's space (each from `/api/trackers/still`). `names: { <serial>: <name> }` for the pages. A write keeps
+the fields it does not change (the pages' rule; the relay stores what it is given).
+
+**Lining up.** The room's frame from `m` is exactly a headset's from its floor spots (`shared.js`: `fromMarks` with
+the floor spots' `floorUnder`, and `basis`): its origin the floor point under spot A (spot A's point less `TRK_FLOOR`,
+the tracker's pose origin over the floor when it lies on its base: 0 m until measured), its x axis level towards spot
+B, y up, z = x cross y. A point `p` in SteamVR's space is `(c dx - s dz, dy, s dx + c dz)` in the room, `d = p - origin`,
+`(c, 0, -s)` the x axis; a turn is turned by the same yaw. `relay/test.mjs` runs `shared.js`'s own code against it.
+Points under 10 cm apart along the floor (or not three numbers each) give no frame: not lined up. It holds while the
+base stations stay put and SteamVR's room setup is not run again (then line up again). Reference trackers left on the
+spots for good (`ref` in the SPEC) are for later.
+
+**`@trk`.** To every member of a room whose `trk.on` is true, sent by the relay itself (no member's fx rate applies;
+`by: ''`), about 60 times a second while the bridge sends (whenever a newer reading has come since the last one):
+`{ t: 'fx', k: '@trk', v: { at, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw, vx, vy, vz, ok, kind], ...] }, by: '' }`.
+`at`: the relay's time (ms) of the newest reading; each device's pose and velocity in room coordinates (metres and
+m/s to the mm, quaternions to 4 decimals); `ok` 1 or 0 (0 when SteamVR lost it, or its reading is older than 0.5 s);
+`kind` `t` a tracker, `h` the headset, `l` and `r` its controllers. Base stations never; a controller SteamVR has given
+no hand yet is left out; a device silent for 5 s is left out. With nothing new (the bridge silent), once a second all
+the same, so pages see each tracker go to `ok` 0. A room that is on but not lined up (no `m`, or one that gives no
+frame): `{ at, l: '', t: [] }` once a second, so pages can say why. About 1.5 KB for 11 trackers, the headset and two
+controllers, 60 times a second to each member. A member whose socket holds more than 256 KB unsent is skipped until it
+drains (newer poses come anyway; it is not cut for them; the log counts them once a second). A member cannot send an
+`@trk` of its own (`@` is not in a key a member may use: refused as `bad`). Only rooms on this relay: rooms peer to
+peer or on a device get none.
+
+**The API** (with the relay's password as every API request; both answers 200 whatever the tracker did, 400 for a
+bad ask, 405 for another method):
+
+| request | answer |
+| --- | --- |
+| `GET /api/trackers` | `{ ok: true, trackers: [{ id, k, h?, ok, b, p, q, age }] }`: every device seen in the last minute, trackers first, then the headset, its controllers and base stations; raw in SteamVR's space (`p` and `q` to 4 decimals), `ok` false once its reading is 0.5 s old, `b` the battery (0 to 1, to 2 decimals) or null, `age` ms since its last reading |
+| `GET /api/trackers/still?id=<serial>&ms=1000` | waits `ms` (200 to 5000; 1000 by default) and answers `{ ok: true, p, spread, n }`: the tracker's position averaged over its readings meanwhile (`p` to 0.01 mm), how far the furthest was from it (`spread`, mm) and how many; or `{ ok: false, error }` in words: not seen (at once, for a serial not heard from for 5 s), lost tracking meanwhile, or moved more than 5 mm meanwhile (with `spread`). The pages' *Set spot A* and *Set spot B* |
+
+Untested until it runs on the owner's PC: the bridge with SteamVR and real trackers (`bridge.py`'s pyopenvr calls,
+the rate on Windows), `TRK_FLOOR`, the lag from SteamVR to a headset through the relay, and how steady the lining up
+by hand is.
+
 ## HTTP API
 
 All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
@@ -934,7 +1000,7 @@ shared password](#the-shared-password-collab_token)).
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here) |
+| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
@@ -943,6 +1009,7 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
+| `GET /api/trackers`, `GET /api/trackers/still?id=<serial>&ms=1000` | with `--trackers`: the PC's trackers raw in SteamVR's space, and one lying still, averaged; see [The PC's Vive trackers](#the-pcs-vive-trackers---trackers); 404 without |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
@@ -998,7 +1065,7 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
 | relay | `set` | `batch, seq, by, cid` | to everybody, the writer included (its acknowledgement) |
 | client | `fx` | `k, v` | ephemeral, not stored |
-| relay | `fx` | `k, v, by` | to everybody but the sender |
+| relay | `fx` | `k, v, by` | to everybody but the sender; `by: ''` for the relay's own, `@trk` (`--trackers`: [The PC's Vive trackers](#the-pcs-vive-trackers---trackers)) |
 | client | `ping` | `c` (client ms) | |
 | relay | `pong` | `c, now` | `c` echoed (a number, else null); `now` relay ms |
 | relay | `error` | `code, text` (+ `cid, keys` for writes) | see below |
@@ -1287,7 +1354,25 @@ stand-in refusing one unsigned; nothing fetched by the relay; 409 then `replace:
 there), the models' pictures there (through the relay and straight into the bucket, `.../put` refusing one over 200 KB,
 `done` leaving one over it that no link of the relay's brought, a copy by the same rule, all told as `preview`), `ffmpeg` from the body and from a file in the bucket (`from=`), the password on every endpoint and in no link,
 no key or signed link in a log line, the start refusing missing settings (named, no value shown), a wrong key or bucket
-and no answer, `--r2-check`, and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`). It exits
+and no answer, `--r2-check`, and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`); and the
+PC's Vive trackers (`--trackers`, v126, with the fake bridge `tools/trackers/fake.mjs`, its SteamVR space turned 37
+degrees and moved against the room; `node relay/test.mjs --trackers` runs only these, in seconds): nothing of it without
+`--trackers` (no field in `/api/ping`, 404s, no `@trk` for a room that asks); the start line's UDP port, `/api/ping`'s
+`trackers` and `trackersSeen`, `GET /api/trackers` (every device with its kind, hand and battery, raw within 0.1 mm of
+where SteamVR has it); `/api/trackers/still` (a tracker lying still: its mean within 0.1 mm and about 45 readings in 0.5
+s; one going round, one never seen, one nudged 2 cm meanwhile and one losing tracking refused in words; bad asks 400,
+`POST` 405); the room's frame from `m` against `shared.js`'s own `fromMarks`, `floorUnder` and `basis` run with three.js
+(1,500 points and turns within 1e-9 m; spot A the origin, x to spot B, right-handed; no frame from points under 10 cm
+apart, one above the other or not points); a room with `trk` on and `m` written as a room key getting `@trk` about 60
+times a second on each member (`by: ''`, `l: 'hand'`, every tracker, the headset and its controllers with their kinds,
+never a base station), every pose within 1 mm and 0.05 degrees of the truth and every velocity within 10 mm/s, spot A's
+tracker at the origin; nothing for a room without `trk` or with it off; `l: ''` once a second for one on without `m`
+or with two points one above the other, and lined up as soon as `m` is written; the bridge silent (once a second, each
+tracker `ok` 0, one switched off left out after 5 s, then 60 a second again); bad datagrams and readings ignored,
+counted and said in the log, the good reading beside them taken; the password on both endpoints (and in no log line);
+`--trackers` in `RELAY_ARGS`; a UDP port another relay holds stopping the start with a sentence; and, when `python3` is
+on the machine, `tools/trackers/bridge.py --fake` sending to the relay (its ten devices taken with their kinds and
+hands, nothing ignored). It exits
 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the

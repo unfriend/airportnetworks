@@ -13,8 +13,10 @@ option), and two lighter body setups as well as the full one (below): "a minimal
 each foot and uses the headset and the controllers and ik for the rest if possible, maybe also a version where one can
 just use the headset and the controllers if possible".
 
-This file is the contract between the lanes that build it. Status: planned; only the solver of phase 3 is built (v125,
-"The solver (ik.js)" below), and nothing uses it yet.
+This file is the contract between the lanes that build it. Status: v126 builds phases 1 and 3 in three lanes (the bridge,
+the fake and the relay; the shell; the studio), with the wire settled by v126's brief (below: no reference trackers this
+round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built so far: the solver of phase 3
+(v125, "The solver (ik.js)" below) and the bridge, the fake and the relay (v126, "The bridge" and "The relay" below).
 
 ## The picture
 
@@ -37,27 +39,67 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 
 ## The bridge (`tools/trackers/bridge.py`)
 
-- Python 3 (Windows), the `openvr` package (pyopenvr) and the standard library only. Started after SteamVR:
-  `python bridge.py [--port 47800] [--rate 90]`. A PC without a SteamVR headset needs SteamVR's null driver
-  (`requireHmd` false, the null driver enabled): the README says how.
-- Reads `getDeviceToAbsoluteTrackingPose` in the standing universe (SteamVR's own room setup: y up, the floor at 0; the
-  lining up below makes its origin and turn irrelevant) for every tracked device of class GenericTracker, the headset
-  (the Index) and its two controllers (for a performer wearing the Index, and to line the Index's own page up), and the
-  base stations (for the map), at most `--rate` a second; `k` is `'trk'`, `'hmd'`, `'ctl'` (with `h: 'l' | 'r'`) or
-  `'base'`.
-- Sends one UDP datagram a reading to 127.0.0.1:<port>: `{ v: 1, t: <bridge ms>, d: [{ s: <serial>, k: 'trk' | 'base',
-  p: [x, y, z] (m, 4 decimals), q: [x, y, z, w] (4 decimals), lv: [3] (m/s), av: [3] (rad/s), ok: <pose valid and
-  running ok>, b: <battery 0..1 or null> }] }`, under 8 KB (11 trackers are about 1.5 KB). Serial numbers are the
-  trackers' ids everywhere (`LHR-XXXXXXXX`), stable across sessions.
-- `--fake`: no SteamVR, a few synthetic trackers (to try the rest without the hardware). The tests use the Node fake,
-  `tools/trackers/fake.mjs`, which speaks the same datagrams.
+Built in v126 (setting it up: `tools/trackers/README.md`).
+
+- Python 3 (Windows; 3.11 or newer keeps 90 a second there), the `openvr` package (pyopenvr) and the standard library
+  only. Started after SteamVR: `python bridge.py [--port 47800] [--rate 90]`; it waits for SteamVR when it is not running
+  and again when SteamVR closes (`VREvent_Quit`). `--list` prints the devices SteamVR sees, `--seconds n` stops after n s,
+  `--quiet` drops the status line (every 5 s: the devices, how many tracked well, readings a second). The owner's PC has
+  the Index, so SteamVR has its headset: no null driver.
+- A background application (`openvr.init(VRApplication_Background)`: it never starts SteamVR and needs no scene
+  application). Reads `getDeviceToAbsoluteTrackingPose` (0 s ahead) in the standing universe (SteamVR's own room setup:
+  y up, the floor at 0; the lining up below makes its origin and turn irrelevant) for every device of class
+  GenericTracker, the headset (the Index), its controllers (for a performer wearing the Index, and to line the Index's
+  own page up) and the base stations (for the map), at most `--rate` a second; `k` is `'trk'`, `'hmd'`, `'ctl'` (with
+  `h: 'l' | 'r'` from SteamVR's controller role) or `'base'`. Which devices there are and their serial numbers are
+  looked at every 2 s, batteries every 10 s (`Prop_DeviceBatteryPercentage_Float` where
+  `Prop_DeviceProvidesBatteryStatus_Bool`). A device not connected is not sent; one whose pose is not valid is sent with
+  its last pose and `ok` false (one never seen valid is not sent).
+- Sends one UDP datagram a reading of every device to 127.0.0.1:<port>: `{ v: 1, t: <bridge ms>, d: [{ s: <serial>, k,
+  h?, p: [x, y, z] (m, 4 decimals), q: [x, y, z, w] (4 decimals), lv: [3] (m/s, 3 decimals), av: [3] (rad/s), ok:
+  <pose valid and Running_OK>, b: <battery 0..1 or null> }] }`, under 8 KB (more devices than fit go in several; 10
+  devices are about 1.3 KB). Serial numbers are the devices' ids everywhere (`LHR-XXXXXXXX`; base stations `LHB-...`),
+  stable across sessions.
+- `--fake`: no SteamVR, made-up devices (the same as the Node fake's, below), to try the rest without the hardware.
+- `tools/trackers/fake.mjs` (Node, no packages): a fake bridge for the tests and for trying the rooms without the
+  hardware, the same datagrams. Its SteamVR space is the room turned by `turn` about y and moved by `move` (a known
+  transform, so a test knows every pose's truth in room coordinates); devices at scripted poses (still, round a circle,
+  bobbing) or from a function the caller passes (`startFake({ port, rate, turn, move, devices: [{ s, k, h, b, pose: t =>
+  ({ p, q }) }] })`; `pause`, `off` (switched off), `lost` (out of view), `set` (another pose), `send` (any bytes),
+  `history` (each device's last poses in room coordinates with the time they were sent), `spots` (where a tracker lying
+  on spot A and B reads in SteamVR's space)). From the command line: two trackers lying on spot A and B, three others,
+  the headset, its controllers and two base stations (`node tools/trackers/fake.mjs --help`).
 
 ## The relay (`--trackers [port]`, `relay/trackers.mjs`)
 
-- Listens for the bridge's datagrams on 127.0.0.1 only (port 47800 by default). Keeps each tracker's latest reading with
-  the relay's time it arrived. `/api/ping` says `trackers: true` and how many are seen; `GET /api/trackers` (with the
-  password, as the API) lists them raw: serial, kind, ok, battery, `p`, `q`, age.
-- The room's key `trk` (written by pages or headsets in the room; never refused by either lock):
+Built in v126 by v126's brief (the wire below is that brief's, which settled the plan's open details; reference trackers
+wait). The reference: `relay/README.md`, "The PC's Vive trackers".
+
+- `--trackers [port]` (also in `RELAY_ARGS`; 47800 when no port is given, `0` a free one, said in the start line); a
+  port another program holds stops the start with a sentence. Nothing at all without it: no socket, no endpoint, no
+  field in `/api/ping`, no `@trk`.
+- Listens for the bridge's datagrams on 127.0.0.1 only. Keeps each device's latest reading with the relay's time it
+  arrived. Bad datagrams (not JSON, not `v: 1` with `d`, over 8 KB) are ignored and bad readings left out one by one,
+  both counted and said in the log at most once a second. `/api/ping` says `trackers: true` and `trackersSeen` (trackers,
+  `k: 'trk'`, heard in the last 5 s); `GET /api/trackers` (with the password, as the API) lists every device seen in the
+  last minute raw: `{ ok: true, trackers: [{ id: <serial>, k, h?, ok, b, p: [3], q: [4], age: <ms> }] }` (`ok` false once
+  its reading is 0.5 s old). `GET /api/trackers/still?id=<serial>&ms=1000` (200 to 5000 ms) waits that long and answers
+  `{ ok: true, p: [3] (the mean, raw), spread: <mm, the furthest reading from the mean>, n }` or `{ ok: false, error:
+  <words> }`: not seen (at once), lost tracking meanwhile, or moved more than 5 mm meanwhile (both answers 200).
+- What v126 builds of the room's key and the lining up, by v126's brief (it wins over the plan below where they differ):
+  `trk = { on: bool, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name, <= 24 chars> }, by, at }`, no
+  `ref`; the frame from `m` exactly the headsets' from floor spots (`shared.js`'s `fromMarks` with the floor spots'
+  `floorUnder`, and `basis`, with `TRK_FLOOR` = 0 for `FLOOR_TIP`: origin the floor point under spot A, x level towards
+  spot B, y up, z = x cross y; `relay/test.mjs` runs `shared.js`'s own code against it); and `@trk` to every member of a
+  room whose `trk.on` holds and whose `m` gives a frame, at most 60 a second (whenever a newer reading has come; once a
+  second while the bridge is silent): `{ t: 'fx', k: '@trk', v: { at: <relay ms of the newest reading>, l: 'hand', t:
+  [[id, x, y, z, qx, qy, qz, qw, vx, vy, vz, ok, kind], ...] }, by: '' }` in room coordinates (metres and m/s to the mm,
+  quaternions to 4 decimals; `ok` 1 or 0, 0 also once a reading is 0.5 s old; `kind` `'t'` a tracker, `'h'` the Index,
+  `'l'` and `'r'` its controllers; base stations never, a controller with no hand yet left out, a device silent for 5 s
+  left out). On but not lined up (no `m`, or points under 10 cm apart along the floor): `{ at, l: '', t: [] }` once a
+  second. A member whose socket holds over 256 KB unsent is skipped until it drains. Only rooms on this relay.
+- The plan as first written (reference trackers wait for a later round; where it differs from the bullet above, that
+  holds). The room's key `trk` (written by pages or headsets in the room; never refused by either lock):
   `{ on, ref: { a: <serial>, b: <serial> } | null, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name> },
   by, at }`. `on`: this room uses the PC's trackers (only such rooms get them). Lining up, two ways (by hand is built
   first; reference trackers later, the owner: "start with lining up by hand for now, leave the other option for maybe
@@ -110,7 +152,8 @@ rate-limit question on the way in, and nothing depends on a page staying open on
   in: no turn by the station's spot and facing needed), times the offset; a motion and a path draw over it;
   the record never changes. Not seen: its last pose held; never seen here: its placed pose. Rests at its placed pose
   while held here or paused, as everything that moves (v122). A sound may follow such an item as any other.
-- `FORMAT` networks-37 (the studio's `state()` changes shape).
+- `FORMAT` networks-38 (the room's key `trk`, and the studio's records' `trk` and `puppet`; v126's brief: only the shell
+  lane changes the line in `shared.js`).
 
 ## The studio, phase 3: a Mixamo character worn with trackers
 
@@ -218,9 +261,13 @@ real trackers, a headset and controllers is untested.
 
 ## Tests
 
-- `relay/test.mjs`: the UDP intake (bad datagrams ignored), `/api/ping`, `/api/trackers` with the password, lining up
-  from reference trackers and by hand against known transforms (to 1 mm and 0.05 degrees), `@trk` only to rooms with
-  `trk.on`, its rate, nothing without `--trackers`.
+- `relay/test.mjs` (built in v126; `node relay/test.mjs --trackers` runs only these, in seconds): the UDP intake (bad
+  datagrams and readings ignored, counted and said), `/api/ping`, `/api/trackers` and `/api/trackers/still` with and
+  without the password, the room's frame against `shared.js`'s own code, lining up by hand against a known transform
+  (every pose within 1 mm and 0.05 degrees of the truth in `@trk`; measured 0.68 mm, the rounding to the mm, and 0.015
+  degrees), `@trk` only to rooms with `trk.on` and `m` and `l: ''` without, its rate (120 in 2 s), the bridge silent,
+  `still` refusing a tracker that moved, nothing without `--trackers`, and `bridge.py --fake` to the relay where
+  `python3` is. Lining up from reference trackers waits for a later round.
 - `tools/studio/test-ik.mjs` (Node, seconds): a generated Mixamo-named test rig (`tools/studio/test/make.mjs`, our own
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.
