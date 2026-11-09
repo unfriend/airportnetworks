@@ -4545,8 +4545,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   drag looks the way the mouse goes (right looks right, up looks up), and a click with a mouse grabs it (the browser's
   pointer lock, `GRAB` in `engine/e7_explore.js`): the mouse turns you, W A S D walk, a crosshair in the middle where a
   click selects or walks (`clickAt` at the page's middle), a line under the view saying how; Esc lets go (the browser's
-  own; the studio's Esc deselects nothing then), as do leaving Walk view, explore mode or the page. A browser that
-  refuses the lock clicks as before. Orbit view as before. New items go 1.5 m in front of you on the floor (a
+  own; the studio's Esc deselects nothing then), as do leaving Walk view, explore mode or the page. A browser without
+  the lock clicks as before, and a refused request (as within a second of Esc) for 1.5 s. Orbit view as before. New items go 1.5 m in front of you on the floor (a
   model's lowest point on it), selected.
 - **The panes** (page HTML and headset canvas twins, the same content): **Scene** (the scene and the scenes to pick
   from, a station's for everyone at it; *Edit*; *Save*, which says *Saved 22:41* (*by Anna* for another device's save)

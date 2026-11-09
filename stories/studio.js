@@ -24943,7 +24943,8 @@ function animHeard(d, by) {
 const ANIM_ACT = {
   'an:play': () => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it), !(H ? H.p : true)); },
   'an:start': () => { const it = STU.items.get(STU.sel); if (animCan(it)) animSet(it, 0, false); },
-  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, Math.min(Math.max(0, animTime(it) + (+v || 0)), it.dur - 1e-4), H ? H.p : false); },
+  // (a second back or on: round a Loop, held at the ends of Once, as animSet's animWrap keeps it)
+  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it) + (+v || 0), H ? H.p : false); },
   'an:free': () => animFree('button'),
 };
 // the page's slider (tenths of a second): the clip held there, playing on if it was
@@ -26011,7 +26012,7 @@ function bindCanvas() {
     }
     if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
     if (!down || !down.moved) return;
-    if (X.view === 'walk') { walkLook(dx, dy, LOOK_DRAG); return; }
+    if (X.view === 'walk') { walkLook(dx, dy, LOOK_DRAG, true); return; }
     orbit.to = null;
     if (down.b === 2 || down.shift) {
       // pan: the target slides along the floor (right button or Shift)
@@ -26058,22 +26059,25 @@ function bindCanvas() {
   document.addEventListener('keyup', ev => KEYS.delete(ev.key.toLowerCase()));
   window.addEventListener('blur', () => KEYS.clear());
   document.addEventListener('pointerlockchange', () => grabSet(document.pointerLockElement === cv));
-  document.addEventListener('pointerlockerror', () => { GRAB.no = true; grabSet(false); });
+  document.addEventListener('pointerlockerror', () => { grabRefused(); grabSet(false); });
 }
 // Walk view's mouse (v127; the owner, 9 November 2026: "mouse movement switch left right and also grab mouse focus with
 // esc to ungrab", then "like most games, in both cases"): dragging and the grabbed mouse look the way the mouse goes
 // (right looks right, up looks up). In Walk view a click with the mouse grabs it (the browser's pointer lock: no
 // pointer, the mouse turns you, W A S D walk, a crosshair in the middle where a click selects or walks); Esc lets go (the
 // browser's own, and nothing else: no item deselected). Leaving Walk view, explore mode or the page lets go too. Orbit
-// view as before. A browser that refuses the lock (GRAB.no) clicks as before
-const GRAB = { on: false, gone: 0, no: false, tip: null, el: null, mq: null };
+// view as before. A browser without the lock (GRAB.no) clicks as before; a refused request (as Chrome refuses one within
+// about a second of Esc) clicks as before for 1.5 s (GRAB.wait), then a click grabs again
+const GRAB = { on: false, gone: -1e9, no: false, wait: 0, tip: null, el: null, mq: null };
 const LOOK_DRAG = 0.004, LOOK_GRAB = 0.0025;
-function walkLook(dx, dy, k) {
+// (a drag also stops a walk to a clicked spot; the grabbed mouse's moves do not: a click at the crosshair walks there)
+function walkLook(dx, dy, k, stop) {
   WALK.yaw -= dx * k;
   WALK.pitch = clamp(WALK.pitch - dy * k, -1.3, 1.3);
-  WALK.to = null;
+  if (stop) WALK.to = null;
 }
-const grabCan = () => !GRAB.no && !XR.on && APP.mode === 'explore' && X.view === 'walk' && typeof GL.canvas.requestPointerLock === 'function';
+const grabRefused = () => { GRAB.wait = performance.now() + 1500; };
+const grabCan = () => !GRAB.no && performance.now() > GRAB.wait && !XR.on && APP.mode === 'explore' && X.view === 'walk' && typeof GL.canvas.requestPointerLock === 'function';
 // a click in Walk view with a mouse: the mouse grabbed (true), else false (the click then acts as ever); refused (an
 // older browser's error comes as pointerlockerror), the click acts after all
 function grabTry(ev, b) {
@@ -26081,7 +26085,7 @@ function grabTry(ev, b) {
   let r;
   try { r = GL.canvas.requestPointerLock(); } catch (e) { GRAB.no = true; return false; }
   const x = ev.clientX, y = ev.clientY;
-  if (r && typeof r.catch === 'function') r.catch(() => { GRAB.no = true; grabSet(false); clickAt(x, y); });
+  if (r && typeof r.catch === 'function') r.catch(() => { grabRefused(); grabSet(false); clickAt(x, y); });
   return true;
 }
 function grabSet(on) {
@@ -27034,7 +27038,7 @@ const blobOf = (data, type) => { const u = URL.createObjectURL(new Blob([data], 
 // still uses them; nothing of it is converted, uploaded or kept in originals/. A row made or working stays
 function upDrop(ri) {
   const r = UP.rows[ri];
-  if (!r || r.state !== 'plan' || UP.busy) return;
+  if (!r || r.state !== 'plan' || UP.busy || UP.planning) return;   // (a new drop being read: its rows come in a moment)
   UP.rows.splice(ri, 1);
   const still = new Set(UP.rows.filter(x => x.kind !== 'keep').flatMap(x => x.src));
   const gone = new Set(r.src.filter(e => !still.has(e)));
@@ -27115,7 +27119,7 @@ function uploadHTML(b) {
   if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
-    const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy ? ' disabled' : ''}>×</button>` : '';
+    const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy || UP.planning ? ' disabled' : ''}>×</button>` : '';
     return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}

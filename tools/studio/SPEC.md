@@ -449,7 +449,9 @@ with *Esc lets go of the mouse* under it, and a click (the left button) acts at 
 middle, so it selects what is there while editing, else walks to the floor there; what is under it lights up while
 editing. Esc lets go (the browser's own; the studio's own Esc, which deselects, does nothing as the grab ends: within
 0.4 s of it), and so does leaving Walk view, explore mode, the page or the studio (`grabStep`, every frame; `grabEnd`
-in `dispose`). The first click only grabs. A browser that refuses the lock (`GRAB.no`) clicks as before. A line beside
+in `dispose`). The first click only grabs. A browser without the lock (`GRAB.no`) clicks as before; a request refused
+(Chrome refuses one within about a second of Esc) clicks as before for 1.5 s, then a click grabs again (`GRAB.wait`).
+While grabbed the mouse's moves never stop a walk to a spot clicked at the crosshair (a drag still does). A line beside
 the View buttons, *Click the view to look with the mouse, Esc lets go*, shows in Walk view on a device with a fine
 pointer while not grabbed. Orbit view is unchanged.
 
@@ -1350,8 +1352,8 @@ anymore or editing is switched off it goes back to its regular behaviour". `engi
 
 - **Where**: the card of an object whose clip plays (*Loop* or *Once*, not *Off*), selected here while editing is on,
   under its Animation rows, page and headset alike (`animCan`, `animBlocks`): *Timeline: 1.2 s of 2.0 s*, then *Pause*
-  (or *Play* while held paused), *Start* (held at 0 s, paused), *−1 s* and *+1 s* (a second back or on, kept within the
-  clip, playing on if it was), *The scene's clock* (lets go; pressable only while this device holds it); on a page also a
+  (or *Play* while held paused), *Start* (held at 0 s, paused), *−1 s* and *+1 s* (a second back or on, round a Loop,
+  held at the ends of Once, playing on if it was), *The scene's clock* (lets go; pressable only while this device holds it); on a page also a
   slider in tenths of a second (`stuRangeAnim`, `animSeek`) and a line saying how it plays now and that a hold lasts while
   it is selected with editing on.
 - **A hold** (`ANIM.mine` `{ id, t, p, at, key }`: the clip's time `t` at the moment `at`, playing `p` or not, for the

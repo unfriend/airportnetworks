@@ -2183,13 +2183,25 @@ if (runs('studio')) {
       const ck = await stp.evaluate(() => window.__clicked || null);
       await ss('(clickAt = window.__clickAt, delete window.__clicked, 0)');
       if (!ck || ck[0] !== 640 || ck[1] !== 380) bad.push('a click with the mouse grabbed did not act at the crosshair (the middle of the page, 640, 380): ' + JSON.stringify(ck));
+      // a grabbed mouse's move (sent as the browser sends one: movementX and Y) turns the way it goes and never stops a walk to
+      // a clicked spot (a drag does)
+      const mv = await ss(`(() => { WALK.yaw = 0; WALK.pitch = 0; WALK.to = new THREE.Vector3(5, 0, 2);
+        GL.canvas.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, pointerType: 'mouse', movementX: 10, movementY: -4, bubbles: true }));
+        const r = [+WALK.yaw.toFixed(4), +WALK.pitch.toFixed(4), !!WALK.to]; WALK.to = null; return r; })()`);
+      if (mv.join() !== '-0.025,0.01,true') bad.push('a grabbed mouse moved right and up (10, -4 px): ' + JSON.stringify(mv) + ' (want it turned right and up by 0.0025 a pixel, the walk kept)');
       await ss(`(WALK.to = null, select('box001'), 0)`);
       if (await ss('STU.sel') !== 'box001') bad.push('the box could not be selected (editing on again) before Esc');
+      // Esc while grabbed (a real browser's Esc ends the grab itself, which headless Chromium's does not): the studio's own Esc
+      // deselects nothing; then the grab ended
+      await stp.keyboard.press('Escape');
+      if (await ss('STU.sel') !== 'box001') bad.push('Esc while the mouse was grabbed deselected the box: ' + JSON.stringify(await ss('[GRAB.on, performance.now() - GRAB.gone]')));
       await stp.evaluate(() => document.exitPointerLock());
-      await stp.keyboard.press('Escape');   // (as a browser does: Esc is what ends the grab)
       await until('!GRAB.on', 5000);
-      if (await ss('STU.sel') !== 'box001') bad.push('Esc as the grab ended deselected the box');
       if (await stp.evaluate(() => { const e = document.getElementById('stuGrab'); return !!e && e.style.display !== 'none'; })) bad.push('the crosshair stays after the grab ended');
+      // a refused grab (as Chrome refuses one within a second of Esc): a click acts as before for 1.5 s, then grabs again
+      const rf = await ss(`(document.dispatchEvent(new Event('pointerlockerror')), grabCan())`);
+      const rf2 = await stp.waitForFunction(() => HOST.cur.peek('grabCan()'), null, { timeout: 5000 }).then(() => true, () => false);
+      if (rf || !rf2) bad.push('a refused grab: ' + JSON.stringify({ atOnce: rf, after: rf2 }) + ' (want no grab at once, a grab again after 1.5 s)');
     }
     await ss(`(select(''), WALK.to = null, 0)`);
     await stp.mouse.click(640, 400);   // (grabbed again, then Orbit view: it lets go)

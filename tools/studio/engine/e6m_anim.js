@@ -89,7 +89,8 @@ function animHeard(d, by) {
 const ANIM_ACT = {
   'an:play': () => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it), !(H ? H.p : true)); },
   'an:start': () => { const it = STU.items.get(STU.sel); if (animCan(it)) animSet(it, 0, false); },
-  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, Math.min(Math.max(0, animTime(it) + (+v || 0)), it.dur - 1e-4), H ? H.p : false); },
+  // (a second back or on: round a Loop, held at the ends of Once, as animSet's animWrap keeps it)
+  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it) + (+v || 0), H ? H.p : false); },
   'an:free': () => animFree('button'),
 };
 // the page's slider (tenths of a second): the clip held there, playing on if it was
