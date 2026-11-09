@@ -193,10 +193,12 @@ function behStop(id, B) { if (!B.drive) return; B.drive = false; BEH.ends.add(id
 // every frame before itemsStep (frame, e10_app.js): the pipeline's base stage on or off, each behaving item's state
 // (who it reacts to, driven here, drawn from a driver's samples or going home), and what this device sends
 function behaveStep(dt, pn) {
+  trkStep(pn);   // (the trackers here this frame, and the puppet's countdowns: e6k_trk.js)
   BEH.n++;
   restScan();   // (what rests this frame: held here, or Pause; e6e_motion.js)
   const items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour);
-  POSE.base = items.length ? behaveBase : null;
+  // (the base stage: an item on a tracker, else a behaviour's, while the scene has either: poseBase, e6k_trk.js)
+  POSE.base = TRK.any ? poseBase : items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
     const it = STU.items.get(id), b = it && it.rec.behaviour;
     if (!b || b.kind !== B.kind) { behStop(id, B); BEH.st.delete(id); }
@@ -340,7 +342,7 @@ function behaveInfo(id) {
   if (!it || !it.rec.behaviour) return null;
   const H = BEH.heard.get(id);
   return { kind: it.rec.behaviour.kind, who: B ? B.who : '', drive: !!(B && B.drive), src: B ? B.src : '', t: B ? [r3(B.tx), r3(B.tz)] : [0, 0], d: B ? r3(B.d) : 0, on: !!(B && B.on), since: B ? B.since : 0,
-    p: B && B.p ? B.p.toArray().map(r3) : null, inAt: B ? Object.fromEntries(B.inAt) : {}, heard: H ? [...H.keys()] : [], base: POSE.base === behaveBase, me: behMe() };
+    p: B && B.p ? B.p.toArray().map(r3) : null, inAt: B ? Object.fromEntries(B.inAt) : {}, heard: H ? [...H.keys()] : [], base: POSE.base === behaveBase || POSE.base === poseBase, me: behMe() };
 }
 
 // ------------------------------------------------------------- the card --

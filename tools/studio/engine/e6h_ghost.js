@@ -106,7 +106,7 @@ GHOST.build = 4;
 // of models whose animation moves them while their place stays): while editing its ghost stands where it is placed, in
 // its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
 // ghostFar alone would hide it)
-const clipMoves = it => it.kind === 'o' && !!it.model && !!it.action && it.dur > 0 && it.rec.anim !== 'off';
+const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn);   // (worn with trackers too: e6l_puppet.js)
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');

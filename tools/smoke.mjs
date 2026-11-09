@@ -6482,6 +6482,509 @@ if (runs('studio texture swaps')) {
     await tp.close();
   });
 }
+// The studio's trackers (v126, tools/trackers/SPEC.md: e6k_trk.js and e6l_puppet.js), on pages of their own. The PC's
+// trackers come from the shell (HOST.collab.trackers(): the relay's @trk stream, interpolated); these steps give the studio
+// a pretend studio station and the trackers themselves (HOST.collab.live and HOST.collab.trackers, tracker and body stubbed
+// in the page, so each frame's poses are exact), and, where the shell has its test hook HOST.collab.trkIn, one step feeds a
+// tracker through it as the relay would. The stream itself, the lining up of SteamVR's space with the room and @trk are the
+// relay's and the shell's (relay/test.mjs, tools/collab.mjs --trackers)
+// (in the page: the studio's own functions and state, for the steps' code)
+const STU_ENGINE = `(window.__E = { putItem, norm, setRec, itemAct, behaveStep, itemsStep, STU, TRK, PUP, IK, GL, UNDO, undo, collabState, collabApply, readLayout, layoutOut, duplicateItem,
+  duplicateGroup, paneBlocks, select, switchedRec, MPAUSE, STUDIO, openScene, lockStops, CV, trkPose, pupRig, XR, X, panelTick, renderPanes,
+  // (the headset's card drawn, and a button of it pressed, scrolling down to it: true if it was there)
+  press: id => { XR.on = true; const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }; X.tab = 'item';
+    try { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); return true; } } return false; } finally { X.scroll = {}; draw(); XR.on = false; } } }, 0)`;
+if (runs('studio trackers')) {
+  const kp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  kp.on('pageerror', e => errors.push('studio trackers: ' + (e.stack || e.message)));
+  kp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio trackers: ' + m.text()); });
+  const until = (src, ms) => kp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio trackers: ' + b)); };
+  const said = async pg => { for (const l of await pg.evaluate(() => { const l = window.__log || []; window.__log = []; return l; })) console.log(l); };
+  // (in the page: a pretend studio station and its trackers, frames run, an item's drawn pose, matrices compared)
+  const HELP = () => {
+    const E = window.__E;
+    window.__tk = {
+      list: [], live: HOST.collab.live, trackers: HOST.collab.trackers,
+      V: (...a) => new THREE.Vector3(...a), Q: (ax, deg) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...ax).normalize(), deg * Math.PI / 180),
+      one: (id, p, q, o) => Object.assign({ id, name: '', k: 't', p: p.toArray(), q: q.toArray(), ok: true }, o || {}),
+      run: n => { for (let k = 0; k < (n || 2); k++) { E.GL.world.updateMatrixWorld(true); E.behaveStep(1 / 30, performance.now()); E.itemsStep(1 / 30, performance.now()); } },
+      drawn: id => { const H = E.STU.items.get(id).holder; return H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix.clone(); },
+      placed: id => { const H = E.STU.items.get(id).holder; return new THREE.Matrix4().compose(H.position, H.quaternion, H.scale); },
+      far: (a, b) => Math.max(...a.elements.map((v, i) => Math.abs(v - b.elements[i]))),
+      at: m => new THREE.Vector3().setFromMatrixPosition(m),
+    };
+    HOST.collab.live = () => ({ id: 'sttrk1', story: 'studio' });
+    HOST.collab.trackers = () => window.__tk.list.map(x => Object.assign({}, x));
+    return 0;
+  };
+  await step('studio trackers: a shape follows a tracker (its offset kept as it is chosen, within 5 mm as the tracker moves and turns), Snap onto it, a tracker not seen held, one never seen here its placed pose, resting while carried or paused, a sound following it, None, the card, one Undo step each', async () => {
+    await kp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await kp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { bad(['the test scene did not load']); return; }
+    await kp.evaluate(s => HOST.cur.peek(s), STU_ENGINE);
+    await kp.evaluate(HELP);
+    const r = await kp.evaluate(() => {
+      const E = window.__E, K = window.__tk, o = [], A = 'LHR-TRKA0001', B = 'LHR-TRKB0002';
+      E.putItem('trs001', 'p', E.norm('p', { name: 'Prop', shape: 'cube', p: [1, 0.5, -2], q: K.Q([0, 1, 0], 20).toArray(), size: [0.3, 0.2, 0.4] }));
+      E.putItem('trsnd1', 's', E.norm('s', { name: 'Hum', file: 'tone.wav', p: [1, 0.8, -2], on: 'trs001', o: [0, 0.3, 0] }));
+      E.select('');
+      const P0 = K.V(0.5, 1, -1.5), Q0 = K.Q([0, 1, 0], 30);
+      K.list = [K.one(A, P0, Q0, { name: 'Cup' }), K.one(B, K.V(-1, 0.9, -1), K.Q([1, 0, 0], 10))];
+      K.run();
+      if (E.TRK.st !== 'sttrk1' || E.TRK.at.size !== 2) o.push('the trackers here: ' + JSON.stringify(E.STUDIO.trk()));
+      // the card: Follows a tracker, its list by name (or serial)
+      E.select('trs001');
+      let blocks = E.paneBlocks('item'), row = blocks.find(b => b.row && b.row.some(t => t.id === 'trk:none'));
+      if (!row || !row.row.some(t => t.id === 'trklist')) o.push('no Follows a tracker row on the shape\'s card');
+      E.itemAct('trkpick', '', 'trs001');
+      blocks = E.paneBlocks('item');
+      const lst = blocks.find(b => b.list && b.list.some(t => t.id === 'trkto:' + A));
+      if (!lst || lst.list.find(t => t.id === 'trkto:' + A).label !== 'Cup' || lst.list.find(t => t.id === 'trkto:' + B).label !== B) o.push('the list of trackers: ' + JSON.stringify(lst && lst.list.map(t => [t.id, t.label])));
+      // the headset's card: the same row and list (pressed there: the list closed again, then opened)
+      if (!E.press('trklist') || E.STU.trkList || !E.press('trklist') || E.STU.trkList !== 'trs001') o.push('the headset\'s Follows a tracker: ' + E.STU.trkList);
+      // chosen: one Undo step, the shape where it stands (its offset from the tracker now)
+      const u0 = E.UNDO.length, placed0 = K.placed('trs001');
+      E.itemAct('trk', A, 'trs001');
+      K.run();
+      const t = E.STU.items.get('trs001').rec.trk;
+      if (!t || t.id !== A || E.UNDO.length !== u0 + 1 || E.STU.trkList) o.push('chosen: ' + JSON.stringify([t, E.UNDO.length - u0, E.STU.trkList]));
+      if (K.far(K.drawn('trs001'), placed0) > 2e-3) o.push('chosen, it moved: ' + K.far(K.drawn('trs001'), placed0));
+      // the tracker moves and turns: the shape with it, its pose on the tracker kept
+      const P1 = K.V(2, 1.3, -0.5), Q1 = K.Q([1, 1, 0], 50);
+      K.list[0] = K.one(A, P1, Q1, { name: 'Cup' });
+      K.run();
+      const rel0 = new THREE.Matrix4().compose(P0, Q0, K.V(1, 1, 1)).invert().multiply(placed0), rel1 = new THREE.Matrix4().compose(P1, Q1, K.V(1, 1, 1)).invert().multiply(K.drawn('trs001'));
+      const mid1 = K.at(K.drawn('trs001')), want1 = K.at(new THREE.Matrix4().compose(P1, Q1, K.V(1, 1, 1)).multiply(rel0));
+      if (mid1.distanceTo(want1) > 0.005 || K.far(rel0, rel1) > 2e-3) o.push('moved with the tracker: ' + [mid1.distanceTo(want1), K.far(rel0, rel1)]);
+      if (!E.STUDIO.trk('trs001').item.on || !E.STUDIO.trk('trs001').base) o.push('drawn through the base stage: ' + JSON.stringify(E.STUDIO.trk('trs001')));
+      // a sound following it moves with it (the tracker moved along x only)
+      const s0 = E.STU.items.get('trsnd1').holder.position.clone();
+      K.list[0] = K.one(A, P1.clone().add(K.V(0.4, 0, 0)), Q1, { name: 'Cup' });
+      K.run();
+      const s1 = E.STU.items.get('trsnd1').holder.position.clone();
+      if (Math.abs(s1.x - s0.x - 0.4) > 1e-3 || Math.abs(s1.y - s0.y) > 1e-3 || Math.abs(s1.z - s0.z) > 1e-3) o.push('the sound following it: ' + [s0.toArray(), s1.toArray()]);
+      // not seen: held where it was last seen (gone from the list, and seen not ok)
+      const held = K.drawn('trs001');
+      K.list = [K.one(B, K.V(-1, 0.9, -1), K.Q([1, 0, 0], 10))];
+      K.run();
+      if (K.far(K.drawn('trs001'), held) > 1e-9) o.push('not seen: not held');
+      K.list = [K.one(A, K.V(9, 9, 9), Q1, { ok: false, name: 'Cup' })];
+      K.run();
+      if (K.at(K.drawn('trs001')).distanceTo(K.V(9, 9, 9)) > 1) o.push('seen but not ok: not at the pose the shell keeps');
+      // carried here or paused: at its placed pose; then on the tracker again
+      const it = E.STU.items.get('trs001');
+      it.carry = true; K.run();
+      const carried = K.far(K.drawn('trs001'), K.placed('trs001'));
+      it.carry = false; E.MPAUSE.on = true; K.run();
+      const paused = K.far(K.drawn('trs001'), K.placed('trs001'));
+      E.MPAUSE.on = false; K.run();
+      if (carried > 1e-9 || paused > 1e-9 || K.far(K.drawn('trs001'), K.placed('trs001')) < 0.1) o.push('resting while carried or paused: ' + [carried, paused]);
+      // Snap onto it: right on the tracker (its place and turn), one Undo step
+      K.list = [K.one(A, P1, Q1, { name: 'Cup' })];
+      const u1 = E.UNDO.length;
+      E.itemAct('trksnap', '', 'trs001'); K.run();
+      const sn = K.drawn('trs001'), sp = new THREE.Vector3(), sq = new THREE.Quaternion();
+      sn.decompose(sp, sq, new THREE.Vector3());
+      if (E.UNDO.length !== u1 + 1 || sp.distanceTo(P1) > 1e-3 || sq.angleTo(Q1) > 1e-3) o.push('Snap onto it: ' + [sp.distanceTo(P1), sq.angleTo(Q1), E.UNDO.length - u1]);
+      E.undo(); K.run();
+      if (K.at(K.drawn('trs001')).distanceTo(want1) > 0.005) o.push('Undo of Snap: not back where it stood on the tracker');
+      // never seen here (another station: none held): at its placed pose
+      HOST.collab.live = () => ({ id: 'sttrk2', story: 'studio' });
+      K.list = []; K.run();
+      if (E.TRK.last.size || K.far(K.drawn('trs001'), K.placed('trs001')) > 1e-9) o.push('never seen here: not at its placed pose');
+      HOST.collab.live = () => ({ id: 'sttrk1', story: 'studio' });
+      // None: it stays where the tracker had it (its record's place and turn), one Undo step
+      K.list = [K.one(A, P1, Q1, { name: 'Cup' })]; K.run();
+      const before = K.drawn('trs001'), u2 = E.UNDO.length;
+      E.itemAct('trk', 'none', 'trs001'); K.run();
+      if (E.STU.items.get('trs001').rec.trk || E.UNDO.length !== u2 + 1 || K.far(K.drawn('trs001'), before) > 2e-3 || K.far(K.placed('trs001'), K.drawn('trs001')) > 1e-9) o.push('None: ' + K.far(K.drawn('trs001'), before));
+      E.undo(); K.run();
+      if (!E.STU.items.get('trs001').rec.trk) o.push('Undo of None: not on the tracker again');
+      // locked in place: it follows no new tracker
+      E.setRec('trs001', { locked: true });
+      E.itemAct('trk', B, 'trs001');
+      if (E.STU.items.get('trs001').rec.trk.id !== A) o.push('locked, it took another tracker');
+      E.setRec('trs001', { locked: undefined });
+      // an empty and an object follow trackers too
+      E.putItem('tre001', 'e', E.norm('e', { name: 'Spot', p: [0, 1, -1] }));
+      K.list = [K.one(A, P1, Q1, { name: 'Cup' }), K.one(B, K.V(-1, 0.9, -1), K.Q([1, 0, 0], 10))]; K.run();
+      // (the empty's tracker chosen by the headset's card: the list opened, the tracker pressed)
+      E.select('tre001');
+      if (!E.press('trklist') || !E.press('trkto:' + B)) o.push('the headset\'s list of trackers: not pressed');
+      E.itemAct('trk', B, 'box001'); K.run();
+      if (!E.STU.items.get('tre001').rec.trk || !E.STU.items.get('box001').rec.trk || K.far(K.drawn('tre001'), K.placed('tre001')) > 2e-3) o.push('an empty and an object on a tracker: ' + JSON.stringify([E.STU.items.get('tre001').rec.trk, E.STU.items.get('box001').rec.trk]));
+      return o;
+    });
+    bad(r);
+  });
+  await step('studio trackers: the record\'s trk (norm\'s rules), the state and layout.json both ways, a copy and a group\'s copy follow no tracker, a GLB switch turns its offset', async () => {
+    const r = await kp.evaluate(() => {
+      const E = window.__E, K = window.__tk, o = [], base = { name: 'P', shape: 'cube', p: [0, 0.5, 0] };
+      const N = t => { const x = E.norm('p', Object.assign({}, base, { trk: t })); return x ? JSON.stringify(x.trk) : 'bad'; };
+      const cases = [
+        [{ id: 'LHR-1' }, '{"id":"LHR-1","o":[0,0,0],"q":[0,0,0,1]}'], [{ id: 'LHR-1', o: [0.12345, -0, 2], q: [0, 0, 0, 2] }, '{"id":"LHR-1","o":[0.123,0,2],"q":[0,0,0,1]}'],
+        [{ id: 5 }, 'bad'], [{ id: '' }, 'bad'], [{ id: 'has space' }, 'bad'], [{ id: 'LHR-1', o: [1, 2] }, 'bad'], [{ id: 'LHR-1', o: [0, 0, 2000] }, 'bad'],
+        [{ id: 'LHR-1', q: [0, 0, 0, 0] }, 'bad'], ['LHR-1', 'bad'], [[], 'bad'], [{ id: 'x'.repeat(41) }, 'bad'],
+      ];
+      for (const [t, want] of cases) if (N(t) !== want) o.push('norm ' + JSON.stringify(t) + ': ' + N(t));
+      if (E.norm('p', Object.assign({}, base, { trk: null })).trk !== undefined) o.push('trk: null kept');
+      const c = E.norm('c', { name: 'C', p: [0, 1, 0], trk: { id: 'LHR-1' } }), s = E.norm('s', { name: 'S', file: 'tone.wav', p: [0, 1, 0], trk: { id: 'LHR-1' } });
+      if (!c || c.trk || !s || s.trk) o.push('a cube or a sound took a trk');
+      const ob = E.norm('o', { file: 'box.glb', p: [0, 0, 0], trk: { id: 'LHR-2', o: [0, 0.1, 0] } }), em = E.norm('e', { p: [0, 0, 0], trk: { id: 'LHR-3' } });
+      if (!ob || !ob.trk || !em || !em.trk) o.push('an object or an empty refused its trk');
+      // the state both ways: apply(state()) gives the same state; a bad trk from the room ignored (the item kept as it is)
+      const st = E.collabState(), j0 = JSON.stringify(st);
+      if (!st['p.trs001'] || !st['p.trs001'].trk) o.push('the state has no trk');
+      E.collabApply(JSON.parse(j0));
+      if (JSON.stringify(E.collabState()) !== j0) o.push('apply(state()) changed the state');
+      const v = JSON.parse(j0); v['p.trs001'].trk = { id: 'bad id' };
+      E.collabApply(v);
+      if (JSON.stringify(E.STU.items.get('trs001').rec.trk) !== JSON.stringify(st['p.trs001'].trk)) o.push('a bad trk from the room was taken');
+      E.collabApply(JSON.parse(j0));
+      // layout.json both ways
+      const L = E.readLayout(JSON.parse(JSON.stringify(E.layoutOut()))), lr = L.items.find(x => x.id === 'trs001');
+      if (!lr || JSON.stringify(lr.rec) !== JSON.stringify(E.STU.items.get('trs001').rec) || L.bad) o.push('layout.json: ' + JSON.stringify([lr && lr.rec, L.bad]));
+      // a copy follows no tracker; nor do a group's copies
+      const nid = E.duplicateItem('trs001');
+      if (!nid || E.STU.items.get(nid).rec.trk) o.push('a copy follows a tracker');
+      E.putItem('trg001', 'g', E.norm('g', { name: 'Pair', items: ['trs001', 'tre001'] }));
+      const gid = E.duplicateGroup(E.STU.items.get('trg001')), ms = gid ? E.STU.items.get(gid).rec.items.map(i => E.STU.items.get(i)) : [];
+      if (ms.length !== 2 || ms.some(m => m.rec.trk)) o.push('a group\'s copies follow a tracker: ' + JSON.stringify(ms.map(m => m.rec.trk)));
+      // a GLB switch (a turn r and a scale b baked in): its offset's turn takes r, so the model stays where it was on the tracker
+      const rec = E.STU.items.get('box001').rec, g = { s: 0.01, q: K.Q([1, 0, 0], -90).toArray() }, sw = E.switchedRec(rec, 'models/box.glb', g);
+      const T = new THREE.Matrix4().compose(K.V(1, 1, 1), K.Q([0, 1, 1], 40), K.V(1, 1, 1)), M = (t, s) => T.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3().fromArray(t.o), new THREE.Quaternion().fromArray(t.q), K.V(s, s, s)));
+      const was = M(rec.trk, rec.s), now = M(sw.trk, sw.s).multiply(new THREE.Matrix4().compose(K.V(0, 0, 0), new THREE.Quaternion().fromArray(g.q), K.V(g.s, g.s, g.s)));
+      if (K.far(was, now) > 1e-3) o.push('a GLB switch moved it on its tracker: ' + K.far(was, now));
+      return o;
+    });
+    bad(r);
+  });
+  // the shell's own test hook, where this shell has it: a tracker fed as the relay sends it (@trk), read back through the
+  // shell's stream, and a shape following it there
+  await step('studio trackers: fed through the shell\'s HOST.collab.trkIn (where the shell has it), a shape following it within 5 mm', async () => {
+    const r = await kp.evaluate(async () => {
+      const E = window.__E, K = window.__tk, o = [];
+      if (!HOST.collab.trkIn) { (window.__log = window.__log || []).push('studio trackers: this shell has no HOST.collab.trkIn: skipped'); return o; }
+      HOST.collab.trackers = K.trackers;
+      const P = K.V(0.2, 1.1, -1.4), Q = K.Q([0, 1, 0], 45), sleep = ms => new Promise(res => setTimeout(res, ms));
+      E.putItem('trsin1', 'p', E.norm('p', { name: 'Fed', shape: 'sphere', p: [0, 0.5, 0], trk: { id: 'LHR-FED00001', o: [0, 0.1, 0] } }));
+      for (let k = 0; k < 30; k++) {
+        try { HOST.collab.trkIn({ at: Math.round(HOST.collab.now()), l: 'hand', t: [['LHR-FED00001', P.x, P.y, P.z, Q.x, Q.y, Q.z, Q.w, 0, 0, 0, 1, 't']] }); } catch (e) { o.push('trkIn threw: ' + e.message); break; }
+        await sleep(50);
+        K.run(1);
+      }
+      const want = K.V(0, 0.1, 0).applyQuaternion(Q).add(P), at = K.at(K.drawn('trsin1'));
+      if (at.distanceTo(want) > 0.005) o.push('fed through trkIn: ' + JSON.stringify([at.toArray(), want.toArray(), E.STUDIO.trk('trsin1')]));
+      HOST.collab.trackers = () => window.__tk.list.map(x => Object.assign({}, x));
+      return o;
+    });
+    bad(r); await said(kp);
+  });
+  // others told why not: a rigged model that is not Mixamo's (the rig scene's dancer), and a model with no bones offers nothing
+  await step('studio trackers: wearing it offered only for a Mixamo rig (the dancer refused in words, a box offers nothing)', async () => {
+    const r = await kp.evaluate(async () => {
+      const E = window.__E, o = [];
+      HOST.collab.live = window.__tk.live; HOST.collab.trackers = window.__tk.trackers;   // (no station now: the rig scene opened as by hand)
+      E.select('box001');
+      if (E.paneBlocks('item').some(b => b.row && b.row.some(t => /^pwear/.test(t.id)))) o.push('the box (no bones) offers to be worn');
+      E.openScene('rig', 'pick');
+      for (let k = 0; k < 400 && !(E.STU.scene === 'rig' && E.STU.items.get('dan001') && E.STU.items.get('dan001').model); k++) await new Promise(res => setTimeout(res, 50));
+      E.select('dan001');
+      const B = E.paneBlocks('item'), row = B.find(b => b.row && b.row.some(t => t.id === 'pwear:full')), why = B.find(b => b.p && /^Not a Mixamo rig: no bone named mixamorig:Spine/.test(b.p));
+      if (!row || !row.row.find(t => t.id === 'pwear:full').dis || !why) o.push('the dancer: ' + JSON.stringify([row, why, E.STUDIO.puppet('dan001')]));
+      E.itemAct('pwear', 'full', 'dan001');
+      if (E.STU.items.get('dan001').rec.puppet) o.push('the dancer was worn');
+      return o;
+    });
+    bad(r);
+    await kp.close();
+  });
+}
+if (runs('studio puppet')) {
+  const pages = [], open = async () => {
+    const pg = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+    pg.on('pageerror', e => errors.push('studio puppet: ' + (e.stack || e.message)));
+    pg.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio puppet: ' + m.text()); });
+    await pg.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=puppet&edit');
+    await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    const ok = await pg.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('pup001') && !!STU.items.get('pup001').model`), null, { timeout: 120000 }).then(() => true, () => false);
+    if (!ok) return null;
+    await pg.evaluate(s => HOST.cur.peek(s), STU_ENGINE);
+    await pg.evaluate(s => HOST.cur.peek(s), `(pupClock = () => window.__pp.T, 0)`);   // (the take's clock: the steps')
+    await pg.evaluate(PP);
+    pages.push(pg);
+    return pg;
+  };
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio puppet: ' + b)); };
+  const said = async pg => { for (const l of await pg.evaluate(() => { const l = window.__log || []; window.__log = []; return l; })) console.log(l); };
+  // (in the page: the performer, a second copy of the puppet test scene's rig loaded by three.js's own GLTFLoader, its Walk
+  // its truth; what it wears fixed to its bones with seeded random offsets as tools/studio/test-ik.mjs has them, the mean
+  // of their offsets along the floor made zero by the hips' (whole body) or the headset's (feet), so lining up puts the
+  // character right where the performer stands; their poses given as the shell's trackers (kinds 't', and 'h', 'l', 'r'
+  // for the Index), or as a performer's own headset (HOST.collab.body); frames run at a held time; parts compared)
+  const PP = async () => {
+    const E = window.__E;
+    const truth = await new Promise((res, rej) => new THREE.GLTFLoader().load('tools/studio/test/scenes/puppet/rig.glb', res, undefined, rej));
+    const TR = E.IK.rigOf(truth.scene), mixer = new THREE.AnimationMixer(truth.scene), walk = mixer.clipAction(truth.animations.find(a => a.name === 'Walk'));
+    let seed = 20261109;
+    const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const rr = (a, b) => a + (b - a) * rnd(), V = (...a) => new THREE.Vector3(...a);
+    const randQ = () => { const u = rnd(), v = rnd() * 2 * Math.PI, w = rnd() * 2 * Math.PI, a = Math.sqrt(1 - u), b = Math.sqrt(u); return new THREE.Quaternion(a * Math.sin(v), a * Math.cos(v), b * Math.sin(w), b * Math.cos(w)); };
+    const tiltQ = d => new THREE.Quaternion().setFromAxisAngle(V(rr(-1, 1), rr(-1, 1), rr(-1, 1)).normalize(), rr(0, d) * Math.PI / 180);
+    const world = b => { const p = V(), q = new THREE.Quaternion(), s = V(); b.matrixWorld.decompose(p, q, s); return { p, q }; };
+    const AT = { x: 0.6, z: -1.2 };   // (where the performer stands, facing the character's way)
+    const truthAt = (t, walking) => {
+      const r = truth.scene;
+      r.position.set(AT.x, 0, AT.z); r.quaternion.identity(); r.scale.setScalar(1);
+      if (walking) { if (!walk.isRunning()) walk.play(); mixer.setTime(t); } else { walk.stop(); TR.toRest(); }
+      r.updateMatrixWorld(true);
+    };
+    truthAt(0, false);
+    const restQ = part => world(TR.bones[part]).q;
+    const wear = (part, at, turn) => ({ part, o: at.clone().applyQuaternion(restQ(part).invert()), q: restQ(part).invert().multiply(turn) });
+    const eye = E.IK.restPose(TR, 'eye'), headAt = world(TR.bones.head).p;
+    const W = {
+      hips: wear('hips', V(rr(-0.08, 0.08), 0, rr(-0.15, -0.1)), randQ()),
+      head: wear('head', V(rr(-0.04, 0.04), rr(0.1, 0.14), rr(-0.04, 0.04)), randQ()),
+      lhand: wear('lhand', V(rr(-0.06, -0.03), rr(-0.02, 0.04), rr(-0.03, 0.03)), randQ()),
+      rhand: wear('rhand', V(rr(0.03, 0.06), rr(-0.02, 0.04), rr(-0.03, 0.03)), randQ()),
+      lfoot: wear('lfoot', V(rr(-0.02, 0.02), rr(0.03, 0.06), rr(0.02, 0.08)), randQ()),
+      rfoot: wear('rfoot', V(rr(-0.02, 0.02), rr(0.03, 0.06), rr(0.02, 0.08)), randQ()),
+      hmd: wear('head', eye.p.clone().sub(headAt).add(V(rr(-0.01, 0.01), 0, rr(-0.01, 0.01))), tiltQ(8)),
+      lctl: wear('lhand', V(rr(0.04, 0.08), rr(-0.03, 0), rr(0.02, 0.06)), randQ()),
+      rctl: wear('rhand', V(rr(-0.08, -0.04), rr(-0.03, 0), rr(0.02, 0.06)), randQ()),
+    };
+    const ID = { hips: 'LHR-HIPS0001', head: 'LHR-HEAD0002', lhand: 'LHR-LHND0003', rhand: 'LHR-RHND0004', lfoot: 'LHR-LFOT0005', rfoot: 'LHR-RFOT0006', hmd: 'LHR-INDX0007', lctl: 'LHR-INDL0008', rctl: 'LHR-INDR0009' };
+    const KIND = { hmd: 'h', lctl: 'l', rctl: 'r' };
+    const poseOf = k => { const w = W[k], b = world(TR.bones[w.part]); return { p: w.o.clone().applyQuaternion(b.q).add(b.p), q: b.q.clone().multiply(w.q) }; };
+    // (the mean of the worn offsets along the floor, at rest, against the bones the lining up lines them up with, made zero
+    // by moving one of them: the hips' for the whole body, the headset's for the feet)
+    const zero = (names, fix, bone) => {
+      truthAt(0, false);
+      const m = V();
+      for (const k of names) { const t = poseOf(k).p, b = k === 'hmd' ? eye.p : world(TR.bones[W[k].part]).p; m.x += t.x - b.x; m.z += t.z - b.z; }
+      m.multiplyScalar(1 / names.length);
+      const bq = world(TR.bones[W[fix].part]).q;
+      W[fix].o.sub(V(m.x * names.length, 0, m.z * names.length).applyQuaternion(bq.clone().invert()));
+    };
+    zero(['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot'], 'hips');
+    zero(['hmd', 'lctl', 'rctl', 'lfoot', 'rfoot'], 'hmd');
+    window.__pp = {
+      T: 0, names: [], truth, TR, ID, KIND, world, V,
+      // the trackers now (or for a performer's own headset, HOST.collab.body), from the truth at time t
+      set: (t, walking) => {
+        const P = window.__pp;
+        truthAt(t, walking); P.T = t;
+        P.list = P.names.filter(k => !P.body || !KIND[k]).map(k => { const x = poseOf(k); return { id: ID[k], name: '', k: KIND[k] || 't', p: x.p.toArray(), q: x.q.toArray(), ok: true }; });
+        if (P.body) { const g = k => { const x = poseOf(k); return { p: x.p.toArray(), q: x.q.toArray() }; }; P.bodyNow = { head: g('hmd'), l: g('lctl'), r: g('rctl') }; }
+      },
+      frame: (t, walking, dt) => { const P = window.__pp; P.set(t, walking); E.GL.world.updateMatrixWorld(true); E.behaveStep(dt === undefined ? 1 / 30 : dt, performance.now()); E.itemsStep(dt === undefined ? 1 / 30 : dt, performance.now()); },
+      // the character's and the truth's parts in the scene's frame (the truth stands in the scene's frame as its own world)
+      err: parts => { const it = E.STU.items.get('pup001'), R = E.pupRig(it); E.GL.items.updateMatrixWorld(true); return Math.max(...parts.map(p => E.GL.items.worldToLocal(world(R.bones[p]).p).distanceTo(world(TR.bones[p]).p))); },
+      bones: () => { const R = E.pupRig(E.STU.items.get('pup001')); return R.parts.map(p => R.bones[p].quaternion.toArray().concat(world(R.bones[p]).p.toArray())); },
+    };
+    window.__pp.list = [];
+    HOST.collab.live = () => ({ id: 'stpup1', story: 'studio' });
+    HOST.collab.trackers = () => (window.__pp.list || []).map(x => Object.assign({}, x));
+    HOST.collab.body = id => (id === 'perf01' && window.__pp.bodyNow) || null;
+    return 0;
+  };
+  const SIX = ['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot'], FEET = ['lfoot', 'rfoot', 'hmd', 'lctl', 'rctl'];
+  const A = await open();
+  if (!A) bad(['the puppet test scene did not load']);
+  else {
+    await step('studio puppet: worn with 6 trackers (the whole body), lined up from a T-pose after its countdown (the parts found, the character moved to where the performer stands, sized to them, one Undo step); its hands and feet within 5 mm of the truth over 3.3 s of its walk, its own clip off; Pause holds it, Off gives its clip back', async () => {
+      const r = await A.evaluate(() => {
+        const E = window.__E, P = window.__pp, o = [], it = E.STU.items.get('pup001');
+        P.names = ['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot'];
+        P.frame(0, false);
+        if (E.STUDIO.puppet('pup001').rig !== 'ok') o.push('the rig: ' + E.STUDIO.puppet('pup001').rig);
+        E.select('pup001');
+        let B = E.paneBlocks('item');
+        if (!B.some(b => b.row && b.row.some(t => t.id === 'pwear:full' && !t.dis)) || !B.some(b => b.row && b.row.some(t => t.id === 'pwear:feet'))) o.push('the card offers no Wear it: ' + JSON.stringify(B.filter(b => b.row).map(b => b.row.map(t => t.id))));
+        const u0 = E.UNDO.length;
+        E.itemAct('pwear', 'full', 'pup001');
+        if (JSON.stringify(it.rec.puppet) !== '{"on":false,"rig":"full"}' || E.UNDO.length !== u0 + 1) o.push('Wear it: ' + JSON.stringify(it.rec.puppet));
+        // the headset's card: Line up pressed there starts the countdown, Cancel stops it
+        E.select('pup001');
+        if (!E.press('pupline') || !E.PUP.line || !E.press('pupcancel') || E.PUP.line) o.push('the headset\'s Line up and Cancel: ' + JSON.stringify(E.PUP.line));
+        // the countdown, then the lining up
+        E.itemAct('pupline', '', 'pup001');
+        B = E.paneBlocks('item');
+        const cd = B.find(b => b.p && /T-pose .*lining up in [45] s/.test(b.p));
+        if (!E.PUP.line || !cd) o.push('the countdown: ' + JSON.stringify([E.PUP.line, B.filter(b => b.p).map(b => b.p)]));
+        const p0 = it.rec.p.slice(), u1 = E.UNDO.length;
+        E.PUP.line.at = 0;
+        P.frame(0, false);
+        const pr = it.rec.puppet;
+        if (E.PUP.line || !pr || !pr.on || E.UNDO.length !== u1 + 1) o.push('lined up: ' + JSON.stringify([E.STUDIO.puppet('pup001'), E.UNDO.length - u1]));
+        else {
+          const want = { hips: P.ID.hips, head: P.ID.head, lhand: P.ID.lhand, rhand: P.ID.rhand, lfoot: P.ID.lfoot, rfoot: P.ID.rfoot };
+          if (JSON.stringify(pr.map) !== JSON.stringify(Object.fromEntries(Object.keys(pr.map).map(k => [k, want[k]]))) || Object.keys(pr.map).length !== 6 || Object.keys(pr.cal).length !== 6) o.push('the parts found: ' + JSON.stringify(pr.map));
+          if (Math.hypot(it.rec.p[0] - 0.6, it.rec.p[2] + 1.2) > 0.003 || it.rec.p[1] !== p0[1] || Math.abs(it.rec.s - 1) > 1e-3 || pr.s !== it.rec.s) o.push('moved to the performer and sized: ' + JSON.stringify([it.rec.p, it.rec.s, pr.s]));
+          if (!E.paneBlocks('item').some(b => b.list && b.list.some(t => t.id === 'pslot:lhand'))) o.push('the card lists no parts');
+        }
+        // Undo takes the lining up back (its place too); lined up again
+        E.undo();
+        if (it.rec.puppet.on || it.rec.puppet.cal || JSON.stringify(it.rec.p) !== JSON.stringify(p0)) o.push('Undo of the lining up: ' + JSON.stringify([it.rec.p, it.rec.puppet]));
+        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        // its walk: the hands and feet within 5 mm of the truth, its clip off
+        let worst = 0, n = 0;
+        for (let k = 0; k <= 99; k++) { P.frame(k / 30, true); worst = Math.max(worst, P.err(['lhand', 'rhand', 'lfoot', 'rfoot'])); n++; }
+        const st = E.STUDIO.puppet('pup001');
+        (window.__log = window.__log || []).push(`studio puppet: whole body, ${n} frames: hands and feet within ${(worst * 1000).toFixed(2)} mm of the truth (hips ${(P.err(['hips']) * 1000).toFixed(2)} mm at the last)`);
+        if (worst > 0.005 || !st.on || st.clip || st.why) o.push('walking: ' + JSON.stringify([worst, st]));
+        // Pause holds the pose it shows; played again, it follows
+        const held = P.bones();
+        E.MPAUSE.on = true; P.frame(1.7, true);
+        if (JSON.stringify(P.bones()) !== JSON.stringify(held)) o.push('paused, it moved');
+        E.MPAUSE.on = false; P.frame(1.7, true);
+        if (P.err(['lhand', 'rfoot']) > 0.005) o.push('played again, it does not follow');
+        // Off (pressed on the headset's card): its own clip again; On again
+        E.select('pup001');
+        if (!E.press('pupon:off')) o.push('no Off on the headset\'s card');
+        P.frame(1.7, true);
+        if (!E.STUDIO.puppet('pup001').clip || E.STUDIO.puppet('pup001').on) o.push('Off: its clip not back: ' + JSON.stringify(E.STUDIO.puppet('pup001')));
+        E.itemAct('pupon', 'on', 'pup001'); P.frame(1.7, true);
+        if (P.err(['lhand', 'rfoot']) > 0.005) o.push('On again, it does not follow');
+        return o;
+      });
+      bad(r); await said(A);
+    });
+    await step('studio puppet: a sound follows its head bone as it is worn; the record\'s puppet (norm\'s rules), the state and layout.json both ways, a copy worn by nobody; locked in place it is not lined up', async () => {
+      const r = await A.evaluate(() => {
+        const E = window.__E, P = window.__pp, o = [], it = E.STU.items.get('pup001');
+        E.putItem('pvoice', 's', E.norm('s', { name: 'Voice', file: 'voice.wav', p: [0, 1.7, -2], on: 'pup001', bone: 'mixamorigHead', o: [0, 0.1, 0] }));
+        P.frame(0.5, true);
+        const f0 = E.STUDIO.follow('pvoice');
+        P.frame(1.5, true);
+        const f1 = E.STUDIO.follow('pvoice'), head = P.world(P.TR.bones.head).p;
+        if (!f1 || f1.node !== 'mixamorigHead' || f1.d > 1e-3 || new THREE.Vector3().fromArray(f1.want).distanceTo(head) > 0.12 || new THREE.Vector3().fromArray(f0.want).distanceTo(new THREE.Vector3().fromArray(f1.want)) < 0.005) o.push('a sound on its head: ' + JSON.stringify([f0, f1, head.toArray()]));
+        E.itemAct('del', '', 'pvoice');
+        // norm's rules
+        const N = x => { const r = E.norm('o', { file: 'rig.glb', p: [0, 0, 0], puppet: x }); return r ? JSON.stringify(r.puppet) : 'bad'; };
+        const cal7 = [0.123456, 0, 0, 0, 0, 0, 1];
+        const cases = [
+          [{}, '{"on":false,"rig":"full"}'], [{ on: true, rig: 'feet', by: 'index' }, '{"on":true,"rig":"feet","by":"index"}'], [{ by: '' }, '{"on":false,"rig":"full"}'],
+          [{ map: { head: 'LHR-1', lhand: '@l', nose: 'LHR-2' }, cal: { head: cal7, lfoot: cal7 }, s: 1.23456, floor: -0.00001 }, '{"on":false,"rig":"full","map":{"head":"LHR-1","lhand":"@l"},"cal":{"head":[0.1235,0,0,0,0,0,1]},"s":1.235,"floor":0}'],
+          [{ on: 1 }, 'bad'], [{ rig: 'head' }, 'bad'], [{ by: 'a b' }, 'bad'], [{ map: { head: 'x y' } }, 'bad'], [{ map: { head: '@nose' } }, 'bad'], [{ map: [] }, 'bad'],
+          [{ map: { head: 'LHR-1' }, cal: { head: [0, 0, 0, 0, 0, 0, 0] } }, 'bad'], [{ map: { head: 'LHR-1' }, cal: { head: [1, 2, 3] } }, 'bad'], [{ s: 0 }, 'bad'], [{ floor: 'x' }, 'bad'], ['full', 'bad'],
+        ];
+        for (const [x, want] of cases) if (N(x) !== want) o.push('norm ' + JSON.stringify(x) + ': ' + N(x));
+        if (E.norm('p', { shape: 'cube', p: [0, 0, 0], puppet: {} }).puppet !== undefined) o.push('a shape took a puppet');
+        // the state and layout.json both ways
+        const j0 = JSON.stringify(E.collabState());
+        E.collabApply(JSON.parse(j0));
+        if (JSON.stringify(E.collabState()) !== j0 || !JSON.parse(j0)['o.pup001'].puppet.cal) o.push('apply(state()) changed the state, or it has no puppet');
+        const L = E.readLayout(JSON.parse(JSON.stringify(E.layoutOut()))), lr = L.items.find(x => x.id === 'pup001');
+        if (!lr || JSON.stringify(lr.rec) !== JSON.stringify(it.rec)) o.push('layout.json lost its puppet');
+        // a copy is worn by nobody (and follows no tracker)
+        const nid = E.duplicateItem('pup001');
+        if (!nid || E.STU.items.get(nid).rec.puppet) o.push('a copy is worn');
+        E.select('pup001');
+        // locked in place: not lined up
+        E.setRec('pup001', { locked: true });
+        E.itemAct('pupline', '', 'pup001');
+        if (E.PUP.line) o.push('locked, it counted down to line up');
+        E.setRec('pup001', { locked: undefined });
+        if (nid) E.itemAct('del', '', nid);
+        return o;
+      });
+      bad(r);
+    });
+    // (a second page, the same scene and stubs: the first page's record taken as from the room, both at one held moment)
+    const Bp = await open();
+    await step('studio puppet: two pages solve the same bones from the same trackers at one held moment (every bone within 1 degree and 1 mm)', async () => {
+      if (!Bp) { bad(['the second page did not load']); return; }
+      const rec = await A.evaluate(() => window.__E.STU.items.get('pup001').rec);
+      await Bp.evaluate(rec => { const E = window.__E; window.__pp.names = ['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot']; E.putItem('pup001', 'o', E.norm('o', rec)); return 0; }, rec);
+      const t = 2.345, get = pg => pg.evaluate(t => { window.__pp.frame(t, true); window.__pp.frame(t, true); return window.__pp.bones(); }, t);
+      const a = await get(A), b = await get(Bp);
+      let deg = 0, mm = 0;
+      a.forEach((x, i) => {
+        const y = b[i], d = Math.abs(x[0] * y[0] + x[1] * y[1] + x[2] * y[2] + x[3] * y[3]) / (Math.hypot(x[0], x[1], x[2], x[3]) * Math.hypot(y[0], y[1], y[2], y[3]));   // (as turns: a quaternion a hair off length 1 is the same turn)
+        deg = Math.max(deg, 2 * Math.acos(Math.min(1, d)) * 180 / Math.PI); mm = Math.max(mm, Math.hypot(x[4] - y[4], x[5] - y[5], x[6] - y[6]) * 1000);
+      });
+      console.log(`studio puppet: two pages, ${a.length} bones at ${t} s: within ${deg.toFixed(4)} degrees and ${mm.toFixed(4)} mm`);
+      if (a.length !== b.length || a.length < 20 || deg > 1 || mm > 1) bad(['two pages: ' + JSON.stringify({ n: [a.length, b.length], deg, mm })]);
+      await Bp.close();
+    });
+    await step('studio puppet: a 3 s take (its countdown, 30 keys a second, Stop) made into the GLB with its Walk and Take 1 (downloaded: no relay here), and Take 1 plays the solved pose', async () => {
+      const r = await A.evaluate(async () => {
+        const E = window.__E, P = window.__pp, o = [], it = E.STU.items.get('pup001');
+        P.frame(0, true);
+        E.select('pup001');
+        if (!E.paneBlocks('item').some(b => b.row && b.row.some(t => t.id === 'take' && !t.dis))) o.push('no Record a take on its card');
+        E.itemAct('take', '', 'pup001');
+        if (!E.PUP.take || E.PUP.take.phase !== 'count') { o.push('the take\'s countdown: ' + JSON.stringify(E.STUDIO.puppet('pup001'))); return o; }
+        E.PUP.take.at = 0;
+        P.frame(0, true);   // (the countdown done: it records from here, on the steps' clock)
+        const keep = [];
+        for (let k = 0; k <= 90; k++) { P.frame(k / 30, true); if (k === 45) keep.push(P.bones()); }
+        const n = E.PUP.take.samples.length;
+        E.itemAct('takestop', '', 'pup001');
+        for (let k = 0; k < 600 && E.PUP.take; k++) await new Promise(res => setTimeout(res, 100));
+        const L = E.STUDIO.lastGLB, st = E.STUDIO.puppet('pup001');
+        if (n !== 91 || E.PUP.take || !L || !L.ok || !/Take 1/.test(st.note)) { o.push('the take: ' + JSON.stringify({ n, st, ok: L && L.ok, why: L && L.why, cv: E.CV.note })); return o; }
+        // the GLB read back: its clips, Take 1 played at 1.5 s against the bones solved then
+        const g = await new Promise((res, rej) => new THREE.GLTFLoader().parse(L.glb.slice(0), '', res, rej));
+        const names = g.animations.map(a => a.name).sort().join(), take = g.animations.find(a => a.name === 'Take 1'), R = E.IK.rigOf(g.scene);
+        if (names !== 'Take 1,Walk' || !take || Math.abs(take.duration - 3) > 1e-3 || take.tracks.length !== R.parts.length + 1) o.push('its clips: ' + JSON.stringify([names, take && take.duration, take && take.tracks.length, R.parts && R.parts.length]));
+        else {
+          const m = new THREE.AnimationMixer(g.scene), a = m.clipAction(take);
+          a.play(); m.setTime(1.5); g.scene.updateMatrixWorld(true);
+          const want = keep[0], rig = E.pupRig(it);
+          let worst = 0, moved = 0;
+          R.parts.forEach(p => {
+            const k = rig.parts.indexOf(p), q = R.bones[p].quaternion, w = want[k];
+            worst = Math.max(worst, 2 * Math.acos(Math.min(1, Math.abs(q.x * w[0] + q.y * w[1] + q.z * w[2] + q.w * w[3]) / (q.length() * Math.hypot(w[0], w[1], w[2], w[3])))) * 180 / Math.PI);
+            moved = Math.max(moved, 2 * Math.acos(Math.min(1, Math.abs(q.dot(R.rest[p].q)) / (q.length() * R.rest[p].q.length()))) * 180 / Math.PI);
+          });
+          (window.__log = window.__log || []).push(`studio puppet: a take of ${n} keys, ${take.duration.toFixed(2)} s: Take 1 at 1.5 s within ${worst.toFixed(4)} degrees of the bones solved then (its bones up to ${moved.toFixed(1)} degrees from rest)`);
+          if (worst > 0.1 || moved < 5) o.push('Take 1 played: ' + [worst, moved]);
+        }
+        return o;
+      });
+      bad(r); await said(A);
+    });
+    await step('studio puppet: worn with a tracker on each foot and the PC\'s Index (its headset and controllers), lined up, the feet within 5 mm and the hands within 1 cm over its walk; then the head and hands from a performer\'s own headset (HOST.collab.body)', async () => {
+      const r = await A.evaluate(() => {
+        const E = window.__E, P = window.__pp, o = [], it = E.STU.items.get('pup001');
+        P.names = ['lfoot', 'rfoot', 'hmd', 'lctl', 'rctl']; P.body = false;
+        P.frame(0, false);
+        E.itemAct('pwear', 'feet', 'pup001');
+        if (JSON.stringify(it.rec.puppet) !== '{"on":false,"rig":"feet","by":"index"}') o.push('Wear it, feet: ' + JSON.stringify(it.rec.puppet));
+        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        const pr = it.rec.puppet;
+        if (!pr.on || pr.map.head !== P.ID.hmd || pr.map.lhand !== P.ID.lctl || pr.map.rhand !== P.ID.rctl || pr.map.lfoot !== P.ID.lfoot || pr.map.rfoot !== P.ID.rfoot || Math.abs(it.rec.s - 1) > 2e-3) o.push('lined up, feet: ' + JSON.stringify([pr, it.rec.s, E.PUP.note]));
+        const run = what => {
+          let feet = 0, hands = 0;
+          for (let k = 0; k <= 60; k++) { P.frame(k / 30, true); feet = Math.max(feet, P.err(['lfoot', 'rfoot'])); hands = Math.max(hands, P.err(['lhand', 'rhand'])); }
+          (window.__log = window.__log || []).push(`studio puppet: feet and ${what}: the feet within ${(feet * 1000).toFixed(2)} mm, the hands ${(hands * 1000).toFixed(2)} mm`);
+          if (feet > 0.005 || hands > 0.01 || E.STUDIO.puppet('pup001').why) o.push(what + ': ' + JSON.stringify([feet, hands, E.STUDIO.puppet('pup001').why]));
+        };
+        run('the Index');
+        // a performer's own headset: the head and hands from HOST.collab.body (their presence)
+        E.itemAct('pupby', 'perf01', 'pup001');
+        if (it.rec.puppet.by !== 'perf01' || it.rec.puppet.on || it.rec.puppet.cal) o.push('Head and hands from another headset: ' + JSON.stringify(it.rec.puppet));
+        P.body = true; P.frame(0, false);
+        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        const pm = it.rec.puppet;
+        if (!pm.on || pm.map.head !== '@head' || pm.map.lhand !== '@l' || pm.map.rhand !== '@r') o.push('lined up from a headset: ' + JSON.stringify([pm, E.PUP.note]));
+        run('a performer\'s own headset');
+        // a part given another tracker (swapped with the part that had it): not lined up until it is again
+        E.itemAct('pupset', 'lfoot:' + P.ID.rfoot, 'pup001');
+        const ps = it.rec.puppet;
+        if (ps.map.lfoot !== P.ID.rfoot || ps.map.rfoot !== P.ID.lfoot || ps.on || ps.cal) o.push('a part swapped: ' + JSON.stringify(ps));
+        P.body = false;
+        return o;
+      });
+      bad(r); await said(A);
+    });
+  }
+  for (const pg of pages) await pg.close().catch(() => {});
+}
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });

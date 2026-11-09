@@ -117,6 +117,7 @@ async function convertFile(path, o = {}) {
       return x ? urlOf(x) : resolveUrl(u, base, dir, new Set(), found);
     };
     const m = await CONV.load({ ext: extOf(path), data: buf, base, name, maxTex: maxTexNow(), url });
+    if (o.take) takeInto(m, o.take);   // (a take recorded with trackers: a clip beside its own, e6l_puppet.js)
     // a slot added on a GLB's material, laid on its original: that material found there by its meshes' names, else its
     // own name (the two need not have the same materials in the same order), the record then keyed as the original has it
     if (!self) {
@@ -287,7 +288,11 @@ function switchToGLB(orig, glb, rec, tmap, pmap) {
 const switchedRec = (r, glb, g, P) => {
   const ri = new THREE.Quaternion().fromArray(g.q).normalize().invert(), q = new THREE.Quaternion().fromArray(r.q).multiply(ri).normalize();
   // (a recorded path turned likewise, so it moves as before: e6f_path.js, pathTurned; one kept as a file, its new file: P)
-  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P && typeof P === 'object' ? P : pathTurned(r.path, g.q) } : {});
+  return Object.assign({ file: glb, s: r.s / (g.s || 1), q: q.toArray() }, r.path ? { path: P && typeof P === 'object' ? P : pathTurned(r.path, g.q) } : {},
+    // (on a tracker: its offset's turn takes the baked turn likewise, so it stays where it was; worn: the scale it was lined
+    // up at, as the record's is, e6k_trk.js and e6l_puppet.js)
+    r.trk ? { trk: Object.assign({}, r.trk, { q: new THREE.Quaternion().fromArray(r.trk.q).multiply(ri).normalize().toArray() }) } : {},
+    r.puppet && r.puppet.s ? { puppet: Object.assign({}, r.puppet, { s: r.puppet.s / (g.s || 1) }) } : {});
 };
 // a file for this computer (the converted GLB without a relay; the Upload pane's outputs)
 function saveFile(data, name, type) {
