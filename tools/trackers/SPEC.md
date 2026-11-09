@@ -95,7 +95,10 @@ the three lanes follow (where the sections above say otherwise, this wins: no re
   `trackersSeen: <n>` when the relay runs with `--trackers`.
 - The room frame from `m` is the headsets' frame from floor spots (`fromMarks`, `floorUnder` in `shared.js`): origin the
   floor under spot A (SteamVR's standing space has its floor at y = 0; `TRK_FLOOR` = 0, the tracker's pose origin over the
-  floor lying on its base, a constant to measure later), x along the floor towards spot B, y up.
+  floor lying on its base, a constant to measure later), x along the floor towards spot B, y up, z = x cross y (a point to
+  the right of the way from A to B has z > 0). The shell's reference: `HOST.room.fromSpots(a, b, 0)` and
+  `HOST.room.roomOf(frame, p)` give a raw point in room coordinates exactly as the headsets' frame from floor spots does
+  (the smoke test checks them; the relay's frame can be compared with them).
 - `@trk`: `{ t: 'fx', k: '@trk', v: { at: <relay ms of the newest reading>, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw,
   vx, vy, vz, ok, kind], ...] }, by: '' }` 60 times a second to every member of a room whose `trk.on` holds and whose `m`
   is set, in room coordinates (metres to the mm, quaternions to 4 decimals, `ok` 1 or 0, `kind` `'t'` a tracker, `'h'` the

@@ -7859,6 +7859,12 @@
     left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || R.src === 'trackers' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
     tick, toRoom: v => v.clone().applyMatrix4(R.mi), toLocal: v => v.clone().applyMatrix4(R.m), matrix: () => R.m.clone(),
+    // the room's frame from two floor spots, as a calibration makes it (fromMarks for floor spots: origin the floor under
+    // spot A, its touch height less tip; x along the floor towards spot B; y up; z = x cross y, so a point to the right of
+    // the way from A to B has z > 0), and a point in the spots' own space in room coordinates through it: the reference
+    // for the PC's trackers' frame from trk.m (tip 0, TRK_FLOOR), which the relay works out on its own
+    fromSpots: (a, b, tip) => ({ o: [a[0], a[1] - (+tip || 0), a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) }),
+    roomOf: (fr, p) => { const m = basis(fr, new THREE.Matrix4()).invert(), v = new THREE.Vector3(p[0], p[1], p[2]).applyMatrix4(m); return [v.x, v.y, v.z]; },
     get recAt() { return R.recAt; }, set recAt(v) { R.recAt = v; },
     internals: () => R,
   };

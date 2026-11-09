@@ -8841,6 +8841,12 @@ if (runs('trackers')) {
       if (C.trk().l !== '' || C.trk().used) bad.push('not lined up: ' + JSON.stringify(C.trk()));
       if (window.__eff) bad.push('the story heard ' + window.__eff + ' effects');
       C.trkTime(null);
+      // the room's frame from two floor spots as the headsets make it (the reference for the relay's frame from trk.m):
+      // origin the floor under A, x towards B, y up, z to the right of the way from A to B
+      const fr = HOST.room.fromSpots([1, 0.031, 1], [2.84, 0.033, 1], 0), of = p => HOST.room.roomOf(fr, p);
+      if (!near(of([2.84, 0.033, 1]), [1.84, 0.002, 0], 1e-9) || !near(of([1, 0.031, 2]), [0, 0, 1], 1e-9) || !near(of([1, 1.031, 1]), [0, 1, 0], 1e-9)) bad.push('the frame from two spots: ' + JSON.stringify([fr, of([2.84, 0.033, 1]), of([1, 0.031, 2])]));
+      const f2 = HOST.room.fromSpots([0, 0.05, 0], [0, 0.05, -2], 0.02);
+      if (!near(HOST.room.roomOf(f2, [0, 0.03, -2]), [2, 0, 0], 1e-9) || !near(HOST.room.roomOf(f2, [1, 0.03, 0]), [0, 0, 1], 1e-9)) bad.push('the frame from two spots, B straight ahead: ' + JSON.stringify([f2, HOST.room.roomOf(f2, [1, 0.03, 0])]));
       return bad;
     });
     if (bad.length) errors.push(...bad.map(b => 'trackers: ' + b));

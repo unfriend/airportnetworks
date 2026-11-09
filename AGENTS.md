@@ -2875,8 +2875,10 @@ for later). `tools/trackers/SPEC.md` is the contract between the parts; this sec
   SteamVR's standing space) taken with a tracker lying on spot A and on spot B. Written by pages and headsets, never
   refused by either lock; a write keeps the fields it does not change (`setTrk`, also fields of a newer app's). The room's
   frame from `m` is the headsets' frame from floor spots: its origin the floor under spot A, x along the floor towards
-  spot B, y up (the relay works it out; `TRK_FLOOR`, the tracker's pose origin over the floor lying on its base, 0 until
-  measured).
+  spot B, y up, z = x cross y (a point to the right of the way from A to B has z > 0). The relay works it out; the shell
+  keeps the headsets' own as the reference, `HOST.room.fromSpots(a, b, tip)` (`fromMarks` for floor spots: tip `FLOOR_TIP`
+  for a controller, `TRK_FLOOR` for a tracker, the tracker's pose origin over the floor lying on its base, 0 until
+  measured) and `HOST.room.roomOf(frame, p)` (a point in the spots' own space in room coordinates through it).
 - **`@trk`** (the relay's own message to every member of a room whose `trk.on` holds and whose `m` is set, 60 a second,
   `by` ''): `{ at: <the relay's ms of its newest reading>, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw, vx, vy, vz, ok,
   kind], ...] }` in room coordinates (`kind` `'t'` a tracker, `'h'` the Index, `'l'` and `'r'` its controllers); with
