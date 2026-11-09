@@ -2197,8 +2197,9 @@ async function walkRound() {
   await A.evaluate(k => { HOST.collab.add(k, { x: 0, z: -3, yaw: 0 }); HOST.collab.add('lobby', { x: 0, z: -6.5, yaw: 0 }); }, K);
   await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
   const [S1, SL] = await A.evaluate(k => [HOST.collab.stations().find(s => s.story === k), HOST.collab.stations().find(s => s.kind === 'lobby')], K);
-  const H = await open('#s=' + rc, { width: 320, height: 200 }), H2 = await open('#s=' + rc, { width: 320, height: 200 });
-  for (const P of [H, H2]) { await until(P, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(P, K); }
+  const H = await open('#s=' + rc, { width: 320, height: 200 });
+  let H2 = null;   // (the headset in AR: opened only for its check, so one page fewer draws in software meanwhile)
+  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(H, K);
   const hid = await H.evaluate(() => HOST.collab.id);
   // what the headset knows of itself: the travel, why it applies or not, its head and heading in the room (R.hr, R.hyaw),
   // the room's frame, its live station, the lobby circle's icon in three.js's space, the notices and log lines about
@@ -2214,17 +2215,23 @@ async function walkRound() {
   };
   const me = P => P.evaluate(ME);
   // the headset as the page hears it: its head in room coordinates, smoothed from its presence, and the station it says
-  const heard = () => A.evaluate(id => { const b = HOST.collab.body(id), P = HOST.collab.people().get(id); return { head: b && b.head, st: P ? P.st : null }; }, hid);
+  // (age: ms since its last presence came; raw: whether that one had a head). Read while the headset goes on drawing frames
+  // (ms of them): a presence older than 2 s is no one's head, and a busy machine may let the page take that long
+  const heard = ms => Promise.all([frames(H, ms || 600), sleep((ms || 600) * 0.6).then(() => A.evaluate(id => { const b = HOST.collab.body(id), P = HOST.collab.people().get(id);
+    return { head: b && b.head, st: P ? P.st : null, age: P ? Math.round(performance.now() - P.at) : null, raw: !!(P && P.head) }; }, hid))]).then(r => r[1]);
   // a stick pushed for ms of frames, then let go and a few frames more
   const push = async (P, hand, x, y, ms) => { await P.evaluate(([h, x, y]) => window.__xr.stick(h, x, y), [hand, x, y]); await frames(P, ms); await P.evaluate(h => window.__xr.stick(h, 0, 0), hand); await frames(P, 100); };
-  // the left stick held forward until its head is past z in the room (or 8 s)
+  // the left stick held forward until its head is past z in the room (or 40 s: a frame's step is at most 0.1 s of moving,
+  // and a busy machine draws a pretend headset's frames far apart)
   const forwardTo = (P, z) => P.evaluate(async z => {
     const X = window.__xr, R = HOST.room.internals(), t0 = performance.now();
     X.stick('L', 0, -1);
-    while (R.hr.z > z && performance.now() - t0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 16)); }
+    while (R.hr.z > z && performance.now() - t0 < 40000) { X.step(); await new Promise(r => setTimeout(r, 16)); }
     X.stick('L', 0, 0); X.step();
     return R.hr.z;
   }, z);
+  // frames until its live station is id ('' none), up to 15 s (the circle's second of standing there)
+  const liveIs = (P, id) => until(P, id => { window.__xr.step(); const L = HOST.collab.live(); return (L ? L.id : '') === id; }, id, 15000);
   // a stick clicked twice (two presses within 0.4 s, a frame each), then the last notice
   const twice = P => P.evaluate(() => { const X = window.__xr, b = X.L.gamepad.buttons[3];
     for (let k = 0; k < 2; k++) { b.pressed = true; X.step(); b.pressed = false; X.step(); }
@@ -2245,8 +2252,7 @@ async function walkRound() {
     // ---- the left stick: the travel, its head in the room and the page hearing it, by as far; the circles stay put
     const h0 = await heard();
     await push(H, 'L', 0, -1, 700);
-    await frames(H, 500);
-    const m1 = await me(H), h1 = await heard();
+    const h1 = await heard(800), m1 = await me(H);
     const moved = Math.hypot(m1.travel.x - m0.travel.x, m1.travel.z - m0.travel.z), mine = d2(xz(m1.hr), xz(m0.hr)), theirs = h0.head && h1.head ? d2([h1.head[0], h1.head[2]], [h0.head[0], h0.head[2]]) : -1;
     check('walk: the left stick moves it (HOST.xr.travel) and its head in the room by as far, towards -z where it faces; the page hears the same in its presence (smoothed, within a few cm once at rest)',
       m1.walking && moved > 0.4 && Math.abs(mine - moved) < 0.01 && m1.hr[2] < m0.hr[2] - 0.4 && Math.abs(theirs - moved) < 0.05 && d2([h1.head[0], h1.head[2]], xz(m1.hr)) < 0.05,
@@ -2256,31 +2262,29 @@ async function walkRound() {
       JSON.stringify({ frame: [m0.frame, m1.frame], lobby: [m0.lobby, m1.lobby], jumps: m1.jumps, calib: m1.calib }));
     // ---- a 30 degree flick right and back: its heading in the room and in its presence, no jump
     await push(H, 'R', 0.9, 0, 120);
-    const m2 = await me(H);
-    await frames(H, 400);
-    const h2 = await heard(), yawOf = q => { const f = new Array(3); const [x, y, z, w] = q.slice(3); f[0] = -2 * (x * z + w * y); f[2] = -(1 - 2 * (x * x + y * y)); return Math.atan2(-f[0], -f[2]); };
+    const m2 = await me(H), h2 = await heard(800), yawOf = q => { const f = new Array(3); const [x, y, z, w] = q.slice(3); f[0] = -2 * (x * z + w * y); f[2] = -(1 - 2 * (x * x + y * y)); return Math.atan2(-f[0], -f[2]); };
     const turn = angle(m2.hyaw, m1.hyaw), hTurn = h1.head && h2.head ? angle(yawOf(h2.head), yawOf(h1.head)) : -1;
     await push(H, 'R', -0.9, 0, 120);
     const m3 = await me(H);
     check('walk: a flick of the right stick turns it 30 degrees about its head (in the room, and in what the page hears), no jump of the origin, no notice to calibrate, the room\'s frame unchanged',
       Math.abs(turn - Math.PI / 6) < 0.01 && Math.abs(hTurn - Math.PI / 6) < 0.05 && d2(xz(m2.hr), xz(m1.hr)) < 0.01 && angle(m3.hyaw, m1.hyaw) < 0.01 && !m3.jumps && !m3.calib &&
-      near(m3.frame.o, m0.frame.o, 1e-9), JSON.stringify({ turn, hTurn, hr: [m1.hr, m2.hr], hyaw: [m1.hyaw, m2.hyaw, m3.hyaw], jumps: m3.jumps, calib: m3.calib }));
+      near(m3.frame.o, m0.frame.o, 1e-9), JSON.stringify({ turn, hTurn, hr: [m1.hr, m2.hr], hyaw: [m1.hyaw, m2.hyaw, m3.hyaw], jumps: m3.jumps, calib: m3.calib, heard: [h1, h2] }));
     // ---- walked into: the sticks take it into the airports circle (its station, the page hearing it there)
     await A.evaluate(() => HOST.collab.setAsk(false));
     await until(H, () => { window.__xr.step(); return !HOST.collab.askFirst(); }, null, 8000);
-    const z1 = await forwardTo(H, S1.z + 0.3);
-    await frames(H, 1600);
-    const m4 = await me(H), st4 = await until(A, ([id, s]) => { const P = HOST.collab.people().get(id); return !!P && P.st === s; }, [hid, S1.id], 4000);
+    const z1 = await forwardTo(H, S1.z + 0.3), in4 = await liveIs(H, S1.id);
+    // (the page asked while the headset goes on drawing frames, so its presence keeps coming)
+    const st4 = (await Promise.all([frames(H, 2500), until(A, ([id, s]) => { const P = HOST.collab.people().get(id); return !!P && P.st === s; }, [hid, S1.id], 2400)]))[1];
+    const m4 = await me(H);
     check('walk: with the circles walked into, the sticks take it into the airports circle: its station (the page hearing it there), the room\'s frame unchanged',
-      m4.live === S1.id && st4 && d2(xz(m4.hr), [S1.x, S1.z]) < 1.1 && near(m4.frame.o, m0.frame.o, 1e-9) && !m4.jumps && !m4.calib, JSON.stringify({ z1, m4, st4 }));
+      m4.live === S1.id && st4 && d2(xz(m4.hr), [S1.x, S1.z]) < 1.1 && near(m4.frame.o, m0.frame.o, 1e-9) && !m4.jumps && !m4.calib, JSON.stringify({ z1, in4, m4, st4 }));
     // ---- asked first: on into Back to the lobby (its station ends)
     await A.evaluate(() => HOST.collab.setAsk(true));
     await until(H, () => { window.__xr.step(); return HOST.collab.askFirst(); }, null, 8000);
-    const z2 = await forwardTo(H, SL.z + 0.3);
-    await frames(H, 1600);
+    const z2 = await forwardTo(H, SL.z + 0.3), out5 = await liveIs(H, '');
     const m5 = await me(H);
     check('walk: with the circles asked first, the sticks take it on into Back to the lobby: its station ends', m5.live === '' && d2(xz(m5.hr), [SL.x, SL.z]) < 1.1 && !m5.jumps && !m5.calib,
-      JSON.stringify({ z2, m5, log: await H.evaluate(() => window.__collabLog.filter(e => /lobby|station|zone/.test(e.ev)).slice(-6)) }));
+      JSON.stringify({ z2, out5, m5, log: await H.evaluate(() => window.__collabLog.filter(e => /lobby|station|zone/.test(e.ev)).slice(-6)) }));
     // ---- a recentre (the floor's reset with its transform): it stays where it was in the room
     const m6a = await me(H);
     // (the origins of local and local-floor both moved by G in the room, the head where it was; the reset as Quest Browser
@@ -2297,6 +2301,8 @@ async function walkRound() {
     check('walk: a reset of the floor with its transform (a recentre) leaves it where it was in the room (the travel moved with the room\'s frame)',
       d2(xz(m6.hr), xz(m6a.hr)) < 0.01 && angle(m6.hyaw, m6a.hyaw) < 0.01 && m6.src === 'own' && !m6.calib, JSON.stringify({ before: m6a.hr, after: m6.hr, hyaw: [m6a.hyaw, m6.hyaw], travel: [m6a.travel, m6.travel] }));
     // ---- a second headset in the room with the others (AR): no travel from its sticks
+    H2 = await open('#s=' + rc, { width: 320, height: 200 });
+    await until(H2, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(H2, K);
     await H2.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0], walk: true });
     await H2.evaluate(() => { window.__xr.begin(); HOST.xr.setWalk(true); });
     await frames(H2, 300);
@@ -2315,8 +2321,8 @@ async function walkRound() {
       m7.why === 'room' && !m7.walking && !m7.travel.space && !m7.travel.x && !m7.travel.z && !m7.travel.yaw && !m8.travel.space && !m8.travel.x && !m8.travel.z &&
       n8 === 'Moving with the sticks: Not while you are in the room with the others: there you walk for real.' && row8 === 'none', JSON.stringify({ m7: m7.travel, m8: m8.travel, why: m7.why, n8, row8 }));
   } finally {
-    for (const P of [H, H2]) await P.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
-    for (const P of [A, H, H2]) await P.context().close().catch(() => {});
+    for (const P of [H, H2].filter(Boolean)) await P.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
+    for (const P of [A, H, H2].filter(Boolean)) await P.context().close().catch(() => {});
   }
 }
 
