@@ -293,9 +293,10 @@ function itemCard(it, C) {
   const inP = it.kind !== 'c' ? pkOf(it.id) : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
   const ticks = id => (selCube && id !== selCube.id ? [['show', selCube.rec.show.includes(id)], ['hide', selCube.rec.hide.includes(id)]] : null);
   const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id,
-    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour), ticks: it.kind !== 'c' ? ticks(it.id) : null };
+    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: it.kind !== 'c' ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
-  const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : ''];
+  const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
@@ -361,6 +362,7 @@ function itemBlocks(it, B, ed) {
         { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
     }
+    puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: rs })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
@@ -374,6 +376,7 @@ function itemBlocks(it, B, ed) {
     if (cl) B.push({ p: 'Its cut-outs are locked: they cut as before, but their boxes are hidden and they cannot be moved, sized or deleted (for everyone, and saved). Press again to unlock and show them.', c: 'amber' });
     else if (cuts.length) B.push({ list: cuts.map(x => ({ id: 'sel:' + x.id, label: '✂ ' + x.rec.name, sub: itemSub(x), act: 'sel', v: x.id, col: x.look.col })) });
     B.push({ p: cfull ? `${CUT_MAX} cut-outs on ${r.name}: the most one model takes.` : 'A cut-out is a box that hides the part of the model inside it (a door in a wall), for everyone; the model\'s file is not changed.', c: cfull ? 'amber' : 'faint' });
+    trkBlocks(it, B, dis);   // (one of the PC's trackers carrying it: e6k_trk.js)
     behaveBlocks(it, B, dis);   // (a behaviour: what it does when people come close, e6g_behave.js)
     motionBlocks(it, B, dis);   // (a motion drawn over where it stands: e6e_motion.js)
     pathBlocks(it, B, dis, mv);   // (a recorded path, played from where it stands: e6f_path.js)
@@ -424,6 +427,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: rs })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
     if (r.shape === 'plane') B.push({ p: 'A plane stands upright: its z size is not used.', c: 'faint' });
+    trkBlocks(it, B, dis);
     behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);
     pathBlocks(it, B, dis, mv);
@@ -434,6 +438,7 @@ function itemBlocks(it, B, ed) {
       { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
     if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
+    trkBlocks(it, B, dis);
     behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);   // (the sounds that follow it move with it)
     pathBlocks(it, B, dis, mv);

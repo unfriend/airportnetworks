@@ -348,6 +348,31 @@ one by one; each plays its own and moves with the group).
   stays, so Undo brings it back). Deleting the recording leaves the sound, no longer synced (its card says so). The path
   and its voice are one Undo step.
 
+## Trackers: props that follow one, and a character a performer wears
+
+With the PC's Vive trackers in the room (the relay on the PC started with `--trackers`, the bridge running beside SteamVR,
+and *Use the PC's trackers in this room* in the Shared dialog, lined up with the room's two spots: `tools/trackers/`), a
+studio circle sees them where they are in the room. Editing on:
+
+- **Follows a tracker** on an object's, a shape's or an empty's card: **None**, the tracker it follows (a press lists the
+  trackers here by the name the room gave them, else their serial), **Snap onto it**. Choosing one keeps the thing where
+  it stands: it then moves with that tracker for everyone at the circle (a cup on a tracker in your hand). A tracker not
+  seen holds where it was last seen; carried here or with Pause on, the thing rests where it is placed.
+- **Worn with trackers** on a character rigged by Mixamo (others are told why not): **Wear it: whole body** (trackers on
+  the hips, head, both wrists and both feet; the chest, elbows and knees too if worn, up to 11) or **Wear it: feet and
+  headset** (a tracker on each foot, the head and hands from the PC's Index and its controllers, or from the performer's
+  own headset). Then **Line up with the performer**: in 5 s the performer stands in a T-pose in front of it, facing its
+  way, arms out to the sides; the trackers find their parts, the character goes to where the performer stands and takes
+  their size. **On** moves it with the performer for everyone at the circle (its own animation off meanwhile); **Off**
+  gives its animation back. **Its parts** lists which tracker drives what (another one for a part: then **Line up again,
+  these parts**). Sounds can follow its head as any bone.
+- **Record a take**: after a 3 s countdown the character's moves are recorded until **Stop** (at most 2 minutes) and made
+  into a clip, *Take 1*, *Take 2*..., in its GLB (with a relay that takes uploads it goes into `models/` and every copy
+  of the model switches to it; else it is downloaded). It plays as any animation once wearing is off.
+
+Shared in a room and saved in `layout.json` (`engine/e6k_trk.js`, `engine/e6l_puppet.js` and the solver `engine/ik.js`;
+"Props that follow a tracker" and "Worn with trackers" in `SPEC.md`). Not yet tried with real trackers.
+
 ## In a headset: from the inside, Hold it, the sticks
 
 - **Inside a model.** Standing inside a room scan you cannot point at its box (its faces point away from you). With

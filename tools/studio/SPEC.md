@@ -187,7 +187,9 @@ placed by itself).
   ],
   "shapes": [
     { "id": "t4ble1", "name": "Table", "shape": "cube", "p": [0, 0.375, -1.5], "q": [0, 0, 0, 1], "size": [1.6, 0.75, 0.8],
-      "colour": "#c9d1dc", "look": "hide", "locked": true }
+      "colour": "#c9d1dc", "look": "hide", "locked": true },
+    { "id": "cupl1d", "name": "Lid", "shape": "cylinder", "p": [0.4, 0.8, -1.4], "q": [0, 0, 0, 1], "size": [0.1, 0.02, 0.1],
+      "colour": "#ffb43b", "look": "colour", "trk": { "id": "LHR-1A2B3C4D", "o": [0, 0.06, 0], "q": [0, 0, 0, 1] } }
   ],
   "empties": [
     { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1],
@@ -1860,6 +1862,106 @@ The owner: "items need a preview in the items list tab, should show the same ima
   page reads only a non-GLB model's own bytes (by its signed link) to learn what it names.
 - `STUDIO.copied` (`{ path, copied, kept, lost, id }`) for tests.
 
+## Props that follow a tracker (the owner, 8 November 2026)
+
+Phase 1 of the Vive trackers (`tools/trackers/SPEC.md`; the owner: "we go for 1 and 3 with mixamo rigs for now").
+`engine/e6k_trk.js`.
+
+- **The trackers**: the shell's (`HOST.collab.trackers()`: each `{ id: <serial>, name, p, q, ok, k }` in room coordinates,
+  `k` `'t'` a tracker, `'h'` the PC's Index, `'l'` and `'r'` its controllers; the relay's `@trk` stream, interpolated by
+  the shell), read once a frame (`trkStep`, from `behaveStep`; guarded: an older shell, or none, gives none). Only at a
+  studio station: the scene's frame is the room's there (v125), so a tracker's room pose is the scene's, nothing turned
+  or moved. Each one's last pose is kept here (`TRK.last`), for the station it was seen at (another station: none seen
+  yet). Base stations are never offered.
+- **The record** (an object's, a shape's or an empty's; `layout.json` and `state()` alike): `trk: { id, o, q }`, kept
+  only when set: the tracker's id (its serial: a letter or digit, then up to 39 of letters, digits and `_ . : -`), the
+  item's place in the tracker's frame (metres to the mm, turned but not scaled, within 1 km; `[0, 0, 0]` when left out)
+  and its turn there (4 decimals; none when left out). Anything else makes the record bad (the layout counts it; the room's
+  record is ignored and the item kept). Cubes, sounds, cut-outs and groups have none.
+- **Drawn** by the pose pipeline's base stage (`POSE.base`, `poseBase`: an item on a tracker first, else a behaviour's,
+  `behaveBase`; set only while the scene has either, so a scene without one is drawn exactly as before): the tracker's
+  pose times its offset, at the item's own scale (an object's `s`, a shape's size); its recorded path and its motion draw
+  over it, and the record never changes. A tracker not seen this frame (gone from the shell's list, or not `ok`): its last
+  pose here held; one never seen here: the item where it is placed. Like everything that moves it rests at its placed
+  pose while held here (carried, its arrows dragged) or paused (v122), and its ghost shows there while editing. A sound
+  may follow it as any item (it moves with it).
+- **The card** (page and headset, editing on, before Behaviour): *Follows a tracker*: *None*, *<its name> ▸* (the list:
+  the trackers known here, by the name the room gave them, `trk.names`, else the serial, with the Index's kinds said and
+  *seen* or *not seen now*), *Snap onto it*; and how it stands (moving with it, held where it was last seen, or not seen
+  here: where it is placed). Choosing a tracker keeps the item where it stands now (its offset from the tracker's pose
+  now; where its old tracker had it, else where it is placed); *Snap onto it* sets the offset to none (right on the
+  tracker); *None* leaves it where the tracker had it (its record's place and turn written from there). One Undo step
+  each, shared and saved; refused while it is locked in place (as moving it is). The list is this device's own.
+- A copy (Duplicate, a group's) follows no tracker: it is new, to be put where it goes. A GLB switch turns its offset's
+  turn by the baked turn (`q' = q r^-1`, `switchedRec`), so the model stays where it was on the tracker.
+- `STUDIO.trk(id)` for tests: the station, the trackers here, those held, and an item's `trk`, whether it is on it, its
+  pose there and whether its tracker is seen.
+
+## Worn with trackers: a Mixamo character (the owner, 8 November 2026)
+
+Phase 3 of the Vive trackers (`tools/trackers/SPEC.md`, "The studio, phase 3"). `engine/e6l_puppet.js` and the solver
+`engine/ik.js` (`makeIK`, in the build since v126, as `convert.js` is; its contract is the comment at its top and
+"The solver (ik.js)" in `tools/trackers/SPEC.md`).
+
+- **Which models**: an object whose model is rigged (`E.info.rigged`) with Mixamo's bone names (`IK.rigOf`, found once
+  per model built, at its rest pose as loaded: `pupRig`). A rigged model of other names is told why on its card (*Not a
+  Mixamo rig: no bone named mixamorig:Spine, ...*, *Wear it with trackers* greyed); one with no bones shows nothing of it.
+- **The record** (an object's): `puppet: { on, rig, by, map, cal, s, floor }`, kept only when set: `on` (false when left
+  out), `rig` `'full'` (trackers on the hips, head, both wrists and both feet; the chest, elbows and knees if worn, up to
+  11) or `'feet'` (a tracker on each foot, the head and hands from a headset and its controllers; `'head'`, a headset
+  alone, waits: the owner), `by` (`'feet'`: `'index'`, the PC's Index, whose headset and controllers come with the
+  trackers, or the performer's member id, their own headset; '' none), `map` (each part, `hips`, `head`, `chest`,
+  `lhand`, `rhand`, `lfoot`, `rfoot`, `lelbow`, `relbow`, `lknee`, `rknee`: a tracker's id, or `'@head'`, `'@l'`,
+  `'@r'` for the performer's own headset and controllers), `cal` (each part's offset from its tracker to its bone, seven
+  numbers: a place within 100 m to 0.1 mm, a turn to 5 decimals; an offset for a part nothing drives dropped), `s` (the
+  object's scale when it was lined up; 4 significant figures) and `floor` (the scene's floor then, 0). Anything else
+  makes the record bad. Shared and saved; every device solves the same pose from the same trackers and the same record
+  (nothing per bone is sent). A copy (Duplicate, a group's) is worn by nobody. A GLB switch keeps it (its `s` divided by
+  the baked scale, as the object's).
+
+  ```json
+  "puppet": { "on": true, "rig": "feet", "by": "index",
+    "map": { "head": "LHR-INDX0007", "lhand": "LHR-INDL0008", "rhand": "LHR-INDR0009", "lfoot": "LHR-1A2B3C4D", "rfoot": "LHR-5E6F7A8B" },
+    "cal": { "head": [0.01, 0.05, 0.08, 0.1, 0.2, 0.3, 0.92736], "lfoot": [0, -0.05, -0.04, 0, 0, 0, 1], "...": [] }, "s": 1.02, "floor": 0 }
+  ```
+- **Lining up** (*Line up with the performer*, its card; refused while it is locked in place): a 5 s countdown on the
+  card (this device's own, `PUP.line`; *Cancel*), the performer in a T-pose in front of the character facing its way,
+  arms out; then, on the device that pressed it, one change, one Undo step: the trackers seen given their parts
+  (`IK.assign`: `'full'` 6 to 11 trackers; `'feet'` the feet, with the Index's `'h'`, `'l'`, `'r'` for `by` `'index'`, or
+  `'@head'`, `'@l'`, `'@r'` for a performer's own headset), the character moved along the floor to where the performer
+  stands (so that its parts at rest are, on average, where their trackers are: a belt's tracker behind the hips, a foot's
+  in front of the ankle and a headset in front of the eyes mostly cancel out; the parts' offsets keep what is left; the
+  character's turn is kept), scaled so its hips (`'feet'`: its eyes) are as high as the performer's (`IK.calibrate`, then
+  again at the scale the record keeps, 4 significant figures, for the offsets), and `puppet` written `on` with its `map`,
+  `cal`, `s` and `floor` (with the object's `p` and `s`). *Line up again, these parts* keeps the parts as they are. Refused
+  in words (the card says why): no trackers here, too few, no hand found on both sides, a hips tracker not 0.4 to 1.5 m
+  up, no Index or its controllers seen, and the like (`IK`'s sentences).
+- **Solved** (`pupStep`, in place of its animation in `itemsStep`, while it is shown): on and lined up, its own clip is
+  off (stopped, its bones at rest first) and its bones are solved every frame (`IK.solve`) from its targets in the world:
+  the trackers' poses (held while not seen), and for `'@...'` this device's own head and controllers (their rays' poses)
+  when it is the performer in its session, else `HOST.collab.body(by)` (its `head`, `l` and `r`, each `{ p, q }` or seven
+  numbers, in room coordinates; guarded). Not solvable now (a part never seen here): at rest, the card saying why. Pause
+  holds the pose it shows. Its holder stays where it is placed (the pointer finds it there; while editing a ghost shows
+  it there, `clipMoves`): the solver puts the bones where the trackers are. Off: its clip again, from its rest pose. A
+  sound may follow its head bone (or any) as any model's.
+- **Its parts** (the card): each part, the tracker driving it (*not seen*, *not lined up*); a press lists the trackers of
+  its kind here, and choosing one gives the part that tracker (a part that had it swaps), `puppet.on` false and its
+  offsets gone until *Line up again, these parts*. *Head and hands from: The PC's Index / This headset* (`'feet'`; this
+  headset in a session in a room) changes `by` (the feet kept, the rest lined up again).
+- **Takes** (*Record a take*, on and lined up; this device's own until it is made): a 3 s countdown (*Cancel*), then the
+  solved bones (each part's local turn, normalised, and the hips' place) sampled after each solve once each thirtieth of
+  a second of the room's clock (`pupClock`: the relay's at a station, so the tracker stream's), until *Stop* or 120 s;
+  then `IK.clipOf` makes them *Take n* (the first free name among its file's clips) bound by the bones' own names of the
+  model the converter reads (`takeInto`), and the object's GLB is made again with its clips and the new one through the
+  converter (`convertFile` with `take`): a GLB of `models/` made again into itself (the old one kept under `originals/`),
+  else a GLB in `models/` with every object of the file switched to it, a new picture; without a relay that takes uploads,
+  downloaded. Too short (fewer than two keys) is said. The take then plays as any clip (*Animation*, wearing off).
+- `STUDIO.puppet(id)` for tests: its rig (`'ok'` or why not), its record, lined up, solved now, why not, the lining up
+  and take under way, the last word on it, whether its clip plays. `pupClock` is a function the tests replace.
+- Untested on devices: everything with real trackers, the Index and a Quest's head and hands (`HOST.collab.body`), how
+  the character looks and how a performer's trackers stay on, the lining up's placement in practice, takes made through
+  a real relay.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -1905,6 +2007,10 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   "Testing" in `AGENTS.md`.
 - The viewer (v125): the smoke test's *studio viewer* steps (on the test scene, the test originals dropped and a dense ball
   made in the page; `--only 'studio viewer'`): "Testing" in `AGENTS.md`.
+- Props that follow a tracker and a character worn with trackers (v126): the smoke test's *studio trackers* steps (on the
+  test scene, a pretend studio station and its trackers in the page; `--only 'studio trackers'`) and *studio puppet*
+  steps (on the puppet test scene, its rig loaded a second time walking as the performer, the trackers worn on it;
+  `--only 'studio puppet'`); `node tools/studio/test-ik.mjs` (the solver alone): "Testing" in `AGENTS.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

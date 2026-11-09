@@ -394,6 +394,10 @@ const STUDIO = {
   pf: src => { const f = PF.get(src); return f ? { n: f.k ? f.k.length : 0, own: !!f.own, state: f.state, at: f.at, err: f.err } : null; },
   // the viewer (e7f_viewer.js): open or not, what it shows, how, its camera
   viewer: () => vwState(),
+  // the trackers here, and with an item's id its tracker and its pose on it (e6k_trk.js); a character worn with trackers:
+  // its rig, record, whether it is lined up and solved, why not, its lining up and take under way (e6l_puppet.js)
+  trk: id => trkState(id),
+  puppet: id => pupState(id),
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
   // entries on, and every material's pictures by slot, lit and as scanned)
   tex: id => texState(id),

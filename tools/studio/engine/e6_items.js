@@ -19,6 +19,7 @@ const STU = {
   txp: null,   // (a cube picking an object, its material, a slot and a picture for its texture changes: { id, step, on, mat, slot, page }; e6i_tex.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
+  trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
@@ -67,6 +68,8 @@ function norm(kind, x) {
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);   // (its behaviour, kept only when set: e6g_behave.js)
     if (x.motion != null) r.motion = normMotion(x.motion);   // (its motion, kept only when set: e6e_motion.js)
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
+    if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
+    if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
     return lockOf(x, r);
   }
   if (kind === 'c') {
@@ -130,6 +133,7 @@ function norm(kind, x) {
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
+    if (x.trk != null) r.trk = normTrk(x.trk);
     return lockOf(x, r);
   }
   if (kind === 'e') {
@@ -140,6 +144,7 @@ function norm(kind, x) {
     if (x.behaviour != null) r.behaviour = normBehaviour(x.behaviour);
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
+    if (x.trk != null) r.trk = normTrk(x.trk);
     return lockOf(x, r);
   }
   return null;
@@ -634,7 +639,7 @@ function itemsStep(dt, now) {
       if (it.model) {
         setObjAlpha(it, it.a);
         it.holder.visible = it.a > 0.002;
-        if (it.holder.visible) animStep(it, now, clockS);
+        if (it.holder.visible && !pupStep(it, now, dt)) animStep(it, now, clockS);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
       } else it.holder.visible = false;
       greyStep(it);
     } else if (it.kind === 'c') {
@@ -1176,8 +1181,8 @@ function duplicateItem(id) {
   // (a sound that follows something: its copy follows it too, nudged as the copy is, in its offset; an object's copy
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
-    // (a copy is never locked: it is new, to be put where it goes)
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined },
+    // (a copy is never locked, follows no tracker and is worn by nobody: it is new, to be put where it goes)
+    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined, trk: undefined, puppet: undefined },
       it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }

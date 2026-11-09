@@ -159,6 +159,12 @@ its circle) moves every item there again, for everyone (one Undo step).
 - Tint and Brightness on a model's card: a colour (ten swatches, or any colour on
   a laptop) its colours are multiplied by, and Darker, Brighter and Reset (25 % to
   400 %). Each placed copy has its own; a group selected sets all its models.
+- Vive trackers (v126; the PC's, through its relay and SteamVR: tools/trackers/):
+  on an object's, a shape's or an empty's card Follows a tracker makes it move
+  with one of them, from where it stands (Snap onto it puts it right on it). A
+  character rigged by Mixamo can be worn by a performer: Wear it (whole body, or
+  feet and a headset), Line up with the performer (a T-pose, 5 s), On; Record a
+  take makes the moves a clip of its GLB. Not yet tried with real trackers.
 - Looking closely (a laptop or desktop): Preview on an Upload row, Look closer on
   a model's Fewer triangles card and Look on an Add card show the model over the
   whole window. Drag to spin, wheel to zoom, right-drag to pan, double-click to

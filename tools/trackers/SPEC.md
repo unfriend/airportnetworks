@@ -17,7 +17,8 @@ This file is the contract between the lanes that build it. Status: v126 builds p
 the fake and the relay; the shell; the studio), lined up by hand, with the wire settled by v126's brief (no reference
 trackers this round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built: the solver of
 phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay ("The bridge", "The relay"), the shell's part
-("The shell") and the studio's (props and the puppet).
+("The shell") and the studio's (props and the puppet). The studio's: `tools/studio/SPEC.md`, "Props that follow a tracker" and
+"Worn with trackers".
 
 ## The picture
 
@@ -182,10 +183,16 @@ What the shell does with it:
 
 ## The studio, phase 1: props that follow a tracker
 
+- Built in v126 (`tools/studio/engine/e6k_trk.js`). The studio reads the trackers from the shell,
+  `HOST.collab.trackers()` (`[{ id, name, p, q, ok, k }]` in room coordinates, `k` the stream's kind: `'t'`, `'h'`, `'l'`,
+  `'r'`), once a frame and only at a studio station, guarded (an older shell: none). It keeps each one's last pose itself
+  (held while not seen), per station.
 - An object's, a shape's or an empty's record may carry `trk: { id: <serial>, o: [x, y, z], q: [x, y, z, w] }`: the item's
   pose in the tracker's frame (metres to the mm, turned but not scaled; 4 decimals). Its card (page and headset, editing
   on): *Follows a tracker: None / <name or serial>...*; choosing one keeps the item where it stands now (the offset from
-  the tracker's pose now); *Snap onto it* sets the offset to zero; one Undo step each, shared and saved.
+  the tracker's pose now); *Snap onto it* sets the offset to zero; *None* leaves it where the tracker had it; one Undo step
+  each, shared and saved, refused while it is locked in place. A copy follows no tracker; a GLB switch turns the offset by
+  the baked turn.
 - Drawn through the pose pipeline as its base stage (as behaviours are, `POSE.base`): the tracker's room pose, which is
   the scene's frame at a studio station since v125 (the scene stands on the room's frame there, its circle only the way
   in: no turn by the station's spot and facing needed), times the offset; a motion and a path draw over it;
@@ -218,15 +225,21 @@ What the shell does with it:
   with a Quest would need no PC at all and work in any room, peer to peer too (deferred, above).
 - The object's record gains `puppet: { on, rig: 'full' | 'feet' (and later 'head'), by: <the performer's member id when a Quest's
   head and hands drive it, or 'index'>, map: { hips?, head?, lhand?, rhand?, lfoot?, rfoot?, chest?, lelbow?, relbow?,
-  lknee?, rknee?: <serial> }, cal: { <slot>: [x, y, z, qx, qy, qz, qw] }, s }`: which tracker drives which part, each part's
-  offset from its tracker to its bone found at the lining up, and the character's scale then. Shared and saved; every
-  device solves the same pose from the same tracker stream (nothing per bone is sent).
+  lknee?, rknee?: <serial, or '@head', '@l', '@r' for the performer's own headset> }, cal: { <slot>: [x, y, z, qx, qy, qz,
+  qw] }, s, floor }`: which tracker drives which part, each part's offset from its tracker to its bone found at the lining
+  up, the object's scale then and the floor (the scene's, 0). Shared and saved; every device solves the same pose from the
+  same tracker stream (nothing per bone is sent). Built in v126 (`tools/studio/engine/e6l_puppet.js`, `rig` `'full'` and
+  `'feet'`; `'head'` not offered). For `by` a member id the head and hands come from `HOST.collab.body(by)` (`{ head, l, r }`,
+  each `{ p, q }` or seven numbers, in room coordinates: the shell's lane gives it), or on the performer's own headset
+  from its own head and controllers (their rays' poses), which the shell's `body()` should give alike (the turns of a
+  presence's hands: untested).
 - *Line up with the performer* (its card, page and headset): the performer stands in a T-pose (Mixamo's rest pose) facing
   the character's way; a 5 s countdown, then the trackers (and in the lighter setups the headset and controllers) are
   given their parts (automatically from the T-pose: highest
   the head, lowest two the feet, the hands furthest out, left and right by the facing, the hips the one nearest the middle
-  at hip height, chest, elbows and knees by height and side; changeable on the card), the character scaled so its hips
-  are as high as the performer's, and each part's offset taken. One Undo step.
+  at hip height, chest, elbows and knees by height and side; changeable on the card), the character moved along the floor
+  to where the performer stands (its parts at rest, on average, where their trackers are: built in v126), scaled so its
+  hips (or for `feet` its eyes) are as high as the performer's, and each part's offset taken. One Undo step.
 - The solver (`tools/studio/engine/ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
   their tracker (place and turn); the spine bent between the hips and the chest (or the head) tracker; neck and head
   from the head tracker (or headset); arms and legs by two-bone inverse kinematics to the hand and foot targets, the elbows
@@ -290,8 +303,9 @@ puts the feet and hands within 0.06 mm and the hips within 2.1 cm; `head` keeps 
 1.3 mm and the hips within 1.9 cm, takes no step standing, 12 by turns walking 2.4 m and lets no planted foot move more
 than 4.6 mm; a take replays the solved pose exactly.
 
-Not done yet: the studio's side (the card, the record, wearing it, takes saved as GLB: lane C); a character lined up
-anywhere but where the performer stands (no offset between the two); shoulders that shrug as the arms rise, a spine
+The studio's side (the card, the record, wearing it, takes saved as GLB: lane C) is built in v126. Not done yet: a
+character lined up anywhere but where the performer stands (the studio moves it there first: a leftover offset between
+the two, a few cm where the trackers' own offsets do not average out, turns with the performer); shoulders that shrug as the arms rise, a spine
 that bends more at its top than its foot, a forearm's twist shared with it (Mixamo's sits on the hand); rigs other than
 Mixamo's, elbows or knees that bend another way, non-uniform scales. *Headset only* (`head`) stays unused (deferred
 above): its steps are quick and short (about three a second, 0.4 m), since straight legs reach little unless the head
@@ -317,6 +331,15 @@ real trackers, a headset and controllers is untested.
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.
   Built in v125: what it checks and its numbers are in "The solver (ik.js)" above.
+- `tools/smoke.mjs --only 'studio trackers'` and `--only 'studio puppet'` (v126, the studio's lane): a pretend studio
+  station with the trackers stubbed in the page (`HOST.collab.trackers`, `body`; and where the shell has its test hook
+  `HOST.collab.trkIn`, one tracker fed through it): a shape following a tracker within 5 mm, its offset kept as it is
+  chosen, Snap, a tracker not seen held, one never seen here its placed pose, resting while carried or paused, None,
+  norm's rules, the state and `layout.json` both ways, copies on no tracker, a GLB switch; the puppet test rig worn
+  (whole body and feet with the Index or a performer's own headset) from trackers worn on its own walking copy, lined up
+  from a T-pose after the countdown, its hands and feet within 5 mm of the truth (0.06 mm), two pages solving the same
+  bones at one held moment (within 0.0001 degrees), a 3 s take made into a GLB (downloaded) whose Take 1 plays the solved
+  pose, a model that is not Mixamo's refused in words.
 - `tools/collab.mjs --trackers`: the fake bridge with SteamVR's space turned and moved against the room, two reference
   trackers on the spots, a prop tracker going round, a performer walking; a page's Trackers section, a pretend headset at
   a studio station: trackers in room coordinates within 2 mm, a shape following a tracker within 5 mm on every device at
