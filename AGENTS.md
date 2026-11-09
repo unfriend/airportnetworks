@@ -539,9 +539,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - Moving with the sticks (v125, `index.html`, after `HOST.xr`; the owner, 8 November 2026: "Add Movement in vr mode,
     maybe with sticks, switchable by double pressing a stick?"): an eighth setting, each headset's own, never the room's
     and never in `collab.state()` (`HOST.xr.walk()`, `setWalk(on)`, `xrWalk` in `localStorage`, off by default,
-    `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by a stick clicked twice within 0.4 s (`sticks`
-    in `shared.js`, a notice *Moving with the sticks: on* / *off*; so a single click opens or closes the menu only once
-    0.4 s have passed with no second click of that stick) or the menu's *Moving with the sticks* row (Settings, under
+    `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by one stick clicked twice within 0.4 s
+    (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*; so a single click opens or closes the menu
+    only once 0.4 s have passed with no second click of that stick). Both clicks must be on the same stick: one click of
+    each within 0.4 s counts as one click, and opens or closes the menu. Or the menu's *Moving with the sticks* row (Settings, under
     Moving and Subtitles). It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
     shared room (`HOST.collab.joined`: the room's frame and the others' view of you need where you really stand) and
     while the story on show does not move you itself (the studio's own stick walk: `ownSticks: true` in its returned
@@ -550,7 +551,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's
     square past it), the right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back
     under 0.3). A controller whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps
-    its stick for the story (a carried scene's reach) and moves you not at all meanwhile. How: three.js r128 has no
+    its stick for the story (a carried scene's reach) and moves you not at all meanwhile; the free hand's stick still
+    moves you while the other hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128 has no
     `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
     `HOST.session` is set, before three.js starts its loop) and, before any callback of a frame reads it, puts its own
     `getViewerPose`, `getPose` (for an input source's ray or grip, or a hand's joint), `getJointPose` and `fillPoses` on
@@ -683,9 +685,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
       owner, 8 November 2026: "No access to menu in ar on android, make it one button on the top right"). A phone has no
       stick to click and no hand to pinch. Its AR session (a phone or a tablet, `phoneDev`: never a headset's browser,
       `IS_HEADSET`; a phone's or tablet's user agent, `DEV`, or `HOST.handheld.hand`; not camera mode, which keeps its own
-      overlay) also asks for `dom-overlay` (optional, on every rung of `HOST.xr.request`'s
-      ladder, through camera mode's wrapper; a refusal other than `NotAllowedError` or `SecurityError` asks once more
-      without it) with its own root, `#xrPhone` (made once, its CSS injected once, its listeners added with `HOST.quiet`);
+      overlay) also asks for `dom-overlay` (optional, on every rung of `HOST.xr.request`'s ladder, through camera mode's
+      wrapper; `extra.drop`: a refusal other than `NotAllowedError` or `SecurityError`, which are thrown at once, asks
+      again without it, depth sensing kept, straight after the failed request inside the ladder, so the tap's activation,
+      which lasts a few seconds, still holds; refused again, the story's line on the page says *Could not start AR: it was
+      refused with the menu button (...) and again without it (...). Tap Enter AR again.*) with its own root, `#xrPhone`
+      (made once, its CSS injected once, its listeners added with `HOST.quiet`);
       a headset's browser asks for nothing new. Granted (`domOverlayState`), the overlay shows one round menu button (52
       px, three lines) at the top right inside the safe areas, only during that session. The root passes taps through
       (`pointer-events: none`, `auto` on its controls; `beforexrselect` cancelled only on the button and the sheet), so a
@@ -747,21 +752,25 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - On a page, while it is on: a card (`#devCard`) over the Stories screen, or over the story a link opened, once a
     page load (`HOST.dev.boot()`, after the first story has started), with the release's number from the file (*What
     is new in v124*), its date and the three lists; *Got it* keeps it away for that version on this device (`devSeen`),
-    *Later* (also Escape and the back button) until the next page load. Never in a headset session. *What is new* (the
-    Stories screen's foot, More) opens it any time.
+    *Later* (also Escape and the back button) until the next page load. Never in a headset session: a session that starts
+    closes it, as Later (`HOST.session`'s setter). *What is new* (the Stories screen's foot, More) opens it any time.
   - In a headset session, while it is on: at the start of every session until Got it for that version, the menu opens
     by itself at *What is new*, a page of the Debug tab in place of its content (`newsPage`, `PNL.page` `'news'`, as the
     room setup guide is of Circles), as tall as its lists need (its type 22, 20 or 18 px, the largest that fits the
     1920 px canvas; what still does not fit counted), with *Got it* and *Later*; either closes the menu it opened, and
     closing it any other way (another tab, the menu closed) counts as Later. It comes last of what a session shows by
     itself: after the startup flow in a shared room (the room setup guide, the check by eye) and after the welcome
-    (*Getting around*: once it has shown and gone; with it off, 2.5 s into the session), 0.8 s after the last of them,
-    never over the open menu (it waits until it is closed), the questions, a calibration or a check, never in camera mode.
-    The Debug tab's *What is new* opens the page any time (*Got it* and *Back*).
+    (*Getting around*: once it has shown and gone; with it off, where it would have come, 2.5 s in), 0.8 s after the last
+    of them (so about 3.3 s into the session with the welcome off), never over the open menu (it waits until it is
+    closed), the questions, a calibration or a check, never in camera mode. The Debug tab's *What is new* opens the page
+    any time (*Got it* and *Back*).
   - A file that cannot be fetched is said in one line (*Could not fetch what is new (whatsnew.json): the server answered
-    404.*). Nothing in a room's keys or `collab.state()` (no `FORMAT` change). `HOST.dev.on()`, `set(on)`, `load(again)`,
-    `data()`, `seen()`, `card(open)`, `state()`; `HOST.collab.whatsNew()` (`{ shown, fl, menu }`), `devOpen()` and
-    `welcomeMs(ms)` are for tests. How the page reads in a headset (about 1 m tall with v124's lists) is untested.
+    404.*; a release fetched earlier in the page is kept and shown instead), and while it is fetched *Fetching what is
+    new...*: then the card has *Later* alone and the headset's page *Later* (or *Back*) alone, since Got it names a
+    release. Nothing in a room's keys or `collab.state()` (no `FORMAT`
+    change). `HOST.dev.on()`, `set(on)`, `load(again)`, `data()`, `seen()`, `card(open)`, `state()`;
+    `HOST.collab.whatsNew()` (`{ shown, fl, menu }`), `devOpen()` and `welcomeMs(ms)` are for tests. How the page reads
+    in a headset (about 1 m tall with v124's lists) is untested.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -1081,7 +1090,9 @@ probe, `roomSync` and `shapeSig` it reuses.
   HOST.xr.features(mode) }`, its ladder kept); AR adds `depth-sensing` to the optional features with `depthSensing: {
   usagePreference: ['gpu-optimized', 'cpu-optimized'], dataFormatPreference: ['unsigned-short', 'luminance-alpha',
   'float32'], matchDepthView: true }`, and the room test's ladder: a `TypeError` naming one of those values (a browser
-  that does not know `'unsigned-short'`) asks again without it, any other refusal asks again without depth at all.
+  that does not know `'unsigned-short'`) asks again without it, any other refusal asks again without depth at all. With
+  `extra.drop` (a phone's menu button) what `extra` asks for is dropped first, at once, depth kept (the person's or the
+  browser's own refusal, `NotAllowedError` or `SecurityError`, is thrown at once then).
 - **The setting.** `HOST.occlusion.own()`, `set(m)`, `next(m)`, `mode()`: `'both'` (the default: room and people),
   `'room'`, `'depth'` (people, hands, anything moving) or `'off'`; this headset's own (`xrOccl` in `localStorage`,
   `#occl=both|room|depth|off` in a link), never a room's, never in `collab.state()` (no `FORMAT` change). The menu's
@@ -4537,9 +4548,10 @@ node tools/smoke.mjs http://127.0.0.1:8123/ --only studio       # only the studi
 ```
 
 `--only <words>` (v124) runs only the steps whose names start with the words and the blocks that hold them (each block
-of steps is guarded by its name, `runs(...)`; the blocks of mixed names, the headset settings and focus mode, run only
-without it): `--only studio` the studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own
-steps; the release run is the whole test.
+of steps is guarded by its name, `runs(...)`; the headset settings, a block of mixed names, runs only without it; focus
+mode and phones and tablets run with `--only 'focus mode'`, `phones`, `tablets` or `iPhone`): `--only studio` the
+studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own steps; the release run is the
+whole test.
 
 Its *stick moving* steps (v125, `--only 'stick moving'`, a page of their own, a minute or two; a pretend VR headset whose
 frames go first through the session's own `requestAnimationFrame`, the shell's hook and its own callback, and then the
@@ -4568,6 +4580,9 @@ two items at 600 px. Then a pretend headset session (as the headset settings' st
 1.5 s long: the menu opening at What is new only once the welcome has shown and gone, Later closing it and the menu
 (again the next session), Got it closing them and keeping the version (not the next session); with the welcome off, a
 moment into the session; developer mode off, never; the Settings row and the Debug tab's What is new (Back to the tab).
+Without the file (404, on a page that has fetched none) the card has Later alone, focused, and the headset's page Back
+alone; while it is fetched by hand (the server slowed down 1.5 s) the card says *Fetching what is new...* with Later
+alone, then Got it once it has come; the page's card open as a headset session starts closes, as Later.
 
 Its *phone ar* steps (v125, `--only 'phone ar'`, two pages of their own, a minute or two): a pretend Android phone
 (Chrome's user agent, touch, 412 x 860; a pretend `navigator.xr` that records what it is asked for; the airports story's
@@ -4584,8 +4599,13 @@ closed), its row then *Close the full menu* and closing it, Close and the button
 menu* saying *Tap the round button at the top right for the menu.* and the welcome a phone's words (no trigger, no
 stick); Exit AR ending the session and the button gone; without the overlay (not granted) no button, two quick taps at
 nothing opening and closing the 3D menu (logged as by `tap`), two 0.6 s apart not, and two at the open menu's margin
-(pointed at, the menu's hover) leaving it open; a headset's user agent asking for no `dom-overlay` and showing no
-button. Camera mode's request is checked in `node tools/collab.mjs --camera` (its root `#camera`, `dom-overlay` once, no
+(pointed at, the menu's hover) leaving it open; the overlay refused once (a `NotSupportedError`, not the person's or
+the browser's own): asked again at once without it, depth sensing still asked (two requests), the session running with
+no button and two quick taps opening and closing the menu; refused again without it (a `SecurityError`, as when the tap's
+activation has gone): no session, nothing of the button, and the page's line *Could not start AR: it was refused with
+the menu button (...) and again without it (...). Tap Enter AR again.*; the person's own refusal (`NotAllowedError`) at
+the first ask: asked once, the browser's words as they were; a headset's user agent asking for no `dom-overlay` and
+showing no button. Camera mode's request is checked in `node tools/collab.mjs --camera` (its root `#camera`, `dom-overlay` once, no
 phone button).
 
 It needs Playwright with a Chromium build (`npm i --no-save playwright` and

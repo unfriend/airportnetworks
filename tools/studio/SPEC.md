@@ -891,10 +891,10 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   drawn faint and the trigger cube's fill made no difference there). Pointed at or selected, its edges light up instead
   (`LOOKS.CUT_LOOK.lit`): lighter (40 % towards white), their dashes denser (about twelve an edge, three quarters of it
   drawn, against about eight and under three fifths), its ticks a third of each edge long. The pointer (a click, a
-  controller's ray) finds the nearest object, sound or cut-out (its unseen box), but passes over an object's unseen box when the ray goes on into one of that object's own cut-outs (it lies
-  within that box, which would otherwise always be in front); a nearer object or sound is still found first. Picking the
-  object a sound follows or a cut-out cuts, cut-outs are passed through. Not editing, nothing of it is drawn: only the
-  hole.
+  controller's ray) finds the nearest object, sound or cut-out by its unseen box. A cut-out lies inside its object's
+  unseen box, which would always be in front of it, so when the ray goes on into one of that object's own cut-outs the
+  object's box is passed over; a nearer object or sound is still found first. While picking the object a sound follows
+  or a cut-out cuts, cut-outs are passed over. Not editing, nothing of the box is drawn: only the hole.
 - **Moving it**: on a page the arrows move it, turn it (in its own frame) and size it per side (W, E, R); in a headset
   the grip carries it (turning with the hand while free moving is on, else only about the upright), both grips size it
   (every side alike, a twentieth to twenty times) and move it with their middle, the grip on a corner of a selected one

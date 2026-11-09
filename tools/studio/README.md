@@ -183,8 +183,11 @@ shown whatever the cubes say, so you can size a door its cube opens from anywher
 box stays on the same part of the model when the model is moved, turned, sized or switched to its GLB; duplicating a
 box (or its model) puts the copy in the same cubes' lists. While editing the box is only its dashed red-orange edges and
 the ticks at its corners, nothing see-through, so many boxes cost a headset little; pointed at or selected, its edges
-light up (lighter, the dashes denser, the ticks longer). Not editing, nothing of the box is drawn: only the hole. The edges of a hole are open (you look into the thin surface): that is how it is meant to be. A model takes
-at most 16 cut-outs, a scene 100. **Move onto another object...** gives a box to another model, where it stands.
+light up (lighter, the dashes denser, the ticks longer).
+
+Not editing, nothing of the box is drawn: only the hole. The edges of a hole are open (you look into the thin surface):
+that is how it is meant to be. A model takes at most 16 cut-outs, a scene 100. **Move onto another object...** gives a
+box to another model, where it stands.
 
 ## Groups: things that move together
 

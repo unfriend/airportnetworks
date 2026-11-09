@@ -208,7 +208,9 @@ AR, Recenter, Sound, Narration, Sound effects, Subtitles, Slideshow, Frame rate,
 Labels, Cards, Panels, Real world hides) and The full menu, the headset's menu
 in front of you (tap its buttons on the screen); a tap anywhere else points at
 the scene as before. Where the phone's browser gives no such button, tap twice
-quickly on the screen, pointing at nothing, to open and close the menu. Opening a story from the
+quickly on the screen, pointing at nothing, to open and close the menu (if the
+browser refuses the button, AR asks again at once without it; refused again,
+the page says to tap Enter AR again). Opening a story from the
 Stories screen on a phone or tablet goes full screen where the browser allows it
 (Android's Chrome, iPad's Safari); Full screen in the ... menu switches it. An
 iPhone cannot go full screen in Safari: a tip says once to add the app to the
@@ -238,7 +240,8 @@ opens at it once the welcome has gone). Got it hides it until the next release
 on this device; Later until the app opens again (in a headset, the next
 session). What is new, beside the switch and on the headset menu's Debug tab,
 shows it any time. The lists come from whatsnew.json, rewritten at every
-release.
+release; while it is fetched, or when it cannot be (and none was before), the
+box has Later alone.
 Anchor (in the headset's menu) keeps the network and the panels at one spot
 in the real room, for every story: through taking the headset off and on (the
 next wearer still starts on the Stories menu), recentring, leaving VR and
