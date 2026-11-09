@@ -22069,12 +22069,13 @@ function lockLine(it) {
   if (g && g.rec.locked) return `Its group ${g.rec.name} is locked in place: it does not move, turn, size or go until the group is unlocked.`;
   return cuts.length ? `${cuts.join(', ')} ${are(cuts)} locked in place: it cannot be deleted until ${them(cuts)} unlocked.` : '';
 }
-// the lock's row on a card (near its Duplicate and Delete, so a headset's card keeps its place and size in sight): Lock in
-// place / Unlock; and at its top, only while something holds it (or a refusal was just made), what holds it
-function lockBlocks(it, B, dis) {
+// the lock's row on a card: Lock in place / Unlock, at the card's top right under its heading (v128; the owner, 9 November
+// 2026: "move the locked toggle all the way to the top"; until then by its Duplicate and Delete), with what holds it just
+// above it (lockTop, only while something holds it or a refusal was just made); the blocks, for the card to put there
+function lockBlocks(it, dis) {
   const on = !!it.rec.locked;
-  B.push({ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] });
-  if (!on) B.push({ page: true, p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' });
+  return [{ label: 'Lock', row: [{ id: 'lock', label: on ? '🔒 Unlock' : 'Lock in place', act: 'i:lock', on, dis }] }]
+    .concat(on ? [] : [{ page: true, p: 'Locked in place, it cannot be moved, turned, sized or deleted by accident (for everyone, and saved).', c: 'faint' }]);
 }
 function lockTop(it) {
   const line = lockLine(it), said = STU.lockSaid && STU.lockSaid.id === it.id && performance.now() - STU.lockSaid.at < 4000;
@@ -22377,13 +22378,17 @@ function atPlaced(list, fn) {
   }
   try { return fn(); } finally { for (const [H, m] of kept) { H.matrix.copy(m); H.matrixWorldNeedsUpdate = true; } }
 }
+// a recorded path held from its card's timeline (e6m_anim.js) shows through Pause, as a clip's hold does: drawn at its held
+// moment over its placed pose (no behaviour, no motion); held here by a grip, the arrows or a recording, it rests as ever
+const pathHeld = it => !!POSE.path && !REST.ids.has(it.id) && !!pathOf(it) && !!animHold(it, 'path');
 // the pipeline: its drawn pose at now (the scene's clock clockS, s) into out, in the items' frame (the scene's)
 function drawnPose(it, now, clockS, out) {
-  const H = it.holder, rest = motionRests(it);
+  const H = it.holder, rest = motionRests(it), held = rest && pathHeld(it);
   if (rest || !(POSE.base && POSE.base(it, now, clockS, out))) out.compose(H.position, H.quaternion, H.scale);
-  if (rest) return out;
+  if (rest && !held) return out;
   if (POSE.path) POSE.path(it, now, clockS, out);
   if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
+  if (rest) return out;   // (paused, its path held: its path's moment alone)
   const mo = it.rec && it.rec.motion;
   if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
   return out;
@@ -22402,7 +22407,7 @@ function poseRest(it) {
 // every frame (itemsStep, once its placed pose is this frame's): drawn as the pipeline says, or at rest; it.mX the change
 // from its placed pose to its drawn one, for its cut-outs
 function poseStep(it, now, clockS) {
-  if (!poseLive(it) || motionRests(it)) { if (it.mX || !it.holder.matrixAutoUpdate) poseRest(it); return; }
+  if (!poseLive(it) || (motionRests(it) && !pathHeld(it))) { if (it.mX || !it.holder.matrixAutoUpdate) poseRest(it); return; }
   const H = it.holder;
   drawnPose(it, now, clockS, H.matrix);
   H.matrixAutoUpdate = false; H.matrixWorldNeedsUpdate = true;
@@ -22485,7 +22490,8 @@ Object.assign(ITEM_ACT, {
 // what follows it (a sound, a cut-out) goes with it. As a motion, it plays on while selected (a ghost where it is placed)
 // and rests at its placed pose while held here or paused (motionRests). Start again on its card starts it from its
 // beginning on this device (its 'shown' clock; a path that plays once, played once more). A sound that follows something
-// moves with that: its own path waits until it follows nothing.
+// moves with that: its own path waits until it follows nothing. Selected while editing, its card has a timeline (v128,
+// e6m_anim.js: its own clock held, paused or playing, for everyone at a circle; shown through Pause as well).
 //
 // Recording (REC, this device's own, never shared while it runs): in a headset, Record its movement on its card arms it
 // (XR.rec, as Hold it is armed); the next grip, on it or anywhere, carries it as usual and records its pose 30 times a
@@ -22584,12 +22590,15 @@ function pathAt(P, s, d, q) {
 // (one that plays once and was started again here, Start again: since then)
 const pathClock = (it, P, now, clockS) => (P.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : P.play === 'once' && it.again != null ? Math.max(0, (now - it.again) / 1000) : clockS);
 const _pp3 = new THREE.Vector3(), _pq3 = new THREE.Quaternion(), _ps3 = new THREE.Vector3(), _pd3 = new THREE.Vector3(), _pk3 = new THREE.Quaternion();
+// its time now (s, before its speed): held from its card's timeline here or by someone at its circle (e6m_anim.js), else
+// its clock
+const pathT = (it, P, now, clockS) => { const H = animHold(it, 'path'); return H ? animAt(it, H, 'path') : pathClock(it, P, now, clockS); };
 // the pipeline's second stage (drawnPose in e6e_motion.js): its pose m (its placed one) moved along its path: the place by
 // its turn times d, the turn by q after it (a sound only moves)
 POSE.path = (it, now, clockS, m) => {
   const P = pathOf(it);
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
-  pathAt(P, pathTime(P, pathClock(it, P, now, clockS)), _pd3, _pk3);
+  pathAt(P, pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -22974,6 +22983,7 @@ function pathBlocks(it, B, dis, mv) {
       { label: 'Speed: ×' + P.speed, row: [{ id: 'pspeed:-', label: 'Slower', act: 'i:pspeed', v: -1, dis: dis || P.speed <= 0.25 }, { id: 'pspeed:+', label: 'Faster', act: 'i:pspeed', v: 1, dis: dis || P.speed >= 4 }] },
       { row: [{ id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
       { p: 'Played from where it stands: moving or turning it moves its whole path. It plays on while selected (a ghost where it is placed); carried, it rests there. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
+    animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
   }
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)
@@ -24241,13 +24251,17 @@ function voicePlace(it, v, path, res) {
 const syncOf = it => { const o = it.kind === 's' && it.rec.sync ? STU.items.get(it.rec.sync) : null; return o && pathOf(o) ? o : null; };
 // where in its file a voice is at now (ms; dur: its file's length, s): { at (s into its file; below 0: it starts that much
 // later), left (s it plays on from there), pass (the path's pass: a new one starts it again), e } or null while it is
-// silent (between passes, the path resting or its keys not in)
+// silent (between passes, the path resting or its keys not in). Its path held from its card's timeline (v128, e6m_anim.js):
+// silent while held paused, from the held moment while held playing (each new hold a pass of its own, so the voice starts
+// again there), back on the path's clock once let go (a pass of the clock's again)
 function syncAt(it, now, dur) {
-  const ob = syncOf(it), P = ob && pathOf(ob);
-  if (!P || !pathK(P) || motionRests(ob)) return null;
-  const D = pathLen(P), u = Math.max(0, pathClock(ob, P, now, sceneClock(now)) * P.speed);
+  const ob = syncOf(it), P = ob && pathOf(ob), H = ob && animHold(ob, 'path');
+  if (!P || !pathK(P) || (H ? !H.p || REST.ids.has(ob.id) : motionRests(ob))) return null;
+  // (a hold's time not wrapped, so its passes count on as it plays; now may be a moment ahead, as a decoded voice starts)
+  const T = H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
+  const D = pathLen(P), u = Math.max(0, T * P.speed);
   if (!(D > 0)) return null;
-  const per = P.play === 'bounce' ? 2 * D : D, pass = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - pass * per) / P.speed;
+  const per = P.play === 'bounce' ? 2 * D : D, n = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = H ? 'h' + H.n + ':' + n : n;
   const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - skip);   // (in the path's time: its file ends at dur - skip)
   return e < len - 0.05 ? { at: skip + e, left: len - e, pass, e } : null;
 }
@@ -24854,151 +24868,218 @@ function pupState(id) {
 }
 
 // ============================================================== TIMELINE ==
-// A selected model's animation while editing (v127; the owner, 9 November 2026: "items that have an animation should show
+// A selected item's timeline while editing (v127; the owner, 9 November 2026: "items that have an animation should show
 // a timeline and play pause in edit mode when selected", then "play and pause for everyone in the circle", "pause and
 // scrubbing is temporary, once the item is not selected anymore or editing is switched off it goes back to its regular
-// behaviour"). The card of an object whose clip plays (Loop or Once) shows where the clip is, Play / Pause, Start, a
-// second back and on, The scene's clock, and on a page a slider. A press holds the clip here (ANIM.mine: the clip's time
-// t at the clock's at, playing or not), and at a station this device tells everyone at its circle, as a quiet effect of
-// the studio's ('anim', a few times a second and at once on each change: { at, a: [id, t, p] }), so they draw the same
-// frame. Nothing is stored or saved: no record changes, no Undo step, no FORMAT change. It lets go (back to the scene's
-// clock, or from when shown, for everyone) when the object is no longer selected here, editing is off, its clip stops
-// or changes, or The scene's clock is pressed; a device that hears nothing for 1.2 s lets go by itself. Two holding one
-// object at once: the latest word wins on the others; each sees its own
-const ANIM = { mine: null, heard: new Map(), sent: 0, drag: false, sigPage: '', log: null };
+// behaviour"). Two timelines (channels), each with a hold of its own:
+// - 'clip' (v127): the card of an object whose clip plays (Loop or Once), under its Animation rows;
+// - 'path' (v128; the owner: "please add timeline and play pause also for recorded items"): the card of an object, a shape,
+//   an empty or a sound with a recorded path (e6f_path.js), under its Recorded path rows, not while it is recorded. What
+//   it holds is the path's own clock (the item's time the pose pipeline reads, before its speed, Loop, Once or Back and
+//   forth: pathTime), so its range is one cycle of what is seen: its length at its speed, twice that for Back and forth.
+// Each shows where it is, Play / Pause, Start, a second back and on, The scene's clock, on a page a slider, and on a
+// headset's card a bar to point at and drag (e9_panels.js: drawBar). A press holds it here (ANIM.mine, the clip's;
+// ANIM.mineP, the path's: its time t at the clock's at, playing or not), and at a station this device tells everyone at its
+// circle, as a quiet effect of the studio's ('anim', a few times a second and at once on each change: { at, a: [id, t, p] },
+// with c: 'p' for a path), so they draw the same moment. Nothing is stored or saved: no record changes, no Undo step, no
+// FORMAT change. It lets go (back to the scene's clock, or from when shown, for everyone) when the item is no longer
+// selected here, editing is off, its clip stops or changes (its path is deleted, recorded again, or its play, start or
+// speed changed; a recording starts), or The scene's clock is pressed; a device that hears nothing for 1.2 s lets go by
+// itself. Two holding one item at once: the latest word wins on the others; each sees its own. A path's voice (a sound
+// recorded with it, e6j_voice.js: syncAt) follows its hold: silent while it is held paused, from the matching moment while
+// it is held playing, back on the path's clock once let go
+const ANIM = { mine: null, mineP: null, heard: new Map(), sent: { clip: 0, path: 0 }, drag: '', sigPage: '', log: null, n: 0 };
 const ANIM_SEND = 250, ANIM_FRESH = 1200;
 // (ms: the relay's clock at a station, the same moment everywhere; else this page's: behNow, e6g_behave.js)
 const animNow = () => behNow();
-// the hold that applies to an item here: this device's own, else a fresh one heard, else null
-function animHold(it) {
-  if (ANIM.mine && ANIM.mine.id === it.id) return ANIM.mine;
-  const h = ANIM.heard.get(it.id);
-  if (h && performance.now() - h.got > ANIM_FRESH) { ANIM.heard.delete(it.id); return null; }
+const ANIM_CHS = ['clip', 'path'];
+// a path's one cycle of what is seen (s of its item's time): its length at its speed, there and back for Back and forth
+const pathCycle = P => pathLen(P) / P.speed * (P.play === 'bounce' ? 2 : 1);
+// what a path's hold was made for: deleted, recorded again, or its play, start or speed changed, it lets go
+const pathKeyOf = P => (!P ? '' : [P.src || '', P.k ? [P.k.length, P.k[Math.floor(P.k.length / 2)].join(), P.k[P.k.length - 1].join()].join(':') : P.len + ':' + P.n, P.play, P.start, P.speed].join('|'));
+// each channel: whether it shows for an item, its length (s), whether it wraps round (else held at its ends), what its hold
+// is made for, its own time now (unheld), its buttons' and slider's names
+const ANIM_C = {
+  clip: { can: it => it.kind === 'o' && !!it.action && it.dur > 0 && it.rec.anim !== 'off', dur: it => it.dur, loop: it => it.rec.anim === 'loop', key: it => it.animKey,
+    clock: (it, now) => (it.rec.start === 'shown' ? (now - it.shownAt) / 1000 : sceneClock(now)), act: 'an:', range: 'stuRangeAnim', bar: 'anbar', what: 'animation' },
+  path: { can: it => !!pathOf(it) && pathLen(pathOf(it)) > 0 && !recording(it), dur: it => pathCycle(pathOf(it)), loop: it => pathOf(it).play !== 'once', key: it => pathKeyOf(pathOf(it)),
+    clock: (it, now) => pathClock(it, pathOf(it), now, sceneClock(now)), act: 'ap:', range: 'stuRangePath', bar: 'apbar', what: 'recorded path' },
+};
+const mineOf = ch => (ch === 'path' ? ANIM.mineP : ANIM.mine);
+const heardKey = (id, ch) => (ch === 'path' ? id + ':p' : id);
+// the hold that applies to an item's channel here: this device's own, else a fresh one heard, else null
+function animHold(it, ch = 'clip') {
+  const m = mineOf(ch);
+  if (m && m.id === it.id) return m;
+  const k = heardKey(it.id, ch), h = ANIM.heard.get(k);
+  if (h && performance.now() - h.got > ANIM_FRESH) { ANIM.heard.delete(k); return null; }
   return h || null;
 }
-// a clip's time in its range (Loop wraps round, Once stops at its end)
-function animWrap(it, t) {
-  const d = it.dur;
-  return it.rec.anim === 'loop' ? ((t % d) + d) % d : Math.min(Math.max(0, t), d - 1e-4);
+// a time in its channel's range (a Loop, or a path going back and forth, wraps round; Once stops at its end)
+function animWrap(it, t, ch = 'clip') {
+  const C = ANIM_C[ch], d = C.can(it) ? C.dur(it) : 0;
+  if (!(d > 0)) return 0;
+  return C.loop(it) ? ((t % d) + d) % d : Math.min(Math.max(0, t), d - 1e-4);
 }
-// where a hold has the clip now (its time, moved on since if it plays)
-const animAt = (it, H) => animWrap(it, H.p ? H.t + (animNow() - H.at) / 1000 : H.t);
-// where the clip is now here (held, or on the scene's clock, or from when shown)
-function animTime(it) {
-  if (!it.action || !(it.dur > 0)) return 0;
-  const H = animHold(it);
-  if (H) return animAt(it, H);
-  const now = performance.now();
-  return animWrap(it, it.rec.start === 'shown' ? (now - it.shownAt) / 1000 : sceneClock(now));
+// where a hold has it now (its time, moved on since if it plays)
+const animAt = (it, H, ch = 'clip') => animWrap(it, H.p ? H.t + (animNow() - H.at) / 1000 : H.t, ch);
+// where it is now here (held, or on the scene's clock, or from when shown)
+function animTime(it, ch = 'clip') {
+  const C = ANIM_C[ch];
+  if (!it || !C.can(it)) return 0;
+  const H = animHold(it, ch);
+  return H ? animAt(it, H, ch) : animWrap(it, C.clock(it, performance.now()), ch);
 }
-// can the timeline show for this item here: an object selected while editing whose clip plays
-const animCan = it => !!it && it.kind === 'o' && editOn() && STU.sel === it.id && !!it.action && it.dur > 0 && it.rec.anim !== 'off';
-// this device's hold set (t at now, playing or not) and told at once (quiet: a page's slider moving, its pane not drawn
-// again under the hand until it is let go)
-function animSet(it, t, p, quiet) {
-  if (!animCan(it)) return;
-  ANIM.mine = { id: it.id, t: animWrap(it, t), p: !!p, at: animNow(), key: it.animKey };
-  ANIM.sent = 0;
-  animSend();
+// can a channel's timeline show for this item here: selected while editing, and the channel has something to play
+const animCan = (it, ch = 'clip') => !!it && editOn() && STU.sel === it.id && ANIM_C[ch].can(it);
+// this device's hold set (t at now, playing or not) and told at once (quiet: a page's slider or a headset's bar moving:
+// told a few times a second, as while it holds, and its pane not drawn again under the hand)
+function animSet(it, t, p, quiet, ch = 'clip') {
+  if (!animCan(it, ch)) return;
+  const h = { id: it.id, t: animWrap(it, t, ch), p: !!p, at: animNow(), key: ANIM_C[ch].key(it), n: ++ANIM.n };
+  if (ch === 'path') ANIM.mineP = h; else ANIM.mine = h;
+  if (!quiet) ANIM.sent[ch] = 0;
+  animSend(ch);
   if (!quiet) dirty(true);
 }
-function animFree(why) {
-  const m = ANIM.mine;
+function animFree(why, ch = 'clip') {
+  const m = mineOf(ch);
   if (!m) return;
-  ANIM.mine = null;
-  if (atStation()) { try { HOST.collab.effect('anim', { at: Math.round(animNow()), a: [m.id], end: 1 }, true); } catch (e) { /* not in a room now */ } }
-  if (ANIM.log) ANIM.log.push(['free', m.id, why || '']);
+  if (ch === 'path') ANIM.mineP = null; else ANIM.mine = null;
+  if (atStation()) { try { HOST.collab.effect('anim', Object.assign({ at: Math.round(animNow()), a: [m.id], end: 1 }, ch === 'path' ? { c: 'p' } : {}), true); } catch (e) { /* not in a room now */ } }
+  if (ANIM.log) ANIM.log.push(['free', m.id, why || '', ch]);
   dirty(true);
 }
-function animSend() {
-  const m = ANIM.mine;
+function animSend(ch = 'clip') {
+  const m = mineOf(ch);
   if (!m || !atStation()) return;
   const now = performance.now();
-  if (now - ANIM.sent < ANIM_SEND) return;
-  ANIM.sent = now;
-  // (the clip's time at this moment, so a late word is still right: at is the relay's time)
-  const it = STU.items.get(m.id), T = animNow();
-  try { HOST.collab.effect('anim', { at: Math.round(T), a: [m.id, +(it ? animAt(it, m) : m.t).toFixed(3), m.p ? 1 : 0] }, true); } catch (e) { /* not in a room now */ }
+  if (now - ANIM.sent[ch] < ANIM_SEND) return;
+  ANIM.sent[ch] = now;
+  // (its time at this moment, so a late word is still right: at is the relay's time)
+  const it = STU.items.get(m.id), T = animNow(), d = { at: Math.round(T), a: [m.id, +(it && ANIM_C[ch].can(it) ? animAt(it, m, ch) : m.t).toFixed(3), m.p ? 1 : 0] };
+  if (ch === 'path') d.c = 'p';
+  try { HOST.collab.effect('anim', d, true); } catch (e) { /* not in a room now */ }
 }
-// each frame: this device's hold let go where it no longer applies, else told now and then
+// each frame: this device's holds let go where they no longer apply, else told now and then
 function animStep2() {
-  const m = ANIM.mine;
-  if (m) {
-    const it = STU.items.get(m.id);
-    if (!it || !editOn() || STU.sel !== m.id || !it.action || !(it.dur > 0) || it.rec.anim === 'off' || it.animKey !== m.key) animFree(!it ? 'gone' : !editOn() ? 'edit' : STU.sel !== m.id ? 'sel' : 'clip');
-    else animSend();
+  for (const ch of ANIM_CHS) {
+    const m = mineOf(ch);
+    if (!m) continue;
+    const it = STU.items.get(m.id), C = ANIM_C[ch];
+    const why = !it ? 'gone' : !editOn() ? 'edit' : STU.sel !== m.id ? 'sel' : ch === 'path' && REC ? 'rec' : !C.can(it) || C.key(it) !== m.key ? ch : '';
+    if (why) animFree(why, ch); else animSend(ch);
   }
   animCardStep();
 }
-// a word from another device at the circle (studioEffect): its hold, or its end
+// whether a word heard says what the hold kept says already (the same holder, playing or not alike, at the same moment
+// within 30 ms): told a few times a second, it is kept as it was, so a path's voice is not started again each time
+function animSame(id, ch, H, t, at) {
+  const it = STU.items.get(id), C = ANIM_C[ch];
+  if (!it || !C.can(it)) return false;
+  const d = C.dur(it), e = animWrap(it, H.p ? H.t + (at - H.at) / 1000 : H.t, ch) - animWrap(it, t, ch);
+  return Math.abs(C.loop(it) ? e - d * Math.round(e / d) : e) < 0.03;
+}
+// a word from another device at the circle (studioEffect): its hold, or its end (c: 'p', a recorded path's)
 function animHeard(d, by) {
   if (!d || !Array.isArray(d.a) || !okId(d.a[0])) return;
-  const id = d.a[0], was = ANIM.heard.get(id);
-  if (d.end) { if (!was || was.by === by) ANIM.heard.delete(id); return; }
+  const id = d.a[0], ch = d.c === 'p' ? 'path' : 'clip', k = heardKey(id, ch), was = ANIM.heard.get(k), now = performance.now();
+  if (d.end) { if (!was || was.by === by) ANIM.heard.delete(k); return; }
   if (!fin(d.a[1]) || !fin(d.at)) return;
-  if (was && was.by !== by && was.at > d.at && performance.now() - was.got < ANIM_FRESH) return;   // (an older word from another holder)
-  ANIM.heard.set(id, { t: +d.a[1], p: !!d.a[2], at: +d.at, by, got: performance.now() });
+  const t = +d.a[1], p = !!d.a[2], at = +d.at, fresh = was && now - was.got < ANIM_FRESH;
+  if (fresh && was.by !== by && was.last > at) return;   // (an older word from another holder)
+  if (fresh && was.by === by && was.p === p && animSame(id, ch, was, t, at)) { was.got = now; was.last = at; return; }
+  ANIM.heard.set(k, { t, p, at, by, got: now, last: at, n: ++ANIM.n, ch });
 }
-// the card's buttons (page and headset): Play / Pause, Start, a second back and on, The scene's clock; a page's slider
-const ANIM_ACT = {
-  'an:play': () => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it), !(H ? H.p : true)); },
-  'an:start': () => { const it = STU.items.get(STU.sel); if (animCan(it)) animSet(it, 0, false); },
-  // (a second back or on: round a Loop, held at the ends of Once, as animSet's animWrap keeps it)
-  'an:step': v => { const it = STU.items.get(STU.sel); if (!animCan(it)) return; const H = animHold(it); animSet(it, animTime(it) + (+v || 0), H ? H.p : false); },
-  'an:free': () => animFree('button'),
-};
-// the page's slider (tenths of a second): the clip held there, playing on if it was
-function animSeek(v, done) {
-  const it = STU.items.get(STU.sel);
-  if (!animCan(it)) return;
-  const H = ANIM.mine && ANIM.mine.id === it.id ? ANIM.mine : null;
-  ANIM.drag = !done;
-  animSet(it, Math.min(Math.max(0, v / 10), it.dur - 1e-4), H ? H.p : false, !done);
+// the card's buttons (page and headset): Play / Pause, Start, a second back and on, The scene's clock (an: the clip's, ap:
+// the path's)
+const animSel = () => STU.items.get(STU.sel);
+function animActs(ch) {
+  const P = ANIM_C[ch].act;
+  return {
+    [P + 'play']: () => { const it = animSel(); if (!animCan(it, ch)) return; const H = animHold(it, ch); animSet(it, animTime(it, ch), !(H ? H.p : true), false, ch); },
+    [P + 'start']: () => { const it = animSel(); if (animCan(it, ch)) animSet(it, 0, false, false, ch); },
+    // (a second back or on: round a Loop, held at the ends of Once, as animSet's animWrap keeps it)
+    [P + 'step']: v => { const it = animSel(); if (!animCan(it, ch)) return; const H = animHold(it, ch); animSet(it, animTime(it, ch) + (+v || 0), H ? H.p : false, false, ch); },
+    [P + 'free']: () => animFree('button', ch),
+  };
+}
+const ANIM_ACT = Object.assign(animActs('clip'), animActs('path'));
+// the page's slider (tenths of a second): held there, playing on if it was
+function animSeek(v, done, ch = 'clip') {
+  const it = animSel();
+  if (!animCan(it, ch)) return;
+  const m = mineOf(ch), H = m && m.id === it.id ? m : null;
+  ANIM.drag = done ? '' : ch;
+  animSet(it, Math.min(Math.max(0, v / 10), ANIM_C[ch].dur(it) - 1e-4), H ? H.p : false, !done, ch);
+}
+// a headset's bar pointed at and dragged (f: 0 at its start, 1 at its end): held there, paused, for everyone at the circle;
+// let go, it stays held there (its last place told within a quarter of a second, animStep2)
+function animScrub(ch, f) {
+  const it = animSel();
+  if (!animCan(it, ch)) return;
+  const d = ANIM_C[ch].dur(it);
+  animSet(it, Math.min(Math.max(0, f), 1) * d, false, true, ch);
 }
 const animTxt = (t, d) => `${t.toFixed(1)} s of ${d.toFixed(1)} s`;
-// the rows, after the Animation rows of an object's card
-function animBlocks(it, B) {
-  if (!animCan(it)) return;
-  const H = animHold(it), mine = !!(ANIM.mine && ANIM.mine.id === it.id), t = animTime(it), room = atStation(), p = H ? H.p : true;
-  const who = !H ? (it.rec.start === 'shown' ? 'from when it was shown' : room ? 'on the scene\'s clock, the same for everyone here' : 'on the scene\'s clock')
+// the rows of a channel's timeline (after an object's Animation rows: clip; after the Recorded path rows: path)
+function animBlocks(it, B, ch = 'clip') {
+  if (!animCan(it, ch)) return;
+  const C = ANIM_C[ch], P = C.act, d = C.dur(it), H = animHold(it, ch), m = mineOf(ch), mine = !!(m && m.id === it.id), t = animTime(it, ch), room = atStation(), p = H ? H.p : true;
+  const unheld = ch === 'path' ? (pathOf(it).start === 'shown' ? 'from when it was shown' : pathOf(it).play === 'once' && it.again != null ? 'from Start again' : null) : it.rec.start === 'shown' ? 'from when it was shown' : null;
+  const who = !H ? (unheld || (room ? 'on the scene\'s clock, the same for everyone here' : 'on the scene\'s clock'))
     : mine ? (room ? 'held by you, for everyone at this circle' : 'held here') : 'held by someone else at this circle';
-  B.push({ label: 'Timeline: ' + animTxt(t, it.dur), row: [
-    { id: 'an:play', label: p ? 'Pause' : 'Play', act: 'an:play', on: !!H && !H.p },
-    { id: 'an:start', label: 'Start', act: 'an:start' },
-    { id: 'an:back', label: '−1 s', act: 'an:step', v: -1 },
-    { id: 'an:on', label: '+1 s', act: 'an:step', v: 1 },
-    { id: 'an:free', label: 'The scene\'s clock', act: 'an:free', on: !H, dis: !mine },
-  ] });
-  B.push({ page: true, range: { id: 'stuRangeAnim', act: 'an:seek', v: '', min: 0, max: Math.max(1, Math.round(it.dur * 10)), step: 1, value: Math.round(t * 10), out: t.toFixed(1) + ' s', fmt: 's', aria: 'Where the animation is, in seconds' } });
+  const row = [
+    { id: P + 'play', label: p ? 'Pause' : 'Play', act: P + 'play', on: !!H && !H.p },
+    { id: P + 'start', label: 'Start', act: P + 'start' },
+    { id: P + 'back', label: '−1 s', act: P + 'step', v: -1 },
+    { id: P + 'on', label: '+1 s', act: P + 'step', v: 1 },
+    { id: P + 'free', label: 'The scene\'s clock', act: P + 'free', on: !H, dis: !mine },
+  ];
+  // (a page's label follows the time, animCardStep; a headset's says how it plays, its bar the time: drawn again only as
+  // that changes, the bar's strip on its own, e9_panels.js)
+  B.push({ page: true, label: 'Timeline: ' + animTxt(t, d), row },
+    { xr: true, label: `Timeline (${d.toFixed(1)} s): ` + (!H ? 'playing' : (H.p ? 'held, playing' : 'held, paused') + (mine ? '' : ' by someone else')), row },
+    { xr: true, bar: { id: C.bar, ch } });
+  B.push({ page: true, range: { id: C.range, act: P + 'seek', v: '', min: 0, max: Math.max(1, Math.round(d * 10)), step: 1, value: Math.round(t * 10), out: t.toFixed(1) + ' s', fmt: 's', aria: `Where the ${C.what} is, in seconds` } });
   // (the line under it on a page only: a headset's card keeps its place and size rows in sight)
-  B.push({ page: true, p: 'It plays ' + who + '. Pause, a slider or a step holds it there ' + (room ? 'for everyone at this circle' : 'here') + ' while it stays selected and editing is on; then it goes back to playing as before.', c: 'faint' });
+  const what = ch === 'path' ? (H ? 'Its recorded path is ' : 'Its recorded path plays ') : 'It plays ';
+  B.push({ page: true, p: what + who + '. Pause, the slider or a step holds it there ' + (room ? 'for everyone at this circle' : 'here') + ' while it stays selected and editing is on; then it goes back to playing as before.' + (ch === 'path' && pathOf(it).play === 'bounce' ? ' Back and forth: there and back is one cycle.' : ''), c: 'faint' });
 }
-// a page's card: the time and the slider follow the clip every frame (the pane is not drawn again for that), unless the
+// a page's card: each timeline's time and slider follow it every frame (the pane is not drawn again for that), unless its
 // slider is being moved
 function animCardStep() {
   if (XR.on || APP.mode !== 'explore') return;
-  const s = document.getElementById('stuRangeAnim');
-  if (!s) return;
   const it = STU.items.get(STU.sel);
-  if (!animCan(it)) return;
-  const t = animTime(it), o = s.parentNode && s.parentNode.querySelector('[data-range-out]');
-  if (!ANIM.drag) s.value = Math.round(t * 10);
-  if (o) o.textContent = t.toFixed(1) + ' s';
-  const l = s.closest('.stu-range') && s.closest('.stu-range').previousElementSibling;
-  const tl = l && l.previousElementSibling && l.previousElementSibling.classList.contains('stu-l') ? l.previousElementSibling : null;
-  if (tl && /^Timeline: /.test(tl.textContent)) tl.textContent = 'Timeline: ' + animTxt(t, it.dur);
+  for (const ch of ANIM_CHS) {
+    const s = document.getElementById(ANIM_C[ch].range);
+    if (!s || !animCan(it, ch)) continue;
+    const t = animTime(it, ch), o = s.parentNode && s.parentNode.querySelector('[data-range-out]');
+    if (ANIM.drag !== ch) s.value = Math.round(t * 10);
+    if (o) o.textContent = t.toFixed(1) + ' s';
+    const l = s.closest('.stu-range') && s.closest('.stu-range').previousElementSibling;
+    const tl = l && l.previousElementSibling && l.previousElementSibling.classList.contains('stu-l') ? l.previousElementSibling : null;
+    if (tl && /^Timeline: /.test(tl.textContent)) tl.textContent = 'Timeline: ' + animTxt(t, ANIM_C[ch].dur(it));
+  }
 }
-// what the panes follow: the page's (who holds it, playing or not; the time goes in by animCardStep), the headset's (its
-// card drawn again every half second while the timeline shows)
+// what the panes follow: who holds each timeline and whether it plays (the page's time goes in by animCardStep, the
+// headset's bar by its own strip, drawBar)
 function animSig(xr) {
-  if (!xr && ANIM.drag) return ANIM.sigPage;   // (the slider held: the pane stays as it is under the hand)
   const it = STU.items.get(STU.sel);
-  if (!animCan(it)) { if (!xr) ANIM.drag = false; return (xr ? '' : (ANIM.sigPage = '')); }
-  const H = animHold(it), s = [H ? (ANIM.mine && ANIM.mine.id === it.id ? 'm' : 'h') + +H.p : '-', xr ? Math.floor(animTime(it) * 2) : ''].join('');
+  if (!xr && ANIM.drag && !animCan(it, ANIM.drag)) ANIM.drag = '';   // (its timeline gone from under the hand)
+  if (!xr && ANIM.drag) return ANIM.sigPage;   // (a slider held: the pane stays as it is under the hand)
+  const s = ANIM_CHS.map(ch => { if (!animCan(it, ch)) return ''; const H = animHold(it, ch), m = mineOf(ch); return ch[0] + (H ? (m && m.id === it.id ? 'm' : 'h') + +H.p : '-'); }).join('');
   if (!xr) ANIM.sigPage = s;
   return s;
 }
-const animState = () => ({ mine: ANIM.mine && Object.assign({}, ANIM.mine), heard: Object.fromEntries([...ANIM.heard].map(([k, v]) => [k, Object.assign({}, v)])) });
+// what a headset's bar shows now (null: nothing to show): its time, length, whether it is held, plays, is this device's
+function animBar(ch) {
+  const it = STU.items.get(STU.sel);
+  if (!animCan(it, ch)) return null;
+  const H = animHold(it, ch), m = mineOf(ch);
+  return { t: animTime(it, ch), d: ANIM_C[ch].dur(it), held: !!H, p: H ? H.p : true, mine: !!(m && m.id === it.id) };
+}
+const animState = () => ({ mine: ANIM.mine && Object.assign({}, ANIM.mine), mineP: ANIM.mineP && Object.assign({}, ANIM.mineP), heard: Object.fromEntries([...ANIM.heard].map(([k, v]) => [k, Object.assign({}, v)])) });
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -25473,10 +25554,9 @@ function itemBlocks(it, B, ed) {
     if (!canAdd('g') && !dis && countOf('g') >= LIMITS.g) B.push({ p: `The scene has ${LIMITS.g} groups: the most it can hold.`, c: 'amber' });
   }
   holdBlocks(it, B, mv);
-  lockBlocks(it, B, dis);   // (Lock in place: e6d_shapes.js)
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') || (m === 'scale' && recording(it)) })) });
-  B.splice(1, 0, ...lockTop(it));   // (what holds it in place, at the card's top)
+  B.splice(1, 0, ...lockTop(it), ...lockBlocks(it, dis));   // (at the card's top, under its heading: what holds it in place, then Lock in place; e6d_shapes.js)
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -25512,11 +25592,10 @@ function groupBlocks(g, B, dis, ed) {
   const why = ed ? groupDupWhy(g) : '';
   if (why && ms.length) B.push({ p: why, c: 'amber' });
   holdBlocks(g, B, mv || !ms.length);
-  lockBlocks(g, B, dis);
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || !!why || !canAdd('g') }, { id: 'ungroup', label: 'Ungroup', act: 'i:ungroup', dis: dis || !!g.rec.locked }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] },
     { p: 'Ungroup: the group goes, its members stay. Delete: every member goes with it.', c: 'faint' });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, w]) => ({ id: 'tc:' + m, label: w, act: 'tc', v: m, on: X.tcMode === m, dis: mv })) });
-  B.splice(1, 0, ...lockTop(g));
+  B.splice(1, 0, ...lockTop(g), ...lockBlocks(g, dis));
 }
 // ---- an object's tint and brightness (v125; a group's objects all at once): None or a swatch (the shapes' ten), on a page
 // any colour too; Darker and Brighter (×0.8, ×1.25, 25 % to 400 %) and Reset; one Undo step each, never refused by a lock
@@ -27640,6 +27719,7 @@ const LITE_ACT = {
 const LITE_RANGE = {
   'ft:set': (v, _, done) => { if (editOn()) ftSet(v / 100, done); },
   'an:seek': (v, _, done) => animSeek(v, done),   // (a selected model's timeline: e6m_anim.js)
+  'ap:seek': (v, _, done) => animSeek(v, done, 'path'),   // (a recorded path's timeline: the same, its own hold)
   'up:keep': (v, ri, done) => { const r = UP.rows[+ri]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) { r.keep = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100)); if (done) upChanged(); } },
   // (every model row still to make, as it moves: their own sliders follow on the page at once)
   'up:keepall': (v, _, done) => {
@@ -29721,16 +29801,18 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
+// redraw only when what the panel shows has changed (texture uploads are not free); a timeline's bar (drawBar) moves on
+// its own strip, not the whole card
 function panelTick(P, now) {
   const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
+  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
+  if (now - P.t < 60) return;
   P.last = s; P.t = now;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = [];
+  P.regions = []; P.bars = [];
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
@@ -30061,6 +30143,17 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + 8;
   }
+  // a timeline's bar (e6m_anim.js): pointed at and pressed or dragged with the trigger, it holds the timeline there, paused,
+  // for everyone at the circle (animScrub); while it shows in full, its strip is drawn again on its own as it moves
+  if (b.bar) {
+    const bh = drawBar(ctx, P, b.bar, x, y, W, dry);
+    if (!dry && bh && inView(y, BAR.h)) {
+      const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ch = b.bar.ch, S = animBar(ch);
+      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => animScrub(ch, (px - x0) / (x1 - x0)) });
+      P.bars = (P.bars || []).concat({ x, y, w: W, ch, id: b.bar.id, q: barQ(S), at: 0 });
+    }
+    return bh;
+  }
   let h = 0;
   if (b.label) { ctx.font = vfont(20, 700); if (!dry && y > top && y + 28 < bottom) { ctx.fillStyle = VC.muted; ctx.fillText(b.label, x, y); } h += 32; }
   if (b.row) {
@@ -30193,6 +30286,75 @@ function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
     if (g.ticks) { toggles(g.ticks, g.v, cx + 8, ty - 4, tw, CARD.tagTicks - 8, 16); ty += CARD.tagTicks; }
   }
   if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
+}
+// ---- a timeline's bar on a headset's card (v128; the owner, 9 November 2026: "i could not see a timeline", in a headset,
+// of a 1.3 s clip; and "please add timeline and play pause also for recorded items"): a track the card's width, the part
+// played filled (cyan; amber while held paused), the playhead with its time over it (ringed while held), ticks at whole
+// seconds while it is short (and tenths up to 3 s), its ends' times under it
+const BAR = { h: 100, pad: 24 };
+const barQ = S => (S ? Math.round(S.t * 10) + (S.held ? 'h' : '-') + +S.p : '');
+function drawBar(ctx, P, b, x, y, W, dry) {
+  const S = animBar(b.ch);
+  if (!S) return 0;
+  if (dry) return BAR.h + 14;
+  const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ty = y + 50, d = S.d, xp = x0 + (x1 - x0) * (d > 0 ? clamp(S.t / d, 0, 1) : 0);
+  const col = S.held && !S.p ? VC.amber : VC.cyan, at = s => x0 + (x1 - x0) * s / d;
+  rr(ctx, x0, ty - 5, x1 - x0, 10, 5); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
+  if (xp - x0 >= 10) { rr(ctx, x0, ty - 5, xp - x0, 10, 5); ctx.fillStyle = col; ctx.fill(); }
+  ctx.fillStyle = 'rgba(160,178,202,0.6)';
+  if (d <= 3) for (let k = 1; k < d * 10 - 1e-6; k++) if (k % 10) ctx.fillRect(at(k / 10) - 0.5, ty - 8, 1, 16);
+  const st = d <= 30 ? 1 : d <= 300 ? 10 : 60;
+  for (let s = st; s < d - 1e-6; s += st) ctx.fillRect(at(s) - 1, ty - 15, 2, 30);
+  ctx.beginPath(); ctx.arc(xp, ty, P.hover === b.id ? 18 : 15, 0, 7); ctx.fillStyle = col; ctx.fill();
+  if (S.held) { ctx.lineWidth = 3; ctx.strokeStyle = VC.ink; ctx.stroke(); }
+  if (S.held && !S.p) { ctx.fillStyle = '#04131c'; ctx.fillRect(xp - 5, ty - 6, 3, 12); ctx.fillRect(xp + 2, ty - 6, 3, 12); }
+  ctx.font = vfont(22, 700); ctx.fillStyle = col;
+  const tt = S.t.toFixed(1) + ' s', tw = ctx.measureText(tt).width;
+  ctx.fillText(tt, clamp(xp - tw / 2, x, x + W - tw), y + 2);
+  ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.fillText('0 s', x0 - 6, ty + 24);
+  ctx.textAlign = 'right'; ctx.fillText(d.toFixed(1) + ' s', x1 + 6, ty + 24); ctx.textAlign = 'left';
+  return BAR.h + 14;
+}
+// every frame the card is not drawn again: each bar shown in full drawn again on its strip when its tenth of a second (or
+// its hold) has changed, at most ten times a second (on a small canvas of its own, BARCV, put on the card's in its place
+// and sent to the texture as it is: the card's canvas is never read back); its timeline gone, the whole card again
+let BARCV = null;
+function barsTick(P, now) {
+  if (now - (P.tb || 0) < 95) return;
+  const ctx = P.ctx;
+  for (const b of P.bars) {
+    const S = animBar(b.ch), q = barQ(S);
+    if (q === b.q) continue;
+    P.tb = now; b.q = q;
+    if (!S) { P.last = ''; return; }
+    const rx = Math.max(0, Math.floor(b.x - 6)), ry = Math.max(0, Math.floor(b.y - 2)), rw = Math.min(P.w - rx, Math.ceil(b.w + 12)), rh = Math.min(P.h - ry, BAR.h + 4);
+    const cv = BARCV = BARCV || document.createElement('canvas');
+    if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+    c.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)'; c.fillRect(0, 0, rw, rh);
+    c.setTransform(1, 0, 0, 1, -rx, -ry);
+    drawBar(c, P, b, b.x, b.y, b.w, false);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+    panelPatch(P, cv, rx, ry);
+  }
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card (a bar's strip ten times a second: some 400 KB, not the card's 4.9 MB). A texture
+// not on the GPU yet, or with the whole card still to go there, takes it as it goes; one without WebGL2 (a mipmapped
+// texture of any size) is sent whole
+function panelPatch(P, cv, x, y) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+  } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
