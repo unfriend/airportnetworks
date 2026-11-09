@@ -35,3 +35,6 @@ tools/topo/shots/
 
 # the owner's own scenes, linked in for local checks only (never committed)
 tools/studio/test/local
+
+# Python bytecode (tools/trackers/bridge.py, the data generators)
+__pycache__/

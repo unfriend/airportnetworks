@@ -15,6 +15,9 @@ and where to read on.
 | record a narration | [docs/narration.md](docs/narration.md) (the words and times), [audio/PUT-narration.mp3-HERE.txt](audio/PUT-narration.mp3-HERE.txt); a synthetic voice: [tools/voice/README.md](tools/voice/README.md) |
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
+| run the studio, its scenes and uploads | [tools/studio/README.md](tools/studio/README.md), [relay/README.md](relay/README.md) (scenes, R2, the upload page) |
+| set up the PC with the Vive trackers and the Index | [tools/trackers/README.md](tools/trackers/README.md), [tools/trackers/SPEC.md](tools/trackers/SPEC.md), [relay/README.md](relay/README.md) ("The PC's Vive trackers") |
+| release (and write the *What is new* box) | [docs/setup-and-release.md](docs/setup-and-release.md); `whatsnew.json` is rewritten by hand at every release |
 
 ## The sixteen stories
 
@@ -43,6 +46,59 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **At the handover (9 November 2026): where each branch is and what comes next.**
+  - *The branches.* `main` is networks-v121 (`5524684`, released on 7 November): what visitors get at
+    https://stories.lbi-netmed.com/ (GitHub Pages) and what the main site's relay runs (https://main.lab.lbi-netmed.com/).
+    `dev` is networks-v126 (`f150cb3`, FORMAT networks-38): the test place, https://stories.lab.lbi-netmed.com/, which
+    Coolify deploys on every push to `dev`. Between them are v122 to v126 (the entries below). The AI agents' working
+    branch, `claude/trusting-hypatia-ca5qv0`, is the same commit as `dev`. Nothing is half done on any branch.
+  - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123) and checked that Android's screen
+    recorder films camera mode's AR. Nothing else of v123 to v126 has been tried on a headset, a phone or the trackers'
+    PC. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v126 and what of v125 is still untried.
+  - *Before `main` moves again* (the release flow, `docs/setup-and-release.md` section 4):
+    1. Try `dev` on the devices (a Quest, an Android phone, the Windows PC with SteamVR and the trackers:
+       `tools/trackers/README.md`).
+    2. Run the full suites, none of which has run on v124, v125 or v126: the smoke test, `node tools/audio.mjs` (sound
+       changed in v124), `node relay/test.mjs`, `node tools/collab.mjs` (about a quarter of an hour, more with the new
+       rounds), `node tools/live.mjs` (the release script changed) and `node tools/update.mjs` against v121 (`sw.js`'s
+       rules changed: `whatsnew.json` passes through); also `node tools/studio/test-ik.mjs` and
+       `node tools/studio/test-images.mjs`.
+    3. Settle the known failure: `node tools/collab.mjs --studio` failed its tint step in two runs ("no device got the
+       tint"), while the smoke test's own tint steps pass. Not diagnosed: a test's timing or a real bug in how a tint
+       reaches the other devices (`applyTint` and `tintMat` in `tools/studio/engine/` read correctly).
+    4. Look at the touch-emulation blocks of the smoke test (`--only phones`, `--only 'focus mode'`, the occlusion
+       steps on a pretend phone): since v125 a pretend phone's AR request also asks for `dom-overlay`, which a test that
+       checks the exact list of features would trip over (a review's note).
+    5. Then bump nothing (v126 is released on `dev`): fast-forward `main` to `dev` and push (`git push origin
+       dev:main`). That also redeploys the main site's relay on Coolify. `FORMAT` goes from networks-35 to networks-38,
+       so a page still on v121 is asked to reload and cannot share a room with a v126 device until it has.
+  - *Open points the reviews found and nobody fixed* (none blocks a release; each is a few hours or less):
+    - The Index lined up by the trackers (`trkEstimate` in `shared.js`): the trackers' samples carry the time the
+      bridge read them, the head its predicted pose for the display; with the stillness gate at 0.5 m/s a slow drift
+      could pair them 2 to 3 cm apart. Fix idea: a tighter gate (0.1 m/s, 0.3 rad/s) and a test with a fixed lag. How far
+      a tracker's pose origin lies from the Index's eye centre is unknown.
+    - Tracker names: the room's `trk` key is one value, so two pages naming different trackers at the same moment can
+      lose one name (the last writer wins).
+    - A take from a model in centimetres (an FBX): whether the converter scales the hips' place keys when it bakes the
+      model's scale is unchecked.
+    - The solver (`tools/studio/engine/ik.js`): with six trackers the upper arms' and forearms' twist can be up to 12
+      degrees off (only bends about the elbow and knee hinges are tested); `IK.calibrate` works the scale out from the
+      size the character has now (the studio calibrates again at its record's scale, so it holds there); the headset
+      alone with stepping legs (`'head'`) steps too often and is not offered (deferred: item 7 of "Decisions for the owner").
+    - From v125: a two-hand carry of a group while moving with the sticks in the studio may drift; the room-frame
+      block's Undo check in `collab --studio` may count a following sound; a take recorded on a page that draws in
+      software gets only a few keys a second.
+    - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run, the robots not
+      docking in the smoke test about one run in eight, "a circle made for one scene" in the studio round ("When the
+      tests run" below). What is untested on devices is listed in each entry below and, for v126, in `whatsnew.json`.
+  - *What the next person needs from the owner* (no passwords or keys are in the repository, and none should be):
+    access to the GitHub repository (`unfriend/airportnetworks`, a personal account), to the two Coolify resources
+    (the test place and the main site's relay: their `RELAY_ARGS`, `COLLAB_TOKEN` and `R2_*` settings), to the
+    Cloudflare R2 bucket and its keys, the two relays' passwords, the domain `lbi-netmed.com` and its `lab` names, the
+    authors' data files (kept by the owner; needed only to make a story's data again: `docs/data-and-permissions.md`,
+    "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
+    and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
+    "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
 - **networks-v126 (9 November 2026; FORMAT networks-38, shell 126), on `dev`: Vive trackers, phases 1 and 3.** The owner,
   8 November: "we go for 1 and 3 with mixamo rigs for now" (about 9 to 11 Vive Tracker 3.0, three base stations, a Windows
   PC with SteamVR and a Valve Index that also runs the relay). `tools/trackers/SPEC.md` is the contract,
@@ -81,7 +137,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     nothing; *Move the scene to this circle* for older layouts); recordings up to ten minutes as files of the scene
     (`recordings/`) and a voice recorded with the movement; cut-out boxes without their see-through fill (the frame rate
     while editing); ghosts for models their own clip moves; the trackers' solver (`engine/ik.js`, groundwork, not in the
-    build).
+    build; in the build since v126).
   - By hand at the merge: the studio's sticks move nothing while a path is recorded (the review's finding: the move would
     go into the path); a story's stick travel is taken back as the studio comes on show.
   - Tests (the policy of 7 November: the full suites before `main` only): each lane's own blocks passed (among them
@@ -1189,10 +1245,14 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Decisions for the owner
 
 Before handing over (or making anything more public), someone has to decide these; the docs mark each place with
-**TO FILL (owner)**.
+**TO FILL (owner)**. For a handover the first to fill are 1 (licence), 2 (the authors' permission) and 6 (who to ask).
 
 1. **Licence.** The project has no `LICENSE` file, so nobody else has the right to reuse it. Choose one, with the
-   Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md).
+   Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md). Where it stands
+   (November 2026): the owner is clarifying it with their employer. The proposal: MIT for the code, CC BY 4.0 for
+   the text and the narrations, each story's data under its own terms (the table in data-and-permissions); an employer
+   may hold the rights to software written at work (§ 40b of the Austrian copyright act, UrhG), so the holder's name
+   comes from that answer. Then add `LICENSE` and the notices.
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
    microanatomy, mutation machine (a draft poster), tissue topology (the authors' cohort data and code), soil (the
    slides and the field trial's data, unpublished: given through the owner on 29 October 2026; whether it may be public
@@ -1208,13 +1268,20 @@ Before handing over (or making anything more public), someone has to decide thes
    `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
    history cannot be undone for those who already fetched them: decide first. The checklist is in
    [docs/data-and-permissions.md](docs/data-and-permissions.md).
-5. **The live site**: GitHub Pages publishes `main` at the owner's custom domain, https://stories.lbi-netmed.com/ (the
+5. **The live site**. *As it is now (9 November 2026):* the main site is GitHub Pages from `main` at
+   https://stories.lbi-netmed.com/ (`lbi-netmed.com` is at Namecheap; the `CNAME` file stays). The owner's Coolify (on
+   Hetzner) runs two copies of the relay, both with `--proxy 1 --public --scenes r2`, a password and the R2 keys in
+   their environment: branch `dev` at https://stories.lab.lbi-netmed.com/ (the test place) and branch `main` at
+   https://main.lab.lbi-netmed.com/ (the main site's relay, offered there behind its password; its own `R2_PREFIX`).
+   Every name under `lab.lbi-netmed.com` points at that server with a wildcard certificate (a DNS challenge through
+   Hetzner); a domain changed in Coolify needs a redeploy. The history of how that was decided follows.
+   GitHub Pages publishes `main` at the owner's custom domain, https://stories.lbi-netmed.com/ (the
    `CNAME` file on main, 2 November 2026); https://unfriend.github.io/airportnetworks/ now redirects there (301). A new
    address starts empty in every browser and headset: install the app again there, and calibrate the headsets again. Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
    - **The relay on a public server** (the owner's Coolify, considered on 29 October 2026; the step-by-step guide is
      [relay/README.md](relay/README.md), "Public hosting on Coolify": a DNS name such as `rooms.lbi-netmed.com`,
      Dockerfile location `/relay/Dockerfile`, port 8787, the domain with HTTPS, `RELAY_ARGS="--proxy 1 --public"` in its
-     environment, 512 MB, auto deploy from `main`). It works wherever web pages do (eduroam, hotspots), serves the app
+     environment, 512 MB, auto deploy from the branch it serves). It works wherever web pages do (eduroam, hotspots), serves the app
      too, and peer to peer stays the fallback when it is down. **`--public`** (3 November 2026; a laptop at an event
      runs as before) lets only the app's pages (`https://stories.lbi-netmed.com` and the relay's own) open a socket or
      use the API and the introduction server, lists no open rooms and names nobody in any answer or log line (*Rooms on
@@ -1232,9 +1299,8 @@ Before handing over (or making anything more public), someone has to decide thes
      letters and digits), kept per relay in that browser; changing it means every device enters it again. Without
      `COLLAB_TOKEN` the relay is open as before (a laptop at an event). What matches asdf10k-collab-backend and what still
      differs (protocol, routes, persistence) is in `relay/README.md`, "Compared with asdf10k-collab-backend". With it, a
-     room's code alone no longer lets a stranger in; inside the relay's users the code still is the room's only key. Not
-     yet deployed: what only Coolify can show is listed at the end of the guide. Since v114 the test copy on GitHub Pages
-     uses it with no setup (`HOME_RELAY` in `shared.js`), and it can be the app's main server (below).
+     room's code alone no longer lets a stranger in; inside the relay's users the code still is the room's only key. Deployed
+     since v116 (the test place) and v120 (the main site's relay): see the start of this item.
    - **Free hosting instead** (the owner asked, 4 November 2026: "can we host the relay and its assets on free
      cloudflare workers and r2 or similar?"; researched with Cloudflare's and the other hosts' own pages that day, the
      numbers checked once more independently). Cloudflare's free plan could carry rooms (one Durable Object a room) and the
@@ -1251,8 +1317,9 @@ Before handing over (or making anything more public), someone has to decide thes
      Recommendation: keep Coolify, keep the laptop relay at events; later, only if the scenes outgrow its disk, the
      studio's files on R2 with the rooms on Node. Open for the owner: the university's view of data on Cloudflare (a US
      company), a card, and the busiest day's number of sessions.
-   - **Decided** (the owner, 5 November 2026): the main site stays on GitHub Pages from `main`, its rooms peer to peer
-     (no relay offered for now); the test place is branch `dev` on the owner's Coolify (Hetzner) at
+   - **Decided** (the owner, 5 November 2026; extended on 6 November, v120): the main site stays on GitHub Pages from
+     `main`, its rooms peer to peer unless a device enters the password of the main site's relay,
+     https://main.lab.lbi-netmed.com/ (`HOME_RELAY` in `shared.js`); the test place is branch `dev` on the owner's Coolify (Hetzner) at
      `stories.lab.lbi-netmed.com`, deployed by a webhook, with the studio's scenes in R2 (built in v114, `--scenes r2`).
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
@@ -1271,7 +1338,10 @@ Before handing over (or making anything more public), someone has to decide thes
      recorder records Chrome's AR with the camera image); (e) a trigger cube that changes a texture (idea 3, no
      crossfade). On a page the owner's question whether Sound should bring the narration too was left open: it does, as
      before (one press);
-   - **Ideas under discussion** (the owner, 8 November 2026; estimates given that day): 2 and 3 are being built in v124;
+   - **The ideas of 8 November 2026: built, but for one part.** (1) Vive trackers with Mixamo rigs: v126; (2) camera
+     mode: v124; (3) a trigger cube that changes a texture: v124 (a crossfade would add about 2 hours); (4) uploading
+     from Google Drive: skipped for now. Still open: a character worn with a headset and controllers alone (below). The
+     estimates as given that day, kept for the record: 2 and 3 were built in v124;
      1 was on the maybe list, then (the same day, with 9 to 11 Vive Tracker 3.0, three base stations, a Valve Index and a
      Windows PC with SteamVR) "we go for 1 and 3 with mixamo rigs for now, 2 and 4 we can save up for maybe later": the
      plan is `tools/trackers/SPEC.md` (the solver from v125, the rest in v126); 4 is skipped for now. Deferred within it (the
@@ -1307,7 +1377,12 @@ Before handing over (or making anything more public), someone has to decide thes
      setup) and Google's own scripts, loaded only when pressed (an exception to the rule of no external scripts). An
      institution's Google Workspace may need its admin to allow the app. About 3 to 4 hours, 1 to 1.5M tokens. An
      import on the relay from a share link (big files straight into R2) would add about 2 to 3 hours;
-   - whether to add a voice assistant;
+   - **a voice assistant** (not started; estimated on 29 October 2026): Claude through the owner's API key, with a
+     small bridge on a laptop that does speech to text locally and speaks the answers with Kokoro (as the narrations
+     are made). Phase 1, ask and hear (a question about the story on show, answered aloud): about 6 to 8 hours and 3 to
+     4M tokens. Phase 2, Claude acts on the scene (picks, explore controls, a circle): about 3 to 4 hours and 1.5 to 2M
+     more. The microphone inside a Quest session is untested (the studio's voice recorder, v125, asks for it on the 2D
+     page first);
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
    - **German for every story** (on hold, the owner, 29 October 2026: keep it low for now). The stories' text in German
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
@@ -1332,7 +1407,10 @@ Before handing over (or making anything more public), someone has to decide thes
      bump, tests with a local example circle. Office scale: "Add a circle here" where you stand and an office-sized
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
      passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
-   - **occlusion by the real world** (the owner, 4 November 2026: "i would really like to work with the real rooms
+   - **occlusion by the real world**: steps 2 and 4 below were built in v119 (the room's geometry and live depth, on by
+     default in AR, each headset's own setting: AGENTS.md "Real-world occlusion"; untested on a Quest in the app).
+     Still open: step 3, the studio's *Real room* look (about 2 to 3 hours). As planned (the owner, 4 November 2026:
+     "i would really like to work with the real rooms
      geometry as well as have people and object oclusions from the real world"; the plan agreed the same day, its first
      step, the test page `room-test/`, built in v112). What a Quest gives a web page: the room from Space Setup (walls,
      floor, ceiling, furniture boxes, a rough mesh; the app already asks for it in AR and the robots use it; it does not
@@ -1527,9 +1605,14 @@ Before handing over (or making anything more public), someone has to decide thes
 
 ## How work is done
 
-- One working branch; `main` is what visitors get. Main moves forward only after the smoke, update, relay and
-  shared-room tests pass (`git push origin HEAD:main`, a fast-forward), then the branch is pushed too. No force pushes
-  to main. The full checklist, rollback included, is in [docs/setup-and-release.md](docs/setup-and-release.md).
+- One working branch, pushed to `dev` first (a fast-forward) after the cheap checks only: `node --check` on the
+  changed files, the builds' `--check` and `node tools/release.mjs --check`. A push to `dev` redeploys the test place,
+  https://stories.lab.lbi-netmed.com/. The owner tries it there; then the full suites run, and only when they pass does
+  `main` move (`git push origin HEAD:main`, a fast-forward; the owner, 7 November 2026: "only running when pushing
+  to main makes sense for now"). `main` is what visitors get (GitHub Pages) and also redeploys the main site's relay.
+  No force pushes, no pull requests so far. Each release: bump `VERSION` in `sw.js`, rewrite `whatsnew.json` by hand,
+  run `node tools/release.mjs`, commit both. The full checklist, rollback included, is in
+  [docs/setup-and-release.md](docs/setup-and-release.md).
 - After any change to app files, bump `VERSION` in `sw.js`, or installed copies and headsets keep the old files.
   Bump `FORMAT` in `shared.js` when a story's shared state changes shape.
 - The story files are large (`stories/airports.js` is about 640 KB with its data): search them, never read them whole.
@@ -1577,6 +1660,33 @@ be rediscovered), and every story is checked by the same tests. For agents, AGEN
 to keep the cost down: a new story built economically took about 3M tokens (cheaper models for reviews and checks,
 one review round); building the tour with the strongest model throughout took about 16M.
 
+- **Without an agent** nothing changes: every step is a script (the builds, `node --check`, `node tools/release.mjs`,
+  the suites in [docs/setup-and-release.md](docs/setup-and-release.md)).
+- **With one**, start it in the repository: it reads `CLAUDE.md`, which takes in `AGENTS.md`. How the last rounds were
+  run (v109 to v126): a written spec or brief first; builders in parallel lanes, each in a git worktree of its own on
+  the strongest model; one review per lane on a cheaper model, one fix round only where a review found something
+  serious; then one integrator merging the lanes, writing the docs and releasing to `dev`. The agents' working branch
+  was `claude/trusting-hypatia-ca5qv0` (the same as `dev` at the handover; a new person can start a branch of their
+  own). Rules the agents kept: no model ids in commits or code, no pull requests unless asked, no history rewritten,
+  the `logs-*` branches left alone, never a password or key in chat, a link, a log or the repository, and never the
+  authors' files or the owner's own scenes in the repository.
+- **What an agent cannot judge**: anything on a headset, a phone or the trackers' PC, and how anything sounds. It must
+  report those as untested; the owner tries them (developer mode's *What is new* lists them for each release).
+- **The machine**: the cloud machines had 4 CPUs, and headless Chromium draws in software, so the full shared-room
+  run takes long and fails more often when other tests run beside it: run the suites one at a time.
+
 ## Map of the repository
 
-See the Files table in [README.md](README.md) and "Layout" in [AGENTS.md](AGENTS.md).
+The Files table in [README.md](README.md) and "Layout" in [AGENTS.md](AGENTS.md) list everything. In short:
+
+- The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `occlusion.js`, `sw.js`.
+- `stories/`: one file a story; all but `airports.js`, `proteins.js` and `spatial.js` are built from `tools/<key>/`.
+  `stories/list.js` is written by hand.
+- `tools/`: each built story's sources and build; `tools/studio/` (the studio, its test scenes), `tools/trackers/`
+  (the bridge and the fake), `tools/voice/` (the narrations), `tools/lowpoly/` (the miniatures); the test scripts.
+- `relay/`: the server (rooms, scenes, R2, trackers), its tests and Dockerfile.
+- `docs/`, `audio/` (the narrations), `room-test/` and `p2p/` (test pages).
+- Generated, never edited by hand: the built `stories/<key>.js`, `lowpoly.js`, `version.json`, `docs/narration.md`.
+  Written by hand at every release: `whatsnew.json`.
+- Outside the repository on purpose: the authors' data files, the voice models, the owner's own studio scenes (in R2,
+  or `tools/studio/test/local/`, which git ignores) and the relay's logs.

@@ -208,7 +208,10 @@ not name an address; but anyone who knows an address can work out its id, so it 
 **The project has no licence.** There is no `LICENSE` file, and GitHub reports none, so nobody else has a clear right
 to reuse, copy or change the code. **TO FILL (owner):** choose a licence (with the Institute if it owns the work), add
 `LICENSE` at the root and mention it in `README.md` and `README.txt`. The data in the stories keeps its own terms
-whatever licence the code gets, so the content may need a different licence from the code.
+whatever licence the code gets, so the content may need a different licence from the code. Where it stands (November
+2026): the owner is clarifying it with their employer. The proposal is MIT for the code, CC BY 4.0 for the text and
+the narrations, and each story's data under its own terms (below); an employer may hold the rights to software written
+at work (§ 40b of the Austrian copyright act, UrhG), so the holder named in `LICENSE` comes from that answer.
 
 Third-party material:
 
