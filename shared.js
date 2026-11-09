@@ -3725,7 +3725,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4122,13 +4122,14 @@
       button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
       y += 76;
       // moving with the sticks in VR (HOST.xr.walk: this headset's own, never the room's; a stick clicked twice too),
-      // greyed where it does not apply (AR, a shared room, a page with its own stick walk), saying why
+      // greyed where it does not apply (AR, a shared room, a page with its own stick walk), saying why; a page that
+      // switches its sticks with it (the studio) says what it does there (sticks.note)
       if (HOST.xr.setWalk) {
-        const wo = HOST.xr.walk(), wy = HOST.xr.walkWhy();
+        const wo = HOST.xr.walk(), wy = HOST.xr.walkWhy(), pg = HOST.cur && HOST.cur.sticks;
         button(S, 'walk', x, y, w, 60, wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wy ? WALK_WHY[wy] || '' : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 2) + 14;
+        y += wrapText(ctx, wy ? WALK_WHY[wy] || '' : pg && pg.note ? String(pg.note) : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {
@@ -5306,7 +5307,10 @@
     HOST.xr.setWalk(on);
     log('walk', { on, by: 'stick' });
     sfx(on ? 'toggleOn' : 'toggleOff', null);
-    notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn. Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
+    // (a page that switches its sticks with it, the studio, says which it is in its own words: sticks.say)
+    const pg = HOST.cur && HOST.cur.sticks, w = pg && typeof pg.say === 'function' ? pg.say(on) : null;
+    if (Array.isArray(w)) notice(String(w[0] || ''), String(w[1] || ''), 3500);
+    else notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn. Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
     changed();
   }
   function sticks() {

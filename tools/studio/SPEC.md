@@ -414,6 +414,20 @@ In a headset (editing on):
 - In VR (not passthrough) the left stick walks you through the scene and the right stick turns you 30 degrees a flick,
   while nothing is carried (`XR.lifeOff` style: the scene moves, not the rig; per device, reset by Recenter; never
   written to the room). In AR you walk for real.
+- Two stick modes (v125; the owner, 8 November 2026: "i want stick movement in studio mode too, just make it switchable
+  with the double stick click so that i can switch between the two modes of stick operation in studio mode"). A stick
+  clicked twice (the shell's moving with the sticks, `HOST.xr.walk`, the same setting as in every story, VR only) switches
+  between the studio's own sticks above (walk and turn with nothing carried, steer what is carried, scroll the pane under
+  the ray) and moving you: the left stick along the floor where the head faces (1.5 m/s at full push, a dead zone of
+  0.2, the push's square), the right stick 30 degrees about the head a flick past 0.6 (again once back under 0.3),
+  wherever the ray is and also while something is carried, which stays in the hand and so comes along (and turns with
+  you); the sticks steer nothing then. The studio moves you itself (`stickMove`, every controller before any carry in
+  `xrBegin`, so a carried item is placed on the scene as it now stands): `XR.walk`, as its own walk, so the panels stay
+  with you in both modes, and the same at a station in a shared room (your presence is where you really stand). It says
+  so to the shell with `sticks: { say(on), note }` in its returned object (`HOST.xr.walkSelf()`: the shell's travel is
+  never stepped here); the notice (*Sticks: moving you* / *Sticks: the studio's*), the menu row's note, the card's line
+  under *Carry it* and the foot panel's hint say which. Switching keeps `XR.walk` (no jump); Recenter takes it back, at a
+  station too. Untested on a headset.
 - In AR objects stand on the real floor: outside a room the floor is the session's `local-floor` (its height in the
   renderer's `local` space from `frame.getPose`), not a guess 1.6 m under the eyes; at a station the room's floor.
 

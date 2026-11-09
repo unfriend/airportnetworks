@@ -72,8 +72,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   shared-room hooks, see "Shared rooms"; `caption`: its line on show, for the
   headset's subtitles; `recenter`: its Recenter, for the headset's menu; `panels`: its two headset panels, for the
   menu's Story tab; optionally `lobby`, called as this headset goes to a Back to the lobby circle: the studio's; and
-  `ownSticks: true` where the page walks you with its own sticks, so the shell's moving with the sticks leaves it alone:
-  the studio's).
+  `sticks: { say(on), note }` where the page switches its sticks with the shell's moving with the sticks and moves you
+  itself while it is on: the studio's, v125; `ownSticks: true`, for a page whose own stick walk the setting must leave
+  alone, is said by none since then).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -545,9 +546,13 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     0.4 s have passed with no second click of that stick) or the menu's *Moving with the sticks* row (Settings, under
     Moving and Subtitles). It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
     shared room (`HOST.collab.joined`: the room's frame and the others' view of you need where you really stand) and
-    while the story on show does not move you itself (the studio's own stick walk: `ownSticks: true` in its returned
-    object); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`, `'none'`, `'session'`; `''` it applies), and
-    there a double click says so in a notice and the menu's row is greyed with the reason under it. The left stick
+    while the story on show does not move you itself (`ownSticks: true` in its returned object, which no page says since
+    v125); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`, `'none'`, `'session'`; `''` it applies), and
+    there a double click says so in a notice and the menu's row is greyed with the reason under it. A page that switches
+    its sticks with it (`sticks: { say(on), note }` in its returned object; the studio, "The studio's two stick modes"
+    below) has it apply in VR in a shared room too and moves you itself while it applies (`HOST.xr.walkSelf()`: the
+    shell's travel stays as it is, never stepped, so the two never fight); `say(on)` gives the double click's notice and
+    `note` the menu row's line in its own words. The left stick
     moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's
     square past it), the right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back
     under 0.3). A controller whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps
@@ -565,6 +570,22 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `xrWalking()` is true (the same line in every story). `HOST.xr.travel()` (`{ space, x, z, yaw }`) and `walkReset()`
     are for tests. Untested on a headset: how it feels on a Quest (comfort, the speed, the turn), and an anchor placed
     while moved (made at the moved coordinates in the real room, so the next session finds it elsewhere).
+  - The studio's two stick modes (v125; the owner, 8 November 2026: "i want stick movement in studio mode too, just make
+    it switchable with the double stick click so that i can switch between the two modes of stick operation in studio
+    mode"). The same setting (`xrWalk`), not one of the studio's own: a double click then does the obvious thing
+    everywhere (on: the sticks move you, in the studio as in every story; off: each page's own sticks, which in the
+    studio are its walk, turn and steer), and the menu has one row for it. Off, the studio's own sticks as before (its
+    VR walk and 30 degree turns with nothing carried, steering a carried item, scrolling the pane under the ray). On, in
+    VR, the sticks move you by the shell's numbers wherever the ray is (the pane scrolls by Up and More) and also while
+    something is carried: it stays in the hand and comes along (carry something far across the scene, turned with you),
+    the sticks no longer steering it. The studio moves you itself (`stickMove` in `tools/studio/engine/e8_xr.js`, before
+    any carry each frame): its scene moves (`XR.walk`, as its own walk does), so its panels stay with you as in its own
+    mode, and the same in a shared room, where the others see you where you really stand (your presence is your real
+    head; the shell's travel is never used in the studio). Switching keeps where you are (`XR.walk` stays); Recenter takes
+    it back, at a station too. The notice says *Sticks: moving you* or *Sticks: the studio's*, as do the menu row's note,
+    the item card's line under *Carry it* and the foot panel's hint. AR: you walk for real; the double click says *Not in
+    AR*. Untested on a headset: switching on a Quest, carrying something far while moving, how a carried item turned
+    with you feels.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with
@@ -2655,8 +2676,9 @@ reference, `tools/flock/engine/`):
   `const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());` (the shell moves this headset with the
   sticks in VR: "Moving with the sticks" under "Four headset settings"); in `xrPoint` the explore view's spin and zoom by
   the stick waits on it, `if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking())`, while a carried scene's
-  reach by its stick in `carry` does not (its grip is held, so the shell leaves that stick to the story). The studio, with
-  its own stick walk, says `ownSticks: true` in its returned object. No story reads A or X (`buttons[4]`) since v125.
+  reach by its stick in `carry` does not (its grip is held, so the shell leaves that stick to the story). The studio
+  switches its own sticks with it and moves you itself while it is on (`sticks: { say(on), note }` in its returned
+  object: "The studio's two stick modes"). No story reads A or X (`buttons[4]`) since v125.
 - The All stories circle's lines (v104), after `xrAway`:
   `const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());` and
   `const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());`; `xrSig` ends with
@@ -4293,8 +4315,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   so the sticks never reach it; nothing scrolls the panel meanwhile. A line on the headset's card under *Carry it* says
   it. In VR, while nothing is carried, the left stick
   walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
-  rig; per device, reset by Recenter, never written to the room; so the studio says `ownSticks: true` and the shell's
-  moving with the sticks, v125, leaves it alone); in AR you walk for real, and objects stand on the real
+  rig; per device, reset by Recenter, at a station too, never written to the room). These are the studio's own sticks: a
+  stick clicked twice (the shell's moving with the sticks, the same setting as in every story, VR only) switches them to
+  moving you, also while something is carried, which comes along in the hand, and back (v125, `stickMove`, by the
+  shell's numbers, the scene moving as with its own walk, in a shared room too; the notice, the menu row's note and the
+  card's line under *Carry it* say which: "The studio's two stick modes" under "Four headset settings"); in AR you walk
+  for real, and objects stand on the real
   floor (the session's `local-floor`, its height in the renderer's space from `frame.getPose`; at a station the room's).
   From the inside (v118; the owner, 5 November 2026: "models should be able to be touched/moved from the inside"): when
   the ray finds nothing at all and the controller is inside an object's unseen box (a room scan you stand in), that
@@ -4620,8 +4646,18 @@ explore mode the stick's spin and zoom left alone while it applies and working a
 the globe (`squeezestart`) its reach still following the stick with no moving, let go the stick moving you again; the
 menu's row on and pressed both ways; in AR, in a pretend shared room (`HOST.collab.joined`; the travel back to none) and
 with the story's `ownSticks`: the sticks moving nothing, two clicks saying why in a notice, the row greyed; the studio's
-`ownSticks: true`; `#walk=off` and `#walk=on`; the `xrWalking` line in every story and `STORY_EXTRA` page, every
-explore stick waiting on it, and no story reading `buttons[4]`.
+`sticks: { say, note }` and no `ownSticks`; `#walk=off` and `#walk=on`; the `xrWalking` line in every story and
+`STORY_EXTRA` page, every explore stick waiting on it, and no story reading `buttons[4]`. Then the studio's two stick
+modes, on its test scene with editing on, the pretend controllers pointing down, outside a room and again at a pretend
+studio station in a shared room (`HOST.collab.joined`, `live`, `HOST.room`'s `inRoom`, `away`, `placing`, `gripLocked`,
+`matrix` and `recenter`, and `HOST.anchor.frame` stubbed: the rig at the station's spot, the scene on the room's frame):
+the setting off, the row pressable there, the left stick walking 1.5 m through the scene (`XR.walk`) and the card's line
+*Sticks: the studio's*; two clicks to moving you (*Sticks: moving you*, nothing jumping, the card's line); the left stick
+1.5 m through the scene where the head faces and a flick right 30 degrees about the head, three.js's head and the
+shell's travel still; the box carried (the grip held): the left stick moving you 1.5 m all the same, the sticks steering
+nothing, the box staying in the hand (within 1 mm) and so 1.5 m through the scene, a flick turning it 30 degrees with
+you; two clicks back while carrying (*Sticks: the studio's*, nothing jumping), the right stick up pushing the box away
+again; Recenter taking the walk back (at the station the station's Recenter too); in AR two clicks saying *Not in AR*.
 
 Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
 nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories

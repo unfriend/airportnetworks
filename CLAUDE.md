@@ -104,8 +104,9 @@
   Moving with the sticks in VR (`HOST.xr.walk()`, v125) is the shell's too and
   each headset's own: the shell moves three.js's reference space, so stories
   never move `GL.rig` for it; their own stick use waits on `xrWalking()` (the same
-  line in all sixteen, the design room and the studio), and a page with a stick
-  walk of its own says `ownSticks: true` (the studio). No story reads A or X
+  line in all sixteen, the design room and the studio); the studio switches its
+  own sticks with it and moves you itself while it is on (`sticks` in its
+  returned object; "The studio's two stick modes" in `AGENTS.md`). No story reads A or X
   (`buttons[4]`): play and pause are on the panels and the menu's Story tab.
   How the signs read, how the free grip feels, how moving with the sticks feels
   and how the subtitles read and follow the head can only be checked on a

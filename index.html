@@ -1610,12 +1610,17 @@ HOST.xr = (function () {
 // This headset's own, never a room's and never in a story's state: walk() / setWalk(on), kept as xrWalk, off by default,
 // #walk=on|off in a link, a stick clicked twice (shared.js, sticks) or the menu's Settings row. walking() is true while it
 // applies now: a VR session (in AR you walk for real), outside a shared room (the room's frame and the others' view of you
-// need where you really stand) and with a story on show that does not move you itself (the studio's own stick walk:
-// ownSticks in its returned object); walkWhy() says why not ('ar', 'room', 'own', 'none': no XRRigidTransform, '' it
-// applies; 'session' outside one). The left stick moves you along the floor where your head faces (1.5 m/s at full push,
-// a dead zone of 0.2, the rate the push's square past it); the right stick turns you 30 degrees about your head on a
-// flick (again once it is back under 0.3). A controller whose grip is held keeps its stick for the story (a carried
-// scene's reach) and moves you not at all meanwhile. three.js r128 has no setReferenceSpace, so on every frame of the
+// need where you really stand) and with a story on show that does not move you itself (a page that walks you with its
+// own sticks says ownSticks: true in its returned object); walkWhy() says why not ('ar', 'room', 'own', 'none': no
+// XRRigidTransform, '' it applies; 'session' outside one). A page that switches its sticks with this setting says so with
+// sticks in its returned object ({ say(on), note }; the studio, v125: its own sticks while it is off, moving you while it
+// is on): it moves you itself while the setting applies (walkSelf()), by these numbers, also in a shared room (its scene
+// moves, as its own stick walk does, so the others see you where you really stand), so the shell's travel stays as it is
+// meanwhile; say(on) gives the double click's notice and note the menu row's line in the page's words. The left stick
+// moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's square
+// past it); the right stick turns you 30 degrees about your head on a flick (again once it is back under 0.3). A
+// controller whose grip is held keeps its stick for the story (a carried scene's reach) and moves you not at all
+// meanwhile. three.js r128 has no setReferenceSpace, so on every frame of the
 // session the shell answers three.js's questions in its reference space from one offset by the travel (getViewerPose,
 // getPose of an input source's ray or grip, getJointPose and fillPoses), as the frame's own methods put on that frame
 // object before any callback reads it (a Proxy fails WebXR's brand checks); the offset space is made again only when the
@@ -1631,16 +1636,21 @@ Object.assign(HOST.xr, (function () {
   const HOOKED = new WeakSet(), DRESSED = new WeakSet(), _q = new THREE.Quaternion(), _f = new THREE.Vector3();
   const ref = () => { try { return HOST.renderer ? HOST.renderer.xr.getReferenceSpace() : null; } catch (e) { return null; } };
   const inRoom = () => !!(HOST.collab && HOST.collab.joined);
+  // the page on show's word on its sticks (the studio's: it switches them with this setting and moves you itself), or null
+  const page = () => { const p = HOST.cur && HOST.cur.sticks; return p && typeof p === 'object' ? p : null; };
   function why() {
-    const s = HOST.session;
+    const s = HOST.session, pg = page();
     if (!s) return 'session';
     if (HOST.mode === 'immersive-ar' || (s.environmentBlendMode && s.environmentBlendMode !== 'opaque')) return 'ar';
+    if (pg) return '';   // (such a page moves you itself: its scene, in a shared room too; no travel needed)
     if (inRoom()) return 'room';
     if (HOST.cur && HOST.cur.ownSticks) return 'own';
     if (typeof XRRigidTransform !== 'function') return 'none';
     return '';
   }
   const walking = () => W.on && !why();
+  // the page on show moves you itself now (its sticks: the studio's): the shell's travel stays as it is
+  const self = () => walking() && !!page();
   function reset(r) {
     if (W.M.x || W.M.z || W.M.yaw) console.info('moving with the sticks: back where you stand (' + r + ')');
     W.M = { x: 0, z: 0, yaw: 0 }; W.space = null; W.dirty = false;
@@ -1681,7 +1691,7 @@ Object.assign(HOST.xr, (function () {
     if (r !== W.base) { W.base = r; W.dirty = true; }   // (a new reference space: the offset made again from it)
     if (inRoom()) { if (W.M.x || W.M.z || W.M.yaw) reset('a shared room'); return; }
     make();
-    if (!walking()) { W.was = false; return; }
+    if (!walking() || self()) { W.was = false; return; }   // (off, or the page on show moves you itself)
     if (!W.was) { W.was = true; W.flick = new WeakMap(); }   // (a stick turns you once it has been back at rest)
     let vp = null;
     try { vp = f.getViewerPose(r); } catch (e) { /* not this frame */ }
@@ -1748,7 +1758,7 @@ Object.assign(HOST.xr, (function () {
     watch(s) { hook(s); return watch0(s); },
     walk: () => W.on,
     setWalk(on) { W.on = !!on; try { localStorage.setItem('xrWalk', W.on ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
-    walking, walkWhy: why,
+    walking, walkWhy: why, walkSelf: self,
     // for tests: where the sticks have moved you ({ x, z, yaw }: three.js's space from the real one), and back to none
     travel: () => Object.assign({ space: !!W.space }, W.M),
     walkReset: () => reset('asked'),

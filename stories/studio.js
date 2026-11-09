@@ -23912,7 +23912,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it.' : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. P: pause what moves. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). ' + (stickMode() === 'move' ? 'Sticks: moving you (left: move, right: turn), also while you carry something; click a stick twice for the studio\'s.' : 'Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it; carrying something, the sticks steer it. Click a stick twice to move with them.') : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. P: pause what moves. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -24232,10 +24232,11 @@ function holdBlocks(it, B, dis) {
   const on = XR.hold === it.id;
   B.push({ xr: true, label: 'Carry it', row: [{ id: 'hold', label: on ? 'Now press a grip (again: cancel)' : 'Hold it', act: 'i:hold', on, dis }] },
     { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' },
-    // (the sticks while it is carried: holdSticks in e8_xr.js)
-    { xr: true, p: 'Carried, the sticks steer it: ' + (it.kind === 's' ? 'the left stick up or down sizes its reach (full volume within); the right stick up pushes it away, down pulls it in.'
-      : it.kind === 'e' ? 'left or right on either stick turns it; the right stick up pushes it away, down pulls it in.'
-      : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.'), c: 'faint' });
+    // (the sticks while it is carried: holdSticks in e8_xr.js; or, moving with the sticks, they move you: stickMove)
+    stickMode() === 'move' ? { xr: true, p: 'Sticks: moving you. Carried, it comes along as the left stick moves you and the right turns you. Click a stick twice for the studio\'s sticks, which steer it.', c: 'faint' }
+      : { xr: true, p: 'Sticks: the studio\'s. Carried, the sticks steer it: ' + (it.kind === 's' ? 'the left stick up or down sizes its reach (full volume within); the right stick up pushes it away, down pulls it in.'
+        : it.kind === 'e' ? 'left or right on either stick turns it; the right stick up pushes it away, down pulls it in.'
+        : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.') + (stickMode() === 'own' ? ' Click a stick twice to move with them instead.' : ''), c: 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
 // ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
@@ -24474,7 +24475,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -27169,9 +27170,11 @@ const vwState = () => ({ open: VW.open, kind: VW.src ? VW.src.kind : '', title: 
 // your hand (and turns with it, moving freely), both grips size an object or a cut-out, the grip on a selected cube's
 // or cut-out's corner stretches it; let go, it stays. While something is carried the sticks steer it (holdSticks): the
 // left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
-// stick walks you through the scene and the right stick turns you (the scene moves, not you). The grip on the panel
-// moves the panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's card,
-// e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
+// stick walks you through the scene and the right stick turns you (the scene moves, not you). Those are the studio's own
+// sticks; a stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
+// (the scene, by the shell's numbers), also while something is carried, which comes along in the hand (stickMove). The
+// grip on the panel moves the panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's
+// card, e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true, lost: false,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -27224,9 +27227,10 @@ function xrRoomBase(out) {
 }
 // Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
 // it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
-// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
+// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked), and
+// this headset's own stick walk goes back (XR.walk: you where you really stand in the scene again)
 function xrRecenterAsk() {
-  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter();
+  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) { XR.walk.x = XR.walk.z = XR.walk.yaw = 0; return HOST.room.recenter(); }
   if (HOST.anchor.on) HOST.anchor.again();
   XR.needRecenter = true;
   return true;
@@ -27574,7 +27578,7 @@ function groupGrab(c, g, q0) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'group' && k.grab.id === g.id);
   if (!o) groupHold(g);
   const B = g.base, P = GL.items.localToWorld(B.P.clone().add(g.T.t));
-  c.grab = { target: 'group', id: g.id, q0, o0: c.o.clone(), p0: P, reach: 1, th0: g.T.th, k0: g.T.k, kz: 1, sth: 0, at: 0, base: B };
+  c.grab = { target: 'group', id: g.id, q0, o0: c.o.clone(), p0: P, reach: 1, th0: g.T.th, k0: g.T.k, kz: 1, sth: 0, at: 0, base: B, wy0: XR.walk.yaw };
   select(g.id);
   buzz(c, 0.4, 25); sfxAct('grab', 'world', P.toArray());
 }
@@ -27591,7 +27595,7 @@ function groupLetGo(c, G) {
 function groupRegrip(c) {
   const G = c.grab, g = STU.items.get(G.id);
   if (!g || !g.base) return;
-  G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1; G.th0 = g.T.th; G.k0 = g.T.k; G.kz = 1; G.sth = 0;
+  G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.reach = 1; G.th0 = g.T.th; G.k0 = g.T.k; G.kz = 1; G.sth = 0; G.wy0 = XR.walk.yaw;
   G.p0.copy(GL.items.localToWorld(g.base.P.clone().add(g.T.t)));
 }
 // a hand that holds an item alone again (the other let go) carries on from where it is now
@@ -27682,6 +27686,7 @@ function holdStick(c, hand) {
 // once a frame, by the carrying hand: G.kz (its size since it took hold, held within lo and hi), G.sth (the turn) and
 // G.reach (the push)
 function holdSticks(c, G, dt, lo, hi) {
+  if (xrWalking()) return;   // (the sticks move you instead, and what is carried comes along: stickMove)
   const [lx, ly] = holdStick(c, 'left'), [rx, ry] = holdStick(c, 'right');
   if (ly) G.kz = clamp(G.kz * Math.exp(-ly * HOLD.grow * dt), Math.min(lo, 1), Math.max(hi, 1));
   G.sth += (lx + rx) * HOLD.turn * dt;
@@ -27772,7 +27777,9 @@ function carryGroup(c, dt) {
     if (_gv.length() > 30) _gv.setLength(30);
     _gv.applyQuaternion(_gq).add(c.o);
     T.t.copy(GL.items.worldToLocal(_gv)).sub(g.base.P);
-    T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y : 0) + G.sth;
+    // (moving freely it turns with the hand; the scene turned by the sticks meanwhile, stickMove, taken off again, so it
+    // stays as the hand holds it)
+    T.th = G.th0 + (XR.free ? _me.setFromQuaternion(_gq, 'YXZ').y - (XR.walk.yaw - (G.wy0 || 0)) : 0) + G.sth;
     T.k = G.k0 * G.kz;
   }
   const t = performance.now(), write = t - (g.wrote || 0) >= 100;
@@ -27804,11 +27811,12 @@ function stretchCut(c, G, it) {
 // a stick pushed up or down while its ray is on the studio's panel (its own, or its copy on the menu's Story tab) scrolls
 // the pane there when it is taller than the panel: up shows what is above. A dead zone, then faster the further it is
 // pushed, and faster still the longer it is held (from a third of the speed to all of it in 0.8 s); held at the ends as
-// Up and More are. Never while something is carried (the sticks steer it then: holdSticks)
+// Up and More are. Never while something is carried (the sticks steer it then: holdSticks), nor while the sticks move you
+// (moving with the sticks: they move you wherever the ray is; the pane's Up and More still scroll it)
 const SCROLL = { dz: 0.2, slow: 0.25, fast: 1.6, ramp: 0.8 };   // (speeds in the pane's heights a second)
 function stickScroll(c, gp, dt) {
   const h = c.hover, y = gp && gp.axes.length >= 4 ? gp.axes[3] : 0;
-  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.ctrls.some(steers) || XR.stories || APP.mode !== 'explore' || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
+  if (!h || h.kind !== 'panel' || h.P !== XR.main || c.grab || XR.ctrls.some(steers) || XR.stories || APP.mode !== 'explore' || xrWalking() || Math.abs(y) < SCROLL.dz) { c.scrollT = 0; return; }
   const tab = X.tab, max = X.scrollMax[tab] || 0, view = X.scrollView || 1000;
   if (!(max > 0)) { c.scrollT = 0; return; }
   c.scrollT = (c.scrollT || 0) + dt;
@@ -27822,9 +27830,10 @@ function stickScroll(c, gp, dt) {
 }
 // VR (not passthrough), nothing carried: the left stick walks you through the scene (it moves, not the rig), the right
 // stick turns you 30 degrees a flick, about where you stand. Not a stick whose ray is on the studio's panel (it scrolls
-// there: stickScroll); a turn held there waits for the stick to come back to the middle
+// there: stickScroll); a turn held there waits for the stick to come back to the middle. The studio's own sticks: not
+// while they move you (moving with the sticks: stickMove)
 function stickWalk(c, gp, dt) {
-  if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
+  if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || xrWalking() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
   const ax = gp.axes[2], ay = gp.axes[3], hand = c.src.handedness;
   if (c.hover && c.hover.kind === 'panel') { if (hand === 'right' && Math.abs(ax) >= 0.3) XR.turnArm = false; return; }
   if (hand === 'left') {
@@ -27847,6 +27856,51 @@ function stickWalk(c, gp, dt) {
     buzz(c, 0.2, 12);
   }
 }
+// Moving with the sticks (the shell's HOST.xr.walk, a stick clicked twice, the same setting as in every story; the owner,
+// 8 November 2026: "i want stick movement in studio mode too, just make it switchable with the double stick click so that
+// i can switch between the two modes of stick operation in studio mode"): in VR, on, the sticks move you, by the shell's
+// numbers, also while something is carried (it comes along in the hand: carry something far across the scene) and
+// wherever the ray is (the pane scrolls by its Up and More); the studio's own sticks rest meanwhile (xrWalking:
+// stickWalk, holdSticks, stickScroll). The studio moves you itself, as its own walk does (XR.walk: the scene moves, the
+// rig and its panels stay with you), in a shared room too (the shell's travel stays as it is: HOST.xr.walkSelf), so the
+// panels behave alike in both modes, in a room and out, and the others see you where you really stand: the left stick
+// along the floor where your head faces, 1.5 m/s at full push (a dead zone of 0.2, the rate the push's square past it),
+// the right stick 30 degrees about your head a flick past 0.6, again once it is back under 0.3. Switching either way
+// keeps where you are (XR.walk stays as it was; Recenter takes it back, as for the studio's own walk). AR: you walk for
+// real, and the studio's sticks steer and scroll (the shell refuses the double click there and says why)
+const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3 };
+const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
+// once a frame for each controller, before any carry (xrBegin), so what a hand carries is placed on the scene as it now
+// stands: true when it moved the scene
+function stickMove(c, dt) {
+  const gp = c.src && c.g.visible && c.src.gamepad;
+  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
+  const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0, hand = c.src.handedness;
+  if (hand === 'left') {
+    const m = Math.hypot(ax, ay);
+    if (m <= MOVE.dz || !dt) return false;
+    GL.rig.updateMatrixWorld(true);
+    _gh.set(0, 0, -1).applyQuaternion(XR.headQ).applyQuaternion(_gr.copy(GL.rig.quaternion).invert());
+    _gh.y = 0;
+    if (_gh.lengthSq() < 1e-8) _gh.set(0, 0, -1);   // (looking straight down or up: -z)
+    _gh.normalize();
+    const k = Math.min(1, (m - MOVE.dz) / (1 - MOVE.dz)), v = MOVE.speed * k * k * dt / m, fx = -ay * v, sx = ax * v;   // (forward and to the side)
+    XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
+    return true;
+  }
+  if (hand !== 'right') return false;
+  if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
+  if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
+  c.moveArm = false;
+  GL.rig.updateMatrixWorld(true);
+  const th = ax > 0 ? MOVE.turn : -MOVE.turn, h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
+  const dx = XR.walk.x - h.x, dz = XR.walk.z - h.z;
+  XR.walk.x = h.x + cs * dx + sn * dz; XR.walk.z = h.z - sn * dx + cs * dz; XR.walk.yaw += th;
+  return true;
+}
+// which the sticks are now, for the panels' lines: 'move' (they move you), 'own' (the studio's) or 'ar' (passthrough: you
+// walk for real; the studio's steer and scroll)
+const stickMode = () => (XR.on && !XR.clear ? 'ar' : xrWalking() ? 'move' : 'own');
 function xrPoint(c, dt) {
   const g = c.g;
   if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; xrLetGo(c); return; }   // (a controller gone lets go)
@@ -27933,6 +27987,10 @@ function xrBegin(frame, dt) {
       try { if ('fixedFoveation' in bl) bl.fixedFoveation = 0.5; } catch (e) { /* not supported */ }
     }
   }
+  // moving with the sticks (stickMove): the scene moved first, so a carried item is placed on it as it now stands
+  let moved = false;
+  for (const c of XR.ctrls) moved = stickMove(c, dt) || moved;
+  if (moved) xrPlace();
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
@@ -28757,9 +28815,9 @@ function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
 }
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
-const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: walk. Right stick: turn.' : '') : 'Pick a scene on the panel.')
+const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: ' + (stickMode() === 'move' ? 'move' : 'walk') + '. Right stick: turn.' : '') : 'Pick a scene on the panel.')
   : HOST.room && HOST.room.inRoom() && HOST.anchor.locked('globe') ? HOST.room.gripHint
-  : 'Trigger: select (pointing at nothing: none, or the model you stand in; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (XR.clear ? ' Sticks: walk, turn (on the panel: scroll).' : ' A stick on the panel scrolls it.'));
+  : 'Trigger: select (pointing at nothing: none, or the model you stand in; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (!XR.clear ? ' A stick on the panel scrolls it.' : stickMode() === 'move' ? ' Sticks: moving you, also carrying (click one twice: the studio\'s).' : ' Sticks: walk, turn (on the panel: scroll; carrying: steer).'));
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
     const playing = APP.playing, bx = 28, by = 40;
@@ -29209,8 +29267,15 @@ return {
   // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
-  // its own stick walk in VR (stickWalk, e8_xr.js): the shell's moving with the sticks (HOST.xr.walking) leaves it alone
-  ownSticks: true,
+  // the sticks (e8_xr.js): the studio's own (walk, turn, steer what you carry, scroll) while the shell's moving with the
+  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): the studio moves you itself
+  // (stickMove: its scene, as its own walk does), in a shared room too and while a grip is held (what is carried comes
+  // along in the hand); the shell gives the notice and the menu's line in these words
+  sticks: {
+    say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.']
+      : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click a stick twice to move with them.']),
+    note: 'Here, on: the sticks move you (in a shared room too), also while you carry something, which comes along. Off: the studio\'s own (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
+  },
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene's name and its items, one field each; one

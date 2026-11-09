@@ -594,9 +594,9 @@ function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
 }
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
-const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: walk. Right stick: turn.' : '') : 'Pick a scene on the panel.')
+const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: ' + (stickMode() === 'move' ? 'move' : 'walk') + '. Right stick: turn.' : '') : 'Pick a scene on the panel.')
   : HOST.room && HOST.room.inRoom() && HOST.anchor.locked('globe') ? HOST.room.gripHint
-  : 'Trigger: select (pointing at nothing: none, or the model you stand in; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (XR.clear ? ' Sticks: walk, turn (on the panel: scroll).' : ' A stick on the panel scrolls it.'));
+  : 'Trigger: select (pointing at nothing: none, or the model you stand in; a group\'s member: the group, again: the member). Grip: carry' + (XR.free ? ' and turn' : '') + '; both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it.' + (!XR.clear ? ' A stick on the panel scrolls it.' : stickMode() === 'move' ? ' Sticks: moving you, also carrying (click one twice: the studio\'s).' : ' Sticks: walk, turn (on the panel: scroll; carrying: steer).'));
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
     const playing = APP.playing, bx = 28, by = 40;
