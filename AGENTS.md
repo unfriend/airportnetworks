@@ -540,10 +540,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     maybe with sticks, switchable by double pressing a stick?"): an eighth setting, each headset's own, never the room's
     and never in `collab.state()` (`HOST.xr.walk()`, `setWalk(on)`, `xrWalk` in `localStorage`, off by default,
     `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by one stick clicked twice within 0.4 s
-    (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*; so a single click opens or closes the menu
-    only once 0.4 s have passed with no second click of that stick). Both clicks must be on the same stick: one click of
-    each within 0.4 s counts as one click, and opens or closes the menu. Or the menu's *Moving with the sticks* row (Settings, under
-    Moving and Subtitles). It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
+    (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*) or by the menu's *Moving with the sticks*
+    row (Settings, under Moving and Subtitles). Both clicks must be on the same stick: a click of each within 0.4 s (or
+    both at once) counts as one click, which opens or closes the menu; a single click acts only once 0.4 s have passed
+    with no second click of that stick. It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
     shared room (`HOST.collab.joined`: the room's frame and the others' view of you need where you really stand) and
     while the story on show does not move you itself (the studio's own stick walk: `ownSticks: true` in its returned
     object); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`, `'none'`, `'session'`; `''` it applies), and
@@ -552,8 +552,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     square past it), the right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back
     under 0.3). A controller whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps
     its stick for the story (a carried scene's reach) and moves you not at all meanwhile; the free hand's stick still
-    moves you while the other hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128 has no
-    `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
+    moves you while the other hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128
+    has no `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
     `HOST.session` is set, before three.js starts its loop) and, before any callback of a frame reads it, puts its own
     `getViewerPose`, `getPose` (for an input source's ray or grip, or a hand's joint), `getJointPose` and `fillPoses` on
     that frame object (instance-level: a Proxy fails WebXR's brand checks), each answering for three.js's reference

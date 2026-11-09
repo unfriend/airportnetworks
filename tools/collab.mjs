@@ -4662,8 +4662,10 @@ async function studioRound(dir) {
     const plain = `(() => { const ids = ${JSON.stringify(IDS)}, all = [...STU.items.values()];
       return ids.every(i => { const it = STU.items.get(i); return !!it && !it.gl && it.rec.motion === undefined && it.rec.path === undefined && it.rec.behaviour === undefined && (it.kind === 'c' || it.shown); }) &&
         !all.some(it => it.rec.locked || (it.kind === 'c' && it.rec.show.concat(it.rec.hide).some(i => ids.includes(i)))); })()`;
+    // (the headset's frames are the test's: stepped while it waits, so its items take the room's records, glide and show)
     const isPlain = [];
-    for (const p of [A, B, C, H]) isPlain.push(await sUntil(p, plain, 15000));
+    for (const p of [A, B, C]) isPlain.push(await sUntil(p, plain, 15000));
+    isPlain.push(await until(H, s => { window.__xr.step(); try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, plain, 15000));
     const S0 = { x: 1.6, z: -0.9, yaw: 0.7 };
     await B.evaluate(([id, to]) => HOST.collab.move(id, to), [sid, S0]);
     // where the headset draws each item, in room coordinates (a frame of its own, the renderer told it presents for it)
