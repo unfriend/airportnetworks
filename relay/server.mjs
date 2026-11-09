@@ -18,6 +18,9 @@
 //   R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=... node relay/server.mjs --scenes r2
 //                                   (the same, the scenes kept in a Cloudflare R2 bucket: relay/README.md, "Scenes in
 //                                   Cloudflare R2"; pages download and upload their files straight from and to it)
+//   node relay/server.mjs --lan --trackers   (on the Windows PC with SteamVR: the Vive trackers' poses from
+//                                   tools/trackers/bridge.py, on UDP 127.0.0.1:47800, sent to the rooms that use them in
+//                                   room coordinates; relay/trackers.mjs, tools/trackers/SPEC.md)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -32,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
   uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
+import { makeTrackers, TRK_PORT } from './trackers.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
@@ -43,7 +47,10 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   scenes: '', 'scenes-readonly': false, 'max-upload': 512, app: '', ffmpeg: '', 'no-ffmpeg': false, 'ffmpeg-limit': 180,
   // --scenes r2: the bucket's settings from the environment (R2_*); --r2-check: check them, the bucket's CORS and its
   // upload links, then stop
-  'r2-check': false };
+  'r2-check': false,
+  // --trackers [port]: the Vive trackers' bridge on UDP 127.0.0.1 (47800 when no port is given; 0 picks a free one);
+  // -1: off
+  trackers: -1 };
 // the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
 // command's flags and RELAY_ARGS over it
 {
@@ -83,6 +90,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --ffmpeg <path>  with --scenes: the ffmpeg that makes long sounds MP3 (found on the PATH by itself; --no-ffmpeg: none)
   --ffmpeg-limit <s>  one conversion may take this long (180)
   --app <url>      where /upload sends people when the relay does not serve the app (the --origin, else ${APP_ORIGIN}/)
+  --trackers [<port>]  the PC's Vive trackers: take tools/trackers/bridge.py's readings on UDP 127.0.0.1:<port> (${TRK_PORT};
+                   0 picks a free one), list them at /api/trackers and send them, lined up, to the rooms that use them
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
                    --logs only with a token, and --scenes only with a password
@@ -113,6 +122,7 @@ for (let i = 0; i < ARGV.length; i++) {
   if (name === 'help' || !(name in OPT) || name === ARGV[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
   if (name === 'watch') { const v = ARGV[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
   if (name === 'proxy') { const v = ARGV[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
+  if (name === 'trackers') { const v = ARGV[i + 1]; if (v !== undefined && /^\d+$/.test(v) && +v < 65536) { OPT.trackers = +v; i++; } else OPT.trackers = TRK_PORT; continue; }
   if (name === 'origin') { const v = ARGV[++i]; if (v === undefined) { console.log(HELP); process.exit(1); } OPT.origin.push(...v.split(',')); continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
   const v = ARGV[++i];
@@ -122,6 +132,8 @@ for (let i = 0; i < ARGV.length; i++) {
 if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); process.exit(1); }
 const TOKEN = String(OPT.token || '').trim();   // '' none: no password asked (as ever)
 const PEER = !OPT['no-peer'];
+// --trackers: the bridge's readings (relay/trackers.mjs); null: none of it (no socket, no endpoint, no @trk)
+const TRK = OPT.trackers >= 0 ? makeTrackers({ port: OPT.trackers, log: (...a) => log(...a) }) : null;
 
 // ---- a public server (--public; each rule also on its own). On a laptop at an event none of this is on: the relay
 // behaves as it always has (CORS for every origin, the open rooms listed with their people's names, no limits per address)
@@ -805,7 +817,7 @@ function api(req, res, url) {
   // (open, as asdf10k-collab-backend's: whether it runs, and how many rooms; nothing more)
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -814,6 +826,7 @@ function api(req, res, url) {
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
+  if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
     const who = LIM.guesses ? clientOf(req) : null;
     if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
@@ -823,6 +836,26 @@ function api(req, res, url) {
   }
   if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || p === '/api/health' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
+}
+// ---- the PC's Vive trackers (--trackers; relay/trackers.mjs, tools/trackers/SPEC.md): their readings raw in SteamVR's
+// space, and one tracker's position averaged while it lies still (the pages' Set spot A and Set spot B). Both answers
+// are 200 with ok true or ok false and why (the asking went right; the tracker did not)
+function trackersApi(req, res, url) {
+  if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+  if (url.pathname === '/api/trackers') return json(res, 200, { ok: true, trackers: TRK.list() });
+  const id = url.searchParams.get('id') || '', ms = url.searchParams.has('ms') ? Number(url.searchParams.get('ms')) : 1000;
+  if (!/^[\w.:-]{1,64}$/.test(id)) return json(res, 400, { error: 'id: a tracker\'s serial number is needed' });
+  if (!(ms >= 200 && ms <= 5000)) return json(res, 400, { error: 'ms: 200 to 5000' });
+  TRK.still(id, Math.round(ms)).then(r => { if (!res.destroyed) json(res, 200, r); }, err => { log('error', 'trackers still', err.message); if (!res.headersSent) json(res, 500, { error: 'internal error' }); });
+}
+// @trk to every member of a room: one frame for all, never to a socket that is closing or holds a backlog (a slow
+// headset: newer poses come anyway, and the socket is not cut for them)
+function trackersSend(room, msg) {
+  const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg)));
+  for (const m of room.members.values()) {
+    if (m.ws.closing || m.ws.socket.destroyed || m.ws.socket.writableLength > TRK.BACKLOG) { TRK.count.skipped++; continue; }
+    m.ws.write(buf);
+  }
 }
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
 function peerHttp(req, res, url) {
@@ -2082,6 +2115,15 @@ server.on('upgrade', upgrade);
 // instead, 2 minutes without a byte)
 if (SAVE) server.requestTimeout = 0;
 if (R2C) await r2Ready();   // (the bucket checked before anyone is let in)
+if (TRK) {   // (asked for: a port another program holds stops the start, as a named ffmpeg that does not run)
+  let at;
+  try { at = await TRK.listen(); } catch (err) {
+    console.log(`--trackers: cannot listen on UDP 127.0.0.1:${OPT.trackers} (${err.code || err.message}): is another relay running? (--trackers <port> takes another port; tell the bridge with --port)`);
+    process.exit(1);
+  }
+  TRK.attach(() => rooms.values(), trackersSend);
+  console.log(`Trackers: the bridge's readings on UDP 127.0.0.1:${at} (python tools/trackers/bridge.py${at === TRK_PORT ? '' : ' --port ' + at}, after SteamVR); rooms whose key trk is on and lined up get them`);
+}
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
@@ -2133,6 +2175,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     for (const res of [...W.clients, ...SW.clients]) res.end();
     for (const p of FF.procs) p.kill('SIGKILL');   // (a conversion under way: never left running on its own)
+    if (TRK) TRK.close();
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

@@ -489,7 +489,12 @@ room XYZ. A relay can have a password (COLLAB_TOKEN; relay/README.md): each
 device enters it once, in the Shared dialog or, in a headset, under the menu's
 Circles, Relay password (a keypad of lower-case letters and digits). The device
 keeps it for that relay; links and rooms never carry it. While a relay waits for
-its password, nothing starts or is joined anywhere else. Without a relay (none known, or none answers) a room runs peer to
+its password, nothing starts or is joined anywhere else. Vive trackers (v126): on
+a Windows PC with SteamVR, node relay/server.mjs --lan --trackers and python
+tools/trackers/bridge.py send every tracker's pose to the rooms on that relay
+that turn them on, lined up by hand on the two spots (the Shared dialog's
+Trackers); setting it up: tools/trackers/README.md (untested with real
+trackers). Without a relay (none known, or none answers) a room runs peer to
 peer: one page hosts it and the others link to it directly (PeerJS, vendored;
 its public introduction server and Cloudflare's STUN server introduce the
 devices, and they and the other devices see each device's IP address). The
@@ -734,7 +739,7 @@ version.json (the latest release: running copies pick up new and changed stories
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
-directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
+directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes; with --trackers it takes the PC's Vive trackers), tools/trackers/ (the trackers' bridge for SteamVR, a fake one for tests, and the plan), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
