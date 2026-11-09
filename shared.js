@@ -5442,7 +5442,9 @@
   function trkAlign() {
     if (IS_HEADSET || CAM.on || kind() !== 'vr' || !here()) return false;
     const held = R.src === 'trackers' && !!R.frame, E = trkUsed() ? trkEstimate() : null;
-    if (!E) return held;
+    // (the trackers see it, its samples not yet enough for a frame: lining up, not "Calibrate the room" meanwhile; a
+    // stream late by a moment, as from a page busy drawing, not taken for lost: trkGone's 3 s)
+    if (!E) { if (!held && !R.frame && !trkGone()) { setState('waiting'); return true; } return held; }
     const F = { o: E.o, x: [Math.cos(E.th), 0, -Math.sin(E.th)] }, K = trkKey();
     // (the room's spots where the trackers lay, drawn as the orange crosses: A at the origin on the floor, B along x)
     R.mk = K.m ? [0, r3(Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2])), r3(K.m.b[1] - K.m.a[1])] : null;
