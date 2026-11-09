@@ -104,6 +104,12 @@
 // panel's button) an override never written to the room; Off for all and On for all from a headset's menu dropping them;
 // an override kept through a new session, dropped in the lobby and on leaving; the welcome after lining up, asked first,
 // walked into, tracked hands, once a session, not while the guide shows, outside a room, never in camera mode);
+// --walk only moving with the sticks for a VR headset elsewhere in a room (walkRound, v128, also in the main run after the
+// narration round: a room of its own with an airports circle and Back to the lobby, a page and a pretend VR headset that
+// answers Somewhere else, its frames through the session's own requestAnimationFrame so the shell's hook moves three.js's
+// space: the left stick moves it, the page hears its head move as far, the room's frame and the circles stay put, no jump
+// and no calibrate; walked into a circle by the sticks, into Back to the lobby with the circles asked first; a flick a
+// turn; a headset in AR gets no travel; In this room takes it back; a minute or two);
 // --trackers only the PC's Vive trackers end to end (trackersRound, also in the main run after the studio's behaviours: a
 // relay of its own from port 8730 up with --trackers and --scenes on a copy of the test and puppet scenes, the fake bridge
 // with SteamVR's space turned and moved against the room, three pages and a pretend VR headset that is not a Quest's
@@ -341,6 +347,7 @@ const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviour
 const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
 const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
+const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
@@ -441,6 +448,9 @@ function installXR(o) {
   window.__handles = X.handles;   // saved anchors outlive a session, as on a headset
   const sp = name => ({ name, addEventListener(t, fn) { (X.resets[name] = X.resets[name] || []).push(fn); }, removeEventListener() {} });
   X.spaces = { local: sp('local'), 'local-floor': sp('local-floor'), shared: Object.assign(sp('shared'), { UUId: o.sharedId || '' }) };
+  // (o.walk: moving with the sticks, the walk round's: the local space makes offset spaces, as WebXR's do, its origin at the
+  // offset's pose in it: what the shell's hook answers three.js's questions from while the sticks have moved you)
+  if (o.walk) X.spaces.local.getOffsetReferenceSpace = T => { const m = new THREE.Matrix4().fromArray(T.matrix); return Object.defineProperty(sp('local-moved'), 'world', { get: () => X.W.local.clone().multiply(m) }); };
   // a phone (o.phone: camera mode's round): its viewer space is where its camera is (the head), aimed by X.look
   if (o.phone) X.spaces.viewer = Object.defineProperty(sp('viewer'), 'world', { get: () => X.W.head });
   const world = s => s.world || X.W[{ local: 'local', 'local-floor': 'floor', shared: 'shared' }[s.name]];
@@ -485,6 +495,16 @@ function installXR(o) {
     restorePersistentAnchor: u => (X.handles.has(u) ? Promise.resolve(mkAnchor(X.handles.get(u))) : Promise.reject(new Error('unknown'))),
     deletePersistentAnchor: u => { if (X.stuck) return Promise.reject(new DOMException('cannot delete', 'InvalidStateError')); X.handles.delete(u); return Promise.resolve(); },
     get persistentAnchors() { return [...X.handles.keys()]; } };
+  // (o.walk: two controllers with sticks, held a little in front of the head, as the shell's hook and its double clicks
+  // read them: X.stick(hand, x, y) pushes one, X.click(hand) presses and lets go its stick)
+  if (o.walk) {
+    const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
+    const held = dx => Object.defineProperty({}, 'world', { get: () => X.W.head.clone().multiply(M([dx, -0.4, -0.3, 0])) });
+    X.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: held(-0.2), gripSpace: held(-0.2), gamepad: pad() };
+    X.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: held(0.2), gripSpace: held(0.2), gamepad: pad() };
+    X.session.inputSources.push(X.L, X.R);
+    X.stick = (h, x, y) => { const a = X[h].gamepad.axes; a[2] = x; a[3] = y; };
+  }
   // (and a phone's session ends as a person ends it: Exit, camera mode's)
   if (o.phone) Object.assign(X.session, { domOverlayState: o.overlay === false ? undefined : { type: 'screen' }, end: () => { X.ended = (X.ended || 0) + 1; X.end(); return Promise.resolve(); },
     requestHitTestSource: q => (q && q.space === X.spaces.viewer ? Promise.resolve(X.hitSrc = { space: q.space, cancel() { if (X.hitSrc === this) X.hitSrc = null; } }) : Promise.reject(new Error('no such space'))) });
@@ -2151,6 +2171,152 @@ async function narrationRound() {
   } finally {
     for (const H of [H1, H2]) await H.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
     for (const p of [A, H1, H2]) await p.context().close();
+  }
+}
+
+// ---- moving with the sticks for a VR headset elsewhere in a room (walkRound, v128; --walk runs only it, also in the main
+// run after the narration round; the owner, 9 November 2026: "should also work in shared rooms everywhere when the user is
+// in vr and not in the same room"): a room of its own with an airports circle 3 m ahead of where the headset joins (its own
+// floor is the room's, centred where it stands, facing -z) and Back to the lobby 3.5 m beyond it, a page and a pretend VR
+// headset that answers Somewhere else, a minute or two. Its frames go through the session's own requestAnimationFrame, so
+// the shell's hook (index.html) moves three.js's space as on a headset (installXR's walk: an offset space, controllers with
+// sticks). It applies there (walkWhy ''); two stick clicks turn it on, saying the others see you move; the left stick moves
+// it (HOST.xr.travel) and its head in the room by as far, the page hearing the same in its presence (smoothed, within a few
+// cm once at rest); the room's frame (its own floor) and the circles drawn where they were in three.js's space; no jump of
+// the origin and no notice to calibrate, also through a 30 degree flick (its presence's heading turning 30 degrees); with
+// the circles walked into, the sticks take it into the airports circle (its station); with the circles asked first, on into
+// Back to the lobby (its station ends); a reset of the floor with its transform (a recentre) leaving it where it was in the
+// room; a second pretend headset in AR gets no travel from its sticks; the first answering In this room goes back to no
+// travel, its sticks moving nothing
+async function walkRound() {
+  const K = 'airports';
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { HOST.collab.add(k, { x: 0, z: -3, yaw: 0 }); HOST.collab.add('lobby', { x: 0, z: -6.5, yaw: 0 }); }, K);
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const [S1, SL] = await A.evaluate(k => [HOST.collab.stations().find(s => s.story === k), HOST.collab.stations().find(s => s.kind === 'lobby')], K);
+  const H = await open('#s=' + rc, { width: 320, height: 200 }), H2 = await open('#s=' + rc, { width: 320, height: 200 });
+  for (const P of [H, H2]) { await until(P, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(P, K); }
+  const hid = await H.evaluate(() => HOST.collab.id);
+  // what the headset knows of itself: the travel, why it applies or not, its head and heading in the room (R.hr, R.hyaw),
+  // the room's frame, its live station, the lobby circle's icon in three.js's space, the notices and log lines about
+  // jumps and calibrating
+  const ME = () => {
+    const R = HOST.room.internals(), o = HOST.collab.overlay().rings.get(HOST.collab.stations().find(s => s.kind === 'lobby').id);
+    if (o) o.g.updateWorldMatrix(true, false);
+    const L = window.__collabLog;
+    return { travel: HOST.xr.travel(), why: HOST.xr.walkWhy(), walking: HOST.xr.walking(), hr: R.hr.toArray(), hyaw: R.hyaw, src: HOST.room.src,
+      frame: HOST.room.frame && { o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice() }, live: HOST.collab.live() ? HOST.collab.live().id : '',
+      lobby: o ? o.g.getWorldPosition(new THREE.Vector3()).toArray() : null, jumps: L.filter(e => e.ev === 'origin moved').length,
+      calib: L.filter(e => e.ev === 'notice' && /Calibrate/.test(e.title || '')).length, state: HOST.room.state };
+  };
+  const me = P => P.evaluate(ME);
+  // the headset as the page hears it: its head in room coordinates, smoothed from its presence, and the station it says
+  const heard = () => A.evaluate(id => { const b = HOST.collab.body(id), P = HOST.collab.people().get(id); return { head: b && b.head, st: P ? P.st : null }; }, hid);
+  // a stick pushed for ms of frames, then let go and a few frames more
+  const push = async (P, hand, x, y, ms) => { await P.evaluate(([h, x, y]) => window.__xr.stick(h, x, y), [hand, x, y]); await frames(P, ms); await P.evaluate(h => window.__xr.stick(h, 0, 0), hand); await frames(P, 100); };
+  // the left stick held forward until its head is past z in the room (or 8 s)
+  const forwardTo = (P, z) => P.evaluate(async z => {
+    const X = window.__xr, R = HOST.room.internals(), t0 = performance.now();
+    X.stick('L', 0, -1);
+    while (R.hr.z > z && performance.now() - t0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 16)); }
+    X.stick('L', 0, 0); X.step();
+    return R.hr.z;
+  }, z);
+  // a stick clicked twice (two presses within 0.4 s, a frame each), then the last notice
+  const twice = P => P.evaluate(() => { const X = window.__xr, b = X.L.gamepad.buttons[3];
+    for (let k = 0; k < 2; k++) { b.pressed = true; X.step(); b.pressed = false; X.step(); }
+    const n = HOST.collab.notes().slice(-1)[0] || {}; return [n.title || '', n.text || ''].join(': '); });
+  const xz = v => [v[0], v[2]], d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  try {
+    // ---- a VR headset elsewhere: its own floor, the room's circles round it
+    await H.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0.3, 1.7, -0.2, 0.6], walk: true });
+    await H.evaluate(() => { HOST.collab.menuIdle(400); window.__xr.begin(); HOST.collab.setHere(false); });   // (Somewhere else)
+    await frames(H, 600);
+    await H.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.menuIdle(20000); });
+    const m0 = await me(H), w0 = await H.evaluate(() => [HOST.collab.here(), HOST.xr.walk()]);
+    const n0 = await twice(H), on0 = await H.evaluate(() => HOST.xr.walk());
+    const row0 = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__xr.step(); const r = HOST.collab.menuFind('walk'); HOST.collab.panelOpen(false); return r ? (r.fn ? 'on' : 'greyed') : 'none'; });
+    check('walk: a VR headset elsewhere in a room (Somewhere else) may move with the sticks: walkWhy \'\', no travel yet, its own floor; two clicks turn it on, saying the others see it move; the menu\'s row pressable',
+      m0.src === 'own' && w0[0] === false && !w0[1] && m0.why === '' && !m0.travel.space && on0 && n0 === 'Moving with the sticks: on: Left stick: move. Right stick: turn. The others see you move. Click a stick twice to stop.' && row0 === 'on',
+      JSON.stringify({ m0, w0, n0, on0, row0 }));
+    // ---- the left stick: the travel, its head in the room and the page hearing it, by as far; the circles stay put
+    const h0 = await heard();
+    await push(H, 'L', 0, -1, 700);
+    await frames(H, 500);
+    const m1 = await me(H), h1 = await heard();
+    const moved = Math.hypot(m1.travel.x - m0.travel.x, m1.travel.z - m0.travel.z), mine = d2(xz(m1.hr), xz(m0.hr)), theirs = h0.head && h1.head ? d2([h1.head[0], h1.head[2]], [h0.head[0], h0.head[2]]) : -1;
+    check('walk: the left stick moves it (HOST.xr.travel) and its head in the room by as far, towards -z where it faces; the page hears the same in its presence (smoothed, within a few cm once at rest)',
+      m1.walking && moved > 0.4 && Math.abs(mine - moved) < 0.01 && m1.hr[2] < m0.hr[2] - 0.4 && Math.abs(theirs - moved) < 0.05 && d2([h1.head[0], h1.head[2]], xz(m1.hr)) < 0.05,
+      JSON.stringify({ moved, mine, theirs, hr: [m0.hr, m1.hr], heard: [h0, h1] }));
+    check('walk: the room\'s frame (its own floor) and the circles stay where they were in three.js\'s space while it moves; no jump of the origin, no notice to calibrate',
+      m1.src === 'own' && near(m1.frame.o, m0.frame.o, 1e-9) && near(m1.frame.x, m0.frame.x, 1e-9) && !!m1.lobby && dist(m1.lobby, m0.lobby) < 1e-6 && !m1.jumps && !m1.calib,
+      JSON.stringify({ frame: [m0.frame, m1.frame], lobby: [m0.lobby, m1.lobby], jumps: m1.jumps, calib: m1.calib }));
+    // ---- a 30 degree flick right and back: its heading in the room and in its presence, no jump
+    await push(H, 'R', 0.9, 0, 120);
+    const m2 = await me(H);
+    await frames(H, 400);
+    const h2 = await heard(), yawOf = q => { const f = new Array(3); const [x, y, z, w] = q.slice(3); f[0] = -2 * (x * z + w * y); f[2] = -(1 - 2 * (x * x + y * y)); return Math.atan2(-f[0], -f[2]); };
+    const turn = angle(m2.hyaw, m1.hyaw), hTurn = h1.head && h2.head ? angle(yawOf(h2.head), yawOf(h1.head)) : -1;
+    await push(H, 'R', -0.9, 0, 120);
+    const m3 = await me(H);
+    check('walk: a flick of the right stick turns it 30 degrees about its head (in the room, and in what the page hears), no jump of the origin, no notice to calibrate, the room\'s frame unchanged',
+      Math.abs(turn - Math.PI / 6) < 0.01 && Math.abs(hTurn - Math.PI / 6) < 0.05 && d2(xz(m2.hr), xz(m1.hr)) < 0.01 && angle(m3.hyaw, m1.hyaw) < 0.01 && !m3.jumps && !m3.calib &&
+      near(m3.frame.o, m0.frame.o, 1e-9), JSON.stringify({ turn, hTurn, hr: [m1.hr, m2.hr], hyaw: [m1.hyaw, m2.hyaw, m3.hyaw], jumps: m3.jumps, calib: m3.calib }));
+    // ---- walked into: the sticks take it into the airports circle (its station, the page hearing it there)
+    await A.evaluate(() => HOST.collab.setAsk(false));
+    await until(H, () => { window.__xr.step(); return !HOST.collab.askFirst(); }, null, 8000);
+    const z1 = await forwardTo(H, S1.z + 0.3);
+    await frames(H, 1600);
+    const m4 = await me(H), st4 = await until(A, ([id, s]) => { const P = HOST.collab.people().get(id); return !!P && P.st === s; }, [hid, S1.id], 4000);
+    check('walk: with the circles walked into, the sticks take it into the airports circle: its station (the page hearing it there), the room\'s frame unchanged',
+      m4.live === S1.id && st4 && d2(xz(m4.hr), [S1.x, S1.z]) < 1.1 && near(m4.frame.o, m0.frame.o, 1e-9) && !m4.jumps && !m4.calib, JSON.stringify({ z1, m4, st4 }));
+    // ---- asked first: on into Back to the lobby (its station ends)
+    await A.evaluate(() => HOST.collab.setAsk(true));
+    await until(H, () => { window.__xr.step(); return HOST.collab.askFirst(); }, null, 8000);
+    const z2 = await forwardTo(H, SL.z + 0.3);
+    await frames(H, 1600);
+    const m5 = await me(H);
+    check('walk: with the circles asked first, the sticks take it on into Back to the lobby: its station ends', m5.live === '' && d2(xz(m5.hr), [SL.x, SL.z]) < 1.1 && !m5.jumps && !m5.calib,
+      JSON.stringify({ z2, m5, log: await H.evaluate(() => window.__collabLog.filter(e => /lobby|station|zone/.test(e.ev)).slice(-6)) }));
+    // ---- a recentre (the floor's reset with its transform): it stays where it was in the room
+    const m6a = await me(H);
+    // (the origins of local and local-floor both moved by G in the room, the head where it was; the reset as Quest Browser
+    // sends it for local-floor: old coordinates to new)
+    await H.evaluate(() => {
+      const X = window.__xr, G = new THREE.Matrix4().compose(new THREE.Vector3(0.7, 0, -0.4), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 1.1), new THREE.Vector3(1, 1, 1));
+      const old = X.W.floor.clone();
+      X.W.floor = G.clone().multiply(X.W.floor); X.W.local = G.clone().multiply(X.W.local);
+      const nfo = X.W.floor.clone().invert().multiply(old);
+      for (const fn of X.resets['local-floor'] || []) fn({ transform: { matrix: Float32Array.from(nfo.elements), inverse: { matrix: Float32Array.from(nfo.clone().invert().elements) } } });
+    });
+    await frames(H, 300);
+    const m6 = await me(H);
+    check('walk: a reset of the floor with its transform (a recentre) leaves it where it was in the room (the travel moved with the room\'s frame)',
+      d2(xz(m6.hr), xz(m6a.hr)) < 0.01 && angle(m6.hyaw, m6a.hyaw) < 0.01 && m6.src === 'own' && !m6.calib, JSON.stringify({ before: m6a.hr, after: m6.hr, hyaw: [m6a.hyaw, m6.hyaw], travel: [m6a.travel, m6.travel] }));
+    // ---- a second headset in the room with the others (AR): no travel from its sticks
+    await H2.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0], walk: true });
+    await H2.evaluate(() => { window.__xr.begin(); HOST.xr.setWalk(true); });
+    await frames(H2, 300);
+    await push(H2, 'L', 0, -1, 500);
+    await push(H2, 'R', 0.9, 0, 120);
+    const a2 = await H2.evaluate(() => [HOST.xr.walkWhy(), HOST.xr.walking(), HOST.xr.travel(), HOST.collab.here()]);
+    check('walk: a headset in AR (in the room with the others) gets no travel from its sticks (walkWhy ar)', a2[0] === 'ar' && !a2[1] && !a2[2].space && !a2[2].x && !a2[2].z && !a2[2].yaw && a2[3] === true, JSON.stringify(a2));
+    // ---- the first answering In this room: back to no travel, its sticks moving nothing, the row greyed with its words
+    await H.evaluate(() => HOST.collab.setHere(true));
+    await frames(H, 300);
+    const m7 = await me(H);
+    await push(H, 'L', 0, -1, 400);
+    const m8 = await me(H), n8 = await twice(H);
+    const row8 = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__xr.step(); const r = HOST.collab.menuFind('walk'); HOST.collab.panelOpen(false); return r ? (r.fn ? 'on' : 'greyed') : 'none'; });
+    check('walk: the headset answering In this room goes back to no travel, its sticks move nothing, two clicks say why, the menu\'s row greyed',
+      m7.why === 'room' && !m7.walking && !m7.travel.space && !m7.travel.x && !m7.travel.z && !m7.travel.yaw && !m8.travel.space && !m8.travel.x && !m8.travel.z &&
+      n8 === 'Moving with the sticks: Not while you are in the room with the others: there you walk for real.' && row8 === 'none', JSON.stringify({ m7: m7.travel, m8: m8.travel, why: m7.why, n8, row8 }));
+  } finally {
+    for (const P of [H, H2]) await P.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
+    for (const P of [A, H, H2]) await P.context().close().catch(() => {});
   }
 }
 
@@ -5911,6 +6077,7 @@ try {
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
   if (STANDBY_ONLY) { await standbyRound(); break main; }
   if (NARR_ONLY) { await narrationRound(); break main; }
+  if (WALK_ONLY) { await walkRound(); break main; }
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
@@ -8161,6 +8328,8 @@ try {
   await menusRound(shots);
   // --------------------------- the narration in headsets and the welcome (a room of its own) --
   await narrationRound();
+  // ----------------- moving with the sticks for a VR headset elsewhere in a room (a room of its own) --
+  await walkRound();
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -8261,8 +8430,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

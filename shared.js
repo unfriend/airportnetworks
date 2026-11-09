@@ -3734,7 +3734,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4131,14 +4131,15 @@
       button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
       y += 76;
       // moving with the sticks in VR (HOST.xr.walk: this headset's own, never the room's; a stick clicked twice too),
-      // greyed where it does not apply (AR, a shared room, a page with its own stick walk), saying why; a page that
-      // switches its sticks with it (the studio) says what it does there (sticks.note)
+      // greyed where it does not apply (AR, in a room with the others, a page with its own stick walk), saying why; a page
+      // that switches its sticks with it (the studio) says what it does there (sticks.note); a headset elsewhere in a room
+      // is told the others see it move
       if (HOST.xr.setWalk) {
         const wo = HOST.xr.walk(), wy = HOST.xr.walkWhy(), pg = HOST.cur && HOST.cur.sticks;
         button(S, 'walk', x, y, w, 60, wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wy ? WALK_WHY[wy] || '' : pg && pg.note ? String(pg.note) : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
+        y += wrapText(ctx, wy ? walkWords(wy) : pg && pg.note ? String(pg.note) : walkAway() ? 'Left stick: move. Right stick: turn. You are elsewhere, so it works in this room: the others see you move. Or click a stick twice. This headset\'s own.' : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {
@@ -5394,8 +5395,13 @@
     let vp = null;
     if (!IS_HEADSET && !CAM.on && kind() === 'vr' && trkHead()) try { vp = f.getViewerPose(local); } catch (e) { /* not in this frame */ }
     if (!vp) { if (F.hist.length) trkFresh(); return; }
-    const P = vp.transform.position, O = vp.transform.orientation, p = _tv.set(P.x, P.y, P.z).applyMatrix4(R.lfi), at = trkNow(), x = [p.x, p.y, p.z];
-    const d = _tv.set(0, 0, -1).applyQuaternion(_th.set(O.x, O.y, O.z, O.w)).transformDirection(R.lfi), yaw = Math.hypot(d.x, d.z) > 0.3 ? Math.atan2(-d.x, -d.z) : NaN;
+    // (the real head: a stick's move is not the head's, so a history kept while elsewhere stays good once in the room)
+    const P = vp.transform.position, O = vp.transform.orientation, p = _tv.set(P.x, P.y, P.z);
+    _th.set(O.x, O.y, O.z, O.w);
+    if (HOST.xr && typeof HOST.xr.toReal === 'function') HOST.xr.toReal(p, _th);
+    p.applyMatrix4(R.lfi);
+    const at = trkNow(), x = [p.x, p.y, p.z];
+    const d = _tv.set(0, 0, -1).applyQuaternion(_th).transformDirection(R.lfi), yaw = Math.hypot(d.x, d.z) > 0.3 ? Math.atan2(-d.x, -d.z) : NaN;
     const last = F.hist[F.hist.length - 1];
     if (last && at <= last.at) { last.p = x; last.yaw = yaw; return; }   // (the same moment: the newest pose)
     F.hist.push({ at, p: x, yaw });
@@ -5755,12 +5761,18 @@
   // presses of one controller's within BY.gap ms, a button held as its controller appears counting nothing
   const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 };
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
-  // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note
-  const WALK_WHY = { ar: 'Not in AR: there you walk for real.', room: 'Not in a shared room: the others need to see where you really stand.',
+  // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note. In a shared room
+  // it applies to a headset elsewhere (v128; the owner, 9 November 2026: "should also work in shared rooms everywhere when
+  // the user is in vr and not in the same room"): 'room' is a headset in the real room with the others, or in a room on
+  // this headset alone (its circles stand on your real floor)
+  const WALK_WHY = { ar: 'Not in AR: there you walk for real.', room: 'Not while you are in the room with the others: there you walk for real.',
     own: 'Not here: this page moves you with its own sticks.', none: 'This browser cannot move you.', session: 'Only in a VR session.' };
+  const walkWords = why => (why === 'room' && C.local ? 'Not in a room on this headset alone: its circles stand on your real floor, so you walk to them.' : WALK_WHY[why] || '');
+  // (it applies in a shared room: this headset is elsewhere, and the others see it move)
+  const walkAway = () => !!(C.code && !here());
   function walkPress() {
     const why = HOST.xr && HOST.xr.walkWhy ? HOST.xr.walkWhy() : 'none';
-    if (why) { log('walk refused', { why }); notice('Moving with the sticks', WALK_WHY[why] || '', 4000); return; }
+    if (why) { log('walk refused', { why }); notice('Moving with the sticks', walkWords(why), 4000); return; }
     const on = !HOST.xr.walk();
     HOST.xr.setWalk(on);
     log('walk', { on, by: 'stick' });
@@ -5768,7 +5780,7 @@
     // (a page that switches its sticks with it, the studio, says which it is in its own words: sticks.say)
     const pg = HOST.cur && HOST.cur.sticks, w = pg && typeof pg.say === 'function' ? pg.say(on) : null;
     if (Array.isArray(w)) notice(String(w[0] || ''), String(w[1] || ''), 3500);
-    else notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn. Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
+    else notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn.' + (walkAway() ? ' The others see you move.' : '') + ' Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
     changed();
   }
   function sticks() {
@@ -5834,6 +5846,15 @@
   // From the shell's own frame callback in a headset (and from HOST.anchor.frame, which every story calls):
   // the room frame, your head in the room, your station, presence, the sound zone and the overlay
   const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
+  // your head where it really is, into p (and its turn into q): HD is where three.js has it, and moving with the sticks in
+  // VR (a headset elsewhere in a room, v128; index.html) moves that, so what compares the head with the real floor's origin
+  // or spaces takes the travel back first (HOST.xr.toReal: as it is with none, or with an older index.html)
+  function realHead(p, q) {
+    p.copy(HD.p); if (q) q.copy(HD.q);
+    if (HOST.xr && typeof HOST.xr.toReal === 'function') HOST.xr.toReal(p, q);
+    return p;
+  }
+  const _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _mr = new THREE.Matrix4();
   // the left controller (or hand) in the story's space: whether it is a tracked hand (how the menu opens, and the notices
   // say so) and where its wrist is (a pose only guessed, or none for a moment, keeps the last one for half a second)
   const HAND = { m: new THREE.Matrix4(), c: new THREE.Vector3(), ok: false, at: 0, i: -1, src: null, hand: false };
@@ -6472,6 +6493,12 @@
     const lev = a => { const p = _v.set(a[0], 0, a[2]).applyMatrix4(_m); return [r3(p.x), a[1], r3(p.z)]; };
     if (R.saved) for (const k of ['a', 'b']) R.saved[k] = lev(R.saved[k]);
     if (R.calib && R.calib.a) R.calib.a.fromArray(lev(R.calib.a.toArray()));
+    // (moving with the sticks, a headset elsewhere: the travel moves with the room's frame, so you stay where you were in it.
+    // The travel is in three.js's space, the transform in local-floor's: the same move there is R.lf T R.lf^-1)
+    if (HOST.xr && typeof HOST.xr.travelShift === 'function') {
+      const t = _mr.multiplyMatrices(R.lf, _m).multiply(R.lfi).elements;
+      HOST.xr.travelShift(Math.atan2(-t[2], t[0]), t[12], t[14]);
+    }
     R.prev = null; R.resetAt = performance.now();
     trkFresh();   // (the PC's trackers: the head's history in the old coordinates goes; the frame, moved above, holds until it is worked out again)
   }
@@ -6480,9 +6507,11 @@
     log('reset', { space: 'shared', id, transform: !!(ev && ev.transform) });
     if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; R.hS = null; R.firstHere = null; }
   }
-  // the head seems to jump when the origin moves without a word (a recentre: Quest Browser fires no reset then)
+  // the head seems to jump when the origin moves without a word (a recentre: Quest Browser fires no reset then). Your
+  // real head: a stick's move or a 30 degree flick (moving with the sticks, a headset elsewhere) is no jump
   function originCheck(t) {
-    const p = _v.copy(HD.p).applyMatrix4(R.lfi).toArray(), q = _q.setFromRotationMatrix(_m.extractRotation(R.lfi)).multiply(HD.q).toArray();
+    realHead(_hv, _hq);
+    const p = _hv.applyMatrix4(R.lfi).toArray(), q = _q.setFromRotationMatrix(_m.extractRotation(R.lfi)).multiply(_hq).toArray();
     const P = R.prev;
     R.prev = { p, q, t };
     if (!P || !P.q || t <= P.t || t - P.t > 250) return;
@@ -7091,7 +7120,7 @@
         R.ls.fromArray(p.transform.matrix);
         // right after waking Quest gave the head's pose as the shared space's for up to 15 s (relay logs: frames
         // published and compared then were metres out): such a pose is not used (and see settled)
-        const q = p.transform.position, atHead = HD.ok && Math.hypot(q.x - HD.p.x, q.y - HD.p.y, q.z - HD.p.z) < 0.05;
+        const q = p.transform.position, h = realHead(_hv), atHead = HD.ok && Math.hypot(q.x - h.x, q.y - h.y, q.z - h.z) < 0.05;
         if (atHead !== R.sharedHead) { R.sharedHead = atHead; log(atHead ? 'shared at head' : 'shared off head', {}); }
         R.sharedOK = !atHead;
         if (R.sharedOK) ownFloorCheck(performance.now());
@@ -7713,7 +7742,9 @@
     if (bvs.length) S.others = bvs;   // the other headsets' Quest Browser versions
     const al = [...C.pres.values()].filter(P => P.sp || P.al).map(P => [(P.sp || '').slice(0, 8), P.al]);
     if (al.length) S.peers = al;   // their shared spaces and what aligns them (alignedHere)
-    if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
+    if (HD.ok && R.lfOK) { const p = realHead(_hv).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
+    const Tv = HOST.xr && HOST.xr.travel ? HOST.xr.travel() : null;   // (moving with the sticks: where they have moved you)
+    if (Tv && Tv.space) S.travel = [r3(Tv.x), r3(Tv.z), r3(Tv.yaw)];
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
     if (R.cmp) S.cmp = R.cmp;
@@ -8792,6 +8823,10 @@
     // a page that is not a story at your feet as a circle (the menu's Design room and Studio buttons in a room), or the
     // room's one moved there: its station's id ('' refused: no room, or the circles locked)
     arrange, add, move, remove, design: b => pageHere(DESIGN, b), studio: b => pageHere(STUDIO, b), follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
+    // this device in the real room with the others (a headset in AR, VR answered "In this room", a camera, any headset in a
+    // room on this device alone) or elsewhere (a page, VR answered "Somewhere else" or not yet): moving with the sticks in
+    // VR (index.html) applies in a room only elsewhere
+    here: () => here(),
     mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
     // the circles lock (no circle moved, added or removed) and a station's own lock (its scene and panels, at its circle)
     lock: on => setLock(on), get locked() { return circlesLocked(); },
