@@ -240,8 +240,9 @@ placed by itself).
   'device' | 'always' | 'never' }` ("The scene's settings" below; absent: `shown` and `device`; a bad one is counted and read
   so). A layout without `shapes`, `empties` or `settings` (v118's) reads as before. A group's `items` may name shapes and empties.
 - An object's, a shape's or an empty's `behaviour` (optional, kept only when set; "Behaviours" below): `{ kind, who,
-  range, dist, speed, area, target }` with only the fields its `kind` uses (`'look'`: `who`, `range`; `'follow'`: `who`,
-  `range`, `dist`, `speed`; `'avoid'`: those and `area`; `'item'`: `target`, `speed`), the rest taking their defaults when
+  range, dist, speed, area, target, side, face }` with only the fields its `kind` uses (`'look'`: `who`, `range`;
+  `'follow'`: `who`, `range`, `dist`, `speed`, and optional `side` (v127) and `face` (v128); `'avoid'`: `who`, `range`,
+  `dist`, `speed` and `area`; `'item'`: `target`, `speed` and optional `face` (v128)), the rest taking their defaults when
   left out; `null` reads as absent, anything else that is not such a behaviour makes the record bad. A layout without it
   (v119's) reads as before.
 - An object's, a shape's or an empty's `motion` (optional, kept only when set; "Motions" below): `{ kind, speed, amount,

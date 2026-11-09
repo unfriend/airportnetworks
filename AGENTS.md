@@ -5196,7 +5196,10 @@ again from its place each time (v122); a pretend other device's samples (its eff
 Closer, Faster, Keep away, Less, Look at, Follow an item... by pointing and by the list, None: one Undo step each, the
 pick none) and the headset's; the state and `layout.json` carrying behaviours and giving them back, `norm`'s rules (bad
 kinds, whos, numbers and targets refused, out of range held, another kind's fields dropped, a cube's and a sound's
-ignored), a bad behaviour in a layout counted, a group's copy following its own. Its *studio motions* steps run on two pages
+ignored), a bad behaviour in a layout counted, a group's copy following its own; and (v128) Faces: the cube following the
+ball with Faces *The item* turned to face the ball within a degree, its middle unchanged, and back as placed; the item's
+Faces row on a page (kept when another item is picked) and on the headset's card (Right then Them: one record with `side`
+and `face`; Look at dropping it); `face` through the state and `layout.json`, and `norm`'s rules for it. Its *studio motions* steps run on two pages
 of their own at `&scene=test` (v120, with a shape turned and sized per axis, an empty, a sound following the empty and a
 cut-out on the box put in for them): each kind's drawn pose at two moments its formula (about its middle, in the scene's
 axes, for the shape, the box and the empty), its holder and record unchanged; the sound on the bobbing empty, the cut-out
