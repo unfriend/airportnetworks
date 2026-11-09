@@ -245,7 +245,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   pictures on objects; `engine/e6j_voice.js` (v125) recordings past 2 minutes kept as files of the scene and a voice
   recorded with the movement; `engine/e6k_trk.js` (v126) props that follow one of the PC's Vive trackers;
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
-  selected model's timeline while editing, held for its circle), two sets (`stage`, the
+  selected model's timeline while editing, held for its circle, and since v128 a recorded path's), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -4255,8 +4255,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     the Add pane (1.2 m up; 100 a scene). A sound follows it as it follows an object (*Follow an object...* lists objects,
     shapes and empties; the pointer on one picks it), heard only while the empty is shown for you (a cube may hide it).
     Its card: where it is, the sounds that follow it, *Turn 90°*. Moved and turned (not sized), in groups and cube lists.
-  - *Lock in place* (`locked: true` on any item's or group's record, kept only when set; *Lock in place* / *🔒 Unlock* on
-    every card by its Duplicate and Delete, page and headset, one Undo step, shared and saved): a locked item does not
+  - *Lock in place* (`locked: true` on any item's or group's record, kept only when set; *Lock in place* / *🔒 Unlock* at
+    the top of every card, right under its heading, page and headset, since v128 (the owner, 9 November 2026: "move the
+    locked toggle all the way to the top"; until then by its Duplicate and Delete), one Undo step, shared and saved): a locked item does not
     move, turn, size or go, whichever way is tried (its card's buttons greyed and refused, the Delete key, the page's
     arrows not attached, the grips, both grips, a corner and *Hold it* refused with a short buzz and a knock); a group's
     lock holds its members (selected alone too), and a group with a locked member does not move or go and says which; an
@@ -4361,7 +4362,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   placed, and what follows it (a sound, its cut-outs) comes along; a sound that follows something moves with that, its own
   path waiting until it follows nothing. Switched to its GLB, an object's keys are turned by the baked turn (`d' = r d`,
   `q' = r q r^-1`, `pathTurned`), so it moves as before. As a motion, it plays on while selected and rests at its placed
-  pose while held here or paused (v122; *Play it here*, `STU.recPlay`, went: *Start again* takes its place). **Recording** (this device's own; nothing is written to
+  pose while held here or paused (v122; *Play it here*, `STU.recPlay`, went: *Start again* takes its place); selected while
+  editing it has a timeline under its rows (v128, "A model's timeline" below: its own clock held, for everyone at a circle,
+  shown through Pause). **Recording** (this device's own; nothing is written to
   the record or the room while it runs): in a headset *Record its movement* on its card arms it (`XR.rec`, as *Hold it* is
   armed: the two disarm each other, as do another selection, editing off and the session's end); the next grip of either
   hand, on it or anywhere, carries it as usual and records its holder's pose 30 times a second until it is let go (the
@@ -4482,19 +4485,41 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   recording, the tick and the pulse on a real controller, how a joined loop looks there, Pause from the headset's panel.
 - **A model's timeline** (v127; the owner, 9 November 2026: "items that have an animation should show a timeline and play
   pause in edit mode when selected", "play and pause for everyone in the circle", "pause and scrubbing is temporary";
-  `engine/e6m_anim.js`, `tools/studio/SPEC.md` "A model's timeline"): an object whose clip plays (Loop or Once), selected
-  while editing, shows under its Animation rows (page and headset) *Timeline: t s of d s*, *Pause* / *Play*, *Start*,
-  *−1 s*, *+1 s*, *The scene's clock*, and on a page a slider. A press holds the clip here (`ANIM.mine`: its time at a
-  moment of the clock, playing or not) and, at a station, everyone at the circle draws the same frame: a quiet effect of
-  the studio's, `anim` (`{ at, a: [id, t, p] }`, four times a second and at once on each change, `{ at, a: [id], end: 1 }`
-  at the end), the relay's clock as at; nothing stored or saved, no record change, no Undo step, no `FORMAT` change. It
-  lets go, back to the scene's clock (or from when shown) for everyone, when the object is no longer selected here,
-  editing goes off, its clip stops or changes, or *The scene's clock* is pressed; a device that hears nothing for 1.2 s
-  lets go by itself; two holding one at once, the latest word wins on the others. A hold shows through Pause (v122). The
-  page's card follows the clip every frame without drawing the pane again (`animCardStep`), and a slider being moved
-  holds the pane still until let go; the headset's card is drawn again every half second while it shows. On a headset's
-  card the rows push Place and Size a little down (scroll to them). `animState()` for tests. Untested on a headset: how
-  the card reads and how in step a held frame looks for several people at a circle.
+  v128, after trying it: "please add timeline and play pause also for recorded items", of a 1.3 s clip in a headset "i
+  could not see a timeline"; `engine/e6m_anim.js`, `tools/studio/SPEC.md` "A model's timeline"). Two timelines, each with
+  a hold of its own (its channel: `clip` or `path`): an object whose clip plays (Loop or Once), selected while editing,
+  under its Animation rows; and (v128) an object, a shape, an empty or a sound with a recorded path (in its record or kept
+  as a file), selected while editing and not being recorded, under its Recorded path rows. What a path's holds is its own
+  clock (the item's time `POSE.path` reads, before its speed, Loop, Once or Back and forth: `pathT`, `pathTime`), so its
+  range is one cycle of what is seen (its length at its speed, twice that for Back and forth; `pathCycle`). Each shows
+  (page and headset) *Pause* / *Play*, *Start*, *−1 s*, *+1 s* (round a Loop, held at the ends of Once), *The scene's
+  clock*; on a page *Timeline: t s of d s* and a slider in tenths (`stuRangeAnim`, `stuRangePath`; acts `an:*` and `ap:*`),
+  in a headset *Timeline (d s): playing / held, paused...* and under it a bar (v128, a block `{ bar: { id, ch } }`,
+  `drawBar` in `engine/e9_panels.js`: a track the card's width, the part played filled, cyan, amber while held paused, the
+  playhead ringed while held with its time over it, ticks at whole seconds up to 30 s (tenths up to 3 s), its ends' times
+  under it), pointed at and pressed or dragged with the trigger (its region's `drag`, as the foot panel's track): held
+  there, paused, for everyone at the circle (`animScrub`), and let go it stays held there. While the card is not drawn
+  again the bar moves on its own strip at most ten times a second (`barsTick`: drawn on a small canvas of its own, put on
+  the card's and sent to the texture alone, `panelPatch`, texSubImage2D and its mipmaps, about 400 KB, not the card's 4.9
+  MB; no WebGL2: the whole card), so the card's signature (`animSig(true)`) holds only who holds what. A press holds it
+  here (`ANIM.mine`, the clip's; `ANIM.mineP`, the path's: its time at a moment of the clock, playing or not) and, at a
+  station, everyone at the circle draws the same moment: a quiet effect of the studio's, `anim` (`{ at, a: [id, t, p] }`,
+  `c: 'p'` for a path's, four times a second and at once on each press, `{ at, a: [id], end: 1 }` at the end; a slider
+  or a bar moving is told four times a second), the relay's clock as at; a word that says what the hold kept says
+  already (the same holder, the same moment within 30 ms) only keeps it fresh; nothing stored or saved, no record change,
+  no Undo step, no `FORMAT` change. It lets go, back to the scene's clock (or from when shown) for everyone, when the item
+  is no longer selected here, editing goes off, its clip stops or changes (a path deleted, recorded again, its play, start
+  or speed changed, a recording starting), or *The scene's clock* is pressed; a device that hears nothing for 1.2 s lets
+  go by itself; two holding one at once, the latest word wins on the others. A hold shows through Pause (v122): a held
+  path is drawn at its held moment over its placed pose, no motion or behaviour (`pathHeld` in `drawnPose`; carried, it
+  rests as ever). A voice recorded with the path (`syncAt`) follows its hold: silent while held paused, from the held
+  moment while held playing (each hold a pass of its own: a decoded voice starts again there, a streamed one is set
+  there), on the path's clock again once let go. The page's card follows each timeline every frame without drawing the
+  pane again (`animCardStep`), and a slider being moved holds the pane still until let go. On a headset's card the rows
+  push Place and Size a little down (scroll to them). `animState()` (`{ mine, mineP, heard }`), `animSet(it, t, p,
+  quiet, ch)`, `animBar(ch)` and `XR.main.patched` for tests. Untested on a headset: how the bar reads and drags on a
+  Quest (its strip sent alone, its mipmaps), how in step a held frame looks for several people at a circle, a held voice
+  in Quest Browser.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with

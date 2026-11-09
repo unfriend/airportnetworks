@@ -2151,6 +2151,180 @@ if (runs('studio')) {
   // a click at the crosshair, the hint only in Walk view, Esc deselecting nothing as the grab ends); the Upload pane's × (a
   // model's files go with it) and one slider for every model; a selected model's timeline (held, slid, let go as it is
   // deselected); Follow behind and at a side (the record, where it goes and how it faces, the card). A page of its own
+  // v128 (the owner, 9 November 2026, after v127's timeline: "please add timeline and play pause also for recorded items",
+  // "keep it where it is in animation but move the locked toggle all the way to the top"): a recorded path's timeline, the
+  // headset card's bar (for a clip and for a path), a synced voice following a held path, the Lock row at every card's top
+  await step('studio v128: a recorded path\'s timeline (its rows and slider; Pause holding it over 0.7 s of scene clock, the slider moving it to the path\'s pose there, Play going on, −1 s and +1 s round a Loop, Back and forth twice its length, deselected on its clock again, shown through Pause), a model\'s clip and path held apart, a synced voice silent while held paused, the headset card\'s bar for both (a drag scrubs; its strip drawn on its own and sent to the texture), the Lock row first under every card\'s heading (page and headset) and still locking', async () => {
+    const bad = [];
+    const seek = (id, v) => stp.evaluate(([id, v]) => { const r = document.querySelector('#' + id); r.value = v; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); }, [id, v]);
+    await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model && !!STU.items.get('box001').action`, 120000)) { errors.push('studio v128: the test scene did not load'); return; }
+    // (in the page: the path's keys (2 s, a loop); where an item is drawn at a scene clock T; where the path puts it at its
+    // moment s; how far apart they are; how far it is drawn from where it is placed)
+    await ss(`(window.__v8 = {
+      K: [[0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0, 0, 1], [2, 1, 1, 0, 0, 0.7071, 0, 0.7071]],
+      at: (id, T) => { const sc = sceneClock; sceneClock = () => T; try { itemsStep(0, performance.now()); } finally { sceneClock = sc; } const H = STU.items.get(id).holder; return new THREE.Vector3().setFromMatrixPosition(H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix); },
+      want: (id, s) => { const r = STU.items.get(id).rec, d = new THREE.Vector3(), q = new THREE.Quaternion(); pathAt(normPath({ k: window.__v8.K }), s, d, q); return new THREE.Vector3(...r.p).add(d.applyQuaternion(new THREE.Quaternion(...(r.q || [0, 0, 0, 1])).normalize())); },
+      far: (id, T, s) => +window.__v8.at(id, T).distanceTo(window.__v8.want(id, s)).toFixed(5),
+      placed: id => +window.__v8.at(id, 0.37).distanceTo(new THREE.Vector3(...STU.items.get(id).rec.p)).toFixed(5),
+    }, putItem('pth128', 'p', norm('p', { name: 'Runner', shape: 'cube', p: [2, 0.5, -1], q: [0, 0.3827, 0, 0.9239], size: [0.3, 0.3, 0.3], path: { k: window.__v8.K } })),
+      putItem('vox128', 's', norm('s', { name: 'Vox', file: 'tone.wav', p: [2, 1.5, -1], sync: 'pth128', loop: false })),
+      setEdit(true), select('pth128'), X.tab = 'item', renderPanes(), 0)`);
+    await frames(2);
+    // ---- its rows: Timeline, the buttons, the slider in tenths (2.0 s: 20 steps), under the Recorded path rows
+    const rows = await ss(`(() => { const pane = document.querySelector('#pane-item'), s = document.querySelector('#stuRangePath'), t = pane.textContent;
+      return [!!s && s.max, /Timeline: [\\d.]+ s of 2\\.0 s/.test(t), ['ap:play', 'ap:start', 'ap:step', 'ap:free'].every(a => !!pane.querySelector('[data-act="' + a + '"]')), t.indexOf('Timeline: ') > t.indexOf('Recorded path'), !document.querySelector('#stuRangeAnim')]; })()`);
+    if (JSON.stringify(rows) !== '["20",true,true,true,true]') bad.push('the path\'s timeline rows: ' + JSON.stringify(rows));
+    // (a short one, 1.3 s, as the owner's clip: its slider in tenths, 13 steps, and its label)
+    await ss(`(setRec('pth128', { path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [1.3, 1, 0, 0, 0, 0, 0, 1]] } }), renderPanes(), 0)`);
+    const short = await ss(`[document.querySelector('#stuRangePath').max, document.querySelector('#stuRangePath').step, /Timeline: [\\d.]+ s of 1\\.3 s/.test(document.querySelector('#pane-item').textContent)]`);
+    await seek('stuRangePath', 7);
+    const s7 = await ss(`[+ANIM.mineP.t.toFixed(3), document.querySelector('#stuRangePath').parentNode.querySelector('[data-range-out]').textContent]`);
+    if (JSON.stringify(short) !== '["13","1",true]' || JSON.stringify(s7) !== '[0.7,"0.7 s"]') bad.push('a 1.3 s path\'s slider: ' + JSON.stringify({ short, s7 }));
+    await ss(`(animFree('test', 'path'), setRec('pth128', { path: { k: window.__v8.K } }), renderPanes(), 0)`);
+    // ---- Pause: held where it is, the same pose at two scene clocks 0.7 s apart
+    await stp.click('#pane-item [data-act="ap:play"]');
+    const ps = await ss(`(() => { const a = window.__v8.at('pth128', 3.1), b = window.__v8.at('pth128', 3.8); return [+a.distanceTo(b).toFixed(6), !!ANIM.mineP && !ANIM.mineP.p, ANIM.mine, document.querySelector('#pane-item [data-act="ap:play"]').textContent, STUDIO.pose('pth128').moving]; })()`);
+    if (!(ps[0] < 1e-6) || !ps[1] || ps[2] !== null || ps[3] !== 'Play' || !ps[4]) bad.push('Pause did not hold the path: ' + JSON.stringify(ps));
+    // ---- the slider at 1.5 s: the path's pose there (within 5 mm), at any scene clock
+    await seek('stuRangePath', 15);
+    const sk = await ss(`[ANIM.mineP && ANIM.mineP.t, ANIM.mineP && ANIM.mineP.p, window.__v8.far('pth128', 0.2, 1.5), window.__v8.far('pth128', 7.9, 1.5)]`);
+    if (Math.abs(sk[0] - 1.5) > 1e-6 || sk[1] !== false || !(sk[2] <= 0.005) || !(sk[3] <= 0.005)) bad.push('the slider at 1.5 s: ' + JSON.stringify(sk));
+    // ---- Play: on from there (its own time moving, drawn where it says)
+    await stp.click('#pane-item [data-act="ap:play"]');
+    await stp.waitForTimeout(350);
+    const pl = await ss(`(() => { const it = STU.items.get('pth128'), P = it.rec.path, t0 = animTime(it, 'path'), p = window.__v8.at('pth128', 0.2), t1 = animTime(it, 'path');
+      const d0 = p.distanceTo(window.__v8.want('pth128', pathTime(P, t0))), d1 = p.distanceTo(window.__v8.want('pth128', pathTime(P, t1)));
+      return [!!ANIM.mineP && ANIM.mineP.p, +t0.toFixed(3), +Math.min(d0, d1).toFixed(4), Math.abs(t0 - 1.5) > 0.1]; })()`);
+    if (!pl[0] || !(pl[2] <= 0.02) || !pl[3]) bad.push('Play did not go on from 1.5 s: ' + JSON.stringify(pl));
+    // ---- −1 s and +1 s, paused at 1.5 s: +1 s is 0.5 s (round the loop), −1 s back to 1.5 s, again 0.5 s
+    await stp.click('#pane-item [data-act="ap:play"]');
+    await seek('stuRangePath', 15);
+    const steps = [];
+    for (const a of ['ap:on', 'ap:back', 'ap:back']) { await stp.click(`#pane-item [data-id="${a}"]`); steps.push(await ss(`[+ANIM.mineP.t.toFixed(3), ANIM.mineP.p]`)); }
+    if (JSON.stringify(steps) !== '[[0.5,false],[1.5,false],[0.5,false]]') bad.push('−1 s and +1 s round the loop from 1.5 s: ' + JSON.stringify(steps));
+    // ---- Back and forth: the hold let go (its play changed), the slider's range twice the length; at 3.0 s it is on its way
+    // back, where the path is at 1.0 s
+    await ss(`(setRec('pth128', { path: Object.assign({}, STU.items.get('pth128').rec.path, { play: 'bounce' }) }), 0)`);
+    await frames(2);
+    const bo = await ss(`(renderPanes(), [ANIM.mineP, document.querySelector('#stuRangePath').max, /Timeline: [\\d.]+ s of 4\\.0 s/.test(document.querySelector('#pane-item').textContent)])`);
+    await seek('stuRangePath', 30);
+    const b3 = await ss(`[ANIM.mineP && ANIM.mineP.t, window.__v8.far('pth128', 0.4, 1)]`);
+    if (bo[0] !== null || bo[1] !== '40' || !bo[2] || Math.abs(b3[0] - 3) > 1e-6 || !(b3[1] <= 0.005)) bad.push('Back and forth: ' + JSON.stringify({ bo, b3 }));
+    // ---- deselected: let go, on its clock again (back and forth: at 2.5 s where the path is at 1.5 s)
+    await ss(`(select(''), 0)`);
+    await frames(2);
+    const fr = await ss(`[ANIM.mineP, window.__v8.far('pth128', 2.5, 1.5), window.__v8.far('pth128', 0.5, 0.5)]`);
+    if (fr[0] !== null || !(fr[1] <= 0.005) || !(fr[2] <= 0.005)) bad.push('deselected, the path did not go back to its clock: ' + JSON.stringify(fr));
+    // ---- through Pause: everything at its placed pose, but the path's hold shows (at 1.5 s); The scene's clock lets go, and
+    // it rests again
+    await ss(`(setRec('pth128', { path: { k: window.__v8.K } }), select('pth128'), pauseSet(true), renderPanes(), 0)`);
+    await frames(2);
+    const pz0 = await ss(`window.__v8.placed('pth128')`);
+    await seek('stuRangePath', 15);
+    const pz1 = await ss(`[MPAUSE.on, window.__v8.far('pth128', 0.9, 1.5), STUDIO.pose('pth128').moving]`);
+    await ss(`(renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="ap:free"]');
+    const pz2 = await ss(`[ANIM.mineP, window.__v8.placed('pth128'), STUDIO.pose('pth128').moving]`);
+    await ss(`(pauseSet(false), 0)`);
+    if (!(pz0 < 1e-6) || !pz1[0] || !(pz1[1] <= 0.005) || !pz1[2] || pz2[0] !== null || !(pz2[1] < 1e-6) || pz2[2]) bad.push('through Pause: ' + JSON.stringify({ pz0, pz1, pz2 }));
+    // ---- a synced voice: silent while its path is held paused, from the held moment while it plays held (a pass of the
+    // hold's own), on the path's clock again once let go
+    await ss(`(renderPanes(), 0)`);
+    await seek('stuRangePath', 5);
+    const vz = await ss(`(() => { const v = STU.items.get('vox128'), o = []; o.push(!!syncOf(v), syncAt(v, performance.now(), 10));
+      ANIM_ACT['ap:play'](); const s = syncAt(v, performance.now(), 10), t = animTime(STU.items.get('pth128'), 'path'); o.push(s && typeof s.pass, !!s && Math.abs(s.e - t) < 0.05);
+      animFree('test', 'path'); const s2 = syncAt(v, performance.now(), 10); o.push(s2 ? typeof s2.pass : 'silent'); return o; })()`);
+    if (JSON.stringify(vz.slice(0, 4)) !== '[true,null,"string",true]' || !['number', 'silent'].includes(vz[4])) bad.push('a synced voice with its path held: ' + JSON.stringify(vz));
+    // ---- a model with a clip and a path: two timelines, held apart (the clip paused, the path then held at 0.5 s; the
+    // path let go, the clip still held)
+    await ss(`(setRec('box001', { path: { k: window.__v8.K } }), select('box001'), renderPanes(), 0)`);
+    await frames(2);
+    const two = await ss(`[!!document.querySelector('#stuRangeAnim'), !!document.querySelector('#stuRangePath'), (document.querySelector('#pane-item').textContent.match(/Timeline: /g) || []).length]`);
+    if (two.join() !== 'true,true,2') bad.push('the box with a clip and a path: ' + JSON.stringify(two));
+    await stp.click('#pane-item [data-act="an:play"]');
+    await seek('stuRangePath', 5);
+    const ap = await ss(`(() => { const it = STU.items.get('box001'), a = window.__v8.far('box001', 1.7, 0.5), c1 = it.action.time; window.__v8.at('box001', 1.3); const c2 = it.action.time;
+      return [!!ANIM.mine && !ANIM.mine.p, !!ANIM.mineP && !ANIM.mineP.p && ANIM.mineP.t, a, Math.abs(c1 - c2) < 1e-6]; })()`);
+    await ss(`(renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="ap:free"]');
+    const ap2 = await ss(`(() => { const it = STU.items.get('box001'), c0 = ANIM.mine && ANIM.mine.t; window.__v8.at('box001', 1.7); return [ANIM.mineP, !!ANIM.mine && !ANIM.mine.p, window.__v8.far('box001', 1.7, 1.7), Math.abs(it.action.time - c0) < 1e-3]; })()`);
+    if (JSON.stringify(ap.slice(0, 2)) !== '[true,0.5]' || !(ap[2] <= 0.005) || !ap[3] || ap2[0] !== null || !ap2[1] || !(ap2[2] <= 0.005) || !ap2[3]) bad.push('the clip and the path held apart: ' + JSON.stringify({ ap, ap2 }));
+    await ss(`(renderPanes(), 0)`);
+    await stp.click('#pane-item [data-act="an:free"]');
+    // ---- the headset's card: a bar for the clip and one for the path (under each Timeline row); a drag at a quarter of
+    // the path's bar holds it at 0.5 s, paused; at three quarters of the clip's at 1.5 s. The card drawn with the path held
+    // at 0.5 s and its texture on the GPU, the bar dragged to 1.5 s: the card's signature the same, its strip drawn again on
+    // its own and sent to the texture (no whole upload), the texture there as the canvas, and as the whole card drawn again
+    const hx = await ss(`(() => {
+      const o = {}, P = XR.main;
+      XR.on = true;
+      const draw = () => { for (const Q of XR.panels) { Q.last = ''; Q.t = -1e9; panelTick(Q, performance.now() + 1e6); } };
+      const find = id => { for (let off = 0; off < 8000; off += 120) { X.scroll.item = off; draw(); const r = P.regions.find(z => z.id === id); if (r) return r; } return null; };
+      select('box001'); X.tab = 'item'; X.scroll = {}; draw();
+      const ra = find('anbar'), rp = find('apbar');
+      o.regions = [!!ra, !!rp];
+      if (!ra || !rp) { XR.on = false; return o; }
+      rp.drag(rp.x + 24 + (rp.w - 48) * 0.25); o.path = [+ANIM.mineP.t.toFixed(3), ANIM.mineP.p];
+      const ra2 = find('anbar'); ra2.drag(ra2.x + 24 + (ra2.w - 48) * 0.75); o.clip = [+ANIM.mine.t.toFixed(3), ANIM.mine.p];
+      // (the path's bar in view, the card drawn: its bar listed with the strip it is drawn on)
+      find('apbar');
+      const b = (P.bars || []).find(z => z.id === 'apbar'), R = GL.renderer, gl = R.getContext();
+      o.bars = (P.bars || []).map(z => z.id).sort().join();
+      if (!b) { XR.on = false; return o; }
+      R.initTexture(P.tex);
+      const rx = Math.floor(b.x - 6), ry = Math.floor(b.y - 2), rw = Math.ceil(b.w + 12), rh = BAR.h + 4;
+      const back = () => { const fb = gl.createFramebuffer(), px = new Uint8Array(rw * rh * 4); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, R.properties.get(P.tex).__webglTexture, 0); gl.readPixels(rx, P.h - ry - rh, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, px); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); return px; };
+      const canvas = () => P.ctx.getImageData(rx, ry, rw, rh).data;
+      const vs = (px, cv) => { let m = 0; for (let y = 0; y < rh; y++) for (let x = 0; x < rw * 4; x++) m = Math.max(m, Math.abs(px[(rh - 1 - y) * rw * 4 + x] - cv[y * rw * 4 + x])); return m; };
+      const t0 = back(), v0 = P.tex.version, n0 = P.patched || 0, s0 = P.last;
+      P.regions.find(z => z.id === 'apbar').drag(b.x + BAR.pad + (b.w - 2 * BAR.pad) * 0.75);
+      panelTick(P, performance.now() + 2e6);
+      const t1 = back(), c1 = canvas();
+      o.patch = [(P.patched || 0) - n0, P.tex.version === v0, P.last === s0, +ANIM.mineP.t.toFixed(3), vs(t0, c1) > 20, vs(t1, c1)];
+      P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 3e6);
+      // (the same but for a few levels where text and edges are smoothed: a canvas may draw a strip a hair differently)
+      const c2 = canvas(); let m = 0; for (let i = 0; i < c1.length; i++) m = Math.max(m, Math.abs(c1[i] - c2[i]));
+      o.whole = m;
+      XR.on = false; X.scroll = {};
+      return o;
+    })()`);
+    if (JSON.stringify(hx.regions) !== '[true,true]' || JSON.stringify(hx.path) !== '[0.5,false]' || JSON.stringify(hx.clip) !== '[1.5,false]' || !/apbar/.test(hx.bars || '') ||
+      !hx.patch || hx.patch[0] !== 1 || !hx.patch[1] || !hx.patch[2] || hx.patch[3] !== 1.5 || !hx.patch[4] || hx.patch[5] > 2 || !(hx.whole <= 6)) bad.push('the headset card\'s bars: ' + JSON.stringify(hx));
+    await ss(`(animFree('test', 'path'), animFree('test', 'clip'), setRec('box001', { path: undefined }), renderPanes(), 0)`);
+    // ---- the Lock row first under the heading (what holds it, above it, when something does), on an object (one in a
+    // group: its In group line after it), a shape (locked: the amber line above it), a sound, a cube, a cut-out and a group;
+    // page and headset; pressed, it locks (one Undo step) and unlocks
+    await ss(`(putItem('cut128', 'x', norm('x', { name: 'Notch', on: 'box001', p: [0.1, 0.1, 0.25], size: [0.2, 0.2, 0.2] })), putItem('grp128', 'g', norm('g', { name: 'Pair', items: ['fig001', 'cube01'] })), setRec('pth128', { locked: true }), 0)`);
+    const ids = ['box001', 'fig001', 'pth128', 'snd001', 'cube01', 'cut128', 'grp128'];
+    const pg = await ss(`${JSON.stringify(ids)}.map(id => { select(id); X.tab = 'item'; renderPanes();
+      const pane = document.querySelector('#pane-item'), h = pane.querySelector('h3'); let e = h && h.nextElementSibling, top = '';
+      if (e && e.matches('p.amber, p.red')) { top = e.textContent.slice(0, 20); e = e.nextElementSibling; }
+      const first = pane.querySelector('.actions [data-id]');
+      return [id, !!e && e.matches('p.stu-l') && e.textContent === 'Lock' && !!e.nextElementSibling.querySelector('[data-id="lock"]'), first && first.dataset.id, top]; })`);
+    const pgBad = pg.filter(r => !r[1] || r[2] !== 'lock' || (r[0] === 'pth128') !== !!r[3]);
+    if (pgBad.length) bad.push('the page\'s Lock row first under the heading: ' + JSON.stringify(pgBad));
+    const fg = await ss(`(select('fig001'), renderPanes(), (() => { const t = document.querySelector('#pane-item').textContent; return t.indexOf('Lock in place') >= 0 && t.indexOf('In group Pair') > t.indexOf('Lock in place'); })())`);
+    if (!fg) bad.push('the figure\'s In group line is not after its Lock row');
+    await ss(`(select('snd001'), renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    await stp.click('#pane-item [data-id="lock"]');
+    const lk = await ss(`[STU.items.get('snd001').rec.locked, UNDO.length - ${u0}, (renderPanes(), document.querySelector('#pane-item [data-id="lock"]').textContent)]`);
+    await stp.click('#pane-item [data-id="lock"]');
+    const ul = await ss(`['locked' in STU.items.get('snd001').rec, UNDO.length - ${u0}]`);
+    if (JSON.stringify(lk) !== '[true,1,"🔒 Unlock"]' || JSON.stringify(ul) !== '[false,2]') bad.push('the page\'s Lock row pressed: ' + JSON.stringify({ lk, ul }));
+    const hl = await ss(`(() => { XR.on = true; const P = XR.main, out = [];
+      const draw = () => { for (const Q of XR.panels) { Q.last = ''; Q.t = -1e9; panelTick(Q, performance.now() + 1e6); } };
+      for (const id of ${JSON.stringify(ids)}) { select(id); X.tab = 'item'; X.scroll = {}; draw();
+        const r = P.regions.filter(q => q.y >= 190 && !/^scroll:/.test(q.id)).sort((a, b) => a.y - b.y || a.x - b.x); out.push([id, r.length ? r[0].id : '']); }
+      select('cube01'); X.scroll = {}; draw(); const u = UNDO.length, q = P.regions.find(z => z.id === 'lock'); if (q) q.fn();
+      const lk = [STU.items.get('cube01').rec.locked, UNDO.length - u]; itemAct('lock');
+      XR.on = false; X.tab = 'scene'; renderPanes(); return { out, lk }; })()`);
+    if (hl.out.some(r => r[1] !== 'lock') || JSON.stringify(hl.lk) !== '[true,1]') bad.push('the headset card\'s Lock row first under the heading: ' + JSON.stringify(hl));
+    await ss(`(removeItem('grp128'), removeItem('cut128'), removeItem('vox128'), removeItem('pth128'), select(''), X.tab = 'scene', renderPanes(), 0)`);
+    if (bad.length) errors.push(...bad.map(b => 'studio v128: ' + b));
+  });
   await step('studio v127: Walk view\'s grabbed mouse, the Upload pane\'s × and one slider for every model, a model\'s timeline, Follow behind and at a side', async () => {
     const bad = [];
     await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
