@@ -4183,8 +4183,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pose (`ghostFar`, from `it.mX`; and for 0.6 s after, so a spin through its place does not blink it), and since v124
   every item that moves while editing, selected or not (the owner, 8 November 2026: "in edit mode Ghosts should always
   be visible for animated things"; at most `GHOST.build`, 4, new ones a frame; none once it rests, none with editing
-  off), and since v125 a model its own clip moves while editing, the whole time its clip plays (`clipMoves`: the owner, "I do
-  not see the ghosts of moving things in studio mode"; its parts taken in their rest pose), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
+  off), and since v125 a model its own clip moves while editing, the whole time its clip plays, selected or not
+  (`clipMoves`: the owner, "I do not see the ghosts of moving things in studio mode"; its parts taken in their rest pose;
+  its holder never leaves its placed pose, so the page's arrows stand on the item there), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
   blue-white material (opacity 0.25, no depth written; a skinned mesh as a plain one, its rest pose; a model of more than
   100,000 triangles only its outline box, `GHOST.tris`), a shape's shape, an empty's cross and dot, a sound's speaker;
   built once per selection and freed when it changes (its materials disposed, never the shared geometry). The ghost is
@@ -4834,7 +4835,8 @@ bob draws it 1 m above, one part and one unseen box; the page's arrows on its st
 from there after; a ray at where it is placed (under where it is drawn) finding the item through its ghost, a pretend
 headset's grip there carrying it from its placed pose and moving it 0.3 m; an object's ghost as many parts as its
 model's meshes, a big one (`GHOST.tris` lowered) only its outline box, an empty's two parts, a sound's (its own path)
-two, none once deselected; Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
+two, none once deselected; the box with its clip playing while editing: a ghost at its placed pose, and still once
+selected, the page's arrows on its holder there (v125); Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
 clock, the pane saying so, `state()` unchanged), the card's switch playing them again (the arrows back on the ghost), P
 pausing (the arrows back on the item), editing off playing them again; Start again on a motion that starts when shown
 (its clock from now, no Undo step); a cut-out on the spinning box and a sound following the orbiting empty, each
@@ -5389,13 +5391,16 @@ pose along it, within 1 mm); a 25 s sound streamed; From another scene (v118: a 
 the folder with an FBX naming its picture and an OBJ with its MTL and picture: copied into the open scene from a page's
 Add pane with the picture at the same paths and the same bytes, placed, one Undo step, taken by every page and the
 headset with its picture; the OBJ and what it names under `originals/`, its model in; a second copy of the FBX a new name,
-this scene's picture kept; the headset's Add pane offering it); the scene on the room's frame (v125: the headset at
-the studio's circle, away from the room's origin, drawing the box, the figure, the cube and the sound where their records
+this scene's picture kept; the headset's Add pane offering it); the scene on the room's frame (v125: set up first, so
+that nothing from the round's earlier steps moves them: the box, the figure, the cube and the sound without a motion, a
+path or a behaviour, nothing locked in place, no cube listing them, and the circle moved to a known spot away from the
+room's origin; the headset at the studio's circle drawing the box, the figure, the cube and the sound where their records
 put them in room coordinates, their world places turned back through its room frame, within 1 mm; the circle moved 2 m
 and turned 90 degrees from a page (`HOST.collab.move`, as the room map moves it): every item where it was in the room
 frame by frame while the circle glides, within 1 mm, the headset still at the station, its rig at the new spot; *Move the
 scene to this circle* on a page refused while the box is locked (naming it, nothing changed), then every item at the
-circle's spot transform of its old place within 1 mm, the cube's yaw turned with it, one Undo step, every page's and the
+circle's spot transform of its old place within 1 mm, the cube's yaw turned with it, one Undo step (the list one
+longer, its last step every item it moved, once each, with its record as it was just before), every page's and the
 headset's records the same and the headset drawing them there; Undo taking it back everywhere); a circle made for one scene written as the shell will
 (`st.<id>` and `st.<id>.x` naming `quiet`, with a saved layout of a sound and a cube): two pages following it open it and
 write the layout, the room holding each item once, the first station keeping its scene; New scene on the headset's panel

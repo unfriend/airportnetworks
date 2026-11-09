@@ -1377,7 +1377,10 @@ also want to be able to move moving/animated items to select their exact place".
   always be visible for animated things"; until v124 only the selected item or a selected group's members), while it is
   drawn more than 1 cm or 1 degree from where it is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy
   stands at its placed pose (`GH`, `ghostStep` at the end of `itemsStep`), and for 0.6 s after it was last that far, so a
-  spin passing through its place does not blink it. An object's: a copy of its model sharing its geometry with one ghost
+  spin passing through its place does not blink it. Since v125 also a model its own clip moves (`clipMoves`: its parts
+  move, its holder stays at its placed pose), the whole time its clip plays while editing, selected or not (`ghostFar`
+  alone would hide it once selected); the page's arrows then stand on the item itself, at its placed pose, where the
+  ghost is. An object's: a copy of its model sharing its geometry with one ghost
   material (pale blue-white, opacity 0.25, no depth written, drawn with the see-through things after the opaque ones), a
   skinned mesh drawn as a plain one (frozen in its rest pose), and a model of more than 100,000 triangles only its outline
   box (`GHOST.tris`); a shape's its shape; an empty's its cross and dot; a sound's its speaker. Each part where it stands on
