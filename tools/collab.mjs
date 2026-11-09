@@ -4892,7 +4892,7 @@ async function studioRound(dir) {
     const hTook = [];
     for (const p of [A, B, C, H]) hTook.push(await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!(b && b.rec.path && b.rec.path.k.length === 3) && !b.gl; })()`, 15000));
     await sp(C, `(setEdit(true), select('box001'), animSet(STU.items.get('box001'), 0.7, false, false, 'path'), 0)`);
-    const hMine = await sp(C, `[!!ANIM.mineP && !ANIM.mineP.p && ANIM.mineP.t, atStation()]`);
+    const hMine = await sp(C, `[!!ANIM.mineP && !ANIM.mineP.p && +ANIM.mineP.t.toFixed(3), atStation()]`);
     const hIn = [];
     for (const p of [A, B, H]) hIn.push(await sUntil(p, `!!ANIM.heard.get('box001:p') && Math.abs(ANIM.heard.get('box001:p').t - 0.7) < 0.002`, 8000));
     const hT = Date.now() + 777, hAt = [];
