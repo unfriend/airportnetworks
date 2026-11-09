@@ -4848,6 +4848,9 @@ async function studioRound(dir) {
     // ---- a tint and a brightness (v125): set on one page (the box red, 125 %), on every device's record and the box's own
     // materials (each one's colour as loaded times the tint times 1.25); the saved layout.json carries them
     {
+    // (first A's last writes, the box's faces back and the group gone, on every device: the station's state is one value,
+    // so a tint written on C before A's writes have reached it is lost to them, both having changed the box's record)
+    for (const p of [A, B, C, H]) await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!b && !b.rec.faces && !groupOf('box001'); })()`, 15000);
     await sp(C, `(setEdit(true), itemAct('tint', '#ff5a4b', 'box001'), itemAct('bright', 1.25, 'box001'), 0)`);
     const tIn = [];
     for (const p of [A, B, C, H]) tIn.push(await sUntil(p, `(() => { const it = STU.items.get('box001'); if (!it || it.rec.tint !== '#ff5a4b' || it.rec.bright !== 1.25 || !it.model) return false; const T = new THREE.Color('#ff5a4b');
