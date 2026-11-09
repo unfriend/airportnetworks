@@ -224,7 +224,7 @@ class Fake:
     TURN, MOVE = math.pi / 6, (1.2, 0.01, -0.7)
 
     def __init__(self):
-        self.t0 = time.time()
+        self.t0 = time.monotonic()   # (read() is given time.monotonic(): the same clock)
 
     def connect(self):
         return True
