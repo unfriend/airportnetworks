@@ -554,33 +554,66 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*) or by the menu's *Moving with the sticks*
     row (Settings, under Moving and Subtitles). Both clicks must be on the same stick: a click of each within 0.4 s (or
     both at once) counts as one click, which opens or closes the menu; a single click acts only once 0.4 s have passed
-    with no second click of that stick. It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for real), outside a
-    shared room (`HOST.collab.joined`: the room's frame and the others' view of you need where you really stand) and
-    while the story on show does not move you itself (`ownSticks: true` in its returned object, which no page says since
-    v125); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`, `'none'`, `'session'`; `''` it applies), and
-    there a double click says so in a notice and the menu's row is greyed with the reason under it. A page that switches
-    its sticks with it (`sticks: { say(on), note }` in its returned object; the studio, "The studio's two stick modes"
-    below) has it apply in VR in a shared room too and moves you itself while it applies (`HOST.xr.walkSelf()`: the
-    shell's travel stays as it is, never stepped, so the two never fight); `say(on)` gives the double click's notice and
-    `note` the menu row's line in its own words. The left stick
-    moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's
-    square past it), the right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back
-    under 0.3). A controller whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps
-    its stick for the story (a carried scene's reach) and moves you not at all meanwhile; the free hand's stick still
-    moves you while the other hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128
-    has no `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
+    with no second click of that stick. It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for
+    real),
+    not while this headset is in a shared room's real room with the others (the room's frame and the others' view of you
+    need where you really stand there) and while the story on show does not move you itself (`ownSticks: true` in its
+    returned object, which no page says since v125); `HOST.xr.walkWhy()` says why not (`'ar'`, `'room'`, `'own'`,
+    `'none'`, `'session'`; `''` it applies), and there a double click says so in a notice and the menu's row is greyed
+    with the reason under it (`'room'`: *Not while you are in the room with the others: there you walk for real.*). A
+    page that switches its sticks with it (`sticks: { say(on), note }` in its returned object; the studio, "The studio's
+    two stick modes" below) has it apply in VR in a shared room too and moves you itself while it applies
+    (`HOST.xr.walkSelf()`: the shell's travel stays as it is, never stepped, so the two never fight); `say(on)` gives
+    the double click's notice and `note` the menu row's line in its own words. The left stick moves you along the
+    floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's square past it), the
+    right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back under 0.3). A controller
+    whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps its stick for the story
+    (a carried scene's reach) and moves you not at all meanwhile; the free hand's stick still moves you while the other
+    hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128 has no
+    `setReferenceSpace`, so the shell hooks the session's own `requestAnimationFrame` (in `HOST.xr.watch`, as
     `HOST.session` is set, before three.js starts its loop) and, before any callback of a frame reads it, puts its own
     `getViewerPose`, `getPose` (for an input source's ray or grip, or a hand's joint), `getJointPose` and `fillPoses` on
     that frame object (instance-level: a Proxy fails WebXR's brand checks), each answering for three.js's reference
     space from `base.getOffsetReferenceSpace(T)`, `T` the travel's inverse as an `XRRigidTransform`, made again only
     when the travel changes. Other spaces are left alone: an anchor's pose stays in the real room (an anchored place
     stays put and you move past it), as do `HOST.room`'s own spaces and the room scan's. The travel stays when the
-    setting is turned off (you stay where you moved to), and goes at the session's end and once a shared room is joined.
-    Stories need nothing for the move: their head, controllers and rays, the menu, the sounds' listener and the
-    subtitles all follow three.js's space; their own stick use (an explore view's spin and zoom) waits while
-    `xrWalking()` is true (the same line in every story). `HOST.xr.travel()` (`{ space, x, z, yaw }`) and `walkReset()`
-    are for tests. Untested on a headset: how it feels on a Quest (comfort, the speed, the turn), and an anchor placed
-    while moved (made at the moved coordinates in the real room, so the next session finds it elsewhere).
+    setting is turned off (you stay where you moved to), and goes at the session's end, once a shared room is joined and
+    while in the room with the others (below). Stories need nothing for the move: their head, controllers and rays, the
+    menu, the sounds' listener and the subtitles all follow three.js's space; their own stick use (an explore view's
+    spin and zoom) waits while `xrWalking()` is true (the same line in every story). `HOST.xr.travel()` (`{ space, x, z,
+    yaw }`) and `walkReset()` are for tests; `HOST.xr.toReal(v, q)` and `travelShift(yaw, x, z)` are for `shared.js`
+    (below). Untested on a headset: how it feels on a Quest (comfort, the speed, the turn), and an anchor placed while
+    moved (made at the moved coordinates in the real room, so the next session finds it elsewhere).
+  - In a shared room, elsewhere (v128; the owner, 9 November 2026, after trying it: "should also work in shared rooms
+    everywhere when the user is in vr and not in the same room"). It applies to a headset elsewhere in a room
+    (`HOST.collab.here()` false: VR answered *Somewhere else*, or not answered yet, since a VR headset counts as
+    elsewhere
+    until it says otherwise), and is `'room'` for one in the room with the others (AR, VR answered *In this room* or
+    *I am
+    in the room*, the PC's Index the trackers see) and for any headset in a room on this device alone (`C.local`, where
+    `here()` is true by design: its circles stand on this headset's real floor, and the room goes to a relay as soon as
+    one answers, where the others line up with that floor). A `shared.js` without `here()` (an older one) gives `'room'`
+    in any room, as before. Each headset's own setting still: nothing in the room's keys, no `FORMAT` change. Why it
+    works: a headset elsewhere has its own floor as the room (`ownFrame`, made from where three.js has its head as it
+    joins), and the room's frame keeps the real numbers of `HOST.room`'s own spaces, so the circles, cards, icons and
+    people stay put in three.js's space while the sticks move the head and controllers through it. Everything of yours
+    the room reads follows the head three.js has: your presence's head, heading, rays and grips (so the others see you
+    move, smoothed as any move), the circles you walk into (also Back to the lobby with the circles asked first), the
+    studio's behaviours (`heads()`), the sound zone. What compares your head with the real floor's origin or spaces
+    takes
+    the travel back first (`HOST.xr.toReal(v, q)`, `realHead` in `shared.js`): the check for an origin that jumps
+    (`originCheck`, so a stick's move or a 30 degree flick is never a jump and never asks to calibrate), the shared
+    space at the head, the PC's trackers' history of the head (`trkHist`) and the logged samples (`sample`, which also
+    logs the travel). A reset of the room's floor with its transform (a recentre, waking: `floorReset`) moves the travel
+    with the room's frame (`HOST.xr.travelShift`, the transform carried into three.js's space by `R.lf`, then
+    T M T^-1), so you stay where you were in the room. Re-align for a headset elsewhere makes the room round where
+    three.js has your head now, as before. The travel goes when a room is joined (or another: the code changes, so its
+    frame is made from where you really stand), whenever this headset is in the room with the others (the answer
+    changed to *In this room*, the trackers), at the session's end and in AR (never there); it stays while elsewhere,
+    through Recenter at a station (the station's scene and panel, as ever) and on leaving the room. The double click's
+    notice says *The others see you move* there, and the menu row's note that it works in this room because you are
+    elsewhere. The studio is unchanged: it moves you itself (`walkSelf`). Untested on a headset: how moving through a
+    room's circles feels, how the others see a moving avatar over Wi-Fi, a real recentre or wake while moved.
   - The studio's two stick modes (v125; the owner, 8 November 2026: "i want stick movement in studio mode too, just make
     it switchable with the double stick click so that i can switch between the two modes of stick operation in studio
     mode"). The same setting (`xrWalk`), not one of the studio's own: a double click then does the obvious thing
@@ -4857,8 +4890,14 @@ the dead zone nothing; a flick of the right stick turning 30 degrees about the h
 forward after a turn where the head now faces; the setting off moving nothing and keeping where you are; in the airports'
 explore mode the stick's spin and zoom left alone while it applies and working again when it is off, the grip held on
 the globe (`squeezestart`) its reach still following the stick with no moving, let go the stick moving you again; the
-menu's row on and pressed both ways; in AR, in a pretend shared room (`HOST.collab.joined`; the travel back to none) and
-with the story's `ownSticks`: the sticks moving nothing, two clicks saying why in a notice, the row greyed; the studio's
+menu's row on and pressed both ways; in a pretend shared room elsewhere (v128: `HOST.collab.joined`, `code` and `here()`
+stubbed, `here()` false): moved and turned before it is joined, the travel gone as the room is joined (back where you
+stand), the left stick 1.5 m where you face, a flick 30 degrees, `walkWhy` `''` and the row pressable, another room's code
+while moved taking the travel back again, then moved and turned once more and in the room with the others (`here()` true)
+back where you stand, the sticks
+moving nothing, two clicks saying *Not while you are in the room with the others*, the row greyed, and elsewhere again
+the stick moving you; in AR, in a pretend shared room with an older `shared.js` (no `here()`: any room, the travel back
+to none) and with the story's `ownSticks`: the sticks moving nothing, two clicks saying why in a notice, the row greyed; the studio's
 `sticks: { say, note }` and no `ownSticks`; `#walk=off` and `#walk=on`; the `xrWalking` line in every story and
 `STORY_EXTRA` page, every explore stick waiting on it, and no story reading `buttons[4]`. Then the studio's two stick
 modes, on its test scene with editing on, the pretend controllers pointing down, outside a room and again at a pretend
@@ -5711,7 +5750,22 @@ sessions the page follows the room's); walking into Back to the lobby dropping i
 lining up (3.5 s with no shared space id), then once, asked first (the trigger's words and the controllers' buttons, in
 front, not pointable, no notice *The menu*); the menu opening closing it, not again that session; walked into, the walk's
 words; not while the room setup guide shows, then once it is closed; tracked hands, the pinch's words and no grip;
-outside a room 2.5 s in, never while a stub of `HOST.collab.cameraMode` says camera mode. `--camera` runs only camera mode (`cameraRound`, also in
+outside a room 2.5 s in, never while a stub of `HOST.collab.cameraMode` says camera mode. `--walk` runs only moving with the
+sticks for a VR headset elsewhere in a room (`walkRound`, v128, also in the main run after the narration round; a room of
+its own with an airports circle 3 m ahead of where the headset joins and Back to the lobby 3.5 m beyond it, a page and a
+pretend VR headset that answers *Somewhere else*, a minute or two; `installXR`'s `walk: true` gives its local space offset
+spaces and two controllers with sticks, `X.stick(hand, x, y)`, and its frames go through the session's own
+`requestAnimationFrame`, so the shell's hook moves three.js's space as on a headset): `walkWhy` `''` with no travel yet and
+its own floor; two stick clicks turning it on, the notice saying *The others see you move*, the menu's row pressable; the
+left stick moving it (`HOST.xr.travel()`) and its head in the room by as far towards -z, the page hearing its presence's
+head move by the same within 5 cm once at rest (`HOST.collab.body`); the room's frame and the lobby's icon in three.js's
+space unchanged, no `origin moved` in the log and no notice to calibrate; a flick turning it 30 degrees (its heading in
+the room, and in its presence on the page within 3 degrees), back again, no jump; with the circles walked into the
+sticks taking it into the airports circle (its live station, its presence's `st` on the page); with the circles asked
+first on into Back to the lobby (its station ended); a recentre (local and local-floor moved by one transform, the reset
+as Quest Browser sends it) leaving it where it was in the room within 1 cm; a second pretend headset in AR getting no
+travel from its sticks (`walkWhy` `'ar'`); the first answering *In this room* back to no travel, its sticks moving
+nothing, two clicks saying *Not while you are in the room with the others*, the row greyed. `--camera` runs only camera mode (`cameraRound`, also in
 the main run after the studio's behaviours; a room of its own with two story circles, a page, a pretend headset with
 Quest Browser's user agent and a pretend Android phone with Chrome's (`openDevice`: a pretend `navigator.xr` offering
 `immersive-ar` that records what `requestSession` is asked and gives the page's pretend session, and every set and fx the

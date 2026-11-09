@@ -101,7 +101,7 @@
   story panels' visibility the cards only; `xrFace`), the same in all sixteen and
   the design room; the shell draws the subtitles from each
   story's caption hook (`caption: xrCaption`, the same lines in all sixteen).
-  Moving with the sticks in VR (`HOST.xr.walk()`, v125) is the shell's too and
+  Moving with the sticks in VR (`HOST.xr.walk()`, v125; in a shared room only for a headset elsewhere, v128) is the shell's too and
   each headset's own: the shell moves three.js's reference space, so stories
   never move `GL.rig` for it; their own stick use waits on `xrWalking()` (the same
   line in all sixteen, the design room and the studio); the studio switches its
