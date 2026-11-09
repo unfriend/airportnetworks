@@ -7017,8 +7017,14 @@ if (runs('studio trackers')) {
     const r = await kp.evaluate(async () => {
       const E = window.__E, K = window.__tk, o = [];
       if (!HOST.collab.trkIn) { (window.__log = window.__log || []).push('studio trackers: this shell has no HOST.collab.trkIn: skipped'); return o; }
+      const sleep = ms => new Promise(res => setTimeout(res, ms));
+      // (the shell takes @trk only in a room: one on this device, never peer to peer; the pretend station stays)
+      HOST.collab.autoAll(false); HOST.collab.autoGuide(false); if (HOST.collab.autoWelcome) HOST.collab.autoWelcome(false);
+      HOST.collab.setPeer('off'); HOST.collab.create();
+      for (let k = 0; k < 600 && !(HOST.collab.code && HOST.collab.internals().ready); k++) await sleep(50);
+      if (!HOST.collab.code) { o.push('fed through trkIn: no room on this device to feed it in'); return o; }
       HOST.collab.trackers = K.trackers;
-      const P = K.V(0.2, 1.1, -1.4), Q = K.Q([0, 1, 0], 45), sleep = ms => new Promise(res => setTimeout(res, ms));
+      const P = K.V(0.2, 1.1, -1.4), Q = K.Q([0, 1, 0], 45);
       E.putItem('trsin1', 'p', E.norm('p', { name: 'Fed', shape: 'sphere', p: [0, 0.5, 0], trk: { id: 'LHR-FED00001', o: [0, 0.1, 0] } }));
       for (let k = 0; k < 30; k++) {
         try { HOST.collab.trkIn({ at: Math.round(HOST.collab.now()), l: 'hand', t: [['LHR-FED00001', P.x, P.y, P.z, Q.x, Q.y, Q.z, Q.w, 0, 0, 0, 1, 't']] }); } catch (e) { o.push('trkIn threw: ' + e.message); break; }
@@ -7028,6 +7034,7 @@ if (runs('studio trackers')) {
       const want = K.V(0, 0.1, 0).applyQuaternion(Q).add(P), at = K.at(K.drawn('trsin1'));
       if (at.distanceTo(want) > 0.005) o.push('fed through trkIn: ' + JSON.stringify([at.toArray(), want.toArray(), E.STUDIO.trk('trsin1')]));
       HOST.collab.trackers = () => window.__tk.list.map(x => Object.assign({}, x));
+      HOST.collab.leave();
       return o;
     });
     bad(r); await said(kp);
