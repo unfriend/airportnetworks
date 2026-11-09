@@ -376,7 +376,17 @@ the floor and tap Set spot A, then spot B, so it lines up with the headsets;
 Follow a person or a circle in its small overlay; Panels, People, Sound,
 Subtitles and Hide are the phone's own (a double tap brings the controls back),
 and Exit ends it. It changes nothing in the room. Film it with Android's own
-screen recorder (untested on a real phone). In a headset you stay in a story once you
+screen recorder (untested on a real phone).
+Vive trackers (v126): when the relay runs on the PC with SteamVR and its trackers
+(relay/README.md says how), the Shared dialog has The PC's trackers: Use the PC's
+trackers in this room, then line them up by hand: lay a tracker flat on spot A
+(the tape cross on the floor), pick it in the list, press Set spot A and leave
+it still for a second, then the same on spot B. Move a tracker to see which row
+lights, and give it a name there. The room map shows them as small dots; in a
+headset, Trackers: shown on the menu's Debug tab draws each as a small puck with
+its name. The PC's own page in VR with the Valve Index lines itself up from the
+trackers (no spots and no shared space needed). Untested with real trackers.
+In a headset you stay in a story once you
 have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
 models (point at one to see its card), and with the circles walked into a
@@ -411,7 +421,7 @@ Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
 for every story; Frame rate, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
-Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, What is new, the version,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over

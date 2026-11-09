@@ -14,9 +14,10 @@ each foot and uses the headset and the controllers and ik for the rest if possib
 just use the headset and the controllers if possible".
 
 This file is the contract between the lanes that build it. Status: v126 builds phases 1 and 3 in three lanes (the bridge,
-the fake and the relay; the shell; the studio), with the wire settled by v126's brief (below: no reference trackers this
-round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built so far: the solver of phase 3
-(v125, "The solver (ik.js)" below) and the bridge, the fake and the relay (v126, "The bridge" and "The relay" below).
+the fake and the relay; the shell; the studio), lined up by hand, with the wire settled by v126's brief (no reference
+trackers this round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built: the solver of
+phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay ("The bridge", "The relay"), the shell's part
+("The shell") and the studio's (props and the puppet).
 
 ## The picture
 
@@ -122,24 +123,62 @@ wait). The reference: `relay/README.md`, "The PC's Vive trackers".
 
 ## The shell (`shared.js`, `index.html`)
 
-- `@trk` is the shell's own (as `@menu`), never passed to a story. Each tracker's last 8 samples by `at`; drawn at the
-  relay's time now less `TRK.delay` (40 ms) between samples, carried on by its velocity for at most 100 ms past the last;
-  not seen for 0.5 s: `ok` false, its last pose kept.
-- `HOST.collab.trackers()`: `[{ id, name, p, q, ok, age }]` in room coordinates; `HOST.collab.tracker(id, out)`: one, or
-  null; `HOST.collab.trk()`: the room's `trk` key and the last `l` and `e` (for the dialog and tests).
-- Pages: a *Trackers* section in the Shared dialog when the relay says `trackers: true`: *Use the PC's trackers in this
-  room* (`trk.on`), lining up (two lists for the reference trackers, or *Set spot A* / *Set spot B* by hand with a list
-  of trackers), its status (*Lined up from the trackers on spot A and B: 1 mm, 2 mm*; *Not lined up: ...*), and the
-  trackers: serial, a name typed here (`trk.names`), ok, battery, and a row that lights while its tracker moves (to tell
-  which is which by moving it). The room map shows them as small dots with their names.
-- Headsets: *Trackers: shown / hidden* on the menu's Debug tab (this headset's own): each tracker drawn as a small puck
-  with its name, depth-tested.
+Built in v126 (the shell's lane; AGENTS.md, "Vive trackers", has it in full). The wire contract of this round, which
+the three lanes follow (where the sections above say otherwise, this wins: no reference trackers yet):
+
+- The room's key `trk` = `{ on: bool, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name, at most 24
+  characters> }, by, at }` (no `ref` this round). Written by pages or headsets, never refused by either lock; a write
+  keeps the fields it does not change.
+- `GET /api/trackers` (the password as for the API): `{ ok: true, trackers: [{ id: <serial>, k: 'trk' | 'hmd' | 'ctl' |
+  'base', h?: 'l' | 'r', ok, b: <battery 0..1 | null>, p: [3], q: [4], age: <ms> }] }`, raw in SteamVR's space. `GET
+  /api/trackers/still?id=<serial>&ms=1000`: waits that long and answers `{ ok: true, p: [3] (the mean), spread: <mm>, n }`
+  or `{ ok: false, error: <words> }` (not seen, or moved more than 5 mm meanwhile). `/api/ping` says `trackers: true` and
+  `trackersSeen: <n>` when the relay runs with `--trackers`.
+- The room frame from `m` is the headsets' frame from floor spots (`fromMarks`, `floorUnder` in `shared.js`): origin the
+  floor under spot A (SteamVR's standing space has its floor at y = 0; `TRK_FLOOR` = 0, the tracker's pose origin over the
+  floor lying on its base, a constant to measure later), x along the floor towards spot B, y up, z = x cross y (a point to
+  the right of the way from A to B has z > 0). The shell's reference: `HOST.room.fromSpots(a, b, 0)` and
+  `HOST.room.roomOf(frame, p)` give a raw point in room coordinates exactly as the headsets' frame from floor spots does
+  (the smoke test checks them; the relay's frame can be compared with them).
+- `@trk`: `{ t: 'fx', k: '@trk', v: { at: <relay ms of the newest reading>, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw,
+  vx, vy, vz, ok, kind], ...] }, by: '' }` 60 times a second to every member of a room whose `trk.on` holds and whose `m`
+  is set, in room coordinates (metres to the mm, quaternions to 4 decimals, `ok` 1 or 0, `kind` `'t'` a tracker, `'h'` the
+  Index, `'l'` and `'r'` its controllers; base stations never). With `trk.on` but no `m`: `{ at, l: '', t: [] }` once a
+  second. Sent by the relay itself. Peer-to-peer rooms and rooms on this device get none.
+- `FORMAT` `networks-38` (the room's key `trk`; the studio's records' `trk` and `puppet`).
+
+What the shell does with it:
+
+- `@trk` is the shell's own (as `@menu`), never passed to a story and never taken from a member (only with `by` ''). Each
+  tracker's last 8 samples by `at`; drawn at the relay's time now less `TRK.delay` (40 ms, eased) between samples, carried
+  on by its velocity for at most 100 ms past the last; not seen for 0.5 s: `ok` false, its last pose kept.
+- `HOST.collab.trackers()`: `[{ id, name, kind, p, q, ok, age }]` in room coordinates; `HOST.collab.tracker(id, out)`:
+  one, or null; `HOST.collab.trk()`: the room's `trk` key read safely, the last `l`, whether the relay has trackers (its
+  ping) and whether this room uses them now; `setTrk({ on, m, names })`, `trkName(id, name)`. For the studio lane's tests
+  and the shell's: `trkIn(v)` (a `@trk` message as the relay sends it) and `trkTime(ms)` (the relay's time held).
+- `HOST.collab.body(memberId)`: `{ head: [x, y, z, qx, qy, qz, qw] | null, hands: [left, right] (each [7] or null), at }`
+  in room coordinates for a member in a headset (smoothed from presence; this headset's own from its own poses), or
+  null: the "feet and headset" puppet worn with a Quest reads the performer's head and hands through it. Presence carries
+  `g`, the grips (or tracked hands' wrists) as poses `[left, right]`; its rays, `hands`, now list the left's first (they
+  were in the order of the session's input sources, which is no fixed order of hands).
+- Pages: *The PC's trackers* in the Shared dialog while the relay says `trackers: true`: *Use the PC's trackers in this
+  room* (`trk.on`), its status (*Lined up by hand (the spots 1.84 m apart): 3 trackers in the room.*, *Not lined up yet*,
+  ...), lining up by hand (a list of the relay's trackers to pick the one lying on the spot, *Set spot A*, *Set spot B*:
+  `/api/trackers/still`, then `trk.m` written; the spread or the error said; spots less than 50 cm apart or more than 4
+  cm apart in height refused), the trackers (serial, a name typed into `trk.names`, seen or not, battery, a row that
+  lights while its tracker moves), and the room map's small dots with names.
+- Headsets: *Trackers: shown / hidden* on the menu's Debug tab (this headset's own, kept, hidden by default): each tracker
+  a small puck with its name, depth-tested, at its room pose (in the room's group, as people are drawn).
 - The Index in the room (the owner: "a vive index is there too, that could then even join the page in webvr"): the PC's
   browser enters VR with the Index (Chrome or Edge on Windows through SteamVR's OpenXR) and joins the room as a VR
-  headset in the room (*In this room*). It needs no shared space and no spots: the bridge reports the Index's pose in
-  SteamVR's space, the page knows its own pose in its `local-floor` at the same moments, and the lining up by hand turns
-  SteamVR's space into the room's, so its room frame follows from the three (a frame source of its own, `'trackers'`,
-  steadier than any Quest's). Tethered, so it stays near the PC; it sees the room in VR.
+  headset; the menu's question (in this room?) is answered for it while the trackers see it. With `@trk` giving the
+  headset `'h'` in room coordinates and the page knowing its own head pose in its `local-floor` at the same moments (by
+  the relay's clock), its room frame follows: a level frame, the turn about the vertical and the place along the floor
+  (and the floor's height) from the two, averaged over about 1 s of samples taken while the head is fairly still, followed
+  past 1 cm or 0.5 degrees; a frame source of its own, `'trackers'`, taken before the shared space and after this
+  headset's own marks; `lineUp()` says *Lined up by the PC's trackers*. Only for a session whose browser is not a
+  standalone headset's and while `'h'` is seen and ok (held otherwise); no spots, no shared space needed, and the room
+  setup guide's startup flow never opens for it. Tethered, so it stays near the PC; it sees the room in VR.
 
 ## The studio, phase 1: props that follow a tracker
 
@@ -268,6 +307,12 @@ real trackers, a headset and controllers is untested.
   degrees), `@trk` only to rooms with `trk.on` and `m` and `l: ''` without, its rate (120 in 2 s), the bridge silent,
   `still` refusing a tracker that moved, nothing without `--trackers`, and `bridge.py --fake` to the relay where
   `python3` is. Lining up from reference trackers waits for a later round.
+- `tools/smoke.mjs --only trackers` (v126, the shell): `@trk` through the shell's intake at held times (smoothing,
+  carrying on, ok false after 0.5 s, bad rows, a member's message, nothing to the story); the Shared dialog's section with
+  the relay's answers stubbed (the switch, spots taken and refused, `trk.m` written, names, a row lit while its tracker
+  moves, the status, the room map's dots); a pretend VR headset: the `'trackers'` frame within 1 cm and 0.5 degrees,
+  turned and moved, followed, a fast turn with the clocks apart adding nothing, `lineUp()`, the question answered; the
+  pucks; `body()` and presence's grips. AGENTS.md's Testing section has the numbers.
 - `tools/studio/test-ik.mjs` (Node, seconds): a generated Mixamo-named test rig (`tools/studio/test/make.mjs`, our own
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.

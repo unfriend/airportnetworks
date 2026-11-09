@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-37';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-38';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -1905,12 +1905,18 @@
       P.sp = typeof v.sp === 'string' ? v.sp.slice(0, 64) : ''; P.al = typeof v.al === 'string' ? v.al.slice(0, 8) : '';   // its shared space and what aligns it (alignedHere)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
       P.hands = Array.isArray(v.hands) ? v.hands.filter(h => Array.isArray(h) && h.length === 7 && h.every(Number.isFinite)).slice(0, 2) : [];
+      // (v126: the controllers' grips, or the tracked hands' wrists, as poses [x, y, z, qx, qy, qz, qw] in room coordinates,
+      // the left's first and the right's second, null where there is none: a performer's hands for the studio's puppet,
+      // HOST.collab.body; an older headset sends none)
+      const g7 = h => (Array.isArray(h) && h.length === 7 && h.every(Number.isFinite) ? h : null);
+      P.g = Array.isArray(v.g) ? [g7(v.g[0]), g7(v.g[1])] : [null, null];
       // (where the head and hands were when it was sent: drawn smoothly from the samples, drawPeople; always moving, so held)
-      if (P.head && Number.isFinite(v.ts)) bufPush(P.buf || (P.buf = { s: [], seed: false }), v.ts, { head: P.head, hands: P.hands }, true); else P.buf = null;
+      if (P.head && Number.isFinite(v.ts)) bufPush(P.buf || (P.buf = { s: [], seed: false }), v.ts, { head: P.head, hands: P.hands, g: P.g }, true); else P.buf = null;
       // how it lines up with the room (the room setup guide's lineUp), for the pages' list; an older headset sends none
       // (and one before v109 no ck: this session's check that stood, kept undefined then, so nothing is said about it)
       const lu = v.lu && typeof v.lu === 'object' ? v.lu : null, s8 = s => (typeof s === 'string' ? s.slice(0, 8) : '');
       P.lu = lu ? { k: s8(lu.k), h: s8(lu.h), w: s8(lu.w), c: Number.isFinite(lu.c) ? Math.round(lu.c) : null, ck: typeof lu.ck === 'string' ? lu.ck.slice(0, 2) : undefined } : null;
+    } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k === 'q.check') { checkIn(m.v, m.by);   // someone's Touch the spot: where their room puts the spot
     } else if (m.k.startsWith('e.')) {
@@ -2782,7 +2788,9 @@
         if (!A) return H;
         const d = [lerp(A[3], H[3], f), lerp(A[4], H[4], f), lerp(A[5], H[5], f)], l = Math.hypot(...d) || 1;
         return [lerp(A[0], H[0], f), lerp(A[1], H[1], f), lerp(A[2], H[2], f), d[0] / l, d[1] / l, d[2] / l, lerp(A[6], H[6], f)];
-      }) }),
+      }),
+      // (the grips, left and right: places in a line, turns by slerp; one that comes or goes, as it is)
+      g: [0, 1].map(i => { const A = a.g && a.g[i], H = b.g && b.g[i]; return !H ? null : !A ? H : [lerp(A[0], H[0], f), lerp(A[1], H[1], f), lerp(A[2], H[2], f), ...qSlerp(A.slice(3), H.slice(3), f)]; }) }),
   };
   // a moving key's value as it is drawn (its story is checked where it is used), or null: not a move (no ts), so the glide
   const SAMPLE = {
@@ -2946,6 +2954,7 @@
     }
     whoStep(t);   // (a person followed: their station first)
     arcStep(t);   // (the room's arc: everyone at it)
+    trkPump(t);   // (the PC's trackers: whether the relay has them, the dialog's list)
     const L = liveSt(), S = sesSt();
     if (synced(S) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); }   // (the view: every frame, viewSync)
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
@@ -3725,7 +3734,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4254,6 +4263,11 @@
       const pa = peopleAll();
       button(S, 'people', x, y, bw, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 21, on: !pa });
       button(S, 'sound', x + bw + 16, y, bw, 56, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
+      y += 72;
+      // the PC's trackers as small pucks where they are in the room (this headset's own, kept; v126)
+      const ts = TRK.show;
+      button(S, 'trackers', x, y, bw, 56, ts ? 'Trackers: shown' : 'Trackers: hidden', () => trkShow(!ts), { px: 21, on: ts });
+      note(trkMenuLine(), y);
       y += 72;
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
@@ -5046,6 +5060,447 @@
     return E.o;
   }
 
+  // ------------------------------------------------------------ the PC's trackers --
+  // Vive trackers in the rooms (v126, tools/trackers/SPEC.md; the owner, 8 November 2026: "we go for 1 and 3 with mixamo
+  // rigs for now"). SteamVR on the relay's PC sees the trackers, its Index and the Index's controllers; a small bridge
+  // (tools/trackers/bridge.py) hands their poses to the relay (--trackers), which lines them up with the room from the
+  // room's key trk and sends every member of a room that uses them the fx @trk 60 times a second, by the relay itself
+  // (by ''): { at: the relay's ms of its newest reading, l: 'hand' (lined up by hand; '' not lined up, then once a second
+  // with no trackers), t: [[id (its serial), x, y, z, qx, qy, qz, qw, vx, vy, vz, ok (1 or 0), kind ('t' a tracker, 'h' the
+  // Index, 'l' and 'r' its controllers)], ...] } in room coordinates. The room's key trk = { on, m: { a, b } | null, names:
+  // { <serial>: <name> }, by, at }: on, this room uses the PC's trackers; m, the two points (a tracker's raw position in
+  // SteamVR's standing space) taken with a tracker lying on spot A and on spot B, the room's frame from them exactly the
+  // headsets' frame from floor spots (origin the floor under spot A, x along the floor towards spot B, y up); written by
+  // pages and headsets, never refused by either lock, a write keeping what it does not change. Peer-to-peer rooms and rooms
+  // on this device get none.
+  // @trk is the shell's own (as @menu), never a story's: each one's last TRK.keep samples by at, drawn at the relay's time
+  // now less TRK.delay between the two samples round that moment (places in a line, turns by slerp), carried on by its
+  // velocity for at most TRK.carry past the last; not seen for TRK.lost, ok false and its last pose kept. The page's
+  // Shared dialog has a Trackers section while the relay says it has them (its /api/ping: trackers: true): this room's
+  // switch, lining up by hand (GET /api/trackers/still for the tracker lying on each spot) and the trackers with their
+  // names; the room map shows them as small dots. A headset draws them as small pucks with Trackers: shown (the Debug
+  // tab; this headset's own). The Index on the PC lines its room up from its head as the trackers see it (trkAlign)
+  const TRK = { type: '@trk', delay: 40, keep: 8, carry: 100, lost: 500, code: '', list: new Map(), l: '', at: 0, heard: 0,
+    relay: { on: false, seen: 0, at: 0, asked: 0, busy: false },   // what the relay's /api/ping says: trackers: true, trackersSeen
+    raw: [], rawAt: 0, rawBusy: false, rawErr: '', prev: new Map(), lit: new Map(),   // the dialog's list (GET /api/trackers, raw) and when each row last moved
+    pick: '', spot: { a: null, busy: '', note: '', bad: false },   // lining up by hand: the tracker picked, spot A taken, a question on its way ('a' or 'b'), what it says
+    show: get('xrTrackers') === 'shown', grp: null, pucks: new Map(),   // the headset's pucks (the Debug tab's Trackers row)
+    hold: null, t: 0, tp: 0,   // (tests: the relay's time held for them, null live; the time they are drawn at, eased)
+    fr: { hist: [], est: [], last: 0 } };   // the Index's frame: its head in local-floor by the relay's clock, the estimates, the newest sample used
+  const TRK_KINDS = ['t', 'h', 'l', 'r'];
+  // the Index's frame from the trackers: estimates from a head held fairly still (at most speed m/s and turn rad/s, as the
+  // trackers and as this page see it: a pose WebXR predicts for the display and one the bridge read a moment before differ
+  // only while it moves), over the last win ms, at least n of them across span ms; followed past move m or by rad
+  const TRK_FR = { win: 1000, n: 10, span: 300, speed: 0.5, turn: 0.6, move: 0.01, by: 0.5 * Math.PI / 180 };
+  const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion();
+  const trkNow = () => (TRK.hold !== null ? TRK.hold : now());
+  // the relay's time the trackers are drawn at: now less TRK.delay, eased in time so a new measure of the relay's clock
+  // never jolts them (more than 250 ms off: at once)
+  function trkT() {
+    if (TRK.hold !== null) return TRK.hold - TRK.delay;
+    const p = performance.now(), want = now() - TRK.delay, dt = p - TRK.tp;
+    let t = TRK.t + dt;
+    if (!TRK.tp || Math.abs(want - t) > 250) t = want;
+    else t += Math.max(-dt * 0.12, Math.min(dt * 0.12, (want - t) * Math.min(1, dt / 160)));
+    TRK.t = t; TRK.tp = p;
+    return t;
+  }
+  // a room left or joined: nothing of the one before
+  function trkRoom() {
+    if (TRK.code === C.code) return;
+    TRK.code = C.code; TRK.list.clear(); TRK.l = ''; TRK.at = 0; TRK.heard = 0; TRK.raw = []; TRK.rawErr = ''; TRK.prev.clear(); TRK.lit.clear();
+    TRK.spot = { a: null, busy: '', note: '', bad: false };
+    Object.assign(TRK.relay, { on: false, seen: 0, at: 0, asked: 0 });
+  }
+  // a @trk message (onFx: the relay's own, by '')
+  function trkIn(v) {
+    if (!C.code || !v || typeof v !== 'object' || !Number.isFinite(v.at)) return;
+    trkRoom();
+    TRK.l = v.l === 'hand' ? 'hand' : ''; TRK.at = v.at; TRK.heard = performance.now();
+    const rows = Array.isArray(v.t) ? v.t.slice(0, 64) : [], fin = (a, i, j) => { for (let k = i; k < j; k++) if (!Number.isFinite(a[k])) return false; return true; };
+    for (const r of rows) {
+      if (!Array.isArray(r) || typeof r[0] !== 'string' || !r[0] || r[0].length > 64 || !fin(r, 1, 8) || Math.max(Math.abs(r[1]), Math.abs(r[2]), Math.abs(r[3])) > 10000) continue;
+      let E = TRK.list.get(r[0]);
+      if (!E) { if (TRK.list.size >= 64) continue; TRK.list.set(r[0], (E = { id: r[0], kind: 't', s: [] })); }
+      E.kind = TRK_KINDS.includes(r[12]) ? r[12] : 't';
+      const s = E.s, last = s[s.length - 1];
+      if (last && v.at <= last.at) continue;   // (late, or twice)
+      if (last && v.at - last.at > 1000) s.length = 0;   // (not seen for a while: no line drawn from where it was)
+      const ql = Math.hypot(r[4], r[5], r[6], r[7]), vel = [r[8], r[9], r[10]].map(x => (Number.isFinite(x) && Math.abs(x) < 50 ? x : 0));
+      s.push({ at: v.at, p: [r[1], r[2], r[3]], q: ql > 1e-6 ? [r[4] / ql, r[5] / ql, r[6] / ql, r[7] / ql] : [0, 0, 0, 1], v: vel, ok: r[11] === 1 || r[11] === true });
+      if (s.length > TRK.keep) s.shift();
+    }
+  }
+  // one tracker at the relay's time Tm: { id, name, kind, p, q, ok, age } (out filled in)
+  function trkPose(E, Tm, out) {
+    const s = E.s, n = s.length, last = s[n - 1];
+    let p, q;
+    if (Tm >= last.at) {   // (past the last: carried on by its velocity for at most TRK.carry; one not seen well, held)
+      const dt = last.ok ? Math.min(Tm - last.at, TRK.carry) / 1000 : 0;
+      p = [last.p[0] + last.v[0] * dt, last.p[1] + last.v[1] * dt, last.p[2] + last.v[2] * dt]; q = last.q.slice();
+    } else {
+      let i = n - 1;
+      while (i > 0 && s[i - 1].at > Tm) i--;
+      if (!i) { p = s[0].p.slice(); q = s[0].q.slice(); } else {
+        const a = s[i - 1], b = s[i], f = (Tm - a.at) / (b.at - a.at);
+        p = [lerp(a.p[0], b.p[0], f), lerp(a.p[1], b.p[1], f), lerp(a.p[2], b.p[2], f)]; q = qSlerp(a.q, b.q, f);
+      }
+    }
+    const age = Math.max(0, Math.round(trkNow() - last.at));
+    out.id = E.id; out.name = trkKey().names[E.id] || ''; out.kind = E.kind; out.p = p; out.q = q; out.ok = !!last.ok && age < TRK.lost; out.age = age;
+    return out;
+  }
+  function trackers() {
+    if (!C.code) return [];
+    trkRoom();
+    const T = trkT(), out = [];
+    for (const E of TRK.list.values()) if (E.s.length) out.push(trkPose(E, T, {}));
+    return out;
+  }
+  function tracker(id, out) {
+    if (!C.code) return null;
+    trkRoom();
+    const E = TRK.list.get(id);
+    return E && E.s.length ? trkPose(E, trkT(), out && typeof out === 'object' ? out : {}) : null;
+  }
+  // the room's key trk, read safely ({ on, m, names, by, at })
+  const ptOK = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+  function trkKey() {
+    const v = val('trk'), names = {};
+    if (!v || typeof v !== 'object') return { on: false, m: null, names, by: '', at: 0 };
+    if (v.names && typeof v.names === 'object') for (const [k, n] of Object.entries(v.names)) if (typeof n === 'string' && n.trim() && k.length <= 64) names[k] = n.trim().slice(0, 24);
+    return { on: v.on === true, m: v.m && ptOK(v.m.a) && ptOK(v.m.b) ? { a: v.m.a.slice(), b: v.m.b.slice() } : null, names, by: typeof v.by === 'string' ? v.by : '', at: +v.at || 0 };
+  }
+  // the room's key written: on, m or names (a write keeps what it does not change, also fields of a newer app's)
+  function setTrk(o) {
+    if (!C.code || !C.welcomed) return false;
+    const was = val('trk'), K = trkKey(), v = Object.assign({ on: false, m: null, names: {} }, was && typeof was === 'object' && !Array.isArray(was) ? was : {});
+    if (typeof o.on === 'boolean') v.on = o.on;
+    if (o.m === null || (o.m && ptOK(o.m.a) && ptOK(o.m.b))) v.m = o.m ? { a: o.m.a.slice(), b: o.m.b.slice() } : null;
+    v.names = o.names && typeof o.names === 'object' ? o.names : K.names;
+    v.by = C.id; v.at = Math.round(now());
+    publish([['trk', v]]);
+    log('trackers', { on: v.on, m: !!v.m, names: Object.keys(v.names).length });
+    changed();
+    return true;
+  }
+  function setTrkName(id, name) {
+    if (typeof id !== 'string' || !id || id.length > 64) return false;
+    const names = Object.assign({}, trkKey().names), n = String(name || '').trim().slice(0, 24);
+    if (n) names[id] = n; else delete names[id];
+    return setTrk({ names });
+  }
+  // the room uses the PC's trackers, and they are lined up and heard
+  const trkUsed = () => !!C.code && trkKey().on && TRK.l === 'hand' && !!TRK.heard && performance.now() - TRK.heard < 3000;
+  // the Index's head, as the trackers see it (the first seen), and whether it is seen now
+  function trkHead() { for (const E of TRK.list.values()) if (E.kind === 'h' && E.s.length) return E; return null; }
+  const trkHeadOK = () => { const H = trkHead(), L = H && H.s[H.s.length - 1]; return !!(L && L.ok && trkNow() - L.at < TRK.lost); };
+  // the trackers have lost this headset for 3 s (its frame is held; lineUp says why)
+  const trkGone = () => { const H = trkHead(), L = H && H.s[H.s.length - 1]; return !L || !L.ok || trkNow() - L.at > 3000 || !trkUsed(); };
+  // this page may line up by the trackers: a headset session in VR in a browser that is not a standalone headset's (the
+  // PC's, with the Index: Chrome or Edge through SteamVR's OpenXR), while the trackers see a headset in a room using them
+  const trkIndexCan = () => !IS_HEADSET && !CAM.on && kind() === 'vr' && trkUsed() && trkHeadOK();
+
+  // ---- the relay's side: whether it has trackers, the raw list for the dialog, a spot taken
+  function trkPump(t) {
+    trkRoom();
+    const R0 = TRK.relay;
+    if (C.via === 'relay' && !C.local && C.relay && !R0.busy && t - R0.asked > (DLG.open ? 3000 : 15000)) trkPing(false);
+    if (DLG.open && R0.on && !TRK.rawBusy && t - TRK.rawAt > 500) trkRaw();
+    for (const [id, E] of TRK.list) { const L = E.s[E.s.length - 1]; if (!L || trkNow() - L.at > 60000) TRK.list.delete(id); }   // (gone for a minute)
+  }
+  function trkPing(force) {
+    if (TRK.relay.busy || !C.code || (!force && C.via !== 'relay')) return Promise.resolve(TRK.relay.on);
+    TRK.relay.busy = true; TRK.relay.asked = performance.now();
+    return api('ping', undefined, 5000).then(r => {
+      const j = r.ok && r.j, on = !!(j && j.trackers === true), seen = j && Number.isFinite(j.trackersSeen) ? Math.max(0, j.trackersSeen | 0) : 0;
+      if (on !== TRK.relay.on || seen !== TRK.relay.seen) { TRK.relay.on = on; TRK.relay.seen = seen; log('trackers relay', { on, seen }); changed(); }
+      TRK.relay.at = performance.now();
+    }, () => { /* not now: asked again */ }).then(() => { TRK.relay.busy = false; return TRK.relay.on; });
+  }
+  const TRK_RAW = { trk: 't', hmd: 'h', ctl: 'c', base: 'b' };
+  function trkRaw() {
+    TRK.rawBusy = true;
+    return api('trackers', undefined, 4000).then(r => {
+      const t = performance.now();
+      if (!r.ok || !r.j || !Array.isArray(r.j.trackers)) TRK.rawErr = r.status === 401 ? AUTH_TEXT : 'The relay answered ' + r.status + ' about its trackers.';
+      else {
+        TRK.rawErr = '';
+        TRK.raw = r.j.trackers.filter(x => x && typeof x.id === 'string' && x.id && x.id.length <= 64 && TRK_RAW[x.k] && ptOK(x.p)).slice(0, 64)
+          .map(x => ({ id: x.id, k: x.k, h: x.h === 'l' || x.h === 'r' ? x.h : '', ok: !!x.ok, b: Number.isFinite(x.b) ? Math.max(0, Math.min(1, x.b)) : null, p: x.p.slice() }));
+        // a row lights while its tracker moves (more than 1 cm since the last look, half a second ago): pick it up to tell which is which
+        for (const x of TRK.raw) { const w = TRK.prev.get(x.id); if (w && dist3(w, x.p) > 0.01) TRK.lit.set(x.id, t); TRK.prev.set(x.id, x.p); }
+      }
+      TRK.rawAt = t; trkRender();
+    }, () => { TRK.rawErr = unreachable(); TRK.rawAt = performance.now(); trkRender(); }).then(() => { TRK.rawBusy = false; });
+  }
+  // a spot taken by hand: the tracker picked lies still on spot A (or B) for a second, its mean position read
+  // (GET /api/trackers/still); with both, the room's m written. Spots at least 50 cm apart and at most SPOTS_DH apart in
+  // height (lying flat on the floor, both), as the headsets' floor spots are
+  async function trkSpot(which) {
+    if (which !== 'a' && which !== 'b') return;
+    const S = TRK.spot, id = TRK.pick, say = (note, bad) => { S.note = note; S.bad = !!bad; trkRender(); };
+    if (S.busy) return;
+    if (!id) { say('Pick the tracker lying on the spot first (none seen: is the bridge running on the PC, after SteamVR?).', true); return; }
+    if (which === 'b' && !S.a) { say('Set spot A first.', true); return; }
+    S.busy = which; say(`Reading spot ${which.toUpperCase()}: leave the tracker still for a second...`);
+    let r = null;
+    try { r = await api('trackers/still?id=' + encodeURIComponent(id) + '&ms=1000', undefined, 6000); } catch (e) { /* no answer */ }
+    S.busy = '';
+    const j = r && r.j, W = which.toUpperCase();
+    if (!r || !j || j.ok !== true || !ptOK(j.p)) {
+      log('trackers spot', { spot: which, ok: false, why: j && j.error });
+      say(`Spot ${W} not taken: ` + (j && typeof j.error === 'string' && j.error ? j.error.slice(0, 120) : r ? 'the relay answered ' + r.status : 'the relay did not answer') + '. Try again.', true);
+      return;
+    }
+    const p = j.p.map(x => Math.round(x * 10000) / 10000), mm = Number.isFinite(j.spread) ? Math.round(j.spread * 10) / 10 : null, still = mm === null ? '' : ` (still to ${mm} mm)`;
+    if (which === 'a') { S.a = { id, p, mm }; log('trackers spot', { spot: 'a', mm }); say(`Spot A taken${still}. Now lay a tracker on spot B, pick it and press Set spot B.`); return; }
+    const A = S.a, d = Math.hypot(p[0] - A.p[0], p[2] - A.p[2]), dh = p[1] - A.p[1];
+    if (d < 0.5) { say(`Spot B is only ${Math.round(d * 100)} cm from spot A: they must be at least 50 cm apart (about 2 m is best). Move the tracker to spot B and try again.`, true); return; }
+    if (Math.abs(dh) > SPOTS_DH) { say(`Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A: lay the tracker flat on the floor on both spots.`, true); return; }
+    setTrk({ m: { a: A.p, b: p } });
+    S.a = null;
+    log('trackers spot', { spot: 'b', mm, d: r3(d) });
+    say(`Lined up by hand: the spots are ${d.toFixed(2)} m apart${A.mm !== null && mm !== null ? ` (still to ${A.mm} mm and ${mm} mm)` : ''}.`);
+  }
+  // how the room's trackers stand, in words, for the dialog: { k: 'ok', 'wait', 'no' or 'off', text }
+  function trkStatus() {
+    const K = trkKey(), heard = TRK.heard ? performance.now() - TRK.heard : Infinity, n = [...TRK.list.values()].filter(E => E.kind === 't').length;
+    if (!K.on) return { k: 'off', text: 'Not used in this room: turn it on, and the headsets and the studio see the trackers.' };
+    if (!K.m) return { k: 'no', text: 'Not lined up yet: set spot A and spot B below.' };
+    if (TRK.relay.at && !TRK.relay.seen && !TRK.raw.length) return { k: 'no', text: 'Lined up by hand, but the relay sees no trackers: is the bridge running on the PC, after SteamVR?' };
+    if (heard > 3000) return { k: 'wait', text: 'Lined up by hand: waiting for the relay\'s trackers...' };
+    if (TRK.l !== 'hand') return { k: 'wait', text: 'Lining up...' };
+    const d = Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2]);
+    return { k: 'ok', text: `Lined up by hand (the spots ${d.toFixed(2)} m apart): ${n} ${n === 1 ? 'tracker' : 'trackers'} in the room.` };
+  }
+  // the same in a line for the headset's Debug tab, beside Trackers: shown / hidden
+  function trkMenuLine() {
+    if (!C.code) return 'The PC\'s trackers, in a room on its relay';
+    if (!trkKey().on) return 'This room does not use the PC\'s trackers';
+    if (!trkUsed()) return 'Not lined up yet: spots A and B, in a page\'s Shared dialog';
+    const n = [...TRK.list.values()].filter(E => E.kind === 't').length;
+    return `${n} ${n === 1 ? 'tracker' : 'trackers'}, lined up by hand`;
+  }
+  function trkShow(on) { TRK.show = !!on; put('xrTrackers', on ? 'shown' : null); log('trackers shown', { on: TRK.show }); changed(); }
+  const TRK_WORD = x => (x.k === 'trk' ? 'tracker' : x.k === 'hmd' ? 'the Index' : `the Index's ${x.h === 'l' ? 'left' : x.h === 'r' ? 'right' : ''} controller`.replace('  ', ' '));
+  // the dialog's Trackers section (shown while the relay has them): the room's switch, its status, lining up by hand and
+  // the trackers (each row's name typed here into trk.names; a row lights while its tracker moves). Its list is built again
+  // only when the trackers or their names change, never under a name being typed
+  function trkRender() {
+    if (!DLG.open || !DLG.el) return;
+    const box = $('.sh-trk');
+    if (!box) return;
+    box.hidden = !(C.code && TRK.relay.on);
+    if (box.hidden) return;
+    const K = trkKey(), st = trkStatus(), ob = $('[data-sh="trkon"]');
+    if (ob) { ob.textContent = 'Use the PC\'s trackers in this room: ' + (K.on ? 'on' : 'off'); ob.setAttribute('aria-pressed', String(K.on)); }
+    const sl = $('.sh-trkst');
+    if (sl) { sl.textContent = st.text; sl.className = 'sh-trkst ' + st.k; }
+    const nt = $('.sh-trknote');
+    if (nt) { nt.textContent = TRK.spot.note; nt.classList.toggle('warn', TRK.spot.bad); }
+    const pk = $('#shTrkPick'), opts = TRK.raw.filter(x => x.k === 'trk'), psig = opts.map(x => x.id + '|' + (K.names[x.id] || '')).join(',');
+    if (pk) {
+      if (pk.dataset.k !== psig) {
+        pk.innerHTML = opts.length ? opts.map(x => `<option value="${esc(x.id)}">${esc(K.names[x.id] ? K.names[x.id] + ' (' + x.id + ')' : x.id)}</option>`).join('') : '<option value="">No tracker seen</option>';
+        pk.dataset.k = psig;
+      }
+      if (opts.some(x => x.id === TRK.pick)) pk.value = TRK.pick; else TRK.pick = opts.length ? pk.value : '';
+    }
+    for (const b of DLG.el.querySelectorAll('[data-sh^="trkspot:"]')) b.disabled = !!TRK.spot.busy || !opts.length;
+    const ul = $('.sh-trks');
+    if (!ul) return;
+    const rows = TRK.raw.filter(x => x.k !== 'base'), bases = TRK.raw.length - rows.length, t = performance.now();
+    const rsig = rows.map(x => x.id + x.k + x.h).join(',') + '|' + bases + '|' + J(K.names) + '|' + TRK.rawErr + '|' + !!TRK.rawAt;
+    if (ul.dataset.k !== rsig && !(document.activeElement && ul.contains(document.activeElement))) {
+      ul.dataset.k = rsig;
+      ul.innerHTML = rows.map(x => `<li data-trk="${esc(x.id)}"><i style="background:${x.k === 'trk' ? '#46d9ff' : '#95a6bd'}"></i><b>${esc(x.id)}</b><input data-trkname="${esc(x.id)}" maxlength="24" autocomplete="off" spellcheck="false" placeholder="A name" value="${esc(K.names[x.id] || '')}" aria-label="A name for ${esc(x.id)}"><span></span></li>`).join('') +
+        (TRK.rawErr ? `<li class="none">${esc(TRK.rawErr)}</li>` : !TRK.rawAt ? '<li class="none">Asking the relay...</li>' : !rows.length ? '<li class="none">The relay sees no trackers: is the bridge running on the PC, after SteamVR?</li>' : '') +
+        (bases ? `<li class="none">${bases} base ${bases === 1 ? 'station' : 'stations'}</li>` : '');
+    }
+    for (const x of rows) {
+      const li = ul.querySelector(`li[data-trk="${CSS.escape(x.id)}"]`), sp = li && li.querySelector('span');
+      if (!li) continue;
+      const lit = t - (TRK.lit.get(x.id) || -1e9) < 1500;
+      li.classList.toggle('moving', lit);
+      sp.textContent = [TRK_WORD(x), x.ok ? 'seen' : 'not seen', x.b === null ? '' : 'battery ' + Math.round(x.b * 100) + ' %', lit ? 'moving' : ''].filter(Boolean).join(' · ');
+    }
+  }
+
+  // ---- the headset's pucks: each tracker where it is in the room, with its name (Trackers: shown on the Debug tab)
+  const PUCK_T = {};
+  function puckFor(id) {
+    const g = new THREE.Group(), body = new THREE.Group();
+    // (a Vive Tracker 3.0 is about 7 cm across: a disc on its base, its axis the tracker's own y, a ring on top that dims
+    // while it is not seen; how its own frame lies on a real one is a guess until seen)
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.022, 28), new THREE.MeshBasicMaterial({ color: 0x2a3446 }));
+    disc.position.y = 0.011;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.031, 0.0045, 8, 32).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: CYAN, transparent: true }));
+    ring.position.y = 0.023;
+    body.add(disc, ring);
+    // its name over it, a sign turned to you and hidden by what stands in front (as the name tags in 3D), both faces
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+    const tex = new THREE.CanvasTexture(cv), sm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.1 }), sg = new THREE.PlaneGeometry(0.16, 0.04), sign = new THREE.Group();
+    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(sg, sm); f.rotation.y = ry; sign.add(f); }
+    sign.position.y = 0.085;
+    g.add(body, sign);
+    const o = { g, body, ring, sign, cv, tex, name: null, ok: null };
+    TRK.grp.add(g); TRK.pucks.set(id, o);
+    return o;
+  }
+  function dropPuck(id) {
+    const o = TRK.pucks.get(id);
+    if (!o) return;
+    if (o.g.parent) o.g.parent.remove(o.g);
+    o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) { if (x.material.map) x.material.map.dispose(); x.material.dispose(); } });
+    TRK.pucks.delete(id);
+  }
+  function drawTrackers() {
+    const want = TRK.show && !!OV.room && OV.room.visible && trkUsed();
+    if (!want) { if (TRK.grp) TRK.grp.visible = false; return; }
+    if (!TRK.grp) { TRK.grp = new THREE.Group(); TRK.grp.name = 'trackers'; }
+    if (TRK.grp.parent !== OV.room) OV.room.add(TRK.grp);
+    TRK.grp.visible = true;
+    const T = trkT(), seen = new Set();
+    for (const E of TRK.list.values()) {
+      if (E.kind !== 't' || !E.s.length) continue;
+      const P = trkPose(E, T, PUCK_T), o = TRK.pucks.get(E.id) || puckFor(E.id), name = P.name || E.id;
+      seen.add(E.id);
+      o.g.position.fromArray(P.p); o.body.quaternion.fromArray(P.q);
+      if (o.name !== name) {
+        o.name = name;
+        const ctx = o.cv.getContext('2d');
+        ctx.clearRect(0, 0, 256, 64); rr(ctx, 2, 2, 252, 60, 14); ctx.fillStyle = 'rgba(3,8,16,0.85)'; ctx.fill();
+        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.fillText(fit(ctx, name, 232), 128, 34); ctx.textAlign = 'left';
+        o.tex.needsUpdate = true;
+      }
+      if (o.ok !== P.ok) { o.ok = P.ok; o.ring.material.color.set(P.ok ? CYAN : '#6c7d94'); o.ring.material.opacity = P.ok ? 1 : 0.5; }
+      if (R.headOK) o.sign.rotation.set(0, Math.atan2(R.hr.x - P.p[0], R.hr.z - P.p[2]), 0);
+    }
+    for (const id of [...TRK.pucks.keys()]) if (!seen.has(id)) dropPuck(id);
+  }
+
+  // ---- the Index in the room: the PC's page in VR with the Index lines up from its head as the trackers see it (its kind
+  // 'h', in room coordinates) and as it sees itself in its local-floor at the same moments (by the relay's clock), a level
+  // frame (the turn about the vertical and the place, from the two, over about a second), followed past 1 cm or 0.5 degrees:
+  // a frame source of its own, 'trackers', after this headset's own marks and before the shared space (which such a browser
+  // has none of). No spots and no shared space needed; never a standalone headset's (trkIndexCan)
+  function trkFresh() { TRK.fr.hist.length = 0; TRK.fr.est.length = 0; }
+  // (every frame, from update: where the head is in local-floor, by the relay's clock. Its own viewer pose from the frame:
+  // update also runs from the story's frame, through place, before the shell's tick has this frame's head, HD)
+  const _th = new THREE.Quaternion();
+  function trkHist(f, local) {
+    const F = TRK.fr;
+    let vp = null;
+    if (!IS_HEADSET && !CAM.on && kind() === 'vr' && trkHead()) try { vp = f.getViewerPose(local); } catch (e) { /* not in this frame */ }
+    if (!vp) { if (F.hist.length) trkFresh(); return; }
+    const P = vp.transform.position, O = vp.transform.orientation, p = _tv.set(P.x, P.y, P.z).applyMatrix4(R.lfi), at = trkNow(), x = [p.x, p.y, p.z];
+    const d = _tv.set(0, 0, -1).applyQuaternion(_th.set(O.x, O.y, O.z, O.w)).transformDirection(R.lfi), yaw = Math.hypot(d.x, d.z) > 0.3 ? Math.atan2(-d.x, -d.z) : NaN;
+    const last = F.hist[F.hist.length - 1];
+    if (last && at <= last.at) { last.p = x; last.yaw = yaw; return; }   // (the same moment: the newest pose)
+    F.hist.push({ at, p: x, yaw });
+    while (F.hist.length > 2 && at - F.hist[0].at > 2000) F.hist.shift();
+  }
+  // the head in local-floor at the relay's time at (between the two samples round it; just past the newest, the newest)
+  function histAt(at) {
+    const H = TRK.fr.hist, n = H.length;
+    if (!n || at < H[0].at) return null;
+    const last = H[n - 1];
+    if (at >= last.at) return at - last.at <= 100 ? last : null;
+    let i = n - 1;
+    while (i > 0 && H[i - 1].at > at) i--;
+    const a = H[i - 1], b = H[i], f = (at - a.at) / (b.at - a.at);
+    return { at, p: a.p.map((x, k) => x + (b.p[k] - x) * f), yaw: a.yaw + turnBy(a.yaw, b.yaw) * f };
+  }
+  // the frame the newest samples give: { o, th, n, span } (th: the turn about the vertical from room to local-floor), or null
+  function trkEstimate() {
+    const F = TRK.fr, H = trkHead();
+    if (!H) return null;
+    for (const s of H.s) {
+      if (s.at <= F.last) continue;
+      F.last = s.at;
+      if (!s.ok || Math.hypot(...s.v) > TRK_FR.speed) continue;
+      const L = histAt(s.at), L0 = histAt(s.at - 100);
+      if (!L || !Number.isFinite(L.yaw)) continue;
+      const dt = L0 ? (s.at - L0.at) / 1000 : 0;   // (the head as this page saw it over the last tenth of a second: fairly still)
+      if (dt > 0.02 && ((Number.isFinite(L0.yaw) && Math.abs(turnBy(L0.yaw, L.yaw)) / dt > TRK_FR.turn) || dist3(L0.p, L.p) / dt > TRK_FR.speed)) continue;
+      const f = _tv.set(0, 0, -1).applyQuaternion(_tq.fromArray(s.q));
+      if (Math.hypot(f.x, f.z) < 0.3) continue;   // (looking straight up or down: no heading)
+      F.est.push({ at: s.at, th: L.yaw - Math.atan2(-f.x, -f.z), pl: L.p, pr: s.p });
+    }
+    const E = F.est, newest = E.length ? E[E.length - 1].at : 0;
+    while (E.length && newest - E[0].at > TRK_FR.win) E.shift();
+    if (E.length < TRK_FR.n || newest - E[0].at < TRK_FR.span) return null;
+    let sc = 0, ss = 0;
+    for (const e of E) { sc += Math.cos(e.th); ss += Math.sin(e.th); }
+    const th = Math.atan2(ss, sc), c = Math.cos(th), sn = Math.sin(th), o = [0, 0, 0];
+    // (local-floor = o + R(th) room: R(th) three.js's turn about y, x to (cos, 0, -sin), z to (sin, 0, cos))
+    for (const e of E) { const [x, y, z] = e.pr; o[0] += e.pl[0] - (c * x + sn * z); o[1] += e.pl[1] - y; o[2] += e.pl[2] - (-sn * x + c * z); }
+    return { o: o.map(v => v / E.length), th, n: E.length, span: newest - E[0].at };
+  }
+  // from align: true when the trackers line this headset up (or hold its frame from them), so nothing else is tried
+  function trkAlign() {
+    if (IS_HEADSET || CAM.on || kind() !== 'vr' || !here()) return false;
+    const held = R.src === 'trackers' && !!R.frame, E = trkUsed() ? trkEstimate() : null;
+    if (!E) return held;
+    const F = { o: E.o, x: [Math.cos(E.th), 0, -Math.sin(E.th)] }, K = trkKey();
+    // (the room's spots where the trackers lay, drawn as the orange crosses: A at the origin on the floor, B along x)
+    R.mk = K.m ? [0, r3(Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2])), r3(K.m.b[1] - K.m.a[1])] : null;
+    if (!held) { setFrame(F, 'trackers', 'Lined up by the PC\'s trackers', 'The PC\'s trackers see this headset, so it stands in the room as they do.'); return true; }
+    const [d, a] = apart(F, R.frame);
+    if (d > TRK_FR.move || a > TRK_FR.by || Math.abs(F.o[1] - R.frame.o[1]) > TRK_FR.move) setFrame(F, 'trackers');   // (followed)
+    return true;
+  }
+  // the Index in VR, the trackers seeing it: in the room (the question in the menu answered for it, before its frame is decided)
+  function trkHere() {
+    if (!askHere() || !trkIndexCan()) return;
+    log('trackers', { here: true });
+    setHere(true);
+    notice('In the room', 'The PC\'s trackers see this headset: it is in the room, lined up by them.', 6000);
+  }
+
+  // ---- a person's head and hands for the studio's puppet: { head: [x, y, z, qx, qy, qz, qw] or null, hands: [left, right]
+  // (each such a pose or null), at: the relay's time it is for } in room coordinates, for a member in a headset (smoothed,
+  // from presence: its head and g) or this headset itself (its own poses now); null for anyone else
+  const GRIP = [{ v: null, at: 0 }, { v: null, at: 0 }], _gm = new THREE.Matrix4(), _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3();
+  // (each frame of a headset session, lined up: the left and right controllers' grips, or the tracked hands' wrists, in
+  // room coordinates; one not seen for half a second, none)
+  function gripStep(f, local) {
+    const s = R.session, t = performance.now();
+    if (s && f && local && R.aligned) {
+      let srcs = [];
+      try { srcs = [...s.inputSources]; } catch (e) { /* gone */ }
+      for (const src of srcs) {
+        const k = !src ? -1 : src.handedness === 'left' ? 0 : src.handedness === 'right' ? 1 : -1;
+        if (k < 0) continue;
+        let p = null;
+        try { p = src.hand ? f.getJointPose(src.hand.get('wrist'), local) : f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
+        if (!p) continue;
+        _gm.fromArray(p.transform.matrix).premultiply(R.mi).decompose(_gp, _gq, _gs);
+        GRIP[k].v = [_gp.x, _gp.y, _gp.z, _gq.x, _gq.y, _gq.z, _gq.w]; GRIP[k].at = t;
+      }
+    }
+    for (const G of GRIP) if (G.v && t - G.at > 500) G.v = null;
+  }
+  // (controller i's hand, for the order presence lists the rays in: left 0, right 1, neither 2)
+  function handOf(i) { let h = ''; try { const x = R.session && R.session.inputSources[i]; h = x ? x.handedness : ''; } catch (e) { /* gone */ } return h === 'left' ? 0 : h === 'right' ? 1 : 2; }
+  const _bq = new THREE.Quaternion(), _bm = new THREE.Matrix4();
+  function body(id) {
+    if (!C.code) return null;
+    if (!id || id === C.id) {
+      if (!R.session || !R.headOK || CAM.on) return null;
+      _bq.setFromRotationMatrix(_bm.extractRotation(R.mi)).multiply(HD.q);
+      return { head: [R.hr.x, R.hr.y, R.hr.z, _bq.x, _bq.y, _bq.z, _bq.w], hands: GRIP.map(G => (G.v ? G.v.slice() : null)), at: Math.round(now()) };
+    }
+    const P = C.pres.get(id);
+    if (!P || !P.head || P.cam || performance.now() - P.at > 2000) return null;
+    if (!R.session) renderStep();   // (a page has no headset frames to step the time others' moves are drawn at)
+    const S = P.buf ? bufAt(P.buf, MIX.person) : null, h = S ? S.head : P.head, g = S ? S.g : P.g, B = P.buf && P.buf.s;
+    return { head: h.slice(), hands: [0, 1].map(i => (g && g[i] ? g[i].slice() : null)), at: Math.round(S ? RT.t : B && B.length ? B[B.length - 1].ts : now()) };
+  }
+  const trkState = () => { const K = trkKey(), v = val('trk'); return { on: K.on, m: K.m, names: K.names, by: K.by, at: K.at, key: v === undefined ? null : v, l: TRK.l,
+    heard: TRK.heard ? Math.round(performance.now() - TRK.heard) : null, relay: TRK.relay.on, seen: TRK.relay.seen, used: trkUsed(), index: !IS_HEADSET, status: trkStatus(), est: TRK.fr.est.length }; };
+
   // ------------------------------------------------------------- subtitles --
   // HOST.xr.subs() (the menu's Subtitles row; in a room the room's): the narration's words in a strip low in the view,
   // about 1.4 m away and 0.9 m wide, white on a dark band, drawn on top of everything in every label mode (subtitles
@@ -5426,9 +5881,11 @@
       if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; }
     }
     if (HD.ok && HOST.sfx) HOST.sfx.listen(HD.p, HD.q);   // (the sound effects hear from your head)
+    if (C.code && R.session) trkHere();   // (the Index on the PC: in the room, as the PC's trackers see it, before its frame is decided)
     if (C.code) R.update(f);
     if (C.code && R.session && R.lfOK && HD.ok) { R.originCheck(t); R.sample(t); }
     if (C.code && R.session) R.upload(t);
+    if (C.code && R.session) gripStep(f, local);   // (the grips in room coordinates: presence's g, HOST.collab.body)
     R.headOK = false;
     if (C.code && R.aligned && HD.ok) {
       R.hr.copy(HD.p).applyMatrix4(R.mi);
@@ -5607,14 +6064,18 @@
     const head = [r3(R.hr.x), r3(R.hr.y), r3(R.hr.z), r3(_q.x), r3(_q.y), r3(_q.z), r3(_q.w)], hands = [];
     // a camera (camera mode): where it is (for the pages' room maps), the circle it shows, that it is a camera; no hands
     if (CAM.on) { fx('p.' + C.id, { st: C.mine || '', head, hands, kind: 'cam', ts: Math.round(now()) }); return; }
-    for (const [i, h] of C.rays) {
+    // (the rays, the left hand's first: controller i is the session's input source i, in no fixed order of hands)
+    for (const [i, h] of [...C.rays].sort((a, b) => handOf(a[0]) - handOf(b[0]))) {
       if (C.frameN - h.n > 2) continue;   // a controller the story no longer points with (counted in frames: a slow frame is no reason)
       let len = 0;
       try { len = C.hook && C.hook.hover ? +C.hook.hover(i) || 0 : 0; } catch (e) { /* story not ready */ }
       _v.copy(h.o).applyMatrix4(R.mi); _v2.copy(h.d).transformDirection(R.mi);
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
-    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
+    // (g: the grips, or the tracked hands' wrists, [left, right] as poses in room coordinates: the studio's puppet worn with
+    // a Quest's head and hands reads them, HOST.collab.body)
+    const g = GRIP.map(G => (G.v ? G.v.map((c, k) => (k < 3 ? r3(c) : r4(c)) + 0) : null));
+    fx('p.' + C.id, { st: C.mine || '', head, hands, g, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
   }
   // the heads of the people in a headset at this device's live station, this headset's own among them, for a story that
   // reacts to people (the studio's behaviours): { st: { id, x, z, yaw } (the station's spot as this device draws it),
@@ -5670,6 +6131,7 @@
       drawPeople(dt);
       drawMenus();   // (the others' menus shown to your circle)
     }
+    drawTrackers();   // (the PC's trackers as small pucks, Trackers: shown on the Debug tab)
     drawMarks();
     camDraw();   // (camera mode: where the phone's aim meets the floor, while it lines up)
     // the menu floats in front of you (FLOAT, floatMenu; carried by the grip, MG). It is drawn first, so it is placed by
@@ -5958,6 +6420,7 @@
       scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanFloor: null, sfAt: 0, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
       reenter: false, afterSleep: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
+    trkFresh();   // (the PC's trackers: nothing of a session before)
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
     let kept = null;
@@ -6008,6 +6471,7 @@
     if (R.saved) for (const k of ['a', 'b']) R.saved[k] = lev(R.saved[k]);
     if (R.calib && R.calib.a) R.calib.a.fromArray(lev(R.calib.a.toArray()));
     R.prev = null; R.resetAt = performance.now();
+    trkFresh();   // (the PC's trackers: the head's history in the old coordinates goes; the frame, moved above, holds until it is worked out again)
   }
   function sharedReset(ev) {
     const id = sharedIdOf(R.shared);
@@ -6468,6 +6932,9 @@
     }
     if ((R.anchorBusy || R.anchors) && t - R.anchorSince < 8000) { setState('restoring'); return; }
     if (R.anchors && !R.anchorsOK) { log('anchors not tracked'); letGo(); }
+    // (1b) the PC's trackers: the Index on the relay's PC, its head as the trackers see it in the room and as it sees
+    // itself in its local-floor (trkAlign, "the PC's trackers"); before the shared space, which such a browser has none of
+    if (trkAlign()) return;
     // back from standby and still not in the others' shared space 15 s later (its own floor while they published, or
     // no pose at all): it is asked for once more (a new request may join it); Re-align does the same by hand
     if (R.visibleAt && R.reasked !== R.visibleAt && t - R.visibleAt > 15000 && R.shared && (R.notJoined || !R.sharedOK)) { R.reasked = R.visibleAt; reshared('wake'); }
@@ -6610,6 +7077,7 @@
     } else if (R.noFloor) R.lf.makeTranslation(0, -EYE, 0);
     else return;   // still asking
     R.lfi.copy(R.lf).invert(); R.lfOK = true;
+    trkHist(f, local);   // (the Index: where its head is in local-floor, by the relay's clock, for the PC's trackers' frame)
     R.sharedOK = false;
     if (R.shared) {
       const id = sharedIdOf(R.shared);
@@ -6740,6 +7208,7 @@
     if (own() && R.reenter) return 'Your own marks (looking for their anchors again)';
     if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
+    if (R.src === 'trackers') return trkGone() ? 'From the PC\'s trackers, which have lost this headset for now: held where it was' : 'From the PC\'s trackers: this headset as they see it';
     return '';
   }
   // two Quest 3s on different Quest Browser versions had the same shared space id and never one space (the relay's
@@ -6870,6 +7339,7 @@
     return { waiting: 'asking the headset...', 'shared-wait': 'lining up with the room...', restoring: 'finding last time\'s marks...',
       adopted: 'lined up through the shared space', shared: 'room ready (its origin)', marks: 'lined up from your two spots',
       anchor: 'lined up from your two spots', own: 'elsewhere: the room is round you', calibrate: 'not lined up: calibrate', floor: 'on your floor (this session)',
+      trackers: 'lined up by the PC\'s trackers',
       'mark-a': 'touch spot A', 'mark-b': 'touch spot B' }[R.state] || R.state;
   }
 
@@ -6883,7 +7353,7 @@
   // devices ignore the field (no FORMAT change)
   const LU_WHY = { space: 'no shared space', other: 'not in the others\' shared space', split: 'the shared space puts headsets apart',
     scan: 'no room scan', version: 'another Quest Browser version', off: 'shared space switched off', marks: 'its spots not found this session',
-    none: 'nothing to line up with', time: 'nothing after 20 s', eye: 'its crosses off the spots, by eye' };
+    none: 'nothing to line up with', time: 'nothing after 20 s', eye: 'its crosses off the spots, by eye', trk: 'the PC\'s trackers have lost it' };
   const GREEN = '#3ee08f', AMBER = '#ffb43b', RED = '#ff6b6b';
   // Touch the spot: ok and red (m) the limits of green and amber; win (ms) how far apart in time two checks pair; late (ms)
   // how long after entering AR a headset not lined up gets the guide's last page; arm: the next trigger takes the spot;
@@ -6909,6 +7379,7 @@
     const late = !!GD.from && performance.now() - GD.from > CK.late, split = !!R.sharedId && splitHere();
     let k = 'wait', h = '', w = '';
     if (R.aligned && R.frame && own()) h = 'marks';   // (its anchors not found since waking, R.reenter: still lined up; the check by eye asks)
+    else if (R.aligned && R.frame && R.src === 'trackers') { h = 'trackers'; w = trkGone() ? 'trk' : ''; }   // (the Index on the PC: the trackers see its head)
     else if (R.aligned && R.frame && (R.src === 'shared' || R.src === 'adopted')) {
       h = R.src === 'shared' ? 'origin' : 'shared';
       w = R.notJoined ? 'other' : split ? 'split' : R.src === 'adopted' && R.noScan ? 'scan' : R.src === 'adopted' && otherVersion() ? 'version' : '';
@@ -6925,7 +7396,7 @@
     else if (h && GD.red && GD.red.spot === 'e') { k = 'no'; w = 'eye'; }   // (No, said to the check by eye: the crosses are off the spots)
     o.k = k; o.h = h; o.w = w;
     o.text = k === 'ok' ? { origin: 'Room ready: this headset is the room\'s origin', shared: R.mk ? 'Lined up from the room\'s spots (shared space)' : 'Lined up through the shared space',
-      marks: R.src === 'anchor' ? 'Lined up from the room\'s spots, found again' : 'Lined up from the two spots you touched' }[h] :
+      marks: R.src === 'anchor' ? 'Lined up from the room\'s spots, found again' : 'Lined up from the two spots you touched', trackers: 'Lined up by the PC\'s trackers' }[h] :
       k === 'wait' ? (R.state === 'restoring' ? 'Lining up: finding your spots again...' : 'Lining up with the room...') : w === 'check' ? `${o.c} cm out: not lined up` :
         w === 'eye' ? 'Not lined up: the crosses are off the spots' : 'Not lined up yet: ' + LU_WHY[w];
     return o;
@@ -6937,11 +7408,11 @@
   // a person in a headset as the pages' list says it ([colour class, words]): from their presence's lu; an older app sends
   // none, only what aligns it (al) while it is aligned (and no ck: nothing said about a check it may have made)
   function luLine(m, P) {
-    const L = P && P.lu, how = L && { origin: 'the room\'s origin', shared: 'shared space', marks: 'the room\'s spots' }[L.h];
+    const L = P && P.lu, how = L && { origin: 'the room\'s origin', shared: 'shared space', marks: 'the room\'s spots', trackers: 'the PC\'s trackers' }[L.h];
     const at = L && (L.ck === 'a' || L.ck === 'b') ? ' at spot ' + L.ck.toUpperCase() : '';
     const chk = !L ? '' : Number.isFinite(L.c) ? `checked ${L.c} cm${at}` : L.ck === 'e' ? 'checked by eye' : L.ck ? 'checked' : L.ck === '' ? 'not checked yet' : '';
     if (!L && m.here === false) return ['away', 'elsewhere: nothing to line up'];
-    if (!L) return P && P.al ? ['ok', 'lined up (' + ({ adopted: 'shared space', shared: 'the room\'s origin', marks: 'the room\'s spots', anchor: 'the room\'s spots' }[P.al] || P.al) + ')'] : ['wait', 'no word yet (lining up, or an older app)'];
+    if (!L) return P && P.al ? ['ok', 'lined up (' + ({ adopted: 'shared space', shared: 'the room\'s origin', marks: 'the room\'s spots', anchor: 'the room\'s spots', trackers: 'the PC\'s trackers' }[P.al] || P.al) + ')'] : ['wait', 'no word yet (lining up, or an older app)'];
     if (L.k === 'ok') return [L.c > CK.ok * 100 ? 'mid' : 'ok', (L.h === 'origin' ? 'room ready (' : 'lined up (') + [how, chk].filter(Boolean).join(', ') + ')' + (L.c > CK.ok * 100 ? ': fine for walking about; calibrate on the spots for close work' : '')];
     if (L.k === 'wait') return ['wait', L.w === 'calib' ? 'calibrating on the spots...' : L.w === 'ask' ? 'answering: in this room, or somewhere else?' : 'lining up...'];
     if (L.k === 'no') return ['bad', L.w === 'check' ? `not lined up (checked ${L.c} cm out${at})` : 'not lined up' + (LU_WHY[L.w] ? ' (' + LU_WHY[L.w] + ')' : '')];
@@ -7140,6 +7611,13 @@
     if (CK.arm && (!canCheck() || !PNL.open || t - CK.armAt > CK.armFor)) checkArm(false);
     for (const [by, T] of CK.theirs) if (t - T.t > 3 * CK.win) CK.theirs.delete(by);
     if (!guideOn() || !C.welcomed) { if (!here()) GD.due = 0; return; }
+    // lined up by the PC's trackers (the Index on the relay's PC): no spots to touch and nothing to check by hand, so the
+    // flow never opens by itself (one it opened before they lined it up closes, with its menu)
+    if (R.src === 'trackers' && R.aligned) {
+      if (GD.fl === 1 && guideShown() && GD.menu) menuOpen(false, 'guide');
+      if (GD.fl !== 2) { GD.fl = 2; GD.menu = false; log('guide', { flow: 'trackers' }); }
+      GD.due = 0; return;
+    }
     if (!GD.from) GD.from = t;   // (entering AR in this room, or answering "In this room" in VR)
     const shown = guideShown();
     if (!shown && GD.fl === 1) { GD.fl = 3; GD.menu = false; log('guide', { flow: 'skipped' }); }   // (closed: Skip for now, Close, the menu closed, another tab)
@@ -7379,8 +7857,14 @@
     saved: () => { const P = panelPose(sesSt()); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },
     left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); setState('off'); },
-    realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
+    realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || R.src === 'trackers' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
     tick, toRoom: v => v.clone().applyMatrix4(R.mi), toLocal: v => v.clone().applyMatrix4(R.m), matrix: () => R.m.clone(),
+    // the room's frame from two floor spots, as a calibration makes it (fromMarks for floor spots: origin the floor under
+    // spot A, its touch height less tip; x along the floor towards spot B; y up; z = x cross y, so a point to the right of
+    // the way from A to B has z > 0), and a point in the spots' own space in room coordinates through it: the reference
+    // for the PC's trackers' frame from trk.m (tip 0, TRK_FLOOR), which the relay works out on its own
+    fromSpots: (a, b, tip) => ({ o: [a[0], a[1] - (+tip || 0), a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) }),
+    roomOf: (fr, p) => { const m = basis(fr, new THREE.Matrix4()).invert(), v = new THREE.Vector3(p[0], p[1], p[2]).applyMatrix4(m); return [v.x, v.y, v.z]; },
     get recAt() { return R.recAt; }, set recAt(v) { R.recAt = v; },
     internals: () => R,
   };
@@ -7923,6 +8407,7 @@
     $('#shName').value = C.name;
     detect().then(() => { if (!C.code) { listRooms(); nearFind('dialog'); } renderDialog(); });
     if (C.code) scenesFetch().then(() => renderDialog());   // (the studio relay's scenes, for Add)
+    if (C.code) trkPing(false).then(() => trkRender());   // (the PC's trackers: their section while the relay has them)
     renderDialog();
     setTimeout(() => { const f = $(C.code ? '[data-sh="close"]' : C.relay ? '[data-sh="start"]' : homeOffer() ? '#shHome' : '#shRelay'); if (f) f.focus(); }, 50);
   }
@@ -7962,6 +8447,8 @@
       else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
       else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
+      else if (act === 'trkon') setTrk({ on: !trkKey().on });   // (the PC's trackers in this room: anyone, never refused by a lock)
+      else if (act === 'trkspot') { trkSpot(arg); return; }   // (lining up by hand: spot A, then spot B)
       else if (act === 'add') { const k = $('#shAdd').value, id = addOne(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
       else if (act === 'copy') { try { navigator.clipboard.writeText(link()); b.textContent = 'Copied'; } catch (e) { /* no clipboard */ } }
@@ -7970,6 +8457,8 @@
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
     // an All stories circle's story, picked in its row (Choosing a story: back to its cards), for everyone there
     DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-sh-pick]'); if (q && q.value) { allPickAt(q.dataset.shPick, q.value); renderDialog(); } });
+    // the PC's trackers: a name typed for one (the room's trk.names), the tracker picked to take a spot from
+    DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-trkname]'); if (q) setTrkName(q.dataset.trkname, q.value); else if (ev.target.id === 'shTrkPick') TRK.pick = ev.target.value; });
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
     $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
@@ -8140,6 +8629,7 @@
       }).join('');
       drawMap();
       guideList();
+      trkRender();
     }
     // the sound switches, for every story: in a room the room's (anyone sets them; not locked with the circles), else this device's
     const sfb = $('[data-sh="sfx"]'), vob = $('[data-sh="voice"]'), sso = $('.sh-sound span');
@@ -8174,9 +8664,10 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#071021'; ctx.fillRect(0, 0, W, H);
-    const pts = [[0, 0]];
+    const pts = [[0, 0]], tk = trkUsed() ? trackers().filter(T => T.kind === 't') : [];   // (the PC's trackers, while this room uses them)
     for (const s of C.st) pts.push([s.x, s.z], content(s));
     for (const P of C.pres.values()) if (P.head) pts.push([P.head[0], P.head[2]]);
+    for (const T of tk) pts.push([T.p[0], T.p[2]]);
     let x0 = Math.min(...pts.map(p => p[0])) - 1.2, x1 = Math.max(...pts.map(p => p[0])) + 1.2;
     let z0 = Math.min(...pts.map(p => p[1])) - 1.2, z1 = Math.max(...pts.map(p => p[1])) + 1.2;
     const sc = Math.min(W / (x1 - x0), H / (z1 - z0)), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -8220,6 +8711,14 @@
       ctx.restore();
       ctx.fillStyle = col; ctx.fillText(m.name || 'Someone', X(h[0]) + 12, Y(h[2]) + 12);
     }
+    // the PC's trackers: a small dot each (dim while not seen) with its name, else the end of its serial
+    ctx.font = '11px B612, "Segoe UI", Arial, sans-serif';
+    for (const T of tk) {
+      ctx.fillStyle = T.ok ? '#e7eef8' : '#6c7d94';
+      ctx.beginPath(); ctx.arc(X(T.p[0]), Y(T.p[2]), 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText(T.name || T.id.slice(-4), X(T.p[0]) + 6, Y(T.p[2]) - 7);
+    }
+    MAP.trk = tk.length;
   }
   // the station whose dot (to move it) or square (to turn it) is under the pointer
   function mapGrab(px, py) {
@@ -8383,6 +8882,21 @@
     // the heads of the people in a headset at this device's live station, its own among them, in room coordinates with the
     // relay's time of each (the studio's behaviours react to one of them): { st, list } or null
     heads: () => heads(),
+    // a person's head and hands in room coordinates (the studio's puppet worn with a Quest's head and hands): { head, hands:
+    // [left, right], at } for a member in a headset, smoothed from presence (this headset's own: its poses now), or null
+    body: id => body(id),
+    // the PC's trackers (v126): each in room coordinates now ({ id, name, kind: 't' a tracker, 'h' the Index, 'l' and 'r' its
+    // controllers, p, q, ok, age: ms since it was last heard of }), one by its serial (out: filled in; null never seen), the
+    // room's key trk with the last l, whether the relay has trackers and whether this room uses them now, the room's key
+    // written (on, m, names; a write keeps what it does not change) and a name. For tests: a @trk message fed in as the relay
+    // sends it (by: as a member would send it, which is ignored), the relay's time held for them (null: live), the relay asked
+    // whether it has trackers, the pucks (Trackers: shown in a headset)
+    trackers: () => trackers(), tracker: (id, out) => tracker(id, out), trk: () => trkState(), setTrk: o => setTrk(o || {}), trkName: (id, n) => setTrkName(id, n),
+    trkIn: (v, by) => onFx({ t: 'fx', k: TRK.type, v, by: by || '' }), trkTime: ms => { if (ms !== undefined) TRK.hold = ms === null ? null : +ms; return TRK.hold; }, trkPing: () => trkPing(true),
+    trackersShown: on => { if (on !== undefined) trkShow(on); return TRK.show; },
+    pucks: () => [...TRK.pucks].map(([id, o]) => ({ id, name: o.name, ok: o.ok, p: o.g.position.toArray(), q: o.body.quaternion.toArray(), shown: !!(TRK.grp && TRK.grp.visible && TRK.grp.parent === OV.room),
+      depth: o.ring.material.depthTest && o.body.children[0].material.depthTest && o.sign.children[0].material.depthTest })),
+    mapTrackers: () => MAP.trk || 0,
     // rooms on this network: this device's network (its id, never the address; '' unknown), the rooms found on it (null:
     // looking), looked for again; whether this room shows there (the room's switch); the room to rejoin by itself and the
     // one offered again; a pretend network (tests: #net=<word>); the page's hash of an address (tests: as the relay's)

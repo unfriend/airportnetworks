@@ -5,7 +5,7 @@
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
-// --only 'phone ar': a phone's AR session, its menu button and sheet)
+// --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -8768,6 +8768,315 @@ if (runs('developer mode')) {
     await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
     if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset: ' + b));
   });
+  await ctx.close();
+}
+// The PC's trackers (v126, "the PC's trackers" in shared.js; tools/trackers/SPEC.md), in a page of its own, in a room on
+// this device (no relay: the relay's side is relay/test.mjs's, and the whole chain the merged collab --trackers round's).
+// @trk fed as the relay sends it (HOST.collab.trkIn, through the shell's own intake), at times held for the test
+// (HOST.collab.trkTime): smoothing, carrying on, ok false after 0.5 s, nothing passed to the story or taken from a member;
+// the Shared dialog's Trackers section with the relay's answers stubbed (/api/ping, /api/trackers, /api/trackers/still):
+// the room's switch, lining up by hand (spots taken, refused, written into trk.m), names, a row lit while its tracker moves,
+// the room map's dots; a pretend VR headset (not a Quest's browser) in the room: the trackers' frame source from a pretend
+// Index head ('h') against its own head in local-floor, turned and moved (within 1 cm and 0.5 degrees), followed when
+// SteamVR's space shifts, a head turning fast with the two clocks 30 ms apart adding nothing, lineUp's words, the menu's
+// question answered for it; the pucks (Trackers: shown on the Debug tab, kept); a person's head and hands (body) and
+// presence's grips in the order left, right
+if (runs('trackers')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 760 } });
+  const tp = await ctx.newPage();
+  tp.on('pageerror', e => errors.push('trackers: ' + (e.stack || e.message)));
+  tp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('trackers: ' + m.text()); });
+  await tp.goto(base + 'index.html#airports&peer=off');
+  await tp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), null, { timeout: 60000 });
+  await tp.evaluate(() => { HOST.collab.autoAll(false); HOST.collab.autoGuide(false); HOST.collab.create(); });
+  await tp.waitForFunction(() => HOST.collab.code && HOST.collab.local && HOST.collab.internals().welcomed && HOST.collab.internals().ready, null, { timeout: 20000 });
+  // the story's effect hook watched: @trk must never reach it. Its own frames stopped (the globe drawn in software would
+  // starve the page's timers, which the dialog's polls and the pump run on; the headset's frames are driven below)
+  await tp.evaluate(() => { const h = HOST.cur.collab, e = h.effect; window.__eff = 0; h.effect = function () { window.__eff++; return e.apply(this, arguments); }; HOST.renderer.setAnimationLoop(null); });
+
+  await step('trackers: @trk is the shell\'s own (never the story\'s, never a member\'s), drawn 40 ms behind between its samples, carried on 100 ms at most, ok false after 0.5 s', async () => {
+    const bad = await tp.evaluate(() => {
+      const bad = [], C = HOST.collab, yq = a => [0, Math.sin(a / 2), 0, Math.cos(a / 2)], T0 = 100000, dt = 1000 / 60;
+      const near = (a, b, e) => a.length === b.length && a.every((x, k) => Math.abs(x - b[k]) <= e);
+      C.setTrk({ on: true, names: { 'LHR-A': 'Lamp' } });
+      // LHR-A goes along x at 1 m/s turning about y at 90 degrees a second; LHR-B lies still, not seen well
+      const row = at => ['LHR-A', 1 + (at - T0) / 1000, 0.5, 2, ...yq((at - T0) / 1000 * Math.PI / 2), 1, 0, 0, 1, 't'];
+      for (let k = 0; k <= 8; k++) { const at = T0 + k * dt; C.trkIn({ at, l: 'hand', t: [row(at), ['LHR-B', -1, 0, 0, 0, 0, 0, 1, 0.5, 0, 0, 0, 't']] }); }
+      const last = T0 + 8 * dt, x = at => 1 + (at - T0) / 1000;
+      // between two samples: where it was 40 ms before the time held
+      C.trkTime(T0 + 4 * dt + 45);
+      let A = C.tracker('LHR-A');
+      if (!A || !near(A.p, [x(T0 + 4 * dt + 5), 0.5, 2], 1e-6) || !near(A.q, yq((4 * dt + 5) / 1000 * Math.PI / 2), 1e-4) || !A.ok || A.kind !== 't' || A.name !== 'Lamp') bad.push('between its samples: ' + JSON.stringify(A));
+      // past the last: carried on by its velocity, for at most 100 ms; still seen within 0.5 s
+      C.trkTime(last + 40 + 60); A = C.tracker('LHR-A');
+      if (!near(A.p, [x(last) + 0.06, 0.5, 2], 1e-6) || !A.ok) bad.push('60 ms past its last sample: ' + JSON.stringify(A));
+      C.trkTime(last + 40 + 300); A = C.tracker('LHR-A');
+      if (!near(A.p, [x(last) + 0.1, 0.5, 2], 1e-6) || !A.ok || A.age !== 340) bad.push('300 ms past its last sample (carried 100 ms at most, seen): ' + JSON.stringify(A));
+      C.trkTime(last + 600); A = C.tracker('LHR-A');
+      if (!near(A.p, [x(last) + 0.1, 0.5, 2], 1e-6) || A.ok || A.age !== 600) bad.push('not heard of for 600 ms (ok false, its last pose kept): ' + JSON.stringify(A));
+      const B = C.tracker('LHR-B');
+      if (!B || B.ok || !near(B.p, [-1, 0, 0], 1e-9)) bad.push('one its row says is not seen well (held, not carried): ' + JSON.stringify(B));
+      // bad rows, a late sample and a member's @trk are ignored
+      C.trkIn({ at: last + 10, l: 'hand', t: [['', 1, 1, 1, 0, 0, 0, 1], ['LHR-C', NaN, 0, 0, 0, 0, 0, 1], ['X'.repeat(70), 0, 0, 0, 0, 0, 0, 1], ['LHR-D', 1e9, 0, 0, 0, 0, 0, 1], 'nope', ['LHR-A', 9, 9, 9, 0, 0, 0, 1, 0, 0, 0, 1, 't']] });
+      C.trkIn({ at: T0, l: 'hand', t: [['LHR-A', 7, 7, 7, 0, 0, 0, 1, 0, 0, 0, 1, 't']] });
+      C.trkIn({ at: last + 20, l: 'hand', t: [['LHR-Z', 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 't']] }, 'someone');
+      const ids = C.trackers().map(T => T.id).sort().join();
+      if (ids !== 'LHR-A,LHR-B') bad.push('bad rows or a member\'s message taken: ' + ids);
+      C.trkTime(last + 40 + 10 + 10); A = C.tracker('LHR-A');
+      if (!near(A.p, [9, 9, 9], 1e-9)) bad.push('the good row of a message with bad ones: ' + JSON.stringify(A));
+      // out filled in; one never seen; the room's key and what the shell says of it
+      const o = {};
+      if (C.tracker('LHR-A', o) !== o || o.id !== 'LHR-A' || C.tracker('LHR-Q') !== null) bad.push('tracker(id, out)');
+      const s = C.trk();
+      if (!s.on || s.l !== 'hand' || s.names['LHR-A'] !== 'Lamp' || s.key.by !== C.id || !s.index || !s.used) bad.push('trk(): ' + JSON.stringify(s));
+      // a write keeps what it does not change; names cut at 24 characters; '' takes one out
+      C.setTrk({ on: false }); C.trkName('LHR-B', '  A very long name for the belt tracker '); C.setTrk({ on: true });
+      const k2 = C.trk();
+      if (!k2.on || k2.names['LHR-A'] !== 'Lamp' || k2.names['LHR-B'] !== 'A very long name for the' || k2.m !== null) bad.push('a write that keeps the rest: ' + JSON.stringify(k2));
+      C.trkName('LHR-B', '');
+      if ('LHR-B' in C.trk().names) bad.push('a name taken out');
+      // not lined up: the relay's message once a second with no trackers
+      C.trkIn({ at: last + 1000, l: '', t: [] });
+      if (C.trk().l !== '' || C.trk().used) bad.push('not lined up: ' + JSON.stringify(C.trk()));
+      if (window.__eff) bad.push('the story heard ' + window.__eff + ' effects');
+      C.trkTime(null);
+      // the room's frame from two floor spots as the headsets make it (the reference for the relay's frame from trk.m):
+      // origin the floor under A, x towards B, y up, z to the right of the way from A to B
+      const fr = HOST.room.fromSpots([1, 0.031, 1], [2.84, 0.033, 1], 0), of = p => HOST.room.roomOf(fr, p);
+      if (!near(of([2.84, 0.033, 1]), [1.84, 0.002, 0], 1e-9) || !near(of([1, 0.031, 2]), [0, 0, 1], 1e-9) || !near(of([1, 1.031, 1]), [0, 1, 0], 1e-9)) bad.push('the frame from two spots: ' + JSON.stringify([fr, of([2.84, 0.033, 1]), of([1, 0.031, 2])]));
+      const f2 = HOST.room.fromSpots([0, 0.05, 0], [0, 0.05, -2], 0.02);
+      if (!near(HOST.room.roomOf(f2, [0, 0.03, -2]), [2, 0, 0], 1e-9) || !near(HOST.room.roomOf(f2, [1, 0.03, 0]), [0, 0, 1], 1e-9)) bad.push('the frame from two spots, B straight ahead: ' + JSON.stringify([f2, HOST.room.roomOf(f2, [1, 0.03, 0])]));
+      return bad;
+    });
+    if (bad.length) errors.push(...bad.map(b => 'trackers: ' + b));
+  });
+
+  // the relay's answers, stubbed: its ping (it has trackers), its raw list, a tracker still on a spot
+  await tp.evaluate(() => {
+    const T = window.__trk = { asked: [], list: [
+      { id: 'LHR-A', k: 'trk', ok: true, b: 0.8, p: [1, 0.031, 1], q: [0, 0, 0, 1], age: 3 },
+      { id: 'LHR-B', k: 'trk', ok: true, b: 0.55, p: [0, 0.03, 2], q: [0, 0, 0, 1], age: 4 },
+      { id: 'LHR-HMD', k: 'hmd', ok: true, b: null, p: [0, 1.6, 0], q: [0, 0, 0, 1], age: 2 },
+      { id: 'LHB-1', k: 'base', ok: true, b: null, p: [2, 2.2, 2], q: [0, 0, 0, 1], age: 9 }],
+      still: { ok: true, p: [1, 0.031, 1], spread: 1.2, n: 90 } };
+    const f0 = window.fetch;
+    window.fetch = (u, o) => {
+      const s = String(u);
+      if (!/\/api\/(ping|trackers)/.test(s)) return f0(u, o);
+      T.asked.push(s);
+      const j = /still/.test(s) ? T.still : /trackers/.test(s) ? { ok: true, trackers: T.list } : { proto: 1, trackers: true, trackersSeen: 3 };
+      return new Promise(r => setTimeout(() => r(new Response(JSON.stringify(j), { status: 200, headers: { 'Content-Type': 'application/json' } })), /still/.test(s) ? 50 : 5));
+    };
+  });
+
+  await step('trackers: the Shared dialog\'s section (the relay stubbed): the room\'s switch, lining up by hand (taken, refused, written), names, a row lit while its tracker moves, its status, the room map\'s dots', async () => {
+    const bad = [], $ = s => tp.$(s);
+    await tp.evaluate(() => { HOST.collab.setTrk({ on: false }); HOST.collab.dialog(true); return HOST.collab.trkPing(); });
+    if (!await tp.waitForFunction(() => !document.querySelector('#shared .sh-trk').hidden && document.querySelectorAll('#shared .sh-trks li[data-trk]').length === 3, null, { timeout: 10000, polling: 100 }).then(() => true, () => false)) {
+      errors.push('trackers: the dialog\'s section did not show the relay\'s three trackers: ' + await tp.evaluate(() => document.querySelector('#shared .sh-trks').outerHTML.slice(0, 900)));
+      return;
+    }
+    const sec = () => tp.evaluate(() => { const q = s => document.querySelector('#shared ' + s); return { on: q('[data-sh="trkon"]').textContent, pressed: q('[data-sh="trkon"]').getAttribute('aria-pressed'), st: q('.sh-trkst').textContent, cls: q('.sh-trkst').className,
+      note: q('.sh-trknote').textContent, warn: q('.sh-trknote').classList.contains('warn'), pick: [...q('#shTrkPick').options].map(o => o.value), rows: [...document.querySelectorAll('#shared .sh-trks li')].map(l => l.textContent.trim() + (l.classList.contains('moving') ? ' [lit]' : '')), m: HOST.collab.trk().m }; });
+    let s = await sec();
+    if (s.on !== 'Use the PC\'s trackers in this room: off' || s.pressed !== 'false' || s.cls !== 'sh-trkst off' || s.pick.join() !== 'LHR-A,LHR-B' || !s.rows.some(r => /1 base station/.test(r)) || !s.rows.some(r => /^LHR-HMD.*the Index/.test(r))) bad.push('as it opened: ' + JSON.stringify(s));
+    await (await $('#shared [data-sh="trkon"]')).click();
+    s = await sec();
+    if (s.on !== 'Use the PC\'s trackers in this room: on' || s.pressed !== 'true' || !(await tp.evaluate(() => HOST.collab.trk().on)) || !/^Not lined up yet/.test(s.st)) bad.push('turned on: ' + JSON.stringify(s));
+    // a name typed for LHR-B goes into the room's trk.names
+    await tp.fill('#shared input[data-trkname="LHR-B"]', 'Belt'); await tp.dispatchEvent('#shared input[data-trkname="LHR-B"]', 'change');
+    if ((await tp.evaluate(() => HOST.collab.trk().names['LHR-B'])) !== 'Belt') bad.push('a name typed: ' + JSON.stringify(await tp.evaluate(() => HOST.collab.trk().names)));
+    // LHR-B picked up and moved: its row lights, LHR-A's not
+    await tp.evaluate(() => { window.__trk.list[1].p = [0.05, 0.1, 2]; });
+    const lit = await tp.waitForFunction(() => { const li = n => document.querySelector(`#shared .sh-trks li[data-trk="${n}"]`); return li('LHR-B').classList.contains('moving') && !li('LHR-A').classList.contains('moving') && /moving/.test(li('LHR-B').textContent); }, null, { timeout: 10000, polling: 100 }).then(() => true, () => false);
+    if (!lit) bad.push('a tracker moved did not light its row: ' + JSON.stringify((await sec()).rows));
+    // spot A from LHR-A, then spot B: too near, too high, an error, then right
+    await tp.selectOption('#shTrkPick', 'LHR-A');
+    const spot = async (w, still) => {
+      await tp.evaluate(st => { window.__trk.still = st; }, still);
+      await (await $(`#shared [data-sh="trkspot:${w}"]`)).click();
+      await tp.waitForFunction(() => !/^Reading spot/.test(document.querySelector('#shared .sh-trknote').textContent), null, { timeout: 10000, polling: 100 });
+      return sec();
+    };
+    s = await spot('a', { ok: true, p: [1, 0.031, 1], spread: 1.2, n: 90 });
+    if (!/^Spot A taken \(still to 1\.2 mm\)/.test(s.note) || s.warn || s.m) bad.push('spot A: ' + JSON.stringify(s));
+    if (!(await tp.evaluate(() => window.__trk.asked.some(u => /\/api\/trackers\/still\?id=LHR-A&ms=1000$/.test(u))))) bad.push('spot A asked ' + JSON.stringify(await tp.evaluate(() => window.__trk.asked.filter(u => /still/.test(u)))));
+    s = await spot('b', { ok: true, p: [1.2, 0.031, 1], spread: 1, n: 90 });
+    if (!/^Spot B is only 20 cm from spot A/.test(s.note) || !s.warn || s.m) bad.push('spot B 20 cm away: ' + JSON.stringify(s));
+    s = await spot('b', { ok: true, p: [2.5, 0.091, 1], spread: 1, n: 90 });
+    if (!/^Spot B is 6 cm higher than spot A/.test(s.note) || !s.warn || s.m) bad.push('spot B 6 cm higher: ' + JSON.stringify(s));
+    s = await spot('b', { ok: false, error: 'LHR-A moved 12 mm while it was read' });
+    if (!/^Spot B not taken: LHR-A moved 12 mm while it was read\. Try again\./.test(s.note) || !s.warn || s.m) bad.push('spot B moved: ' + JSON.stringify(s));
+    s = await spot('b', { ok: true, p: [2.84, 0.033, 1], spread: 0.8, n: 90 });
+    if (!/^Lined up by hand: the spots are 1\.84 m apart \(still to 1\.2 mm and 0\.8 mm\)/.test(s.note) || s.warn || JSON.stringify(s.m) !== JSON.stringify({ a: [1, 0.031, 1], b: [2.84, 0.033, 1] })) bad.push('spot B right: ' + JSON.stringify(s));
+    s = await spot('b', { ok: true, p: [2.84, 0.033, 1] });
+    if (!/^Set spot A first/.test(s.note)) bad.push('spot B again without A: ' + s.note);
+    // lined up by hand and heard from: its status, and the room map's dots
+    const st = await tp.evaluate(async () => {
+      const C = HOST.collab, put = () => C.trkIn({ at: C.now(), l: 'hand', t: [['LHR-A', 0.5, 0, -1.5, 0, 0, 0, 1, 0, 0, 0, 1, 't'], ['LHR-B', -1, 0.9, 0.5, 0, 0, 0, 1, 0, 0, 0, 1, 't']] });
+      for (let k = 0; k < 8; k++) { put(); await new Promise(r => setTimeout(r, 120)); }
+      put(); C.dialog(true);   // (drawn again now: a page drawing in software may have starved the pump's timer for longer than 0.5 s)
+      const cv = document.getElementById('shMap'), X = C.mapView(), d = cv.getContext('2d').getImageData(Math.round(X.X(0.5)), Math.round(X.Y(-1.5)), 1, 1).data;
+      return { st: document.querySelector('#shared .sh-trkst').textContent, cls: document.querySelector('#shared .sh-trkst').className, dots: C.mapTrackers(), px: [...d] };
+    });
+    if (st.st !== 'Lined up by hand (the spots 1.84 m apart): 2 trackers in the room.' || st.cls !== 'sh-trkst ok') bad.push('its status once lined up: ' + JSON.stringify(st));
+    if (st.dots !== 2 || st.px[0] < 180 || st.px[1] < 180 || st.px[2] < 180) bad.push('the room map\'s dots: ' + JSON.stringify(st));
+    await tp.evaluate(() => HOST.collab.dialog(false));
+    if (bad.length) errors.push(...bad.map(b => 'trackers dialog: ' + b));
+  });
+
+  // a pretend VR headset in this room (WebXR in software, as tools/collab.mjs's installXR, trimmed): local and
+  // local-floor spaces whose poses come from a pretend real room, two controllers' grips, its frames driven here. The
+  // room's frame in that real room is ROOM (where the trackers' room stands: 5 cm above this headset's own floor, as a
+  // Guardian floor that is off), and every frame the relay's @trk is fed with the Index's head ('h') where it really is in
+  // that room, and LHR-A where it lies, at the relay's time held (HOST.collab.trkTime: 60 frames a second)
+  await tp.evaluate(() => {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z), Y = V(0, 1, 0);
+    const M = (a, pitch) => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch || 0, a[3], 0, 'YXZ')), V(1, 1, 1));
+    const X = window.__x = { M, ROOM: [2, 0.05, 1, 0.3], FLOOR: [0.4, 0, -0.7, -0.5], LOCAL: [0.9, 1.6, 0.2, 0.8], head: [1, 1.65, -0.5, 0.4], pitch: -0.3, t: Math.round(HOST.collab.now()) + 5000, raf: [], lag: 0, past: [], A: [0.6, 0, -0.4, 0.7] };
+    X.W = { local: M(X.LOCAL), 'local-floor': M(X.FLOOR), Lgrip: M([0.7, 1.2, -0.7, 0.2], 0.4), Rgrip: M([1.3, 1.25, -0.6, 0.5], -0.2) };
+    X.W.Lray = X.W.Lgrip; X.W.Rray = X.W.Rgrip;
+    const sp = name => ({ name, addEventListener() {}, removeEventListener() {} });
+    X.spaces = { local: sp('local'), 'local-floor': sp('local-floor') };
+    const world = s => (s.name === 'head' ? M(X.head, X.pitch) : X.W[s.name]);
+    const pose = m => { const p = V(), q = new THREE.Quaternion(), sc = V(); m.decompose(p, q, sc); return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) } }; };
+    X.frame = { getPose: (s, b) => (world(s) ? pose(world(b).clone().invert().multiply(world(s))) : null), getViewerPose: b => pose(world(b).clone().invert().multiply(M(X.head, X.pitch))), getJointPose: () => null };
+    const src = (h, k) => ({ handedness: h, targetRayMode: 'tracked-pointer', gamepad: null, gripSpace: sp(k + 'grip'), targetRaySpace: sp(k + 'ray') });
+    X.session = { mode: 'immersive-vr', enabledFeatures: ['local-floor'], visibilityState: 'visible', renderState: {}, inputSources: [src('right', 'R'), src('left', 'L')],
+      addEventListener() {}, removeEventListener() {}, requestReferenceSpace: t => (X.spaces[t] ? Promise.resolve(X.spaces[t]) : Promise.reject(new Error(t + ' not supported'))),
+      requestAnimationFrame(cb) { X.raf.push(cb); return X.raf.length; } };
+    HOST.renderer.xr.getReferenceSpace = () => X.spaces.local;
+    HOST.renderer.setAnimationLoop(null);
+    HOST.mode = 'immersive-vr'; HOST.session = X.session;
+    HOST.cur.peek('(XR.session = HOST.session, XR.mode = HOST.mode, xrEnterScene())');
+    // a pose in the trackers' room: inverse(ROOM) times its world matrix, as [x, y, z, qx, qy, qz, qw]
+    X.inRoom = (m, R) => { const p = V(), q = new THREE.Quaternion(), sc = V(); M(R || X.ROOM).invert().multiply(m).decompose(p, q, sc); return [p.x, p.y, p.z, q.x, q.y, q.z, q.w]; };
+    // frames: the relay's @trk first (the Index's head where it is now, or lag ms ago as kept in X.past), then the story's
+    // headset loop and the shell's own callback
+    X.tick = (n = 1) => {
+      for (let k = 0; k < n; k++) {
+        X.t += 1000 / 60;
+        HOST.collab.trkTime(X.t);
+        const hm = M(X.head, X.pitch);
+        X.past.push([X.t, hm]); while (X.past.length > 30) X.past.shift();
+        const then = X.lag ? (X.past.find(e => e[0] >= X.t - X.lag) || X.past[0])[1] : hm, h = X.inRoom(then), a = X.inRoom(M(X.A));
+        HOST.collab.trkIn({ at: X.t, l: 'hand', t: [['LHR-HMD', ...h, 0, 0, 0, 1, 'h'], ['LHR-A', ...a, 0, 0, 0, 1, 't']] });
+        if (HOST.cur && HOST.cur.peek('typeof XR !== "undefined" && XR.on')) HOST.cur.peek('xrBegin')(X.frame, 0.016);
+        for (const cb of X.raf.splice(0)) cb(X.t, X.frame);
+      }
+    };
+    // the room's frame as it should be, in local-floor (its origin and x axis), and how far the headset's is from it
+    X.want = R => { const F = M(X.FLOOR).invert().multiply(M(R || X.ROOM)), o = V().setFromMatrixPosition(F), x = V(1, 0, 0).transformDirection(F); return { o: [o.x, o.y, o.z], x: [x.x, x.y, x.z] }; };
+    X.off = R => { const f = HOST.room.frame, w = X.want(R); if (!f) return null; const a = Math.atan2(-f.x[2], f.x[0]) - Math.atan2(-w.x[2], w.x[0]);
+      return { cm: Math.hypot(f.o[0] - w.o[0], f.o[1] - w.o[1], f.o[2] - w.o[2]) * 100, deg: Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) * 180 / Math.PI, src: HOST.room.src }; };
+  });
+  await tp.waitForTimeout(100);
+  const tick = n => tp.evaluate(n => window.__x.tick(n), n);
+
+  await step('trackers: the Index lines up from its head as the trackers see it (not a Quest\'s browser): within 1 cm and 0.5 degrees, turned and moved, followed when SteamVR\'s space shifts, a fast turn with the clocks apart adding nothing', async () => {
+    const bad = [];
+    await tick(3); await tp.waitForTimeout(50); await tick(60);
+    let o = await tp.evaluate(() => window.__x.off());
+    const n0 = await tp.evaluate(() => HOST.collab.notes().map(n => n.title));
+    if (!o || o.src !== 'trackers' || o.cm > 1 || o.deg > 0.5) bad.push('after a second of the head held still: ' + JSON.stringify(o));
+    if (!n0.includes('Lined up by the PC\'s trackers')) bad.push('no notice: ' + JSON.stringify(n0));
+    // turned and moved (and looking up a little): still where it should be
+    await tp.evaluate(() => { const X = window.__x; X.head = [2.2, 1.6, 0.3, -1.1]; X.pitch = 0.2; });
+    await tick(60);
+    o = await tp.evaluate(() => window.__x.off());
+    if (!o || o.src !== 'trackers' || o.cm > 1 || o.deg > 0.5) bad.push('turned and moved: ' + JSON.stringify(o));
+    // SteamVR's space shifts against this headset's local-floor by 4 cm and 1.5 degrees: followed
+    const R2 = [2.03, 0.05, 0.972, 0.3 + 1.5 * Math.PI / 180];
+    await tp.evaluate(R2 => { window.__x.ROOM = R2; }, R2);
+    await tick(90);
+    o = await tp.evaluate(R2 => window.__x.off(R2), R2);
+    const before = await tp.evaluate(() => window.__x.off([2, 0.05, 1, 0.3]));
+    if (!o || o.src !== 'trackers' || o.cm > 1 || o.deg > 0.5 || before.cm < 2) bad.push('SteamVR\'s space shifted: ' + JSON.stringify({ now: o, fromBefore: before }));
+    // the head turning fast (3 rad/s) while the trackers' samples are 30 ms behind this page's: none of it is taken (it
+    // would turn the room by about 5 degrees)
+    await tp.evaluate(() => { window.__x.lag = 30; });
+    for (let k = 0; k < 45; k++) await tp.evaluate(() => { const X = window.__x; X.head[3] += 3 / 60; X.tick(1); });
+    await tp.evaluate(() => { window.__x.lag = 0; });
+    o = await tp.evaluate(R2 => window.__x.off(R2), R2);
+    if (!o || o.cm > 1 || o.deg > 0.5) bad.push('a fast turn with the clocks 30 ms apart moved the room: ' + JSON.stringify(o));
+    // lineUp's words in a room on the relay (this one is on this device: taken as one on a relay for the moment)
+    const lu = await tp.evaluate(() => { const C = HOST.collab.internals(), h0 = C.hereSet; C.local = false; C.hereSet = true; try { return HOST.collab.guide().status; } finally { C.local = true; C.hereSet = h0; } });
+    if (lu.k !== 'ok' || lu.h !== 'trackers' || lu.text !== 'Lined up by the PC\'s trackers') bad.push('lineUp: ' + JSON.stringify(lu));
+    // the menu's question (in this room, or elsewhere?) answered for it: the trackers see it
+    const here = await tp.evaluate(() => {
+      const C = HOST.collab.internals(); C.local = false; C.hereSet = null;
+      try { window.__x.tick(1); return { here: C.hereSet, notes: HOST.collab.notes().map(n => n.title) }; } finally { C.local = true; }
+    });
+    await tick(3);
+    o = await tp.evaluate(R2 => window.__x.off(R2), R2);
+    if (here.here !== true || !here.notes.includes('In the room') || !o || o.src !== 'trackers' || o.cm > 1) bad.push('the question answered for it: ' + JSON.stringify({ here, o }));
+    if (bad.length) errors.push(...bad.map(b => 'trackers frame: ' + b));
+  });
+
+  await step('trackers: the pucks (Trackers: shown on the Debug tab, kept): each where it lies in the room, depth-tested, named; hidden again', async () => {
+    const bad = [];
+    await tp.evaluate(() => HOST.collab.panelOpen(true));
+    await tick(2);
+    const r0 = await tp.evaluate(() => { const r = HOST.collab.menuFind('trackers'); if (r) r.fn(); return { found: !!r, shown: HOST.collab.trackersShown(), kept: localStorage.getItem('xrTrackers') }; });
+    if (!r0.found || !r0.shown || r0.kept !== 'shown') bad.push('the Debug tab\'s Trackers row: ' + JSON.stringify(r0));
+    await tp.evaluate(() => HOST.collab.panelOpen(false));
+    await tick(2);
+    const pk = await tp.evaluate(() => {
+      const X = window.__x, P = HOST.collab.pucks(), a = X.inRoom(X.M(X.A)), want = X.M(X.LOCAL).invert().multiply(X.M(X.A));
+      const o = HOST.collab.overlay().room, g = P[0] && o.children.find(c => c.name === 'trackers'), w = new THREE.Vector3();
+      if (g) { o.updateMatrixWorld(true); g.children[0].getWorldPosition(w); }
+      return { P, a, local: [want.elements[12], want.elements[13], want.elements[14]], world: w.toArray() };
+    });
+    // (LHR-A fed every frame; LHR-B last heard of in the dialog's step, seconds ago: dim, where it was)
+    const p = pk.P.find(x => x.id === 'LHR-A'), b = pk.P.find(x => x.id === 'LHR-B');
+    if (pk.P.length !== 2 || !p || p.name !== 'Lamp' || !p.shown || !p.depth || !p.ok || Math.hypot(p.p[0] - pk.a[0], p.p[1] - pk.a[1], p.p[2] - pk.a[2]) > 1e-3) bad.push('the puck: ' + JSON.stringify(pk));
+    if (!b || b.ok !== false || b.name !== 'Belt' || Math.hypot(b.p[0] + 1, b.p[1] - 0.9, b.p[2] - 0.5) > 1e-6) bad.push('a puck not heard of for seconds: ' + JSON.stringify(b));
+    if (Math.hypot(pk.world[0] - pk.local[0], pk.world[1] - pk.local[1], pk.world[2] - pk.local[2]) > 0.01) bad.push('the puck is not where the tracker is in the story\'s space: ' + JSON.stringify(pk));
+    await tp.evaluate(() => HOST.collab.trackersShown(false));
+    await tick(1);
+    const off = await tp.evaluate(() => [HOST.collab.pucks().every(P => !P.shown), localStorage.getItem('xrTrackers')]);
+    if (!off[0] || off[1] !== null) bad.push('hidden again: ' + JSON.stringify(off));
+    if (bad.length) errors.push(...bad.map(b => 'trackers pucks: ' + b));
+  });
+
+  await step('trackers: a person\'s head and hands (HOST.collab.body): this headset\'s own, presence\'s grips and rays left first, another\'s smoothed from presence; nobody else', async () => {
+    const bad = [];
+    const r = await tp.evaluate(async () => {
+      const X = window.__x, C = HOST.collab, I = C.internals(), sent = [], send = I.ws.send.bind(I.ws);
+      I.ws.send = s => { try { const m = JSON.parse(s); if (m.t === 'fx' && m.k === 'p.' + C.id) sent.push(m.v); } catch (e) { /* not ours */ } return send(s); };
+      // the story's rays: controller 0 is the right (the session's source 0), 1 the left
+      const ray = (i, k) => C.ray(i, new THREE.Vector3().setFromMatrixPosition(X.M(X.LOCAL).invert().multiply(X.W[k])), new THREE.Vector3(0, 0, -1), 2);
+      for (let k = 0; k < 4; k++) { ray(0, 'Rgrip'); ray(1, 'Lgrip'); X.tick(1); await new Promise(r => setTimeout(r, 80)); }
+      I.ws.send = send;
+      const own = C.body(C.id), R = X.ROOM;
+      return { own, head: X.inRoom(X.M(X.head, X.pitch), R), L: X.inRoom(X.W.Lgrip, R), Rg: X.inRoom(X.W.Rgrip, R), sent: sent.slice(-1)[0] || null, lRay: new THREE.Vector3().setFromMatrixPosition(X.W.Lgrip) };
+    });
+    const d3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]), dq = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[3] * b[3] + a[4] * b[4] + a[5] * b[5] + a[6] * b[6]))) * 180 / Math.PI;
+    if (!r.own || d3(r.own.head, r.head) > 0.01 || dq(r.own.head, r.head) > 0.5) bad.push('this headset\'s head: ' + JSON.stringify([r.own && r.own.head, r.head]));
+    if (!r.own || !r.own.hands[0] || !r.own.hands[1] || d3(r.own.hands[0], r.L) > 0.01 || dq(r.own.hands[0], r.L) > 0.5 || d3(r.own.hands[1], r.Rg) > 0.01) bad.push('its hands (left, right): ' + JSON.stringify([r.own && r.own.hands, r.L, r.Rg]));
+    const v = r.sent;
+    if (!v || !Array.isArray(v.g) || !v.g[0] || !v.g[1] || d3(v.g[0], r.L) > 0.01 || d3(v.g[1], r.Rg) > 0.01) bad.push('presence\'s grips are not [left, right]: ' + JSON.stringify(v && v.g));
+    // (the room's x and z of the left controller's ray origin: the first of presence's rays)
+    if (!v || v.hands.length !== 2 || d3(v.hands[0], r.L) > 0.01) bad.push('presence\'s rays do not start with the left: ' + JSON.stringify(v && v.hands));
+    // another person in a headset: their presence (two samples 200 ms apart, the first older than the drawing delay), and an
+    // older app's (no grips)
+    const o = await tp.evaluate(() => {
+      const C = HOST.collab, I = C.internals(), t = Math.round(C.now()), q = [0, 0, 0, 1], g = [[0.1, 1, 0, 0, 0, 0, 1], null];
+      const pres = (id, v) => I.ws.onmessage({ data: JSON.stringify({ t: 'fx', k: 'p.' + id, v, by: id }) });
+      pres('zz', { st: '', head: [0, 1.6, 0, ...q], hands: [], g, ts: t - 400 });
+      pres('zz', { st: '', head: [0.4, 1.6, 0, ...q], hands: [], g: [[0.5, 1, 0, 0, 0, 0, 1], [0.9, 1.1, 0, 0, 0, 0, 1]], ts: t - 40 });
+      pres('old', { st: '', head: [3, 1.7, 3, ...q], hands: [[3, 1.2, 3, 0, 0, -1, 1]], ts: t });
+      return new Promise(r => setTimeout(() => { window.__x.tick(1); r({ zz: C.body('zz'), old: C.body('old'), none: C.body('nobody'), page: (C.internals().pres.set('pg', { id: 'pg', at: performance.now(), head: null }), C.body('pg')) }); }, 30));
+    });
+    const z = o.zz;
+    if (!z || !(z.head[0] > 0.05 && z.head[0] < 0.39) || !z.hands[0] || !(z.hands[0][0] > 0.15 && z.hands[0][0] < 0.49) || !z.hands[1] || z.hands[1][0] !== 0.9 || !Number.isFinite(z.at)) bad.push('another person, smoothed between their samples (the right hand new, as it is): ' + JSON.stringify(z));
+    if (!o.old || o.old.hands[0] !== null || o.old.hands[1] !== null || o.old.head[0] !== 3) bad.push('an older app\'s presence: ' + JSON.stringify(o.old));
+    if (o.none !== null || o.page !== null) bad.push('nobody, or a page: ' + JSON.stringify([o.none, o.page]));
+    if (await tp.evaluate(() => window.__eff)) bad.push('the story heard effects');
+    if (bad.length) errors.push(...bad.map(b => 'trackers body: ' + b));
+  });
+  await tp.evaluate(() => { try { HOST.session = null; } catch (e) { /* gone */ } });
   await ctx.close();
 }
 await step('old links forward to the app', async () => {
