@@ -506,7 +506,7 @@ device enters it once, in the Shared dialog or, in a headset, under the menu's
 Circles, Relay password (a keypad of lower-case letters and digits). The device
 keeps it for that relay; links and rooms never carry it. While a relay waits for
 its password, nothing starts or is joined anywhere else. Vive trackers (v126): on
-a Windows PC with SteamVR, node relay/server.mjs --lan --trackers and python
+a Windows PC with SteamVR, node relay/server.mjs --lan --trackers and uv run
 tools/trackers/bridge.py send every tracker's pose to the rooms on that relay
 that turn them on, lined up by hand on the two spots (the Shared dialog's
 Trackers); setting it up: tools/trackers/README.md (untested with real

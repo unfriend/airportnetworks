@@ -15,7 +15,7 @@ trackers, base stations, the Index  ->  SteamVR  ->  bridge.py  --UDP 127.0.0.1:
 
 | file | what it is |
 | --- | --- |
-| `bridge.py` | the bridge: Python 3 and the `openvr` package, reads every device's pose from SteamVR about 90 times a second and sends it to the relay (`--fake`: made-up devices, no SteamVR) |
+| `bridge.py` | the bridge: Python 3 and the `openvr` package (run with `uv run`, which fetches both; their versions in `bridge.py.lock`), reads every device's pose from SteamVR about 90 times a second and sends it to the relay (`--fake`: made-up devices, no SteamVR) |
 | `fake.mjs` | a fake bridge in Node (no packages): the same datagrams, made up, for the tests and for trying the rooms' side without the hardware |
 | `SPEC.md` | the contracts as built (the datagrams, the relay's endpoints, the room's key `trk`, the `@trk` message), what is open or deferred, and the tests |
 
@@ -33,9 +33,12 @@ step"). The Valve Index is SteamVR's headset there, so SteamVR needs no null dri
    into the PC). Base stations as for the Index. The roles in *Manage Trackers* do not matter to the bridge: it
    takes every tracker SteamVR tracks (leave them on *Held in hand* or another role; whether SteamVR still tracks one
    set to *Disabled* is untested).
-2. **Python.** Python 3.11 or newer from python.org (tick *Add python.exe to PATH*; 3.11 keeps the rate steady on
-   Windows, where an older one's sleep is too coarse for 90 a second). Then, in a terminal:
-   `pip install openvr` (pyopenvr, the SteamVR bindings).
+2. **uv** (Astral's Python tool), once: `winget install astral-sh.uv` in a terminal (or the installer on
+   docs.astral.sh/uv). That is all the Python the bridge needs: `uv run` reads the block at the top of `bridge.py` and,
+   the first time, fetches a Python of 3.11 or newer (3.11 keeps the rate steady on Windows, where an older one's sleep
+   is too coarse for 90 a second) and the openvr package (pyopenvr, the SteamVR bindings) at the version in
+   `bridge.py.lock`; after that it starts at once, also offline. Without uv: Python 3.11 or newer from python.org (tick
+   *Add python.exe to PATH*), `pip install openvr`, and `python` in place of `uv run` below.
 3. **Node.** Node 18 or newer (for the relay), and the repository on the PC.
    - **The certificate for `--lan`**: the relay makes it with `openssl`, which on Windows comes with Git but is not on the
      PATH: start the relay from **Git Bash**, or add `C:\Program Files\Git\usr\bin` to PATH (relay/README.md, "A
@@ -46,9 +49,9 @@ step"). The Valve Index is SteamVR's headset there, so SteamVR needs no null dri
 4. **Start them**, SteamVR first:
    ```sh
    node relay/server.mjs --lan --trackers          # the app, the rooms, and the trackers on UDP 127.0.0.1:47800
-   python tools/trackers/bridge.py                 # after SteamVR: "Sending 90 readings a second ..."
+   uv run tools/trackers/bridge.py                 # after SteamVR: "Sending 90 readings a second ..."
    ```
-   `python tools/trackers/bridge.py --list` prints what SteamVR sees (serial numbers, kinds, batteries) and stops. The
+   `uv run tools/trackers/bridge.py --list` prints what SteamVR sees (serial numbers, kinds, batteries) and stops. The
    bridge waits for SteamVR when it is not running yet, and again when SteamVR closes. Another UDP port: `--trackers
    47801` on the relay and `--port 47801` on the bridge. Both stay on the PC: the bridge sends only to 127.0.0.1, and
    the relay takes datagrams only from there.
@@ -72,19 +75,20 @@ whether it is in the room is answered for it. One such page per room.
 
 ## If nothing shows
 
-- `python tools/trackers/bridge.py --list` lists each device SteamVR sees: serial, kind (`trk`, `hmd`, `ctl`, `base`),
+- `uv run tools/trackers/bridge.py --list` lists each device SteamVR sees: serial, kind (`trk`, `hmd`, `ctl`, `base`),
   `ok` or `LOST`, battery and place. A tracker missing there is SteamVR's matter: paired, switched on, in view of the
   base stations? *SteamVR does not answer*: start SteamVR first.
 - The bridge's status line, every 5 s (`--quiet` drops it), says what it sends: *5 trackers (5 tracked well), the
   headset, 2 controllers, 3 base stations; 90 readings a second*. *Could not send to UDP 127.0.0.1:47800 (...)*: check
   that the relay runs with `--trackers` (UDP gives no answer, so a missing relay is not always noticed here: look at the
-  relay's side too). *The openvr package is missing*: `pip install openvr`.
+  relay's side too). *The openvr package is missing*: started with `python` in place of `uv run`, without `pip install openvr`.
 - The relay's start line says where it listens (*Trackers: the bridge's readings on UDP 127.0.0.1:47800 ...*), and
   `https://<address>:8787/api/ping` (with a password: `?token=<the password>` after it) says `trackers: true` and
   `trackersSeen`, the trackers the bridge has sent in the last 5 s. No `trackers` there: the relay was started without
   `--trackers`.
 - The ports must match: `--trackers <n>` on the relay and `--port <n>` on the bridge (47800 when neither says).
-- On Windows, `py -3 tools/trackers/bridge.py` (and `py -3 -m pip install openvr`) when `python` is not found.
+- *uv* not found: open a new terminal after installing it (its folder joins PATH then). Without uv, on Windows,
+  `py -3 tools/trackers/bridge.py` (and `py -3 -m pip install openvr`) when `python` is not found.
 - The Shared dialog shows *The PC's trackers* only for a room on this relay while its `/api/ping` says `trackers: true`:
   peer-to-peer rooms and the relays on Coolify get no trackers. In it, *Not lined up yet* means spot A and spot B are
   still to be set.
@@ -93,7 +97,7 @@ whether it is in the room is answered for it. One such page per room.
 
 ```sh
 node relay/server.mjs --static . --trackers        # any computer
-node tools/trackers/fake.mjs                       # or: python tools/trackers/bridge.py --fake
+node tools/trackers/fake.mjs                       # or: uv run tools/trackers/bridge.py --fake
 ```
 
 The fake sends five trackers (two lying on spot A and spot B, 2 m apart; one going round a circle; one bobbing; one on

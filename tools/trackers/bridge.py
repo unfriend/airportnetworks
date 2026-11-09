@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["openvr"]
+# ///
 """The trackers' bridge: SteamVR's poses of the Vive trackers, the headset and its controllers and the base stations,
 sent to the relay on this PC (tools/trackers/SPEC.md, "The bridge"; setting it up: tools/trackers/README.md).
 
-    python bridge.py [--port 47800] [--rate 90]        after SteamVR is running; the relay: --lan --trackers
-    python bridge.py --list                            the devices SteamVR sees now, then stop
-    python bridge.py --fake [--seconds n]              made-up devices, no SteamVR (to try the rest without it)
+    uv run bridge.py [--port 47800] [--rate 90]        after SteamVR is running; the relay: --lan --trackers
+    uv run bridge.py --list                            the devices SteamVR sees now, then stop
+    uv run bridge.py --fake [--seconds n]              made-up devices, no SteamVR (to try the rest without it)
 
-Python 3 (3.11 or newer on Windows keeps the rate: its sleep is precise there), the openvr package (pyopenvr:
-pip install openvr) and the standard library only. Browsers cannot read the trackers, so this small helper reads every
-tracked device's pose in SteamVR's standing space (y up, the floor at 0: SteamVR's own room setup) and sends one UDP
-datagram a reading to 127.0.0.1:<port>, as JSON:
+uv (https://docs.astral.sh/uv/) reads the block above (PEP 723, inline script metadata) and runs it with a Python of
+3.11 or newer and the openvr package (pyopenvr), at the versions in bridge.py.lock, fetching both the first time; plain
+python bridge.py works as before where Python and pip install openvr are there. Python 3 (3.11 or newer on Windows
+keeps the rate: its sleep is precise there), the openvr package and the standard library only. Browsers cannot read the
+trackers, so this small helper reads every tracked device's pose in SteamVR's standing space (y up, the floor at 0:
+SteamVR's own room setup) and sends one UDP datagram a reading to 127.0.0.1:<port>, as JSON:
 
     { "v": 1, "t": <ms>, "d": [{ "s": <serial>, "k": "trk" | "hmd" | "ctl" | "base", "h": "l" | "r" (controllers),
       "p": [x, y, z] (m), "q": [x, y, z, w], "lv": [3] (m/s), "av": [3] (rad/s), "ok": <tracked well>,

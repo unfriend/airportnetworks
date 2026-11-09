@@ -16,7 +16,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
 | `ffmpeg` | any | optional, on the machine that runs the relay with `--scenes` (a folder or `r2`): it makes long sounds uploaded to the studio mono MP3 (without it they are kept as given; `brew install ffmpeg`, `sudo apt install ffmpeg`, `winget install ffmpeg`; the relay's Docker image installs it). `relay/test.mjs` uses a real one when the machine has it, else a stand-in |
 | git | any | a checkout. The update test also needs a second, older checkout |
-| Python 3 and pyopenvr | 3.11 or newer on Windows | optional, only on the Windows PC with SteamVR that runs the relay for the Vive trackers: `tools/trackers/bridge.py` (`pip install openvr`; `--fake` needs neither SteamVR nor pyopenvr). Setting it up: [tools/trackers/README.md](../tools/trackers/README.md) |
+| uv (or Python 3 and pyopenvr) | uv any; Python 3.11 or newer on Windows | optional, only on the Windows PC with SteamVR that runs the relay for the Vive trackers: `uv run tools/trackers/bridge.py` (uv fetches Python and pyopenvr by itself, at the versions in `bridge.py.lock`; without uv, `pip install openvr` and `python`; `--fake` needs neither SteamVR nor pyopenvr). Setting it up: [tools/trackers/README.md](../tools/trackers/README.md) |
 
 ```sh
 git clone https://github.com/unfriend/airportnetworks.git   # changes if the repository moves (section 7)

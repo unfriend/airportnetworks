@@ -155,7 +155,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `--trackers` (v126) it takes the PC's Vive trackers from `tools/trackers/bridge.py` on UDP 127.0.0.1 and sends them,
   lined up, to the rooms that use them: `trackers.mjs` ("Vive trackers" below).
 - `tools/trackers/` - the Vive trackers (v126; "Vive trackers" below): `SPEC.md` (the plan and the contracts between the
-  lanes), `bridge.py` (SteamVR's poses to the relay on the same PC: Python 3 and pyopenvr; `--fake` without SteamVR),
+  lanes), `bridge.py` (SteamVR's poses to the relay on the same PC: Python 3 and pyopenvr, named in its PEP 723 block, so
+  `uv run tools/trackers/bridge.py` fetches both, at the versions in `bridge.py.lock`; `--fake` without SteamVR),
   `fake.mjs` (a fake bridge in Node, for the tests and for trying the rooms without the hardware) and `README.md`
   (setting it up on the Windows PC).
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
@@ -2880,7 +2881,8 @@ contract between the lanes is `tools/trackers/SPEC.md`; setting it up, `tools/tr
 
 ### The bridge and the relay (v126)
 
-- **The bridge** (`tools/trackers/bridge.py`, Python 3 and pyopenvr, the standard library otherwise): browsers cannot
+- **The bridge** (`tools/trackers/bridge.py`, Python 3 and pyopenvr, the standard library otherwise; `uv run` it, which
+  fetches both by its PEP 723 block and `bridge.py.lock`, or `python` after `pip install openvr`): browsers cannot
   read the trackers, so this reads every device's pose from SteamVR (a background application, the standing universe:
   y up, the floor at 0) about 90 times a second and sends one UDP datagram a reading to `127.0.0.1:<port>` (47800):
   `{ v: 1, t, d: [{ s: <serial>, k: 'trk' | 'hmd' | 'ctl' | 'base', h?: 'l' | 'r', p, q, lv, av, ok, b }] }`, under 8 KB.

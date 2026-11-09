@@ -932,7 +932,7 @@ the contract between the parts: [tools/trackers/SPEC.md](../tools/trackers/SPEC.
 
 ```sh
 node relay/server.mjs --lan --trackers        # on the PC, with SteamVR running
-python tools/trackers/bridge.py               # (--port <n> when the relay has --trackers <n>)
+uv run tools/trackers/bridge.py               # (--port <n> when the relay has --trackers <n>; or python, after pip install openvr)
 ```
 
 `--trackers` belongs only on the PC with SteamVR: the bridge sends to 127.0.0.1, so a relay elsewhere hears nothing.

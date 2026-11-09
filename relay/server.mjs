@@ -2122,7 +2122,7 @@ if (TRK) {   // (asked for: a port another program holds stops the start, as a n
     process.exit(1);
   }
   TRK.attach(() => rooms.values(), trackersSend);
-  console.log(`Trackers: the bridge's readings on UDP 127.0.0.1:${at} (python tools/trackers/bridge.py${at === TRK_PORT ? '' : ' --port ' + at}, after SteamVR); rooms whose key trk is on and lined up get them`);
+  console.log(`Trackers: the bridge's readings on UDP 127.0.0.1:${at} (uv run tools/trackers/bridge.py${at === TRK_PORT ? '' : ' --port ' + at}, after SteamVR); rooms whose key trk is on and lined up get them`);
 }
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';

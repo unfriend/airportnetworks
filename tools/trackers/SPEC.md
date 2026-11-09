@@ -62,7 +62,8 @@ rate-limit question on the way in, and nothing depends on a page staying open on
 Built in v126 (setting it up: `tools/trackers/README.md`).
 
 - Python 3 (Windows; 3.11 or newer keeps 90 a second there), the `openvr` package (pyopenvr) and the standard library
-  only. Started after SteamVR: `python bridge.py [--port 47800] [--rate 90]`; it waits for SteamVR when it is not running
+  only, named in the script's own block (PEP 723), so `uv run` fetches both (the versions in `bridge.py.lock`, made by
+  `uv lock --script bridge.py`). Started after SteamVR: `uv run bridge.py [--port 47800] [--rate 90]` (or `python`); it waits for SteamVR when it is not running
   and again when SteamVR closes (`VREvent_Quit`). `--list` prints the devices SteamVR sees, `--seconds n` stops after n s,
   `--quiet` drops the status line (every 5 s: the devices, how many tracked well, readings a second). The owner's PC has
   the Index, so SteamVR has its headset: no null driver.
