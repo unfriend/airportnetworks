@@ -2150,7 +2150,8 @@ if (runs('studio')) {
   // v127 (the owner, 9 November 2026): Walk view's mouse (a drag looks the way the mouse goes, a click grabs it, a crosshair,
   // a click at the crosshair, the hint only in Walk view, Esc deselecting nothing as the grab ends); the Upload pane's × (a
   // model's files go with it) and one slider for every model; a selected model's timeline (held, slid, let go as it is
-  // deselected); Follow behind and at a side (the record, where it goes and how it faces, the card). A page of its own
+  // deselected); Follow behind and at a side (the record, where it goes and how it faces, the card), and (v128) Faces: Them
+// or Where they look (the record, its default by side, where each side faces with it, the card's row). A page of its own
   await step('studio v127: Walk view\'s grabbed mouse, the Upload pane\'s × and one slider for every model, a model\'s timeline, Follow behind and at a side', async () => {
     const bad = [];
     await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
@@ -2259,12 +2260,42 @@ if (runs('studio')) {
     const wt = await ss(`(() => { const it = STU.items.get('box001'), h = { p: new THREE.Vector3(0, 1.6, 0), f: [0, -1] }, y0 = behYaw0(it);
       return ['front', 'behind', 'left', 'right'].map(sd => { const w = behWant(it, { kind: 'follow', dist: 1, side: sd === 'front' ? undefined : sd }, { tx: 0, tz: 0, d: 0 }, h, new THREE.Vector3(0, 0.25, 0)); return [+w.tx.toFixed(2), +w.tz.toFixed(2), +Math.abs(wrapA(w.d + y0)).toFixed(2)]; }); })()`);
     if (JSON.stringify(wt) !== '[[0,-1,0],[0,1,3.14],[-1,0,3.14],[1,0,3.14]]') bad.push('Follow in front, behind, left and right of a person looking along -z (move and facing): ' + JSON.stringify(wt));
+    // Faces (v128): in the record (kept as given, a bad one refused, not look's or avoid's), its default by side, and where
+    // each side faces with it set: 'them' its front to the head, 'along' the way the head looks (-z), standing at its spot
+    const nf = await ss(`JSON.stringify([normBehaviour({ kind: 'follow', side: 'left', face: 'them' }), normBehaviour({ kind: 'follow', face: 'along' }), normBehaviour({ kind: 'follow', face: 'sideways' }), normBehaviour({ kind: 'item', target: 'abc123', face: null }),
+      normBehaviour({ kind: 'look', face: 'them' }), normBehaviour({ kind: 'avoid', face: 'along' }), normBehaviour({ kind: 'item', target: 'abc123', face: 'them' }),
+      [behFaceOf({ kind: 'follow' }), behFaceOf({ kind: 'follow', side: 'left' }), behFaceOf({ kind: 'item', target: 'abc123' }), behFaceOf({ kind: 'follow', side: 'behind', face: 'them' }), behFaceOf({ kind: 'follow', face: 'along' })]])`);
+    if (nf !== JSON.stringify([{ kind: 'follow', who: 'nearest', range: 3, dist: 1, speed: 0.6, side: 'left', face: 'them' }, { kind: 'follow', who: 'nearest', range: 3, dist: 1, speed: 0.6, face: 'along' }, null, null,
+      { kind: 'look', who: 'nearest', range: 3 }, { kind: 'avoid', who: 'nearest', range: 3, dist: 1.5, speed: 0.6, area: 2 }, { kind: 'item', target: 'abc123', speed: 0.6, face: 'them' }, ['them', 'along', 'along', 'them', 'along']])) bad.push('Faces in its record and by default: ' + nf);
+    const wf = await ss(`(() => { const it = STU.items.get('box001'), h = { p: new THREE.Vector3(0, 1.6, 0), f: [0, -1] }, y0 = behYaw0(it), M0 = new THREE.Vector3(0, 0.25, 0), at = { front: [0, -1], behind: [0, 1], left: [-1, 0], right: [1, 0] }, out = [];
+      for (const sd of ['front', 'behind', 'left', 'right']) for (const fc of ['them', 'along']) {
+        const [x, z] = at[sd], w = behWant(it, { kind: 'follow', dist: 1, side: sd === 'front' ? undefined : sd, face: fc }, { tx: x, tz: z, d: 0 }, h, M0), want = fc === 'them' ? Math.atan2(-x, -z) : Math.PI;
+        out.push([sd, fc, +w.tx.toFixed(2), +w.tz.toFixed(2), +Math.abs(wrapA(w.d + y0 - want)).toFixed(3)]);
+      }
+      return out; })()`);
+    const at = { front: [0, -1], behind: [0, 1], left: [-1, 0], right: [1, 0] };
+    if (wf.length !== 8 || wf.some(([sd, , x, z, e]) => x !== at[sd][0] || z !== at[sd][1] || e > 0.01)) bad.push('Follow with Faces: Them (its front to the head) and Where they look (along -z), for each side (move and how far off its facing): ' + JSON.stringify(wf));
     await ss(`(select('box001'), setRec('box001', { behaviour: { kind: 'follow', dist: 1, speed: 1, range: 3, who: 'nearest' } }), X.tab = 'item', renderPanes(), 0)`);
     await stp.click('#pane-item [data-act="i:bside"][data-v="left"]');
     const sc = await ss(`(renderPanes(), [STU.items.get('box001').rec.behaviour.side, /Stays at their left at/.test(document.querySelector('#pane-item').textContent)])`);
+    // Faces (v128): at their left by default Where they look (its line), Them pressed (one Undo step, its line), kept as the
+    // side changes to in front and behind, Where they look pressed in front (one Undo step)
+    const fcard = () => ss(`(renderPanes(), (() => { const q = v => document.querySelector('#pane-item [data-act="i:bface"][data-v="' + v + '"]'), t = document.querySelector('#pane-item').textContent;
+      return [STU.items.get('box001').rec.behaviour.face || '', !!q('them') && q('them').getAttribute('aria-pressed') === 'true', !!q('along') && q('along').getAttribute('aria-pressed') === 'true', /It turns to look at them/.test(t), /It faces the way they look/.test(t), UNDO.length]; })())`);
+    const fc0 = await fcard();
+    await stp.click('#pane-item [data-act="i:bface"][data-v="them"]');
+    const fc1 = await fcard();
     await stp.click('#pane-item [data-act="i:bside"][data-v="front"]');
     const sf = await ss(`'side' in STU.items.get('box001').rec.behaviour`);
+    const fc2 = await fcard();
+    await stp.click('#pane-item [data-act="i:bside"][data-v="behind"]');
+    const fc3 = await fcard();
+    await stp.click('#pane-item [data-act="i:bside"][data-v="front"]');
+    await stp.click('#pane-item [data-act="i:bface"][data-v="along"]');
+    const fc4 = await fcard();
     if (sc.join() !== 'left,true' || sf) bad.push('the card\'s Where row: ' + JSON.stringify({ sc, sf }));
+    if (fc0.slice(0, 5).join() !== ',false,true,false,true' || fc1.slice(0, 5).join() !== 'them,true,false,true,false' || fc1[5] !== fc0[5] + 1 || fc2.slice(0, 5).join() !== 'them,true,false,true,false' ||
+      fc3.slice(0, 5).join() !== 'them,true,false,true,false' || fc4.slice(0, 5).join() !== 'along,false,true,false,true' || fc4[5] !== fc3[5] + 2) bad.push('the card\'s Faces row (Them, kept as the side changes, Where they look; one Undo step each): ' + JSON.stringify({ fc0, fc1, fc2, fc3, fc4 }));
     await ss(`(setRec('box001', { behaviour: undefined }), select(''), X.tab = 'scene', renderPanes(), 0)`);
     if (bad.length) errors.push(...bad.map(b => 'studio v127: ' + b));
   });
@@ -5039,6 +5070,15 @@ if (runs('studio behaviours')) {
       B.run(15, 1 / 30);   // (half a second: a quarter turn)
       if (B.far(B.drawn('bhi001'), t0) > 1e-3 || Math.abs(B.ang(B.front('bhf001'), f0) - Math.PI / 2) > 0.01) o.push('the ball spinning: its tail moved, or the ball did not spin: ' + [B.far(B.drawn('bhi001'), t0), B.front('bhf001'), f0]);
       setRec('bhf001', { motion: undefined });
+      // Faces: The item (v128): settled, the tail's middle where its offset on the ball puts it (as before) and its front to
+      // the ball's middle, within a degree; As placed again, it turns back with the ball
+      setRec('bhi001', { behaviour: { kind: 'item', target: 'bhf001', speed: 2, face: 'them' } });
+      B.run(90, 1 / 30);
+      const tw = B.drawn('bhf001').multiply(B.placed('bhf001').invert()).multiply(B.placed('bhi001')), tm = new THREE.Vector3().setFromMatrixPosition(tw), tg = B.mid('bhi001'), bb = B.mid('bhf001');
+      if (tg.distanceTo(tm) > 1e-3 || B.ang(B.front('bhi001'), Math.atan2(bb.x - tg.x, bb.z - tg.z)) > Math.PI / 180) o.push('the tail facing the ball: ' + JSON.stringify([tg.distanceTo(tm), B.front('bhi001'), Math.atan2(bb.x - tg.x, bb.z - tg.z)]));
+      setRec('bhi001', { behaviour: { kind: 'item', target: 'bhf001', speed: 2 } });
+      B.run(90, 1 / 30);
+      if (B.far(B.drawn('bhi001'), B.drawn('bhf001').multiply(B.placed('bhf001').invert()).multiply(B.placed('bhi001'))) > 0.01) o.push('the tail as placed again: ' + B.far(B.drawn('bhi001'), B.drawn('bhf001').multiply(B.placed('bhf001').invert()).multiply(B.placed('bhi001'))));
       // keep away: the head 0.36 m from its place: it goes to 1.5 m from the head, never more than 2 m from its place
       const am = B.run(240, 1 / 30, [-2.3, 1.6, -2.2, 0]).bha001, aw = B.mid('bha001'), h = B.V(-2.3, aw.y, -2.2), home = B.V(-2, aw.y, -2);
       if (aw.distanceTo(h) < 1.49 || aw.distanceTo(home) > 2 + 1e-6 || Math.abs(aw.y - 1.2) > 1e-9 || B.fastest(am) > 1 / 30 + 1e-6) o.push('keep away: ' + JSON.stringify([aw, aw.distanceTo(h), aw.distanceTo(home), B.fastest(am)]));
@@ -5157,12 +5197,21 @@ if (runs('studio behaviours')) {
     await ss('renderPanes()');
     await bp.click('#pane-item [data-id="btarget:bhl001"]');
     const it2 = await ss(`[JSON.stringify(STU.items.get('bhf001').rec.behaviour), STU.follow, UNDO.length]`);
+    // Faces (v128): As placed lit by default, The item pressed (one Undo step), kept when it follows another item
+    await ss('renderPanes()');
+    const if0 = await ss(`[document.querySelector('#pane-item [data-id="bface:along"]').getAttribute('aria-pressed'), /turning with it as the two are placed/.test(document.querySelector('#pane-item').textContent)]`);
+    await bp.click('#pane-item [data-id="bface:them"]');
+    const it3 = await ss(`(renderPanes(), [JSON.stringify(STU.items.get('bhf001').rec.behaviour), UNDO.length, document.querySelector('#pane-item [data-id="bface:them"]').getAttribute('aria-pressed'), /turned to look at it/.test(document.querySelector('#pane-item').textContent)])`);
+    await ss(`(itemAct('btarget', 'bhi001', 'bhf001'), renderPanes(), 0)`);
+    const it4 = await ss(`[JSON.stringify(STU.items.get('bhf001').rec.behaviour), UNDO.length]`);
     await ss('renderPanes()');
     await bp.click('#pane-item [data-id="beh:none"]');
     const end = await ss(`['behaviour' in STU.items.get('bhf001').rec, UNDO.length]`);
     const n = seq.length;
     if (!said || pk[0] !== 'bhf001' || pk[1] !== u0 + n || it1[0] !== '{"kind":"item","target":"bhi001","speed":0.6}' || it1[1] || it1[2] !== u0 + n + 1 ||
-      it2[0] !== '{"kind":"item","target":"bhl001","speed":0.6}' || it2[1] || it2[2] !== u0 + n + 2 || end[0] || end[1] !== u0 + n + 3) out.push('the page\'s Behaviour rows (one Undo step each): ' + JSON.stringify({ said, pk, it1, it2, end, u0 }));
+      it2[0] !== '{"kind":"item","target":"bhl001","speed":0.6}' || it2[1] || it2[2] !== u0 + n + 2 || if0.join() !== 'true,true' ||
+      it3.join() !== '{"kind":"item","target":"bhl001","speed":0.6,"face":"them"},' + (u0 + n + 3) + ',true,true' || it4.join() !== '{"kind":"item","target":"bhi001","speed":0.6,"face":"them"},' + (u0 + n + 4) ||
+      end[0] || end[1] !== u0 + n + 5) out.push('the page\'s Behaviour rows (one Undo step each): ' + JSON.stringify({ said, pk, it1, it2, if0, it3, it4, end, u0 }));
     // the headset's card: its rows pressed
     const xr = await ss(`(() => {
       XR.on = true;
@@ -5171,28 +5220,35 @@ if (runs('studio behaviours')) {
       select('bha001'); X.tab = 'item'; X.scroll = {}; draw();
       const r = [press('beh:follow'), JSON.stringify(STU.items.get('bha001').rec.behaviour), press('bspeed:-'), press('bwho:first'), JSON.stringify(STU.items.get('bha001').rec.behaviour),
         press('beh:item'), STU.follow, press('btarget:bhl001'), JSON.stringify(STU.items.get('bha001').rec.behaviour), press('beh:avoid'), JSON.stringify(STU.items.get('bha001').rec.behaviour)];
+      // Faces (v128): Follow at their right, Them pressed (one Undo step), then Look at drops it
+      const u = UNDO.length;
+      r.push(press('beh:follow'), press('bside:right'), press('bface:them'), JSON.stringify(STU.items.get('bha001').rec.behaviour), UNDO.length - u, press('beh:look'), JSON.stringify(STU.items.get('bha001').rec.behaviour));
       XR.on = false; select(''); X.tab = 'scene'; renderPanes();
       return r;
     })()`);
     if (!xr[0] || xr[1] !== '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":1}' || !xr[2] || !xr[3] || xr[4] !== '{"kind":"follow","who":"first","range":3,"dist":1,"speed":0.8}' ||
-      !xr[5] || xr[6] !== 'bha001' || !xr[7] || xr[8] !== '{"kind":"item","target":"bhl001","speed":0.8}' || !xr[9] || xr[10] !== '{"kind":"avoid","who":"nearest","range":3,"dist":1.5,"speed":0.8,"area":2}') out.push('the headset\'s Behaviour rows: ' + JSON.stringify(xr));
+      !xr[5] || xr[6] !== 'bha001' || !xr[7] || xr[8] !== '{"kind":"item","target":"bhl001","speed":0.8}' || !xr[9] || xr[10] !== '{"kind":"avoid","who":"nearest","range":3,"dist":1.5,"speed":0.8,"area":2}' ||
+      !xr[11] || !xr[12] || !xr[13] || xr[14] !== '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":0.8,"side":"right","face":"them"}' || xr[15] !== 3 || !xr[16] || xr[17] !== '{"kind":"look","who":"nearest","range":3}') out.push('the headset\'s Behaviour rows: ' + JSON.stringify(xr));
     bad(out);
   });
   await step('studio behaviours: the state and layout.json carry a behaviour and give it back; bad values refused, out of range held, fields of another kind dropped; a group\'s copy follows its own', async () => {
     const r = await ss(`(() => {
       const J = x => JSON.stringify(x), out = [];
-      setRec('bhf001', { behaviour: { kind: 'avoid', who: 'first', range: 2.5, dist: 0.8, speed: 1.2, area: 3 } }); setRec('bhi001', { behaviour: { kind: 'item', target: 'bhf001', speed: 2 } }); setRec('box001', { behaviour: { kind: 'look' } });
+      setRec('bhf001', { behaviour: { kind: 'avoid', who: 'first', range: 2.5, dist: 0.8, speed: 1.2, area: 3 } }); setRec('bhi001', { behaviour: { kind: 'item', target: 'bhf001', speed: 2, face: 'them' } }); setRec('box001', { behaviour: { kind: 'look' } });
+      setRec('bha001', { behaviour: { kind: 'follow', side: 'behind', face: 'them' } });   // (Faces, v128: in the state and layout.json as given)
       const s = collabState(), a = J(s); collabApply(JSON.parse(a));
-      if (J(collabState()) !== a || J(s['p.bhf001'].behaviour) !== '{"kind":"avoid","who":"first","range":2.5,"dist":0.8,"speed":1.2,"area":3}' || J(s['o.box001'].behaviour) !== '{"kind":"look","who":"nearest","range":3}') out.push('the state: ' + J([s['p.bhf001'], s['o.box001']]));
+      if (J(collabState()) !== a || J(s['p.bhf001'].behaviour) !== '{"kind":"avoid","who":"first","range":2.5,"dist":0.8,"speed":1.2,"area":3}' || J(s['o.box001'].behaviour) !== '{"kind":"look","who":"nearest","range":3}' ||
+        J(s['p.bhi001'].behaviour) !== '{"kind":"item","target":"bhf001","speed":2,"face":"them"}' || J(s['e.bha001'].behaviour) !== '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":0.6,"side":"behind","face":"them"}') out.push('the state: ' + J([s['p.bhf001'], s['o.box001'], s['p.bhi001'], s['e.bha001']]));
       const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
       const got = id => J(back.items.find(x => x.id === id).rec.behaviour);
-      if (back.bad || got('bhf001') !== J(s['p.bhf001'].behaviour) || got('bhi001') !== '{"kind":"item","target":"bhf001","speed":2}' || 'behaviour' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('bhf001'), got('bhi001')]));
+      if (back.bad || got('bhf001') !== J(s['p.bhf001'].behaviour) || got('bhi001') !== '{"kind":"item","target":"bhf001","speed":2,"face":"them"}' || got('bha001') !== J(s['e.bha001'].behaviour) || 'behaviour' in L.objects.find(o => o.id === 'fig001')) out.push('layout.json: ' + J([back.bad, got('bhf001'), got('bhi001'), got('bha001')]));
       const N = (k, b) => norm(k, Object.assign(k === 'o' ? { file: 'box.glb' } : {}, { p: [0, 0, 0], behaviour: b }));
       const res = [N('o', null) && !('behaviour' in N('o', null)), N('p', { kind: 'dance' }), N('e', { kind: 'look', who: 'last' }), N('o', { kind: 'follow', range: 'far' }), N('p', { kind: 'item' }), N('e', { kind: 'item', target: 'Bad id' }), N('o', 'follow'),
         J(N('o', { kind: 'follow', range: 100, dist: 0.01, speed: 9 }).behaviour), J(N('p', { kind: 'look', dist: 5, area: 2, target: 'abc123' }).behaviour), J(N('e', { kind: 'avoid', range: 1.234 }).behaviour), J(N('p', { kind: 'item', target: 'abc123', who: 'first' }).behaviour),
-        norm('c', { p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour, norm('s', { file: 'tone.wav', p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour];
+        norm('c', { p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour, norm('s', { file: 'tone.wav', p: [0, 0, 0], behaviour: { kind: 'look' } }).behaviour,
+        J(N('o', { kind: 'follow', face: 'along' }).behaviour), N('p', { kind: 'item', target: 'abc123', face: 'up' }), J(N('e', { kind: 'avoid', face: 'them' }).behaviour)];
       const want = [true, null, null, null, null, null, null, '{"kind":"follow","who":"nearest","range":20,"dist":0.2,"speed":5}', '{"kind":"look","who":"nearest","range":3}', '{"kind":"avoid","who":"nearest","range":1.23,"dist":1.5,"speed":0.6,"area":2}',
-        '{"kind":"item","target":"abc123","speed":0.6}', undefined, undefined];
+        '{"kind":"item","target":"abc123","speed":0.6}', undefined, undefined, '{"kind":"follow","who":"nearest","range":3,"dist":1,"speed":0.6,"face":"along"}', null, '{"kind":"avoid","who":"nearest","range":3,"dist":1.5,"speed":0.6,"area":2}'];
       if (J(res) !== J(want)) out.push('norm\\'s rules: ' + J(res));
       const bl = readLayout({ studio: 1, empties: [{ id: 'bbb222', p: [0, 0, 0], behaviour: { kind: 'look' } }, { id: 'bbb333', p: [0, 0, 0], behaviour: { kind: 'hide' } }] });
       if (bl.bad !== 1 || bl.items.length !== 1) out.push('a bad behaviour in a layout: ' + J(bl));
