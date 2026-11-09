@@ -2,7 +2,9 @@
 
 Vive Tracker 3.0s (with SteamVR and its base stations) placed in a shared room: their poses go to every headset and
 page there, lined up with the room, for props that follow a tracker and a character worn by a performer (the studio).
-The contract between the parts is [SPEC.md](SPEC.md). Here: how to set it up on the Windows PC, and what each file is.
+The overview is [AGENTS.md](../../AGENTS.md), "Vive trackers"; the contracts as built are [SPEC.md](SPEC.md). Here: how
+to set it up on the Windows PC, what to try when nothing shows, and what each file is. Nothing of it has been tried with
+real trackers yet.
 
 Browsers cannot read the trackers (WebXR has no tracker API; SteamVR solves their poses itself), so a small helper on
 the PC reads them from SteamVR and hands them to the relay on the same PC, which serves the app and the room:
@@ -15,7 +17,7 @@ trackers, base stations, the Index  ->  SteamVR  ->  bridge.py  --UDP 127.0.0.1:
 | --- | --- |
 | `bridge.py` | the bridge: Python 3 and the `openvr` package, reads every device's pose from SteamVR about 90 times a second and sends it to the relay (`--fake`: made-up devices, no SteamVR) |
 | `fake.mjs` | a fake bridge in Node (no packages): the same datagrams, made up, for the tests and for trying the rooms' side without the hardware |
-| `SPEC.md` | the plan and the contracts (the datagrams, the relay's endpoints, the room's key `trk`, the `@trk` message) |
+| `SPEC.md` | the contracts as built (the datagrams, the relay's endpoints, the room's key `trk`, the `@trk` message), what is open or deferred, and the tests |
 
 The relay's side is `relay/trackers.mjs` (`--trackers`; [relay/README.md](../../relay/README.md), "The PC's Vive
 trackers").
@@ -35,6 +37,12 @@ step"). The Valve Index is SteamVR's headset there, so SteamVR needs no null dri
    Windows, where an older one's sleep is too coarse for 90 a second). Then, in a terminal:
    `pip install openvr` (pyopenvr, the SteamVR bindings).
 3. **Node.** Node 18 or newer (for the relay), and the repository on the PC.
+   - **The certificate for `--lan`**: the relay makes it with `openssl`, which on Windows comes with Git but is not on the
+     PATH: start the relay from **Git Bash**, or add `C:\Program Files\Git\usr\bin` to PATH (relay/README.md, "A
+     session on one Wi-Fi"). It is made once in `relay/.lan/` for the PC's addresses, and again when they change.
+   - **The firewall**: the first time the relay starts, Windows asks whether Node may accept connections: allow it on
+     private networks (the relay's port, TCP 8787 by default, for the headsets on the Wi-Fi). The trackers' UDP port
+     needs nothing: the relay listens for it on 127.0.0.1 only, so nothing from the network reaches it.
 4. **Start them**, SteamVR first:
    ```sh
    node relay/server.mjs --lan --trackers          # the app, the rooms, and the trackers on UDP 127.0.0.1:47800
@@ -44,7 +52,7 @@ step"). The Valve Index is SteamVR's headset there, so SteamVR needs no null dri
    bridge waits for SteamVR when it is not running yet, and again when SteamVR closes. Another UDP port: `--trackers
    47801` on the relay and `--port 47801` on the bridge. Both stay on the PC: the bridge sends only to 127.0.0.1, and
    the relay takes datagrams only from there.
-5. **Line the room up by hand** (on a page in the room: the Shared dialog, *Trackers*): turn on *Use the PC's trackers
+5. **Line the room up by hand** (on a page in the room: the Shared dialog, *The PC's trackers*): turn on *Use the PC's trackers
    in this room*, lay a tracker flat on its base on spot A (the tape cross the headsets calibrate on) and press *Set
    spot A*, then the same on spot B. Each takes the tracker's position averaged over a second while it lies still (the
    relay's `/api/trackers/still`; moved more than 5 mm meanwhile, it asks again). That gives the room's frame from
@@ -55,6 +63,31 @@ step"). The Valve Index is SteamVR's headset there, so SteamVR needs no null dri
    row lights up.
 
 Battery: a Tracker 3.0 lasts about 7.5 hours; `/api/trackers` and the page's list show each one's charge.
+
+**The Index's own page in VR** (untested): on the PC, in Chrome or Edge with SteamVR as the OpenXR runtime, open the
+relay's address (the one the headsets use, or `https://localhost:8787/`, which the relay prints for the PC itself; accept
+the certificate warning), join the room and press *Enter VR*. With the room using the trackers and lined up by hand (step 5), the Index lines itself up
+from its head as the trackers see it (*Lined up by the PC's trackers*): no spots, no shared space, and the question
+whether it is in the room is answered for it. One such page per room.
+
+## If nothing shows
+
+- `python tools/trackers/bridge.py --list` lists each device SteamVR sees: serial, kind (`trk`, `hmd`, `ctl`, `base`),
+  `ok` or `LOST`, battery and place. A tracker missing there is SteamVR's matter: paired, switched on, in view of the
+  base stations? *SteamVR does not answer*: start SteamVR first.
+- The bridge's status line, every 5 s (`--quiet` drops it), says what it sends: *5 trackers (5 tracked well), the
+  headset, 2 controllers, 3 base stations; 90 readings a second*. *Could not send to UDP 127.0.0.1:47800 (...)*: check
+  that the relay runs with `--trackers` (UDP gives no answer, so a missing relay is not always noticed here: look at the
+  relay's side too). *The openvr package is missing*: `pip install openvr`.
+- The relay's start line says where it listens (*Trackers: the bridge's readings on UDP 127.0.0.1:47800 ...*), and
+  `https://<address>:8787/api/ping` (with a password: `?token=<the password>` after it) says `trackers: true` and
+  `trackersSeen`, the trackers the bridge has sent in the last 5 s. No `trackers` there: the relay was started without
+  `--trackers`.
+- The ports must match: `--trackers <n>` on the relay and `--port <n>` on the bridge (47800 when neither says).
+- On Windows, `py -3 tools/trackers/bridge.py` (and `py -3 -m pip install openvr`) when `python` is not found.
+- The Shared dialog shows *The PC's trackers* only for a room on this relay while its `/api/ping` says `trackers: true`:
+  peer-to-peer rooms and the relays on Coolify get no trackers. In it, *Not lined up yet* means spot A and spot B are
+  still to be set.
 
 ## Without the hardware
 

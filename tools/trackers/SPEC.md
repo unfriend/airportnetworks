@@ -4,8 +4,9 @@ The owner, 8 November 2026: "i have a lot of them and it would make sense to imp
 tracking and things like that, and also for live puppetry"; then "we go for 1 and 3 with mixamo rigs for now, 2 and 4 we
 can save up for maybe later, i have about 9 or 11 vive tracker 3.0 with three basestations. windows pc running steamvr is
 already here and that one could also host the page". Phase 1 (trackers in the rooms, lined up, props that follow them) and
-phase 3 (live puppetry of a Mixamo-rigged character, takes recorded as clips) are to be built after v124. Phase 2 (camera
-tracking for compositing) and phase 4 (headsets lined up through a tracker on each) wait on the maybe list.
+phase 3 (live puppetry of a Mixamo-rigged character, takes recorded as clips) were built in v126 (the solver in v125).
+Phase 2 (camera tracking for compositing) and phase 4 (headsets lined up through a tracker on each) wait on the maybe
+list.
 
 The owner's setup and answers (8 November 2026): a Valve Index is on the PC (so SteamVR has its headset: no null
 driver), each tracker has its own USB dongle, lining up by hand first (reference trackers on the spots stay a later
@@ -13,13 +14,29 @@ option), and two lighter body setups as well as the full one (below): "a minimal
 each foot and uses the headset and the controllers and ik for the rest if possible, maybe also a version where one can
 just use the headset and the controllers if possible".
 
-This file is the contract between the lanes that build it. Status: v126 builds phases 1 and 3 in three lanes (the bridge,
+This file was the contract between the lanes that built it. Status: v126 built phases 1 and 3 in three lanes (the bridge,
 the fake and the relay; the shell; the studio), lined up by hand, with the wire settled by v126's brief (no reference
 trackers this round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built: the solver of
 phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay ("The bridge", "The relay"), the shell's part
 ("The shell") and the studio's (props and the puppet), and the round that runs the three together end to end
 (`tools/collab.mjs --trackers`, "Tests"). The studio's: `tools/studio/SPEC.md`, "Props that follow a tracker" and
-"Worn with trackers".
+"Worn with trackers". This file is now the contracts as built; the overview is AGENTS.md, "Vive trackers".
+
+## Open and deferred
+
+- Reference trackers left on the spots for good (`ref`, below): later. Lining up is by hand only.
+- The headset-alone body (`rig: 'head'`, its legs stepping by themselves): built in `ik.js` but not offered. Deferred;
+  first a probe of Quest Browser's WebXR body tracking.
+- Phases 2 and 4: on the maybe list.
+- `TRK_FLOOR` (the tracker's pose origin over the floor, lying on its base) is 0 until measured.
+- Untested on Windows: the bridge with SteamVR and real trackers, its rate, and the lag through the relay.
+- Review notes not fixed:
+  - The Index's lining up pairs tracker samples (stamped as they reach the relay, about when the bridge read them) with
+    the head's pose as WebXR predicts it for the display, under a stillness gate of 0.5 m/s and 0.6 rad/s, so a slow
+    drift could pair them 2 to 3 cm apart. An idea: 0.1 m/s and 0.3 rad/s, and a test with a fixed lag.
+  - Two pages naming different trackers at the same moment can lose a name (one `trk` key: the last writer wins).
+  - Whether a take from a model in centimetres has its hips' place keys scaled by the converter's bake is unchecked.
+  - With six trackers the upper arms' and forearms' twist can be up to 12 degrees off (only the hinge bends are tested).
 
 ## The picture
 
@@ -255,9 +272,9 @@ What the shell does with it:
 
 ## The solver (`ik.js`)
 
-Built in v125 as phase 3's groundwork (lane B above): `tools/studio/engine/ik.js`, a plain module like `convert.js` and
-`images.js` (`makeIK(THREE)`: no DOM, nothing fetched or drawn), checked in Node by `tools/studio/test-ik.mjs`. It is not
-in `tools/studio/build.mjs` yet, so nothing in the app uses it; the studio's side (lane C) wires it in. Its contract is
+Built in v125 as phase 3's groundwork: `tools/studio/engine/ik.js`, a plain module like `convert.js` and `images.js`
+(`makeIK(THREE)`: no DOM, nothing fetched or drawn), checked in Node by `tools/studio/test-ik.mjs`. In
+`tools/studio/build.mjs` since v126, used by `tools/studio/engine/e6l_puppet.js`. Its contract is
 the comment at its top. Everything is in three.js's world frame (the targets, the floor, up +y): the studio turns room
 or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
 
@@ -315,6 +332,9 @@ real trackers, a headset and controllers is untested.
 
 ## Tests
 
+The numbers below come from the builders' own runs. The full release run (`docs/setup-and-release.md`, step 7) has not
+run on v124, v125 or v126.
+
 - `relay/test.mjs` (built in v126; `node relay/test.mjs --trackers` runs only these, in seconds): the UDP intake (bad
   datagrams and readings ignored, counted and said), `/api/ping`, `/api/trackers` and `/api/trackers/still` with and
   without the password, the room's frame against `shared.js`'s own code, lining up by hand against a known transform
@@ -360,11 +380,12 @@ real trackers, a headset and controllers is untested.
   `models/rig.glb` with *Take 1* (3.1 to 3.4 s, 24 tracks; 9 or 10 keys, a page drawing in software), which another page switches to and plays. A held time: the fake
   paused for a moment, every device given the last reading, the relay's time held in the middle of the last samples.
 
-## Order of work
+## How it was built
 
-After v124 is merged. Two lanes at once, then one: (A) the bridge, the fake, the relay and its tests, the shell and the
-Trackers section, the collab round's plumbing; (B) the solver, the test rig and `test-ik.mjs`; then (C) the studio: props,
-the puppet and takes. One Sonnet review and one fix round each. Estimated 4.5 to 6 days of agent work, 19 to 26M tokens (the two lighter body setups and the Index in the room add
-about a day and 4 to 6M to the first estimate).
+After v124 was merged: the solver, the test rig and `test-ik.mjs` first (v125); then in v126 three lanes (the bridge,
+the fake and the relay with its tests; the shell and the Trackers section; the studio: props, the puppet and takes) and
+the round that runs them together (`tools/collab.mjs --trackers`). Each lane was planned with one Sonnet review and one
+fix round; the review notes left open are under "Open and deferred". Estimated at 4.5 to 6 days of agent work and 19 to
+26M tokens (the two lighter body setups and the Index in the room added about a day and 4 to 6M to the first estimate).
 Untested until tried with the owner's PC, trackers and headsets: the bridge on Windows, `TRK_FLOOR`, lag through the PC's
 relay, how the puppet looks and how a performer's trackers stay on.

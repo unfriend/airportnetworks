@@ -49,9 +49,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **At the handover (9 November 2026): where each branch is and what comes next.**
   - *The branches.* `main` is networks-v121 (`5524684`, released on 7 November): what visitors get at
     https://stories.lbi-netmed.com/ (GitHub Pages) and what the main site's relay runs (https://main.lab.lbi-netmed.com/).
-    `dev` is networks-v126 (`f150cb3`, FORMAT networks-38): the test place, https://stories.lab.lbi-netmed.com/, which
+    `dev` is networks-v126 (`f150cb3`, FORMAT networks-38; the handover's docs after it): the test place, https://stories.lab.lbi-netmed.com/, which
     Coolify deploys on every push to `dev`. Between them are v122 to v126 (the entries below). The AI agents' working
-    branch, `claude/trusting-hypatia-ca5qv0`, is the same commit as `dev`. Nothing is half done on any branch.
+    branch, `claude/trusting-hypatia-ca5qv0`, is the same commit as `dev`. Nothing is half done on any branch, and no
+    file of the app changed after the release (only docs), so no `VERSION` bump is due.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123) and checked that Android's screen
     recorder films camera mode's AR. Nothing else of v123 to v126 has been tried on a headset, a phone or the trackers'
     PC. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v126 and what of v125 is still untried.

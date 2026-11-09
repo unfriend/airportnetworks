@@ -16,6 +16,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
 | `ffmpeg` | any | optional, on the machine that runs the relay with `--scenes` (a folder or `r2`): it makes long sounds uploaded to the studio mono MP3 (without it they are kept as given; `brew install ffmpeg`, `sudo apt install ffmpeg`, `winget install ffmpeg`; the relay's Docker image installs it). `relay/test.mjs` uses a real one when the machine has it, else a stand-in |
 | git | any | a checkout. The update test also needs a second, older checkout |
+| Python 3 and pyopenvr | 3.11 or newer on Windows | optional, only on the Windows PC with SteamVR that runs the relay for the Vive trackers: `tools/trackers/bridge.py` (`pip install openvr`; `--fake` needs neither SteamVR nor pyopenvr). Setting it up: [tools/trackers/README.md](../tools/trackers/README.md) |
 
 ```sh
 git clone https://github.com/unfriend/airportnetworks.git   # changes if the repository moves (section 7)
@@ -145,23 +146,27 @@ app's renderer can use it to hide virtual things behind a real hand, person, wal
 ## 3. Tests
 
 There is no unit-test suite and no CI (no automatic test runs on GitHub): you run these tests yourself, before `main`
-moves (a push to `dev` gets only the build check and the release file check: section 4). The browser
+moves (a push to `dev` gets only the cheap checks: `node --check` on the changed files, the build check and the
+release file check; section 4). The browser
 tests use headless Chromium, which draws in software here and is slow, so run them one at a time. In the table,
 "server" means the folder served on port 8123, as in section 2. The times are for a machine with 4 CPUs.
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
 | Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
-| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every release to `main` (since 7 November 2026; not for `dev`) | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio`: for a builder's own steps |
+| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every release to `main` (since 7 November 2026; not for `dev`) | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio` or `--only trackers`: for a builder's own steps; the release run is the whole test, with no `--only` |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
 | Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both; or `whatsnew.json` names another release: rewrite it (step 5c) |
-| Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds (the studio's scenes and uploads about 15 s more) | the protocol changed, the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`), or the studio's scenes, saving, watch, uploads, `ffmpeg` or `/upload` no longer answer as `relay/README.md` says |
+| Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release (the whole of it, its `--trackers` part included) | seconds (the studio's scenes and uploads about 15 s more) | the protocol changed, the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`), or the studio's scenes, saving, watch, uploads, `ffmpeg` or `/upload` no longer answer as `relay/README.md` says |
 | Room and depth test | `node tools/room-test.mjs` | Playwright, port 8131 free (it starts its own relay) | after changing `room-test/` | about a minute | the pretend headset's depth no longer hides the test things where it should (three.js r128's external texture, the per-eye pass), or the report misses a field |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
 | Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks, `--token` only the relay's password (not in the main run), `--studio` only the studio in a room, its saving, uploads and password, about 3 min; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
 | Studio listings | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | Node | after changing the studio's test scene (`node tools/studio/test/make.mjs` remakes it) or `relay/scenes.mjs` | under 1 s | the test scene's `index.json` or `files.json` is not what the relay would answer: run it without `--check` (or `make.mjs`) and commit them |
+| Trackers | `node relay/test.mjs --trackers` (seconds; with the fake bridge, and `bridge.py --fake` where `python3` is), then `node tools/collab.mjs --trackers` (3 to 5 min: the bridge's, the shell's and the studio's parts together through a real relay) | Node 22; Playwright for the second | after touching `relay/trackers.mjs`, `tools/trackers/`, the trackers in `shared.js` or the studio's `e6k_trk.js` and `e6l_puppet.js`. Both are in the whole runs too | as said | the relay no longer lines the fake's trackers up within 1 mm, a device's trackers or a prop on one are off, or the worn character no longer follows the performer. Nothing here has SteamVR: see [tools/trackers/README.md](../tools/trackers/README.md), "Tests" |
+| The trackers' solver | `node tools/studio/test-ik.mjs` | Node | after changing `tools/studio/engine/ik.js` or the puppet in `tools/studio/test/make.mjs` | under a second | the solver no longer finds a Mixamo rig's parts or follows the walking test rig |
+| The picture reader | `node tools/studio/test-images.mjs` | Node | after changing `tools/studio/engine/images.js` or `tools/studio/test/pictures.mjs` | seconds | a TIFF, PSD or DDS no longer reads back as the pixels it was made from, or a broken file is no longer refused in words |
 | A model to GLB | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--shots <dir>]` | Playwright | not a routine test: to convert the owner's models in a batch, or to try the converter on real files after changing `tools/studio/engine/convert.js` | seconds a model | it says what did not come through (an animation, a skin, a texture) and writes nothing |
 | One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
@@ -222,13 +227,13 @@ is GitHub Pages' custom domain for `main`.
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v116` now, so `networks-v117` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v126` on `dev` now, `main` at `networks-v121`, so `networks-v127` next) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-35` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-38` on `dev` now; `main` has `networks-35`) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.
@@ -244,16 +249,37 @@ is GitHub Pages' custom domain for `main`.
    should try on a headset and a phone, what nobody could check here; a handful each, so the headset's page stays
    readable). Developer mode shows it on pages and at the start of each headset session (AGENTS.md, "Developer mode").
    It is fetched fresh every time and is not in `SHELL`, so it needs no `VERSION` bump of its own;
-   `node tools/release.mjs` warns, and `--check` fails, while it names another release.
+   `node tools/release.mjs` warns, and `--check` fails, while it names another release. `--check` is also one of
+   `dev`'s cheap checks, so `whatsnew.json` must name the release before a push to `dev` too.
 6. **Update the docs.**
    - AGENTS.md first: it is the single source of truth for structure.
    - README.md and README.txt: they hold the same notes, so keep them in step.
    - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
    - The chapter timings in `audio/PUT-narration.mp3-HERE.txt`.
    - [narration.md](narration.md) (with `tools/narration.mjs`) if a story's text changed.
-7. **Run the tests** before `main` moves (for `dev`, only the build check and `node tools/release.mjs --check`): the
-   build check, `node tools/release.mjs --check`, smoke, update, live updates, relay and shared rooms, plus sound if you
-   touched sound and the room test if you touched it. All of them must pass.
+7. **Run the tests** before `main` moves (for `dev`, only `node --check` on the changed files, the build check and
+   `node tools/release.mjs --check`): the build check, `node tools/release.mjs --check`, smoke, update, live updates,
+   relay and shared rooms, plus sound if you touched sound and the room test if you touched it. All of them must pass.
+
+   **The first release run after v121 must be whole.** `main` is `networks-v121`; v122 to v126 are on `dev` only, and
+   the full suites have not run on v124, v125 or v126. Before `main` moves to them, run all of these (section 3 has
+   what each needs):
+
+   ```sh
+   for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done
+   node tools/release.mjs --check
+   node tools/studio/scan.mjs tools/studio/test/scenes --check
+   node tools/smoke.mjs http://127.0.0.1:8123/          # the whole test: no --only
+   git worktree add /tmp/old origin/main && node tools/update.mjs /tmp/old . && git worktree remove /tmp/old
+                                                        # against v121: sw.js changed (whatsnew.json passes through it)
+   node tools/live.mjs                                  # tools/release.mjs changed
+   node relay/test.mjs                                  # its --trackers part included
+   node tools/collab.mjs                                # every round, the --trackers round included
+   node tools/collab.mjs --token                        # the relay's password: not in the main run
+   node tools/audio.mjs http://127.0.0.1:8123/          # sound changed in v124
+   node tools/studio/test-ik.mjs
+   node tools/studio/test-images.mjs
+   ```
 8. **Commit on the working branch**, sources and built files together.
 9. **Fast-forward main, then push the branch:**
 
@@ -355,7 +381,11 @@ saved settings and headset calibrations do not carry over from one address to an
   `node relay/test.mjs` (it runs `relay/test-r2.mjs`, the signer against AWS's published examples) and
   `node tools/collab.mjs --studio` (its R2 part runs against the stand-in S3, `relay/s3fake.mjs`). Untested with a
   real bucket until the owner's is set up.
-  **TO FILL (owner):** whether a public relay will run, and where, at which address and run by whom.
+  **Public relays now** (decided): two run on the owner's Coolify, both with `--proxy 1 --public --scenes r2` and a
+  password of their own: the test place (branch `dev`, `https://stories.lab.lbi-netmed.com/`, which serves the app
+  too) and the main site's relay (branch `main`, `https://main.lab.lbi-netmed.com/`, which the main site offers; its
+  scenes under its own `R2_PREFIX`). Each redeploys on a push to its branch (relay/README.md, "The test place on
+  Coolify"). Neither runs `--trackers`: the Vive trackers need the relay on the PC with SteamVR.
 
 ## 6. Rolling back
 
@@ -386,8 +416,10 @@ or in the repository (see "Decisions for the owner" in [HANDOVER.md](../HANDOVER
 
 | Branch on GitHub | What it is |
 | --- | --- |
-| `main` | the live copy |
-| `claude/trusting-hypatia-ca5qv0` | the current working branch |
+| `main` | the live copy (GitHub Pages at `https://stories.lbi-netmed.com/`, and the main site's relay on Coolify) |
+| `dev` | the test place, `https://stories.lab.lbi-netmed.com/`, deployed by Coolify on every push; work goes here before `main` (section 4) |
+| `claude/trusting-hypatia-ca5qv0` | the agents' working branch up to the handover (the same commit as `dev` on 9 November 2026) |
+| `claude/affectionate-pasteur-stzjl3` | an older agent branch; its last commit, `28ce276` of 22 October 2026, is already in `main` and `dev` |
 | `logs-2026-10-17` to `logs-2026-10-20-new4` (seven branches) | headset alignment logs pushed for analysis ([relay/README.md](../relay/README.md), "Logs"). Their file names and contents hold people's first names and room codes. Whether to keep or delete them is the owner's decision |
 | `copilot/assess-code-quality-security` | its last commit is already in main |
 

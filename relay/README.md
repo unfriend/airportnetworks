@@ -935,6 +935,11 @@ node relay/server.mjs --lan --trackers        # on the PC, with SteamVR running
 python tools/trackers/bridge.py               # (--port <n> when the relay has --trackers <n>)
 ```
 
+`--trackers` belongs only on the PC with SteamVR: the bridge sends to 127.0.0.1, so a relay elsewhere hears nothing.
+The relays on Coolify (the test place and the main site's relay) run without it: their rooms get no `@trk` and their
+Shared dialogs show no trackers. With a password (`COLLAB_TOKEN`), `/api/trackers` and `/api/trackers/still` need it as
+every API call does (401 without it), and so does `/api/ping`, which says `trackers: true`.
+
 **The bridge's datagrams.** UDP to `127.0.0.1:<port>` (47800 by default; the relay listens on `127.0.0.1` only, so
 nothing from the network reaches it), one datagram a reading of every device, about 90 a second, JSON, under 8 KB:
 `{ v: 1, t: <bridge ms>, d: [{ s: <serial>, k: 'trk' | 'hmd' | 'ctl' | 'base', h: 'l' | 'r' (controllers), p: [x, y, z]

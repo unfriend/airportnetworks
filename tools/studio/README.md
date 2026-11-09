@@ -366,12 +366,17 @@ studio circle sees them where they are in the room. Editing on:
   their size. **On** moves it with the performer for everyone at the circle (its own animation off meanwhile); **Off**
   gives its animation back. **Its parts** lists which tracker drives what (another one for a part: then **Line up again,
   these parts**). Sounds can follow its head as any bone.
-- **Record a take**: after a 3 s countdown the character's moves are recorded until **Stop** (at most 2 minutes) and made
-  into a clip, *Take 1*, *Take 2*..., in its GLB (with a relay that takes uploads it goes into `models/` and every copy
+- **Record a take**: after a 3 s countdown the character's moves are recorded until **Stop** (a take stops by itself at
+  120 s; the ten-minute limit is for recorded paths only) and made into a clip, *Take 1*, *Take 2*..., in its GLB (with
+  a relay that takes uploads it goes into `models/` and every copy
   of the model switches to it; else it is downloaded). It plays as any animation once wearing is off.
 
 Shared in a room and saved in `layout.json` (`engine/e6k_trk.js`, `engine/e6l_puppet.js` and the solver `engine/ik.js`;
-"Props that follow a tracker" and "Worn with trackers" in `SPEC.md`). Not yet tried with real trackers.
+"Props that follow a tracker" and "Worn with trackers" in `SPEC.md`). Not yet tried with real trackers. A first real test:
+the relay on the PC with `--trackers` and the bridge beside SteamVR (`tools/trackers/README.md`), *Use the PC's trackers in
+this room* in the Shared dialog and spots A and B taken there, then a studio circle and a shape's **Follows a tracker**
+and **Snap onto it**. Since v125 the scene's frame at a circle is the room's, so the shape should sit on its tracker in
+the real room and move with it.
 
 ## In a headset: from the inside, Hold it, the sticks
 
@@ -504,5 +509,6 @@ was found as and keeps it in the GLB's record.
   own humanoid with Mixamo's bone names in a T-pose and a walk, for the trackers' solver) and their listings;
   `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).
-- `engine/ik.js` the trackers' solver (v125; not yet in the build): a Mixamo character worn with trackers, a headset and
-  controllers (`tools/trackers/SPEC.md`, "The solver (ik.js)"); `node tools/studio/test-ik.mjs` checks it in Node.
+- `engine/ik.js` the trackers' solver (written in v125, in the build since v126, used by `engine/e6l_puppet.js`): a
+  Mixamo character worn with trackers, a headset and controllers (`tools/trackers/SPEC.md`, "The solver (ik.js)");
+  `node tools/studio/test-ik.mjs` checks it in Node.

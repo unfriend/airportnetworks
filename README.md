@@ -2,7 +2,7 @@
 
 **Networks, in sixteen stories**: an installable web app that teaches network
 science through sixteen short, animated stories. Each story takes a few minutes
-(the tour about nine and a half) and ends in an explore mode where the network is yours
+(the tour about ten and a half) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
 Meta Quest Browser).
@@ -37,10 +37,11 @@ Meta Quest Browser).
 
 - The **Stories screen** is the landing page. Pick a story; the **Stories**
   button in the top bar brings the screen back at any time.
-- **Repeat all** and **Repeat one** on the Stories screen (page and headset)
-  keep it playing, for an exhibition or a kiosk: with *Repeat all* each story
-  is followed by the next, and the last by the first; with *Repeat one* the
-  story you pick starts again each time it ends. Press the lit button to turn
+- **Repeat all** and **Repeat one** on the page's Stories screen (in a headset
+  the *Repeat* row on the menu's Settings tab) keep it playing, for an
+  exhibition or a kiosk: with *Repeat all* each story is followed by the next,
+  and the last by the first; with *Repeat one* the story you pick starts again
+  each time it ends. Press the lit button to turn
   it off. The choice is remembered on the device, and a link such as
   `index.html#airports&repeat=all` sets it.
 - Each story plays by itself. Pause, scrub the timeline or jump between
@@ -48,14 +49,22 @@ Meta Quest Browser).
   the story's tools (closing airports, knocking out proteins, starting
   protein moves, proximity labelling ...).
 - **VR and AR**: press *Enter VR* or *Enter AR*. From the Stories screen you
-  land on a Stories screen in the headset, with one panel per story; from
+  land on a Stories screen in the headset, with one card per story; from
   inside a story you carry on where you were. The network floats in front of
   you with a side panel you point at. Controls: trigger (or pinch) to click,
-  grip to move the network or the panel, thumbstick to spin and zoom, A or X to
-  play and pause. Changing story inside the headset keeps you in VR or AR and
-  keeps the layout where you put it; *Recenter* puts it back in front of you.
-- **Anchor** (a button on the headset's Stories screen) keeps the network and
-  the panels at one spot in the real room, for every story: they stay there
+  grip to move the network or the panel, the stick to spin and zoom it in
+  explore mode. Play and pause are on the story's panels and on the menu's
+  *Story* tab (no story uses A or X since v125). Click either stick to open the
+  headset's menu (with tracked hands: two quick pinches of the left hand,
+  pointing at nothing). In VR, one stick clicked twice turns **moving with the
+  sticks** on or off (this headset's own, off by default; not in AR, and not in a
+  shared room except in the studio): the left stick moves you where you face, the
+  right stick turns you 30 degrees. How that feels on a Quest is untested.
+  Changing story inside the headset keeps you in VR or AR and keeps the layout
+  where you put it; *Recenter* (on the story panel and the menu's Settings tab)
+  puts it back in front of you.
+- **Anchor** (*Anchor: on/off*, a row on the headset menu's Settings tab) keeps
+  the network and the panels at one spot in the real room, for every story: they stay there
   when the headset is taken off and put on again (the next wearer still starts
   on the Stories screen), when it recentres, after leaving VR and after a
   reload. While anchored the grip moves nothing; *Place again* puts everything
@@ -65,29 +74,65 @@ Meta Quest Browser).
   place); where a headset has none, the place holds until you leave VR. A link
   with `#anchor=on` (or `#anchor=off`) sets it, for a kiosk.
 - **Shared rooms** (the *Shared* button in the top bar and on the Stories
-  screen; in a headset the menu, opened from a clock on the left wrist, or
-  beside the story panel without a left controller or hand): several
+  screen; in a headset the menu's *Circles* tab): several
   headsets and screens join one room and see the same **stations**, each a
-  story at a spot in the room, in step on every device. Anyone can play,
-  pause, jump or change a control; the last action wins. A headset takes a
-  station by walking into its circle and keeps it until it walks into another
-  (the other stations show only their rings meanwhile; pointing at a ring shows
-  its card). Each station's narration comes from where it stands, and you see
-  the people at your circle and where they point. *Lock circles* keeps the
-  stations where they are; *Lock this story* (the menu at a circle) keeps its
-  scene and panel; *Panels* in the menu shows a story's panels, only its
-  controls, or none. People in the room calibrate once (*Calibrate*: touch two
-  tape marks with a controller) unless their headsets share a space; people
+  story at a spot in the room (its circle), in step on every device. A room
+  starts as a shared Stories screen (an arc of story cards that anyone can drag);
+  once another circle is added or *Arrange all* is pressed it becomes an
+  ordinary *All stories* circle. Anyone can play, pause, jump or change a
+  control; the last action wins. A headset goes into a circle by pointing at
+  its card or model and pressing *Go in* (the circles ask first by default since
+  v120; *Circles: walk in* makes standing in a circle enough) and keeps it until
+  it goes into another (in a circle the other stations show only their small 3D
+  models; pointing at one shows its card). Each station's narration comes from
+  where it stands, and you see the people at your circle and where they point.
+  *Lock circles* keeps the stations where they are; *Lock this story* (the menu
+  at a circle) keeps its scene and panel; *Panels* in the menu shows a story's
+  panels, only its controls, or none. People in the room line up on two tape
+  crosses on the floor (next item); people
   elsewhere and screens see the stations round their own spot. Screens get a
   room map and *Follow* a station or a person in a headset (the page then
-  follows whichever circle they stand in). *Rooms on this network* lists the
+  follows whichever circle they are at). *Rooms on this network* lists the
   rooms nearby, and a device that was in a room joins it again by itself
-  when the app opens on the same network. The flock's birds and the robots
-  move separately on each device; their controls, falcons and crumbs are
-  shared. `#s=XYZ` in a link joins room XYZ. Nothing changes for anyone not in
+  when the app opens on the same network. The robots move separately on each
+  device (their controls and crumbs are shared); the flock's birds and Pass it
+  on's fish follow one device at the station, bird by bird and fish by fish.
+  `#s=XYZ` in a link joins room XYZ. Nothing changes for anyone not in
   a room. Tried with ten headsets through a local relay (see `HANDOVER.md`), and on two Quest 3
   headsets in one room several times; what they did, and what is still
   unconfirmed, is in `docs/quest-shared-space-findings.md`.
+- **Lining up a room** (the menu's *Room setup*, which opens by itself as a
+  headset enters a shared room): two tape crosses on the floor, A and B, about
+  2 m apart (1 m at least). *Calibrate*: the controller pointing down, its tip on
+  spot A on the floor, the trigger, then spot B. Since v122 the two spots set the
+  room's floor too, whatever the headset's own floor says. The first headset's
+  calibration makes them the room's; the others calibrate on them or line up
+  through Quest's shared space. **The check by eye** (v119): in AR, at the start
+  of each session, after waking and whenever the room may have moved in it, the
+  headset shows two orange crosses where it puts the spots and asks *Are both
+  crosses on your spots?* (*Yes*, or *No, calibrate again*). *Check at A*
+  measures one headset against a spot, *Check here* (Touch the spot) two
+  headsets against each other. The tip's height over the floor (2 cm) and the
+  4 cm limit between the spots' heights are guesses until measured on headsets.
+  Steps for an event: `docs/event-runbook.md`.
+- **Camera mode** (v124): an Android phone with AR (Chrome), lined up on the
+  same two spots, shows the room through its camera as a headset at a circle
+  sees it (the stories, the circles, the people in headsets), for filming with
+  Android's own screen recorder. *Camera mode* in the phone's Shared dialog, or
+  `&camera` in a room's link; it writes nothing to the room. The owner has tried
+  the recording; how closely a phone lines up on a tape cross is untested.
+- **Phones and tablets**: focus mode (on by default there: the 3D alone, a
+  small bar and subtitles; *Text* brings the panel back) and *Enter AR* where
+  the phone has it (Android's Chrome with ARCore). In a phone's AR session one
+  round menu button at the top right (v125) opens a sheet with the headset
+  menu's main switches and *The full menu*. Untested on a real phone.
+- **Vive trackers** (v126, untested with real hardware): on the Windows PC that
+  runs SteamVR, the relay with `--trackers` and `tools/trackers/bridge.py` send
+  the trackers' poses to the rooms that turn them on (the Shared dialog's *Use
+  the PC's trackers in this room*, lined up by laying a tracker on spot A and
+  then spot B). In the studio a prop can follow a tracker, and a Mixamo
+  character can be worn by a performer, its moves recorded as takes. Setting it
+  up: `tools/trackers/README.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
   `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#soil`, `#pass`, `#flock` or `#robots`
@@ -120,8 +165,14 @@ Installing:
 
 Shared rooms work best through the relay (`relay/server.mjs`, Node 18 or newer, no
 packages), which GitHub Pages cannot run; without one a room runs peer to peer
-(one page hosts it; see `docs/event-runbook.md`). For now the relay runs on a machine on the
-same Wi-Fi as the headsets and serves the app itself:
+(one page hosts it; see `docs/event-runbook.md`). The owner's Coolify runs two
+relays: the test place, branch `dev`, at `https://stories.lab.lbi-netmed.com/`
+(it serves the app too and is deployed on every push to `dev`), and branch
+`main` as the main site's relay at `https://main.lab.lbi-netmed.com/`, which the
+main site (`https://stories.lbi-netmed.com/`, GitHub Pages from `main`) offers in
+its Shared dialog: a device with its password runs its rooms there, one without
+it peer to peer. At an event the relay can also run on a machine on the
+same Wi-Fi as the headsets and serve the app itself:
 `node relay/server.mjs --lan` makes an HTTPS server with a certificate of its
 own and prints the address to open on each headset (accept the certificate
 warning once). The Wi-Fi must let devices reach each other (use your own router
@@ -131,26 +182,36 @@ stays on GitHub Pages; a copy there can join a relay elsewhere with
 `&relay=wss://host:port` in the room link.
 
 After changing any file (including adding or replacing a narration file), bump
-`VERSION` in `sw.js` so installed copies and headsets pick up the change. The
+`VERSION` in `sw.js` so installed copies and headsets pick up the change, then
+run `node tools/release.mjs` and rewrite `whatsnew.json` (see
+`docs/setup-and-release.md`). The
 app always fetches its files fresh when online (the cache is only for offline
-use), and an installed copy that is open while an update arrives reloads itself
-the next time you are on the Stories screen.
+use), and a copy left open takes a release within about a minute: new and
+changed stories by themselves (the story on show at a quiet moment), a new
+shell after asking (*Reload now* or *Later*; on the page's Stories screen
+outside a headset it reloads by itself).
 
 ## Narration
 
-Optional voice-overs go in `audio/`: `narration.mp3` (airports),
-`narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`, `narration-nmd.mp3`,
-`narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`, `narration-ovary.mp3`,
-`narration-qubits.mp3`, `narration-mutation.mp3`, `narration-topo.mp3`, `narration-soil.mp3`, `narration-pass.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
-a recording so far; the others run silently. A narration plays in sync
-with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
-button in the top bar and the headset panel. Browsers only start sound after a
-tap or click; the first one anywhere in the app (Enter VR counts) turns sound on
-for every story, also when you change story inside the headset. Without the file
-the story runs silently on the same timing.
+Every story has a narration in `audio/`: `narration.mp3` for the airports (a
+human recording) and `narration-<key>.mp3` for the others (synthetic, made with
+`tools/voice/`: Kokoro's American voice `af_heart`; Pass it on also has
+`narration-pass-de.mp3`, in German with Piper's Thorsten voice; see
+`tools/voice/README.md`). A narration plays in sync with its story and follows
+pausing, seeking and chapter jumps. Without the file the story runs silently on
+the same timing.
 
-**No sound?** Open **Sound check** on the Stories screen (on the page, or in the
-headset under the title). It shows what the sound system is doing, plays a test
+**Sound by mode** (v124): on a page nothing plays, narration or effects, until
+*Sound* is pressed (the device keeps the choice); in a headset session (VR or AR)
+the sound effects play from the start and the narration is off until that
+headset turns it on (the story panel's *Narration* button or the menu's
+*Narration* row), which it then remembers. In a shared room *Narration for
+everyone here* (the menu's Circles tab) or *Narration* in the Shared dialog sets
+every headset at once. Browsers start sound only after a tap or click (*Enter
+VR* counts).
+
+**No sound?** Open **Sound check** on the Stories screen (on the page; in a
+headset it is a page of the menu's Debug tab). It shows what the sound system is doing, plays a test
 beep through each of the two ways the app can play sound (Web Audio and an audio
 element), and lets you choose the one you hear; *Reset* clears the saved
 choices. The app also switches to the audio element by itself when Web Audio
@@ -158,12 +219,14 @@ fails. A link ending in `#soundcheck` opens it directly.
 
 Chapter timings and how to record and re-sync a new recording are in
 `audio/PUT-narration.mp3-HERE.txt`. `NARRATION_SYNC` is in
-`tools/<story>/engine/e3_story.js` for the seven built stories (rebuild after
+`tools/<story>/engine/e3_story.js` for the thirteen built stories (rebuild after
 changing it) and in `stories/<story>.js` for airports, proteins and spatial.
-The words to record, chapter by chapter with times, are in `docs/narration.md`
-(made by `node tools/narration.mjs`). Until a story is recorded, its `NARRATION_SYNC`
-sets its pace so that its panel can be read: `node tools/pace.mjs <url> --write`
-writes it from the words (run it again after the text changes).
+After a narrated story's text changes, `node tools/voice/narrate.mjs <key>`
+speaks the changed lines again and re-times the story from the audio, then
+`node tools/voice/check.mjs <key>` checks it (the models and their Python stay
+outside the repository). The words, chapter by chapter with times, are in
+`docs/narration.md` (made by `node tools/narration.mjs`). A new story is paced
+from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
 
 ## Data
 
@@ -262,7 +325,7 @@ writes it from the words (run it again after the text changes).
   page (`tools/qubits/sets/qmath.js`): no STRING data, gene names or patient data. The real run's summary numbers
   (on STRING v12.5) are typed in from his brief (`tools/qubits/sets/data.js`) and shown only as "in the real
   network"; the cut stands in for the authors' beam search, and the walkers' valleys are illustrative. This story
-  alone uses American spelling, as its author asked.
+  uses American spelling, as its author asked (so does the aging ovary story, as the owner asked).
 
 - **The mutation machine** (`stories/mutation.js`), after the poster "Converting Mutation into a Machinery: DNA
   Substitution Models as Quantum Circuits" by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine) and
@@ -324,8 +387,8 @@ writes it from the words (run it again after the text changes).
   Proceedings of the IEEE 2007). Speeds and cleaning times are tuned to look
   right, not measured. In a headset the room comes from the headset's room
   setup (WebXR plane and mesh detection; every story asks for it, as an
-  optional feature, when it enters VR or AR); without one the robots get a
-  virtual room round you.
+  optional feature, when it enters AR; VR asks for no room scan); without one
+  the robots get a virtual room round you.
 
 The protein data is meant for teaching, not research.
 
@@ -341,11 +404,13 @@ The protein data is meant for teaching, not research.
 | `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `AGENTS.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
-| `audio/` | optional narrations |
+| `audio/` | the narrations (the airports' recorded, the others synthetic, from `tools/voice/`) |
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `shared.js` | shared rooms: the client (rooms, stations, the clock, the room frame in a headset, presence, the Shared dialog and headset panel) |
-| `sfx.js` | the shell's sound effects (`HOST.sfx`: clicks, chimes, room sounds and a quiet background per story, made in code, through the narration's context; off by default); `tools/sfx.html` is its sound board, `tools/sfx-render.mjs` renders every sound to MP3 |
+| `sfx.js` | the shell's sound effects (`HOST.sfx`: clicks, chimes, room sounds and the stories' own sounds, made in code, through the narration's context; on by default, silent on a page until *Sound* is pressed; a quiet background only for the flock and Pass it on); `tools/sfx.html` is its sound board, `tools/sfx-render.mjs` renders every sound to MP3 |
+| `occlusion.js` | real-world occlusion in AR (`HOST.occlusion`): real people, hands and the room scan hide what stands behind them (on by default; untested in the app on a Quest) |
 | `relay/` | the shared rooms' server (`server.mjs`, no packages), its test, Dockerfile and guide (`README.md`) |
+| `relay/trackers.mjs` | the relay's part for the PC's Vive trackers (`--trackers`, only on the PC with SteamVR): takes the bridge's readings on UDP 127.0.0.1 and sends them, lined up, to the rooms that use them (`relay/README.md`, "The PC's Vive trackers") |
 | `HANDOVER.md` | start here when taking the project over |
 | `docs/` | the shared rooms' plan (`shared-space-plan.md`), the lessons it applies (`multiplayer.md`, `shared-spaces.md`) and what two Quest 3s did (`quest-shared-space-findings.md`); for the handover: data sources and permissions (`data-and-permissions.md`), open questions for the authors (`questions-for-authors.md`), setup, tests and release (`setup-and-release.md`), running a session with headsets (`event-runbook.md`) and the narration scripts (`narration.md`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
@@ -370,6 +435,8 @@ The protein data is meant for teaching, not research.
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
 | `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
+| `tools/trackers/` | the Vive trackers' bridge (`bridge.py`: SteamVR's poses to the relay on the same Windows PC; Python 3 and pyopenvr, `--fake` without SteamVR), a fake bridge in Node (`fake.mjs`), the setup on the PC (`README.md`) and the contracts as built (`SPEC.md`) |
+| `tools/voice/` | the synthetic narrations: `narrate.mjs <key>` speaks a story's words (Kokoro; German with Piper) and re-times the story, `check.mjs <key>` checks the result (models and Python outside the repository; see its `README.md`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |
 
