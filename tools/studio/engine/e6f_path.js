@@ -25,7 +25,8 @@
 // what follows it (a sound, a cut-out) goes with it. As a motion, it plays on while selected (a ghost where it is placed)
 // and rests at its placed pose while held here or paused (motionRests). Start again on its card starts it from its
 // beginning on this device (its 'shown' clock; a path that plays once, played once more). A sound that follows something
-// moves with that: its own path waits until it follows nothing.
+// moves with that: its own path waits until it follows nothing. Selected while editing, its card has a timeline (v128,
+// e6m_anim.js: its own clock held, paused or playing, for everyone at a circle; shown through Pause as well).
 //
 // Recording (REC, this device's own, never shared while it runs): in a headset, Record its movement on its card arms it
 // (XR.rec, as Hold it is armed); the next grip, on it or anywhere, carries it as usual and records its pose 30 times a
@@ -124,12 +125,15 @@ function pathAt(P, s, d, q) {
 // (one that plays once and was started again here, Start again: since then)
 const pathClock = (it, P, now, clockS) => (P.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : P.play === 'once' && it.again != null ? Math.max(0, (now - it.again) / 1000) : clockS);
 const _pp3 = new THREE.Vector3(), _pq3 = new THREE.Quaternion(), _ps3 = new THREE.Vector3(), _pd3 = new THREE.Vector3(), _pk3 = new THREE.Quaternion();
+// its time now (s, before its speed): held from its card's timeline here or by someone at its circle (e6m_anim.js), else
+// its clock
+const pathT = (it, P, now, clockS) => { const H = animHold(it, 'path'); return H ? animAt(it, H, 'path') : pathClock(it, P, now, clockS); };
 // the pipeline's second stage (drawnPose in e6e_motion.js): its pose m (its placed one) moved along its path: the place by
 // its turn times d, the turn by q after it (a sound only moves)
 POSE.path = (it, now, clockS, m) => {
   const P = pathOf(it);
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
-  pathAt(P, pathTime(P, pathClock(it, P, now, clockS)), _pd3, _pk3);
+  pathAt(P, pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -514,6 +518,7 @@ function pathBlocks(it, B, dis, mv) {
       { label: 'Speed: ×' + P.speed, row: [{ id: 'pspeed:-', label: 'Slower', act: 'i:pspeed', v: -1, dis: dis || P.speed <= 0.25 }, { id: 'pspeed:+', label: 'Faster', act: 'i:pspeed', v: 1, dis: dis || P.speed >= 4 }] },
       { row: [{ id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
       { p: 'Played from where it stands: moving or turning it moves its whole path. It plays on while selected (a ghost where it is placed); carried, it rests there. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
+    animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
   }
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)

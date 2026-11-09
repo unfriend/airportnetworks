@@ -115,13 +115,17 @@ function atPlaced(list, fn) {
   }
   try { return fn(); } finally { for (const [H, m] of kept) { H.matrix.copy(m); H.matrixWorldNeedsUpdate = true; } }
 }
+// a recorded path held from its card's timeline (e6m_anim.js) shows through Pause, as a clip's hold does: drawn at its held
+// moment over its placed pose (no behaviour, no motion); held here by a grip, the arrows or a recording, it rests as ever
+const pathHeld = it => !!POSE.path && !REST.ids.has(it.id) && !!pathOf(it) && !!animHold(it, 'path');
 // the pipeline: its drawn pose at now (the scene's clock clockS, s) into out, in the items' frame (the scene's)
 function drawnPose(it, now, clockS, out) {
-  const H = it.holder, rest = motionRests(it);
+  const H = it.holder, rest = motionRests(it), held = rest && pathHeld(it);
   if (rest || !(POSE.base && POSE.base(it, now, clockS, out))) out.compose(H.position, H.quaternion, H.scale);
-  if (rest) return out;
+  if (rest && !held) return out;
   if (POSE.path) POSE.path(it, now, clockS, out);
   if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
+  if (rest) return out;   // (paused, its path held: its path's moment alone)
   const mo = it.rec && it.rec.motion;
   if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
   return out;
@@ -140,7 +144,7 @@ function poseRest(it) {
 // every frame (itemsStep, once its placed pose is this frame's): drawn as the pipeline says, or at rest; it.mX the change
 // from its placed pose to its drawn one, for its cut-outs
 function poseStep(it, now, clockS) {
-  if (!poseLive(it) || motionRests(it)) { if (it.mX || !it.holder.matrixAutoUpdate) poseRest(it); return; }
+  if (!poseLive(it) || (motionRests(it) && !pathHeld(it))) { if (it.mX || !it.holder.matrixAutoUpdate) poseRest(it); return; }
   const H = it.holder;
   drawnPose(it, now, clockS, H.matrix);
   H.matrixAutoUpdate = false; H.matrixWorldNeedsUpdate = true;
