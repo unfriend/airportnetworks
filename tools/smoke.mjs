@@ -4366,7 +4366,8 @@ if (runs('studio faces')) {
       const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o' || (hide || []).includes(i.id)).map(i => i.holder));
       const keep = hid.map(o => o.visible);
       hid.forEach(o => { o.visible = false; });
-      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const q0 = GL.camera.quaternion.clone(); GL.camera.quaternion.copy(cam.quaternion); updateLight(false);   // (lit from this camera: the page's own moves only in its frames, which come seconds apart on a slow machine)
+      r.setRenderTarget(rt); r.render(GL.scene, cam); GL.camera.quaternion.copy(q0); updateLight(false);
       const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
       r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
       return px;
@@ -4496,7 +4497,8 @@ if (runs('studio tint')) {
       const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o').map(i => i.holder));
       const keep = hid.map(o => o.visible);
       hid.forEach(o => { o.visible = false; });
-      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const q0 = GL.camera.quaternion.clone(); GL.camera.quaternion.copy(cam.quaternion); updateLight(false);   // (lit from this camera: the page's own moves only in its frames, which come seconds apart on a slow machine)
+      r.setRenderTarget(rt); r.render(GL.scene, cam); GL.camera.quaternion.copy(q0); updateLight(false);
       const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
       r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
       return px;
@@ -4844,7 +4846,8 @@ if (runs('studio shapes')) {
       const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => (i.kind !== 'o' && i.kind !== 'p') || (hide || []).includes(i.id)).map(i => i.holder));
       const keep = hid.map(o => o.visible);
       hid.forEach(o => { o.visible = false; });
-      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const q0 = GL.camera.quaternion.clone(); GL.camera.quaternion.copy(cam.quaternion); updateLight(false);   // (lit from this camera: the page's own moves only in its frames, which come seconds apart on a slow machine)
+      r.setRenderTarget(rt); r.render(GL.scene, cam); GL.camera.quaternion.copy(q0); updateLight(false);
       const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
       r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
       return px;
@@ -6627,7 +6630,8 @@ if (runs('studio texture swaps')) {
       const hid = [GL.edit, GL.selBox, GL.hoverBox, GL.flashBox, GL.tc].filter(Boolean).concat([...STU.items.values()].filter(i => i.kind !== 'o').map(i => i.holder));
       const keep = hid.map(o => o.visible);
       hid.forEach(o => { o.visible = false; });
-      r.setRenderTarget(rt); r.render(GL.scene, cam);
+      const q0 = GL.camera.quaternion.clone(); GL.camera.quaternion.copy(cam.quaternion); updateLight(false);   // (lit from this camera: the page's own moves only in its frames, which come seconds apart on a slow machine)
+      r.setRenderTarget(rt); r.render(GL.scene, cam); GL.camera.quaternion.copy(q0); updateLight(false);
       const px = pts.map(p => { const v = GL.items.localToWorld(new THREE.Vector3(...p)).project(cam), b = new Uint8Array(4); r.readRenderTargetPixels(rt, Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H), 1, 1, b); return [b[0], b[1], b[2]]; });
       r.setRenderTarget(null); hid.forEach((o, i) => { o.visible = keep[i]; }); rt.dispose();
       return px;

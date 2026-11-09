@@ -7186,7 +7186,7 @@ try {
     HOST.collab.menuIdle(idle0);   // (the right controller stays away for the follow below: a ray on the menu holds it)
     // it stays put as you look about a little (15 degrees), and glides back in front once you have turned further (60)
     const H0 = X.W.head.clone(), turn = a => { X.W.head = H0.clone().multiply(new M4().makeRotationY(a)); };
-    btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3);
     const p0 = mid(); turn(15 * Math.PI / 180); await steps(10);
     out.still = +mid().distanceTo(p0).toFixed(4);
     turn(60 * Math.PI / 180); await wait(1500);
@@ -7194,7 +7194,7 @@ try {
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
     // the grip on it (the right controller's ray on its middle) carries it: let go 0.3 m to the side it stays there, even
     // with the head turned 60 degrees; closed and opened again it opens at the distance and height it was left at
-    btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3);
     const aimTo = p => { const m = new M4().compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(ro).normalize()), new V(1, 1, 1)); X.aim(0, m); };
     const m0 = mid(); aimTo(m0); await steps(3);
     X.fire('squeezestart', { inputSource: X.session.inputSources[0] }); await steps(2);
@@ -7206,7 +7206,7 @@ try {
     const p1 = mid(); turn(60 * Math.PI / 180); await wait(1500);
     out.pinnedStill = +mid().distanceTo(p1).toFixed(4);
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
-    btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3);
     // (along the floor, against the first opening: it hangs from its top edge, so its middle's height follows the tab
     // shown, and this test's head is a few centimetres from the shell's eye; both open straight ahead)
     out.again = where(); out.againWant = +(out.float.flat + out.pos.d - out.d0).toFixed(3);
