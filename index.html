@@ -1547,25 +1547,38 @@ HOST.xr = (function () {
   // occlusion, occlusion.js: GPU first, the formats a Quest 3 gave first, the depth seen from the eye itself), with the
   // room test's ladder: a TypeError naming a value (a browser that does not know 'unsigned-short') asks again without it,
   // any other refusal asks again without depth at all. extra ({ features, init }): what camera mode (shared.js) asks for too,
-  // on every rung (hit-test and dom-overlay, with the overlay's root)
+  // on every rung (hit-test and dom-overlay, with the overlay's root). With extra.drop (a phone's menu button, shared.js),
+  // what extra asks for is optional: a refusal that is not about a value, nor the person's or the browser's own
+  // (NotAllowedError, SecurityError: thrown at once), asks again without it, depth kept, straight after the failed request,
+  // as every rung here (a tap's activation lasts only a few seconds); extra.onDrop(e) hears it
   const DEPTH = { usage: ['gpu-optimized', 'cpu-optimized'], formats: ['unsigned-short', 'luminance-alpha', 'float32'] };
   async function request(mode, extra) {
-    const feats = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice().concat((extra && extra.features) || []), more = (extra && extra.init) || {};
+    const base = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice();
+    let feats = base.concat((extra && extra.features) || []), more = (extra && extra.init) || {};
     asked = mode;
     if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+    const drop = !!(extra && extra.drop), own = e => !!e && /^(NotAllowedError|SecurityError)$/.test(e.name);
     let usage = DEPTH.usage.slice(), formats = DEPTH.formats.slice();
-    for (let k = 0; k < 6 && usage.length && formats.length; k++) {
+    for (let k = 0; k < 8 && usage.length && formats.length; k++) {
       const init = Object.assign({ optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } }, more);
       try { return await navigator.xr.requestSession(mode, init); } catch (e) {
         const named = v => e && e.name === 'TypeError' && String(e.message || '').includes("'" + v + "'");
         const u = usage.filter(v => !named(v)), f = formats.filter(v => !named(v));
-        if (u.length === usage.length && f.length === formats.length) break;   // (not about a value: without depth)
+        if (u.length === usage.length && f.length === formats.length) {   // (not about a value)
+          if (drop && own(e)) throw e;
+          if (drop && more !== null) {   // (the optional extras first, at once; then without depth)
+            feats = base; more = null;
+            try { if (extra.onDrop) extra.onDrop(e); } catch (e2) { /* only told */ }
+            continue;
+          }
+          break;
+        }
         console.warn('AR asks again without ' + usage.concat(formats).filter(v => named(v)).join(', ') + ':', e.message);
         usage = u; formats = f;
       }
     }
     asked = mode;
-    return navigator.xr.requestSession(mode, Object.assign({ optionalFeatures: feats }, more));
+    return navigator.xr.requestSession(mode, Object.assign({ optionalFeatures: feats }, more || {}));
   }
   return {
     features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
@@ -1768,7 +1781,8 @@ Object.assign(HOST.xr, (function () {
 // shared room (shared.js) listen to it
 (function () {
   let s = null;
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); }, enumerable: true });
+  // (developer mode's card on the page closes as a session starts, as Later: the headset menu has its own page)
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); if (v && HOST.dev) HOST.dev.close(); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
@@ -2959,7 +2973,8 @@ HOST.hist = (function () {
 // Stories screen (or over the story a link opened) until Got it for that version (devSeen: this device's), Later
 // hiding it until the next page load; in a headset session the shell's menu shows it at the start of every session, after
 // the startup flow and the welcome (shared.js, NEWS). What is new opens any time: beside the switch, in More, and on the
-// headset menu's Debug tab. A file that cannot be fetched is said in one line
+// headset menu's Debug tab. A file that cannot be fetched is said in one line, with Later alone (Got it only names a
+// release); a headset session that starts closes the card, as Later (HOST.session's setter)
 HOST.dev = (function () {
   const el = id => document.getElementById(id);
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -3009,15 +3024,16 @@ HOST.dev = (function () {
       body.appendChild(ul);
     }
     el('devNote').textContent = d ? `Got it: not shown again for ${short(d.version)} on this device. Later: until the app opens again.` : '';
+    el('devGot').hidden = !d;   // (Got it only for a release it can name: while the file is fetched, or could not be, Later alone)
   }
   // the card: open (why: 'start' as the app opens, 'hand' from a button) or closed (true when it was open)
   function card(open, why) {
     const c = el('devCard');
     if (!open) { if (c.hidden) return false; c.hidden = true; D.open = false; return true; }
     D.open = true; D.why = why || 'hand'; c.hidden = false;
+    load(why === 'hand');   // (first: a fetch it starts says so on the card, not an older fetch's error)
     render();
-    load(why === 'hand');
-    setTimeout(() => { if (D.open) el('devGot').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus)
+    setTimeout(() => { if (D.open) el(D.data ? 'devGot' : 'devLater').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus)
     return true;
   }
   // as the app opens (boot, once the first story has started): over the Stories screen or the story, once a page load,

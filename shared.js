@@ -4541,8 +4541,9 @@
       }
       if (more) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, `And ${more} more: see whatsnew.json, or What is new on a page`, w), x, y); y += 40; }
     }
-    button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(!!d), { primary: true, px: 25 });
-    button(S, 'news:later', x + bw + 16, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
+    // (Got it only for a release it can name: while the file is fetched, or could not be, Later or Back alone)
+    if (d) button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(true), { primary: true, px: 25 });
+    button(S, 'news:later', d ? x + bw + 16 : x, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
     y += 78;
     ctx.font = FONT(20); ctx.fillStyle = MUTED;
     y += wrapText(ctx, (d ? `Got it: not shown again for ${v} on this headset. ` : '') + (flow ? 'Later: next session. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
@@ -7729,7 +7730,7 @@
   // button on the top right"): a phone has no stick to click and no hand to pinch, so the shell's menu could not be opened in
   // its AR session. Such a session (a phone or a tablet, phoneDev, never a headset's browser; AR; not camera mode, which
   // keeps its own overlay) also asks for the DOM overlay ('dom-overlay', optional, on every rung of HOST.xr.request's
-  // ladder; a refusal other than the person's or the browser's asks once more without it), its root this page's #xrPhone: one round menu
+  // ladder; a refusal other than the person's or the browser's asks again at once without it, depth kept), its root this page's #xrPhone: one round menu
   // button at the top right, inside the safe areas. The root lets taps through to the session everywhere else
   // (pointer-events none on it, auto on its controls; beforexrselect cancelled only on its controls), so a tap on the scene
   // still points and presses as before. The button opens a sheet (HTML: at the foot in portrait, on the right in landscape,
@@ -7750,16 +7751,26 @@
   const phShown = () => !!(R.session && PH.sess === R.session && !CAM.on && camOverlaid());
   // HOST.xr.request in a phone's AR (the camera mode's wrapper calls this): the overlay asked for too, its root #xrPhone
   // (shown, its controls not yet, while the session is asked for: a root not displayed may not be taken)
+  // A refusal of the overlay (not the person's or the browser's own) is asked again without it by the request's own ladder
+  // (extra.drop, index.html), straight after the failed request: the tap's activation lasts only a few seconds, and a retry
+  // after more awaits may come too late for it. Refused again: the story says so on the page (its #xrmsg), in words that
+  // say to tap Enter AR again
   function phAsk(ask0, mode) {
     phBuild();
     PH.asking = true; PH.el.hidden = false;
-    const done = s => { PH.asking = false; PH.sess = s || null; phStep(); return s; };
+    let dropped = '';
+    const end = () => { PH.asking = false; phStep(); };
+    const onDrop = e => { dropped = (e && (e.message || e.name)) || 'refused'; log('phone AR asks again without the overlay', { e: dropped }); };
     let p;
-    try { p = ask0(mode, { features: ['dom-overlay'], init: { domOverlay: { root: PH.el } } }); } catch (e) { p = Promise.reject(e); }
-    return Promise.resolve(p).then(done, e => {
-      if (e && /^(NotAllowedError|SecurityError)$/.test(e.name)) { PH.asking = false; phStep(); throw e; }   // (the person or the browser said no)
-      log('phone AR asks again without the overlay', { e: e && e.message });
-      return Promise.resolve(ask0(mode)).then(done, e2 => { PH.asking = false; phStep(); throw e2; });
+    try { p = ask0(mode, { features: ['dom-overlay'], init: { domOverlay: { root: PH.el } }, drop: true, onDrop }); } catch (e) { p = Promise.reject(e); }
+    return Promise.resolve(p).then(s => { PH.sess = s || null; end(); return s; }, e => {
+      end();
+      if (!dropped) throw e;   // (the person or the browser said no at the first ask: as it was)
+      const why = (e && (e.message || e.name)) || 'refused';
+      log('phone AR refused again', { e: why });
+      const e2 = new Error(`it was refused with the menu button (${dropped}) and again without it (${why}). Tap Enter AR again.`);
+      e2.name = (e && e.name) || 'Error';
+      throw e2;
     });
   }
   // the session started or ended (watch): two taps on the screen heard (they open the menu only without the overlay)

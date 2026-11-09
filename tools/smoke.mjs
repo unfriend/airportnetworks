@@ -5336,6 +5336,13 @@ if (runs('studio motions')) {
         if (cl) { setRec('box001', { anim: 'loop', clip: cl }); M.at('box001', 1); M.at('box001', 1.3);
           const gc = STUDIO.ghost('box001');
           if (!gc || !gc.shown || !same(gc.at, STU.items.get('box001').holder.matrix.toArray(), 1e-6)) o.push('its clip playing while editing: no ghost where it is placed: ' + JSON.stringify(gc));
+          // selected, it keeps it (its holder stays at its placed pose, so it is never far): the page's arrows on its holder,
+          // where the ghost stands (tcTarget), and still after a moment of its clip
+          select('box001'); M.at('box001', 1.6); M.at('box001', 1.9);
+          const bh = STU.items.get('box001').holder, gs = STUDIO.ghost('box001');
+          if (!gs || !gs.shown || !same(gs.at, bh.matrix.toArray(), 1e-6)) o.push('selected with its clip playing, its ghost went: ' + JSON.stringify(gs));
+          if (GL.tc && (GL.tc.object !== bh || tcTarget(STU.items.get('box001')) !== bh)) o.push('selected with its clip playing, the arrows are not on its holder (its ghost)');
+          select(''); M.at('box001', 1);
           }
         else o.push('the box has no clip to check its ghost with'); }
       setRec('box001', { anim: 'off' }); M.at('box001', 1);
@@ -7962,6 +7969,9 @@ function PHONE_FAKE() {
     requestSession: async (mode, init) => {
       const r = init.domOverlay && init.domOverlay.root;
       F.inits.push({ mode, feats: (init.optionalFeatures || []).slice(), root: r ? r.id || '?' : '', depth: !!init.depthSensing });
+      // (refusals asked for by a step, in turn: { name, msg, overlay: only a request with the overlay })
+      const no = (F.o.fails || [])[0];
+      if (no && (!no.overlay || r)) { F.o.fails.shift(); throw new DOMException(no.msg || 'Refused', no.name); }
       const feats = (init.optionalFeatures || []).filter(f => f !== 'depth-sensing' && (f !== 'dom-overlay' || (F.o.overlay && r)));
       const s = new Session(mode, ['viewer', 'local', ...feats], feats.includes('dom-overlay'));
       F.session = s;
@@ -8112,6 +8122,42 @@ if (runs('phone ar')) {
     await p.waitForFunction(() => !HOST.session, null, { timeout: 10000 });
     await p.evaluate(() => { window.__phone.o.overlay = true; });
   });
+  await step('phone ar: the overlay refused once (not the person\'s or the browser\'s own): asked again at once without it, depth kept; AR starts without the button and two quick taps open the menu; refused again without it, the page says to tap Enter AR again', async () => {
+    await p.evaluate(() => { window.__phone.o.fails = [{ overlay: true, name: 'NotSupportedError', msg: 'No overlay here' }]; });
+    await start(p);
+    const r = await p.evaluate(() => window.__phone.inits), s = await ph(p);
+    const lg = await p.evaluate(() => (window.__collabLog || []).filter(l => l.ev === 'phone AR asks again without the overlay').map(l => l.e));
+    if (r.length !== 2 || r[0].root !== 'xrPhone' || !r[0].feats.includes('dom-overlay') || !r[0].depth || r[1].root || r[1].feats.includes('dom-overlay') || !r[1].depth || !r[1].feats.includes('depth-sensing'))
+      errors.push('phone ar: the overlay refused, the requests ' + JSON.stringify(r));
+    if (!s.ar || s.overlaid || s.button || s.shown || s.root || s.asking || lg.slice(-1)[0] !== 'No overlay here') errors.push('phone ar: the overlay refused, in the session ' + JSON.stringify({ s, lg }));
+    const two = () => p.evaluate(async dir => { const F = window.__phone, a = F.tap(dir), b = F.tap(dir); F.step(1); return [Math.round(b - a), HOST.collab.menu]; }, BEHIND);
+    await p.waitForTimeout(500);
+    const t1 = await two(), t2 = await two();
+    if (t1[0] >= 400 || t2[0] >= 400) errors.push('phone ar: two taps took ' + t1[0] + ' and ' + t2[0] + ' ms (too slow a machine to judge)');
+    else if (!t1[1] || t2[1]) errors.push('phone ar: the overlay refused, two quick taps: the menu ' + t1[1] + ', again ' + t2[1]);
+    await p.evaluate(() => window.__phone.session.end());
+    await p.waitForFunction(() => !HOST.session, null, { timeout: 10000 });
+    // refused again without it (as when the tap's activation has gone): no session, nothing of the button, the note on the page
+    const f = await p.evaluate(async () => {
+      const F = window.__phone; F.inits.length = 0;
+      F.o.fails = [{ overlay: true, name: 'NotSupportedError', msg: 'No overlay here' }, { name: 'SecurityError', msg: 'The requested session requires user activation.' }];
+      await HOST.cur.peek('xrStart("immersive-ar")');
+      const m = document.getElementById('xrmsg');
+      return { n: F.inits.length, left: F.o.fails.length, session: !!HOST.session, text: m.textContent, shown: m.style.display, ph: HOST.collab.phone() };
+    });
+    if (f.n !== 2 || f.left || f.session || f.shown !== 'block' || !/^Could not start AR: it was refused with the menu button \(No overlay here\) and again without it \(The requested session requires user activation\.\)\. Tap Enter AR again\.$/.test(f.text) ||
+      f.ph.root || f.ph.button || f.ph.asking)
+      errors.push('phone ar: refused again without the overlay ' + JSON.stringify(f));
+    // the person's own refusal at the first ask: not asked again, the browser's words as they were
+    const g = await p.evaluate(async () => {
+      const F = window.__phone; F.inits.length = 0;
+      F.o.fails = [{ overlay: true, name: 'NotAllowedError', msg: 'The user denied it.' }];
+      await HOST.cur.peek('xrStart("immersive-ar")');
+      return { n: F.inits.length, session: !!HOST.session, text: document.getElementById('xrmsg').textContent };
+    });
+    if (g.n !== 1 || g.session || g.text !== 'Could not start AR: The user denied it.') errors.push('phone ar: the person\'s own refusal ' + JSON.stringify(g));
+    await p.evaluate(() => { window.__phone.o.fails = []; window.__phone.inits.length = 0; });
+  });
   await ctx.close();
   await step('phone ar: a headset\'s browser asks for nothing new (no dom-overlay, no root) and shows no menu button', async () => {
     const { ctx: c2, p: q } = await device(QUEST);
@@ -8125,8 +8171,9 @@ if (runs('phone ar')) {
 // overlapping, also on a 360 px phone), the subtitles the shell's own captions changing with the clock, a chapter's title
 // as it starts, the chapter arrows, Next at a slideshow stop, Text opening the panel (HOST.focus() false, a resize sent)
 // and closing it, explore's drawer closed by default then open and closed, nothing on the Stories screen; #focus=off
-// giving the layout as ever, and a desktop page off and unchanged
-if (!ONLY) {
+// giving the layout as ever, and a desktop page off and unchanged. (With --only: 'focus mode', 'phones', 'tablets' or
+// 'iPhone' runs these two blocks, each step by its name)
+if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
   const ready = () => HOST.cur && HOST.cur.collab.scene() && document.getElementById('loading').classList.contains('gone');
   const watch = p => {
     p.on('pageerror', e => errors.push(e.stack || e.message));
@@ -8505,13 +8552,14 @@ if (runs('developer mode')) {
     const c = document.getElementById('devCard'), lists = {};
     for (const h of c.querySelectorAll('#devBody h3')) lists[h.className] = [...h.nextElementSibling.querySelectorAll('li')].map(li => li.textContent);
     return { open: !c.hidden && getComputedStyle(c).display !== 'none', title: document.getElementById('devTitle').textContent, date: document.getElementById('devDate').textContent,
-      lists, msg: (c.querySelector('#devBody .msg') || {}).textContent || '', picking: HOST.picking, key: HOST.curKey, on: HOST.dev.on() };
+      lists, msg: (c.querySelector('#devBody .msg') || {}).textContent || '', picking: HOST.picking, key: HOST.curKey, on: HOST.dev.on(),
+      got: getComputedStyle(document.getElementById('devGot')).display !== 'none', later: getComputedStyle(document.getElementById('devLater')).display !== 'none', focus: (document.activeElement || {}).id || '' };
   });
   const cardOpen = ms => dp.waitForFunction(() => !document.getElementById('devCard').hidden && !HOST.dev.busy(), null, { timeout: ms || 30000 }).then(() => true, () => false);
   const ls = k => dp.evaluate(k => localStorage.getItem(k), k);
   let file = null;
   // a stand-in for whatsnew.json (or a status: the file not there)
-  const serve = async o => { await dp.unroute('**/whatsnew.json*'); if (o) await dp.route('**/whatsnew.json*', r => (typeof o === 'number' ? r.fulfill({ status: o, body: 'no' }) : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) }))); };
+  const serve = async (o, ms) => { await dp.unroute('**/whatsnew.json*'); if (o) await dp.route('**/whatsnew.json*', async r => { if (ms) await new Promise(x => setTimeout(x, ms)); await (typeof o === 'number' ? r.fulfill({ status: o, body: 'no' }) : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) })); }); };
   await step('developer mode: off by default, nothing shown; the switch and What is new at the Stories screen\'s foot', async () => {
     await open('');
     file = await dp.evaluate(() => fetch('whatsnew.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()));
@@ -8562,8 +8610,18 @@ if (runs('developer mode')) {
     await serve(404);
     await dp.evaluate(() => localStorage.removeItem('devSeen'));
     await dp.reload();
-    const bad = await cardOpen(60000), c3 = await card();
+    const bad = await cardOpen(60000);
+    await dp.waitForTimeout(400);
+    const c3 = await card();
     if (!bad || c3.msg !== 'Could not fetch what is new (whatsnew.json): the server answered 404.' || Object.keys(c3.lists).length || c3.title !== 'What is new') errors.push('developer mode: a file that cannot be fetched: ' + JSON.stringify(c3));
+    if (c3.got || !c3.later || c3.focus !== 'devLater') errors.push('developer mode: a file that cannot be fetched: not Later alone (focused): ' + JSON.stringify([c3.got, c3.later, c3.focus]));
+    await dp.click('#devLater');
+    // while the file is fetched (a slow server): Later alone, then Got it once it has come
+    await serve({ version: 'networks-v999', date: '1 January 2027', new: ['A new thing.'], test: ['Test it.'], untested: [] }, 1500);
+    await dp.evaluate(() => HOST.dev.card(true, 'hand'));
+    const f1 = await card(), came = await cardOpen(10000), f2 = await card();
+    if (!f1.open || f1.msg !== 'Fetching what is new...' || f1.got || !f1.later || !came || !f2.got || !f2.later || f2.title !== 'What is new in v999')
+      errors.push('developer mode: while the file is fetched, Later alone, then Got it: ' + JSON.stringify([f1, f2].map(c => [c.open, c.msg, c.got, c.later, c.title])));
     await dp.click('#devLater');
     await serve(null);
     // the switch at the Stories screen's foot, and #dev=off
@@ -8598,7 +8656,9 @@ if (runs('developer mode')) {
   const xr = async (key, welcome) => {
     await open('#' + key, key);
     await dp.evaluate(w => {
-      HOST.collab.autoWelcome(w); HOST.collab.welcomeMs(1500); HOST.dev.card(false);
+      HOST.collab.autoWelcome(w); HOST.collab.welcomeMs(1500);
+      const dc = () => !document.getElementById('devCard').hidden;
+      HOST.dev.card(true, 'hand'); window.__devCard = [dc()];   // (open as the session starts: it closes, as Later)
       window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
       const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
       window.__frame = { getViewerPose: pose };
@@ -8608,6 +8668,7 @@ if (runs('developer mode')) {
       window.__s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [],
         addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => window.__raf.push(cb) };
       HOST.session = window.__s;
+      window.__devCard.push(dc(), HOST.dev.state().later);
       HOST.cur.peek('(XR.session = window.__s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.playing = false)');
       window.__tick = (n = 1) => {
         for (let i = 0; i < n; i++) {
@@ -8645,6 +8706,8 @@ if (runs('developer mode')) {
     await dp.evaluate(() => { localStorage.setItem('devMode', 'on'); localStorage.removeItem('devSeen'); });
     // with developer mode on: the welcome first, then (once it has gone) the menu at what is new
     await xr('qubits', true);
+    const dc = await dp.evaluate(() => window.__devCard);
+    if (dc.join() !== 'true,false,true') bad.push('the page\'s card did not close as the session started (open before, after, Later): ' + JSON.stringify(dc));
     const r1 = await run(15000), s1 = await st();
     const wFirst = r1.findIndex(x => x[1]), wLast = r1.map(x => x[1]).lastIndexOf(1), nAt = r1.findIndex(x => x[2]);
     if (wFirst < 0 || nAt < 0 || nAt <= wLast || r1.some(x => x[1] && x[2])) bad.push('not after the welcome: ' + JSON.stringify(r1.filter((x, i) => !i || x[1] !== r1[i - 1][1] || x[2] !== r1[i - 1][2])));
@@ -8690,6 +8753,18 @@ if (runs('developer mode')) {
     await press('news:later');
     const s2 = await st(), ids = await dp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
     if (s2.shown || !s2.open || !ids.includes('whatsnew')) bad.push('Back did not go back to the Debug tab (the menu open): ' + JSON.stringify([s2, ids.slice(0, 12)]));
+    await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
+    // the file not there (a new page, so nothing fetched before it): Back alone (no Got it), then Back to the tab
+    await serve(404);
+    await xr('qubits', false);
+    await dp.evaluate(() => { HOST.collab.panelOpen(true); window.__tick(2); });
+    await press('whatsnew');
+    await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 10000 });
+    await dp.evaluate(() => window.__tick(2));
+    const s3 = await st();
+    if (!s3.shown || s3.tab.join() !== 'news:later' || await dp.evaluate(() => !!HOST.dev.data())) bad.push('the file not there: not Back alone: ' + JSON.stringify(s3));
+    await press('news:later');
+    await serve(null);
     await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
     if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset: ' + b));
   });

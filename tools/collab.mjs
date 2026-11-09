@@ -4719,9 +4719,30 @@ async function studioRound(dir) {
     // (frame by frame while the circle glides there) and the headset stays at its station, its rig at the new spot; Move
     // the scene to this circle on a page (its Scene pane, editing on) refused while an item is locked (it says which), then
     // moving every item to the circle's spot transform of its old place (within 1 mm), one Undo step, every device's
-    // records the same and the headset drawing them there; Undo takes it back
+    // records the same and the headset drawing them there; Undo takes it back. Set up first, so that nothing from the
+    // round's earlier steps moves them: the four items without a motion, a path or a behaviour, nothing locked in place,
+    // no cube listing them (shown on every device), and the circle moved to a known spot away from the room's origin
     {
     const IDS = ['box001', 'fig001', 'cube01', 'snd001'];
+    await sp(B, `(() => { setEdit(true); select('');
+      const ids = ${JSON.stringify(IDS)};
+      for (const it of [...STU.items.values()]) {
+        const patch = {};
+        if (ids.includes(it.id)) for (const k of ['motion', 'path', 'behaviour']) if (it.rec[k] !== undefined) patch[k] = undefined;
+        if (it.rec.locked) patch.locked = undefined;
+        if (it.kind === 'c' && (it.rec.show.concat(it.rec.hide)).some(i => ids.includes(i))) { patch.show = it.rec.show.filter(i => !ids.includes(i)); patch.hide = it.rec.hide.filter(i => !ids.includes(i)); }
+        if (Object.keys(patch).length) setRec(it.id, patch);
+      }
+      return 0; })()`);
+    const plain = `(() => { const ids = ${JSON.stringify(IDS)}, all = [...STU.items.values()];
+      return ids.every(i => { const it = STU.items.get(i); return !!it && !it.gl && it.rec.motion === undefined && it.rec.path === undefined && it.rec.behaviour === undefined && (it.kind === 'c' || it.shown); }) &&
+        !all.some(it => it.rec.locked || (it.kind === 'c' && it.rec.show.concat(it.rec.hide).some(i => ids.includes(i)))); })()`;
+    // (the headset's frames are the test's: stepped while it waits, so its items take the room's records, glide and show)
+    const isPlain = [];
+    for (const p of [A, B, C]) isPlain.push(await sUntil(p, plain, 15000));
+    isPlain.push(await until(H, s => { window.__xr.step(); try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, plain, 15000));
+    const S0 = { x: 1.6, z: -0.9, yaw: 0.7 };
+    await B.evaluate(([id, to]) => HOST.collab.move(id, to), [sid, S0]);
     // where the headset draws each item, in room coordinates (a frame of its own, the renderer told it presents for it)
     const hRoom = () => H.evaluate(ids => {
       const X = window.__xr, xr = HOST.renderer.xr, P = s => HOST.cur.peek(s);
@@ -4739,10 +4760,12 @@ async function studioRound(dir) {
       return { out, atSt: P('XR.atSt'), mine: HOST.collab.mine(), placing: HOST.room.placing(), rig: [rig.x, rig.y, rig.z] };
     }, IDS);
     const off = R0 => Math.max(...Object.values(R0.out).map(o => dist(o.at, o.p)));
+    let R0 = await hRoom();
+    for (let k = 0; k < 40 && dist(R0.rig, [S0.x, 1.6, S0.z]) > 0.002; k++) { await frames(H, 100); R0 = await hRoom(); }
     const st0 = await A.evaluate(id => HOST.collab.station(id), sid);
-    const R0 = await hRoom();
-    check(`studio: at a studio circle away from the room's origin (${st0.x.toFixed(2)}, ${st0.z.toFixed(2)}, turned ${st0.yaw.toFixed(2)}) the headset draws every item where its record puts it in room coordinates (within ${(off(R0) * 1000).toFixed(3)} mm)`,
-      Math.hypot(st0.x, st0.z) > 0.5 && R0.atSt && R0.mine === sid && Object.keys(R0.out).length === IDS.length && off(R0) < 0.001, JSON.stringify({ st0, R0 }));
+    check(`studio: set up (no motion, path, behaviour or lock, no cube listing them) and its circle moved to (${st0.x.toFixed(2)}, ${st0.z.toFixed(2)}, turned ${st0.yaw.toFixed(2)}), away from the room's origin, the headset there draws every item where its record puts it in room coordinates (within ${(off(R0) * 1000).toFixed(3)} mm)`,
+      isPlain.every(Boolean) && Math.abs(st0.x - S0.x) < 0.01 && Math.abs(st0.z - S0.z) < 0.01 && angle(st0.yaw, S0.yaw) < 0.01 && dist(R0.rig, [S0.x, 1.6, S0.z]) < 0.002 &&
+        R0.atSt && R0.mine === sid && Object.keys(R0.out).length === IDS.length && off(R0) < 0.001, JSON.stringify({ isPlain, st0, R0 }));
     // the circle moved 2 m and turned a quarter, as the room map moves it (from a page)
     const to = { x: st0.x + 2, z: st0.z, yaw: st0.yaw + Math.PI / 2 };
     await B.evaluate(([id, to]) => HOST.collab.move(id, to), [sid, to]);
@@ -4756,17 +4779,22 @@ async function studioRound(dir) {
     const recs = p => sp(p, `JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`);
     const before = JSON.parse(await recs(A));
     await sp(A, `(setEdit(true), select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
-    // (Undo steps told by the last one's identity: A's list may be at its 30 already, the oldest going as one comes)
-    const lastStep = () => sp(A, `(() => { const u = UNDO[UNDO.length - 1]; if (!u) return 'none'; if (!u.__tag) u.__tag = 't' + Math.random().toString(36).slice(2); return u.__tag + ':' + u.length; })()`);
-    const u1 = await lastStep();
+    // (Undo told by the list's length and its last step's content: A's list emptied here, so it can grow, never full)
+    const undoNow = () => sp(A, `[UNDO.length, JSON.stringify((UNDO[UNDO.length - 1] || []).map(u => [u.id, u.kind, u.before]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))]`);
+    const locked0 = await sp(A, `STU.items.get('box001').rec.locked === true`);
+    await sp(A, `(UNDO.length = 0, 0)`);
     const pr1 = await click(A, '#pane-scene [data-act="circle"]');
     const refused = await sp(A, `[CIRC.note, JSON.stringify(STU.items.get('box001').rec.p)]`);
-    const u1b = await lastStep();
+    const u1 = await undoNow();
     await sp(A, `(select('box001'), itemAct('lock'), select(''), X.tab = 'scene', renderPanes(), 0)`);
-    const u2 = await lastStep();
+    const u2 = await undoNow(), unl = await recs(A);
     const pr2 = await click(A, '#pane-scene [data-act="circle"]');
-    const u3 = await lastStep();
+    const u3 = await undoNow();
     const nMoved = await sp(A, `[...STU.items.values()].filter(it => ['o', 'p', 'e', 'c', 's'].includes(it.kind)).length`);
+    // (the move's step: every item it moved, once each, each with its record as it was just before the move)
+    const unlMap = new Map(JSON.parse(unl)), step3 = JSON.parse(u3[1]);
+    const stepOk = step3.length === nMoved && new Set(step3.map(u => u[0])).size === nMoved &&
+      step3.every(([id, kind, b]) => ['o', 'p', 'e', 'c', 's'].includes(kind) && unlMap.has(id) && JSON.stringify(b) === JSON.stringify(unlMap.get(id)));
     const c = Math.cos(st1.yaw), sn = Math.sin(st1.yaw), want = {};
     for (const [id, r] of before) if (IDS.includes(id) && !(r.on)) want[id] = [st1.x + c * r.p[0] + sn * r.p[2], r.p[1], st1.z - sn * r.p[0] + c * r.p[2]];
     const after = await recs(A), same = [];
@@ -4777,9 +4805,9 @@ async function studioRound(dir) {
     let R2 = await hRoom();
     for (let k = 0; k < 40 && off(R2) >= 0.001; k++) { await sleep(250); R2 = await hRoom(); }
     check(`studio: Move the scene to this circle on a page is refused while an item is locked (it says which, nothing changes), then moves every item to the circle's spot transform of its old place (within ${(mvd * 1000).toFixed(3)} mm; the cube turned with it), one Undo step, every device's records the same and the headset drawing them there (within ${(off(R2) * 1000).toFixed(3)} mm)`,
-      pr1 && /Box/.test(refused[0]) && /locked/.test(refused[0]) && u1b === u1 && refused[1] === JSON.stringify(before.find(b => b[0] === 'box001')[1].p) &&
-        pr2 && u3 !== u2 && u3.endsWith(':' + nMoved) && Object.keys(want).length >= 3 && mvd < 0.001 && angle(cubeYaw, cube0 + st1.yaw) < 0.001 && same.every(Boolean) && off(R2) < 0.001,
-      JSON.stringify({ pr1, refused, u1, u1b, u2, u3, nMoved, pr2, mvd, cubeYaw, cube0, yaw: st1.yaw, same, note: await sp(A, 'CIRC.note'), R2 }));
+      locked0 && pr1 && /Box/.test(refused[0]) && /locked/.test(refused[0]) && u1[0] === 0 && refused[1] === JSON.stringify(before.find(b => b[0] === 'box001')[1].p) &&
+        u2[0] === 1 && pr2 && u3[0] === u2[0] + 1 && stepOk && Object.keys(want).length >= 3 && mvd < 0.001 && angle(cubeYaw, cube0 + st1.yaw) < 0.001 && same.every(Boolean) && off(R2) < 0.001,
+      JSON.stringify({ locked0, pr1, refused, u1: u1[0], u2: u2[0], u3: u3[0], stepOk, step3: step3.map(u => u[0]), nMoved, pr2, mvd, cubeYaw, cube0, yaw: st1.yaw, same, note: await sp(A, 'CIRC.note'), R2 }));
     await sp(A, 'undo()');
     const back = [];
     for (const p of [A, B, C, H]) back.push(await sUntil(p, `${JSON.stringify(JSON.stringify(before))} === JSON.stringify([...STU.items.values()].filter(it => it.kind !== 'g').map(it => [it.id, it.rec]).sort((a, b) => (a[0] < b[0] ? -1 : 1)))`, 10000));
