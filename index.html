@@ -398,6 +398,16 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-guide summary { cursor: pointer; color: #a9b8cc; font-size: 14px; }
 #shared .sh-guide ol { margin: 6px 0 0; padding-left: 22px; }
 #shared .sh-guide ol li { display: list-item; border: 0; padding: 4px 0; font-size: 14px; color: #c9d5e4; }
+/* The PC's trackers (v126): the room's switch and its status, lining up by hand, each tracker (lit while it moves) */
+#shared .sh-trkst { color: #a9b8cc; font-size: 13px; flex: 1 1 220px; }
+#shared .sh-trkst.ok { color: #3ee08f; }
+#shared .sh-trkst.no { color: #ffb43b; }
+#shared .sh-trkst.wait { color: #46d9ff; }
+#shared .sh-trknote.warn { color: #ffb43b; }
+#shared [data-sh="trkon"][aria-pressed="true"] { border-color: #46d9ff; color: #46d9ff; }
+#shared .sh-trks input { flex: 0 1 11em; min-width: 7em; }
+#shared .sh-trks li.moving { background: rgba(70, 217, 255, 0.12); }
+#shared .sh-trks li.moving b { color: #46d9ff; }
 #nogl { display: none; position: fixed; inset: 0; place-items: center; padding: 30px; text-align: center; background: var(--scene); color: #e7eef8; z-index: 11; }
 
 .btn[hidden] { display: none; }
@@ -734,6 +744,14 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
           <li><b>Not lined up:</b> <b>Re-align</b> on that headset, then check again. Still out: <b>Calibrate</b> on the two spots, on every headset (spot A, then spot B). Still out: check each headset's room scan and browser version, then <b>Fresh shared space</b> (everyone leaves AR; one headset first, the others after <em>Room ready</em>).</li>
         </ol>
       </details>
+      <div class="sh-trk" hidden>
+        <h3>The PC's trackers</h3>
+        <div class="row"><button class="btn" type="button" data-sh="trkon" aria-pressed="false" title="This room uses the trackers SteamVR sees on the relay's PC: the headsets see them, and the studio's things can follow them">Use the PC's trackers in this room: off</button><span class="sh-trkst" aria-live="polite"></span></div>
+        <div class="row"><select id="shTrkPick" aria-label="The tracker lying on the spot"></select><button class="btn" type="button" data-sh="trkspot:a">Set spot A</button><button class="btn" type="button" data-sh="trkspot:b">Set spot B</button></div>
+        <p class="hint sh-trknote" aria-live="polite"></p>
+        <p class="hint">Lining up by hand: lay a tracker flat on spot A (the tape cross on the floor), pick it here, press Set spot A and leave it still for a second; then the same on spot B. It holds while the base stations stay where they are and SteamVR's room setup is not run again. Move a tracker to see which row is which, and give it a name.</p>
+        <ul class="sh-trks"></ul>
+      </div>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>

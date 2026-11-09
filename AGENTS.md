@@ -98,8 +98,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`; it plays
   the relay's part itself for a room on this device and, as a peer-to-peer room's
-  host, for everyone in it), loaded by `index.html` between its two scripts (see
-  "Shared rooms" below).
+  host, for everyone in it; and the PC's trackers in a room, v126), loaded by `index.html` between its two scripts (see
+  "Shared rooms" and "Vive trackers" below).
 - `sfx.js` - the shell's sound effects (`HOST.sfx`, and `SFX_LIB` for the sound
   board), loaded by `index.html` just before `shared.js` (see the sound notes under
   "How the shell and stories fit together"). `tools/sfx.html` is its sound board and
@@ -1278,7 +1278,8 @@ every `q` out of the stations' places and panels in the same write; `ask`: "Circ
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
-under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
+under the same code), `trk` (the PC's trackers in this room, `{ on, m: { a, b } | null, names, by, at }`: "Vive trackers"
+below; set by anyone, never refused by either lock; FORMAT networks-38) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
 layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
 explore view became `{ v, story }`, for motion smoothing, networks-27 when the two sound switches, `sfx` and `voice`,
@@ -1303,7 +1304,9 @@ empty's; networks-36 in v124: `look` gained `vg`, the generation of the room-wid
 which an older device writing `look` would drop, and the studio's `state()` gained an optional `tex` on a cube's record
 (the texture changes) and an optional `cutsLocked` on an object's; networks-37 in v125: the studio's `state()` gained an
 optional `tint` and `bright` on an object's record, a recorded `path` kept as a file of the scene (`src`, `len`, `n` in
-place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `skip` and `len`). The plan is
+place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `skip` and `len`; networks-38 in v126: the
+room's key `trk` (the PC's trackers: "Vive trackers" below) and, from the studio in the same release, its records' `trk`
+(an item following a tracker) and `puppet` (a Mixamo character worn with trackers)). The plan is
 `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -2142,7 +2145,8 @@ place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `
     the spot) and what the check says, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
     space, then *I am elsewhere* / *in the room*), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
-    Back), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
+    Back), *Trackers: shown / hidden* (v126: the PC's trackers as small pucks, this headset's own, a line beside it: "Vive
+    trackers"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
@@ -2220,7 +2224,8 @@ place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `
   headset's own calibration, which nothing overrides: two tape marks touched
   with a controller (`'marks'`), or last time's found again by the two anchors
   made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
-  the anchors' handles, never coordinates alone); (2) unless switched off
+  the anchors' handles, never coordinates alone); (1b) the PC's trackers, for
+  the Index on the relay's PC only (`'trackers'`, v126: "Vive trackers"); (2) unless switched off
   (*Shared space: off* on the panel, for this page only: remembered, it
   left one headset unaligned in every room of an evening; on by default since
   two Quest 3s on one browser version lined up through it; the panel says
@@ -2855,6 +2860,80 @@ changes it asked for (stay in your story out of its circle, rings only in a
 circle with a card on pointing, two locks, people at your circle only) are
 untested on headsets: how a ring's card reads when pointed at, the story and its
 narration heard from out of the circle, the locks and the People toggle in use.
+
+## Vive trackers (`tools/trackers/SPEC.md`)
+
+The owner, 8 November 2026: "we go for 1 and 3 with mixamo rigs for now" (phase 1, trackers in the rooms and props that
+follow them; phase 3, live puppetry of a Mixamo-rigged character). About 9 to 11 Vive Tracker 3.0, three base stations, a
+Windows PC with SteamVR and a Valve Index that also runs the relay; lined up by hand (reference trackers on the spots are
+for later). `tools/trackers/SPEC.md` is the contract between the parts; this section says what each part does.
+
+### The shell (v126, `shared.js`: "the PC's trackers")
+
+- **The room's key `trk`** = `{ on, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name, at most 24
+  characters> }, by, at }`: `on`, this room uses the PC's trackers; `m`, the two points (a tracker's raw position in
+  SteamVR's standing space) taken with a tracker lying on spot A and on spot B. Written by pages and headsets, never
+  refused by either lock; a write keeps the fields it does not change (`setTrk`, also fields of a newer app's). The room's
+  frame from `m` is the headsets' frame from floor spots: its origin the floor under spot A, x along the floor towards
+  spot B, y up (the relay works it out; `TRK_FLOOR`, the tracker's pose origin over the floor lying on its base, 0 until
+  measured).
+- **`@trk`** (the relay's own message to every member of a room whose `trk.on` holds and whose `m` is set, 60 a second,
+  `by` ''): `{ at: <the relay's ms of its newest reading>, l: 'hand', t: [[id, x, y, z, qx, qy, qz, qw, vx, vy, vz, ok,
+  kind], ...] }` in room coordinates (`kind` `'t'` a tracker, `'h'` the Index, `'l'` and `'r'` its controllers); with
+  `trk.on` but no `m`, `{ at, l: '', t: [] }` once a second. Peer-to-peer rooms and rooms on this device get none. The
+  shell's own (`onFx`, as `@menu` is), never passed to a story and never taken from a member (only with `by` ''): each
+  one's last 8 samples by `at` (`TRK`), drawn at the relay's time now less `TRK.delay` (40 ms, eased as others' moves'
+  render time is) between the two samples round that moment (places in a line, turns by slerp), carried on by its velocity
+  for at most 100 ms past the last; not heard of for 0.5 s, `ok` false and its last pose kept (one its row says is not
+  seen well, held, not carried). A bad row (no id, more than 64 characters, numbers that are not, a place past 10 km) is
+  dropped, a late or repeated sample ignored, at most 64 trackers; one not heard of for a minute is forgotten.
+- **The API** (`HOST.collab`): `trackers()` (`[{ id, name, kind, p, q, ok, age }]` in room coordinates now), `tracker(id,
+  out)` (one, `out` filled in; null never seen), `trk()` (the key read safely with the last `l`, whether the relay has
+  trackers, its count, whether this room uses them now, `used`, its status in words), `setTrk({ on, m, names })` and
+  `trkName(id, name)`; `body(memberId)` (below). For tests: `trkIn(v, by)` (a `@trk` message through the shell's own
+  intake, as the relay sends it; with `by` as a member would, ignored), `trkTime(ms)` (the relay's time held for the
+  trackers, and for the Index's history below; `null` live), `trkPing()` (the relay asked now), `trackersShown(on)`,
+  `pucks()`, `mapTrackers()`.
+- **Pages** (the Shared dialog's *The PC's trackers*, `index.html`'s `.sh-trk`, drawn by `trkRender`): shown while the
+  room is on a relay whose `/api/ping` says `trackers: true` (asked as the dialog opens, then every 3 s while it is open
+  and every 15 s otherwise). *Use the PC's trackers in this room: on/off* (`trk.on`) with its status (*Not used in this
+  room*, *Not lined up yet*, *Lined up by hand (the spots 1.84 m apart): 3 trackers in the room.*, *the relay sees no
+  trackers: is the bridge running...*); lining up by hand: the tracker lying on the spot picked from the relay's list,
+  *Set spot A* (`GET /api/trackers/still?id=<serial>&ms=1000`: its mean place while still, or the relay's words why not),
+  then *Set spot B*, which writes `trk.m` (refused in words: less than 50 cm apart, or more than 4 cm apart in height,
+  `SPOTS_DH`, as the headsets' floor spots); the trackers (`GET /api/trackers` twice a second while the dialog is open):
+  serial, kind, seen or not, battery, a name typed into `trk.names`, a row that lights for 1.5 s while its tracker moves
+  (more than 1 cm since the last look), the base stations counted. The room map draws them as small dots with their names
+  while the room uses them.
+- **Headsets**: *Trackers: shown / hidden* on the menu's Debug tab (this headset's own, kept as `xrTrackers`, hidden by
+  default; a line beside it says how they stand): each tracker (kind `'t'`) a small puck where it is in the room (in the
+  room's group, as people are drawn; a 7 cm disc along the tracker's own y, a ring on top that dims while it is not seen,
+  its name on a sign turned to you), depth-tested.
+- **The Index in the room** (`trkAlign`, `trkHist`, `trkEstimate`): the PC's page in VR with the Index (a browser that is
+  not a standalone headset's, `!IS_HEADSET`) lines its room up from its head as the trackers see it (`'h'`, in room
+  coordinates) against its own head in its `local-floor` at the same moments (a history of its viewer pose by the relay's
+  clock, read from the frame itself: `update` also runs from the story's frame, through `place`, before the shell's tick
+  has this frame's head). A level frame, the turn about the vertical from the heading of the two and the place (and the
+  floor's height) from the two, over the last second of samples taken while the head is fairly still (at most 0.5 m/s
+  and 0.6 rad/s as both see it: a pose WebXR predicts for the display and one the bridge read a moment before differ only
+  while it moves), at least 10 of them across 0.3 s; followed past 1 cm or 0.5 degrees. A frame source of its own,
+  `'trackers'`, after this headset's own marks and before the shared space; held while the trackers do not see it.
+  `lineUp()` says *Lined up by the PC's trackers* (not lined up: *the PC's trackers have lost it* after 3 s); the pages'
+  list *lined up (the PC's trackers)*; the startup flow never opens for it, and the menu's question (in this room, or
+  elsewhere?) is answered for it while the trackers see it (*In the room*). No spots and no shared space needed. One such page per room: a second PC's browser in VR
+  would take the Index's head for its own.
+- **A person's head and hands** (`HOST.collab.body(memberId)`, for the studio's puppet worn with a Quest's head and
+  hands): `{ head: [x, y, z, qx, qy, qz, qw], hands: [left, right] (each such a pose or null), at }` in room coordinates
+  for a member in a headset, smoothed from presence as their figure is drawn, or this headset's own poses now; null for a
+  page, a camera or anyone not heard of for 2 s. Presence gained `g`, the grips (or the tracked hands' wrists) as poses,
+  `[left, right]` with null where there is none (`gripStep`, each frame of a headset session); its `hands`, the rays
+  drawn, were in the order of the story's controller indices (the session's input sources, in no fixed order of hands)
+  and are now the left's first. Older devices ignore `g` (a newer device reads none from them: hands null).
+- Untested here: SteamVR, real trackers and the Index (what the bridge reads, `TRK_FLOOR`, how a tracker's own frame lies,
+  so how the pucks sit), the Index's page in VR in Chrome or Edge through SteamVR's OpenXR (its frame from the trackers,
+  whether its viewer pose and the bridge's head pose are the same point, lag through the relay), the pucks' look on a
+  headset, a Quest's grips in presence on a real device. Only in headless Chromium with a pretend headset and the relay's
+  answers stubbed (`--only trackers`).
 
 ## Inside a story (all sixteen follow the same pattern)
 
@@ -4713,6 +4792,32 @@ the menu button (...) and again without it (...). Tap Enter AR again.*; the pers
 the first ask: asked once, the browser's words as they were; a headset's user agent asking for no `dom-overlay` and
 showing no button. Camera mode's request is checked in `node tools/collab.mjs --camera` (its root `#camera`, `dom-overlay` once, no
 phone button).
+
+Its *trackers* steps (v126, `--only trackers`, a page of its own in a room on this device, a minute or two; "Vive
+trackers"): `@trk` fed through the shell's own intake (`HOST.collab.trkIn`) at relay times held (`trkTime`): a tracker
+going at 1 m/s and turning 90 degrees a second drawn 40 ms behind between its samples (to 1e-6 m and 1e-4 of its turn),
+carried on 60 ms past the last by its velocity and at most 100 ms (still seen at 340 ms), not heard of for 600 ms ok
+false with that pose kept, one its row says is not seen held where it was; bad rows (no id, too long an id, NaN, a place
+past 10 km, not an array), a late sample and a member's `@trk` (`by` set) ignored, the good row of a mixed message taken;
+`tracker(id, out)`, the room's key read and written (a write keeping the rest, a name cut at 24 characters, '' taking one
+out), a message with `l` '' not lined up; the story's `effect` hook never called. The Shared dialog's section with the
+relay's `/api/ping`, `/api/trackers` and `/api/trackers/still` stubbed in the page (`fetch`): shown with the switch off and
+the three trackers' rows (the base station counted, the Index named), turned on, a name typed into `trk.names`, a tracker
+moved 5 cm lighting its row only, *Set spot A* (its question `id=LHR-A&ms=1000`, *Spot A taken (still to 1.2 mm)*), spot
+B 20 cm away, 6 cm higher and with the relay's error refused in words, then 1.84 m away written as `trk.m`, B again
+without A refused; once heard from, *Lined up by hand (the spots 1.84 m apart): 2 trackers in the room.* and the room
+map's two dots (a pixel read at one). A pretend VR headset (a browser that is not a Quest's; local and local-floor
+spaces from a pretend real room whose trackers' room stands 5 cm above its floor; frames 60 a second at relay times held,
+each with the Index's head where it really is): the `'trackers'` frame after a second within 1 cm and 0.5 degrees (to
+3e-6 cm), *Lined up by the PC's trackers*; the head turned 1.5 rad, moved and pitched, still there; SteamVR's space shifted
+4 cm and 1.5 degrees, followed to within 1 cm and 0.5 degrees; the head turning at 3 rad/s with the trackers a frame
+behind, nothing taken; `lineUp()`'s words (the room taken as one on a relay for that moment); the menu's question
+answered for it (*In the room*), the frame again at once. The Debug tab's *Trackers* row turning the pucks on (kept as
+`xrTrackers`): LHR-A's puck where it lies (1 mm in room coordinates, 1 cm in the story's space), depth-tested, named
+*Lamp*; LHR-B's dim where it was last heard of, named *Belt*; hidden again. `body()`: this headset's head and its grips
+(left, right) within 1 cm and 0.5 degrees of where they are in the room; presence's `g` `[left, right]` and its rays the
+left's first though the session's sources are right, left; another person's two presences smoothed between them (their
+right hand new, as it is), an older app's with no grips, nobody or a page null.
 
 It needs Playwright with a Chromium build (`npm i --no-save playwright` and
 `npx playwright install chromium` once, or a global install; see
