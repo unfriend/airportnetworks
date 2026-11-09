@@ -43,6 +43,26 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **networks-v126 (9 November 2026; FORMAT networks-38, shell 126), on `dev`: Vive trackers, phases 1 and 3.** The owner,
+  8 November: "we go for 1 and 3 with mixamo rigs for now" (about 9 to 11 Vive Tracker 3.0, three base stations, a Windows
+  PC with SteamVR and a Valve Index that also runs the relay). `tools/trackers/SPEC.md` is the contract,
+  `tools/trackers/README.md` the PC's setup. Built in three lanes (a Sonnet review each, none serious, so no fix round) and
+  one end-to-end lane:
+  - *The bridge and the relay*: `tools/trackers/bridge.py` (pyopenvr) sends every device's pose by UDP to the relay on the
+    same PC (`--trackers`); lined up by hand (a tracker on spot A, then on spot B: the room's key `trk`), the relay sends
+    each room that uses them `@trk` 60 times a second in room coordinates; `tools/trackers/fake.mjs` for the tests.
+  - *The shell*: the trackers smoothed in each device (`HOST.collab.trackers()`), the Shared dialog's *The PC's trackers*,
+    pucks on a headset (Debug tab), the Index's own page lined up by the trackers (frame source `'trackers'`), a person's
+    head and hands (`body()`; presence's hands now left first, grips added).
+  - *The studio*: props that follow a tracker (`trk` on a record), a Mixamo character worn with trackers (`puppet`: full,
+    or feet with the Index or a Quest for the head and hands; `ik.js` now in the build), takes saved as clips in its GLB.
+  - Tests: `relay/test.mjs --trackers` 51, the shell's `--only trackers` 5, the studio's `'studio trackers'` 4 and `'studio
+    puppet'` 5, and the end-to-end `node tools/collab.mjs --trackers` 13 (the fake bridge through the relay to three pages
+    and a pretend Index: trackers within 2 mm, the Index within 1 cm, a prop within 5 mm, every device's solved bones
+    alike, a take saved through the relay and played); it found one bug (the Index told to calibrate before its first
+    frame from the trackers), fixed. The full suites have not run on v125 or v126. Untested: everything with SteamVR, the
+    real trackers and the Index (the bridge on Windows, `TRK_FLOOR`, lag), a worn character's look; open: a take recorded
+    on a page drawing in software gets few keys, and v125's open points below.
 - **networks-v125 (9 November 2026; FORMAT networks-37, shell 125), on `dev`: developer mode, moving with the sticks in
   VR, no play and pause on A and X, a menu button in phone AR, and a large studio round.** All asked for by the owner on
   8 November. Built in eleven lanes over three rounds (a Sonnet review each, one fix round where a review found a serious

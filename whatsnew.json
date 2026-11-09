@@ -1,29 +1,26 @@
 {
-  "version": "networks-v125",
+  "version": "networks-v126",
   "date": "9 November 2026",
   "new": [
-    "Developer mode (the Stories screen's foot, More, the headset menu's Settings): this box, with what is new and what to test, at the start of a session.",
-    "Moving with the sticks in VR: click a stick twice to turn it on or off. The left stick moves you, the right stick turns you.",
-    "A and X no longer play and pause. Play and pause are on the story's foot panel and the menu's Story tab.",
-    "Phone AR on Android: a round menu button at the top right, with the main switches and the full menu.",
-    "Studio: a scene at a circle stands on the room's spots. Moving the circle no longer moves the scene (Move the scene to this circle puts an older layout back round its circle).",
-    "Studio: recordings up to ten minutes, and your voice recorded with the movement.",
-    "Studio: tint and brightness for placed models; a viewer that shows a model over the whole window, next to its lighter version.",
-    "Studio: a stick clicked twice switches between the studio's own sticks and moving you; cut-out boxes without their see-through fill; ghosts for models whose own animation moves them."
+    "Vive trackers in the shared rooms: a small bridge on the SteamVR PC (tools/trackers/bridge.py) sends every tracker to the relay, which lines them up with the room by hand on spot A and spot B.",
+    "The Shared dialog's section The PC's trackers: use them in this room, Set spot A and Set spot B, a name for each tracker, a row that lights while its tracker moves.",
+    "Headsets: Trackers shown or hidden on the menu's Debug tab (small pucks where each tracker is).",
+    "The Index's own page in VR lines up with the room from the trackers, with no spots and no shared space.",
+    "Studio: props that follow a tracker (Follows a tracker, Snap onto it).",
+    "Studio: a Mixamo character worn with trackers, the whole body or feet with a headset; Line up with the performer from a T-pose; Record a take as a new clip."
   ],
   "test": [
-    "Quest in VR: click a stick twice, move with the left stick and turn with the right. How does it feel? One click still opens the menu.",
-    "A and X do nothing in a story; play and pause from the foot panel or the menu's Story tab.",
-    "Android phone in AR: the round button at the top right, its switches and The full menu.",
-    "Studio at a circle in a room: move the circle and check the items stay where they are; try Move the scene to this circle on an older layout.",
-    "Studio: record a movement with your voice (allow the microphone on the 2D page first), and a recording of a few minutes.",
-    "Studio while editing: the frame rate with cut-outs, tint and brightness, the ghosts of animated models, both stick modes.",
-    "Developer mode: this box at the start of a session, Got it and Later."
+    "On the PC: SteamVR and the trackers on, python bridge.py --list shows every tracker; then the relay with --lan --trackers (tools/trackers/README.md).",
+    "The Shared dialog: Use the PC's trackers, a tracker lying on spot A and then spot B, Set spot A and B, then names.",
+    "A Quest in the room: Trackers shown on the Debug tab; do the pucks sit on the real trackers?",
+    "The Index's page in VR in Chrome or Edge: does it line up by the trackers and match the Quests?",
+    "Studio at a circle: a shape following a tracker you carry; a Mixamo character worn with six trackers, lined up from a T-pose, and a take recorded.",
+    "From v125, still untried: moving with the sticks, the phone AR menu, developer mode, the studio's recorder with voice."
   ],
   "untested": [
-    "Everything in a headset and on a phone: this release was checked only in headless Chromium.",
-    "Whether the Quest shows the microphone question inside a session, and a long voice through the relay's ffmpeg.",
-    "The viewer with a big scan on a slow laptop, and pinch and two-finger pan on a touch screen.",
-    "The trackers' solver is groundwork only: nothing in the app uses it yet."
+    "Everything with SteamVR and real trackers: this release was checked only with a fake bridge in headless Chromium.",
+    "The bridge on Windows, how high a tracker's pose origin sits over the floor (TRK_FLOOR, 0 until measured), the lag through the PC's relay.",
+    "How a worn character looks and how a performer's trackers stay on; a take from a model in centimetres.",
+    "Feet and headset with a Quest's head and hands (15 a second, smoothed) instead of the Index's."
   ]
 }
