@@ -17,7 +17,8 @@ This file is the contract between the lanes that build it. Status: v126 builds p
 the fake and the relay; the shell; the studio), lined up by hand, with the wire settled by v126's brief (no reference
 trackers this round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORMAT` networks-38). Built: the solver of
 phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay ("The bridge", "The relay"), the shell's part
-("The shell") and the studio's (props and the puppet). The studio's: `tools/studio/SPEC.md`, "Props that follow a tracker" and
+("The shell") and the studio's (props and the puppet), and the round that runs the three together end to end
+(`tools/collab.mjs --trackers`, "Tests"). The studio's: `tools/studio/SPEC.md`, "Props that follow a tracker" and
 "Worn with trackers".
 
 ## The picture
@@ -178,8 +179,8 @@ What the shell does with it:
   (and the floor's height) from the two, averaged over about 1 s of samples taken while the head is fairly still, followed
   past 1 cm or 0.5 degrees; a frame source of its own, `'trackers'`, taken before the shared space and after this
   headset's own marks; `lineUp()` says *Lined up by the PC's trackers*. Only for a session whose browser is not a
-  standalone headset's and while `'h'` is seen and ok (held otherwise); no spots, no shared space needed, and the room
-  setup guide's startup flow never opens for it. Tethered, so it stays near the PC; it sees the room in VR.
+  standalone headset's and while `'h'` is seen and ok (held otherwise; while its first samples are still coming, lining up,
+  never *Calibrate the room*); no spots, no shared space needed, and the room setup guide's startup flow never opens for it. Tethered, so it stays near the PC; it sees the room in VR.
 
 ## The studio, phase 1: props that follow a tracker
 
@@ -340,11 +341,24 @@ real trackers, a headset and controllers is untested.
   from a T-pose after the countdown, its hands and feet within 5 mm of the truth (0.06 mm), two pages solving the same
   bones at one held moment (within 0.0001 degrees), a 3 s take made into a GLB (downloaded) whose Take 1 plays the solved
   pose, a model that is not Mixamo's refused in words.
-- `tools/collab.mjs --trackers`: the fake bridge with SteamVR's space turned and moved against the room, two reference
-  trackers on the spots, a prop tracker going round, a performer walking; a page's Trackers section, a pretend headset at
-  a studio station: trackers in room coordinates within 2 mm, a shape following a tracker within 5 mm on every device at
-  one held time, the test rig worn and every device's bones within 1 degree of each other, a 3 s take saved through the
-  relay as a GLB with *Take 1* that plays.
+- `tools/collab.mjs --trackers` (built in v126, `trackersRound`, also in the main run after the studio's behaviours; three
+  to five minutes): the three lanes together through a real relay (`--trackers` on a free UDP port, `--scenes` on a copy of
+  the test and puppet scenes, taking uploads) and the fake bridge, SteamVR's space the room turned 0.7 rad and moved by
+  (1.3, 0.02, -0.6) m; no reference trackers this round: one tracker laid on spot A and then on spot B (lined up by hand),
+  a prop tracker going round (0.38 m/s), the Index's headset and controllers, a base station and a performer's six
+  trackers worn on a walking copy of the puppet test rig (worked out in Node, as `test-ik.mjs` does). Three pages and a
+  pretend VR headset that is not a Quest's browser (in VR from the start, asked whether it is in the room until the
+  trackers come): the dialog's section and switch (`trk.on`), spot A and spot B through
+  the real `/api/trackers/still` (spot B refused while the tracker slides), `trk.m` within 0.2 mm of where SteamVR reads
+  the spots, a name typed reaching the others, a write keeping the other fields (a newer app's too); every device's
+  trackers at one held relay time within 2 mm and 0.2 degrees of the truth (measured 0.6 to 1 mm and
+  0.01 to 0.06 degrees over eight runs: the mm rounding); the headset lined up by the trackers (`'trackers'`) within 1 cm and 0.5 degrees (0.01 cm and 0.003 degrees),
+  never asked to calibrate meanwhile; at a studio circle a shape on the prop tracker within 5 mm and 0.5 degrees of
+  where it should be on every device (0.1 to 0.7 mm, under 0.05 degrees); the rig worn whole body, lined up from the T-pose after its
+  countdown (moved to the performer within 3 mm), its 23 bones within 1 degree of each other on every device at one held
+  time (0.0000) and its hands and feet within 1 cm of the performer's (0.6 to 2 mm); a 3 s take saved through the relay as
+  `models/rig.glb` with *Take 1* (3.1 to 3.4 s, 24 tracks; 9 or 10 keys, a page drawing in software), which another page switches to and plays. A held time: the fake
+  paused for a moment, every device given the last reading, the relay's time held in the middle of the last samples.
 
 ## Order of work
 

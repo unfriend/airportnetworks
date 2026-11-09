@@ -2957,9 +2957,10 @@ contract between the lanes is `tools/trackers/SPEC.md`; setting it up, `tools/tr
   floor's height) from the two, over the last second of samples taken while the head is fairly still (at most 0.5 m/s
   and 0.6 rad/s as both see it: a pose WebXR predicts for the display and one the bridge read a moment before differ only
   while it moves), at least 10 of them across 0.3 s; followed past 1 cm or 0.5 degrees. A frame source of its own,
-  `'trackers'`, after this headset's own marks and before the shared space; held while the trackers do not see it.
+  `'trackers'`, after this headset's own marks and before the shared space; held while the trackers do not see it; while
+  they see it and its first samples are still coming, lining up (never *Calibrate the room* meanwhile).
   `lineUp()` says *Lined up by the PC's trackers* (not lined up: *the PC's trackers have lost it* after 3 s); the pages'
-  list *lined up (the PC's trackers)*; the startup flow never opens for it, and the menu's question (in this room, or
+  list *lined up (the PC's trackers, not checked yet)*; the startup flow never opens for it, and the menu's question (in this room, or
   elsewhere?) is answered for it while the trackers see it (*In the room*). No spots and no shared space needed. One such page per room: a second PC's browser in VR
   would take the Index's head for its own.
 - **A person's head and hands** (`HOST.collab.body(memberId)`, for the studio's puppet worn with a Quest's head and
@@ -5892,6 +5893,35 @@ is placed while the other headset still draws it within 5 cm of the driver, and 
 the other headset coming nearer by more than 0.3 m taking the ball over everywhere; the looker staying the first headset's while it is within range + 0.5
 m though the other stands nearer, and the other's once it is further; nobody in range, both back where they are placed on
 every device; the room keeping the two records and no key of the samples.
+The PC's Vive trackers end to end (`trackersRound`, v126, also in the main run after the studio's behaviours; `--trackers`
+runs only it, three to five minutes; `tools/trackers/SPEC.md`, "Tests"): the bridge's lane, the shell's and the studio's
+together through a relay of its own from port 8730 up (`--trackers 0`, a free UDP port read from its start line, and
+`--scenes` on a copy of the test and puppet scenes, taking uploads) and the fake bridge (`startFake` with SteamVR's space
+the room turned 0.7 rad and moved by (1.3, 0.02, -0.6) m): one tracker laid on spot A then spot B, a prop tracker going
+round at 0.38 m/s, the Index's headset and controllers, a base station, and six trackers worn on a performer, a walking
+copy of the puppet test rig worked out in Node (three.js and its GLTFLoader, as `tools/studio/test-ik.mjs` loads them; the
+smoke test's seeded offsets, their mean along the floor zero), fed to the fake as functions of its clock. Three pages and
+a pretend VR headset with Chromium's own user agent (not a Quest's; in VR from the start, asked whether it is in the room
+while the room does not use the trackers yet; the airports story they open with stops drawing its globe, which in software
+starved the pages for seconds): the relay's ping (8 trackers seen); the Shared
+dialog's section and its switch (`trk.on` in the room, every device then told `l: ''`); spot A and spot B through the real
+`/api/trackers/still` (spot B refused while the tracker slides 3 cm a second, then taken), `trk.m` within 0.2 mm of where
+SteamVR reads the spots, the status *Lined up by hand (the spots 2.00 m apart): 8 trackers in the room.*, the 11 tracked
+devices on every device (no base station); a name typed in the dialog reaching the others, another page's name and a
+newer app's field kept by a write; the headset, the fake's `'h'` its head, lined up by the trackers (`'trackers'`) within
+1 cm and 0.5 degrees (0.01 cm and 0.003 degrees), *In the room* answered for it, never *Calibrate the room* meanwhile, the
+pages' list *lined up (the PC's trackers, ...)*; at a held relay time every device's trackers within 2 mm and 0.2 degrees
+of the truth (0.6 to 1 mm and up to 0.06 degrees); a studio circle for the test scene where the headset stands, three pages following
+it, a shape set on a page's card to follow the prop tracker drawn within 5 mm and 0.5 degrees of where its true pose and
+offset put it on every device at a held time (0.1 to 0.7 mm, under 0.05 degrees); the puppet scene picked there, the spot and prop
+trackers switched off, the rig worn whole body and lined up from the T-pose after its 5 s countdown (its six parts found,
+moved to the performer within 3 mm, sized 1), the record and its solving on every device; the performer walking, the 23
+bones on every device within 1 degree of each other at a held time (0.0000) and its hands and feet within 1 cm of the
+performer's (0.6 to 2 mm); a 3 s take (its countdown, Stop) saved through the relay as `models/rig.glb` with *Walk* and
+*Take 1* (3.1 to 3.4 s, 24 tracks, read back in Node; 9 or 10 keys from a page drawing in software), another page switching to it and playing *Take 1* once it is worn no
+more. A held time: the fake paused for a moment, each device waiting for the last reading (a page busy drawing in software
+takes the relay's messages late), the relay's time held (`HOST.collab.trkTime`) between the last samples. With `--shots`,
+`trackers-1-dialog.png`.
 Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
 `--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes

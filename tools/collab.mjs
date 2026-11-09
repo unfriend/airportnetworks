@@ -104,6 +104,13 @@
 // panel's button) an override never written to the room; Off for all and On for all from a headset's menu dropping them;
 // an override kept through a new session, dropped in the lobby and on leaving; the welcome after lining up, asked first,
 // walked into, tracked hands, once a session, not while the guide shows, outside a room, never in camera mode);
+// --trackers only the PC's Vive trackers end to end (trackersRound, also in the main run after the studio's behaviours: a
+// relay of its own from port 8730 up with --trackers and --scenes on a copy of the test and puppet scenes, the fake bridge
+// with SteamVR's space turned and moved against the room, three pages and a pretend VR headset that is not a Quest's
+// browser: the dialog's switch, lining up by hand through /api/trackers/still, names; the trackers within 2 mm of the truth
+// at one held time; the headset lined up by them (the Index); at a studio circle a shape on a prop tracker within 5 mm, the
+// puppet rig worn from a walking performer's trackers solved alike everywhere, a take saved through the relay that plays
+// on another page; with --shots trackers-1-dialog.png);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -122,6 +129,7 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import { createRequire } from 'module';
 
 const STORIES = {
   airports: {
@@ -333,6 +341,7 @@ const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviour
 const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
 const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
+const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -2574,6 +2583,366 @@ async function behaveRound() {
     for (const p of pages) await p.context().close().catch(() => {});
     await relayOff(R);
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+// ---- the PC's Vive trackers end to end (trackersRound; --trackers runs only it, also in the main run after the studio's
+// rounds; tools/trackers/SPEC.md, Tests): a relay of its own with --trackers (a free UDP port) and --scenes on a temporary
+// copy of the test and puppet scenes (it takes uploads), and the fake bridge (tools/trackers/fake.mjs) whose SteamVR space
+// is the room turned and moved by a known transform, so every pose's truth is known: a tracker lying on spot A and then on
+// spot B, a prop tracker going round a circle, the Index (its headset and controllers), a base station, and a performer's
+// six trackers worn on a walking copy of the puppet test rig (worked out here in Node, as tools/studio/test-ik.mjs does). A
+// page's Trackers section (the switch, lining up by hand through the real /api/trackers/still, names, a write keeping the
+// other fields), every page and a pretend headset given @trk, within 2 mm of the truth at one held relay time; that
+// headset (not a Quest's browser, the fake's 'h' its head) lined up by the 'trackers' frame source; at a studio station a
+// shape following the prop tracker on every device, the rig worn from the performer's trackers (lined up from a T-pose)
+// solved alike everywhere, and a take saved through the relay as a GLB whose Take 1 plays on another page. A held time:
+// the fake paused for a moment, so every device keeps the same last samples, and each holds the relay's time
+// (HOST.collab.trkTime) in the middle of them.
+// The performer: the puppet test rig loaded in Node, walking (Walk) or at rest (a T-pose), its root at AT facing +z; six
+// trackers fixed to its bones with seeded offsets as the smoke test's, their mean offset along the floor made zero by the
+// hips', so lining up puts the character right where the performer stands. at(t): the six trackers' room poses at the
+// fake's clock t ({ hips: { p, q }, ... }); bones(t): the truth's hips, hands and feet in room coordinates
+async function performer(file, AT) {
+  const require = createRequire(import.meta.url), THREE = require(path.join(root, 'three.min.js'));
+  globalThis.THREE = THREE;
+  if (!THREE.GLTFLoader) new Function(fs.readFileSync(path.join(root, 'tools', 'studio', 'vendor', 'GLTFLoader.js'), 'utf8'))();
+  const IK = new Function(fs.readFileSync(path.join(root, 'tools', 'studio', 'engine', 'ik.js'), 'utf8') + '\nreturn makeIK;')()(THREE);
+  const b = fs.readFileSync(file);
+  const truth = await new Promise((res, rej) => new THREE.GLTFLoader().parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.length), '', res, rej));
+  const TR = IK.rigOf(truth.scene), mixer = new THREE.AnimationMixer(truth.scene), walk = mixer.clipAction(truth.animations.find(a => a.name === 'Walk'));
+  let seed = 20261109;
+  const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const rr = (a, c) => a + (c - a) * rnd(), V = (...a) => new THREE.Vector3(...a);
+  const randQ = () => { const u = rnd(), v = rnd() * 2 * Math.PI, w = rnd() * 2 * Math.PI, a = Math.sqrt(1 - u), c = Math.sqrt(u); return new THREE.Quaternion(a * Math.sin(v), a * Math.cos(v), c * Math.sin(w), c * Math.cos(w)); };
+  const world = n => { const p = V(), q = new THREE.Quaternion(), s = V(); n.matrixWorld.decompose(p, q, s); return { p, q }; };
+  const pose = tw => {   // (tw: the walk's time, or null at rest)
+    const r = truth.scene;
+    r.position.set(AT.x, 0, AT.z); r.quaternion.identity(); r.scale.setScalar(1);
+    if (tw !== null) { if (!walk.isRunning()) walk.play(); mixer.setTime(tw); } else { walk.stop(); TR.toRest(); }
+    r.updateMatrixWorld(true);
+  };
+  pose(null);
+  const restQ = part => world(TR.bones[part]).q;
+  const wear = (part, at, turn) => ({ part, o: at.clone().applyQuaternion(restQ(part).invert()), q: restQ(part).invert().multiply(turn) });
+  const W = {
+    hips: wear('hips', V(rr(-0.08, 0.08), 0, rr(-0.15, -0.1)), randQ()),
+    head: wear('head', V(rr(-0.04, 0.04), rr(0.1, 0.14), rr(-0.04, 0.04)), randQ()),
+    lhand: wear('lhand', V(rr(-0.06, -0.03), rr(-0.02, 0.04), rr(-0.03, 0.03)), randQ()),
+    rhand: wear('rhand', V(rr(0.03, 0.06), rr(-0.02, 0.04), rr(-0.03, 0.03)), randQ()),
+    lfoot: wear('lfoot', V(rr(-0.02, 0.02), rr(0.03, 0.06), rr(0.02, 0.08)), randQ()),
+    rfoot: wear('rfoot', V(rr(-0.02, 0.02), rr(0.03, 0.06), rr(0.02, 0.08)), randQ()),
+  };
+  const ID = { hips: 'LHR-HIPS0001', head: 'LHR-HEAD0002', lhand: 'LHR-LHND0003', rhand: 'LHR-RHND0004', lfoot: 'LHR-LFOT0005', rfoot: 'LHR-RFOT0006' };
+  const parts = Object.keys(W), trk = k => { const w = W[k], c = world(TR.bones[w.part]); return { p: w.o.clone().applyQuaternion(c.q).add(c.p), q: c.q.clone().multiply(w.q) }; };
+  // (the worn offsets' mean along the floor against their bones, at rest, made zero by moving the hips' tracker)
+  { const m = V(); for (const k of parts) { const t = trk(k).p, c = world(TR.bones[W[k].part]).p; m.x += t.x - c.x; m.z += t.z - c.z; }
+    W.hips.o.sub(V(m.x, 0, m.z).applyQuaternion(restQ('hips').invert())); }
+  const P = { ID, parts, walk0: null, memo: new Map() };
+  const twOf = t => (P.walk0 === null ? null : Math.max(0, t - P.walk0));
+  P.at = t => {
+    const tw = twOf(t), key = tw === null ? 'rest' : tw.toFixed(6);
+    let o = P.memo.get(key);
+    if (!o) {
+      pose(tw);
+      o = Object.fromEntries(parts.map(k => { const x = trk(k); return [k, { p: x.p.toArray(), q: x.q.toArray() }]; }));
+      P.memo.set(key, o);
+      if (P.memo.size > 32) P.memo.delete(P.memo.keys().next().value);
+    }
+    return o;
+  };
+  P.bones = t => { pose(twOf(t)); return Object.fromEntries(['hips', 'lhand', 'rhand', 'lfoot', 'rfoot'].map(k => [k, world(TR.bones[k]).p.toArray()])); };
+  return P;
+}
+async function trackersRound(dir) {
+  const { startFake, qYaw, qAxis, qMul, qAngle } = await import(new URL('trackers/fake.mjs', import.meta.url).href);
+  // (a vector turned by a quaternion [x, y, z, w], as three.js's applyQuaternion)
+  const qRot = (q, v) => { const [x, y, z, w] = q, ix = w * v[0] + y * v[2] - z * v[1], iy = w * v[1] + z * v[0] - x * v[2], iz = w * v[2] + x * v[1] - y * v[0], iw = -x * v[0] - y * v[1] - z * v[2];
+    return [ix * w + iw * -x + iy * -z - iz * -y, iy * w + iw * -y + iz * -x - ix * -z, iz * w + iw * -z + ix * -y - iy * -x]; };
+  const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-trk-'));
+  for (const n of ['test', 'puppet']) fs.cpSync(path.join(root, 'tools', 'studio', 'test', 'scenes', n), path.join(SC, n), { recursive: true });
+  const AT = { x: 0.6, z: -1.2 }, PF = await performer(path.join(SC, 'puppet', 'rig.glb'), AT);
+  // the fake's clock (s) from T0, by the wall clock the relay stamps each reading with as it comes: the truth at the relay's
+  // time D is every device's pose at clock (D - T0) / 1000
+  const T0 = Date.now(), clock = () => (Date.now() - T0) / 1000;
+  const TURN = 0.7, MOVE = [1.3, 0.02, -0.6];   // (SteamVR's space: the room turned 40 degrees about y and moved)
+  const IDX = { x: -1.2, z: 1.4, yaw: 0.4 };   // (the Index's head, still, in the room: where the studio's circle goes)
+  const SPOT = 'LHR-SPOT0001', PROP = 'LHR-PROP0002', HMD = 'LHR-INDX0007', BASE = 'LHB-BASE0001', OM = 2 * Math.PI * 0.12;
+  const still = (p, q) => () => ({ p, q: q || [0, 0, 0, 1] });
+  const devices = [
+    { s: SPOT, k: 'trk', b: 0.9, pose: still([0, 0, 0]) },   // (lying on spot A: the room's origin)
+    { s: PROP, k: 'trk', b: 0.7, pose: t => ({ p: [1 + 0.5 * Math.cos(OM * t), 1, 1 - 0.5 * Math.sin(OM * t)], q: qMul(qYaw(OM * t), qAxis([1, 0, 0], 0.3)) }) },   // (0.38 m/s)
+    { s: HMD, k: 'hmd', b: null, pose: still([IDX.x, 1.6, IDX.z], qYaw(IDX.yaw)) },
+    { s: 'LHR-INDL0008', k: 'ctl', h: 'l', b: 0.8, pose: still([IDX.x - 0.25, 1.15, IDX.z - 0.3], qAxis([1, 0, 0], -0.6)) },
+    { s: 'LHR-INDR0009', k: 'ctl', h: 'r', b: 0.75, pose: still([IDX.x + 0.25, 1.15, IDX.z - 0.3], qAxis([1, 0, 0], -0.5)) },
+    { s: BASE, k: 'base', b: null, pose: still([-2, 2.3, 2], qMul(qYaw(-0.8), qAxis([1, 0, 0], -0.5))) },
+    ...PF.parts.map(k => ({ s: PF.ID[k], k: 'trk', b: 0.8, pose: t => PF.at(t)[k] })),
+  ];
+  const kindOf = d => (d.k === 'ctl' ? d.h : { trk: 't', hmd: 'h' }[d.k]);
+  const truthAt = (id, D) => (F ? F.devices : devices).find(x => x.s === id).pose((D - T0) / 1000);   // (the fake's own list: set() changes a pose there)
+  const pages = [];
+  let R = null, F = null;
+  const sopen = async (url, name, size) => {
+    const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 } });
+    await ctx.addInitScript(n => { try { localStorage.setItem('collabName', n); } catch (e) { /* storage blocked */ } }, name);
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('trackers round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|WebSocket connection/.test(m.text())) errors.push('trackers round: ' + m.text()); });
+    await p.goto(url, { timeout: 90000 });
+    await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(p);
+    return p;
+  };
+  const sp = (p, s) => p.evaluate(s => HOST.cur.peek(s), s);
+  const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
+  const key = async rc => { const x = (await (await fetch(`http://127.0.0.1:${R.port}/api/rooms/${rc}`)).json()).keys.trk; return x ? x.v : null; };
+  // a held time: the fake paused (every device keeps the same last samples: each waits until it has the last reading, as a
+  // page busy drawing in software takes the relay's messages late), the relay's time T held on each in the middle of them
+  // (drawn at D = T - 40 ms, between samples, never past the last); what fn(page, T) gives on each, then all let go and the
+  // fake on again
+  const held = async (list, fn) => {
+    F.pause(true);
+    await sleep(400);
+    let L = 0, id = '';
+    for (const [s, h] of F.history) if (h.length && h[h.length - 1].at > L) { L = h[h.length - 1].at; id = s; }
+    const D = L - 50, T = D + 40, out = [], caught = [];
+    for (const p of list) caught.push(await until(p, ([id, L]) => { const C = HOST.collab, h = C.trkTime(), H = L + 1e5; C.trkTime(H); const x = C.tracker(id); C.trkTime(h); return !!x && H - x.age >= L - 1; }, [id, L], 8000));
+    try { for (const p of list) out.push(await fn(p, T)); }
+    finally { for (const p of list) await p.evaluate(() => HOST.collab.trkTime(null)).catch(() => {}); F.pause(false); }
+    return { D, T, out, caught };
+  };
+  try {
+    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--quiet'], {}, 8730);
+    const udp = +((/UDP 127\.0\.0\.1:(\d+)/.exec(R.out) || [])[1] || 0), sb = `http://127.0.0.1:${R.port}/`;
+    F = startFake({ port: udp, rate: 90, turn: TURN, move: MOVE, clock, devices });
+    const A = await sopen(sb + 'index.html#stories', 'Anna', { width: 1000, height: 760 });
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 10000);
+    const rc = await A.evaluate(() => HOST.collab.code);
+    const B = await sopen(sb + 'index.html#s=' + rc, 'Ben'), C = await sopen(sb + 'index.html#s=' + rc, 'Cleo');
+    const H = await sopen(sb + 'index.html#s=' + rc, 'Iris', { width: 320, height: 200 });
+    for (const p of [B, C, H]) await until(p, c => HOST.collab.code === c && HOST.collab.status === 'open', rc, 20000);
+    // (the airports story they open with is not this round's: its globe stops drawing in software, which would starve the
+    // pages' timers and messages for seconds; the studio draws its own once followed)
+    for (const p of [B, C, H]) { await ready(p, 'airports'); await p.evaluate(() => HOST.renderer.setAnimationLoop(null)); }
+    const ping = await (await fetch(sb + 'api/ping')).json(), on = [];
+    for (const p of [A, B, C, H]) on.push(await p.evaluate(() => HOST.collab.trkPing()));
+    check('trackers: the relay with --trackers takes the fake bridge\'s readings (its ping: trackers, 8 seen) and every page and the headset hear it has them',
+      udp > 0 && ping.trackers === true && ping.trackersSeen === 8 && on.every(Boolean), JSON.stringify({ udp, ping, on }));
+    // the Index: a pretend VR headset whose browser is not a Quest's (Chromium's own user agent), its head where the fake's
+    // 'h' is in the pretend real room (the room at ROOM there). In VR before the room uses the trackers: the question asked
+    // (in this room?), nothing to line up by yet; its first frames, slow in software, over before the trackers come
+    const head = [...apply(ROOM, [IDX.x, 1.6, IDX.z]), ROOM[3] + IDX.yaw];
+    await H.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 3000);
+    const ask0 = await H.evaluate(() => [HOST.collab.guide().status.w, HOST.room.src, HOST.collab.notes().map(n => n.title)]);
+
+    // ---- the page's Trackers section: shown, the switch writes trk.on; on but not lined up, every page told so (l '')
+    await A.evaluate(() => HOST.collab.dialog(true));
+    const shown = await until(A, () => { const b = document.querySelector('#shared .sh-trk'); return !!b && !b.hidden && /^Not used in this room/.test(document.querySelector('#shared .sh-trkst').textContent); }, null, 8000);
+    await A.evaluate(() => document.querySelector('#shared [data-sh="trkon"]').click());
+    let k = null;
+    for (let i = 0; i < 30 && !(k && k.on === true); i++) { await sleep(150); k = await key(rc); }
+    const told = [];
+    for (const p of [A, B, C, H]) told.push(await until(p, () => { const t = HOST.collab.trk(); return t.on && t.l === '' && t.heard !== null && t.heard < 2500; }, null, 6000));
+    const st0 = await A.evaluate(() => [document.querySelector('#shared [data-sh="trkon"]').textContent, document.querySelector('#shared .sh-trkst').textContent]);
+    check('trackers: the Shared dialog\'s section shows while the relay has them; its switch writes trk.on for the room, and every page and the headset hear it is not lined up yet (@trk with l \'\')',
+      shown && !!k && k.on === true && k.m === null && told.every(Boolean) && st0[0] === 'Use the PC\'s trackers in this room: on' && /^Not lined up yet/.test(st0[1]), JSON.stringify({ shown, k, told, st0 }));
+
+    // ---- lining up by hand through the relay's /api/trackers/still: the spot tracker on spot A, then sliding while spot B
+    // is read (refused), then still on spot B: trk.m the two points SteamVR reads there
+    const pick = await until(A, id => [...document.querySelectorAll('#shTrkPick option')].some(o => o.value === id), SPOT, 8000);
+    await A.evaluate(id => { const s = document.querySelector('#shTrkPick'); s.value = id; s.dispatchEvent(new Event('change', { bubbles: true })); }, SPOT);
+    const spot = async w => {
+      await A.evaluate(w => document.querySelector(`#shared [data-sh="trkspot:${w}"]`).click(), w);
+      await sleep(200);
+      await until(A, () => !/^Reading spot/.test(document.querySelector('#shared .sh-trknote').textContent), null, 8000);
+      return A.evaluate(() => document.querySelector('#shared .sh-trknote').textContent);
+    };
+    const nA = await spot('a');
+    const t0 = clock();
+    F.set(SPOT, t => ({ p: [2 + 0.03 * Math.max(0, t - t0), 0, 0], q: [0, 0, 0, 1] }));   // (sliding 3 cm a second)
+    await sleep(300);
+    const nB0 = await spot('b'), m0 = (await key(rc)).m;
+    F.set(SPOT, still([2, 0, 0]));
+    await sleep(400);
+    const nB = await spot('b');
+    for (let i = 0; i < 30 && !(k && k.m); i++) { await sleep(150); k = await key(rc); }
+    const ra = F.raw([0, 0, 0]), rb = F.raw([2, 0, 0]), mErr = k && k.m ? Math.max(dist(k.m.a, ra), dist(k.m.b, rb)) * 1000 : 99;
+    check('trackers: lining up by hand through /api/trackers/still: spot A taken, spot B refused while the tracker slides, then taken; trk.m the two points SteamVR reads on the spots (within 0.2 mm)',
+      pick && /^Spot A taken/.test(nA) && /^Spot B not taken: tracker LHR-SPOT0001 moved \d+ mm meanwhile/.test(nB0) && m0 === null && /^Lined up by hand: the spots are 2\.00 m apart/.test(nB) && !!k && k.on === true && mErr < 0.2,
+      JSON.stringify({ pick, nA, nB0, m0, nB, k, ra, rb, mErr }));
+    const st1 = await until(A, () => document.querySelector('#shared .sh-trkst').textContent === 'Lined up by hand (the spots 2.00 m apart): 8 trackers in the room.', null, 6000);
+    const used = [];
+    for (const p of [A, B, C, H]) used.push(await until(p, () => { const t = HOST.collab.trk(); return t.used && t.l === 'hand' && HOST.collab.trackers().length === 11; }, null, 6000));
+    check('trackers: lined up, the dialog says so (the spots 2.00 m apart, 8 trackers) and every page and the headset get the 11 tracked devices (no base station)', st1 && used.every(Boolean),
+      JSON.stringify({ st: await A.evaluate(() => document.querySelector('#shared .sh-trkst').textContent), used, n: await B.evaluate(() => HOST.collab.trackers().map(t => t.id)) }));
+
+    // ---- a name typed in the dialog reaches the other pages; a write of one field keeps the others (a newer app's too)
+    await until(A, id => !!document.querySelector(`#shared input[data-trkname="${id}"]`), PROP, 5000);
+    await A.evaluate(id => { const i = document.querySelector(`#shared input[data-trkname="${id}"]`); i.value = 'Cup'; i.dispatchEvent(new Event('change', { bubbles: true })); }, PROP);
+    const named = [];
+    for (const p of [B, C, H]) named.push(await until(p, id => HOST.collab.trk().names[id] === 'Cup' && (HOST.collab.trackers().find(t => t.id === id) || {}).name === 'Cup', PROP, 6000));
+    const kc = await C.evaluate(() => HOST.collab.trk().key);
+    await C.evaluate(v => HOST.collab.publish([['trk', Object.assign({}, v, { zz: 7 })]]), kc);   // (a newer app's field)
+    const zz = await until(B, () => !!HOST.collab.trk().key && HOST.collab.trk().key.zz === 7, null, 5000);
+    await B.evaluate(id => HOST.collab.trkName(id, 'Spot'), SPOT);
+    for (let i = 0; i < 30 && !(k && k.names && k.names[SPOT]); i++) { await sleep(150); k = await key(rc); }
+    const kb = await B.evaluate(() => HOST.collab.id);
+    check('trackers: a name typed in the dialog reaches the other pages and the headset; another page\'s name kept beside it, and a write of one field keeps the others (on, m, a newer app\'s field), through the relay',
+      named.every(Boolean) && zz && !!kc && !!k && k.on === true && JSON.stringify(k.m) === JSON.stringify(kc.m) && JSON.stringify(k.names) === JSON.stringify({ [PROP]: 'Cup', [SPOT]: 'Spot' }) && k.zz === 7 && k.by === kb,
+      JSON.stringify({ named, zz, k, kc }));
+    if (dir) await A.screenshot({ path: path.join(dir, 'trackers-1-dialog.png') });
+    await A.evaluate(() => HOST.collab.dialog(false));
+
+    // ---- the Index, now that the room uses the trackers: lined up by the 'trackers' frame source; the question answered
+    // for it
+    let lined = false;
+    const trace = [], tl0 = Date.now();   // (how it went: the page's relay clock against this machine's, the stream heard, estimates)
+    for (let i = 0; i < 40 && !lined; i++) {
+      await frames(H, 250);
+      const x = await H.evaluate(() => { const t = HOST.collab.trk(); return { lined: HOST.room.src === 'trackers' && !!HOST.room.frame, d: [Math.round(HOST.collab.now() - Date.now()), Math.round(HOST.collab.internals().rtt), t.heard, t.used ? 1 : 0, t.est, HOST.room.state] }; });
+      lined = x.lined; trace.push(x.d.join(' '));
+    }
+    console.log(`      the Index lined up by the trackers in ${((Date.now() - tl0) / 1000).toFixed(1)} s` + (Date.now() - tl0 > 3000 ? ' (each 0.25 s: the page\'s relay clock less this machine\'s, ms; the round trip; heard ms ago; used; estimates; state): ' + trace.join(' | ') : ''));
+    await frames(H, 600);
+    const ix = await H.evaluate(() => ({ ua: /OculusBrowser|Quest/.test(navigator.userAgent), o: HOST.room.frame && HOST.room.frame.o.slice(), x: HOST.room.frame && HOST.room.frame.x.slice(), src: HOST.room.src,
+      lu: HOST.collab.guide().status, here: HOST.collab.internals().hereSet, notes: HOST.collab.notes().map(n => n.title),
+      log: window.__collabLog.filter(e => /^(notice|align|here|trackers)/.test(e.ev)).slice(-24).map(e => [e.t, e.ev, e.state || e.title || e.here || ''].join(' ')) }));
+    const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
+    const ixCm = ix.o ? dist(ix.o, wantO) * 100 : 99, ixDeg = ix.x ? angle(Math.atan2(-ix.x[2], ix.x[0]), Math.atan2(-wantX[2], wantX[0])) * 180 / Math.PI : 99;
+    console.log(`      the Index's frame from the trackers: ${ixCm.toFixed(2)} cm and ${ixDeg.toFixed(3)} degrees from the room's`);
+    await A.evaluate(() => HOST.collab.dialog(true));
+    // (the headset's frames go on meanwhile: its presence, which carries how it lines up, goes out from them)
+    const [luA] = await Promise.all([until(A, () => /lined up \(the PC's trackers[,)]/.test((document.querySelector('#shared .sh-lu') || {}).textContent || ''), null, 8000), frames(H, 3000)]);
+    const luT = await A.evaluate(() => (document.querySelector('#shared .sh-lu') || {}).textContent || '');
+    await A.evaluate(() => HOST.collab.dialog(false));
+    check('trackers: a pretend VR headset that is not a Quest\'s browser, its head the fake\'s Index, in VR asked whether it is in the room until the trackers come, then lined up by them (src trackers) within 1 cm and 0.5 degrees; lineUp says so, the question is answered for it (In the room), never asked to calibrate meanwhile, the pages\' list says lined up (the PC\'s trackers)',
+      ask0[0] === 'ask' && ask0[1] !== 'trackers' && !ask0[2].includes('Calibrate the room') && lined && !ix.ua && ix.src === 'trackers' && ixCm < 1 && ixDeg < 0.5 && ix.lu.k === 'ok' && ix.lu.h === 'trackers' && ix.lu.text === 'Lined up by the PC\'s trackers' && ix.here === true && ix.notes.includes('In the room') && !ix.notes.includes('Calibrate the room') && luA,
+      JSON.stringify({ ask0, lined, ix, wantO, wantX, ixCm, ixDeg, luA, luT, trace }));
+
+    // ---- every page and the headset: the trackers in room coordinates within 2 mm of the truth at one held relay time
+    const hT = await held([A, B, C, H], (p, T) => p.evaluate(T => { HOST.collab.trkTime(T); return HOST.collab.trackers().map(t => ({ id: t.id, kind: t.kind, p: t.p, q: t.q, ok: t.ok })); }, T));
+    let tmm = 0, tdeg = 0, kinds = true, ids = true;
+    const want = devices.filter(d => d.k !== 'base').map(d => d.s).sort().join();
+    for (const L of hT.out) {
+      if (L.map(t => t.id).sort().join() !== want) ids = false;
+      for (const t of L) {
+        const d = devices.find(x => x.s === t.id);
+        if (!d || t.kind !== kindOf(d) || !t.ok) { kinds = false; continue; }
+        const w = truthAt(t.id, hT.D);
+        tmm = Math.max(tmm, dist(t.p, w.p) * 1000); tdeg = Math.max(tdeg, qAngle(t.q, w.q));
+      }
+    }
+    console.log(`      the trackers at a held time on 3 pages and the headset: within ${tmm.toFixed(2)} mm and ${tdeg.toFixed(3)} degrees of the truth`);
+    check('trackers: every page and the headset have the 11 devices (their kinds t, h, l, r; never the base station) in room coordinates within 2 mm and 0.2 degrees of the truth at one held relay time',
+      hT.caught.every(Boolean) && ids && kinds && tmm < 2 && tdeg < 0.2, JSON.stringify({ caught: hT.caught, ids, kinds, tmm, tdeg, n: hT.out.map(L => L.length) }));
+
+    // ---- a studio circle for the test scene where the Index stands: it walks in, the pages follow
+    const sid = await A.evaluate(b => HOST.collab.addScene('test', b), { x: IDX.x, z: IDX.z, yaw: IDX.yaw });
+    await until(A, () => !HOST.collab.internals().pending.size, null, 5000);
+    const st = await A.evaluate(id => HOST.collab.station(id), sid);
+    const inS = !!st && await walk(H, st, 'studio', ROOM[3] + IDX.yaw, 90000);
+    for (const p of [A, B, C]) await p.evaluate(id => HOST.collab.follow(id), sid);
+    for (const p of [A, B, C]) await ready(p, 'studio', 90000);
+    const sc0 = [];
+    for (const p of [A, B, C, H]) sc0.push(await sUntil(p, `STU.scene === 'test' && STUDIO.ready() && atStation() && TRK.st !== '' && TRK.at.size === 11`, 90000));
+    const stillLined = await H.evaluate(() => HOST.room.src === 'trackers');
+    check('trackers: the headset walks into a studio circle for the test scene where it stands (still lined up by the trackers), three pages follow it; every device has the 11 trackers in the studio',
+      !!sid && inS && sc0.every(Boolean) && stillLined, JSON.stringify({ sid, inS, sc0, stillLined, at: await Promise.all([A, B, C, H].map(p => sp(p, `[STU.scene, STUDIO.ready(), atStation(), TRK.st, TRK.at.size]`))) }));
+
+    // ---- a shape set (on a page's card) to follow the prop tracker going round: drawn where it should be on every device
+    await sp(A, `(setEdit(true), putItem('tkp001', 'p', norm('p', { name: 'Lamp', shape: 'cube', p: [1.4, 1.2, 0.8], q: [0, 0.2588, 0, 0.9659], size: [0.2, 0.3, 0.15] })), 0)`);
+    const gotP = [];
+    for (const p of [B, C, H]) gotP.push(await sUntil(p, `!!STU.items.get('tkp001')`, 10000));
+    await sp(A, `(select('tkp001'), itemAct('trk', '${PROP}', 'tkp001'), select(''), 0)`);
+    const rt = await sp(A, `STU.items.get('tkp001').rec.trk`);
+    const gotT = [];
+    for (const p of [B, C, H]) gotT.push(await sUntil(p, `(STU.items.get('tkp001').rec.trk || {}).id === '${PROP}'`, 10000));
+    await sleep(1000);
+    const hS = await held([A, B, C, H], async (p, T) => {
+      await p.evaluate(T => HOST.collab.trkTime(T), T);
+      if (p === H) await frames(H, 700); else await sleep(700);
+      return sp(p, `(() => { const P = STUDIO.pose('tkp001'), m = new THREE.Matrix4().fromArray(P.drawn || P.placed), a = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(a, q, s); return { p: a.toArray(), q: q.toArray(), moving: P.moving, on: STUDIO.trk('tkp001').item.on }; })()`);
+    });
+    const tp = truthAt(PROP, hS.D), wp = rt ? qRot(tp.q, rt.o).map((v, i) => v + tp.p[i]) : null, wq = rt ? qMul(tp.q, rt.q) : null;
+    let smm = 0, sdeg = 0;
+    for (const o of hS.out) { smm = Math.max(smm, wp ? dist(o.p, wp) * 1000 : 99); sdeg = Math.max(sdeg, wq ? qAngle(o.q, wq) : 99); }
+    console.log(`      a shape on the prop tracker at a held time on 3 pages and the headset: within ${smm.toFixed(2)} mm and ${sdeg.toFixed(3)} degrees of where it should be`);
+    check('trackers: a shape set on a page\'s card to follow the prop tracker going round is drawn where the tracker\'s true pose and its offset put it, on every page and the headset at one held time (within 5 mm and 0.5 degrees)',
+      gotP.every(Boolean) && !!rt && gotT.every(Boolean) && hS.caught.every(Boolean) && hS.out.every(o => o.moving && o.on) && smm < 5 && sdeg < 0.5, JSON.stringify({ gotP, rt, gotT, caught: hS.caught, smm, sdeg, out: hS.out, want: [wp, wq] }));
+
+    // ---- the puppet scene; the spot and prop trackers put away (switched off), the performer standing in a T-pose
+    await sp(A, `(openScene('puppet', 'pick'), 0)`);
+    const pu = [];
+    for (const p of [A, B, C, H]) pu.push(await sUntil(p, `STU.scene === 'puppet' && STUDIO.ready() && !!(STU.items.get('pup001') || {}).model`, 90000));
+    F.off(SPOT); F.off(PROP);
+    await sleep(1200);
+    await sp(A, `(setEdit(true), select('pup001'), itemAct('pwear', 'full', 'pup001'), itemAct('pupline', '', 'pup001'), 0)`);
+    const count = await sp(A, `!!PUP.line`);
+    const lu = await sUntil(A, `!PUP.line && !!(STU.items.get('pup001').rec.puppet || {}).on`, 15000);
+    const pr = await sp(A, `[STU.items.get('pup001').rec, PUP.note]`), rec = pr[0];
+    const mapOk = !!rec.puppet && !!rec.puppet.map && Object.keys(rec.puppet.map).length === 6 && PF.parts.every(s => rec.puppet.map[s] === PF.ID[s]) && Object.keys(rec.puppet.cal || {}).length === 6;
+    const recs = [];
+    for (const p of [B, C, H]) recs.push(await sUntil(p, `JSON.stringify(STU.items.get('pup001').rec.puppet) === ${JSON.stringify(JSON.stringify(rec.puppet))} && STUDIO.puppet('pup001').on`, 10000));
+    check('trackers: the puppet scene picked for the circle; the rig worn whole body and lined up from the performer\'s T-pose (after its 5 s countdown) through the relay\'s trackers: its six parts found, moved to where the performer stands (within 3 mm), sized to them, the record and its solving on every device',
+      pu.every(Boolean) && count && lu && mapOk && Math.hypot(rec.p[0] - AT.x, rec.p[2] - AT.z) < 0.003 && Math.abs(rec.s - 1) < 0.002 && recs.every(Boolean), JSON.stringify({ pu, count, lu, mapOk, rec, note: pr[1], recs }));
+
+    // ---- the performer walks: at one held time every device's solved bones within 1 degree of each other (and its hands
+    // and feet where the performer's are)
+    PF.walk0 = clock();
+    await frames(H, 2500);
+    const hB = await held([A, B, C, H], async (p, T) => {
+      await p.evaluate(T => HOST.collab.trkTime(T), T);
+      if (p === H) await frames(H, 900); else await sleep(900);
+      return sp(p, `(() => { const it = STU.items.get('pup001'), R = pupRig(it); GL.items.updateMatrixWorld(true); const W = n => GL.items.worldToLocal(R.bones[n].getWorldPosition(new THREE.Vector3())).toArray();
+        return { q: R.parts.map(n => R.bones[n].quaternion.toArray()), at: Object.fromEntries(['hips', 'lhand', 'rhand', 'lfoot', 'rfoot'].map(n => [n, W(n)])), on: STUDIO.puppet('pup001').on, why: STUDIO.puppet('pup001').why }; })()`);
+    });
+    let bdeg = 0, emm = 0;
+    const tb = PF.bones((hB.D - T0) / 1000), A0 = hB.out[0], b0 = PF.bones(PF.walk0);
+    for (const o of hB.out) {
+      if (!o.on || o.q.length !== A0.q.length) { bdeg = 99; continue; }
+      o.q.forEach((q, i) => { bdeg = Math.max(bdeg, qAngle(q, A0.q[i])); });
+      for (const s of ['lhand', 'rhand', 'lfoot', 'rfoot']) emm = Math.max(emm, dist(o.at[s], tb[s]) * 1000);
+    }
+    const moved = Math.max(...['lhand', 'rhand', 'lfoot', 'rfoot'].map(s => dist(b0[s], tb[s])));
+    console.log(`      the worn rig at a held time: ${A0.q.length} bones on 3 pages and the headset within ${bdeg.toFixed(4)} degrees of each other; its hands and feet within ${emm.toFixed(2)} mm of the performer's`);
+    check('trackers: the performer walking, every page\'s and the headset\'s solved bones within 1 degree of each other at one held time (and its hands and feet within 1 cm of the performer\'s)',
+      hB.caught.every(Boolean) && A0.q.length >= 20 && bdeg < 1 && emm < 10 && moved > 0.05, JSON.stringify({ caught: hB.caught, bdeg, emm, moved, why: hB.out.map(o => o.why) }));
+
+    // ---- a 3 s take on the page (its 3 s countdown), saved through the relay as models/rig.glb with Take 1; another page
+    // switches to it and plays Take 1 once the character is worn no more
+    await sp(A, `(select('pup001'), itemAct('take', '', 'pup001'), 0)`);
+    const rec0 = await sUntil(A, `!!PUP.take && PUP.take.phase === 'rec'`, 8000);
+    const rec3 = await sUntil(A, `!!PUP.take && PUP.take.samples.length > 1 && PUP.take.samples[PUP.take.samples.length - 1].t >= 3`, 15000);
+    const nk = await sp(A, `PUP.take ? PUP.take.samples.length : 0`);
+    await sp(A, `(itemAct('takestop', '', 'pup001'), 0)`);
+    const made = await sUntil(A, `!PUP.take`, 90000);
+    const note = await sp(A, `STUDIO.puppet('pup001').note`), glbPath = path.join(SC, 'puppet', 'models', 'rig.glb');
+    let clips = '', tdur = 0, tracks = 0;
+    if (fs.existsSync(glbPath)) {
+      const g = fs.readFileSync(glbPath);
+      const gl = await new Promise((res, rej) => new globalThis.THREE.GLTFLoader().parse(g.buffer.slice(g.byteOffset, g.byteOffset + g.length), '', res, rej)).catch(() => null);
+      if (gl) { clips = gl.animations.map(a => a.name).sort().join(); const tk = gl.animations.find(a => a.name === 'Take 1'); tdur = tk ? tk.duration : 0; tracks = tk ? tk.tracks.length : 0; }
+    }
+    console.log(`      a take of ${nk} keys: models/rig.glb with ${clips || 'no clips'}, Take 1 ${tdur.toFixed(2)} s and ${tracks} tracks`);
+    check('trackers: a 3 s take (its countdown, then recorded on the room\'s clock, Stop) saved through the relay as models/rig.glb with its Walk and Take 1 (about 3 s, a track per part and the hips\' place)',
+      rec0 && rec3 && made && /^Take 1 \(/.test(note) && clips === 'Take 1,Walk' && tdur >= 2.9 && tdur < 4.5 && tracks === 24, JSON.stringify({ rec0, rec3, nk, made, note, clips, tdur, tracks }));
+    const sw = await sUntil(B, `STU.items.get('pup001').rec.file === 'models/rig.glb' && !!STU.items.get('pup001').model && ((STU.items.get('pup001').E || {}).clips || []).some(c => c.name === 'Take 1')`, 30000);
+    await sp(A, `(itemAct('pupon', 'off', 'pup001'), setRec('pup001', { clip: 'Take 1', anim: 'loop', start: 'always' }), 0)`);
+    const plays = await sUntil(B, `(() => { const it = STU.items.get('pup001'); return !STUDIO.puppet('pup001').on && !!it.action && it.action.getClip().name === 'Take 1' && it.action.isRunning(); })()`, 15000);
+    const bonesB = () => sp(B, `(() => { const R = pupRig(STU.items.get('pup001')); return R.parts.map(n => R.bones[n].quaternion.toArray()); })()`);
+    const q1 = await bonesB();
+    await sleep(700);
+    const q2 = await bonesB(), rest = await sp(B, `(() => { const R = pupRig(STU.items.get('pup001')); return R.parts.map(n => R.rest[n].q.toArray()); })()`);
+    const step = Math.max(...q1.map((q, i) => qAngle(q, q2[i]))), fromRest = Math.max(...q2.map((q, i) => qAngle(q, rest[i])));
+    check('trackers: another page switches to models/rig.glb with Take 1 and plays it once the character is worn no more (its bones moving, some degrees from rest)',
+      sw && plays && step > 1 && fromRest > 5, JSON.stringify({ sw, plays, step, fromRest }));
+  } finally {
+    for (const p of pages) { await p.evaluate(() => window.__xr && window.__xr.end()).catch(() => {}); await p.context().close().catch(() => {}); }
+    if (F) F.stop();
+    await relayOff(R);
+    fs.rmSync(SC, { recursive: true, force: true });
   }
 }
 // ---- studio scenes as circles (scenesRound; --studio-scenes runs only it, also in the main run after the studio round): a
@@ -5516,6 +5885,7 @@ try {
   if (STANDBY_ONLY) { await standbyRound(); break main; }
   if (NARR_ONLY) { await narrationRound(); break main; }
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
+  if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -7780,6 +8150,8 @@ try {
   await homeRound();
   // ------------------------------ the studio's behaviours shared (a relay of its own, with --scenes) --
   await behaveRound();
+  // ------------------- the PC's Vive trackers end to end (a relay of its own with --trackers and --scenes; the fake bridge) --
+  await trackersRound(shots);
   // ------------------------------------------- camera mode (a phone filming the room; a room of its own) --
   await cameraRound(shots);
 
@@ -7862,8 +8234,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
