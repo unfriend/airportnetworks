@@ -353,6 +353,7 @@ const LITE_ACT = {
 const LITE_RANGE = {
   'ft:set': (v, _, done) => { if (editOn()) ftSet(v / 100, done); },
   'an:seek': (v, _, done) => animSeek(v, done),   // (a selected model's timeline: e6m_anim.js)
+  'ap:seek': (v, _, done) => animSeek(v, done, 'path'),   // (a recorded path's timeline: the same, its own hold)
   'up:keep': (v, ri, done) => { const r = UP.rows[+ri]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) { r.keep = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100)); if (done) upChanged(); } },
   // (every model row still to make, as it moves: their own sliders follow on the page at once)
   'up:keepall': (v, _, done) => {

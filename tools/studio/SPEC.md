@@ -1160,9 +1160,12 @@ The owner: "There should be an option to lock things in space so we cannot accid
 - **What it allows**: its other fields (light, faces, clip, colour, look, volume, a cube's lists, what a sound follows),
   *Duplicate* (a copy is never locked: it is new, to be put where it goes), Undo (it takes back what was done, the lock
   too) and the room's records (the room's word wins, as ever). An item carried when the room locks it is let go where it is.
-- **Its row**: *Lock in place* / *🔒 Unlock* by the card's *Duplicate* and *Delete* (page and headset; one Undo step), so a
-  headset's card keeps its place and size in sight; labels mark a locked item 🔒 while editing, and the Items pane's cards
-  always.
+- **Its row**: *Lock in place* / *🔒 Unlock* at the top of the card, right under its heading (page and headset; one Undo
+  step; `lockBlocks`), what holds it (`lockTop`, while something does) just above it, then the rest of the card (an
+  item's *In group ...* lines after it): the owner, 9 November 2026: "move the locked toggle all the way to the top" (v128;
+  until then by the card's *Duplicate* and *Delete*, which stay where they are). The same on every card: an object's, a
+  shape's, an empty's, a sound's, a cube's, a cut-out's and a group's. Labels mark a locked item 🔒 while editing, and the
+  Items pane's cards always.
 
 ## The scene's settings (the owner, 6 November 2026)
 
@@ -1363,34 +1366,74 @@ this section; 2: the recorder, "Recorded paths" below; curves later). `engine/e6
 
 The owner: "Studio mode items that have an animation should show a timeline and play pause in edit mode when selected",
 then "play and pause for everyone in the circle", "pause and scrubbing is temporary, once the item is not selected
-anymore or editing is switched off it goes back to its regular behaviour". `engine/e6m_anim.js` (v127).
+anymore or editing is switched off it goes back to its regular behaviour". `engine/e6m_anim.js` (v127). After trying it
+(v128): "it was a model with recorded path, just tried one with its own clips and there play pause works but i could not
+see a timeline, was a very short animation with 1.3 seconds, please add timeline and play pause also for recorded items"
+(in a headset, whose card had the time in words and no bar).
 
-- **Where**: the card of an object whose clip plays (*Loop* or *Once*, not *Off*), selected here while editing is on,
-  under its Animation rows, page and headset alike (`animCan`, `animBlocks`): *Timeline: 1.2 s of 2.0 s*, then *Pause*
-  (or *Play* while held paused), *Start* (held at 0 s, paused), *−1 s* and *+1 s* (a second back or on, round a Loop,
-  held at the ends of Once, playing on if it was), *The scene's clock* (lets go; pressable only while this device holds it); on a page also a
-  slider in tenths of a second (`stuRangeAnim`, `animSeek`) and a line saying how it plays now and that a hold lasts while
-  it is selected with editing on.
-- **A hold** (`ANIM.mine` `{ id, t, p, at, key }`: the clip's time `t` at the moment `at`, playing `p` or not, for the
-  clip and mode `key` it was made with): where the clip is from then on is `t`, plus the time since `at` while it plays,
-  wrapped for Loop, held at the end for Once (`animAt`). `at` is the relay's clock at a station (`behNow`), so every device
-  works it out alike; elsewhere this page's. A hold shows even while Pause (v122) holds everything else.
+- **Two timelines**, each with a hold of its own (a channel, `ANIM_C`: `clip` or `path`), independent of each other (a
+  model with its own clip and a recorded path has both, one held, the other not, or both):
+  - *its clip* (v127): the card of an object whose clip plays (*Loop* or *Once*, not *Off*), under its Animation rows;
+  - *its recorded path* (v128): the card of an object, a shape, an empty or a sound with a recorded path (in its record or
+    kept as a file; a sound that follows something has none playing, so none), not while it is recorded, under its
+    Recorded path rows. What it holds is the path's own clock: the item's time the pose pipeline reads (`pathT`: from the
+    scene's clock or from when shown, or since *Start again*), before its speed and Loop, Once or Back and forth
+    (`pathTime`), never a key's index; so its range is one cycle of what is seen, its length at its speed (`pathCycle`:
+    `D / speed`), twice that for Back and forth (there and back), and a Loop wraps round it as Back and forth does.
+- **Where**: selected here while editing is on (`animCan(it, ch)`, `animBlocks(it, B, ch)`), page and headset alike:
+  *Pause* (or *Play* while held paused), *Start* (held at 0 s, paused), *−1 s* and *+1 s* (a second back or on, round a
+  Loop, held at the ends of Once, playing on if it was), *The scene's clock* (lets go; pressable only while this device
+  holds it); the clip's acts `an:play`, `an:start`, `an:step`, `an:free`, the path's `ap:...`. On a page the row's label
+  says *Timeline: 1.2 s of 2.0 s*, then a slider in tenths of a second (`stuRangeAnim`, `stuRangePath`, `animSeek`; a 1.3 s
+  clip has 13 steps) and a line saying how it plays now and that a hold lasts while it is selected with editing on. On a
+  headset's card the label says *Timeline (2.0 s): playing* (or *held, paused*, *held, playing*, *by someone else*), and
+  the bar is under it.
+- **The headset's bar** (v128; `{ xr: true, bar: { id, ch } }`, `drawBar` in `engine/e9_panels.js`): a track the card's
+  width, the part played filled (cyan; amber while held paused), the playhead (ringed while held, two small bars in it
+  while paused) with its time over it, ticks at whole seconds up to 30 s (every 10 s up to 300 s, then every minute) and
+  at tenths up to 3 s, and its ends' times under it (*0 s*, *2.0 s*). Pointed at and pressed or dragged with the trigger
+  (its region's `drag`, as the foot panel's track; `e8_xr.js` calls it on the press and every frame while it is held on
+  the panel): held there, paused, for everyone at the circle (`animScrub`); let go, it stays held there. It moves while the
+  card is not drawn again: the card's signature (`animSig(true)` in `sigMain`) holds only who holds each timeline and
+  whether it plays, and each bar shown in full on the card (`P.bars`) is drawn again on its strip when its tenth of a
+  second or its hold changes, at most ten times a second (`barsTick`): on a small canvas of its own (`BARCV`), put on the
+  card's canvas in its place (the card's canvas never read back) and sent to the card's texture alone (`panelPatch`:
+  `texSubImage2D` of that canvas, then the texture's mipmaps; about 400 KB, not the card's 4.9 MB; a texture not on the GPU
+  yet or with the whole card still to go takes it as it goes; no WebGL2, the whole card). The menu's Story tab shows the
+  same texture.
+- **A hold** (`ANIM.mine`, the clip's, `ANIM.mineP`, the path's: `{ id, t, p, at, key, n }`: its time `t` at the moment
+  `at`, playing `p` or not, for the clip and mode, or the path, `key` it was made with, and `n` its number): where it is
+  from then on is `t`, plus the time since `at` while it plays, wrapped for Loop (and Back and forth), held at the end for
+  Once (`animAt`). `at` is the relay's clock at a station (`behNow`), so every device works it out alike; elsewhere this
+  page's. A hold shows even while Pause (v122) holds everything else: a held path is drawn at its held moment over its
+  placed pose, with no motion or behaviour on it (`pathHeld` in `drawnPose`, `poseStep`); carried (a grip, the arrows, its
+  group) it rests where it is placed as ever. Its own hold never makes it rest.
+- **A voice recorded with the path** (`syncAt`, e6j_voice.js) follows its hold: silent while the path is held paused,
+  from the matching moment while it is held playing, on the path's clock again once let go. Each hold is a pass of its
+  own (its number in the pass), so a decoded voice starts again at the held moment (and again as a held Loop comes round)
+  and a streamed one is set there; let go, the pass is the clock's again and it starts where the clock has it.
 - **Shared at a station**: the holding device tells everyone at its circle with a quiet effect of the studio's, `anim`
-  (`{ at, a: [id, t, p] }`: the clip's time at `at`, sent at once on each change and four times a second while it holds;
-  `{ at, a: [id], end: 1 }` when it lets go). The others keep the latest word per object (`ANIM.heard`; an older word
-  from another holder is ignored while the newer one is fresh) and draw that frame; one not heard from for 1.2 s is let
-  go by itself. Nothing is stored in the room or saved in `layout.json`, no record changes, nothing goes into Undo, and
-  `FORMAT` does not change (an older device ignores the effect and plays on its clock).
-- **It lets go** (`animStep2`, every frame, `animFree`), back to the scene's clock (or from when shown) for everyone, when
-  the object is no longer selected here, editing goes off, the object goes, its clip stops or changes (its `key`), or
-  *The scene's clock* is pressed. Two holding one object at once each see their own; the others follow the latest word.
-- **Drawing the card**: a page's card follows the clip every frame without drawing the pane again (`animCardStep`: the
-  label's time, the slider and its words), and while its slider is being moved the pane is not drawn again under the hand
-  (`ANIM.drag`; `animSig(false)` held). The headset's card is drawn again every half second while it shows
-  (`animSig(true)` in `sigMain`); its line under the rows is the page's only, so Place and Size stay near, one scroll down.
-- **For tests**: `animState()` (`{ mine, heard }`), `animSet(it, t, p)`, `ANIM_ACT`.
-- **Untested on a headset**: the card's rows and how readable the time is; how in step a held frame looks for several
-  people at a circle over real Wi-Fi.
+  (`{ at, a: [id, t, p] }`, with `c: 'p'` for a path's: its time at `at`, sent at once on each press and four times a
+  second while it holds; a slider or a bar being moved is told four times a second, its last place within a quarter of a
+  second; `{ at, a: [id], end: 1 }`, `c: 'p'` for a path's, when it lets go). The others keep the latest word per item and
+  channel (`ANIM.heard`, the path's under `<id>:p`; an older word from another holder is ignored while the newer one is
+  fresh; a word that says what the kept one says already, the same holder playing or not alike at the same moment within
+  30 ms, only keeps it fresh, so a held path's voice is not started again four times a second) and draw that moment; one
+  not heard from for 1.2 s is let go by itself. Nothing is stored in the room or saved in `layout.json`, no record changes,
+  nothing goes into Undo, and `FORMAT` does not change (an older device ignores the effect and plays on its clock).
+- **It lets go** (`animStep2`, every frame, `animFree(why, ch)`), back to the scene's clock (or from when shown) for
+  everyone, when the item is no longer selected here, editing goes off, the item goes, its clip stops or changes (its
+  `key`), its path is deleted or recorded again or its play, start or speed changes (`pathKeyOf`), a recording starts, or
+  *The scene's clock* is pressed. Two holding one item at once each see their own; the others follow the latest word.
+- **Drawing the card**: a page's card follows each timeline every frame without drawing the pane again (`animCardStep`:
+  the label's time, the slider and its words), and while a slider is being moved the pane is not drawn again under the
+  hand (`ANIM.drag`, the channel moved; `animSig(false)` held). Its line under the rows is the page's only, so a headset's
+  card keeps Place and Size near, one scroll down.
+- **For tests**: `animState()` (`{ mine, mineP, heard }`), `animSet(it, t, p, quiet, ch)`, `animBar(ch)`, `ANIM_ACT`,
+  `XR.main.patched` (the strips sent on their own) and `XR.main.bars`.
+- **Untested on a headset**: the card's rows, how the bar reads and how it drags with a real trigger on a Quest (its strip
+  sent alone and its mipmaps there); how in step a held frame or a held path looks for several people at a circle over
+  real Wi-Fi; a held path's voice in Quest Browser.
 
 ## Recorded paths (the owner, 6 November 2026)
 
@@ -1427,6 +1470,10 @@ The owner: "just animate objects by dragging them? Animation recorder?", then "a
   `d' = r d`, `q' = r q r^-1` (`pathTurned`, in `switchedRec`).
 - **Resting**: as a motion, it plays on while selected (v122) and rests at its placed pose while this device holds it or
   Pause is on here. *Play it here* (`STU.recPlay`, v120 and v121) went with that: *Start again* takes its place (below).
+- **Its timeline** (v128): selected while editing and not being recorded, its card has a timeline under its Recorded path
+  rows ("A model's timeline" above: Pause, Play, Start, a second back and on, The scene's clock, a page's slider, a
+  headset's bar): its own clock held, paused or playing, for everyone at a circle, shown through Pause, its voice
+  following it.
 - **Recording** (`REC`, this device's own: nothing goes into its record or to the room while it runs):
   - In a headset: *Record its movement* on its card arms it (`XR.rec`, as *Hold it*: one disarms the other; another
     selection, editing off or the session's end disarm it). The next grip of either hand, on it or anywhere (not at a

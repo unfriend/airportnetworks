@@ -314,13 +314,17 @@ function voicePlace(it, v, path, res) {
 const syncOf = it => { const o = it.kind === 's' && it.rec.sync ? STU.items.get(it.rec.sync) : null; return o && pathOf(o) ? o : null; };
 // where in its file a voice is at now (ms; dur: its file's length, s): { at (s into its file; below 0: it starts that much
 // later), left (s it plays on from there), pass (the path's pass: a new one starts it again), e } or null while it is
-// silent (between passes, the path resting or its keys not in)
+// silent (between passes, the path resting or its keys not in). Its path held from its card's timeline (v128, e6m_anim.js):
+// silent while held paused, from the held moment while held playing (each new hold a pass of its own, so the voice starts
+// again there), back on the path's clock once let go (a pass of the clock's again)
 function syncAt(it, now, dur) {
-  const ob = syncOf(it), P = ob && pathOf(ob);
-  if (!P || !pathK(P) || motionRests(ob)) return null;
-  const D = pathLen(P), u = Math.max(0, pathClock(ob, P, now, sceneClock(now)) * P.speed);
+  const ob = syncOf(it), P = ob && pathOf(ob), H = ob && animHold(ob, 'path');
+  if (!P || !pathK(P) || (H ? !H.p || REST.ids.has(ob.id) : motionRests(ob))) return null;
+  // (a hold's time not wrapped, so its passes count on as it plays; now may be a moment ahead, as a decoded voice starts)
+  const T = H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
+  const D = pathLen(P), u = Math.max(0, T * P.speed);
   if (!(D > 0)) return null;
-  const per = P.play === 'bounce' ? 2 * D : D, pass = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - pass * per) / P.speed;
+  const per = P.play === 'bounce' ? 2 * D : D, n = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = H ? 'h' + H.n + ':' + n : n;
   const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - skip);   // (in the path's time: its file ends at dur - skip)
   return e < len - 0.05 ? { at: skip + e, left: len - e, pass, e } : null;
 }

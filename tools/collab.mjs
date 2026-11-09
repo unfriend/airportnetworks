@@ -5020,6 +5020,9 @@ async function studioRound(dir) {
     // ---- a tint and a brightness (v125): set on one page (the box red, 125 %), on every device's record and the box's own
     // materials (each one's colour as loaded times the tint times 1.25); the saved layout.json carries them
     {
+    // (first A's last writes, the box's faces back and the group gone, on every device: the station's state is one value,
+    // so a tint written on C before A's writes have reached it is lost to them, both having changed the box's record)
+    for (const p of [A, B, C, H]) await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!b && !b.rec.faces && !groupOf('box001'); })()`, 15000);
     await sp(C, `(setEdit(true), itemAct('tint', '#ff5a4b', 'box001'), itemAct('bright', 1.25, 'box001'), 0)`);
     const tIn = [];
     for (const p of [A, B, C, H]) tIn.push(await sUntil(p, `(() => { const it = STU.items.get('box001'); if (!it || it.rec.tint !== '#ff5a4b' || it.rec.bright !== 1.25 || !it.model) return false; const T = new THREE.Color('#ff5a4b');
@@ -5056,6 +5059,40 @@ async function studioRound(dir) {
     const sOut = [];
     for (const p of [A, B, H]) sOut.push(await sUntil(p, `!STU.items.get('box001').rec.behaviour`, 8000));
     check('studio: Follow at their left set on a page, and Faces: Them pressed there (v128), are in every page\'s and the headset\'s record, and go with it', fSet === 'them' && sIn.every(Boolean) && sOut.every(Boolean), JSON.stringify({ fSet, sIn, sOut }));
+    }
+
+    // ---- a recorded path's timeline held for the circle (v128): the box given a path on a page (2 s, a loop); C holds it
+    // at 0.7 s, paused (a quiet effect, nothing stored); at one room time held on each, A, B and the headset draw the box
+    // where C does (within 1 mm), where the path has it at 0.7 s; C lets go (The scene's clock), and every device lets go
+    {
+    const K = [[0, 0, 0, 0, 0, 0, 0, 1], [1, 0.6, 0, 0, 0, 0, 0, 1], [2, 0.6, 0.6, 0, 0, 0.7071, 0, 0.7071]];
+    await sp(B, `(setEdit(true), setRec('box001', { path: { k: ${JSON.stringify(K)} } }), select(''), 0)`);
+    const hTook = [];
+    for (const p of [A, B, C, H]) hTook.push(await sUntil(p, `(() => { const b = STU.items.get('box001'); return !!(b && b.rec.path && b.rec.path.k.length === 3) && !b.gl; })()`, 15000));
+    await sp(C, `(setEdit(true), select('box001'), animSet(STU.items.get('box001'), 0.7, false, false, 'path'), 0)`);
+    const hMine = await sp(C, `[!!ANIM.mineP && !ANIM.mineP.p && +ANIM.mineP.t.toFixed(3), atStation()]`);
+    const hIn = [];
+    for (const p of [A, B, H]) hIn.push(await sUntil(p, `!!ANIM.heard.get('box001:p') && Math.abs(ANIM.heard.get('box001:p').t - 0.7) < 0.002`, 8000));
+    const hT = Date.now() + 777, hAt = [];
+    for (const p of [C, A, B, H]) {
+      hAt.push(await sp(p, `(() => { const n = HOST.collab.now; HOST.collab.now = () => ${hT}; try {
+        ${p === C ? '' : "select('');"} itemsStep(0, performance.now()); const pb = STUDIO.pose('box001'), r = STU.items.get('box001').rec, d = new THREE.Vector3(), q = new THREE.Quaternion();
+        pathAt(r.path, pathTime(r.path, 0.7), d, q); const w = new THREE.Vector3(...r.p).add(d.applyQuaternion(new THREE.Quaternion(...r.q).normalize()));
+        return [pb, pb.drawn ? Math.hypot(pb.drawn[12] - w.x, pb.drawn[13] - w.y, pb.drawn[14] - w.z) : null];
+      } finally { HOST.collab.now = n; } })()`));
+    }
+    const dOf = (a, b) => { const pd = Math.hypot(a.drawn[12] - b.drawn[12], a.drawn[13] - b.drawn[13], a.drawn[14] - b.drawn[14]); let rd = 0; for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) rd = Math.max(rd, Math.abs(a.drawn[i] - b.drawn[i])); return [pd, rd]; };
+    const hFar = hAt.every(r => r && r[0] && r[0].drawn) ? hAt.map(r => dOf(r[0], hAt[0][0])).reduce((a, b) => a.map((v, i) => Math.max(v, b[i]))) : [Infinity, Infinity];
+    await sp(C, `(ANIM_ACT['ap:free'](), 0)`);
+    const hOut = [];
+    for (const p of [A, B, H]) hOut.push(await sUntil(p, `!ANIM.heard.has('box001:p')`, 8000));
+    const hFree = await sp(C, 'ANIM.mineP');
+    check(`studio: a recorded path's timeline held on a page (the box's path at 0.7 s, paused) is where every other page and the headset draw it at one held room time (within ${(hFar[0] * 1000).toFixed(3)} mm of the first page's, where the path has it then); let go there (The scene's clock), every device lets go`,
+      hTook.every(Boolean) && hMine.join() === '0.7,true' && hIn.every(Boolean) && hFar[0] < 0.001 && hFar[1] < 0.001 && hAt.every(r => r && r[1] !== null && r[1] < 0.001) && hOut.every(Boolean) && hFree === null,
+      JSON.stringify({ hTook, hMine, hIn, hFar, hAt: hAt.map(r => r && [r[0] && r[0].moving, r[1]]), hOut, hFree }));
+    await sp(B, `(setRec('box001', { path: undefined }), 0)`);
+    for (const p of [A, B, C, H]) await sUntil(p, `!STU.items.get('box001').rec.path`, 15000);
+    await sp(C, `(select(''), 0)`);
     }
 
     // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it

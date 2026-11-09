@@ -117,16 +117,18 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
+// redraw only when what the panel shows has changed (texture uploads are not free); a timeline's bar (drawBar) moves on
+// its own strip, not the whole card
 function panelTick(P, now) {
   const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
+  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
+  if (now - P.t < 60) return;
   P.last = s; P.t = now;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = [];
+  P.regions = []; P.bars = [];
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
@@ -457,6 +459,17 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     }
     return h + 8;
   }
+  // a timeline's bar (e6m_anim.js): pointed at and pressed or dragged with the trigger, it holds the timeline there, paused,
+  // for everyone at the circle (animScrub); while it shows in full, its strip is drawn again on its own as it moves
+  if (b.bar) {
+    const bh = drawBar(ctx, P, b.bar, x, y, W, dry);
+    if (!dry && bh && inView(y, BAR.h)) {
+      const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ch = b.bar.ch, S = animBar(ch);
+      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => animScrub(ch, (px - x0) / (x1 - x0)) });
+      P.bars = (P.bars || []).concat({ x, y, w: W, ch, id: b.bar.id, q: barQ(S), at: 0 });
+    }
+    return bh;
+  }
   let h = 0;
   if (b.label) { ctx.font = vfont(20, 700); if (!dry && y > top && y + 28 < bottom) { ctx.fillStyle = VC.muted; ctx.fillText(b.label, x, y); } h += 32; }
   if (b.row) {
@@ -589,6 +602,75 @@ function drawItemCard(ctx, P, t, cx, cy, cw, ph, base, ch, inView) {
     if (g.ticks) { toggles(g.ticks, g.v, cx + 8, ty - 4, tw, CARD.tagTicks - 8, 16); ty += CARD.tagTicks; }
   }
   if (t.ticks) toggles(t.ticks, t.v, cx + 8, ty, cw - 16, CARD.ticks - 10, 19);
+}
+// ---- a timeline's bar on a headset's card (v128; the owner, 9 November 2026: "i could not see a timeline", in a headset,
+// of a 1.3 s clip; and "please add timeline and play pause also for recorded items"): a track the card's width, the part
+// played filled (cyan; amber while held paused), the playhead with its time over it (ringed while held), ticks at whole
+// seconds while it is short (and tenths up to 3 s), its ends' times under it
+const BAR = { h: 100, pad: 24 };
+const barQ = S => (S ? Math.round(S.t * 10) + (S.held ? 'h' : '-') + +S.p : '');
+function drawBar(ctx, P, b, x, y, W, dry) {
+  const S = animBar(b.ch);
+  if (!S) return 0;
+  if (dry) return BAR.h + 14;
+  const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ty = y + 50, d = S.d, xp = x0 + (x1 - x0) * (d > 0 ? clamp(S.t / d, 0, 1) : 0);
+  const col = S.held && !S.p ? VC.amber : VC.cyan, at = s => x0 + (x1 - x0) * s / d;
+  rr(ctx, x0, ty - 5, x1 - x0, 10, 5); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
+  if (xp - x0 >= 10) { rr(ctx, x0, ty - 5, xp - x0, 10, 5); ctx.fillStyle = col; ctx.fill(); }
+  ctx.fillStyle = 'rgba(160,178,202,0.6)';
+  if (d <= 3) for (let k = 1; k < d * 10 - 1e-6; k++) if (k % 10) ctx.fillRect(at(k / 10) - 0.5, ty - 8, 1, 16);
+  const st = d <= 30 ? 1 : d <= 300 ? 10 : 60;
+  for (let s = st; s < d - 1e-6; s += st) ctx.fillRect(at(s) - 1, ty - 15, 2, 30);
+  ctx.beginPath(); ctx.arc(xp, ty, P.hover === b.id ? 18 : 15, 0, 7); ctx.fillStyle = col; ctx.fill();
+  if (S.held) { ctx.lineWidth = 3; ctx.strokeStyle = VC.ink; ctx.stroke(); }
+  if (S.held && !S.p) { ctx.fillStyle = '#04131c'; ctx.fillRect(xp - 5, ty - 6, 3, 12); ctx.fillRect(xp + 2, ty - 6, 3, 12); }
+  ctx.font = vfont(22, 700); ctx.fillStyle = col;
+  const tt = S.t.toFixed(1) + ' s', tw = ctx.measureText(tt).width;
+  ctx.fillText(tt, clamp(xp - tw / 2, x, x + W - tw), y + 2);
+  ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.fillText('0 s', x0 - 6, ty + 24);
+  ctx.textAlign = 'right'; ctx.fillText(d.toFixed(1) + ' s', x1 + 6, ty + 24); ctx.textAlign = 'left';
+  return BAR.h + 14;
+}
+// every frame the card is not drawn again: each bar shown in full drawn again on its strip when its tenth of a second (or
+// its hold) has changed, at most ten times a second (on a small canvas of its own, BARCV, put on the card's in its place
+// and sent to the texture as it is: the card's canvas is never read back); its timeline gone, the whole card again
+let BARCV = null;
+function barsTick(P, now) {
+  if (now - (P.tb || 0) < 95) return;
+  const ctx = P.ctx;
+  for (const b of P.bars) {
+    const S = animBar(b.ch), q = barQ(S);
+    if (q === b.q) continue;
+    P.tb = now; b.q = q;
+    if (!S) { P.last = ''; return; }
+    const rx = Math.max(0, Math.floor(b.x - 6)), ry = Math.max(0, Math.floor(b.y - 2)), rw = Math.min(P.w - rx, Math.ceil(b.w + 12)), rh = Math.min(P.h - ry, BAR.h + 4);
+    const cv = BARCV = BARCV || document.createElement('canvas');
+    if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+    c.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)'; c.fillRect(0, 0, rw, rh);
+    c.setTransform(1, 0, 0, 1, -rx, -ry);
+    drawBar(c, P, b, b.x, b.y, b.w, false);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+    panelPatch(P, cv, rx, ry);
+  }
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card (a bar's strip ten times a second: some 400 KB, not the card's 4.9 MB). A texture
+// not on the GPU yet, or with the whole card still to go there, takes it as it goes; one without WebGL2 (a mipmapped
+// texture of any size) is sent whole
+function panelPatch(P, cv, x, y) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+  } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
