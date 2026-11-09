@@ -5,12 +5,14 @@
 // the fields its kind uses:
 // - look { who, range }: its front (+z as it is placed: a glTF model's own front) turns to face the person, about the
 //   vertical through its middle;
-// - follow { who, range, dist, speed, side }: comes to the person and stays about dist in front of them (where they look), at
-//   its own height, turned to them as look turns it;
+// - follow { who, range, dist, speed, side, face }: comes to the person and stays about dist in front of them (where they
+//   look), at its own height, turned to them as look turns it (behind them or at a side, facing the way they look; face
+//   'them' or 'along' says which, v128);
 // - avoid { who, range, dist, speed, area }: keeps at least dist away from the person, never more than area from where it
 //   is placed, and goes home once home is dist + 0.2 m clear of them;
-// - item { target, speed }: follows another object, shape or empty of the scene at the offset the two are placed at, a
-//   little behind (where that one is drawn before its motion: its behaviour and recorded path, not its spin or bob).
+// - item { target, speed, face }: follows another object, shape or empty of the scene at the offset the two are placed at, a
+//   little behind (where that one is drawn before its motion: its behaviour and recorded path, not its spin or bob),
+//   turning with it as they are placed, or (face 'them', v128) turned to look at it.
 // who: the one person it reacts to among those in a headset at its circle (pages never count): 'nearest' (the nearest
 // within range; another takes over once nearer by 0.3 m) or 'first' (the first who came within range, kept until they
 // are more than range + 0.5 m away). Distances along the floor, from its middle as drawn; speed in metres a second.
@@ -35,13 +37,21 @@
 // (tx, tz) and a turn about the vertical through its placed middle (d) from its placed pose, so it holds whatever the
 // room does to the record (the samples carry these three); an item's keeps a whole pose.
 const BEH_KINDS = ['look', 'follow', 'avoid', 'item'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
-const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed'] };
+const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side', 'face'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed', 'face'] };
 // where Follow keeps it (v127; the owner, 9 November 2026: "follow mode should also be able to be behind someone", "should
 // be able to just walk behind them and left right sounds good too"): in front of them, turned to them (the default, kept
 // as no side at all, as before v127); behind them or at their left or right, facing the way they look (it walks with them)
 const BEH_SIDE = ['front', 'behind', 'left', 'right'];
 const BEH_SIDE_WORD = { front: 'In front', behind: 'Behind', left: 'Left', right: 'Right' };
 const BEH_SIDE_AT = { front: 'Stays in front of them at', behind: 'Stays behind them at', left: 'Stays at their left at', right: 'Stays at their right at' };
+// which way Follow and Follow an item face (v128; the owner, 9 November 2026: "when a model is in follow there should be a
+// switch to look at the person or item it is following instead of into the same direction as the person"): 'them' (its
+// front to the person, or the item, it follows) or 'along' (Follow: the way the person looks; an item: the turn it is
+// placed at with that item, turning with it). Absent: as before v128 (Follow in front 'them', behind or at a side
+// 'along'; an item 'along'), so older layouts and rooms look the same; once set from the card it is kept, also when the
+// side changes
+const BEH_FACE = ['them', 'along'];
+const behFaceOf = b => b.face || (b.kind === 'follow' && !b.side ? 'them' : 'along');
 // each number's default, least and most (to the cm, held there), and the card's steps
 const BEH_NUM = {
   range: { d: 3, min: 0.5, max: 20, steps: [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20] },
@@ -62,6 +72,7 @@ function normBehaviour(x) {
     if (k === 'who') { if (has && !BEH_WHO.includes(v)) return null; r.who = has ? v : 'nearest'; }
     else if (k === 'target') { if (!okId(v)) return null; r.target = v; }
     else if (k === 'side') { if (has && !BEH_SIDE.includes(v)) return null; if (has && v !== 'front') r.side = v; }
+    else if (k === 'face') { if (has && !BEH_FACE.includes(v)) return null; if (has) r.face = v; }
     else { const N = BEH_NUM[k]; if (has && !fin(v)) return null; r[k] = clamp(r2(has ? v : k === 'dist' ? BEH_DIST[x.kind] : N.d), N.min, N.max); }
   }
   return r;
@@ -82,7 +93,7 @@ const wrapA = a => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 const flat2 = (x, z) => { const l = Math.hypot(x, z); return l > 1e-6 ? [x / l, z / l] : [0, -1]; };
 const _beH = new THREE.Vector3(), _beF = new THREE.Vector3(), _beQ = new THREE.Quaternion(), _beI = new THREE.Quaternion(), _beM = new THREE.Vector3(), _beM2 = new THREE.Vector3();
 const _bem = new THREE.Matrix4(), _bem2 = new THREE.Matrix4(), _bem3 = new THREE.Matrix4(), _beT = new THREE.Matrix4(), _beR = new THREE.Matrix4();
-const _beP = new THREE.Vector3(), _beQ2 = new THREE.Quaternion(), _beS = new THREE.Vector3();
+const _beP = new THREE.Vector3(), _beQ2 = new THREE.Quaternion(), _beS = new THREE.Vector3(), _beV = new THREE.Vector3(), _beM3 = new THREE.Vector3(), _beM4 = new THREE.Vector3();
 
 // where this device's own head looks, along the floor in the scene's frame (a test's pretend head: its fourth value, the
 // turn about the vertical, 0 facing -z)
@@ -178,10 +189,10 @@ function behWant(it, b, B, h, M0) {
   const face = (x, z) => (Math.hypot(h.p.x - x, h.p.z - z) > 0.05 ? wrapA(Math.atan2(h.p.x - x, h.p.z - z) - yaw0) : B.d);   // (its front to them; right over it: as it is)
   if (b.kind === 'look') return { tx: 0, tz: 0, d: face(M0.x, M0.z) };
   if (b.kind === 'follow') {
-    // (in front: where they look, turned to them; behind or at a side: there, facing the way they look. h.f is where they
-    // look along the floor, [x, z]; their left is [f.z, -f.x])
+    // (in front of them, behind them or at a side; turned to them, or facing the way they look (behFaceOf: by default in
+    // front turned to them, elsewhere the way they look). h.f is where they look along the floor, [x, z]; their left is [f.z, -f.x])
     const sd = b.side || 'front', [fx, fz] = h.f, [ox, oz] = sd === 'behind' ? [-fx, -fz] : sd === 'left' ? [fz, -fx] : sd === 'right' ? [-fz, fx] : [fx, fz];
-    return { tx: h.p.x + ox * b.dist - M0.x, tz: h.p.z + oz * b.dist - M0.z, d: sd === 'front' ? face(Mx, Mz) : wrapA(Math.atan2(fx, fz) - yaw0) };
+    return { tx: h.p.x + ox * b.dist - M0.x, tz: h.p.z + oz * b.dist - M0.z, d: behFaceOf(b) === 'them' ? face(Mx, Mz) : wrapA(Math.atan2(fx, fz) - yaw0) };
   }
   // avoid: home once home is clear of them; where it is while it is far enough; else pushed to dist from them, within its area
   if (Math.hypot(M0.x - h.p.x, M0.z - h.p.z) >= b.dist + BEH_HOME) return { tx: 0, tz: 0, d: 0 };
@@ -276,14 +287,17 @@ function behOne(it, hs, me, T, pn, dt) {
   behLog(it, B, T);
 }
 // an item following another: where its offset from that one, as they are placed, puts it on that one as drawn before its
-// motion (drawnPose keeps it.pre), a little behind (at most speed m/s); home when that one is not here
+// motion (drawnPose keeps it.pre), a little behind (at most speed m/s); home when that one is not here. Facing 'them'
+// (v128): at that place, turned about the vertical through its middle so its front looks at that one's middle
 function behItem(it, b, B, dt) {
   const H = it.holder, S = _bem.compose(H.position, H.quaternion, H.scale), T = STU.items.get(b.target);
   let want = S;
   if (T && T !== it && MOTION_ITEMS.includes(T.kind)) {
     const Tp = _bem2.compose(T.holder.position, T.holder.quaternion, T.holder.scale);
     if (!T.pre) T.pre = Tp.clone();   // (kept by drawnPose from now on)
-    want = _bem3.copy(T.holder.matrixAutoUpdate ? Tp : T.pre).multiply(_beT.copy(Tp).invert()).multiply(S);
+    const Td = T.holder.matrixAutoUpdate ? Tp : T.pre;
+    want = _bem3.copy(Td).multiply(_beT.copy(Tp).invert()).multiply(S);
+    if (b.face === 'them') behToward(want, motionMiddle(it, want, _beM3), motionMiddle(T, Td, _beM4), B.p ? B.q : null);
   }
   want.decompose(_beP, _beQ2, _beS);
   if (!B.p) { B.p = H.position.clone(); B.q = H.quaternion.clone(); B.s = H.scale.clone(); B.src = 'item'; }
@@ -293,6 +307,15 @@ function behItem(it, b, B, dt) {
   if (B.q.angleTo(_beQ2) < 1e-4) B.q.copy(_beQ2);
   if (B.s.distanceTo(_beS) < 1e-6) B.s.copy(_beS);
   B.on = B.p.distanceTo(H.position) > 1e-4 || B.q.angleTo(H.quaternion) > 1e-4 || B.s.distanceTo(H.scale) > 1e-6;
+}
+// the pose m turned about the vertical through its middle Mi so its front (+z) looks at Mt along the floor; right over it
+// (within 5 cm), its front as the turn q has it (where it is drawn now), or as m has it
+function behToward(m, Mi, Mt, q) {
+  const yawOf = v => (Math.hypot(v.x, v.z) > 1e-3 ? Math.atan2(v.x, v.z) : null);
+  const a0 = yawOf(_beV.set(0, 0, 1).transformDirection(m));
+  const a = Math.hypot(Mt.x - Mi.x, Mt.z - Mi.z) > 0.05 ? Math.atan2(Mt.x - Mi.x, Mt.z - Mi.z) : q ? yawOf(_beV.set(0, 0, 1).applyQuaternion(q)) : null;
+  if (a0 === null || a === null) return;
+  m.premultiply(_beT.makeTranslation(-Mi.x, -Mi.y, -Mi.z)).premultiply(_beR.makeRotationY(wrapA(a - a0))).premultiply(_beT.makeTranslation(Mi.x, Mi.y, Mi.z));
 }
 // the pipeline's base stage (POSE.base): its placed pose turned by d about the vertical through its placed middle and moved
 // by (tx, tz) along the floor; an item's whole pose; false at home (its placed pose)
@@ -376,10 +399,13 @@ function behaveBlocks(it, B, dis) {
     return;
   }
   const num = (k, words, less, more) => ({ label: words + ': ' + (k === 'speed' ? b.speed + ' m/s' : metres(b[k])), row: [{ id: 'b' + k + ':-', label: less, act: 'i:bnum', v: k + ':-1', dis }, { id: 'b' + k + ':+', label: more, act: 'i:bnum', v: k + ':1', dis }] });
+  // (Faces, v128: to them or the way they look; to the item or as placed)
+  const fc = behFaceOf(b), faces = (them, along) => ({ label: 'Faces', row: [{ id: 'bface:them', label: them, act: 'i:bface', v: 'them', on: fc === 'them', dis }, { id: 'bface:along', label: along, act: 'i:bface', v: 'along', on: fc === 'along', dis }] });
   if (b.kind === 'item') {
     const T = STU.items.get(b.target);
-    B.push({ kv: [['Follows', T ? T.rec.name : 'an item that is not here (it stays where it is placed)']] }, num('speed', 'Moves at most', 'Slower', 'Faster'),
-      { p: 'It keeps the offset it is placed at from that item and follows where that one goes (its behaviour or recorded path, not its spin or bob), a little behind. The same on every device.', c: 'faint' });
+    B.push({ kv: [['Follows', T ? T.rec.name : 'an item that is not here (it stays where it is placed)']] }, faces('The item', 'As placed'), num('speed', 'Moves at most', 'Slower', 'Faster'),
+      { p: 'It keeps the offset it is placed at from that item and follows where that one goes (its behaviour or recorded path, not its spin or bob), a little behind, ' +
+        (fc === 'them' ? 'turned to look at it' : 'turning with it as the two are placed') + '. The same on every device.', c: 'faint' });
     return;
   }
   B.push({ label: 'Reacts to', row: [{ id: 'bwho:nearest', label: 'Nearest', act: 'i:bwho', v: 'nearest', on: b.who === 'nearest', dis }, { id: 'bwho:first', label: 'First to come close', act: 'i:bwho', v: 'first', on: b.who === 'first', dis }] },
@@ -387,8 +413,8 @@ function behaveBlocks(it, B, dis) {
   if (b.kind === 'follow') {
     const sd = b.side || 'front';
     B.push({ label: 'Where', row: BEH_SIDE.map(k => ({ id: 'bside:' + k, label: BEH_SIDE_WORD[k], act: 'i:bside', v: k, on: sd === k, dis })) },
+      faces('Them', 'Where they look'), { p: fc === 'them' ? 'It turns to look at them.' : 'It faces the way they look, so it walks with them.', c: 'faint' },
       num('dist', BEH_SIDE_AT[sd], 'Closer', 'Further'));
-    if (sd !== 'front') B.push({ p: 'It faces the way they look, so it walks with them.', c: 'faint' });
   }
   if (b.kind === 'avoid') B.push(num('dist', 'Keeps away by', 'Less', 'More'), num('area', 'Stays near its place, within', 'Less', 'More'));
   if (b.kind !== 'look') B.push(num('speed', 'Moves at most', 'Slower', 'Faster'));
@@ -412,7 +438,7 @@ Object.assign(ITEM_ACT, {
     const o = STU.items.get(oid), b = it.rec.behaviour;
     if (STU.follow === it.id) STU.follow = '';
     if (!MOTION_ITEMS.includes(it.kind) || !o || o === it || !MOTION_ITEMS.includes(o.kind) || (b && b.kind === 'item' && b.target === oid)) return;
-    setRec(it.id, { behaviour: { kind: 'item', target: oid, speed: b && b.speed } });
+    setRec(it.id, { behaviour: { kind: 'item', target: oid, speed: b && b.speed, face: b && b.kind === 'item' ? b.face : undefined } });   // (another item: its Faces kept)
   },
   bwho: (it, v) => { if (BEH_WHO.includes(v)) behSet(it, b => (b.who ? { who: v } : {})); },
   bside: (it, v) => {   // (Follow's side; in front is no side at all)
@@ -421,6 +447,11 @@ Object.assign(ITEM_ACT, {
     const n = Object.assign({}, b);
     if (v === 'front') delete n.side; else n.side = v;
     setRec(it.id, { behaviour: n });
+  },
+  bface: (it, v) => {   // (Faces: written as pressed, so it is kept when the side changes; a new kind drops it)
+    const b = it.rec.behaviour;
+    if (!BEH_FACE.includes(v) || !b || !BEH_FIELDS[b.kind].includes('face') || !MOTION_ITEMS.includes(it.kind) || b.face === v) return;
+    setRec(it.id, { behaviour: Object.assign({}, b, { face: v }) });
   },
   bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => (b[k] !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, b[k], +d) } : {})); },
 });

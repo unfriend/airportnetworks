@@ -1316,7 +1316,9 @@ place of its keys) and, on a voice recorded with a movement, a sound's `sync`, `
 room's key `trk` (the PC's trackers: "Vive trackers" below) and, from the studio in the same release, its records' `trk`
 (an item following a tracker) and `puppet` (a Mixamo character worn with trackers); networks-39 in v127: the studio's
 `state()` gained an optional `side` on a `follow` behaviour (Follow behind or at a side), which an older device would
-drop). The plan is `docs/shared-space-plan.md`.
+drop; networks-40 in v128: the studio's `state()` gained an optional `face` on a `follow` and an `item` behaviour (which way
+it faces: *Them* or *Where they look*, *The item* or *As placed*), which an older device would drop). The plan is
+`docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
   like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
@@ -2810,7 +2812,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -4290,9 +4292,17 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   them, at its own height, turned to them; v127, the owner: "follow mode should also be able to be behind someone", "left
   right sounds good too": `side` `'behind'`, `'left'` or `'right'` puts it there instead, facing the way they look, so it
   walks with them; in front is no `side` at all, as before; FORMAT networks-39), `avoid` `{ who, range, dist, speed, area }` (keeps `dist` away along the floor,
-  within `area` of its place, home once home is `dist + 0.2 m` clear of them) or `item` `{ target, speed }` (follows
+  within `area` of its place, home once home is `dist + 0.2 m` clear of them) or `item` `{ target, speed, face }` (follows
   another object, shape or empty at the offset they are placed at, where that one is before its motion, `it.pre`, which
-  `drawnPose` keeps, a little behind); `who` `'nearest'` (another nearer by 0.3 m takes over) or `'first'` (kept until
+  `drawnPose` keeps, a little behind, turning with it as the two are placed). Which way Follow and Follow an item face
+  (v128; the owner, 9 November 2026: "when a model is in follow there should be a switch to look at the person or item it
+  is following instead of into the same direction as the person"): `face` `'them'` (its front, `+z` as placed, turned
+  about the vertical through its middle to the person, or to the followed item's middle as drawn before its motion; right
+  over it, within 5 cm along the floor, it keeps its turn; an item keeps its place where the offset puts it) or `'along'`
+  (Follow: the way the person looks; an item: the turn it is placed at with that item, turning with it); absent, as
+  before v128 (Follow in front `'them'`, behind or at a side `'along'`; an item `'along'`), so older layouts and rooms
+  look the same; once pressed on the card it is kept, also when the side changes, and written as given; a value other
+  than these makes the record bad; look and avoid drop it; FORMAT networks-40. `who` `'nearest'` (another nearer by 0.3 m takes over) or `'first'` (kept until
   `range + 0.5 m` away), `range` 3 m, `dist` 1 m (follow) or 1.5 m (avoid), `speed` 0.6 m/s, `area` 2 m by default, to the
   cm and held at their limits; a bad one makes the record bad. One person at a time among those in a headset at its
   circle (pages never count; outside a room this device's own head, a page's camera in Walk view too), chosen alike on
@@ -4308,12 +4318,14 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pipeline), so a path and a motion draw over it and **the record never changes**; as a motion, it goes on while selected
   and rests while held here or paused (v122). Its card (page and headset, before Motion): *Behaviour: None / Look at / Follow / Keep away
   / Follow an item...* (pointing at one, or the card's list), *Reacts to: Nearest / First to come close*, *Notices people
-  within*, Follow's *Where: In front / Behind / Left / Right* (v127), *Stays in front of them at* (*behind them*, *at their
-  left*, *at their right*) or *Keeps away by*, *Stays near its place, within*, *Moves at most*; one Undo step
-  each; a group's copy follows its own. `STUDIO.behave(id)`, `BEH.fake` and `BEH.log` for tests. FORMAT networks-35
+  within*, Follow's *Where: In front / Behind / Left / Right* (v127) and *Faces: Them / Where they look* (v128, a line under
+  it in words that match), *Stays in front of them at* (*behind them*, *at their left*, *at their right*) or *Keeps away
+  by*, *Stays near its place, within*, *Moves at most*, and an item's *Faces: The item / As placed* (v128); one Undo step
+  each (a new kind drops `face`; another item to follow keeps it); a group's copy follows its own. `STUDIO.behave(id)`, `BEH.fake` and `BEH.log` for tests. FORMAT networks-35
   (v120). Known limit: in VR the stick walk moves the scene for one headset alone, so near a boundary the others may choose
   differently for a moment. Untested on a headset: all of it at a real station (being followed, looked at or avoided life
-  size, the choice and hand-over between real headsets over Wi-Fi, how smooth 120 ms behind looks, the cost).
+  size, the choice and hand-over between real headsets over Wi-Fi, how smooth 120 ms behind looks, the cost), and how
+  Faces feels there (a model walking beside you that turns to look at you, an item turning to look at the one it follows).
 - **Motions** (v120; the owner, 6 November 2026: "Add little animations like spin and wobble etc for models?", then
   "animations do 1 and 2", 1 simple motions, 2 the recorder, "Recorded paths" below, curves later; `tools/studio/SPEC.md`,
   "Motions"; `engine/e6e_motion.js`). An object, a shape or an empty may have a `motion` in its record: `spin` (turns about

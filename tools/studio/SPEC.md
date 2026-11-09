@@ -1202,7 +1202,7 @@ headset so only react to one headset, example closest or first player who walks 
   kept only when set (none: absent), with only the fields its kind uses, in this order:
   - `'look'` `{ who, range }`: its front (its `+z` as it is placed: a glTF model's own front; a shape's and an empty's
     `+z`) turns to face the person, about the vertical through its middle (its place does not change);
-  - `'follow'` `{ who, range, dist, speed, side }`: comes to the person and stays about `dist` in front of them (where they
+  - `'follow'` `{ who, range, dist, speed, side, face }`: comes to the person and stays about `dist` in front of them (where they
     look, along the floor), at its own height, turned to them as `look` turns it; with `side` (v127; the owner, 9
     November 2026: "follow mode should also be able to be behind someone", then "should be able to just walk behind them
     and left right sounds good too") `'behind'`, `'left'` or `'right'` it stays `dist` behind them or at their left or
@@ -1212,16 +1212,27 @@ headset so only react to one headset, example closest or first player who walks 
     than `area` from where it is placed; where it stands while it is far enough, pushed straight away from them when they
     come closer, to the far side of its area when its edge would leave it too close; home once home is `dist + 0.2 m`
     clear of them; it keeps its turn;
-  - `'item'` `{ target, speed }`: follows another object, shape or empty of the scene (`target`, its id) at the offset the
+  - `'item'` `{ target, speed, face }`: follows another object, shape or empty of the scene (`target`, its id) at the offset the
     two are placed at (`inverse(target placed) × its placed`), on that one where it is drawn before its motion (its
     behaviour and recorded path, not its spin or bob: `drawnPose` keeps `it.pre` for it), a little behind (a time
-    constant of 0.3 s, at most `speed`); home when that one is not here (or is itself).
+    constant of 0.3 s, at most `speed`), turning with it as the two are placed; home when that one is not here (or is
+    itself).
+  - `face` (v128; the owner, 9 November 2026: "when a model is in follow there should be a switch to look at the person
+    or item it is following instead of into the same direction as the person"), on `'follow'` and `'item'` only:
+    `'them'` (its front turned about the vertical through its middle to the person it follows, from where it is now, as
+    `look` turns it; an item: at the place its offset gives it, turned so its front looks at the followed item's middle
+    as drawn before that one's motion, the same easing and speed; right over it, within 5 cm along the floor, it keeps
+    its turn) or `'along'` (Follow: the way the person looks, so it walks with them; an item: the turn it is placed at
+    with that item, as before). Absent, it is as before v128: Follow in front `'them'`, behind or at a side `'along'`;
+    an item `'along'`; so older layouts and rooms look the same. Once pressed on the card it is written as given and
+    kept, also when the side changes (a new kind drops it; another item to follow keeps it). An item that faces `'them'`
+    turns to its target even while that one stands where it is placed (its record never changes).
 
   `who`: `'nearest'` (the default) or `'first'`. `range` (default 3 m, 0.5 to 20), `dist` (follow 1 m, avoid 1.5 m; 0.2
   to 10), `speed` (default 0.6 m/s, 0.05 to 5) and `area` (default 2 m, 0.2 to 20), each to the cm and held at its
   limits; `target` an item's id (required for `'item'`); `side` one of `'front'`, `'behind'`, `'left'`, `'right'`
-  (`'front'` kept as none). A kind it does not know, a `who` or a `side` it does not know, a number that
-  is not one or an `'item'` without a good `target` makes the record bad (the layout counts it; the room's record is
+  (`'front'` kept as none); `face` `'them'` or `'along'`. A kind it does not know, a `who`, a `side` or a `face` it does
+  not know, a number that is not one or an `'item'` without a good `target` makes the record bad (the layout counts it; the room's record is
   ignored and the item kept); fields its kind does not use are dropped. Cubes, sounds, cut-outs and groups have none.
 - **Who it reacts to**: one person at a time, among the people in a headset at its circle (pages never count; outside a
   room this device's own head: a headset's, or the camera in Walk view on a page). Distances are along the floor from its
@@ -1245,7 +1256,8 @@ headset so only react to one headset, example closest or first player who walks 
   arrival), for `'nearest'` the newer driver (it began because it was nearer), ties by member id; the one that loses stops.
   `'item'` needs no driver: every device works it out from what it draws. Samples are kept for the items here only, the
   last 8 of each sender; nothing of them is stored in the room (no key, no `FORMAT` change for the effect). The record is
-  its item's field, shared and saved as placing is: FORMAT networks-35 (v120).
+  its item's field, shared and saved as placing is: FORMAT networks-35 (v120; `side` networks-39, v127; `face` networks-40,
+  v128: an older device would drop them when it writes the record).
 - **Drawn**: the base stage of the pose pipeline (`POSE.base`, "Motions" below): its placed pose turned by `d` about the
   vertical through its placed middle and moved by `(tx, 0, tz)` (an item's whole pose), so a recorded path and its motion
   draw over it, the model, its unseen box, labels, its cut-outs and the sounds that follow it come along, and **the record
@@ -1260,15 +1272,16 @@ headset so only react to one headset, example closest or first player who walks 
   item...* (a kind for people keeps `who`, `range`, `speed` and `area` where both have them and takes its own `dist`;
   *Follow an item...* starts a pick: a click, the trigger or a pinch on an object, a shape or an empty, or the card's list,
   sets it; *Cancel*), *Reacts to: Nearest / First to come close*, *Notices people within* (*Less* / *More* through 0.5, 1,
-  1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20 m), for follow *Where: In front / Behind / Left / Right* (v127; behind or at a side a
-  line says it faces the way they look), *Stays in front of them at* (*behind them*, *at their left*, *at their right*;
+  1.5, 2, 3, 4, 5, 6, 8, 10, 15, 20 m), for follow *Where: In front / Behind / Left / Right* (v127) and *Faces: Them /
+  Where they look* (v128, `face`; a line under it says *It turns to look at them.* or *It faces the way they look, so it
+  walks with them.*), *Stays in front of them at* (*behind them*, *at their left*, *at their right*;
   follow: *Closer* / *Further*) or *Keeps away by*
   (avoid), through 0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10 m, *Stays near its place, within* (avoid: 0.2, 0.5,
   1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20 m), *Moves at most* (*Slower* / *Faster* through 0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8,
   1, 1.5, 2, 3, 4, 5 m/s; not for look), and a line saying it is one person at a time, the same for everyone at a circle,
   pages never counting, and that it goes on while selected (a ghost where it is placed) and rests while carried; for an
-  item *Follows: <name>*, *Moves at most* and
-  a line. One Undo step each (the pick itself none). A group's *Duplicate*: a copy whose behaviour follows an item of the
+  item *Follows: <name>*, *Faces: The item / As placed* (v128), *Moves at most* and
+  a line (*turned to look at it* or *turning with it as the two are placed*). One Undo step each (the pick itself none). A group's *Duplicate*: a copy whose behaviour follows an item of the
   group follows that item's copy.
 - **For tests and the console**: `STUDIO.behave(id)` (who, whether this device drives it, where it is drawn from: `'me'`,
   `'by:<member>'`, `'home'` or `'item'`, its move and turn, whether it is off its placed pose); `STU.head`'s fourth value
@@ -1278,7 +1291,8 @@ headset so only react to one headset, example closest or first player who walks 
   the room, so near a boundary they may choose differently for a moment (the claims settle who drives).
 - **Untested on a headset**: all of it on real Quests at a station (how it feels to be followed, looked at or avoided
   life size; the choice and the hand-over between real headsets over Wi-Fi; how smooth 120 ms behind looks there; many
-  behaving items' cost), and the stick walk's limit above.
+  behaving items' cost), the stick walk's limit above, and Faces (v128) there: a model at your side that turns to look at
+  you as you walk, an item that turns to look at the one it follows.
 
 ## Motions (the owner, 6 November 2026)
 

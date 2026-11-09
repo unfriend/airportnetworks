@@ -4862,7 +4862,8 @@ async function studioRound(dir) {
 
     // ---- a model's timeline held for the circle (v127): the box selected on a page while editing, its Spin held at 1.0 s
     // there, every other page and the headset draw that frame (a quiet effect, nothing stored); deselected, they all go
-    // back to the scene's clock. And Follow's side (v127) in a record: set on a page, on every device's
+    // back to the scene's clock. And Follow's side (v127) and Faces (v128, pressed on the card: Them) in a record: set on
+    // a page, on every device's
     {
     const onClock = `(() => { const it = STU.items.get('box001'), c = sceneClock(performance.now()), w = ((c % it.dur) + it.dur) % it.dur; return !ANIM.heard.has('box001') && Math.min(Math.abs(it.action.time - w), it.dur - Math.abs(it.action.time - w)) < 0.25; })()`;
     await sp(C, `(setEdit(true), select('box001'), animSet(STU.items.get('box001'), 1, false), 0)`);
@@ -4877,10 +4878,12 @@ async function studioRound(dir) {
     await sp(C, `(setRec('box001', { behaviour: { kind: 'follow', side: 'left' } }), 0)`);
     const sIn = [];
     for (const p of [A, B, H]) sIn.push(await sUntil(p, `(STU.items.get('box001').rec.behaviour || {}).side === 'left'`, 8000));
+    const fSet = await sp(C, `(setEdit(true), itemAct('bface', 'them', 'box001'), (STU.items.get('box001').rec.behaviour || {}).face || '')`);
+    for (const p of [A, B, H]) sIn.push(await sUntil(p, `(() => { const b = STU.items.get('box001').rec.behaviour || {}; return b.side === 'left' && b.face === 'them'; })()`, 8000));
     await sp(C, `(setRec('box001', { behaviour: undefined }), 0)`);
     const sOut = [];
     for (const p of [A, B, H]) sOut.push(await sUntil(p, `!STU.items.get('box001').rec.behaviour`, 8000));
-    check('studio: Follow at their left set on a page is in every page\'s and the headset\'s record, and goes with it', sIn.every(Boolean) && sOut.every(Boolean), JSON.stringify({ sIn, sOut }));
+    check('studio: Follow at their left set on a page, and Faces: Them pressed there (v128), are in every page\'s and the headset\'s record, and go with it', fSet === 'them' && sIn.every(Boolean) && sOut.every(Boolean), JSON.stringify({ fSet, sIn, sOut }));
     }
 
     // ---- a shape, an empty, a lock and a scene setting (v119): a box that hides things and an empty with Tone following it
