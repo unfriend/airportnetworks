@@ -4495,7 +4495,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   every item that moves while editing, selected or not (the owner, 8 November 2026: "in edit mode Ghosts should always
   be visible for animated things"; at most `GHOST.build`, 4, new ones a frame; none once it rests, none with editing
   off), and since v125 a model its own clip moves while editing, the whole time its clip plays, selected or not
-  (`clipMoves`: the owner, "I do not see the ghosts of moving things in studio mode"; its parts taken in their rest pose;
+  (`clipMoves`: the owner, "I do not see the ghosts of moving things in studio mode"; its parts taken in their rest pose and put back as they were, never through the mixer, v129: with its clip standing
+  still three.js's mixer wrote nothing back and left the model in its rest pose;
   its holder never leaves its placed pose, so the page's arrows stand on the item there), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
   blue-white material (opacity 0.25, no depth written; a skinned mesh as a plain one, its rest pose; a model of more than
   100,000 triangles only its outline box, `GHOST.tris`), a shape's shape, an empty's cross and dot, a sound's speaker;
@@ -5241,7 +5242,8 @@ from there after; a ray at where it is placed (under where it is drawn) finding 
 headset's grip there carrying it from its placed pose and moving it 0.3 m; an object's ghost as many parts as its
 model's meshes, a big one (`GHOST.tris` lowered) only its outline box, an empty's two parts, a sound's (its own path)
 two, none once deselected; the box with its clip playing while editing: a ghost at its placed pose, and still once
-selected, the page's arrows on its holder there (v125); Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
+selected, the page's arrows on its holder there (v125); its ghost built again while its clip stands still, the model
+keeping its frame (v129); Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
 clock, the pane saying so, `state()` unchanged), the card's switch playing them again (the arrows back on the ghost), P
 pausing (the arrows back on the item), editing off playing them again; Start again on a motion that starts when shown
 (its clock from now, no Undo step); a cut-out on the spinning box and a sound following the orbiting empty, each

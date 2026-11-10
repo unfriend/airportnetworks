@@ -5696,6 +5696,13 @@ if (runs('studio motions')) {
           const bh = STU.items.get('box001').holder, gs = STUDIO.ghost('box001');
           if (!gs || !gs.shown || !same(gs.at, bh.matrix.toArray(), 1e-6)) o.push('selected with its clip playing, its ghost went: ' + JSON.stringify(gs));
           if (GL.tc && (GL.tc.object !== bh || tcTarget(STU.items.get('box001')) !== bh)) o.push('selected with its clip playing, the arrows are not on its holder (its ghost)');
+          // (v129: its ghost built again while its clip stands still: the model keeps its frame. The mixer writes no value
+          // it wrote already, so putting the frame back by mixer.update(0) left it in its rest pose)
+          { const bi = STU.items.get('box001'), enc = list => list.map(a => a.map(v => +v.toFixed(5)).join()).join('|');
+            const pose = () => enc(bi.model.rest.map(([n]) => n.position.toArray().concat(n.quaternion.toArray()))), rest0 = enc(bi.model.rest.map(([, p, q]) => p.toArray().concat(q.toArray())));
+            M.at('box001', 0.6); M.at('box001', 0.6); const p0 = pose();
+            ghostDrop('box001'); M.at('box001', 0.6);
+            if (p0 === rest0 || pose() !== p0 || !(STUDIO.ghost('box001') || {}).shown) o.push('its ghost built again with its clip standing still: the model left its frame for its rest pose: ' + JSON.stringify({ posed: p0 !== rest0, kept: pose() === p0, ghost: STUDIO.ghost('box001') })); }
           select(''); M.at('box001', 1);
           }
         else o.push('the box has no clip to check its ghost with'); }

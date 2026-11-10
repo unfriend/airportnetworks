@@ -1,7 +1,8 @@
 {
-  "version": "networks-v128",
-  "date": "9 November 2026",
+  "version": "networks-v129",
+  "date": "10 November 2026",
   "new": [
+    "v129 is v128 with one fix, the first release on the main site since v121: a model in the studio whose own clip stood still (Pause, a held timeline, a clip played once to its end) no longer drops into its rest pose when its ghost is drawn while editing.",
     "Moving with the sticks in a shared room: a VR headset that is elsewhere (it answered Somewhere else) can now move with the sticks (click a stick twice). The others see it move, and moving into a circle with the sticks enters it, Back to the lobby too. In the room with the others it stays off: there you walk for real.",
     "Studio, Follow: a Faces row. Them turns it to look at the person; Where they look faces the way they look. It works with every side (In front, Behind, Left, Right).",
     "Studio, Follow an item: a Faces row. The item turns it to look at the item it follows; As placed keeps the turn it is placed at with that item.",
@@ -11,6 +12,7 @@
     "The Vive trackers' bridge runs with uv: uv run tools/trackers/bridge.py fetches Python and openvr by itself the first time (winget install astral-sh.uv once)."
   ],
   "test": [
+    "Studio, editing on, a model whose clip plays: Pause, then select it and something else: it keeps its frame (before, it fell into its T-pose). The same with a clip set to Once, after it ends.",
     "Two headsets in a room, one in VR answering Somewhere else: click a stick twice, move into a circle and into Back to the lobby, and watch it move from the other headset. Then answer In this room in the menu and check you are back where you stand.",
     "Studio at a circle: a model on Follow, Behind or at your Left, with Faces: Them; walk about. Then Faces: Where they look.",
     "Studio: Follow an item with Faces: The item; move or animate the item it follows.",
@@ -27,6 +29,6 @@
     "The headset's timeline bar: how it reads and drags with a real trigger, and its cost on a Quest (its strip redrawn up to ten times a second).",
     "A held path's voice heard in Quest Browser.",
     "uv on Windows, and the bridge with SteamVR and real trackers (still to be switched on).",
-    "The full test suites did not run (dev gets the cheap checks; the suites run before main)."
+    "The full test suites ran whole before the main site moved (relay, peer, smoke, sound, shared rooms, the password, live updates, the update from v121): only in headless Chromium."
   ]
 }

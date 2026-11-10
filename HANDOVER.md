@@ -47,36 +47,24 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `main` is networks-v121 (`5524684`, released on 7 November): what visitors get at
-    https://stories.lbi-netmed.com/ (GitHub Pages) and what the main site's relay runs (https://main.lab.lbi-netmed.com/).
-    `dev` is networks-v128 (FORMAT networks-40; v126 was `f150cb3` with the handover's docs after it): the test place,
-    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Between them are v122 to v128 (the
-    entries below). The AI agents' working branch for v128, `claude/affectionate-pasteur-stzjl3`, is the same commit as
-    `dev`; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs. Nothing is half done on any branch.
-  - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123) and checked that Android's screen
-    recorder films camera mode's AR, and on 9 November tried v127's studio items (the feedback that made v128). Nothing
-    else of v123 to v128 has been tried on a headset, a phone or the trackers' PC (the trackers are still to be switched
-    on). `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v128; the others' are in their entries below.
-  - *Before `main` moves again* (the release flow, `docs/setup-and-release.md` section 4):
-    1. Try `dev` on the devices (a Quest, an Android phone, the Windows PC with SteamVR and the trackers:
-       `tools/trackers/README.md`).
-    2. Run the full suites, none of which has run whole on v124 to v128: the smoke test, `node tools/audio.mjs` (sound
-       changed in v124), `node relay/test.mjs`, `node tools/collab.mjs` (about a quarter of an hour, more with the new
-       rounds), `node tools/live.mjs` (the release script changed) and `node tools/update.mjs` against v121 (`sw.js`'s
-       rules changed: `whatsnew.json` passes through); also `node tools/studio/test-ik.mjs` and
-       `node tools/studio/test-images.mjs`.
-    3. Watch the studio round: `node tools/collab.mjs --studio` failed its tint step in two runs on v126 ("no device got
-       the tint"), not diagnosed; on v127 (9 November) its tint step passed in three runs, which ended all good, one
-       failure (since fixed: the test) and, once, the voice-with-the-movement check (every device's moment of the file
-       `null`), which passed in the other two: a timing to keep an eye on. v128's timeline lane found the tint step a race
-       in the test (C's tint lost to A's earlier writes of the same box still in flight: the station's state is one value)
-       and made it wait for those writes on every device; with that the round was all good.
-    4. Look at the touch-emulation blocks of the smoke test (`--only phones`, `--only 'focus mode'`, the occlusion
-       steps on a pretend phone): since v125 a pretend phone's AR request also asks for `dom-overlay`, which a test that
-       checks the exact list of features would trip over (a review's note).
-    5. Then bump nothing (v128 is released on `dev`): fast-forward `main` to `dev` and push (`git push origin
-       dev:main`). That also redeploys the main site's relay on Coolify. `FORMAT` goes from networks-35 to networks-40,
-       so a page still on v121 is asked to reload and cannot share a room with a v128 device until it has.
+  - *The branches.* `main` and `dev` are both networks-v129 (FORMAT networks-40), released on 10 November 2026 after the
+    first whole release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/
+    (GitHub Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/), and the test place,
+    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Until then `main` was networks-v121
+    (`5524684`, 7 November); v122 to v129 are the entries below. The AI agents' working branch,
+    `claude/affectionate-pasteur-stzjl3`, is the same commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
+    Nothing is half done on any branch.
+  - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
+    recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
+    on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
+    owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). `whatsnew.json` (developer mode's box, `#dev=on`) lists
+    what to try for v129 (v128's list and its fix); the others' are in their entries below.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v129 on the devices (a Quest, an Android phone,
+    the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
+    cheap checks and to `main` after the full suites (step 7 there). Timings to keep an eye on in the suites: the studio
+    round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
+    passed when run again), peer to peer's hand-over from a headset that hosts, and a code with no room (both red once in
+    v129's run, under load, and good when run again).
   - *Open points the reviews found and nobody fixed* (none blocks a release; each is a few hours or less):
     - The Index lined up by the trackers (`trkEstimate` in `shared.js`): the trackers' samples carry the time the
       bridge read them, the head its predicted pose for the display; with the stillness gate at 0.5 m/s a slow drift
@@ -104,7 +92,30 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
-- **networks-v128 (9 November 2026; FORMAT networks-40, shell 128), on `dev`: the owner's feedback on v125 and v127.**
+- **networks-v129 (10 November 2026; FORMAT networks-40, shell 128), on `main` and `dev`: v128 through the first whole
+  release run since v121, and the one bug it found.** The owner: "dev looks good, run all the tests then put that on main".
+  - The run (the list in `docs/setup-and-release.md`, step 7): the builds' and release checks, `relay/test.mjs` (724
+    checks), `tools/peer.mjs`, `tools/audio.mjs`, `tools/live.mjs`, `tools/update.mjs` against v121 and
+    `tools/collab.mjs --token` were good the first time; the smoke test had 4 red results and the shared-room run 4 (648
+    good).
+  - The bug, from v125's ghosts: a model its own clip moves has a ghost while editing, built from its parts in their rest
+    pose, and its frame was put back by `mixer.update(0)`. three.js's mixer writes a value only when it differs from the
+    one it wrote last, so with the clip standing still (Pause, a held timeline, a clip played once to its end, a held
+    clock) it wrote nothing and the model stayed in its rest pose until its clip moved again. Now the parts' pose is kept
+    and put back as it was (`ghostBuild`, `tools/studio/engine/e6h_ghost.js`). Found by the studio follow step (a voice on
+    the dancer's head 0.27 m off after her switch to a GLB; only after the studio's other blocks, by when the ghost was
+    built); a step of its own checks it now (`--only 'studio motions'`, which fails on v128's code).
+  - The tests' own, fixed in the tests: the studio's pixel checks (faces and tint; the same helper in shapes and texture
+    swaps) were lit by the page's camera, which moves only in the page's frames, so a slow machine lit two shots of one
+    check differently: each shot is now lit from its own camera. The studio's tracker was fed through the shell's `trkIn`
+    outside a room (the shell takes `@trk` only in one; the check had never run with the shell's hook). Three stick clicks
+    in the shared-room run's headset menu test read the menu before v125's 0.4 s wait for a second click.
+  - The machine's, good when run again alone: a code with no room (the page still connecting after 8 s, with other tests
+    running beside it) and peer to peer's hand-over from a headset that hosts.
+  - Then, on v129, before `main` moved: the smoke test whole, `tools/collab.mjs --quick`, `tools/live.mjs` and
+    `tools/update.mjs` against v121 again.
+  - Untested on devices: as v128 (`whatsnew.json`).
+- **networks-v128 (9 November 2026; FORMAT networks-40, shell 128), on `dev`, then `main` as v129: the owner's feedback on v125 and v127.**
   The owner tried v127 and asked for three things; built in three lanes (each in its own worktree, one Sonnet review each,
   one fix round where a review found something real), merged by the integrator:
   - *Moving with the sticks in a shared room* ("should also work in shared rooms everywhere when the user is in vr and

@@ -23562,12 +23562,15 @@ function ghostBuild(it) {
   const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = false; g.add(o); return o; };
   const hit = (n, geo) => { const h = add(new THREE.Mesh(geo, HIDDEN), n, 0); h.userData.id = it.id; h.userData.ghost = true; G.hits.push(h); };
   if (it.kind === 'o') {
-    // (a model its clip moves: its parts taken in their rest pose, then its clip's frame put back at once, as it was)
-    const rest = !!(it.action && it.model.rest);
+    // (a model its clip moves: its parts taken in their rest pose, then put back exactly as they were. Not by the mixer:
+    // three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving (Pause,
+    // a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in its rest
+    // pose)
+    const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
     if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
     if (!(it.E && it.E.info) || it.E.info.tris > GHOST.tris) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
     else it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, mat), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
-    if (rest && it.mixer) { it.mixer.update(0); H.updateWorldMatrix(true, true); }
+    if (was) { it.model.rest.forEach(([n], i) => { n.position.copy(was[i][0]); n.quaternion.copy(was[i][1]); n.scale.copy(was[i][2]); }); H.updateWorldMatrix(true, true); }
     hit(it.proxy, BOX1);
   } else if (it.kind === 'p') { add(new THREE.Mesh(it.look.mesh.geometry, mat), it.look.mesh, 3); hit(it.look.mesh, it.look.mesh.geometry); }
   else {

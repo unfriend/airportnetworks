@@ -227,13 +227,13 @@ is GitHub Pages' custom domain for `main`.
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v128` on `dev` now, `main` at `networks-v121`, so `networks-v129` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v129` on `dev` and `main` now, so `networks-v130` next) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-40` on `dev` now; `main` has `networks-35`) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-40` on `dev` and `main` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.
@@ -261,9 +261,10 @@ is GitHub Pages' custom domain for `main`.
    `node tools/release.mjs --check`): the build check, `node tools/release.mjs --check`, smoke, update, live updates,
    relay and shared rooms, plus sound if you touched sound and the room test if you touched it. All of them must pass.
 
-   **The first release run after v121 must be whole.** `main` is `networks-v121`; v122 to v128 are on `dev` only, and
-   the full suites have not run whole on v124 to v128. Before `main` moves to them, run all of these (section 3 has
-   what each needs):
+   **A whole release run** is all of these (section 3 has what each needs). The first after v121 ran on 9 and 10
+   November 2026 for v128 (`main` went from v121 to v129): run it whole again when several releases have gone to `dev`
+   without one, or when a change reaches far. Of its eight red results, five were the tests' own (fixed in the tests),
+   two the machine's (a load or a timing; they passed when run again) and one a real bug (v129, HANDOVER.md):
 
    ```sh
    for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done
@@ -271,7 +272,7 @@ is GitHub Pages' custom domain for `main`.
    node tools/studio/scan.mjs tools/studio/test/scenes --check
    node tools/smoke.mjs http://127.0.0.1:8123/          # the whole test: no --only
    git worktree add /tmp/old origin/main && node tools/update.mjs /tmp/old . && git worktree remove /tmp/old
-                                                        # against v121: sw.js changed (whatsnew.json passes through it)
+                                                        # against what main has (sw.js changed)
    node tools/live.mjs                                  # tools/release.mjs changed
    node relay/test.mjs                                  # its --trackers part included
    node tools/collab.mjs                                # every round, the --trackers round included
