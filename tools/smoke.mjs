@@ -8455,7 +8455,7 @@ if (runs('stick moving')) {
   const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const noMove = t => !t.space && !t.x && !t.z && !t.yaw;   // (no travel: three.js's space is the real one)
 
-  await step('stick moving: off by default; a stick clicked twice turns it on and off (a notice, kept across a reload); one click opens the menu only after 0.4 s, two never', async () => {
+  await step('stick moving: off by default; the left stick clicked twice turns it on and off (a notice, kept across a reload); one click opens the menu only after 0.4 s, two never', async () => {
     const bad = [];
     await openW('qubits');
     if (await wp.evaluate(() => HOST.xr.walk() || localStorage.getItem('xrWalk') !== null)) bad.push('not off by default');
@@ -8479,13 +8479,14 @@ if (runs('stick moving')) {
     const both = await wp.evaluate(() => [HOST.collab.menu, HOST.xr.walk()]);
     if (!(both[0] && both[1])) bad.push('both sticks clicked at once: the menu open ' + both[0] + ', still moving ' + both[1]);
     await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
-    // kept across a reload; the right stick clicked twice turns it off
+    // kept across a reload; the left stick clicked twice turns it off (the right stick's double click is the spaceship's
+    // since v132: the spaceship steps)
     await wp.reload(); await wp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 60000 });
     if (!await wp.evaluate(() => HOST.xr.walk())) bad.push('not kept across a reload');
     await openW('qubits');
-    await click('R', 2);
+    await click('L', 2);
     const off = await wp.evaluate(() => [HOST.xr.walk(), localStorage.getItem('xrWalk')]), n2 = await note();
-    if (off[0] || off[1] !== 'off' || !n2.startsWith('Moving with the sticks: off')) bad.push('the right stick clicked twice: ' + JSON.stringify(off) + ' ' + n2);
+    if (off[0] || off[1] !== 'off' || !n2.startsWith('Moving with the sticks: off')) bad.push('the left stick clicked twice again: ' + JSON.stringify(off) + ' ' + n2);
     // two clicks 0.6 s apart: the menu twice (open, shut), never moving
     await wp.waitForTimeout(500);
     await click('L', 1); await wp.waitForTimeout(600); await tick(1);
@@ -8736,11 +8737,11 @@ if (runs('stick moving')) {
     await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
     const a1 = await seen(), u1 = await stuSeen();
     if (u1.mode !== 'own' || Math.abs(dist(flat(u1.hs), flat(u0.hs)) - 1.5) > 0.03 || dist(a1.head, a0.head) > 1e-6 || !noTravel(a1.travel)) bad.push(where + ': the studio\'s own walk: ' + JSON.stringify({ mode: u1.mode, hs: [u0.hs, u1.hs], head: [a0.head, a1.head], travel: a1.travel }));
-    if (!/^Sticks: the studio's\. Carried, the sticks steer it: .*Click a stick twice to move with them instead\.$/.test(u1.card.split(' | ').pop())) bad.push(where + ': the card under Carry it, the studio\'s: ' + u1.card);
+    if (!/^Sticks: the studio's\. Carried, the sticks steer it: .*Click the left stick twice to move with them instead\.$/.test(u1.card.split(' | ').pop())) bad.push(where + ': the card under Carry it, the studio\'s: ' + u1.card);
     // clicked twice: moving you, its words; nothing jumps
     await click('L', 2);
     const n1 = await note(), a2 = await seen(), u2 = await stuSeen();
-    if (!(await wp.evaluate(() => HOST.xr.walk() && HOST.xr.walkSelf())) || n1 !== 'Sticks: moving you: Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.') bad.push(where + ': clicked twice: ' + n1);
+    if (!(await wp.evaluate(() => HOST.xr.walk() && HOST.xr.walkSelf())) || n1 !== 'Sticks: moving you: Left stick: move. Right stick: turn. Click the left stick twice for the studio\'s.') bad.push(where + ': clicked twice: ' + n1);
     if (u2.mode !== 'move' || !a2.walking || dist(a2.head, a1.head) > 1e-6 || dist(u2.walk, u1.walk) > 1e-9) bad.push(where + ': switching to moving moved something: ' + JSON.stringify({ mode: u2.mode, head: [a1.head, a2.head], walk: [u1.walk, u2.walk] }));
     if (!/^Sticks: moving you\. Carried, it comes along/.test(u2.card.split(' | ').pop())) bad.push(where + ': the card under Carry it, moving: ' + u2.card);
     if (await rowOK() !== 'on') bad.push(where + ': the menu\'s row, moving: greyed');
@@ -8768,7 +8769,7 @@ if (runs('stick moving')) {
     // clicked twice again (still carrying): the studio's, its words; nothing jumps; the right stick up pushes the box away
     await click('L', 2);
     const n2 = await note(), a8 = await seen(), u8 = await stuSeen();
-    if (await wp.evaluate(() => HOST.xr.walk()) || n2 !== 'Sticks: the studio\'s: Walk, turn, steer what you carry. Click a stick twice to move with them.') bad.push(where + ': clicked twice again: ' + n2);
+    if (await wp.evaluate(() => HOST.xr.walk()) || n2 !== 'Sticks: the studio\'s: Walk, turn, steer what you carry. Click the left stick twice to move with them.') bad.push(where + ': clicked twice again: ' + n2);
     if (u8.mode !== 'own' || dist(u8.walk, u7.walk) > 1e-9 || dist(u8.box, u7.box) > 1e-6 || !noTravel(a8.travel)) bad.push(where + ': switching back moved something: ' + JSON.stringify({ walk: [u7.walk, u8.walk], box: [u7.box, u8.box], travel: a8.travel }));
     await stick('R', 0, -1); await tick(30); await stick('R', 0, 0); await tick(1);
     const u9 = await stuSeen();
@@ -8842,6 +8843,399 @@ if (runs('stick moving')) {
     if (miss.length) errors.push('stick moving: ' + miss.join('; '));
   });
   await wp.close();
+}
+// The spaceships (v132, HOST.ships, ships.js; the owner, 10 November 2026: "if we double click the right stick in ar or vr
+// mode we get a little spaceship that we can control with the right controllers position in space"). In a page of its own
+// with the stick moving steps' pretend VR headset (its frames through the session's own requestAnimationFrame, so the
+// shell's hook steps the ship before the story's frame; 60 frames a second on the test's clock, which the ship's relay
+// time follows here: HOST.ships.testClock), two controllers with gamepads whose grips the test turns. --only spaceship
+if (runs('spaceship')) {
+  const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  sp.on('pageerror', e => errors.push('spaceship: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('spaceship: ' + m.text()); });
+  const tick = (n, ms) => sp.evaluate(([n, ms]) => window.__wtick(n, ms), [n || 1, ms || 1000 / 60]);
+  const secs = s => tick(Math.round(s * 60));
+  const openS = async key => {
+    await sp.goto('about:blank');
+    await sp.goto(base + 'index.html#' + key);
+    await sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 60000 });
+    await sp.evaluate(() => {
+      const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
+      const W = window.__w = { head: { p: [0, 1.6, 0], yaw: 0 }, t: 5000, raf: [], last: null, planes: null };
+      const sp = name => ({ name, addEventListener() {}, removeEventListener() {} });
+      const REF = W.ref = sp('local');
+      REF.getOffsetReferenceSpace = T => Object.assign(sp('moved'), { base: REF, T });
+      const into = (s, m) => (s === REF ? m.clone() : s && s.base === REF ? new M4().fromArray(s.T.matrix).invert().multiply(m) : null);
+      const pose = m => { if (!m) return null; const p = new V3(), q = new Q(); m.decompose(p, q, new V3()); return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) }, views: [], emulatedPosition: false }; };
+      const at = (x, y, z, yaw) => new M4().compose(new V3(x, y, z), new Q().setFromAxisAngle(new V3(0, 1, 0), yaw || 0), new V3(1, 1, 1));
+      const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [{ pulse(v, ms) { (W.buzz = W.buzz || []).push([v, ms]); return Promise.resolve(true); } }] });
+      const L = W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Lray'), gripSpace: sp('Lgrip'), gamepad: pad() };
+      const R = W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Rray'), gripSpace: sp('Rgrip'), gamepad: pad() };
+      const real = W.real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)]]);
+      // a controller's grip and ray held at p, turned (degrees) about the vertical, then up, then rolled right about its own forward axis
+      W.hold = (hand, p, yaw, pitch, roll) => { const m = new M4().compose(new V3(...p), new Q().setFromEuler(new THREE.Euler((pitch || 0) * Math.PI / 180, (yaw || 0) * Math.PI / 180, -(roll || 0) * Math.PI / 180, 'YXZ')), new V3(1, 1, 1)); real.set(W[hand].gripSpace, m); real.set(W[hand].targetRaySpace, m.clone()); };
+      W.frame = () => {
+        const f = { getViewerPose: s => pose(into(s, at(...W.head.p, W.head.yaw))), getPose: (s, b) => (real.has(s) ? pose(into(b, real.get(s))) : null), getJointPose: () => null };
+        if (W.planes) f.detectedPlanes = W.planes;
+        return f;
+      };
+      const ls = {};
+      W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R],
+        addEventListener(type, fn) { (ls[type] = ls[type] || []).push(fn); }, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb),
+        fire(type, e) { for (const fn of (ls[type] || []).slice()) { if (e && e.__stop) break; fn(e); } } };
+      // a press as a session fires it: a plain event whose stopImmediatePropagation the listeners after it then miss
+      W.press = (src, type) => { const e = { type, inputSource: src, frame: W.last, __stop: false, stopImmediatePropagation() { this.__stop = true; } }; W.s.fire(type, e); return e; };
+      HOST.renderer.xr.getReferenceSpace = () => REF;
+      HOST.renderer.setAnimationLoop(null);
+      HOST.session = W.s; HOST.mode = 'immersive-vr';
+      // (what three.js and the stories would hear: a listener after the shell's own)
+      W.heard = [];
+      for (const type of ['selectstart', 'select', 'selectend', 'squeezestart', 'squeeze', 'squeezeend']) W.s.addEventListener(type, e => W.heard.push([e.inputSource.handedness, type]));
+      HOST.cur.peek('(XR.session = window.__w.s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.playing = false)');
+      HOST.ships.testClock(true);
+      window.__wtick = (n = 1, ms = 1000 / 60) => {
+        for (let i = 0; i < n; i++) {
+          W.t += ms;
+          const f = W.last = W.frame();
+          for (const cb of W.raf.splice(0)) cb(W.t, f);
+          HOST.cur.peek(`(() => {
+            xrBegin(window.__w.last, ${ms / 1000});
+            const hand = typeof xrPlaceGlobe === 'function', pn = performance.now();
+            let S;
+            if (APP.mode === 'story') { const ts = storyT(APP.t); S = storyState(ts); if (hand) xrPlaceGlobe(storyCam(ts)); else { xrPlace(storyCam(ts)); K.U.uTime.value = ts; updateSets(S, ts, 0.016, true); } }
+            else { S = hand ? exploreStep(0.016) : exploreStep(0.016, pn); orbitStep(pn); if (hand) xrPlaceGlobe(orbit.cur); else { xrPlace(orbit.cur); updateSets(S, pn / 1000, 0.016, false); } }
+            if (hand) applyUniforms(S, APP.mode === 'explore');
+            GL.scene.updateMatrixWorld(true); xrUpdate(S); GL.scene.updateMatrixWorld(true);
+          })()`);
+        }
+      };
+      window.__wtick(3);
+    });
+  };
+  const st = () => sp.evaluate(() => HOST.ships.state());
+  const click = (hand, times) => sp.evaluate(([hand, times]) => { const b = window.__w[hand].gamepad.buttons[3];
+    for (let k = 0; k < times; k++) { b.pressed = true; window.__wtick(1); b.pressed = false; window.__wtick(1); } }, [hand, times || 1]);
+  const btn = (hand, i, v) => sp.evaluate(([hand, i, v]) => { const b = window.__w[hand].gamepad.buttons[i]; b.value = v; b.pressed = v > 0.5; }, [hand, i, v]);
+  const hold = (hand, p, yaw, pitch, roll) => sp.evaluate(a => window.__w.hold(...a), [hand, p, yaw || 0, pitch || 0, roll || 0]);
+  const note = () => sp.evaluate(() => { const n = HOST.collab.notes().slice(-1)[0] || {}; return [n.title || '', n.text || ''].join(': '); });
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const D = 180 / Math.PI, turnBy = (a, b) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return d; };
+  // launched with the right controller level at (0.2, 1.1, -0.3), the head at (0, 1.6, 0) facing -z; frozen drones
+  const fresh = async key => {
+    await openS(key || 'qubits');
+    await hold('R', [0.2, 1.1, -0.3]);
+    await sp.evaluate(() => { HOST.ships.debug.freeze(true); HOST.ships.launch(true); });
+    await tick(2);
+  };
+
+  await step('spaceship: the right stick clicked twice launches (a notice, no menu), the left stick twice still moves you, both at once one menu; a tracked right hand is refused; the ship 0.5 m ahead of the controller, flying where the head faces', async () => {
+    const bad = [];
+    await openS('qubits');
+    await hold('R', [0.2, 1.1, -0.3]);
+    await click('R', 2); await tick(2);
+    const s0 = await st(), n0 = await note();
+    await sp.waitForTimeout(500); await tick(1);
+    const m0 = await sp.evaluate(() => HOST.collab.menu);
+    if (!s0.flying || m0) bad.push('the right stick twice: flying ' + s0.flying + ', the menu ' + m0);
+    if (!/^Spaceship: Tilt the right controller to turn/.test(n0)) bad.push('the launch notice: ' + n0);
+    const want = [0.2, 1.1, -0.3 - 0.5];
+    if (dist(s0.p, want) > 0.1 || Math.abs(s0.yaw) > 0.01 || Math.abs(s0.pitch) > 0.01) bad.push('the ship at ' + s0.p.map(v => v.toFixed(3)) + ' yaw ' + s0.yaw.toFixed(3) + ', not 0.5 m ahead of the controller facing -z');
+    await click('L', 2); await tick(1);
+    const w = await sp.evaluate(() => HOST.xr.walk());
+    if (!w) bad.push('the left stick twice did not turn moving with the sticks on');
+    await click('L', 2); await tick(1);
+    await sp.evaluate(() => { const l = window.__w.L.gamepad.buttons[3], r = window.__w.R.gamepad.buttons[3]; l.pressed = r.pressed = true; window.__wtick(1); l.pressed = r.pressed = false; window.__wtick(1); });
+    await sp.waitForTimeout(500); await tick(2);
+    const both = await sp.evaluate(() => [HOST.collab.menu, HOST.ships.flying(), HOST.xr.walk()]);
+    if (!(both[0] && both[1] && !both[2])) bad.push('both sticks at once (the menu open, still flying, not moving): ' + JSON.stringify(both));
+    await sp.evaluate(() => HOST.collab.panelOpen(false)); await sp.waitForTimeout(500); await tick(1);
+    await click('R', 2); await tick(2);
+    const s1 = await st(), n1 = await note();
+    if (s1.flying || !/^Spaceship landed/.test(n1)) bad.push('the right stick twice again: flying ' + s1.flying + ', ' + n1);
+    // a tracked hand as the right input source: refused, saying it needs a controller
+    await sp.evaluate(() => { const W = window.__w; W.s.inputSources[1] = { handedness: 'right', targetRayMode: 'tracked-pointer', hand: new Map(), targetRaySpace: W.R.targetRaySpace, gripSpace: W.R.gripSpace }; HOST.ships.launch(true); window.__wtick(2); });
+    const s2 = await st(), n2 = await note();
+    if (s2.flying || !/^Spaceship: It needs a controller in your right hand/.test(n2)) bad.push('a tracked right hand: flying ' + s2.flying + ', ' + n2);
+    await sp.evaluate(() => { const W = window.__w; W.s.inputSources[1] = W.R; });
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: steering like a joystick: rolled 20 degrees right it turns right at 62 degrees a second, 40 degrees all the way round; nose up climbs at 60 degrees to its ceiling, back to neutral it flies level; the controller\'s yaw changes nothing', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+    await hold('R', [0.2, 1.1, -0.3], 0, 0, 20); await tick(20);   // (the bank settles)
+    const a = await st(); await secs(1); const b = await st();
+    const rate = -turnBy(a.yaw, b.yaw) * D, wantR = (20 - 4) / 36 * 140;
+    if (Math.abs(rate - wantR) > 2) bad.push('rolled 20 degrees right: ' + rate.toFixed(1) + ' degrees a second, not ' + wantR.toFixed(1) + ' to the right');
+    if (!(b.bank > 0.25 && b.bank < 50 / D + 0.01)) bad.push('its bank: ' + (b.bank * D).toFixed(1) + ' degrees');
+    // rolled 40 degrees: a full turn in about 2.6 s, round and back to where it began
+    await hold('R', [0.2, 1.1, -0.3], 0, 0, 40); await tick(1);
+    let turned = 0, last = (await st()).yaw;
+    for (let k = 0; k < 14; k++) { await tick(12); const y = (await st()).yaw; turned += -turnBy(last, y); last = y; }
+    if (Math.abs(turned * D - 140 * 14 * 12 / 60) > 8) bad.push('rolled 40 degrees: turned ' + (turned * D).toFixed(0) + ' degrees in 2.8 s, not ' + (140 * 2.8).toFixed(0));
+    // rolled left the other way; the controller turned about the vertical changes nothing
+    await hold('R', [0.2, 1.1, -0.3], 0, 0, -20); await tick(20);
+    const c = await st(); await secs(0.5); const d = await st();
+    if (Math.abs(-turnBy(c.yaw, d.yaw) * D * 2 + wantR) > 2) bad.push('rolled 20 degrees left: ' + (-turnBy(c.yaw, d.yaw) * D * 2).toFixed(1) + ' degrees a second');
+    await hold('R', [0.2, 1.1, -0.3], 75, 0, 0); await tick(20);
+    const e = await st(); await secs(0.5); const f = await st();
+    if (Math.abs(turnBy(e.yaw, f.yaw)) > 0.002 || Math.abs(f.pitch) > 0.01) bad.push('the controller turned 75 degrees about the vertical: the ship turned ' + (turnBy(e.yaw, f.yaw) * D).toFixed(2) + ' degrees, its pitch ' + (f.pitch * D).toFixed(1));
+    // nose up 40 degrees from the neutral (level): it climbs at 60 degrees until its ceiling; level again, it flies level
+    await sp.evaluate(() => HOST.ships.debug.place([0, 0.5, 0], 0, 0));
+    await hold('R', [0.2, 1.1, -0.3], 0, 40, 0); await secs(1.2);
+    const g = await st();
+    if (Math.abs(g.pitch * D - 60) > 1) bad.push('nose up 40 degrees: its pitch ' + (g.pitch * D).toFixed(1) + ', not 60');
+    await secs(2.5);
+    const h = await st();
+    if (Math.abs(h.p[1] - 3.0) > 0.01) bad.push('climbing: its height ' + h.p[1].toFixed(3) + ', not held at the ceiling of 3 m');
+    await hold('R', [0.2, 1.1, -0.3], 0, 2, 0); await secs(1.5);
+    const i1 = await st(); await secs(0.5); const i2 = await st();
+    if (Math.abs(i2.pitch) > 0.01 || Math.abs(i2.p[1] - i1.p[1]) > 0.01) bad.push('back near neutral (2 degrees up, inside the dead zone): pitch ' + (i2.pitch * D).toFixed(2) + ', height ' + i1.p[1].toFixed(3) + ' then ' + i2.p[1].toFixed(3));
+    const sa = await sp.evaluate(() => [HOST.ships.steer(20, 0, 0).turn, HOST.ships.steer(3, 0, 0).turn, HOST.ships.steer(90, 0, 0).turn, HOST.ships.steer(0, 50, 10).pitch, HOST.ships.steer(0, 12, 10).pitch]);
+    if (Math.abs(sa[0] - wantR) > 1e-6 || sa[1] !== 0 || sa[2] !== 140 || sa[3] !== 60 || sa[4] !== 0) bad.push('the mapping: ' + JSON.stringify(sa));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: speed: cruise 1.2 m/s, half grip slower, full grip slowly backwards; A boosts to 3.2 m/s for 0.8 s, then recharges for 4 s; braking ends a boost', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+    await secs(0.5);
+    const a = await st();
+    if (Math.abs(a.speed - 1.2) > 1e-6) bad.push('cruise: ' + a.speed);
+    await btn('R', 1, 0.5); await secs(1); const b = await st();
+    if (Math.abs(b.speed - 1.2 * (1 - 0.4)) > 0.01) bad.push('half grip: ' + b.speed.toFixed(3) + ' m/s, not 0.72');
+    await btn('R', 1, 1); await secs(1); const c = await st();
+    if (Math.abs(c.speed + 0.5) > 0.01) bad.push('full grip: ' + c.speed.toFixed(3) + ' m/s, not -0.5');
+    // at most 2.5 m/s2: from -0.5 back to cruise takes 0.68 s
+    await btn('R', 1, 0); await tick(15); const c2 = await st();
+    if (Math.abs(c2.speed - (-0.5 + 2.5 * 0.25)) > 0.03) bad.push('let go, after 0.25 s: ' + c2.speed.toFixed(3) + ' m/s (at most 2.5 m/s2)');
+    await secs(1);
+    await btn('R', 4, 1); await tick(2); const d = await st();
+    await btn('R', 4, 0);
+    if (Math.abs(d.speed - 3.2) > 1e-6 || !(d.boost.t > 0)) bad.push('A: ' + d.speed + ' m/s, boost ' + JSON.stringify(d.boost));
+    await secs(0.7); const e = await st();
+    await secs(0.2); const f = await st();
+    if (Math.abs(e.speed - 3.2) > 1e-6 || f.boost.t > 0 || f.speed > 3.2) bad.push('the boost after 0.7 s ' + e.speed + ', after 0.9 s ' + f.speed + ' ' + JSON.stringify(f.boost));
+    await btn('R', 4, 1); await tick(2); await btn('R', 4, 0); const g = await st();
+    if (g.boost.t > 0) bad.push('A again at once boosted (no recharge)');
+    await secs(3); await btn('R', 4, 1); await tick(1); await btn('R', 4, 0); const h = await st();
+    if (h.boost.t > 0) bad.push('A after 3 s of recharge boosted');
+    await secs(1.2); await btn('R', 4, 1); await tick(1); await btn('R', 4, 0); await tick(1); const i = await st();
+    if (!(i.boost.t > 0)) bad.push('A after 4 s of recharge did not boost: ' + JSON.stringify(i.boost));
+    await btn('R', 1, 0.3); await tick(2); const j = await st();
+    await btn('R', 1, 0);
+    if (j.boost.t > 0) bad.push('braking did not end the boost');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: the trigger fires at most 5 bolts a second from the nose, at 8 m/s plus the ship\'s speed, each gone after 1.25 s', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => { HOST.ships.debug.place([0, 1.5, 0], 0, 0); HOST.ships.debug.freeze(true); });
+    await tick(2);
+    const b0 = (await st()).bolts.filter(b => b.pilot === 'me' || b.by !== 'drone').length;
+    await btn('R', 0, 1); await secs(1); await btn('R', 0, 0); await tick(1);
+    const s1 = await st(), mine = s1.bolts.filter(b => b.by !== 'drone');
+    if (mine.length - b0 < 5 || mine.length - b0 > 6) bad.push('the trigger held a second: ' + (mine.length - b0) + ' bolts, not 5 (or 6 at the edges)');
+    if (mine.some(b => Math.abs(b.v - 9.2) > 0.01)) bad.push('their speed: ' + mine.map(b => b.v).join() + ', not 8 + 1.2');
+    const old = mine[0];
+    if (old && Math.abs(-old.p[2] - (0.12 + 1.2 * 0) - 9.2 * old.age / 1000) > 0.25) bad.push('the first bolt at ' + old.p.map(v => v.toFixed(2)) + ' after ' + old.age + ' ms');
+    await secs(1.3);
+    const s2 = await st();
+    if (s2.bolts.filter(b => b.by !== 'drone').some(b => b.age > 1250)) bad.push('a bolt older than 1.25 s still flies');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: alone, 3 targets and 2 drones; two bolts destroy a target (40 health); a drone\'s bolt takes the shield first (refilling after 2 s), then the health (never refilling)', async () => {
+    const bad = [];
+    await fresh();
+    const s0 = await st();
+    if (s0.targets.length !== 3 || s0.drones.length !== 2 || !s0.lead || s0.leader !== s0.me) bad.push('alone: ' + s0.targets.length + ' targets, ' + s0.drones.length + ' drones, leading ' + s0.lead);
+    await sp.evaluate(() => { const H = HOST.ships.debug; H.place([0, 1.5, 0], 0, 0); H.target('t1', { p: [0, 1.5, -2.0], v: [0, 0, 0] }); H.drone('d1', { p: [3, 1, 3] }); H.drone('d2', { p: [-3, 1, 3] }); });
+    await btn('R', 0, 1); await tick(14); await btn('R', 0, 0); await secs(0.5);
+    const s1 = await st(), t1 = s1.targets.find(t => t.id === 't1');
+    if (!t1 || t1.a || (s1.kills[s1.me] || {}).bots !== 1) bad.push('two bolts at a target: ' + JSON.stringify(t1) + ', kills ' + JSON.stringify(s1.kills));
+    // a drone's bolt from 0.6 m ahead, coming at it
+    const hit = () => sp.evaluate(() => { const s = HOST.ships.state(), f = [-Math.sin(s.yaw), 0, -Math.cos(s.yaw)]; HOST.ships.debug.bolt([s.p[0] + f[0] * 0.6, s.p[1], s.p[2] + f[2] * 0.6], [-f[0], 0, -f[2]], 6, 'd1'); });
+    await hit(); await tick(10);
+    const s2 = await st(), buzz = await sp.evaluate(() => window.__w.buzz || []);
+    if (s2.shield !== 90 || s2.health !== 100) bad.push('a drone\'s bolt: shield ' + s2.shield + ', health ' + s2.health + ' (not 90 and 100)');
+    if (!buzz.some(([v, ms]) => v === 0.4 && ms === 60)) bad.push('no buzz on the right controller: ' + JSON.stringify(buzz));
+    await secs(1.8); const s3 = await st();
+    await secs(0.7); const s4 = await st();
+    if (Math.abs(s3.shield - 90) > 1e-6 || s4.shield !== 100) bad.push('the shield refilling: after 1.9 s ' + s3.shield.toFixed(1) + ', after 2.6 s ' + s4.shield.toFixed(1) + ' (not 90, then 100)');
+    await sp.evaluate(() => HOST.ships.debug.hurt(95, 'drone'));
+    await hit(); await tick(10);
+    const s5 = await st();
+    if (Math.abs(s5.shield) > 1e-6 || s5.health !== 95) bad.push('past the shield: shield ' + s5.shield + ', health ' + s5.health + ' (not 0 and 95)');
+    await secs(3); const s6 = await st();
+    if (s6.health !== 95 || Math.abs(s6.shield - 28) > 2.5) bad.push('3.2 s later: health ' + s6.health + ' (never refills), shield ' + s6.shield.toFixed(1) + ' (refilled from 2 s after the hit on: about 28)');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: pickups (times shortened): each kind taken by flying through it: boost recharging in 1 s for its time, rapid fire 10 a second for its time, a reinforced shield to 150 used first and never refilled; one fading after its life; at most 2 at once', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => { HOST.ships.times({ boostUp: 3000, rapid: 2000 }); HOST.ships.debug.next(1e9); HOST.ships.debug.clearPicks(); });
+    const through = async kind => {
+      await sp.evaluate(k => { const H = HOST.ships.debug; H.place([0, 1.5, 0], 0, 0); H.pickup(k, [0, 1.5, -0.4]); }, kind);
+      await secs(0.5);
+      return st();
+    };
+    const b = await through('b');
+    if (!(b.boostUp > 2000) || b.pickups.length) bad.push('the boost pickup: ' + JSON.stringify({ up: b.boostUp, picks: b.pickups }));
+    await btn('R', 4, 1); await tick(1); await btn('R', 4, 0); await secs(1.1); const b1 = await st();
+    if (!(b1.boost.t > 0)) bad.push('with the boost pickup a boost lasts 1.2 s: ' + JSON.stringify(b1.boost));
+    await secs(0.2); await secs(1.05); await btn('R', 4, 1); await tick(1); await btn('R', 4, 0); await tick(1); const b2 = await st();
+    if (!(b2.boost.t > 0)) bad.push('with the boost pickup it recharges in 1 s: ' + JSON.stringify(b2.boost));
+    await secs(2); const b3 = await st();
+    if (b3.boostUp > 0) bad.push('the boost pickup did not run out after its time');
+    const r = await through('r');
+    if (!(r.rapid > 1000)) bad.push('the rapid fire pickup: ' + r.rapid);
+    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+    const n0 = (await st()).bolts.length;
+    await btn('R', 0, 1); await secs(1); await btn('R', 0, 0); await tick(1);
+    const n1 = (await st()).bolts.length;
+    if (n1 - n0 < 10 || n1 - n0 > 11) bad.push('rapid fire for a second: ' + (n1 - n0) + ' bolts, not 10');
+    await secs(1.2); const r2 = await st();
+    if (r2.rapid > 0) bad.push('rapid fire did not run out after its time');
+    const s = await through('s');
+    if (s.extra !== 50 || s.shield !== 100) bad.push('the reinforced shield: ' + s.shield + ' + ' + s.extra);
+    await sp.evaluate(() => HOST.ships.debug.hurt(20, 'drone'));
+    const s1 = await st();
+    if (s1.extra !== 30 || s1.shield !== 100) bad.push('a hit with the reinforced shield: ' + s1.shield + ' + ' + s1.extra + ' (the extra used first: 100 + 30)');
+    await secs(3); const s2 = await st();
+    if (s2.extra !== 30) bad.push('the extra refilled: ' + s2.extra);
+    // a pickup's life: gone (faded) after it; at most two at once
+    await sp.evaluate(() => { HOST.ships.debug.pickup('b', [3, 1.5, 3], 1500); });
+    await secs(1); const l1 = await st(); await secs(0.7); const l2 = await st();
+    if (l1.pickups.length !== 1 || l2.pickups.length) bad.push('a pickup living 1.5 s: after 1 s ' + l1.pickups.length + ', after 1.7 s ' + l2.pickups.length);
+    // (the ship down meanwhile, so it takes none)
+    await sp.evaluate(() => { HOST.ships.times({ pickMin: 100, pickMax: 200 }); HOST.ships.debug.hurt(250, 'drone'); HOST.ships.debug.next(0); });
+    let most = 0;
+    for (let k = 0; k < 10; k++) { await tick(10); most = Math.max(most, (await st()).pickups.length); }
+    if (most !== 2) bad.push('pickups now and then: at most ' + most + ' at once, not 2');
+    await sp.evaluate(() => HOST.ships.times(null));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: destroyed at 0 health (Destroyed by a drone, the strip counting down), a new ship with full shield and health 5 s later, the neutral taken again', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => HOST.ships.debug.hurt(250, 'drone'));
+    await tick(2);
+    const a = await st(), n = await note();
+    if (!a.down || a.killer !== 'drone' || !/^Destroyed by a drone/.test(n) || !a.drawn || a.drawn.ships !== 0 || !a.drawn.hud) bad.push('destroyed: ' + JSON.stringify({ down: a.down, killer: a.killer, n, drawn: a.drawn }));
+    await hold('R', [0.2, 1.2, -0.3], 0, 15, 0);
+    await secs(4.8); const b = await st();
+    await secs(0.4); const c = await st();
+    if (!b.down || c.down || c.shield !== 100 || c.health !== 100 || Math.abs(c.neutral - 15) > 0.5) bad.push('5 s later: ' + JSON.stringify({ at48: b.down, down: c.down, shield: c.shield, health: c.health, neutral: c.neutral }));
+    if (dist(c.p, [0.2, 1.2, -0.8]) > 0.4) bad.push('the new ship at ' + c.p.map(v => v.toFixed(2)) + ', not at the controller');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: the right controller is the ship\'s while it flies: its presses reach nothing after the shell\'s guard, its ray points at nothing (the menu under it not pointed at), the left controller as ever; the right stick turns nothing while moving with the sticks, the left still moves you', async () => {
+    const bad = [];
+    await fresh();
+    await sp.evaluate(() => { window.__w.heard.length = 0; const W = window.__w; for (const t of ['selectstart', 'select', 'selectend', 'squeezestart', 'squeeze', 'squeezeend']) { W.press(W.R, t); W.press(W.L, t); } });
+    const h1 = await sp.evaluate(() => window.__w.heard.slice());
+    if (h1.some(([h]) => h === 'right') || h1.filter(([h]) => h === 'left').length !== 6) bad.push('flying, what the listeners after the shell heard: ' + JSON.stringify(h1));
+    // its ray at the open menu: pointing at nothing; the left's there points at it
+    await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(3);
+    const r = await sp.evaluate(() => {
+      const m = HOST.collab.overlay().panel.mesh, c = m.getWorldPosition(new THREE.Vector3()), o = new THREE.Vector3(0.2, 1.1, -0.3), d = c.clone().sub(o).normalize();
+      const a = HOST.collab.ray(1, o, d, Infinity), b = HOST.collab.ray(0, o, d, Infinity);
+      return { right: a && [a.kind, a.dist, !!a.panel], left: b && [b.kind, b.dist > 0.05], hov: [!!HOST.collab.internals().hov.get(1), !!HOST.collab.internals().hov.get(0)] };
+    });
+    if (!r.right || r.right[0] !== 'shell' || r.right[1] !== 0 || r.right[2] || r.hov[0] || !r.left || !r.left[1] || !r.hov[1]) bad.push('the rays at the menu: ' + JSON.stringify(r));
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    // landed: its presses heard again
+    await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); window.__w.heard.length = 0; window.__w.press(window.__w.R, 'selectstart'); window.__w.press(window.__w.R, 'selectend'); });
+    const h2 = await sp.evaluate(() => window.__w.heard.slice());
+    if (h2.filter(([h]) => h === 'right').length !== 2) bad.push('landed, the right controller\'s presses: ' + JSON.stringify(h2));
+    // moving with the sticks: flying, a flick of the right stick turns nothing; the left moves you
+    await sp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); HOST.ships.launch(true); window.__wtick(2); });
+    const t0 = await sp.evaluate(() => HOST.xr.travel());
+    await sp.evaluate(() => { const a = window.__w.R.gamepad.axes; a[2] = 0.9; window.__wtick(10); a[2] = 0; window.__wtick(2); });
+    const t1 = await sp.evaluate(() => HOST.xr.travel());
+    await sp.evaluate(() => { const a = window.__w.L.gamepad.axes; a[3] = -1; window.__wtick(30); a[3] = 0; window.__wtick(2); });
+    const t2 = await sp.evaluate(() => HOST.xr.travel());
+    if (Math.abs(t1.yaw - t0.yaw) > 1e-9) bad.push('flying, the right stick turned you ' + ((t1.yaw - t0.yaw) * D).toFixed(1) + ' degrees');
+    if (Math.hypot(t2.x - t1.x, t2.z - t1.z) < 0.5) bad.push('flying, the left stick did not move you: ' + JSON.stringify([t1, t2]));
+    await sp.evaluate(() => { HOST.xr.setWalk(false); HOST.xr.walkReset(); });
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: the menu\'s Spaceship row launches and lands; a story change keeps it flying, hung in the next story\'s scene; the session\'s end lands it', async () => {
+    const bad = [];
+    await openS('qubits');
+    await hold('R', [0.2, 1.1, -0.3]);
+    const press = id => sp.evaluate(id => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__wtick(2); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id);
+    if (!await press('ship')) bad.push('no Spaceship row to press');
+    await tick(2);
+    const a = await st();
+    if (!a.flying) bad.push('the row did not launch');
+    await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(2);
+    const lbl = await sp.evaluate(() => { const r = HOST.collab.menuFind('ship'); return r ? r.label || r.text || '' : ''; });
+    await press('ship'); await tick(2);
+    if ((await st()).flying) bad.push('the row did not land (' + lbl + ')');
+    await press('ship'); await tick(2);
+    // another story: still flying, drawn in its scene
+    await sp.evaluate(() => HOST.go('flock'));
+    const ok = await sp.waitForFunction(() => HOST.curKey === 'flock' && !HOST.busy && HOST.cur && HOST.cur.peek('typeof LOAD !== "undefined" && LOAD.done'), null, { timeout: 60000 }).then(() => true, () => false);
+    if (ok) { await sp.evaluate(() => HOST.cur.peek('xrAdopt()')); await tick(3); }
+    const b = await st();
+    if (!ok || !b.flying || !b.drawn || !b.drawn.inScene || b.drawn.ships !== 1) bad.push('after a story change: ' + JSON.stringify({ ok, flying: b.flying, drawn: b.drawn }));
+    await sp.evaluate(() => { window.__w.s.fire('end', {}); window.__wtick(1); });
+    if ((await st()).flying) bad.push('the session\'s end did not land it');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: the arena\'s edge turns it back (never past 5 m); in AR a pretend wall of the room scan bounces it; the strip over the controller and the arrow when it is out of view; nothing see-through, under 600 triangles', async () => {
+    const bad = [];
+    await fresh();
+    // heading out along +x from the arena's middle, level: it never leaves the arena and comes back
+    const c = (await st()).c;
+    await sp.evaluate(c => HOST.ships.debug.place([c[0], 1.5, c[1]], -Math.PI / 2, 0), c);
+    let far = 0, inward = false;
+    for (let k = 0; k < 40; k++) {
+      await tick(10);
+      const s = await st(), dx = s.p[0] - c[0], dz = s.p[2] - c[1], r = Math.hypot(dx, dz);
+      far = Math.max(far, r);
+      if (r > 3.5 && (-Math.sin(s.yaw) * dx - Math.cos(s.yaw) * dz) < 0) inward = true;
+    }
+    if (far > 5.0001 || !inward) bad.push('at the edge: the furthest ' + far.toFixed(3) + ' m, turned back ' + inward);
+    // the strip and the arrow: the head turned away from the ship
+    const h0 = await st();
+    await sp.evaluate(() => { window.__w.head.yaw = Math.PI; }); await tick(2);
+    const h1 = await st();
+    await sp.evaluate(() => { window.__w.head.yaw = 0; }); await tick(2);
+    if (!h1.drawn.hud || !h1.drawn.arrow) bad.push('looking away: the strip ' + h1.drawn.hud + ', the arrow ' + h1.drawn.arrow + ' (before: ' + JSON.stringify(h0.drawn) + ')');
+    // in AR: a wall 1 m ahead along +x, its plane facing -x; flown into it, it bounces back
+    await sp.evaluate(() => {
+      const W = window.__w, sp = { name: 'wall', addEventListener() {}, removeEventListener() {} };
+      HOST.mode = 'immersive-ar'; W.s.environmentBlendMode = 'alpha-blend'; W.s.enabledFeatures = ['plane-detection'];
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(1.0, 1.5, 0), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2), new THREE.Vector3(1, 1, 1));
+      W.real.set(sp, m);
+      W.planes = new Set([{ planeSpace: sp, polygon: [{ x: -2, y: 0, z: -2 }, { x: 2, y: 0, z: -2 }, { x: 2, y: 0, z: 2 }, { x: -2, y: 0, z: 2 }], orientation: 'vertical', semanticLabel: 'wall' }]);
+      HOST.ships.debug.place([0, 1.5, 0], -Math.PI / 2, 0);
+      window.__wtick(1);
+    });
+    let maxX = 0;
+    for (let k = 0; k < 15; k++) { await tick(6); maxX = Math.max(maxX, (await st()).p[0]); }
+    const w = await st();
+    if (maxX > 1.0 || -Math.sin(w.yaw) > -0.5) bad.push('the wall: the furthest x ' + maxX.toFixed(3) + ', heading x ' + (-Math.sin(w.yaw)).toFixed(2) + ' (not bounced back)');
+    await sp.evaluate(() => { const W = window.__w; W.planes = null; HOST.mode = 'immersive-vr'; W.s.environmentBlendMode = 'opaque'; W.s.enabledFeatures = []; });
+    const look = await sp.evaluate(() => HOST.ships.debug.materials().map(m => ({ t: m.type, tr: !!m.transparent, op: m.opacity, add: m.blending === THREE.AdditiveBlending })));
+    const see = look.filter(m => (m.tr && !m.add) || m.op < 1);
+    if (see.length) bad.push('see-through materials: ' + JSON.stringify(see));
+    const tris = (await st()).drawn.tris;
+    if (!(tris > 50 && tris < 600)) bad.push('the ship has ' + tris + ' triangles');
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+  await sp.close();
 }
 // Real-world occlusion in AR (HOST.occlusion, occlusion.js) with a pretend AR headset (its frames driven by the test
 // through three.js r128's own WebXR path), its depth a real WebGL2 texture array made in the page, a new one each frame

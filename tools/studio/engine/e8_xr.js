@@ -6,7 +6,7 @@
 // or cut-out's corner stretches it; let go, it stays. While something is carried the sticks steer it (holdSticks): the
 // left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
 // stick walks you through the scene and the right stick turns you (the scene moves, not you). Those are the studio's own
-// sticks; a stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
+// sticks; the left stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
 // (the scene, by the shell's numbers), also while something is carried, which comes along in the hand (stickMove). The
 // grip on the panel moves the panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's
 // card, e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
@@ -681,7 +681,7 @@ function stickWalk(c, gp, dt) {
     _gh.normalize();
     const v = 1.5 * dt * Math.min(1, (m - 0.15) / 0.85) / m, fx = -ay * v, sx = ax * v;   // (forward and to the side)
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
-  } else if (hand === 'right') {
+  } else if (hand === 'right' && !shipFlying()) {
     if (Math.abs(ax) < 0.3) { XR.turnArm = true; return; }
     if (!XR.turnArm || Math.abs(ax) < 0.7) return;
     XR.turnArm = false;
@@ -691,7 +691,7 @@ function stickWalk(c, gp, dt) {
     buzz(c, 0.2, 12);
   }
 }
-// Moving with the sticks (the shell's HOST.xr.walk, a stick clicked twice, the same setting as in every story; the owner,
+// Moving with the sticks (the shell's HOST.xr.walk, the left stick clicked twice since v132, the same setting as in every story; the owner,
 // 8 November 2026: "i want stick movement in studio mode too, just make it switchable with the double stick click so that
 // i can switch between the two modes of stick operation in studio mode"): in VR, on, the sticks move you, by the shell's
 // numbers, also while something is carried (it comes along in the hand: carry something far across the scene) and
@@ -705,6 +705,8 @@ function stickWalk(c, gp, dt) {
 // real, and the studio's sticks steer and scroll (the shell refuses the double click there and says why)
 const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3 };
 const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
+// (a spaceship flying, the shell's ships.js: the right controller is the ship's, so its stick turns nothing here)
+const shipFlying = () => !!(HOST.ships && HOST.ships.flying && HOST.ships.flying());
 // once a frame for each controller, before any carry (xrBegin), so what a hand carries is placed on the scene as it now
 // stands: true when it moved the scene
 function stickMove(c, dt) {
@@ -724,7 +726,7 @@ function stickMove(c, dt) {
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
     return true;
   }
-  if (hand !== 'right') return false;
+  if (hand !== 'right' || shipFlying()) return false;
   if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
   if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
   c.moveArm = false;

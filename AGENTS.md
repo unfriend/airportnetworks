@@ -106,6 +106,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `tools/sfx-render.mjs` renders every sound to MP3 files for listening.
 - `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded by `index.html` after `sfx.js` and before
   `shared.js` (see "Real-world occlusion" below).
+- `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded by `index.html` after
+  `occlusion.js` and before `shared.js`, which links itself in at its end (see "Spaceships" below).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
   links of a peer-to-peer room, loaded by `shared.js` only then. `p2p/` - a test
   page (not part of the app) for checking a network before an event: do two
@@ -585,11 +587,13 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - Moving with the sticks (v125, `index.html`, after `HOST.xr`; the owner, 8 November 2026: "Add Movement in vr mode,
     maybe with sticks, switchable by double pressing a stick?"): an eighth setting, each headset's own, never the room's
     and never in `collab.state()` (`HOST.xr.walk()`, `setWalk(on)`, `xrWalk` in `localStorage`, off by default,
-    `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by one stick clicked twice within 0.4 s
-    (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*) or by the menu's *Moving with the sticks*
+    `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by the left stick clicked twice within 0.4 s
+    (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*; until v132 either stick, since then the right
+    stick clicked twice launches or lands a spaceship: "Spaceships" below) or by the menu's *Moving with the sticks*
     row (Settings, under Moving and Subtitles). Both clicks must be on the same stick: a click of each within 0.4 s (or
     both at once) counts as one click, which opens or closes the menu; a single click acts only once 0.4 s have passed
-    with no second click of that stick. It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for
+    with no second click of that stick. While a spaceship flies the right stick's 30 degree turn rests (the thumb sits on
+    A), the left stick still moving you. It applies (`HOST.xr.walking()`) in a VR session (not AR: there you walk for
     real),
     not while this headset is in a shared room's real room with the others (the room's frame and the others' view of you
     need where you really stand there) and while the story on show does not move you itself (`ownSticks: true` in its
@@ -651,7 +655,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     room's circles feels, how the others see a moving avatar over Wi-Fi, a real recentre or wake while moved.
   - The studio's two stick modes (v125; the owner, 8 November 2026: "i want stick movement in studio mode too, just make
     it switchable with the double stick click so that i can switch between the two modes of stick operation in studio
-    mode"). The same setting (`xrWalk`), not one of the studio's own: a double click then does the obvious thing
+    mode"). The same setting (`xrWalk`), not one of the studio's own: a double click of the left stick (since v132) then does the obvious thing
     everywhere (on: the sticks move you, in the studio as in every story; off: each page's own sticks, which in the
     studio are its walk, turn and steer), and the menu has one row for it. Off, the studio's own sticks as before (its
     VR walk and 30 degree turns with nothing carried, steering a carried item, scrolling the pane under the ray). On, in
@@ -1176,7 +1180,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     and rising a fourth), `knock` (a closure, a knockout; a robot's bump),
     `heart`, `flutter` (wings), `rush` (water, flows), `patter` (many small
     things landing), `spark` (an impulse), `pulse` (a signal spreading), `clink`
-    (glass), `ratchet` (a mechanism turning); continuous `vacuum` (a robot
+    (glass), `ratchet` (a mechanism turning); the spaceships' (v132, kind `game`, at the shell's levels, in `ORDER` after
+    the room's: `zap`, `zapLow` (a drone's), `shieldHit`, `hullHit`, `boost`, `boom`, `bump`, `launch`, `land`, `respawn`,
+    `pickup`, `pickupEnd`; no engine sound: the owner's rule, no hums unless asked); continuous `vacuum` (a robot
     vacuum, its pitch its speed; the only one since the machines' hum went). How
     they sound in a story, on a Quest's speakers, through HRTF, and with ten
     headsets at one station (open-ear speakers may let neighbours hear a slight
@@ -1290,6 +1296,139 @@ probe, `roomSync` and `shapeSig` it reuses.
   changes, how often the watchdog asks on a real headset (the logs will say: `occlusion renew`, `occlusion back`, the
   samples' `occl`), and a lost WebGL context in a session.
 
+## Spaceships (`HOST.ships`, `ships.js`)
+
+A spaceship mini-game in headsets (v132), the shell's own, not a story: it flies over every story and every circle, alone
+or in a shared room. The owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little
+spaceship that we can control with the right controllers position in space, it is automatically going forward and the
+grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not,
+both get lower when hit, first shield then health, a is boost but that only lasts briefly"; asked, steering "like a
+joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice
+targets alone "yes totally, maybe some ships that also fly around"; then: "leave the drifting targets and the drones in
+when more join so players can also coop against them, also add some addons like additional boost and faster shooting for
+some times and reinforced shields pickups that spawn from time to time". The game is our own (no existing game's names,
+ships or look).
+
+- **Launch and land.** The right stick clicked twice within 0.4 s (`sticks` in `shared.js`, `shipPress`; the left stick's
+  double click is moving with the sticks, a single click of either and both at once the menu as before), or the menu's
+  *Spaceship: launch* / *land* row (Settings, under Moving with the sticks); landed again the same way, by the menu's
+  Exit and by the session's end. Only in an immersive session (VR or AR) with a tracked controller with a gamepad as the
+  right input source; never in camera mode or a phone's AR (`whyNot`: a tracked hand there is told *It needs a controller
+  in your right hand*, the row greyed with the reason). The notices say what happens (launch: the controls in a line).
+  It acts at the ship's next frame (`toggle`, `S.want`). A story change keeps it flying: its objects hang in the story's
+  scene and are taken out before a story is disposed (`HOST.teardown`, `HOST.ships.detach`), as occlusion's are.
+- **Each frame.** `index.html`'s moving with the sticks hooks the session's own `requestAnimationFrame`; once a frame,
+  after it has dressed the frame (so the poses are three.js's), it calls `HOST.ships.frame(s, t, f)`, before any callback
+  draws. The ship's clocks are that frame's time (ms) and the relay's (`now()`; for tests the frame's: `testClock`).
+- **The joystick** (`steer(roll, pitch, neutral)`, its numbers `STEER`, to be tuned on a Quest): the right controller's
+  grip pose (else its ray). At launch and at each new ship its neutral is taken: the pitch of its forward axis. Its roll
+  (its bank about its own forward axis, against gravity, 0 level: `angles`) turns the ship about the vertical: a dead zone
+  of 4 degrees, full at 40, at most 140 degrees a second, tilted right turns right, round as often as you like. Its pitch
+  from the neutral sets the flight pitch, eased (0.25 s) towards (deflection less the 4 degree dead zone) / 30 x 60
+  degrees, at most 60 up or down: neutral is level flight, nose up climbs; no loops. Where the controller points (its
+  yaw) counts for nothing, so turning to follow the ship changes nothing. The ship banks into its turns (up to 50
+  degrees, eased), which does not change its path.
+- **Speed** (`FLY`): always forward at 1.2 m/s; the right grip (`buttons[1].value`) brakes, below 0.9 to 1.2 x (1 - 0.8 g),
+  from 0.9 slowly backwards (-0.5 m/s); at most 2.5 m/s2. A (`buttons[4]`, its rising edge; nothing else of the shell or
+  any story reads it) boosts when its meter is full: 3.2 m/s at once for 0.8 s, then it recharges for 4 s; braking ends
+  a boost.
+- **The arena** (`ARENA`): round where the pilot stood at launch, 5 m along the floor, from 0.15 to 3 m above it (in a
+  room the room's floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less
+  1.6 m, taken at launch). Within 0.6 m of its edge, heading out, it is turned back gently (up to 90 degrees a second at
+  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it is held, level, until steered
+  away. In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
+  the ship crossing a plane inside its polygon, its heading reflected about the plane), with a bump and no damage. Ships
+  pass through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's
+  level forward, at its height (both clamped into the arena), flying where the head faces, level.
+- **Shooting** (`GUN`): the right trigger held fires bolts from the nose along its heading, at most 5 a second (exactly:
+  each an interval after the last), at 8 m/s plus the ship's speed, each living 1.25 s, damage 20; small bright elongated
+  bolts in the shooter's colour (drones' red), all in one instanced draw.
+- **Shield and health** (`HP`): every ship 100 of each. Damage takes the shield first, what is left the health. The shield
+  refills from 2 s after the last hit at 25 a second; health never does. At 0 health it explodes (a burst for about 0.8 s
+  and a boom); its pilot sees *Destroyed by <name>* (or *by a drone*) and a countdown on its strip; 5 s later a new ship
+  at the controller, full, its neutral taken again. A hit flashes a ring round it (the shield) or sparks (the hull) and
+  buzzes the right controller (0.4, 60 ms).
+- **Targets, drones and pickups: one shared set, fought together.** 3 targets (slowly drifting glowing crystals, health 40,
+  no shield) and drones (another, darker, angular design with red edges and eye; shield 30, health 60): 2 while one pilot
+  flies, one more for each further pilot, at most 5. Drones wander at 0.9 m/s, now and then turn towards the nearest
+  pilot's ship, and fire a bolt (6 m/s, damage 10) every 1.5 s while a ship is within 4 m and within 20 degrees ahead.
+  A destroyed one comes back 8 s later at the arena's edge. They stay when more pilots join: everyone shoots the same
+  ones, and a destruction is credited to the pilot whose bolt did it. They live in the set's arena (the first leader's),
+  its centre carried with the set. Pickups: one every 15 to 30 s (at random) at a free spot, at most 2 at once, each there
+  for 25 s and then gone (shrinking over its last 2 s); a small opaque token turning slowly, each kind its own shape and
+  colour: *boost* (an amber chevron: for 15 s the boost recharges in 1 s and lasts 1.2 s), *rapid fire* (a red double
+  pyramid: for 12 s 10 shots a second, the same damage), *reinforced shield* (a blue hexagon: +50 on top of the shield, up
+  to 150, used first, never refilled, until used up). Taken by flying through it (within 0.25 m of the ship's middle);
+  a chime as it is taken and another as it runs out; one of a kind again starts its time again, never piling up. The
+  strip says what is on and its time left.
+- **The leader.** One per room among the pilots flying (alone or outside a room: this headset): the one flying longest
+  (its launch time, as its presence says, the relay's; ties by member id), the same on every device (`pilots`, `leadStep`).
+  The leader's headset moves the targets, drones and pickups, fires the drones' bolts, decides every hit on a target or
+  drone (anyone's bolts may hit them) and who takes a pickup, and sends the set in its presence. When it lands, leaves or
+  is silent for 2 s, the next by the same rule takes over from what it has been drawing (`takeOver`: their places,
+  headings, shield and health, the pickups and their times, absolute in the relay's time), so nothing jumps or is born
+  again; with nobody flying the set goes, and starts afresh with the next launch. A pickup: the pilot's own headset sees
+  its exact ship touch it and sends a claim; the leader gives it to the first claim it receives (its own included) and
+  says so to everyone; it goes for everyone and the winner's headset starts it. While a claim waits it is hidden for that
+  pilot alone, and shows again after 1 s if it is still there.
+- **Shared, and who decides.** The owner decides: each headset its own ship, the leader the shared set.
+  - Poses: the ship (and, from the leader, the set: targets, drones, pickups with their times) ride in this headset's
+    presence as one field, `sh` (`out()`: `{ lt, p, q, v, s, x, h, b, dn, w }`, positions to the mm, turns to 4 decimals,
+    shield, extra and health as integers, the boost meter, `dn` the relay's time it was destroyed; `w` the leader's set),
+    15 a second with presence's `ts`, so no extra messages; a presence without it has landed. Every other device draws
+    them by snapshot interpolation as people's heads are (`SMOOTH.DELAY`, 120 ms, behind the relay's time, between
+    samples, at most 100 ms carried on past the last; gone 2 s after the last). A camera's presence carries none.
+  - Bolts, hits, destructions, claims and gifts: quiet effects on one room-wide key the shell keeps for itself, `ships`
+    (the relay's `KEY` rule; `shared.js`'s `onFx` hands it to `HOST.ships.fxIn` with the relay's `by`; older shells drop
+    a key they do not know, and only `e.<station>` ever reaches a story's effect hook), batched at most 20 a second
+    (`NET.flush`, 50 ms: with presence's 15 a member sends at most 35 a second, under the relay's 60, the leader with five
+    drones and rapid fire too). A bolt's data is its start, direction, speed, the relay's time and its number (a drone's
+    its id), so every device draws it along the same line. Each frame a headset sweeps every live bolt between last
+    frame's and this frame's places against its own ship (exact, a sphere of 0.18 m; one heard late swept from its start
+    against where the ship was meanwhile, its last 0.6 s kept); the leader also against the targets and drones. A ship's
+    own bolts never hit it; drones' hit ships only. A hit goes out (what, by whom, the bolt, the new shield and health),
+    and so does a destruction; every device shows the flash and the bars from it.
+  - Kills: each device counts, from the destructions it hears, per member the ships and the drones and targets destroyed
+    since it joined.
+  - Nothing stored: no room key, no `FORMAT` change. Peer to peer and a room on this device the same (the Hub passes
+    presence and effects).
+  - Who sees: every headset in the room every ship, drone, target and bolt, at any circle and whatever its People setting
+    (ships are not people), a camera too; pages draw nothing in 3D, and the Shared dialog's people list says *flying a
+    ship (shield 80, health 100)* and what each destroyed. In a room everything is in room coordinates (the root hangs at
+    the room's matrix); a headset elsewhere flies in the same room coordinates as its avatar; outside a room the
+    renderer's space moved down to the floor.
+- **The right controller while flying** belongs to the ship. `HOST.inputsGuard.claim(fn)` (`index.html`): the guard's
+  listeners, the first on the session, hear its select and squeeze events as ever (so none counts as missed) and stop
+  them, so they reach neither three.js (the story) nor the shell's other listeners (the menu, a station's grip); nothing
+  is given again for it. `HOST.collab.ray` answers for its ray as the shell's, at the controller with nothing to press and
+  a distance of 0 (as a camera's), so the story draws no line and it is not sent to the others. The right stick's turn of
+  moving with the sticks rests (`index.html`; and the studio's own right stick), the left stick still moves you in VR.
+  The left hand is unchanged (the menu, panels, its stick).
+- **The look.** Nothing large and see-through (the owner's frame rate, v131): one lit shader in view space (opaque, the
+  same in every story whatever its lights), instanced meshes a kind (ships in their pilots' colours, drones, targets, each
+  pickup's kind, bolts, the bars), small additive glows (`Points`: engines, drones' eyes, crystals, pickups) and bursts. The
+  ship: a low-poly fighter built in code (a pointed hexagonal body, swept wings, two fins leaning out, a dark cockpit, an
+  engine glowing at the back), about 0.2 m long, under 300 triangles, its white parts in its pilot's colour. Over every
+  ship two thin bars (shield, with the extra lighter over it, and health) and its pilot's name (others'), over drones the
+  same bars, over targets their health; small, opaque, turned to you. The pilot's own strip above the right controller
+  (shield, hull, boost meter, kills, what is on; the countdown while down), drawn over everything, and when the ship is
+  more than 34 degrees from where you look a small arrow near the edge of the view pointing to it (fixed to the head, as
+  the frame-rate read-out is). The Debug tab has a *Spaceships* line.
+- **Sounds** (`sfx.js`, kind `game`, at the shell's levels, from where they happen through `HOST.sfx.play`'s `at`):
+  `zap`, `zapLow` (a drone's), `shieldHit`, `hullHit`, `boost`, `boom`, `bump`, `launch`, `land`, `respawn`, `pickup`,
+  `pickupEnd`. No engine sound (the owner's rule: no hums unless asked).
+- For tests: `HOST.ships.state()` (flying, down, the frame, the ship's pose, speed, turn, neutral, shield, extra, health,
+  boost, pickups on, the leader, the drones, targets and pickups as drawn here, live bolts, kills, others' ships, what is
+  drawn, `rt` the time drawn at), `launch(on)`, `times({...})` (`null` the defaults), `testClock(on)`, `steer`, `angles`,
+  `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
+  `bolt`, `claim`, `track`, `materials`).
+- Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
+- **Untested on a headset**: how the joystick feels and its numbers (the dead zones, 40 degrees for a full turn, 60
+  degrees of climb, the neutral), the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
+  read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
+  frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
+  only, `node tools/sfx-render.mjs`).
+
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (the owner said go, 29 October 2026; it is
@@ -1319,7 +1458,7 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   `shell`, `build`; protocol in `relay/README.md`). A story file changed swaps
   in place at once on every page showing it (also mid-chapter) and is fetched
   fresh next time on the others; the list is read again (cards appear or change,
-  no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `shared.js`, `sw.js`, `three.min.js`,
+  no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `three.min.js`,
   `peerjs.min.js`) reloads the page with its place kept. `--build` also runs a
   built story's `tools/<key>/build.mjs` when its sources change (the folders its
   build names, `../lbi/` and the like, and the story files it cuts from; not
@@ -2254,7 +2393,8 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     what a story's end does, or in a room that it does not run there; the Stories screen's buttons until v109), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
     `HOST.xr`), *Moving with the sticks: on/off* (v125, this headset's own, the whole width with a note under it,
     greyed with the reason in AR, in a shared room and in the studio: "Moving with the sticks" under "Four headset
-    settings"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
+    settings"), *Spaceship: launch* / *Spaceship: land* (v132, the whole width with a note under it that the right stick
+    clicked twice does the same, greyed with the reason where no ship can fly: "Spaceships"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
     settings"), *Developer mode: on/off* (v125, this device's own, a note beside it: "Developer mode"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
@@ -5262,7 +5402,8 @@ story's frame with the same frame object, as three.js's would: a reference space
 each tick answering for the head, two controllers with gamepads and an anchor from where they really are; 60 frames a
 second on the test's clock): off by default; one click of a stick opening the menu only after 0.4 s; a stick clicked
 twice turning it on (its notice, `xrWalk`, no menu then or later), both sticks at once one click (the menu once), kept
-across a reload, the right stick clicked twice turning it off, two clicks 0.6 s apart the menu twice; the left stick
+across a reload, the left stick clicked twice again turning it off (the right stick's double click is the spaceship's since
+v132), two clicks 0.6 s apart the menu twice; the left stick
 pushed forward for a second moving the head three.js sees 1.5 m where it faces (within 5 cm), the story's own head with
 it, the left controller's ray with it, the anchor not; a push of 0.6 to the right a quarter of the speed to the right;
 the dead zone nothing; a flick of the right stick turning 30 degrees about the head (held, no more), a flick left back;
@@ -5289,6 +5430,31 @@ shell's travel still; the box carried (the grip held): the left stick moving you
 nothing, the box staying in the hand (within 1 mm) and so 1.5 m through the scene, a flick turning it 30 degrees with
 you; two clicks back while carrying (*Sticks: the studio's*, nothing jumping), the right stick up pushing the box away
 again; Recenter taking the walk back (at the station the station's Recenter too); in AR two clicks saying *Not in AR*.
+
+Its *spaceship* steps (v132, `--only spaceship`, a page of their own, a few minutes; the stick moving steps' pretend VR
+headset, its frames through the session's own `requestAnimationFrame` so the shell's hook steps the ship, 60 frames a
+second on the test's clock, which the ship's relay time follows there, `HOST.ships.testClock`; the right controller's grip
+turned by the test; the drones frozen, `debug.freeze`): the right stick clicked twice launching (its notice, no menu), the
+ship 0.5 m ahead of the controller facing where the head does; the left stick twice still moving with the sticks, both at
+once one menu; the right stick twice again landing; a tracked right hand refused in words. Rolled 20 degrees right it
+turns right at 62.2 degrees a second (within 2), banking; 40 degrees all the way round (392 degrees in 2.8 s); rolled
+left the other way; the controller turned 75 degrees about the vertical changing nothing; nose up 40 degrees from the
+neutral climbing at 60 to its 3 m ceiling and held there, back inside the dead zone level; the mapping's numbers. Cruise
+1.2 m/s, half grip 0.72, full grip -0.5, at most 2.5 m/s2; A boosting to 3.2 m/s for 0.8 s, not again until 4 s of
+recharge, braking ending it. The trigger held a second: 5 bolts at 9.2 m/s (8 plus the ship's), none older than 1.25 s.
+Alone: 3 targets and 2 drones, led here; two bolts destroying a target (counted); a drone's bolt taking 10 of the shield
+(the buzz 0.4 for 60 ms), refilled after 2 s, then past the shield into the health, which stays. Pickups (times
+shortened): the boost's (a boost of 1.2 s, recharged in 1 s, gone after its time), rapid fire's (10 bolts in a second,
+gone after its time), the reinforced shield's (150, a hit of 20 taken from the extra, which never refills), one living
+1.5 s gone after it, at most 2 at once. Destroyed at 0 (*Destroyed by a drone*, no ship drawn, the strip shown), a new ship
+5 s later at the controller, full, its neutral taken again. Flying, the right controller's select and squeeze events
+reaching no listener after the shell's guard, the left's all six; its ray at the open menu pointing at nothing (`kind`
+shell, `dist` 0, no hover) where the left's points at the menu; landed, its presses heard again; moving with the sticks
+on, a flick of the right stick turning nothing while the left stick moves you. The menu's Spaceship row launching and
+landing; another story (the flock) keeping it flying, drawn in its scene; the session's end landing it. Heading out from
+the arena's middle it never passes 5 m and comes back; the strip shown and the arrow with the head turned away; in AR a
+pretend wall (a plane of the room scan 1 m ahead) bouncing it back; nothing see-through among its materials but small
+additive glows; the ship under 600 triangles.
 
 Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
 nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories
@@ -6240,7 +6406,20 @@ sticks taking it into the airports circle (its live station, its presence's `st`
 first on into Back to the lobby (its station ended); a recentre (local and local-floor moved by one transform, the reset
 as Quest Browser sends it) leaving it where it was in the room within 1 cm; a second pretend headset in AR getting no
 travel from its sticks (`walkWhy` `'ar'`); the first answering *In this room* back to no travel, its sticks moving
-nothing, two clicks saying *Not while you are in the room with the others*, the row greyed. `--camera` runs only camera mode (`cameraRound`, also in
+nothing, two clicks saying *Not while you are in the room with the others*, the row greyed. `--ships` runs only the
+spaceships in a shared room (`shipsRound`, v132, also in the main run after the walk round; a room of its own with two
+story circles, a page and two pretend AR headsets lined up through the shared space, with controllers (`installXR`'s
+`walk`), each at its own circle, a few minutes): A launches by its right stick clicked twice; B, at the other circle, draws
+A's ship where A had it at the relay time it draws (against A's own track, `debug.track`: the median within 3 cm); A
+leads 2 drones and 3 targets (frozen, `debug.freeze`), which B draws where A has them; B launches, a third drone, the set
+kept, A still leading; A and B each hit the same drone, A deciding (its shield 10 after A's bolt, then 0 and its health
+50 after B's, on both devices), and B's last bolt destroying it, credited to B on A, B and the page (its people list); a
+pickup B flies through given to B by A (B's rapid fire on, gone for everyone), and one claimed by both at once given to
+one only; A lands, B leading and taking the set over where it was (the drones within 5 cm, their shield and health, a
+destroyed one's time, a pickup's time left), back to two drones; A, back in the air, fires at B's ship from behind: B
+decides, its shield 80 on B, on A and in the page's people list; nine more and B is destroyed, credited to A on every
+device and the page; B back 5 s later full, seen so by A; no room key written by the game while it played, and no effect
+reaching a story's effect hook. `--camera` runs only camera mode (`cameraRound`, also in
 the main run after the studio's behaviours; a room of its own with two story circles, a page, a pretend headset with
 Quest Browser's user agent and a pretend Android phone with Chrome's (`openDevice`: a pretend `navigator.xr` offering
 `immersive-ar` that records what `requestSession` is asked and gives the page's pretend session, and every set and fx the

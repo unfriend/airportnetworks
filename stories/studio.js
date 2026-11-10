@@ -25428,7 +25428,7 @@ function paneBlocks(tab) {
     if (SRC.state !== 'looking' && !STU.scene && (!SRC.scenes.length || ['none', 'error'].includes(SRC.state))) {
       B.push({ label: 'Which files', p: 'Models: GLB (one file, textures and animations inside); FBX works, but converted to GLB it loads faster and sits right without guessing (the Upload tab converts it). Textures: JPEG for photos and scans, PNG only where see-through, at most 4,096 px (2,048 safer on a Quest). A Quest draws about 300,000 triangles a model, 500,000 a scene. Sounds: mono; short loops as WAV, long ones as MP3.', c: 'faint' });
     }
-    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). ' + (stickMode() === 'move' ? 'Sticks: moving you (left: move, right: turn), also while you carry something; click a stick twice for the studio\'s.' : 'Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it; carrying something, the sticks steer it. Click a stick twice to move with them.') : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. P: pause what moves. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
+    if (!OPT.visit) B.push({ p: ed ? (XR.on ? 'Trigger: select (on a group\'s member: the group; again: that member; standing inside a model and pointing at nothing: that model). Grip: carry (both grips size an object, a cut-out or a group; a corner of a cube or a cut-out stretches it; Hold it on a card: the next grip carries it wherever you point). ' + (stickMode() === 'move' ? 'Sticks: moving you (left: move, right: turn), also while you carry something; click the left stick twice for the studio\'s.' : 'Left stick: walk; right stick: turn; pointing at this panel, a stick scrolls it; carrying something, the sticks steer it. Click the left stick twice to move with them.') : 'Click: select (on a group\'s member: the group; again: that member). W, E, R: move, turn, size. D: duplicate. Delete. Ctrl+Z: undo. P: pause what moves. Walk view: W A S D to walk; standing inside a model, a click on nothing (not the floor) selects it.') : 'Turn on Edit to place things.', c: 'faint' });
   } else if (tab === 'add') {
     B.push({ h: 'Add', sub: STU.scene || 'No scene' });
     if (!ed) { B.push({ p: OPT.visit ? 'Nothing to add here.' : !STU.scene ? 'Pick a scene first (under Scene).' : lock ? 'This scene is locked (Lock this story).' : 'Turn on Edit (under Scene) to place things.', c: 'muted' }); return B; }
@@ -25754,10 +25754,10 @@ function holdBlocks(it, B, dis) {
   B.push({ xr: true, label: 'Carry it', row: [{ id: 'hold', label: on ? 'Now press a grip (again: cancel)' : 'Hold it', act: 'i:hold', on, dis }] },
     { xr: true, p: on ? 'The next grip of either hand carries it from where it stands, wherever you point.' : 'Hold it: then a grip of either hand carries it from where it stands, wherever you point (a room scan you stand in, or something too far to point at).', c: on ? 'amber' : 'faint' },
     // (the sticks while it is carried: holdSticks in e8_xr.js; or, moving with the sticks, they move you: stickMove)
-    stickMode() === 'move' ? { xr: true, p: 'Sticks: moving you. Carried, it comes along as the left stick moves you and the right turns you. Click a stick twice for the studio\'s sticks, which steer it.', c: 'faint' }
+    stickMode() === 'move' ? { xr: true, p: 'Sticks: moving you. Carried, it comes along as the left stick moves you and the right turns you. Click the left stick twice for the studio\'s sticks, which steer it.', c: 'faint' }
       : { xr: true, p: 'Sticks: the studio\'s. Carried, the sticks steer it: ' + (it.kind === 's' ? 'the left stick up or down sizes its reach (full volume within); the right stick up pushes it away, down pulls it in.'
         : it.kind === 'e' ? 'left or right on either stick turns it; the right stick up pushes it away, down pulls it in.'
-        : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.') + (stickMode() === 'own' ? ' Click a stick twice to move with them instead.' : ''), c: 'faint' });
+        : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.') + (stickMode() === 'own' ? ' Click the left stick twice to move with them instead.' : ''), c: 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
 // ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
@@ -28827,7 +28827,7 @@ const vwState = () => ({ open: VW.open, kind: VW.src ? VW.src.kind : '', title: 
 // or cut-out's corner stretches it; let go, it stays. While something is carried the sticks steer it (holdSticks): the
 // left sizes it and turns it, the right pushes it away or pulls it in and turns it too. In VR, nothing carried, the left
 // stick walks you through the scene and the right stick turns you (the scene moves, not you). Those are the studio's own
-// sticks; a stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
+// sticks; the left stick clicked twice (the shell's moving with the sticks, HOST.xr.walk, VR only) switches them to moving you
 // (the scene, by the shell's numbers), also while something is carried, which comes along in the hand (stickMove). The
 // grip on the panel moves the panel. A and X do nothing (play and pause are on the panel). Record its movement (an item's
 // card, e6f_path.js) arms the next grip as Hold it does, and what it carries is recorded until it is let go.
@@ -29502,7 +29502,7 @@ function stickWalk(c, gp, dt) {
     _gh.normalize();
     const v = 1.5 * dt * Math.min(1, (m - 0.15) / 0.85) / m, fx = -ay * v, sx = ax * v;   // (forward and to the side)
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
-  } else if (hand === 'right') {
+  } else if (hand === 'right' && !shipFlying()) {
     if (Math.abs(ax) < 0.3) { XR.turnArm = true; return; }
     if (!XR.turnArm || Math.abs(ax) < 0.7) return;
     XR.turnArm = false;
@@ -29512,7 +29512,7 @@ function stickWalk(c, gp, dt) {
     buzz(c, 0.2, 12);
   }
 }
-// Moving with the sticks (the shell's HOST.xr.walk, a stick clicked twice, the same setting as in every story; the owner,
+// Moving with the sticks (the shell's HOST.xr.walk, the left stick clicked twice since v132, the same setting as in every story; the owner,
 // 8 November 2026: "i want stick movement in studio mode too, just make it switchable with the double stick click so that
 // i can switch between the two modes of stick operation in studio mode"): in VR, on, the sticks move you, by the shell's
 // numbers, also while something is carried (it comes along in the hand: carry something far across the scene) and
@@ -29526,6 +29526,8 @@ function stickWalk(c, gp, dt) {
 // real, and the studio's sticks steer and scroll (the shell refuses the double click there and says why)
 const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3 };
 const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
+// (a spaceship flying, the shell's ships.js: the right controller is the ship's, so its stick turns nothing here)
+const shipFlying = () => !!(HOST.ships && HOST.ships.flying && HOST.ships.flying());
 // once a frame for each controller, before any carry (xrBegin), so what a hand carries is placed on the scene as it now
 // stands: true when it moved the scene
 function stickMove(c, dt) {
@@ -29545,7 +29547,7 @@ function stickMove(c, dt) {
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
     return true;
   }
-  if (hand !== 'right') return false;
+  if (hand !== 'right' || shipFlying()) return false;
   if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
   if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
   c.moveArm = false;
@@ -31011,13 +31013,13 @@ return {
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
   // the sticks (e8_xr.js): the studio's own (walk, turn, steer what you carry, scroll) while the shell's moving with the
-  // sticks is off, moving you while it is on (a stick clicked twice switches them, VR only): the studio moves you itself
+  // sticks is off, moving you while it is on (the left stick clicked twice switches them, VR only): the studio moves you itself
   // (stickMove: its scene, as its own walk does), in a shared room too and while a grip is held (what is carried comes
   // along in the hand); the shell gives the notice and the menu's line in these words
   sticks: {
-    say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click a stick twice for the studio\'s.']
-      : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click a stick twice to move with them.']),
-    note: 'Here, on: the sticks move you (in a shared room too), also while you carry something, which comes along. Off: the studio\'s own (walk, turn, steer what you carry). Or click a stick twice. This headset\'s own.',
+    say: on => (on ? ['Sticks: moving you', 'Left stick: move. Right stick: turn. Click the left stick twice for the studio\'s.']
+      : ['Sticks: the studio\'s', 'Walk, turn, steer what you carry. Click the left stick twice to move with them.']),
+    note: 'Here, on: the sticks move you (in a shared room too), also while you carry something, which comes along. Off: the studio\'s own (walk, turn, steer what you carry). Or click the left stick twice. This headset\'s own.',
   },
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),

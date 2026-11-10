@@ -56,7 +56,11 @@ HOST.ships = (function () {
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   let L = null;   // the shell's link (shared.js, link below): the relay's clock, who we are, the room's frame, notices
-  const now = () => (L && L.now ? L.now() : performance.now());
+  // the clocks: this frame's time (the session's own, ms), and the relay's (in a room the room's; for tests the frame's)
+  let FT = 0;
+  const TC = { on: false, off: 0 };
+  const pnow = () => FT || performance.now();
+  const now = () => (TC.on ? pnow() + TC.off : L && L.now ? L.now() : performance.now());
   const me = () => (L && L.id && L.id()) || 'me';
   const inRoom = () => !!(L && L.room && L.room());   // (a shared room, lined up: the ship flies in room coordinates and goes out)
   const say = (title, text, ms) => { try { if (L && L.notice) L.notice(title, text, ms || 3500); } catch (e) { /* no notice */ } };
@@ -80,7 +84,7 @@ HOST.ships = (function () {
   let W = null;   // the shared set while this headset leads: { c, n, t, d, k, seq }
   let VW = null;   // the set as drawn here (the leader's own, or its samples')
   let LEAD = '', lastNow = 0, lastT = 0, flushAt = 0, code = '';
-  const FREEZE = { on: false };   // (tests: the drones and targets stand still and hold fire)
+  const FREEZE = { on: false }, TRACK = { on: false, list: [] };   // (tests: the drones and targets stand still and hold fire)
 
   // the joystick: from the controller's roll and pitch (degrees) and its neutral pitch, the turn (deg/s, right
   // positive), the flight pitch wanted (deg, nose up positive) and the bank (deg)
@@ -280,7 +284,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (s === S.sess) return;
     if (S.on) land('session', true);
     S.sess = s || null; F.floor = null; F.floorAsked = null;
-    if (!s) return;
+    // (no session: nothing of it left standing in the story's scene, which a page then draws)
+    if (!s) { detach(); BOLTS.clear(); RS.clear(); W = null; VW = null; LEAD = ''; PART.n = 0; return; }
     try {
       if (typeof s.requestReferenceSpace === 'function') {
         F.floorAsked = s;
@@ -382,7 +387,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     let ref = null;
     try { ref = r ? r.xr.getReferenceSpace() : null; } catch (e) { ref = null; }
     if (!ref) return;
-    const pt = performance.now(), dt = lastT ? clamp((pt - lastT) / 1000, 0, 0.1) : 0;
+    if (Number.isFinite(t) && t > 0) FT = t;
+    const pt = pnow(), dt = lastT ? clamp((pt - lastT) / 1000, 0, 0.1) : 0;
     lastT = pt;
     const tn = now(), tp = lastNow || tn;
     lastNow = tn;
@@ -423,7 +429,9 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   }
   // a new ship at the controller: 0.5 m ahead of it along the head's level forward, at its height (both clamped into the
   // arena), flying where the head faces, level; full shield and health; the neutral taken again
+  const HIST = [];   // this ship's places over the last 0.6 s: [relay ms, x, y, z]
   function spawn(re) {
+    HIST.length = 0;
     const yaw = HEAD.ok ? HEAD.yaw : 0, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const cx = CTRL.ok ? CTRL.g.x : HEAD.ok ? HEAD.g.x : S.c[0], cz = CTRL.ok ? CTRL.g.z : HEAD.ok ? HEAD.g.z : S.c[1], cy = CTRL.ok ? CTRL.g.y : 1.2;
     if (re && HEAD.ok) S.c = [HEAD.g.x, HEAD.g.z];   // (in another frame: the arena round where the pilot stands now)
@@ -492,16 +500,23 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       if (S.speed >= 0) { const hx = -Math.sin(S.yaw), hz = -Math.cos(S.yaw), k = hx * ux + hz * uz; if (k > 0) S.yaw = Math.atan2(-(hx - 2 * k * ux), -(hz - 2 * k * uz)); }
       bump();
     }
-    if (S.p.y < ARENA.lo) { S.p.y = ARENA.lo; if (S.pitch < 0) S.pitch = -S.pitch; }
-    if (S.p.y > ARENA.hi) { S.p.y = ARENA.hi; if (S.pitch > 0) S.pitch = -S.pitch; }
+    // (its floor and ceiling: held there, level, until it is steered away)
+    if (S.p.y < ARENA.lo) { S.p.y = ARENA.lo; if (S.pitch < 0) S.pitch = 0; }
+    if (S.p.y > ARENA.hi) { S.p.y = ARENA.hi; if (S.pitch > 0) S.pitch = 0; }
     if (isAR()) planesBounce(f, ref, _v, pt);
     qOf(S.yaw, S.pitch, S.bank, S.q);
+    if (TRACK.on) { TRACK.list.push([tn, S.p.x, S.p.y, S.p.z]); if (TRACK.list.length > 600) TRACK.list.shift(); }
     // the shield refills a while after the last hit; the health never does
     if (pt - S.hitAt >= T.regen && S.shield < HP.shield) S.shield = Math.min(HP.shield, S.shield + HP.refill * dt);
     // the trigger held: bolts from the nose, at most rate a second (rapid with the pickup)
-    if (CTRL.trig && pt - S.shotAt >= 1000 / (rapidOn(tn) ? GUN.rapid : GUN.rate)) { S.shotAt = pt; shoot(tn); }
+    // (held, the next shot an interval after the last, not a frame later: the rate exact whatever the frame rate)
+    const iv = 1000 / (rapidOn(tn) ? GUN.rapid : GUN.rate);
+    if (CTRL.trig && pt - S.shotAt >= iv - 0.5) { S.shotAt = pt - S.shotAt < 2 * iv ? S.shotAt + iv : pt; shoot(tn); }
+    // (where it has been, by the relay's time: a bolt heard late is swept against where the ship was then)
+    HIST.push([tn, S.p.x, S.p.y, S.p.z]);
+    while (HIST.length > 2 && tn - HIST[0][0] > 600) HIST.shift();
   }
-  function bump() { const t = performance.now(); if (t - S.bumpAt > 200) { S.bumpAt = t; play('bump', S.p); } }
+  function bump() { const t = pnow(); if (t - S.bumpAt > 200) { S.bumpAt = t; play('bump', S.p); } }
   // In AR, the room scan's planes (walls, floor, ceiling, tables): the ship crossing one inside its polygon bounces off it
   // (its heading reflected about the plane), with a bump and no damage. Read from the frame (posed in the renderer's space)
   const PL = { list: [], at: 0 };
@@ -555,7 +570,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // a hit on this headset's ship (a bolt of someone else's, or a drone's): the extra shield first, then the shield, what
   // is left the health; at 0 it explodes
   function hurt(n, by, key) {
-    const t = performance.now();
+    const t = pnow();
     let d = n;
     const a = Math.min(S.extra, d); S.extra -= a; d -= a;
     const b = Math.min(S.shield, d); S.shield -= b; d -= b;
@@ -603,10 +618,10 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       if (typeof ev.b === 'string') { const B = BOLTS.get(ev.b); if (B) B.hit = true; else BOLTS.set(ev.b, { hit: true, t0: tn, o: [0, 0, 0], d: [0, 0, 1], v: 0 }); }
       const w = typeof ev.w === 'string' ? ev.w : '';
       const ent = w === 'me' ? 'ship:' + by : w.slice(0, 24);
-      FLASH.set(ent, { t: performance.now(), kind: ev.fx === 's' ? 'spark' : 'ring' });
+      FLASH.set(ent, { t: pnow(), kind: ev.fx === 's' ? 'spark' : 'ring' });
       if (w === 'me' && by !== me()) {
         const R = RS.get(by);
-        if (R && R.last) { if (Number.isFinite(ev.s)) R.last.s = clamp(ev.s, 0, 150); if (Number.isFinite(ev.h)) R.last.h = clamp(ev.h, 0, 100); if (Number.isFinite(ev.x)) R.last.x = clamp(ev.x, 0, 50); R.hitAt = performance.now(); }
+        if (R && R.last) { if (Number.isFinite(ev.s)) R.last.s = clamp(ev.s, 0, 150); if (Number.isFinite(ev.h)) R.last.h = clamp(ev.h, 0, 100); if (Number.isFinite(ev.x)) R.last.x = clamp(ev.x, 0, 50); R.hitAt = pnow(); }
       }
       if (w !== 'me' && VW && by === LEAD && by !== me()) { const e = entityOf(VW, w); if (e) { if (Number.isFinite(ev.s)) e.s = ev.s; if (Number.isFinite(ev.h)) e.h = ev.h; } }
       const at = posOf(ent);
@@ -632,7 +647,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     }
     if (ev.k === 'g') {   // a pickup given: gone for everyone, its effect on for the one it was given to
       if (typeof ev.i !== 'string') return;
-      GONE.set(ev.i, performance.now()); PEND.delete(ev.i);
+      GONE.set(ev.i, pnow()); PEND.delete(ev.i);
       if (VW && VW !== W) VW.k = VW.k.filter(k => k.id !== ev.i);
       const at = posOfPick(ev.i);
       if (ev.to === me() && S.on && !S.down) take(ev.kind);
@@ -673,10 +688,11 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (!R) RS.set(id, (R = { s: [], at: 0, lt: v.lt, last: null, hitAt: 0 }));
     // (shield, health or down changed: the pages' people lists say so)
     if (!R.last || R.last.s !== v.s || R.last.h !== v.h || !R.last.dn !== !v.dn) { if (L && L.changed) L.changed(); }
-    R.at = performance.now(); R.lt = v.lt; R.last = v;
+    R.at = pnow(); R.lt = v.lt; R.last = v;
     const s = R.s, last = s[s.length - 1];
     if (last && ts <= last.ts) return;
-    if (last && ts - last.ts > NET.gap) s.length = 0;
+    // (after a pause, or destroyed and a new ship: anew, never gliding from where the old one was)
+    if (last && (ts - last.ts > NET.gap || !last.v.dn !== !v.dn)) s.length = 0;
     s.push({ ts, v });
     if (s.length > NET.keep) s.shift();
   }
@@ -791,7 +807,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     return SEEN;
   }
   function setStep(dt, tn, n) {
-    const w = W, pt = performance.now();
+    const w = W, pt = pnow();
     // drones: two for one pilot, one more for each further pilot, at most five (the latest ones go when fewer fly)
     const want = Math.min(BOT.most, BOT.drones + Math.max(0, n - 1));
     for (let i = w.d.length; i < want; i++) { let k = i + 1; while (w.d.some(d => d.id === 'd' + k)) k++; w.d.push(newDrone(w, 'd' + k)); }
@@ -871,6 +887,28 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     t = clamp(t, 0, 1);
     return _v2.copy(a).addScaledVector(_v, t).distanceToSquared(c) <= r * r;
   }
+  // a bolt against this ship's places from t0 to t1 (HIST): in each stretch between two of them, the bolt relative to the
+  // ship moves in a line, so the nearest it came is that line's to the ship's middle
+  const _ra = new V3(), _rb = new V3(), _o0 = new V3();
+  function sweepPast(B, ta, tb) {
+    const ts = [ta];
+    for (const h of HIST) if (h[0] > ta && h[0] < tb) ts.push(h[0]);
+    ts.push(tb);
+    for (let i = 1; i < ts.length; i++) {
+      boltAt(B, ts[i - 1], _ra).sub(histAt(ts[i - 1], _v)); boltAt(B, ts[i], _rb).sub(histAt(ts[i], _v));
+      if (segHit(_ra, _rb, _o0.set(0, 0, 0), HIT.ship)) return true;
+    }
+    return false;
+  }
+  function histAt(t, out) {
+    const n = HIST.length;
+    if (!n || t >= HIST[n - 1][0]) return out.copy(S.p);
+    if (t <= HIST[0][0]) return out.set(HIST[0][1], HIST[0][2], HIST[0][3]);
+    let i = n - 1;
+    while (i > 0 && HIST[i - 1][0] > t) i--;
+    const a = HIST[i - 1], b = HIST[i], f = (t - a[0]) / Math.max(1e-6, b[0] - a[0]);
+    return out.set(a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f);
+  }
   const boltAt = (B, t, out) => { const k = B.v * (t - B.t0) / 1000; return out.set(B.o[0] + B.d[0] * k, B.o[1] + B.d[1] * k, B.o[2] + B.d[2] * k); };
   function boltStep(tp, tn) {
     const life = GUN.life * 1000, lead = W && LEAD === me();
@@ -880,11 +918,15 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       const t0 = Math.max(B.t0, tp), t1 = Math.min(B.t0 + life, tn);
       if (t1 < t0 || tn < B.t0) continue;
       boltAt(B, t0, _a); boltAt(B, t1, _b);
-      // (a drone's bolt hits any ship, the leader's too; a pilot's every ship but its own)
-      if (S.on && !S.down && (B.by === 'drone' || B.pilot !== me()) && segHit(_a, _b, S.p, HIT.ship)) {
+      // (a drone's bolt hits any ship, the leader's too; a pilot's every ship but its own. One heard late, from another
+      // device, is swept from its start against where this ship was meanwhile)
+      const first = !B.seen;
+      B.seen = true;
+      if (S.on && !S.down && (B.by === 'drone' || B.pilot !== me()) && (first && B.t0 < t0 - 1 ? sweepPast(B, B.t0, t1) : segHit(_a, _b, S.p, HIT.ship))) {
         B.hit = true; hurt(B.by === 'drone' ? GUN.ddmg : GUN.dmg, B.by === 'drone' ? 'drone' : B.by, key); continue;
       }
       if (!lead || B.by === 'drone') continue;
+      if (first && B.t0 < t0) boltAt(B, B.t0, _a);   // (a drone or a target moves slowly: from the bolt's start against where it is now)
       for (const e of W.d) if (e.a && segHit(_a, _b, e.p, HIT.drone)) { B.hit = true; botHit(e, 'd', key, B.by); break; }
       if (B.hit) continue;
       for (const e of W.t) if (e.a && segHit(_a, _b, e.p, HIT.target)) { B.hit = true; botHit(e, 't', key, B.by); break; }
@@ -894,7 +936,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // the pilot whose bolt did it)
   function botHit(e, k, key, by) {
     let d = GUN.dmg, hull = true;
-    if (k === 'd') { const a = Math.min(e.s, d); e.s -= a; d -= a; hull = d > 0; e.hitAt = performance.now(); }
+    if (k === 'd') { const a = Math.min(e.s, d); e.s -= a; d -= a; hull = d > 0; e.hitAt = pnow(); }
     e.h = Math.max(0, e.h - d);
     emit({ k: 'h', w: k + ':' + e.id, b: key, s: k === 'd' ? Math.round(e.s) : 0, h: Math.round(e.h), by, fx: hull ? 's' : 'r' });
     if (e.h <= 0) {
@@ -1017,6 +1059,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // (a pixel size for the glows: the headset's eye buffer height)
     try { const bl = HOST.session && HOST.session.renderState && HOST.session.renderState.baseLayer; G.px.value = (bl && bl.framebufferHeight ? bl.framebufferHeight : HOST.renderer.domElement.height) * 0.5; } catch (e) { /* keep */ }
     const rt = rtNow();
+    DRAW.rt = rt;
     GL.n = 0; BAR.nb = 0; BAR.nf = 0;
     let ns = 0;
     // the ships: this one exact, the others NET.delay behind between their samples
@@ -1209,9 +1252,11 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // the frame is dressed: the frame's poses are three.js's
     frame(s, t, f) { try { frame(s, t, f); } catch (e) { console.warn('Spaceships:', e); } },
     flying: () => S.on, claims, toggle, out, presIn, fxIn, person, detach, whyNot,
+    // for tests: the relay's time taken from the frames' (a test's own clock), or the relay's again
+    testClock(on) { TC.on = !!on; return TC.on; },
     // for tests: launch (true) or land (false) at the next frame
     launch(on) { if (on === false) { if (S.on) S.want = 'land'; return true; } return toggle('test'); },
-    line() { return S.on ? (S.down ? 'down, back in ' + Math.max(0, Math.ceil((T.respawn - (performance.now() - S.down)) / 1000)) + ' s' : 'flying, shield ' + Math.round(S.shield + S.extra) + ', health ' + Math.round(S.health)) + ' · ' + (LEAD === me() ? 'leads the drones' : LEAD ? 'with ' + nameOf(LEAD) + '\'s drones' : '') + ' · pilots ' + pilots().length : RS.size ? RS.size + ' flying here' : 'none flying'; },
+    line() { return S.on ? (S.down ? 'down, back in ' + Math.max(0, Math.ceil((T.respawn - (pnow() - S.down)) / 1000)) + ' s' : 'flying, shield ' + Math.round(S.shield + S.extra) + ', health ' + Math.round(S.health)) + ' · ' + (LEAD === me() ? 'leads the drones' : LEAD ? 'with ' + nameOf(LEAD) + '\'s drones' : '') + ' · pilots ' + pilots().length : RS.size ? RS.size + ' flying here' : 'none flying'; },
     // for tests: the times shortened ({ respawn, regen, ... } in ms; null the defaults again)
     times(o) {
       if (o === null) Object.assign(T, T0);
@@ -1232,7 +1277,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
         kills: Object.fromEntries([...KILLS].map(([k, v]) => [k, Object.assign({}, v)])),
         remote: [...RS].map(([id, R]) => ({ id, lt: R.lt, p: R.draw ? R.draw.p.toArray() : R.last ? R.last.p.slice() : null, s: R.last ? R.last.s : 0, x: R.last ? R.last.x : 0, h: R.last ? R.last.h : 0, dn: R.last ? R.last.dn : 0, samples: R.s.length })),
         drawn: G.made ? { ships: G.ships.count, drones: G.drones.count, targets: G.targets.count, bolts: G.bolts.count, picks: Object.values(G.picks).reduce((a, x) => a + x.count, 0), hud: G.hudMesh.visible, arrow: G.arrow.visible, inScene: !!(G.root.parent && G.root.parent === storyScene()), tris: G.tris } : null,
-        out: OUT.length };
+        out: OUT.length, rt: DRAW.rt || 0 };
     },
     // for tests: things put where a test needs them (the game's frame), and the objects themselves
     debug: {
@@ -1244,8 +1289,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       pickup(kind, p, life) { if (!W || !KIND[kind]) return ''; const id = 'kt' + (++W.seq); W.k.push({ id, kind, p: new V3(p[0], p[1], p[2]), until: now() + (life || T.pickLife) }); return id; },
       next(ms) { if (W) W.n = now() + ms; },
       clearPicks() { if (W) W.k = []; },
+      hurt(n, by) { if (S.on && !S.down) hurt(n, by || 'drone', 'test:' + (++S.n)); return { shield: S.shield, extra: S.extra, health: S.health, down: !!S.down }; },
       bolt(o, d, v, dr) { const n = ++S.n; emit(Object.assign({ k: 'b', i: n, o, d, v, t: Math.round(now()) }, dr ? { dr } : {})); return me() + ':' + n; },
       objects: () => G,
+      // this ship's places by the relay's time while on ([ms, x, y, z], the last 600), or the list
+      track(on) { if (on !== undefined) { TRACK.on = !!on; TRACK.list = []; } return TRACK.list.slice(); },
+      claim(id) { emit({ k: 'c', i: String(id), t: Math.round(now()) }); PEND.set(String(id), pnow()); },
       materials() { const out = []; if (!G.made) return out; G.root.traverse(o => { if (o.material) out.push(o.material); }); G.hud.traverse(o => { if (o.material) out.push(o.material); }); return out; },
     },
   };

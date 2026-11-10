@@ -110,6 +110,12 @@
 // space: the left stick moves it, the page hears its head move as far, the room's frame and the circles stay put, no jump
 // and no calibrate; walked into a circle by the sticks, into Back to the lobby with the circles asked first; a flick a
 // turn; a headset in AR gets no travel; In this room takes it back; a minute or two);
+// --ships only the spaceships in a shared room (shipsRound, v132, also in the main run after the walk round: a room of its
+// own with two story circles, a page and two pretend AR headsets with controllers, each at its own circle: A's ship drawn
+// by B where A had it at the relay's time; A leads 2 drones and 3 targets, B sees them; B launches, a third drone, the set
+// kept; both hit one drone, A deciding, credited to the one whose bolt destroyed it; pickups given by A, one claimed by both
+// given once; A lands and B takes the set over where it was; A fires at B, B decides (shield 80 everywhere), B destroyed and
+// A credited (the page's people list), B back 5 s later; no room key written, no effect at a story's hook; a few minutes);
 // --trackers only the PC's Vive trackers end to end (trackersRound, also in the main run after the studio's behaviours: a
 // relay of its own from port 8730 up with --trackers and --scenes on a copy of the test and puppet scenes, the fake bridge
 // with SteamVR's space turned and moved against the room, three pages and a pretend VR headset that is not a Quest's
@@ -357,6 +363,7 @@ const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviour
 const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
 const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
+const SHIPS_ONLY = argv.includes('--ships');   // (only the spaceships in a shared room: shipsRound, in a room of its own)
 const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
 const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration kept per room: placesRound, rooms of their own)
 const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses in one room: areasRound, a room of its own)
@@ -2191,6 +2198,180 @@ async function narrationRound() {
   }
 }
 
+// ---- the spaceships in a shared room (shipsRound, v132; --ships runs only it, also in the main run after the walk round;
+// the owner, 10 November 2026: ships seen by "everyone", and "leave the drifting targets and the drones in when more join
+// so players can also coop against them"): a room of its own with two story circles, a page and two pretend AR headsets
+// lined up through the shared space (with controllers: installXR's walk), each at its own circle, a few minutes. A
+// launches: B draws A's ship where A had it, by the relay's clock (within a few cm), whatever circle B is at; A, the
+// leader, runs 2 drones and 3 targets, seen by B; B launches: a third drone, the set kept (co-op); A and B both hit the
+// same drone, A deciding, its health falling by both and its destruction credited to the one whose bolt did it, on every
+// device and the page; a pickup B flies through given to B by A, and one claimed by both at once given once; A lands: B
+// leads and takes the set over where it was (the drones in place, their health and the pickups' times kept); A, back,
+// fires at B: B decides, every device sees shield 80, then B destroyed and A credited (the page's people list too), B back
+// 5 s later full; no room key written by the game, and no effect reaching a story's effect hook
+async function shipsRound() {
+  const K1 = 'qubits', K2 = 'proteins';
+  const P = await open('#stories');
+  await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(P, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await P.evaluate(() => HOST.collab.code);
+  await P.evaluate(([a, b]) => { HOST.collab.add(a, { x: 0, z: 0, yaw: 0 }); HOST.collab.add(b, { x: 4, z: 0, yaw: 0 }); }, [K1, K2]);
+  await until(P, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const [S1, S2] = await P.evaluate(([a, b]) => [HOST.collab.stations().find(s => s.story === a), HOST.collab.stations().find(s => s.story === b)], [K1, K2]);
+  const A = await open('#s=' + rc, { width: 320, height: 200 }), B = await open('#s=' + rc, { width: 320, height: 200 });
+  for (const H of [A, B]) { await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(H, 'airports'); }
+  const pid = await P.evaluate(() => HOST.collab.id), aid = await A.evaluate(() => HOST.collab.id), bid = await B.evaluate(() => HOST.collab.id);
+  await P.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', pid, Date.now() - 60000));
+  await until(P, () => !HOST.collab.internals().pending.size, null, 3000);
+  const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0], walk: true };
+  const lineUpH = async H => {
+    await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    for (let k = 0; k < 24 && !(await H.evaluate(() => HOST.room.aligned)); k++) await frames(H, 250);
+    return H.evaluate(() => HOST.room.aligned);
+  };
+  const both = ms => Promise.all([frames(A, ms), frames(B, ms)]);
+  const all3 = ms => Promise.all([frames(A, ms), frames(B, ms), sleep(ms)]);
+  const ss = H => H.evaluate(() => HOST.ships.state());
+  // (the ships' own clocks are the relay's here: frames real time apart)
+  const effects = H => H.evaluate(() => { const C = HOST.collab.internals(), h = C.hook; if (h && h.effect && !h.effect.__count) { const f = h.effect; h.effect = function () { window.__fxHook = (window.__fxHook || 0) + 1; return f.apply(this, arguments); }; h.effect.__count = true; } return window.__fxHook || 0; });
+  try {
+    for (const H of [A, B]) { await H.evaluate(installXR, xrOpts); await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); }); await frames(H, 300); }
+    const al = (await lineUpH(A)) && (await lineUpH(B));
+    // each at its own circle: A at the first, B at the second
+    await goRoom(A, S1.x, 1.6, S1.z + 0.3, 0); await goRoom(B, S2.x, 1.6, S2.z + 0.3, 0);
+    // (frames until each is at its circle, up to 15 s each, then a moment for what arriving there writes to settle)
+    const atC = (H, id) => until(H, id => { window.__xr.step(); return (HOST.collab.live() || {}).id === id; }, id, 15000);
+    await Promise.all([atC(A, S1.id), atC(B, S2.id)]);
+    await both(2000);
+    await Promise.all([A, B].map(H => until(H, () => { window.__xr.step(); return !HOST.collab.internals().pending.size; }, null, 5000)));
+    const at = [await A.evaluate(() => (HOST.collab.live() || {}).id), await B.evaluate(() => (HOST.collab.live() || {}).id)];
+    const keys0 = (await roomInfo(rc)).keys, seq0 = (await roomInfo(rc)).seq;
+    for (const H of [A, B]) await effects(H);
+    // ---- A launches (the right stick clicked twice); B sees its ship, smoothed, by the relay's clock
+    await A.evaluate(() => { const X = window.__xr, b = X.R.gamepad.buttons[3]; for (let k = 0; k < 2; k++) { b.pressed = true; X.step(); b.pressed = false; X.step(); } HOST.ships.debug.freeze(true); HOST.ships.debug.track(true); });
+    await B.evaluate(() => HOST.ships.debug.freeze(true));
+    await both(1500);
+    const a1 = await ss(A);
+    // B's drawn ship against A's own track at the render time B drew it at, over a second of frames
+    const errs = [];
+    for (let k = 0; k < 8; k++) {
+      await both(120);
+      const b = await B.evaluate(() => { const s = HOST.ships.state(); return { rt: s.rt, r: s.remote[0] || null }; });
+      const tr = await A.evaluate(() => HOST.ships.debug.track());
+      if (!b.r || !b.r.p) continue;
+      let i = tr.findIndex(x => x[0] >= b.rt);
+      if (i <= 0) continue;
+      const [t0, ...p0] = tr[i - 1], [t1, ...p1] = tr[i], f = (b.rt - t0) / Math.max(1, t1 - t0), want = p0.map((v, j) => v + (p1[j] - v) * f);
+      errs.push(dist(b.r.p, want));
+    }
+    errs.sort((x, y) => x - y);
+    const med = errs.length ? errs[errs.length >> 1] : Infinity;
+    console.log(`     (B's drawing of A's ship against A's own at the same relay time: median ${(med * 100).toFixed(1)} cm over ${errs.length} frames)`);
+    const b1 = await ss(B);
+    check('ships: A launches (its right stick twice); B, at another circle, draws A\'s ship where A had it at the relay time it draws (within 3 cm), in the room\'s coordinates',
+      al && at[0] === S1.id && at[1] === S2.id && a1.flying && a1.frame === 'room' && b1.remote.length === 1 && b1.remote[0].id === aid && b1.drawn && b1.drawn.ships === 1 && errs.length >= 4 && med < 0.03,
+      JSON.stringify({ al, at, a1: { flying: a1.flying, frame: a1.frame }, remote: b1.remote, drawn: b1.drawn, errs }));
+    // ---- A leads: 2 drones and 3 targets, seen by B where A has them (frozen: still)
+    const ad = a1.drones.map(d => [d.id, d.p]), bd = b1.drones.map(d => [d.id, d.p]);
+    const same = (x, y) => x.length === y.length && x.every(([id, p]) => { const o = y.find(q => q[0] === id); return !!o && dist(o[1], p) < 0.01; });
+    check('ships: alone in the air, A leads: 2 drones and 3 targets, which B draws where A has them', a1.lead && a1.leader === aid && a1.drones.length === 2 && a1.targets.length === 3 &&
+      b1.leader === aid && !b1.lead && same(ad, bd) && same(a1.targets.map(t => [t.id, t.p]), b1.targets.map(t => [t.id, t.p])), JSON.stringify({ a: [a1.leader, ad], b: [b1.leader, bd] }));
+    // ---- B launches: a third drone, the set kept (co-op)
+    await B.evaluate(() => HOST.ships.launch(true));
+    await both(1500);
+    const a2 = await ss(A), b2 = await ss(B);
+    check('ships: B launches: a third drone, the set kept (the same targets and the first two drones), A still leading',
+      b2.flying && a2.drones.length === 3 && b2.drones.length === 3 && a2.leader === aid && b2.leader === aid && same(ad, a2.drones.filter(d => d.id !== 'd3').map(d => [d.id, d.p])) &&
+      same(a2.targets.map(t => [t.id, t.p]), b2.targets.map(t => [t.id, t.p])), JSON.stringify({ a: a2.drones, b: b2.drones }));
+    // ---- A and B hit the same drone: d1 1.4 m ahead of A's ship along -x, 1.4 m ahead of B's along -z
+    const c = [0.5, 1.4, 0.5];
+    await A.evaluate(c => { HOST.ships.debug.drone('d1', { p: c }); HOST.ships.debug.target('t1', { p: [c[0] + 3, 2.2, c[2] + 3] }); }, c);
+    await both(400);
+    const aim = (H, from, yaw) => H.evaluate(([p, y]) => HOST.ships.debug.place(p, y, 0), [from, yaw]);
+    const shot = H => H.evaluate(() => { const X = window.__xr, b = X.R.gamepad.buttons[0]; b.pressed = true; b.value = 1; X.step(); b.pressed = false; b.value = 0; X.step(); });
+    await aim(A, [c[0] + 1.4, c[1], c[2]], Math.PI / 2); await shot(A);
+    await both(500);
+    const a3 = await ss(A), b3 = await ss(B), d3a = a3.drones.find(d => d.id === 'd1'), d3b = b3.drones.find(d => d.id === 'd1');
+    await aim(B, [c[0], c[1], c[2] + 2.4], 0); await shot(B);
+    await both(500);
+    const a4 = await ss(A), b4 = await ss(B), d4a = a4.drones.find(d => d.id === 'd1'), d4b = b4.drones.find(d => d.id === 'd1');
+    check('ships: A and B hit the same drone; A, the leader, decides: its shield falls by A\'s bolt, then by B\'s and its health, on both devices',
+      !!d3a && d3a.s === 10 && d3a.h === 60 && !!d3b && d3b.s === 10 && !!d4a && d4a.s === 0 && d4a.h === 50 && !!d4b && d4b.h === 50, JSON.stringify({ d3a, d3b, d4a, d4b }));
+    // two more of A's, then B's last: destroyed, credited to B on every device and the page
+    for (const H of [A, A]) { await aim(H, [c[0] + 1.4, c[1], c[2]], Math.PI / 2); await shot(H); await all3(350); }
+    await aim(B, [c[0], c[1], c[2] + 2.4], 0); await shot(B);
+    await all3(800);
+    const a5 = await ss(A), b5 = await ss(B), p5 = await P.evaluate(([b]) => [HOST.ships.state().kills[b] || null, HOST.ships.person(b)], [bid]);
+    const d5 = a5.drones.find(d => d.id === 'd1');
+    check('ships: B\'s bolt destroys it: credited to B on A, B and the page (its people list), not to A',
+      !!d5 && !d5.a && (a5.kills[bid] || {}).bots === 1 && !(a5.kills[aid] || {}).bots && (b5.kills[bid] || {}).bots === 1 && !!p5[0] && p5[0].bots === 1 && /destroyed 0 ships, 1 drones/.test(p5[1]),
+      JSON.stringify({ d5, ka: a5.kills, kb: b5.kills, p5 }));
+    // ---- a pickup B flies through: B claims, A gives it to B (rapid fire on B, gone for all)
+    // (B at a known place in its arena, flying -z; the pickup 1.2 m ahead of it)
+    await B.evaluate(() => HOST.ships.debug.place([4, 1.5, 3], 0, 0));
+    const kid = await A.evaluate(() => HOST.ships.debug.pickup('r', [4, 1.5, 1.6]));
+    await both(1600);
+    const a6 = await ss(A), b6 = await ss(B), p6 = await P.evaluate(() => HOST.ships.state().pickups.length);
+    check('ships: a pickup B flies through is given to B by A: B\'s rapid fire on, the pickup gone for everyone',
+      !!kid && b6.rapid > 0 && a6.rapid === 0 && !a6.pickups.some(k => k.id === kid) && !b6.pickups.some(k => k.id === kid) && p6 === 0, JSON.stringify({ kid, rapid: [a6.rapid, b6.rapid], picks: [a6.pickups, b6.pickups, p6] }));
+    // both claiming one at once: given to one only
+    const k2 = await A.evaluate(() => HOST.ships.debug.pickup('s', [3.5, 2.8, -3.5]));
+    await both(500);
+    await Promise.all([A.evaluate(id => HOST.ships.debug.claim(id), k2), B.evaluate(id => HOST.ships.debug.claim(id), k2)]);
+    await both(1200);
+    const a7 = await ss(A), b7 = await ss(B), given = [a7.extra > 0, b7.extra > 0].filter(Boolean).length;
+    check('ships: a pickup claimed by both at once is given to one only', given === 1 && !a7.pickups.some(k => k.id === k2) && !b7.pickups.some(k => k.id === k2), JSON.stringify({ extra: [a7.extra, b7.extra] }));
+    // ---- A lands: B leads, taking the set over where it was (the drones in place, their health, the pickups' times)
+    const k3 = await A.evaluate(() => HOST.ships.debug.pickup('b', [-3.5, 2.8, 3.5], 20000));
+    await both(800);
+    const before = await ss(B);
+    await A.evaluate(() => HOST.ships.launch(false));
+    await both(1500);
+    const after = await ss(B), aa = await ss(A);
+    // (those it keeps: d3 goes with the pilot who brought it; a destroyed one waits where it is until it is back)
+    // (a destroyed one whose time came meanwhile is back at the edge: anew, as it would have been)
+    const sameD = after.drones.every(e => { const d = before.drones.find(x => x.id === e.id); return !!d && (d.a ? e.a && dist(e.p, d.p) < 0.05 && e.h === d.h && e.s === d.s : e.a || Math.abs(e.back - d.back) < 2); });
+    const kb = before.pickups.find(k => k.id === k3), ka = after.pickups.find(k => k.id === k3);
+    check('ships: A lands: B leads and takes the set over where it was (the drones within 5 cm, their health kept, the pickup\'s time left kept), its drones back to two',
+      !aa.flying && after.lead && after.leader === bid && sameD && !!kb && !!ka && Math.abs((kb.left - ka.left) - 2300) < 1200 && after.drones.length === 2,
+      JSON.stringify({ before: before.drones, after: after.drones, kb, ka, lead: after.leader }));
+    // ---- A, back in the air, fires at B's ship: B decides; shield 80 everywhere; then B destroyed, A credited; back 5 s later
+    await A.evaluate(() => { HOST.ships.launch(true); HOST.ships.debug.freeze(true); });
+    await both(600);
+    const behind = async () => { const s = await ss(B), f = [-Math.sin(s.yaw), 0, -Math.cos(s.yaw)]; await A.evaluate(([p, y]) => HOST.ships.debug.place(p, y, 0), [[s.p[0] - f[0] * 0.9, s.p[1], s.p[2] - f[2] * 0.9], s.yaw]); };
+    await B.evaluate(() => HOST.ships.debug.place([0.5, 1.5, 2], 0, 0));
+    await behind(); await shot(A);
+    await all3(700);
+    const b8 = await ss(B), a8 = await ss(A), p8 = await P.evaluate(b => HOST.ships.person(b), bid), r8 = a8.remote.find(r => r.id === bid);
+    check('ships: A\'s bolt hits B\'s ship: B decides, and every device shows its shield 80 (A\'s, the page\'s people list)', b8.shield === 80 && b8.health === 100 && !!r8 && r8.s === 80 && /shield 80, health 100/.test(p8),
+      JSON.stringify({ b: [b8.shield, b8.health], r8, p8 }));
+    // nine more (more if it won a reinforced shield): shield 0, health falling, destroyed by A
+    let downAt = 0;
+    for (let k = 0; k < 13 && !downAt; k++) {
+      await B.evaluate(() => HOST.ships.debug.place([0.5, 1.5, 2], 0, 0));
+      await behind(); await shot(A); await all3(260);
+      const s = await ss(B);
+      if (s.down) downAt = Date.now();
+    }
+    await all3(600);
+    const b9 = await ss(B), a9 = await ss(A), p9 = await P.evaluate(([a, b]) => [HOST.ships.state().kills[a] || null, HOST.ships.person(a), HOST.ships.person(b)], [aid, bid]);
+    check('ships: more hits: B\'s shield, then its health gone; B destroyed by A, credited to A on A, B and the page (its people list)',
+      !!downAt && b9.down && b9.killer === aid && (a9.kills[aid] || {}).ships === 1 && (b9.kills[aid] || {}).ships === 1 && !!p9[0] && p9[0].ships === 1 && /destroyed 1 ships/.test(p9[1]) && /destroyed, back soon/.test(p9[2]),
+      JSON.stringify({ downAt, b9: { down: b9.down, killer: b9.killer, kills: b9.kills }, ka: a9.kills, p9 }));
+    await all3(Math.max(0, 5600 - (Date.now() - downAt)));
+    const b10 = await ss(B), a10 = await ss(A), r10 = a10.remote.find(r => r.id === bid);
+    check('ships: B back 5 s later with full shield and health, seen so by A', !b10.down && b10.shield === 100 && b10.health === 100 && !!r10 && r10.s === 100 && r10.h === 100 && !r10.dn,
+      JSON.stringify({ b: [b10.down, b10.shield, b10.health], r10 }));
+    // ---- nothing of it stored; no effect reaching a story's hook
+    const info = await roomInfo(rc), wrote = Object.entries(info.keys).filter(([k, e]) => (!keys0[k] || keys0[k].seq !== e.seq) && (e.by === aid || e.by === bid)).map(([k]) => k);
+    const hooks = [await A.evaluate(() => window.__fxHook || 0), await B.evaluate(() => window.__fxHook || 0)];
+    check('ships: no room key written by the game (the room\'s keys as before), and no effect reaching a story\'s effect hook', !wrote.length && hooks.every(n => n === 0),
+      JSON.stringify({ wrote, seq: [seq0, info.seq], hooks }));
+  } finally {
+    for (const H of [A, B]) await H.evaluate(() => { if (HOST.session) window.__xr.end(); }).catch(() => {});
+    for (const p of [P, A, B]) await p.context().close();
+  }
+}
 // ---- moving with the sticks for a VR headset elsewhere in a room (walkRound, v128; --walk runs only it, also in the main
 // run after the narration round; the owner, 9 November 2026: "should also work in shared rooms everywhere when the user is
 // in vr and not in the same room"): a room of its own with an airports circle 3 m ahead of where the headset joins (its own
@@ -2264,7 +2445,7 @@ async function walkRound() {
     const n0 = await twice(H), on0 = await H.evaluate(() => HOST.xr.walk());
     const row0 = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__xr.step(); const r = HOST.collab.menuFind('walk'); HOST.collab.panelOpen(false); return r ? (r.fn ? 'on' : 'greyed') : 'none'; });
     check('walk: a VR headset elsewhere in a room (Somewhere else) may move with the sticks: walkWhy \'\', no travel yet, its own floor; two clicks turn it on, saying the others see it move; the menu\'s row pressable',
-      m0.src === 'own' && w0[0] === false && !w0[1] && m0.why === '' && !m0.travel.space && on0 && n0 === 'Moving with the sticks: on: Left stick: move. Right stick: turn. The others see you move. Click a stick twice to stop.' && row0 === 'on',
+      m0.src === 'own' && w0[0] === false && !w0[1] && m0.why === '' && !m0.travel.space && on0 && n0 === 'Moving with the sticks: on: Left stick: move. Right stick: turn. The others see you move. Click the left stick twice to stop.' && row0 === 'on',
       JSON.stringify({ m0, w0, n0, on0, row0 }));
     // ---- the left stick: the travel, its head in the room and the page hearing it, by as far; the circles stay put
     const h0 = await heard();
@@ -6836,6 +7017,7 @@ try {
   if (STANDBY_ONLY) { await standbyRound(); break main; }
   if (NARR_ONLY) { await narrationRound(); break main; }
   if (WALK_ONLY) { await walkRound(); break main; }
+  if (SHIPS_ONLY) { await shipsRound(); break main; }
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
@@ -9093,6 +9275,8 @@ try {
   await narrationRound();
   // ----------------- moving with the sticks for a VR headset elsewhere in a room (a room of its own) --
   await walkRound();
+  // ------------------------------------------- the spaceships in a shared room (a room of its own) --
+  await shipsRound();
   // --------------------------------- others' moves drawn smoothly (a room of its own) --
   await smoothRound();
   // ------------------------------------------- a room by its code, from a headset's menu --
@@ -9196,8 +9380,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

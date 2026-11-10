@@ -409,6 +409,7 @@ The protein data is meant for teaching, not research.
 | `shared.js` | shared rooms: the client (rooms, stations, the clock, the room frame in a headset, presence, the Shared dialog and headset panel) |
 | `sfx.js` | the shell's sound effects (`HOST.sfx`: clicks, chimes, room sounds and the stories' own sounds, made in code, through the narration's context; on by default, silent on a page until *Sound* is pressed; a quiet background only for the flock and Pass it on); `tools/sfx.html` is its sound board, `tools/sfx-render.mjs` renders every sound to MP3 |
 | `occlusion.js` | real-world occlusion in AR (`HOST.occlusion`): real people, hands and the room scan hide what stands behind them (on by default; untested in the app on a Quest) |
+| `ships.js` | the spaceships (`HOST.ships`, v132): a little ship flown with the right controller like a joystick (the right stick clicked twice), shield and health, drones, drifting targets and pickups fought together in a shared room; nothing stored (untested on a headset) |
 | `relay/` | the shared rooms' server (`server.mjs`, no packages), its test, Dockerfile and guide (`README.md`) |
 | `relay/trackers.mjs` | the relay's part for the PC's Vive trackers (`--trackers`, only on the PC with SteamVR): takes the bridge's readings on UDP 127.0.0.1 and sends them, lined up, to the rooms that use them (`relay/README.md`, "The PC's Vive trackers") |
 | `HANDOVER.md` | start here when taking the project over |

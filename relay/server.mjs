@@ -964,7 +964,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
 // (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server; room-test/ is
 // the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app.)
-const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
+const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
@@ -1041,7 +1041,7 @@ function fingerprint(s) {
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
-const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
+const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
 const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
 const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
 const MAX_WATCHERS = 200;

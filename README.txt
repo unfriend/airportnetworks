@@ -97,7 +97,7 @@ its circle) moves every item there again, for everyone (one Undo step).
   its arrows (W, E, R: move, turn, size); Walk lets you walk through the scene,
   where the trigger cubes act. In a headset point and pull the trigger to pick,
   hold the grip to carry, both grips to size; in VR the sticks walk and turn,
-  and steer what you carry. Click a stick twice for the other way of using
+  and steer what you carry. Click the left stick twice for the other way of using
   them: the sticks move you, also while you carry something, which comes along
   (carry it far across the scene); twice again for the studio's own.
 - Behaviours: an object, a shape or an empty can look at people, follow them,
@@ -467,7 +467,7 @@ read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
 how heavy a scene is; pressing B or Y twice quickly turns it on and off. Moving
 with the sticks (off by default, this headset's own, never the room's; #walk=on
-in a link): click either stick twice quickly, or use its row on the Settings tab,
+in a link): click the left stick twice quickly, or use its row on the Settings tab,
 and in VR the left stick moves you along the floor where you look and a flick of
 the right stick turns you 30 degrees; a controller whose grip is held keeps its
 stick for what it carries. Not in AR (there you walk for real) and not in a
@@ -478,7 +478,20 @@ turn, steer what you carry) and moving you, also while you carry something
 others still see you where you really stand). Turned off,
 you stay where you moved to; a new session starts where you stand. A and X play
 and pause nothing (play and pause are on the story's panels and the menu's Story
-tab). My menu
+tab), but A boosts a spaceship. Spaceships (v132, a small game over every story,
+VR or AR with a controller in your right hand): click the right stick twice (or
+Spaceship: launch on the Settings tab) and a little ship flies from your right
+controller. Hold the controller like a joystick: tilt it right or left to turn,
+nose up or down to climb or dive (where it points does not matter). It always
+flies forward; the grip brakes, held fully it backs off slowly; A boosts for a
+moment; the trigger shoots. Shield and health 100 each: hits take the shield first,
+which refills 2 s after the last hit; health does not. Destroyed, a new ship comes
+5 s later. Drifting crystals and red-eyed drones fly about to practise on, and
+stay when others fly too, so you can fight them together; now and then a pickup
+appears (amber: a stronger boost for 15 s; red: faster shooting for 12 s; blue: 50
+extra shield). In a shared room everyone in a headset sees every ship; the Shared
+dialog's people list says who flies and what they destroyed. Click the right stick
+twice again to land. Nothing of it is kept. My menu
 (this headset's own, never the room's): only me (the default) or my circle. With
 my circle, in a shared room the other headsets at your circle see your menu while
 it is open, as a picture where it floats with your name over it, so you can show
@@ -767,7 +780,7 @@ Files: index.html (the app), stories/ (the sixteen stories, the design room and 
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
+shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), ships.js (the spaceships), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
 directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes; with --trackers it takes the PC's Vive trackers), tools/trackers/ (the trackers' bridge for SteamVR, a fake one for tests, and the plan), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
