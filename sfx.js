@@ -261,15 +261,15 @@
     zap: { kind: 'game', gap: 60, level: 0.3, desc: 'A ship fires: a quick bright zap falling in pitch.',
       make(x) {
         const v = 1 + (x.r() - 0.5) * 0.06;
-        tone(x, 1900 * v, 0, { type: 'square', peak: 0.032, a: 0.002, d: 0.075, f1: 520 * v, glide: 0.07 });
-        tone(x, 950 * v, 0, { type: 'triangle', peak: 0.045, a: 0.002, d: 0.06, f1: 300 * v, glide: 0.06 });
-        hiss(x, 0, { type: 'highpass', f: 4200, q: 0.7, peak: 0.03, a: 0.0005, d: 0.012 });
+        tone(x, 1900 * v, 0, { type: 'square', peak: 0.04, a: 0.002, d: 0.075, f1: 520 * v, glide: 0.07 });
+        tone(x, 950 * v, 0, { type: 'triangle', peak: 0.057, a: 0.002, d: 0.06, f1: 300 * v, glide: 0.06 });
+        hiss(x, 0, { type: 'highpass', f: 4200, q: 0.7, peak: 0.038, a: 0.0005, d: 0.012 });
         return x.t + 0.12;
       } },
     zapLow: { kind: 'game', gap: 80, level: 0.3, desc: 'A drone fires: a lower, buzzier zap.',
       make(x) {
-        tone(x, 820, 0, { type: 'sawtooth', peak: 0.028, a: 0.003, d: 0.12, f1: 210, glide: 0.11 });
-        tone(x, 410, 0, { type: 'triangle', peak: 0.05, a: 0.003, d: 0.1, f1: 160, glide: 0.1 });
+        tone(x, 820, 0, { type: 'sawtooth', peak: 0.04, a: 0.003, d: 0.12, f1: 210, glide: 0.11 });
+        tone(x, 410, 0, { type: 'triangle', peak: 0.07, a: 0.003, d: 0.1, f1: 160, glide: 0.1 });
         return x.t + 0.18;
       } },
     shieldHit: { kind: 'game', gap: 60, level: 0.4, desc: 'A hit taken by a shield: a bright shimmering ping.',
@@ -289,9 +289,9 @@
       make(x) { swish(x, 0, 0.5, 380, 2800, 0.1, 0.15); tone(x, 220, 0, { type: 'triangle', peak: 0.06, a: 0.04, d: 0.42, f1: 640, glide: 0.4 }); return x.t + 0.6; } },
     boom: { kind: 'game', gap: 150, level: 0.8, desc: 'A ship, a drone or a target destroyed: a soft burst that rumbles and falls away (kept above about 120 Hz).',
       make(x) {
-        hiss(x, 0, { kind: 'pink', type: 'lowpass', f: 3200, f1: 260, glide: 0.8, q: 0.8, peak: 0.2, a: 0.004, d: 0.85, send: 0.25 });
-        thud(x, 0, 0.17, 210, 95, 0.5);
-        for (const at of [0.06, 0.13, 0.22]) hiss(x, at, { type: 'bandpass', f: 1800 + x.r() * 1400, q: 1.2, peak: 0.05, a: 0.001, d: 0.05 });
+        hiss(x, 0, { kind: 'pink', type: 'lowpass', f: 3200, f1: 260, glide: 0.8, q: 0.8, peak: 0.17, a: 0.004, d: 0.85, send: 0.25 });
+        thud(x, 0, 0.14, 210, 95, 0.5);
+        for (const at of [0.06, 0.13, 0.22]) hiss(x, at, { type: 'bandpass', f: 1800 + x.r() * 1400, q: 1.2, peak: 0.042, a: 0.001, d: 0.05 });
         return x.t + 1.1;
       } },
     bump: { kind: 'game', gap: 120, level: 0.3, desc: 'A ship bounces off the arena\'s edge or a wall: a soft rubbery bump.',

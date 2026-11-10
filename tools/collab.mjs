@@ -2242,7 +2242,9 @@ async function shipsRound() {
     // (frames until each is at its circle, up to 15 s each, then a moment for what arriving there writes to settle)
     const atC = (H, id) => until(H, id => { window.__xr.step(); return (HOST.collab.live() || {}).id === id; }, id, 15000);
     await Promise.all([atC(A, S1.id), atC(B, S2.id)]);
-    await both(2000);
+    // (their stories built there, and what arriving writes to the room, the station's state, written)
+    await Promise.all([ready(A, K1, 60000), ready(B, K2, 60000)]);
+    await both(2500);
     await Promise.all([A, B].map(H => until(H, () => { window.__xr.step(); return !HOST.collab.internals().pending.size; }, null, 5000)));
     const at = [await A.evaluate(() => (HOST.collab.live() || {}).id), await B.evaluate(() => (HOST.collab.live() || {}).id)];
     const keys0 = (await roomInfo(rc)).keys, seq0 = (await roomInfo(rc)).seq;
@@ -2289,11 +2291,14 @@ async function shipsRound() {
     await both(400);
     const aim = (H, from, yaw) => H.evaluate(([p, y]) => HOST.ships.debug.place(p, y, 0), [from, yaw]);
     const shot = H => H.evaluate(() => { const X = window.__xr, b = X.R.gamepad.buttons[0]; b.pressed = true; b.value = 1; X.step(); b.pressed = false; b.value = 0; X.step(); });
+    // (B's view of the drone comes with A's presence: frames on both until it does, at most 6 s, a page drawing in software
+    // taking its frames far apart)
+    const seen = (sh, h) => Promise.all([frames(A, 400), until(B, ([sh, h]) => { window.__xr.step(); const d = HOST.ships.state().drones.find(x => x.id === 'd1'); return !!d && d.s === sh && d.h === h; }, [sh, h], 6000)]);
     await aim(A, [c[0] + 1.4, c[1], c[2]], Math.PI / 2); await shot(A);
-    await both(500);
+    await both(500); await seen(10, 60);
     const a3 = await ss(A), b3 = await ss(B), d3a = a3.drones.find(d => d.id === 'd1'), d3b = b3.drones.find(d => d.id === 'd1');
     await aim(B, [c[0], c[1], c[2] + 2.4], 0); await shot(B);
-    await both(500);
+    await both(500); await seen(0, 50);
     const a4 = await ss(A), b4 = await ss(B), d4a = a4.drones.find(d => d.id === 'd1'), d4b = b4.drones.find(d => d.id === 'd1');
     check('ships: A and B hit the same drone; A, the leader, decides: its shield falls by A\'s bolt, then by B\'s and its health, on both devices',
       !!d3a && d3a.s === 10 && d3a.h === 60 && !!d3b && d3b.s === 10 && !!d4a && d4a.s === 0 && d4a.h === 50 && !!d4b && d4b.h === 50, JSON.stringify({ d3a, d3b, d4a, d4b }));
@@ -2304,13 +2309,16 @@ async function shipsRound() {
     const a5 = await ss(A), b5 = await ss(B), p5 = await P.evaluate(([b]) => [HOST.ships.state().kills[b] || null, HOST.ships.person(b)], [bid]);
     const d5 = a5.drones.find(d => d.id === 'd1');
     check('ships: B\'s bolt destroys it: credited to B on A, B and the page (its people list), not to A',
-      !!d5 && !d5.a && (a5.kills[bid] || {}).bots === 1 && !(a5.kills[aid] || {}).bots && (b5.kills[bid] || {}).bots === 1 && !!p5[0] && p5[0].bots === 1 && /destroyed 0 ships, 1 drones/.test(p5[1]),
+      !!d5 && !d5.a && (a5.kills[bid] || {}).bots === 1 && !(a5.kills[aid] || {}).bots && (b5.kills[bid] || {}).bots === 1 && !!p5[0] && p5[0].bots === 1 && /destroyed 0 ships and 1 drone or target/.test(p5[1]),
       JSON.stringify({ d5, ka: a5.kills, kb: b5.kills, p5 }));
     // ---- a pickup B flies through: B claims, A gives it to B (rapid fire on B, gone for all)
-    // (B at a known place in its arena, flying -z; the pickup 1.2 m ahead of it)
+    // (B at a known place in its arena, flying -z; the pickup 1.4 m ahead of it; none coming by themselves meanwhile; frames
+    // until B has flown past it: a page drawing in software takes its frames far apart, and a frame moves at most 0.1 s)
+    await A.evaluate(() => { HOST.ships.debug.clearPicks(); HOST.ships.debug.next(1e9); });
     await B.evaluate(() => HOST.ships.debug.place([4, 1.5, 3], 0, 0));
     const kid = await A.evaluate(() => HOST.ships.debug.pickup('r', [4, 1.5, 1.6]));
-    await both(1600);
+    await Promise.all([frames(A, 600), until(B, () => { window.__xr.step(); const s = HOST.ships.state(); return s.p[2] < 1.2 || s.rapid > 0; }, null, 10000)]);
+    await both(800);
     const a6 = await ss(A), b6 = await ss(B), p6 = await P.evaluate(() => HOST.ships.state().pickups.length);
     check('ships: a pickup B flies through is given to B by A: B\'s rapid fire on, the pickup gone for everyone',
       !!kid && b6.rapid > 0 && a6.rapid === 0 && !a6.pickups.some(k => k.id === kid) && !b6.pickups.some(k => k.id === kid) && p6 === 0, JSON.stringify({ kid, rapid: [a6.rapid, b6.rapid], picks: [a6.pickups, b6.pickups, p6] }));
@@ -2356,7 +2364,7 @@ async function shipsRound() {
     await all3(600);
     const b9 = await ss(B), a9 = await ss(A), p9 = await P.evaluate(([a, b]) => [HOST.ships.state().kills[a] || null, HOST.ships.person(a), HOST.ships.person(b)], [aid, bid]);
     check('ships: more hits: B\'s shield, then its health gone; B destroyed by A, credited to A on A, B and the page (its people list)',
-      !!downAt && b9.down && b9.killer === aid && (a9.kills[aid] || {}).ships === 1 && (b9.kills[aid] || {}).ships === 1 && !!p9[0] && p9[0].ships === 1 && /destroyed 1 ships/.test(p9[1]) && /destroyed, back soon/.test(p9[2]),
+      !!downAt && b9.down && b9.killer === aid && (a9.kills[aid] || {}).ships === 1 && (b9.kills[aid] || {}).ships === 1 && !!p9[0] && p9[0].ships === 1 && /destroyed 1 ship and/.test(p9[1]) && /destroyed, back soon/.test(p9[2]),
       JSON.stringify({ downAt, b9: { down: b9.down, killer: b9.killer, kills: b9.kills }, ka: a9.kills, p9 }));
     await all3(Math.max(0, 5600 - (Date.now() - downAt)));
     const b10 = await ss(B), a10 = await ss(A), r10 = a10.remote.find(r => r.id === bid);

@@ -244,7 +244,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       G.mat = new THREE.ShaderMaterial({ vertexShader: LIT_V, fragmentShader: LIT_F, side: THREE.DoubleSide });
       const sg = shipGeo();
       G.tris = sg.attributes.position.count / 3;
-      G.ships = inst(sg, G.mat, MAXS, true);
+      // (its own material: three.js r128 keeps one program a material, and an instanced mesh with colours needs another)
+      G.ships = inst(sg, G.mat.clone(), MAXS, true);
       G.drones = inst(droneGeo(), G.mat, BOT.most, false);
       G.targets = inst(crystalGeo(), G.mat, BOT.targets, false);
       for (const k of Object.keys(KIND)) G.picks[k] = inst(pickGeo(k), G.mat, BOT.picks, false);
@@ -769,7 +770,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     const v = R ? setAt(R, rt) : null;
     if (v) VW = v;
   }
-  const rtNow = () => (L && L.rt ? L.rt() : now() - NET.delay);
+  const rtNow = () => (!TC.on && L && L.rt ? L.rt() : now() - NET.delay);
   // a set to lead: a copy of what was drawn here (positions, headings, shield and health, the pickups and their times),
   // or a new one round this pilot's arena
   function takeOver(v) {
@@ -1198,7 +1199,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     bar(36, 'HULL', S.health / HP.health, S.health > 30 ? '#57d68d' : '#ff5c5c');
     bar(60, 'BOOST', S.boostT > 0 ? 1 : S.charge, S.charge >= 1 || S.boostT > 0 ? '#ffb43c' : '#7a6230');
     c.fillStyle = '#eef4fb'; c.font = '700 18px B612, system-ui, sans-serif'; c.textAlign = 'right';
-    c.fillText(K.ships + ' ships', Wd - 12, 19); c.fillText(K.bots + ' drones', Wd - 12, 43);
+    c.fillText('Ships ' + K.ships, Wd - 12, 19); c.fillText('Drones ' + K.bots, Wd - 12, 43);
     c.textAlign = 'left';
     let x = 18;
     for (const [n, v, col] of on) { c.fillStyle = col; c.font = '700 20px B612, system-ui, sans-serif'; const s = n + ' ' + v; c.fillText(s, x, 108); x += c.measureText(s).width + 18; }
@@ -1233,11 +1234,13 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     return true;
   }
   // the Shared dialog's people list: what someone flying shows ('' not flying)
+  const nOf = (n, one, many) => n + ' ' + (n === 1 ? one : many);
   function person(id) {
     const R = id === me() ? (S.on ? { last: { s: S.shield + S.extra, h: S.health, dn: S.down } } : null) : RS.get(id);
     const K = KILLS.get(id);
-    if (!R || !R.last) return K && (K.ships || K.bots) ? 'destroyed ' + K.ships + ' ships, ' + K.bots + ' drones' : '';
-    return (R.last.dn ? 'flying a ship (destroyed, back soon)' : 'flying a ship (shield ' + Math.round(R.last.s + (R.last.x || 0)) + ', health ' + Math.round(R.last.h) + ')') + (K ? ', destroyed ' + K.ships + ' ships, ' + K.bots + ' drones' : '');
+    const k = K && (K.ships || K.bots) ? 'destroyed ' + nOf(K.ships, 'ship', 'ships') + ' and ' + nOf(K.bots, 'drone or target', 'drones or targets') : '';
+    if (!R || !R.last) return k;
+    return (R.last.dn ? 'flying a ship (destroyed, back soon)' : 'flying a ship (shield ' + Math.round(R.last.s + (R.last.x || 0)) + ', health ' + Math.round(R.last.h) + ')') + (k ? ', ' + k : '');
   }
   // install: the input claim, the session (HOST.xr.watch, as HOST.session is set)
   if (HOST.inputsGuard && HOST.inputsGuard.claim) HOST.inputsGuard.claim(claims);
