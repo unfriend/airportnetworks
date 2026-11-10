@@ -6797,7 +6797,7 @@
   }
   const areaOf = id => (id ? areaList().find(A => A.id === id) || null : null);
   const areaGone = id => { const v = val(kArea(id)); return !!(v && v.gone); };
-  const areaStale = A => !!A && (A.base.at || 0) !== rmBase().at;
+  const areaStale = A => !!(A && A.base) && (A.base.at || 0) !== rmBase().at;   // (spots A and B themselves: never)
   // spots A and B as an area of the list (n 1, id ''): their room points from rm (B as high as A), null while the room
   // has none
   function area1() {

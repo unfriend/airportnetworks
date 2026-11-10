@@ -269,7 +269,18 @@ local network found each other this way, and then shared a peer-to-peer room; he
     (at least 50 cm apart, within 4 cm in height). On a headset, **Trackers: shown** on the menu's **Debug** tab: each
     small puck should sit on its real tracker. Line up again after a base station moves or SteamVR's room setup is run.
     Setting up the PC and what to try when nothing shows: [tools/trackers/README.md](../tools/trackers/README.md).
-14. **Several rooms** (v130, untested on headsets): one shared room per physical room, each with its own two tape
+14. **One room, several areas** (v131, untested on headsets; the better way for rooms side by side or a big hall): one
+    shared room, and two more tape crosses on the floor in each part of it (label them C and D, E and F...). One headset
+    lined up by spots A and B walks to each part and adds it: menu **Circles**, **Room setup**, its last page **Areas**,
+    **Add spots for another area**, type a name (*Lab*), then touch its two crosses as when calibrating. Every headset can
+    then calibrate on whichever crosses are nearest (**Line up**: *Calibrate on: Lab (C and D)*, or **Calibrate here** on
+    the Areas page) and stays in the same room; walking from one area to another, it lines up again from the crosses there
+    by itself and asks by eye. A second headset checks a new area on the Areas page (**Check at C**). If spots A and B are
+    taped again, the areas say *measure again*: add them again (**Forget area** on the menu's **Debug** tab takes one
+    away). A headset keeps at most 8 saved anchors in all: a new place gets two, and from the fifth on the places made
+    first keep one each (at their first cross); after that the place used least recently is dropped (a notice says
+    which). **Arrange all** still lays its rows in front of you, through walls if need be: place circles by hand there.
+15. **Several rooms** (v130, untested on headsets): one shared room per physical room, each with its own two tape
     crosses (label them by room). In each room, join its shared room and calibrate there as above: the headset keeps that
     calibration as the room's **place**, and the other rooms' places stay. Back in a room with no shared room joined (or
     in one it joined by itself), a headset that finds a place's anchors within 10 m joins that room by itself (*Room
@@ -277,10 +288,11 @@ local network found each other this way, and then shared a peer-to-peer room; he
     menu **Debug**, under **Places**). It never leaves a room it may be standing in: it waits for that room's own spots
     first, keeps it when that room's spots are nearer, keeps it after standby (a headset carried to another room while
     asleep only offers the new room: press **Join ABC**), and joins another room by itself, when its own room's spots are
-    not found, only within 4 m of that room's spot A. A headset keeps at most 8 saved anchors in all: 4 rooms with two anchors each, or
-    8 with one (**Anchors per room: one**, before calibrating; one anchor is less sure of the room's direction: if spot
-    B's orange cross is off its tape, calibrate again, or use two anchors); with **Anchor: on** one fewer. A calibration past that drops the place used least recently (a notice says
-    which). **Places** lists each room's place with **Forget** (two presses). Each room needs its own room scan (Space
+    not found, only within 4 m of that room's spot A. A headset keeps at most 8 saved anchors in all (with **Anchor: on**
+    one fewer): since v131 a new place gets two and the places made first go down to one each as the budget fills (one
+    anchor is less sure of the room's direction: if spot B's orange cross is off its tape, calibrate again), then the place
+    used least recently is dropped (a notice says which). Pressing **Join ABC** counts as joined by its place, so a later
+    move to another room's place is by itself. **Places** lists each room's place with **Forget** (two presses). Each room needs its own room scan (Space
     Setup) on every headset. Untested: whether a Quest finds a room's anchors when it walks in during a session, or only
     as a session starts (if it does not switch, leave AR and enter it again in the new room).
 

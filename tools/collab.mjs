@@ -359,6 +359,7 @@ const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRou
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
 const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration kept per room: placesRound, rooms of their own)
+const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses in one room: areasRound, a room of its own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
@@ -4521,7 +4522,7 @@ async function placesRound() {
   const menuPic = async file => {
     if (!shots) return;
     fs.mkdirSync(shots, { recursive: true });
-    const u = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuFind('placeanchors'); const S = HOST.collab.overlay().panel, c = document.createElement('canvas');
+    const u = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuFind('people'); const S = HOST.collab.overlay().panel, c = document.createElement('canvas');
       c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); HOST.collab.panelOpen(false); return c.toDataURL('image/png'); });
     fs.writeFileSync(path.join(shots, file), Buffer.from(u.split(',')[1], 'base64'));
   };
@@ -4533,9 +4534,9 @@ async function placesRound() {
     const c1 = await calibrate(XA, XB);
     const s1 = await PS(), f1 = await now(), h1 = await handles(), st1 = await H.evaluate(() => Object.assign(JSON.parse(localStorage.getItem('roomFrames') || '{}'), { legacy: localStorage.getItem('roomFrame') }));
     const px = s1.list.find(p => p.code === X) || null;
-    check('places: calibrated in room X, its place is kept: two anchors saved, stored in roomFrames (v3) with the room\'s own id, the room lined up on its spots',
+    check('places: calibrated in room X, its place is kept: two anchors saved, stored in roomFrames (v4, since v131) with the room\'s own id, the room lined up on its spots',
       st0 === 'calibrate' && c1 && !!px && px.kept && px.n === 2 && px.anchors.every(u => h1.includes(u)) && !!px.rid && lined(f1, want(FLOOR, XA, XB)) &&
-        st1.v === 3 && st1.places.some(p => p.code === X && p.anchors.length === 2) && st1.legacy === null, JSON.stringify({ st0, c1, s1, f1, st1 }));
+        st1.v === 4 && st1.places.some(p => p.code === X && p.anchors.length === 2) && st1.legacy === null, JSON.stringify({ st0, c1, s1, f1, st1 }));
     // joined room Y by hand, standing in it: no place there yet (calibrate), then calibrated: two places
     await H.evaluate(c => HOST.collab.join(c), Y);
     await until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open'; }, Y, 20000);
@@ -4555,9 +4556,9 @@ async function placesRound() {
     await H.evaluate(h => window.__xr.head(h), AT_X);
     const l3 = await look(), s3 = await PS(), f3 = await now();
     const ids3 = await H.evaluate(() => { HOST.collab.panelOpen(true); const ids = HOST.collab.menuIds(); HOST.collab.panelOpen(false); return ids; });
-    check('places: in room Y joined by hand, standing in X\'s place: Y is not left by itself; X is offered (a notice, and Join X under Debug, beside each place\'s Forget and Anchors per room)',
+    check('places: in room Y joined by hand, standing in X\'s place: Y is not left by itself; X is offered (a notice, and Join X under Debug, beside each place\'s Forget; no Anchors per room since v131)',
       l3 && f3.code === Y && s3.here === X && s3.offer === X && (await notes()).includes('Join room ' + X + '?') && ids3.includes('placejoin') &&
-        ids3.includes('placeforget:' + X) && ids3.includes('placeforget:' + Y) && ids3.includes('placeanchors'), JSON.stringify({ s3, f3, ids3 }));
+        ids3.includes('placeforget:' + X) && ids3.includes('placeforget:' + Y) && !ids3.includes('placeanchors'), JSON.stringify({ s3, f3, ids3 }));
     await menuPic('places-1-offer.png');
     // out of the room (not on purpose), a new session in no room standing in Y, X's anchors not findable (its handles
     // hidden), the floor moved: Y joined by itself and lined up from its marks
@@ -4652,7 +4653,7 @@ async function placesRound() {
     check('places: a room left on purpose (X) is not joined by itself while standing in its place, only offered', l6 && f6.code === '' && s6.here === X && s6.offer === X, JSON.stringify({ s6, f6 }));
     const pj = await menu('placejoin');
     const j6 = await joinedTo(X), f6b = await now();
-    check('places: ...the menu\'s Join X joins it by hand, lined up from its place', pj === 1 && j6 && !f6b.by && !f6b.auto && lined(f6b, want(F2, XA, XB)), JSON.stringify({ pj, j6, f6b }));
+    check('places: ...the menu\'s Join X joins it, lined up from its place (since v131 counted as joined by its place, so a later move is by itself)', pj === 1 && j6 && f6b.by === X && lined(f6b, want(F2, XA, XB)), JSON.stringify({ pj, j6, f6b }));
     // a new session: the tidy deletes saved anchors nobody knows and keeps every place's
     await end();
     await H.evaluate(() => window.__handles.set('junk-places', new THREE.Matrix4()));
@@ -4688,26 +4689,58 @@ async function placesRound() {
     await H.evaluate(h => window.__xr.head(h), AT_Y);
     await frames(H, 300);
     const c9 = await calibrate(YA, YB);
-    const s9 = await PS(), h9 = await handles(), l9 = await since('test places limit'), dropped = l9.find(e => e.ev === 'places dropped') || null;
-    check('places: a fifth place with two anchors (at most 8 anchors in all) drops the one used least recently with its anchors, and says so',
+    const s9 = await PS(), h9 = await handles(), l9 = await since('test places limit'), dropped = l9.find(e => e.ev === 'places fitted') || null;
+    check('places: a fifth place with two anchors (at most 8 anchors in all): the place made first whose turn from A to B is not known yet (no yb) is dropped with its anchors instead of going down to one, and a notice says so',
       c9 && s9.cap === 8 && s9.list.length === 4 && [X, Y, 'QQB', 'QQC'].every(c => s9.list.some(p => p.code === c)) && !planted[0].slice(1).some(u => h9.includes(u)) &&
-        planted.slice(1).every(r => r.slice(1).every(u => h9.includes(u))) && !!dropped && dropped.codes.join() === 'QQA' && (await notes()).includes('Older places dropped'),
+        planted.slice(1).every(r => r.slice(1).every(u => h9.includes(u))) && !!dropped && dropped.dropped.map(d => d[0]).join() === 'QQA' && !dropped.down.length && (await notes()).includes('Older places dropped'),
       JSON.stringify({ c9, list: s9.list.map(p => [p.code, p.anchors.length]), dropped }));
-    // one anchor per room (the menu's row): Y calibrated anew with one anchor at spot A, turned so its x axis lies towards
-    // spot B (the two before deleted); found again in a new session on another floor, it lines the room up
-    const y9 = (s9.list.find(p => p.code === Y) || { anchors: [] }).anchors;
-    const one = await menu('placeanchors');
-    const c10 = await calibrate(YA, YB);
-    const s10 = await PS(), py10 = s10.list.find(p => p.code === Y) || null, h10 = await handles();
-    const turn = py10 ? await H.evaluate(u => { const m = window.__handles.get(u); return m ? [m.elements[0], m.elements[1], m.elements[2]] : null; }, py10.anchors[0]) : null;
-    const wyx = unit([YB[0] - YA[0], 0, YB[2] - YA[2]]);
-    check('places: Anchors per room: one (the menu\'s row); Y calibrated again keeps one anchor at spot A, its x axis level towards spot B; the two before deleted',
-      one === 1 && s10.one && c10 && !!py10 && py10.n === 1 && py10.anchors.length === 1 && py10.kept && !!turn && Math.abs(turn[1]) < 1e-6 &&
-        turn[0] * wyx[0] + turn[2] * wyx[2] > Math.cos(0.5 * Math.PI / 180) && !y9.some(u => h10.includes(u)), JSON.stringify({ one, py10, turn, wyx }));
+    // the anchor budget (v131; the owner, 10 November 2026: "two by default until 4 areas, then once a fifth area is opened
+    // the first only has one, then the second and so on"). Y's place (made at c9) and three places planted after it, two
+    // anchors each with their turn known (yb 0: anchors at A and B along +x, unturned), and X's: 10 anchors once X is
+    // calibrated anew (a fifth place); the two made first go down to anchor A alone (Y's, then QPA's), 8 in all, a notice
+    // naming them; B's anchors deleted
+    const y9 = s9.list.find(p => p.code === Y) || { anchors: [] };
+    const planted2 = await H.evaluate(() => {
+      const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z), out = [];
+      S.places = S.places.filter(p => !/^QQ/.test(p.code));
+      ['QPA', 'QPB', 'QPC'].forEach((c, i) => {
+        const ha = 'plant2-' + c + '-a', hb = 'plant2-' + c + '-b', at = Date.now() + (i + 1) * 1000;
+        window.__handles.set(ha, M(70 + 6 * i, 70)); window.__handles.set(hb, M(71.5 + 6 * i, 70));
+        S.places.push({ code: c, pair: '', a: [70, 0.02, 70], b: [71.5, 0.02, 70], at, used: at, anchors: [ha, hb], n: 2, f: 1, yb: 0 });
+        out.push([c, ha, hb]);
+      });
+      localStorage.setItem('roomFrames', JSON.stringify(S));
+      HOST.room.places({ reload: true });
+      return out;
+    });
+    await H.evaluate(c => HOST.collab.join(c), X);
+    await until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open'; }, X, 20000);
+    await H.evaluate(h => window.__xr.head(h), AT_X);
+    await frames(H, 300);
+    await mark('test places budget');
+    const c10 = await calibrate(XA, XB);
+    const s10 = await PS(), h10 = await handles(), l10 = await since('test places budget'), fit10 = l10.find(e => e.ev === 'places fitted') || null;
+    const n10 = c => (s10.list.find(p => p.code === c) || { anchors: [] }).anchors.length;
+    check('places: the budget, five places of two anchors (10): the two made first (Y\'s, then QPA\'s) go down to anchor A alone, B\'s anchors deleted, 8 in all; the newer ones and the new one keep two; a notice says so',
+      c10 && s10.anchors === 8 && n10(Y) === 1 && n10('QPA') === 1 && n10('QPB') === 2 && n10('QPC') === 2 && n10(X) === 2 && !!fit10 && fit10.down.map(d => d[0]).join() === [Y, 'QPA'].join() &&
+        !fit10.dropped.length && !h10.includes(y9.anchors[1]) && !h10.includes(planted2[0][2]) && h10.includes(y9.anchors[0]) && (await notes()).includes('Older places on one anchor'),
+      JSON.stringify({ c10, anchors: s10.anchors, list: s10.list.map(p => [p.code, p.anchors.length, p.yb]), fit10 }));
+    // with Anchor on (HOST.anchor keeps a placement of its own: one less, 7): X calibrated anew takes QPB down too
+    await H.evaluate(() => Object.defineProperty(HOST.anchor, 'on', { get: () => true, configurable: true }));
+    await mark('test places budget on');
+    const c11 = await calibrate(XA, XB);
+    const s11 = await PS(), n11 = c => (s11.list.find(p => p.code === c) || { anchors: [] }).anchors.length;
+    await H.evaluate(() => { delete HOST.anchor.on; });   // (back to the object's own getter... gone: say false)
+    await H.evaluate(() => { if (!('on' in HOST.anchor)) Object.defineProperty(HOST.anchor, 'on', { get: () => false, configurable: true }); });
+    check('places: ...with Anchor on (at most 7), X calibrated anew takes the next made first (QPB) down too: 7 anchors in all', c11 && s11.cap === 7 && s11.anchors === 7 && n11('QPB') === 1 && n11('QPC') === 2 && n11(X) === 2,
+      JSON.stringify({ c11, cap: s11.cap, anchors: s11.anchors, list: s11.list.map(p => [p.code, p.anchors.length]) }));
+    // Y's place, down to anchor A alone, found again in a new session on a floor that moved: the room within 1 cm and 0.5
+    // degrees (spot B where anchor A's own turn and its yb put it)
     await end();
+    await H.evaluate(c => HOST.collab.join(c), Y);
     await go(AT_Y, { floor: F3, local: L3 });
     const j10 = await joinedTo(Y, 15000), f10 = await now(), dAB = Math.hypot(YB[0] - YA[0], YB[2] - YA[2]);
-    check('places: one anchor found again in a new session on a floor that moved lines the room up within 1 cm and 0.5 degrees (spot B where the marks put it)',
+    check('places: a place gone down to one anchor (Y\'s), found again in a new session on a floor that moved, lines the room up within 1 cm and 0.5 degrees (spot B where its anchor\'s turn and yb put it)',
       j10 && lined(f10, want(F3, YA, YB)) && !!f10.mk && Math.abs(f10.mk[1] - dAB) < 0.01 && /held by one anchor/.test(f10.line), JSON.stringify({ j10, f10, want: want(F3, YA, YB) }));
     await menuPic('places-2-one.png');
     // one anchor's turn read with a wobble of up to 0.6 degrees either way at each reading (the review of v130: the room
@@ -4741,27 +4774,35 @@ async function placesRound() {
     const tr2 = await now(), lt = await since('test places turn'), mt = lt.filter(e => e.ev === 'anchors moved');
     check('places: one anchor, local-floor turned 10 degrees without a reset event: the room follows at once (its first move the whole turn, none creeping after), within 1 cm and 0.5 degrees',
       lined(tr2, want(F4, YA, YB)) && mt.length >= 1 && mt.length <= 2 && Math.abs(mt[0].a - 10 * Math.PI / 180) < 0.01, JSON.stringify({ tr, tr2, mt }));
-    // eight places with one anchor each fit (8 anchors): seven more planted, Y calibrated anew with one: nothing dropped
+    // past the budget with every older place on one anchor: Y's (one) and seven planted with one, 8 (they fit); then a
+    // ninth place (X anew, two: 10 > 8): the places used least recently go, with their anchors
     await H.evaluate(() => {
       const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z);
-      S.places = S.places.filter(p => p.n === 1);   // (Y's alone: the others go, their anchors left to the next tidy)
+      S.places = S.places.filter(p => p.n === 1 && p.code === HOST.collab.code);   // (Y's alone: the others go, their anchors left to the next tidy)
       ['QRA', 'QRB', 'QRC', 'QRD', 'QRE', 'QRF', 'QRG'].forEach((c, i) => {
         const h = 'plant1-' + c, at = Date.now() - (i + 1) * 86400000;
         window.__handles.set(h, M(60 + 4 * i, 60));
-        S.places.push({ code: c, a: [60, 0.02, 60], b: [61.5, 0.02, 60], at, used: at, anchors: [h], n: 1, f: 1 });
+        S.places.push({ code: c, pair: '', a: [60, 0.02, 60], b: [61.5, 0.02, 60], at, used: at, anchors: [h], n: 1, f: 1, yb: 0 });
       });
       localStorage.setItem('roomFrames', JSON.stringify(S));
       HOST.room.places({ reload: true });
     });
     await joinedTo(Y, 10000);
     await mark('test places eight');
-    const c11 = await calibrate(YA, YB);
-    const s11 = await PS(), l11 = await since('test places eight');
-    check('places: eight places with one anchor each fit (8 anchors in all): nothing dropped', c11 && s11.list.length === 8 && s11.list.every(p => p.kept && p.n === 1) &&
-      !l11.some(e => e.ev === 'places dropped'), JSON.stringify({ c11, list: s11.list.map(p => [p.code, p.n, p.kept]) }));
+    const s12a = await PS();
+    await mark('test places ninth');
+    await H.evaluate(c => HOST.collab.join(c), X);
+    await until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open'; }, X, 20000);
+    await H.evaluate(h => window.__xr.head(h), AT_X);
+    await frames(H, 300);
+    const c13 = await calibrate(XA, XB);
+    const s13 = await PS(), l13 = await since('test places ninth'), f13 = l13.find(e => e.ev === 'places fitted') || null;
+    check('places: eight places on one anchor each (Y\'s and seven planted: 8 anchors) fit; a ninth (X, two), every older place on one already, drops the places used least recently (QRG, QRF), 8 in all',
+      s12a.list.length === 8 && s12a.anchors === 8 && s12a.list.every(p => p.kept && p.n === 1) && c13 && s13.anchors === 8 && s13.list.length === 7 && !!f13 &&
+        f13.dropped.map(d => d[0]).join() === 'QRG,QRF' && !f13.down.length, JSON.stringify({ n12: s12a.anchors, c13, n13: s13.anchors, f13, list: s13.list.map(p => [p.code, p.anchors.length]) }));
     // an older single calibration (roomFrame, v2, no room): a place with no room, taken by the first room it lines up in
     await end();
-    await H.evaluate(() => HOST.room.places({ reset: true, one: false }));
+    await H.evaluate(() => HOST.room.places({ reset: true }));
     await mark('test places old');
     const old = await H.evaluate(([F, a, b]) => {
       const V = (x, y, z) => new THREE.Vector3(x, y, z), W = new THREE.Matrix4().compose(V(F[0], F[1], F[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), F[3]), V(1, 1, 1)).invert();
@@ -4782,6 +4823,223 @@ async function placesRound() {
   } finally {
     await H.evaluate(() => { try { window.__xr.end(); } catch (e) { /* ended */ } }).catch(() => {});
     for (const p of [AX, AY, H]) await p.context().close().catch(() => {});
+  }
+}
+
+// ---- areas (v131; --areas runs only this part, a room of its own, a few minutes; also in the main run after places).
+// One shared room with several pairs of tape crosses, all in the one room frame (rp.<id>), and a place per area. A page
+// starts the room; two pretend AR headsets with saved anchors (installXR's map of handles: removing one stands for "not
+// in that area"). Headset 1 calibrates on spots A and B, walks 12 m to a part of the room whose floor stands 15 cm
+// higher and adds the area Lab there (its crosses C and D, written as rp.<id>, their room points within 1 cm of the
+// truth, its own place there at once); headset 2, its floor and turn other, calibrates on C and D only: its room within
+// 1 cm and 0.5 degrees of headset 1's, the room's floor under it, the same room throughout (nothing joined); its crosses
+// lettered C and D at the area's points, with the area's name; a calibration on C and D at the wrong spacing refused in
+// words. A new session of headset 1 at Lab lines up from its Lab place with no join, the check by eye's crosses and arrows
+// saying C and D; walking back to spots A and B switches places (area switch in the log, the check by eye asks why: the
+// area). A v130 place without yb learns it as its two anchors are tracked; a v3 place reads as spots A and B's. Forget
+// area (its tombstone) and that area's places dropped at the next session; spots A and B taped again make an area stale
+// and its places go too. Compare across areas never calls the shared space split. A device of networks-40 is refused
+async function areasRound() {
+  const P = await open('#stories');
+  await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(P, () => HOST.collab.status === 'open' && !!HOST.collab.val('rid'), null, 15000);
+  const code = await P.evaluate(() => HOST.collab.code), pId = await P.evaluate(() => HOST.collab.id);
+  await P.evaluate(k => HOST.collab.add(k, { x: 30, z: -30, yaw: 0 }), PICK_STORY);   // (a station far off: no menu opening by itself for an empty room)
+  const H1 = await open('#s=' + code, { width: 320, height: 200 }), H2 = await open('#s=' + code, { width: 320, height: 200 });
+  for (const H of [H1, H2]) { await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 1, null, 20000); await ready(H, 'airports'); }
+  // the crosses in the pretend room: spots A and B, and Lab's C and D 12 m off on a floor 15 cm higher (a step)
+  const STEP = 0.15, SA = [1.0, TIP, -0.4], SB = [3.0, TIP, 0.1], SC = [13.0, STEP + TIP, 2.0], SD = [14.6, STEP + TIP, 3.2];
+  const AT1 = [2.0, 1.6, 0.2, 0.3], AT2 = [13.8, 1.6 + STEP, 2.6, -0.4];
+  const F2 = [-0.8, 0.03, 0.6, -2.1], L2 = [-0.8, 1.63, 0.6, -2.1];   // (headset 2's local-floor, its Guardian floor 3 cm high, and its local space)
+  // the room's truth: origin the floor under spot A, x towards spot B; a point of the pretend room in room coordinates
+  const RX = unit([SB[0] - SA[0], 0, SB[2] - SA[2]]), RW = [SA[0], 0, SA[2], Math.atan2(-RX[2], RX[0])], inRoom = p => unapply(RW, p);
+  const go = async (H, head, o) => {
+    await H.evaluate(installXR, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 300);
+  };
+  const end = H => H.evaluate(() => window.__xr.end());
+  const touch = async (H, p) => {   // (held still on the cross, the controller pointing down, then the trigger)
+    await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
+    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150);
+  };
+  const free = H => H.evaluate(() => window.__xr.ctrl(0, null));
+  const PS = H => H.evaluate(() => HOST.room.places());
+  const AR = H => H.evaluate(() => HOST.collab.areas());
+  // headset H's room frame in the pretend room (its origin and x axis), and whether it is the room's truth (1 cm, 0.5 degrees)
+  const frameW = H => H.evaluate(() => {
+    const X = window.__xr, f = HOST.room.frame;
+    return { src: HOST.room.src, code: HOST.collab.code, pair: HOST.room.places().pair, o: f && new THREE.Vector3(...f.o).applyMatrix4(X.W.floor).toArray(), x: f && new THREE.Vector3(...f.x).transformDirection(X.W.floor).toArray() };
+  });
+  const deg = (a, b) => Math.acos(Math.min(1, (a[0] * b[0] + a[2] * b[2]) / Math.hypot(a[0], a[2]) / Math.hypot(b[0], b[2]))) * 180 / Math.PI;
+  const truth = f => !!f.o && dist(f.o, [SA[0], 0, SA[2]]) < 0.01 && deg(f.x, RX) < 0.5;
+  const mark = (H, m) => H.evaluate(m => window.__collabLog.push({ ev: m }), m);
+  const since = (H, m) => H.evaluate(m => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf(m); return L.slice(i + 1).map(e => Object.assign({}, e)); }, m);
+  const notes = H => H.evaluate(() => HOST.collab.notes().map(n => n.title + ': ' + n.text));
+  const look = async H => {
+    const n = (await PS(H)).surveys;
+    await H.evaluate(() => HOST.room.places({ look: true }));
+    return until(H, n => { window.__xr.step(); const s = HOST.room.places(); return s.surveys > n && !s.busy; }, n, 15000);
+  };
+  // the crosses headset H draws now, in the pretend room, and their letters and sign
+  const crosses = H => H.evaluate(() => {
+    const X = window.__xr, O = HOST.collab.overlay(), w = o => o.getWorldPosition(new THREE.Vector3()).applyMatrix4(X.W.local).toArray().map(v => +v.toFixed(3));
+    X.step();
+    return { shown: O.marks.visible, a: w(O.crossA), b: w(O.crossB), sign: O.markName ? O.markName.text : null, letters: HOST.collab.areas().letters };
+  });
+  const hideHandles = (H, pair) => H.evaluate(([c, k]) => {
+    const ps = HOST.room.places().list.filter(p => p.code === c && p.pair === k), out = [];
+    for (const p of ps) for (const u of p.anchors) { out.push([u, window.__handles.get(u)]); window.__handles.delete(u); }
+    window.__hid = (window.__hid || []).concat(out);
+    return out.length;
+  }, [code, pair]);
+  const showHandles = H => H.evaluate(() => { for (const [u, w] of window.__hid || []) window.__handles.set(u, w); window.__hid = []; });
+  try {
+    // headset 1 calibrates on spots A and B
+    await go(H1, AT1);
+    await H1.evaluate(() => HOST.room.calibrate(''));
+    await touch(H1, SA); await touch(H1, SB); await free(H1);
+    const c1 = await until(H1, () => { window.__xr.step(); const p = HOST.room.places().list.find(q => q.code === HOST.collab.code && !q.pair); return !!(p && p.kept && HOST.room.src === 'marks'); }, null, 10000);
+    const f1 = await frameW(H1);
+    check('areas: headset 1 calibrates on spots A and B: the room\'s truth (within 1 cm and 0.5 degrees)', c1 && truth(f1), JSON.stringify(f1));
+    // ...walks 12 m to where the floor is 15 cm higher and adds Lab there: the keypad's name, then its two crosses touched
+    await H1.evaluate(h => window.__xr.head(h), AT2);
+    await frames(H1, 300);
+    await mark(H1, 'test areas add');
+    const add0 = await H1.evaluate(() => HOST.collab.areaAdd('Lab'));
+    const ad0 = (await AR(H1)).adding;
+    await touch(H1, SC);
+    const ad1 = (await AR(H1)).adding;
+    await touch(H1, SD); await free(H1);
+    const made = await until(H1, () => { window.__xr.step(); const A = HOST.collab.areas(), L = A.list.find(x => x.name === 'Lab'), p = L && HOST.room.places().list.find(q => q.pair === L.id);
+      return !!(L && p && p.kept && p.yb !== null && !A.side); }, null, 10000);
+    const A1 = await AR(H1), lab = A1.list.find(x => x.name === 'Lab') || null, rk = (await roomInfo(code)).keys, rm = rk.rm && rk.rm.v;
+    const s1 = await PS(H1), pl = lab && s1.list.find(q => q.pair === lab.id), la = await since(H1, 'test areas add'), added = la.find(e => e.ev === 'area added') || null;
+    const tC = inRoom(SC), tD = inRoom(SD);
+    check('areas: headset 1 adds Lab 12 m off (the floor 15 cm higher): rp.<id> written with its letters C and D, its crosses within 1 cm of the truth in room coordinates, its base spots A and B\'s, the room the same',
+      add0 && !!ad0 && ad0.step === 'a' && ad0.L.join('') === 'CD' && !!ad1 && ad1.step === 'b' && made && !!lab && lab.n === 2 && lab.L.join('') === 'CD' && dist(lab.a, tC) < 0.01 && dist(lab.b, tD) < 0.01 &&
+        !!rk['rp.' + lab.id] && !!rm && lab.base.at === (rm.t || rm.at) && (await H1.evaluate(() => HOST.collab.code)) === code && !!added && Math.abs(added.floor[0] - STEP) < 0.01,
+      JSON.stringify({ add0, ad0, ad1, made, lab, tC, tD, rm, added }));
+    check('areas: ...and headset 1 has its own place at Lab at once: two anchors saved from the same touches, its room points copied, yb measured',
+      !!pl && pl.kept && pl.n === 2 && dist(pl.ra, tC) < 0.01 && dist(pl.rb, tD) < 0.01 && Number.isFinite(pl.yb) && Math.abs(pl.yb) < 0.01, JSON.stringify(pl));
+    // headset 2, its floor 3 cm high and turned otherwise, calibrates on C and D only
+    await mark(H2, 'test areas h2');
+    await go(H2, AT2, { floor: F2, local: L2 });
+    await H2.evaluate(id => { HOST.collab.areaPick(id); HOST.room.calibrate(id); }, lab.id);
+    const st2 = await H2.evaluate(() => [HOST.room.state, HOST.room.internals().calib && HOST.room.internals().calib.k]);
+    await touch(H2, SC); await touch(H2, SD); await free(H2);
+    const c2 = await until(H2, k => { window.__xr.step(); const p = HOST.room.places().list.find(q => q.pair === k); return !!(p && p.kept && HOST.room.src === 'marks'); }, lab.id, 10000);
+    const f2 = await frameW(H2), fl2 = await H2.evaluate(() => { const X = window.__xr, f = HOST.room.frame; return new THREE.Vector3(...f.o).applyMatrix4(X.W.floor).y; });
+    const l2 = await since(H2, 'test areas h2'), x2 = await crosses(H2);
+    check('areas: headset 2 calibrates on Lab\'s C and D only: its room within 1 cm and 0.5 degrees of the truth (and so of headset 1\'s), the room\'s floor under it, the same room, nothing joined',
+      st2[0] === 'mark-a' && st2[1] === lab.id && c2 && truth(f2) && f2.code === code && Math.abs(fl2) < 0.01 && dist(f2.o, f1.o) < 0.01 && deg(f2.x, f1.x) < 0.5 && !l2.some(e => e.ev === 'place join' || e.ev === 'join'),
+      JSON.stringify({ st2, c2, f2, fl2, f1, joins: l2.filter(e => /join/.test(e.ev)) }));
+    check('areas: headset 2 draws Lab\'s crosses at its points, lettered C and D, its sign saying the area', x2.shown && near(x2.a, SC, 0.02) && near(x2.b, SD, 0.02) && x2.letters.join('') === 'CD' && x2.sign === 'Lab: C and D',
+      JSON.stringify(x2));
+    // a calibration on C and D at the wrong spacing (the second cross 50 cm short): refused in words, back to C
+    const dCD = Math.hypot(SD[0] - SC[0], SD[2] - SC[2]), SDs = [SC[0] + (SD[0] - SC[0]) * (1 - 0.5 / dCD), SD[1], SC[2] + (SD[2] - SC[2]) * (1 - 0.5 / dCD)];
+    await H2.evaluate(id => HOST.room.calibrate(id), lab.id);
+    await touch(H2, SC); await touch(H2, SDs); await free(H2);
+    const wr = await H2.evaluate(() => ({ state: HOST.room.state, k: HOST.room.internals().calib && HOST.room.internals().calib.k, note: HOST.collab.notes().slice(-1)[0] }));
+    await H2.evaluate(() => HOST.room.cancel());
+    check('areas: a calibration on C and D 50 cm short of Lab\'s spacing is refused in words (these crosses are 1.5 m apart; Lab\'s are 2.0 m), back to C',
+      wr.state === 'mark-a' && wr.k === lab.id && !!wr.note && wr.note.title === 'Not this area\'s crosses' && /1\.5 m apart; Lab's C and D are 2\.0 m/.test(wr.note.text), JSON.stringify(wr));
+    // a new session of headset 1 at Lab (spots A and B's anchors not there): lined up from its Lab place, no join; the check
+    // by eye's crosses and arrows say C and D
+    await end(H1);
+    await hideHandles(H1, '');
+    await mark(H1, 'test areas lab session');
+    await go(H1, AT2, { guide: true });
+    const s3 = await until(H1, k => { window.__xr.step(); return HOST.room.places().pair === k && HOST.room.src === 'anchor' && !!HOST.room.frame && HOST.collab.eye().shown; }, lab.id, 30000);
+    const f3 = await frameW(H1), l3 = await since(H1, 'test areas lab session'), e3 = await H1.evaluate(() => { window.__xr.step(); return Object.assign(HOST.collab.eye(), { hint: HOST.collab.eyeHint() }); });
+    const ar3 = e3.hint && e3.hint.arrows, sp3 = e3.hint && e3.hint.spots;
+    check('areas: a new session of headset 1 at Lab lines up from its Lab place (its anchors), no join, the room\'s truth', s3 && truth(f3) && f3.code === code && !l3.some(e => e.ev === 'place join'),
+      JSON.stringify({ s3, f3, l: l3.filter(e => /place|join|area/.test(e.ev)).map(e => e.ev) }));
+    check('areas: ...the check by eye asks; its lit crosses lettered C and D, its arrows saying "C ... m" and "D ... m"', s3 && !!ar3 && sp3.map(s => s.ch).join('') === 'CD' &&
+      ar3.some(a => /^C (here|\d+\.\d m)/.test(a.text)) && ar3.some(a => /^D (here|\d+\.\d m)/.test(a.text)), JSON.stringify({ why: e3.why, ar3, sp3: sp3 && sp3.map(s => s.ch) }));
+    await H1.evaluate(() => { const r = HOST.collab.overlay().eye.regions.find(q => q.id === 'eye:yes'); if (r && r.fn) r.fn(); });
+    // walking back to spots A and B (their anchors there again): the places looked for, spots A and B's taken (area switch)
+    await showHandles(H1);
+    await H1.evaluate(h => window.__xr.head(h), AT1);
+    await frames(H1, 300);
+    await mark(H1, 'test areas back');
+    await look(H1);
+    const s4 = await until(H1, () => { window.__xr.step(); return HOST.room.places().pair === '' && HOST.room.src === 'anchor' && HOST.collab.eye().why === 'area'; }, null, 20000);
+    const f4 = await frameW(H1), l4 = await since(H1, 'test areas back'), sw = l4.find(e => e.ev === 'area switch') || null;
+    const e4 = await until(H1, () => { window.__xr.step(); return HOST.collab.eye().shown; }, null, 15000), x4 = await crosses(H1);
+    check('areas: walking back to spots A and B switches places (area switch in the log, how far the room moved), the room\'s truth, the check by eye asks (another area\'s spots), its crosses A and B',
+      s4 && !!sw && sw.to === '' && sw.from === lab.id && sw.d < 1 && truth(f4) && e4 && x4.letters.join('') === 'AB' && near(x4.a, SA, 0.02) && f4.code === code && !l4.some(e => e.ev === 'place join'),
+      JSON.stringify({ s4, sw, f4, x4, l: l4.filter(e => /place|area|eye/.test(e.ev)).map(e => [e.ev, e.why || e.to || '']) }));
+    await H1.evaluate(() => { const r = HOST.collab.overlay().eye.regions.find(q => q.id === 'eye:yes'); if (r && r.fn) r.fn(); HOST.collab.autoGuide(false); });
+    // a v130 place (roomFrames v3) without yb: read as spots A and B's, and it learns yb once its two anchors are tracked
+    await mark(H1, 'test areas yb');
+    const v3 = await H1.evaluate(c => {
+      const S = JSON.parse(localStorage.getItem('roomFrames')), p = S.places.find(q => q.code === c && !q.pair);
+      const q = { code: p.code, rid: p.rid, a: p.a, b: p.b, at: p.at, used: Date.now(), anchors: p.anchors, n: 2, f: 1 };
+      localStorage.setItem('roomFrames', JSON.stringify({ v: 3, one: false, places: [q] }));
+      const s = HOST.room.places({ reload: true });
+      return { list: s.list.map(x => [x.code, x.pair, x.yb]), stored: JSON.parse(localStorage.getItem('roomFrames')).v };
+    }, code);
+    const yb = await until(H1, () => { window.__xr.step(); const p = HOST.room.places().list.find(q => q.code === HOST.collab.code && !q.pair); return !!p && p.yb !== null && HOST.room.src === 'anchor'; }, null, 15000);
+    const s5 = await PS(H1), l5 = await since(H1, 'test areas yb'), st5 = await H1.evaluate(() => JSON.parse(localStorage.getItem('roomFrames')));
+    const p5 = s5.list.find(q => q.code === code && !q.pair);
+    check('areas: a v130 place (roomFrames v3, two anchors, no yb) reads as spots A and B\'s, and learns yb the first time its two anchors are tracked (kept as v4)',
+      v3.list.length === 1 && v3.list[0][1] === '' && v3.list[0][2] === null && v3.stored === 4 && yb && !!p5 && Math.abs(p5.yb) < 0.01 && l5.some(e => e.ev === 'place yb') &&
+        st5.v === 4 && Number.isFinite(st5.places[0].yb), JSON.stringify({ v3, yb, p5, st5 }));
+    // compare across areas: headset 1 (spots A and B's marks) in a shared space for which someone published a frame from
+    // Lab's marks far off: logged, never compared as split; one from spots A and B's marks is compared
+    await mark(H1, 'test areas compare');
+    await H1.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'AR1'; for (const fn of X.resets.shared || []) fn({ transform: null }); HOST.room.internals().visibleAt = 0; });
+    const fr = frameFor([RW[0] + 0.8, 0, RW[2] - 0.6, RW[3] + 0.3], 'AR1', pId, Date.now());
+    await P.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), ['rf.AR1', Object.assign({ g: 'marks', m: { k: lab.id, a: tC, b: tD } }, fr)]);
+    const cx = await until(H1, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'compare across areas'); }, null, 12000);
+    await frames(H1, 6500);
+    const cmp1 = await H1.evaluate(() => HOST.room.cmp), split1 = (await roomInfo(code)).keys['rs.AR1'] || null;
+    await P.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), ['rf.AR1', Object.assign({ g: 'marks', m: [TIP, 2, TIP] }, fr, { at: Date.now() + 1 })]);
+    const cmp2 = await until(H1, () => { window.__xr.step(); return !!HOST.room.cmp; }, null, 12000);
+    check('areas: a frame from Lab\'s marks through the shared space, 1 m off, is not compared with spots A and B\'s (logged; the space not called split); one from spots A and B\'s marks is',
+      cx && !cmp1 && !split1 && cmp2, JSON.stringify({ cx, cmp1, split1, cmp2 }));
+    await P.evaluate(() => HOST.collab.publish([['rf.AR1', { uuid: 'AR1', o: [0, 0, 0], x: [1, 0, 0], g: 'shared', by: 'nobody', at: 1 }]]));
+    // Forget area (two presses on headset 2's Debug tab): Lab's tombstone; its places (both headsets') dropped at their next session
+    const fa = await H2.evaluate(id => { HOST.collab.panelOpen(true); let n = 0; for (let i = 0; i < 2; i++) { const r = HOST.collab.menuFind('areaforget:' + id); if (r && r.fn) { r.fn(); n++; } } HOST.collab.panelOpen(false); return n; }, lab.id);
+    const gone = await until(P, id => { const v = HOST.collab.val('rp.' + id); return !!(v && v.gone); }, lab.id, 8000);
+    const h2a = (await PS(H2)).list.filter(q => q.pair === lab.id).flatMap(q => q.anchors);
+    await end(H2);
+    await go(H2, AT2, { floor: F2, local: L2 });
+    const dr = await until(H2, k => { window.__xr.step(); const s = HOST.room.places(); return s.dropped.some(o => o.pair === k && o.why === 'gone') && !s.list.some(q => q.pair === k); }, lab.id, 15000);
+    const hs2 = await H2.evaluate(() => [...window.__handles.keys()]), ar2 = await AR(H2);
+    check('areas: Forget area (two presses under Debug) writes Lab\'s tombstone; at its next session headset 2\'s Lab place goes with its anchors (the Debug rows say so), Lab gone from the areas',
+      fa === 2 && gone && dr && h2a.length === 2 && !h2a.some(u => hs2.includes(u)) && !ar2.list.some(x => x.id === lab.id), JSON.stringify({ fa, gone, dr, h2a, ar2: ar2.list.map(x => x.id) }));
+    // another area, Hall, added from headset 1 (lined up by spots A and B), C and D again (the lowest free); then spots A and
+    // B taped again (rm written anew, as a recalibration on other spots does): Hall stale, its place dropped next session
+    const SE = [6.0, TIP, -3.0], SF = [7.6, TIP, -2.2];
+    await H1.evaluate(h => window.__xr.head(h), [6.8, 1.6, -2.4, 0]);
+    await frames(H1, 300);
+    await H1.evaluate(() => HOST.collab.areaAdd('Hall'));
+    await touch(H1, SE); await touch(H1, SF); await free(H1);
+    const hall = await until(H1, () => { window.__xr.step(); const L = HOST.collab.areas().list.find(x => x.name === 'Hall'); return !!(L && HOST.room.places().list.some(q => q.pair === L.id && q.kept)); }, null, 10000);
+    const hl = (await AR(H1)).list.find(x => x.name === 'Hall') || null;
+    const rm0 = (await roomInfo(code)).keys.rm.v;
+    await P.evaluate(v => HOST.collab.publish([['rm', v]]), Object.assign({}, rm0, { d: rm0.d + 0.4, t: Date.now(), at: Date.now(), by: pId }));
+    const stl = await until(H1, () => { window.__xr.step(); const L = HOST.collab.areas().list.find(x => x.name === 'Hall'); return !!(L && L.stale); }, null, 8000);
+    await end(H1);
+    await go(H1, AT1);
+    const dr2 = await until(H1, k => { window.__xr.step(); const s = HOST.room.places(); return s.dropped.some(o => o.pair === k && o.why === 'stale') && !s.list.some(q => q.pair === k); }, hl && hl.id, 15000);
+    check('areas: another area (Hall, letters C and D again, the lowest free); spots A and B taped again make it stale, and headset 1\'s Hall place goes at its next session',
+      hall && !!hl && hl.L.join('') === 'CD' && stl && dr2, JSON.stringify({ hall, hl, stl, dr2 }));
+    await P.evaluate(v => HOST.collab.publish([['rm', v]]), rm0);
+    // a device of the format before (networks-40) is refused by the room
+    const old = await new Promise(res => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${code}&id=oldarea1&proto=1`);
+      const t = setTimeout(() => { try { ws.close(); } catch (e) { /* gone */ } res('no answer'); }, 6000);
+      ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', name: 'Old', color: '#888888', kind: 'ar', here: true, version: 'networks-40', proto: 1, dev: 'headset' }));
+      ws.onmessage = m => { let j = null; try { j = JSON.parse(m.data); } catch (e) { /* not JSON */ } if (j && j.t === 'error') { clearTimeout(t); res(j.code); try { ws.close(); } catch (e) { /* gone */ } } };
+      ws.onerror = () => {};
+    });
+    check('areas: a device of the format before (networks-40, which would take an area\'s crosses for the room\'s) is refused by the room', old === 'version', old);
+  } finally {
+    for (const H of [H1, H2]) await H.evaluate(() => { try { window.__xr.end(); } catch (e) { /* ended */ } }).catch(() => {});
+    for (const p of [P, H1, H2]) await p.context().close().catch(() => {});
   }
 }
 
@@ -6330,6 +6588,22 @@ async function cameraRound(dir) {
     const rm = (await roomInfo(rc)).keys.rm;
     check('camera: no room setup guide, startup flow, check by eye, menu or notice in 3D on the phone; the room\'s floor (rm) is the headset\'s, not written by the phone',
       !g.guide && !g.flow && !g.eye && !g.menu && !g.note && !!rm && rm.by === hId, JSON.stringify({ g, rm }));
+    // camera mode on another area's crosses (v131): an area of the room (Lab, written by the page: its crosses C and D in
+    // room coordinates, on the floor); Calibrate again, the overlay's Spots button picking Lab, Set spot C and Set spot D:
+    // the phone's room is still the headset's (1 cm, 0.5 degrees), no place kept
+    const RC = [4.0, TIP, 2.0], RD = [5.6, TIP, 2.9], lid = 'camlab01';
+    await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), ['rp.' + lid, { name: 'Lab', n: 2, a: RC, b: RD, d: Math.hypot(RD[0] - RC[0], RD[2] - RC[2]), base: { d: rm.v.d, at: rm.v.t || rm.v.at }, by: hId, at: Date.now() }]);
+    const seenA = await until(P, id => HOST.collab.areas().list.some(x => x.id === id), lid, 8000);
+    await P.evaluate(() => document.querySelector('#camera [data-cam="cal"]').click());
+    await P.evaluate(() => document.querySelector('#camera [data-cam="area"]').click());
+    await frames(P, 300);
+    const ca0 = await P.evaluate(() => ({ c: HOST.collab.camera(), label: document.querySelector('#camera [data-cam="area"]').textContent, shown: !document.querySelector('#camera [data-cam="area"]').hidden, set: document.querySelector('#camera [data-cam="set"]').textContent }));
+    await aimAt(apply(ROOM, [RC[0], 0, RC[2]])); await setSpot(); await frames(P, 200);
+    await aimAt(apply(ROOM, [RD[0], 0, RD[2]])); await setSpot(); await frames(P, 500);
+    const ca1 = await P.evaluate(() => Object.assign(HOST.collab.camera(), { places: HOST.room.places().list.length, stored: localStorage.getItem('roomFrames') })), rP2 = await roomOf(P);
+    check('camera: on another area\'s crosses (Lab: the Spots button, then Set spot C and Set spot D), the phone\'s room is still the headset\'s (1 cm, 0.5 degrees); it keeps no place',
+      seenA && ca0.shown && /Spots: C and D \(Lab\)/.test(ca0.label) && ca0.set === 'Set spot C' && ca0.c.calibK === lid && ca1.lined && !ca1.calib && rP2.aligned && dist(rP2.o, rH.o) < 0.01 &&
+        angle(rP2.yaw, rH.yaw) < 0.5 * Math.PI / 180 && ca1.places === 0 && !ca1.stored, JSON.stringify({ seenA, ca0, ca1, rP2, rH }));
     // following the headset: its station, its story, the rig at its spot, the station's clock, the headset drawn
     await P.evaluate(() => document.querySelector('#camera [data-cam="follow"]').click());
     await until(P, id => !!document.querySelector(`#camera [data-cam="who:${id}"]`), hId, 3000);
@@ -6535,6 +6809,7 @@ try {
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
+  if (AREAS_ONLY) { await areasRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -8798,6 +9073,7 @@ try {
   await guideRound();
   // ------------------------------------------ places: a calibration kept per room (rooms of their own) --
   await placesRound();
+  await areasRound();
   // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
   await studioRound(shots);
   // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
@@ -8890,8 +9166,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
