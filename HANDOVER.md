@@ -81,7 +81,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     - From v125: a two-hand carry of a group while moving with the sticks in the studio may drift; the room-frame
       block's Undo check in `collab --studio` may count a following sound; a take recorded on a page that draws in
       software gets only a few keys a second.
-    - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run, the robots not
+    - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run (red in both of
+      v129's whole runs, a different check each time, good alone), the studio behaviours round's Pause and looker checks
+      (red once in v129's runs, good alone), the robots not
       docking in the smoke test about one run in eight, "a circle made for one scene" in the studio round ("When the
       tests run" below). What is untested on devices is listed in each entry below and, for v126, in `whatsnew.json`.
   - *What the next person needs from the owner* (no passwords or keys are in the repository, and none should be):
@@ -112,8 +114,14 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     in the shared-room run's headset menu test read the menu before v125's 0.4 s wait for a second click.
   - The machine's, good when run again alone: a code with no room (the page still connecting after 8 s, with other tests
     running beside it) and peer to peer's hand-over from a headset that hosts.
-  - Then, on v129, before `main` moved: the smoke test whole, `tools/collab.mjs --quick`, `tools/live.mjs` and
-    `tools/update.mjs` against v121 again.
+  - Then, on v129, before `main` moved: `tools/live.mjs` and `tools/update.mjs` against v121 good; the smoke test whole
+    with one red (the developer card's focus read 400 ms after it opened, before its own 300 ms focus on a slow run: the
+    test now waits for it; good alone); `tools/collab.mjs --quick` twice. The first stopped in the sticks round (a browser
+    page closed under it; `--walk` good alone) after one red of the test's own (one more stick click in the headset menu
+    test, before its hands part, needed its 0.5 s: fixed). The second: 505 good and 4 red, each good when run again alone: a
+    code with no room (its step now lets the new page build its story before it joins, and says why when it fails),
+    the studio behaviours round's Pause and looker checks (`--behave`, 9 good) and peer to peer's old host coming back as
+    a guest (`--p2p`, 18 good).
   - Untested on devices: as v128 (`whatsnew.json`).
 - **networks-v128 (9 November 2026; FORMAT networks-40, shell 128), on `dev`, then `main` as v129: the owner's feedback on v125 and v127.**
   The owner tried v127 and asked for three things; built in three lanes (each in its own worktree, one Sonnet review each,
