@@ -1891,6 +1891,9 @@
   const showsMenu = id => { const E = MENUS.get(id); return !!E && E.code === C.code && performance.now() - E.at <= MSH.gone; };
 
   // ----------------------------------------------------------- ephemeral --
+  // the spaceships' effects (ships.js): one room-wide key the shell keeps for itself (the relay's KEY rule; older shells
+  // drop a key they do not know, and only e.<station> ever reaches a story's effect hook)
+  const SHIP_KEY = (HOST.ships && HOST.ships.KEY) || 'ships';
   function fx(k, v) {
     if (CAM.on && k !== 'p.' + C.id) { camQuiet([k]); return false; }   // (a camera sends its presence only: camera mode)
     return send({ t: 'fx', k, v });
@@ -1919,6 +1922,9 @@
       // (and one before v109 no ck: this session's check that stood, kept undefined then, so nothing is said about it)
       const lu = v.lu && typeof v.lu === 'object' ? v.lu : null, s8 = s => (typeof s === 'string' ? s.slice(0, 8) : '');
       P.lu = lu ? { k: s8(lu.k), h: s8(lu.h), w: s8(lu.w), c: Number.isFinite(lu.c) ? Math.round(lu.c) : null, ck: typeof lu.ck === 'string' ? lu.ck.slice(0, 2) : undefined } : null;
+      // (their spaceship, ships.js: a presence without one has landed; a camera flies none)
+      if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
+    } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
     } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k === 'q.check') { checkIn(m.v, m.by);   // someone's Touch the spot: where their room puts the spot
@@ -4218,7 +4224,17 @@
         button(S, 'walk', x, y, w, 60, wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wy ? walkWords(wy) : pg && pg.note ? String(pg.note) : walkAway() ? 'Left stick: move. Right stick: turn. You are elsewhere, so it works in this room: the others see you move. Or click a stick twice. This headset\'s own.' : 'Left stick: move. Right stick: turn. Or click a stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
+        y += wrapText(ctx, wy ? walkWords(wy) : pg && pg.note ? String(pg.note) : walkAway() ? 'Left stick: move. Right stick: turn. You are elsewhere, so it works in this room: the others see you move. Or click the left stick twice. This headset\'s own.' : 'Left stick: move. Right stick: turn. Or click the left stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
+      }
+      // the spaceship (ships.js; v132): launched or landed, as the right stick clicked twice does; greyed where it cannot
+      // fly (no controller in the right hand, a phone, camera mode), saying why
+      if (HOST.ships && HOST.ships.toggle) {
+        const fl = HOST.ships.flying(), wn = fl ? '' : HOST.ships.whyNot();
+        button(S, 'ship', x, y, w, 60, fl ? 'Spaceship: land' : 'Spaceship: launch', wn ? null : () => { HOST.ships.toggle('menu'); menuOpen(false, 'ship'); }, { on: fl, px: 23 });
+        y += 68;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, wn || (fl ? 'Right controller: tilt to turn, nose up or down to climb. Trigger: shoot. Grip: brake. A: boost. Or click the right stick twice.' :
+          'A little ship flown with your right controller, seen by everyone here. Or click the right stick twice.'), x + 4, y, w - 8, 28, 3) + 14;
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {
@@ -4606,7 +4622,7 @@
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
       'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
-    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : []);
+    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : [], HOST.ships && HOST.ships.line ? ['Spaceships: ' + HOST.ships.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
   // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
@@ -5939,6 +5955,13 @@
   // sends the press to HOST.collab.press(i)); a story panel in front wins, and the shell's things always beat
   // the scene behind them. While calibrating, a ray that misses the shell's panel marks the room.
   function ray(i, o, d, near) {
+    // the right controller while a spaceship flies (ships.js): the ship's, its ray drawn nowhere and pointing at nothing
+    // (taken as the shell's at the controller itself, with nothing to press, as a camera's is), nor sent to the others
+    if (HOST.ships && HOST.ships.flying && HOST.ships.flying()) {
+      let src = null;
+      try { src = HOST.session ? HOST.session.inputSources[i] : null; } catch (e) { /* gone */ }
+      if (src && HOST.ships.claims(src)) { C.hov.set(i, null); return { kind: 'shell', point: o.clone(), dist: 0 }; }
+    }
     let h = C.rays.get(i);
     if (!h) C.rays.set(i, (h = { o: new THREE.Vector3(), d: new THREE.Vector3(), at: 0 }));
     h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN; h.near = near != null ? near : Infinity;   // (near: a story panel on the ray)
@@ -6026,7 +6049,8 @@
   // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
   // axes), a stick held down as its controller appears being no click. Since v125 a stick clicked twice within CLK.gap ms
   // turns moving with the sticks on or off (HOST.xr.walk, index.html; the owner, 8 November 2026: "Add Movement in vr
-  // mode, maybe with sticks, switchable by double pressing a stick?"), so a single click opens or closes the menu only
+  // mode, maybe with sticks, switchable by double pressing a stick?"); since v132 only the left stick does, the right
+  // stick clicked twice launching or landing a spaceship (shipPress, ships.js). A single click opens or closes the menu only
   // once CLK.gap has passed with no second click of that stick (the other stick clicked meanwhile, as both at once, is
   // the same click: one toggle). The frame-rate read-out turns on and off with a double press of B or Y (button 5; the
   // owner, 6 November 2026: "Fps counter should start with a hotkey like double press b or y"; no story uses it): two
@@ -6052,7 +6076,16 @@
     // (a page that switches its sticks with it, the studio, says which it is in its own words: sticks.say)
     const pg = HOST.cur && HOST.cur.sticks, w = pg && typeof pg.say === 'function' ? pg.say(on) : null;
     if (Array.isArray(w)) notice(String(w[0] || ''), String(w[1] || ''), 3500);
-    else notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn.' + (walkAway() ? ' The others see you move.' : '') + ' Click a stick twice to stop.' : 'Click a stick twice to move with the sticks again.', 3500);
+    else notice(on ? 'Moving with the sticks: on' : 'Moving with the sticks: off', on ? 'Left stick: move. Right stick: turn.' + (walkAway() ? ' The others see you move.' : '') + ' Click the left stick twice to stop.' : 'Click the left stick twice to move with the sticks again.', 3500);
+    changed();
+  }
+  // the right stick clicked twice (v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode
+  // we get a little spaceship"; "the right stick's double click for the ship and the left stick's for moving with the
+  // sticks"): a spaceship launched or landed (ships.js), at its next frame
+  function shipPress() {
+    if (!HOST.ships || !HOST.ships.toggle) return;
+    log('ship stick', { flying: HOST.ships.flying() });
+    HOST.ships.toggle('stick');
     changed();
   }
   function sticks() {
@@ -6075,7 +6108,7 @@
     // menu); the other stick meanwhile, the same click
     const wait = !!CLK.src && t - CLK.at < CLK.gap;
     if (CLK.src && !wait) { CLK.src = null; if (HOST.session) toggleMenu('stick'); }
-    if (wait && clicks.includes(CLK.src)) { CLK.src = null; if (HOST.session) walkPress(); }
+    if (wait && clicks.includes(CLK.src)) { const src = CLK.src; CLK.src = null; if (HOST.session) { if (src.handedness === 'right') shipPress(); else walkPress(); } }
     else if (!wait && clicks.length) { CLK.src = clicks[0]; CLK.at = t; }
     if (twice2 && HOST.session && HOST.xr && HOST.xr.setFps) {
       const on = !fpsOn();
@@ -6371,7 +6404,9 @@
     // (g: the grips, or the tracked hands' wrists, [left, right] as poses in room coordinates: the studio's puppet worn with
     // a Quest's head and hands reads them, HOST.collab.body)
     const g = GRIP.map(G => (G.v ? G.v.map((c, k) => (k < 3 ? r3(c) : r4(c)) + 0) : null));
-    fx('p.' + C.id, { st: C.mine || '', head, hands, g, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
+    // (sh: this headset's spaceship, and while it leads the shared targets, drones and pickups; ships.js)
+    const sh = HOST.ships && HOST.ships.out ? HOST.ships.out() : null;
+    fx('p.' + C.id, Object.assign({ st: C.mine || '', head, hands, g, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) }, sh ? { sh } : {}));
   }
   // the heads of the people in a headset at this device's live station, this headset's own among them, for a story that
   // reacts to people (the studio's behaviours): { st: { id, x, z, yaw } (the station's spot as this device draws it),
@@ -9768,7 +9803,7 @@
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? 'camera (filming)' : 'screen', cam: 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? 'camera (filming)' : 'screen', cam: 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${HOST.ships && HOST.ships.person && HOST.ships.person(m.id) ? ' · ' + esc(HOST.ships.person(m.id)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
       guideList();
@@ -10138,4 +10173,12 @@
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },
   };
+  // the spaceships (ships.js, loaded before this file) are linked in: the relay's clock and render time, who we are, the
+  // room's frame (room coordinates -> the renderer's space, while a headset here is lined up), the effects' key, notices
+  if (HOST.ships && HOST.ships.link) HOST.ships.link({
+    now, rt: () => (C.code && RT.at ? RT.t : now() - SMOOTH.DELAY), id: () => C.id, name: () => C.name, colour: () => C.color, member: id => member(id) || null,
+    code: () => C.code || '', room: () => !!(C.code && R.session && R.aligned), roomM: () => R.m,
+    send: v => (C.code && !CAM.on ? fx(SHIP_KEY, v) : false), notice: (t, x, ms) => notice(t, x, ms), log: (e, o) => log(e, o),
+    camera: () => CAM.on, phone: () => phoneDev(), changed: () => changed(),
+  });
 })();

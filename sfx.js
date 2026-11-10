@@ -256,6 +256,56 @@
       make(x) { mallet(x, N.E5, 0, 0.09, 0.32, 0.18); mallet(x, N.A5, 0.11, 0.1, 0.4, 0.2); return x.t + 0.7; } },
     leave: { kind: 'room', gap: 400, level: 0.45, desc: 'Someone leaves: the same two notes going down, softer.',
       make(x) { mallet(x, N.A5, 0, 0.075, 0.26, 0.15); mallet(x, N.E5, 0.12, 0.08, 0.36, 0.18); return x.t + 0.65; } },
+    // ---- the spaceships (ships.js, v132; kind 'game'): short and dry, at the shell's levels, from where it happens (HRTF in
+    // a headset). No engine sound: the owner's rule, no hums or drones unless asked
+    zap: { kind: 'game', gap: 60, level: 0.3, desc: 'A ship fires: a quick bright zap falling in pitch.',
+      make(x) {
+        const v = 1 + (x.r() - 0.5) * 0.06;
+        tone(x, 1900 * v, 0, { type: 'square', peak: 0.032, a: 0.002, d: 0.075, f1: 520 * v, glide: 0.07 });
+        tone(x, 950 * v, 0, { type: 'triangle', peak: 0.045, a: 0.002, d: 0.06, f1: 300 * v, glide: 0.06 });
+        hiss(x, 0, { type: 'highpass', f: 4200, q: 0.7, peak: 0.03, a: 0.0005, d: 0.012 });
+        return x.t + 0.12;
+      } },
+    zapLow: { kind: 'game', gap: 80, level: 0.3, desc: 'A drone fires: a lower, buzzier zap.',
+      make(x) {
+        tone(x, 820, 0, { type: 'sawtooth', peak: 0.028, a: 0.003, d: 0.12, f1: 210, glide: 0.11 });
+        tone(x, 410, 0, { type: 'triangle', peak: 0.05, a: 0.003, d: 0.1, f1: 160, glide: 0.1 });
+        return x.t + 0.18;
+      } },
+    shieldHit: { kind: 'game', gap: 60, level: 0.4, desc: 'A hit taken by a shield: a bright shimmering ping.',
+      make(x) {
+        for (const [f, pk, d] of [[1480, 0.05, 0.22], [2230, 0.03, 0.16], [3110, 0.016, 0.1]]) tone(x, f, 0, { peak: pk, a: 0.002, d, f1: f * 0.94, glide: d, send: 0.15 });
+        hiss(x, 0, { type: 'bandpass', f: 3600, q: 1.5, peak: 0.05, a: 0.001, d: 0.06 });
+        return x.t + 0.3;
+      } },
+    hullHit: { kind: 'game', gap: 60, level: 0.45, desc: 'A hit on the hull: a dull crunch with a short rattle.',
+      make(x) {
+        thud(x, 0, 0.15, 260, 140, 0.16);
+        hiss(x, 0, { kind: 'pink', type: 'bandpass', f: 1300, q: 0.9, peak: 0.1, a: 0.001, d: 0.09 });
+        for (const at of [0.03, 0.055, 0.085]) tap(x, at, 0.05, 1200 + x.r() * 500);
+        return x.t + 0.3;
+      } },
+    boost: { kind: 'game', gap: 300, level: 0.5, desc: 'A boost: air rushing up and a rising tone.',
+      make(x) { swish(x, 0, 0.5, 380, 2800, 0.1, 0.15); tone(x, 220, 0, { type: 'triangle', peak: 0.06, a: 0.04, d: 0.42, f1: 640, glide: 0.4 }); return x.t + 0.6; } },
+    boom: { kind: 'game', gap: 150, level: 0.8, desc: 'A ship, a drone or a target destroyed: a soft burst that rumbles and falls away (kept above about 120 Hz).',
+      make(x) {
+        hiss(x, 0, { kind: 'pink', type: 'lowpass', f: 3200, f1: 260, glide: 0.8, q: 0.8, peak: 0.2, a: 0.004, d: 0.85, send: 0.25 });
+        thud(x, 0, 0.17, 210, 95, 0.5);
+        for (const at of [0.06, 0.13, 0.22]) hiss(x, at, { type: 'bandpass', f: 1800 + x.r() * 1400, q: 1.2, peak: 0.05, a: 0.001, d: 0.05 });
+        return x.t + 1.1;
+      } },
+    bump: { kind: 'game', gap: 120, level: 0.3, desc: 'A ship bounces off the arena\'s edge or a wall: a soft rubbery bump.',
+      make(x) { thud(x, 0, 0.09, 330, 210, 0.09); tone(x, 620, 0, { type: 'triangle', peak: 0.025, a: 0.002, d: 0.05, f1: 480, glide: 0.04 }); return x.t + 0.18; } },
+    launch: { kind: 'game', gap: 600, level: 0.6, desc: 'A ship launched: air rising and two notes going up a fifth.',
+      make(x) { swish(x, 0, 0.45, 300, 2400, 0.08, 0.2); blip(x, N.E5, 0.08, 0.06, 0.25); blip(x, N.B5, 0.2, 0.06, 0.35); return x.t + 0.65; } },
+    land: { kind: 'game', gap: 600, level: 0.5, desc: 'A ship landed: air falling and two notes going down.',
+      make(x) { swish(x, 0, 0.4, 2200, 320, 0.07, 0.2); blip(x, N.B5, 0.05, 0.055, 0.22); blip(x, N.E5, 0.17, 0.055, 0.32); return x.t + 0.6; } },
+    respawn: { kind: 'game', gap: 600, level: 0.6, desc: 'A new ship: three quick bright notes going up.',
+      make(x) { bell(x, N.E5, 0, 0.045, 0.5, 0.2); bell(x, N.A5, 0.07, 0.045, 0.55, 0.2); bell(x, N.E6, 0.14, 0.045, 0.7, 0.22); return x.t + 0.9; } },
+    pickup: { kind: 'game', gap: 200, level: 0.55, desc: 'A pickup taken: a quick sparkling run up.',
+      make(x) { [N.A5, N.Cs6, N.E6, 1760].forEach((f, i) => bell(x, f, i * 0.045, 0.04, 0.35, 0.18)); return x.t + 0.6; } },
+    pickupEnd: { kind: 'game', gap: 400, level: 0.4, desc: 'A pickup\'s time runs out: two soft notes going down.',
+      make(x) { bell(x, N.E6, 0, 0.035, 0.4, 0.15); bell(x, N.A5, 0.12, 0.035, 0.5, 0.18); return x.t + 0.75; } },
     // (the sound board's 3D demo: a bright little shake that is easy to place)
     circle: { kind: 'demo', gap: 0, level: 0.4, desc: 'The 3D demo\'s sound: a small bright shake, easy to place by ear.',
       make(x) { hiss(x, 0, { type: 'bandpass', f: 3200, q: 0.6, peak: 0.3, a: 0.004, d: 0.05 }); tone(x, 1250, 0, { peak: 0.08, a: 0.002, d: 0.05 }); return x.t + 0.1; } },
@@ -426,7 +476,8 @@
       } },
   };
   // the order the sound board and the samples list them in: the shell's sounds, then the stories'
-  const ORDER = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'ready', 'enter', 'grab', 'drop', 'place', 'join', 'leave'];
+  const ORDER = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'ready', 'enter', 'grab', 'drop', 'place', 'join', 'leave',
+    'zap', 'zapLow', 'shieldHit', 'hullHit', 'boost', 'boom', 'bump', 'launch', 'land', 'respawn', 'pickup', 'pickupEnd'];   // (the last twelve: the spaceships', ships.js)
   const ORDER_STORY = ['grow', 'link', 'snap', 'whoosh', 'bubble', 'pick', 'ping', 'step', 'rise', 'knock', 'heart', 'flutter', 'rush', 'patter', 'spark', 'pulse', 'clink', 'ratchet'];
 
   // what a recipe reads (x): its context, where it goes (out, and its reverb send wet), its start, its sources, its random
