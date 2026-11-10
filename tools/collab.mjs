@@ -120,11 +120,13 @@
 // --places only places, a calibration kept per room (placesRound, v130, also in the main run after the guide round: rooms
 // of their own, two pages each starting one, and a pretend AR headset with saved anchors: calibrated in room X and room Y
 // on spots 13 m apart, two places with their anchors; a room joined by hand offered the place it stands in, not left; a new
-// session in no room standing in Y joins Y by itself and lines up from its marks; walking into X, Y's anchors gone, it
-// switches to X; a room left on purpose only offered, the offer's button joining by hand; the tidy keeping every place's
-// anchors; Forget one place keeps the other; a fifth place with two anchors drops the one used least recently; one anchor
-// per room found again within 1 cm and 0.5 degrees on a floor that moved, and eight such places fitting; an older single
-// calibration taken by the first room it lines up in; a few minutes);
+// session in no room standing in Y joins Y by itself and lines up from its marks; Y holds while its own place answers
+// (another place 6 m off found first), after a wake that lost its anchors, and when its place is not found and the other
+// is further than 4 m; walking into X, Y's anchors gone, it switches to X; a room left on purpose only offered, the
+// offer's button joining by hand; the tidy keeping every place's anchors; Forget one place keeps the other; a fifth place
+// with two anchors drops the one used least recently; one anchor per room found again within 1 cm and 0.5 degrees on a
+// floor that moved, its turn steadied against a wobble and following a turn of local-floor at once, and eight such places
+// fitting; an older single calibration taken by the first room it lines up in; eight or nine minutes);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -472,13 +474,16 @@ function installXR(o) {
   };
   // (a phone's Chrome: anchors without persistent handles)
   const mkAnchor = w => o.phone ? { anchorSpace: { world: w }, delete() {} } : mkAnchorQ(w);
-  const mkAnchorQ = w => { const a = { anchorSpace: { world: w }, delete() {},
+  const mkAnchorQ = w => { const a = { anchorSpace: { world: w, anchor: true }, delete() {},
     requestPersistentHandle: () => {   // a full store (o.cap handles) refuses, with Quest Browser's words
       if (o.cap && X.handles.size >= o.cap) return Promise.reject(new DOMException('Failed to execute \'requestPersistentHandle\' on \'XRAnchor\': Maximum number of anchors reached!', 'InvalidStateError'));
       const u = 'room' + ++X.n + Math.random().toString(36).slice(2, 6); X.handles.set(u, w); return Promise.resolve(u);
     } }; return a; };
+  // (X.jit: an anchor's turn read with a wobble about the vertical, up to X.jit radians either way, as a real anchor's turn
+  // may wobble: places' one anchor per room)
+  const wob = s => (X.jit && s.anchor ? world(s).clone().multiply(new THREE.Matrix4().makeRotationY((Math.random() * 2 - 1) * X.jit)) : world(s));
   X.frame = {
-    getPose: (s, b) => pose(world(b).clone().invert().multiply(world(s))),
+    getPose: (s, b) => pose(world(b).clone().invert().multiply(wob(s))),
     getViewerPose: b => pose(world(b).clone().invert().multiply(X.W.head)),
     getJointPose: (j, b) => (j && j.world ? pose(world(b).clone().invert().multiply(j.world)) : null),   // a tracked hand's joint
     createAnchor(t, b) {
@@ -4508,6 +4513,65 @@ async function placesRound() {
     check('places: a new session in no room, standing in Y (only Y\'s anchors there): Y joined by itself (its notice), lined up from its marks on a floor that moved (within 1 cm and 0.5 degrees)',
       j4 && f4.by === Y && lined(f4, w4) && l4.some(e => e.ev === 'place join' && e.code === Y && e.how === 'auto' && !e.from) && (await notes()).includes('Room ' + Y),
       JSON.stringify({ j4, f4, w4, l4: l4.filter(e => /place|join|anchor/.test(e.ev)).map(e => [e.ev, e.code || e.how || '']) }));
+    // the room joined now holds while its own place answers (the review of v130). A place QPA planted 6 m from where the
+    // headset stands in Y (one anchor, found at once); Y joined by itself (above). A new session there, Y's own anchors
+    // answering only after 5 s: the decision waits for them (place wait), then Y is nearest: nothing joined or offered
+    const QA = [AT_Y[0] - 6, TIP, AT_Y[2]];
+    await end();
+    await H.evaluate(q => {
+      const S = JSON.parse(localStorage.getItem('roomFrames')), at = Date.now() - 2 * 86400000;
+      window.__handles.set('plant-QPA', new THREE.Matrix4().makeTranslation(q[0], q[1], q[2]));
+      S.places.push({ code: 'QPA', a: [0, 0.02, 0], b: [1.5, 0.02, 0], at, used: at, anchors: ['plant-QPA'], n: 1, f: 1 });
+      localStorage.setItem('roomFrames', JSON.stringify(S));
+      HOST.room.places({ reload: true });
+    }, QA);
+    const yA = (await PS()).list.find(p => p.code === Y).anchors;
+    const evs = l => l.filter(e => /^place|join|anchors (found|not)|marks/.test(e.ev)).map(e => [e.ev, e.code || e.room || '', e.own || '', e.found || e.here || '']);
+    await mark('test places wait');
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: L2, floor: F2, shared: SHARED, sharedId: '', head: AT_Y });
+    await H.evaluate(ys => {
+      const S = window.__xr.session, r = S.restorePersistentAnchor;
+      S.restorePersistentAnchor = u => (ys.includes(u) ? new Promise(res => setTimeout(() => res(r(u)), 5000)) : r(u));   // (Y's, slow)
+      window.__xr.begin();
+    }, yA);
+    const w5 = await until(H, () => { window.__xr.step(); const s = HOST.room.places(); return !!s.res && s.res.own === 'here' && !s.busy && !s.waiting; }, null, 30000);
+    const s5 = await PS(), f5w = await now(), l5w = await since('test places wait'), pw = l5w.find(e => e.ev === 'place wait') || null;
+    check('places: a new session in a room joined by itself (Y), another place found 6 m off before Y\'s own anchors answer: the decision waits for them, then Y (nearest) holds: nothing joined or offered',
+      w5 && f5w.code === Y && !l5w.some(e => e.ev === 'place join') && !!pw && pw.room === Y && pw.found.some(f => f[0] === 'QPA' && Math.abs(f[1] - 6) < 0.05) &&
+        s5.here === Y && !s5.offer && s5.res.found.some(f => f[0] === 'QPA') && lined(f5w, want(F2, YA, YB)), JSON.stringify({ w5, s5: { here: s5.here, offer: s5.offer, res: s5.res, own: s5.own }, f5w, l: evs(l5w) }));
+    // a wake: lined up by Y's own place as it went off, its anchors lost meanwhile (their handles gone, the ones held
+    // untracked), the headset carried to 1.5 m from QPA's spot A: Y holds (a Quest loses anchors after standby: no move),
+    // QPA only offered
+    await mark('test places wake');
+    await H.evaluate(([ys, h]) => {
+      const X = window.__xr, R = HOST.room.internals();
+      X.visibility('hidden');
+      window.__hidY0 = ys.map(u => [u, window.__handles.get(u)]); for (const u of ys) window.__handles.delete(u);
+      const stale = new Set(R.anchors || []); X.frame.trackedAnchors = { has: a => !stale.has(a) };
+      X.head(h);
+    }, [yA, [QA[0] + 1.5, 1.6, QA[2], 0]]);
+    await new Promise(r => setTimeout(r, 3500));   // (asleep: no frames)
+    await H.evaluate(() => window.__xr.visibility('visible'));
+    const w6 = await until(H, () => { window.__xr.step(); const s = HOST.room.places(); return s.offer === 'QPA' && !!s.res && s.res.own === 'lost' && !s.busy; }, null, 30000);
+    const s6w = await PS(), f6w = await now(), l6w = await since('test places wake');
+    check('places: woken with Y\'s own anchors lost (it lined the headset up as it went off), 1.5 m from another place\'s spot A: Y holds (a loss after standby is no move), that place only offered',
+      w6 && f6w.code === Y && !l6w.some(e => e.ev === 'place join') && s6w.offer === 'QPA' && s6w.res.found.some(f => f[0] === 'QPA' && Math.abs(f[1] - 1.5) < 0.05) &&
+        l6w.some(e => e.ev === 'place held' && e.own === 'lost') && (await notes()).includes('Join room QPA?'), JSON.stringify({ w6, s6w: { here: s6w.here, offer: s6w.offer, res: s6w.res, own: s6w.own, wokeIn: s6w.wokeIn }, f6w, l: evs(l6w) }));
+    // a new session, Y's own anchors not found at all, 6 m from QPA's spot A: Y's not being found is no proof the headset
+    // is elsewhere, so a place further than 4 m is only offered
+    await end();
+    await mark('test places gone');
+    await go(AT_Y, { floor: F2, local: L2 });
+    const w7 = await until(H, () => { window.__xr.step(); const s = HOST.room.places(); return s.offer === 'QPA' && !!s.res && s.res.own === 'gone' && !s.busy; }, null, 30000);
+    const s7w = await PS(), f7w = await now(), l7w = await since('test places gone');
+    check('places: a new session in Y with its own anchors not found, another place 6 m off: Y holds (only a place within 4 m is joined then), that place offered',
+      w7 && f7w.code === Y && !l7w.some(e => e.ev === 'place join') && s7w.offer === 'QPA' && l7w.some(e => e.ev === 'place held' && e.own === 'gone'),
+      JSON.stringify({ w7, s7w: { here: s7w.here, offer: s7w.offer, res: s7w.res, own: s7w.own }, f7w, l: evs(l7w) }));
+    // back as before: Y's anchors found again, QPA's place forgotten
+    await end();
+    await H.evaluate(() => { for (const [u, w] of window.__hidY0) window.__handles.set(u, w); HOST.room.places({ forget: 'QPA' }); });
+    await go(AT_Y, { floor: F2, local: L2 });
+    await joinedTo(Y, 20000);
     // walking into X: X's anchors back, Y's gone (their handles, and the ones held no longer tracked): Y was joined by
     // itself, so X is joined by itself; Y is not marked left
     await H.evaluate(([c, h]) => {
@@ -4589,6 +4653,37 @@ async function placesRound() {
     check('places: one anchor found again in a new session on a floor that moved lines the room up within 1 cm and 0.5 degrees (spot B where the marks put it)',
       j10 && lined(f10, want(F3, YA, YB)) && !!f10.mk && Math.abs(f10.mk[1] - dAB) < 0.01 && /held by one anchor/.test(f10.line), JSON.stringify({ j10, f10, want: want(F3, YA, YB) }));
     await menuPic('places-2-one.png');
+    // one anchor's turn read with a wobble of up to 0.6 degrees either way at each reading (the review of v130: the room
+    // must not turn with it): its turn steadied, the mean of the last 3 s, the room turned only past 0.57 degrees
+    await mark('test places wobble');
+    await H.evaluate(() => { window.__xr.jit = 0.6 * Math.PI / 180; });
+    let worst = 0, wob = null;
+    for (let k = 0; k < 20; k++) {
+      await frames(H, 250);
+      wob = await now();
+      const w = want(F3, YA, YB);
+      worst = Math.max(worst, wob.frame ? Math.acos(Math.min(1, wob.frame.x[0] * w.x[0] + wob.frame.x[2] * w.x[2])) * 180 / Math.PI : 99);
+    }
+    const lw = await since('test places wobble'), mw = lw.filter(e => e.ev === 'anchors moved');
+    check('places: one anchor whose turn wobbles 0.6 degrees either way at each reading: for 5 s the room keeps its direction within 0.3 degrees (its turn steadied), moved at most once',
+      worst < 0.3 && lined(wob, want(F3, YA, YB)) && mw.length <= 1, JSON.stringify({ worst, wob, mw }));
+    // local-floor turned 10 degrees and moved without a reset event (a recentre), no wobble: the room follows at once (a
+    // reading that far from the mean starts it afresh), not creeping over the 3 s of readings
+    await H.evaluate(() => { window.__xr.jit = 0; });
+    await frames(H, 600);
+    const F4 = [F3[0] + 0.3, 0, F3[2] - 0.2, F3[3] + 10 * Math.PI / 180], L4 = [F4[0], 1.6, F4[2], F4[3]];
+    await mark('test places turn');
+    await H.evaluate(([F, L]) => {
+      const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+      const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+      X.W.floor = M(F); X.W.local = M(L);
+    }, [F4, L4]);
+    let tr = null;
+    for (let k = 0; k < 16; k++) { await frames(H, 250); tr = await now(); if (lined(tr, want(F4, YA, YB))) break; }
+    await frames(H, 1500);
+    const tr2 = await now(), lt = await since('test places turn'), mt = lt.filter(e => e.ev === 'anchors moved');
+    check('places: one anchor, local-floor turned 10 degrees without a reset event: the room follows at once (its first move the whole turn, none creeping after), within 1 cm and 0.5 degrees',
+      lined(tr2, want(F4, YA, YB)) && mt.length >= 1 && mt.length <= 2 && Math.abs(mt[0].a - 10 * Math.PI / 180) < 0.01, JSON.stringify({ tr, tr2, mt }));
     // eight places with one anchor each fit (8 anchors): seven more planted, Y calibrated anew with one: nothing dropped
     await H.evaluate(() => {
       const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z);

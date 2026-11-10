@@ -6587,7 +6587,7 @@
       const t = _mr.multiplyMatrices(R.lf, _m).multiply(R.lfi).elements;
       HOST.xr.travelShift(Math.atan2(-t[2], t[0]), t[12], t[14]);
     }
-    R.prev = null; R.resetAt = performance.now();
+    R.prev = null; R.resetAt = performance.now(); ONE.w = [];   // (one anchor's turns read in the old coordinates go)
     trkFresh();   // (the PC's trackers: the head's history in the old coordinates goes; the frame, moved above, holds until it is worked out again)
   }
   function sharedReset(ev) {
@@ -6858,7 +6858,7 @@
   // its turn holds the room's direction, and mark B is where the marks put it from there (spotB)
   function releaseAnchors() {
     if (R.anchors) for (const a of R.anchors) { try { a.delete(); } catch (e) { /* gone */ } }
-    R.anchors = null; R.anchorIds = null; R.anchorsOK = false; R.anchorP = null;
+    R.anchors = null; R.anchorIds = null; R.anchorsOK = false; R.anchorP = null; ONE.w = [];
   }
   // at the end of a session (or when the marks are given up): new anchors not yet checked lose their handles too
   function letGo() { if (R.anchorIds && !R.anchorsOK) dropAnchors(); else releaseAnchors(); }
@@ -6877,21 +6877,43 @@
       if (!p) return null;
       const t = p.transform.position;
       P.push([t.x, t.y, t.z]);
-      if (R.anchors.length === 1) { const B = spotB(P[0], p.transform.orientation, R.saved); if (!B) return null; P.push(B); }
+      if (R.anchors.length === 1) { const B = spotB(P[0], oneYaw(p.transform.orientation), R.saved); if (!B) return null; P.push(B); }
     }
     R.anchorSeen = performance.now();
     return (R.anchorP = P);
   }
-  // one anchor at spot A: spot B along its x axis, made level, as far along the floor as the marks were apart and at
-  // their height difference (null: no marks, or an anchor turned on its side)
+  // one anchor at spot A: spot B along the turn about the vertical its x axis gives (oneYaw), as far along the floor as the
+  // marks were apart and at their height difference (null: no marks, or an anchor turned on its side)
   const _px = new THREE.Vector3(), _pq = new THREE.Quaternion();
-  function spotB(A, q, S) {
-    if (!S || !q) return null;
+  function spotB(A, y, S) {
+    if (!S || y === null) return null;
+    const d = Math.hypot(S.b[0] - S.a[0], S.b[2] - S.a[2]);
+    return [A[0] + d * Math.cos(y), A[1] + (S.b[1] - S.a[1]), A[2] - d * Math.sin(y)];
+  }
+  // One anchor's turn, steadied (the review of v130: a wobble of the anchor's turn would turn the whole room about spot A,
+  // 2 degrees being 35 cm at 10 m; two anchors use positions only). The turn about the vertical of its x axis made level,
+  // as the mean of its readings over the last ONE.ms; a reading more than ONE.step from that mean starts the mean afresh
+  // (a real turn: local-floor moved without a reset event, a recentre), so that is followed at once. The window starts
+  // afresh too with new anchors and after a reset of local-floor (releaseAnchors, floorReset), and followAnchors turns the
+  // room only past ONE.hold. How much a Quest's anchor turn wobbles is unknown: the alignment samples log the window's
+  // spread (S.one). Whether a persistent anchor keeps its turn from one session to the next nothing here can tell: the
+  // check by eye asks at each session's start and after a wake
+  const ONE = { ms: 3000, step: 0.035, hold: 0.01, w: [] };
+  const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+  const meanYaw = w => { let c = 0, s = 0; for (const e of w) { c += Math.cos(e[1]); s += Math.sin(e[1]); } return w.length ? Math.atan2(s, c) : null; };
+  function oneYaw(q) {
+    if (!q) return null;
     const x = level(_px.set(1, 0, 0).applyQuaternion(_pq.set(q.x, q.y, q.z, q.w)).toArray());
     if (!x) return null;
-    const d = Math.hypot(S.b[0] - S.a[0], S.b[2] - S.a[2]);
-    return [A[0] + d * x[0], A[1] + (S.b[1] - S.a[1]), A[2] + d * x[2]];
+    const y = yawOfX(x), t = performance.now();
+    ONE.w = ONE.w.filter(e => t - e[0] < ONE.ms);
+    const m = meanYaw(ONE.w);
+    if (m !== null && Math.abs(angDiff(y, m)) > ONE.step) ONE.w = [];
+    ONE.w.push([t, y]);
+    return meanYaw(ONE.w);
   }
+  // (the window's spread now, in degrees, for the log: how much one anchor's turn wobbles on a real headset)
+  const oneSpread = () => { const m = meanYaw(ONE.w); return m === null ? null : [ONE.w.length, r3(Math.max(...ONE.w.map(e => Math.abs(angDiff(e[1], m)))) * 180 / Math.PI)]; };
   // the turn about the vertical that puts an anchor's x axis level from a towards b (one anchor per room)
   const yawTo = (a, b) => { const x = level([b[0] - a[0], 0, b[2] - a[2]]), y = x ? yawOfX(x) : 0; return { x: 0, y: Math.sin(y / 2), z: 0, w: Math.cos(y / 2) }; };
   // are the anchors where the marks are? New ones: within 5 cm of where they were asked for; found again: as
@@ -6978,7 +7000,7 @@
     const F = fromMarks(P[0], P[1]);
     if (!F.x) return;
     const [d, a] = apart(F, R.frame), h = Math.abs(F.o[1] - R.frame.o[1]);
-    if (d > 0.02 || a > 0.005 || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
+    if (d > 0.02 || a > (R.anchors.length === 1 ? ONE.hold : 0.005) || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
   }
   // without anchors: the room's floor (key rm) may change for older marks (floor spots: the floor under them, which
   // stays); the marks stay where they were touched
@@ -7080,26 +7102,58 @@
   // that never settles must not pile up); the anchors found are measured over a few frames (tracked, with a pose) and
   // deleted. Of the places found, the one whose spot A is nearest the head along the floor, within SV.near, is where this
   // headset is (PLC.here). Another room than the one joined now: in no room, or in one joined by itself (a rejoin, or a
-  // place before), and not lined up by its own marks there, it joins that room by itself (lining up from its marks at
-  // once, as on any join); in a room joined by hand, or that room left on purpose, it is offered (the Debug tab, and a
-  // notice once). The room joined now holds while its own place's anchors line it up and its spot A is within SV.near, so
-  // two rooms side by side never flip back and forth. The room joined now is never looked for here (restore does that)
-  const SV = { sess: null, gen: 0, busy: false, at: 0, from: 0, woke: 0, code: null, items: null, until: 0, res: null, wait: 10000, near: 10, n: 0 };
+  // place before), it joins that room by itself (lining up from its marks at once, as on any join), unless the room joined
+  // now holds; in a room joined by hand, or that room left on purpose, it is offered (the Debug tab, and a notice once).
+  // The room joined now is never looked for here (restore does that: ownState reads its answer). It holds (the review of
+  // v130: never leave a room the headset may well be standing in because another room's anchor answered first)
+  // - while its own place's first answer since the join, the session's start or a wake is not in (SV.grace at most): the
+  //   decision waits for it, and the places are looked for again once it is in;
+  // - while its spot A is known (its anchors held and tracked) within SV.near, or the other room is not nearer by SV.margin
+  //   (so two rooms side by side never flip back and forth);
+  // - while its own place lined this headset up before the headset was off and is not found since (a Quest loses its
+  //   anchors after standby: that is no move; SV.wokeIn, set as it wakes);
+  // - while its own place is not found and the other room's spot A is further than SV.sure (its not being found is no
+  //   proof the headset is elsewhere);
+  // - while its marks were touched here this session (src 'marks'), unless its spot A is further than SV.near.
+  // A room with no place of its own here holds nothing: the place found wins within SV.near
+  const SV = { sess: null, gen: 0, busy: false, at: 0, from: 0, woke: 0, code: null, items: null, until: 0, res: null, wait: 10000, near: 10, sure: 4, margin: 2, grace: 20000,
+    t0: 0, tries0: 0, ans: false, again: false, wokeIn: '', told: '', n: 0 };
   const byItself = () => !!(C.code && (C.auto === C.code || C.byPlace === C.code));   // (a rejoin, or a place)
   // (lined up by this room's own place, its anchors tracked within the last 3 s: followAnchors reads them twice a second)
   const linedOwn = () => !!(C.code && R.saved && R.saved.code === C.code && own() && R.anchors && R.anchorsOK && performance.now() - R.anchorSeen < 3000);
+  // the room joined now, by its own place: { d } its spot A this far from the head along the floor (its anchors held and
+  // tracked within the last 3 s, checked or not yet); 'wait' while its first answer since SV.t0 is not in (SV.grace at
+  // most); 'lost' while it lined this headset up before a wake and is not found since; 'gone' not found; null: no place
+  // of its own here (an older calibration with no room being tried counts only once found, or while it is looked for)
+  function ownState(t) {
+    if (!C.code || !placeKept(R.saved)) return null;
+    if (R.anchors && R.anchorP && R.lfOK && performance.now() - R.anchorSeen < 3000) { _px.fromArray(R.anchorP[0]).applyMatrix4(R.lf); return { d: Math.hypot(_px.x - HD.p.x, _px.z - HD.p.z) }; }
+    const wait = !SV.ans && t - SV.t0 < SV.grace;
+    if (R.saved.code !== C.code) return wait ? 'wait' : null;
+    return wait ? 'wait' : SV.wokeIn === C.code ? 'lost' : 'gone';
+  }
+  // the room joined now's own place is asked afresh (a join, the session's start, a wake): its next answer counts
+  const ownAsk = t => { SV.t0 = t; SV.tries0 = R.tries; SV.ans = false; };
+  // as the headset wakes (the session visible again): was it lined up by this room's own place? (its anchors held and
+  // checked: afterWake lets go of them only 5 s later)
+  function placesWoke() { SV.wokeIn = C.code && R.saved && R.saved.code === C.code && own() && R.anchors && R.anchorsOK ? C.code : ''; }
   function surveyDrop() {
     if (SV.items) for (const it of SV.items) if (it.a) { try { it.a.delete(); } catch (e) { /* gone */ } }
     SV.items = null; SV.busy = false; SV.gen++;
   }
   function placesStep(f, t, local) {
     const s = R.session;
-    if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null }); PLC.told = ''; }
+    if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null, again: false, wokeIn: '', told: '' }); ownAsk(t); PLC.told = ''; }
     if (!s || CAM.on || !f || !local || !HD.ok || !HOST.anchor || !HOST.anchor.find) return;
+    if (R.visibleAt !== SV.woke) { SV.woke = R.visibleAt; SV.at = 0; SV.from = t; ownAsk(t); }   // (after a wake: at once)
+    if (SV.code !== C.code) { SV.code = C.code; SV.from = t; SV.wokeIn = ''; ownAsk(t); }
+    // (its answer: found and tracked, or another restore that found nothing)
+    const o = ownState(t), seen = !!o && typeof o === 'object';
+    if (!SV.ans && (seen || R.tries > SV.tries0)) SV.ans = true;
+    if (linedOwn()) SV.wokeIn = '';   // (lined up by it again: a later loss is a move)
+    if (SV.again && ownState(t) !== 'wait') { SV.again = false; SV.at = 0; }   // (a decision that waited: the places looked for again now)
     if (SV.items) { surveyMeasure(f, t, local); return; }
     if (SV.busy) return;
-    if (R.visibleAt !== SV.woke) { SV.woke = R.visibleAt; SV.at = 0; SV.from = t; }   // (after a wake: at once)
-    if (SV.code !== C.code) { SV.code = C.code; SV.from = t; }
     const lined = linedOwn();
     if (lined) SV.from = t;
     const since = t - SV.from, gap = lined ? 120000 : since < 120000 ? 10000 : since < 600000 ? 60000 : 120000;
@@ -7138,21 +7192,31 @@
     placeDecide(found, t);
   }
   function placeDecide(found, t) {
+    const own = ownState(t);
+    // the room joined now's own place has not answered yet: decided once it has (the places looked for again then)
+    if (own === 'wait') {
+      if (!SV.again) log('place wait', { room: C.code, found: found.map(o => [o.code, r3(o.d)]) });
+      SV.again = true;
+      SV.res = { at: t, found: found.map(o => [o.code, r3(o.d)]), best: '', own: 'wait' };
+      return;
+    }
     // the room joined now, by its own place's anchors (their spot A, held in local-floor, in the story's local space)
-    if (linedOwn() && R.anchorP && R.lfOK) { _px.fromArray(R.anchorP[0]).applyMatrix4(R.lf); found = found.concat({ code: C.code, d: Math.hypot(_px.x - HD.p.x, _px.z - HD.p.z) }); }
+    const cur = own && typeof own === 'object' ? { code: C.code, d: own.d } : null;
+    if (cur) found = found.concat(cur);
     found.sort((a, b) => a.d - b.d);
-    const best = found[0] && found[0].d <= SV.near ? found[0] : null, cur = found.find(o => o.code === C.code) || null;
-    SV.res = { at: t, found: found.map(o => [o.code, r3(o.d)]), best: best ? best.code : '' };
+    const best = found[0] && found[0].d <= SV.near ? found[0] : null;
+    SV.res = { at: t, found: found.map(o => [o.code, r3(o.d)]), best: best ? best.code : '', own: cur ? 'here' : own || '' };
     const was = PLC.here + '|' + PLC.offer;
     PLC.here = best ? best.code : '';
     if (!best || best.code === C.code || R.calib) PLC.offer = '';   // (here already; or calibrating: nothing now)
     else {
       // by itself only from no room, or from one joined by itself; never into a room left on purpose (or whose code is
-      // another room's now). The room joined now holds while its own place's anchors line it up within SV.near of its spot
-      // A, or while its marks were touched here this session (src 'marks'), unless its spot A is further than that
+      // another room's now), and never while the room joined now holds (SV, above)
       const kr = localRooms().find(r => r.code === best.code), barred = !!(kr && (kr.left || kr.gone)) || (LOC.code === best.code && (LOC.left || LOC.gone));
-      const holds = !!(C.code && ((linedOwn() && cur && cur.d <= SV.near) || (R.src === 'marks' && R.frame && !(cur && cur.d > SV.near))));
+      const holds = !!(C.code && (own === 'lost' || (own === 'gone' && best.d > SV.sure) || (cur && (cur.d <= SV.near || best.d > cur.d - SV.margin)) ||
+        (R.src === 'marks' && R.frame && !(cur && cur.d > SV.near))));
       if ((!C.code || byItself()) && !barred && !holds) { placeJoin(best.code, 'auto'); return; }
+      if (holds && byItself() && !barred && SV.told !== best.code + SV.res.own) { SV.told = best.code + SV.res.own; log('place held', { room: C.code, here: best.code, d: r3(best.d), own: SV.res.own, cur: cur ? r3(cur.d) : null }); }
       PLC.offer = best.code;
       if (PLC.told !== best.code) {
         PLC.told = best.code;
@@ -7186,7 +7250,9 @@
   const placesSig = () => [PLC.list.map(p => p.code + p.at + p.anchors.length + nOf(p) + (p === R.saved)), PLC.one, PLC.offer, PLC.here, PF.code, placeArmed(PF.code), placeCap(), Math.floor(Date.now() / 60000)];
   // the places as they stand, for tests
   function placesState() {
+    const o = ownState(performance.now());
     return { one: PLC.one, cap: placeCap(), here: PLC.here, offer: PLC.offer, joined: PLC.joined, current: R.saved ? R.saved.code : null, surveys: SV.n, busy: SV.busy || !!SV.items, res: SV.res,
+      own: o && typeof o === 'object' ? 'here' : o || '', waiting: SV.again, wokeIn: SV.wokeIn,
       list: PLC.list.map(p => ({ code: p.code, rid: p.rid || '', a: p.a.slice(), b: p.b.slice(), at: p.at, used: p.used, anchors: p.anchors.slice(), n: nOf(p), kept: placeKept(p), f: p.f || 0, here: p === R.saved })) };
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
@@ -8044,7 +8110,7 @@
     if (HD.ok && R.lfOK) { const p = realHead(_hv).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
     const Tv = HOST.xr && HOST.xr.travel ? HOST.xr.travel() : null;   // (moving with the sticks: where they have moved you)
     if (Tv && Tv.space) S.travel = [r3(Tv.x), r3(Tv.z), r3(Tv.yaw)];
-    if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
+    if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); if (R.anchors && R.anchors.length === 1) S.one = oneSpread(); }
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: placeKept(R.saved), n: nOf(R.saved), place: R.saved.code || '' };
     if (R.cmp) S.cmp = R.cmp;
     if (validFloor()) S.rm = val('rm');
@@ -8133,6 +8199,7 @@
       if (s.visibilityState === 'hidden') { if (!R.hiddenAt) { R.hiddenAt = t; R.sleptRel = now(); } dropStation(null); }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
+        placesWoke();   // (lined up by this room's own place as it went off? its anchors lost after standby are no move: places)
         R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t; R.stillSince = t; R.lastS = null; R.blind = false;
         if (own() && R.frame) R.woke = t;
         else if (R.frame && (R.src === 'adopted' || R.src === 'shared')) R.wakeHold = t;   // from the shared space: held until it agrees again

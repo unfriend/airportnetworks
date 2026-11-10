@@ -2511,7 +2511,13 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     about the vertical so its x axis lies level towards spot B (`yawTo`): found again, the room's origin is the floor
     under its position (the floor spots' rule) and x its turn's x axis made level, spot B that far along it at the marks'
     height difference (`spotB`, in `anchorsAt`, so everything downstream sees two marks). It applies to calibrations from
-    then on; a place keeps how it was made. Limits (`placeCap`): at most 8 saved anchors in all places together (Meta
+    then on; a place keeps how it was made. One anchor's turn is steadied (the review of v130: a wobble of its turn would
+    turn the whole room about spot A, 2 degrees being 35 cm at 10 m): `oneYaw` takes the mean of its readings over the
+    last 3 s (`ONE`), a reading more than 2 degrees from that mean starting it afresh (a real turn: local-floor moved
+    without a reset event), the window starting afresh with new anchors and after a reset; `followAnchors` turns the room
+    for one anchor only past 0.57 degrees (two anchors: 0.29). The alignment samples log the window's size and spread
+    (`one`: how much a Quest's anchor turn wobbles, for tuning). A new anchor whose turn the browser did not keep as asked
+    fails its check (spot B more than 5 cm off: `anchorsFit`) and the calibration holds for that session only. Limits (`placeCap`): at most 8 saved anchors in all places together (Meta
     documents 8 per site; one Quest 3 refused a 9th), less one while `HOST.anchor` keeps a placement of its own (Anchor:
     on): 4 rooms with two anchors, 8 (7) with one. A calibration that would pass it drops the places used least
     recently, their anchors deleted, with a notice naming them (*Older places dropped*, log `places dropped`).
@@ -2526,21 +2532,37 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     before: `C.auto`, `C.byPlace`), it joins that room by itself (`join(code, 'place', rid)`, checked by the room's own
     id as a rejoin is; the room left is not marked left on purpose), answers *In this room* for it, says so (*Room ABC:
     You are in its place, so this headset joined it*), lines up from its marks at once and the check by eye asks (why
-    `place`); in a room joined by hand, or into a room left on purpose (or whose code is another room's now), never by
-    itself: the Debug tab offers *Join ABC: you are standing in its place* (a join by hand) and a notice says so once a
-    session. Hysteresis, so two rooms side by side never flip: the room joined now holds while its own place's anchors
-    line it up (tracked within the last 3 s) with its spot A within 10 m, or while its marks were touched there this
-    session, unless its spot A is further than 10 m; never while calibrating. Logs: `places looked for`, `places found`,
-    `place here`, `place join`.
+    `place`), unless the room joined now holds (below); in a room joined by hand, or into a room left on purpose (or
+    whose code is another room's now), never by itself: the Debug tab offers *Join ABC: you are standing in its place*
+    (a join by hand) and a notice says so once a session. Never while calibrating. The room joined now holds (`ownState`,
+    `placeDecide`; the review of v130: never leave a room the headset may well be standing in because another room's
+    anchor answered first), and the other room is then offered only:
+    - while its own place's first answer since the join, the session's start or a wake is not in (20 s at most,
+      `SV.grace`; `restore` finds it, `R.tries` counts its misses): the decision waits (`place wait`) and the places are
+      looked for again once it is in;
+    - while its own place's spot A is known (its anchors held and tracked within the last 3 s, checked or not yet) within
+      10 m, or the other room's spot A is not nearer by 2 m (`SV.margin`): two rooms side by side never flip;
+    - while its own place lined this headset up as it went off and is not found since the wake (`SV.wokeIn`,
+      `placesWoke`, from the session's visibility: a Quest loses anchors after standby, which is no move; a headset
+      carried to another room while asleep is offered that room);
+    - while its own place is not found and the other room's spot A is further than 4 m (`SV.sure`: its not being found
+      is no proof the headset is elsewhere);
+    - while its marks were touched there this session, unless its spot A is further than 10 m.
+    A room with no place of its own here holds nothing. Logs: `places looked for`, `places found`, `place wait`, `place
+    held` (with why: `lost`, `gone`, `here`), `place here`, `place join`.
   - The Debug tab's *Places* rows: the offer; *Places on this headset: n*, each place's room (*in use* for this room's,
     *you are in it* for the one found where you stand), one or two anchors (or *this session only*) and when it was
     calibrated, with *Forget* (two presses; this room's is Forget calibration); *Anchors per room* (*Up to 4 rooms*, or
     8, 3 or 7 as it and Anchor are). `HOST.room.places(o)` (`{ list, one, cap, here, offer, current, surveys,
-    res }`; `o.reset`, `reload`, `out`, `one`, `forget`, `look`, `wait`, `near`, `join`) is for tests.
+    res, own, waiting, wokeIn }`; `o.reset`, `reload`, `out`, `one`, `forget`, `look`, `wait`, `near`, `join`) is for
+    tests.
   - Untested on a headset: whether a Quest finds a room's anchors when it walks in during a session or only at a
     session's start; a multi-room Space Setup (one scan over several rooms, or one per room); whether a persistent
-    anchor keeps its turn exactly (one anchor per room rests on it); how far apart two rooms' places must be for the
-    nearest to win; the cost of looking for 8 anchors every 10 s on a Quest.
+    anchor keeps its turn exactly from one session to the next (one anchor per room rests on it: a turn restored a
+    degree or two off turns the room about spot A, which steadying cannot see; the check by eye asks at each session's
+    start and after a wake, and two anchors per room stay the default); how much a Quest's anchor turn wobbles (the
+    samples' `one` will say); how far apart two rooms' places must be for the nearest to win, and whether 4 m and the 2 m
+    margin suit real rooms; the cost of looking for 8 anchors every 10 s on a Quest.
 - The explore view at a station (`st.<id>.view`, `{ v, story }`): headsets at the station share
   it (`viewSync`, every frame from the shell's tick: one turned here goes out while it changes frame by frame, at most
   every 66 ms with `ts` and `h: 1`, and once more without `h` when it rests; one that came at once here, after a flight
@@ -5666,20 +5688,28 @@ no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
 space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
 calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), places (`placesRound`,
-v130, after the guide round in the main run; `--places` runs only it, rooms of their own, a few minutes: two pages each
+v130, after the guide round in the main run; `--places` runs only it, rooms of their own, eight or nine minutes: two pages each
 start a room, X and Y, and a pretend AR headset with saved anchors, a handle taken out of the map standing for an anchor
 not in that room: calibrated in X and, joined by hand, in Y, on spots 13 m apart, two places with their anchors and X's
 stored in `roomFrames` with the room's own id; standing in Y while in Y, Y here and nothing offered; in Y joined by hand,
 standing in X's place, Y not left, X offered (a notice, *Join X* and each place's *Forget* and *Anchors per room* under
 Debug); out of the room (not on purpose), a new session in no room standing in Y with X's handles hidden and the floor
-moved: Y joined by itself (its notice) and lined up from its marks within 1 cm and 0.5 degrees; walking into X with Y's
+moved: Y joined by itself (its notice) and lined up from its marks within 1 cm and 0.5 degrees; with a place QPA
+planted 6 m from where it stands (one anchor, found at once): a new session in Y, Y's own anchors answering after 5 s,
+the decision waiting for them (`place wait`) and Y, nearest, holding (nothing joined or offered); woken with Y's
+anchors lost (it lined the headset up as it went off), carried to 1.5 m from QPA's spot A: Y holding (`place held`,
+`lost`), QPA offered; a new session with Y's anchors not found at all, 6 m from QPA's spot A: Y holding (`gone`, further
+than 4 m), QPA offered; walking into X with Y's
 anchors gone (their handles, the ones held untracked): X joined by itself from Y, lined up, Y not marked left; X left on
 purpose only offered, the offer's button joining it by hand; a new session's tidy deleting a stranger and keeping every
 place's anchors; Forget Y (two presses) keeping X, which still lines the headset up; three more places planted (two
 anchors each, used days ago) and Y calibrated anew: the one used least recently dropped with its anchors, *Older places
 dropped*; *Anchors per room: one* from the menu, Y calibrated again with one anchor at spot A turned towards spot B (its
 x axis within 0.5 degrees), found again in a new session on another floor within 1 cm and 0.5 degrees (*held by one
-anchor*); seven one-anchor places planted and Y's: eight fitting, nothing dropped; an older `roomFrame` (v2, no room)
+anchor*); its turn read with a wobble of up to 0.6 degrees at each reading (`installXR`'s `X.jit`): for 5 s the room's
+direction within 0.3 degrees and moved at most once; local-floor turned 10 degrees without a reset event: the room's
+first move the whole turn, none creeping after, lined up within 1 cm and 0.5 degrees; seven one-anchor places planted
+and Y's: eight fitting, nothing dropped; an older `roomFrame` (v2, no room)
 kept as a place with no room and taken by Y, the first room it lines up in), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button

@@ -274,9 +274,12 @@ local network found each other this way, and then shared a peer-to-peer room; he
     calibration as the room's **place**, and the other rooms' places stay. Back in a room with no shared room joined (or
     in one it joined by itself), a headset that finds a place's anchors within 10 m joins that room by itself (*Room
     ABC: you are in its place*) and lines up from its spots; in a room joined by hand it only offers it (**Join ABC**,
-    menu **Debug**, under **Places**). A headset keeps at most 8 saved anchors in all: 4 rooms with two anchors each, or
-    8 with one (**Anchors per room: one**, before calibrating; one anchor is less sure of the room's direction, so check
-    by eye); with **Anchor: on** one fewer. A calibration past that drops the place used least recently (a notice says
+    menu **Debug**, under **Places**). It never leaves a room it may be standing in: it waits for that room's own spots
+    first, keeps it when that room's spots are nearer, keeps it after standby (a headset carried to another room while
+    asleep only offers the new room: press **Join ABC**), and joins another room by itself, when its own room's spots are
+    not found, only within 4 m of that room's spot A. A headset keeps at most 8 saved anchors in all: 4 rooms with two anchors each, or
+    8 with one (**Anchors per room: one**, before calibrating; one anchor is less sure of the room's direction: if spot
+    B's orange cross is off its tape, calibrate again, or use two anchors); with **Anchor: on** one fewer. A calibration past that drops the place used least recently (a notice says
     which). **Places** lists each room's place with **Forget** (two presses). Each room needs its own room scan (Space
     Setup) on every headset. Untested: whether a Quest finds a room's anchors when it walks in during a session, or only
     as a session starts (if it does not switch, leave AR and enter it again in the new room).
