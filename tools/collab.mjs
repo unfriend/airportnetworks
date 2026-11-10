@@ -117,6 +117,14 @@
 // at one held time; the headset lined up by them (the Index); at a studio circle a shape on a prop tracker within 5 mm, the
 // puppet rig worn from a walking performer's trackers solved alike everywhere, a take saved through the relay that plays
 // on another page; with --shots trackers-1-dialog.png);
+// --places only places, a calibration kept per room (placesRound, v130, also in the main run after the guide round: rooms
+// of their own, two pages each starting one, and a pretend AR headset with saved anchors: calibrated in room X and room Y
+// on spots 13 m apart, two places with their anchors; a room joined by hand offered the place it stands in, not left; a new
+// session in no room standing in Y joins Y by itself and lines up from its marks; walking into X, Y's anchors gone, it
+// switches to X; a room left on purpose only offered, the offer's button joining by hand; the tidy keeping every place's
+// anchors; Forget one place keeps the other; a fifth place with two anchors drops the one used least recently; one anchor
+// per room found again within 1 cm and 0.5 degrees on a floor that moved, and eight such places fitting; an older single
+// calibration taken by the first room it lines up in; a few minutes);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -348,6 +356,7 @@ const NARR_ONLY = argv.includes('--narration');   // (only the narration in head
 const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
+const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration kept per room: placesRound, rooms of their own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
@@ -446,6 +455,8 @@ function installXR(o) {
   const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(Y, a[3]), V(1, 1, 1));
   const X = window.__xr = { W: { local: M(o.local), floor: M(o.floor), shared: M(o.shared), head: M(o.head) }, raf: [], made: [], handles: window.__handles || new Map(), resets: {}, n: 0 };
   window.__handles = X.handles;   // saved anchors outlive a session, as on a headset
+  // the place this headset keeps for the room it is in (v130: roomFrames, a calibration per room), as stored; null: none
+  window.__stored = () => { try { const s = JSON.parse(localStorage.getItem('roomFrames') || 'null'); return ((s && s.places) || []).find(p => p.code === HOST.collab.code) || null; } catch (e) { return null; } };
   const sp = name => ({ name, addEventListener(t, fn) { (X.resets[name] = X.resets[name] || []).push(fn); }, removeEventListener() {} });
   X.spaces = { local: sp('local'), 'local-floor': sp('local-floor'), shared: Object.assign(sp('shared'), { UUId: o.sharedId || '' }) };
   // (o.walk: moving with the sticks, the walk round's: the local space makes offset spaces, as WebXR's do, its origin at the
@@ -4374,7 +4385,242 @@ async function floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfC
   const o2 = await roomOf(H2);
   check('floor spots: ...and with an older device\'s floor for those corners (rm without f) it stands the room on it, as before v122 (the room\'s floor on the true floor)',
     ot && Math.abs(o2.o[1]) < 0.01 && !!o2.mk && Math.abs(o2.mk[0] - 0.76) < 0.01 && !!o2.rm && o2.rm.by === aId, JSON.stringify(o2));
-  await H2.evaluate(() => { localStorage.removeItem('roomFrame'); window.__xr.end(); });
+  await H2.evaluate(() => { localStorage.removeItem('roomFrame'); localStorage.removeItem('roomFrames'); window.__xr.end(); });
+}
+
+// ---- places (v130; --places runs only this, also in the main run after the guide round; a few minutes): a calibration
+// kept per room code, so a headset lines itself up in each of several rooms (the owner, 10 November 2026: "Would it be
+// possible to have multiple anchor points like the calibration points are now so that i can do multiple rooms and it
+// aligns itself in each of them with the points?", then "also add an option to only use one anchor per room if possible
+// for a max of 8 rooms"). Two pages each start a room (X and Y, a station far off in each); a pretend AR headset with
+// saved anchors (a handle taken out of the map stands for an anchor not in that room: restorePersistentAnchor rejects)
+// calibrates in X and, joined by hand, in Y, on spots 13 m apart: two places with their anchors. In Y (by hand) standing
+// in X's place: X offered, Y not left. A new session in no room standing in Y (X's handles hidden) joins Y by itself and
+// lines up from its marks on a floor that moved; walking into X (Y's anchors gone, untracked) it switches to X; X left on
+// purpose is only offered, and the offer's button joins it by hand; a new session's tidy keeps every place's anchors;
+// Forget one place (two presses) keeps the other; a fifth place with two anchors drops the one used least recently; one
+// anchor per room (the menu's row), turned towards spot B, found again within 1 cm and 0.5 degrees on another floor;
+// eight one-anchor places fit; an older single calibration (roomFrame) taken by the first room it lines up in
+async function placesRound() {
+  const room = async () => {
+    const P = await open('#stories');
+    await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(P, () => HOST.collab.status === 'open' && !!HOST.collab.val('rid'), null, 15000);
+    const c = await P.evaluate(() => HOST.collab.code);
+    await P.evaluate(k => HOST.collab.add(k, { x: 30, z: -30, yaw: 0 }), PICK_STORY);   // (a station far off: no menu opening by itself for an empty room)
+    return [P, c];
+  };
+  const [AX, X] = await room(), [AY, Y] = await room();
+  const H = await open('#s=' + X, { width: 320, height: 200 });
+  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 1, null, 20000);
+  await ready(H, 'airports');
+  // the spots: X's near the pretend room's middle, Y's 13 m off; local-floor where the headset starts, and two others for
+  // later sessions (the Guardian origin moved: the places must still line up)
+  const XA = [1.0, TIP, -0.4], XB = [2.6, TIP, 0.5], YA = [14.0, TIP, 2.0], YB = [15.2, TIP, 3.4];
+  const F2 = [0.3, 0, -0.2, 1.4], L2 = [0.3, 1.6, -0.2, 1.4], F3 = [-0.8, 0, 0.6, -2.1], L3 = [-0.8, 1.6, 0.6, -2.1];
+  const AT_X = [1.6, 1.6, 0, 0.3], AT_Y = [14.6, 1.6, 2.6, -1.0];
+  const go = async (head, o) => {
+    await H.evaluate(installXR, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 300);
+  };
+  const end = () => H.evaluate(() => window.__xr.end());
+  const PS = () => H.evaluate(() => HOST.room.places());
+  const touch = async p => {   // (held still on the spot, the controller pointing down, then the trigger)
+    await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
+    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150);
+  };
+  // calibrated on spots a and b in the room joined now: its place kept (its anchors made and saved)
+  const calibrate = async (a, b) => {
+    await H.evaluate(() => HOST.room.calibrate());
+    await touch(a); await touch(b);
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    return until(H, c => { window.__xr.step(); const p = HOST.room.places().list.find(q => q.code === c); return !!(p && p.kept && HOST.room.src === 'marks'); },
+      await H.evaluate(() => HOST.collab.code), 10000);
+  };
+  // the room's frame for spots a and b on local-floor F (the floor under a; x towards b), and whether the headset has it
+  // (within 1 cm and 0.5 degrees)
+  const want = (F, a, b) => { const fa = unapply(F, a), fb = unapply(F, b); return { o: [fa[0], 0, fa[2]], x: unit([fb[0] - fa[0], 0, fb[2] - fa[2]]) }; };
+  const now = () => H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, code: HOST.collab.code, status: HOST.collab.status, by: HOST.collab.internals().byPlace || '',
+    auto: HOST.collab.internals().auto || '', mk: HOST.room.marks, line: HOST.room.sourceLine() }));
+  const lined = (f, w) => !!f.frame && dist(f.frame.o, w.o) < 0.01 && Math.acos(Math.min(1, f.frame.x[0] * w.x[0] + f.frame.x[2] * w.x[2])) < 0.5 * Math.PI / 180;
+  const joinedTo = (c, ms) => until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open' && HOST.room.src === 'anchor' && !!HOST.room.frame; }, c, ms || 20000);
+  const handles = () => H.evaluate(() => [...window.__handles.keys()]);
+  const notes = () => H.evaluate(() => HOST.collab.notes().map(n => n.title));
+  const mark = m => H.evaluate(m => window.__collabLog.push({ ev: m }), m);
+  const since = m => H.evaluate(m => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf(m); return L.slice(i + 1).map(e => Object.assign({}, e)); }, m);
+  // the places looked for now (as on the survey's schedule), until that look is done
+  const look = async ms => {
+    const n = (await PS()).surveys;
+    await H.evaluate(() => HOST.room.places({ look: true }));
+    return until(H, n => { window.__xr.step(); const s = HOST.room.places(); return s.surveys > n && !s.busy; }, n, ms || 15000);
+  };
+  const menu = (id, times) => H.evaluate(([id, k]) => { HOST.collab.panelOpen(true); let n = 0; for (let i = 0; i < k; i++) { const r = HOST.collab.menuFind(id); if (r && r.fn) { r.fn(); n++; } } HOST.collab.panelOpen(false); return n; }, [id, times || 1]);
+  try {
+    // calibrated in room X (joined by its link): its place, two anchors, stored with the room's own id
+    await go(AT_X);
+    const st0 = await H.evaluate(() => HOST.room.state);
+    const c1 = await calibrate(XA, XB);
+    const s1 = await PS(), f1 = await now(), h1 = await handles(), st1 = await H.evaluate(() => Object.assign(JSON.parse(localStorage.getItem('roomFrames') || '{}'), { legacy: localStorage.getItem('roomFrame') }));
+    const px = s1.list.find(p => p.code === X) || null;
+    check('places: calibrated in room X, its place is kept: two anchors saved, stored in roomFrames (v3) with the room\'s own id, the room lined up on its spots',
+      st0 === 'calibrate' && c1 && !!px && px.kept && px.n === 2 && px.anchors.every(u => h1.includes(u)) && !!px.rid && lined(f1, want(FLOOR, XA, XB)) &&
+        st1.v === 3 && st1.places.some(p => p.code === X && p.anchors.length === 2) && st1.legacy === null, JSON.stringify({ st0, c1, s1, f1, st1 }));
+    // joined room Y by hand, standing in it: no place there yet (calibrate), then calibrated: two places
+    await H.evaluate(c => HOST.collab.join(c), Y);
+    await until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open'; }, Y, 20000);
+    await H.evaluate(h => window.__xr.head(h), AT_Y);
+    await frames(H, 300);
+    const st2 = await H.evaluate(() => [HOST.room.state, HOST.room.places().current]);
+    const c2 = await calibrate(YA, YB);
+    const s2 = await PS(), f2 = await now(), h2 = await handles();
+    const py = s2.list.find(p => p.code === Y) || null, px2 = s2.list.find(p => p.code === X) || null;
+    check('places: in room Y (joined by hand) no place yet, then calibrated there: two places, each with its anchors, X\'s untouched',
+      st2[0] === 'calibrate' && st2[1] === null && c2 && !!py && py.kept && !!px2 && px2.kept && JSON.stringify(px2.anchors) === JSON.stringify(px.anchors) &&
+        py.anchors.concat(px2.anchors).every(u => h2.includes(u)) && s2.current === Y && lined(f2, want(FLOOR, YA, YB)), JSON.stringify({ st2, c2, s2, f2 }));
+    const l2 = await look(), s2b = await PS();
+    check('places: standing in Y\'s place while in Y, a look finds Y here (X found 13 m off) and offers nothing',
+      l2 && s2b.here === Y && !s2b.offer && !!s2b.res && s2b.res.found.some(f => f[0] === X && f[1] > 12), JSON.stringify(s2b));
+    // still in Y (joined by hand), walking into X's place: not left by itself; X offered (a notice, and the menu's button)
+    await H.evaluate(h => window.__xr.head(h), AT_X);
+    const l3 = await look(), s3 = await PS(), f3 = await now();
+    const ids3 = await H.evaluate(() => { HOST.collab.panelOpen(true); const ids = HOST.collab.menuIds(); HOST.collab.panelOpen(false); return ids; });
+    check('places: in room Y joined by hand, standing in X\'s place: Y is not left by itself; X is offered (a notice, and Join X under Debug, beside each place\'s Forget and Anchors per room)',
+      l3 && f3.code === Y && s3.here === X && s3.offer === X && (await notes()).includes('Join room ' + X + '?') && ids3.includes('placejoin') &&
+        ids3.includes('placeforget:' + X) && ids3.includes('placeforget:' + Y) && ids3.includes('placeanchors'), JSON.stringify({ s3, f3, ids3 }));
+    // out of the room (not on purpose), a new session in no room standing in Y, X's anchors not findable (its handles
+    // hidden), the floor moved: Y joined by itself and lined up from its marks
+    await end();
+    await H.evaluate(() => HOST.room.places({ out: true }));
+    await H.evaluate(c => { const P = HOST.room.places().list.find(p => p.code === c); window.__hidX = P.anchors.map(u => [u, window.__handles.get(u)]); for (const u of P.anchors) window.__handles.delete(u); }, X);
+    await mark('test places session');
+    await go(AT_Y, { floor: F2, local: L2 });
+    const j4 = await joinedTo(Y), f4 = await now(), l4 = await since('test places session'), w4 = want(F2, YA, YB);
+    check('places: a new session in no room, standing in Y (only Y\'s anchors there): Y joined by itself (its notice), lined up from its marks on a floor that moved (within 1 cm and 0.5 degrees)',
+      j4 && f4.by === Y && lined(f4, w4) && l4.some(e => e.ev === 'place join' && e.code === Y && e.how === 'auto' && !e.from) && (await notes()).includes('Room ' + Y),
+      JSON.stringify({ j4, f4, w4, l4: l4.filter(e => /place|join|anchor/.test(e.ev)).map(e => [e.ev, e.code || e.how || '']) }));
+    // walking into X: X's anchors back, Y's gone (their handles, and the ones held no longer tracked): Y was joined by
+    // itself, so X is joined by itself; Y is not marked left
+    await H.evaluate(([c, h]) => {
+      const X = window.__xr, R = HOST.room.internals(), P = HOST.room.places().list.find(p => p.code === c);
+      for (const [u, w] of window.__hidX) window.__handles.set(u, w);
+      window.__hidY = P.anchors.map(u => [u, window.__handles.get(u)]); for (const u of P.anchors) window.__handles.delete(u);
+      const stale = new Set(R.anchors || []); X.frame.trackedAnchors = { has: a => !stale.has(a) };
+      X.head(h);
+    }, [Y, AT_X]);
+    await mark('test places walk');
+    await frames(H, 3300);   // (Y's anchors untracked for 3 s: Y no longer lined up by its own place)
+    await look();
+    const j5 = await joinedTo(X), f5 = await now(), l5 = await since('test places walk'), kr = await H.evaluate(c => HOST.collab.kept().find(r => r.code === c) || null, Y);
+    check('places: walking into X with Y\'s anchors gone: X joined by itself (it was in Y by itself), lined up from X\'s marks, Y not marked left',
+      j5 && f5.by === X && lined(f5, want(F2, XA, XB)) && l5.some(e => e.ev === 'place join' && e.code === X && e.how === 'auto' && e.from === Y) && (await notes()).includes('Room ' + X) &&
+        !!kr && !kr.left, JSON.stringify({ j5, f5, kr, l5: l5.filter(e => /place|join/.test(e.ev)).map(e => [e.ev, e.code || '', e.from || '']) }));
+    await H.evaluate(() => { delete window.__xr.frame.trackedAnchors; for (const [u, w] of window.__hidY) window.__handles.set(u, w); });
+    // X left on purpose: standing in its place, it is only offered; the offer's button joins it by hand
+    await H.evaluate(() => HOST.collab.leave());
+    const l6 = await look(), s6 = await PS(), f6 = await now();
+    check('places: a room left on purpose (X) is not joined by itself while standing in its place, only offered', l6 && f6.code === '' && s6.here === X && s6.offer === X, JSON.stringify({ s6, f6 }));
+    const pj = await menu('placejoin');
+    const j6 = await joinedTo(X), f6b = await now();
+    check('places: ...the menu\'s Join X joins it by hand, lined up from its place', pj === 1 && j6 && !f6b.by && !f6b.auto && lined(f6b, want(F2, XA, XB)), JSON.stringify({ pj, j6, f6b }));
+    // a new session: the tidy deletes saved anchors nobody knows and keeps every place's
+    await end();
+    await H.evaluate(() => window.__handles.set('junk-places', new THREE.Matrix4()));
+    await go(AT_X, { floor: F2, local: L2 });
+    await joinedTo(X, 15000);
+    const t7 = await H.evaluate(() => ({ junk: window.__handles.has('junk-places'), places: HOST.room.places().list.map(p => [p.code, p.anchors.every(u => window.__handles.has(u))]),
+      tidied: window.__collabLog.filter(e => e.ev === 'anchors tidied').slice(-1)[0] || null }));
+    check('places: a new session deletes saved anchors nobody knows and keeps every place\'s (X\'s and Y\'s)', !t7.junk && t7.places.length === 2 && t7.places.every(p => p[1]), JSON.stringify(t7));
+    // Forget one place (Y's, two presses under Debug): it goes with its anchors; X's stays and still lines the headset up
+    const fg = await menu('placeforget:' + Y, 2);
+    const s8 = await PS(), h8 = await handles(), f8 = await now();
+    check('places: Forget one place (two presses: Y\'s) takes it and its anchors; X\'s place stays and still lines the headset up',
+      fg === 2 && !s8.list.some(p => p.code === Y) && !py.anchors.some(u => h8.includes(u)) && s8.list.some(p => p.code === X && p.kept) && f8.src === 'anchor' && lined(f8, want(F2, XA, XB)),
+      JSON.stringify({ fg, s8, f8 }));
+    // the limit: three more places (two anchors each, used days ago, far off) make 8 anchors with X's; Y calibrated anew
+    // (a fifth place) drops the one used least recently, with its anchors, and says so
+    const planted = await H.evaluate(() => {
+      const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z), out = [];
+      ['QQA', 'QQB', 'QQC'].forEach((c, i) => {
+        const ha = 'plant-' + c + '-a', hb = 'plant-' + c + '-b', at = Date.now() - (5 - i) * 86400000;
+        window.__handles.set(ha, M(40 + 6 * i, 40)); window.__handles.set(hb, M(41.5 + 6 * i, 40));
+        S.places.push({ code: c, a: [40, 0.02, 40], b: [41.5, 0.02, 40], at, used: at, anchors: [ha, hb], n: 2, f: 1 });
+        out.push([c, ha, hb]);
+      });
+      localStorage.setItem('roomFrames', JSON.stringify(S));
+      HOST.room.places({ reload: true });
+      return out;
+    });
+    await joinedTo(X, 10000);
+    await mark('test places limit');
+    await H.evaluate(c => HOST.collab.join(c), Y);
+    await until(H, c => { window.__xr.step(); return HOST.collab.code === c && HOST.collab.status === 'open'; }, Y, 20000);
+    await H.evaluate(h => window.__xr.head(h), AT_Y);
+    await frames(H, 300);
+    const c9 = await calibrate(YA, YB);
+    const s9 = await PS(), h9 = await handles(), l9 = await since('test places limit'), dropped = l9.find(e => e.ev === 'places dropped') || null;
+    check('places: a fifth place with two anchors (at most 8 anchors in all) drops the one used least recently with its anchors, and says so',
+      c9 && s9.cap === 8 && s9.list.length === 4 && [X, Y, 'QQB', 'QQC'].every(c => s9.list.some(p => p.code === c)) && !planted[0].slice(1).some(u => h9.includes(u)) &&
+        planted.slice(1).every(r => r.slice(1).every(u => h9.includes(u))) && !!dropped && dropped.codes.join() === 'QQA' && (await notes()).includes('Older places dropped'),
+      JSON.stringify({ c9, list: s9.list.map(p => [p.code, p.anchors.length]), dropped }));
+    // one anchor per room (the menu's row): Y calibrated anew with one anchor at spot A, turned so its x axis lies towards
+    // spot B (the two before deleted); found again in a new session on another floor, it lines the room up
+    const y9 = (s9.list.find(p => p.code === Y) || { anchors: [] }).anchors;
+    const one = await menu('placeanchors');
+    const c10 = await calibrate(YA, YB);
+    const s10 = await PS(), py10 = s10.list.find(p => p.code === Y) || null, h10 = await handles();
+    const turn = py10 ? await H.evaluate(u => { const m = window.__handles.get(u); return m ? [m.elements[0], m.elements[1], m.elements[2]] : null; }, py10.anchors[0]) : null;
+    const wyx = unit([YB[0] - YA[0], 0, YB[2] - YA[2]]);
+    check('places: Anchors per room: one (the menu\'s row); Y calibrated again keeps one anchor at spot A, its x axis level towards spot B; the two before deleted',
+      one === 1 && s10.one && c10 && !!py10 && py10.n === 1 && py10.anchors.length === 1 && py10.kept && !!turn && Math.abs(turn[1]) < 1e-6 &&
+        turn[0] * wyx[0] + turn[2] * wyx[2] > Math.cos(0.5 * Math.PI / 180) && !y9.some(u => h10.includes(u)), JSON.stringify({ one, py10, turn, wyx }));
+    await end();
+    await go(AT_Y, { floor: F3, local: L3 });
+    const j10 = await joinedTo(Y, 15000), f10 = await now(), dAB = Math.hypot(YB[0] - YA[0], YB[2] - YA[2]);
+    check('places: one anchor found again in a new session on a floor that moved lines the room up within 1 cm and 0.5 degrees (spot B where the marks put it)',
+      j10 && lined(f10, want(F3, YA, YB)) && !!f10.mk && Math.abs(f10.mk[1] - dAB) < 0.01 && /held by one anchor/.test(f10.line), JSON.stringify({ j10, f10, want: want(F3, YA, YB) }));
+    // eight places with one anchor each fit (8 anchors): seven more planted, Y calibrated anew with one: nothing dropped
+    await H.evaluate(() => {
+      const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z);
+      S.places = S.places.filter(p => p.n === 1);   // (Y's alone: the others go, their anchors left to the next tidy)
+      ['QRA', 'QRB', 'QRC', 'QRD', 'QRE', 'QRF', 'QRG'].forEach((c, i) => {
+        const h = 'plant1-' + c, at = Date.now() - (i + 1) * 86400000;
+        window.__handles.set(h, M(60 + 4 * i, 60));
+        S.places.push({ code: c, a: [60, 0.02, 60], b: [61.5, 0.02, 60], at, used: at, anchors: [h], n: 1, f: 1 });
+      });
+      localStorage.setItem('roomFrames', JSON.stringify(S));
+      HOST.room.places({ reload: true });
+    });
+    await joinedTo(Y, 10000);
+    await mark('test places eight');
+    const c11 = await calibrate(YA, YB);
+    const s11 = await PS(), l11 = await since('test places eight');
+    check('places: eight places with one anchor each fit (8 anchors in all): nothing dropped', c11 && s11.list.length === 8 && s11.list.every(p => p.kept && p.n === 1) &&
+      !l11.some(e => e.ev === 'places dropped'), JSON.stringify({ c11, list: s11.list.map(p => [p.code, p.n, p.kept]) }));
+    // an older single calibration (roomFrame, v2, no room): a place with no room, taken by the first room it lines up in
+    await end();
+    await H.evaluate(() => HOST.room.places({ reset: true, one: false }));
+    await mark('test places old');
+    const old = await H.evaluate(([F, a, b]) => {
+      const V = (x, y, z) => new THREE.Vector3(x, y, z), W = new THREE.Matrix4().compose(V(F[0], F[1], F[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), F[3]), V(1, 1, 1)).invert();
+      const lf = p => V(...p).applyMatrix4(W).toArray().map(v => Math.round(v * 1000) / 1000), ha = 'v2-a-' + Date.now(), hb = 'v2-b-' + Date.now();
+      window.__handles.set(ha, new THREE.Matrix4().makeTranslation(...a)); window.__handles.set(hb, new THREE.Matrix4().makeTranslation(...b));
+      localStorage.setItem('roomFrame', JSON.stringify({ v: 2, a: lf(a), b: lf(b), at: Date.now() - 86400000, anchors: [ha, hb], f: 1 }));
+      const s = HOST.room.places({ reload: true });
+      return { ha, hb, list: s.list.map(p => [p.code, p.anchors.join()]), current: s.current, stored: localStorage.getItem('roomFrame') };
+    }, [F3, YA, YB]);
+    await go(AT_Y, { floor: F3, local: L3 });
+    const j12 = await joinedTo(Y, 15000), s12 = await PS(), f12 = await now(), l12 = await since('test places old');
+    const st12 = await H.evaluate(() => JSON.parse(localStorage.getItem('roomFrames') || 'null'));
+    check('places: an older single calibration (roomFrame, no room) is kept as a place with no room and taken by the first room it lines up in (Y)',
+      old.list.length === 1 && old.list[0][0] === '' && old.current === '' && old.stored === null && j12 && lined(f12, want(F3, YA, YB)) && s12.list.length === 1 &&
+        s12.list[0].code === Y && s12.list[0].anchors.join() === [old.ha, old.hb].join() && l12.some(e => e.ev === 'place taken' && e.code === Y) &&
+        !!st12 && st12.places.length === 1 && st12.places[0].code === Y, JSON.stringify({ old, j12, s12, f12 }));
+    await end();
+  } finally {
+    await H.evaluate(() => { try { window.__xr.end(); } catch (e) { /* ended */ } }).catch(() => {});
+    for (const p of [AX, AY, H]) await p.context().close().catch(() => {});
+  }
 }
 
 // ---- the relay's password (--token runs only this part; a relay of its own with COLLAB_TOKEN, a minute or two). A page
@@ -6080,11 +6326,11 @@ async function cameraRound(dir) {
     await frames(P, 600);
     const again = await P.evaluate(i1 => {
       const R = HOST.room.internals(), c = HOST.collab.camera(), L = window.__collabLog.filter(e => e.n > i1);
-      return { on: c.on, calib: c.calib, lined: c.lined, state: HOST.room.state, saved: R.saved, tried: !!R.anchorTried, stored: localStorage.getItem('roomFrame'),
+      return { on: c.on, calib: c.calib, lined: c.lined, state: HOST.room.state, saved: R.saved, tried: !!R.anchorTried, stored: localStorage.getItem('roomFrame') || localStorage.getItem('roomFrames'), places: HOST.room.places().list.length,
         kept: ['old1', 'old2'].filter(u => window.__xr.handles.has(u)), looked: L.filter(e => /anchors (not found|found again)|^restor/.test(e.ev)).map(e => e.ev) };
     }, i1);
     check('camera: started again, it lines up afresh (Set spot A at once, not lined up), no marks kept or looked for (the old handles let go, nothing stored)',
-      on2 && again.on && again.calib === 'a' && !again.lined && again.state === 'mark-a' && again.saved === null && !again.tried && again.stored === null && !again.kept.length && !again.looked.length,
+      on2 && again.on && again.calib === 'a' && !again.lined && again.state === 'mark-a' && again.saved === null && !again.tried && again.stored === null && again.places === 0 && !again.kept.length && !again.looked.length,
       JSON.stringify(again));
     await P.evaluate(() => document.querySelector('#camera [data-cam="exit"]').click());
     await until(P, () => !HOST.session && !HOST.collab.cameraMode(), null, 5000);
@@ -6126,6 +6372,7 @@ try {
   if (WALK_ONLY) { await walkRound(); break main; }
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
+  if (PLACES_ONLY) { await placesRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -7618,7 +7865,7 @@ try {
 
   // ----------------------------------------- calibration from two marks --
   // a headset without a shared space and without saved marks: calibrate, touching mark A then mark B
-  await H.evaluate(() => { localStorage.removeItem('roomFrame'); HOST.room.internals().saved = null; });
+  await H.evaluate(() => HOST.room.places({ reset: true }));   // (no calibration kept: v130's places, none)
   await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 300);
@@ -7664,15 +7911,15 @@ try {
   const stClose = await H.evaluate(() => HOST.room.state);
   await touch(markB);
   // the anchors at A and B are made, checked against the marks, and their handles saved
-  const keptMarks = () => H.evaluate(() => { const s = JSON.parse(localStorage.getItem('roomFrame') || 'null'); return !!(s && s.anchors && s.anchors.length === 2); });
+  const keptMarks = () => H.evaluate(() => { const s = window.__stored(); return !!(s && s.anchors && s.anchors.length === 2); });
   for (let k = 0; k < 12 && !(await keptMarks()); k++) await frames(H, 250);
-  const cal = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, saved: JSON.parse(localStorage.getItem('roomFrame') || 'null'), made: window.__xr.made,
+  const cal = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, saved: window.__stored(), made: window.__xr.made,
     mk: HOST.room.marks, line: HOST.room.sourceLine() }));
   const fa = unapply(FLOOR, markA), fb = unapply(FLOOR, markB), cx = unit([fb[0] - fa[0], 0, fb[2] - fa[2]]), dAB = Math.hypot(fb[0] - fa[0], fb[2] - fa[2]);
   check('calibration: mark A, then a mark B too close is refused', stA === 'mark-b' && stClose === 'mark-b', `${stA}, ${stClose}`);
   check('calibration: two marks give the expected frame (A the origin, A to B the x axis)', cal.src === 'marks' && near(cal.frame.o, [fa[0], 0, fa[2]], 2e-3) && near(cal.frame.x, cx, 2e-3),
     `${cal.src} o ${fmt(cal.frame ? cal.frame.o : [])} x ${fmt(cal.frame ? cal.frame.x : [])}, want ${fmt(fa)} ${fmt(cx)}`);
-  check('calibration: saved with two anchors, at mark A and at mark B (their handles kept, no coordinates trusted alone)', cal.saved && cal.saved.v === 2 &&
+  check('calibration: saved with two anchors, at mark A and at mark B (their handles kept, no coordinates trusted alone), as this room\'s place', cal.saved && cal.saved.code === code && cal.saved.n === 2 &&
     near(cal.saved.a, fa, 2e-3) && near(cal.saved.b, fb, 2e-3) && cal.saved.anchors.length === 2 && cal.saved.anchors.every(Boolean) && cal.made.length === 2 &&
     cal.made.every(m => m.space === 'local-floor') && near(cal.made[0].p, fa, 2e-3) && near(cal.made[1].p, fb, 2e-3), JSON.stringify({ saved: cal.saved, made: cal.made }));
   check('calibration: the marks are drawn where they were touched (A at the origin, B along x), and the panel says the room rests on them',
@@ -7805,7 +8052,7 @@ try {
   });
   const sinceJump = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test jump'); return L.slice(i + 1); });
   for (let k = 0; k < 40 && !(await sinceJump()).some(e => e.ev === 'anchors not found'); k++) await frames(H, 250);
-  const jl = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), saved: !!localStorage.getItem('roomFrame'),
+  const jl = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), saved: !!window.__stored(),
     notes: HOST.collab.notes().map(n => n.title) }));
   jl.log = (await sinceJump()).map(e => e.ev + (e.why ? ':' + e.why : ''));
   check('a jump of the origin with saved anchors not found: the calibration kept, the panel says it looks for their anchors again (no notice to leave AR)',
@@ -7837,8 +8084,8 @@ try {
     const S = HOST.collab.overlay().panel, ids = (HOST.room.internals().saved || {}).anchors || [];
     const press = () => { const r = HOST.collab.menuFind('forget'); if (r && r.fn) r.fn(); return !!(r && r.fn); };
     // both presses at once: a busy page can take longer than the 3 s the first press arms it for
-    const first = press(), kept = !!localStorage.getItem('roomFrame') && !!HOST.room.frame, second = press();
-    return { first, kept, second, ids, gone: ids.every(u => !window.__xr.handles.has(u)), saved: localStorage.getItem('roomFrame'), frame: HOST.room.frame, line: HOST.room.sharedLine() };
+    const first = press(), kept = !!window.__stored() && !!HOST.room.frame, second = press();
+    return { first, kept, second, ids, gone: ids.every(u => !window.__xr.handles.has(u)), saved: window.__stored(), frame: HOST.room.frame, line: HOST.room.sharedLine() };
   });
   await frames(H, 300);
   const forgotState = await H.evaluate(() => { HOST.collab.panelOpen(false); return HOST.room.state; });
@@ -8074,7 +8321,7 @@ try {
   check('calibration: the mark is where the controller was held still before the trigger, not where the pull moved it', !!stillA && near(stillA, fa, 5e-3), `${stillA && fmt(stillA)} want ${fmt(fa)}` + stillWhy);
   await touch(markB);
   await frames(H, 300);
-  const noA = await H.evaluate(() => ({ src: HOST.room.src, line: HOST.room.sourceLine(), saved: localStorage.getItem('roomFrame') }));
+  const noA = await H.evaluate(() => ({ src: HOST.room.src, line: HOST.room.sourceLine(), saved: window.__stored() }));
   await H.evaluate(() => { for (const fn of window.__xr.resets['local-floor'] || []) fn({ transform: null }); });
   await frames(H, 200);
   const afterReset = await H.evaluate(() => HOST.room.state);
@@ -8103,7 +8350,7 @@ try {
   // leftovers nobody knows are deleted and the handles asked again; when the store cannot be freed the marks hold
   // for the session and the panel says a restart will ask to calibrate
   const fullStore = async stuck => {
-    await H.evaluate(() => { localStorage.removeItem('roomFrame'); HOST.room.internals().saved = null; });
+    await H.evaluate(() => HOST.room.places({ reset: true }));   // (no calibration kept: v130's places, none; none of their anchors deleted)
     await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'], cap: 8 }));
     await H.evaluate(stuck => { window.__xr.stuck = stuck; window.__xr.begin(); }, stuck);
     await frames(H, 300);
@@ -8387,6 +8634,8 @@ try {
   await allRound();
   // ------------------------------------------ the room setup guide and Touch the spot (a room of its own) --
   await guideRound();
+  // ------------------------------------------ places: a calibration kept per room (rooms of their own) --
+  await placesRound();
   // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
   await studioRound(shots);
   // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
@@ -8479,8 +8728,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

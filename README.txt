@@ -353,7 +353,11 @@ Calibrating on the same two spots lines every headset up
 (Calibrate: touch spot A, then spot B, on the floor with the ring at the tip
 of a controller held pointing down; orange crosses then show where the headset
 puts the spots, and two anchors keep the calibration for next time and after
-the headset was off; if
+the headset was off; since v130 a headset keeps a calibration per shared room,
+its place, so it lines itself up in each of several rooms, and joins the room
+whose place it stands in by itself when it is in no room or one it joined by
+itself: up to four rooms with two anchors each, or eight with one (Anchors per
+room, under Places in the menu's Debug tab, with each place's Forget); if
 the panel says the anchor store is full, clearing Quest Browser's site data may
 help, see relay/README.md; after standby the headset looks for its spots again
 by itself and asks whether the orange crosses sit on them: if not, calibrate

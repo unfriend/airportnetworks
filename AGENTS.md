@@ -1903,8 +1903,8 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     `FLOOR_TIP` as a controller's tip held on the floor is, to the calibration (`markAt`, split out of `mark`), so the
     floor spots' rule (v122) gives the camera the headsets' room and floor (a test: within 1 cm and 0.5 degrees). A
     camera calibrates on the spots afresh each session (Chrome has anchors but no persistent handles: `HOST.anchor.keep`
-    gives no handle, and its anchors hold the room for the session): a camera never keeps marks in `roomFrame`
-    (`storeSaved`), and its session starts with none (`R.saved` cleared, any handles let go), so nothing is looked for
+    gives no handle, and its anchors hold the room for the session): a camera keeps no places (`roomFrames`:
+    `storePlaces` writes none, and its session drops any, `placesDropAll`), and its session starts with none (`R.saved` cleared, any handles let go), so nothing is looked for
     (`restore`) while it asks for spot A; and again by itself once
     the room is lost (a reset without anchors to follow); *Calibrate again* in the overlay. It never writes the room's
     floor (`claimFloor`). Without the DOM overlay (domOverlayState missing) a tap on the screen (the session's `select`)
@@ -2268,8 +2268,8 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
   kept in `local-floor` coordinates) comes from, first found first: (1) this
   headset's own calibration, which nothing overrides: two tape marks touched
   with a controller (`'marks'`), or last time's found again by the two anchors
-  made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
-  the anchors' handles, never coordinates alone); (1b) the PC's trackers, for
+  made at them (`'anchor'`; since v130 a calibration is this room's place, kept per room code in `localStorage`
+  `roomFrames`, the marks and the anchors' handles, never coordinates alone: "Places" below); (1b) the PC's trackers, for
   the Index on the relay's PC only (`'trackers'`, v126: "Vive trackers"); (2) unless switched off
   (*Shared space: off* on the panel, for this page only: remembered, it
   left one headset unaligned in every room of an evening; on by default since
@@ -2309,7 +2309,7 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
   (`floorUnder`, `fromMarks`, `marksMk` = `[FLOOR_TIP, d, FLOOR_TIP + B's height - A's]`, the same wherever the floor
   under the marks is worked out: a calibration, its anchors followed or found again, `refloor`, a reset, waking,
   Re-align), so every headset that calibrates on the spots gets the same floor. Its saved marks say so (`f: 1` in
-  `roomFrame`, `R.saved`, `onFloor()`), and so does the room's key `rm`: `{ a: FLOOR_TIP, d, f: 1, by, at }` (`a`
+  its place, `R.saved`, `onFloor()`), and so does the room's key `rm`: `{ a: FLOOR_TIP, d, f: 1, by, at }` (`a`
   mark A's height over the room's floor, `d` the marks' distance: marks within 10 cm of it, `SAME`, are the same
   marks). Older devices read `a` and `d` as before (their floor is their mark A less `a`: the same floor), so no
   `FORMAT` change. A floor-spot calibration writes `rm` when the room has none, its `rm` lacks `f`, its distance
@@ -2476,7 +2476,7 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
   crosses show the marks where this headset puts them (while the headset's menu
   is open, and 30 s after aligning). The panel's room section also shows the
   shared space's id and *Forget calibration* (`HOST.room.forget()`, press
-  twice). Anchor requests carry the marks' generation (`R.mgen`), so ones that
+  twice: this room's place only, v130). Anchor requests carry the marks' generation (`R.mgen`), so ones that
   settle after Forget or new marks are thrown away; a handle the browser
   refuses is logged with its reason. Every 10 s a headset in a room sends its
   log (alignment samples every 5 s) to the relay (`POST /api/log`, kept in
@@ -2486,6 +2486,58 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
   `locked(kind)` is true (in a room it is anyway); `HOST.audio.zone()` pans the
   narration from the station (full volume within 1.5 m, so at the station's
   spot; nothing changes outside a room).
+- Places: a calibration kept per room (v130, `PLC` and "places, kept" and "where this headset is" in `shared.js`; the
+  owner, 10 November 2026: "Would it be possible to have multiple anchor points like the calibration points are now so
+  that i can do multiple rooms and it aligns itself in each of them with the points?", then, of one shared room per
+  physical room, "ok sounds good, lets start with a and also add an option to only use one anchor per room if possible
+  for a max of 8 rooms"). One shared room per physical room, each calibrated on its own spots.
+  - A place is a calibration made in a room, kept per room code: `localStorage` `roomFrames` = `{ v: 3, one, places:
+    [{ code, rid, a, b, at, used, anchors, n, f }] }`, most recently used first (`a` and `b` the marks in local-floor
+    coordinates as touched, `at` when, `used` when it last lined this headset up, `anchors` the handles, `n` one or two,
+    `f` floor spots, `rid` the room's own id, so a place never joins another room given its code). `R.saved` is the
+    place of the room joined now (`placeTake`, from `HOST.room.joined`; `placeLeave` as the room is left), so lining
+    up, waking, Re-align, the floor spots, `claimFloor`, publishing for the shared space and the guide's cases work as
+    before inside a room. A calibration in a room makes or replaces that room's place (its old anchors deleted); the
+    others stay. A calibration whose anchors are not made (yet), or were refused, holds for the session and is not
+    stored. Forget calibration forgets this room's place only. An older `roomFrame` (v2: one calibration, no room) is
+    kept as a place with no code, taken by the first room this headset lines up in with it (its anchors found there:
+    `placeUsed`, log `place taken`); the key `roomFrame` goes. `HOST.room.handles()` gives every place's anchors, so
+    `HOST.anchor`'s tidy-up keeps them. A camera keeps no places. Nothing new in the room's keys (`rm` stays per room):
+    no `FORMAT` change.
+  - Anchors per room (this headset's own, `roomFrames.one`; the Debug tab's *Anchors per room: two* / *one*, a note
+    beside it): two (the default, the most accurate: at spot A and spot B, positions only) or one, at spot A, made turned
+    about the vertical so its x axis lies level towards spot B (`yawTo`): found again, the room's origin is the floor
+    under its position (the floor spots' rule) and x its turn's x axis made level, spot B that far along it at the marks'
+    height difference (`spotB`, in `anchorsAt`, so everything downstream sees two marks). It applies to calibrations from
+    then on; a place keeps how it was made. Limits (`placeCap`): at most 8 saved anchors in all places together (Meta
+    documents 8 per site; one Quest 3 refused a 9th), less one while `HOST.anchor` keeps a placement of its own (Anchor:
+    on): 4 rooms with two anchors, 8 (7) with one. A calibration that would pass it drops the places used least
+    recently, their anchors deleted, with a notice naming them (*Older places dropped*, log `places dropped`).
+  - Where this headset is (`placesStep`, from the shell's tick, in a headset session in a room or in none, AR or VR: an
+    anchor found means the headset is there). Every place's spot A is looked for by its first anchor (never the room
+    joined now's: `restore` does that), at the session's start, after a wake, while this headset is not lined up by its
+    own place's anchors (every 10 s for two minutes, then every minute up to ten, then every 2 minutes) and every 2
+    minutes otherwise; each find waits 10 s at most (`SV.wait`: a promise that never settles must not pile up), the
+    anchors found are measured over a few frames (tracked, with a pose, 3 s at most) and deleted. Of the places found,
+    the one whose spot A is nearest the head along the floor, within 10 m (`SV.near`), is where this headset is
+    (`PLC.here`). Another room than the one joined now: in no room, or in one joined by itself (a rejoin, or a place
+    before: `C.auto`, `C.byPlace`), it joins that room by itself (`join(code, 'place', rid)`, checked by the room's own
+    id as a rejoin is; the room left is not marked left on purpose), answers *In this room* for it, says so (*Room ABC:
+    You are in its place, so this headset joined it*), lines up from its marks at once and the check by eye asks (why
+    `place`); in a room joined by hand, or into a room left on purpose (or whose code is another room's now), never by
+    itself: the Debug tab offers *Join ABC: you are standing in its place* (a join by hand) and a notice says so once a
+    session. Hysteresis, so two rooms side by side never flip: the room joined now holds while its own place's anchors
+    line it up (tracked within the last 3 s) with its spot A within 10 m, or while its marks were touched there this
+    session, unless its spot A is further than 10 m; never while calibrating. Logs: `places looked for`, `places found`,
+    `place here`, `place join`.
+  - The Debug tab's *Places* rows: the offer; *Places on this headset: n*, each place's room, when it was calibrated,
+    one or two anchors (or *this session only*), *here* for the one in use, with *Forget* (two presses; this room's is
+    Forget calibration); *Anchors per room*. `HOST.room.places(o)` (`{ list, one, cap, here, offer, current, surveys,
+    res }`; `o.reset`, `reload`, `out`, `one`, `forget`, `look`, `wait`, `near`, `join`) is for tests.
+  - Untested on a headset: whether a Quest finds a room's anchors when it walks in during a session or only at a
+    session's start; a multi-room Space Setup (one scan over several rooms, or one per room); whether a persistent
+    anchor keeps its turn exactly (one anchor per room rests on it); how far apart two rooms' places must be for the
+    nearest to win; the cost of looking for 8 anchors every 10 s on a Quest.
 - The explore view at a station (`st.<id>.view`, `{ v, story }`): headsets at the station share
   it (`viewSync`, every frame from the shell's tick: one turned here goes out while it changes frame by frame, at most
   every 66 ms with `ts` and `h: 1`, and once more without `h` when it rests; one that came at once here, after a flight
@@ -5605,12 +5657,27 @@ floor 15 cm too low, its spots found again (the true floor within 1 cm), then
 calibrated on again: its room's origin and direction within 1 cm of the first's, *Your floor is 15 cm lower*, nothing
 written to `rm` (no `floor claimed`, `rm` unchanged); Forget, lined up through the shared space (its own floor kept),
 *Check at A* with the tip on spot A: *15 cm out at spot A (15 cm in height)*; a calibration from before v122 (no `f`,
-two table corners 1.2 m apart, put in its `roomFrame` with anchors at the corners) found again: its own floor (the
+two table corners 1.2 m apart, set as its calibration with anchors at the corners, no room's place yet) found again: its own floor (the
 room's floor is other spots), *f* absent, nothing written to `rm`; an older device's `rm` for those corners (`a` 0.76,
 no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
 space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
-calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
+calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), places (`placesRound`,
+v130, after the guide round in the main run; `--places` runs only it, rooms of their own, a few minutes: two pages each
+start a room, X and Y, and a pretend AR headset with saved anchors, a handle taken out of the map standing for an anchor
+not in that room: calibrated in X and, joined by hand, in Y, on spots 13 m apart, two places with their anchors and X's
+stored in `roomFrames` with the room's own id; standing in Y while in Y, Y here and nothing offered; in Y joined by hand,
+standing in X's place, Y not left, X offered (a notice, *Join X* and each place's *Forget* and *Anchors per room* under
+Debug); out of the room (not on purpose), a new session in no room standing in Y with X's handles hidden and the floor
+moved: Y joined by itself (its notice) and lined up from its marks within 1 cm and 0.5 degrees; walking into X with Y's
+anchors gone (their handles, the ones held untracked): X joined by itself from Y, lined up, Y not marked left; X left on
+purpose only offered, the offer's button joining it by hand; a new session's tidy deleting a stranger and keeping every
+place's anchors; Forget Y (two presses) keeping X, which still lines the headset up; three more places planted (two
+anchors each, used days ago) and Y calibrated anew: the one used least recently dropped with its anchors, *Older places
+dropped*; *Anchors per room: one* from the menu, Y calibrated again with one anchor at spot A turned towards spot B (its
+x axis within 0.5 degrees), found again in a new session on another floor within 1 cm and 0.5 degrees (*held by one
+anchor*); seven one-anchor places planted and Y's: eight fitting, nothing dropped; an older `roomFrame` (v2, no room)
+kept as a place with no room and taken by Y, the first room it lines up in), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
@@ -5836,7 +5903,7 @@ double tap (two taps 0.6 s apart are none); *Exit* ends the session (camera mode
 the room) and the page follows the headset on; Start pressed and then an AR session its own request did not give (set
 directly, Enter AR stood aside): not the camera's, Start's wish dropped; started again with marks and two handles planted
 as a browser that keeps handles would have them: Set spot A at once, not lined up, no marks kept or looked for, the
-handles let go, nothing in `roomFrame`, and *Exit* again; a link with `&camera`: its own page, *Start the camera* once
+handles let go, no places kept (nothing in `roomFrames` or `roomFrame`), and *Exit* again; a link with `&camera`: its own page, *Start the camera* once
 joined, no dialog; with `--shots` its pictures, `camera-*.png`: the overlay while aiming, following,
 panels hidden, subtitles, and the link's page). `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's

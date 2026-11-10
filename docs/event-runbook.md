@@ -269,6 +269,17 @@ local network found each other this way, and then shared a peer-to-peer room; he
     (at least 50 cm apart, within 4 cm in height). On a headset, **Trackers: shown** on the menu's **Debug** tab: each
     small puck should sit on its real tracker. Line up again after a base station moves or SteamVR's room setup is run.
     Setting up the PC and what to try when nothing shows: [tools/trackers/README.md](../tools/trackers/README.md).
+14. **Several rooms** (v130, untested on headsets): one shared room per physical room, each with its own two tape
+    crosses (label them by room). In each room, join its shared room and calibrate there as above: the headset keeps that
+    calibration as the room's **place**, and the other rooms' places stay. Back in a room with no shared room joined (or
+    in one it joined by itself), a headset that finds a place's anchors within 10 m joins that room by itself (*Room
+    ABC: you are in its place*) and lines up from its spots; in a room joined by hand it only offers it (**Join ABC**,
+    menu **Debug**, under **Places**). A headset keeps at most 8 saved anchors in all: 4 rooms with two anchors each, or
+    8 with one (**Anchors per room: one**, before calibrating; one anchor is less sure of the room's direction, so check
+    by eye); with **Anchor: on** one fewer. A calibration past that drops the place used least recently (a notice says
+    which). **Places** lists each room's place with **Forget** (two presses). Each room needs its own room scan (Space
+    Setup) on every headset. Untested: whether a Quest finds a room's anchors when it walks in during a session, or only
+    as a session starts (if it does not switch, leave AR and enter it again in the new room).
 
 ## 3. Kiosk: one headset or screen on its own
 

@@ -471,7 +471,10 @@
     code = String(code || '').trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) return false;
     if (C.code) leave(true);
-    C.auto = how === 'auto' ? code : ''; C.autoRid = how === 'auto' && typeof rid === 'string' ? rid : ''; C.stranger = '';
+    // (how 'place': joined by itself as this headset stands in the room's place, placesStep; checked by the room's own id
+    // as a rejoin is, when the place knows it)
+    const self = how === 'auto' || (how === 'place' && typeof rid === 'string' && !!rid);
+    C.auto = self ? code : ''; C.autoRid = self && typeof rid === 'string' ? rid : ''; C.stranger = ''; C.byPlace = how === 'place' ? code : '';
     if (how === 'new') C.made = code;
     const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how === true ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
     Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0,
@@ -497,7 +500,7 @@
     for (const s of [ws, sp]) if (s) try { s.close(1000); } catch (e) { /* closed */ }   // (a host lets go of the room's id at once)
     slotDrop();
     if (purpose) keptMark(C.code, { left: true });
-    C.auto = ''; toastOff();
+    C.auto = ''; C.byPlace = ''; toastOff();
     if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
@@ -3734,7 +3737,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4258,6 +4261,30 @@
           y += 72;
         }
       }
+      // places (v130): the room this headset stands in, offered when it is not the one joined; the rooms it keeps a
+      // calibration for, each with Forget (two presses; this room's is Forget calibration); how many anchors a calibration
+      // makes from now on
+      line();
+      label('Places');
+      if (PLC.offer && PLC.offer !== C.code) {
+        const oc = PLC.offer;
+        button(S, 'placejoin', x, y, w, 60, 'Join ' + oc + ': you are standing in its place', () => placeJoin(oc, 'hand'), { px: 23, color: '#ffb43b' });
+        y += 76;
+      }
+      ctx.font = FONT(22); ctx.fillStyle = MUTED;
+      ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? '' : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
+      for (const p of PLC.list.slice(0, 8)) {
+        const on = !!C.code && p === R.saved, fa = placeArmed(p.code);
+        const t = (p.code ? 'Room ' + p.code : 'No room yet (an older calibration)') + ' · ' + ago(p.at) + ' · ' +
+          (placeKept(p) ? (nOf(p) === 1 ? 'one anchor' : 'two anchors') : 'this session only') + (on ? ' · here' : p.code && PLC.here === p.code ? ' · you stand in it' : '');
+        ctx.font = FONT(21, on ? 700 : 400); ctx.fillStyle = on ? CYAN : INK; ctx.fillText(fit(ctx, t, w - 196), x, y + 15);
+        button(S, 'placeforget:' + (p.code || '-'), x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget', () => placeForgetAsk(p.code), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
+        y += 62;
+      }
+      const cap = placeCap();
+      button(S, 'placeanchors', x, y, bw, 56, PLC.one ? 'Anchors per room: one' : 'Anchors per room: two', () => placesOne(!PLC.one), { px: 21, on: PLC.one, tog: null });
+      note(PLC.one ? `Up to ${cap} rooms. For calibrations from now on` : `Up to ${Math.floor(cap / 2)} rooms, the most accurate. For calibrations from now on`, y);
+      y += 72;
       line();
       // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging), Sound check
       label('This headset');
@@ -5908,6 +5935,7 @@
     if (C.code) R.update(f);
     if (C.code && R.session && R.lfOK && HD.ok) { R.originCheck(t); R.sample(t); }
     if (C.code && R.session) R.upload(t);
+    if (HOST.session) placesStep(f, t, local);   // (where this headset is: the places' anchors, in a room or in none)
     if (C.code && R.session) gripStep(f, local);   // (the grips in room coordinates: presence's g, HOST.collab.body)
     R.headOK = false;
     if (C.code && R.aligned && HD.ok) {
@@ -6306,7 +6334,7 @@
   const R = {
     session: null, begun: null, loopFor: null, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: 0, sharedOK: false,
     frame: null, src: '', state: 'off', aligned: false, calib: null, recAt: 0, pubAt: 0, noticed: '',
-    // the marks ({ v: 2, a, b in local-floor, at, anchors: [handle A, handle B] }) and their anchors this session
+    // the marks: this room's place (PLC below: { code, a, b in local-floor, at, used, anchors: their handles, n, f }) and their anchors this session
     saved: null, anchors: null, anchorIds: null, anchorsOK: false, anchorBusy: false, anchorTried: false, anchorSince: 0, wantAnchors: null, anchorP: null,
     mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
     mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
@@ -6333,15 +6361,74 @@
     yaw: 0, hr: new THREE.Vector3(), hyaw: 0, headOK: false, lfOK: false,
   };
   put('collabSharedAlign', '');   // (older versions remembered the switch)
-  try {
-    const s = JSON.parse(get('roomFrame') || 'null');
-    // only marks with their two anchors are kept (older versions kept coordinates, and one anchor at mark A)
-    if (s && s.v === 2 && Array.isArray(s.a) && Array.isArray(s.b) && Array.isArray(s.anchors) && s.anchors.length === 2 && s.anchors.every(u => typeof u === 'string' && u)) R.saved = s;
-    else if (s) { R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || ''; put('roomFrame', null); }
-  } catch (e) { R.saved = null; }
-  if (R.oldAnchor && HOST.anchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // deleted at the next session
-  // (a camera keeps no marks: it lines up afresh each session, camera mode)
-  const storeSaved = () => put('roomFrame', !CAM.on && R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
+  // ------------------------------------------------------------------ places --
+  // Places (v130; the owner, 10 November 2026: "Would it be possible to have multiple anchor points like the calibration
+  // points are now so that i can do multiple rooms and it aligns itself in each of them with the points?", then, of one
+  // shared room per physical room, "ok sounds good, lets start with a and also add an option to only use one anchor per
+  // room if possible for a max of 8 rooms"). A place is a calibration made in a room, kept per room code: its marks in
+  // local-floor coordinates as calibrated (a, b), when (at, relay time), when it last lined this headset up (used), the
+  // handles of its anchors and how many it is made with (n: two, at spot A and spot B, positions only; or one, at spot A,
+  // whose turn holds the room's direction: its x axis level towards spot B), its floor spots (f) and the room's own id
+  // (rid: a place never joins another room given its code). R.saved is the place of the room joined now (placeTake), so
+  // everything a calibration does works as before inside a room; a calibration in a room makes or replaces that room's
+  // place, the others stay. Kept as roomFrames { v: 3, one, places } (most recently used first); one: this headset's
+  // setting, Anchors per room (one or two), for calibrations from then on. An older roomFrame (one calibration, no room)
+  // is kept as a place with no code, taken by the first room this headset lines up in with it (its anchors found there).
+  // The browser keeps few saved anchors (Meta documents 8 per site; one Quest 3 refused a 9th): at most 8 in all places
+  // together, less one while HOST.anchor keeps a placement of its own (Anchor: on), so 4 rooms with two anchors, 8 (7)
+  // with one; a calibration past that drops the places used least recently (their anchors deleted, a notice names them).
+  // Where this headset is (placesStep): every place's spot A looked for now and then; standing in another room's place, a
+  // headset in no room, or in one it joined by itself, joins that room by itself; one in a room joined by hand is offered
+  // it (the menu's Debug tab). A camera keeps no places (it lines up afresh each session: camera mode)
+  const PLC = { list: [], one: false, max: 8, here: '', offer: '', told: '', joined: '' };
+  const nOf = S => (S && S.n === 1 ? 1 : 2);   // (an older calibration says nothing: two)
+  const placeKept = S => !!(S && Array.isArray(S.anchors) && S.anchors.length === nOf(S) && S.anchors.every(u => typeof u === 'string' && u));
+  const P3 = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+  const placeOk = p => !!(p && typeof p === 'object' && P3(p.a) && P3(p.b) && Array.isArray(p.anchors) && (p.anchors.length === 1 || p.anchors.length === 2) &&
+    p.anchors.every(u => typeof u === 'string' && u) && (p.code === '' || /^[A-Z]{3}$/.test(p.code)));
+  const placeIn = p => ({ code: p.code, rid: typeof p.rid === 'string' ? p.rid.slice(0, 32) : '', a: p.a.slice(), b: p.b.slice(), at: +p.at || 0, used: +p.used || +p.at || 0,
+    anchors: p.anchors.slice(), n: p.anchors.length, f: p.f ? 1 : undefined });
+  // read from this headset's storage (as the page loads; and for tests, HOST.room.places({ reload }))
+  function placesLoad() {
+    PLC.list = []; PLC.one = false;
+    try {
+      const S = JSON.parse(get('roomFrames') || 'null');
+      if (S && S.v === 3 && Array.isArray(S.places)) {
+        PLC.one = !!S.one;
+        const seen = new Set();
+        for (const p of S.places) if (placeOk(p) && !(p.code && seen.has(p.code))) { seen.add(p.code); PLC.list.push(placeIn(p)); }
+      }
+      const s = JSON.parse(get('roomFrame') || 'null');
+      // only marks with their two anchors are kept (older versions kept coordinates, and one anchor at mark A); an older
+      // single calibration becomes a place with no room yet
+      if (s && s.v === 2 && Array.isArray(s.a) && Array.isArray(s.b) && Array.isArray(s.anchors) && s.anchors.length === 2 && s.anchors.every(u => typeof u === 'string' && u)) {
+        if (!PLC.list.some(p => !p.code) && placeOk(Object.assign({ code: '' }, s))) PLC.list.push(placeIn(Object.assign({ code: '' }, s)));
+      } else if (s) R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || '';
+    } catch (e) { PLC.list = []; }
+    if (R.oldAnchor && HOST.anchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // deleted at the next session
+    if (get('roomFrame')) storePlaces();   // (an older calibration, kept from now on as a place)
+  }
+  const placeOf = code => PLC.list.find(p => p.code === code) || null;
+  // written whole: the places with all their anchors (a calibration whose anchors are not made yet, or were refused, holds
+  // for this session only), most recently used first; the older single calibration's key goes
+  function storePlaces() {
+    PLC.list.sort((p, q) => (q.used || 0) - (p.used || 0));
+    const out = CAM.on ? [] : PLC.list.filter(placeKept).map(p => ({ code: p.code, rid: p.rid || undefined, a: p.a, b: p.b, at: p.at, used: p.used, anchors: p.anchors, n: nOf(p), f: p.f ? 1 : undefined }));
+    put('roomFrames', out.length || PLC.one ? J({ v: 3, one: PLC.one, places: out }) : null);
+    put('roomFrame', null);
+  }
+  // this room's place (R.saved) kept: one given from elsewhere (an older calibration with no room) joins the list
+  const storeSaved = () => {
+    const S = R.saved;
+    if (S && !CAM.on && !PLC.list.includes(S)) {
+      if (typeof S.code !== 'string') S.code = '';
+      PLC.list = PLC.list.filter(p => !(S.code && p.code === S.code));
+      S.n = nOf(S); S.used = S.used || S.at || Date.now();
+      PLC.list.push(S);
+    }
+    storePlaces();
+  };
+  placesLoad();
   const sharedIdOf = s => (s && (s.UUId || s.uuid || s.UUID)) || '';
   const kFrame = id => 'rf.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // the frame published for a shared space
   const kSplit = id => 'rs.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // a shared space found split (splitCheck)
@@ -6538,7 +6625,7 @@
       notice('Calibrate again', 'The headset moved its origin (a recentre?) and has no anchors to find the spots by: touch spot A and spot B again.', 9000);
     }
   }
-  const savedHandles = () => !!(R.saved && R.saved.anchors.length === 2);
+  const savedHandles = () => placeKept(R.saved);
   // this headset's marks are not found in this session (after standby, or the origin moved with no anchors to
   // follow): the frame held so far stays, the orange crosses show, the check by eye asks, and the anchors are looked for
   // again on the retries' schedule (restore, retryDue). Until v124 a notice asked to leave AR and enter it again; the
@@ -6765,7 +6852,9 @@
   }
   // ------------------------------------------------------------ the marks' anchors --
   // Two anchors, at mark A and mark B: only their positions are used (an anchor's turn is not trusted), they
-  // keep the frame on the marks when the origin moves, and their saved handles find the marks next time.
+  // keep the frame on the marks when the origin moves, and their saved handles find the marks next time. Or one (a
+  // place made with one, Anchors per room: one, v130): at mark A, turned so that its x axis lies level towards mark B, so
+  // its turn holds the room's direction, and mark B is where the marks put it from there (spotB)
   function releaseAnchors() {
     if (R.anchors) for (const a of R.anchors) { try { a.delete(); } catch (e) { /* gone */ } }
     R.anchors = null; R.anchorIds = null; R.anchorsOK = false; R.anchorP = null;
@@ -6787,10 +6876,23 @@
       if (!p) return null;
       const t = p.transform.position;
       P.push([t.x, t.y, t.z]);
+      if (R.anchors.length === 1) { const B = spotB(P[0], p.transform.orientation, R.saved); if (!B) return null; P.push(B); }
     }
     R.anchorSeen = performance.now();
     return (R.anchorP = P);
   }
+  // one anchor at spot A: spot B along its x axis, made level, as far along the floor as the marks were apart and at
+  // their height difference (null: no marks, or an anchor turned on its side)
+  const _px = new THREE.Vector3(), _pq = new THREE.Quaternion();
+  function spotB(A, q, S) {
+    if (!S || !q) return null;
+    const x = level(_px.set(1, 0, 0).applyQuaternion(_pq.set(q.x, q.y, q.z, q.w)).toArray());
+    if (!x) return null;
+    const d = Math.hypot(S.b[0] - S.a[0], S.b[2] - S.a[2]);
+    return [A[0] + d * x[0], A[1] + (S.b[1] - S.a[1]), A[2] + d * x[2]];
+  }
+  // the turn about the vertical that puts an anchor's x axis level from a towards b (one anchor per room)
+  const yawTo = (a, b) => { const x = level([b[0] - a[0], 0, b[2] - a[2]]), y = x ? yawOfX(x) : 0; return { x: 0, y: Math.sin(y / 2), z: 0, w: Math.cos(y / 2) }; };
   // are the anchors where the marks are? New ones: within 5 cm of where they were asked for; found again: as
   // far apart as the marks were (else they are someone else's, or lost: the marks are calibrated again)
   function anchorsFit(P) {
@@ -6808,7 +6910,8 @@
     R.anchorsOK = true;
     if (R.reenter) { R.reenter = false; changed(); }   // found after all: nothing to leave AR for
     R.afterSleep = false;
-    if (R.anchorIds && R.anchorIds.every(Boolean)) { S.anchors = R.anchorIds.slice(); storeSaved(); }
+    if (R.anchorIds && R.anchorIds.every(Boolean)) S.anchors = R.anchorIds.slice();
+    placeUsed(S);   // (lined up from it: used now; an older calibration with no room is this room's from now on)
     return true;
   }
   // the browser's store of saved anchors was full ("Maximum number of anchors reached", on one Quest 3 with 9 listed
@@ -6863,7 +6966,7 @@
   }
   // time to look for the marks' anchors again (restore): the next try is asked for as at the start
   function retryDue(t) {
-    if (!R.retryAt || t < R.retryAt || R.anchorBusy || R.anchors || !R.saved || R.saved.anchors.length !== 2) return;
+    if (!R.retryAt || t < R.retryAt || R.anchorBusy || R.anchors || !placeKept(R.saved)) return;
     R.retryAt = 0; R.anchorTried = false;
   }
   // with marks of our own: the anchors keep the frame on them (a recentre moves local-floor, not the marks)
@@ -6892,7 +6995,7 @@
   function afterWake(f, t) {
     if (R.anchors && R.anchorsOK && anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; R.reenter = false; return true; }
     if (t - R.woke < 5000) return true;
-    const reset = R.resetAt >= R.sleptAt, anchors = !!R.anchors, ids = !!(R.saved && R.saved.anchors.length === 2);
+    const reset = R.resetAt >= R.sleptAt, anchors = !!R.anchors, ids = placeKept(R.saved);
     log('marks unanswered', { reset, anchors, handles: ids });
     R.woke = 0;
     if (anchors && ids) { releaseAnchors(); R.anchorTried = false; R.afterSleep = true; }   // looked for again by their handles (align)
@@ -6900,6 +7003,190 @@
     R.showUntil = t + 30000;
     if (!(GD.auto && eyeCan())) notice('Check the spots', 'The headset was off: the orange crosses should sit on the two spots. If they do not, calibrate again.', 8000);   // (else the check by eye asks)
     return true;
+  }
+  // --------------------------------------------------------------- places, kept --
+  // (Places: PLC, above.) This room's place (R.saved) as a room is joined, and none as it is left: its anchors are looked for
+  // as a calibration's always were (restore). With no place of its own, an older calibration no room has taken yet is tried
+  function placeTake() {
+    const P = CAM.on || !C.code ? null : placeOf(C.code) || PLC.list.find(p => !p.code && placeKept(p)) || null;
+    if (P === R.saved) return;
+    placeLeave();
+    R.saved = P;
+    if (P) log('place', { code: P.code || '', n: nOf(P), kept: placeKept(P) });
+  }
+  function placeLeave() {
+    letGo();   // (the anchors of the place before: each room has its own)
+    Object.assign(R, { saved: null, mgen: R.mgen + 1, anchorBusy: false, anchorTried: false, wantAnchors: null, tries: 0, retryAt: 0, retryFrom: 0, reenter: false, afterSleep: false, full: false });
+  }
+  // lined up from this place: used now (most recently used first), and an older calibration with no room is this room's
+  // from now on (with the room's own id, so it never joins another room given the code)
+  function placeUsed(S) {
+    if (!S || CAM.on) return;
+    if (!S.code && C.code && !placeOf(C.code)) { S.code = C.code; log('place taken', { code: C.code }); }
+    if (S.code && S.code === C.code && !S.rid) { const v = val('rid'); if (typeof v === 'string') S.rid = v.slice(0, 32); }
+    S.used = Date.now();
+    storeSaved();
+  }
+  // a new place must fit the browser's few saved anchors (at most PLC.max in all places together, less one while
+  // HOST.anchor keeps a placement of its own): the places used least recently go, with their anchors, and a notice names
+  // them
+  const placeCap = () => PLC.max - (HOST.anchor && HOST.anchor.on ? 1 : 0);
+  function placesFit(P) {
+    let n = nOf(P);
+    const gone = [];
+    for (const q of PLC.list.filter(q => q !== P).sort((p, q) => (q.used || 0) - (p.used || 0))) {
+      const k = q.anchors.filter(Boolean).length;
+      if (n + k <= placeCap()) { n += k; continue; }
+      gone.push(q);
+    }
+    if (!gone.length) return gone;
+    if (HOST.anchor.drop) for (const q of gone) for (const u of q.anchors) if (u) HOST.anchor.drop(u);
+    PLC.list = PLC.list.filter(q => !gone.includes(q));
+    const names = gone.map(q => (q.code ? 'room ' + q.code : 'an older calibration')), many = gone.length > 1;
+    log('places dropped', { codes: gone.map(q => q.code || ''), cap: placeCap() });
+    notice('Older places dropped', `This headset keeps at most ${placeCap()} anchors, so the place${many ? 's' : ''} of ${names.join(' and ')}, used least recently, ` +
+      `${many ? 'were' : 'was'} dropped with ${many ? 'their' : 'its'} anchors.`, 12000);
+    return gone;
+  }
+  // Forget, per place (the Debug tab, two presses): this room's is Forget calibration; another's goes with its anchors
+  const PF = { code: null, until: 0 };
+  const placeArmed = code => PF.code === code && performance.now() < PF.until;
+  function placeForgetAsk(code) {
+    if (!placeArmed(code)) { PF.code = code; PF.until = performance.now() + 3000; setTimeout(changed, 3050); changed(); return; }
+    PF.code = null; PF.until = 0;
+    placeForget(code);
+  }
+  function placeForget(code) {
+    const P = placeOf(code);
+    if (!P) return false;
+    if (P === R.saved) { forgetMarks(); return true; }
+    if (HOST.anchor.drop) for (const u of P.anchors) if (u) HOST.anchor.drop(u);
+    PLC.list = PLC.list.filter(q => q !== P);
+    if (PLC.offer === code) PLC.offer = '';
+    storePlaces();
+    log('place forgotten', { code });
+    notice('Place forgotten', (code ? 'Room ' + code + '\'s place' : 'The older calibration') + ' and its anchors are gone from this headset.', 6000);
+    changed();
+    return true;
+  }
+  // Anchors per room (this headset's own): one or two, for calibrations from now on (a place keeps how it was made)
+  function placesOne(on) { PLC.one = !!on; storePlaces(); log('anchors per room', { n: PLC.one ? 1 : 2 }); changed(); }
+  // ------------------------------------------------------- where this headset is --
+  // Each place's spot A looked for by its anchor (spot A's alone: one is enough to say where), in a headset session in a
+  // room or in none (AR, or VR: an anchor found means the headset is there): as the session starts, after a wake, while
+  // this headset is not lined up by its own place's anchors (on their retries' schedule: every 10 s for two minutes, then
+  // every minute up to ten, then every 2 minutes), and every 2 minutes otherwise. A find waits SV.wait at most (a promise
+  // that never settles must not pile up); the anchors found are measured over a few frames (tracked, with a pose) and
+  // deleted. Of the places found, the one whose spot A is nearest the head along the floor, within SV.near, is where this
+  // headset is (PLC.here). Another room than the one joined now: in no room, or in one joined by itself (a rejoin, or a
+  // place before), and not lined up by its own marks there, it joins that room by itself (lining up from its marks at
+  // once, as on any join); in a room joined by hand, or that room left on purpose, it is offered (the Debug tab, and a
+  // notice once). The room joined now holds while its own place's anchors line it up and its spot A is within SV.near, so
+  // two rooms side by side never flip back and forth. The room joined now is never looked for here (restore does that)
+  const SV = { sess: null, gen: 0, busy: false, at: 0, from: 0, woke: 0, code: null, items: null, until: 0, res: null, wait: 10000, near: 10, n: 0 };
+  const byItself = () => !!(C.code && (C.auto === C.code || C.byPlace === C.code));   // (a rejoin, or a place)
+  // (lined up by this room's own place, its anchors tracked within the last 3 s: followAnchors reads them twice a second)
+  const linedOwn = () => !!(C.code && R.saved && R.saved.code === C.code && own() && R.anchors && R.anchorsOK && performance.now() - R.anchorSeen < 3000);
+  function surveyDrop() {
+    if (SV.items) for (const it of SV.items) if (it.a) { try { it.a.delete(); } catch (e) { /* gone */ } }
+    SV.items = null; SV.busy = false; SV.gen++;
+  }
+  function placesStep(f, t, local) {
+    const s = R.session;
+    if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null }); PLC.told = ''; }
+    if (!s || CAM.on || !f || !local || !HD.ok || !HOST.anchor || !HOST.anchor.find) return;
+    if (SV.items) { surveyMeasure(f, t, local); return; }
+    if (SV.busy) return;
+    if (R.visibleAt !== SV.woke) { SV.woke = R.visibleAt; SV.at = 0; SV.from = t; }   // (after a wake: at once)
+    if (SV.code !== C.code) { SV.code = C.code; SV.from = t; }
+    const lined = linedOwn();
+    if (lined) SV.from = t;
+    const since = t - SV.from, gap = lined ? 120000 : since < 120000 ? 10000 : since < 600000 ? 60000 : 120000;
+    if (SV.at && t - SV.at < gap) return;
+    SV.at = t; SV.n++;
+    const cand = PLC.list.filter(p => p.code && p.code !== C.code && placeKept(p));
+    if (!cand.length) { placeDecide([], t); return; }
+    const g = ++SV.gen;
+    SV.busy = true;
+    log('places looked for', { n: cand.length, room: C.code, lined });
+    const findIn = u => new Promise((res, rej) => {
+      let done = false;
+      const to = setTimeout(() => { done = true; rej(new Error('timed out')); }, SV.wait);
+      HOST.anchor.find(u).then(a => { if (done) { try { a.delete(); } catch (e) { /* gone */ } return; } done = true; clearTimeout(to); res(a); },
+        e => { if (!done) { done = true; clearTimeout(to); rej(e); } });
+    });
+    Promise.all(cand.map(p => findIn(p.anchors[0]).then(a => ({ p, a, P: null }), () => ({ p, a: null, P: null })))).then(rs => {
+      if (SV.gen !== g || R.session !== s) { for (const r of rs) if (r.a) { try { r.a.delete(); } catch (e) { /* gone */ } } return; }
+      SV.busy = false; SV.items = rs; SV.until = performance.now() + 3000;   // (measured over the next frames)
+    });
+  }
+  // the anchors found: each one's spot A once it is tracked (3 s at most), then all deleted and the nearest taken
+  function surveyMeasure(f, t, local) {
+    let wait = false;
+    for (const it of SV.items) {
+      if (!it.a || it.P) continue;
+      let p = null;
+      try { if (!f.trackedAnchors || f.trackedAnchors.has(it.a)) p = f.getPose(it.a.anchorSpace, local); } catch (e) { /* not now */ }
+      if (p) { const q = p.transform.position; it.P = [q.x, q.y, q.z]; } else wait = true;
+    }
+    if (wait && t < SV.until) return;
+    const items = SV.items;
+    surveyDrop();
+    const found = items.filter(it => it.P).map(it => ({ code: it.p.code, d: Math.hypot(it.P[0] - HD.p.x, it.P[2] - HD.p.z) }));
+    log('places found', { found: found.map(o => [o.code, r3(o.d)]), not: items.filter(it => !it.P).map(it => it.p.code) });
+    placeDecide(found, t);
+  }
+  function placeDecide(found, t) {
+    // the room joined now, by its own place's anchors (their spot A, held in local-floor, in the story's local space)
+    if (linedOwn() && R.anchorP && R.lfOK) { _px.fromArray(R.anchorP[0]).applyMatrix4(R.lf); found = found.concat({ code: C.code, d: Math.hypot(_px.x - HD.p.x, _px.z - HD.p.z) }); }
+    found.sort((a, b) => a.d - b.d);
+    const best = found[0] && found[0].d <= SV.near ? found[0] : null, cur = found.find(o => o.code === C.code) || null;
+    SV.res = { at: t, found: found.map(o => [o.code, r3(o.d)]), best: best ? best.code : '' };
+    const was = PLC.here + '|' + PLC.offer;
+    PLC.here = best ? best.code : '';
+    if (!best || best.code === C.code || R.calib) PLC.offer = '';   // (here already; or calibrating: nothing now)
+    else {
+      // by itself only from no room, or from one joined by itself; never into a room left on purpose (or whose code is
+      // another room's now). The room joined now holds while its own place's anchors line it up within SV.near of its spot
+      // A, or while its marks were touched here this session (src 'marks'), unless its spot A is further than that
+      const kr = localRooms().find(r => r.code === best.code), barred = !!(kr && (kr.left || kr.gone)) || (LOC.code === best.code && (LOC.left || LOC.gone));
+      const holds = !!(C.code && ((linedOwn() && cur && cur.d <= SV.near) || (R.src === 'marks' && R.frame && !(cur && cur.d > SV.near))));
+      if ((!C.code || byItself()) && !barred && !holds) { placeJoin(best.code, 'auto'); return; }
+      PLC.offer = best.code;
+      if (PLC.told !== best.code) {
+        PLC.told = best.code;
+        notice('Join room ' + best.code + '?', `You are standing in room ${best.code}'s place. To join it, open the menu (${menuWhere()}): Join ${best.code}, under Debug.`, 9000);
+      }
+    }
+    if (was !== PLC.here + '|' + PLC.offer) { log('place here', { here: PLC.here, offer: PLC.offer, room: C.code }); changed(); }
+  }
+  // join the room whose place this headset stands in: by itself (how 'auto', as a rejoin is: the room left is not marked
+  // left on purpose) or by hand (the offer). An anchor of its place was found, so this headset is in that room
+  function placeJoin(code, how) {
+    const P = placeOf(code), was = C.code;
+    log('place join', { code, from: was, how });
+    PLC.offer = ''; PLC.joined = code;
+    if (!join(code, how === 'auto' ? 'place' : undefined, P && P.rid)) return false;
+    if (C.hereSet !== true) setHere(true);
+    if (how === 'auto') notice('Room ' + code, 'You are in its place, so this headset joined it' + (was ? ' (it was in room ' + was + ')' : '') + '. It lines up from the spots calibrated there.', 9000);
+    eyeWant('place');   // (the check by eye: are both crosses on this room's spots?)
+    changed();
+    return true;
+  }
+  EYEQ_WHY.place = 'This headset found the place of this room and joined it.';
+  // the camera mode's session: no places at all (it lines up afresh each session, and keeps nothing)
+  function placesDropAll() {
+    dropAnchors();
+    if (HOST.anchor.drop) for (const p of PLC.list) for (const u of p.anchors) if (u) HOST.anchor.drop(u);
+    PLC.list = []; R.saved = null; PLC.here = PLC.offer = '';
+    storePlaces();
+  }
+  // what the Debug tab's Places rows show (panelSig)
+  const placesSig = () => [PLC.list.map(p => p.code + p.at + p.anchors.length + nOf(p) + (p === R.saved)), PLC.one, PLC.offer, PLC.here, PF.code, placeArmed(PF.code), placeCap(), Math.floor(Date.now() / 60000)];
+  // the places as they stand, for tests
+  function placesState() {
+    return { one: PLC.one, cap: placeCap(), here: PLC.here, offer: PLC.offer, joined: PLC.joined, current: R.saved ? R.saved.code : null, surveys: SV.n, busy: SV.busy || !!SV.items, res: SV.res,
+      list: PLC.list.map(p => ({ code: p.code, rid: p.rid || '', a: p.a.slice(), b: p.b.slice(), at: p.at, used: p.used, anchors: p.anchors.slice(), n: nOf(p), kept: placeKept(p), f: p.f || 0, here: p === R.saved })) };
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
@@ -6934,7 +7221,7 @@
     if (own() && R.frame) {
       if (R.woke && !afterWake(f, t)) return;
       retryDue(t);
-      if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);   // after waking, or Re-align
+      if (placeKept(R.saved) && !R.anchorTried && !R.anchors) restore(t);   // after waking, or Re-align
       if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by) || (onFloor() && !val('rm').f)) claimFloor(...marksNow()); }
       // back from standby (or asked by someone's Re-align): our marks' frame written into the space again once settled
       if (R.refresh && !R.woke && R.shared && R.sharedOK && R.sharedId && settled() && !R.sharedOwn) {
@@ -6951,7 +7238,7 @@
       return;
     }
     retryDue(t);
-    if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);
+    if (placeKept(R.saved) && !R.anchorTried && !R.anchors) restore(t);
     if (R.anchors) {
       const P = anchorsAt(f);
       if (P && (R.anchorsOK || anchorsFit(P))) {
@@ -7129,19 +7416,20 @@
     scanCheck(f, performance.now());
     scanFloorAt(f, performance.now());
     align(f, local);
-    // new anchors at mark A and mark B (asked inside a frame, as WebXR wants)
+    // new anchors at mark A and mark B (asked inside a frame, as WebXR wants); or one at mark A, turned towards mark B (a
+    // place made with one anchor)
     if (R.wantAnchors && R.saved && R.floor && HOST.anchor.keep) {
       const w = R.saved, s = R.session, g = R.mgen, q = { x: 0, y: 0, z: 0, w: 1 };
       R.wantAnchors = null;
-      const one = p => HOST.anchor.keep(f, R.floor, { x: p[0], y: p[1], z: p[2] }, q, '').then(r => r, e => { log('no anchor', { e: e && e.message }); return null; });
-      Promise.all([one(w.a), one(w.b)]).then(rs => {
-        if (R.session !== s || R.mgen !== g || !rs[0] || !rs[1]) {   // the marks were forgotten or replaced meanwhile, or one failed
+      const one = (p, o) => HOST.anchor.keep(f, R.floor, { x: p[0], y: p[1], z: p[2] }, o || q, '').then(r => r, e => { log('no anchor', { e: e && e.message }); return null; });
+      Promise.all(nOf(w) === 1 ? [one(w.a, yawTo(w.a, w.b))] : [one(w.a), one(w.b)]).then(rs => {
+        if (R.session !== s || R.mgen !== g || !rs.every(Boolean)) {   // the marks were forgotten or replaced meanwhile, or one failed
           for (const r of rs) if (r) { try { r.anchor.delete(); } catch (e) { /* gone */ } if (r.uuid && HOST.anchor.drop) HOST.anchor.drop(r.uuid); }
           return;
         }
         releaseAnchors();
         R.anchors = rs.map(r => r.anchor); R.anchorIds = rs.map(r => r.uuid || ''); R.anchorsOK = false; R.recAt = 0;
-        log('anchors made', { saved: rs.every(r => r.uuid), err: rs.map(r => r.err || '').filter(Boolean) });
+        log('anchors made', { saved: rs.every(r => r.uuid), err: rs.map(r => r.err || '').filter(Boolean), n: rs.length, place: w.code || '' });
         if (rs.some(r => !r.uuid && /maximum/i.test(r.err || ''))) handlesAgain(s, g); else R.full = false;
       });
     }
@@ -7162,10 +7450,12 @@
   }
   function cancel() { if (!R.calib) return; R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate'); log('calibrate cancelled'); }
   // Forget calibration: this headset's marks and their anchors go, and it aligns again from the start (from the
-  // frame published for its shared space, if there is one; else it asks to calibrate)
+  // frame published for its shared space, if there is one; else it asks to calibrate). Only this room's place (the other
+  // rooms' places stay)
   function forgetMarks() {
     dropAnchors();
-    R.saved = null; storeSaved();
+    if (R.saved) { PLC.list = PLC.list.filter(p => p !== R.saved); log('place forgotten', { code: R.saved.code || '' }); }
+    R.saved = null; storePlaces();
     Object.assign(R, { frame: null, src: '', aligned: false, anchorBusy: false, anchorTried: false, wantAnchors: null, calib: null, noticed: '', recAt: 0,
       mgen: R.mgen + 1, mk: null, cmp: null, tries: 0, retryAt: 0, retryFrom: 0, reenter: false, afterSleep: false });
     CK.res = null; CK.mine = null; GD.ok = null; GD.red = null;   // (a check stands for the frame it was made in)
@@ -7191,7 +7481,7 @@
     if (!here()) { R.again = 0; R.frame = null; R.src = ''; R.aligned = false; notice('Re-aligned', 'The stations stand round you again, as they stand in the room.', 5000); changed(); return; }
     reshared('realign');
     if (own()) {
-      if (R.saved && R.saved.anchors.length === 2) { releaseAnchors(); Object.assign(R, { anchorTried: false, anchorBusy: false, tries: 0, retryAt: 0, retryFrom: 0 }); }   // found again by their saved handles
+      if (placeKept(R.saved)) { releaseAnchors(); Object.assign(R, { anchorTried: false, anchorBusy: false, tries: 0, retryAt: 0, retryFrom: 0 }); }   // found again by their saved handles
       else { R.again = 0; notice('No anchors to look for', 'This calibration has no saved anchors. If the orange crosses are off the two spots, calibrate again.', 9000); }
       R.showUntil = t + 30000;
       if (R.again) notice('Re-aligning', 'Looking for your marks again...', 12000);
@@ -7237,7 +7527,7 @@
     if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
     if (own() && R.reenter) return 'Your own marks (looking for their anchors again)';
-    if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
+    if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by ' + (R.anchors.length === 1 ? 'one anchor' : 'two anchors') : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
     if (R.src === 'trackers') return trkGone() ? 'From the PC\'s trackers, which have lost this headset for now: held where it was' : 'From the PC\'s trackers: this headset as they see it';
     return '';
@@ -7351,9 +7641,17 @@
       return;
     }
     R.calib = null;
-    dropAnchors();   // the old marks' anchors go now: they would pull the new frame back to the old marks
+    // the old marks' anchors go now: they would pull the new frame back to the old marks. This room's place is made anew
+    // (its old anchors deleted); the other rooms' places stay, and so does an older calibration no room has taken yet
+    const was = CAM.on ? null : placeOf(C.code);
+    if (R.saved && R.saved.code !== C.code && PLC.list.includes(R.saved)) releaseAnchors(); else dropAnchors();
+    if (was && was !== R.saved && HOST.anchor.drop) for (const u of was.anchors) HOST.anchor.drop(u);
     R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
-    R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [], f: 1 };   // (f: floor spots)
+    const rid = val('rid');
+    // (f: floor spots; n: made with one anchor or two, Anchors per room as it is now)
+    const P = { code: C.code, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), used: Date.now(), anchors: [], n: PLC.one ? 1 : 2, f: 1 };
+    if (!CAM.on) { PLC.list = PLC.list.filter(q => q.code !== C.code); PLC.list.unshift(P); placesFit(P); }   // (a camera keeps no places)
+    R.saved = P;
     storeSaved();   // kept once its anchors are made
     // the touch heights over this headset's floor and over the room scan's floor plane, to measure FLOOR_TIP and the
     // headsets' floors from the logs later
@@ -7746,7 +8044,7 @@
     const Tv = HOST.xr && HOST.xr.travel ? HOST.xr.travel() : null;   // (moving with the sticks: where they have moved you)
     if (Tv && Tv.space) S.travel = [r3(Tv.x), r3(Tv.z), r3(Tv.yaw)];
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
-    if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
+    if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: placeKept(R.saved), n: nOf(R.saved), place: R.saved.code || '' };
     if (R.cmp) S.cmp = R.cmp;
     if (validFloor()) S.rm = val('rm');
     S.sharedAlign = R.sharedAlign;
@@ -7883,13 +8181,30 @@
     },
     get moving() { return MV.id; },
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
-    handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
+    handles: () => PLC.list.concat(R.saved || []).reduce((a, p) => a.concat(p.anchors || []), []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up: every place's
+    // places (v130), for tests: { list, one, cap, here, offer, ... }; o.reset forgets them on this page only (no anchor
+    // deleted: a test's fresh start), o.reload reads them again from storage (as a page that loads, this room's taken
+    // again), o.out leaves the room not on purpose (as a page that goes), o.one sets Anchors per room, o.forget a place
+    // (as its Forget), o.look looks for them now, o.wait and o.near the survey's limits, o.join the offer pressed
+    places(o) {
+      o = o || {};
+      if (o.reset) { placeLeave(); PLC.list = []; PLC.here = PLC.offer = PLC.told = ''; storePlaces(); put('roomFrame', null); }
+      if (o.reload) { placeLeave(); placesLoad(); placeTake(); }
+      if (o.out && C.code) leave();
+      if (o.one !== undefined) placesOne(o.one);
+      if (o.forget !== undefined) placeForget(o.forget);
+      if (o.wait) SV.wait = o.wait;
+      if (o.near) SV.near = o.near;
+      if (o.look) SV.at = 0;
+      if (o.join) placeJoin(o.join, 'hand');
+      return placesState();
+    },
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel and scene, for a story's xrRecenter while placed (off, s, pp, pr in its rig; q the scene's
     // turn and pq the panel's rotation, [x, y, z, w] or null: none)
     saved: () => { const P = panelPose(sesSt()); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
-    joined() { if (R.session) { begin(); loop(R.session); } },
-    left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); setState('off'); },
+    joined() { placeTake(); if (R.session) { begin(); loop(R.session); } },   // (this room's place: placeTake)
+    left() { placeLeave(); R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || R.src === 'trackers' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
     tick, toRoom: v => v.clone().applyMatrix4(R.mi), toLocal: v => v.clone().applyMatrix4(R.m), matrix: () => R.m.clone(),
     // the room's frame from two floor spots, as a calibration makes it (fromMarks for floor spots: origin the floor under
@@ -7996,8 +8311,7 @@
       CAM.sent.clear();
       // it lines up afresh each session: no marks kept from before (a phone's Chrome keeps no anchor handles; a browser
       // that did would only race its own Set spot A), and their handles let go
-      if (R.saved || R.anchors) { dropAnchors(); R.saved = null; }
-      storeSaved();
+      placesDropAll();   // (and no places: a phone keeps none)
       log('camera on', { overlay: (s.domOverlayState && s.domOverlayState.type) || '', features: s.enabledFeatures ? [...s.enabledFeatures] : null, who: C.who, st: C.follow });
       quiet(() => s.addEventListener('select', camSelect));   // (no DOM overlay: a tap on the screen sets the spot)
       camShow();
@@ -8564,7 +8878,7 @@
     DLG.el.classList.toggle('joined', joined);
     const st = $('.sh-status');
     const n = C.members.length, people = `${n} ${n === 1 ? 'person' : 'people'} in it.`;
-    const back = joined && C.auto === C.code ? ' This device joined it again by itself: it was in it on this network.' : '';
+    const back = joined && C.byPlace === C.code ? ' This headset joined it by itself: it stands in the room\'s place.' : joined && C.auto === C.code ? ' This device joined it again by itself: it was in it on this network.' : '';
     st.textContent = C.note || (joined ? (C.local ? `Room ${C.code} is on this device only: ${whyLocal()}. Its stations and their places are kept here, and the room moves to the relay once it answers${C.peerFail ? ' (or peer to peer, once its server does)' : ''}.` :
       C.via === 'peer' ? `Room ${C.code} · ${connLine()} · ${people} The devices talk to each other directly.${hosting() && IS_HEADSET ? ' A laptop or desktop page that joins takes the room over: a headset sleeps when taken off.' : ' Best hosted by a laptop or desktop page that stays awake, not a headset.'}${back}` :
         `Room ${C.code}: ${connLine()}. ${people}${back}`) :
