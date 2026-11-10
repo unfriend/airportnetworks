@@ -22518,6 +22518,20 @@ Object.assign(ITEM_ACT, {
 // and 20 degrees of its start its last half second (a quarter of it when shorter than 2 s) is bent so it arrives exactly
 // at its start, at the speed it sets off with: no jump and no pause as it loops. Its card says so, and Keep it as recorded
 // writes it as it was recorded (one Undo step) while the recording is held here (RECLAST).
+//
+// Stays on the floor (v130; the owner, 10 November 2026: "When animating an item have an option that keeps it grounded,
+// stuck to the floor with the side thats closest to the floor when starting"): a switch among the recorder's rows (page
+// and headset, this device's own, studioRecFloor, off by default). A recording made with it on sets the item down as it
+// begins, its lowest point on the floor (y = 0 in the scene's frame, as On the floor puts it: objBox, shapeBox), and that
+// place is the one written with its path. Then every frame, before its pose is sampled or drawn (recFloor, from
+// recSample; on a page also as the arrows move it), its turn keeps only its turn about the vertical since it began (a
+// swing-twist split about the scene's y axis) and its height stays where it was set down: it slides along the floor and
+// turns about the vertical, and since such a turn moves no point up or down, the side that was lowest stays on the floor.
+// An empty keeps its height and turns only about the vertical; a sound keeps its height; an object whose model is not in
+// yet keeps its height too. The keys written then hold to it, nothing new in the record; the loop join keeps to it as
+// well (its bend moves along the floor and turns about the vertical). Cancelled or refused, it goes back where it was
+// before it was set down; one kept later (a file, a voice: recKeep) writes its set-down place with its path.
+const FLOOR = { on: store.get('studioRecFloor') === '1' };
 const PATH_ITEMS = ['o', 'p', 'e', 's'], PATH_PLAYS = ['loop', 'once', 'bounce'], PATH_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 // (long: a recording's longest with a relay that takes uploads, its keys then kept as a file; fileKeys: such a file's most)
 const PATH_MAX = { keys: 600, secs: 120, scene: 6000, state: 224 << 10, long: 600, fileKeys: 40000 }, PATH_HZ = 30, PATH_TOL = { m: 0.004, deg: 0.9 };
@@ -22637,13 +22651,23 @@ function recWhy(it) {
 }
 // its middle, in its turned frame (an object's model's box's middle, scaled; the others stand at theirs)
 const recMid = it => (it.kind === 'o' && it.model ? it.proxy.position.clone().multiply(it.holder.scale) : new THREE.Vector3());
-// a recording begins: from its placed pose (it rests there), the first sample at 0
+// how far it goes up (down: less than 0) to stand on the floor, its lowest point at y = 0 as its record places it (On the
+// floor's: an object's box, a shape's own extents); 0 for an empty, a sound and an object whose model is not in yet
+function recDown(it) {
+  const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : it.kind === 'o' ? objBox(it) : null;
+  return b && fin(b.min.y) ? -b.min.y : 0;
+}
+// a recording begins: from its placed pose (it rests there), the first sample at 0; with Stays on the floor set down first
+// (R.pb: its place before that; a page's record moves with it, a headset's holder alone, as its carry writes nothing)
 function recBegin(it, by, c) {
   const why = recWhy(it);
   if (why) { recSay(it.id, why, 'amber'); return false; }
   poseRest(it);
-  REC = { it, id: it.id, by, c: c || null, t0: recClock(), last: -1e9, p0: new THREE.Vector3().fromArray(it.rec.p), q0: it.kind === 's' ? new THREE.Quaternion() : new THREE.Quaternion().fromArray(it.rec.q), s0: it.holder.scale.clone(), mid: recMid(it), S: [], said: 0, away: false, lit: false,
-    cap: recCap(), real0: performance.now() };
+  const pb = it.rec.p.slice(), dy = FLOOR.on ? recDown(it) : 0, p = dy ? [pb[0], nz(r3(pb[1] + dy)), pb[2]] : pb.slice(), down = p[1] !== pb[1];
+  if (down && by === 'page') setRec(it.id, { p });
+  if (down) it.holder.position.y = p[1];
+  REC = { it, id: it.id, by, c: c || null, t0: recClock(), last: -1e9, p0: new THREE.Vector3().fromArray(p), q0: it.kind === 's' ? new THREE.Quaternion() : new THREE.Quaternion().fromArray(it.rec.q), s0: it.holder.scale.clone(), mid: recMid(it), S: [], said: 0, away: false, lit: false,
+    cap: recCap(), real0: performance.now(), floor: FLOOR.on, pb, down };
   recSample(true);
   REC.v = voiceBegin(REC);   // (with my voice: the microphone recorded with it, e6j_voice.js; null: not)
   recSay(it.id, '', '');
@@ -22655,12 +22679,29 @@ function recBegin(it, by, c) {
 function recSample(force) {
   const R = REC, it = R && R.it;
   if (!it) return;
+  recFloor(R);   // (Stays on the floor: kept to it before it is sampled, and so before it is drawn)
   const now = recClock();
   if (!force && now - R.last < 1000 / PATH_HZ - 0.5) return;
   R.last = now;
   const t = clamp((now - R.t0) / 1000, 0, R.cap), H = it.holder, q = it.kind === 's' ? _pq3.identity() : H.quaternion, prev = R.S[R.S.length - 1];
   const s = [t, H.position.x, H.position.y, H.position.z, q.x, q.y, q.z, q.w];
   if (prev && t - prev[0] < 0.002) { s[0] = prev[0]; R.S[R.S.length - 1] = s; } else R.S.push(s);
+}
+// Stays on the floor, while it records: its holder at the height it was set down at, and its turn since it began (d = q
+// q0^-1, in the scene's frame) cut to its twist about the vertical (d's y and w parts, made unit; a half turn about a level
+// axis has none: no turn), so q = twist q0. Wherever its holder was moved (the hand, the sticks, the page's arrows, its
+// card's buttons); nothing when the recording is not on the floor
+// (q0 made unit first: a record's turn, kept to 4 decimals, is a hair off unit length)
+const _rfq = new THREE.Quaternion(), _rfi = new THREE.Quaternion();
+function recFloor(R) {
+  if (!R || !R.floor) return;
+  const H = R.it.holder;
+  H.position.y = R.p0.y;
+  if (R.it.kind === 's') return;
+  _rfi.copy(R.q0).normalize();
+  const d = _rfq.copy(H.quaternion).multiply(_rfi.invert()), n = Math.hypot(d.y, d.w);
+  if (n < 1e-9) d.identity(); else d.set(0, d.y / n, 0, d.w / n);
+  H.quaternion.copy(d).multiply(_rfi.invert());
 }
 // the longest a recording may be here: 600 s with a relay that takes uploads (one past 120 s is kept as a file), else 120 s
 const recCap = () => (canUpload() ? PATH_MAX.long : PATH_MAX.secs);
@@ -22771,11 +22812,13 @@ function recEnd(save) {
   voiceEnd(R);   // (the microphone stopped: its sound kept only with what is kept, e6j_voice.js)
   if (!it) { voiceDrop(R); recSay(R.id, '', ''); if (R.by === 'page' && SNAP) endChange(); return; }
   it.carry = false;   // (so its record puts it back at once: applyRec)
-  const back = it.kind === 's' ? { p: R.p0.toArray() } : { p: R.p0.toArray(), q: R.q0.toArray() };
+  // (where it began: set down there with Stays on the floor only when its path is written here and now; else where it was
+  // before that, R.pb, so a recording cancelled or refused changes nothing, and one kept later is still one Undo step)
+  const back = here => { const p = (here ? R.p0.toArray() : R.pb).slice(); return it.kind === 's' ? { p } : { p, q: R.q0.toArray() }; };
   const prep = save && editOn() ? recPrep(it, R) : { why: 'Recording cancelled: nothing changed.' };
   if (prep.soon) {
     R.c0 = prep.c0;
-    setRec(it.id, back);
+    setRec(it.id, back(false));
     recSoon(it, R, prep);
     if (R.by === 'page') endChange();
     tcAttach();
@@ -22787,7 +22830,7 @@ function recEnd(save) {
   // (one kept as a file, or with a voice: written once its files are in the scene, a change of its own; it stands where
   // it is placed meanwhile)
   const keep = !!res.path && (!!res.keys || !!R.v);
-  if (!setRec(it.id, Object.assign(back, res.path && !keep ? { path: res.path } : {})) && res.path) res = { why: 'The recording could not be kept.' };
+  if (!setRec(it.id, Object.assign(back(res.path && !keep), res.path && !keep ? { path: res.path } : {})) && res.path) res = { why: 'The recording could not be kept.' };
   if (res.path && keep) recKeep(it, R, res);
   else if (res.path) {
     recSay(it.id, recWords(R, res) + ' It plays now; its ghost shows where it is placed.', R.capped ? 'amber' : 'green', joinNote(res.join, res.path));
@@ -22938,11 +22981,12 @@ function pathCopyWhy(recs) {
   return '';
 }
 // what a recording stops: a page's while it runs, its size (a path has no size: its size steps, the Size arrows)
-const REC_NO_SIZE = ['size', 'psize', 'pgrow', 'grow'];
+// (and with Stays on the floor, Stand up: it turns only about the vertical then)
+const REC_NO_SIZE = ['size', 'psize', 'pgrow', 'grow'], REC_NO_TILT = ['stand'];
 const recording = it => !!(REC && it && REC.id === it.id);
-const recStops = (it, act) => recording(it) && REC_NO_SIZE.includes(act);
+const recStops = (it, act) => recording(it) && (REC_NO_SIZE.includes(act) || (REC.floor && REC_NO_TILT.includes(act)));
 // the card's signature part (the panes are drawn again when it changes)
-const recSig = () => [XR.rec, MPAUSE.on, REC ? REC.id + ':' + Math.floor((recClock() - REC.t0) / 250) + (REC.lit ? 'l' : '') + (REC.v ? REC.v.lvl + REC.v.state : '') : '', REC_NOTE.id, REC_NOTE.text, REC_NOTE.join && REC_NOTE.join.text, !!RECLAST, voiceSig(), keepSig()].join(',');
+const recSig = () => [XR.rec, MPAUSE.on, REC ? REC.id + ':' + Math.floor((recClock() - REC.t0) / 250) + (REC.lit ? 'l' : '') + (REC.v ? REC.v.lvl + REC.v.state : '') : '', REC_NOTE.id, REC_NOTE.text, REC_NOTE.join && REC_NOTE.join.text, !!RECLAST, FLOOR.on, voiceSig(), keepSig()].join(',');
 
 // ------------------------------------------------------------- the card --
 // the Recorded path rows (an object's, a shape's, an empty's and a sound's card, page and headset): Record (a page:
@@ -22960,6 +23004,7 @@ function pathBlocks(it, B, dis, mv) {
     if (REC.by === 'xr') B.push({ label: head, p: `● Recording ${secs(t)}: let go to keep it (at most ${most}).` + lit, c: 'red' });
     else B.push({ label: head, p: `● Recording ${secs(t)}: move it with the arrows (Move, Turn) or its card's buttons (Turn 90°, On the floor...); Stop keeps the movement (at most ${most}).` + lit.replace('let go', 'Stop'), c: 'red' },
       { row: [{ id: 'recstop', label: 'Stop', act: 'i:recStop', primary: true }, { id: 'reccancel', label: 'Cancel', act: 'i:recCancel' }] });
+    floorRows(it, B, true);
     voiceRows(it, B, true);
   } else {
     const no = mv || fol || busy;
@@ -22971,6 +23016,7 @@ function pathBlocks(it, B, dis, mv) {
         { xr: true, p: armed ? 'The next grip of either hand carries it from where it stands and records its movement until you let go (the sticks turn it and push it; they do not size it).' : 'Record its movement: then a grip carries it as usual, and its movement is recorded until you let go; it plays it back from where it stands.', c: armed ? 'amber' : 'faint' });
     } else if (armed) B.push({ xr: true, p: 'The next grip of either hand carries it from where it stands and records a new movement until you let go.', c: 'amber' });
     if (KEEP.has(it.id)) B.push({ p: KEEP.get(it.id).text, c: 'muted' });
+    if (!fol) floorRows(it, B, false);
     voiceRows(it, B, false);
   }
   if (P && P.src) {
@@ -22990,6 +23036,19 @@ function pathBlocks(it, B, dis, mv) {
   const J = REC_NOTE.id === it.id && REC_NOTE.join && RECLAST && RECLAST.id === it.id ? REC_NOTE.join : null;
   if (J) B.push({ p: J.text, c: J.c }, ...(J.keep && P ? [{ row: [{ id: 'reckeep', label: 'Keep it as recorded', act: 'i:reckeep', dis }] }] : []));
   moveBlocks(it, B);
+}
+// the Stays on the floor rows (an object's, a shape's, an empty's and a sound's card, page and headset): the switch, this
+// device's own, and what it does in words; while a recording runs, that it is on the floor
+function floorRows(it, B, during) {
+  const k = it.kind, model = k === 'p' || (k === 'o' && !!(it.E && it.E.info));
+  if (during) {
+    if (REC && REC.floor) B.push({ p: k === 's' ? 'On the floor: it keeps its height and slides along.' : k === 'e' ? 'On the floor: it keeps its height, slides along and turns only about the vertical.' : 'On the floor: it slides along the floor and turns only about the vertical, its lowest side kept on the floor.', c: 'muted' });
+    return;
+  }
+  B.push({ label: 'Stays on the floor', row: [{ id: 'recfloor', label: FLOOR.on ? 'Stays on the floor: on' : 'Stays on the floor: off', act: 'i:recFloor', on: FLOOR.on }] },
+    { p: k === 's' ? 'On: a sound keeps the height it starts at while it records, and only slides along.'
+      : k === 'e' ? 'On: an empty keeps the height it starts at while it records, slides along and turns only about the vertical.'
+      : 'On: as the recording begins it is set down, its lowest point on the floor; then however you lift or tilt it, it slides along the floor and turns only about the vertical, so the side that was lowest stays on the floor.' + (model ? '' : ' (Until its model is in, it keeps its height.)'), c: 'faint' });
 }
 // what anything that moves has on its card (a motion, a recorded path, a behaviour, a model's animation): Pause (this
 // device's, as on the Scene pane: e6h_ghost.js), and Start again where it starts when shown or a path plays once (this
@@ -23042,7 +23101,10 @@ Object.assign(ITEM_ACT, {
   pstart: (it, v) => { if (v === 'always' || v === 'shown') pathSet(it, () => ({ start: v })); },
   pspeed: (it, d) => pathSet(it, P => ({ speed: stepOf(PATH_SPEEDS, P.speed, +d) })),
   recDel: it => { if (it.rec.path && !recording(it)) { setRec(it.id, { path: undefined }); recSay(it.id, '', ''); tcAttach(); } },
+  // Stays on the floor: this device's own, kept (it applies to recordings begun from now on)
+  recFloor: () => { FLOOR.on = !FLOOR.on; store.set('studioRecFloor', FLOOR.on ? '1' : null); },
 });
+PANE_ONLY.push('recFloor');
 // ============================================================= BEHAVIOURS ==
 // The owner, 6 November 2026: "Add follow the player/avoid the player/an object etc to objects", then "behaviours should
 // be shared for each headset so only react to one headset, example closest or first player who walks close". An object, a
@@ -24075,7 +24137,8 @@ async function recKeep(it, R, res, raw) {
   KEEP.delete(id);
   if (gen !== STU.gen || GL.gone || STU.items.get(id) !== it || !path) { dirty(true); return; }
   let ok = false, vid = '';
-  change(() => { ok = !!setRec(id, { path }); if (ok && voice) vid = voicePlace(it, voice, path, res); });
+  // (set down as it began, Stays on the floor: its path is from there, so that place goes with it; e6f_path.js)
+  change(() => { ok = !!setRec(id, Object.assign({ path }, R.down ? { p: R.p0.toArray() } : {})); if (ok && voice) vid = voicePlace(it, voice, path, res); });
   if (!ok) { recSay(id, 'The recording could not be kept.', 'amber'); return; }
   const vs = !useV ? '' : vid ? ` Your voice is ${STU.items.get(vid).rec.name} (${voice.made}): it follows ${it.rec.name} and plays with its path.` : voice ? ` Your voice is in the scene as ${voice.file}, but no sound could be placed (a scene holds ${LIMITS.s} sounds).` : ` Your voice was not kept: ${vwhy || 'nothing came from the microphone'}.`;
   if (raw) recSay(id, `Kept as recorded: ${secs(pathLen(path))} in ${fmt(pathCount(path))} keys` + (path.src ? `, as the file ${path.src}.` : '.') + vs, 'muted');
@@ -25480,7 +25543,7 @@ function itemBlocks(it, B, ed) {
       animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
     puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
-    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info || (recording(it) && REC.floor) }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: rs })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
@@ -26320,6 +26383,7 @@ function tcSetup() {
     if (!it) return;
     const px = tc.object === TCP;
     if (px) { it.holder.position.copy(TCP.position); it.holder.quaternion.copy(TCP.quaternion); it.holder.scale.copy(TCP.scale); }
+    if (recording(it)) recFloor(REC);   // (recording with Stays on the floor: kept to it before its record is written; e6f_path.js)
     tcRead(it);
     if (px) tcProxy(it);   // (what tcRead made of it: a cube's yaw, an object's one size)
   });
@@ -26367,10 +26431,12 @@ function tcAttach() {
   // (locked in place: no arrows; recording a path: no Size)
   if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }
   const m = it.kind === 's' || ((it.kind === 'e' || recording(it)) && X.tcMode === 'scale') ? 'translate' : X.tcMode;
+  // (recording with Stays on the floor: only along the floor and about the vertical, so no up arrow and no tilting rings)
+  const fl = recording(it) && REC.floor;
   tc.setMode(m);
-  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
-  tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
-  tc.showY = true;
+  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' && !fl ? 'local' : 'world');
+  tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g' || fl) && m === 'rotate');
+  tc.showY = !(fl && m === 'translate');
   // (its own holder, or its ghost's stand-in while it moves: e6h_ghost.js; never switched in the middle of a drag)
   const T = X.tcDrag && (tc.object === it.holder || (tc.object === TCP && TCP.userData.id === it.id)) ? tc.object : tcTarget(it);
   if (T === TCP) tcProxy(it);

@@ -6172,6 +6172,155 @@ if (runs('studio paths')) {
     })()`);
     bad(r.concat(pg));
   });
+  await step('studio paths: Stays on the floor (v130): the recorder\'s row on the page (off, then on, kept); a pretend headset\'s recording of the box started 0.5 m up and tilted, set down first, the hand lifting, tilting and turning it: drawn on the floor every frame, at every key a turn about the vertical alone and its lowest point on the floor, its place on the floor, one Undo step; an empty and a sound keep their height; a page\'s recording with the Turn arrows tilting it (no tilting rings, no up arrow, Stand up refused), the tilt dropped; cancelled, back where it was; the headset card\'s row; kept across a reload', async () => {
+    const out = [];
+    // the page's row: off by default, on once pressed (kept on this device)
+    await ss(`(select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    const lab = async () => ((await rp.textContent('#pane-item [data-id="recfloor"]').catch(() => null)) || '').trim();
+    const row0 = await lab();
+    await rp.click('#pane-item [data-id="recfloor"]');
+    await ss('renderPanes()');
+    const row1 = await lab(), kept = await rp.evaluate(() => localStorage.getItem('studioRecFloor'));
+    if (row0 !== 'Stays on the floor: off' || row1 !== 'Stays on the floor: on' || kept !== '1' || !await ss('FLOOR.on')) out.push('the page\'s row: ' + JSON.stringify([row0, row1, kept]));
+    // (how far a turn is from a turn about the vertical alone since q0, in degrees: the swing of qd q0^-1)
+    const SW = `const sw = (qd, q0) => { const d = qd.clone().normalize().multiply(q0.clone().normalize().invert()), n = Math.hypot(d.y, d.w), tw = n < 1e-9 ? new THREE.Quaternion() : new THREE.Quaternion(0, d.y / n, 0, d.w / n); return d.angleTo(tw) * 180 / Math.PI; };`;
+    const r = await ss(`(() => {
+      ${SW}
+      const P = window.__pa, out = [], V = P.V, J = x => JSON.stringify(x), it = STU.items.get('box001');
+      // (its lowest point at a pose: as On the floor measures it, objBox)
+      const low = (pd, qd) => objBox(it, qd.toArray(), it.rec.s).min.y - it.rec.p[1] + pd.y;
+      // the box 0.5 m up from the floor and tilted (asin 0.6 about x, then a turn about the vertical)
+      const qT = P.Q().setFromEuler(new THREE.Euler(Math.asin(0.6), 0.3, 0, 'YXZ'));
+      setRec('box001', { q: qT.toArray(), p: [-1, 0, -2] }); setRec('box001', { p: [-1, r3(0.5 - objBox(it).min.y), -2] });
+      const up = J(it.rec), u0 = UNDO.length, lo0 = objBox(it).min.y;
+      let seen = 0;
+      const drawn = [];
+      const res = P.record('box001', 90, (i, H, w) => {
+        // (drawn as recorded: after each frame's carry, on the floor and turned only about the vertical)
+        if (i > 1 && REC) { const h = it.holder, e = [Math.abs(h.position.y - REC.p0.y), sw(h.quaternion, REC.q0)]; seen++; if (e[0] > 1e-9 || e[1] > 1e-4) drawn.push(e); }
+        const s = i / 30, q = P.Q().setFromEuler(new THREE.Euler(0.6 * Math.sin(2 * s), 0.8 * s, 0.4 * Math.sin(1.3 * s)));
+        H.put(H.a, w.clone().add(V(0.3 + 0.4 * Math.sin(1.7 * s), 0.2 + 0.4 * s, 0.6 - 0.3 * s)), q, 'right', i > 30 && i <= 50 ? [0, 0, 0, -0.8] : [0, 0, 0, 0]);
+        H.put(H.b, w.clone().add(V(-0.4, 0, 0.5)), null, 'left', i > 55 && i <= 75 ? [0, 0, 0.7, 0] : [0, 0, 0, 0]);
+      });
+      if (!res.armed || !res.began || !res.held) out.push('the recording did not run: ' + J(res));
+      const Pth = it.rec.path;
+      if (!Pth) { P.off(); return out.concat('no path written: ' + J(REC_NOTE)); }
+      if (Math.abs(lo0 - 0.5) > 0.001 || !(RECLAST && RECLAST.floor && RECLAST.down)) out.push('not started 0.5 m up, or not on the floor: ' + J([lo0, RECLAST && RECLAST.floor]));
+      if (seen < 80 || drawn.length) out.push('drawn off the floor while it recorded: ' + J([seen, drawn.slice(0, 3)]));
+      // its place: set down (its lowest point on the floor), its turn and its x and z as they were; one Undo step
+      const p0 = V(...it.rec.p), q0 = P.Q(...it.rec.q), lo = objBox(it).min.y;
+      if (Math.abs(lo) > 0.001 || Math.abs(it.rec.p[1] - (JSON.parse(up).p[1] - 0.5)) > 0.001 || J(it.rec.q) !== J(JSON.parse(up).q) || it.rec.p[0] !== -1 || it.rec.p[2] !== -2) out.push('its place not set down on the floor: ' + J([it.rec.p, it.rec.q, lo]));
+      if (UNDO.length !== u0 + 1) out.push('not one Undo step: ' + (UNDO.length - u0));
+      // every key: a turn about the vertical alone (0.05 degrees), its lowest point on the floor (1 mm)
+      let sMax = 0, lMax = 0;
+      for (const k of Pth.k) {
+        const qd = q0.clone().multiply(P.Q(k[4], k[5], k[6], k[7]).normalize()), pd = V(k[1], k[2], k[3]).applyQuaternion(q0).add(p0);
+        sMax = Math.max(sMax, sw(qd, q0)); lMax = Math.max(lMax, Math.abs(low(pd, qd)));
+      }
+      if (!(sMax <= 0.05) || !(lMax <= 0.001) || Pth.k.length < 3) out.push('a key off the floor or tilted: ' + J([sMax, lMax * 1000, Pth.k.length]));
+      // the movement is in it: along the floor and about the vertical (the lift and the tilt dropped)
+      const L = Pth.k[Pth.k.length - 1], qL = q0.clone().multiply(P.Q(L[4], L[5], L[6], L[7]).normalize()), dL = V(L[1], L[2], L[3]).applyQuaternion(q0);
+      if (!(Math.hypot(dL.x, dL.z) > 0.2) || !(qL.angleTo(q0) > 0.5)) out.push('the movement is not in it: ' + J(L));
+      // drawn by its path at a scene time: on the floor too
+      { const M = P.dec(P.at('box001', 1.7)); if (Math.abs(low(M.p, M.q)) > 0.001 || sw(M.q, q0) > 0.05) out.push('drawn off the floor: ' + J([low(M.p, M.q), sw(M.q, q0)])); }
+      undo();
+      if ('path' in it.rec || J(it.rec) !== up) out.push('Undo did not put it back up: ' + J(it.rec.p));
+      // an empty and a sound keep their height (lifted and tilted by the hand)
+      for (const id of ['pemp01', 'psnd02']) {
+        const strip = rc => J(Object.assign({}, rc, { path: undefined })), x = STU.items.get(id), b0 = strip(x.rec), u1 = UNDO.length;
+        P.record(id, 60, (i, H, w) => { const s = i / 30; H.put(H.a, w.clone().add(V(0.3 + 0.5 * s, 0.2 + 0.5 * s, 0.6)), P.Q().setFromEuler(new THREE.Euler(0.5 * s, 0.7 * s, 0.3 * s)), 'right'); H.b.src = null; H.b.g.visible = false; });
+        const Q0 = P.Q(...(x.kind === 's' ? [0, 0, 0, 1] : x.rec.q)), K = x.rec.path && x.rec.path.k;
+        if (!K) { out.push(id + ': no path: ' + REC_NOTE.text); continue; }
+        const dy = Math.max(...K.map(k => Math.abs(V(k[1], k[2], k[3]).applyQuaternion(Q0).y))), s2 = x.kind === 's' ? 0 : Math.max(...K.map(k => sw(Q0.clone().multiply(P.Q(k[4], k[5], k[6], k[7]).normalize()), Q0)));
+        const L2 = K[K.length - 1];
+        if (dy > 0.001 || s2 > 0.05 || strip(x.rec) !== b0 || UNDO.length !== u1 + 1 || !(Math.hypot(L2[1], L2[3]) > 0.3)) out.push(id + ' did not keep its height: ' + J([dy, s2, x.rec.p, UNDO.length - u1, L2]));
+        undo();
+      }
+      P.off(); select('');
+      return out;
+    })()`);
+    out.push(...r);
+    // a page's recording: the Turn arrows tilting it as they turn it, then the Move arrows lifting it; Stand up refused
+    const pg = await ss(`(() => {
+      ${SW}
+      const P = window.__pa, it = STU.items.get('pth001'), H = it.holder, o = [], tc = GL.tc, V = P.V, J = x => JSON.stringify(x), u0 = UNDO.length, rec0 = J(it.rec);
+      const lowS = (p, q) => shapeBox({ rec: Object.assign({}, it.rec, { p: p.toArray(), q: q.toArray() }) }, new THREE.Box3(), true).min.y;
+      P.clock(); select('pth001'); X.tab = 'item'; tcSetMode('rotate'); itemAct('rec');
+      if (!REC || REC.by !== 'page' || !REC.floor || tc.object !== H) return ['Record did not start on the floor with the arrows on it: ' + J([!!REC, REC && REC.floor])];
+      const q0 = P.Q(...it.rec.q), p0y = it.rec.p[1], was = JSON.parse(rec0).p[1], want = r3(was - lowS(V(...JSON.parse(rec0).p), q0));
+      // set down: its record and holder with its lowest point on the floor (as placed by the steps before, 0.2 m down: its middle 0.3 m up)
+      if (Math.abs(lowS(V(...it.rec.p), q0)) > 0.001 || Math.abs(p0y - want) > 0.001 || !(was - p0y > 0.05) || Math.abs(H.position.y - p0y) > 1e-9) o.push('not set down: ' + J([it.rec.p, H.position.y]));
+      if (tc.showX || tc.showZ || !tc.showY || tc.space !== 'world') o.push('the Turn arrows on the floor: ' + J([tc.showX, tc.showY, tc.showZ, tc.space]));
+      tc.dispatchEvent({ type: 'dragging-changed', value: true });
+      let wr = 0, wh = 0, wy = 0;
+      for (let i = 1; i <= 30; i++) {
+        P.T += 1000 / 30;
+        H.quaternion.premultiply(P.Q().setFromAxisAngle(V(1, 0, 0), 0.02)).premultiply(P.Q().setFromAxisAngle(V(0, 1, 0), 0.03));
+        tc.dispatchEvent({ type: 'objectChange' }); recStep();
+        wr = Math.max(wr, sw(P.Q(...it.rec.q).normalize(), q0)); wh = Math.max(wh, sw(H.quaternion, q0)); wy = Math.max(wy, Math.abs(H.position.y - p0y), Math.abs(it.rec.p[1] - p0y));
+      }
+      tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      for (let i = 1; i <= 5; i++) { P.T += 1000 / 30; recStep(); }
+      // Stand up refused while it records on the floor (and greyed)
+      const qs = J(it.rec.q); itemAct('stand'); renderPanes();
+      const sb = document.querySelector('#pane-item [data-id="stand"]');
+      if (J(it.rec.q) !== qs || (sb && !sb.disabled)) o.push('Stand up while on the floor: ' + J([it.rec.q, sb && sb.disabled]));
+      // the Move arrows: no up arrow; lifted as it moves along x, it stays at its height
+      tcSetMode('translate');
+      if (tc.showY || !tc.showX || !tc.showZ) o.push('the Move arrows on the floor: ' + J([tc.showX, tc.showY, tc.showZ]));
+      tc.dispatchEvent({ type: 'dragging-changed', value: true });
+      for (let i = 1; i <= 10; i++) { P.T += 1000 / 30; H.position.y += 0.05; H.position.x += 0.02; tc.dispatchEvent({ type: 'objectChange' }); recStep(); wy = Math.max(wy, Math.abs(H.position.y - p0y), Math.abs(it.rec.p[1] - p0y)); }
+      tc.dispatchEvent({ type: 'dragging-changed', value: false });
+      for (let i = 1; i <= 5; i++) { P.T += 1000 / 30; recStep(); }
+      if (wr > 0.05 || wh > 1e-4 || wy > 1e-9) o.push('tilted or lifted as it recorded: ' + J([wr, wh, wy]));
+      itemAct('recStop');
+      const K = it.rec.path && it.rec.path.k;
+      if (!K) return o.concat('Stop kept nothing: ' + REC_NOTE.text);
+      const P0 = V(...it.rec.p), Q0 = P.Q(...it.rec.q);
+      let sMax = 0, lMax = 0;
+      for (const k of K) { const qd = Q0.clone().multiply(P.Q(k[4], k[5], k[6], k[7]).normalize()), pd = V(k[1], k[2], k[3]).applyQuaternion(Q0).add(P0); sMax = Math.max(sMax, sw(qd, Q0)); lMax = Math.max(lMax, Math.abs(lowS(pd, qd))); }
+      const L = K[K.length - 1], qL = Q0.clone().multiply(P.Q(L[4], L[5], L[6], L[7]).normalize());
+      if (sMax > 0.05 || lMax > 0.001 || Math.abs(qL.angleTo(Q0) - 0.9) > 0.02 || Math.abs(Math.hypot(L[1], L[2], L[3]) - 0.2) > 0.005) o.push('its keys: ' + J([sMax, lMax * 1000, qL.angleTo(Q0), L]));
+      if (Math.abs(it.rec.p[1] - want) > 0.001 || J(it.rec.q) !== J(JSON.parse(rec0).q) || UNDO.length !== u0 + 1) o.push('its place, or not one Undo step: ' + J([it.rec.p, it.rec.q, UNDO.length - u0]));
+      undo();
+      if (J(it.rec) !== rec0) o.push('Undo did not put it back: ' + J(it.rec.p));
+      // cancelled: back where it was before it was set down, nothing to undo
+      select('box001'); const b0 = J(STU.items.get('box001').rec), u1 = UNDO.length; itemAct('rec');
+      const set = STU.items.get('box001').rec.p[1];
+      itemAct('recCancel');
+      if (J(STU.items.get('box001').rec) !== b0 || UNDO.length !== u1 || !(set < JSON.parse(b0).p[1] - 0.4)) o.push('cancelled: ' + J([set, STU.items.get('box001').rec.p, UNDO.length - u1]));
+      setRec('box001', { p: [-1, 0.25, -2], q: [0, 0, 0, 1] });
+      tcSetMode('translate'); select('');
+      return o;
+    })()`);
+    out.push(...pg);
+    // the headset card's row: pressed off and on again
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const find = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q) return q; } return null; };
+      const press = id => { const q = find(id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } X.scroll = {}; return false; };
+      select('box001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('recfloor'), FLOOR.on, localStorage.getItem('studioRecFloor'), press('recfloor'), FLOOR.on, localStorage.getItem('studioRecFloor')];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== JSON.stringify([true, false, null, true, true, '1'])) out.push('the headset card\'s row: ' + JSON.stringify(xr));
+    // kept across a reload: the page loaded again opens with it on, and turns it off (then the items the steps after need
+    // put back, as the first step put them)
+    try {
+      await rp.reload();
+      await rp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) out.push('the test scene did not load again');
+      const on2 = await ss(`(select('box001'), X.tab = 'item', renderPanes(), FLOOR.on)`);
+      const l2 = ((await rp.textContent('#pane-item [data-id="recfloor"]').catch(() => null)) || '').trim();
+      await rp.click('#pane-item [data-id="recfloor"]');
+      const off2 = [await ss('FLOOR.on'), await rp.evaluate(() => localStorage.getItem('studioRecFloor'))];
+      if (!on2 || l2 !== 'Stays on the floor: on' || JSON.stringify(off2) !== '[false,null]') out.push('not kept across a reload: ' + JSON.stringify([on2, l2, off2]));
+    } catch (e) { out.push('the reload: ' + e.message); }
+    await ss(`(${HELP}, ${PUT}, setEdit(true), select(''), 0)`);
+    bad(out);
+  });
   await step('studio paths: the state and layout.json carry a path and give it back; norm\'s rules (2 to 600 keys, the first at 0, strictly later, at most 120 s, 8 numbers a key; play, start, speed); the scene\'s 6,000 in a layout and from the room; a GLB switch turns its keys so it moves as before', async () => {
     const r = await ss(`(() => {
       const P = window.__pa, J = x => JSON.stringify(x), out = [], V = P.V;
