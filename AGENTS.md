@@ -2438,7 +2438,7 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 970, Debug about 840; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1120 (v132: the Spaceship row), Debug about 870; What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
@@ -6411,7 +6411,7 @@ spaceships in a shared room (`shipsRound`, v132, also in the main run after the 
 story circles, a page and two pretend AR headsets lined up through the shared space, with controllers (`installXR`'s
 `walk`), each at its own circle, a few minutes): A launches by its right stick clicked twice; B, at the other circle, draws
 A's ship where A had it at the relay time it draws (against A's own track, `debug.track`: the median within 3 cm); A
-leads 2 drones and 3 targets (frozen, `debug.freeze`), which B draws where A has them; B launches, a third drone, the set
+leads 2 drones and 3 targets (frozen, `debug.freeze`: still, holding fire, their shields not refilling), which B draws where A has them; B launches, a third drone, the set
 kept, A still leading; A and B each hit the same drone, A deciding (its shield 10 after A's bolt, then 0 and its health
 50 after B's, on both devices), and B's last bolt destroying it, credited to B on A, B and the page (its people list); a
 pickup B flies through given to B by A (B's rapid fire on, gone for everyone), and one claimed by both at once given to

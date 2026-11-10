@@ -825,8 +825,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     }
     for (const e of w.d) {
       if (!e.a) { if (tn >= e.back) Object.assign(e, newDrone(w, e.id)); continue; }
+      if (FREEZE.on) continue;   // (tests: still, holding fire, their shields as they are)
       if (pt - e.hitAt >= T.regen && e.s < HP.dshield) e.s = Math.min(HP.dshield, e.s + HP.refill * dt);
-      if (FREEZE.on) continue;
       // wandering: a new heading now and then; now and then towards the nearest pilot's ship; back from the edge
       let near = null, nd = Infinity;
       for (const p of ships) { const d = e.p.distanceTo(p); if (d < nd) { nd = d; near = p; } }
@@ -916,18 +916,18 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     for (const [key, B] of BOLTS) {
       if (tn - B.t0 > life + 1500) { BOLTS.delete(key); continue; }
       if (B.hit) continue;
-      const t0 = Math.max(B.t0, tp), t1 = Math.min(B.t0 + life, tn);
-      if (t1 < t0 || tn < B.t0) continue;
-      boltAt(B, t0, _a); boltAt(B, t1, _b);
-      // (a drone's bolt hits any ship, the leader's too; a pilot's every ship but its own. One heard late, from another
-      // device, is swept from its start against where this ship was meanwhile)
+      // (one heard late from another device, even after its life, is swept once over its whole way so far: against where
+      // this ship was meanwhile, and a drone or a target, which move slowly, where it is now)
       const first = !B.seen;
       B.seen = true;
-      if (S.on && !S.down && (B.by === 'drone' || B.pilot !== me()) && (first && B.t0 < t0 - 1 ? sweepPast(B, B.t0, t1) : segHit(_a, _b, S.p, HIT.ship))) {
+      const t0 = first ? B.t0 : Math.max(B.t0, tp), t1 = Math.min(B.t0 + life, tn);
+      if (t1 < t0 || tn < B.t0) continue;
+      boltAt(B, t0, _a); boltAt(B, t1, _b);
+      // (a drone's bolt hits any ship, the leader's too; a pilot's every ship but its own)
+      if (S.on && !S.down && (B.by === 'drone' || B.pilot !== me()) && (first && t0 < tp - 1 ? sweepPast(B, t0, t1) : segHit(_a, _b, S.p, HIT.ship))) {
         B.hit = true; hurt(B.by === 'drone' ? GUN.ddmg : GUN.dmg, B.by === 'drone' ? 'drone' : B.by, key); continue;
       }
       if (!lead || B.by === 'drone') continue;
-      if (first && B.t0 < t0) boltAt(B, B.t0, _a);   // (a drone or a target moves slowly: from the bolt's start against where it is now)
       for (const e of W.d) if (e.a && segHit(_a, _b, e.p, HIT.drone)) { B.hit = true; botHit(e, 'd', key, B.by); break; }
       if (B.hit) continue;
       for (const e of W.t) if (e.a && segHit(_a, _b, e.p, HIT.target)) { B.hit = true; botHit(e, 't', key, B.by); break; }
