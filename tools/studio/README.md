@@ -347,6 +347,12 @@ one by one; each plays its own and moves with the group).
   its own pace from each start. Record again with it on makes a new voice file and points the sound at it (the old file
   stays, so Undo brings it back). Deleting the recording leaves the sound, no longer synced (its card says so). The path
   and its voice are one Undo step.
+- **Stays on the floor** (on the recorder's rows of every card that records; this device's own, off until you turn it on):
+  with it on, a recording first sets the thing down with its lowest point on the floor, as **On the floor** does, and
+  that is where its path begins. While it records it then only slides along the floor and turns about the vertical: lift
+  it, tilt it or push it up (the hand, the sticks, the arrows) and it stays down, the side that was lowest kept on the
+  floor. On a page its arrows lose their up arrow and tilting rings meanwhile, and Stand up waits. An empty and a sound
+  keep the height they start at. Cancelled or refused, it goes back where it was; kept, it is one Undo step as ever.
 
 ## Trackers: props that follow one, and a character a performer wears
 

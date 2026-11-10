@@ -132,6 +132,11 @@ its circle) moves every item there again, for everyone (one Undo step).
   movement and keeps it as a sound that follows the thing and plays with its
   path, from each start of it, for everyone at the circle at the same moment
   (Record again makes a new voice file; Undo brings the old one back).
+- Stays on the floor (v130, on the recorder's rows, this device's own, off
+  until turned on): a recording first sets the thing down on the floor, then
+  it only slides along the floor and turns about the vertical, the side that
+  was lowest kept down, however you lift or tilt it. An empty and a sound keep
+  the height they start at.
 - A trigger cube can change a model's picture while you are in it: on the
   cube's card Change a texture..., point at the model (or pick it), then its
   material, a slot (Colour first) and one of the scene's pictures. Walk in and

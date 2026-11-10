@@ -364,7 +364,7 @@ function itemBlocks(it, B, ed) {
       animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
     puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
-    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
+    B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info || (recording(it) && REC.floor) }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: rs })) });
     ftBlocks(it, B);   // (Fewer triangles and Change texture: e7d_lite.js, page and headset; under its place and size,
     ctBlocks(it, B);   // which a headset's card keeps in sight)
@@ -1204,6 +1204,7 @@ function tcSetup() {
     if (!it) return;
     const px = tc.object === TCP;
     if (px) { it.holder.position.copy(TCP.position); it.holder.quaternion.copy(TCP.quaternion); it.holder.scale.copy(TCP.scale); }
+    if (recording(it)) recFloor(REC);   // (recording with Stays on the floor: kept to it before its record is written; e6f_path.js)
     tcRead(it);
     if (px) tcProxy(it);   // (what tcRead made of it: a cube's yaw, an object's one size)
   });
@@ -1251,10 +1252,12 @@ function tcAttach() {
   // (locked in place: no arrows; recording a path: no Size)
   if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }
   const m = it.kind === 's' || ((it.kind === 'e' || recording(it)) && X.tcMode === 'scale') ? 'translate' : X.tcMode;
+  // (recording with Stays on the floor: only along the floor and about the vertical, so no up arrow and no tilting rings)
+  const fl = recording(it) && REC.floor;
   tc.setMode(m);
-  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' ? 'local' : 'world');
-  tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g') && m === 'rotate');
-  tc.showY = true;
+  tc.setSpace((it.kind === 'c' || it.kind === 'x' || it.kind === 'p') && m !== 'translate' && !fl ? 'local' : 'world');
+  tc.showX = tc.showZ = !((it.kind === 'c' || it.kind === 'g' || fl) && m === 'rotate');
+  tc.showY = !(fl && m === 'translate');
   // (its own holder, or its ghost's stand-in while it moves: e6h_ghost.js; never switched in the middle of a drag)
   const T = X.tcDrag && (tc.object === it.holder || (tc.object === TCP && TCP.userData.id === it.id)) ? tc.object : tcTarget(it);
   if (T === TCP) tcProxy(it);

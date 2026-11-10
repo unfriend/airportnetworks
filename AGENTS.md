@@ -4563,6 +4563,24 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     too), `STUDIO.pf(src)` and `SIMP.last` for tests. Untested: the microphone in a Quest session, how a voice sounds
     following a model there, a voice over 20 s through a real relay's `ffmpeg`, a streamed voice kept on the path's clock
     in Quest Browser (its element's seeking) and across real headsets, Safari's `MediaRecorder`.
+  - **Stays on the floor** (v130; the owner, 10 November 2026: "When animating an item have an option that keeps it
+    grounded, stuck to the floor with the side thats closest to the floor when starting"; `tools/studio/SPEC.md`, "Stays
+    on the floor"; `engine/e6f_path.js`: `FLOOR`, `recDown`, `recFloor`, `floorRows`). *Stays on the floor: on / off*
+    among the recorder's rows (an object's, a shape's, an empty's and a sound's card, page and headset; this device's own,
+    `studioRecFloor` in `localStorage`, off by default; a line under it says what it does). A recording begun with it on
+    sets an object or a shape down first, its lowest point on the floor (`y = 0` in the scene's frame, as *On the floor*
+    measures it: `objBox`, `shapeBox`), and that is where it begins (its ghost there) and the place written with its path;
+    then every frame, before it is sampled and drawn (`recFloor`, first in `recSample`, so after a headset's carry and its
+    sticks; on a page also as the arrows move it, before `tcRead`), its height stays and its turn keeps only its turn about
+    the vertical since it began (a swing-twist split about the scene's `y` axis: `q = twist q0`), so it slides along the
+    floor and turns about the vertical, the side that was lowest kept on the floor. An empty keeps its height and turns
+    only about the vertical; a sound keeps its height; an object whose model is not in yet keeps its height. On a page the
+    arrows lose their up arrow and tilting rings while it records so, and *Stand up* is refused and greyed. Its keys hold to
+    it (to a record's rounding), nothing new in the record (no `FORMAT` change); the loop join, simplifying, the voice, ten
+    minutes as a file and *Record again* work as before. Cancelled or refused, it goes back where it was before it was set
+    down (nothing to undo); kept, one change, one Undo step, as ever (one kept later by `recKeep` writes the set-down place
+    with its path). Untested on a headset: how carrying something that stays on the floor feels (the hand lifting it while
+    it slides below), recording so with real grips and sticks, how a grounded path plays back life size on a real floor.
 - **The ghost, Pause and placing what moves** (v122; the owner, 7 November 2026: "when selecting animations on the item
   motion tab they should also show on the item as a preview"; "to make placing easier add a pause motion button but i also
   want to be able to move moving/animated items to select their exact place"; `tools/studio/SPEC.md`, "The ghost, Pause
@@ -5358,7 +5376,17 @@ apart; 0.8 s of stillness cut)* and *Keep it as recorded* (the raw 3.233 s path,
 Undo step); one ending 40 cm away not joined (*Its end is 40 cm from its start, so it jumps back each loop...*, nothing to
 keep); a back-and-forth one recorded again neither cut nor bent and no line; a page's recording through the arrows (0.3
 m out and back to 2 cm, 10 frames still, Stop) its ghost lit and joined (*... (2 cm, 0° apart; 0.3 s of stillness
-cut)*, its last key its first's pose, 0.967 s, one Undo step); the state and `layout.json` carrying paths (an
+cut)*, its last key its first's pose, 0.967 s, one Undo step); Stays on the floor (v130): the page's row off by default
+and on once pressed (`studioRecFloor`), a pretend headset's recording of the box started 0.5 m up and tilted (asin 0.6
+about x and turned) with the hand lifting, tilting and turning it and the sticks pushing and turning: drawn on the floor
+and turned only about the vertical after every frame's carry, every key's turn within 0.05 degrees of a turn about the
+vertical and its lowest point within 1 mm of the floor (and drawn so by its path), its record set down on the floor with
+its turn and x and z as they were, one Undo step, Undo putting it back up; an empty and a sound lifted and tilted keeping
+their height; a page's recording of the shape with the Turn arrows tilting it as they turn it (no tilting rings, the
+scene's frame, the tilt dropped from its record and holder), *Stand up* refused, the Move arrows with no up arrow and a
+lift dropped, its keys on the floor and turned 0.9 rad about the vertical, one Undo step; Record then Cancel leaving the
+raised box as it was with nothing to undo; the headset card's row pressed off and on; kept across a reload (the page
+loaded again, the row on, then turned off); the state and `layout.json` carrying paths (an
 object's, a shape's, an empty's, a sound's) and giving them back, `norm`'s rules (2 to 600 keys, the first at 0, strictly
 later, at most 120 s, 8 finite numbers a key, a turn of length 0, play, start and speed, a cube's and a cut-out's
 ignored, a following sound's kept and not played), a layout and a state from the room past 6,000 keys, and a GLB switch

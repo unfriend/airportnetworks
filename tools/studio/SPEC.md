@@ -1614,6 +1614,41 @@ and the next). `engine/e6j_voice.js`, with its hooks in `engine/e6f_path.js`.
   a streamed voice is tested with the test scene's 25 s WAV), a streamed voice kept on the path's clock in Quest Browser
   and across real headsets, Safari's `MediaRecorder` (MP4).
 
+### Stays on the floor (the owner, 10 November 2026)
+
+The owner: "When animating an item have an option that keeps it grounded, stuck to the floor with the side thats closest
+to the floor when starting". `engine/e6f_path.js` (`FLOOR`, `recDown`, `recFloor`, `floorRows`).
+
+- **The switch**: *Stays on the floor: on / off*, a row among the recorder's rows on the card of an object, a shape, an
+  empty and a sound (page and headset; not on a sound that follows something), this device's own (`studioRecFloor` in
+  `localStorage`, `'1'` on, off by default), never in a record, `state()` or `layout.json`. A line under it says what it
+  does for that kind. It applies to recordings begun from then on (`REC.floor`).
+- **As it begins** (`recBegin`): an object or a shape is set down so its lowest point is on the floor, `y = 0` in the
+  scene's frame, measured as *On the floor* measures it (`objBox`, `shapeBox` with its record), its place rounded to the
+  mm; that set-down place is where it begins (its ghost stands there) and the place written with its path. On a page its
+  record moves there at once (inside the recording's one change); in a headset only its holder does (a carry writes nothing
+  until it is let go). An empty, a sound and an object whose model is not in yet are not moved: they keep their height.
+- **Every frame while it records** (`recFloor`, first in `recSample`, so after a headset's carry and its sticks and before
+  the frame is drawn; on a page also as the arrows move it, before their change is written, `tcRead`): its height stays
+  where it began, and its turn keeps only its turn about the vertical since it began: `d = q q0^-1` (the scene's frame,
+  `q0` made unit), split into a twist about the scene's `y` axis and a swing; only the twist is kept (`d`'s `y` and `w`
+  parts, made unit; a half turn about a level axis has none), so `q = twist q0`. A turn about the vertical moves no point
+  up or down, so the side that was lowest stays on the floor while it slides anywhere along it. A sound only keeps its
+  height. Lifting, tilting or pushing it up, by the hand, the sticks, the page's arrows or its card's buttons, is dropped;
+  what is drawn is what is sampled.
+- **The page's arrows** while it records on the floor (`tcAttach`): Move without its up arrow (and the planes that hold
+  it), Turn with the vertical ring only and in the scene's frame; *Stand up* is refused and greyed (`recStops`).
+- **The path**: its keys hold to it (each key's turn is `q0^-1 twist q0` and its place has no part up or down in the scene's
+  frame, to the rounding of a record: 1 mm, 4 decimals); nothing new in the record, no `FORMAT` change. The loop join keeps
+  to it (its bend moves along the floor and turns about the vertical), and so do simplifying, the voice, a recording kept
+  as a file and *Record again*.
+- **Its end** (`recEnd`): kept here and now, its record takes the set-down place with its path (one change, one Undo step,
+  as ever). Cancelled or refused, it goes back where it was before it was set down (the change empty, nothing to undo).
+  One kept later (a file, a voice: `recKeep`, `e6j_voice.js`) leaves it where it was meanwhile, and its later change writes
+  the set-down place with the path (still one Undo step).
+- **Untested on a headset**: how it feels to carry something that stays on the floor (the hand lifting it while it slides
+  below), recording with real grips and sticks so, how a grounded path plays back life size on a real floor.
+
 ## The ghost, Pause and placing what moves (the owner, 7 November 2026)
 
 The owner, after v121: "when selecting animations on the item motion tab they should also show on the item as a
@@ -2113,6 +2148,8 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
   in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
   "Testing" in `AGENTS.md`.
+- Stays on the floor (v130): the smoke test's *studio paths* step of that name (`--only 'studio paths'`): "Testing" in
+  `AGENTS.md`.
 - Ten minutes as a file and a voice with the movement (v125): the smoke test's *studio recorder* steps (a relay of its own
   on a copy of the test scene, Chromium's fake microphone; `--only 'studio recorder'`), relay/test.mjs's `recordings:` and
   R2 steps and `tools/collab.mjs --studio`'s step for a ten-minute recording and a voice: "Testing" in `AGENTS.md`.
