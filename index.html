@@ -2276,7 +2276,7 @@ HOST.loading = (() => {
       if (!fn || fn === loop) return fn;
       if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
-      if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js: announced again, before the story's frame)
+      if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
@@ -2300,50 +2300,202 @@ HOST.progress = (done, total, label) => HOST.loading.progress(done, total, label
 // long the function took (the frame's code: scripts and handing the drawing to the GPU, not the GPU's own time). Each
 // second's means, as stats() ({ tri, calls, js: ms, n: frames, at }); the loading scene's frames are never counted
 // Controllers after standby (v124; the owner, 8 November 2026: "sometimes after sleep the controllers cannot click on
-// buttons and one has to open the quest menu and close it again and then they work"). three.js r128 moves its controllers
-// every frame by index from session.inputSources, but hands a select or squeeze to a controller only through a map it
-// fills on inputsourceschange: a source the browser replaces without that event (as a Quest may after waking) keeps its
-// ray and loses its presses until the next real event (opening and closing the system menu sends one). So each frame of
-// a headset session the sources are compared with those last seen with the event, and from the session going hidden
-// until a minute after it is visible again (a sleep, the headset taken off) a change nobody announced is announced to
-// three.js by a synthetic inputsourceschange (what went and what came, or nothing but the new order): its handler maps
-// every source to its controller again, and the stories hear 'disconnected' and 'connected' as for a real one. Outside
-// that window it only watches (a pretend headset in the tests swaps its sources by hand). Logged (inputs replaced), so
-// the headsets' logs say whether it happens.
+// buttons and one has to open the quest menu and close it again and then they work"; again, 10 November 2026: "Sometimes
+// the right controller cannot click after standby and only going quest menu and back lets it click again"). Two ways a
+// controller's presses can stop reaching the stories, both mended here, each frame of a headset session before the
+// story's frame (HOST.loading.wrap, outermost):
+// - Replaced without a word. three.js r128 moves its controllers every frame by index from session.inputSources, but
+//   hands a select or squeeze to a controller only through a map it fills on inputsourceschange: a source the browser
+//   replaces without that event (as a Quest may after waking) keeps its ray and loses its presses until the next real
+//   event (opening and closing the system menu sends one). So the sources are compared with those last seen with the
+//   event, and a change nobody announced is announced to three.js by a synthetic inputsourceschange (what went and what
+//   came, or nothing but the new order): its handler maps every source to its controller again, and the stories hear
+//   'disconnected' and 'connected' as for a real one. v124 did so only from the session going hidden until a minute after
+//   it was visible again, because the tests' pretend headsets swapped their sources by hand; but a controller sleeps and
+//   wakes on its own (the right one picked up minutes later), so since v130 it is any time of the session, once the
+//   change has stood a whole frame unannounced (a browser that fires its own event after the frame's callbacks gets that
+//   frame). Logged (inputs replaced).
+// - Pressed and not heard (v130). A tracked controller (a gamepad, not a hand) whose trigger (buttons[0]) or grip
+//   (buttons[1]) goes down with no selectstart (squeezestart) from the session for it within G.ms is a missed press:
+//   logged with what may explain it (press missed: the hand, whether the source came by a real event, one announced here
+//   or the session's start, seconds since waking, the session's visibility, its profiles, whether three.js maps it, the
+//   real presses seen for a source three.js does not map), and that source is armed: its presses are then turned into a
+//   synthetic selectstart as it goes down and select and selectend as it comes up (plain events with inputSource and
+//   frame, as three.js reads them, marked synthetic), which reach the story's controller as a real press does, and
+//   through it the shell's menu (the story's press on a 'shell' hover is HOST.collab.press); the shell's own session
+//   listeners hear them too. The first real selectstart from it disarms it (press back). Never two clicks for one press
+//   (the owner would rather lose one): a real selectstart that comes while a synthetic press is under way is stopped
+//   before three.js hears it, and the session's own end of that press ends it in place of a synthetic one; and once a
+//   synthetic end was given, that press's own events coming late (within G.late: a select or selectend with no real
+//   press open, or a selectstart while the button is up, and then its select and selectend) are stopped too. That is why
+//   the guard's listeners are added as HOST.session is set (HOST.xr.watch, wrapped below), which every story does before
+//   it hands the session to three.js: at a session (not a node) listeners run in the order they were added, capture or
+//   not, so these run first. A real press whose source three.js does not map reaches no controller, so it does not count
+//   as heard. Only while the session is visible; tracked hands untouched. The sound's unlock hears a synthetic select
+//   too, but goes by navigator.userActivation, which a synthetic event never sets
 HOST.inputsGuard = (function () {
-  const G = { s: null, seen: [], fixes: 0, hidden: false, visAt: 0, win: 60000 };
+  const KIND = [['select', 0, 'selectstart', 'select', 'selectend'], ['squeeze', 1, 'squeezestart', 'squeeze', 'squeezeend']];
+  const G = { s: null, seen: [], pend: null, known: new Set(), src: new Map(), watched: new WeakSet(), frames: 0, fixes: 0, hidden: false, visAt: 0, missed: 0, synth: 0, stray: 0, strayAt: 0, ms: 300, late: 250, stopped: 0 };
   const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-  const armed = () => G.hidden || (G.visAt > 0 && performance.now() - G.visAt < G.win);
-  function step() {
-    const s = HOST.session;
-    if (!s) { G.s = null; G.seen = []; G.hidden = false; G.visAt = 0; return; }
-    let now;
-    try { now = Array.from(s.inputSources || []); } catch (e) { return; }
-    if (s !== G.s) {
-      G.s = s; G.seen = now; G.hidden = false; G.visAt = 0;
-      s.addEventListener('inputsourceschange', e => { if (!e.synthetic && G.s === s) try { G.seen = Array.from(s.inputSources || []); } catch (er) { /* gone */ } });
+  const log = (ev, o) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, o); } catch (e) { /* no log */ } };
+  const pad = x => !!(x && !x.hand && x.targetRayMode === 'tracked-pointer' && x.gamepad && x.gamepad.buttons);
+  const ago = t => (t ? Math.round((performance.now() - t) / 100) / 10 : null);
+  const held = (x, i) => { try { const b = x.gamepad.buttons[KIND[i][1]]; return !!(b && b.pressed); } catch (e) { return false; } };
+  // each tracked controller's two buttons: down as last seen, when it went down (at), the two samples before (t1, t2) and
+  // the one an event must come after to be this press's (edge), when the session last said it went down (ev), waiting to
+  // hear of it (wait), armed, a synthetic press under way (syn: 1 ours to end, 2 ended by the session's own), presses
+  // given since it was armed (n), when a synthetic end was given (late), a real press open at three.js (real: its start
+  // passed, or stopped for ours), a late press being stopped (swal: its start stopped, its end to come)
+  function stateOf(x, born) {
+    let S = G.src.get(x);
+    if (!S) G.src.set(x, S = { born, k: KIND.map(() => ({ down: false, at: 0, t1: 0, t2: 0, edge: 0, ev: 0, wait: false, armed: false, syn: 0, n: 0, late: 0, real: false, swal: false })) });
+    return S;
+  }
+  // a real event's source as tracked here: the very source, or one three.js still maps (an older object of the same
+  // controller) standing for the source of that hand in the list now; null for one three.js does not map (it reaches nobody)
+  function heardFor(s, x) {
+    if (!x || !G.known.has(x)) return null;
+    if (G.src.has(x)) return G.src.get(x);
+    let y = null;
+    try { y = Array.from(s.inputSources || []).find(z => pad(z) && z.handedness === x.handedness); } catch (e) { /* gone */ }
+    return y ? stateOf(y, 'event') : null;
+  }
+  function fire(s, type, x, f) {
+    const e = new Event(type);
+    try { Object.defineProperties(e, { inputSource: { value: x }, frame: { value: f }, synthetic: { value: true } }); s.dispatchEvent(e); return true; }
+    catch (er) { console.warn('a press given again:', er); return false; }
+  }
+  function disarm(x, S, i, why) {
+    const K = S.k[i];
+    if (!K.armed) return;
+    K.armed = false;
+    log('press back', { hand: x.handedness || '', kind: KIND[i][0], given: K.n, why });
+    K.n = 0;
+  }
+  // a session (as HOST.session is set, or else at its first frame): its listeners, before three.js's
+  function begin(s) {
+    if (G.s === s) return;
+    let now = [];
+    try { now = Array.from(s.inputSources || []); } catch (e) { /* gone */ }
+    Object.assign(G, { s, seen: now, pend: null, hidden: false, visAt: 0, frames: 0, known: new Set(now) });
+    G.src.clear();
+    for (const x of now) stateOf(x, 'start');
+    if (!G.watched.has(s)) { G.watched.add(s); listen(s); }
+  }
+  function listen(s) {
+    const q = HOST.quiet;
+    HOST.quiet = true;   // (the shell's own: a story change must not take them)
+    try {
+      s.addEventListener('inputsourceschange', e => {
+        if (G.s !== s) return;
+        let now = [];
+        try { now = Array.from(s.inputSources || []); } catch (er) { /* gone */ }
+        for (const x of now) G.known.add(x);   // (three.js's handler, after this one, maps them all)
+        for (const x of (e && e.removed) || []) { G.known.delete(x); G.src.delete(x); }
+        if (e && e.synthetic) return;
+        G.seen = now; G.pend = null;
+        for (const x of (e && e.added) || []) stateOf(x, 'event');
+      });
       s.addEventListener('visibilitychange', () => {
         if (G.s !== s) return;
         if (s.visibilityState === 'hidden') G.hidden = true;
         else if (s.visibilityState === 'visible' && G.hidden) { G.hidden = false; G.visAt = performance.now(); }
       });
-      return;
-    }
-    if (same(now, G.seen)) return;
+      // the session's own presses (added before three.js's and the shell's, so heard first)
+      for (const [, i, start, mid, end] of KIND) {
+        for (const type of [start, mid, end]) s.addEventListener(type, e => {
+          if (!e || e.synthetic || G.s !== s) return;
+          const S = heardFor(s, e.inputSource), x = e.inputSource;
+          if (!S) {
+            if (x && type === start && G.frames) {   // (once its frames come through the guard: a pretend session in the tests has none)
+              G.stray++;
+              if (performance.now() - G.strayAt > 5000) { G.strayAt = performance.now(); log('press for an unknown source', { hand: x.handedness || '', kind: KIND[i][0], n: G.stray }); }
+            }
+            return;
+          }
+          const K = S.k[i], t = performance.now(), stop = () => { G.stopped++; if (e.stopImmediatePropagation) e.stopImmediatePropagation(); };
+          // (a press given and ended here already whose own events come only now: no real press open at three.js, and a
+          // synthetic end given within G.late or its late start stopped)
+          const late = !K.syn && !K.real && (K.swal || (K.late && t - K.late < G.late));
+          if (type === start) {
+            K.ev = t;
+            if (K.syn === 1) { K.syn = 2; K.real = true; stop(); }   // (that press was given already: not twice)
+            else if (late && !held(x, i)) { K.swal = true; stop(); }   // (that press given and ended already: its start late)
+            else { K.real = true; K.swal = false; }
+            disarm(x, S, i, 'heard');
+          } else {
+            if (K.syn === 1) { K.syn = 2; disarm(x, S, i, 'heard'); }   // (the session ends that press: ours is not sent)
+            else if (late) stop();   // (its end given already: not twice)
+            if (type === end) { if (late) K.late = 0; K.real = false; K.swal = false; }
+          }
+        }, true);
+      }
+    } finally { HOST.quiet = q; }
+  }
+  function announce(s, now) {
     const added = now.filter(x => !G.seen.includes(x)), removed = G.seen.filter(x => !now.includes(x));
-    G.seen = now;
-    if (!armed()) return;
+    G.seen = now; G.pend = null;
     G.fixes++;
+    for (const x of added) stateOf(x).born = 'announced';
     let e;
     try { e = new XRInputSourcesChangeEvent('inputsourceschange', { session: s, added, removed }); } catch (er) { e = new Event('inputsourceschange'); e.added = added; e.removed = removed; e.session = s; }
     try { Object.defineProperty(e, 'synthetic', { value: true }); } catch (er) { /* frozen */ }
-    try { if (HOST.collab && HOST.collab.log) HOST.collab.log('inputs replaced', { added: added.length, removed: removed.length, n: now.length, vis: s.visibilityState }); } catch (er) { /* no log */ }
+    log('inputs replaced', { added: added.length, removed: removed.length, n: now.length, vis: s.visibilityState, woke: ago(G.visAt) });
     try { s.dispatchEvent(e); } catch (er) { console.warn('announcing the controllers again:', er); }
   }
+  function step(f) {
+    const s = HOST.session;
+    if (!s) { if (G.s) { Object.assign(G, { s: null, seen: [], pend: null, hidden: false, visAt: 0 }); G.known.clear(); G.src.clear(); } return; }
+    let now;
+    try { now = Array.from(s.inputSources || []); } catch (e) { return; }
+    if (s !== G.s) { begin(s); return; }
+    G.frames++;
+    if (!same(now, G.seen)) {
+      if (G.pend && same(now, G.pend)) announce(s, now);
+      else G.pend = now;
+    } else G.pend = null;
+    const t = performance.now(), vis = s.visibilityState === 'visible';
+    for (const x of now) {
+      if (!pad(x)) continue;
+      const S = stateOf(x, 'event'), b = x.gamepad.buttons;
+      for (let i = 0; i < KIND.length; i++) {
+        const K = S.k[i], bt = b[KIND[i][1]], down = !!(bt && bt.pressed);
+        if (down && !K.down && vis) {
+          // (the session's own event comes with the press, or up to a frame before the gamepad shows it down)
+          K.at = t; K.edge = K.t2 || K.t1;
+          const heard = K.ev > K.edge;
+          if (K.armed && !heard && G.known.has(x)) { if (fire(s, KIND[i][2], x, f)) { K.syn = 1; K.real = false; K.n++; G.synth++; } }
+          else if (!K.armed && !heard) K.wait = true;
+        } else if (!down && K.down && K.syn) {
+          if (K.syn === 1) { fire(s, KIND[i][3], x, f); fire(s, KIND[i][4], x, f); K.late = t; }
+          K.syn = 0;
+        }
+        if (K.wait) {
+          if (!vis || K.ev > K.edge) K.wait = false;
+          else if (t - K.at >= G.ms) {
+            K.wait = false; K.armed = true; G.missed++;
+            let pr = '';
+            try { pr = Array.from(x.profiles || []).slice(0, 3).join(' '); } catch (e) { /* none */ }
+            log('press missed', { hand: x.handedness || '', kind: KIND[i][0], came: S.born, woke: ago(G.visAt), vis: s.visibilityState, profiles: pr,
+              mapped: G.known.has(x), stray: G.stray, heard: ago(K.ev), n: now.length });
+          }
+        }
+        K.down = down; K.t2 = K.t1; K.t1 = t;
+      }
+    }
+  }
+  // (HOST.session's setter calls HOST.xr.watch: a session's listeners here before the story hands it to three.js)
+  const watch0 = HOST.xr.watch;
+  HOST.xr.watch = function (v) { if (v) try { begin(v); } catch (e) { /* never in the way */ } return watch0.apply(this, arguments); };
   return {
-    wrap(fn) { return function (t, f) { if (f) try { step(); } catch (e) { /* never in the story's way */ } return fn(t, f); }; },
-    state: () => ({ fixes: G.fixes, seen: G.seen.length, armed: armed() }),
-    win(ms) { if (ms > 0) G.win = ms; return G.win; },
+    wrap(fn) { return function (t, f) { if (f) try { step(f); } catch (e) { /* never in the story's way */ } return fn(t, f); }; },
+    // for tests: what it did and what is armed now ('right select'); waking moved back (ms ago); how long a press may go
+    // unheard; how long after a given end its own events count as late
+    state: () => ({ fixes: G.fixes, seen: G.seen.length, missed: G.missed, synth: G.synth, stray: G.stray, stopped: G.stopped, woke: G.visAt ? Math.round(performance.now() - G.visAt) : null,
+      armed: [...G.src].flatMap(([x, S]) => S.k.map((K, i) => (K.armed ? (x.handedness || '') + ' ' + KIND[i][0] : '')).filter(Boolean)) }),
+    wokeAgo(ms) { if (G.visAt && ms >= 0) G.visAt = performance.now() - ms; return G.visAt; },
+    missMs(ms) { if (ms > 0) G.ms = ms; return G.ms; },
+    lateMs(ms) { if (ms > 0) G.late = ms; return G.late; },
   };
 })();
 

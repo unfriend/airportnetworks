@@ -3116,6 +3116,7 @@
       a.setXYZ(0, 0, mk[0], 0); a.setXYZ(1, mk[1], mk[2], 0); a.needsUpdate = true;
       OV.markLine.geometry.computeBoundingSphere();
     }
+    eyeSpots(eye && OV.marks.visible, t);   // (asked by eye: the crosses lit, a beam and a letter over each)
     for (let i = 0; i < 2; i++) {
       const h = C.rays.get(i), A = OV.aims[i];
       A.visible = !!(tipMode() && h && C.frameN - h.n <= 2);
@@ -4779,7 +4780,7 @@
   }
   function drawEye() {
     const S = OV.eye, show = eyeShown();
-    if (!show) { if (S.mesh.visible) { S.mesh.visible = false; S.regions = []; S.sig = ''; } EYEQ.placed = false; return; }
+    if (!show) { if (S.mesh.visible) { S.mesh.visible = false; S.regions = []; S.sig = ''; } EYEQ.placed = false; eyeArrows(false); return; }
     const sig = [EYEQ.why, S.hover].join('|');
     if (sig !== S.sig) {
       S.sig = sig;
@@ -4789,11 +4790,11 @@
       rr(ctx, 3, 3, W - 6, S.h - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = AMBER; ctx.stroke();
       ctx.font = FONT(22, 700); ctx.fillStyle = AMBER; ctx.fillText('CHECK BY EYE', 30, 26);
       ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, 'Are both crosses on your spots?', W - 60), 30, 58);
-      ctx.font = FONT(22); ctx.fillStyle = MUTED;
-      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' The orange crosses show where this headset puts spot A and spot B on the floor.', 30, 110, W - 60, 29, 2);
+      ctx.font = FONT(20); ctx.fillStyle = MUTED;
+      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' Follow the arrows to the two orange crosses: where this headset puts spot A and spot B on the floor.', 30, 106, W - 60, 24, 3);
       const bw = (W - 60 - 16) / 2;
-      button(S, 'eye:yes', 30, 180, bw, 76, 'Yes', eyeYes, { primary: true, px: 30, tog: null });
-      button(S, 'eye:no', 30 + bw + 16, 180, bw, 76, 'No, calibrate again', eyeNo, { px: 26, tog: null });
+      button(S, 'eye:yes', 30, 186, bw, 72, 'Yes', eyeYes, { primary: true, px: 30, tog: null });
+      button(S, 'eye:no', 30 + bw + 16, 186, bw, 72, 'No, calibrate again', eyeNo, { px: 26, tog: null });
       S.tex.needsUpdate = true;
     }
     // put there as it shows, a little nearer than the circles' question and at eye height (the spots are lower down: on
@@ -4811,6 +4812,120 @@
       if (!EYEQ.chimed) { EYEQ.chimed = true; sfx('notice', S.mesh.position); log('eye shown', { why: EYEQ.why }); }   // (once a question, not again as it moves back in front)
     }
     S.mesh.visible = EYEQ.placed;
+    eyeArrows(EYEQ.placed && HD.ok);
+  }
+  // Where the crosses are (v130; the owner, 10 November 2026: "When asking people if they are aligned with the crosses,
+  // highlight the crosses and add some arrow or something that points towards where it believes they are so that they see
+  // better where they should be"). Only while the question shows: each cross lit (larger, brighter, a slow pulse), a thin
+  // beam of light EH.beam m straight up from it and its letter over the beam (drawMarks: in the room, over everything, as
+  // the crosses are), and under the question an arrow per spot pointing at its cross from where the arrow floats, its
+  // letter and distance along the floor under it (A 2.3 m); a cross behind you gets a U-turn arrow, the way to turn round
+  // (and behind you in its words). Built once (eyeHintBuild); each frame only places them (a label is drawn again when its
+  // words change); hidden as the question goes
+  const EH = { built: false, lit: false, beam: 1.2, spots: [], arrows: [], g: null, col: new THREE.Color(), b: new THREE.Vector3(), d: new THREE.Vector3() };
+  const EH_LIT = 0xfff2c4, _ehLit = new THREE.Color(EH_LIT);
+  function ehTex(w, h, draw) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); return new THREE.CanvasTexture(cv); }
+  function eyeHintBuild() {
+    if (EH.built || !OV.marks) return;
+    EH.built = true;
+    const over = o => { o.renderOrder = 53; return o; };   // (as the crosses: over the scene, under the menu and the sheets)
+    // the beam fades upwards (a cylinder's texture runs from its foot, v 0, to its top, v 1; a canvas's top row is v 1)
+    const fade = ehTex(4, 64, (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,1)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); });
+    const mat = o => new THREE.MeshBasicMaterial(Object.assign({ map: fade, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }, o));   // (not added light: over passthrough, cleared to nothing, that hardly shows)
+    for (const k of ['A', 'B']) {
+      const g = new THREE.Group(); g.visible = false;
+      const core = over(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, EH.beam, 8, 1, true).translate(0, EH.beam / 2, 0), mat({ color: EH_LIT })));
+      const glow = over(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, EH.beam, 12, 1, true).translate(0, EH.beam / 2, 0), mat({ color: MARK, opacity: 0.3 })));
+      const letter = over(new THREE.Sprite(new THREE.SpriteMaterial({ map: ehTex(128, 128, (ctx, w) => {
+        ctx.beginPath(); ctx.arc(w / 2, w / 2, w / 2 - 6, 0, Math.PI * 2); ctx.fillStyle = '#ffb43b'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff2c4'; ctx.stroke();
+        ctx.font = FONT(84, 700); ctx.fillStyle = '#10182a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(k, w / 2, w / 2 + 4);
+      }), transparent: true, depthTest: false, depthWrite: false })));
+      letter.scale.set(0.16, 0.16, 1); letter.position.y = EH.beam + 0.1;
+      g.add(glow, core, letter);
+      OV.marks.add(g);
+      EH.spots.push({ k, g, core, glow, letter, cross: k === 'A' ? OV.crossA : OV.crossB });
+    }
+    // the arrows (in the scene, as the question is): straight, along +z, and a U-turn in the plane facing you (going up on
+    // the right, over and down on the left: turn left; mirrored, turn right)
+    EH.g = new THREE.Group(); EH.g.visible = false; OV.root.add(EH.g);
+    const am = new THREE.MeshBasicMaterial({ color: 0xffc65a, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const top = o => { o.renderOrder = 55; return o; };
+    for (const k of ['A', 'B']) {
+      const g = new THREE.Group(), dir = new THREE.Group(), round = new THREE.Group();
+      dir.add(top(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.07, 10).rotateX(Math.PI / 2).translate(0, 0, -0.02), am)),
+        top(new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.045, 14).rotateX(Math.PI / 2).translate(0, 0, 0.0375), am)));
+      round.add(top(new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.007, 6, 24, Math.PI), am)),
+        top(new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 14).rotateZ(Math.PI).translate(-0.035, -0.015, 0), am)));
+      const label = sheet(380, 84, 0.18, 55);
+      g.add(dir, round, label.mesh);
+      EH.g.add(g);
+      EH.arrows.push({ k, g, dir, round, label, text: '', behind: false, side: 0, d: 0, x: 0 });
+    }
+  }
+  // the crosses lit, a beam and a letter on each (on), or as they were (from drawMarks: the crosses placed this frame)
+  function eyeSpots(on, t) {
+    if (on) eyeHintBuild();
+    if (!EH.built) return;
+    if (!on) {
+      if (EH.lit) { EH.lit = false; for (const o of EH.spots) { o.g.visible = false; o.cross.scale.setScalar(1); o.cross.children[0].material.color.setHex(MARK); } }
+      return;
+    }
+    EH.lit = true;
+    const k = 0.5 + 0.5 * Math.sin(t / 1600 * 2 * Math.PI);   // (a slow pulse: 1.6 s)
+    EH.col.setHex(MARK).lerp(_ehLit, 0.3 + 0.45 * k);
+    for (const o of EH.spots) {
+      o.g.visible = true; o.g.position.copy(o.cross.position);
+      o.cross.scale.setScalar(1.6 + 0.35 * k); o.cross.children[0].material.color.copy(EH.col);
+      o.core.material.opacity = 0.75 + 0.25 * k; o.glow.material.opacity = 0.2 + 0.15 * k;
+    }
+  }
+  // the arrows under the question (on), or none
+  function eyeArrows(on) {
+    if (!EH.g) return;
+    EH.g.visible = !!(on && OV.marks.visible && EH.lit);
+    if (!EH.g.visible) return;
+    const S = OV.eye, fw = EH.d.set(0, 0, -1).applyQuaternion(HD.q);
+    const hy = Math.atan2(-fw.x, -fw.z);
+    for (const a of EH.arrows) {
+      const c = (a.k === 'A' ? OV.crossA : OV.crossB).position;
+      a.c = (a.c || new THREE.Vector3()).copy(c).applyMatrix4(OV.room.matrix);   // (the cross in the scene)
+      const dx = a.c.x - HD.p.x, dz = a.c.z - HD.p.z;
+      a.d = Math.hypot(dx, dz);
+      let rel = Math.atan2(-dx, -dz) - hy;   // (where it lies from the way you face: left is positive)
+      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+      a.behind = Math.abs(rel) > (a.behind ? 1.66 : 1.92);   // (behind you past 110 degrees, in front again within 95)
+      a.side = rel > 0 ? 1 : -1; a.x = rel;
+    }
+    // the one further to the left on the left, so the two never cross
+    const [L, R] = EH.arrows[0].x >= EH.arrows[1].x ? EH.arrows : [EH.arrows[1], EH.arrows[0]];
+    for (const [a, sx] of [[L, -0.1], [R, 0.1]]) {
+      a.g.position.set(sx, -0.155, 0).applyQuaternion(S.mesh.quaternion).add(S.mesh.position);
+      a.g.quaternion.identity();
+      a.dir.visible = !a.behind; a.round.visible = a.behind;
+      if (a.behind) { a.round.quaternion.copy(S.mesh.quaternion); a.round.scale.set(a.side > 0 ? 1 : -1, 1, 1); }
+      else a.dir.quaternion.setFromUnitVectors(_Z, EH.b.copy(a.c).sub(a.g.position).normalize());
+      a.label.mesh.position.set(0, -0.095, 0).applyQuaternion(S.mesh.quaternion); a.label.mesh.quaternion.copy(S.mesh.quaternion);
+      const text = a.k + ' ' + (a.d < 0.3 ? 'here' : a.d.toFixed(1) + ' m') + (a.behind ? ', behind you' : '');
+      if (text !== a.text) {
+        a.text = text;
+        const L2 = a.label, ctx = L2.ctx;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, L2.w, L2.h);
+        rr(ctx, 3, 3, L2.w - 6, L2.h - 6, 20); ctx.fillStyle = 'rgba(8,15,28,0.9)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = AMBER; ctx.stroke();
+        let px = 36;
+        do ctx.font = FONT(px, 700); while (ctx.measureText(text).width > L2.w - 30 && --px > 24);   // (smaller for a longer line: behind you)
+        ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, text, L2.w - 30), L2.w / 2, L2.h / 2 + 2);
+        L2.tex.needsUpdate = true;
+      }
+    }
+  }
+  // for tests: what shows now, in the story's scene (world) coordinates
+  function eyeHint() {
+    const w = o => o.getWorldPosition(new THREE.Vector3()).toArray(), on = !!(EH.built && EH.lit && OV.marks.visible);
+    return { on, arrowsOn: !!(EH.g && EH.g.visible), head: HD.p.toArray(),
+      spots: EH.spots.map(o => ({ k: o.k, vis: on && o.g.visible, cross: w(o.cross), foot: w(o.g), top: o.core.localToWorld(new THREE.Vector3(0, EH.beam, 0)).toArray(), letter: w(o.letter),
+        scale: o.cross.scale.x, col: o.cross.children[0].material.color.getHexString(), top0: !o.core.material.depthTest && !o.letter.material.depthTest })),
+      arrows: EH.arrows.map(a => ({ k: a.k, vis: !!(EH.g && EH.g.visible), at: w(a.g), d: a.dir.getWorldDirection(new THREE.Vector3()).toArray(), round: a.behind, side: a.side,
+        roundVis: a.round.visible, dirVis: a.dir.visible, text: a.text, dist: a.d })) };
   }
 
   // ------------------------------------------------------ getting around --
@@ -9343,6 +9458,7 @@
     // the check by eye (for tests): whether it asks, is on show, why, and when it is due; its two times (ms) to shorten
     eye: () => ({ ask: EYEQ.ask, shown: eyeShown(), why: EYEQ.why, due: EYEQ.due ? Math.round(EYEQ.due - performance.now()) : 0, can: eyeCan() }),
     eyeTimes: o => { if (o && o.quiet > 0) EYEQ.quiet = +o.quiet; if (o && o.most > 0) EYEQ.most = +o.most; return { quiet: EYEQ.quiet, most: EYEQ.most }; },
+    eyeHint,   // (the crosses lit, their beams and letters, and the arrows to them, while the check by eye asks)
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
     // the caption on show now ({ text, id }: '' none), the headsets' subtitles' words: the page's subtitles in focus mode

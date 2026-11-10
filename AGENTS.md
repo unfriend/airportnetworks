@@ -308,11 +308,45 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   moves its controllers every frame by index from `session.inputSources` but hands a select or squeeze to a controller
   only through a map it fills on `inputsourceschange`, so a source the browser replaces without that event keeps its ray
   and loses its presses. Each frame of a headset session (`HOST.loading.wrap`, outermost) the sources are compared with
-  those last seen with a real event; from the session going hidden until a minute after it is visible again (a sleep), a
-  change nobody announced is announced by a synthetic `inputsourceschange` (what
-  went, what came; `synthetic: true`), which three.js's handler maps afresh, the stories hearing `disconnected` and
-  `connected` as for a real one. Logged as `inputs replaced`. Whether this is what a Quest does after waking is untested:
-  the headsets' logs will say.
+  those last seen with a real event, and a change nobody announced is announced by a synthetic `inputsourceschange`
+  (what went, what came; `synthetic: true`), which three.js's handler maps afresh, the stories hearing `disconnected`
+  and `connected` as for a real one. Logged as `inputs replaced` (with seconds since waking, `woke`). Until v130 only
+  from the session going hidden until a minute after it was visible again (the tests' pretend headsets swapped their
+  sources by hand: nothing on a headset needed the window); since v130 (the owner, 10 November 2026: "Sometimes the
+  right controller cannot click after standby and only going quest menu and back lets it click again"; a controller
+  sleeps and wakes on its own, picked up minutes later) at any time of the session, once the change has stood a whole
+  frame unannounced (a browser that fires its own event after the frame's callbacks gets that frame).
+  - Pressed and not heard (v130). A tracked controller with a gamepad (never a tracked hand) whose trigger
+    (`buttons[0]`) or grip (`buttons[1]`) goes down while the session is visible, with no `selectstart` (`squeezestart`)
+    from the session for it from the frame before the gamepad shows it down until 300 ms after, is a missed press:
+    logged as `press missed` (`hand`, `kind` select or squeeze, `came`: how the source came, `'start'`, `'event'` or
+    `'announced'` here; `woke`: seconds since waking; `vis`; `profiles`; `mapped`: whether three.js maps it; `stray`:
+    real presses seen for a source three.js does not map, also logged as `press for an unknown source`; `heard`: seconds
+    since the session last said so), and that controller's button is armed: its presses are then given as synthetic
+    `selectstart` as it goes down and `select` and `selectend` as it comes up (`squeezestart`, `squeeze`, `squeezeend`
+    for the grip; plain events with `inputSource`, `frame` and `synthetic: true`, dispatched on the session within the
+    frame), which three.js hands to the story's controller as a real press, and through the story's press of a shell hit
+    to the shell's menu (`HOST.collab.press`); the shell's own session listeners hear them too. The first real
+    `selectstart` from it disarms it (`press back`, with how many were given). Never two clicks for one press (the owner
+    would rather lose one): a real `selectstart` arriving while a synthetic press is under way (a browser that fires it
+    after the frame's callbacks) is stopped by the guard before three.js or the shell hear it, and the session's own
+    `select` and `selectend` end that press in place of synthetic ones; and once a synthetic end was given, that press's
+    own events coming late (within 250 ms, `G.late`: a `select` or `selectend` with no real press open at three.js, or a
+    `selectstart` while the button is up, and then its `select` and `selectend`) are stopped too, while a real
+    `selectstart` with the button down again in that time is a press of its own. For that the guard's listeners are added as
+    `HOST.session` is set (it wraps `HOST.xr.watch`, which the setter calls), which every story does before it hands the
+    session to three.js: at a session, which is not a node, Chromium runs listeners in the order they were added,
+    capture or not (checked in headless Chromium 141). A real event for a source three.js does not map reaches no
+    controller, so it does not count as heard (a press it carried is missed, and the next given); counted as `stray` only
+    once the session's frames come through the guard. The sound's unlock hears a synthetic `select` too but goes by
+    `navigator.userActivation`, which no synthetic event sets. `HOST.inputsGuard.state()` (`{ fixes, seen, missed, synth, stray, stopped, woke, armed: ['right select'] }`),
+    `wokeAgo(ms)`, `missMs(ms)` and `lateMs(ms)` are for tests.
+  - Untested on a headset: whether a Quest replaces a controller without the event, or keeps it and stops passing its
+    presses on (the headsets' logs will say: `inputs replaced`, `press missed`, `press for an unknown source`), how the
+    trigger's `pressed` and Quest Browser's select line up there (Chromium takes its select from the same button state, as
+    far as we know; were they apart, a light press the browser does not take for a select would be logged as missed and
+    arm it, the next real press disarming it, and a light press while armed would be given as a click), and whether the
+    presses given that way work on a Quest.
 - Loading (29 October 2026, the owner: "some rooms like 'the future' take a little time to load"). A story builds in
   steps, each a task of its own (its `LOAD` queue, see "Inside a story"), and reports each with
   `HOST.progress(done, total, label)` (stories guard it, `if (HOST.progress)`, so an older shell still works). The
@@ -1685,7 +1719,7 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     cm or 2 degrees, or taken from another source, in `setFrame`, but not the session's first frame nor spots just touched
     by hand, `'marks'`; the room getting its spots, `GD.spots`), the orange crosses show where this headset puts spot A
     and spot B (`drawMarks` from `roomMk()`; since v119 the crosses are drawn over everything, `depthTest` off,
-    `renderOrder` 56, so neither the scene nor the room's own depth hides one a little under a table's surface) and a
+    `renderOrder` 53, so neither the scene nor the room's own depth hides one a little under a table's surface) and a
     small panel in front of you (720 x 290 px, 0.42 m wide, 0.85 m ahead along the floor and 2 cm above the eyes, turned
     to you, `renderOrder` 55, the ray's first target, put in front again once the head turns more than 0.9 rad from it or
     walks 1.6 m off; amber, *CHECK BY EYE*) asks *Are both crosses on your spots?*, with why (*A new session.*, *The
@@ -1700,10 +1734,23 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     calibrating or checking (`tipMode()`), re-aligning (`R.again`), the menu is open or the circles' question shows; a
     check that stands made since answers it; a room without spots drops it. Its opening by itself follows the guide's
     (`GD.auto`, `HOST.collab.autoGuide`). A headset elsewhere, in VR, in a room on this device or one without spots:
-    nothing. After waking, with it on its way, the old *Check the spots* notice is not shown. For tests:
-    `HOST.collab.eye()` (`{ ask, shown, why, due, can }`) and `eyeTimes({ quiet, most })`. How the crosses and the panel
-    read on a real Quest, whether the reasons come at the right moments there (a real wake's resets) and how often it
-    asks are untested.
+    nothing. After waking, with it on its way, the old *Check the spots* notice is not shown. Where the crosses are
+    (v130; the owner, 10 November 2026: "When asking people if they are aligned with the crosses, highlight the crosses
+    and add some arrow or something that points towards where it believes they are so that they see better where they
+    should be"; `EH`, `eyeHintBuild`, `eyeSpots` from `drawMarks`, `eyeArrows` from `drawEye`): only while the question
+    shows, each cross is lit (1.6 to 1.95 times its size and brighter, a slow pulse of 1.6 s), a thin beam of light 1.2 m
+    straight up from it (fading upwards) and its letter, *A* or *B* on an amber disc, over the beam, all in the room and
+    over everything as the crosses are (`renderOrder` 53); under the question an arrow per spot (the one further to your
+    left on the left), pointing at its cross from where the arrow floats, with its letter and its distance along the floor
+    from your head under it (*A 2.3 m*; *A here* within 0.3 m); a cross behind you (more than 110 degrees from where you
+    face, in front again within 95) gets a U-turn arrow to the side to turn to and *, behind you* in its words. The panel
+    says *Follow the arrows to the two orange crosses* (its words in three lines of 20 px, the buttons a little lower).
+    Built once, the first time the question shows; each frame only places them (a label is drawn again when its words
+    change); gone with the question, the crosses as they were. For tests: `HOST.collab.eye()` (`{ ask, shown, why, due,
+    can }`), `eyeTimes({ quiet, most })` and `eyeHint()` (the crosses, beams, letters and arrows in the story's scene).
+    How the crosses and the panel read on a real Quest, how the lit crosses, beams, letters and arrows read there (over a
+    real room, from across it), whether the reasons come at the right moments there (a real wake's resets) and how often
+    it asks are untested.
   - A check on its own (`selfCheck`, `CK.self` `'a'` or `'b'` while armed): *Check at A* arms it; the next trigger off
     the menu takes the controller's tip where it was held still (`steady`) in room coordinates and measures it against
     where this headset puts that spot (`roomMk()`); nothing is sent. The orange crosses hide while any check or a
@@ -5081,6 +5128,32 @@ the first ask: asked once, the browser's words as they were; a headset's user ag
 showing no button. Camera mode's request is checked in `node tools/collab.mjs --camera` (its root `#camera`, `dom-overlay` once, no
 phone button).
 
+Its *controllers after standby* steps (v130, `--only 'controllers after standby'`, a page of their own, a minute or two;
+`HOST.inputsGuard`, "Controllers after standby"): a pretend Quest's VR session through three.js r128's own WebXR path (a
+pretend `navigator.xr` and session, the airports story's own `xrStart`, frames driven by the test through the session's
+`requestAnimationFrame`, so the guard runs before the story's frame as on a headset), two Touch controllers with
+gamepads pointing at the floor, the session's events fired as a browser fires them (before the frame's callbacks) or
+not, and what reaches three.js's two controllers (the story's) and the session's listeners after the shell's recorded.
+The controllers the browser announces reaching the story; real presses of the trigger and the grip, and one whose event
+comes a frame before the gamepad shows it down, given once each, nothing missed, given or announced. Hidden and visible
+again, waking moved back two minutes (`wokeAgo`), the right controller replaced without an event: nothing the first
+frame, announced the next (`inputs replaced`, `woke` about 120 s; `disconnected` and `connected` at the story's
+controller, its source the new one), a real select on it reaching the story once; replaced again with the browser's own
+event a frame late: not announced again. A trigger press with no `selectstart`: `press missed` (right, select, its
+source came by an event, about 120 s after waking, visible, its profiles, mapped), armed, nothing at the story; its next
+press given once (`selectstart` as it goes down, `select` and `selectend` as it comes up, marked synthetic at the
+session); a given press with its ray on the menu's Subtitles row turning subtitles over once; a real press disarming it
+(`press back`, two given), that press once; armed again, the browser's `selectstart` coming after the frame that gave the
+press: stopped (the session's later listeners never hear it), the session's `select` and `selectend` ending it, the
+story getting one press and the menu's row turning over once, disarmed. The grip the same (`squeezestart`, `squeeze`,
+`squeezeend`). A given press's own events coming late (the window made 5 s, `lateMs`, as a frame drawn in software can
+take longer than 250 ms): the session's `select` and `selectend` after the frame that gave its end stopped (the
+session's later listeners never hear them), the story getting one press and the menu's row turning over once, still
+armed; its whole press late (`selectstart`, `select`, `selectend`, the trigger up) stopped too, disarming it; armed
+again, a real press with the trigger down again at once its own (two presses, the row back); with the window 250 ms
+again, a stray `select` and `selectend` 300 ms later reaching three.js as before. A tracked hand's button with no event: nothing; a trigger pressed while the session is `visible-blurred`
+and held as it is visible again: nothing missed or given.
+
 Its *trackers* steps (v126, `--only trackers`, a page of its own in a room on this device, a minute or two; "Vive
 trackers"): `@trk` fed through the shell's own intake (`HOST.collab.trkIn`) at relay times held (`trkTime`): a tracker
 going at 1 m/s and turning 90 degrees a second drawn 40 ms behind between its samples (to 1e-6 m and 1e-4 of its turn),
@@ -5689,8 +5762,12 @@ in the test): the first headset (the room's origin) calibrates on two from *Line
 *first*, the red check's reason above), which writes `rm` (`{ a: FLOOR_TIP, f: 1 }`) and a frame from the spots for the space, and the guide goes on
 to *Check* by itself; *Check at A* 3 cm off spot A: green, the flow done, the guide closed; the second, taking that frame
 through the shared space, asked by eye (v119: the orange crosses on the two spots within 2 cm, drawn over everything, the
-question 0.75 to 1 m in front, on top and the ray's first target, the guide shut), *Yes* standing as a check (by eye,
-the flow done, the laptop's list *checked by eye*); after a wake (hidden, then visible) asked again (why *wake*), *Yes*;
+question 0.75 to 1 m in front, on top and the ray's first target, the guide shut; v130: both crosses lit and larger, the
+foot of each beam and its letter over its cross within 2 cm, the beam 1.2 m tall, over everything, an arrow to each
+under the question, within 0.35 m of it, pointing at its cross within 5 degrees of the line from where the arrow floats,
+its words its letter and its distance along the floor from the head, *A 1.3 m*; the head turned round, spot A behind
+it: a U-turn to the left and *, behind you*), *Yes* standing as a check (by eye, the flow done, the laptop's list
+*checked by eye*; the crosses as they were, no beam, letter or arrow); after a wake (hidden, then visible) asked again (why *wake*), *Yes*;
 after a floor reset asked again (why *reset*), *No* opening *Line up* (case *room*, why in red, not lined up: the
 laptop's list *not lined up (its crosses off the spots, by eye)*), skipped; entering again the startup flow asks by eye
 (flow *eye*, why *start*, the guide shut) instead of opening at *Check*; *No*, *Next*, *Check at A* 3 cm off:
@@ -5714,7 +5791,8 @@ two table corners 1.2 m apart, set as its calibration with anchors at the corner
 room's floor is other spots), *f* absent, nothing written to `rm`; an older device's `rm` for those corners (`a` 0.76,
 no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
-space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
+space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet; v130: the scene from the head with the
+arrows and a lit cross, `guide-16b-eye-arrows.png`, and turned round, `guide-16c-eye-behind.png`), *No* to it (`guide-17-eye-no.png`),
 calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), places (`placesRound`,
 v130, after the guide round in the main run; `--places` runs only it, rooms of their own, eight or nine minutes: two pages each
 start a room, X and Y, and a pretend AR headset with saved anchors, a handle taken out of the map standing for an anchor

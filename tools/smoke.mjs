@@ -9607,6 +9607,254 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
     await ctx.close();
   });
 }
+// Controllers after standby (v130, HOST.inputsGuard in index.html; the owner, 10 November 2026: "Sometimes the right
+// controller cannot click after standby and only going quest menu and back lets it click again"). A pretend Quest's VR
+// session through three.js r128's own WebXR path (the airports story's own xrStart; its frames driven by the test through
+// the session's requestAnimationFrame, so the shell's guard runs before the story's frame as on a headset): two Touch
+// controllers with gamepads, whose presses the session announces as a browser does (selectstart before the frame's
+// callbacks; select and selectend as it comes up), or does not. What reaches three.js's controllers (the story's) and the
+// session's listeners after the shell's is recorded
+function CTRL_FAKE() {
+  try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('arInvite', 'shown'); } catch (e) { /* storage blocked */ }
+  const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
+  const F = window.__ctl = { session: null, got: [], sess: [] };
+  const pose = (m, q) => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } });
+  const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
+  class Session extends EventTarget {
+    constructor(mode, feats) {
+      super(); this.mode = mode; this.renderState = { depthNear: 0.1, depthFar: 1000, baseLayer: null }; this.inputSources = []; this.visibilityState = 'visible';
+      this.environmentBlendMode = 'opaque'; this.enabledFeatures = feats; this.cbs = new Map(); this.n = 0;
+    }
+    updateRenderState(s) { Object.assign(this.renderState, s); }
+    async requestReferenceSpace(type) { return space({ type, floor: type === 'local-floor' }); }
+    requestAnimationFrame(cb) { const id = ++this.n; this.cbs.set(id, cb); return id; }
+    cancelAnimationFrame(id) { this.cbs.delete(id); }
+    async end() { if (this.ended) return; this.ended = true; this.dispatchEvent(new Event('end')); }
+  }
+  window.XRSession = Session;
+  WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
+  window.XRWebGLLayer = class { constructor(s, gl) { this.framebufferWidth = gl.drawingBufferWidth; this.framebufferHeight = gl.drawingBufferHeight; this.framebuffer = null; this.antialias = true; }
+    getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 0.5, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
+  F.frame = () => ({
+    session: F.session,
+    getViewerPose: () => Object.assign(pose(ident()), { views }),
+    getPose: s => (s && s.ray ? pose(s.ray, s.q) : s && s.floor ? pose(tr(0, -1.6, 0)) : null),
+    getJointPose: () => null,
+  });
+  F.step = (n = 1) => { for (let i = 0; i < n; i++) { const cbs = [...F.session.cbs.values()]; F.session.cbs.clear(); const fr = F.frame(); for (const cb of cbs) cb(performance.now(), fr); } };
+  // a Touch controller held in front of you, a little down, pointing at the floor (nothing of the story there; its ray
+  // and grip at x)
+  F.down = x => new Float32Array([1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, x, -0.4, -0.3, 1]);
+  const DOWN = { x: -Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
+  F.mk = (hand, x) => ({ handedness: hand, targetRayMode: 'tracked-pointer', profiles: ['oculus-touch-v3', 'generic-trigger-squeeze-thumbstick'],
+    gamepad: { id: '', mapping: 'xr-standard', axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] },
+    targetRaySpace: space({ ray: F.down(x), q: DOWN }), gripSpace: space({ ray: F.down(x), q: DOWN }) });
+  // a session event as the browser fires it (here: before the frame's callbacks)
+  F.ev = (type, o) => { const e = new Event(type); Object.assign(e, o); F.session.dispatchEvent(e); };
+  F.sources = list => { const s = F.session, old = s.inputSources; s.inputSources = list; F.ev('inputsourceschange', { session: s, added: list.filter(x => !old.includes(x)), removed: old.filter(x => !list.includes(x)) }); };
+  F.vis = v => { F.session.visibilityState = v; F.ev('visibilitychange', { session: F.session }); };
+  // a button down or up (k: 0 the trigger, 1 the grip); real: the session says so too (its start, or its select and end)
+  F.btn = (x, k, down, real) => {
+    const b = x.gamepad.buttons[k]; b.pressed = down; b.value = down ? 1 : 0;
+    if (!real) return;
+    const n = k ? 'squeeze' : 'select', o = { inputSource: x, frame: F.frame() };
+    if (down) F.ev(n + 'start', o); else { F.ev(n, o); F.ev(n + 'end', o); }
+  };
+  // what reaches three.js's two controllers (the story's), and the session's listeners after the shell's (a synthetic one
+  // marked *)
+  F.listen = () => {
+    const T = ['connected', 'disconnected', 'selectstart', 'select', 'selectend', 'squeezestart', 'squeeze', 'squeezeend'];
+    for (const i of [0, 1]) { const g = HOST.renderer.xr.getController(i); for (const t of T) g.addEventListener(t, () => F.got.push(i + ' ' + t)); }
+    for (const t of T.slice(2)) F.session.addEventListener(t, e => F.sess.push(t + (e.synthetic ? '*' : '')));
+  };
+  Object.defineProperty(navigator, 'xr', { configurable: true, value: {
+    isSessionSupported: async m => m === 'immersive-vr', addEventListener() {}, removeEventListener() {},
+    requestSession: async (mode, init) => { const s = new Session(mode, ['viewer', 'local', ...(init.optionalFeatures || [])]); F.session = s; return s; } } });
+}
+if (runs('controllers after standby')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const cp = await ctx.newPage();
+  cp.on('pageerror', e => errors.push('controllers after standby: ' + (e.stack || e.message)));
+  cp.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && /a press given again|announcing the controllers/.test(m.text())) errors.push('controllers after standby: ' + m.text()); else if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('controllers after standby: ' + m.text()); });
+  await cp.addInitScript(CTRL_FAKE);
+  const bad = [], fail = s => bad.push(s);
+  // frames (n), or frames for ms of real time (a press unheard for 300 ms is missed)
+  const fr = n => cp.evaluate(n => window.__ctl.step(n), n || 1);
+  const wait = async ms => { await cp.waitForTimeout(ms); await fr(1); };
+  const st = () => cp.evaluate(() => HOST.inputsGuard.state());
+  const seen = () => cp.evaluate(() => { const F = window.__ctl; return { got: F.got.splice(0), sess: F.sess.splice(0) }; });
+  const logs = ev => cp.evaluate(ev => window.__collabLog.filter(e => e.ev === ev), ev);
+  const btn = (who, k, down, real) => cp.evaluate(([who, k, down, real]) => window.__ctl.btn(window.__ctl[who], k, down, real), [who, k, down, !!real]);
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // a press: down, frames, up, frames (real: the session announces it)
+  const press = async (who, k, real) => { await btn(who, k, true, real); await fr(2); await btn(who, k, false, real); await fr(2); };
+  const R1 = ['1 selectstart', '1 select', '1 selectend'], Q1 = ['1 squeezestart', '1 squeeze', '1 squeezeend'];
+  // the menu open at Settings, the right controller's ray on its Subtitles row (what the ray hits: 'subs'); and back
+  const aimSubs = () => cp.evaluate(() => {
+    const F = window.__ctl, V = THREE.Vector3;
+    HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); F.step(3);
+    const r = HOST.collab.menuFind('subs'), S = HOST.collab.overlay().panel;
+    if (!r) return 'no subs row';
+    F.step(2);
+    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * S.mw * S.h / S.w, 0)), o = new V(0.2, -0.3, -0.2);
+    const m = new THREE.Matrix4().lookAt(o, p, new V(0, 1, 0)).setPosition(o), q = new THREE.Quaternion().setFromRotationMatrix(m);
+    F.R.targetRaySpace.ray = Float32Array.from(m.elements); F.R.targetRaySpace.q = { x: q.x, y: q.y, z: q.z, w: q.w };
+    F.step(3);
+    const h = HOST.collab.internals().hov.get(1), hit = h && h.target.kind === 'panel' ? S.at(h.x, h.y) : null;
+    return hit ? hit.id : 'pointed at ' + JSON.stringify(h && h.target);
+  });
+  const aimDown = () => cp.evaluate(() => { HOST.collab.panelOpen(false); const F = window.__ctl; F.R.targetRaySpace.ray = F.down(0.2); F.R.targetRaySpace.q = { x: -Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 }; F.step(2); });
+  const flush = async () => { if (bad.length) errors.push(...bad.splice(0).map(b => 'controllers after standby: ' + b)); };
+
+  await step('controllers after standby: a VR session through three.js\'s own path; the controllers the browser announces reach the story; real presses (trigger and grip, an event a frame before the gamepad shows it) are given once and nothing is ever given again', async () => {
+    await cp.goto(base + 'index.html#airports');
+    await cp.waitForFunction(() => HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 40000 });
+    await cp.evaluate(() => HOST.cur.peek('xrStart("immersive-vr")'));
+    await cp.waitForFunction(() => window.__ctl.session && window.__ctl.session.cbs.size && HOST.session === window.__ctl.session, null, { timeout: 20000 });
+    await cp.evaluate(() => { const F = window.__ctl; F.step(3); F.listen(); F.L = F.mk('left', -0.2); F.R = F.mk('right', 0.2); F.sources([F.L, F.R]); F.step(2); });
+    const c0 = await seen(), src = await cp.evaluate(() => { const c = HOST.cur.peek('XR.ctrls'); return [c[0].src === window.__ctl.L, c[1].src === window.__ctl.R]; });
+    if (!same(c0.got.sort(), ['0 connected', '1 connected']) || src.join() !== 'true,true') fail('the controllers announced: ' + JSON.stringify({ c0, src }));
+    await press('R', 0, true); await press('R', 1, true); await press('L', 0, true);
+    await wait(350);
+    const c1 = await seen();
+    if (!same(c1.got, [...R1, ...Q1, '0 selectstart', '0 select', '0 selectend']) || c1.sess.some(t => t.endsWith('*'))) fail('real presses: ' + JSON.stringify(c1));
+    // the session's event a frame before the gamepad shows the press
+    await cp.evaluate(() => { const F = window.__ctl; F.ev('selectstart', { inputSource: F.R, frame: F.frame() }); F.step(1); F.btn(F.R, 0, true); F.step(1); });
+    await wait(350); await btn('R', 0, false, true); await fr(2);
+    const c2 = await seen(), s2 = await st();
+    if (!same(c2.got, R1) || s2.missed || s2.synth || s2.fixes || s2.armed.length) fail('an event a frame before the gamepad shows the press: ' + JSON.stringify({ c2, s2 }));
+    await flush();
+  });
+
+  await step('controllers after standby: a controller replaced without an event two minutes after waking is announced once the change has stood a frame (logged), and a select on it reaches the story\'s controller; one the browser announces a frame late is not announced again', async () => {
+    await cp.evaluate(() => { const F = window.__ctl; F.vis('hidden'); F.vis('visible'); F.step(2); HOST.inputsGuard.wokeAgo(120000); F.R2 = F.mk('right', 0.2); F.session.inputSources = [F.L, F.R2]; F.step(1); });
+    const s0 = await st();
+    await fr(1);
+    const s1 = await st(), c1 = await seen(), lg = (await logs('inputs replaced')).slice(-1)[0] || {};
+    const src = await cp.evaluate(() => HOST.cur.peek('XR.ctrls')[1].src === window.__ctl.R2);
+    if (s0.fixes !== 0 || s1.fixes !== 1 || !same(c1.got, ['1 disconnected', '1 connected']) || !src || lg.added !== 1 || lg.removed !== 1 || !(lg.woke >= 119 && lg.woke < 130))
+      fail('replaced two minutes after waking: ' + JSON.stringify({ s0, s1, c1, src, lg }));
+    await cp.evaluate(() => { window.__ctl.R = window.__ctl.R2; });
+    await press('R', 0, true); await wait(350);
+    const c2 = await seen(), s2 = await st();
+    if (!same(c2.got, R1) || s2.missed || s2.synth) fail('a select on the controller announced again: ' + JSON.stringify({ c2, s2 }));
+    // replaced again, the browser's own event a frame late: nothing announced here
+    await cp.evaluate(() => { const F = window.__ctl, R3 = F.mk('right', 0.2), old = F.R; F.session.inputSources = [F.L, R3]; F.step(1); F.ev('inputsourceschange', { session: F.session, added: [R3], removed: [old] }); F.R = R3; F.step(2); });
+    const s3 = await st(), c3 = await seen();
+    if (s3.fixes !== 1 || !same(c3.got, ['1 disconnected', '1 connected'])) fail('announced by the browser a frame late: ' + JSON.stringify({ s3, c3 }));
+    await flush();
+  });
+
+  await step('controllers after standby: a trigger press with no selectstart is a missed press (logged, that controller armed); its next presses are given once each (selectstart, select and selectend at the story\'s controller, the menu\'s button pressed once); a real selectstart disarms it, that press not doubled, also when it comes after the frame that gave it', async () => {
+    await btn('R', 0, true); await fr(1); await wait(350);
+    const s0 = await st(), lg = (await logs('press missed')).slice(-1)[0] || {};
+    await btn('R', 0, false); await fr(2);
+    const c0 = await seen();
+    if (s0.missed !== 1 || !same(s0.armed, ['right select']) || c0.got.length || lg.hand !== 'right' || lg.kind !== 'select' || lg.came !== 'event' || !(lg.woke >= 119) || lg.vis !== 'visible' || !/oculus-touch-v3/.test(lg.profiles) || lg.mapped !== true)
+      fail('the missed press: ' + JSON.stringify({ s0, c0, lg }));
+    // given: its start as it goes down, its select and end as it comes up, once
+    await btn('R', 0, true); await fr(1);
+    const c1 = await seen();
+    await btn('R', 0, false); await fr(1);
+    const c2 = await seen(), s2 = await st();
+    if (!same(c1.got, ['1 selectstart']) || !same(c1.sess, ['selectstart*']) || !same(c2.got, ['1 select', '1 selectend']) || !same(c2.sess, ['select*', 'selectend*']) || s2.synth !== 1 || !same(s2.armed, ['right select']))
+      fail('the next press given: ' + JSON.stringify({ c1, c2, s2 }));
+    // a given press on the menu's Subtitles button: toggled once
+    const aim = await aimSubs();
+    const subs0 = await cp.evaluate(() => HOST.xr.subs());
+    await press('R', 0); await fr(2);
+    const subs1 = await cp.evaluate(() => HOST.xr.subs()), c3 = await seen();
+    if (aim !== 'subs' || subs1 === subs0 || !same(c3.got, R1)) fail('a given press on the menu\'s Subtitles: ' + JSON.stringify({ aim, subs0, subs1, c3 }));
+    // the session's own selectstart again: armed no more, that press given once (by the session)
+    await press('R', 0, true); await fr(2);
+    const subs2 = await cp.evaluate(() => HOST.xr.subs()), c4 = await seen(), s4 = await st(), back = (await logs('press back')).slice(-1)[0] || {};
+    if (subs2 === subs1 || !same(c4.got, R1) || c4.sess.some(t => t.endsWith('*')) || s4.armed.length || s4.synth !== 2 || back.given !== 2 || back.kind !== 'select')
+      fail('a real press disarms it, not doubled: ' + JSON.stringify({ subs1, subs2, c4, s4, back }));
+    // armed again; a browser whose selectstart comes after the frame that gave the press: stopped (not twice), its own
+    // select and end end the press, and it is armed no more
+    await btn('R', 0, true); await fr(1); await wait(350); await btn('R', 0, false); await fr(2);
+    const s5 = await st(); await seen();
+    await btn('R', 0, true); await fr(1);
+    await cp.evaluate(() => { const F = window.__ctl; F.ev('selectstart', { inputSource: F.R, frame: F.frame() }); F.step(2); });
+    await btn('R', 0, false, true); await fr(2);
+    const subs3 = await cp.evaluate(() => HOST.xr.subs()), c5 = await seen(), s6 = await st();
+    if (s5.missed !== 2 || !same(s5.armed, ['right select']) || subs3 === subs2 || !same(c5.got, R1) || !same(c5.sess, ['selectstart*', 'select', 'selectend']) || s6.armed.length || s6.synth !== 3)
+      fail('a real selectstart after the given one: ' + JSON.stringify({ s5, subs2, subs3, c5, s6 }));
+    await aimDown();
+    await seen();
+    await flush();
+  });
+
+  await step('controllers after standby: the grip the same way (a missed squeeze arms it, the next given once: squeezestart, squeeze, squeezeend; a real one disarms it, not doubled)', async () => {
+    await btn('R', 1, true); await fr(1); await wait(350); await btn('R', 1, false); await fr(2);
+    const s0 = await st(), lg = (await logs('press missed')).slice(-1)[0] || {}, c0 = await seen();
+    await press('R', 1);
+    const c1 = await seen(), s1 = await st();
+    await press('R', 1, true);
+    const c2 = await seen(), s2 = await st();
+    if (!same(s0.armed, ['right squeeze']) || lg.kind !== 'squeeze' || c0.got.length || !same(c1.got, Q1) || !same(c1.sess, ['squeezestart*', 'squeeze*', 'squeezeend*']) || s1.synth !== 4 ||
+      !same(c2.got, Q1) || c2.sess.some(t => t.endsWith('*')) || s2.armed.length)
+      fail('the grip: ' + JSON.stringify({ s0, lg, c0, c1, s1, c2, s2 }));
+    await flush();
+  });
+
+  await step('controllers after standby: a given press\'s own events coming late (select and selectend, or all three, after the frame that ended it) are stopped, the story and the menu getting it once; a real press with the trigger down again at once is its own', async () => {
+    const arm = async () => { await btn('R', 0, true); await fr(1); await wait(350); await btn('R', 0, false); await fr(2); };
+    const subs = () => cp.evaluate(() => HOST.xr.subs());
+    // the session's own events for the press, fired as the next task (after the frame that gave its end)
+    const lateEv = types => cp.evaluate(types => { const F = window.__ctl, o = { inputSource: F.R, frame: F.frame() }; for (const t of types) F.ev(t, o); }, types);
+    const given = async () => { await btn('R', 0, true); await fr(1); await btn('R', 0, false); await fr(1); };
+    // (the window made long here: a story's frame drawn in software can take longer than 250 ms between the frame that
+    // gives the end and the events)
+    const ms0 = await cp.evaluate(() => { const m = HOST.inputsGuard.lateMs(); HOST.inputsGuard.lateMs(5000); return m; });
+    await arm();
+    const s0 = await st(), aim = await aimSubs(); await seen();
+    const v0 = await subs();
+    // given, then the session's select and selectend late: stopped, still armed
+    await given(); await lateEv(['select', 'selectend']); await fr(2);
+    const v1 = await subs(), c1 = await seen(), s1 = await st();
+    // given again, then the session's whole press late (the trigger up): stopped, its start disarming it
+    await given(); await lateEv(['selectstart', 'select', 'selectend']); await fr(2);
+    const v2 = await subs(), c2 = await seen(), s2 = await st();
+    // armed again: given, then at once a real press (the trigger down again as the session says so): its own, once
+    await arm(); await seen();
+    await given(); await press('R', 0, true); await fr(2);
+    const v3 = await subs(), c3 = await seen(), s3 = await st();
+    // after the window, a stray select and selectend reach three.js as before (nothing armed, nothing given)
+    await aimDown(); await seen();
+    await cp.evaluate(ms => HOST.inputsGuard.lateMs(ms), ms0);
+    await cp.evaluate(() => new Promise(r => setTimeout(r, 300))); await lateEv(['select', 'selectend']); await fr(2);
+    const c4 = await seen(), s4 = await st();
+    const G1 = ['selectstart*', 'select*', 'selectend*'];
+    if (aim !== 'subs' || v1 === v0 || !same(c1.got, R1) || !same(c1.sess, G1) || s1.synth !== s0.synth + 1 || !same(s1.armed, ['right select']) || s1.stopped !== s0.stopped + 2)
+      fail('a late select and selectend: ' + JSON.stringify({ aim, v0, v1, c1, s0, s1 }));
+    if (v2 === v1 || !same(c2.got, R1) || !same(c2.sess, G1) || s2.synth !== s0.synth + 2 || s2.armed.length || s2.stopped !== s0.stopped + 5)
+      fail('a late selectstart, select and selectend: ' + JSON.stringify({ v1, v2, c2, s2 }));
+    if (v3 !== v2 || !same(c3.got, [...R1, ...R1]) || !same(c3.sess, [...G1, 'selectstart', 'select', 'selectend']) || s3.synth !== s0.synth + 3 || s3.armed.length || s3.stopped !== s2.stopped)
+      fail('a real press right after a given one: ' + JSON.stringify({ v2, v3, c3, s3 }));
+    if (ms0 !== 250 || !same(c4.got, ['1 select', '1 selectend']) || s4.stopped !== s3.stopped || s4.synth !== s3.synth) fail('after the window: ' + JSON.stringify({ ms0, c4, s4 }));
+    await flush();
+  });
+
+  await step('controllers after standby: a tracked hand untouched; nothing missed or given while the session is not visible, nor for a press held as it comes back', async () => {
+    const s0 = await st();
+    await cp.evaluate(() => { const F = window.__ctl; F.H = Object.assign(F.mk('left', -0.2), { hand: new Map() }); F.sources([F.H, F.R]); F.step(2); F.btn(F.H, 0, true); F.step(1); });
+    await wait(350); await cp.evaluate(() => { window.__ctl.btn(window.__ctl.H, 0, false); window.__ctl.step(2); });
+    await cp.evaluate(() => { const F = window.__ctl; F.vis('visible-blurred'); F.step(1); F.btn(F.R, 0, true); F.step(1); });
+    await wait(350);
+    await cp.evaluate(() => { const F = window.__ctl; F.vis('visible'); F.step(1); });
+    await wait(350); await btn('R', 0, false); await fr(2);
+    const s1 = await st(), c1 = await seen();
+    if (s1.missed !== s0.missed || s1.synth !== s0.synth || s1.armed.length || c1.got.some(t => /select|squeeze/.test(t))) fail('a hand, and a press while not visible: ' + JSON.stringify({ s0, s1, c1 }));
+    await cp.evaluate(() => window.__ctl.session.end());
+    await flush();
+  });
+  await ctx.close();
+}
 // Developer mode (v125, HOST.dev in index.html; NEWS in shared.js): this device's own, off by default. While on, what is
 // new in this release (whatsnew.json, served by the test server; a stand-in served instead where a step says so) shows as
 // a card over the Stories screen or the story a link opened, once a page load until Got it for that version (devSeen);

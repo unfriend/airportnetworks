@@ -3950,13 +3950,55 @@ async function guideRound() {
   };
   // the check by eye as headset H shows it: whether it asks, is on show and why; the orange crosses (drawn, over everything)
   // and where they stand in the pretend room; the question (drawn, how far from the head, the ray's first target, on top)
+  // (v130: and the crosses lit while it asks, their beams and letters, and the arrows to them, all in the pretend room)
   const EY = H => H.evaluate(() => {
     const X = window.__xr, O = HOST.collab.overlay(), e = HOST.collab.eye(), w = o => o.getWorldPosition(new THREE.Vector3()).applyMatrix4(X.W.local).toArray().map(v => +v.toFixed(3));
     X.step();
     const head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), S = O.eye;
+    const P = a => new THREE.Vector3(...a).applyMatrix4(X.W.local).toArray().map(v => +v.toFixed(3)), D = a => new THREE.Vector3(...a).transformDirection(X.W.local).toArray();
+    const h = HOST.collab.eyeHint ? HOST.collab.eyeHint() : null;
     return Object.assign(e, { marks: O.marks.visible, top: O.crossA.children.every(m => !m.material.depthTest), a: w(O.crossA), b: w(O.crossB),
-      q: { vis: S.mesh.visible, d: +S.mesh.position.distanceTo(head).toFixed(2), hit: O.hit[0] === S.mesh, top: !S.mesh.material.depthTest && S.mesh.renderOrder >= 54 } });
+      q: { vis: S.mesh.visible, d: +S.mesh.position.distanceTo(head).toFixed(2), hit: O.hit[0] === S.mesh, top: !S.mesh.material.depthTest && S.mesh.renderOrder >= 54, at: w(S.mesh) },
+      hint: h && Object.assign(h, { head: P(h.head), spots: h.spots.map(s => Object.assign(s, { cross: P(s.cross), foot: P(s.foot), top: P(s.top), letter: P(s.letter) })),
+        arrows: h.arrows.map(a => Object.assign(a, { at: P(a.at), d: D(a.d) })) }) });
   });
+  // (--shots) the story's scene with the shell's overlay as headset H sees it from its head, looking a little down: the
+  // question, the arrows under it and the lit crosses (a camera of its own, 960 x 600, drawn once and put back)
+  const scenePic = async (H, file) => {
+    if (!shots) return;
+    const u = await H.evaluate(() => {
+      const X = window.__xr, r = HOST.renderer, sc = HOST.cur.collab.scene(), cam = new THREE.PerspectiveCamera(80, 1.6, 0.05, 100);
+      X.step();
+      X.W.local.clone().invert().multiply(X.W.head).decompose(cam.position, cam.quaternion, cam.scale);
+      cam.scale.set(1, 1, 1); cam.rotateX(-0.35); cam.updateMatrixWorld();
+      const keep = r.getSize(new THREE.Vector2()), pr = r.getPixelRatio();
+      r.setPixelRatio(1); r.setSize(960, 600, false); r.render(sc, cam);
+      const url = r.domElement.toDataURL('image/png');
+      r.setSize(keep.x, keep.y, false); r.setPixelRatio(pr);
+      return url;
+    });
+    fs.writeFileSync(path.join(shots, file), Buffer.from(u.split(',')[1], 'base64'));
+  };
+  // what is wrong with the crosses lit and the arrows while the check by eye asks (v130; the owner, 10 November 2026:
+  // "highlight the crosses and add some arrow or something that points towards where it believes they are"): each
+  // cross larger, its beam's foot and its letter over the cross (2 cm), the beam 1.2 m tall, all over everything; each
+  // arrow under the question (within 0.35 m of it), pointing at its cross from where it floats (5 degrees), or a U-turn
+  // to the side to turn (behind[k]: -1 right, 1 left), its words its letter and its distance along the floor from the head
+  const hintBad = (e, spots, behind) => {
+    const h = e.hint, bad = [], deg = (a, b) => Math.acos(Math.min(1, Math.max(-1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / Math.hypot(...a) / Math.hypot(...b)))) * 180 / Math.PI;
+    if (!h || !h.on || !h.arrowsOn) return ['not on: ' + JSON.stringify(h && { on: h.on, arrows: h.arrowsOn })];
+    ['A', 'B'].forEach((k, i) => {
+      const s = h.spots.find(x => x.k === k), want = spots[i], a = h.arrows.find(x => x.k === k), flat = (p, q) => Math.hypot(p[0] - q[0], p[2] - q[2]);
+      if (!s || !s.vis || !near(s.foot, want, 0.02) || !near(s.cross, want, 0.02) || flat(s.letter, want) > 0.02 || s.letter[1] - want[1] < 1.2 || flat(s.top, want) > 0.02 || Math.abs(s.top[1] - want[1] - 1.2) > 0.02 || s.scale < 1.5 || !s.top0)
+        bad.push(k + ': its cross, beam or letter ' + JSON.stringify(s));
+      const dist = flat(want, h.head), side = behind && behind[i];
+      const words = k + ' ' + a.dist.toFixed(1) + ' m' + (side ? ', behind you' : '');
+      if (!a || !a.vis || Math.abs(a.dist - dist) > 0.03 || a.text !== words || Math.hypot(...a.at.map((v, j) => v - e.q.at[j])) > 0.35) bad.push(k + `: its arrow (want ${dist.toFixed(2)} m, "${words}") ` + JSON.stringify(a));
+      else if (side ? !(a.round && a.roundVis && !a.dirVis && a.side === side) : (a.round || !a.dirVis || deg(a.d, want.map((v, j) => v - a.at[j])) > 5))
+        bad.push(k + `: its arrow points ${side ? 'round' : 'at it'}? ` + JSON.stringify({ a, off: +deg(a.d, want.map((v, j) => v - a.at[j])).toFixed(1) }));
+    });
+    return bad;
+  };
   // a press on the question's button by the ray, as a person's trigger does (as the circles' question is pressed)
   const eyePress = (H, id) => H.evaluate(async id => {
     const X = window.__xr, V = THREE.Vector3, S = HOST.collab.overlay().eye, r = S.regions.find(q => q.id === id);
@@ -4178,9 +4220,24 @@ async function guideRound() {
   check('guide: the room gets its spots: a headset lined up through the shared space from them is asked by eye (the crosses on the two spots, drawn over everything, the question in front, on top, pointable; the guide shut)',
     sp && e1.shown && e1.marks && e1.top && near(e1.a, SA, 0.02) && near(e1.b, SB, 0.02) && e1.q.vis && e1.q.d > 0.75 && e1.q.d < 1 && e1.q.hit && e1.q.top && !v1.open,
     JSON.stringify({ sp, e1, v1: [v1.open, v1.flow, v1.case] }));
+  // (v130) while it asks: the crosses lit, a beam and a letter over each, an arrow to each under the question with its
+  // distance; turned round, spot A (now behind, to the left) gets a U-turn to the left and its words say behind you
+  const hb1 = hintBad(e1, [SA, SB]);
+  await scenePic(H2, 'guide-16b-eye-arrows.png');
+  await H2.evaluate(() => { window.__xr.head([0.6, 1.6, 0.4, 0.3 + Math.PI]); });
+  await frames(H2, 300);
+  const e1r = await EY(H2), hb1r = hintBad(e1r, [SA, SB], [1, 0]);
+  await scenePic(H2, 'guide-16c-eye-behind.png');
+  await H2.evaluate(() => { window.__xr.head([0.6, 1.6, 0.4, 0.3]); });
+  await frames(H2, 300);
+  console.log('     (the arrows said ' + [e1, e1r].map(e => (e.hint ? e.hint.arrows.map(a => a.text + (a.round ? ' (a U-turn)' : '')).join(' and ') : 'nothing')).join('; turned round, ') + ')');
+  check('guide: while the check by eye asks, both crosses lit with a beam and their letter over them (within 2 cm, over everything), an arrow to each under the question pointing at it (5 degrees) with its distance along the floor (A 1.3 m); turned round, a U-turn to the side where the cross behind you is',
+    !hb1.length && !hb1r.length && e1r.shown, JSON.stringify({ hb1, hb1r, e1: e1.hint, e1r: e1r.hint }));
   const y1 = await eyePress(H2, 'eye:yes'), v1b = await G(H2), e1b = await EY(H2);
   check('guide: Yes to the check by eye stands as a check (by eye): the flow done, the question gone', y1 === 'pressed' && v1b.ok && v1b.ok.how === 'e' && v1b.flow === 'done' && !e1b.ask && !e1b.shown && !v1b.open,
     JSON.stringify({ y1, ok: v1b.ok, flow: v1b.flow, e1b }));
+  check('guide: after Yes the crosses are as they were (no beam, letter, glow or arrows)', e1b.hint && !e1b.hint.on && !e1b.hint.arrowsOn && e1b.hint.spots.every(s => !s.vis && s.scale === 1 && s.col === 'ffb43b'),
+    JSON.stringify(e1b.hint));
   const le = await listed(/lined up \(shared space, checked by eye\)/);
   check('guide: the laptop\'s list says checked by eye', le, await diag());
   // after a wake (the session hidden, then visible again): asked again
