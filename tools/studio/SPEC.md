@@ -357,7 +357,8 @@ crossfade needed". `tools/studio/engine/e6i_tex.js`.
 - `start: 'always'` loops start at the same moment for everyone at a station: offset = the room's time
   (`HOST.collab.now()`) modulo the sound's length; outside a room from when the scene opened.
 - Decoded once per file (`decodeAudioData`), at most 60 MB of decoded sound per scene (more: the rest not loaded, said).
-- While editing: a small speaker marker (a ball and cone in the sound's colour) and a faint ring on the floor at `r`.
+- While editing: a small speaker marker (a ball and cone in the sound's colour) and a thin ring on the floor at `r`
+  (opaque since v131, darker than the speaker).
 - A sound may follow an object or one of its bones ("Sounds that follow a model" below): it is placed, heard and shown
   where that puts it, and only while it and its object are both shown for you.
 
@@ -886,7 +887,7 @@ voice stays at a dancer's head and her movement sounds at her chest as she moves
   each person's own): its fade is its own times its object's (the 0.4 s fades), and with `start: 'shown'` it starts from
   its beginning each time that turns on (a voice line as she appears). The card and the Items pane say *hidden for you*
   by that. Not following: as before.
-- **While editing** (each device's own): its speaker is drawn where it follows, with a faint line in its colour to the
+- **While editing** (each device's own): its speaker is drawn where it follows, with a thin line in its colour to the
   target's origin (over everything), and hovered or selected its labels name what it follows (*Voice → Dancer · Head*).
 - **Shared rooms**: the record is the sound's field in `state()`, so following is shared as placing is; FORMAT
   `networks-30` (v112). No new key, no effect.
@@ -1101,8 +1102,8 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   change); under Items the group's heading does the same. The lists still name the members one by one. A cube in a group of
   cubes alone (nothing a cube can list) is selected as an ungrouped cube is (its group, as a click on any member), which
   ends the pick.
-- **Drawn while editing**: a selected group as a faint dashed box in its colour round all its members (`LOOKS.group`,
-  over everything), its name in the selection's label. Not editing, nothing of it is drawn.
+- **Drawn while editing**: a selected group as a dashed box in its colour, a little darker (opaque since v131), round all
+  its members (`LOOKS.group`, over everything), its name in the selection's label. Not editing, nothing of it is drawn.
 - **Shared rooms**: the group's record is its field in `state()` (`g.<id>`), and a move writes its members' records in the
   same state, so a room sees the whole group move at once; who picks, what is selected and a drag's carry are each
   device's own. FORMAT `networks-32`. Two people putting one item into two groups at once leave the group with the higher

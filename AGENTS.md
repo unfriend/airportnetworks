@@ -4291,7 +4291,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   switching the object to its GLB turns the offsets of what follows its whole model (or names a bone it lacks) by the
   baked turn (`o' = r o`), bones keeping theirs; deleting it leaves its sounds where they are, following nothing (one
   Undo step brings both back). Heard only while it and its object are both shown for you (its fade times its object's;
-  `start: 'shown'` from its beginning each time both are shown). While editing a faint line in its colour runs to what
+  `start: 'shown'` from its beginning each time both are shown). While editing a thin line in its colour runs to what
   it follows, and its labels say so (*Voice → Dancer · Head*). Shared as its record (FORMAT networks-30, v112). Untested
   on a headset: how a voice at a moving head sounds, the pick by trigger and the bone pages on a real panel.
 - **Cut-outs** (the owner, 4 November 2026: "is it possible to remove parts of a glb model nondestructive? like a door in
@@ -4352,7 +4352,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
   an item puts it in or takes it out, Ctrl- and Shift-click as a click, cards under Items too; one in another group moves
   into this one; *Done*); *Add or remove items...* on the group's card the same. A click on a member selects its group (its
-  card, a faint dashed box round its members while editing, `LOOKS.group`), a second one on the same member that member
+  card, a dashed box round its members while editing (opaque, v131), `LOOKS.group`), a second one on the same member that member
   alone (*In group ...*, *Select the group*; selected alone it moves alone); hover labels say *Group 2 · Dancer*; the
   Items pane shows groups first, a heading each with its members' cards under it. A selected group moves, turns and sizes as one about its
   pivot (the mean of its members' middles, on the floor, `groupPivot`: a turn or a size carries every middle with its
