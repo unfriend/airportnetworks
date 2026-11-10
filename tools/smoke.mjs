@@ -9539,7 +9539,8 @@ if (runs('developer mode')) {
     await dp.evaluate(() => localStorage.removeItem('devSeen'));
     await dp.reload();
     const bad = await cardOpen(60000);
-    await dp.waitForTimeout(400);
+    // (the card focuses its button 300 ms after it opens, after the Stories screen's own focus: given up to 3 s on a slow machine)
+    await dp.waitForFunction(() => (document.activeElement || {}).id === 'devLater', null, { timeout: 3000 }).catch(() => {});
     const c3 = await card();
     if (!bad || c3.msg !== 'Could not fetch what is new (whatsnew.json): the server answered 404.' || Object.keys(c3.lists).length || c3.title !== 'What is new') errors.push('developer mode: a file that cannot be fetched: ' + JSON.stringify(c3));
     if (c3.got || !c3.later || c3.focus !== 'devLater') errors.push('developer mode: a file that cannot be fetched: not Later alone (focused): ' + JSON.stringify([c3.got, c3.later, c3.focus]));
