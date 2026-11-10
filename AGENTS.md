@@ -4302,10 +4302,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   station in a room, nothing; a shape or an empty is shown and hidden as an object is). Shown and hidden fade
   over 0.4 s; `start: 'shown'` starts an object's animation, or a sound, from its beginning each time it is shown (a
   sound stops, fading, when hidden). Never shared, never in `state()`: ten headsets each see what their own place
-  reveals. While editing every cube is drawn see-through (its colour at about 0.18, brighter edges, its name, brighter
-  while you are in it), a selected cube's lines go green to what it shows and red to what it hides, and objects a cube
-  hides from you are drawn faint (about 0.3) so they can still be picked; not editing, cubes and sound markers are not
-  drawn at all.
+  reveals. While editing every cube is drawn as its edges and its name only (v131: no walls; its own colour while you are
+  in it, lighter pointed at or selected, else darker; an unseen box both ways round where its fill was, so it is still
+  pointed at from inside and outside), a selected cube's lines go green to what it shows and red to what it hides, and a
+  model or a coloured shape a cube hides from you is not drawn at all but shown by its unseen box's edges and its tag
+  (*Atelier · 397k ▲ · hidden*; until v130 it was drawn faint, at 0.3: "Nothing see-through while editing" under
+  "Editing"), still pointed at, selected and carried; not editing, cubes and sound markers are not drawn at all.
 - **Trigger cubes that change textures** (v124; the owner, 8 November 2026: "trigger cube replace texture mode so that
   it can replace a texture on a model in the scene", then "no crossfade needed"; `tools/studio/SPEC.md`, "Trigger cubes
   that change textures"; `engine/e6i_tex.js`). A cube's record may hold `tex`, up to 16 entries `{ on, mat, slot, file }`:
@@ -4378,7 +4380,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   switching the object to its GLB turns the offsets of what follows its whole model (or names a bone it lacks) by the
   baked turn (`o' = r o`), bones keeping theirs; deleting it leaves its sounds where they are, following nothing (one
   Undo step brings both back). Heard only while it and its object are both shown for you (its fade times its object's;
-  `start: 'shown'` from its beginning each time both are shown). While editing a faint line in its colour runs to what
+  `start: 'shown'` from its beginning each time both are shown). While editing a thin line in its colour runs to what
   it follows, and its labels say so (*Voice → Dancer · Head*). Shared as its record (FORMAT networks-30, v112). Untested
   on a headset: how a voice at a moving head sounds, the pick by trigger and the bone pages on a real panel.
 - **Cut-outs** (the owner, 4 November 2026: "is it possible to remove parts of a glb model nondestructive? like a door in
@@ -4417,7 +4419,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   see-through (v125; the owner, 8 November 2026: "Framerate bad in studio edit mode when cutouts are active, they should
   not have this transparency": its faint fill went, a layer the size of the box on screen, two seen from outside;
   pointed at or selected its edges light up instead, lighter, their dashes denser and its ticks a third of each edge
-  long, `LOOKS.CUT_LOOK`); the pointer
+  long, `LOOKS.CUT_LOOK`; v131: its lines, ticks and corners opaque too, one cutting nothing drawn darker, `LOOKS.CUT_OFF`,
+  rather than fainter); the pointer
   finds the nearest object, sound or cut-out, passing over an object's unseen box when the ray goes on into one of its
   own cut-outs (and over cut-outs while picking an object for a sound or a cut-out); the page's arrows move,
   turn and size it per side; in a headset the grip carries it (turning with the hand while free moving is on), both grips
@@ -4438,7 +4441,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
   an item puts it in or takes it out, Ctrl- and Shift-click as a click, cards under Items too; one in another group moves
   into this one; *Done*); *Add or remove items...* on the group's card the same. A click on a member selects its group (its
-  card, a faint dashed box round its members while editing, `LOOKS.group`), a second one on the same member that member
+  card, a dashed box round its members while editing (opaque, v131), `LOOKS.group`), a second one on the same member that member
   alone (*In group ...*, *Select the group*; selected alone it moves alone); hover labels say *Group 2 · Dancer*; the
   Items pane shows groups first, a heading each with its members' cards under it. A selected group moves, turns and sizes as one about its
   pivot (the mean of its members' middles, on the floor, `groupPivot`: a turn or a size carries every middle with its
@@ -4495,8 +4498,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     its card, `#rrggbb` lower case), fading as an object does; `'hide'`: drawn into the depth alone (`colorWrite: false`,
     `renderOrder` -1, after the stage's floor and sky, before the items), so the scene's own things behind it are not
     drawn there: in AR the real room shows through it, in VR the stage; a closed shape hides from its outside only, a plane
-    both ways; while editing a see-through fill in its colour and its edges show where it is (a cube hiding it from you:
-    the fill faint, nothing hidden). It moves, turns (fully) and sizes per axis: the page's arrows (scale in its own frame),
+    both ways; while editing its edges show where it is, opaque (v131: no fill drawn; a ball's three great circles, a
+    cylinder's rims and four lines along it, a plane's outline; an unseen fill keeps it pointable from inside and outside;
+    a cube hiding it from you: nothing hidden), and every shape has its tag (*Box · 12 ▲ · hides things*, its primitive's
+    triangles). It moves, turns (fully) and sizes per axis: the page's arrows (scale in its own frame),
     the grips (turning with the hand while free moving is on), both grips (every side alike), a cube's corners; its card:
     *Shape*, *Look: Colour / Hides things*, *Colour*, size 10 cm a press per side and ×0.5 to ×2, *Turn 90°*, *On the
     floor* (its exact lowest point: a ball's and a cylinder's as turned). A trigger cube shows or hides it, a group holds
@@ -4729,9 +4734,14 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   off), and since v125 a model its own clip moves while editing, the whole time its clip plays, selected or not
   (`clipMoves`: the owner, "I do not see the ghosts of moving things in studio mode"; its parts taken in their rest pose and put back as they were, never through the mixer, v129: with its clip standing
   still three.js's mixer wrote nothing back and left the model in its rest pose;
-  its holder never leaves its placed pose, so the page's arrows stand on the item there), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one pale
-  blue-white material (opacity 0.25, no depth written; a skinned mesh as a plain one, its rest pose; a model of more than
-  100,000 triangles only its outline box, `GHOST.tris`), a shape's shape, an empty's cross and dot, a sound's speaker;
+  its holder never leaves its placed pose, so the page's arrows stand on the item there), its ghost stands there (`GH`, `ghostStep` at the end of `itemsStep`): an object's model copied with its geometry shared and one
+  opaque light grey material (v131; the owner, 10 November 2026: "ghosts for example can just be a light gray"; until
+  v130 pale blue-white at 0.25, no depth written: Lambert, depth written, pushed a hair back by `polygonOffset` so the
+  item wins where the two meet, a mesh without normals flat-shaded; a skinned mesh as a plain one, its rest pose), a
+  shape's shape, an empty's cross and dot, a sound's speaker, all opaque; a model of more than 100,000 triangles
+  (`GHOST.tris`), a model its own clip moves (its ghost would stand where it is drawn: the owner, "outline box is fine,
+  just make sure it has no transparent walls") and a model a cube hides from you only its unseen box's edges, opaque
+  lines (`ghostLine`; no clip ghost at all for a hidden one: its own edges stand there);
   built once per selection and freed when it changes (its materials disposed, never the shared geometry). The ghost is
   pointed at as the item (its unseen box among `pickables`, `userData.ghost`): the trigger selects the item, the grip on
   the ghost (or on the item where it is drawn) carries it from its placed pose, and let go it moves on from there. On a
@@ -4800,6 +4810,38 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   quiet, ch)`, `animBar(ch)` and `XR.main.patched` for tests. Untested on a headset: how the bar reads and drags on a
   Quest (its strip sent alone, its mipmaps), how in step a held frame looks for several people at a circle, a held voice
   in Quest Browser.
+- **Nothing see-through while editing** (v131; the owner, 10 November 2026: "All transparent things are problematic when
+  it comes to framerate in edit mode i feel, can we somehow reduce them? Like ghosts for example can just be a light
+  gray, rooms that are not currently shown because a cube hides them could just be a empty square with a name? cubes
+  that hide things need no walls too, same for walls that hide things, and the cutouts can also be without walls"; a
+  see-through layer is drawn again over what is behind it, and a room scan drawn faint or a cube round you filled a
+  headset's view several layers deep). Every look the studio draws while editing is opaque lines, small opaque meshes
+  and opaque tags (`tools/studio/sets/looks.js`; what lit up by opacity lights up by colour): a trigger cube its edges
+  and name, a shape that hides things its edges, a cut-out its dashed edges and ticks, a ghost light grey, a sound's
+  speaker, ring and line, an empty's cross, a group's dashed box, the selected and pointed-at outlines, a loading model's
+  grey box; the tags (`LOOKS.tag`, the pick ticks too) an opaque band drawn with the opaque things after the items
+  (`renderOrder` 12, no depth test), so still over everything they draw. Only the 1.6 s flash of an item from a cube's
+  card pulses see-through (lines).
+  - What a cube hides from you (`it.hid`, `itemsStep`): a model or a coloured shape is not drawn at all (its model's
+    `visible` off; a shape's mesh), snapping, no fade, and shown by its unseen box's edges (`LOOKS.hidBox`, opaque, a
+    muted grey-blue; a shape its own edges) and its tag with *· hidden*; still pointed at, selected and carried through
+    its unseen box (`pickables`, `insidePick`; its animation holds meanwhile). While this device holds it (`heldHere`:
+    a grip, both grips, *Hold it*, the sticks while carried, the page's arrows on it or its group, a group carried, its
+    path recorded) it is drawn whole, every material its own (opacity, depth written: the owner, "if i grab it it should
+    show but just 100% not transparent"), its edges hidden; let go, its edges again. Not editing: as before (fading in
+    and out over 0.4 s). A model still loading that a cube hides shows its grey box (opaque) with *· hidden*.
+  - Triangles in space (the owner: "In edit mode show triangle count per item next to its name in space", "on every"
+    model): while editing every placed model has a tag over its top (`modelTag`, made the first time it shows, placed by
+    `itemTopInto` each frame; its words built and its canvas drawn again only when they change), *Atelier · 397k ▲*
+    (`kTris`), *· hidden* while a cube hides it, its lock mark (`tagName`); not while it is pointed at or selected, where
+    the engine's labels say it (*object · 397k ▲ · selected*). The count (`trisNow`): while Fewer triangles previews it,
+    the preview's (`FT.pv.to`); built, its model's (`trisOf`, counted once per model, so a GLB switch counts again); not
+    built yet, its file's or its GLB record's `n` as far as the page has read it (nothing fetched for it). A shape's tag
+    says its primitive's triangles (`LOOKS.shapeTris`). No layout, `state()` or `FORMAT` change.
+  - Untested on a headset: the frame-rate gain on a Quest (the shell's frame-rate read-out, a double press of B or Y,
+    says the story's triangles, draw calls and code time: compare a scan hidden by a cube, or a cube round you, with
+    v130), how the edges, the light grey ghosts and the tags read life size, and the cost of a tag per model (one draw
+    call each) in a scene of many models.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -5284,7 +5326,14 @@ screen, in `STORY_EXTRA`; every file loaded with its sizes and the two guesses i
 refuses, and one sized to 1 m), the clips, the missing texture, the opacity-0 material drawn solid and a mesh without
 normals; the layout read; a pretend head moved into the cube showing the figure and the sound and hiding the box,
 fading over 0.4 s (stepped frame by frame), the figure's take from when it was shown, out again the reverse, a
-`stay` cube holding, the hidden box faint while editing; editing on the page (a click selecting, the arrows moving it,
+`stay` cube holding; nothing see-through while editing (v131: the box the cube hides not drawn but its outline at once,
+with its tag *Box · 12 ▲ · hidden*, pointed at through its unseen box, the labels pointed at and selected with its
+triangles, the tag following a stand-in Fewer triangles preview; a pretend headset's grip and the page's arrows holding
+it drawn whole, every material its own, its outline again once let go; the cube's edges only, in its own colour inside,
+darker outside, lighter selected, picked from inside and outside; a shape the cube hides its edges and tag, a ball that
+hides things its three rings, depth only, its unseen fill; nothing drawn of the items, their looks and tags see-through;
+a pixel at the hidden box's middle the same with its outline drawn as without, and the box drawn there showing; not
+editing, as before); editing on the page (a click selecting, the arrows moving it,
 a cube grown, *Shows* under the box's Items card linking it, Add and Delete, Undo); the shared state and back (`apply(state())` the same), a state from
 the room taken, bad values ignored; a pretend headset's grip carrying an object, both grips sizing it, a corner
 stretching a cube, the VR stick walk (none in passthrough) and Recenter; the sticks while something is carried (v120: the
@@ -5315,8 +5364,9 @@ More, the box's picture and the ball's tile bright where the figure's plain tile
 the accent colour, the cut-out's tag the card's width less its margins with its toggles on a row under it, picked, its
 edge green, a toggle and a card's face pressed by a pretend ray); Fewer triangles and Change texture (v119: a dense ball with a red and green checker
 made in the page, 24,320 triangles, served as `ball.glb` and placed twice, nothing committed: its card's preview at 20 %
-within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the slider at
-50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save
+within 1 % on that object only, every corner's texture coordinates as before and its colours as before, the selected
+ball's label and the other ball's tag counting their triangles (v131: the preview's, its own; after the switch, the new
+model's), the slider at 50 %, the pretend headset's card (steps and quick picks, its 10 %, Save only with a relay that takes uploads), Save
 downloaded with `tris` in its record, both balls switched to it with the original as the base (*The model here has only
 N*), Change texture's list, figure.png shown on that ball only, Cancel putting its own picture back, Save with `tex` in
 its record, the headset's ray choosing and cancelling, nothing for a visitor; the Upload pane's share (20 %, its count
@@ -5379,7 +5429,7 @@ stretching it; nothing of a box drawn when not editing (only the hole); the Item
 Preview pressed there); v124: the wall's cut-outs locked from its card (one Undo step): the door cutting as before, its box hidden and
 never pointed at, sizing it, deleting it or the wall and a new cut-out on the wall refused, the card and the Items pane
 saying so, the state and `layout.json` carrying `cutsLocked` (a bad one refused, false not kept), a copy of the wall not
-locked, unlocked its box back, Undo bringing it all back; v125: no see-through fill (the door's box with no mesh that shows, its edges lit when pointed at or selected, lighter with denser dashes and ticks a third long, plain again after; the pixel at its middle the same with its box drawn as without, plain, pointed at and selected). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
+locked, unlocked its box back, Undo bringing it all back; v125: no see-through fill (the door's box with no mesh that shows, its edges lit when pointed at or selected, lighter with denser dashes and ticks a third long, plain again after; v131: its lines, ticks and corners opaque, previewed whole (cutting nothing) darker; the pixel at its middle the same with its box drawn as without, plain, pointed at and selected). v118 adds three steps after the pretend headset's grips: inside a model (the pretend controller in the figure's unseen box
 pointing at nothing: the figure pointed at, its dot on its box, the trigger selecting it; pointing at the box from there:
 the box; outside every box: nothing, and the trigger clearing; editing off: nothing; Walk view with the camera in her box:
 a click on nothing selects her, one on the floor walks), *Hold it* (on her headset card only; armed, a grip of the other
@@ -5451,7 +5501,8 @@ Its *studio shapes* steps run on a seventh page, at `&scene=test` (v119): the Ad
 (their records, geometries and names), a shape's card (a colour's swatch, *Hides things*, size per side and every side, its
 kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties cards, the
 headset's card (its rows, a colour pressed); pixels read back from renders: a shape that hides things between the camera
-and the box shows the sky behind where the box was, one in red draws red, and editing shows its fill while it still hides; a
+and the box shows the sky behind where the box was, one in red draws red, and editing shows its opaque edges alone (v131:
+no fill; an unseen one pointable) while it still hides (pixels); a
 sound following an empty (picked by pointing, following as it moves, the cards on both sides, silenced by a cube hiding the
 empty), an empty drawn only while editing; *Lock in place* on the card (one Undo step, the move buttons greyed, the arrows
 off, the 🔒 in the label) refusing the card's actions, the Delete key, *Hold it*, a pretend headset's grip, both grips and a
@@ -5497,10 +5548,11 @@ headset's (Pulse, More, None); then (v122) a step for the ghost: none before it 
 bob draws it 1 m above, one part and one unseen box; the page's arrows on its stand-in (`TCP`), a drag through
 `TransformControls`' own events moving its record by 0.5 m with it resting there meanwhile (one Undo step) and moving on
 from there after; a ray at where it is placed (under where it is drawn) finding the item through its ghost, a pretend
-headset's grip there carrying it from its placed pose and moving it 0.3 m; an object's ghost as many parts as its
-model's meshes, a big one (`GHOST.tris` lowered) only its outline box, an empty's two parts, a sound's (its own path)
-two, none once deselected; the box with its clip playing while editing: a ghost at its placed pose, and still once
-selected, the page's arrows on its holder there (v125); its ghost built again while its clip stands still, the model
+headset's grip there carrying it from its placed pose and moving it 0.3 m; an object's ghost (its clip off) as many
+parts as its model's meshes, opaque light grey, writing depth (v131), a big one (`GHOST.tris` lowered) only its outline
+box, an empty's two parts, a sound's (its own path) two, none of them see-through, none once deselected; the box with its
+clip playing while editing: a ghost at its placed pose, its opaque outline box only (v131), and still once selected, the
+page's arrows on its holder there (v125); its ghost built again while its clip stands still, the model
 keeping its frame (v129); Pause from the Scene pane (every item at rest, the box's clip time held over 0.7 s of scene
 clock, the pane saying so, `state()` unchanged), the card's switch playing them again (the arrows back on the ghost), P
 pausing (the arrows back on the item), editing off playing them again; Start again on a motion that starts when shown

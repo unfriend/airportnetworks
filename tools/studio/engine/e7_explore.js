@@ -910,7 +910,9 @@ function paneStep(now) {
   if (s !== paneLast) { paneLast = s; X.dirty = true; }
   if (X.dirty && now - X.drawn > 150) renderPanes();
 }
-// the two labels: the name of what you point at, and of what is selected
+// the two labels: the name of what you point at, and of what is selected (a model's and a shape's with its triangles,
+// v131: "object · 397k ▲ · selected"; "· hidden" while a cube hides it from you)
+const triOf = it => (it.kind === 'o' ? triWords(trisNow(it)) + (it.shown ? '' : ' · hidden') : it.kind === 'p' ? triWords(it.look.tris()) + (it.shown ? '' : ' · hidden') : '');
 function updateExtraLabels() {
   const [Lh, Ls] = LBL.extra;
   if (!Lh) return;
@@ -918,8 +920,8 @@ function updateExtraLabels() {
   // (a sound that follows a model names it: "Voice → Dancer · Head"; a group's member its group: "Group 2 · Dancer")
   const to = it => (it.kind === 'g' ? `group of ${members(it).length}` : it.kind === 's' && it.rec.on ? '→ ' + followWords(it) : it.kind === 'x' ? 'cuts ' + (cutObj(it) ? cutObj(it).rec.name : 'nothing') : '');
   const gOf = it => (GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null), hg = h && gOf(h), sg = s && gOf(s);
-  labelSet(Lh, h ? [hg ? tagName(hg.rec) + ' · ' + tagName(h.rec) : tagName(h.rec), to(h) || KIND_NAME[h.kind] + (h.kind === 'p' && h.rec.look === 'hide' ? ' · hides things' : '')] : null);
-  labelSet(Ls, s ? [tagName(s.rec), (to(s) ? to(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + (s.rec.locked ? 'locked · ' : '') + 'selected'] : null);
+  labelSet(Lh, h ? [hg ? tagName(hg.rec) + ' · ' + tagName(h.rec) : tagName(h.rec), to(h) || KIND_NAME[h.kind] + triOf(h) + (h.kind === 'p' && h.rec.look === 'hide' ? ' · hides things' : '')] : null);
+  labelSet(Ls, s ? [tagName(s.rec), (to(s) ? to(s) + ' · ' : '') + (s.kind === 'o' || s.kind === 'p' ? KIND_NAME[s.kind] + triOf(s) + ' · ' : '') + (sg ? 'in ' + sg.rec.name + ' · ' : '') + (s.rec.locked ? 'locked · ' : '') + 'selected'] : null);
   Lh.show = h ? 1 : 0; Ls.show = s ? 1 : 0;
 }
 

@@ -286,10 +286,14 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
 - Shown and hidden fade over 0.4 s (opacity, then `visible` off; a sound's gain). An object shown with `start:
   'shown'` starts its animation from the beginning; a sound with `start: 'shown'` plays from the start each time it is
   shown, and stops (fading) when hidden. Items in no list are unaffected.
-- While editing: every cube is drawn see-through (its colour, about 0.18 opacity, brighter edges, its name over it,
-  brighter while you are inside it), lines from a selected cube to what it shows (green) and hides (red), and objects a
-  cube now hides from you drawn faint (about 0.3) instead of hidden, so they can still be picked; sounds play as a
-  visitor would hear them. Not editing: cubes and sound markers are not drawn at all.
+- While editing: every cube is drawn as its edges and its name over it (v131: no walls, "cubes that hide things need no
+  walls"; the edges opaque, in its own colour while you are inside it, lighter pointed at or selected, else darker; an
+  unseen box both ways round where its fill was, `material.visible` false, so the pointer finds it from outside and from
+  inside, its corners and the grips as before), lines from a selected cube to what it shows (green) and hides (red); a
+  model or a coloured shape a cube now hides from you is not drawn at all but shown by its unseen box's edges (a shape:
+  its own edges) and its tag with *· hidden*, still picked and carried, drawn whole while this device holds it ("Nothing
+  see-through while editing" under "Editing"; until v130 it was drawn faint, at 0.3); sounds play as a visitor would hear
+  them. Not editing: cubes and sound markers are not drawn at all.
 
 ## Trigger cubes that change textures (the owner, 8 November 2026)
 
@@ -353,7 +357,8 @@ crossfade needed". `tools/studio/engine/e6i_tex.js`.
 - `start: 'always'` loops start at the same moment for everyone at a station: offset = the room's time
   (`HOST.collab.now()`) modulo the sound's length; outside a room from when the scene opened.
 - Decoded once per file (`decodeAudioData`), at most 60 MB of decoded sound per scene (more: the rest not loaded, said).
-- While editing: a small speaker marker (a ball and cone in the sound's colour) and a faint ring on the floor at `r`.
+- While editing: a small speaker marker (a ball and cone in the sound's colour) and a thin ring on the floor at `r`
+  (opaque since v131, darker than the speaker).
 - A sound may follow an object or one of its bones ("Sounds that follow a model" below): it is placed, heard and shown
   where that puts it, and only while it and its object are both shown for you.
 
@@ -364,6 +369,46 @@ Refused (greyed, *This scene is locked*) while the station's story is locked (`H
 station; *Lock this story*), and not offered at all with `&visit`. Every change is recorded for *Undo* (this device's
 last 30 changes; an undo writes the item's record as it was, or removes what was added, or puts back what was
 deleted).
+
+### Nothing see-through while editing (the owner, 10 November 2026)
+
+"All transparent things are problematic when it comes to framerate in edit mode i feel, can we somehow reduce them? Like
+ghosts for example can just be a light gray, rooms that are not currently shown because a cube hides them could just be
+a empty square with a name? cubes that hide things need no walls too, same for walls that hide things, and the cutouts
+can also be without walls". A see-through layer is drawn again over what is behind it; a room scan drawn faint was one
+the size of the view, and a cube round you or a few large ones filled a headset's view several layers deep. So (v131)
+every look the studio draws while editing is opaque (`tools/studio/sets/looks.js`): lines, small meshes and tags, lit up
+by colour where they lit up by opacity. Trigger cubes, shapes that hide things and cut-outs their edges only (with an
+unseen box or fill for the pointer), ghosts light grey ("The ghost, Pause and placing what moves"), a sound's speaker,
+ring and line, an empty's cross, a group's dashed box, the selected and pointed-at outlines, a loading model's grey box
+and the tags (`LOOKS.tag` and the pick ticks: an opaque band, drawn with the opaque things after the items, `renderOrder`
+12, with no depth test, so still over everything they draw). Only an item's 1.6 s flash from a cube's card pulses
+see-through (lines). Not editing, nothing changes: what a cube shows or hides fades over 0.4 s as before.
+
+- **What a cube hides from you** (`it.hid`, set in `itemsStep` for models and shapes while editing): not drawn at all
+  (a model's `visible` off, a shape's mesh), snapping (no fade through see-through), and shown instead by its unseen
+  box's edges (`LOOKS.hidBox`: one shared opaque line material, a muted grey-blue; a shape its own edges) and its tag
+  with *· hidden* (the owner: "do it like this", of an outline box with its name and "hidden", "and if i grab it it should
+  show but just 100% not transparent"). Still pointed at, selected and carried through its unseen box (`pickables` and
+  `insidePick` as before: its holder stays visible); its animation holds meanwhile. While this device holds it
+  (`heldHere`: `it.carry`, which one grip, both grips, *Hold it*, the sticks while carried, the page's arrows on it or on
+  its group and a group carried set, or its path being recorded) it is drawn whole, every material its own opacity,
+  see-through and depth (`setObjAlpha(it, 1)`: while editing always), its edges hidden; let go, its edges again if a
+  cube still hides it. A model still loading that a cube hides shows its grey box (opaque) with *· hidden*.
+- **Triangles in space** (the owner: "In edit mode show triangle count per item next to its name in space", then "on
+  every" model): while editing every placed model has a tag over its top (`modelTag`: `LOOKS.tag` in `GL.edit`, made the
+  first time it shows, placed by `itemTopInto` each frame; its words built and its canvas drawn again only when its
+  record, its count or whether it is hidden change), *Atelier · 397k ▲* (`kTris`; its lock mark by `tagName`), *·
+  hidden* while a cube hides it from you; not while it is pointed at or selected, where the engine's labels say it
+  (*object · 397k ▲*, *object · 397k ▲ · selected*; *· hidden* too). The count (`trisNow`): while Fewer triangles
+  previews it, the preview's (`FT.pv.to`); built, its model's (`trisOf`, counted once per model: a GLB switch or a file
+  changed on the relay counts again); not built yet, its file's (as read) or its GLB record's `n` as far as this page has
+  read it (nothing is fetched for it), else no count. A shape's tag says its primitive's triangles. No layout,
+  `state()` or `FORMAT` change.
+- Untested on a headset: the frame-rate gain on a Quest (the shell's frame-rate read-out, a double press of B or Y, says
+  the story's triangles, draw calls and code time: compare a scan hidden by a cube and a cube round you with v130), how
+  the edges, the grey ghosts and the tags read life size, and the cost of a tag per model (a draw call each) in a scene of
+  many models.
 
 In a headset (editing on):
 - Pointing at an item lights it and names it; the trigger (or a pinch) selects it (its card on the panel). Pointing at
@@ -842,7 +887,7 @@ voice stays at a dancer's head and her movement sounds at her chest as she moves
   each person's own): its fade is its own times its object's (the 0.4 s fades), and with `start: 'shown'` it starts from
   its beginning each time that turns on (a voice line as she appears). The card and the Items pane say *hidden for you*
   by that. Not following: as before.
-- **While editing** (each device's own): its speaker is drawn where it follows, with a faint line in its colour to the
+- **While editing** (each device's own): its speaker is drawn where it follows, with a thin line in its colour to the
   target's origin (over everything), and hovered or selected its labels name what it follows (*Voice → Dancer · Head*).
 - **Shared rooms**: the record is the sound's field in `state()`, so following is shared as placing is; FORMAT
   `networks-30` (v112). No new key, no effect.
@@ -928,14 +973,16 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
 - **Drawn while editing** (`LOOKS.cut`): one warm red-orange for all cut-outs, its edges dashed (about seven dashes an
   edge) where they are seen, a solid tick a fifth of each edge long at every corner over everything (so a box inside a
   model still shows), *✂ Door* over it (*· hidden for you*, *· hidden for you, previewed cut*, *· cut*, *· whole*, *·
-  cuts nothing*, *· cuts nothing (16 at most)*), fainter while it cuts nothing; selected, a ball at each corner. Nothing
+  cuts nothing*, *· cuts nothing (16 at most)*), darker while it cuts nothing (v131: by its colour, `LOOKS.CUT_OFF`, half;
+  until v130 by its opacity); selected, a ball at each corner. Nothing
   of it is see-through (v125; the owner, 8 November 2026: "Framerate bad in studio edit mode when cutouts are active,
   they should not have this transparency since it is not needed anyway i think"): its very faint fill went, since each
   box filled its outline on screen once more (twice seen from outside, both faces drawn), so a few large boxes, or one
   round you, cost a headset's frame rate while editing (measured in headless Chromium's software drawing on the cuts
   test scene with 15 boxes, one round the camera, at 2560 x 1600: an editing frame took 543 ms with the fills and 401
   without, about what not editing takes, 380 to 410; close to the wall 809 and 478, against 436; the ghosts, a model
-  drawn faint and the trigger cube's fill made no difference there). Pointed at or selected, its edges light up instead
+  drawn faint and the trigger cube's fill made no difference there; v131: its lines, ticks and corners opaque too, as
+  every look while editing). Pointed at or selected, its edges light up instead
   (`LOOKS.CUT_LOOK.lit`): lighter (40 % towards white), their dashes denser (about twelve an edge, three quarters of it
   drawn, against about eight and under three fifths), its ticks a third of each edge long. The pointer (a click, a
   controller's ray) finds the nearest object, sound or cut-out by its unseen box. A cut-out lies inside its object's
@@ -1055,8 +1102,8 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
   change); under Items the group's heading does the same. The lists still name the members one by one. A cube in a group of
   cubes alone (nothing a cube can list) is selected as an ungrouped cube is (its group, as a click on any member), which
   ends the pick.
-- **Drawn while editing**: a selected group as a faint dashed box in its colour round all its members (`LOOKS.group`,
-  over everything), its name in the selection's label. Not editing, nothing of it is drawn.
+- **Drawn while editing**: a selected group as a dashed box in its colour, a little darker (opaque since v131), round all
+  its members (`LOOKS.group`, over everything), its name in the selection's label. Not editing, nothing of it is drawn.
 - **Shared rooms**: the group's record is its field in `state()` (`g.<id>`), and a move writes its members' records in the
   same state, so a room sees the whole group move at once; who picks, what is selected and a drag's carry are each
   device's own. FORMAT `networks-32`. Two people putting one item into two groups at once leave the group with the higher
@@ -1119,13 +1166,18 @@ for example to place sounds in space". `engine/e6d_shapes.js`, `LOOKS.shape` and
   Add pane's *Shapes* row 1.5 m in front of you on the floor, selected (a 50 cm box or ball, a cylinder 50 cm across and
   1 m tall, a 1 m plane; named *Box*, *Ball*, *Cylinder*, *Plane*, numbered as ever). 200 a scene.
 - **Its look**: `'colour'`, lit in its colour (`MeshStandardMaterial`, as an object), fading in and out as an object does
-  when a cube shows or hides it (faint while editing when hidden for you); `'hide'`, drawn into the depth alone
+  when a cube shows or hides it (while editing, hidden for you: not drawn, its edges and its tag with *· hidden*; drawn
+  whole while this device holds it: v131); `'hide'`, drawn into the depth alone
   (`colorWrite: false`, `renderOrder` -1: after the stage's floor (-2) and sky (-10), before every item), so the scene's own
   things behind it are not drawn there: in AR the real room shows through it, in VR the stage (its grid is drawn with the
   opaque things now, at -1.5, so its lines carry on behind such a shape); it cannot fade, so it
   switches at one half of its fade (as a cut-out); a closed shape hides from its outside only (from inside it hides
-  nothing), a plane both ways. While editing a shape that hides things is also drawn as a see-through fill in its colour
-  with its edges (and its name, *· hides things*), still hiding what is behind it; hidden for you, the fill alone, faint.
+  nothing), a plane both ways. While editing a shape that hides things also shows its edges (v131: no fill drawn, "walls
+  that hide things" need none; opaque, lighter pointed at or selected; a ball's three great circles and a cylinder's two
+  rims and four lines along it, as three.js finds no edges on a ball and only the rims on a cylinder; a box's twelve, a
+  plane's outline), still hiding what is behind it; an unseen fill (`material.visible` false, both sides) keeps it
+  pointable, also from inside; hidden for you, its edges alone. Every shape's tag while editing says its primitive's
+  triangles (*Box · 12 ▲*, *Ball · 1.8k ▲ · hides things*, *· hidden*; `LOOKS.shapeTris`).
 - **Its card** (page and headset): *Shape* (its size kept), *Look: Colour / Hides things*, *Colour* (ten swatches: light
   grey, white, dark grey, black, cyan, green, amber, red, violet, brown; for one that hides things only seen while
   editing), *Size (10 cm a press)* per side and *Size, every side* ×0.5 to ×2, *Place: Turn 90° / On the floor* (its exact
@@ -1661,15 +1713,20 @@ also want to be able to move moving/animated items to select their exact place".
   picked on its card shows on it at once.
 - **The ghost**: while editing, every item that moves now (v124; the owner, 8 November 2026: "in edit mode Ghosts should
   always be visible for animated things"; until v124 only the selected item or a selected group's members), while it is
-  drawn more than 1 cm or 1 degree from where it is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a see-through copy
+  drawn more than 1 cm or 1 degree from where it is placed (its middle, its turn, or a pulse more than 1 cm at its edge: `ghostFar`, from `it.mX`), a copy
   stands at its placed pose (`GH`, `ghostStep` at the end of `itemsStep`), and for 0.6 s after it was last that far, so a
   spin passing through its place does not blink it. Since v125 also a model its own clip moves (`clipMoves`: its parts
   move, its holder stays at its placed pose), the whole time its clip plays while editing, selected or not (`ghostFar`
   alone would hide it once selected); the page's arrows then stand on the item itself, at its placed pose, where the
-  ghost is. An object's: a copy of its model sharing its geometry with one ghost
-  material (pale blue-white, opacity 0.25, no depth written, drawn with the see-through things after the opaque ones), a
-  skinned mesh drawn as a plain one (frozen in its rest pose), and a model of more than 100,000 triangles only its outline
-  box (`GHOST.tris`); a shape's its shape; an empty's its cross and dot; a sound's its speaker. Each part where it stands on
+  ghost is. An object's: a copy of its model sharing its geometry with one ghost material (v131, the owner, 10 November
+  2026: "ghosts for example can just be a light gray": opaque light grey, `MeshLambertMaterial`, depth written, pushed a
+  hair back by `polygonOffset` so the item wins where the two meet, a mesh without normals flat-shaded by a
+  `MeshPhongMaterial`; lit, as a recording comes back to it, a light greenish grey; until v130 pale blue-white at 0.25, no
+  depth written), a skinned mesh drawn as a plain one (frozen in its rest pose); only its unseen box's edges, opaque lines
+  (`ghostLine`), for a model of more than 100,000 triangles (`GHOST.tris`), a model its own clip moves (its ghost would
+  stand where it is drawn and fight with it: the owner, "outline box is fine, just make sure it has no transparent
+  walls") and a model a cube hides from you (no clip ghost at all then: its own edges stand there); a shape's its shape;
+  an empty's its cross and dot; a sound's its speaker; none of it see-through. Each part where it stands on
   its holder (its matrix relative to the holder's as built), the ghost's own matrix the placed pose (the holder's place,
   turn and scale). Built once per selection (again when its model or a shape's kind changes) and freed when the selection
   changes: its two materials disposed, never the geometry it shares (the model's, the looks', the shared box's). None while
@@ -2156,6 +2213,12 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 - Trigger cubes that change textures (v124): the smoke test's *studio texture swaps* steps (on the test scene, with two
   solid pictures made in the page, a second object of `box.glb` and three cubes put in for them; `node tools/smoke.mjs
   <url> --only 'studio texture swaps'` runs them alone): "Testing" in `AGENTS.md`.
+- Nothing see-through while editing (v131): the smoke test's main *studio* step of that name (`--only 'studio:'`; the box a
+  cube hides as its outline and tag, held whole by a pretend grip and the page's arrows, the cube's edges picked from
+  inside and outside, a hidden shape, a ball that hides things, the tags' and labels' triangles, a pixel where the hidden
+  box stands), the *studio cuts* look step (opaque, darker cutting nothing), the *studio shapes* pixels step, the *studio
+  motions* ghost step (opaque light grey, a clip ghost and a big one opaque lines) and the Fewer triangles step's counts:
+  "Testing" in `AGENTS.md`.
 - The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
   on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
   loop join: "Testing" in `AGENTS.md`.
