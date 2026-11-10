@@ -7211,7 +7211,7 @@ try {
     // shown, and this test's head is a few centimetres from the shell's eye; both open straight ahead)
     out.again = where(); out.againWant = +(out.float.flat + out.pos.d - out.d0).toFixed(3);
     HOST.collab.panelOpen(false); localStorage.removeItem('xrMenuAt'); await steps(2);
-    btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(2);
     // hands: a left wrist turned every which way, its ray pointing up (at nothing); the right index fingertip
     const J = m => ({ world: X.W.local.clone().multiply(m) }), tip = J(new M4());
     const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
