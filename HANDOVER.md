@@ -1485,6 +1485,19 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
+   - **Laser tag across the whole room (maybe later; the owner, 10 November 2026: "lets not do this for now and put it
+     on the maybe later list").** The design as discussed: a layer over the whole room, apart from the circles. Each
+     headset has its own *Play laser tag* switch (only players shoot or are hit; others see nothing of it), and the room
+     has *Start a round for everyone* (as narration for everyone: each can still leave, the lobby takes you out). The
+     hitbox is estimated from the head: a head sphere and a chest capsule turning after the head, drawn as a glowing vest
+     and headband in each player's colour, hands never hit, a few cm of slack for the alignment between headsets. A hit
+     is decided by the person shot: the shot (start, direction, the relay's time) goes out and their own headset tests it
+     against where it really was then, from its own history, so only the alignment counts, not the network's delay. A
+     shield held on the free hand's grip (an energy bar draining while up), real cover from the room scan (a beam stops
+     at the first real surface), 3 s out after a hit. While playing the trigger fires (the menu and panels still pressed)
+     and the grip shields (A/X the other choice). AR only for people in one room (no VR in the room: they cannot see the
+     others); VR headsets elsewhere join as their avatars. Score keys one per person, written by its owner; a new
+     `FORMAT`. Open: opt-in or forced, the fire button, shield kind, real cover, free play, timed rounds or lives.
    - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
