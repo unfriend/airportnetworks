@@ -49,10 +49,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **At the handover (9 November 2026): where each branch is and what comes next.**
   - *The branches.* `main` is networks-v129 (FORMAT networks-40), released on 10 November 2026 after the first whole
     release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/ (GitHub Pages)
-    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v131 (FORMAT networks-41,
-    the v131 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
-    `dev`; v130 and v131 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
-    networks-v121 (`5524684`, 7 November); v122 to v131 are the entries below. The AI agents' working branch,
+    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v132 (FORMAT networks-41,
+    the v132 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
+    `dev`; v130 to v132 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
+    networks-v121 (`5524684`, 7 November); v122 to v132 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -96,6 +96,46 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v132 (10 November 2026; FORMAT networks-41, shell 132), on `dev`: spaceships in the headsets.** The owner:
+  "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right
+  controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting,
+  each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then
+  health, a is boost but that only lasts briefly"; asked, steering "like a joystick", the right stick for the ship and the
+  left for moving with the sticks, a new ship after 5 s, seen by everyone, practice targets "yes totally, maybe some ships
+  that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop
+  against them, also add some addons like additional boost and faster shooting for some times and reinforced shields
+  pickups that spawn from time to time". Laser tag across the room, discussed first, went to the Deferred list (item 7).
+  Built in one lane (a workflow, about 2.7M tokens: a builder, two Sonnet reviews, a verify and a fix round; two medium
+  findings confirmed and fixed, with nine lows).
+  - `ships.js` (`HOST.ships`, "Spaceships" in `AGENTS.md`), a shell file loaded after `occlusion.js` and before
+    `shared.js` (in `SHELL`, the relay's `APP_FILES` and `SHELL_FILES`, the release's shell fingerprint). The right stick
+    clicked twice launches or lands (`sticks` in `shared.js`; the left stick clicked twice is now moving with the sticks,
+    its notice, menu row and the studio's words saying so; single clicks and both at once still the menu); a Settings row
+    *Spaceship: launch / land*, greyed with why for a tracked right hand, a phone's AR or camera mode. A story change keeps
+    it flying (its objects move to the next story's scene in `HOST.teardown`, as occlusion's do).
+  - Flying: the right controller as a joystick (roll sets the turn rate, pitch from the launch's neutral the climb, yaw
+    ignored, a visual bank); cruise 1.2 m/s, the grip braking and reversing, A a 0.8 s boost to 3.2 m/s recharging in
+    4 s; bolts 5 a second; shield 100 refilling after 2 s, health 100, a new ship 5 s after it is destroyed; a 5 m arena
+    round where it launched, bounced at its edge and, in AR, off the room scan's planes. All numbers are constants at the
+    top of `ships.js` (`STEER`, `FLY`, `T0`) for tuning on a Quest.
+  - Co-op: one shared set of 3 drifting crystals and drones (2, one more per extra pilot, at most 5) run by the leader,
+    the pilot flying longest (handed on without a jump when it lands, leaves or goes quiet), and pickups every 15 to 30 s,
+    at most two (boost, rapid fire, reinforced shield), given by the leader to the first claim. Each headset decides hits
+    on its own ship. Ships and the set ride in presence (`sh`, drawn 120 ms behind as heads); bolts, hits, claims and
+    gifts are quiet effects on one room-wide key, `ships`, which `onFx` keeps from the stories. No room keys, no `FORMAT`
+    change. A headset in a room not lined up yet flies alone; pages keep no bolts and play no game sounds, and their
+    people lists say who is flying.
+  - The right controller while flying is the ship's: `HOST.inputsGuard` stops its presses before three.js and the shell
+    (the press that launched it keeps its end, so nothing stays pressed), `HOST.collab.ray` points it at nothing, and the
+    right stick turns nothing (the shell's walk turn, the studio's and every story's explore stick, the line beside
+    `xrWalking()`, in the hand-written three and the built stories' engines, all rebuilt).
+  - Opaque low-poly looks of our own (the ship 218 triangles), bars, a strip over the right controller and an arrow to
+    the ship when out of view; twelve new sounds in `sfx.js`, no engine sound (levels -30.9 to -44.3 LUFS). Tests: the
+    smoke test's `--only spaceship` (12 steps) and `collab --ships` (13 checks), both run in the lane, with `--only 'stick
+    moving'` and `--only 'controllers after standby'`; `relay/test.mjs` for the file lists.
+  - Untested on devices: all of it on a Quest (the joystick's feel and numbers, play balance, how the looks read, others'
+    ships over Wi-Fi, room-scan bounces, the buzz, the claim with real Quest Browser events, the frame cost), the sounds by
+    ear. On `dev` only the cheap checks ran.
 - **networks-v131 (10 November 2026; FORMAT networks-41, shell 131), on `dev`: areas in one room; nothing see-through
   in the studio's edit mode, with triangle counts in space; occlusion that comes back after a sleep.** The owner, after
   trying v130: "i would prefer one room that can have multiple anchors so that people stay in the same one and there are
