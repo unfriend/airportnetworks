@@ -9155,6 +9155,12 @@ if (runs('spaceship')) {
     await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); window.__w.heard.length = 0; window.__w.press(window.__w.R, 'selectstart'); window.__w.press(window.__w.R, 'selectend'); });
     const h2 = await sp.evaluate(() => window.__w.heard.slice());
     if (h2.filter(([h]) => h === 'right').length !== 2) bad.push('landed, the right controller\'s presses: ' + JSON.stringify(h2));
+    // a press begun before the launch (the trigger and the grip that launched it): its end gets through, a new one does not
+    await sp.evaluate(() => { const W = window.__w; W.heard.length = 0; W.press(W.R, 'selectstart'); W.press(W.R, 'squeezestart'); HOST.ships.launch(true); window.__wtick(2);
+      for (const t of ['select', 'selectend', 'squeeze', 'squeezeend', 'selectstart', 'select', 'selectend']) W.press(W.R, t); });
+    const h3 = await sp.evaluate(() => (HOST.ships.state().flying ? window.__w.heard.filter(([h]) => h === 'right').map(x => x[1]) : 'not flying'));
+    if (JSON.stringify(h3) !== JSON.stringify(['selectstart', 'squeezestart', 'select', 'selectend', 'squeeze', 'squeezeend'])) bad.push('a press begun before the launch, what was heard of it and of the next: ' + JSON.stringify(h3));
+    await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); });
     // moving with the sticks: flying, a flick of the right stick turns nothing; the left moves you
     await sp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); HOST.ships.launch(true); window.__wtick(2); });
     const t0 = await sp.evaluate(() => HOST.xr.travel());
@@ -9166,6 +9172,38 @@ if (runs('spaceship')) {
     if (Math.hypot(t2.x - t1.x, t2.z - t1.z) < 0.5) bad.push('flying, the left stick did not move you: ' + JSON.stringify([t1, t2]));
     await sp.evaluate(() => { HOST.xr.setWalk(false); HOST.xr.walkReset(); });
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: in a story\'s explore mode the right stick spins and zooms nothing while the ship flies, and again once it has landed', async () => {
+    const bad = [];
+    await fresh('airports');
+    await sp.evaluate(() => HOST.cur.peek('(APP.enterExplore(), 0)')); await tick(3);
+    await sp.evaluate(() => HOST.cur.peek(`(() => { orbit.to = null; const c = XR.ctrls[1]; c.src = window.__w.R; c.g.visible = true;
+      c.g.matrix.compose(new THREE.Vector3(0.2, 1.1, -0.3), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0)), new THREE.Vector3(1, 1, 1));
+      c.g.matrixWorld.copy(c.g.matrix); return 0; })()`));
+    const orb = () => sp.evaluate(() => HOST.cur.peek('orbit.cur.slice()'));
+    const push = async () => { await sp.evaluate(() => { const a = window.__w.R.gamepad.axes; a[2] = 0.8; a[3] = 0.5; window.__wtick(20); a[2] = 0; a[3] = 0; window.__wtick(1); }); };
+    const o0 = await orb(); await push(); const o1 = await orb();
+    if (!(await st()).flying || JSON.stringify(o1) !== JSON.stringify(o0)) bad.push('flying, the explore view moved: ' + JSON.stringify([o0, o1]));
+    await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); });
+    await push(); const o2 = await orb();
+    if (Math.abs(o2[0] - o1[0]) + Math.abs(o2[1] - o1[1]) < 1 || Math.abs(o2[2] - o1[2]) < 1e-3) bad.push('landed, the right stick did not spin and zoom the explore view: ' + JSON.stringify([o1, o2]));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: a headset whose game is not in a room\'s frame takes no one\'s ship or bolts (they are in room coordinates)', async () => {
+    const bad = [];
+    await fresh();
+    const r = await sp.evaluate(() => {
+      const n = Math.round(performance.now());
+      HOST.ships.presIn('zz', { lt: 1, p: [0, 1.2, -1], q: [0, 0, 0, 1], s: 100, h: 100 }, n);
+      HOST.ships.fxIn({ e: [{ k: 'b', i: 1, o: [0, 1.2, -1], d: [0, 0, 1], v: 8, t: Math.round(HOST.ships.state().rt || n) }] }, 'zz');
+      window.__wtick(2);
+      const s = HOST.ships.state();
+      return { frame: s.frame, remote: s.remote.length, bolts: s.bolts.filter(b => b.pilot === 'zz').length, pilots: s.pilots, leader: s.leader, me: s.me };
+    });
+    if (r.frame !== 'own' || r.remote || r.bolts || r.pilots.length !== 1 || r.leader !== r.me) bad.push(JSON.stringify(r));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: not in a room\'s frame: ' + b));
   });
 
   await step('spaceship: the menu\'s Spaceship row launches and lands; a story change keeps it flying, hung in the next story\'s scene; the session\'s end lands it', async () => {

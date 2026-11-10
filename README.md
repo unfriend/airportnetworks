@@ -56,7 +56,7 @@ Meta Quest Browser).
   explore mode. Play and pause are on the story's panels and on the menu's
   *Story* tab (no story uses A or X since v125). Click either stick to open the
   headset's menu (with tracked hands: two quick pinches of the left hand,
-  pointing at nothing). In VR, one stick clicked twice turns **moving with the
+  pointing at nothing). In VR, the left stick clicked twice turns **moving with the
   sticks** on or off (this headset's own, off by default; not in AR, and not in a
   shared room except in the studio): the left stick moves you where you face, the
   right stick turns you 30 degrees. How that feels on a Quest is untested.

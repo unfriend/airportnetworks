@@ -4215,7 +4215,7 @@
       button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
       button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
       y += 76;
-      // moving with the sticks in VR (HOST.xr.walk: this headset's own, never the room's; a stick clicked twice too),
+      // moving with the sticks in VR (HOST.xr.walk: this headset's own, never the room's; the left stick clicked twice too),
       // greyed where it does not apply (AR, in a room with the others, a page with its own stick walk), saying why; a page
       // that switches its sticks with it (the studio) says what it does there (sticks.note); a headset elsewhere in a room
       // is told the others see it move

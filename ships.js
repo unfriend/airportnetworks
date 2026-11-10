@@ -63,6 +63,9 @@ HOST.ships = (function () {
   const now = () => (TC.on ? pnow() + TC.off : L && L.now ? L.now() : performance.now());
   const me = () => (L && L.id && L.id()) || 'me';
   const inRoom = () => !!(L && L.room && L.room());   // (a shared room, lined up: the ship flies in room coordinates and goes out)
+  // others' ships and effects are in room coordinates: a headset whose game is not in the room's frame (in a room, not
+  // lined up) plays alone and takes none of them; a page (no session) keeps them for its people list
+  const offRoom = () => !!HOST.session && F.kind !== 'room';
   const say = (title, text, ms) => { try { if (L && L.notice) L.notice(title, text, ms || 3500); } catch (e) { /* no notice */ } };
   const log = (ev, o) => { try { if (L && L.log) L.log(ev, o); } catch (e) { /* no log */ } };
   const memberOf = id => (L && L.member ? L.member(id) : null) || {};
@@ -73,7 +76,7 @@ HOST.ships = (function () {
   // this headset's ship (in the game's frame: room coordinates in a room, else the renderer's space moved down to the floor)
   const S = { on: false, want: '', sess: null, lt: 0, src: null, neutral: 0, p: new V3(), yaw: 0, pitch: 0, bank: 0, speed: 0, q: new Q4(),
     shield: HP.shield, extra: 0, health: HP.health, hitAt: -1e9, boostT: 0, charge: 1, aWas: true, shotAt: -1e9, n: 0,
-    down: 0, downR: 0, killer: '', rapidUntil: 0, boostUntil: 0, c: [0, 0], kind: '', floorY: 0, turn: 0, bumpAt: 0, ctrl: false, why: '' };
+    down: 0, downR: 0, killer: '', rapidUntil: 0, boostUntil: 0, gift: '', c: [0, 0], kind: '', floorY: 0, turn: 0, bumpAt: 0, ctrl: false, why: '' };
   const F = { m: new M4(), mi: new M4(), kind: '', floor: null, floorAsked: null };   // the game's frame in the renderer's space
   const RS = new Map();   // others' ships: id -> { s: samples [{ ts, v }], at, lt, last, w: the set's samples }
   const BOLTS = new Map();   // live bolts: key -> { by, dr, o, d, v, t0, mine, hit }
@@ -284,9 +287,11 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   function watch(s) {
     if (s === S.sess) return;
     if (S.on) land('session', true);
-    S.sess = s || null; F.floor = null; F.floorAsked = null;
-    // (no session: nothing of it left standing in the story's scene, which a page then draws)
-    if (!s) { detach(); BOLTS.clear(); RS.clear(); W = null; VW = null; LEAD = ''; PART.n = 0; return; }
+    S.sess = s || null; F.floor = null; F.floorAsked = null; F.kind = '';
+    // (a session begins or ends: what was heard before, as a page or in another frame, goes; no session: nothing of it
+    // left standing in the story's scene, which a page then draws, and the page's clock its own again)
+    BOLTS.clear(); RS.clear(); W = null; VW = null; LEAD = '';
+    if (!s) { detach(); PART.n = 0; FT = 0; lastT = 0; lastNow = 0; return; }
     try {
       if (typeof s.requestReferenceSpace === 'function') {
         F.floorAsked = s;
@@ -301,10 +306,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   const isAR = () => HOST.mode === 'immersive-ar';
   // the right controller (tracked, with a gamepad; never a tracked hand), or null; the hand alone when it is one
   function rightSrc() {
-    let list = [];
-    try { list = HOST.session ? [...HOST.session.inputSources] : []; } catch (e) { /* gone */ }
+    let list = null;
+    try { list = HOST.session ? HOST.session.inputSources : null; } catch (e) { /* gone */ }
+    if (!list) return null;
     let hand = null;
-    for (const x of list) {
+    for (let i = 0; i < list.length; i++) {
+      const x = list[i];
       if (!x || x.handedness !== 'right') continue;
       if (x.hand || !x.gamepad) { hand = x; continue; }
       if (x.targetRayMode === 'tracked-pointer') return x;
@@ -417,7 +424,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   function launch() {
     const why = whyNot();
     if (why) { log('ship refused', { why }); say('Spaceship', why, 4500); return false; }
-    S.on = true; S.lt = Math.round(now()); S.kind = F.kind; S.n = 0;
+    S.on = true; S.lt = Math.round(now()); S.kind = F.kind;   // (S.n never reset: bolt keys stay unique per pilot)
     KILLS.has(me()) || KILLS.set(me(), { ships: 0, bots: 0 });
     // the arena round where the pilot stands now
     if (HEAD.ok) S.c = [HEAD.g.x, HEAD.g.z]; else S.c = [0, 0];
@@ -448,7 +455,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   }
   function land(why, quiet) {
     if (!S.on) return;
-    S.on = false; S.down = 0; S.boostT = 0; S.rapidUntil = 0; S.boostUntil = 0; S.extra = 0;
+    S.on = false; S.down = 0; S.boostT = 0; S.rapidUntil = 0; S.boostUntil = 0; S.extra = 0; S.gift = '';
     log('ship landed', { why });
     if (!quiet) { play('land', S.p); say('Spaceship landed', 'Click the right stick twice to fly again.', 3000); }
     if (L && L.changed) L.changed();
@@ -456,7 +463,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   const rapidOn = t => S.rapidUntil > t, boostUpOn = t => S.boostUntil > t;
   function shipStep(dt, pt, tn, f, ref) {
     if (S.down) {
-      if (pt - S.down >= T.respawn) { spawn(false); play('respawn', S.p); log('ship respawned', {}); }
+      if (pt - S.down >= T.respawn) { spawn(false); play('respawn', S.p); log('ship respawned', {}); if (S.gift) { take(S.gift); S.gift = ''; } }
       return;
     }
     // the pickups' times running out: a chime
@@ -524,7 +531,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   const _pa = new V3(), _pb = new V3(), _pn = new V3(), _pm = new M4(), _pmi = new M4();
   function planesBounce(f, ref, from, pt) {
     let set = null;
-    try { const ef = HOST.session && HOST.session.enabledFeatures; if (!ef || [...ef].includes('plane-detection')) set = f.detectedPlanes; } catch (e) { set = null; }
+    try { const ef = HOST.session && HOST.session.enabledFeatures; if (!ef || Array.prototype.includes.call(ef, 'plane-detection')) set = f.detectedPlanes; } catch (e) { set = null; }
     if (!set || !set.size) return;
     if (pt - S.bumpAt < 150) return;
     toRef(from, _pa); toRef(S.p, _pb);
@@ -598,7 +605,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     try { if (L && L.send) L.send({ e }); } catch (er) { /* not sent */ }
   }
   function fxIn(v, by) {
-    if (!v || !Array.isArray(v.e) || typeof by !== 'string' || !by || by === me()) return;
+    if (!v || !Array.isArray(v.e) || typeof by !== 'string' || !by || by === me() || offRoom()) return;
     for (const ev of v.e.slice(0, 60)) if (ev && typeof ev === 'object') { try { handle(ev, by, false); } catch (e) { /* a bad one */ } }
   }
   const keyOf = (by, i) => by + ':' + i;
@@ -606,7 +613,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     const tn = now();
     if (ev.k === 'b') {   // a bolt: the same straight line on every device, from its start, direction, speed and time
       if (!fin(ev.o) || ev.o.length !== 3 || !fin(ev.d) || ev.d.length !== 3 || !Number.isFinite(ev.v) || !Number.isFinite(ev.t)) return;
-      if (Math.abs(ev.t - tn) > 5000 || Math.abs(ev.v) > 30) return;
+      if (Math.abs(ev.t - tn) > 5000 || Math.abs(ev.v) > 30 || !HOST.session) return;   // (a page draws no bolts)
       const key = keyOf(by, ev.i);
       if (BOLTS.has(key) || BOLTS.size > 400) return;
       const dl = Math.hypot(...ev.d) || 1;
@@ -616,7 +623,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       return;
     }
     if (ev.k === 'h') {   // a hit: the bolt goes everywhere; the ship's (the sender's), a drone's or a target's new bars
-      if (typeof ev.b === 'string') { const B = BOLTS.get(ev.b); if (B) B.hit = true; else BOLTS.set(ev.b, { hit: true, t0: tn, o: [0, 0, 0], d: [0, 0, 1], v: 0 }); }
+      if (typeof ev.b === 'string' && HOST.session) { const B = BOLTS.get(ev.b); if (B) B.hit = true; else BOLTS.set(ev.b, { hit: true, t0: tn, o: [0, 0, 0], d: [0, 0, 1], v: 0 }); }
       const w = typeof ev.w === 'string' ? ev.w : '';
       const ent = w === 'me' ? 'ship:' + by : w.slice(0, 24);
       FLASH.set(ent, { t: pnow(), kind: ev.fx === 's' ? 'spark' : 'ring' });
@@ -651,7 +658,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       GONE.set(ev.i, pnow()); PEND.delete(ev.i);
       if (VW && VW !== W) VW.k = VW.k.filter(k => k.id !== ev.i);
       const at = posOfPick(ev.i);
-      if (ev.to === me() && S.on && !S.down) take(ev.kind);
+      if (ev.to === me() && S.on) { if (S.down) S.gift = ev.kind; else take(ev.kind); }   // (claimed just before it went down: at the new ship)
       else if (at) play('pickup', at, 0.6);
       return;
     }
@@ -681,14 +688,16 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // ---------------------------------------------------------------------------------------------- others' ships
   // a presence from someone (shared.js's onFx): its ship (sh), or none (landed); kept as samples by its ts
   function presIn(id, sh, ts) {
-    if (typeof id !== 'string' || id === me()) return;
-    if (!sh || typeof sh !== 'object') { if (RS.has(id)) RS.delete(id); return; }
+    if (typeof id !== 'string' || id === me() || offRoom()) return;
+    if (!sh || typeof sh !== 'object') { if (RS.has(id)) { RS.delete(id); if (L && L.changed) L.changed(); } return; }
     const v = parseShip(sh);
     if (!v || !Number.isFinite(ts)) return;
     let R = RS.get(id);
     if (!R) RS.set(id, (R = { s: [], at: 0, lt: v.lt, last: null, hitAt: 0 }));
-    // (shield, health or down changed: the pages' people lists say so)
-    if (!R.last || R.last.s !== v.s || R.last.h !== v.h || !R.last.dn !== !v.dn) { if (L && L.changed) L.changed(); }
+    // (shield, health or down changed: the pages' people lists say so; down at once, the bars at most once a second,
+    // since the shield's refill changes them in nearly every presence)
+    const pt = pnow(), dn = !R.last || !R.last.dn !== !v.dn, bars = R.last && (R.last.s !== v.s || R.last.x !== v.x || R.last.h !== v.h);
+    if (dn || (bars && pt - (R.chAt || 0) > 1000)) { R.chAt = pt; if (L && L.changed) L.changed(); }
     R.at = pnow(); R.lt = v.lt; R.last = v;
     const s = R.s, last = s[s.length - 1];
     if (last && ts <= last.ts) return;
@@ -715,7 +724,13 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     const c = fin(w.c) && w.c.length === 2 ? w.c.slice() : [0, 0];
     return { c, n: Number.isFinite(w.n) ? w.n : 0, t, d, k };
   }
-  function expireRemote(pt) { for (const [id, R] of RS) if (pt - R.at > T.quiet) RS.delete(id); }
+  function expireRemote(pt) {
+    let n = 0;
+    for (const [id, R] of RS) if (pt - R.at > T.quiet) { RS.delete(id); n++; }
+    if (n && L && L.changed) L.changed();   // (a pilot gone quiet: the people lists say so)
+  }
+  // a page has no frames: its others' ships go quiet by a timer (a headset's in its frames)
+  setInterval(() => { if (!HOST.session && RS.size) try { expireRemote(pnow()); } catch (e) { /* never in the way */ } }, 1000);
   // where another ship is drawn now: NET.delay behind the relay's time, between its samples (places in a line, turns by
   // slerp), carried on at most NET.carry past the last
   const _qa = new Q4(), _qb = new Q4();
@@ -749,10 +764,13 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // ---------------------------------------------------------------------------------------------- the leader and its set
   // the pilots flying (this headset and the others heard in the last T.quiet), by their launch time: the first leads,
   // ties by member id, the same on every device
+  const PILOTS = [], PPOOL = [];   // (reused each frame: no garbage)
+  function addPilot(id, lt) { const o = PPOOL[PILOTS.length] || (PPOOL[PILOTS.length] = { id: '', lt: 0 }); o.id = id; o.lt = lt; PILOTS.push(o); }
   function pilots() {
-    const out = [];
-    if (S.on) out.push({ id: me(), lt: S.lt });
-    for (const [id, R] of RS) if (R.last && Number.isFinite(R.lt)) out.push({ id, lt: R.lt });
+    const out = PILOTS;
+    out.length = 0;
+    if (S.on) addPilot(me(), S.lt);
+    for (const [id, R] of RS) if (R.last && Number.isFinite(R.lt)) addPilot(id, R.lt);
     out.sort((a, b) => a.lt - b.lt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     return out;
   }
@@ -781,7 +799,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
         d: v.d.map(e => ({ id: e.id, p: p(e), yaw: e.yaw, pitch: e.pitch, bank: e.bank || 0, s: e.s, h: e.h, a: e.a, back: e.back, hitAt: -1e9, fireAt: now() + T.droneFire, whim: 0, wy: e.yaw, wh: e.p.y, chase: 0 })),
         k: v.k.map(e => ({ id: e.id, kind: e.kind, p: p(e), until: e.until })) };
     }
-    const c = S.on ? S.c.slice() : [0, 0], W2 = { c, n: now() + rnd(T.pickMin, T.pickMax) * 0.5, seq: 0, t: [], d: [], k: [] };
+    const c = S.on ? S.c.slice() : [0, 0], W2 = { c, n: now() + rnd(T.pickMin, T.pickMax), seq: 0, t: [], d: [], k: [] };
     for (let i = 0; i < BOT.targets; i++) W2.t.push({ id: 't' + (i + 1), p: freeSpot(W2, 1.2), v: drift(), h: HP.thealth, a: true, back: 0 });
     for (let i = 0; i < BOT.drones; i++) W2.d.push(newDrone(W2, 'd' + (i + 1)));
     return W2;
@@ -1047,7 +1065,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     c.fillText(s === name ? s : s + '…', 18, 25);
     T2.tex.needsUpdate = true;
   }
-  const RD = { p: new V3(), q: new Q4() };
+  const RD = { p: new V3(), q: new Q4() }, TAGS_ON = new Set();   // (reused each frame: no garbage)
   function draw(dt, pt, tn) {
     const sc = storyScene();
     if (!sc) { detach(); return; }
@@ -1069,7 +1087,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       _p.set(0, 0, 0.095).applyQuaternion(S.q).add(S.p); glowAt(_p, S.boostT > 0 ? '#ffd27a' : '#7fdcff', S.boostT > 0 ? 0.06 : 0.035);
       bars(S.p, S.shield, HP.shield, S.extra, S.health, HP.health);
     }
-    const tagsOn = new Set();
+    const tagsOn = TAGS_ON; tagsOn.clear();
     for (const [id, R] of RS) {
       if (!R.last || R.last.dn) { R.draw = null; continue; }
       if (!R.draw) R.draw = { p: new V3(), q: new Q4() };
@@ -1206,7 +1224,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     G.hudTex.needsUpdate = true;
   }
   function play(name, gp, gain) {
-    if (!HOST.sfx || !HOST.sfx.play) return;
+    if (!HOST.sfx || !HOST.sfx.play || !immersive()) return;   // (pages draw nothing and play nothing of it)
     try { toRef(gp, _hp); HOST.sfx.play(name, Object.assign({ at: [_hp.x, _hp.y, _hp.z] }, gain && gain !== 1 ? { gain } : {})); } catch (e) { /* no sound */ }
   }
 

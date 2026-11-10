@@ -1394,15 +1394,23 @@ ships or look).
     presence and effects).
   - Who sees: every headset in the room every ship, drone, target and bolt, at any circle and whatever its People setting
     (ships are not people), a camera too; pages draw nothing in 3D, and the Shared dialog's people list says *flying a
-    ship (shield 80, health 100)* and what each destroyed. In a room everything is in room coordinates (the root hangs at
-    the room's matrix); a headset elsewhere flies in the same room coordinates as its avatar; outside a room the
-    renderer's space moved down to the floor.
+    ship (shield 80, health 100)* and what each destroyed (redrawn at once when a ship goes down, at most once a second
+    for its bars, which the shield's refill changes in nearly every presence). In a room everything is in room
+    coordinates (the root hangs at the room's matrix); a headset elsewhere flies in the same room coordinates as its
+    avatar; outside a room the renderer's space moved down to the floor. A headset in a room that is not lined up yet
+    plays alone in its own frame and takes no one's ships or effects (`offRoom`: they are in room coordinates) until it
+    is; a page keeps the ships for its people list (gone 2 s after their last presence, by a timer: a page has no
+    frames), but no bolts, and plays none of the game's sounds.
 - **The right controller while flying** belongs to the ship. `HOST.inputsGuard.claim(fn)` (`index.html`): the guard's
   listeners, the first on the session, hear its select and squeeze events as ever (so none counts as missed) and stop
   them, so they reach neither three.js (the story) nor the shell's other listeners (the menu, a station's grip); nothing
-  is given again for it. `HOST.collab.ray` answers for its ray as the shell's, at the controller with nothing to press and
+  is given again for it; but a press whose start reached three.js and the shell before the claim (the trigger or grip
+  that launched the ship) gets its end through (`pass`), so the story's controller is not left pressed or holding.
+  `HOST.collab.ray` answers for its ray as the shell's, at the controller with nothing to press and
   a distance of 0 (as a camera's), so the story draws no line and it is not sent to the others. The right stick's turn of
-  moving with the sticks rests (`index.html`; and the studio's own right stick), the left stick still moves you in VR.
+  moving with the sticks rests (`index.html`; and the studio's own right stick), and so does the stories' explore
+  spin and zoom on that stick (the same line in every story's `xrPoint`, `!(HOST.ships && HOST.ships.claims(c.src))`
+  beside `xrWalking()`); the left stick still moves you in VR.
   The left hand is unchanged (the menu, panels, its stick).
 - **The look.** Nothing large and see-through (the owner's frame rate, v131): one lit shader in view space (opaque, the
   same in every story whatever its lights), instanced meshes a kind (ships in their pilots' colours, drones, targets, each
@@ -2345,7 +2353,8 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   reads and where it stands on a real headset, and its timing after a real alignment, are untested. The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes; since v125 it opens or closes once 0.4 s have passed with no second click of
-  that stick, `CLK`: the same stick clicked twice turns moving with the sticks on or off and never the menu, the other
+  that stick, `CLK`: the left stick clicked twice turns moving with the sticks on or off (the right stick clicked twice
+  launches or lands a spaceship since v132) and never the menu, the other
   stick clicked meanwhile counts as the same click, so both at once still toggle it once; "Moving with the sticks" under
   "Four headset settings"; `buttons[4]`, A and X, plays and pauses nothing since v125), or with tracked hands two
   pinches of the left hand within 0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
@@ -3143,7 +3152,8 @@ reference, `tools/flock/engine/`):
 - Moving with the sticks (v125), the line after `xrSig`:
   `const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());` (the shell moves this headset with the
   sticks in VR: "Moving with the sticks" under "Four headset settings"); in `xrPoint` the explore view's spin and zoom by
-  the stick waits on it, `if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking())`, while a carried scene's
+  the stick waits on it, and since v132 on a spaceship flying with that controller,
+  `if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking() && !(HOST.ships && HOST.ships.claims(c.src)))`, while a carried scene's
   reach by its stick in `carry` does not (its grip is held, so the shell leaves that stick to the story). The studio
   switches its own sticks with it and moves you itself while it is on (`sticks: { say(on), note }` in its returned
   object: "The studio's two stick modes"). No story reads A or X (`buttons[4]`) since v125.
@@ -5056,8 +5066,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   so the sticks never reach it; nothing scrolls the panel meanwhile. A line on the headset's card under *Carry it* says
   it. In VR, while nothing is carried, the left stick
   walks you through the scene and the right stick turns you 30 degrees a flick (the scene moves, `XR.walk`, never the
-  rig; per device, reset by Recenter, at a station too, never written to the room). These are the studio's own sticks: a
-  stick clicked twice (the shell's moving with the sticks, the same setting as in every story, VR only) switches them to
+  rig; per device, reset by Recenter, at a station too, never written to the room). These are the studio's own sticks: the
+  left stick clicked twice (the shell's moving with the sticks, the same setting as in every story, VR only) switches them to
   moving you, also while something is carried, which comes along in the hand, and back (v125, `stickMove`, by the
   shell's numbers, the scene moving as with its own walk, in a shared room too; the notice, the menu row's note and the
   card's line under *Carry it* say which: "The studio's two stick modes" under "Four headset settings"); in AR you walk
@@ -5449,8 +5459,11 @@ gone after its time), the reinforced shield's (150, a hit of 20 taken from the e
 1.5 s gone after it, at most 2 at once. Destroyed at 0 (*Destroyed by a drone*, no ship drawn, the strip shown), a new ship
 5 s later at the controller, full, its neutral taken again. Flying, the right controller's select and squeeze events
 reaching no listener after the shell's guard, the left's all six; its ray at the open menu pointing at nothing (`kind`
-shell, `dist` 0, no hover) where the left's points at the menu; landed, its presses heard again; moving with the sticks
-on, a flick of the right stick turning nothing while the left stick moves you. The menu's Spaceship row launching and
+shell, `dist` 0, no hover) where the left's points at the menu; landed, its presses heard again; a trigger and grip
+pressed before the launch getting their ends through (and the next press not); moving with the sticks
+on, a flick of the right stick turning nothing while the left stick moves you. In the airports' explore mode the right
+stick spinning and zooming nothing while it flies, and again once landed. Flying alone (the game in its own frame),
+another's ship and bolt handed in taken by nobody. The menu's Spaceship row launching and
 landing; another story (the flock) keeping it flying, drawn in its scene; the session's end landing it. Heading out from
 the arena's middle it never passes 5 m and comes back; the strip shown and the arrow with the head turned away; in AR a
 pretend wall (a plane of the room scan 1 m ahead) bouncing it back; nothing see-through among its materials but small

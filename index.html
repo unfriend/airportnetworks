@@ -1652,7 +1652,7 @@ HOST.xr = (function () {
 // 9 November 2026, after trying it: "should also work in shared rooms everywhere when the user is in vr and not in the
 // same room")
 // This headset's own, never a room's and never in a story's state: walk() / setWalk(on), kept as xrWalk, off by default,
-// #walk=on|off in a link, a stick clicked twice (shared.js, sticks) or the menu's Settings row. walking() is true while it
+// #walk=on|off in a link, the left stick clicked twice (shared.js, sticks) or the menu's Settings row. walking() is true while it
 // applies now: a VR session (in AR you walk for real), not in a shared room's real room with the others (the room's frame
 // and the others' view of you need where you really stand there) and with a story on show that does not move you itself
 // (a page that walks you with its own sticks says ownSticks: true in its returned object); walkWhy() says why not ('ar',
@@ -2367,7 +2367,7 @@ HOST.inputsGuard = (function () {
   // passed, or stopped for ours), a late press being stopped (swal: its start stopped, its end to come)
   function stateOf(x, born) {
     let S = G.src.get(x);
-    if (!S) G.src.set(x, S = { born, k: KIND.map(() => ({ down: false, at: 0, t1: 0, t2: 0, edge: 0, ev: 0, wait: false, armed: false, syn: 0, n: 0, late: 0, real: false, swal: false })) });
+    if (!S) G.src.set(x, S = { born, k: KIND.map(() => ({ down: false, at: 0, t1: 0, t2: 0, edge: 0, ev: 0, wait: false, armed: false, syn: 0, n: 0, late: 0, real: false, swal: false, pass: false })) });
     return S;
   }
   // a real event's source as tracked here: the very source, or one three.js still maps (an older object of the same
@@ -2425,9 +2425,14 @@ HOST.inputsGuard = (function () {
       for (const [, i, start, mid, end] of KIND) {
         for (const type of [start, mid, end]) s.addEventListener(type, e => {
           if (!e || G.s !== s) return;
-          // (claimed: heard here as ever, so its presses never count as missed, then stopped)
-          const mine = claimed(e.inputSource);
+          // (claimed: heard here as ever, so its presses never count as missed, then stopped; but a press whose start
+          // reached three.js and the shell before the claim (the trigger or grip that launched the ship) gets its end
+          // through, or the story's controller would stay pressed or holding)
+          const mine = claimed(e.inputSource), n0 = G.stopped;
           if (!e.synthetic) heard(e, type, i, start, end);
+          const S = heardFor(s, e.inputSource), K = S && S.k[i];
+          if (K && type === start) { if (G.stopped === n0) K.pass = !mine; else if (K.syn !== 2) K.pass = false; }   // (stopped as a second start of a given press: that one passed)
+          else if (K && K.pass) { if (type === end) K.pass = false; if (mine) return; }
           if (mine && e.stopImmediatePropagation) { G.claimed++; e.stopImmediatePropagation(); }
         }, true);
       }
