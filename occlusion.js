@@ -27,8 +27,8 @@ HOST.occlusion = (function () {
   // when to ask again (ms; times() for tests): the session hidden at least this long (a sleep, not a glance at the
   // system menu); no depth for this long while it had come; no part of the room posed for this long; the watchdog's
   // first try at least this long after the last ask, each next one twice as long, at most cap tries after the session's
-  // start or a sleep; the depth's calls throwing on this many frames in a row
-  const T0 = { wake: 10000, lost: 1500, room: 2000, every: 10000, cap: 6, throws: 30 }, T = Object.assign({}, T0);
+  // start, a sleep or the depth (the room) back steadily for calm; the depth's calls throwing on this many frames in a row
+  const T0 = { wake: 10000, lost: 1500, room: 2000, every: 10000, cap: 6, throws: 30, calm: 10000 }, T = Object.assign({}, T0);
   let own = 'both';
   try { const v = localStorage.getItem('xrOccl'); if (MODES.includes(v)) own = v; } catch (e) { /* storage blocked */ }
   const O = { over: null, root: null, quad: null, room: null, mats: {}, roomMat: null, warned: {}, lost: false, restored: 0 };
@@ -170,7 +170,7 @@ void main() {
   // ---------------------------------------------------------------------------------------------- the session
   // (the watchdog's tries for the depth or the room: how many since the session's start or a sleep, the last ask, when
   // it gave up)
-  const limiter = () => ({ n: 0, at: -1e9, gave: 0 });
+  const limiter = () => ({ n: 0, at: -1e9, gave: 0, ok: 0, last: 0 });   // (ok: since when it is back, last: its last frame)
   function begin(s, r) {
     end();
     const gl = r.getContext(), sv = k => get(s, k);
@@ -257,8 +257,8 @@ void main() {
     }
   }
   // the watchdog's ask, rate-limited: the first at least T.every after the last ask, each next one twice as long after,
-  // at most T.cap since the session's start or a sleep; then given up: the Debug tab's line says to enter AR again, with
-  // one notice a session (not for depth that never came)
+  // at most T.cap since the session's start, a sleep or the last time it was back steadily (steady); then given up: the
+  // Debug tab's line says to enter AR again, with one notice a session (not for depth that never came)
   function tryRenew(why, room) {
     const L = room ? S.tr : S.td, t = performance.now();
     if (L.n >= T.cap) {
@@ -279,6 +279,13 @@ void main() {
     if (t - L.at < T.every * Math.pow(2, L.n)) return;
     L.n++; L.at = t;
     renew(why, room);
+  }
+  // a frame with the depth (the room posed): back steadily for T.calm (no gap of a second), the tries start afresh, so a
+  // few hiccups, each brought back, never use up the cap of a long session; the gap since the last ask (L.at) stays
+  function steady(L, what, t) {
+    if (!L.ok || t - L.last > 1000) L.ok = t;
+    L.last = t;
+    if (L.n && t - L.ok >= T.calm) { clog('occlusion steady', { what, tries: L.n, ms: Math.round(t - L.ok) }); L.n = 0; }
   }
   // Depth sensing is never paused (v124; until then it was paused while nothing used it). The owner, 8 November 2026:
   // "When real world hides is set to nothing on startup it never can be turned on and one needs to exit the headset and
@@ -637,6 +644,7 @@ void main() {
   function depthWatch(d, t) {
     if (d) {
       S.lastDepthAt = t; S.everDepth = true; S.missSince = 0; S.td.gave = 0;
+      steady(S.td, 'depth', t);
       if (S.back.depth) { S.back.depth = false; clog('occlusion back', { what: 'depth', why: S.back.why, ms: Math.round(t - S.back.at), renews: S.renews, resumes: S.resumes }); }
       return;
     }
@@ -654,6 +662,7 @@ void main() {
       S.unposedSince = 0;
       if (n > 0) {
         S.tr.gave = 0;
+        steady(S.tr, 'room', t);
         if (S.back.room) { S.back.room = false; clog('occlusion back', { what: 'room', why: S.back.why, ms: Math.round(t - S.back.at), posed: n, parts: S.parts }); }
       }
       return;
@@ -711,7 +720,7 @@ void main() {
       return { m: mode(), u: Q.usage || '', f: Q.format || '', k: D && D.kind ? kindKey(D.kind) : '', r: D ? D.used : '', a: depthActive(), n: S.frames, v: S.valid,
         ago: S.lastDepthAt ? Math.round(performance.now() - S.lastDepthAt) : -1, e: Q.errors, pl: S.planes.size, me: S.meshes.size, po: S.posed, rn: S.renews, rr: S.roomRenews };
     },
-    // for tests: the times above shortened ({ wake, lost, room, every, cap, throws }, in ms; null the defaults again)
+    // for tests: the times above shortened ({ wake, lost, room, every, cap, throws, calm }, in ms; null the defaults again)
     times(o) {
       if (o === null) Object.assign(T, T0);
       else if (o) for (const k of Object.keys(T)) if (typeof o[k] === 'number' && o[k] >= 0) T[k] = o[k];

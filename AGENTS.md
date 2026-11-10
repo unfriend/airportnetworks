@@ -1244,8 +1244,9 @@ probe, `roomSync` and `shapeSig` it reuses.
   - the watchdog, only while the session is visible and only for what the mode uses: depth that had come, wanted, the
     views there, but none for 1.5 s; `getDepthInformation` throwing on 30 frames in a row (from the start too); room
     parts there, none of them posed for 2 s (the room only); its first try at least 10 s after the last ask, each next one
-    twice as long after (10, 20, 40 ... s), at most 6 after the session's start or a sleep (the depth and the room each
-    their own), and frames that stopped coming for over 5 s (the next story building) counting afresh. Past the sixth
+    twice as long after (10, 20, 40 ... s), at most 6 after the session's start, a sleep or the last time it was back
+    steadily for 10 s with no gap of a second (`steady`: so a long session's few hiccups, each brought back, never use up
+    the cap; the gap since the last ask stays; the depth and the room each their own), and frames that stopped coming for over 5 s (the next story building) counting afresh. Past the sixth
     the Debug tab's *Real world* line says *depth stopped N s ago: leave AR and enter again* (or that the room scan
     stopped), and one notice a session (*People no longer hide things*, *The room no longer hides things*, through
     `HOST.collab.notice`; none for depth that never came). Depth that comes back by itself is drawn again and the line
@@ -1257,7 +1258,7 @@ probe, `roomSync` and `shapeSig` it reuses.
   `wake`, `depth lost`, `depth throws`, `room` or `shape`; `depthActive`, frames asked and with depth, errors and the
   last one, ms since the last depth, how long it was hidden, the tries so far, the room's parts and those posed),
   `occlusion back` (the depth or the room back after it, and how long that took), `occlusion room` (the parts posed going
-  to or from none), `occlusion gave up`, and the shell's `webgl context lost` and `webgl context restored`. Every
+  to or from none), `occlusion steady` (back steadily, its tries started afresh: how many there were), `occlusion gave up`, and the shell's `webgl context lost` and `webgl context restored`. Every
   alignment sample (`sample()` in `shared.js`, every 5 s in a room) carries `occl`: `{ m, u, f, k, r, a, n, v, ago, e,
   pl, me, po, rn, rr }` (the mode, the depth's usage, format, kind and reading, `depthActive`, frames asked and with
   depth, ms since the last depth (-1 none yet), errors, planes, meshes, parts posed, renews of the depth and of the
@@ -5084,8 +5085,9 @@ asked again at once (`occlusion renew`, `wake`, how long hidden), resumed once, 
 plane hidden again in both eyes; the depth dying with no sleep: the watchdog asks again (`depth lost`), a new binding,
 no resume (`depthActive` true); a binding from before throwing every frame (6 in a row here): asked again (`depth
 throws`, its error), the plane hidden again; the room's planes with no pose: `occlusion room` posed 0, the room built
-again (`room`), nothing hidden, then planes given again: `occlusion back`, the wall hiding again; depth that never comes
-back: four more tries, then `occlusion gave up` once, six tries, the line *depth stopped N s ago: leave AR and enter
+again (`room`), nothing hidden, then planes given again: `occlusion back`, the wall hiding again; the depth and the room
+back steadily (0.3 s here): their tries started afresh (`occlusion steady`, two and one), no renew; depth that never comes
+back: six tries, then `occlusion gave up` once, the line *depth stopped N s ago: leave AR and enter
 again*, one notice and no more tries, and back by itself: drawn again, the line plain; one texture per eye: decided
 afresh (`shape`), the plane hidden in both eyes, probed and read as a depth buffer's, and a texture array again;
 never a pause; after the session, the WebGL context lost and restored (`WEBGL_lose_context`): both logged, our own GL

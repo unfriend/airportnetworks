@@ -8958,12 +8958,13 @@ if (runs('occlusion')) {
   });
   // After a sleep (v131): the fake's session hidden and visible again, its depth dead until resumed, a binding made after
   // or never, its bindings made before throwing, its planes without a pose or given again, its textureType changed; the
-  // times shortened (wake 0.6 s, no depth 0.4 s, no pose 0.4 s, the watchdog's first gap 0.3 s); what the shell's log says
+  // times shortened (wake 0.6 s, no depth 0.4 s, no pose 0.4 s, the watchdog's first gap 0.3 s; the tries counted on until
+// the step that brings them back steadily); what the shell's log says
   const logN = () => op.evaluate(() => (window.__collabLog || []).reduce((m, e) => Math.max(m, e.n), 0));
   const logSince = n => op.evaluate(n => (window.__collabLog || []).filter(e => e.n > n && /^(occlusion|webgl)/.test(e.ev)), n);
   const fake = () => op.evaluate(() => { const F = window.__occl; return { pauses: F.pauses, resumes: F.resumes, bindings: F.bindings }; });
   await step('occlusion: a short hide changes nothing (v131: no renew, no resume, no new binding)', async () => {
-    await op.evaluate(() => { HOST.occlusion.times({ wake: 600, lost: 400, room: 400, every: 300 }); HOST.occlusion.set('depth'); const F = window.__occl; F.near = 0.5; F.far = 4; });
+    await op.evaluate(() => { HOST.occlusion.times({ wake: 600, lost: 400, room: 400, every: 300, calm: 1e9 }); HOST.occlusion.set('depth'); const F = window.__occl; F.near = 0.5; F.far = 4; });
     await shows('before any sleep', '0101');
     const s0 = await st();
     if (s0.renews || s0.roomRenews || s0.resumes || s0.redecides || s0.bindings !== 1 || s0.depthActive !== true || !(s0.lastDepthAt > 0) || s0.hiddenAt)
@@ -9023,6 +9024,14 @@ if (runs('occlusion')) {
       || !(iNone >= 0 && iNone < iRenew && iRenew < iBack && iRenew < iSome))
       errors.push('occlusion: the room with no pose ' + JSON.stringify({ s0, s1, s, ev }));
   });
+  await step('occlusion: the depth and the room back steadily: their tries start afresh (logged)', async () => {
+    const n0 = await logN(), s0 = await st();
+    await op.evaluate(() => { HOST.occlusion.set('both'); HOST.occlusion.times({ calm: 300 }); const F = window.__occl; F.near = 0.5; F.far = 4; F.dead = null; F.unposed = false; });
+    await op.evaluate(() => window.__occl.runUntil(() => { const t = HOST.occlusion.state().tries; return !t.depth && !t.room; }, 8000));
+    const s = await st(), L = await logSince(n0), sd = L.find(e => e.ev === 'occlusion steady' && e.what === 'depth'), sr = L.find(e => e.ev === 'occlusion steady' && e.what === 'room');
+    if (s0.tries.depth !== 2 || !(s0.tries.room >= 1) || s.tries.depth || s.tries.room || !sd || sd.tries !== 2 || !(sd.ms >= 300) || !sr || sr.tries !== s0.tries.room || s.renews !== s0.renews || L.some(e => e.ev === 'occlusion renew'))
+      errors.push('occlusion: back steadily ' + JSON.stringify({ s0: s0.tries, s: s.tries, L }));
+  });
   await step('occlusion: depth that never comes back: the tries stop at the cap, the Debug line says to enter AR again, one notice', async () => {
     await op.evaluate(() => { HOST.occlusion.set('depth'); HOST.occlusion.times({ lost: 100, every: 50 }); const F = window.__occl; F.near = 0.5; F.far = 4; F.dead = { until: 'never' }; });
     const n0 = await logN();
@@ -9031,7 +9040,7 @@ if (runs('occlusion')) {
     await op.evaluate(() => window.__occl.run(800));
     const s2 = await st(), L = await logSince(n0), told = await op.evaluate(() => HOST.collab.notes().filter(x => x.title === 'People no longer hide things').length);
     if (!s.gaveUp.depth || s.tries.depth !== 6 || !s.told || s2.renews !== s.renews || s2.tries.depth !== 6 || !/depth stopped \d+ s ago: leave AR and enter again/.test(line) || told !== 1
-      || L.filter(e => e.ev === 'occlusion gave up').length !== 1 || L.filter(e => e.ev === 'occlusion renew').length !== 4)
+      || L.filter(e => e.ev === 'occlusion gave up').length !== 1 || L.filter(e => e.ev === 'occlusion renew').length !== 6)
       errors.push('occlusion: never back ' + JSON.stringify({ s, s2, line, told, L: L.map(e => e.ev + ':' + (e.why || e.what || '')) }));
     await shows('no depth: nothing hidden', '1111');
     // it comes back by itself after all: drawn again, the line plain again
