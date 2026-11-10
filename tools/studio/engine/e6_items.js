@@ -660,7 +660,7 @@ function itemsStep(dt, now) {
         it.holder.visible = it.hid || it.a > 0.002;
         // (hidden for you, its animation holds where it is, as when not editing)
         if (it.holder.visible && !it.hid && !pupStep(it, now, dt)) animStep(it, now, clockS);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
-      } else it.holder.visible = false;
+      } else it.holder.visible = it.hidBox.visible = false;   // (no model: the grey box says it; an outline from the one dropped would linger)
       greyStep(it);
       modelTag(it, editing);
     } else if (it.kind === 'c') {

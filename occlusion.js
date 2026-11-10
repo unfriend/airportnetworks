@@ -256,7 +256,8 @@ void main() {
       try { s.resumeDepthSensing(); S.resumes++; } catch (e) { warn('resuming the depth', e); }
     }
   }
-  // the watchdog's ask, rate-limited: the first at least T.every after the last ask, each next one twice as long after,
+  // the watchdog's ask, rate-limited: the first at least T.every after the last ask (at once when there was none), each
+  // next one twice as long after (20, 40, 80 s ...),
   // at most T.cap since the session's start, a sleep or the last time it was back steadily (steady); then given up: the
   // Debug tab's line says to enter AR again, with one notice a session (not for depth that never came)
   function tryRenew(why, room) {
@@ -351,7 +352,7 @@ void main() {
   function redecide(from, to) {
     const D = S.D, t = performance.now();
     for (const x of D.ph) if (x) try { HOST.renderer.properties.remove(x); } catch (e) { /* gone */ }
-    D.ph = []; D.kind = null; D.used = ''; S.decided = false; S.probeN = 0; S.probe = null; S.redecides++;
+    D.ph = []; D.kind = null; D.used = ''; S.decided = false; S.probeN = 0; S.probeAt = 0; S.probe = null; S.redecides++;
     if (t - S.shapeLogAt > 2000) { S.shapeLogAt = t; clog('occlusion renew', { why: 'shape', from, to, frames: S.frames, valid: S.valid, count: S.redecides }); }
   }
   // this frame's depth for each eye ({ tex, layer, scale, near, far, inf, matrix } or none). Only this frame's is used:
@@ -638,6 +639,9 @@ void main() {
     const v = get(s, 'visibilityState'), live = !v || v === 'visible';
     if (live && wantD && S.views && S.depth.enabled) depthWatch(d, t); else { S.missSince = 0; S.throwRun = 0; }
     if (live && wantR) roomWatch(t); else S.unposedSince = 0;
+    // (a give-up of what the mode no longer uses says nothing more: the Debug line asks to leave AR only for what is wanted)
+    if (!wantD && (S.td.gave || S.back.depth)) { S.td.gave = 0; S.back.depth = false; }
+    if (!wantR && (S.tr.gave || S.back.room)) { S.tr.gave = 0; S.back.room = false; }
   }
   // depth that had come and is wanted, the views there, but none for T.lost; or its calls throwing on T.throws frames in
   // a row (from the start too)

@@ -1243,8 +1243,8 @@ probe, `roomSync` and `shapeSig` it reuses.
     on the next frame, and the watchdog's tries start afresh;
   - the watchdog, only while the session is visible and only for what the mode uses: depth that had come, wanted, the
     views there, but none for 1.5 s; `getDepthInformation` throwing on 30 frames in a row (from the start too); room
-    parts there, none of them posed for 2 s (the room only); its first try at least 10 s after the last ask, each next one
-    twice as long after (10, 20, 40 ... s), at most 6 after the session's start, a sleep or the last time it was back
+    parts there, none of them posed for 2 s (the room only); its first try at least 10 s after the last ask (at once when there
+    was none), each next one twice as long after (20, 40, 80 ... s), at most 6 after the session's start, a sleep or the last time it was back
     steadily for 10 s with no gap of a second (`steady`: so a long session's few hiccups, each brought back, never use up
     the cap; the gap since the last ask stays; the depth and the room each their own), and frames that stopped coming for over 5 s (the next story building) counting afresh. Past the sixth
     the Debug tab's *Real world* line says *depth stopped N s ago: leave AR and enter again* (or that the room scan
@@ -2607,11 +2607,14 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     `{ gone: true, by, at }` (the relay deletes only `st.*` and `pose.*`). At most 8 areas, spots A and B among them. Ids
     are 8 letters and digits (`AREA_ID`).
   - Adding one (`areaAdd`, `areaAsk`, `areaTake`, `areaWrite`; the room setup guide's fifth page, *Areas*, *Add spots for
-    another area*): a headset lined up with the room by any source (best its own spots) names it (the shell's keypad,
+    another area*): a headset lined up by its own spots (`own()`: its marks or their anchors; or the PC's trackers, `areaFrom`: one lined up
+    through the shared space keeps its own floor, which would go into the new crosses' heights; the page says to calibrate
+    first) names it (the shell's keypad,
     *Area 2*, *Area 3*...), then touches its two crosses with the controller's tip on the floor (`steady`, taken into room
     coordinates as a check is; the tip mode's target kind `area`); refused as a calibration's spots are (less than 50 cm
     apart, more than `SPOTS_DH` in height); a pair within 30 cm of spots A and B is refused (*These are spots A and B*), of
-    an area's offers *Replace* (its tombstone and the new key in one batch). That headset makes its own place there from
+    an area's offers *Replace* (its tombstone and the new key in one batch; this headset's place at the old crosses goes
+    at once with its anchors unless it lines up from it now, then at its next session). That headset makes its own place there from
     the same touches at once (`areaAnchors`: its two anchors made in the next frame, measured for its `yb`, let go; the
     survey finds them by their handles). The log's `area added` says the area's floor over the room's (`floor`: how far the
     room's frame drifted over the walk there, or a real step).
@@ -2656,7 +2659,9 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     used, anchors, n, f, yb, ra, rb, base, an }] }` (`pair` the area's id, '' spots A and B; `ra` and `rb` a copy of the
     area's room points and `base` of its base, so a place survives the area changed meanwhile; `an` its name; `yb` B's
     turn from A in anchor A's own frame: anchor A is made turned towards B, and `yb` is measured from the anchors' live
-    poses the first time both are tracked and fit, `ybLearn`, also for a v130 place, which had none; a v130 place made with
+    poses the first time both are tracked and fit, `ybLearn`, also for a v130 place, which had none, and for a place not in
+    use by the survey finding both its anchors, their distance its marks' within 5 cm, `surveyMeasure`, log `place yb`
+    with `by: 'survey'`; a v130 place made with
     one anchor has 0). A v3 place reads as spots A and B's. `placeOf(code, pair)`; `placeTake` takes this room's most
     recently used place (any area's). A place whose area has its tombstone, or whose `base` no longer matches `rm`, is
     stale: dropped at the next session in that room (`placesStale`, once the room's keys are in; the Debug tab says

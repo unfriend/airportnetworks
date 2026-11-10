@@ -49,18 +49,19 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **At the handover (9 November 2026): where each branch is and what comes next.**
   - *The branches.* `main` is networks-v129 (FORMAT networks-40), released on 10 November 2026 after the first whole
     release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/ (GitHub Pages)
-    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v130 (the same FORMAT, the
-    v130 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`;
-    it had only the cheap checks, so its full suites run before `main` moves. Until then `main` was networks-v121
-    (`5524684`, 7 November); v122 to v130 are the entries below. The AI agents' working branch,
+    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v131 (FORMAT networks-41,
+    the v131 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
+    `dev`; v130 and v131 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
+    networks-v121 (`5524684`, 7 November); v122 to v131 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
     recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
-    owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). `whatsnew.json` (developer mode's box, `#dev=on`) lists
-    what to try for v130; the others' are in their entries below.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v130 on the devices (a Quest, an Android phone,
+    owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
+    rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. `whatsnew.json`
+    (developer mode's box, `#dev=on`) lists what to try for v131; the others' are in their entries below.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
     cheap checks and to `main` after the full suites (step 7 there). Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
@@ -95,7 +96,55 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
-- **networks-v130 (10 November 2026; FORMAT networks-40, shell 130), on `dev`: places, a calibration per room; Stays on
+- **networks-v131 (10 November 2026; FORMAT networks-41, shell 131), on `dev`: areas in one room; nothing see-through
+  in the studio's edit mode, with triangle counts in space; occlusion that comes back after a sleep.** The owner, after
+  trying v130: "i would prefer one room that can have multiple anchors so that people stay in the same one and there are
+  just multiple spots where things can line up again", "In edit mode show triangle count per item next to its name in
+  space", "All transparent things are problematic when it comes to framerate in edit mode ... ghosts for example can just
+  be a light gray, rooms that are not currently shown because a cube hides them could just be a empty square with a
+  name? cubes that hide things need no walls too, same for walls that hide things, and the cutouts can also be without
+  walls", and "Occlusion stops working after longer sleep in quest 3s?"; then, of the plan: "tape in every area", "two
+  by default until 4 areas, then once a fifth area is opened the first only has one, then the second and so on", the
+  triangle tag "on every while editing", a hidden model "if i grab it it should show but just 100% not transparent", and
+  an outline box "with no transparent walls". Built in three lanes (a workflow, about 3.7M tokens), each reviewed once;
+  the areas and occlusion lanes had a fix round (four and one medium findings); eight low findings were fixed when
+  merging.
+  - Areas (`shared.js`, "Areas" under "Shared rooms" in `AGENTS.md`): spots A and B stay the room's (`rm`); each further
+    area is a room key `rp.<id>` (`{ name, n, a, b, d, base, by, at }`, its crosses' tips in room coordinates; a
+    tombstone `{ gone }` forgets one; at most 8 areas), its letters from `n` (C and D, E and F, ...). A headset lined up
+    by its own crosses (or the PC's trackers) adds one from the room setup guide's new Areas page (a name on the keypad,
+    then its two crosses; within 30 cm of an area's it offers Replace). Calibrating on an area fits the touches to its
+    room points (`fitFrame`), so every headset is in the one room frame; only spots A and B write the room's floor.
+    Places are per area (`roomFrames` v4: `pair`, `yb`, `ra`/`rb`, `base`), dropped when their area is forgotten or
+    spots A and B were taped again (`rm.t`; judged only once `rm` is known). The survey switches to another area's place
+    found nearer without a join (`areaSwitch`, holding after a wake as rooms do), and the check by eye asks why. Two
+    frames from different areas are never compared as a split space. Crosses, the map, the check by eye's arrows and
+    letters, camera mode (a Spots button) and the trackers' lining up by hand (`trk.m.k`, `ra`/`rb`, the relay's
+    `frameOf`) all take the area. The anchor budget (`placesFit`) replaces v130's Anchors per room: 8 saved anchors in
+    all (7 with Anchor on), two a place, the places made first going down to anchor A alone (its direction then from
+    `yb`, learnt from both anchors' poses, also in the survey for v130 places) before the least recently used goes. Join
+    on v130's offer now counts as joined by its place. `collab --areas` is new (17 steps); `--places`, `--guide` and
+    `--camera` were updated; `relay/test.mjs --trackers` checks the area fit.
+  - Studio (`tools/studio/`, "Nothing see-through while editing" under "The studio"): a model or coloured shape a cube
+    hides is an opaque outline box with its tag (`name · 12 ▲ · hidden`), pointable through its unseen box, drawn whole
+    and with its own materials while this device holds it; ghosts opaque light grey (outline lines only for a model its
+    clip moves, a big one or a hidden one); trigger cubes and shapes that hide things edges only (a ball three great
+    circles), with unseen boxes for picking; cut-outs, tags, speaker markers, empties and group boxes opaque. Every model
+    and shape gets a tag with its triangles while editing (`modelTag`, the Fewer triangles preview's count while it
+    previews), and the hover and selection labels say them. One see-through thing is left on purpose: the 1.6 s flash of
+    an item from a cube's card. No layout, `state()` or `FORMAT` change. The smoke test's studio pages were run in the
+    lane (105 ok).
+  - Occlusion (`occlusion.js`, "After a sleep" under "Real-world occlusion"): `renew(why)` asks again for what the
+    session gave (a new binding, the depth's kind, reading and probe afresh, `resumeDepthSensing`, the room's parts
+    rebuilt), at a wake after 10 s hidden and by a watchdog (depth lost for 1.5 s, 30 throwing frames, room parts
+    unposed for 2 s; at most 6 tries, counted afresh once back steadily for 10 s); a shape change decides the depth's
+    kind again. Past the tries, the Debug tab's Real world line and one notice say to leave AR and enter again. Logs
+    `occlusion renew`, `back`, `room`, `steady`, `gave up`; every alignment sample carries `occl`. The renderer's lost and
+    restored WebGL context are logged and handled. The smoke test's occlusion block was run in the lane (18 ok).
+  - Untested on devices: everything above on a Quest (an area's drift over the walk there, anchors found mid-session,
+    one anchor's turn kept between sessions, the frame-rate gain and the new looks life size, whether asking again
+    brings depth back after a real sleep), trackers and camera mode on an area. On `dev` only the cheap checks ran.
+- **networks-v130 (10 November 2026; FORMAT networks-40, shell 130), on `dev` before v131: places, a calibration per room; Stays on
   the floor; controllers after standby; the check by eye's arrows.** The owner: "lets start with a and also add an option
   to only use one anchor per room if possible for a max of 8 rooms?", with three small changes: "When animating an item
   have an option that keeps it grounded", "Sometimes the right controller cannot click after standby and only going quest

@@ -4003,7 +4003,7 @@
         button(S, 'guide:areaadd', x, y, w, 60, 'Add spots for another area', can ? () => { GD.touched = true; areaAsk(); } : null, { primary: can, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, can ? 'Best from a headset lined up by its own spots: it measures where the new crosses are in the room.' : areasAll().length >= AREA.max ? `A room has at most ${AREA.max} areas.` : R.calib ? 'Not while calibrating' : 'Once this headset is lined up', x, y, w, 28, 2) + 14;
+        y += wrapText(ctx, can ? 'This headset is lined up by its own spots: it measures where the new crosses are in the room.' : areasAll().length >= AREA.max ? `A room has at most ${AREA.max} areas.` : R.calib ? 'Not while calibrating' : R.aligned && R.frame && !areaFrom() ? 'Calibrate this headset on the room\'s crosses first (Line up): lined up through the shared space, its own floor would go into the new crosses.' : 'Once this headset is lined up', x, y, w, 28, 3) + 14;
       }
       const cs = checkState(), can2 = canCheck();
       for (const A of areasAll()) {
@@ -7471,7 +7471,7 @@
     const drop = q => { if (HOST.anchor.drop) for (const u of q.anchors) if (u) HOST.anchor.drop(u); PLC.list = PLC.list.filter(x => x !== q); gone.push(q); };
     for (const q of PLC.list.filter(q => q !== P && placeN(q) === 2).sort((a, b) => (a.at || 0) - (b.at || 0))) {
       if (count() <= cap) break;
-      if (!Number.isFinite(q.yb)) { drop(q); continue; }   // (its direction from anchor A alone is not known yet)
+      if (!Number.isFinite(q.yb)) { drop(q); if (q === R.saved) placeLeave(); continue; }   // (its direction from anchor A alone is not known yet)
       if (HOST.anchor.drop && q.anchors[1]) HOST.anchor.drop(q.anchors[1]);
       q.anchors = [q.anchors[0]]; q.n = 1;
       down.push(q);
@@ -7557,7 +7557,7 @@
   // checked: afterWake lets go of them only 5 s later)
   function placesWoke() { SV.wokeIn = C.code && R.saved && R.saved.code === C.code && own() && R.anchors && R.anchorsOK ? C.code : ''; }
   function surveyDrop() {
-    if (SV.items) for (const it of SV.items) if (it.a) { try { it.a.delete(); } catch (e) { /* gone */ } }
+    if (SV.items) for (const it of SV.items) for (const a of [it.a, it.b]) if (a) { try { a.delete(); } catch (e) { /* gone */ } }
     SV.items = null; SV.busy = false; SV.gen++;
   }
   function placesStep(f, t, local) {
@@ -7594,8 +7594,12 @@
       HOST.anchor.find(u).then(a => { if (done) { try { a.delete(); } catch (e) { /* gone */ } return; } done = true; clearTimeout(to); res(a); },
         e => { if (!done) { done = true; clearTimeout(to); rej(e); } });
     });
-    Promise.all(cand.map(p => findIn(p.anchors[0]).then(a => ({ p, a, P: null }), () => ({ p, a: null, P: null })))).then(rs => {
-      if (SV.gen !== g || R.session !== s) { for (const r of rs) if (r.a) { try { r.a.delete(); } catch (e) { /* gone */ } } return; }
+    // (a place kept by two anchors whose yb is not known yet, as a v130 one's: its anchor B looked for too, so its yb is
+    // learnt here and it can go down to anchor A alone when the budget needs it, rather than be dropped: placesFit)
+    const learn = p => p.anchors.length === 2 && !Number.isFinite(p.yb);
+    Promise.all(cand.map(p => Promise.all([findIn(p.anchors[0]).catch(() => null), learn(p) ? findIn(p.anchors[1]).catch(() => null) : null])
+      .then(([a, b]) => ({ p, a, b, P: null, Q: null, B: null })))).then(rs => {
+      if (SV.gen !== g || R.session !== s) { for (const r of rs) for (const a of [r.a, r.b]) if (a) { try { a.delete(); } catch (e) { /* gone */ } } return; }
       SV.busy = false; SV.items = rs; SV.until = performance.now() + 3000;   // (measured over the next frames)
     });
   }
@@ -7603,14 +7607,31 @@
   function surveyMeasure(f, t, local) {
     let wait = false;
     for (const it of SV.items) {
-      if (!it.a || it.P) continue;
-      let p = null;
-      try { if (!f.trackedAnchors || f.trackedAnchors.has(it.a)) p = f.getPose(it.a.anchorSpace, local); } catch (e) { /* not now */ }
-      if (p) { const q = p.transform.position; it.P = [q.x, q.y, q.z]; } else wait = true;
+      if (it.a && !it.P) {
+        let p = null;
+        try { if (!f.trackedAnchors || f.trackedAnchors.has(it.a)) p = f.getPose(it.a.anchorSpace, local); } catch (e) { /* not now */ }
+        if (p) { const q = p.transform.position, o = p.transform.orientation; it.P = [q.x, q.y, q.z]; it.Q = [o.x, o.y, o.z, o.w]; } else wait = true;
+      }
+      if (it.b && !it.B) {
+        let p = null;
+        try { if (!f.trackedAnchors || f.trackedAnchors.has(it.b)) p = f.getPose(it.b.anchorSpace, local); } catch (e) { /* not now */ }
+        if (p) { const q = p.transform.position; it.B = [q.x, q.y, q.z]; } else wait = true;
+      }
     }
     if (wait && t < SV.until) return;
     const items = SV.items;
     surveyDrop();
+    // a two-anchor place's yb from both its anchors found (their distance as its marks', within 5 cm: the right pair)
+    let learnt = 0;
+    for (const it of items) {
+      if (!it.P || !it.B || !it.Q || Number.isFinite(it.p.yb) || !it.p.a || !it.p.b) continue;
+      const d = Math.hypot(it.B[0] - it.P[0], it.B[2] - it.P[2]), d0 = Math.hypot(it.p.b[0] - it.p.a[0], it.p.b[2] - it.p.a[2]);
+      const xa = level(_px.set(1, 0, 0).applyQuaternion(_pq.set(it.Q[0], it.Q[1], it.Q[2], it.Q[3])).toArray()), xb = level([it.B[0] - it.P[0], 0, it.B[2] - it.P[2]]);
+      if (Math.abs(d - d0) > 0.05 || !xa || !xb) continue;
+      it.p.yb = angDiff(yawOfX(xb), yawOfX(xa)); learnt++;
+      log('place yb', { code: it.p.code || '', pair: it.p.pair || '', yb: r3(it.p.yb), by: 'survey' });
+    }
+    if (learnt) storePlaces();
     const found = items.filter(it => it.P).map(it => ({ code: it.p.code, pair: pairOf(it.p), p: it.p, d: Math.hypot(it.P[0] - HD.p.x, it.P[2] - HD.p.z) }));
     log('places found', { found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), not: items.filter(it => !it.P).map(it => it.p.code + (pairOf(it.p) ? '|' + pairOf(it.p) : '')) });
     placeDecide(found, t);
@@ -8455,7 +8476,10 @@
   // than 50 cm apart, more than SPOTS_DH apart in height); a pair within AREA.near of an area's offers Replace (spots A and
   // B's: refused, they are the room's own). Written as rp.<new id>; this headset makes its own anchors from the same
   // touches (a place there at once). The log says how high the area's floor stands over the room's (the walk's drift)
-  const canArea = () => !!(guideOn() && R.aligned && R.frame && !R.calib && !CK.arm && areasAll().length < AREA.max && C.welcomed);
+  // (only a headset lined up by its own spots, or the PC's trackers: one lined up through the shared space keeps its own
+  // floor, which would go into the new crosses' heights for everyone: the review of v131)
+  const areaFrom = () => own() || R.src === 'trackers';
+  const canArea = () => !!(guideOn() && R.aligned && R.frame && areaFrom() && !R.calib && !CK.arm && areasAll().length < AREA.max && C.welcomed);
   function areaAdd(name) {
     if (!canArea()) return false;
     const L = areaLetters(areaFree());
@@ -8531,6 +8555,10 @@
       const rid = val('rid');
       const P = { code: C.code, pair: id, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: D.la, b: D.lb, at, used: Date.now(), anchors: [], n: 2, f: 1,
         ra: D.a.slice(), rb: D.b.slice(), base: Object.assign({}, v.base), an: D.name };
+      // (the crosses replaced: this headset's place at the old ones goes now with its anchors, so it costs the budget nothing;
+      // one it lines up from now goes at its next session, as a forgotten area's do)
+      const was = old ? placeOf(C.code, old.id) : null;
+      if (was && was !== R.saved) { if (HOST.anchor.drop) for (const u of was.anchors) if (u) HOST.anchor.drop(u); PLC.list = PLC.list.filter(q => q !== was); log('place replaced', { code: C.code, pair: old.id }); }
       PLC.list.unshift(P); placesFit(P); storePlaces();
       AD.want = P;   // (its anchors made in the next frame: update)
     }
@@ -8945,7 +8973,7 @@
     handles: () => PLC.list.concat(R.saved || []).reduce((a, p) => a.concat(p.anchors || []), []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up: every place's
     // places (v130), for tests: { list, one, cap, here, offer, ... }; o.reset forgets them on this page only (no anchor
     // deleted: a test's fresh start), o.reload reads them again from storage (as a page that loads, this room's taken
-    // again), o.out leaves the room not on purpose (as a page that goes), o.one sets Anchors per room, o.forget a place
+    // again), o.out leaves the room not on purpose (as a page that goes), o.forget a place
     // (as its Forget), o.look looks for them now, o.wait and o.near the survey's limits, o.join the offer pressed
     places(o) {
       o = o || {};
