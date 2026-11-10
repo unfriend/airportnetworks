@@ -47,19 +47,20 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `main` and `dev` are both networks-v129 (FORMAT networks-40), released on 10 November 2026 after the
-    first whole release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/
-    (GitHub Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/), and the test place,
-    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Until then `main` was networks-v121
-    (`5524684`, 7 November); v122 to v129 are the entries below. The AI agents' working branch,
-    `claude/affectionate-pasteur-stzjl3`, is the same commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
+  - *The branches.* `main` is networks-v129 (FORMAT networks-40), released on 10 November 2026 after the first whole
+    release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/ (GitHub Pages)
+    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v130 (the same FORMAT, the
+    v130 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`;
+    it had only the cheap checks, so its full suites run before `main` moves. Until then `main` was networks-v121
+    (`5524684`, 7 November); v122 to v130 are the entries below. The AI agents' working branch,
+    `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
     recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). `whatsnew.json` (developer mode's box, `#dev=on`) lists
-    what to try for v129 (v128's list and its fix); the others' are in their entries below.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v129 on the devices (a Quest, an Android phone,
+    what to try for v130; the others' are in their entries below.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v130 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
     cheap checks and to `main` after the full suites (step 7 there). Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
@@ -94,7 +95,45 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
-- **networks-v129 (10 November 2026; FORMAT networks-40, shell 128), on `main` and `dev`: v128 through the first whole
+- **networks-v130 (10 November 2026; FORMAT networks-40, shell 130), on `dev`: places, a calibration per room; Stays on
+  the floor; controllers after standby; the check by eye's arrows.** The owner: "lets start with a and also add an option
+  to only use one anchor per room if possible for a max of 8 rooms?", with three small changes: "When animating an item
+  have an option that keeps it grounded", "Sometimes the right controller cannot click after standby and only going quest
+  menu and back lets it click again", and for the check by eye "highlight the crosses and add some arrow or something
+  that points towards where it believes they are". Built in three lanes (a workflow, about 3.6M tokens), each reviewed
+  once; the places and headset lanes had a fix round; four low findings were fixed when merging.
+  - Places (`shared.js`, "Places" under "Shared rooms" in `AGENTS.md`): `roomFrame` (one calibration) became
+    `roomFrames` (`{ v: 3, one, places }`, one per room code, migrated at load; the old one is taken by the first room
+    it lines up in). Calibrating in a room replaces only that room's place. Two anchors per room by default (4 rooms) or
+    one (8, 7 with Anchor on): the one anchor at spot A turned towards spot B, its turn steadied over 3 s (a Quest's
+    saved anchor's turn is untested). The headset looks for every place's spot A (at session start, after a wake, then
+    on a schedule), joins the nearest room within 10 m by itself only from no room or a room it joined by itself, and
+    holds the room it is in while that room's own anchors may still answer (20 s grace, a 2 m margin, a wake that lost
+    them, a room further than 4 m). Else, and in a room joined by hand or into one left on purpose, it offers it (Debug >
+    Places, a notice). The check by eye asks after a switch. No `FORMAT` change. Test: `node tools/collab.mjs --places`
+    (20 checks, eight or nine minutes), also in the main run after the guide round; the main run's calibration checks
+    now read `roomFrames` and have not run whole yet.
+  - Stays on the floor (the studio's recorder rows, `studioRecFloor`, `tools/studio/engine/e6f_path.js`): set down at
+    the start, then a turn about the vertical only and its height kept, before each sample and each frame; the page's
+    arrows lose their tilting rings and up arrow while it records. Test: `--only 'studio paths'`.
+  - Controllers after standby (`HOST.inputsGuard`, `index.html`): the unannounced swap is caught at any time (no longer
+    only within a minute of waking), and a press with no `selectstart` within 300 ms arms that controller, whose next
+    presses are given as synthetic events until a real one comes back; late real events of a given press are stopped
+    (never two clicks). The first missed press is lost. Test: `--only 'controllers after standby'`.
+  - The check by eye (`shared.js`): the crosses lit and pulsing, a beam and a letter over each, arrows with distances
+    under the question (a U-turn for one behind you). Test: `node tools/collab.mjs --guide`.
+  - Fixed when merging (from the reviews): the oldest places go strictly in order of use; a room answered *Somewhere
+    else* keeps that answer when its place joins it; *Keep it as recorded* no longer puts an item back where a recording
+    set it down; a tracked hand's pinch never counts as its controller's press; the floor step of the smoke test always
+    turns the option off after it.
+  - Left open (low): a place's join into a room whose code another room took meanwhile leaves the headset in no room
+    until its next rejoin; when the guard announces a swap and the browser's own event follows, a story hears
+    `connected` twice; a card action that changes height while recording on the floor is drawn off the floor for one
+    frame.
+  - Runs: each lane ran its own blocks (`collab --places`, `--guide`, `--camera`; smoke `studio paths`, `controllers
+    after standby`, `phone ar`, `occlusion`, `stick moving`); merged, only the cheap checks. Untested on devices:
+    everything above (`whatsnew.json` lists what to try).
+- **networks-v129 (10 November 2026; FORMAT networks-40, shell 128), on `main`: v128 through the first whole
   release run since v121, and the one bug it found.** The owner: "dev looks good, run all the tests then put that on main".
   - The run (the list in `docs/setup-and-release.md`, step 7): the builds' and release checks, `relay/test.mjs` (724
     checks), `tools/peer.mjs`, `tools/audio.mjs`, `tools/live.mjs`, `tools/update.mjs` against v121 and

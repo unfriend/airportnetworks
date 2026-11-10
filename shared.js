@@ -7174,8 +7174,8 @@
     const gone = [];
     for (const q of PLC.list.filter(q => q !== P).sort((p, q) => (q.used || 0) - (p.used || 0))) {
       const k = q.anchors.filter(Boolean).length;
-      if (n + k <= placeCap()) { n += k; continue; }
-      gone.push(q);
+      if (!gone.length && n + k <= placeCap()) { n += k; continue; }
+      gone.push(q);   // (the first that does not fit and every older one: strictly the least recently used go)
     }
     if (!gone.length) return gone;
     if (HOST.anchor.drop) for (const q of gone) for (const u of q.anchors) if (u) HOST.anchor.drop(u);
@@ -7347,13 +7347,13 @@
     log('place join', { code, from: was, how });
     PLC.offer = ''; PLC.joined = code;
     if (!join(code, how === 'auto' ? 'place' : undefined, P && P.rid)) return false;
-    if (C.hereSet !== true) setHere(true);
+    if (C.hereSet === null) setHere(true);   // (a room answered *Somewhere else* for keeps its answer: the Debug tab changes it)
     if (how === 'auto') notice('Room ' + code, 'You are in its place, so this headset joined it' + (was ? ' (it was in room ' + was + ')' : '') + '. It lines up from the spots calibrated there.', 9000);
     eyeWant('place');   // (the check by eye: are both crosses on this room's spots?)
     changed();
     return true;
   }
-  EYEQ_WHY.place = 'This headset found the place of this room and joined it.';
+  EYEQ_WHY.place = 'Joined this room: you stand in its place.';
   // the camera mode's session: no places at all (it lines up afresh each session, and keeps nothing)
   function placesDropAll() {
     dropAnchors();

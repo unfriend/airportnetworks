@@ -105,7 +105,7 @@ async function recKeep(it, R, res, raw) {
   if (gen !== STU.gen || GL.gone || STU.items.get(id) !== it || !path) { dirty(true); return; }
   let ok = false, vid = '';
   // (set down as it began, Stays on the floor: its path is from there, so that place goes with it; e6f_path.js)
-  change(() => { ok = !!setRec(id, Object.assign({ path }, R.down ? { p: R.p0.toArray() } : {})); if (ok && voice) vid = voicePlace(it, voice, path, res); });
+  change(() => { ok = !!setRec(id, Object.assign({ path }, R.down && !raw ? { p: R.p0.toArray() } : {})); if (ok && voice) vid = voicePlace(it, voice, path, res); });
   if (!ok) { recSay(id, 'The recording could not be kept.', 'amber'); return; }
   const vs = !useV ? '' : vid ? ` Your voice is ${STU.items.get(vid).rec.name} (${voice.made}): it follows ${it.rec.name} and plays with its path.` : voice ? ` Your voice is in the scene as ${voice.file}, but no sound could be placed (a scene holds ${LIMITS.s} sounds).` : ` Your voice was not kept: ${vwhy || 'nothing came from the microphone'}.`;
   if (raw) recSay(id, `Kept as recorded: ${secs(pathLen(path))} in ${fmt(pathCount(path))} keys` + (path.src ? `, as the file ${path.src}.` : '.') + vs, 'muted');

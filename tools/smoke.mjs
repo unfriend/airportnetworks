@@ -6321,6 +6321,8 @@ if (runs('studio paths')) {
     await ss(`(${HELP}, ${PUT}, setEdit(true), select(''), 0)`);
     bad(out);
   });
+  // (whatever happened in that step, the steps after it record with Stays on the floor off)
+  await rp.evaluate(() => { try { localStorage.removeItem('studioRecFloor'); HOST.cur.peek('(FLOOR.on = false, 0)'); } catch (e) {} }).catch(() => {});
   await step('studio paths: the state and layout.json carry a path and give it back; norm\'s rules (2 to 600 keys, the first at 0, strictly later, at most 120 s, 8 numbers a key; play, start, speed); the scene\'s 6,000 in a layout and from the room; a GLB switch turns its keys so it moves as before', async () => {
     const r = await ss(`(() => {
       const P = window.__pa, J = x => JSON.stringify(x), out = [], V = P.V;

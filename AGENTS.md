@@ -327,7 +327,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     for the grip; plain events with `inputSource`, `frame` and `synthetic: true`, dispatched on the session within the
     frame), which three.js hands to the story's controller as a real press, and through the story's press of a shell hit
     to the shell's menu (`HOST.collab.press`); the shell's own session listeners hear them too. The first real
-    `selectstart` from it disarms it (`press back`, with how many were given). Never two clicks for one press (the owner
+    `selectstart` from it disarms it (`press back`, with how many were given). The missed press itself is lost (it is found
+    missed only after it went down; a tracked hand's pinch never counts as its controller's press). Never two clicks for one press (the owner
     would rather lose one): a real `selectstart` arriving while a synthetic press is under way (a browser that fires it
     after the frame's callbacks) is stopped by the guard before three.js or the shell hear it, and the session's own
     `select` and `selectend` end that press in place of synthetic ones; and once a synthetic end was given, that press's
@@ -2577,7 +2578,7 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     the one whose spot A is nearest the head along the floor, within 10 m (`SV.near`), is where this headset is
     (`PLC.here`). Another room than the one joined now: in no room, or in one joined by itself (a rejoin, or a place
     before: `C.auto`, `C.byPlace`), it joins that room by itself (`join(code, 'place', rid)`, checked by the room's own
-    id as a rejoin is; the room left is not marked left on purpose), answers *In this room* for it, says so (*Room ABC:
+    id as a rejoin is; the room left is not marked left on purpose), answers *In this room* for it (unless *Somewhere else* was answered for that room: kept, the Debug tab changes it), says so (*Room ABC:
     You are in its place, so this headset joined it*), lines up from its marks at once and the check by eye asks (why
     `place`), unless the room joined now holds (below); in a room joined by hand, or into a room left on purpose (or
     whose code is another room's now), never by itself: the Debug tab offers *Join ABC: you are standing in its place*

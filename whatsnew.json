@@ -1,34 +1,26 @@
 {
-  "version": "networks-v129",
+  "version": "networks-v130",
   "date": "10 November 2026",
   "new": [
-    "v129 is v128 with one fix, the first release on the main site since v121: a model in the studio whose own clip stood still (Pause, a held timeline, a clip played once to its end) no longer drops into its rest pose when its ghost is drawn while editing.",
-    "Moving with the sticks in a shared room: a VR headset that is elsewhere (it answered Somewhere else) can now move with the sticks (click a stick twice). The others see it move, and moving into a circle with the sticks enters it, Back to the lobby too. In the room with the others it stays off: there you walk for real.",
-    "Studio, Follow: a Faces row. Them turns it to look at the person; Where they look faces the way they look. It works with every side (In front, Behind, Left, Right).",
-    "Studio, Follow an item: a Faces row. The item turns it to look at the item it follows; As placed keeps the turn it is placed at with that item.",
-    "Studio: a recorded path has a timeline too, under its Recorded path rows: Pause / Play, Start, −1 s, +1 s, The scene's clock and a slider on a page. Back and forth is one cycle there and back. A voice recorded with the movement follows it.",
-    "Studio, headset card: a timeline bar under each Timeline row (a model's clip and a recorded path). Point at it and press or drag with the trigger to move it; it stays held there for everyone at the circle.",
-    "Studio: Lock in place is now the first row on every card, right under the name.",
-    "The Vive trackers' bridge runs with uv: uv run tools/trackers/bridge.py fetches Python and openvr by itself the first time (winget install astral-sh.uv once)."
+    "Places: a headset keeps a calibration per shared room and lines itself up in each one. In no room, or in a room it joined by itself, it joins the room whose tape crosses it stands at and says so; in a room you joined by hand it only offers it (Debug > Places). It never leaves a room it may still be standing in, and never rejoins a room you left on purpose.",
+    "Places: Anchors per room, two (the default, up to 4 rooms) or one (up to 8 rooms; 7 while Anchor is on), in Debug > Places, with Forget for each room. When a new room would pass that, the room used least recently is dropped, and a notice says which.",
+    "Studio, Stays on the floor: a switch among the recorder's rows (this device's own, off by default). A recording first sets the item down on the floor with its lowest side; from then on it only slides along the floor and turns about the vertical, whatever the hand or the arrows do. An empty or a sound keeps its height.",
+    "Controllers after standby: a controller the headset swaps without telling the page is now picked up at any time, not only within a minute of waking. A controller whose trigger press gets no click is noticed: that press is lost and logged, and its next presses are given as clicks until it works by itself again. One press never clicks twice.",
+    "Checking the crosses by eye: while the question shows, the two crosses glow and pulse, with a beam of light and a letter (A, B) over each. Under the question an arrow points to each with its distance (A 1.3 m), or a U-turn for one behind you."
   ],
   "test": [
-    "Studio, editing on, a model whose clip plays: Pause, then select it and something else: it keeps its frame (before, it fell into its T-pose). The same with a clip set to Once, after it ends.",
-    "Two headsets in a room, one in VR answering Somewhere else: click a stick twice, move into a circle and into Back to the lobby, and watch it move from the other headset. Then answer In this room in the menu and check you are back where you stand.",
-    "Studio at a circle: a model on Follow, Behind or at your Left, with Faces: Them; walk about. Then Faces: Where they look.",
-    "Studio: Follow an item with Faces: The item; move or animate the item it follows.",
-    "Studio, a model with a recorded path, editing on, selected: Pause, slide, −1 s, +1 s, Play, The scene's clock; at a circle with a second headset, check both see the same moment and that deselecting gives it back.",
-    "In the headset, the same with the new bar on the card: drag the playhead, for a model's own clip too (also a short one, about 1.3 s).",
-    "A recorded path with your voice: pause it on its timeline (silent), play it from the middle (the voice from there).",
-    "Lock in place at the top of the card, on a page and in the headset.",
-    "On the trackers' PC: winget install astral-sh.uv, then uv run tools/trackers/bridge.py --list.",
-    "A v127 device and a v128 device in one room: the older one is asked to reload (format networks-40)."
+    "Calibrate in two shared rooms, each with its own tape crosses. Leave AR, enter AR in the other room: it should join that room by itself, say so, line up and ask the check by eye. Debug > Places lists both rooms; Forget one.",
+    "Walk from one room to the other in one session (no leaving AR): does it switch, or only offer the room? Does it hold the room you are in when its anchors are slow?",
+    "Set Anchors per room to one, calibrate a room again, leave and come back: do the crosses sit on the tape (check by eye), and does the room stay put while you walk about?",
+    "Studio, editing on, a model on its card: Stays on the floor on, Record its movement, then carry it while lifting and tilting your hand. It should slide on the floor and play back the same way. On a page, the Turn arrows have no tilting rings.",
+    "After standby, or when a controller had gone to sleep: does the right controller click at once? If not, does the second press click? Tell me what the headset's log says (press missed, inputs replaced).",
+    "In AR in a shared room with spots: wake the headset; do the arrows lead you to the crosses, and do the beams and letters show across the room?"
   ],
   "untested": [
-    "Everything on a real headset: how moving with the sticks elsewhere feels and how the others see a moving avatar over Wi-Fi; a recentre or a sleep while moved.",
-    "Faces on a headset: being looked at by a follower beside or behind you; an item turning to the one it follows, life size.",
-    "The headset's timeline bar: how it reads and drags with a real trigger, and its cost on a Quest (its strip redrawn up to ten times a second).",
-    "A held path's voice heard in Quest Browser.",
-    "uv on Windows, and the bridge with SteamVR and real trackers (still to be switched on).",
-    "The full test suites ran whole before the main site moved (relay, peer, smoke, sound, shared rooms, the password, live updates, the update from v121): only in headless Chromium."
+    "Everything on a real headset: whether a Quest finds another room's anchors as you walk in mid-session or only when a session starts, how far apart rooms must be, and how a multi-room Space Setup behaves.",
+    "Whether a Quest's saved anchor keeps its turn exactly between sessions: one anchor per room rests on it (two stay the default).",
+    "Whether a Quest really drops presses after waking, and synthetic presses on a real Quest.",
+    "How carrying an item that stays on the floor feels life size, and the beams and arrows over a real room.",
+    "On dev only the quick checks ran (the lanes ran their own blocks); the full suites run before the main site moves."
   ]
 }

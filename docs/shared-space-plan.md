@@ -143,7 +143,7 @@ As in shared-spaces.md, adapted: the renderer keeps the `local` reference space 
 asks the session for `local-floor` and, when granted, `shared` spaces of its own and runs its own
 `session.requestAnimationFrame` callback each frame (the same `XRFrame` as the story's), where it reads
 `frame.getPose(localFloor, local)` and `frame.getPose(shared, local)`. The room frame is stored per headset in
-`local-floor` coordinates (`localStorage` `roomFrame`), and turned into a **room -> local** matrix every frame.
+`local-floor` coordinates (`localStorage` `roomFrame`; since v130 `roomFrames`, one per room), and turned into a **room -> local** matrix every frame.
 
 - Alignment as in shared-spaces.md section 4: shared space (adopt a published frame for our id; else our saved
   marks or the shared origin, published) -> else saved marks (persistent anchor at mark A, then saved
