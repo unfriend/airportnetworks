@@ -8727,18 +8727,28 @@ if (runs('stick moving')) {
 // in both eyes; the room's wall hiding what stands behind it; the menu never hidden; the setting's default 'both', the
 // menu's row going round, #occl=off, a story's own (cleared with the story), a story change in the session; the
 // session's request (depth sensing asked for in AR, the ladder: a TypeError naming 'unsigned-short' asked again without
-// it, another refusal without depth) and VR as ever; the new session line in every story
+// it, another refusal without depth) and VR as ever; the new session line in every story. After a sleep (v131): a short
+// hide changing nothing, a long one with the depth dead until resumed, depth dying with no sleep, a binding from before
+// that throws, the room's planes with no pose and given again, depth that never comes back (the tries' cap, the Debug
+// line, one notice), a changed textureType; the WebGL context lost and restored
 function OCCL_FAKE() {
   const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
   const DW = 64, DH = 64, WN = 0.1;
-  const F = window.__occl = { o: { refuseUS: false, failDepth: false, cpu: false }, session: null, time: 0, tex: null, texFrame: -1, frameNo: 0, made: 0, near: 0.5, far: 4, drop: null, inits: [], pauses: 0, resumes: 0 };
+  // (v131, after a sleep: dead, depth that stops coming, { until: 'resume' | 'binding' | 'never', at }: brought back by
+  // resumeDepthSensing, by a binding made after it died, or never; active, the session's depthActive; gen, a binding's
+  // generation: one made before it moved on throws; unposed, plane spaces without a pose; tt, the depth's textureType)
+  const F = window.__occl = { o: { refuseUS: false, failDepth: false, cpu: false }, session: null, time: 0, texs: [], texArr: true, texFrame: -1, frameNo: 0, made: 0, near: 0.5, far: 4, drop: null, inits: [], pauses: 0, resumes: 0,
+    dead: null, active: true, gen: 0, bindings: 0, unposed: false, tt: 'texture-array' };
   const toWin = m => 1 - WN / m;   // (a depth buffer's value with no far plane)
   const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
-  // a wall 0.6 m ahead, from 3 m to the left to the middle, from the floor (1.6 m down) to 1 m above the eyes
-  const planes = new Set([{ planeSpace: { matrix: rotX(Math.PI / 2, 0, -1.6, -0.6) }, polygon: [{ x: -3, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -2.6 }, { x: -3, y: 0, z: -2.6 }], orientation: 'vertical', semanticLabel: 'wall', lastChangedTime: 1 }]);
+  // a wall 0.6 m ahead, from 3 m to the left to the middle, from the floor (1.6 m down) to 1 m above the eyes (newPlanes:
+  // the same wall as a new set of objects, as a room scan given again)
+  const wall = () => new Set([{ planeSpace: { matrix: rotX(Math.PI / 2, 0, -1.6, -0.6) }, polygon: [{ x: -3, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -2.6 }, { x: -3, y: 0, z: -2.6 }], orientation: 'vertical', semanticLabel: 'wall', lastChangedTime: 1 }]);
+  F.planes = wall();
+  F.newPlanes = () => { F.planes = wall(); };
   const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
   class Session extends EventTarget {
     constructor(mode, feats) {
@@ -8746,12 +8756,13 @@ function OCCL_FAKE() {
       this.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque'; this.enabledFeatures = feats; this.cbs = new Map(); this.n = 0;
       if (feats.includes('depth-sensing')) { this.depthUsage = F.o.cpu ? 'cpu-optimized' : 'gpu-optimized'; this.depthDataFormat = 'float32'; }
     }
+    get depthActive() { return this.depthUsage ? F.active : undefined; }
     updateRenderState(s) { Object.assign(this.renderState, s); }
     async requestReferenceSpace(type) { return space({ type, floor: type === 'local-floor' }); }
     requestAnimationFrame(cb) { const id = ++this.n; this.cbs.set(id, cb); return id; }
     cancelAnimationFrame(id) { this.cbs.delete(id); }
-    pauseDepthSensing() { F.pauses++; }
-    resumeDepthSensing() { F.resumes++; }
+    pauseDepthSensing() { F.pauses++; F.active = false; }
+    resumeDepthSensing() { F.resumes++; F.active = true; if (F.dead && F.dead.until === 'resume') F.dead = null; }
     async end() { if (this.ended) return; this.ended = true; this.dispatchEvent(new Event('end')); }
   }
   // (taken for a headset's session, whose listeners outlive a story, as three.js's own do on a real one)
@@ -8770,22 +8781,31 @@ function OCCL_FAKE() {
     this.framebuffer = fb; this.antialias = true; }
     getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
   window.XRWebGLBinding = class {
-    constructor(s, gl) { this.s = s; this.gl = gl; }
+    constructor(s, gl) { this.s = s; this.gl = gl; this.id = ++F.bindings; this.gen = F.gen; }
     getDepthInformation(view) {
       if (!this.s.depthUsage) throw new DOMException('Depth sensing is not enabled for this session', 'InvalidStateError');
+      if (this.gen !== F.gen) throw new DOMException('This binding was made before the depth started again', 'InvalidStateError');
+      if (F.dead && (F.dead.until !== 'binding' || this.id <= F.dead.at)) return null;
       if (F.drop === view.eye) return null;
-      if (F.texFrame !== F.frameNo) {   // a new real texture array each frame (window depth), the last one taken back
-        const gl = this.gl, prev = gl.getParameter(gl.TEXTURE_BINDING_2D_ARRAY), fy = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL), pm = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
-        const t = gl.createTexture(), d = new Float32Array(DW * DH * 2);
-        for (let l = 0; l < 2; l++) for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) d[l * DW * DH + y * DW + x] = toWin(x < DW / 2 ? F.near : F.far);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+      // a new real texture array each frame (window depth), the last one taken back; or, with textureType 'texture', a
+      // texture of its own for each eye
+      const arr = F.tt !== 'texture';
+      if (F.texFrame !== F.frameNo || F.texArr !== arr) {
+        const gl = this.gl, T2 = arr ? gl.TEXTURE_2D_ARRAY : gl.TEXTURE_2D, prev = gl.getParameter(arr ? gl.TEXTURE_BINDING_2D_ARRAY : gl.TEXTURE_BINDING_2D);
+        const fy = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL), pm = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL), L = arr ? 2 : 1, d = new Float32Array(DW * DH * L);
+        for (let l = 0; l < L; l++) for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) d[l * DW * DH + y * DW + x] = toWin(x < DW / 2 ? F.near : F.far);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-        gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R32F, DW, DH, 2, 0, gl.RED, gl.FLOAT, d);   // (its filter left as made: the shell sets nearest)
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, prev); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, fy); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, pm);
-        if (F.tex) gl.deleteTexture(F.tex);
-        F.tex = t; F.texFrame = F.frameNo; F.made++;
+        const made = (arr ? [0] : [0, 1]).map(() => {
+          const t = gl.createTexture(); gl.bindTexture(T2, t);
+          if (arr) gl.texImage3D(T2, 0, gl.R32F, DW, DH, 2, 0, gl.RED, gl.FLOAT, d); else gl.texImage2D(T2, 0, gl.R32F, DW, DH, 0, gl.RED, gl.FLOAT, d);   // (its filter left as made: the shell sets nearest)
+          return t;
+        });
+        gl.bindTexture(T2, prev); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, fy); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, pm);
+        for (const t of F.texs) gl.deleteTexture(t);
+        F.texs = made; F.texArr = arr; F.texFrame = F.frameNo; F.made++;
       }
-      return { texture: F.tex, textureType: 'texture-array', imageIndex: view.eye === 'left' ? 0 : 1, width: DW, height: DH, rawValueToMeters: 1,
+      const e = view.eye === 'left' ? 0 : 1;
+      return { texture: arr ? F.texs[0] : F.texs[e], textureType: arr ? 'texture-array' : 'texture', imageIndex: arr ? e : 0, width: DW, height: DH, rawValueToMeters: 1,
         normDepthBufferFromNormView: { matrix: ident() }, depthNear: WN, depthFar: Infinity };
     }
   };
@@ -8793,8 +8813,8 @@ function OCCL_FAKE() {
   F.frame = () => ({
     session: F.session,
     getViewerPose: () => Object.assign(pose(ident()), { views }),
-    getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? pose(s.matrix) : null),
-    detectedPlanes: planes, detectedMeshes: new Set(),
+    getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? (F.unposed ? null : pose(s.matrix)) : null),
+    detectedPlanes: F.planes, detectedMeshes: new Set(),
     // CPU depth (a phone's): metres in an array of its own, rows from the top
     getDepthInformation: v => {
       if (F.session.depthUsage !== 'cpu-optimized') throw new DOMException('Depth sensing is not enabled for the CPU', 'InvalidStateError');
@@ -8810,6 +8830,24 @@ function OCCL_FAKE() {
       const fr = F.frame();
       for (const cb of cbs) cb(F.time, fr);
     }
+  };
+  // frames for a while of real time (the occlusion's clock is performance.now()), or until a test in the page holds
+  F.runUntil = async (fn, ms) => { const t0 = performance.now(); let n = 0; do { F.step(1); n++; await new Promise(r => setTimeout(r, 5)); } while (!(fn && fn()) && performance.now() - t0 < ms); return n; };
+  F.run = ms => F.runUntil(null, ms);
+  // the session hidden for sec seconds, then visible again (a sleep; no frames meanwhile), and what the sleep did by then
+  // (o.dead: the depth dead until 'resume', a 'binding' made after, or 'never'; o.active false: depthActive false; o.gen:
+  // the bindings made before throw; o.unposed: plane spaces without a pose; o.planes: a new set of planes; o.tt)
+  F.vis = v => { F.session.visibilityState = v; F.session.dispatchEvent(new Event('visibilitychange')); };
+  F.sleep = async (sec, o = {}) => {
+    F.vis('hidden');
+    await new Promise(r => setTimeout(r, sec * 1000));
+    if (o.dead) F.dead = { until: o.dead, at: F.bindings };
+    if (o.active === false) F.active = false;
+    if (o.gen) F.gen++;
+    if (o.unposed) F.unposed = true;
+    if (o.planes) F.newPlanes();
+    if (o.tt) F.tt = o.tt;
+    F.vis('visible');
   };
   // pixels of the layer's own framebuffer right after a frame: [eye, x, y], fractions of that eye's viewport from its
   // bottom left
@@ -8876,7 +8914,7 @@ if (runs('occlusion')) {
     await op.evaluate(() => HOST.occlusion.set('depth'));
     await shows('depth, near on the left', '0101');
     const s = await st();
-    if (!s.quad || s.roomShown || !s.inScene || s.paused || !s.depth || !s.depth.enabled || s.depth.used !== 'window' || !s.depth.decided || s.depth.eyes.join() !== 'true,true' || !(s.depth.probe && s.depth.probe.buf))
+    if (!s.quad || s.roomShown || !s.inScene || !s.depth || !s.depth.enabled || s.depth.used !== 'window' || !s.depth.decided || s.depth.eyes.join() !== 'true,true' || !(s.depth.probe && s.depth.probe.buf))
       errors.push('occlusion: depth state ' + JSON.stringify(s));
     await op.evaluate(() => { window.__occl.near = 4; window.__occl.far = 0.5; });
     await shows('depth, near on the right', '1010');
@@ -8889,19 +8927,19 @@ if (runs('occlusion')) {
     await shows('the real world 2 cm nearer than the plane', '1111');
     await op.evaluate(() => { window.__occl.near = 0.5; });
   });
-  await step('occlusion: room: the scan\'s wall hides what stands behind it, depth never paused (v124); off: nothing hidden; both: both', async () => {
+  await step('occlusion: room: the scan\'s wall hides what stands behind it, depth never paused (v124) and not resumed before a sleep; off: nothing hidden; both: both', async () => {
     const p0 = await op.evaluate(() => window.__occl.pauses);
     await op.evaluate(() => { HOST.occlusion.set('room'); window.__occl.near = window.__occl.far = 4; });
     await shows('room, the wall on the left', '0101');
     const s = await st(), p1 = await op.evaluate(() => window.__occl.pauses);
-    if (s.quad || !s.roomShown || s.paused || !s.room || s.room.planes !== 1 || s.room.built < 1 || p1 !== p0) errors.push('occlusion: room state ' + JSON.stringify(s) + ' pauses ' + p0 + ' -> ' + p1);
+    if (s.quad || !s.roomShown || !s.room || s.room.planes !== 1 || s.room.built < 1 || p1 !== p0) errors.push('occlusion: room state ' + JSON.stringify(s) + ' pauses ' + p0 + ' -> ' + p1);
     await op.evaluate(() => { HOST.occlusion.set('off'); window.__occl.near = window.__occl.far = 0.5; });
     await shows('off, the real world near everywhere', '1111');
     if ((await st()).root) errors.push('occlusion: off still draws its objects');
     await op.evaluate(() => { HOST.occlusion.set('both'); window.__occl.near = 4; window.__occl.far = 0.5; });
     await shows('both: the wall on the left, people on the right', '0000');
     const r = await op.evaluate(() => [window.__occl.pauses, window.__occl.resumes]);
-    if (r[0] || r[1]) errors.push('occlusion: depth sensing paused or resumed (it runs for the whole session since v124): ' + r);
+    if (r[0] || r[1]) errors.push('occlusion: depth sensing paused (it runs for the whole session since v124) or resumed before any sleep: ' + r);
   });
   await step('occlusion: the menu is never hidden (the real world nearer everywhere)', async () => {
     await op.evaluate(() => { window.__occl.near = window.__occl.far = 0.3; HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
@@ -8917,6 +8955,108 @@ if (runs('occlusion')) {
     const seq = await op.evaluate(() => { const out = [HOST.occlusion.own()]; for (let k = 0; k < 4; k++) { const r = HOST.collab.menuFind('occl'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.own() + ':' + localStorage.getItem('xrOccl')); } return out; });
     if (seq.join() !== 'both,room:room,depth:depth,off:off,both:both') errors.push('occlusion: the menu row went ' + seq.join());
     await op.evaluate(() => HOST.collab.panelOpen(false));
+  });
+  // After a sleep (v131): the fake's session hidden and visible again, its depth dead until resumed, a binding made after
+  // or never, its bindings made before throwing, its planes without a pose or given again, its textureType changed; the
+  // times shortened (wake 0.6 s, no depth 0.4 s, no pose 0.4 s, the watchdog's first gap 0.3 s); what the shell's log says
+  const logN = () => op.evaluate(() => (window.__collabLog || []).reduce((m, e) => Math.max(m, e.n), 0));
+  const logSince = n => op.evaluate(n => (window.__collabLog || []).filter(e => e.n > n && /^(occlusion|webgl)/.test(e.ev)), n);
+  const fake = () => op.evaluate(() => { const F = window.__occl; return { pauses: F.pauses, resumes: F.resumes, bindings: F.bindings }; });
+  await step('occlusion: a short hide changes nothing (v131: no renew, no resume, no new binding)', async () => {
+    await op.evaluate(() => { HOST.occlusion.times({ wake: 600, lost: 400, room: 400, every: 300 }); HOST.occlusion.set('depth'); const F = window.__occl; F.near = 0.5; F.far = 4; });
+    await shows('before any sleep', '0101');
+    const s0 = await st();
+    if (s0.renews || s0.roomRenews || s0.resumes || s0.redecides || s0.bindings !== 1 || s0.depthActive !== true || !(s0.lastDepthAt > 0) || s0.hiddenAt)
+      errors.push('occlusion: before any sleep ' + JSON.stringify(s0));
+    const n0 = await logN();
+    await op.evaluate(() => window.__occl.sleep(0.1));
+    await shows('after a short hide', '0101');
+    const s = await st(), L = await logSince(n0), F = await fake();
+    if (s.renews || s.resumes || s.bindings !== 1 || F.pauses || F.resumes || !(s.hidLast >= 50 && s.hidLast < 600) || s.hiddenAt || L.length)
+      errors.push('occlusion: a short hide: ' + JSON.stringify({ s, L, F }));
+  });
+  await step('occlusion: a long sleep, the depth dead until resumed: asked again at once (logged), resumed, the plane hidden again in both eyes', async () => {
+    const n0 = await logN();
+    await op.evaluate(() => window.__occl.sleep(0.8, { dead: 'resume', active: false }));
+    await shows('after a long sleep', '0101');
+    const s = await st(), L = await logSince(n0), F = await fake();
+    const rn = L.find(e => e.ev === 'occlusion renew'), bk = L.find(e => e.ev === 'occlusion back' && e.what === 'depth');
+    if (s.renews !== 1 || s.resumes !== 1 || F.resumes !== 1 || F.pauses || s.bindings !== 2 || s.depthActive !== true || s.depth.eyes.join() !== 'true,true' || s.tries.depth !== 0
+      || !rn || rn.why !== 'wake' || !(rn.hidden >= 790) || rn.depthActive !== false || rn.room || !bk || bk.why !== 'wake')
+      errors.push('occlusion: after a long sleep ' + JSON.stringify({ s, L, F }));
+  });
+  await step('occlusion: the depth dies with no sleep: the watchdog asks again (a new binding), the plane hidden again', async () => {
+    const n0 = await logN();
+    await op.evaluate(() => { const F = window.__occl; F.dead = { until: 'binding', at: F.bindings }; });
+    await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().renews >= 2, 6000));
+    await shows('the depth back by a new binding', '0101');
+    const s = await st(), L = await logSince(n0), F = await fake();
+    const rn = L.find(e => e.ev === 'occlusion renew'), bk = L.find(e => e.ev === 'occlusion back' && e.what === 'depth');
+    if (s.renews !== 2 || s.resumes !== 1 || F.resumes !== 1 || s.bindings !== 3 || s.tries.depth !== 1 || !rn || rn.why !== 'depth lost' || !(rn.ago >= 400) || !bk)
+      errors.push('occlusion: the depth dying ' + JSON.stringify({ s, L, F }));
+  });
+  await step('occlusion: a binding from before the depth started again throws on every frame: asked again after its frames in a row (a new binding), the plane hidden again', async () => {
+    const n0 = await logN(), e0 = (await st()).depth.errors;
+    // (only the throws ask; 6 frames in a row here, 30 on a headset: frames drawn in software are slow)
+    await op.evaluate(() => { HOST.occlusion.times({ lost: 1e9, throws: 6 }); window.__occl.gen++; });
+    await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().renews >= 3, 40000));
+    await op.evaluate(() => HOST.occlusion.times({ lost: 400, throws: 30 }));
+    await shows('the depth back after the throws', '0101');
+    const s = await st(), L = await logSince(n0);
+    const rn = L.find(e => e.ev === 'occlusion renew');
+    if (s.renews !== 3 || s.bindings !== 4 || s.tries.depth !== 2 || !(s.depth.errors - e0 >= 12) || !rn || rn.why !== 'depth throws' || !/before the depth started again/.test(rn.err) || !L.some(e => e.ev === 'occlusion back'))
+      errors.push('occlusion: the throws ' + JSON.stringify({ s, L, e0 }));
+  });
+  await step('occlusion: the room\'s planes with no pose: the room built again (logged), nothing hidden; planes given again: the wall hides again', async () => {
+    await op.evaluate(() => { HOST.occlusion.set('room'); const F = window.__occl; F.near = F.far = 4; });
+    await shows('the room before', '0101');
+    const n0 = await logN(), s0 = await st();
+    await op.evaluate(() => { window.__occl.unposed = true; });
+    await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().roomRenews >= 1, 6000));
+    await shows('the room with no pose', '1111');
+    const s1 = await st();
+    await op.evaluate(() => { const F = window.__occl; F.unposed = false; F.newPlanes(); });
+    await shows('the room given again', '0101');
+    const s = await st(), L = await logSince(n0), ev = L.map(e => e.ev + (e.ev === 'occlusion room' ? ':' + e.posed : e.ev === 'occlusion back' ? ':' + e.what : ''));
+    const iNone = ev.indexOf('occlusion room:0'), iRenew = L.findIndex(e => e.ev === 'occlusion renew' && e.why === 'room' && e.room), iBack = ev.indexOf('occlusion back:room'), iSome = ev.lastIndexOf('occlusion room:1');
+    if (s1.posed !== 0 || s.posed !== 1 || s.roomRenews < 1 || s.renews !== s0.renews || s.room.planes !== 1 || !(s.room.built >= s0.room.built + 2) || s.tries.room < 1
+      || !(iNone >= 0 && iNone < iRenew && iRenew < iBack && iRenew < iSome))
+      errors.push('occlusion: the room with no pose ' + JSON.stringify({ s0, s1, s, ev }));
+  });
+  await step('occlusion: depth that never comes back: the tries stop at the cap, the Debug line says to enter AR again, one notice', async () => {
+    await op.evaluate(() => { HOST.occlusion.set('depth'); HOST.occlusion.times({ lost: 100, every: 50 }); const F = window.__occl; F.near = 0.5; F.far = 4; F.dead = { until: 'never' }; });
+    const n0 = await logN();
+    await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().gaveUp.depth, 45000));
+    const s = await st(), line = await op.evaluate(() => HOST.occlusion.line());
+    await op.evaluate(() => window.__occl.run(800));
+    const s2 = await st(), L = await logSince(n0), told = await op.evaluate(() => HOST.collab.notes().filter(x => x.title === 'People no longer hide things').length);
+    if (!s.gaveUp.depth || s.tries.depth !== 6 || !s.told || s2.renews !== s.renews || s2.tries.depth !== 6 || !/depth stopped \d+ s ago: leave AR and enter again/.test(line) || told !== 1
+      || L.filter(e => e.ev === 'occlusion gave up').length !== 1 || L.filter(e => e.ev === 'occlusion renew').length !== 4)
+      errors.push('occlusion: never back ' + JSON.stringify({ s, s2, line, told, L: L.map(e => e.ev + ':' + (e.why || e.what || '')) }));
+    await shows('no depth: nothing hidden', '1111');
+    // it comes back by itself after all: drawn again, the line plain again
+    const n1 = await logN();
+    await op.evaluate(() => { window.__occl.dead = null; });
+    await shows('the depth back by itself', '0101');
+    const s3 = await st(), line3 = await op.evaluate(() => HOST.occlusion.line()), L3 = await logSince(n1);
+    if (s3.gaveUp.depth || /leave AR/.test(line3) || !L3.some(e => e.ev === 'occlusion back' && e.what === 'depth'))
+      errors.push('occlusion: back after giving up ' + JSON.stringify({ s3, line3, L3 }));
+  });
+  await step('occlusion: the depth\'s textureType changes (a texture per eye): decided afresh, the plane hidden in both eyes; and back', async () => {
+    await op.evaluate(() => HOST.occlusion.times({ lost: 400, every: 300 }));
+    const n0 = await logN(), r0 = (await st()).redecides;
+    await op.evaluate(() => { window.__occl.tt = 'texture'; });
+    await shows('one texture per eye', '0101', 4);
+    await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().depth.decided, 10000));   // (the probe: at most once a second)
+    const s = await st(), L = await logSince(n0);
+    if (s.redecides !== r0 + 1 || !s.depth.kind || s.depth.kind.arr !== false || !/^texture\|/.test(s.depth.shape) || !s.depth.decided || s.depth.used !== 'window' || s.depth.eyes.join() !== 'true,true'
+      || !L.some(e => e.ev === 'occlusion renew' && e.why === 'shape' && /^texture-array\|/.test(e.from) && /^texture\|/.test(e.to)))
+      errors.push('occlusion: a texture per eye ' + JSON.stringify({ s, L }));
+    await op.evaluate(() => { window.__occl.tt = 'texture-array'; });
+    await shows('a texture array again', '0101', 4);
+    const s2 = await st(), F = await fake();
+    if (s2.redecides !== r0 + 2 || !s2.depth.kind || !s2.depth.kind.arr || F.pauses) errors.push('occlusion: a texture array again ' + JSON.stringify({ s2, F }));
+    await op.evaluate(() => { const F = window.__occl; F.dead = null; F.unposed = false; HOST.occlusion.times(null); HOST.occlusion.set('both'); });
   });
   await step('occlusion: a story\'s own (a scene that says never), cleared when the story changes; hung in the next story\'s scene', async () => {
     await op.evaluate(() => { HOST.occlusion.scene('off'); window.__occl.near = 0.5; window.__occl.far = 4; });
@@ -8939,6 +9079,36 @@ if (runs('occlusion')) {
     await op.waitForTimeout(300);
     const s = await st();
     if (s.session || s.root || s.quad) errors.push('occlusion: after the session ' + JSON.stringify(s));
+  });
+  await step('occlusion: the WebGL context lost and restored (v131): logged, occlusion\'s own GL objects forgotten; a new session\'s depth hides the plane after it', async () => {
+    const n0 = await logN();
+    const r = await op.evaluate(async () => {
+      const x = HOST.renderer.getContext().getExtension('WEBGL_lose_context');
+      if (!x) return { no: true };
+      const before = HOST.occlusion.state().gl, wait = async f => { for (let k = 0; k < 60 && !f(); k++) await new Promise(res => setTimeout(res, 50)); };
+      x.loseContext();
+      await wait(() => HOST.occlusion.state().lost);
+      const lost = HOST.occlusion.state().lost;
+      x.restoreContext();
+      await wait(() => !HOST.occlusion.state().lost);
+      return { before, lost, after: HOST.occlusion.state() };
+    });
+    if (r.no) { errors.push('occlusion: no WEBGL_lose_context here'); return; }
+    const L = await logSince(n0);
+    if (!r.before.vao || !r.before.probe || !r.lost || r.after.lost || r.after.restored !== 1 || r.after.gl.vao || r.after.gl.probe || r.after.gl.progs
+      || !L.some(e => e.ev === 'webgl context lost') || !L.some(e => e.ev === 'webgl context restored'))
+      errors.push('occlusion: the context lost and restored ' + JSON.stringify({ r, L }));
+    // a new AR session on the restored context: the probe's objects made again, the plane hidden where the real world is nearer
+    await op.evaluate(() => { HOST.occlusion.set('depth'); const F = window.__occl; F.near = 0.5; F.far = 4; });
+    await op.evaluate(() => HOST.cur.peek('xrStart("immersive-ar")'));
+    await op.waitForFunction(() => window.__occl.session && !window.__occl.session.ended && window.__occl.session.cbs.size && HOST.session === window.__occl.session, null, { timeout: 20000 });
+    await op.evaluate(() => window.__occl.step(4));
+    await plane();
+    await shows('a session after the context came back', '0101');
+    const s = await st();
+    if (!s.gl.vao || !s.gl.probe || !s.depth || !s.depth.decided || s.renews) errors.push('occlusion: a session after the context came back ' + JSON.stringify(s));
+    await op.evaluate(() => { HOST.occlusion.set('both'); return window.__occl.session.end(); });
+    await op.waitForTimeout(300);
   });
   await step('occlusion: CPU depth (as a phone gives it, in metres): the plane hidden where the real world is nearer', async () => {
     await op.evaluate(() => { const F = window.__occl; F.o.cpu = true; F.near = 0.5; F.far = 4; HOST.occlusion.set('depth'); });
