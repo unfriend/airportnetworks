@@ -4215,7 +4215,7 @@ async function guideRound() {
   await H2.evaluate(() => { window.__xr.head([0.6, 1.6, 0.4, 0.3]); });
   await frames(H2, 300);
   console.log('     (the arrows said ' + [e1, e1r].map(e => (e.hint ? e.hint.arrows.map(a => a.text + (a.round ? ' (a U-turn)' : '')).join(' and ') : 'nothing')).join('; turned round, ') + ')');
-  check('guide: while the check by eye asks, both crosses lit with a beam and their letter over them (within 2 cm, over everything), an arrow to each under the question pointing at it (5 degrees) with its distance along the floor (A 1.9 m); turned round, a U-turn to the side where the cross behind you is',
+  check('guide: while the check by eye asks, both crosses lit with a beam and their letter over them (within 2 cm, over everything), an arrow to each under the question pointing at it (5 degrees) with its distance along the floor (A 1.3 m); turned round, a U-turn to the side where the cross behind you is',
     !hb1.length && !hb1r.length && e1r.shown, JSON.stringify({ hb1, hb1r, e1: e1.hint, e1r: e1r.hint }));
   const y1 = await eyePress(H2, 'eye:yes'), v1b = await G(H2), e1b = await EY(H2);
   check('guide: Yes to the check by eye stands as a check (by eye): the flow done, the question gone', y1 === 'pressed' && v1b.ok && v1b.ok.how === 'e' && v1b.flow === 'done' && !e1b.ask && !e1b.shown && !v1b.open,

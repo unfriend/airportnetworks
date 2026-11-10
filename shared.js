@@ -4803,11 +4803,11 @@
     const over = o => { o.renderOrder = 53; return o; };   // (as the crosses: over the scene, under the menu and the sheets)
     // the beam fades upwards (a cylinder's texture runs from its foot, v 0, to its top, v 1; a canvas's top row is v 1)
     const fade = ehTex(4, 64, (ctx, w, h) => { const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,1)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); });
-    const mat = o => new THREE.MeshBasicMaterial(Object.assign({ map: fade, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }, o));
+    const mat = o => new THREE.MeshBasicMaterial(Object.assign({ map: fade, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }, o));   // (not added light: over passthrough, cleared to nothing, that hardly shows)
     for (const k of ['A', 'B']) {
       const g = new THREE.Group(); g.visible = false;
       const core = over(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, EH.beam, 8, 1, true).translate(0, EH.beam / 2, 0), mat({ color: EH_LIT })));
-      const glow = over(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, EH.beam, 12, 1, true).translate(0, EH.beam / 2, 0), mat({ color: MARK, opacity: 0.25 })));
+      const glow = over(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, EH.beam, 12, 1, true).translate(0, EH.beam / 2, 0), mat({ color: MARK, opacity: 0.3 })));
       const letter = over(new THREE.Sprite(new THREE.SpriteMaterial({ map: ehTex(128, 128, (ctx, w) => {
         ctx.beginPath(); ctx.arc(w / 2, w / 2, w / 2 - 6, 0, Math.PI * 2); ctx.fillStyle = '#ffb43b'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff2c4'; ctx.stroke();
         ctx.font = FONT(84, 700); ctx.fillStyle = '#10182a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(k, w / 2, w / 2 + 4);
@@ -4828,7 +4828,7 @@
         top(new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.045, 14).rotateX(Math.PI / 2).translate(0, 0, 0.0375), am)));
       round.add(top(new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.007, 6, 24, Math.PI), am)),
         top(new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.04, 14).rotateZ(Math.PI).translate(-0.035, -0.015, 0), am)));
-      const label = sheet(360, 84, 0.17, 55);
+      const label = sheet(380, 84, 0.18, 55);
       g.add(dir, round, label.mesh);
       EH.g.add(g);
       EH.arrows.push({ k, g, dir, round, label, text: '', behind: false, side: 0, d: 0, x: 0 });
@@ -4848,7 +4848,7 @@
     for (const o of EH.spots) {
       o.g.visible = true; o.g.position.copy(o.cross.position);
       o.cross.scale.setScalar(1.6 + 0.35 * k); o.cross.children[0].material.color.copy(EH.col);
-      o.core.material.opacity = 0.7 + 0.3 * k; o.glow.material.opacity = 0.15 + 0.15 * k;
+      o.core.material.opacity = 0.75 + 0.25 * k; o.glow.material.opacity = 0.2 + 0.15 * k;
     }
   }
   // the arrows under the question (on), or none
@@ -4883,7 +4883,9 @@
         const L2 = a.label, ctx = L2.ctx;
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, L2.w, L2.h);
         rr(ctx, 3, 3, L2.w - 6, L2.h - 6, 20); ctx.fillStyle = 'rgba(8,15,28,0.9)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = AMBER; ctx.stroke();
-        ctx.font = FONT(36, 700); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, text, L2.w - 30), L2.w / 2, L2.h / 2 + 2);
+        let px = 36;
+        do ctx.font = FONT(px, 700); while (ctx.measureText(text).width > L2.w - 30 && --px > 24);   // (smaller for a longer line: behind you)
+        ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, text, L2.w - 30), L2.w / 2, L2.h / 2 + 2);
         L2.tex.needsUpdate = true;
       }
     }

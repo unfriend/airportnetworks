@@ -5652,7 +5652,7 @@ through the shared space, asked by eye (v119: the orange crosses on the two spot
 question 0.75 to 1 m in front, on top and the ray's first target, the guide shut; v130: both crosses lit and larger, the
 foot of each beam and its letter over its cross within 2 cm, the beam 1.2 m tall, over everything, an arrow to each
 under the question, within 0.35 m of it, pointing at its cross within 5 degrees of the line from where the arrow floats,
-its words its letter and its distance along the floor from the head, *A 1.9 m*; the head turned round, spot A behind
+its words its letter and its distance along the floor from the head, *A 1.3 m*; the head turned round, spot A behind
 it: a U-turn to the left and *, behind you*), *Yes* standing as a check (by eye, the flow done, the laptop's list
 *checked by eye*; the crosses as they were, no beam, letter or arrow); after a wake (hidden, then visible) asked again (why *wake*), *Yes*;
 after a floor reset asked again (why *reset*), *No* opening *Line up* (case *room*, why in red, not lined up: the
