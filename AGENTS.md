@@ -5678,7 +5678,8 @@ two table corners 1.2 m apart, put in its `roomFrame` with anchors at the corner
 room's floor is other spots), *f* absent, nothing written to `rm`; an older device's `rm` for those corners (`a` 0.76,
 no `f`): the room stands on it, on the true floor within 1 cm. With
 `--shots` its pictures, `guide-*.png`: each page and case of the menu's canvas, waiting, green, red, alone, no shared
-space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet), *No* to it (`guide-17-eye-no.png`),
+space, calibrating, the question by eye (`guide-16-eye-question.png`, its sheet; v130: the scene from the head with the
+arrows and a lit cross, `guide-16b-eye-arrows.png`, and turned round, `guide-16c-eye-behind.png`), *No* to it (`guide-17-eye-no.png`),
 calibrating with its floor 90 cm too low (`guide-20-floor-far-off.png`), and the laptop's section), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
