@@ -330,14 +330,17 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `selectstart` from it disarms it (`press back`, with how many were given). Never two clicks for one press (the owner
     would rather lose one): a real `selectstart` arriving while a synthetic press is under way (a browser that fires it
     after the frame's callbacks) is stopped by the guard before three.js or the shell hear it, and the session's own
-    `select` and `selectend` end that press in place of synthetic ones. For that the guard's listeners are added as
+    `select` and `selectend` end that press in place of synthetic ones; and once a synthetic end was given, that press's
+    own events coming late (within 250 ms, `G.late`: a `select` or `selectend` with no real press open at three.js, or a
+    `selectstart` while the button is up, and then its `select` and `selectend`) are stopped too, while a real
+    `selectstart` with the button down again in that time is a press of its own. For that the guard's listeners are added as
     `HOST.session` is set (it wraps `HOST.xr.watch`, which the setter calls), which every story does before it hands the
     session to three.js: at a session, which is not a node, Chromium runs listeners in the order they were added,
     capture or not (checked in headless Chromium 141). A real event for a source three.js does not map reaches no
     controller, so it does not count as heard (a press it carried is missed, and the next given); counted as `stray` only
     once the session's frames come through the guard. The sound's unlock hears a synthetic `select` too but goes by
-    `navigator.userActivation`, which no synthetic event sets. `HOST.inputsGuard.state()` (`{ fixes, seen, missed, synth, stray, woke, armed: ['right select'] }`),
-    `wokeAgo(ms)` and `missMs(ms)` are for tests.
+    `navigator.userActivation`, which no synthetic event sets. `HOST.inputsGuard.state()` (`{ fixes, seen, missed, synth, stray, stopped, woke, armed: ['right select'] }`),
+    `wokeAgo(ms)`, `missMs(ms)` and `lateMs(ms)` are for tests.
   - Untested on a headset: whether a Quest replaces a controller without the event, or keeps it and stops passing its
     presses on (the headsets' logs will say: `inputs replaced`, `press missed`, `press for an unknown source`), how the
     trigger's `pressed` and Quest Browser's select line up there (Chromium takes its select from the same button state, as
@@ -5048,7 +5051,12 @@ session); a given press with its ray on the menu's Subtitles row turning subtitl
 (`press back`, two given), that press once; armed again, the browser's `selectstart` coming after the frame that gave the
 press: stopped (the session's later listeners never hear it), the session's `select` and `selectend` ending it, the
 story getting one press and the menu's row turning over once, disarmed. The grip the same (`squeezestart`, `squeeze`,
-`squeezeend`). A tracked hand's button with no event: nothing; a trigger pressed while the session is `visible-blurred`
+`squeezeend`). A given press's own events coming late (the window made 5 s, `lateMs`, as a frame drawn in software can
+take longer than 250 ms): the session's `select` and `selectend` after the frame that gave its end stopped (the
+session's later listeners never hear them), the story getting one press and the menu's row turning over once, still
+armed; its whole press late (`selectstart`, `select`, `selectend`, the trigger up) stopped too, disarming it; armed
+again, a real press with the trigger down again at once its own (two presses, the row back); with the window 250 ms
+again, a stray `select` and `selectend` 300 ms later reaching three.js as before. A tracked hand's button with no event: nothing; a trigger pressed while the session is `visible-blurred`
 and held as it is visible again: nothing missed or given.
 
 Its *trackers* steps (v126, `--only trackers`, a page of its own in a room on this device, a minute or two; "Vive

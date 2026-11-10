@@ -9544,6 +9544,21 @@ if (runs('controllers after standby')) {
   // a press: down, frames, up, frames (real: the session announces it)
   const press = async (who, k, real) => { await btn(who, k, true, real); await fr(2); await btn(who, k, false, real); await fr(2); };
   const R1 = ['1 selectstart', '1 select', '1 selectend'], Q1 = ['1 squeezestart', '1 squeeze', '1 squeezeend'];
+  // the menu open at Settings, the right controller's ray on its Subtitles row (what the ray hits: 'subs'); and back
+  const aimSubs = () => cp.evaluate(() => {
+    const F = window.__ctl, V = THREE.Vector3;
+    HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); F.step(3);
+    const r = HOST.collab.menuFind('subs'), S = HOST.collab.overlay().panel;
+    if (!r) return 'no subs row';
+    F.step(2);
+    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * S.mw * S.h / S.w, 0)), o = new V(0.2, -0.3, -0.2);
+    const m = new THREE.Matrix4().lookAt(o, p, new V(0, 1, 0)).setPosition(o), q = new THREE.Quaternion().setFromRotationMatrix(m);
+    F.R.targetRaySpace.ray = Float32Array.from(m.elements); F.R.targetRaySpace.q = { x: q.x, y: q.y, z: q.z, w: q.w };
+    F.step(3);
+    const h = HOST.collab.internals().hov.get(1), hit = h && h.target.kind === 'panel' ? S.at(h.x, h.y) : null;
+    return hit ? hit.id : 'pointed at ' + JSON.stringify(h && h.target);
+  });
+  const aimDown = () => cp.evaluate(() => { HOST.collab.panelOpen(false); const F = window.__ctl; F.R.targetRaySpace.ray = F.down(0.2); F.R.targetRaySpace.q = { x: -Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 }; F.step(2); });
   const flush = async () => { if (bad.length) errors.push(...bad.splice(0).map(b => 'controllers after standby: ' + b)); };
 
   await step('controllers after standby: a VR session through three.js\'s own path; the controllers the browser announces reach the story; real presses (trigger and grip, an event a frame before the gamepad shows it) are given once and nothing is ever given again', async () => {
@@ -9600,19 +9615,7 @@ if (runs('controllers after standby')) {
     if (!same(c1.got, ['1 selectstart']) || !same(c1.sess, ['selectstart*']) || !same(c2.got, ['1 select', '1 selectend']) || !same(c2.sess, ['select*', 'selectend*']) || s2.synth !== 1 || !same(s2.armed, ['right select']))
       fail('the next press given: ' + JSON.stringify({ c1, c2, s2 }));
     // a given press on the menu's Subtitles button: toggled once
-    const aim = await cp.evaluate(() => {
-      const F = window.__ctl, V = THREE.Vector3;
-      HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); F.step(3);
-      const r = HOST.collab.menuFind('subs'), S = HOST.collab.overlay().panel;
-      if (!r) return 'no subs row';
-      F.step(2);
-      const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * S.mw * S.h / S.w, 0)), o = new V(0.2, -0.3, -0.2);
-      const m = new THREE.Matrix4().lookAt(o, p, new V(0, 1, 0)).setPosition(o), q = new THREE.Quaternion().setFromRotationMatrix(m);
-      F.R.targetRaySpace.ray = Float32Array.from(m.elements); F.R.targetRaySpace.q = { x: q.x, y: q.y, z: q.z, w: q.w };
-      F.step(3);
-      const h = HOST.collab.internals().hov.get(1), hit = h && h.target.kind === 'panel' ? S.at(h.x, h.y) : null;
-      return hit ? hit.id : 'pointed at ' + JSON.stringify(h && h.target);
-    });
+    const aim = await aimSubs();
     const subs0 = await cp.evaluate(() => HOST.xr.subs());
     await press('R', 0); await fr(2);
     const subs1 = await cp.evaluate(() => HOST.xr.subs()), c3 = await seen();
@@ -9632,7 +9635,7 @@ if (runs('controllers after standby')) {
     const subs3 = await cp.evaluate(() => HOST.xr.subs()), c5 = await seen(), s6 = await st();
     if (s5.missed !== 2 || !same(s5.armed, ['right select']) || subs3 === subs2 || !same(c5.got, R1) || !same(c5.sess, ['selectstart*', 'select', 'selectend']) || s6.armed.length || s6.synth !== 3)
       fail('a real selectstart after the given one: ' + JSON.stringify({ s5, subs2, subs3, c5, s6 }));
-    await cp.evaluate(() => { HOST.collab.panelOpen(false); const F = window.__ctl; F.R.targetRaySpace.ray = F.down(0.2); F.R.targetRaySpace.q = { x: -Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 }; F.step(2); });
+    await aimDown();
     await seen();
     await flush();
   });
@@ -9647,6 +9650,44 @@ if (runs('controllers after standby')) {
     if (!same(s0.armed, ['right squeeze']) || lg.kind !== 'squeeze' || c0.got.length || !same(c1.got, Q1) || !same(c1.sess, ['squeezestart*', 'squeeze*', 'squeezeend*']) || s1.synth !== 4 ||
       !same(c2.got, Q1) || c2.sess.some(t => t.endsWith('*')) || s2.armed.length)
       fail('the grip: ' + JSON.stringify({ s0, lg, c0, c1, s1, c2, s2 }));
+    await flush();
+  });
+
+  await step('controllers after standby: a given press\'s own events coming late (select and selectend, or all three, after the frame that ended it) are stopped, the story and the menu getting it once; a real press with the trigger down again at once is its own', async () => {
+    const arm = async () => { await btn('R', 0, true); await fr(1); await wait(350); await btn('R', 0, false); await fr(2); };
+    const subs = () => cp.evaluate(() => HOST.xr.subs());
+    // the session's own events for the press, fired as the next task (after the frame that gave its end)
+    const lateEv = types => cp.evaluate(types => { const F = window.__ctl, o = { inputSource: F.R, frame: F.frame() }; for (const t of types) F.ev(t, o); }, types);
+    const given = async () => { await btn('R', 0, true); await fr(1); await btn('R', 0, false); await fr(1); };
+    // (the window made long here: a story's frame drawn in software can take longer than 250 ms between the frame that
+    // gives the end and the events)
+    const ms0 = await cp.evaluate(() => { const m = HOST.inputsGuard.lateMs(); HOST.inputsGuard.lateMs(5000); return m; });
+    await arm();
+    const s0 = await st(), aim = await aimSubs(); await seen();
+    const v0 = await subs();
+    // given, then the session's select and selectend late: stopped, still armed
+    await given(); await lateEv(['select', 'selectend']); await fr(2);
+    const v1 = await subs(), c1 = await seen(), s1 = await st();
+    // given again, then the session's whole press late (the trigger up): stopped, its start disarming it
+    await given(); await lateEv(['selectstart', 'select', 'selectend']); await fr(2);
+    const v2 = await subs(), c2 = await seen(), s2 = await st();
+    // armed again: given, then at once a real press (the trigger down again as the session says so): its own, once
+    await arm(); await seen();
+    await given(); await press('R', 0, true); await fr(2);
+    const v3 = await subs(), c3 = await seen(), s3 = await st();
+    // after the window, a stray select and selectend reach three.js as before (nothing armed, nothing given)
+    await aimDown(); await seen();
+    await cp.evaluate(ms => HOST.inputsGuard.lateMs(ms), ms0);
+    await cp.evaluate(() => new Promise(r => setTimeout(r, 300))); await lateEv(['select', 'selectend']); await fr(2);
+    const c4 = await seen(), s4 = await st();
+    const G1 = ['selectstart*', 'select*', 'selectend*'];
+    if (aim !== 'subs' || v1 === v0 || !same(c1.got, R1) || !same(c1.sess, G1) || s1.synth !== s0.synth + 1 || !same(s1.armed, ['right select']) || s1.stopped !== s0.stopped + 2)
+      fail('a late select and selectend: ' + JSON.stringify({ aim, v0, v1, c1, s0, s1 }));
+    if (v2 === v1 || !same(c2.got, R1) || !same(c2.sess, G1) || s2.synth !== s0.synth + 2 || s2.armed.length || s2.stopped !== s0.stopped + 5)
+      fail('a late selectstart, select and selectend: ' + JSON.stringify({ v1, v2, c2, s2 }));
+    if (v3 !== v2 || !same(c3.got, [...R1, ...R1]) || !same(c3.sess, [...G1, 'selectstart', 'select', 'selectend']) || s3.synth !== s0.synth + 3 || s3.armed.length || s3.stopped !== s2.stopped)
+      fail('a real press right after a given one: ' + JSON.stringify({ v2, v3, c3, s3 }));
+    if (ms0 !== 250 || !same(c4.got, ['1 select', '1 selectend']) || s4.stopped !== s3.stopped || s4.synth !== s3.synth) fail('after the window: ' + JSON.stringify({ ms0, c4, s4 }));
     await flush();
   });
 
