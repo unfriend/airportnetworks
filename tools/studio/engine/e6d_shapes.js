@@ -39,15 +39,19 @@ function shapeBox(it, out, rec) {
   out.min.set(e[12] - h[0], e[13] - h[1], e[14] - h[2]); out.max.set(e[12] + h[0], e[13] + h[1], e[14] + h[2]);
   return out;
 }
-// every frame: its fade (a colour fades; one that hides things switches at one half), and while editing its fill, edges,
-// name and (a cube, selected) corners
+// every frame: its fade (a colour fades, not editing; one that hides things switches at one half), and while editing its
+// edges (all that shows of one that hides things, or of one a cube hides from you: it.hid, itemsStep), its tag (its name,
+// its triangles, "· hides things", "· hidden"; its words built only when its record or what hides it changes) and (a
+// cube, selected) corners
 const _shb = new THREE.Box3(), _shi = new THREE.Quaternion();
 function shapeStep(it, editing) {
-  const L = it.look, H = it.holder;
+  const L = it.look, H = it.holder, r = it.rec;
   H.visible = it.a > 0.002 || editing;
-  L.look({ a: it.a, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
+  L.look({ a: it.a, hid: it.hid, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
   L.deco.visible = editing && H.visible;
   if (!L.deco.visible) return;
+  const h = !it.shown;
+  if (it.tagR !== r || it.tagH !== h) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + triWords(L.tris()) + (r.look === 'hide' ? ' · hides things' : '') + (h ? ' · hidden' : ''), L.col, 0.075); }
   decoAt(H, L.deco);   // (where it is drawn: a motion; e6e_motion.js)
   const sz = H.scale, b = shapeBox(it, _shb);
   L.name.position.set(0, b.max.y - L.deco.position.y + 0.04, 0).applyQuaternion(_shi.copy(L.deco.quaternion).invert());   // (over it, whichever way it is turned)

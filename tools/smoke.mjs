@@ -1336,15 +1336,121 @@ if (runs('studio')) {
         if (stay.join() !== 'false,true,false,false,true,true,false,true') out.push('two staying cubes (out; shows; hides; out; shows again; out; hides again; shows again): ' + stay.join());
         setRec('cube01', { mode: 'while' }); resetSeen();
         removeItem('cube02'); F([3, 1.6, 3]);
-        // editing: what a cube hides is drawn faint (0.3), so it can still be picked
-        setEdit(true); shownFor([0, 1.6, 0]); s = step(5);
-        if (!(s.box001.join() === 'false,0.3,true')) out.push('editing, the box the cube hides is not faint: ' + JSON.stringify(s));
+        // editing: what a cube hides is not drawn (v131: its outline instead, still pointable: the next step), at once
+        setEdit(true); shownFor([0, 1.6, 0]); s = step(1);
+        if (!(s.box001.join() === 'false,0,true') || STU.items.get('box001').model.o.visible || !STU.items.get('box001').hidBox.visible) out.push('editing, the box the cube hides is not its outline at once: ' + JSON.stringify(s));
         shownFor(null); step(5);
         while (UNDO.length) undo();
       } finally { GL.renderer.setAnimationLoop(frame); }
       return out;
     })()`);
     if (bad.length) errors.push(...bad.map(b => 'studio: ' + b));
+  });
+  await step('studio: editing draws nothing see-through (v131): the box a cube hides an outline with its tag ("Box · 12 ▲ · hidden"), not drawn, pointed at through its unseen box; drawn whole and opaque while a pretend headset\'s grip or the page\'s arrows hold it, its outline again once let go; the cube\'s edges only, picked from inside and outside; a hidden shape\'s edges, a ball that hides things with its rings; the tags\' triangles (following a Fewer triangles preview) and the labels\'; a pixel where the hidden box stands is what is behind it (pixels)', async () => {
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, V = (...a) => new THREE.Vector3(...a), u0 = UNDO.length;
+      GL.renderer.setAnimationLoop(null);
+      let t = performance.now();
+      const step = n => { for (let i = 0; i < (n || 1); i++) itemsStep(0.1, t += 100); };
+      const box = STU.items.get('box001'), fig = STU.items.get('fig001'), cube = STU.items.get('cube01'), cube0 = cube.rec;
+      // what is drawn of the items, their looks, the ghosts and the tags that is see-through (a model's own see-through
+      // materials, as its file has them, aside)
+      const see = () => { const L = []; for (const root of [GL.items, GL.edit]) root.traverseVisible(n => { for (const m of [].concat(n.material || [])) if (m.visible !== false && m.transparent && !(m.userData.base && m.userData.base.t)) L.push((n.userData.id || (n.parent && n.parent.userData.id) || '?') + ':' + n.type); }); return L; };
+      // drawn whole: its model shown, its outline not, every material as its own (opacity, see-through, depth written)
+      const whole = it => it.model.o.visible && !it.hidBox.visible && !it.hid && it.model.meshes.every(m => [].concat(m.material).every(x => !x.userData.base || (x.transparent === x.userData.base.t && x.opacity === x.userData.base.o && x.depthWrite === x.userData.base.d)));
+      const outline = it => it.hid && it.holder.visible && !it.model.o.visible && it.hidBox.visible && it.hidBox.position.equals(it.proxy.position) && it.hidBox.scale.equals(it.proxy.scale) && pickables().includes(it.proxy);
+      const ray = (from, dir) => { GL.world.updateMatrixWorld(true); const a = GL.items.localToWorld(V(...from)), b = GL.items.localToWorld(V(...from).add(V(...dir))); return rayPick(new THREE.Raycaster(a, b.sub(a).normalize())); };
+      const c = XR.ctrls[0];
+      try {
+        setEdit(true); select(''); STU.hover = ''; shownFor([0, 1.6, 0]); step(3);
+        // the box the cube hides: its outline, its tag, pointed at through its unseen box; nothing see-through drawn
+        if (!outline(box)) o.push('the hidden box is not its outline: ' + J({ hid: box.hid, vis: box.holder.visible, model: box.model.o.visible, line: box.hidBox.visible }));
+        if (!box.tag || !box.tag.visible || box.tag.userData.text !== 'Box · 12 ▲ · hidden') o.push('the hidden box\\'s tag: ' + J(box.tag && [box.tag.visible, box.tag.userData.text]));
+        if (!fig.tag || !fig.tag.visible || fig.tag.userData.text !== 'Figure · 12 ▲') o.push('the figure\\'s tag: ' + J(fig.tag && [fig.tag.visible, fig.tag.userData.text]));
+        const h = ray([-1, 0.25, 0], [0, 0, -1]);
+        if (!h || h.id !== 'box001') o.push('the ray at the hidden box did not find it: ' + J(h && h.id));
+        if (see().length) o.push('see-through, editing: ' + J(see()));
+        // the labels: pointed at and selected, its triangles and that it is hidden (its tag then not drawn)
+        STU.hover = 'box001'; updateExtraLabels(); step();
+        const lh = LBL.extra[0].txt && LBL.extra[0].txt.slice(0, 2).join(' | ');
+        if (lh !== 'Box | object · 12 ▲ · hidden' || box.tag.visible) o.push('the label pointed at: ' + J([lh, box.tag.visible]));
+        STU.hover = ''; select('box001'); updateExtraLabels();
+        const ls = LBL.extra[1].txt && LBL.extra[1].txt.slice(0, 2).join(' | ');
+        if (ls !== 'Box | object · 12 ▲ · hidden · selected') o.push('the label selected: ' + J(ls));
+        select(''); updateExtraLabels();
+        // the count follows a Fewer triangles preview (a stand-in preview of 3), and back
+        FT.id = 'box001'; FT.pv = { to: 3, model: box.model, sw: [], geos: null, notes: [], k: 0.25, keep: 0.25, from: 12 }; step();
+        const pvT = box.tag.userData.text;
+        FT.id = ''; FT.pv = null; step();
+        if (pvT !== 'Box · 3 ▲ · hidden' || box.tag.userData.text !== 'Box · 12 ▲ · hidden') o.push('the tag with a preview, and after: ' + J([pvT, box.tag.userData.text]));
+        // a pretend headset's grip on it: drawn whole and opaque while held, its outline again once let go
+        XR.on = true; GL.world.updateMatrixWorld(true);
+        const wp = GL.items.localToWorld(V(-1, 0.25, -1)), hp = ray([-1, 0.25, -1], [0, 0, -1]);
+        c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.makeTranslation(wp.x, wp.y, wp.z); c.o.setFromMatrixPosition(c.g.matrix);
+        c.hover = hp ? { kind: 'item', id: hp.id, point: hp.point, ray: hp.ray } : null; xrGrab(c, true); step();
+        const held = [!!box.carry, whole(box), see()];
+        xrGrab(c, false); step();
+        if (!held[0] || !held[1] || held[2].length) o.push('held by the grip, not drawn whole and opaque: ' + J(held));
+        if (!outline(box)) o.push('let go by the grip, not its outline again');
+        c.src = null; c.g.visible = false; c.hover = null; XR.on = false;
+        // the page's arrows dragging it: the same
+        select('box001'); tcAttach();
+        if (!GL.tc || GL.tc.object !== box.holder) o.push('the arrows are not on the hidden box');
+        else {
+          GL.tc.dispatchEvent({ type: 'dragging-changed', value: true }); step();
+          const dr = whole(box);
+          GL.tc.dispatchEvent({ type: 'dragging-changed', value: false }); step();
+          if (!dr || !outline(box)) o.push('dragged by the arrows: drawn whole, then its outline again: ' + J([dr, outline(box)]));
+        }
+        select('');
+        // the cube: its edges only (an unseen box both ways round where its fill was: the pointer finds it from inside and
+        // from outside), its own colour while you are in it, darker outside, lighter selected
+        const L = cube.look, colIn = L.line.material.color.getHex();
+        if (L.fill.material.visible !== false || L.fill.material.side !== THREE.DoubleSide || L.line.material.transparent || colIn !== new THREE.Color(L.col).getHex()) o.push('the cube: ' + J([L.fill.material.visible, L.line.material.transparent, colIn.toString(16), L.col]));
+        const hi = ray([0, 1, 0], [0, 1, 0]), ho = ray([0, 1, 3], [0, 0, -1]);
+        if (!hi || hi.id !== 'cube01' || !ho || ho.id !== 'cube01') o.push('the cube not picked from inside and outside: ' + J([hi && hi.id, ho && ho.id]));
+        shownFor([3, 1.6, 3]); step();
+        const colOut = L.line.material.color.getHex();
+        select('cube01'); step(); const colSel = L.line.material.color.getHex(); select('');
+        if (!(colOut !== colIn && colSel !== colIn && colSel !== colOut)) o.push('the cube\\'s edges inside, outside and selected: ' + J([colIn, colOut, colSel].map(v => v.toString(16))));
+        // shapes: one the cube hides (its edges, its tag), a ball that hides things (its three rings, depth only, an unseen fill)
+        putItem('tsc001', 'p', norm('p', { name: 'Crate', shape: 'cube', p: [2, 0.25, 1], size: [0.5, 0.5, 0.5], colour: '#ff5a4b' }));
+        putItem('tsb001', 'p', norm('p', { name: 'Orb', shape: 'sphere', p: [2.5, 0.5, -1], size: [0.5, 0.5, 0.5], look: 'hide' }));
+        setRec('cube01', { hide: cube.rec.hide.concat('tsc001') }); shownFor([0, 1.6, 0]); step(2);
+        const sc = STU.items.get('tsc001').look, sb = STU.items.get('tsb001').look;
+        if (!STU.items.get('tsc001').hid || sc.mesh.visible || !sc.line.visible || sc.name.userData.text !== 'Crate · 12 ▲ · hidden') o.push('a shape the cube hides: ' + J([STU.items.get('tsc001').hid, sc.mesh.visible, sc.line.visible, sc.name.userData.text]));
+        if (!sb.mesh.visible || sb.mesh.material.colorWrite !== false || sb.fill.material.visible !== false || !sb.line.visible || sb.line.geometry.attributes.position.count !== 384 || sb.name.userData.text !== 'Orb · 1.8k ▲ · hides things') o.push('a ball that hides things: ' + J([sb.mesh.visible, sb.fill.material.visible, sb.line.visible, sb.line.geometry.attributes.position.count, sb.name.userData.text]));
+        if (!pickables().includes(sb.fill) && !pickables().includes(sb.mesh)) o.push('the ball that hides things is not pointable');
+        if (see().length) o.push('see-through, editing with shapes: ' + J(see()));
+        // a pixel at the hidden box's middle: what is behind it (the same with the box's outline drawn as without), while
+        // its model drawn there shows (the box is in the view)
+        const W = 320, H = 200, rd = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(50, W / H, 0.05, 200);
+        GL.world.updateMatrixWorld(true);
+        cam.position.copy(GL.items.localToWorld(V(-1, 0.32, -0.9))); cam.lookAt(GL.items.localToWorld(V(-1, 0.25, -2))); cam.updateMatrixWorld();
+        const pc = GL.items.localToWorld(V(-1, 0.25, -2)).project(cam);
+        const px = () => { const b = new Uint8Array(4); rd.setRenderTarget(rt); rd.render(GL.scene, cam); rd.readRenderTargetPixels(rt, Math.round((pc.x + 1) / 2 * W), Math.round((pc.y + 1) / 2 * H), 1, 1, b); rd.setRenderTarget(null); return [b[0], b[1], b[2]]; };
+        const d = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+        const pHid = px(); box.holder.visible = false; const pNone = px(); box.holder.visible = true;
+        box.model.o.visible = true; box.hidBox.visible = false; const pBox = px(); box.model.o.visible = false; box.hidBox.visible = true; rt.dispose();
+        if (d(pHid, pNone) > 3) o.push('the hidden box\\'s middle is not what is behind it: ' + J({ hid: pHid, none: pNone }));
+        if (d(pBox, pNone) < 25) o.push('the box drawn there does not show (the view): ' + J({ box: pBox, none: pNone }));
+        // not editing: as before (its fade, no tags)
+        setEdit(false); step(5);
+        if (box.tag.visible || fig.tag.visible || box.holder.visible || box.hid) o.push('not editing: a tag drawn, or the hidden box drawn');
+        shownFor(null); step(5);
+        if (!box.holder.visible || !box.model.o.visible || box.hidBox.visible || box.a !== 1) o.push('not editing, outside the cube: the box not drawn as it is');
+        setEdit(true); step();
+        if (!box.tag.visible || box.tag.userData.text !== 'Box · 12 ▲') o.push('editing, the box shown: its tag ' + J(box.tag && box.tag.userData.text));
+      } catch (e) { o.push('threw: ' + e.message); }
+      finally {
+        shownFor(null); select(''); STU.hover = ''; c.src = null; c.g.visible = false; c.hover = null; c.grab = null; XR.on = false;
+        removeItem('tsc001'); removeItem('tsb001'); putItem('cube01', 'c', cube0);   // (setRec is no change: put back by hand)
+        while (UNDO.length > u0) undo();
+        step(5); GL.renderer.setAnimationLoop(frame);
+      }
+      return o;
+    })()`).catch(e => [e.message]);
+    if (r.length) errors.push(...r.map(b => 'studio: ' + b));
   });
   await step('studio: editing on the page: a click selects, the arrows move it, a cube grows, Shows under a card links, Add and Delete, Undo', async () => {
     const bad = [];
@@ -2504,6 +2610,10 @@ if (runs('studio')) {
     if (!await until(`!!FT.pv && !FT.busy`, 30000)) bad.push('Fewer triangles made no preview: ' + JSON.stringify(await ss('STUDIO.state().lite.ft')));
     let t = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), document.querySelector('#stuRangeFT') && document.querySelector('#stuRangeFT').value]`);
     if (n0 !== 24320 || Math.abs(t[0] / n0 - 0.2) > 0.01 || t[1] !== n0 || t[2] !== '20') bad.push('the preview at 20 % (this object only; the slider at 20): ' + JSON.stringify([n0, t]));
+    // (v131) the triangles in space: the selected ball's label its preview's, the other ball's tag its own
+    const tw = await ss(`kTris(STUDIO.tris('${id}'))`);
+    if (!await until(`(() => { updateExtraLabels(); const b = STU.items.get('${id2}'); return trisNow(STU.items.get('${id}')) === STUDIO.tris('${id}') && !!LBL.extra[1].txt && LBL.extra[1].txt[1] === 'object · ${tw} ▲ · selected' && !!b.tag && b.tag.visible && b.tag.userData.text === b.rec.name + ' · 24k ▲'; })()`, 10000))
+      bad.push('the triangles in space while previewing: ' + JSON.stringify(await ss(`[trisNow(STU.items.get('${id}')), LBL.extra[1].txt, STU.items.get('${id2}').tag && STU.items.get('${id2}').tag.userData.text]`)));
     // its texture where it was: every corner of the lighter one is a corner of the ball's own, with its texture coordinates;
     // and its colours as before
     const uvs = await ss(`(() => { const it = STU.items.get('${id}'), g0 = FT.pv.sw[0][1], g1 = it.model.meshes[0].geometry, key = (g, i) => [g.attributes.position.getX(i), g.attributes.position.getY(i), g.attributes.position.getZ(i), g.attributes.uv.getX(i), g.attributes.uv.getY(i)].map(v => v.toFixed(5)).join();
@@ -2553,6 +2663,9 @@ if (runs('studio')) {
     else {
       const sw = await ss(`[STUDIO.tris('${id}'), STUDIO.tris('${id2}'), STU.items.get('${id}').rec.s, JSON.stringify(STU.items.get('${id}').rec.q), UNDO.length, (select('${id}'), X.tab = 'item', renderPanes(), document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' ').match(/[\\d,]+ triangles \\([^)]*\\)/) + '')]`);
       if (sw[0] !== want || sw[1] !== want || sw[2] !== 1 || sw[3] !== '[0,0,0,1]' || sw[4] !== u1 + 1 || sw[5] !== `${want.toLocaleString('en-GB')} triangles (20 % of the 24,320 in ball.glb)`) bad.push('the switch to the lighter GLB: ' + JSON.stringify(sw));
+      // (v131) the other ball's tag counts its new model's triangles
+      const tw2 = await ss(`kTris(${want})`);
+      if (!await until(`(() => { const b = STU.items.get('${id2}'); return !!b.tag && b.tag.userData.text === b.rec.name + ' · ${tw2} ▲'; })()`, 10000)) bad.push('the other ball\'s tag after the switch: ' + await ss(`STU.items.get('${id2}').tag && STU.items.get('${id2}').tag.userData.text`));
       await stp.click('#pane-item [data-act="ft:open"]');
       await until(`!!FT.pv && !FT.busy`, 30000);
       await ss(`(ftSet(0.5, true), 0)`);
@@ -3855,7 +3968,7 @@ if (runs('studio cuts')) {
     if (await ss('unsaved()')) out.push('the layout did not come back after the headset\'s checks');
     bad(out);
   });
-  await step('studio cuts: no see-through fill while editing (v125, the frame rate): a cut-out draws only its dashed edges, its ticks, its name and (selected) its corners, its box unseen; pointed at or selected its edges light up (lighter, denser dashes, ticks a third of each edge long); a pixel inside the box the same with its box drawn as without, plain, pointed at and selected (pixels)', async () => {
+  await step('studio cuts: no see-through fill while editing (v125, the frame rate): a cut-out draws only its dashed edges, its ticks, its name and (selected) its corners, its box unseen, all of them opaque (v131); pointed at or selected its edges light up (lighter, denser dashes, ticks a third of each edge long), cutting nothing darker; a pixel inside the box the same with its box drawn as without, plain, pointed at and selected (pixels)', async () => {
     const r = await ss(`(() => {
       const o = [], J = JSON.stringify, step = () => itemsStep(0.1, performance.now()), settle = () => { for (let i = 0; i < 12; i++) step(); };
       setEdit(true); select(''); STU.hover = ''; STU.cutF.add('dor001'); settle();   // (previewed cut: the door cuts its hole, drawn at full strength)
@@ -3864,16 +3977,20 @@ if (runs('studio cuts')) {
       const shown = []; x.holder.traverse(n => { if (n.isMesh && n.material.visible !== false) shown.push(n.uuid); });
       if (shown.length || 'fill' in L || !x.holder.visible || !L.line.visible || !L.ticks.visible || !pickables().includes(L.hit)) o.push('drawn: ' + J({ meshes: shown.length, fill: 'fill' in L, vis: [x.holder.visible, L.line.visible, L.ticks.visible] }));
       const tick = () => { const P = L.ticks.geometry.attributes.position; return Math.round(Math.hypot(P.getX(1) - P.getX(0), P.getY(1) - P.getY(0), P.getZ(1) - P.getZ(0)) * 1000) / 1000; };
-      const lookNow = () => ({ col: L.line.material.color.getHexString(), dash: L.line.material.dashSize, gap: L.line.material.gapSize, tick: tick(), op: Math.round(L.line.material.opacity * 100) / 100, corners: L.corners.filter(c => c.visible).length });
+      // (v131: its lines, ticks and corners opaque: lit up by colour, cutting nothing darker)
+      const lookNow = () => ({ col: L.line.material.color.getHexString(), dash: L.line.material.dashSize, gap: L.line.material.gapSize, tick: tick(), see: [L.line, L.ticks, ...L.corners].some(n => n.material.transparent), corners: L.corners.filter(c => c.visible).length });
       const plain = lookNow();
-      if (plain.col !== 'ff5a36' || plain.dash !== 0.07 || plain.gap !== 0.05 || plain.tick !== 0.2 || plain.op !== 0.75 || plain.corners) o.push('plain: ' + J(plain));
+      if (plain.col !== 'ff5a36' || plain.dash !== 0.07 || plain.gap !== 0.05 || plain.tick !== 0.2 || plain.see || plain.corners) o.push('plain: ' + J(plain));
       STU.hover = 'dor001'; step();
       const hot = lookNow();
-      if (hot.col === 'ff5a36' || hot.dash !== 0.06 || hot.gap !== 0.02 || hot.tick !== 0.333 || hot.op !== 1 || hot.corners) o.push('pointed at: ' + J(hot));
+      if (hot.col === 'ff5a36' || hot.dash !== 0.06 || hot.gap !== 0.02 || hot.tick !== 0.333 || hot.see || hot.corners) o.push('pointed at: ' + J(hot));
       STU.hover = ''; select('dor001'); step();
       const sel = lookNow();
-      if (sel.col !== hot.col || sel.dash !== 0.06 || sel.tick !== 0.333 || sel.op !== 1 || sel.corners !== 8) o.push('selected: ' + J(sel));
-      select(''); step();
+      if (sel.col !== hot.col || sel.dash !== 0.06 || sel.tick !== 0.333 || sel.see || sel.corners !== 8) o.push('selected: ' + J(sel));
+      select(''); STU.whole.add('dor001'); step();
+      const off = lookNow();
+      if (off.col !== new THREE.Color(LOOKS.CUT_COL).multiplyScalar(LOOKS.CUT_OFF).getHexString() || off.see || !x.holder.visible) o.push('cutting nothing (previewed whole), not darker: ' + J(off));
+      STU.whole.delete('dor001'); step();
       if (J(lookNow()) !== J(plain)) o.push('plain again: ' + J(lookNow()));
       // the pixel at the box's middle (the hole: what is behind the wall), drawn with its box and without, in each look
       const W = 400, H = 250, rd = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 200);
@@ -4921,7 +5038,7 @@ if (runs('studio shapes')) {
     if (xr.miss.length || !xr.pr || xr.col !== '#46d9ff') out.push('the headset\'s shape card: ' + JSON.stringify(xr));
     bad(out);
   });
-  await step('studio shapes: pixels: a shape that hides things hides an object behind it (the stage behind it shows there), one in its colour draws it, and with editing on the first is a see-through fill', async () => {
+  await step('studio shapes: pixels: a shape that hides things hides an object behind it (the stage behind it shows there), one in its colour draws it, and with editing on the first is its opaque edges alone and still hides (v131: no fill)', async () => {
     const out = [];
     // the box (box001, 0.5 m at [-1, 0.25, -2]) seen from in front; a hiding box 0.6 m across put between, 1 m in front of it
     const id = await ss(`(() => { const id = addShape('cube'); setRec(id, { p: [-1, 0.3, -1], size: [0.6, 0.6, 0.6], look: 'hide' }); setRec('box001', { anim: 'off' }); setEdit(false); return id; })()`);
@@ -4937,8 +5054,11 @@ if (runs('studio shapes')) {
     await ss(`(setRec('${id}', { look: 'colour', colour: '#ff5a4b' }), 0)`);
     const [col] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others)})`);
     if (!(col[0] > col[1] + 40 && col[0] > col[2] + 40)) out.push('a shape in red did not draw red: ' + JSON.stringify(col));
-    const ed = await ss(`(setRec('${id}', { look: 'hide' }), setEdit(true), itemsStep(0, performance.now()), [STU.items.get('${id}').look.fill.visible, STU.items.get('${id}').look.line.visible, STU.items.get('${id}').look.mesh.visible])`);
-    if (JSON.stringify(ed) !== '[true,true,true]') out.push('a shape that hides things is not drawn see-through while editing (it still hides): ' + JSON.stringify(ed));
+    // (v131: while editing its edges only, opaque, and an unseen fill for the pointer; it still hides)
+    const ed = await ss(`(setRec('${id}', { look: 'hide' }), setEdit(true), itemsStep(0, performance.now()), (L => [L.fill.material.visible, L.line.visible, L.mesh.visible, L.line.material.transparent, pickables().includes(L.mesh)])(STU.items.get('${id}').look))`);
+    if (JSON.stringify(ed) !== '[false,true,true,false,true]') out.push('a shape that hides things while editing: not its opaque edges alone (it still hides, pointable): ' + JSON.stringify(ed));
+    const [edPx] = await ss(`window.__sh.shot(${JSON.stringify(eye)}, ${JSON.stringify(tgt)}, ${JSON.stringify(pt)}, ${JSON.stringify(others)})`);
+    if (dpx(edPx, none) > 12) out.push('editing, a shape that hides things did not hide the box behind it (its fill drawn?): ' + JSON.stringify({ edPx, none }));
     await ss(`(deleteItem('${id}'), 0)`);
     bad(out);
   });
@@ -5668,21 +5788,23 @@ if (runs('studio motions')) {
       M.at('mot001', 1);
       if (Math.abs(it.rec.p[0] - p0[0] - 0.3) > 1e-3 || !STUDIO.pose('mot001').moving) o.push('carried by its ghost and let go: ' + JSON.stringify(it.rec.p));
       undo(); c.src = null; c.g.visible = false; c.hover = null; XR.on = false; GL.world.updateMatrixWorld(true);
-      // an object's ghost: a copy of its model; a big one only its outline box; an empty's cross; a sound's speaker (its own path)
-      setRec('box001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } }); select('box001'); M.at('box001', 1);
+      // an object's ghost: a copy of its model (v131: opaque light grey, writing depth; its clip off: a model its clip moves
+      // has its box's edges, below); a big one only its outline box; an empty's cross; a sound's speaker (its own path);
+      // none of them see-through
+      const bx0 = { anim: STU.items.get('box001').rec.anim, clip: STU.items.get('box001').rec.clip };
+      setRec('box001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 }, anim: 'off' }); select('box001'); M.at('box001', 1);
       const nm = (() => { let n = 0; STU.items.get('box001').model.o.traverse(x => { if (x.isMesh && x.visible) n++; }); return n; })();
       g = STUDIO.ghost('box001');
-      if (!g || !g.shown || g.outline || g.parts !== nm) o.push('an object\\'s ghost (its model\\'s ' + nm + ' meshes): ' + JSON.stringify(g));
+      if (!g || !g.shown || g.outline || g.parts !== nm || g.faces !== nm || g.see || !g.depth || g.col !== GHOST.col) o.push('an object\\'s ghost (its model\\'s ' + nm + ' meshes, opaque light grey, writing depth): ' + JSON.stringify(g));
       GHOST.tris = 1; ghostDrop('box001'); M.at('box001', 1); g = STUDIO.ghost('box001'); GHOST.tris = 100000; ghostDrop('box001'); M.at('box001', 1);
-      if (!g || !g.outline) o.push('a big model\\'s ghost is not its outline box: ' + JSON.stringify(g));
+      if (!g || !g.outline || g.see) o.push('a big model\\'s ghost is not its opaque outline box: ' + JSON.stringify(g));
       setRec('emp001', { motion: { kind: 'orbit', speed: 15, amount: 0.5 } }); select('emp001'); M.at('emp001', 1); g = STUDIO.ghost('emp001');
-      if (!g || !g.shown || g.parts !== 2 || !(STUDIO.ghost('box001') || {}).shown) o.push('an empty\\'s ghost (its cross and dot), the box\\'s kept while it moves: ' + JSON.stringify([g, STUDIO.ghost('box001')]));
+      if (!g || !g.shown || g.parts !== 2 || g.see || !(STUDIO.ghost('box001') || {}).shown) o.push('an empty\\'s ghost (its cross and dot), the box\\'s kept while it moves: ' + JSON.stringify([g, STUDIO.ghost('box001')]));
       putItem('sgh001', 's', norm('s', { name: 'Walker', file: 'tone.wav', p: [1, 1.2, -1], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]] } })); select('sgh001'); M.at('sgh001', 1); g = STUDIO.ghost('sgh001');
-      if (!g || !g.shown || g.parts !== 2) o.push('a sound\\'s ghost (its speaker): ' + JSON.stringify(g));
+      if (!g || !g.shown || g.parts !== 2 || g.see || !g.depth) o.push('a sound\\'s ghost (its speaker): ' + JSON.stringify(g));
       removeItem('sgh001'); setRec('emp001', { motion: undefined });
       select(''); M.at('box001', 1);
       if (!(STUDIO.ghost('box001') || {}).shown) o.push('deselected while editing, the moving box lost its ghost');
-      const bx0 = { anim: STU.items.get('box001').rec.anim, clip: STU.items.get('box001').rec.clip };
       setRec('box001', { motion: undefined, anim: 'off' }); M.at('box001', 1);
       if (STUDIO.ghost('box001')) o.push('its motion gone and its clip off (at rest), its ghost stayed');
       // (v125: a model its own clip moves has its ghost while editing, where it is placed, though its place stays)
@@ -5690,6 +5812,8 @@ if (runs('studio motions')) {
         if (cl) { setRec('box001', { anim: 'loop', clip: cl }); M.at('box001', 1); M.at('box001', 1.3);
           const gc = STUDIO.ghost('box001');
           if (!gc || !gc.shown || !same(gc.at, STU.items.get('box001').holder.matrix.toArray(), 1e-6)) o.push('its clip playing while editing: no ghost where it is placed: ' + JSON.stringify(gc));
+          // (v131: where it is drawn, so only its box's edges, opaque lines: no faces to fight with the model's)
+          else if (!gc.outline || gc.faces || gc.see) o.push('its clip playing while editing: its ghost is not its opaque outline box: ' + JSON.stringify(gc));
           // selected, it keeps it (its holder stays at its placed pose, so it is never far): the page's arrows on its holder,
           // where the ghost stands (tcTarget), and still after a moment of its clip
           select('box001'); M.at('box001', 1.6); M.at('box001', 1.9);

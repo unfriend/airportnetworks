@@ -201,6 +201,7 @@ function makeItem(id, kind) {
     it.grey.group.add(it.greyHit);
     it.proxy = new THREE.Mesh(BOX1, HIDDEN); it.proxy.userData.id = id; it.proxy.visible = false;
     it.slot.add(it.proxy);
+    it.hidBox = LOOKS.hidBox(); it.slot.add(it.hidBox);   // (its unseen box's edges, where a cube hides it from you while editing)
   } else if (kind === 'c') {
     it.look = LOOKS.cube(id);
     it.holder = it.look.body;
@@ -248,6 +249,7 @@ function removeItem(id) {
   else { it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
+  if (it.tag) { GL.edit.remove(it.tag); it.tag.userData.drop(); }   // (a model's tag: modelTag)
   if (it.holder.parent) it.holder.parent.remove(it.holder);
   if (GL.tc && (GL.tc.object === it.holder || (GL.tc.object === TCP && TCP.userData.id === id))) GL.tc.detach();
   ghostDrop(id);
@@ -292,7 +294,7 @@ function applyRec(it, was, glide) {
     if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
   } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
-  else if (it.kind === 'p') { it.look.set(r); it.look.name.userData.set(tagName(r) + ' · hides things', it.look.col, 0.075); }
+  else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
   else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
     it.look.name.userData.set(tagName(r), it.look.col, 0.07);
@@ -331,6 +333,7 @@ function buildModel(it) {
   const b = E.info.box;
   it.proxy.position.set((b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2, (b[0][2] + b[1][2]) / 2);
   it.proxy.scale.set(Math.max(1e-4, b[1][0] - b[0][0]), Math.max(1e-4, b[1][1] - b[0][1]), Math.max(1e-4, b[1][2] - b[0][2]));
+  it.hidBox.position.copy(it.proxy.position); it.hidBox.scale.copy(it.proxy.scale);
   applyLight(it);
   if (cutsOn(it.id).length) cutPrep(it);   // (its cut-outs' addition to its materials, compiled with them below)
   warmModel(c.o);
@@ -402,7 +405,8 @@ function tintMat(mat, r) {
   if (r.tint) mat.color.multiply(_tint.set(r.tint));
   if (r.bright && r.bright !== 1) mat.color.multiplyScalar(r.bright);
 }
-// an object's fade: its materials' own opacity times a (see-through and not hiding what is behind while it fades)
+// an object's fade: its materials' own opacity times a (see-through and not hiding what is behind while it fades; only
+// while not editing: editing, every material is its own, itemsStep)
 function setObjAlpha(it, a) {
   if (Math.abs(a - it.aSet) < 1e-3) return;
   it.aSet = a;
@@ -614,6 +618,15 @@ function followWords(it) {
 // ----------------------------------------------------------- every frame --
 
 const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
+// what a trigger cube hides from you, while editing (v131; the owner, 10 November 2026: "rooms that are not currently
+// shown because a cube hides them could just be a empty square with a name", then "if i grab it it should show but just
+// 100% not transparent"): a model or a coloured shape is not drawn at all (until v130 it was drawn at 0.3, so a room scan
+// was a see-through layer over the whole view), its unseen box's edges (a shape: its own edges) and its tag ("Atelier ·
+// 397k ▲ · hidden") instead; still pointed at, selected and carried through its unseen box. While this device holds it (a
+// grip, both grips, Hold it, the sticks while carried, the page's arrows on it or its group, a group carried, its path
+// recorded) it is drawn whole, its materials as they are; let go, its edges again. Editing it snaps (no fade through
+// see-through); not editing, it fades in and out over 0.4 s as before
+const heldHere = it => !!it.carry || recording(it);
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
   triggerStep(now);
@@ -632,18 +645,24 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : editing && (it.kind === 'o' || it.kind === 'p') ? 0.3 : 0;
-    it.a = approach(it.a, tgt, fade);
+    if (editing && (it.kind === 'o' || it.kind === 'p')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
+    else {
+      const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : 0;
+      it.hid = false; it.a = approach(it.a, tgt, fade);
+    }
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
     if (it.kind === 'o') {
       const E = it.E;
       if (E && E.state === 'ready' && it.built !== E.gen) buildModel(it);
       if (it.model) {
-        setObjAlpha(it, it.a);
-        it.holder.visible = it.a > 0.002;
-        if (it.holder.visible && !pupStep(it, now, dt)) animStep(it, now, clockS);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
+        setObjAlpha(it, editing ? 1 : it.a);
+        it.model.o.visible = !it.hid; it.hidBox.visible = it.hid;
+        it.holder.visible = it.hid || it.a > 0.002;
+        // (hidden for you, its animation holds where it is, as when not editing)
+        if (it.holder.visible && !it.hid && !pupStep(it, now, dt)) animStep(it, now, clockS);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
       } else it.holder.visible = false;
       greyStep(it);
+      modelTag(it, editing);
     } else if (it.kind === 'c') {
       const L = it.look, r = it.rec;
       it.holder.visible = L.deco.visible = it.a > 0.01;
@@ -653,8 +672,7 @@ function itemsStep(dt, now) {
         L.name.position.set(0, sz.y / 2 + 0.04, 0);
         L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
         L.look({ inside: it.inside, selected: STU.sel === it.id && editing, hot: STU.hover === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
-        L.fill.material.opacity *= it.a; L.line.material.opacity *= it.a;
-        L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085);
+        if (it.tagR !== r) { it.tagR = r; L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085); }   // (its words built only when its record changes)
       }
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
@@ -695,16 +713,40 @@ function soundStep(it, editing, now) {
     if (_wp.distanceTo(at) > 0.005) { L.link.userData.set(at, _wp); L.link.visible = true; }
   }
 }
-// a model not here yet: its grey box where it will stand, with what is happening to it
+// a model not here yet: its grey box where it will stand (opaque; while editing also when a cube hides it from you), with
+// its triangles when its GLB's record says them and what is happening to it
 function greyStep(it) {
-  const g = it.grey, E = it.E, show = !it.model && it.a > 0.01;
+  const g = it.grey, E = it.E, show = !it.model && (it.a > 0.01 || it.hid);
   g.group.visible = show;
   if (!show) return;
   g.group.position.copy(it.holder.position);
   const st = STU.listing !== 'ok' ? (STU.listing === 'missing' ? 'not on this device' : 'waiting') : !E || E.state === 'idle' ? (STU.fileMap.has(it.rec.file) ? 'waiting' : 'not in the scene\'s folder')
     : E.state === 'loading' ? `loading ${Math.round(E.p * 100)} %` : E.state === 'parsing' ? 'reading' : E.state === 'failed' ? 'cannot be read' : E.state === 'missing' ? 'not in the scene\'s folder' : '';
-  g.name.userData.set(it.rec.name + (st ? ': ' + st : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
-  g.fill.material.opacity = 0.55 * Math.min(1, it.a);
+  g.name.userData.set(tagName(it.rec) + triWords(trisNow(it)) + (st ? ': ' + st : '') + (it.hid ? ' · hidden' : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
+}
+// the triangles in words for a tag (none: no count)
+const triWords = n => (n > 0 ? ' · ' + kTris(n) + ' ▲' : '');
+// a model's triangles now: while Fewer triangles previews it, the preview's; built, its own (counted once per model);
+// not built yet, its file's (read), else its GLB's record's (as far as this page has read it: nothing is fetched for it)
+function trisNow(it) {
+  if (it.model && FT.id === it.id && FT.pv && FT.pv.model === it.model) return FT.pv.to;
+  if (it.model) { if (it.trisM !== it.model) { it.trisM = it.model; it.trisN = trisOf(it.id); } return it.trisN; }
+  if (it.E && it.E.info) return it.E.info.tris;
+  const c = GLBREC.get(it.rec.file), f = STU.fileMap.get(it.rec.file);
+  return c && !c.p && c.rec && f && c.at === f.at && c.rec.n > 0 ? c.rec.n : 0;
+}
+// while editing, a tag over every placed model (v131; the owner, 10 November 2026: "In edit mode show triangle count per
+// item next to its name in space", "on every" model): its name and its triangles ("Atelier · 397k ▲"), "· hidden" while
+// a cube hides it from you; not while it is pointed at or selected (the engine's label names it then, with its count).
+// Made the first time it is shown, its words built and drawn again only when they change; each frame only its place
+function modelTag(it, editing) {
+  const on = editing && !!it.model && it.holder.visible && STU.hover !== it.id && STU.sel !== it.id;
+  if (!on) { if (it.tag) it.tag.visible = false; return; }
+  if (!it.tag) { it.tag = LOOKS.tag(30); GL.edit.add(it.tag); }
+  const n = trisNow(it), h = !it.shown;
+  if (it.tagR !== it.rec || it.tagN !== n || it.tagH !== h) { it.tagR = it.rec; it.tagN = n; it.tagH = h; it.tag.userData.set(tagName(it.rec) + triWords(n) + (h ? ' · hidden' : ''), h ? '#6c7d94' : '#9fb0c4', 0.075); }
+  it.tag.visible = true;
+  itemTopInto(it, it.tag.position, false); it.tag.position.y += 0.04;
 }
 // while editing: the selected object's outline, the lines from a selected cube to what it shows (green) and hides
 // (red), and in Pick mode a tick over each item on the list
@@ -758,19 +800,20 @@ function editStep(editing) {
     itemTopInto(it, it.tick.position, false); it.tick.position.y += 0.1;
   }
 }
-// what editing draws: the selected and the pointed-at object's outlines (over everything), a cube's lines
+// what editing draws: the selected and the pointed-at object's outlines (over everything; opaque, v131), a cube's lines,
+// and the box an item flashes in for 1.6 s from a cube's card (pulsing: the only see-through line while editing)
 const FLASH_MS = 1600, _flb = new THREE.Box3(), _fls = new THREE.Vector3(), _flm = new THREE.Vector3(0.05, 0.05, 0.05), _flq = new THREE.Quaternion();
 function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
-  for (const [k, col, o] of [['selBox', 0x46d9ff, 0.95], ['hoverBox', 0x9fe8ff, 0.5], ['flashBox', 0x3ee08f, 1]]) {
-    const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: o, depthTest: false, depthWrite: false }));
+  for (const [k, col, o] of [['selBox', 0x46d9ff, 1], ['hoverBox', 0x5d8b9b, 1], ['flashBox', 0x3ee08f, 0]]) {
+    const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: !o, depthTest: false, depthWrite: false }));
     B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
     GL.scene.add(B); GL[k] = B;
   }
   const g = new THREE.BufferGeometry(), n = 1600;
   g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
-  GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+  GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false }));
   GL.links.frustumCulled = false; GL.links.renderOrder = 8; GL.links.visible = false;
   GL.edit.add(GL.links);
 }

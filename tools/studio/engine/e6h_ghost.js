@@ -6,12 +6,16 @@
 // on while it is selected (motionRests, e6e_motion.js; a cut-out on it or a sound following it, selected, holds it still
 // at its placed pose instead: they have no ghost, so their arrows stand on it there), and:
 // - its ghost: while a selected item (or a selected group's member) is drawn more than 1 cm or 1 degree from where it is
-//   placed, a see-through copy stands there; and since v124 (the owner, 8 November 2026: "in edit mode Ghosts should
-//   always be visible for animated things") every item that moves while editing has one, selected or not, so it can
-//   be pointed at and placed where it stands; one that rests (Pause, held, a cut-out on it selected) has none (an object's model sharing its geometry with one pale material, a skinned one
-//   frozen in its rest pose, a model of more than 100,000 triangles only its outline box; a shape its shape; an empty its
+//   placed, a copy stands there; and since v124 (the owner, 8 November 2026: "in edit mode Ghosts should always be
+//   visible for animated things") every item that moves while editing has one, selected or not, so it can be pointed at
+//   and placed where it stands; one that rests (Pause, held, a cut-out on it selected) has none (an object's model sharing
+//   its geometry with one light grey material, a skinned one frozen in its rest pose; a shape its shape; an empty its
 //   cross; a sound its speaker), built once per selection and freed when the selection changes (its materials; never the
-//   geometry it shares). It is pointed at as the item (the trigger selects, the grip carries it from where it is placed).
+//   geometry it shares). Opaque (v131; the owner, 10 November 2026: "ghosts for example can just be a light gray"): lit,
+//   writing depth, pushed a hair back (polygonOffset) so the item wins where the two meet; a model of more than 100,000
+//   triangles, a model its own clip moves (its ghost would stand where it is drawn: "outline box is fine, just make sure
+//   it has no transparent walls") and a model a cube hides from you only its unseen box's edges, opaque lines.
+//   It is pointed at as the item (the trigger selects, the grip carries it from where it is placed).
 //   While its path is recorded the ghost stands where it began, the whole time, and lights as it comes back to it
 //   (e6f_path.js);
 // - the page's arrows stand on the ghost (TCP, a stand-in at its placed pose): each change goes into its placed pose as a
@@ -39,15 +43,23 @@ function pauseBlocks(B, scene, extra) {
 }
 
 // ---------------------------------------------------------------- ghosts --
-const GHOST = { col: 0xdcecff, lit: 0xd2ffe2, a: 0.25, la: 0.55, tris: 100000, far: 0.01, deg: 1, hold: 600, edges: null };
+// (col: its light grey; lit: the light greenish grey a recording's ghost turns as the item comes back to it; lines a
+// little darker than faces, as they are not lit)
+const GHOST = { col: 0xc9cfd8, lit: 0xb9e6c8, line: 0.85, tris: 100000, far: 0.01, deg: 1, hold: 600, edges: null };
 const GH = new Map();   // (id -> its ghost: { it, g, mat, lmat, hits, key, far })
-const ghostKey = it => (it.kind === 'o' ? (it.model ? it.built : -1) : it.kind === 'p' ? it.rec.shape : it.kind);
+// a model's ghost only as its unseen box's edges: too big to copy, its own clip moving it (the copy would stand where it
+// is drawn), or not drawn itself (a cube hides it from you: its edges show where it is)
+const ghostLine = it => it.kind === 'o' && (!(it.E && it.E.info) || it.E.info.tris > GHOST.tris || clipMoves(it) || !!it.hid);
+const ghostKey = it => (it.kind === 'o' ? (it.model ? it.built : -1) + (ghostLine(it) ? 'L' : '') : it.kind === 'p' ? it.rec.shape : it.kind);
 function ghostBuild(it) {
   if (it.kind === 'o' && !it.model) return null;   // (its grey box while its model loads: no ghost yet)
   const g = new THREE.Group(), H = it.holder;
-  const mat = new THREE.MeshBasicMaterial({ color: GHOST.col, transparent: true, opacity: GHOST.a, depthWrite: false });
-  const lmat = new THREE.LineBasicMaterial({ color: GHOST.col, transparent: true, opacity: GHOST.la, depthWrite: false, depthTest: false });
-  const G = { it, g, mat, lmat, hits: [], key: ghostKey(it), far: -1e9 };
+  // (a mesh without normals, a scan's: shaded flat from its own slopes, as the studio lights it)
+  const off = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
+  const mat = new THREE.MeshLambertMaterial(Object.assign({ color: GHOST.col }, off)), fmat = new THREE.MeshPhongMaterial(Object.assign({ color: GHOST.col, flatShading: true, specular: 0, shininess: 0 }, off));
+  const lmat = new THREE.LineBasicMaterial({ color: new THREE.Color(GHOST.col).multiplyScalar(GHOST.line), depthWrite: false, depthTest: false });
+  const G = { it, g, mat, fmat, lmat, hits: [], key: ghostKey(it), far: -1e9 };
+  const matOf = geo => (geo.attributes && geo.attributes.normal ? mat : fmat);
   g.matrixAutoUpdate = false;
   H.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(H.matrixWorld).invert();
@@ -55,15 +67,17 @@ function ghostBuild(it) {
   const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = false; g.add(o); return o; };
   const hit = (n, geo) => { const h = add(new THREE.Mesh(geo, HIDDEN), n, 0); h.userData.id = it.id; h.userData.ghost = true; G.hits.push(h); };
   if (it.kind === 'o') {
-    // (a model its clip moves: its parts taken in their rest pose, then put back exactly as they were. Not by the mixer:
-    // three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving (Pause,
-    // a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in its rest
-    // pose)
-    const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
-    if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
-    if (!(it.E && it.E.info) || it.E.info.tris > GHOST.tris) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
-    else it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, mat), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
-    if (was) { it.model.rest.forEach(([n], i) => { n.position.copy(was[i][0]); n.quaternion.copy(was[i][1]); n.scale.copy(was[i][2]); }); H.updateWorldMatrix(true, true); }
+    // (a model with an animation: its parts taken in their rest pose, then put back exactly as they were. Not by the
+    // mixer: three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving
+    // (Pause, a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in
+    // its rest pose. Its edges alone need no pose: its unseen box)
+    if (ghostLine(it)) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
+    else {
+      const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
+      if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
+      it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, matOf(n.geometry)), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
+      if (was) { it.model.rest.forEach(([n], i) => { n.position.copy(was[i][0]); n.quaternion.copy(was[i][1]); n.scale.copy(was[i][2]); }); H.updateWorldMatrix(true, true); }
+    }
     hit(it.proxy, BOX1);
   } else if (it.kind === 'p') { add(new THREE.Mesh(it.look.mesh.geometry, mat), it.look.mesh, 3); hit(it.look.mesh, it.look.mesh.geometry); }
   else {
@@ -82,7 +96,7 @@ function ghostDrop(id) {
   if (!G) return;
   GH.delete(id);
   if (G.g.parent) G.g.parent.remove(G.g);
-  G.mat.dispose(); G.lmat.dispose();   // (never the geometry: the model's, the looks', the shared box's)
+  G.mat.dispose(); G.fmat.dispose(); G.lmat.dispose();   // (never the geometry: the model's, the looks', the shared box's)
 }
 // whether it is drawn away from where it is placed: its middle more than 1 cm, its turn more than 1 degree, or its size
 // (a pulse) more than 1 cm at its edge (it.mX: poseStep's change from its placed pose to its drawn one)
@@ -114,7 +128,7 @@ function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');
-  if (editing) for (const it of STU.items.values()) if (['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id) && (it.mX || clipMoves(it))) want.set(it.id, it.mX ? 'edit' : 'clip');
+  if (editing) for (const it of STU.items.values()) if (['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id) && (it.mX || (clipMoves(it) && !it.hid))) want.set(it.id, it.mX ? 'edit' : 'clip');
   for (const [id, G] of GH) if (!want.has(id) || G.it !== STU.items.get(id)) ghostDrop(id);
   let built = 0;
   for (const [id, how] of want) {
@@ -123,8 +137,9 @@ function ghostStep(editing, now) {
     const far = !rec && ghostFar(it);
     if (G && far) G.far = now;
     // (a model its clip moves: shown the whole time it plays, selected or not; its holder stays at its placed pose, so the
-    // page's arrows stand on the holder there, where the ghost is: tcTarget)
-    const vis = rec || far || (!rec && clipMoves(it)) || (!!G && now - G.far < GHOST.hold);
+    // page's arrows stand on the holder there, where the ghost is: tcTarget. Not while a cube hides it from you: its
+    // edges stand there already)
+    const vis = rec || far || (!rec && clipMoves(it) && !it.hid) || (!!G && now - G.far < GHOST.hold);
     if (!vis && !G) continue;
     if (!G || G.key !== ghostKey(it)) {
       if (!G && built >= GHOST.build) continue;
@@ -140,19 +155,20 @@ function ghostStep(editing, now) {
     else G.g.matrix.compose(H.position, H.quaternion, H.scale);
     G.g.matrixWorldNeedsUpdate = true;
     const lit = rec && REC.lit;
-    G.mat.color.setHex(lit ? GHOST.lit : GHOST.col); G.mat.opacity = lit ? 0.55 : GHOST.a;
-    G.lmat.color.setHex(lit ? GHOST.lit : GHOST.col); G.lmat.opacity = lit ? 1 : GHOST.la;
+    if (G.lit !== lit) { G.lit = lit; G.mat.color.setHex(lit ? GHOST.lit : GHOST.col); G.fmat.color.copy(G.mat.color); G.lmat.color.setHex(lit ? GHOST.lit : GHOST.col).multiplyScalar(lit ? 1 : GHOST.line); }
   }
   tcStep();
 }
 // what the pointer finds of the ghosts shown (each as its item: e7_explore.js's pickables)
 const ghostHits = () => { const L = []; for (const G of GH.values()) if (G.g.visible) L.push(...G.hits); return L; };
-// for the tests: an item's ghost (shown, lit, its pose, how many parts it draws, whether only its outline box), or null
+// for the tests: an item's ghost (shown, lit, its pose, how many parts it draws, whether only its outline box, whether
+// anything of it is see-through, whether its faces write depth, its faces' colour), or null
 function ghostOf(id) {
   const G = GH.get(id);
   if (!G) return null;
   const parts = G.g.children.filter(o => !o.userData.ghost);
-  return { shown: G.g.visible, lit: G.mat.color.getHex() === GHOST.lit, at: G.g.matrix.toArray(), parts: parts.length, outline: parts.length === 1 && !!parts[0].isLine && G.it.kind === 'o', hits: G.hits.length };
+  return { shown: G.g.visible, lit: G.mat.color.getHex() === GHOST.lit, at: G.g.matrix.toArray(), parts: parts.length, outline: parts.length === 1 && !!parts[0].isLine && G.it.kind === 'o', hits: G.hits.length,
+    see: parts.some(o => o.material.transparent), depth: parts.filter(o => o.isMesh).every(o => o.material.depthWrite), faces: parts.filter(o => o.isMesh).length, col: G.mat.color.getHex() };
 }
 
 // ---------------------------------------------------- the page's arrows on it --
