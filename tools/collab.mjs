@@ -4802,6 +4802,8 @@ async function placesRound() {
         f13.dropped.map(d => d[0]).join() === 'QRG,QRF' && !f13.down.length, JSON.stringify({ n12: s12a.anchors, c13, n13: s13.anchors, f13, list: s13.list.map(p => [p.code, p.anchors.length]) }));
     // an older single calibration (roomFrame, v2, no room): a place with no room, taken by the first room it lines up in
     await end();
+    await H.evaluate(c => HOST.collab.join(c), Y);   // (back in Y, where the older calibration's spots are: the ninth place was X's)
+    await until(H, c => HOST.collab.code === c && HOST.collab.status === 'open', Y, 20000);
     await H.evaluate(() => HOST.room.places({ reset: true }));
     await mark('test places old');
     const old = await H.evaluate(([F, a, b]) => {
