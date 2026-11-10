@@ -4275,15 +4275,16 @@
       ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? '' : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
       for (const p of PLC.list.slice(0, 8)) {
         const on = !!C.code && p === R.saved, fa = placeArmed(p.code);
-        const t = (p.code ? 'Room ' + p.code : 'No room yet (an older calibration)') + ' · ' + ago(p.at) + ' · ' +
-          (placeKept(p) ? (nOf(p) === 1 ? 'one anchor' : 'two anchors') : 'this session only') + (on ? ' · here' : p.code && PLC.here === p.code ? ' · you stand in it' : '');
+        const h = (Date.now() - p.at) / 3600000, when = h < 1 ? 'this hour' : h < 24 ? Math.floor(h) + ' h ago' : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago';
+        const t = (p.code ? 'Room ' + p.code : 'No room yet') + (on ? ' · in use' : p.code && PLC.here === p.code ? ' · you are in it' : '') + ' · ' +
+          (placeKept(p) ? (nOf(p) === 1 ? 'one anchor' : 'two anchors') : 'this session only') + ' · ' + when;
         ctx.font = FONT(21, on ? 700 : 400); ctx.fillStyle = on ? CYAN : INK; ctx.fillText(fit(ctx, t, w - 196), x, y + 15);
         button(S, 'placeforget:' + (p.code || '-'), x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget', () => placeForgetAsk(p.code), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
         y += 62;
       }
       const cap = placeCap();
       button(S, 'placeanchors', x, y, bw, 56, PLC.one ? 'Anchors per room: one' : 'Anchors per room: two', () => placesOne(!PLC.one), { px: 21, on: PLC.one, tog: null });
-      note(PLC.one ? `Up to ${cap} rooms. For calibrations from now on` : `Up to ${Math.floor(cap / 2)} rooms, the most accurate. For calibrations from now on`, y);
+      note(`Up to ${PLC.one ? cap : Math.floor(cap / 2)} rooms; for calibrations from now on`, y);
       y += 72;
       line();
       // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging), Sound check

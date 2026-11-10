@@ -4455,6 +4455,14 @@ async function placesRound() {
     await H.evaluate(() => HOST.room.places({ look: true }));
     return until(H, n => { window.__xr.step(); const s = HOST.room.places(); return s.surveys > n && !s.busy; }, n, ms || 15000);
   };
+  // (with --shots: the menu's Debug tab, its Places rows, as the headset draws it)
+  const menuPic = async file => {
+    if (!shots) return;
+    fs.mkdirSync(shots, { recursive: true });
+    const u = await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuFind('placeanchors'); const S = HOST.collab.overlay().panel, c = document.createElement('canvas');
+      c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); HOST.collab.panelOpen(false); return c.toDataURL('image/png'); });
+    fs.writeFileSync(path.join(shots, file), Buffer.from(u.split(',')[1], 'base64'));
+  };
   const menu = (id, times) => H.evaluate(([id, k]) => { HOST.collab.panelOpen(true); let n = 0; for (let i = 0; i < k; i++) { const r = HOST.collab.menuFind(id); if (r && r.fn) { r.fn(); n++; } } HOST.collab.panelOpen(false); return n; }, [id, times || 1]);
   try {
     // calibrated in room X (joined by its link): its place, two anchors, stored with the room's own id
@@ -4488,6 +4496,7 @@ async function placesRound() {
     check('places: in room Y joined by hand, standing in X\'s place: Y is not left by itself; X is offered (a notice, and Join X under Debug, beside each place\'s Forget and Anchors per room)',
       l3 && f3.code === Y && s3.here === X && s3.offer === X && (await notes()).includes('Join room ' + X + '?') && ids3.includes('placejoin') &&
         ids3.includes('placeforget:' + X) && ids3.includes('placeforget:' + Y) && ids3.includes('placeanchors'), JSON.stringify({ s3, f3, ids3 }));
+    await menuPic('places-1-offer.png');
     // out of the room (not on purpose), a new session in no room standing in Y, X's anchors not findable (its handles
     // hidden), the floor moved: Y joined by itself and lined up from its marks
     await end();
@@ -4579,6 +4588,7 @@ async function placesRound() {
     const j10 = await joinedTo(Y, 15000), f10 = await now(), dAB = Math.hypot(YB[0] - YA[0], YB[2] - YA[2]);
     check('places: one anchor found again in a new session on a floor that moved lines the room up within 1 cm and 0.5 degrees (spot B where the marks put it)',
       j10 && lined(f10, want(F3, YA, YB)) && !!f10.mk && Math.abs(f10.mk[1] - dAB) < 0.01 && /held by one anchor/.test(f10.line), JSON.stringify({ j10, f10, want: want(F3, YA, YB) }));
+    await menuPic('places-2-one.png');
     // eight places with one anchor each fit (8 anchors): seven more planted, Y calibrated anew with one: nothing dropped
     await H.evaluate(() => {
       const S = JSON.parse(localStorage.getItem('roomFrames')), M = (x, z) => new THREE.Matrix4().makeTranslation(x, 0.02, z);

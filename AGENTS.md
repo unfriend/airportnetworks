@@ -2188,7 +2188,9 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     in, null at once. Its buttons' ids are `kp:<key>`, `kp:space`, `kp:del`, `kp:ok` and `kp:back`.
   - **Debug**: the room's alignment (in a room, once the question is answered: Calibrate, Re-align, *Check here* (Touch
     the spot) and what the check says, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
-    space, then *I am elsewhere* / *in the room*), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
+    space, then *I am elsewhere* / *in the room*), *Places* (v130, in a room or in none: *Join ABC: you are standing in
+    its place* when offered, each place kept with its *Forget*, *Anchors per room*: "Places" under "Shared rooms"),
+    *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
     Back), *Trackers: shown / hidden* (v126: the PC's trackers as small pucks, this headset's own, a line beside it: "Vive
     trackers"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
@@ -2530,9 +2532,10 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
     line it up (tracked within the last 3 s) with its spot A within 10 m, or while its marks were touched there this
     session, unless its spot A is further than 10 m; never while calibrating. Logs: `places looked for`, `places found`,
     `place here`, `place join`.
-  - The Debug tab's *Places* rows: the offer; *Places on this headset: n*, each place's room, when it was calibrated,
-    one or two anchors (or *this session only*), *here* for the one in use, with *Forget* (two presses; this room's is
-    Forget calibration); *Anchors per room*. `HOST.room.places(o)` (`{ list, one, cap, here, offer, current, surveys,
+  - The Debug tab's *Places* rows: the offer; *Places on this headset: n*, each place's room (*in use* for this room's,
+    *you are in it* for the one found where you stand), one or two anchors (or *this session only*) and when it was
+    calibrated, with *Forget* (two presses; this room's is Forget calibration); *Anchors per room* (*Up to 4 rooms*, or
+    8, 3 or 7 as it and Anchor are). `HOST.room.places(o)` (`{ list, one, cap, here, offer, current, surveys,
     res }`; `o.reset`, `reload`, `out`, `one`, `forget`, `look`, `wait`, `near`, `join`) is for tests.
   - Untested on a headset: whether a Quest finds a room's anchors when it walks in during a session or only at a
     session's start; a multi-room Space Setup (one scan over several rooms, or one per room); whether a persistent
