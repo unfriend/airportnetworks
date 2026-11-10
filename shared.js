@@ -3112,7 +3112,7 @@
   // (v131: the crosses of the area this headset lines up from, or the nearest area's when lined up by another source, at
   // their room points; with the room's areas, the area's name and letters on a sign over them)
   function drawMarks() {
-    const eye = eyeShown(), mk = eye || !R.mk ? roomMk() : R.mk, t = performance.now();   // (asked by eye: where this headset puts the room's spots)
+    const eye = eyeShown(), mk = eye || !R.mk || R.src === 'adopted' ? roomMk() : R.mk, t = performance.now();   // (asked by eye: where this headset puts the room's spots)
     OV.marks.visible = OV.room.visible && !!mk && (eye || !!R.mk) && !tipMode() && (eye || PNL.open || t < R.showUntil);
     if (OV.marks.visible) {
       OV.crossA.position.fromArray(mk.A); OV.crossB.position.fromArray(mk.B);
@@ -3930,7 +3930,7 @@
         para(R.calib.step === 'a' ? `Hold your controller pointing down, the bright ring at its tip on spot ${CA} on the floor${R.calib.k ? ' (' + areaName(R.calib.k) + ')' : ''}: hold still and pull the trigger.` : `Now spot ${CB} on the floor, a metre or more from ${CA}: hold still and pull the trigger.`);
         calBtn(x, bw, false); y += 76;
       } else if (c === 'check') {
-        const LA = lettersOf(R.mk ? R.mk.k : '')[0], an = R.mk && R.mk.k ? areaName(R.mk.k) + '\'s' : 'the room\'s';
+        const M0 = roomMk(), LA = lettersOf(M0 ? M0.k : '')[0], an = M0 && M0.k ? areaName(M0.k) + '\'s' : 'the room\'s';
         para(L.h === 'marks' ? `Lined up from ${an} two spots. Now check it: one touch on spot ${LA}.` : `Lined up from ${an} two spots, through the shared space. Now check it: one touch on spot ${LA}.`);
         button(S, 'guide:tocheck', x, y, bw, 60, 'Check', turn(2), { primary: true, px: 23 });
         calBtn(x + bw + 16, bw, false); y += 76;
@@ -6642,7 +6642,7 @@
     anchors: p.anchors.slice(), n: p.anchors.length, f: p.f ? 1 : undefined,
     // (a v130 place made with one anchor turned it towards B: yb 0; one with two learns it when both are tracked)
     yb: Number.isFinite(p.yb) ? p.yb : p.anchors.length === 1 ? 0 : undefined,
-    ra: pairOf(p) ? p.ra.slice() : undefined, rb: pairOf(p) ? p.rb.slice() : undefined,
+    ra: pairOf(p) ? p.ra.slice() : undefined, rb: pairOf(p) ? p.rb.slice() : undefined, rt: !pairOf(p) && +p.rt > 0 ? +p.rt : undefined,
     base: pairOf(p) && p.base && typeof p.base === 'object' ? { d: +p.base.d || 0, at: +p.base.at || 0 } : undefined, an: typeof p.an === 'string' ? p.an.slice(0, 24) : undefined });
   // read from this headset's storage (as the page loads; and for tests, HOST.room.places({ reload }))
   function placesLoad() {
@@ -6679,7 +6679,7 @@
   function storePlaces() {
     PLC.list.sort((p, q) => (q.used || 0) - (p.used || 0));
     const out = CAM.on ? [] : PLC.list.filter(placeKept).map(p => ({ code: p.code, pair: p.pair || '', rid: p.rid || undefined, a: p.a, b: p.b, at: p.at, used: p.used, anchors: p.anchors,
-      n: nOf(p), f: p.f ? 1 : undefined, yb: Number.isFinite(p.yb) ? r4(p.yb) : undefined, ra: p.pair ? p.ra : undefined, rb: p.pair ? p.rb : undefined, base: p.pair ? p.base : undefined, an: p.an || undefined }));
+      n: nOf(p), f: p.f ? 1 : undefined, yb: Number.isFinite(p.yb) ? r4(p.yb) : undefined, ra: p.pair ? p.ra : undefined, rb: p.pair ? p.rb : undefined, rt: !p.pair && p.rt ? p.rt : undefined, base: p.pair ? p.base : undefined, an: p.an || undefined }));
     put('roomFrames', out.length ? J({ v: 4, places: out }) : null);
     put('roomFrame', null);
   }
@@ -6734,22 +6734,45 @@
   // them has left; never over the room's floor spots while whoever set them is here. Asked when a calibration is made or
   // found again, and twice a second while the room's floor is missing, its writer gone, or (floor spots) not on the floor
   // (t, v131: when spots A and B were taped, kept by a write for the same spots, so the areas measured from them stay
-  // current; another pair of spots makes them stale: areaStale)
-  function claimFloor(a, b) {
+  // current; another pair of spots makes them stale: areaStale. Which spots are the same is never told by their distance
+  // alone (2 m apart is what everyone tapes): m, from a calibration by hand (markAt), says whether the new touches are
+  // where the frame this headset had before puts the room's spots (true), elsewhere (false), or nobody knows (null: no
+  // such frame); without it (its anchors found again, the twice-a-second claim) the place's own rt says which taping its
+  // spots are. rt: the t the place's spots belong to, kept with the place)
+  const rmT = M => (M ? +M.t || +M.at || 0 : 0);
+  function claimFloor(a, b, m) {
     if (CAM.on) return;   // (a camera's spots are the room's own: it writes nothing, camera mode)
     if (R.saved && R.saved.pair) return;   // (lined up by another area's spots: only spots A and B are the room's floor)
     const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]), ok = !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)), same = ok && Math.abs(M.d - d) <= SAME;
-    const here = ok && (M.by === C.id || member(M.by)), at = Math.round(now()), t = same && (+M.t || +M.at) ? +M.t || +M.at : at;
+    const here = ok && (M.by === C.id || member(M.by)), at = Math.round(now()), tM = ok ? rmT(M) : 0;
+    if (m === undefined) m = R.saved && R.saved.rt ? (R.saved.rt === tM ? true : R.saved.rt) : 'old';
+    // the taping time to write: the room's for the same spots; the place's own when it is another taping (its spots back
+    // as the room's); a new one for other spots, or the same distance from another headset nobody can tell apart; a place
+    // from before rt (lane builds of v131): as before, by the distance
+    const t = m === true ? (same && tM ? tM : at) : typeof m === 'number' ? m : m === 'old' ? (same && tM ? tM : at) : m === null && same && tM && M.by === C.id ? tM : at;
     if (onFloor()) {
-      if (ok && M.f && same && here) return;
-      publish([['rm', { a: FLOOR_TIP, d: r3(d), f: 1, t: same && M.f ? t : at, by: C.id, at }]]);
-      log('floor claimed', { a: FLOOR_TIP, d: r3(d), f: 1, was: M ? M.by : '' });
+      if (ok && M.f && same && here && m !== false) return;   // (other spots taped at the same distance: written, though its writer is here)
+      const tw = M && M.f || typeof m === 'number' ? t : at;
+      publish([['rm', { a: FLOOR_TIP, d: r3(d), f: 1, t: tw, by: C.id, at }]]);
+      if (R.saved && R.saved.rt !== tw) { R.saved.rt = tw; if (placeKept(R.saved)) storePlaces(); }   // (its spots are this taping now)
+      log('floor claimed', { a: FLOOR_TIP, d: r3(d), f: 1, was: M ? M.by : '', same: m === true ? 1 : m === false ? 0 : null, kept: !!tM && tw === tM });
       return;
     }
     if (ok && M.f && here) return;
-    if (same && M.by !== C.id && member(M.by)) return;
+    if (same && M.by !== C.id && member(M.by) && m !== false) return;
     publish([['rm', { a: r3(a[1]), d: r3(d), t, by: C.id, at }]]);
     log('floor claimed', { a: r3(a[1]), d: r3(d), was: M ? M.by : '' });
+  }
+  // a calibration by hand on spots A and B (markAt): are the touches a and b (local-floor) where the frame this headset
+  // had before puts the room's spots (within AREA.near along the floor)? null: no frame to tell by (not lined up, or
+  // lined up by nothing that rests on the room's spots), or the room has no spots yet
+  function spotsSame(a, b) {
+    const M = val('rm');
+    if (!validFloor() || !R.aligned || !R.frame || !R.frame.x) return null;
+    if (!(own() || byMarks() || R.src === 'trackers')) return null;
+    const F = R.frame, x = F.x, at = p => { const dx = p[0] - F.o[0], dz = p[2] - F.o[2]; return [dx * x[0] + dz * x[2], -dx * x[2] + dz * x[0]]; };
+    const A = at(a), B = at(b);
+    return Math.hypot(A[0], A[1]) <= AREA.near && Math.hypot(B[0] - M.d, B[1]) <= AREA.near;
   }
   const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const own = () => R.src === 'marks' || R.src === 'anchor';
@@ -6797,7 +6820,9 @@
   }
   const areaOf = id => (id ? areaList().find(A => A.id === id) || null : null);
   const areaGone = id => { const v = val(kArea(id)); return !!(v && v.gone); };
-  const areaStale = A => !!(A && A.base) && (A.base.at || 0) !== rmBase().at;   // (spots A and B themselves: never)
+  // (judged only while the room's rm is known: a room come back empty after a relay restart, or joined before its rm
+  // arrives, makes nothing stale)
+  const areaStale = A => !!(A && A.base) && validFloor() && (A.base.at || 0) !== rmBase().at;   // (spots A and B themselves: never)
   // spots A and B as an area of the list (n 1, id ''): their room points from rm (B as high as A), null while the room
   // has none
   function area1() {
@@ -7540,7 +7565,8 @@
     if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null, again: false, wokeIn: '', told: '', stale: '' }); ownAsk(t); PLC.told = ''; }
     // (once a session per room, with the room's keys in: this room's places of areas forgotten or measured before spots A
     // and B were taped again go; one taken now is given up, and the room's other place taken)
-    if (s && !CAM.on && C.code && C.welcomed && SV.stale !== C.code) { SV.stale = C.code; placesStale(); }
+    // (only once the room's rm is in: judged against nothing, every area's place would look stale)
+    if (s && !CAM.on && C.code && C.welcomed && validFloor() && SV.stale !== C.code) { SV.stale = C.code; placesStale(); }
     if (!s || CAM.on || !f || !local || !HD.ok || !HOST.anchor || !HOST.anchor.find) return;
     if (R.visibleAt !== SV.woke) { SV.woke = R.visibleAt; SV.at = 0; SV.from = t; ownAsk(t); }   // (after a wake: at once)
     if (SV.code !== C.code) { SV.code = C.code; SV.from = t; SV.wokeIn = ''; ownAsk(t); }
@@ -7604,11 +7630,15 @@
     // (not found, lost after a wake), is taken in its place (areaSwitch: no join, the same room); never while calibrating
     // or adding an area
     const sameA = found.filter(o => o.code === C.code && o.d <= SV.near).sort((a, b) => a.d - b.d)[0] || null;
-    if (sameA && C.code && !R.calib && !AD.on && (!cur ? !(R.src === 'marks' && R.frame) : cur.d > SV.sure && sameA.d < cur.d - SV.margin)) {
+    // (not tracked: held as a room is, while its own place lined it up as it went off and is not found since the wake,
+    // or is not found and the other area's spot is further than SV.sure: a wake loses anchors, it moves nobody)
+    const holdA = !cur && (own === 'lost' || (own === 'gone' && sameA && sameA.d > SV.sure));
+    if (sameA && C.code && !R.calib && !AD.on && !holdA && (!cur ? !(R.src === 'marks' && R.frame) : cur.d > SV.sure && sameA.d < cur.d - SV.margin)) {
       areaSwitch(sameA.p, own, cur);
       SV.res = { at: t, found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), best: C.code, own: 'switch', area: sameA.pair };
       return;
     }
+    if (holdA && sameA && SV.told !== 'area' + sameA.pair + own) { SV.told = 'area' + sameA.pair + own; log('area held', { room: C.code, area: sameA.pair, d: r3(sameA.d), own }); }
     const here1 = (cur && cur.d <= SV.near) || sameA;   // (this room has an area where the headset stands: nothing of another room)
     found = found.filter(o => o.code !== C.code);
     if (cur) found = found.concat(cur);
@@ -7655,6 +7685,7 @@
   function placeStale(p) {
     if (!p || !p.pair || p.code !== C.code || !C.welcomed) return false;
     if (areaGone(p.pair)) return 'gone';
+    if (!validFloor()) return false;   // (no rm yet: nothing to judge by; dropping it would delete its anchors for good)
     return p.base && (p.base.at || 0) !== rmBase().at ? 'stale' : false;
   }
   function placesStale() {
@@ -8213,6 +8244,9 @@
       return;
     }
     R.calib = null;
+    // (spots A and B: the same spots as the room's, by the frame this headset had until now? claimFloor keeps their taping
+    // time only then, so the areas measured from them stay current)
+    const sm = !k && !CAM.on ? spotsSame(a.toArray(), p.toArray()) : null;
     // the old marks' anchors go now: they would pull the new frame back to the old marks. This area's place is made anew
     // (its old anchors deleted); the other places stay (this room's other areas', the other rooms'), and so does an older
     // calibration no room has taken yet
@@ -8232,7 +8266,9 @@
     // headsets' floors from the logs later
     const sf = R.scanFloor;
     log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], dh: r3(dh), scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP, area: k });
-    claimFloor(R.saved.a, R.saved.b);
+    claimFloor(R.saved.a, R.saved.b, sm);
+    if (!k && !P.rt && sm !== false && rmT(val('rm'))) P.rt = rmT(val('rm'));   // (not written: the room's spots, as its writer has them)
+    if (sm !== null) log('spots same', { same: sm, t: P.rt || 0 });
     R.mk = mkOf(R.saved.a, R.saved.b, R.saved); R.cmp = null; R.pubAt = 0; R.recAt = 0;
     setFrame(fitFrame(R.saved.a, R.saved.b, R.saved), 'marks', 'Room calibrated', `The orange crosses should sit on the two spots${k ? ' (' + Ar.name + ', ' + LA + ' and ' + LB + ')' : ''}, and the room's floor on the floor. Everyone who calibrates on the same spots sees the stations in the same places.` + (guideOn() ? ` Now check it: Check at ${LA}, in the menu.` : ''));
     R.wantAnchors = true;   // made in the next frame, at the marks as they are then
@@ -8352,15 +8388,19 @@
   // Since v131 { k, A, B } (mkA: the area's id, '' spots A and B, and the two crosses in room coordinates): the area this
   // headset lines up from, else the room's area nearest its head (spots A and B when it is not lined up)
   function roomMk() {
-    if (R.mk && (own() || R.src === 'adopted')) return R.mk;
+    if (R.mk && own()) return R.mk;
+    // (lined up through the shared space: the frame's spots are the publisher's area, which may be far from this
+    // headset; they stand only when they are the area nearest it)
+    const ad = R.mk && R.src === 'adopted' ? R.mk : null;
     const all = areasAll();
-    if (!all.length) return null;
+    if (!all.length) return ad;
     let best = all[0];
     if (R.aligned && HD.ok && all.length > 1) {
       _v.copy(realHead(_hv)).applyMatrix4(R.mi);
       const dd = A => Math.hypot((A.a[0] + A.b[0]) / 2 - _v.x, (A.a[2] + A.b[2]) / 2 - _v.z);
       for (const A of all) if (dd(A) < dd(best)) best = A;
     }
+    if (ad && ad.k === best.id) return ad;
     return mkA(best.id, best.a, best.b);
   }
   // an area's crosses to check against (k: its id, '' spots A and B; undefined: roomMk's)

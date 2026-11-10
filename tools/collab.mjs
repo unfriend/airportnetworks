@@ -5002,6 +5002,17 @@ async function areasRound() {
     check('areas: a frame from Lab\'s marks through the shared space, 1 m off, is not compared with spots A and B\'s (logged; the space not called split); one from spots A and B\'s marks is',
       cx && !cmp1 && !split1 && cmp2, JSON.stringify({ cx, cmp1, split1, cmp2 }));
     await P.evaluate(() => HOST.collab.publish([['rf.AR1', { uuid: 'AR1', o: [0, 0, 0], x: [1, 0, 0], g: 'shared', by: 'nobody', at: 1 }]]));
+    // lined up through the shared space from a frame whose spots are Lab's: the crosses shown and checked are the area
+    // nearest this headset, not the publisher's (Lab's only at Lab)
+    const adm = await H1.evaluate(([id, a, b, at1, at2]) => {
+      const R = HOST.room.internals(), X = window.__xr, was = { src: R.src, mk: R.mk }, out = {};
+      R.src = 'adopted'; R.mk = { k: id, A: a, B: b };
+      try { const s = HOST.room.spots(); out.at1 = s && s.k; X.head(at2); X.step(); R.src = 'adopted'; R.mk = { k: id, A: a, B: b }; const t = HOST.room.spots(); out.at2 = t && t.k; out.same = t === R.mk; } finally { R.src = was.src; R.mk = was.mk; X.head(at1); }
+      return out;
+    }, [lab.id, tC, tD, AT1, AT2]);
+    await frames(H1, 300);
+    check('areas: lined up through the shared space by a frame from Lab\'s spots, a headset at spots A and B shows and checks A and B; at Lab, Lab\'s (the frame\'s own)',
+      adm.at1 === '' && adm.at2 === lab.id && adm.same, JSON.stringify(adm));
     // Forget area (two presses on headset 2's Debug tab): Lab's tombstone; its places (both headsets') dropped at their next session
     const fa = await H2.evaluate(id => { HOST.collab.panelOpen(true); let n = 0; for (let i = 0; i < 2; i++) { const r = HOST.collab.menuFind('areaforget:' + id); if (r && r.fn) { r.fn(); n++; } } HOST.collab.panelOpen(false); return n; }, lab.id);
     const gone = await until(P, id => { const v = HOST.collab.val('rp.' + id); return !!(v && v.gone); }, lab.id, 8000);
@@ -5022,8 +5033,25 @@ async function areasRound() {
     const hall = await until(H1, () => { window.__xr.step(); const L = HOST.collab.areas().list.find(x => x.name === 'Hall'); return !!(L && HOST.room.places().list.some(q => q.pair === L.id && q.kept)); }, null, 10000);
     const hl = (await AR(H1)).list.find(x => x.name === 'Hall') || null;
     const rm0 = (await roomInfo(code)).keys.rm.v;
-    await P.evaluate(v => HOST.collab.publish([['rm', v]]), Object.assign({}, rm0, { d: rm0.d + 0.4, t: Date.now(), at: Date.now(), by: pId }));
+    // a room without its rm (come back empty after a relay restart, or joined before it arrives) makes nothing stale
+    const nrm = await P.evaluate(() => { const C = HOST.collab.internals(), e = C.keys.get('rm'); C.keys.delete('rm'); const L = HOST.collab.areas().list.find(x => x.name === 'Hall'); const st = !!(L && L.stale); C.keys.set('rm', e); return { st, L: !!L }; });
+    check('areas: with the room\'s rm missing (a relay restarted, or not in yet), no area is stale', nrm.L && !nrm.st, JSON.stringify(nrm));
+    // headset 1 calibrates on spots A and B again: the same spots (by its frame until then), so their taping time stays
+    // and Hall stays current; then on two other crosses 1.5 m off at the same spacing: a new taping, Hall stale
+    await H1.evaluate(h => window.__xr.head(h), AT1);
+    await frames(H1, 300);
+    await H1.evaluate(() => HOST.room.calibrate(''));
+    await touch(H1, SA); await touch(H1, SB); await free(H1);
+    await until(H1, () => { window.__xr.step(); return HOST.room.src === 'marks'; }, null, 8000);
+    await frames(H1, 1200);
+    const rmS = (await roomInfo(code)).keys.rm.v, hS = (await AR(H1)).list.find(x => x.name === 'Hall');
+    const SA2 = [SA[0] - 1.5, TIP, SA[2] + 0.4], SB2 = [SB[0] - 1.5, TIP, SB[2] + 0.4];
+    await H1.evaluate(() => HOST.room.calibrate(''));
+    await touch(H1, SA2); await touch(H1, SB2); await free(H1);
     const stl = await until(H1, () => { window.__xr.step(); const L = HOST.collab.areas().list.find(x => x.name === 'Hall'); return !!(L && L.stale); }, null, 8000);
+    const rmM = (await roomInfo(code)).keys.rm.v;
+    check('areas: spots A and B calibrated on again keep their taping time (Hall current); other crosses at the same spacing are a new taping (Hall stale), though the distance is the same',
+      (rmS.t || rmS.at) === (rm0.t || rm0.at) && !!hS && !hS.stale && stl && (rmM.t || rmM.at) !== (rm0.t || rm0.at) && Math.abs(rmM.d - rm0.d) < 0.01, JSON.stringify({ rm0, rmS, rmM, hS: hS && hS.stale, stl }));
     await end(H1);
     await go(H1, AT1);
     const dr2 = await until(H1, k => { window.__xr.step(); const s = HOST.room.places(); return s.dropped.some(o => o.pair === k && o.why === 'stale') && !s.list.some(q => q.pair === k); }, hl && hl.id, 15000);
