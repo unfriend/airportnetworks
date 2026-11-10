@@ -804,6 +804,17 @@ const HOST = {
         const f = fn && this.built;
         if (f) queueMicrotask(() => { if (this.built !== f) return; this.built = null; try { f(); } catch (e) { console.warn('The place was not put back:', e); } });
       };
+      // the WebGL context lost and restored (a GPU process started again, as a headset might after a long sleep; v131):
+      // logged, and real-world occlusion told, which forgets its own GL objects (three.js makes its own again itself)
+      const tell = (ev, k) => {
+        try { if (this.collab && this.collab.log) this.collab.log(ev, { xr: !!(this.inXR && this.inXR()), story: this.curKey || '' }); } catch (e) { /* no log */ }
+        try { if (this.occlusion && this.occlusion[k]) this.occlusion[k](); } catch (e) { console.warn('Occlusion after a context ' + k + ':', e); }
+      };
+      this.quiet = true;
+      try {
+        r.domElement.addEventListener('webglcontextlost', () => tell('webgl context lost', 'lost'));
+        r.domElement.addEventListener('webglcontextrestored', () => tell('webgl context restored', 'restored'));
+      } finally { this.quiet = false; }
     }
     return this.renderer;
   },

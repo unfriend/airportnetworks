@@ -1220,7 +1220,7 @@ probe, `roomSync` and `shapeSig` it reuses.
   finite far) or metres (the value times `rawValueToMeters`, through `normDepthBufferFromNormView`): window until the
   probe has looked when the depth gives its own range, else metres; the probe (the room test's auto reading: a 16 x 16
   grid of raw values read back, a few times at most a session until it has values, an integer texture refused by a
-  float sampler tried with an integer one) decides once. The depth's own view is taken as the eye's (on the Quest it
+  float sampler tried with an integer one) decides once (again after a renew: "After a sleep" below). The depth's own view is taken as the eye's (on the Quest it
   matched to 0 cm and 0.03 degrees). Depth sensing runs for the whole AR session, whatever the setting (v124: until
   then it was paused while unused, and a Quest whose depth was paused from the session's first frame, the setting at
   *nothing*, never gave it back when the setting was turned on again: the owner, 8 November 2026).
@@ -1229,6 +1229,44 @@ probe, `roomSync` and `shapeSig` it reuses.
   when its shape really changes (`shapeSig`: a plane by its corners, a mesh by its sizes and a sample of its values,
   the same arrays as last time taken as the same; a Quest 3 marked them changed about 56 times a second with nothing
   changed), the old drawing kept until the new one is built, at most two built a frame.
+- **After a sleep** (v131; the owner, 10 November 2026: "Occlusion stops working after longer sleep in quest 3s? Maybe
+  in 3 too, will test"). Until then everything was decided once a session (the binding, the depth's kind and reading,
+  the probe) and nothing asked again: depth that stopped coming, calls that threw and room parts with no pose failed
+  silently. The likeliest cause, as with anchors not tracked after standby: after a long sleep the headset's runtime
+  stops, or starts again, its depth and its room scan. So `renew(why)` asks again for what the session gave: the depth's
+  state dropped as the session's end drops it, a new `XRWebGLBinding`, its kind (`D.kind`), reading (`S.decided`) and
+  probe (count and time) decided afresh, `session.resumeDepthSensing()` where the session has it and `depthActive` is
+  not true (false, or not given), and every room part dropped, so they are built again from what the frame lists now.
+  It never pauses depth (v124's rule). What asks:
+  - the session visible again after hidden for at least 10 s (its own `visibilitychange` listener, added with
+    `HOST.quiet` as the session begins and removed as it ends; a short hide, the system menu, changes nothing): at once
+    on the next frame, and the watchdog's tries start afresh;
+  - the watchdog, only while the session is visible and only for what the mode uses: depth that had come, wanted, the
+    views there, but none for 1.5 s; `getDepthInformation` throwing on 30 frames in a row (from the start too); room
+    parts there, none of them posed for 2 s (the room only); its first try at least 10 s after the last ask, each next one
+    twice as long after (10, 20, 40 ... s), at most 6 after the session's start, a sleep or the last time it was back
+    steadily for 10 s with no gap of a second (`steady`: so a long session's few hiccups, each brought back, never use up
+    the cap; the gap since the last ask stays; the depth and the room each their own), and frames that stopped coming for over 5 s (the next story building) counting afresh. Past the sixth
+    the Debug tab's *Real world* line says *depth stopped N s ago: leave AR and enter again* (or that the room scan
+    stopped), and one notice a session (*People no longer hide things*, *The room no longer hides things*, through
+    `HOST.collab.notice`; none for depth that never came). Depth that comes back by itself is drawn again and the line
+    plain again;
+  - the depth's shape changing (its `textureType`, the session's `depthDataFormat`, whether it gives its own range, its
+    `rawValueToMeters`) from what the kind was decided on: decided afresh at once (`redecide`: the stand-ins of the old
+    kind forgotten, the reading and the probe again), no new binding.
+  Logged through `HOST.collab.log` (so a headset's log in a room carries them to the relay): `occlusion renew` (`why`:
+  `wake`, `depth lost`, `depth throws`, `room` or `shape`; `depthActive`, frames asked and with depth, errors and the
+  last one, ms since the last depth, how long it was hidden, the tries so far, the room's parts and those posed),
+  `occlusion back` (the depth or the room back after it, and how long that took), `occlusion room` (the parts posed going
+  to or from none), `occlusion steady` (back steadily, its tries started afresh: how many there were), `occlusion gave up`, and the shell's `webgl context lost` and `webgl context restored`. Every
+  alignment sample (`sample()` in `shared.js`, every 5 s in a room) carries `occl`: `{ m, u, f, k, r, a, n, v, ago, e,
+  pl, me, po, rn, rr }` (the mode, the depth's usage, format, kind and reading, `depthActive`, frames asked and with
+  depth, ms since the last depth (-1 none yet), errors, planes, meshes, parts posed, renews of the depth and of the
+  room). A lost WebGL context (`webglcontextlost` and `webglcontextrestored` on the renderer's canvas, listeners added in
+  `makeRenderer` with `HOST.quiet`): nothing drawn while lost; restored, occlusion forgets its own GL objects (the probe's
+  programs, its quad and framebuffer, the zero textures) and ends its part of the session, so the next frame begins anew
+  (three.js makes its own again). The headset's layer itself would need the session started again: leaving AR and
+  entering again (untested).
 - **A little behind.** A thing must be a little further than a real surface to be hidden by it (`BIAS`: 4 cm for the
   depth, which is noisier, 2 cm for the room, each along the view), so a robot's trail on the floor, a line along a
   wall's foot, a studio model standing on the floor or a button under a fingertip is not hidden by what it stands on.
@@ -1236,12 +1274,21 @@ probe, `roomSync` and `shapeSig` it reuses.
   name tags), the circles' rings and icons. Never: what is drawn over everything (`depthTest` false: the menu, the
   notices, the subtitles, the frame-rate read-out, labels and cards set on top, the loading card, the calibration
   crosses).
-- For tests and the Debug tab: `HOST.occlusion.state()` (the mode, the session's depth: usage, format, reading, eyes,
-  the probe; the room's parts), `line()` (the Debug tab's *Real world* line), `parts()`, `sig()`.
+- For tests and the Debug tab: `HOST.occlusion.state()` (the mode, the session's depth: usage, format, kind, shape,
+  reading, eyes, the probe; the room's parts; since v131 `lastDepthAt`, `hiddenAt`, `hidLast`, `renews`, `roomRenews`,
+  `redecides`, `resumes`, `bindings`, `posed`, `depthActive`, `tries`, `gaveUp`, `told`, `lost`, `restored` and `gl`, our
+  own GL objects; v124's `paused` went), `line()` (the Debug tab's *Real world* line), `sample()` (the samples' `occl`),
+  `times({ wake, lost, room, every, cap, throws })` (the times above shortened for tests, as `eyeTimes` and `guideTimes`;
+  `null` the defaults), `lost()` and `restored()` (the shell's), `parts()`, `sig()`.
 - **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
   room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
   the floor), the cost with a big room scan and depth together in a heavy story, depth sensing left running while the setting is *nothing*,
   CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
+  After a sleep (v131), only a Quest 3 or 3S can show: whether `resumeDepthSensing` or a new binding brings the depth
+  back after a real long sleep (or neither: leaving AR and entering again stays the proven remedy), whether the room's
+  planes come back with poses or as a new set, whether a Quest says `depthActive` false then, whether its depth's shape
+  changes, how often the watchdog asks on a real headset (the logs will say: `occlusion renew`, `occlusion back`, the
+  samples' `occl`), and a lost WebGL context in a session.
 
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
@@ -5160,7 +5207,22 @@ eyes, also the other way round, an eye without depth unoccluded, the real world 
 wall hiding what stands behind it, depth sensing never paused or resumed (v124); off; both; the menu never hidden; the default *room and people*
 and the menu's row going round, kept; a story's own cleared by a story change and the objects hung in the next story's
 scene; nothing drawn after the session ends; CPU depth; `#occl=off`; `HOST.xr.request`'s ladder (a TypeError naming
-`'unsigned-short'`, another refusal) and VR as ever; the session line in every story),
+`'unsigned-short'`, another refusal) and VR as ever; the session line in every story; v131, after a sleep, the fake's
+session hidden and visible again (its `visibilityState` and events), its depth dead until `resumeDepthSensing`, a
+binding made after it died or never, its `depthActive`, its bindings' generation (one made before it moved on throws),
+plane spaces with no pose or a new set of planes, a changed `textureType`, and the times shortened (`times()`): a short
+hide changing nothing (no renew, no resume, no new binding); a long sleep with the depth dead and `depthActive` false:
+asked again at once (`occlusion renew`, `wake`, how long hidden), resumed once, a new binding, `occlusion back`, the
+plane hidden again in both eyes; the depth dying with no sleep: the watchdog asks again (`depth lost`), a new binding,
+no resume (`depthActive` true); a binding from before throwing every frame (6 in a row here): asked again (`depth
+throws`, its error), the plane hidden again; the room's planes with no pose: `occlusion room` posed 0, the room built
+again (`room`), nothing hidden, then planes given again: `occlusion back`, the wall hiding again; the depth and the room
+back steadily (0.3 s here): their tries started afresh (`occlusion steady`, two and one), no renew; depth that never comes
+back: six tries, then `occlusion gave up` once, the line *depth stopped N s ago: leave AR and enter
+again*, one notice and no more tries, and back by itself: drawn again, the line plain; one texture per eye: decided
+afresh (`shape`), the plane hidden in both eyes, probed and read as a depth buffer's, and a texture array again;
+never a pause; after the session, the WebGL context lost and restored (`WEBGL_lose_context`): both logged, our own GL
+objects forgotten, and a new session's depth hiding the plane with them made again),
 focus mode (v106: on by default on a pretend phone, 390 x 844 and 360 px wide, and an iPad, 1180 x 820, with touch:
 `HOST.focus()` true, the panel hidden, the slim bars, the subtitle strip's text the shell's caption for the line on show
 and changing with the clock, none in explore mode or on the Stories screen, a chapter's title at its start, Text opening

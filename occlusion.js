@@ -11,6 +11,11 @@
 // 'room', 'depth' (people) or 'off'; a story may ask for its own (scene(mode); the studio, for a scene that says so),
 // cleared when the story changes. Its objects hang in the story's scene (its root is the renderer's reference space),
 // taken out before a story is disposed and hung in the next one's. Nothing of it is in a story's state or a room.
+// After a sleep (v131; the owner, 10 November 2026: "Occlusion stops working after longer sleep in quest 3s?"): what the
+// session gave is asked for again (renew: a new XRWebGLBinding, the depth's kind and reading decided afresh, its depth
+// resumed, the room built again from what the frame lists) when the session is visible again after a while hidden, and
+// by a watchdog when the depth stops coming, its calls keep throwing or no part of the room has a pose; all of it logged,
+// so the headsets' logs say what stopped and what came back.
 HOST.occlusion = (function () {
   'use strict';
   const MODES = ['both', 'room', 'depth', 'off'], NEXT = { both: 'room', room: 'depth', depth: 'off', off: 'both' };
@@ -19,12 +24,21 @@ HOST.occlusion = (function () {
   // line along a wall's foot or a model standing on the floor is not hidden by the surface it stands on (the depth is
   // noisier than the room scan)
   const BIAS = { depth: 0.04, room: 0.02 };
+  // when to ask again (ms; times() for tests): the session hidden at least this long (a sleep, not a glance at the
+  // system menu); no depth for this long while it had come; no part of the room posed for this long; the watchdog's
+  // first try at least this long after the last ask, each next one twice as long, at most cap tries after the session's
+  // start, a sleep or the depth (the room) back steadily for calm; the depth's calls throwing on this many frames in a row
+  const T0 = { wake: 10000, lost: 1500, room: 2000, every: 10000, cap: 6, throws: 30, calm: 10000 }, T = Object.assign({}, T0);
   let own = 'both';
   try { const v = localStorage.getItem('xrOccl'); if (MODES.includes(v)) own = v; } catch (e) { /* storage blocked */ }
-  const O = { over: null, root: null, quad: null, room: null, mats: {}, roomMat: null, warned: {} };
+  const O = { over: null, root: null, quad: null, room: null, mats: {}, roomMat: null, warned: {}, lost: false, restored: 0 };
   let S = null;   // per session: what it was given, the depth this frame, the room's parts
   const msg = e => String((e && e.message) || e).slice(0, 160);
   const warn = (k, e) => { if (!O.warned[k]) { O.warned[k] = true; console.warn('Occlusion: ' + k + (e ? ': ' + msg(e) : '')); } };
+  // the shell's log (shared.js: it goes to the relay with a headset's alignment samples), when it is there
+  const clog = (ev, data) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, data); } catch (e) { /* no log */ } };
+  const get = (o, k) => { try { return o[k] === undefined ? null : o[k]; } catch (e) { return null; } };
+  const depthActive = () => { const v = S ? get(S.session, 'depthActive') : null; return v === true || v === false ? v : null; };
   const IDENT = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   const mode = () => (O.over && MODES.includes(O.over) ? O.over : own);
   const ar = () => { const s = HOST.session; return !!s && (HOST.mode ? HOST.mode === 'immersive-ar' : !!s.environmentBlendMode && s.environmentBlendMode !== 'opaque'); };
@@ -154,24 +168,53 @@ void main() {
   function hide() { if (O.root) O.root.visible = false; }
 
   // ---------------------------------------------------------------------------------------------- the session
+  // (the watchdog's tries for the depth or the room: how many since the session's start or a sleep, the last ask, when
+  // it gave up)
+  const limiter = () => ({ n: 0, at: -1e9, gave: 0, ok: 0, last: 0 });   // (ok: since when it is back, last: its last frame)
   function begin(s, r) {
     end();
-    const gl = r.getContext(), sv = k => { try { return s[k] === undefined ? null : s[k]; } catch (e) { return null; } };
+    const gl = r.getContext(), sv = k => get(s, k);
     const F = sv('enabledFeatures'), has = f => (F ? Array.from(F).includes(f) : null);
-    S = { session: s, gl, binding: null, D: null, views: null, decided: false, probeAt: 0, probeN: 0, probe: null, paused: false, frames: 0, valid: 0,
+    S = { session: s, gl, binding: null, D: null, views: null, decided: false, probeAt: 0, probeN: 0, probe: null, frames: 0, valid: 0,
       depth: { enabled: false, usage: sv('depthUsage'), format: sv('depthDataFormat'), why: '', errors: 0 },
-      planesOn: has('plane-detection') === true, meshesOn: has('mesh-detection') === true, planes: new Map(), meshes: new Map(), built: 0 };
+      planesOn: has('plane-detection') === true, meshesOn: has('mesh-detection') === true, planes: new Map(), meshes: new Map(), built: 0,
+      // what comes and goes (renew): the last frame with depth, since when none came, the depth's calls throwing (frames
+      // in a row), the room's parts and how many have a pose (and since when none), the session hidden since, how long it
+      // was hidden last, a sleep to answer on the next frame; what was asked again, and what is to be said back
+      lastDepthAt: 0, everDepth: false, missSince: 0, throwRun: 0, parts: 0, posed: 0, posedLast: 0, unposedSince: 0, stepAt: 0,
+      hiddenAt: 0, hidLast: 0, wakeDue: 0, renews: 0, roomRenews: 0, redecides: 0, resumes: 0, bindings: 0, shapeLogAt: -1e9,
+      td: limiter(), tr: limiter(), back: { depth: false, room: false, at: 0, why: '' }, told: false, vis: null };
     const Q = S.depth;
     Q.enabled = has('depth-sensing') === true || (F === null && !!Q.usage);
     if (!Q.enabled) Q.why = 'not given by the browser';
-    else if (Q.usage !== 'cpu-optimized') {
-      if (typeof XRWebGLBinding !== 'function') { Q.enabled = false; Q.why = 'no XRWebGLBinding'; }
-      else try { S.binding = new XRWebGLBinding(s, gl); } catch (e) { Q.enabled = false; Q.why = 'XRWebGLBinding: ' + msg(e); }
-    }
+    else if (Q.usage !== 'cpu-optimized' && !bind()) Q.enabled = false;
+    // a sleep: the session hidden, then visible again (a short glance at the system menu is no sleep); answered on the
+    // next frame (step)
+    const me = S, vis = () => {
+      if (S !== me) return;
+      const v = get(s, 'visibilityState'), t = performance.now();
+      if (v === 'hidden') { if (!S.hiddenAt) S.hiddenAt = t; return; }
+      if (v !== 'visible' || !S.hiddenAt) return;
+      const h = t - S.hiddenAt;
+      S.hiddenAt = 0; S.hidLast = Math.round(h);
+      if (h >= T.wake) S.wakeDue = h;
+    };
+    const q = HOST.quiet;
+    HOST.quiet = true;
+    try { s.addEventListener('visibilitychange', vis); S.vis = vis; } catch (e) { /* no events */ } finally { HOST.quiet = q; }
   }
-  function end() {
-    if (!S) return;
+  // the session's depth for the GPU (a binding of its own to the renderer's context), at the start and again by renew
+  function bind() {
+    const Q = S.depth;
+    S.binding = null;
+    if (typeof XRWebGLBinding !== 'function') { Q.why = 'no XRWebGLBinding'; return false; }
+    try { S.binding = new XRWebGLBinding(S.session, S.gl); S.bindings++; return true; } catch (e) { Q.why = 'XRWebGLBinding: ' + msg(e); return false; }
+  }
+  function dropRoom() {
     for (const k of ['planes', 'meshes']) { for (const e of S[k].values()) dropPart(e); S[k].clear(); }
+    S.parts = 0; S.unposedSince = 0;
+  }
+  function dropDepth() {
     const D = S.D, gl = S.gl;
     if (D) {
       for (const t of Object.values(D.zero)) try { gl.deleteTexture(t); } catch (e) { /* lost */ }
@@ -180,8 +223,69 @@ void main() {
       // (a stand-in's WebGL texture is the session's or a zero one: forgotten, never disposed, which would delete it)
       for (const t of D.ph) if (t) try { HOST.renderer.properties.remove(t); } catch (e) { /* gone */ }
     }
+    S.D = null;
+  }
+  function end() {
+    if (!S) return;
+    if (S.vis) try { S.session.removeEventListener('visibilitychange', S.vis); } catch (e) { /* gone */ }
+    dropRoom();
+    dropDepth();
     S = null;
     hide();
+  }
+  // Ask again for what the session gave (v131). After a long sleep a Quest's runtime may stop, or start again, its depth
+  // and its room scan, and nothing asked again (as with anchors not tracked after standby): the depth as at the start (a
+  // new binding; its kind, reading and probe decided afresh; depth sensing resumed where the session says it is not
+  // active, or does not say), and the room's parts dropped, so they are built again from what the frame lists now. With
+  // room, the room only. Never a pause (v124's rule, below)
+  function renew(why, room, hid) {
+    const t = performance.now(), Q = S.depth, s = S.session, L = room ? S.tr : S.td;
+    clog('occlusion renew', { why, room: !!room, depthActive: depthActive(), frames: S.frames, valid: S.valid, errors: Q.errors, err: Q.why || '',
+      ago: S.lastDepthAt ? Math.round(t - S.lastDepthAt) : -1, hidden: Math.round(hid || 0), tries: L.n, parts: S.parts, posed: S.posed });
+    if (S.parts) S.back.room = true;
+    dropRoom();
+    S.back.at = t; S.back.why = why;
+    if (room) { S.roomRenews++; return; }
+    S.renews++;
+    dropDepth();
+    S.decided = false; S.probeN = 0; S.probeAt = 0; S.probe = null; S.missSince = 0; S.throwRun = 0;
+    if (!Q.enabled) return;
+    S.back.depth = true;
+    if (Q.usage !== 'cpu-optimized') bind();
+    if (typeof s.resumeDepthSensing === 'function' && depthActive() !== true) {
+      try { s.resumeDepthSensing(); S.resumes++; } catch (e) { warn('resuming the depth', e); }
+    }
+  }
+  // the watchdog's ask, rate-limited: the first at least T.every after the last ask, each next one twice as long after,
+  // at most T.cap since the session's start, a sleep or the last time it was back steadily (steady); then given up: the
+  // Debug tab's line says to enter AR again, with one notice a session (not for depth that never came)
+  function tryRenew(why, room) {
+    const L = room ? S.tr : S.td, t = performance.now();
+    if (L.n >= T.cap) {
+      if (L.gave) return;
+      L.gave = t;
+      clog('occlusion gave up', { what: room ? 'room' : 'depth', why, tries: L.n, ago: S.lastDepthAt ? Math.round(t - S.lastDepthAt) : -1 });
+      if (!S.told && (room || S.everDepth)) {
+        S.told = true;
+        const n = HOST.collab && HOST.collab.notice;
+        try {
+          if (n) n(room ? 'The room no longer hides things' : 'People no longer hide things', room
+            ? 'The headset stopped placing its room scan. Leave AR and enter it again to bring it back.'
+            : 'The headset stopped giving its depth (people, hands). Leave AR and enter it again to bring it back.', 12000);
+        } catch (e) { /* no notice */ }
+      }
+      return;
+    }
+    if (t - L.at < T.every * Math.pow(2, L.n)) return;
+    L.n++; L.at = t;
+    renew(why, room);
+  }
+  // a frame with the depth (the room posed): back steadily for T.calm (no gap of a second), the tries start afresh, so a
+  // few hiccups, each brought back, never use up the cap of a long session; the gap since the last ask (L.at) stays
+  function steady(L, what, t) {
+    if (!L.ok || t - L.last > 1000) L.ok = t;
+    L.last = t;
+    if (L.n && t - L.ok >= T.calm) { clog('occlusion steady', { what, tries: L.n, ms: Math.round(t - L.ok) }); L.n = 0; }
   }
   // Depth sensing is never paused (v124; until then it was paused while nothing used it). The owner, 8 November 2026:
   // "When real world hides is set to nothing on startup it never can be turned on and one needs to exit the headset and
@@ -242,6 +346,14 @@ void main() {
     for (let j = 0; j < dst.length && j < src.length; j++) dst[j] = src[j] * rv;
     tex.needsUpdate = true;
   }
+  // the depth's kind decided afresh (its shape changed: a texture array or a texture per eye, its format, its own range,
+  // its scale): the stand-ins of the old kind forgotten, the reading and the probe again
+  function redecide(from, to) {
+    const D = S.D, t = performance.now();
+    for (const x of D.ph) if (x) try { HOST.renderer.properties.remove(x); } catch (e) { /* gone */ }
+    D.ph = []; D.kind = null; D.used = ''; S.decided = false; S.probeN = 0; S.probe = null; S.redecides++;
+    if (t - S.shapeLogAt > 2000) { S.shapeLogAt = t; clog('occlusion renew', { why: 'shape', from, to, frames: S.frames, valid: S.valid, count: S.redecides }); }
+  }
   // this frame's depth for each eye ({ tex, layer, scale, near, far, inf, matrix } or none). Only this frame's is used:
   // the session may take a texture back after its frame
   function depthStep(f) {
@@ -250,21 +362,26 @@ void main() {
     if (!Q.enabled || !S.views) return false;
     const gpu = Q.usage !== 'cpu-optimized';
     if (gpu && !S.binding) return false;
-    if (!S.D) S.D = { kind: null, cpu: !gpu, ph: [], cpuTex: [], eyes: [], zero: {}, used: '' };
-    const D = S.D, rs = S.session.renderState || {};
+    if (!S.D) S.D = { kind: null, shape: '', cpu: !gpu, ph: [], cpuTex: [], eyes: [], zero: {}, used: '' };
+    const D = S.D, rs = S.session.renderState || {}, fmt = get(S.session, 'depthDataFormat');
+    if (fmt) Q.format = fmt;   // (read each frame: part of the depth's shape)
     S.frames++;
-    let any = false;
+    let any = false, threw = false;
     S.views.forEach((view, i) => {
       let info = null;
-      try { info = gpu ? S.binding.getDepthInformation(view) : f.getDepthInformation(view); } catch (e) { Q.errors++; Q.why = msg(e); }
+      try { info = gpu ? S.binding.getDepthInformation(view) : f.getDepthInformation(view); } catch (e) { Q.errors++; Q.why = msg(e); threw = true; }
       if (!info || (gpu && !info.texture) || (!gpu && !info.data)) return;
       const g = k => { try { return info[k]; } catch (e) { return undefined; } };
       const arr = g('textureType') === 'texture-array';
-      if (!D.kind) D.kind = gpu ? { arr, int: false, la: Q.format === 'luminance-alpha' } : { arr: false, int: false, la: false };
-      const mat = g('normDepthBufferFromNormView'), M = mat && mat.matrix ? Array.from(mat.matrix) : IDENT;
       // a depth buffer's near and far: the depth information's own when it gives them (Quest Browser: 0.1 and Infinity),
       // else the session's
       const rv = +g('rawValueToMeters') || 1, dn = +g('depthNear'), df = +g('depthFar'), ownRange = dn > 0 && df > dn, far = ownRange ? df : (rs.depthFar || 1000);
+      // the depth's shape (its kind of texture, its format, whether it gives its own range, its scale): one that changes
+      // from what the kind was decided on (a depth provider started again after a sleep, say) is decided afresh
+      const shape = (gpu ? g('textureType') : 'cpu') + '|' + Q.format + '|' + (ownRange ? 'own' : 'session') + '|' + rv;
+      if (!any && D.kind && D.shape !== shape) redecide(D.shape, shape);
+      if (!D.kind) { D.kind = gpu ? { arr, int: false, la: Q.format === 'luminance-alpha' } : { arr: false, int: false, la: false }; D.shape = shape; }
+      const mat = g('normDepthBufferFromNormView'), M = mat && mat.matrix ? Array.from(mat.matrix) : IDENT;
       const E = { i, rv, tex: gpu ? info.texture : null, layer: arr ? (+g('imageIndex') || 0) : 0, matrix: M, cpu: !gpu,
         // (a 16-bit value read through a float sampler comes as value / 65535)
         scale: !gpu ? 1 : (Q.format === 'unsigned-short' && !D.kind.int ? rv * 65535 : rv),
@@ -273,6 +390,7 @@ void main() {
       else { if (!D.ph[i]) D.ph[i] = placeholder(D.kind.arr); ready(E.tex, D.kind.arr); }
       D.eyes[i] = E; any = true;
     });
+    S.throwRun = threw && !any ? S.throwRun + 1 : 0;
     if (!any) return false;
     S.valid++;
     // the reading: until the probe has said, a depth buffer's when the depth gives its own range (as Quest Browser's
@@ -459,11 +577,13 @@ void main() {
       try { pose = f.getPose(kind === 'plane' ? o.planeSpace : o.meshSpace, ref); } catch (err) { /* not this frame */ }
       if (pose) { e.m.matrix.fromArray(pose.transform.matrix); e.m.matrixWorldNeedsUpdate = true; }
       e.m.visible = !!pose;
+      S.parts++; if (pose) S.posed++;
     });
     for (const [o, e] of map) if (!seen.has(o)) { dropPart(e); map.delete(o); }
   }
   function roomStep(f, ref) {
     const budget = { n: 2 };
+    S.parts = 0; S.posed = 0;
     if (S.planesOn) { let s = null; try { s = f.detectedPlanes; } catch (e) { /* none */ } if (s) roomSync(s, S.planes, 'plane', f, ref, budget); }
     if (S.meshesOn) { let s = null; try { s = f.detectedMeshes; } catch (e) { /* none */ } if (s) roomSync(s, S.meshes, 'mesh', f, ref, budget); }
     return S.planes.size + S.meshes.size > 0;
@@ -474,14 +594,27 @@ void main() {
   // hung in the story's scene, so the story's render draws them first
   function step(f) {
     const r = HOST.renderer, s = HOST.session, pres = !!(r && s && r.xr.isPresenting);
+    if (O.lost) { hide(); return; }   // (the WebGL context lost: nothing until it is restored, restored() below)
     if (S && (S.session !== s || !pres)) end();
     if (!pres || !ar()) { hide(); return; }
     // (three.js r128 also runs the loop on the window's frames when it is given during a session: such a frame has no
     // XRFrame, and the last frame's depth may be gone by then)
     if (!f) { if (O.quad) O.quad.visible = false; return; }
     if (!S) begin(s, r);
+    const t = performance.now();
+    // back from a sleep: asked again at once, and the watchdog's tries start afresh
+    if (S.wakeDue) {
+      const h = S.wakeDue;
+      S.wakeDue = 0;
+      for (const L of [S.td, S.tr]) { L.n = 0; L.at = t; L.gave = 0; }
+      renew('wake', false, h);
+    }
+    // (frames that stopped coming for a while, as while the next story builds with the shell's loading scene: what was
+    // missing before is counted afresh)
+    if (t - (S.stepAt || t) > 5000) { S.missSince = 0; S.unposedSince = 0; S.throwRun = 0; }
+    S.stepAt = t;
     const sc = storyScene();
-    if (!sc) { hide(); return; }
+    if (!sc) { hide(); S.missSince = 0; S.unposedSince = 0; S.throwRun = 0; return; }
     make();
     if (O.root.parent !== sc) sc.add(O.root);
     const m = mode(), wantD = m === 'both' || m === 'depth', wantR = m === 'both' || m === 'room';
@@ -500,6 +633,42 @@ void main() {
     }
     O.room.visible = rm;
     O.root.visible = d || rm;
+    // the watchdog: only while the session is visible (hidden or blurred, a headset may stop its depth on purpose) and
+    // only for what the mode uses
+    const v = get(s, 'visibilityState'), live = !v || v === 'visible';
+    if (live && wantD && S.views && S.depth.enabled) depthWatch(d, t); else { S.missSince = 0; S.throwRun = 0; }
+    if (live && wantR) roomWatch(t); else S.unposedSince = 0;
+  }
+  // depth that had come and is wanted, the views there, but none for T.lost; or its calls throwing on T.throws frames in
+  // a row (from the start too)
+  function depthWatch(d, t) {
+    if (d) {
+      S.lastDepthAt = t; S.everDepth = true; S.missSince = 0; S.td.gave = 0;
+      steady(S.td, 'depth', t);
+      if (S.back.depth) { S.back.depth = false; clog('occlusion back', { what: 'depth', why: S.back.why, ms: Math.round(t - S.back.at), renews: S.renews, resumes: S.resumes }); }
+      return;
+    }
+    if (!S.missSince) S.missSince = t;
+    if (S.throwRun >= T.throws) tryRenew('depth throws');
+    else if (S.everDepth && t - S.missSince >= T.lost) tryRenew('depth lost');
+  }
+  // room parts there, none of them with a pose for T.room: the room built again (only the room); 'occlusion room' when
+  // the parts posed go to or from none
+  function roomWatch(t) {
+    const n = S.posed;
+    if ((n > 0) !== (S.posedLast > 0)) clog('occlusion room', { posed: n, parts: S.parts, planes: S.planes.size, meshes: S.meshes.size });
+    S.posedLast = n;
+    if (n > 0 || !S.parts) {
+      S.unposedSince = 0;
+      if (n > 0) {
+        S.tr.gave = 0;
+        steady(S.tr, 'room', t);
+        if (S.back.room) { S.back.room = false; clog('occlusion back', { what: 'room', why: S.back.why, ms: Math.round(t - S.back.at), posed: n, parts: S.parts }); }
+      }
+      return;
+    }
+    if (!S.unposedSince) S.unposedSince = t;
+    if (t - S.unposedSince >= T.room) tryRenew('room', true);
   }
   function wrap(fn) {
     if (!fn) return fn;
@@ -517,26 +686,57 @@ void main() {
     // a story's own (the studio's scene: true is 'both', false 'off', null this headset's own again); cleared when the
     // story changes (detach)
     scene(m) { O.over = m === true ? 'both' : m === false ? 'off' : MODES.includes(m) ? m : null; return O.over; },
-    sig: () => mode() + (O.over ? '!' : '') + (ar() ? 'a' : ''),
+    sig: () => mode() + (O.over ? '!' : '') + (ar() ? 'a' : '') + (S && (S.td.gave || S.tr.gave) ? 'x' : ''),
     ar, wrap,
     // the shell, before a story is disposed: out of its scene (hung in the next one's on its first frame) and its own
     // choice forgotten
     detach() { O.over = null; if (O.root && O.root.parent) O.root.parent.remove(O.root); },
+    // the WebGL context lost and restored (index.html's makeRenderer): nothing drawn meanwhile; restored, our own GL
+    // objects (the probe's program, its quad and framebuffer, the zero textures) belong to the lost context, so they are
+    // forgotten and the session's part begins anew on the next frame (three.js makes its own again; the headset's layer
+    // would need the session started again, which only leaving AR and entering again does)
+    lost() { O.lost = true; hide(); },
+    restored() {
+      O.lost = false; O.restored++;
+      O.progs = null; O.vao = null; O.probeFb = null; O.probeTex = null;
+      if (S && S.D) { S.D.zero = {}; S.D.cpuTex = []; S.D.cpuZero = null; }
+      end();
+    },
     // the Debug tab's line
     line() {
-      const m = mode();
-      if (!S) return SAY[m] + (O.over ? ' (the scene\'s)' : '') + ' · not in AR';
-      const Q = S.depth, D = S.D, E = D && D.eyes.find(Boolean);
-      const dp = !Q.enabled ? 'no depth' : E ? 'depth ' + (E.cpu ? 'CPU' : 'GPU') + ', ' + (D.used || '?') : 'depth waiting';
-      return SAY[m] + (O.over ? ' (the scene\'s)' : '') + ' · ' + dp + ' · room ' + (S.planes.size + S.meshes.size);
+      const m = mode(), what = SAY[m] + (O.over ? ' (the scene\'s)' : '');
+      if (!S) return what + ' · not in AR';
+      const Q = S.depth, D = S.D, E = D && D.eyes.find(Boolean), t = performance.now(), ago = S.lastDepthAt ? Math.round((t - S.lastDepthAt) / 1000) : 0;
+      if (S.td.gave) return what + ' · ' + (S.everDepth ? 'depth stopped ' + ago + ' s ago' : 'no depth came (' + (Q.why || 'none given') + ')') + ': leave AR and enter again';
+      if (S.tr.gave) return what + ' · the room scan stopped: leave AR and enter again';
+      const dp = !Q.enabled ? 'no depth' : E ? 'depth ' + (E.cpu ? 'CPU' : 'GPU') + ', ' + (D.used || '?')
+        : !(m === 'both' || m === 'depth') ? 'depth not used' : S.everDepth && S.missSince && t - S.missSince > 1000 ? 'depth stopped ' + ago + ' s ago, asked again ' + S.td.n : 'depth waiting';
+      return what + ' · ' + dp + ' · room ' + (S.planes.size + S.meshes.size) + (S.renews + S.roomRenews ? ' · renewed ' + (S.renews + S.roomRenews) : '');
+    },
+    // for the headset's alignment samples (shared.js, every 5 s in a room): short keys
+    sample() {
+      if (!S) return null;
+      const Q = S.depth, D = S.D;
+      return { m: mode(), u: Q.usage || '', f: Q.format || '', k: D && D.kind ? kindKey(D.kind) : '', r: D ? D.used : '', a: depthActive(), n: S.frames, v: S.valid,
+        ago: S.lastDepthAt ? Math.round(performance.now() - S.lastDepthAt) : -1, e: Q.errors, pl: S.planes.size, me: S.meshes.size, po: S.posed, rn: S.renews, rr: S.roomRenews };
+    },
+    // for tests: the times above shortened ({ wake, lost, room, every, cap, throws, calm }, in ms; null the defaults again)
+    times(o) {
+      if (o === null) Object.assign(T, T0);
+      else if (o) for (const k of Object.keys(T)) if (typeof o[k] === 'number' && o[k] >= 0) T[k] = o[k];
+      return Object.assign({}, T);
     },
     // for tests: what is set and drawn now
     state() {
       const D = S && S.D;
       return { mode: mode(), own, over: O.over, ar: ar(), session: !!S, root: !!(O.root && O.root.visible && O.root.parent), inScene: !!(O.root && O.root.parent && O.root.parent === storyScene()),
-        quad: !!(O.quad && O.quad.visible), roomShown: !!(O.room && O.room.visible), paused: !!(S && S.paused),
-        depth: S ? Object.assign({}, S.depth, { kind: D && D.kind, used: D ? D.used : '', eyes: D ? D.eyes.map(E => !!E) : [], frames: S.frames, valid: S.valid, decided: S.decided, probe: S.probe }) : null,
-        room: S ? { planes: S.planes.size, meshes: S.meshes.size, built: S.built, on: [S.planesOn, S.meshesOn] } : null };
+        quad: !!(O.quad && O.quad.visible), roomShown: !!(O.room && O.room.visible), lost: O.lost, restored: O.restored,
+        gl: { vao: !!O.vao, probe: !!O.probeFb, progs: O.progs ? Object.keys(O.progs).length : 0 },
+        depth: S ? Object.assign({}, S.depth, { kind: D && D.kind, shape: D ? D.shape : '', used: D ? D.used : '', eyes: D ? D.eyes.map(E => !!E) : [], frames: S.frames, valid: S.valid, decided: S.decided, probe: S.probe, probeN: S.probeN }) : null,
+        room: S ? { planes: S.planes.size, meshes: S.meshes.size, built: S.built, on: [S.planesOn, S.meshesOn], parts: S.parts } : null,
+        lastDepthAt: S ? S.lastDepthAt : 0, hiddenAt: S ? S.hiddenAt : 0, hidLast: S ? S.hidLast : 0, renews: S ? S.renews : 0, roomRenews: S ? S.roomRenews : 0,
+        redecides: S ? S.redecides : 0, resumes: S ? S.resumes : 0, bindings: S ? S.bindings : 0, posed: S ? S.posed : 0, depthActive: depthActive(),
+        tries: S ? { depth: S.td.n, room: S.tr.n } : null, gaveUp: S ? { depth: !!S.td.gave, room: !!S.tr.gave } : null, told: !!(S && S.told) };
     },
     parts: () => ({ root: O.root, quad: O.quad, room: O.room }),
   };

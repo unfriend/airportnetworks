@@ -8805,6 +8805,11 @@
     S.sharedAlign = R.sharedAlign;
     const P = R.sharedId ? val(kFrame(R.sharedId)) : null;
     if (validFrame(P)) S.pub = { by: P.by, g: gradeOf(P), at: P.at };
+    // real-world occlusion (occlusion.js, v131: does it stop after a long sleep?): the mode, the depth's usage, format,
+    // kind and reading, depthActive, frames asked and with depth, ms since the last depth, errors, the room's planes,
+    // meshes and parts posed, renews of the depth and of the room
+    const Oc = HOST.occlusion && HOST.occlusion.sample ? HOST.occlusion.sample() : null;
+    if (Oc) S.occl = Oc;
     log('sample', S);
   }
   // the log goes to the relay every 10 s while a headset is in a room (kept in relay/logs/ with --lan or --logs):
@@ -10038,6 +10043,7 @@
     homeRelay(u) { if (u !== undefined) { HOME.o = u === null ? null : String(u); HOME.state = ''; changed(); } return homeOffer(); },
     authTry: t => authTry(t), authForget: () => authForget(),
     notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
+    notice: (title, text, ms) => notice(title, text, ms),   // (a notice in front of you in a headset: real-world occlusion's)
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     // the room setup guide: what it shows ({ open, step, status: how this headset lines up, check: what the check says,
     // lined: [headsets lined up, headsets, checked], flow: the startup flow this session ('' not yet, 'on', 'done',
