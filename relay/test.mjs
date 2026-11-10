@@ -240,6 +240,32 @@ async function trackerSteps() {
         'no frame from points under 10 cm apart along the floor, one above the other, or not points');
     });
 
+    await step('trackers: the room\'s frame from an area\'s crosses (v131: m.k with that area\'s floor points ra and rb) is a headset\'s calibration on that area (shared.js\'s own fitFrame), and the room\'s truth', async () => {
+      const src = fs.readFileSync(path.join(REPO, 'shared.js'), 'utf8');
+      const grab = re => { const m = re.exec(src); if (!m) throw new Error('shared.js has no ' + re); return m[0]; };
+      const code = [grab(/const level = x => \{[^\n]*\};/), grab(/const yawOfX = [^\n]*;/), grab(/const floorUnder = \(a, b\) => \{[\s\S]*?\n {2}\};/), grab(/const fromMarks = [^\n]*;/),
+        grab(/function fitFrame\(a, b, S\) \{[\s\S]*?\n {2}\}/), grab(/function basis\(fr, out\) \{[\s\S]*?\n {2}\}/)].join('\n');
+      const THREE = createRequire(import.meta.url)(path.join(REPO, 'three.min.js')), TIP = 0.02;   // (shared.js's FLOOR_TIP: a headset's touch over the floor)
+      const S = new Function('THREE', 'FLOOR_TIP', 'const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _Y = new THREE.Vector3(0, 1, 0), onFloor = () => true, val = () => null, SAME = 0.1;\n' + code + '\nreturn { fitFrame, basis };')(THREE, TIP);
+      let dT = 0, dH = 0, n = 0;
+      const rnd = (lo, hi) => lo + Math.random() * (hi - lo);
+      for (let i = 0; i < 200; i++) {
+        // the room in SteamVR's space (its truth), and an area's two crosses on a floor a step above or below the room's
+        const W = new THREE.Matrix4().compose(new THREE.Vector3(rnd(-4, 4), rnd(-0.05, 0.05), rnd(-4, 4)), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd(-Math.PI, Math.PI)), new THREE.Vector3(1, 1, 1));
+        const step = rnd(-0.2, 0.2), ra = [rnd(-15, 15), step, rnd(-15, 15)], ang = rnd(-Math.PI, Math.PI), d = rnd(0.6, 4), rb = [ra[0] + d * Math.cos(ang), step + rnd(-0.03, 0.03), ra[2] + d * Math.sin(ang)];
+        const at = (p, up) => new THREE.Vector3(p[0], p[1] + up, p[2]).applyMatrix4(W).toArray();
+        const F = frameOf({ a: at(ra, TRK_FLOOR), b: at(rb, TRK_FLOOR), k: 'lab0001', ra, rb });
+        const H = S.basis(S.fitFrame(at(ra, TIP), at(rb, TIP), { pair: 'lab0001', ra: [ra[0], ra[1] + TIP, ra[2]], rb: [rb[0], rb[1] + TIP, rb[2]] }), new THREE.Matrix4()).invert(), Wi = W.clone().invert();
+        for (let j = 0; j < 5; j++) {
+          const p = [rnd(-8, 8), rnd(-1, 3), rnd(-8, 8)], truth = new THREE.Vector3(...p).applyMatrix4(Wi), got = toRoom(F, p), hs = new THREE.Vector3(...p).applyMatrix4(H);
+          dT = Math.max(dT, Math.hypot(truth.x - got[0], truth.y - got[1], truth.z - got[2])); dH = Math.max(dH, hs.distanceTo(new THREE.Vector3(...got))); n++;
+        }
+      }
+      ok(dT < 1e-6 && dH < 1e-6, `${n} points: the trackers' frame from an area's crosses within ${dT.toExponential(1)} m of the room's truth, and of a headset's calibration on that area within ${dH.toExponential(1)} m`);
+      ok(frameOf({ a: [0, 0, 0], b: [2, 0, 0], k: 'lab0001', ra: [5, 0, 5], rb: [5.05, 0, 5] }) === null && !!frameOf({ a: [0, 0, 0], b: [2, 0, 0], k: 'lab0001', ra: [5, 0, 5] }),
+        'an area\'s points under 10 cm apart: no frame; an area with no second point: spots A and B\'s rule');
+    });
+
     await step('trackers: a room lined up by hand (trk with on and m, a room key) gets @trk about 60 times a second, every pose within 1 mm and 0.05 degrees of the truth; only such rooms', async () => {
       const P = await roomAt(T.port), a1 = await member(T.port, P, 'a1'), b1 = await member(T.port, P, 'b1');
       const Q = await roomAt(T.port), q1 = await member(T.port, Q, 'q1');        // no trk

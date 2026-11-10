@@ -60,12 +60,23 @@ function reading(e) {
 // spots rule, and basis): its origin the floor point under spot A (spot A's point less TRK_FLOOR), its x axis level
 // towards spot B, y up, z = x cross y. SteamVR's standing space plays the headset's local-floor: both right-handed, y up,
 // -z ahead. relay/test.mjs checks it against shared.js's own code. null: m is not two such points
+// An area's crosses (v131: m.k, with that area's floor points in room coordinates as the page wrote them, m.ra and
+// m.rb: where the room has its crosses, on the floor): m.a and m.b fitted to them as a headset's calibration on an
+// area is (shared.js fitFrame): turned so that ra -> rb lies along a -> b, its origin where that puts the room's when ra
+// is at a, the room's floor that far under the tracker's floor point at a as ra is over the room's floor
 export function frameOf(m) {
   if (!m || typeof m !== 'object') return null;
   const a = vec(m.a, 3, 1000), b = vec(m.b, 3, 1000);
   if (!a || !b) return null;
   const dx = b[0] - a[0], dz = b[2] - a[2], l = Math.hypot(dx, dz);
   if (!(l >= MIN_APART)) return null;
+  const ra = typeof m.k === 'string' && m.k ? vec(m.ra, 3, 10000) : null, rb = ra ? vec(m.rb, 3, 10000) : null;
+  if (ra && rb) {
+    const ex = rb[0] - ra[0], ez = rb[2] - ra[2], lr = Math.hypot(ex, ez);
+    if (!(lr >= MIN_APART)) return null;
+    const yaw = Math.atan2(-dz / l, dx / l) - Math.atan2(-ez / lr, ex / lr), c = Math.cos(yaw), s = Math.sin(yaw);
+    return { o: [a[0] - (c * ra[0] + s * ra[2]), a[1] - TRK_FLOOR - ra[1], a[2] - (-s * ra[0] + c * ra[2])], c, s, yaw, hs: Math.sin(-yaw / 2), hc: Math.cos(-yaw / 2) };
+  }
   const c = dx / l, s = -dz / l, yaw = Math.atan2(s, c);   // x = (cos yaw, 0, -sin yaw): a turn by yaw about y
   return { o: [a[0], a[1] - TRK_FLOOR, a[2]], c, s, yaw, hs: Math.sin(-yaw / 2), hc: Math.cos(-yaw / 2) };
 }

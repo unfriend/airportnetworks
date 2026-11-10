@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-40';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-41';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -171,7 +171,7 @@
   // camera mode (v124, "camera mode" below): a phone filming the room in AR; on while its session runs (want: Start pressed;
   // sess: the session its own request gave, the only one that is the camera's). Its kind is 'cam' (the relay's members,
   // presence), never a headset's
-  const CAM = { ok: null, want: false, wantAt: 0, asked: 0, sess: null, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
+  const CAM = { pk: '', ok: null, want: false, wantAt: 0, asked: 0, sess: null, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
     hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set() };
   const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
@@ -3077,7 +3077,9 @@
     OV.crossA = cross(); OV.crossB = cross();
     OV.markLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]),
       new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 }));
-    OV.marks.add(OV.crossA, OV.crossB, OV.markLine); OV.room.add(OV.marks);
+    // (v131: which area's crosses they are, on a small sign over the middle of the line: drawn while the room has areas)
+    OV.markName = sheet(420, 72, 0.3, 53); OV.markName.mesh.visible = false; OV.markName.text = '';
+    OV.marks.add(OV.crossA, OV.crossB, OV.markLine, OV.markName.mesh); OV.room.add(OV.marks);
     // (drawn over everything: on the floor the room's own depth, or the scene, would hide a cross a little under it,
     // and the check by eye is about where they are; under the menu, 54, and the sheets, 55, so their buttons stay readable)
     OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
@@ -3090,6 +3092,7 @@
     OV.root.visible = false;
   }
   const MARK = 0xffb43b;
+  const MKL = { L: ['A', 'B'] };   // (the letters of the crosses drawn now: the check by eye's beams and arrows say them)
   function cross() {
     const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: MARK });
     g.add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.004, 0.01), m), new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.004, 0.14), m),
@@ -3106,15 +3109,31 @@
   }
   // (not while the trigger takes the controller's tip: a calibration, or a check, goes to the spot itself, not to where
   // this headset puts it)
+  // (v131: the crosses of the area this headset lines up from, or the nearest area's when lined up by another source, at
+  // their room points; with the room's areas, the area's name and letters on a sign over them)
   function drawMarks() {
-    const eye = eyeShown(), mk = eye ? roomMk() : R.mk, t = performance.now();   // (asked by eye: where this headset puts the room's spots)
-    OV.marks.visible = OV.room.visible && !!mk && !tipMode() && (eye || PNL.open || t < R.showUntil);
+    const eye = eyeShown(), mk = eye || !R.mk ? roomMk() : R.mk, t = performance.now();   // (asked by eye: where this headset puts the room's spots)
+    OV.marks.visible = OV.room.visible && !!mk && (eye || !!R.mk) && !tipMode() && (eye || PNL.open || t < R.showUntil);
     if (OV.marks.visible) {
-      OV.crossA.position.set(0, mk[0], 0); OV.crossB.position.set(mk[1], mk[2], 0);
+      OV.crossA.position.fromArray(mk.A); OV.crossB.position.fromArray(mk.B);
       OV.crossA.visible = OV.crossB.visible = true;
       const a = OV.markLine.geometry.attributes.position;
-      a.setXYZ(0, 0, mk[0], 0); a.setXYZ(1, mk[1], mk[2], 0); a.needsUpdate = true;
+      a.setXYZ(0, mk.A[0], mk.A[1], mk.A[2]); a.setXYZ(1, mk.B[0], mk.B[1], mk.B[2]); a.needsUpdate = true;
       OV.markLine.geometry.computeBoundingSphere();
+      const L = lettersOf(mk.k), N = OV.markName, text = mk.k || areaList().length ? `${areaName(mk.k)}: ${L[0]} and ${L[1]}` : '';
+      N.mesh.visible = !!text;
+      if (text) {
+        if (N.text !== text) {
+          N.text = text;
+          const ctx = N.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, N.w, N.h);
+          rr(ctx, 3, 3, N.w - 6, N.h - 6, 18); ctx.fillStyle = 'rgba(8,15,28,0.88)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = AMBER; ctx.stroke();
+          ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, text, N.w - 30), N.w / 2, N.h / 2 + 2);
+          N.tex.needsUpdate = true;
+        }
+        N.mesh.position.set((mk.A[0] + mk.B[0]) / 2, Math.max(mk.A[1], mk.B[1]) + 0.35, (mk.A[2] + mk.B[2]) / 2);
+        if (HD.ok) N.mesh.lookAt(HD.p);
+      }
+      MKL.L = L;
     }
     eyeSpots(eye && OV.marks.visible, t);   // (asked by eye: the crosses lit, a beam and a letter over each)
     for (let i = 0; i < 2; i++) {
@@ -3875,11 +3894,21 @@
   // the rest of the Circles tab, with Back, Next and Close (Skip for now while the flow shows it), the step's text short
   // and plain, a drawing where it helps, and over them a live status (the room, this headset's lineUp, the headsets lined
   // up and checked). Line up and Check say what this headset needs now (lineCase, roomMk)
-  const GUIDE_T = ['Before you start', 'Line up', 'Check that you line up', 'Not lined up?'];
+  const GUIDE_T = ['Before you start', 'Line up', 'Check that you line up', 'Not lined up?', 'Areas'];
   function guidePage(S, x, y, w) {
     const ctx = S.ctx, k = Math.max(0, Math.min(GUIDE_T.length - 1, PNL.gs | 0)), bw = (w - 16) / 2, b3 = (w - 32) / 3;
     const para = (s, col, px) => { ctx.font = FONT(px || 22); ctx.fillStyle = col || INK; y += wrapText(ctx, s, x, y, w, Math.round((px || 22) * 1.32), 5) + 12; };
     const cal = !!R.calib, calBtn = (xx, ww, primary) => button(S, 'guide:cal', xx, y, ww, 60, cal ? 'Stop calibrating' : 'Calibrate', guideCal, { primary: primary && !cal, on: cal, px: 23 });
+    // (v131: which area's crosses Calibrate takes, while the room has areas: the one found where you stand first)
+    const areaRow = () => {
+      const all = areasAll();
+      if (all.length < 2 || cal) return;
+      const k1 = guidePk(), A = all.find(q => q.id === k1) || all[0];
+      button(S, 'guide:area', x, y, w, 58, `Calibrate on: ${A.name} (${A.L.join(' and ')})  ›`, () => { GD.touched = true; const i = all.indexOf(A); GD.pk = all[(i + 1) % all.length].id; }, { px: 22, tog: null });
+      y += 72;
+    };
+    const stale = areaList().filter(areaStale);
+    if (stale.length && (k === 1 || k === 4)) para(`Spots A and B were taped again since ${stale.map(A => A.name).join(', ')} ${stale.length > 1 ? 'were' : 'was'} measured: measure the areas again (Areas, the last page).`, AMBER, 21);
     const turn = n => () => { GD.touched = true; PNL.gs = n; };
     ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText('Room setup', x, y);
     ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textAlign = 'right'; ctx.fillText(`Step ${k + 1} of ${GUIDE_T.length}`, x + w, y + 6); ctx.textAlign = 'left';
@@ -3895,17 +3924,23 @@
       // Line up: what to do now (lineCase), and why after a check that was out
       const c = lineCase(), L = lineUp(), red = GD.red;
       if (red && c !== 'calib') para(red.spot === 'p' ? `Your last check was ${Math.round(red.d * 100)} cm out against someone else's tip.` : red.spot === 'e' ? 'You said the orange crosses are not on your spots.' :
-        `Your last check: spot ${red.spot.toUpperCase()} was ${Math.round(red.d * 100)} cm from where this headset puts it.`, RED);
+        `Your last check: spot ${lettersOf(red.pk || '')[red.spot === 'b' ? 1 : 0]} was ${Math.round(red.d * 100)} cm from where this headset puts it.`, RED);
       if (c === 'calib') {
-        para(R.calib.step === 'a' ? 'Hold your controller pointing down, the bright ring at its tip on spot A on the floor: hold still and pull the trigger.' : 'Now spot B on the floor, a metre or more from A: hold still and pull the trigger.');
+        const [CA, CB] = lettersOf(R.calib.k || '');
+        para(R.calib.step === 'a' ? `Hold your controller pointing down, the bright ring at its tip on spot ${CA} on the floor${R.calib.k ? ' (' + areaName(R.calib.k) + ')' : ''}: hold still and pull the trigger.` : `Now spot ${CB} on the floor, a metre or more from ${CA}: hold still and pull the trigger.`);
         calBtn(x, bw, false); y += 76;
       } else if (c === 'check') {
-        para(L.h === 'marks' ? 'Lined up from the room\'s two spots. Now check it: one touch on spot A.' : 'Lined up from the room\'s two spots, through the shared space. Now check it: one touch on spot A.');
+        const LA = lettersOf(R.mk ? R.mk.k : '')[0], an = R.mk && R.mk.k ? areaName(R.mk.k) + '\'s' : 'the room\'s';
+        para(L.h === 'marks' ? `Lined up from ${an} two spots. Now check it: one touch on spot ${LA}.` : `Lined up from ${an} two spots, through the shared space. Now check it: one touch on spot ${LA}.`);
         button(S, 'guide:tocheck', x, y, bw, 60, 'Check', turn(2), { primary: true, px: 23 });
         calBtn(x + bw + 16, bw, false); y += 76;
+        areaRow();
       } else if (c === 'room') {
-        para('This room has two spots, A and B: tape crosses on the floor. Calibrate on them: hold your controller pointing down, its tip on spot A, and pull the trigger; then spot B.');
-        drawTape(ctx, x, y, w, 120); y += 136;
+        const k1 = guidePk(), [CA, CB] = lettersOf(k1);
+        para(areaList().length ? `This room has tape crosses in ${areasAll().length} areas. Calibrate on the two nearest you: hold your controller pointing down, its tip on the first (${CA}), and pull the trigger; then the second (${CB}).` :
+          'This room has two spots, A and B: tape crosses on the floor. Calibrate on them: hold your controller pointing down, its tip on spot A, and pull the trigger; then spot B.');
+        drawTape(ctx, x, y, w, 120, k1); y += 136;
+        areaRow();
         calBtn(x, bw, true); y += 76;
         para('Spots gone? Put two new tape crosses on the floor and calibrate on them: they become the room\'s, and the others calibrate on them too.', MUTED, 21);
       } else if (c === 'first') {
@@ -3922,8 +3957,10 @@
       if (L.k === 'no' && c === 'none') { button(S, 'guide:fix', x, y, bw, 58, 'What to do', turn(3), { px: 23, color: '#ffb43b' }); y += 74; }   // (with spots: Calibrate is what to do)
     } else if (k === 2) {
       // Check: on its own at the room's spot A (or B) once the room has its spots; with someone always
-      if (roomMk()) {
-        para('Press Check at A, then put the bright ring at your controller\'s tip on spot A on the floor (not on an orange cross), hold still and pull the trigger. Spot B works too.');
+      const M0 = roomMk();
+      if (M0) {
+        const [CA, CB] = lettersOf(M0.k);
+        para(`Press Check at ${CA}, then put the bright ring at your controller's tip on spot ${CA} on the floor (not on an orange cross), hold still and pull the trigger. Spot ${CB} works too.` + (M0.k ? ` (${areaName(M0.k)}'s crosses: the Areas page checks the others.)` : ''));
         y = selfRow(S, x, y, w);
         para('Or with someone: both touch one spot, and each presses Check here within 20 s of the other.', MUTED, 21);
         y = checkRow(S, x, y, w, 'guide:check', true);
@@ -3933,7 +3970,7 @@
         drawTips(ctx, x, y, w, 150); y += 168;
         y = checkRow(S, x, y, w, 'guide:check');
       }
-    } else {
+    } else if (k === 3) {
       para('1. Re-align: the shared space is asked for again and the room\'s frame taken again. Then check again.');
       button(S, 'guide:realign', x, y, bw, 58, R.again ? 'Re-aligning...' : 'Re-align', R.session && !cal ? () => realignNow() : null, { on: !!R.again, px: 23 });
       button(S, 'guide:again', x + bw + 16, y, bw, 58, 'Check again', turn(2), { px: 23 });
@@ -3945,6 +3982,42 @@
       para('3. Still out: check that each headset has scanned this room and runs the same browser version. Then a fresh shared space: everyone leaves AR, one headset enters first, the others after Room ready.');
       if (fr) { button(S, 'guide:fresh', x, y, bw, 58, fa ? 'Sure? Press again' : 'Fresh shared space', freshAsk, { px: 22, color: fa ? '#ffb43b' : undefined, on: fa }); y += 76; }
       else { ctx.font = FONT(21); ctx.fillStyle = MUTED; y += wrapText(ctx, 'A fresh shared space needs the laptop relay serving this page.', x, y, w, 28, 2) + 14; }
+    } else {
+      // Areas (v131): more tape crosses in other parts of the room, all in the one room frame. Add spots for another area
+      // (a headset lined up with the room: best by its own spots), and check each area's crosses (a second headset lined
+      // up elsewhere confirms an area measured)
+      para('A big room, or rooms side by side: put two more tape crosses on the floor in each part, and every headset lines up again from the crosses nearest it, in the same room.');
+      const D = AD.on;
+      if (D && D.step === 'replace') {
+        const old = areaOf(D.k);
+        para(`These crosses are ${old ? old.name + '\'s (' + old.L.join(' and ') + ')' : 'an area\'s'}: replace them with the ones you touched?`, AMBER);
+        button(S, 'guide:areareplace', x, y, bw, 60, 'Replace', () => { GD.touched = true; areaWrite(); }, { primary: true, px: 23 });
+        button(S, 'guide:areastop', x + bw + 16, y, bw, 60, 'Cancel', () => { GD.touched = true; areaStop(); }, { px: 23 });
+        y += 76;
+      } else if (D) {
+        para(D.step === 'a' ? `${D.name}: touch its first cross, ${D.L[0]}, with your controller's tip on the floor; hold still and pull the trigger.` : `Now ${D.L[1]}, a metre or more from ${D.L[0]}: hold still and pull the trigger.`, CYAN);
+        button(S, 'guide:areastop', x, y, bw, 60, 'Stop adding', () => { GD.touched = true; areaStop(); }, { on: true, px: 23 });
+        y += 76;
+      } else {
+        const can = canArea();
+        button(S, 'guide:areaadd', x, y, w, 60, 'Add spots for another area', can ? () => { GD.touched = true; areaAsk(); } : null, { primary: can, px: 23 });
+        y += 68;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, can ? 'Best from a headset lined up by its own spots: it measures where the new crosses are in the room.' : areasAll().length >= AREA.max ? `A room has at most ${AREA.max} areas.` : R.calib ? 'Not while calibrating' : 'Once this headset is lined up', x, y, w, 28, 2) + 14;
+      }
+      const cs = checkState(), can2 = canCheck();
+      for (const A of areasAll()) {
+        ctx.font = FONT(22, 700); ctx.fillStyle = areaStale(A) ? AMBER : INK;
+        ctx.fillText(fit(ctx, `${A.L.join(' ')} · ${A.name} · ${A.d.toFixed(1)} m apart` + (areaStale(A) ? ' · measure again' : ''), w), x, y + 4); y += 40;
+        const b3 = (w - 32) / 3;
+        [0, 1].forEach(i => {
+          const sp = i ? 'b' : 'a', on = CK.arm && CK.self === sp && (CK.pk || '') === A.id;
+          button(S, `guide:acheck:${A.id || '-'}:${sp}`, x + i * (b3 + 16), y, b3, 58, on ? 'Stop checking' : 'Check at ' + A.L[i], on || can2 ? () => { GD.touched = true; checkArm(!on, sp, A.id); } : null, { on, px: 22 });
+        });
+        button(S, `guide:acal:${A.id || '-'}`, x + 2 * (b3 + 16), y, b3, 58, 'Calibrate here', !R.calib && !AD.on ? () => { GD.touched = true; GD.pk = A.id; guideCal(); } : null, { px: 21 });
+        y += 72;
+      }
+      if (cs.text) { ctx.font = FONT(cs.s === 'done' ? 25 : 22, cs.s === 'done' ? 700 : 400); ctx.fillStyle = cs.col; y += wrapText(ctx, cs.text, x, y, w, cs.s === 'done' ? 33 : 29, 3) + 14; }
     }
     // Back, Next (Done on the last page: back to the Circles tab) and Close (Skip for now while the startup flow shows it)
     y += 4;
@@ -3970,10 +4043,10 @@
   }
   // Check at A and Check at B (a check on its own at the room's spot) and what the check says; returns the new y
   function selfRow(S, x, y, w) {
-    const ctx = S.ctx, bw = (w - 16) / 2, can = canCheck() && !!roomMk(), cs = checkState();
+    const ctx = S.ctx, bw = (w - 16) / 2, M = roomMk(), can = canCheck() && !!M, cs = checkState(), LL = lettersOf(M ? M.k : '');
     for (const [i, sp] of [[0, 'a'], [1, 'b']]) {
-      const on = CK.arm && CK.self === sp, A = sp.toUpperCase();
-      button(S, 'guide:self' + A, x + i * (bw + 16), y, bw, 64, on ? 'Stop checking' : 'Check at ' + A, on || can ? () => { GD.touched = true; checkArm(!on, sp); } : null,
+      const on = CK.arm && CK.self === sp, A = sp.toUpperCase();   // (the button's id stays guide:selfA and guide:selfB, whichever area's)
+      button(S, 'guide:self' + A, x + i * (bw + 16), y, bw, 64, on ? 'Stop checking' : 'Check at ' + LL[i], on || can ? () => { GD.touched = true; checkArm(!on, sp, M ? M.k : undefined); } : null,
         { primary: sp === 'a' && can && !CK.arm, on, px: 25 });
     }
     y += 80;
@@ -3992,8 +4065,9 @@
     if (!quiet && cs.text) { ctx.font = FONT(cs.s === 'done' ? 25 : 22, cs.s === 'done' ? 700 : 400); ctx.fillStyle = cs.col; y += wrapText(ctx, cs.text, x, y, w, cs.s === 'done' ? 33 : 29, 3) + 14; }
     return y;
   }
-  // the two spots, A and B, tape crosses on the floor about 2 m apart, with an arrow from A to B (seen from above)
-  function drawTape(ctx, x, y, w, h) {
+  // the two spots, A and B (an area's letters, k), tape crosses on the floor about 2 m apart, with an arrow from A to B
+  // (seen from above)
+  function drawTape(ctx, x, y, w, h, k) {
     rr(ctx, x, y, w, h, 14); ctx.fillStyle = 'rgba(149,166,189,0.08)'; ctx.fill();
     const ax = x + w * 0.24, bx = x + w * 0.76, cy = y + h * (h < 140 ? 0.36 : 0.42), s = h < 140 ? 20 : 26, org = '#ffb43b';
     const tape = c => { ctx.fillStyle = org; ctx.fillRect(c - s, cy - 5, 2 * s, 10); ctx.fillRect(c - 5, cy - s, 10, 2 * s); };
@@ -4002,7 +4076,8 @@
     ctx.beginPath(); ctx.moveTo(ax + s + 14, cy); ctx.lineTo(bx - s - 26, cy); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = org; ctx.beginPath(); ctx.moveTo(bx - s - 10, cy); ctx.lineTo(bx - s - 30, cy - 12); ctx.lineTo(bx - s - 30, cy + 12); ctx.closePath(); ctx.fill();
     ctx.textAlign = 'center';
-    ctx.font = FONT(h < 140 ? 26 : 32, 700); ctx.fillStyle = INK; ctx.fillText('A', ax, cy + s + 10); ctx.fillText('B', bx, cy + s + 10);
+    const LT = lettersOf(k || '');
+    ctx.font = FONT(h < 140 ? 26 : 32, 700); ctx.fillStyle = INK; ctx.fillText(LT[0], ax, cy + s + 10); ctx.fillText(LT[1], bx, cy + s + 10);
     ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText('about 2 m', (ax + bx) / 2, cy - (h < 140 ? 34 : 42));
     ctx.fillText(fit(ctx, 'tape crosses on the floor', w * 0.5), (ax + bx) / 2, cy + 18);
     ctx.textAlign = 'left';
@@ -4273,20 +4348,36 @@
         y += 76;
       }
       ctx.font = FONT(22); ctx.fillStyle = MUTED;
-      ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? '' : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
+      const cap = placeCap(), used = PLC.list.reduce((n, q) => n + placeN(q), 0);
+      ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? ` · ${used} of ${cap} anchors` : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
       for (const p of PLC.list.slice(0, 8)) {
-        const on = !!C.code && p === R.saved, fa = placeArmed(p.code);
+        const on = !!C.code && p === R.saved, id = p.code + (p.pair ? '|' + p.pair : ''), fa = placeArmed(id);
         const h = (Date.now() - p.at) / 3600000, when = h < 1 ? 'this hour' : h < 24 ? Math.floor(h) + ' h ago' : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago';
-        const t = (p.code ? 'Room ' + p.code : 'No room yet') + (on ? ' · in use' : p.code && PLC.here === p.code ? ' · you are in it' : '') + ' · ' +
+        const here1 = p.code && PLC.here === p.code && (p.code !== C.code || (PLC.hereArea || '') === (p.pair || ''));
+        const t = (p.code ? 'Room ' + p.code : 'No room yet') + (p.pair ? ' · ' + (p.an || areaName(p.pair)) + ' (' + spotLetters(p).join(' ') + ')' : '') + (on ? ' · in use' : here1 ? ' · you are in it' : '') + ' · ' +
           (placeKept(p) ? (nOf(p) === 1 ? 'one anchor' : 'two anchors') : 'this session only') + ' · ' + when;
         ctx.font = FONT(21, on ? 700 : 400); ctx.fillStyle = on ? CYAN : INK; ctx.fillText(fit(ctx, t, w - 196), x, y + 15);
-        button(S, 'placeforget:' + (p.code || '-'), x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget', () => placeForgetAsk(p.code), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
+        button(S, 'placeforget:' + (p.code || '-') + (p.pair ? '|' + p.pair : ''), x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget', () => placeForgetAsk(id), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
         y += 62;
       }
-      const cap = placeCap();
-      button(S, 'placeanchors', x, y, bw, 56, PLC.one ? 'Anchors per room: one' : 'Anchors per room: two', () => placesOne(!PLC.one), { px: 21, on: PLC.one, tog: null });
-      note(`Up to ${PLC.one ? cap : Math.floor(cap / 2)} rooms; for calibrations from now on`, y);
-      y += 72;
+      // (the anchor budget, v131: a line in place of v130's setting)
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      y += wrapText(ctx, `A new place keeps two anchors; past ${cap} in all, the places made first keep one each (at their first cross), then the place used least recently goes.`, x, y, w, 28, 2) + 10;
+      for (const o of PLC.dropped.slice(0, 3)) { ctx.fillStyle = AMBER; ctx.fillText(fit(ctx, `Dropped: room ${o.code}'s ${o.name} (${o.why === 'gone' ? 'the area was forgotten' : 'spots A and B taped again'})`, w), x, y); y += 30; }
+      // the room's areas (v131): their letters and names, who measured each, and Forget area (two presses: its tombstone)
+      if (C.code) {
+        const as = areaList();
+        ctx.font = FONT(22); ctx.fillStyle = MUTED;
+        ctx.fillText(fit(ctx, as.length ? `Areas in this room: ${as.length + (area1() ? 1 : 0)} (spots A and B, and ${as.map(A => A.L.join(' ')).join(', ')})` : 'Areas in this room: spots A and B only (more under Room setup, Areas)', w), x, y); y += 40;
+        for (const A of as) {
+          const fa = AF.id === A.id && performance.now() < AF.until, m = member(A.by), who = A.by === C.id ? 'you' : (m && m.name) || 'someone';
+          ctx.font = FONT(21); ctx.fillStyle = areaStale(A) ? AMBER : INK;
+          ctx.fillText(fit(ctx, `${A.L.join(' ')} · ${A.name} · measured by ${who}` + (areaStale(A) ? ' · stale: measure again' : ''), w - 196), x, y + 15);
+          button(S, 'areaforget:' + A.id, x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget area', () => areaForgetAsk(A.id), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
+          y += 62;
+        }
+      }
+      y += 10;
       line();
       // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging), Sound check
       label('This headset');
@@ -4781,7 +4872,7 @@
   function drawEye() {
     const S = OV.eye, show = eyeShown();
     if (!show) { if (S.mesh.visible) { S.mesh.visible = false; S.regions = []; S.sig = ''; } EYEQ.placed = false; eyeArrows(false); return; }
-    const sig = [EYEQ.why, S.hover].join('|');
+    const sig = [EYEQ.why, S.hover, MKL.L.join('')].join('|');
     if (sig !== S.sig) {
       S.sig = sig;
       const ctx = S.ctx, W = S.w;
@@ -4791,7 +4882,7 @@
       ctx.font = FONT(22, 700); ctx.fillStyle = AMBER; ctx.fillText('CHECK BY EYE', 30, 26);
       ctx.font = FONT(38, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, 'Are both crosses on your spots?', W - 60), 30, 58);
       ctx.font = FONT(20); ctx.fillStyle = MUTED;
-      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ' Follow the arrows to the two orange crosses: where this headset puts spot A and spot B on the floor.', 30, 106, W - 60, 24, 3);
+      wrapText(ctx, (EYEQ_WHY[EYEQ.why] || '') + ` Follow the arrows to the two orange crosses: where this headset puts spot ${MKL.L[0]} and spot ${MKL.L[1]} on the floor.`, 30, 106, W - 60, 24, 3);
       const bw = (W - 60 - 16) / 2;
       button(S, 'eye:yes', 30, 186, bw, 72, 'Yes', eyeYes, { primary: true, px: 30, tog: null });
       button(S, 'eye:no', 30 + bw + 16, 186, bw, 72, 'No, calibrate again', eyeNo, { px: 26, tog: null });
@@ -4836,14 +4927,14 @@
       const g = new THREE.Group(); g.visible = false;
       const core = over(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, EH.beam, 8, 1, true).translate(0, EH.beam / 2, 0), mat({ color: EH_LIT })));
       const glow = over(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, EH.beam, 12, 1, true).translate(0, EH.beam / 2, 0), mat({ color: MARK, opacity: 0.3 })));
-      const letter = over(new THREE.Sprite(new THREE.SpriteMaterial({ map: ehTex(128, 128, (ctx, w) => {
-        ctx.beginPath(); ctx.arc(w / 2, w / 2, w / 2 - 6, 0, Math.PI * 2); ctx.fillStyle = '#ffb43b'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff2c4'; ctx.stroke();
-        ctx.font = FONT(84, 700); ctx.fillStyle = '#10182a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(k, w / 2, w / 2 + 4);
-      }), transparent: true, depthTest: false, depthWrite: false })));
+      const lt = ehTex(128, 128, () => {});
+      const letter = over(new THREE.Sprite(new THREE.SpriteMaterial({ map: lt, transparent: true, depthTest: false, depthWrite: false })));
       letter.scale.set(0.16, 0.16, 1); letter.position.y = EH.beam + 0.1;
       g.add(glow, core, letter);
       OV.marks.add(g);
-      EH.spots.push({ k, g, core, glow, letter, cross: k === 'A' ? OV.crossA : OV.crossB });
+      const o = { k, g, core, glow, letter, lt, ch: '', cross: k === 'A' ? OV.crossA : OV.crossB };
+      ehLetter(o, k);
+      EH.spots.push(o);
     }
     // the arrows (in the scene, as the question is): straight, along +z, and a U-turn in the plane facing you (going up on
     // the right, over and down on the left: turn left; mirrored, turn right)
@@ -4862,6 +4953,16 @@
       EH.arrows.push({ k, g, dir, round, label, text: '', behind: false, side: 0, d: 0, x: 0 });
     }
   }
+  // a beam's letter drawn (v131: the area's, C or D, as well as A or B)
+  function ehLetter(o, ch) {
+    if (o.ch === ch) return;
+    o.ch = ch;
+    const cv = o.lt.image, ctx = cv.getContext('2d'), w = cv.width;
+    ctx.clearRect(0, 0, w, w);
+    ctx.beginPath(); ctx.arc(w / 2, w / 2, w / 2 - 6, 0, Math.PI * 2); ctx.fillStyle = '#ffb43b'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#fff2c4'; ctx.stroke();
+    ctx.font = FONT(84, 700); ctx.fillStyle = '#10182a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, w / 2, w / 2 + 4);
+    o.lt.needsUpdate = true;
+  }
   // the crosses lit, a beam and a letter on each (on), or as they were (from drawMarks: the crosses placed this frame)
   function eyeSpots(on, t) {
     if (on) eyeHintBuild();
@@ -4874,6 +4975,7 @@
     const k = 0.5 + 0.5 * Math.sin(t / 1600 * 2 * Math.PI);   // (a slow pulse: 1.6 s)
     EH.col.setHex(MARK).lerp(_ehLit, 0.3 + 0.45 * k);
     for (const o of EH.spots) {
+      ehLetter(o, MKL.L[o.k === 'A' ? 0 : 1]);
       o.g.visible = true; o.g.position.copy(o.cross.position);
       o.cross.scale.setScalar(1.6 + 0.35 * k); o.cross.children[0].material.color.copy(EH.col);
       o.core.material.opacity = 0.75 + 0.25 * k; o.glow.material.opacity = 0.2 + 0.15 * k;
@@ -4905,7 +5007,7 @@
       if (a.behind) { a.round.quaternion.copy(S.mesh.quaternion); a.round.scale.set(a.side > 0 ? 1 : -1, 1, 1); }
       else a.dir.quaternion.setFromUnitVectors(_Z, EH.b.copy(a.c).sub(a.g.position).normalize());
       a.label.mesh.position.set(0, -0.095, 0).applyQuaternion(S.mesh.quaternion); a.label.mesh.quaternion.copy(S.mesh.quaternion);
-      const text = a.k + ' ' + (a.d < 0.3 ? 'here' : a.d.toFixed(1) + ' m') + (a.behind ? ', behind you' : '');
+      const text = MKL.L[a.k === 'A' ? 0 : 1] + ' ' + (a.d < 0.3 ? 'here' : a.d.toFixed(1) + ' m') + (a.behind ? ', behind you' : '');
       if (text !== a.text) {
         a.text = text;
         const L2 = a.label, ctx = L2.ctx;
@@ -4922,7 +5024,7 @@
   function eyeHint() {
     const w = o => o.getWorldPosition(new THREE.Vector3()).toArray(), on = !!(EH.built && EH.lit && OV.marks.visible);
     return { on, arrowsOn: !!(EH.g && EH.g.visible), head: HD.p.toArray(),
-      spots: EH.spots.map(o => ({ k: o.k, vis: on && o.g.visible, cross: w(o.cross), foot: w(o.g), top: o.core.localToWorld(new THREE.Vector3(0, EH.beam, 0)).toArray(), letter: w(o.letter),
+      spots: EH.spots.map(o => ({ k: o.k, ch: o.ch, vis: on && o.g.visible, cross: w(o.cross), foot: w(o.g), top: o.core.localToWorld(new THREE.Vector3(0, EH.beam, 0)).toArray(), letter: w(o.letter),
         scale: o.cross.scale.x, col: o.cross.children[0].material.color.getHexString(), top0: !o.core.material.depthTest && !o.letter.material.depthTest })),
       arrows: EH.arrows.map(a => ({ k: a.k, vis: !!(EH.g && EH.g.visible), at: w(a.g), d: a.dir.getWorldDirection(new THREE.Vector3()).toArray(), round: a.behind, side: a.side,
         roundVis: a.round.visible, dirVis: a.dir.visible, text: a.text, dist: a.d })) };
@@ -5227,7 +5329,7 @@
   const TRK = { type: '@trk', delay: 40, keep: 8, carry: 100, lost: 500, code: '', list: new Map(), l: '', at: 0, heard: 0,
     relay: { on: false, seen: 0, at: 0, asked: 0, busy: false },   // what the relay's /api/ping says: trackers: true, trackersSeen
     raw: [], rawAt: 0, rawBusy: false, rawErr: '', prev: new Map(), lit: new Map(),   // the dialog's list (GET /api/trackers, raw) and when each row last moved
-    pick: '', spot: { a: null, busy: '', note: '', bad: false },   // lining up by hand: the tracker picked, spot A taken, a question on its way ('a' or 'b'), what it says
+    pick: '', pk: '', spot: { a: null, busy: '', note: '', bad: false },   // lining up by hand: the tracker picked, spot A taken, a question on its way ('a' or 'b'), what it says
     show: get('xrTrackers') === 'shown', grp: null, pucks: new Map(),   // the headset's pucks (the Debug tab's Trackers row)
     hold: null, t: 0, tp: 0,   // (tests: the relay's time held for them, null live; the time they are drawn at, eased)
     fr: { hist: [], est: [], last: 0 } };   // the Index's frame: its head in local-floor by the relay's clock, the estimates, the newest sample used
@@ -5313,14 +5415,24 @@
     const v = val('trk'), names = {};
     if (!v || typeof v !== 'object') return { on: false, m: null, names, by: '', at: 0 };
     if (v.names && typeof v.names === 'object') for (const [k, n] of Object.entries(v.names)) if (typeof n === 'string' && n.trim() && k.length <= 64) names[k] = n.trim().slice(0, 24);
-    return { on: v.on === true, m: v.m && ptOK(v.m.a) && ptOK(v.m.b) ? { a: v.m.a.slice(), b: v.m.b.slice() } : null, names, by: typeof v.by === 'string' ? v.by : '', at: +v.at || 0 };
+    // (m.k, v131: the area whose crosses the tracker lay on, with that area's room points ra and rb as they were then;
+    // none: spots A and B)
+    const m = v.m && ptOK(v.m.a) && ptOK(v.m.b) ? { a: v.m.a.slice(), b: v.m.b.slice() } : null;
+    if (m && typeof v.m.k === 'string' && AREA_ID.test(v.m.k) && ptOK(v.m.ra) && ptOK(v.m.rb)) Object.assign(m, { k: v.m.k, ra: v.m.ra.slice(), rb: v.m.rb.slice() });
+    return { on: v.on === true, m, names, by: typeof v.by === 'string' ? v.by : '', at: +v.at || 0 };
   }
   // the room's key written: on, m or names (a write keeps what it does not change, also fields of a newer app's)
   function setTrk(o) {
     if (!C.code || !C.welcomed) return false;
     const was = val('trk'), K = trkKey(), v = Object.assign({ on: false, m: null, names: {} }, was && typeof was === 'object' && !Array.isArray(was) ? was : {});
     if (typeof o.on === 'boolean') v.on = o.on;
-    if (o.m === null || (o.m && ptOK(o.m.a) && ptOK(o.m.b))) v.m = o.m ? { a: o.m.a.slice(), b: o.m.b.slice() } : null;
+    if (o.m === null || (o.m && ptOK(o.m.a) && ptOK(o.m.b))) {
+      v.m = o.m ? { a: o.m.a.slice(), b: o.m.b.slice() } : null;
+      // an area's (v131): its id and room points, so the relay fits the trackers' spots to them (relay/trackers.mjs frameOf)
+      const A = o.m && o.m.k ? areaOf(o.m.k) : null;
+      // (its floor points: the touches less FLOOR_TIP, the controller's tip over the floor)
+      if (A) Object.assign(v.m, { k: A.id, ra: [A.a[0], A.a[1] - FLOOR_TIP, A.a[2]].map(r4), rb: [A.b[0], A.b[1] - FLOOR_TIP, A.b[2]].map(r4) });
+    }
     v.names = o.names && typeof o.names === 'object' ? o.names : K.names;
     v.by = C.id; v.at = Math.round(now());
     publish([['trk', v]]);
@@ -5387,25 +5499,29 @@
     if (S.busy) return;
     if (!id) { say('Pick the tracker lying on the spot first (none seen: is the bridge running on the PC, after SteamVR?).', true); return; }
     if (which === 'b' && !S.a) { say('Set spot A first.', true); return; }
-    S.busy = which; say(`Reading spot ${which.toUpperCase()}: leave the tracker still for a second...`);
+    const k = TRK.pk && areaOf(TRK.pk) ? TRK.pk : '', LL = lettersOf(k), WL = LL[which === 'b' ? 1 : 0], Ar = k ? areaOf(k) : null;
+    S.busy = which; say(`Reading spot ${WL}: leave the tracker still for a second...`);
     let r = null;
     try { r = await api('trackers/still?id=' + encodeURIComponent(id) + '&ms=1000', undefined, 6000); } catch (e) { /* no answer */ }
     S.busy = '';
-    const j = r && r.j, W = which.toUpperCase();
+    const j = r && r.j, W = WL;
     if (!r || !j || j.ok !== true || !ptOK(j.p)) {
       log('trackers spot', { spot: which, ok: false, why: j && j.error });
       say(`Spot ${W} not taken: ` + (j && typeof j.error === 'string' && j.error ? j.error.slice(0, 120) : r ? 'the relay answered ' + r.status : 'the relay did not answer') + '. Try again.', true);
       return;
     }
     const p = j.p.map(x => Math.round(x * 10000) / 10000), mm = Number.isFinite(j.spread) ? Math.round(j.spread * 10) / 10 : null, still = mm === null ? '' : ` (still to ${mm} mm)`;
-    if (which === 'a') { S.a = { id, p, mm }; log('trackers spot', { spot: 'a', mm }); say(`Spot A taken${still}. Now lay a tracker on spot B, pick it and press Set spot B.`); return; }
+    if (which === 'a') { S.a = { id, p, mm, k }; log('trackers spot', { spot: 'a', mm, area: k }); say(`Spot ${LL[0]} taken${still}. Now lay a tracker on spot ${LL[1]}, pick it and press Set spot ${LL[1]}.`); return; }
     const A = S.a, d = Math.hypot(p[0] - A.p[0], p[2] - A.p[2]), dh = p[1] - A.p[1];
-    if (d < 0.5) { say(`Spot B is only ${Math.round(d * 100)} cm from spot A: they must be at least 50 cm apart (about 2 m is best). Move the tracker to spot B and try again.`, true); return; }
-    if (Math.abs(dh) > SPOTS_DH) { say(`Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A: lay the tracker flat on the floor on both spots.`, true); return; }
-    setTrk({ m: { a: A.p, b: p } });
+    if ((A.k || '') !== k) { S.a = null; say(`Spot ${LL[0]} was taken for another area: set spot ${LL[0]} again.`, true); return; }
+    if (d < 0.5) { say(`Spot ${LL[1]} is only ${Math.round(d * 100)} cm from spot ${LL[0]}: they must be at least 50 cm apart (about 2 m is best). Move the tracker to spot ${LL[1]} and try again.`, true); return; }
+    if (Math.abs(dh) > SPOTS_DH) { say(`Spot ${LL[1]} is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot ${LL[0]}: lay the tracker flat on the floor on both spots.`, true); return; }
+    // (an area's crosses as far apart as the area was measured, as a headset's calibration on them)
+    if (Ar && Math.abs(d - Ar.d) > SAME) { say(`These spots are ${d.toFixed(2)} m apart; ${Ar.name}'s ${LL[0]} and ${LL[1]} are ${Ar.d.toFixed(2)} m: lay the tracker on that area's crosses.`, true); return; }
+    setTrk({ m: { a: A.p, b: p, k } });
     S.a = null;
-    log('trackers spot', { spot: 'b', mm, d: r3(d) });
-    say(`Lined up by hand: the spots are ${d.toFixed(2)} m apart${A.mm !== null && mm !== null ? ` (still to ${A.mm} mm and ${mm} mm)` : ''}.`);
+    log('trackers spot', { spot: 'b', mm, d: r3(d), area: k });
+    say(`Lined up by hand${Ar ? ' on ' + Ar.name + '\'s crosses' : ''}: the spots are ${d.toFixed(2)} m apart${A.mm !== null && mm !== null ? ` (still to ${A.mm} mm and ${mm} mm)` : ''}.`);
   }
   // how the room's trackers stand, in words, for the dialog: { k: 'ok', 'wait', 'no' or 'off', text }
   function trkStatus() {
@@ -5415,8 +5531,8 @@
     if (TRK.relay.at && !TRK.relay.seen && !TRK.raw.length) return { k: 'no', text: 'Lined up by hand, but the relay sees no trackers: is the bridge running on the PC, after SteamVR?' };
     if (heard > 3000) return { k: 'wait', text: 'Lined up by hand: waiting for the relay\'s trackers...' };
     if (TRK.l !== 'hand') return { k: 'wait', text: 'Lining up...' };
-    const d = Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2]);
-    return { k: 'ok', text: `Lined up by hand (the spots ${d.toFixed(2)} m apart): ${n} ${n === 1 ? 'tracker' : 'trackers'} in the room.` };
+    const d = Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2]), an = K.m.k ? `${areaName(K.m.k)}'s ${lettersOf(K.m.k).join(' and ')}, ` : '';
+    return { k: 'ok', text: `Lined up by hand (${an}the spots ${d.toFixed(2)} m apart): ${n} ${n === 1 ? 'tracker' : 'trackers'} in the room.` };
   }
   // the same in a line for the headset's Debug tab, beside Trackers: shown / hidden
   function trkMenuLine() {
@@ -5443,6 +5559,16 @@
     if (sl) { sl.textContent = st.text; sl.className = 'sh-trkst ' + st.k; }
     const nt = $('.sh-trknote');
     if (nt) { nt.textContent = TRK.spot.note; nt.classList.toggle('warn', TRK.spot.bad); }
+    // (v131: which area's crosses the tracker lies on, while the room has areas)
+    const ap = $('#shTrkArea'), all = areasAll(), asig = all.map(A => A.id + A.name + A.n).join(',');
+    if (ap) {
+      ap.hidden = all.length < 2;
+      if (ap.dataset.k !== asig) { ap.innerHTML = all.map(A => `<option value="${esc(A.id)}">${esc(A.id ? A.name + ' (' + A.L.join(' and ') + ')' : 'Spots A and B')}</option>`).join(''); ap.dataset.k = asig; }
+      if (!all.some(A => A.id === TRK.pk)) TRK.pk = '';
+      ap.value = TRK.pk;
+    }
+    const LL = lettersOf(TRK.pk || '');
+    for (const b of DLG.el.querySelectorAll('[data-sh^="trkspot:"]')) { const t = 'Set spot ' + LL[b.dataset.sh.endsWith(':b') ? 1 : 0]; if (b.textContent !== t) b.textContent = t; }
     const pk = $('#shTrkPick'), opts = TRK.raw.filter(x => x.k === 'trk'), psig = opts.map(x => x.id + '|' + (K.names[x.id] || '')).join(',');
     if (pk) {
       if (pk.dataset.k !== psig) {
@@ -5596,7 +5722,9 @@
     if (!E) { if (!held && !R.frame && !trkGone()) { setState('waiting'); return true; } return held; }
     const F = { o: E.o, x: [Math.cos(E.th), 0, -Math.sin(E.th)] }, K = trkKey();
     // (the room's spots where the trackers lay, drawn as the orange crosses: A at the origin on the floor, B along x)
-    R.mk = K.m ? [0, r3(Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2])), r3(K.m.b[1] - K.m.a[1])] : null;
+    // (an area's, v131: its room points as the dialog took them, trk.m's ra and rb)
+    const KA = K.m && K.m.k ? areaOf(K.m.k) : null, up = p => [p[0], p[1] + FLOOR_TIP, p[2]];
+    R.mk = K.m ? (K.m.k ? (KA ? mkA(KA.id, KA.a, KA.b) : mkA(K.m.k, up(K.m.ra), up(K.m.rb))) : mk1([0, r3(Math.hypot(K.m.b[0] - K.m.a[0], K.m.b[2] - K.m.a[2])), r3(K.m.b[1] - K.m.a[1])])) : null;
     if (!held) { setFrame(F, 'trackers', 'Lined up by the PC\'s trackers', 'The PC\'s trackers see this headset, so it stands in the room as they do.'); return true; }
     const [d, a] = apart(F, R.frame);
     if (d > TRK_FR.move || a > TRK_FR.by || Math.abs(F.o[1] - R.frame.o[1]) > TRK_FR.move) setFrame(F, 'trackers');   // (followed)
@@ -5843,7 +5971,7 @@
     }
     h.hk = '';
     // calibrating (or Touch the spot): the trigger anywhere else takes a mark (or the spot) at the controller's tip
-    if (tip) { C.hov.set(i, { target: { kind: R.calib ? 'mark' : 'check' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
+    if (tip) { C.hov.set(i, { target: { kind: R.calib ? 'mark' : CK.arm ? 'check' : 'area' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
     C.hov.set(i, null);
     return null;
   }
@@ -5857,6 +5985,7 @@
     if (!h) return;
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'check') { checkTake(i); return; }   // Touch the spot (its Stop checking still works)
+    if (h.target.kind === 'area') { areaTake(i); return; }   // an area's cross, as it is added (its Stop still works)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
     else if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
@@ -6496,23 +6625,39 @@
   // Where this headset is (placesStep): every place's spot A looked for now and then; standing in another room's place, a
   // headset in no room, or in one it joined by itself, joins that room by itself; one in a room joined by hand is offered
   // it (the menu's Debug tab). A camera keeps no places (it lines up afresh each session: camera mode)
-  const PLC = { list: [], one: false, max: 8, here: '', offer: '', told: '', joined: '' };
+  // Since v131 a place is per area as well (pair: the area's id, '' spots A and B; ra and rb a copy of the area's room
+  // points, so a place survives the area changed meanwhile; base the area's base as it was then; yb the turn of B from A
+  // in anchor A's own frame, so a place kept by anchor A alone still knows its direction), kept as roomFrames { v: 4,
+  // places } (a v3 place is spots A and B's), and the setting Anchors per room went: the anchor budget (placesFit) gives
+  // every new place two anchors and takes the oldest places down to one as the budget fills
+  const PLC = { list: [], max: 8, here: '', hereArea: null, offer: '', told: '', joined: '', dropped: [] };
   const nOf = S => (S && S.n === 1 ? 1 : 2);   // (an older calibration says nothing: two)
   const placeKept = S => !!(S && Array.isArray(S.anchors) && S.anchors.length === nOf(S) && S.anchors.every(u => typeof u === 'string' && u));
   const P3 = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+  const pairOf = p => (p && typeof p.pair === 'string' ? p.pair : '');
   const placeOk = p => !!(p && typeof p === 'object' && P3(p.a) && P3(p.b) && Array.isArray(p.anchors) && (p.anchors.length === 1 || p.anchors.length === 2) &&
-    p.anchors.every(u => typeof u === 'string' && u) && (p.code === '' || /^[A-Z]{3}$/.test(p.code)));
-  const placeIn = p => ({ code: p.code, rid: typeof p.rid === 'string' ? p.rid.slice(0, 32) : '', a: p.a.slice(), b: p.b.slice(), at: +p.at || 0, used: +p.used || +p.at || 0,
-    anchors: p.anchors.slice(), n: p.anchors.length, f: p.f ? 1 : undefined });
+    p.anchors.every(u => typeof u === 'string' && u) && (p.code === '' || /^[A-Z]{3}$/.test(p.code)) &&
+    (!pairOf(p) || (AREA_ID.test(p.pair) && P3(p.ra) && P3(p.rb))));
+  const placeIn = p => ({ code: p.code, pair: pairOf(p), rid: typeof p.rid === 'string' ? p.rid.slice(0, 32) : '', a: p.a.slice(), b: p.b.slice(), at: +p.at || 0, used: +p.used || +p.at || 0,
+    anchors: p.anchors.slice(), n: p.anchors.length, f: p.f ? 1 : undefined,
+    // (a v130 place made with one anchor turned it towards B: yb 0; one with two learns it when both are tracked)
+    yb: Number.isFinite(p.yb) ? p.yb : p.anchors.length === 1 ? 0 : undefined,
+    ra: pairOf(p) ? p.ra.slice() : undefined, rb: pairOf(p) ? p.rb.slice() : undefined,
+    base: pairOf(p) && p.base && typeof p.base === 'object' ? { d: +p.base.d || 0, at: +p.base.at || 0 } : undefined, an: typeof p.an === 'string' ? p.an.slice(0, 24) : undefined });
   // read from this headset's storage (as the page loads; and for tests, HOST.room.places({ reload }))
   function placesLoad() {
-    PLC.list = []; PLC.one = false;
+    PLC.list = [];
+    let v3 = false;
     try {
       const S = JSON.parse(get('roomFrames') || 'null');
-      if (S && S.v === 3 && Array.isArray(S.places)) {
-        PLC.one = !!S.one;
+      v3 = !!(S && S.v === 3);
+      if (S && (S.v === 3 || S.v === 4) && Array.isArray(S.places)) {
         const seen = new Set();
-        for (const p of S.places) if (placeOk(p) && !(p.code && seen.has(p.code))) { seen.add(p.code); PLC.list.push(placeIn(p)); }
+        for (const p0 of S.places) {
+          const p = S.v === 3 && p0 && typeof p0 === 'object' ? Object.assign({}, p0, { pair: '' }) : p0;   // (a v3 place: spots A and B's)
+          const k = p && p.code + '|' + pairOf(p);
+          if (placeOk(p) && !(p.code && seen.has(k))) { seen.add(k); PLC.list.push(placeIn(p)); }
+        }
       }
       const s = JSON.parse(get('roomFrame') || 'null');
       // only marks with their two anchors are kept (older versions kept coordinates, and one anchor at mark A); an older
@@ -6522,15 +6667,20 @@
       } else if (s) R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || '';
     } catch (e) { PLC.list = []; }
     if (R.oldAnchor && HOST.anchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // deleted at the next session
-    if (get('roomFrame')) storePlaces();   // (an older calibration, kept from now on as a place)
+    if (get('roomFrame') || v3) storePlaces();   // (an older calibration, kept from now on as a place)
   }
-  const placeOf = code => PLC.list.find(p => p.code === code) || null;
+  const placeOf = (code, pair) => PLC.list.find(p => p.code === code && pairOf(p) === (pair || '')) || null;
+  // the room's place this headset used last (any area's), as a room is joined
+  const placeLast = code => PLC.list.filter(p => p.code === code).sort((p, q) => (q.used || 0) - (p.used || 0))[0] || null;
+  // in words: room XYZ, or room XYZ's Lab
+  const placeName = q => (q.code ? 'room ' + q.code : 'an older calibration') + (q.pair ? '\'s ' + (q.an || areaName(q.pair)) : '');
   // written whole: the places with all their anchors (a calibration whose anchors are not made yet, or were refused, holds
   // for this session only), most recently used first; the older single calibration's key goes
   function storePlaces() {
     PLC.list.sort((p, q) => (q.used || 0) - (p.used || 0));
-    const out = CAM.on ? [] : PLC.list.filter(placeKept).map(p => ({ code: p.code, rid: p.rid || undefined, a: p.a, b: p.b, at: p.at, used: p.used, anchors: p.anchors, n: nOf(p), f: p.f ? 1 : undefined }));
-    put('roomFrames', out.length || PLC.one ? J({ v: 3, one: PLC.one, places: out }) : null);
+    const out = CAM.on ? [] : PLC.list.filter(placeKept).map(p => ({ code: p.code, pair: p.pair || '', rid: p.rid || undefined, a: p.a, b: p.b, at: p.at, used: p.used, anchors: p.anchors,
+      n: nOf(p), f: p.f ? 1 : undefined, yb: Number.isFinite(p.yb) ? r4(p.yb) : undefined, ra: p.pair ? p.ra : undefined, rb: p.pair ? p.rb : undefined, base: p.pair ? p.base : undefined, an: p.an || undefined }));
+    put('roomFrames', out.length ? J({ v: 4, places: out }) : null);
     put('roomFrame', null);
   }
   // this room's place (R.saved) kept: one given from elsewhere (an older calibration with no room) joins the list
@@ -6538,7 +6688,8 @@
     const S = R.saved;
     if (S && !CAM.on && !PLC.list.includes(S)) {
       if (typeof S.code !== 'string') S.code = '';
-      PLC.list = PLC.list.filter(p => !(S.code && p.code === S.code));
+      if (typeof S.pair !== 'string') S.pair = '';
+      PLC.list = PLC.list.filter(p => !(S.code && p.code === S.code && pairOf(p) === S.pair));
       S.n = nOf(S); S.used = S.used || S.at || Date.now();
       PLC.list.push(S);
     }
@@ -6582,23 +6733,107 @@
   // Older marks (no f): when nobody's do yet, when the room's are our own older ones or other marks, or when whoever set
   // them has left; never over the room's floor spots while whoever set them is here. Asked when a calibration is made or
   // found again, and twice a second while the room's floor is missing, its writer gone, or (floor spots) not on the floor
+  // (t, v131: when spots A and B were taped, kept by a write for the same spots, so the areas measured from them stay
+  // current; another pair of spots makes them stale: areaStale)
   function claimFloor(a, b) {
     if (CAM.on) return;   // (a camera's spots are the room's own: it writes nothing, camera mode)
+    if (R.saved && R.saved.pair) return;   // (lined up by another area's spots: only spots A and B are the room's floor)
     const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]), ok = !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)), same = ok && Math.abs(M.d - d) <= SAME;
-    const here = ok && (M.by === C.id || member(M.by));
+    const here = ok && (M.by === C.id || member(M.by)), at = Math.round(now()), t = same && (+M.t || +M.at) ? +M.t || +M.at : at;
     if (onFloor()) {
       if (ok && M.f && same && here) return;
-      publish([['rm', { a: FLOOR_TIP, d: r3(d), f: 1, by: C.id, at: Math.round(now()) }]]);
+      publish([['rm', { a: FLOOR_TIP, d: r3(d), f: 1, t: same && M.f ? t : at, by: C.id, at }]]);
       log('floor claimed', { a: FLOOR_TIP, d: r3(d), f: 1, was: M ? M.by : '' });
       return;
     }
     if (ok && M.f && here) return;
     if (same && M.by !== C.id && member(M.by)) return;
-    publish([['rm', { a: r3(a[1]), d: r3(d), by: C.id, at: Math.round(now()) }]]);
+    publish([['rm', { a: r3(a[1]), d: r3(d), t, by: C.id, at }]]);
     log('floor claimed', { a: r3(a[1]), d: r3(d), was: M ? M.by : '' });
   }
   const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const own = () => R.src === 'marks' || R.src === 'anchor';
+  // ---------------------------------------------------------------- areas --
+  // Areas (v131; the owner, 10 November 2026, after trying v130's places: "i think i would prefer one room that can have
+  // multiple anchors so that people stay in the same one and there are just multiple spots where things can line up
+  // again"; tape crosses in every area, measured once and shared by every headset). One shared room, one room frame, and
+  // more than one pair of tape crosses on its floor: spots A and B (the room's key rm, the room's origin and floor, as
+  // ever) and, per extra area, a key of its own rp.<id> = { name, n, a, b, d, base: { d, at }, by, at }: n the area's
+  // number (its letters: 2 is C and D, 3 E and F...; the lowest free), a and b the two crosses as a headset lined up with
+  // the room took them, in room coordinates: where the controller's target-ray origin was held still with its tip on each
+  // cross (so their y is the touch height over the room's floor: the area's floor, as the room has it, plus FLOOR_TIP),
+  // d how far apart they are along the floor, base rm's d and taping time (t, else at) when they were measured: spots A
+  // and B taped again since make the area stale (areaStale: measure it again). Forgotten by a tombstone { gone: true, by,
+  // at } (the relay deletes only st.* and pose.*). At most AREA.max areas in all (spots A and B among them). A headset
+  // calibrates on any area's crosses (its touches fitted to the area's room points: fitFrame) and keeps a place per area
+  // (places, below), so walking from one area to another it lines up again from the crosses there without leaving the room
+  const AREA = { max: 8, near: 0.3 };
+  // adding an area (areaAdd): on { step 'a', 'b' or 'replace', name, a and la (the first cross in room and local-floor
+  // coordinates), b, lb, k: the area it would replace }; want: a place whose anchors are made in the next frame (update);
+  // side: those anchors, measured for its yb and let go. AF: Forget area armed (two presses)
+  const AD = { on: null, want: null, side: null };
+  const AF = { id: '', until: 0 };
+  const kArea = id => 'rp.' + id;
+  const AREA_ID = /^[a-z0-9]{6,16}$/;
+  const areaLetters = n => [String.fromCharCode(63 + 2 * n), String.fromCharCode(64 + 2 * n)];   // (1: A B, 2: C D, ...)
+  // spots A and B's taping (the room's key rm): what an area measured against them remembers
+  const rmBase = () => { if (!validFloor()) return { d: 0, at: 0 }; const M = val('rm'); return { d: r3(M.d), at: +M.t || +M.at || 0 }; };
+  function areaIn(id, v) {
+    if (!AREA_ID.test(id) || !v || typeof v !== 'object' || v.gone || !P3(v.a) || !P3(v.b) || !Number.isInteger(v.n) || v.n < 2 || v.n > AREA.max) return null;
+    const d = Math.hypot(v.b[0] - v.a[0], v.b[2] - v.a[2]);
+    if (!(d >= 0.5)) return null;
+    const B = v.base && typeof v.base === 'object' ? { d: +v.base.d || 0, at: +v.base.at || 0 } : { d: 0, at: 0 };
+    return { id, n: v.n, name: typeof v.name === 'string' && v.name.trim() ? v.name.trim().slice(0, 24) : 'Area ' + v.n, a: v.a.slice(), b: v.b.slice(), d,
+      base: B, by: typeof v.by === 'string' ? v.by : '', at: +v.at || 0, L: areaLetters(v.n) };
+  }
+  // the room's areas (spots A and B not among them), by their numbers; an area's own number taken twice (two headsets adding
+  // one at once): the earlier keeps it, the later shows the next free letters until it is written again
+  function areaList() {
+    const out = [];
+    for (const [k, e] of C.keys) if (k.startsWith('rp.')) { const A = areaIn(k.slice(3), e && e.v); if (A) out.push(A); }
+    out.sort((a, b) => a.n - b.n || a.at - b.at || (a.id < b.id ? -1 : 1));
+    for (let i = 1; i < out.length; i++) if (out[i].n <= out[i - 1].n) { out[i].n = out[i - 1].n + 1; out[i].L = areaLetters(out[i].n); }
+    return out.filter(A => A.n <= AREA.max);
+  }
+  const areaOf = id => (id ? areaList().find(A => A.id === id) || null : null);
+  const areaGone = id => { const v = val(kArea(id)); return !!(v && v.gone); };
+  const areaStale = A => !!A && (A.base.at || 0) !== rmBase().at;
+  // spots A and B as an area of the list (n 1, id ''): their room points from rm (B as high as A), null while the room
+  // has none
+  function area1() {
+    if (!validFloor()) return null;
+    const M = val('rm');
+    return { id: '', n: 1, name: 'Area 1', a: [0, M.a, 0], b: [M.d, M.a, 0], d: M.d, base: null, by: M.by || '', at: +M.at || 0, L: areaLetters(1) };
+  }
+  const areasAll = () => { const A1 = area1(); return (A1 ? [A1] : []).concat(areaList()); };
+  const lettersOf = k => (k ? (areaOf(k) || { L: ['?', '?'] }).L : ['A', 'B']);
+  const spotLetters = S => lettersOf(pairOf(S));
+  const areaName = id => { if (!id) return 'Area 1'; const A = areaOf(id); return A ? A.name : 'an area forgotten'; };
+  // spots as this headset draws and checks them: { k (the area's id, '' spots A and B), A, B } in room coordinates
+  const mkA = (k, A, B) => ({ k: k || '', A: A.slice(), B: B.slice() });
+  const mk1 = m => (m ? mkA('', [0, m[0], 0], [m[1], m[2], 0]) : null);   // (from [height of A, A to B, height of B])
+  const mk3 = M => (M && !M.k ? [M.A[1], r3(Math.hypot(M.B[0] - M.A[0], M.B[2] - M.A[2])), M.B[1]] : null);
+  // published with a frame for the shared space (m): spots A and B as before ([hA, d, hB]), an area's as { k, a, b }
+  function mkIn(m) {
+    if (Array.isArray(m) && m.length === 3 && m.every(Number.isFinite)) return mk1(m);
+    if (m && typeof m === 'object' && typeof m.k === 'string' && AREA_ID.test(m.k) && P3(m.a) && P3(m.b)) return mkA(m.k, m.a, m.b);
+    return null;
+  }
+  const mkOut = M => (!M ? null : M.k ? { k: M.k, a: M.A.map(r3), b: M.B.map(r3) } : mk3(M));
+  // the spots a calibration at a and b (local-floor) puts in the room: spots A and B where its own frame puts them, an
+  // area's where the room has them (its place's copy, S.ra and S.rb)
+  const mkOf = (a, b, S) => (S && S.pair ? mkA(S.pair, S.ra, S.rb) : mk1(marksMk(a, b)));
+  // the room's frame (in local-floor) from two crosses touched at a and b: spots A and B's as ever (fromMarks); an area's
+  // fitted to its room points RA and RB: turned about the vertical so that A -> B lies along the touches, its origin where
+  // that puts the room's when RA is at a, the room's floor that far under a as RA is over it (both touch heights, so
+  // FLOOR_TIP cancels: this headset's floor at the area does not count, as with floor spots)
+  function fitFrame(a, b, S) {
+    if (!S || !S.pair) return fromMarks(a, b);
+    const RA = S.ra, RB = S.rb, xl = level([b[0] - a[0], 0, b[2] - a[2]]), xr = level([RB[0] - RA[0], 0, RB[2] - RA[2]]);
+    if (!xl || !xr) return { o: a.slice(), x: null };
+    const th = yawOfX(xl) - yawOfX(xr), c = Math.cos(th), s = Math.sin(th);
+    return { o: [a[0] - (c * RA[0] + s * RA[2]), a[1] - RA[1], a[2] - (-s * RA[0] + c * RA[2])], x: [c, 0, -s] };
+  }
   // how far apart two frames are: [metres between the origins, radians between the x axes]
   function apart(F, G) {
     let a = Math.abs(yawOfX(F.x) - yawOfX(G.x)) % (2 * Math.PI);
@@ -6888,7 +7123,7 @@
     const S = toShared(R.frame);
     R.pubAt = performance.now();
     // (p: when it was written into the space as it is now; after a standby only a frame written since counts, wakeOK)
-    publish([[kFrame(R.sharedId), { uuid: R.sharedId, o: S.o, x: S.x, g, by: C.id, at: at || Math.round(now()), p: Math.round(now()), m: R.mk }]]);
+    publish([[kFrame(R.sharedId), { uuid: R.sharedId, o: S.o, x: S.x, g, by: C.id, at: at || Math.round(now()), p: Math.round(now()), m: mkOut(R.mk) }]]);
     log('frame published', { uuid: R.sharedId, g });
   }
   const validFrame = P => !!(P && typeof P === 'object' && Array.isArray(P.o) && P.o.length === 3 && Array.isArray(P.x) && P.x.length === 3 &&
@@ -6907,6 +7142,13 @@
   function compare() {
     const P = R.sharedOK && R.sharedId && settled() && !notInIt() ? val(kFrame(R.sharedId)) : null;
     if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; R.badSince = 0; return; }
+    // (v131: lined up by different areas' crosses, two headsets' frames differ by how far the room drifted between the
+    // areas, not by the shared space: logged, never called split)
+    const theirs = (mkIn(P.m) || { k: '' }).k, mine = R.mk ? R.mk.k : pairOf(R.saved);
+    if (theirs !== mine) {
+      if (R.cmpX !== P.by + '|' + theirs + '|' + mine) { R.cmpX = P.by + '|' + theirs + '|' + mine; const F0 = fromShared(P), [d0, a0] = level(F0.x) ? apart(F0, R.frame) : [null, null]; log('compare across areas', { by: P.by, theirs, mine, d: d0 === null ? null : r3(d0), a: a0 === null ? null : r3(a0) }); }
+      R.cmp = null; R.badSince = 0; return;
+    }
     const F = fromShared(P);
     if (!level(F.x)) { R.cmp = null; R.badSince = 0; return; }
     const [d, a] = apart(F, R.frame), was = R.cmp;
@@ -6945,7 +7187,7 @@
     if (R.hS !== null && R.frame && Math.abs(R.hS + ys - R.frame.o[1]) > 0.3) { log('shared height again', { was: r3(R.frame.o[1]), now: r3(R.hS + ys) }); R.hS = R.frame.o[1] - ys; }
     if (R.hS === null) R.hS = -ys;
     F.x = x; F.o[1] = R.hS + ys;
-    const mk = Array.isArray(P.m) && P.m.length === 3 && P.m.every(Number.isFinite) ? P.m : null;
+    const mk = mkIn(P.m);
     const ours = R.src === 'shared' && P.by === C.id;   // our own space's origin
     if (!R.frame || (R.again && !ours)) {
       const again = !!R.frame;
@@ -6992,13 +7234,15 @@
       if (!p) return null;
       const t = p.transform.position;
       P.push([t.x, t.y, t.z]);
-      if (R.anchors.length === 1) { const B = spotB(P[0], oneYaw(p.transform.orientation), R.saved); if (!B) return null; P.push(B); }
+      if (P.length === 1) R.anchorQ = p.transform.orientation;   // (anchor A's own turn: a place's yb is learnt from it, followAnchors)
+      if (R.anchors.length === 1) { const y = oneYaw(p.transform.orientation), yb = R.saved && Number.isFinite(R.saved.yb) ? R.saved.yb : 0, B = spotB(P[0], y === null ? null : y + yb, R.saved); if (!B) return null; P.push(B); }
     }
     R.anchorSeen = performance.now();
     return (R.anchorP = P);
   }
-  // one anchor at spot A: spot B along the turn about the vertical its x axis gives (oneYaw), as far along the floor as the
-  // marks were apart and at their height difference (null: no marks, or an anchor turned on its side)
+  // one anchor at spot A: spot B along the turn about the vertical its x axis gives (oneYaw) and the place's yb (B's turn
+  // from A in the anchor's own frame: 0 for an anchor made turned towards B), as far along the floor as the marks were
+  // apart and at their height difference (null: no marks, or an anchor turned on its side)
   const _px = new THREE.Vector3(), _pq = new THREE.Quaternion();
   function spotB(A, y, S) {
     if (!S || y === null) return null;
@@ -7112,15 +7356,36 @@
     const P = anchorsAt(f);
     if (!P) return;
     if (!R.anchorsOK && !anchorsFit(P)) return;
-    const F = fromMarks(P[0], P[1]);
+    ybLearn(P);
+    const F = fitFrame(P[0], P[1], R.saved);
     if (!F.x) return;
     const [d, a] = apart(F, R.frame), h = Math.abs(F.o[1] - R.frame.o[1]);
-    if (d > 0.02 || a > (R.anchors.length === 1 ? ONE.hold : 0.005) || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
+    // another area's place taken (areaSwitch): lined up from its crosses now, however far the room moves
+    if (R.switched) {
+      const W = R.switched; R.switched = null;
+      log('area switch', { from: W.from, to: pairOf(R.saved), d: Math.round(d * 1000) / 10, a: Math.round(a * 1800 / Math.PI) / 10, h: Math.round(h * 1000) / 10 });
+      R.mk = mkOf(P[0], P[1], R.saved); setFrame(F, 'anchor');
+      eyeWant('area');
+      changed();
+      return;
+    }
+    if (d > 0.02 || a > (R.anchors.length === 1 ? ONE.hold : 0.005) || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = mkOf(P[0], P[1], R.saved); setFrame(F, R.src); }
+  }
+  // a place kept by two anchors learns yb (B's turn from A in anchor A's own frame) the first time both are tracked and
+  // fit: then it can go down to anchor A alone (placesFit)
+  function ybLearn(P) {
+    const S = R.saved, q = R.anchorQ;
+    if (!S || Number.isFinite(S.yb) || !R.anchors || R.anchors.length !== 2 || !R.anchorsOK || !q) return;
+    const xa = level(_px.set(1, 0, 0).applyQuaternion(_pq.set(q.x, q.y, q.z, q.w)).toArray()), xb = level([P[1][0] - P[0][0], 0, P[1][2] - P[0][2]]);
+    if (!xa || !xb) return;
+    S.yb = angDiff(yawOfX(xb), yawOfX(xa));
+    log('place yb', { code: S.code || '', pair: S.pair || '', yb: r3(S.yb) });
+    storeSaved();
   }
   // without anchors: the room's floor (key rm) may change for older marks (floor spots: the floor under them, which
   // stays); the marks stay where they were touched
   function refloor() {
-    if (R.anchors && R.anchorsOK || !R.saved || !R.frame) return;
+    if (R.anchors && R.anchorsOK || !R.saved || !R.frame || R.saved.pair) return;   // (an area's floor is the room's, through its fit)
     const y = floorUnder(R.saved.a, R.saved.b);
     if (Math.abs(y - R.frame.o[1]) > 0.01) { log('floor', { y: r3(y) }); R.mk = marksMk(R.saved.a, R.saved.b); R.frame.o[1] = y; }
   }
@@ -7146,11 +7411,11 @@
   // (Places: PLC, above.) This room's place (R.saved) as a room is joined, and none as it is left: its anchors are looked for
   // as a calibration's always were (restore). With no place of its own, an older calibration no room has taken yet is tried
   function placeTake() {
-    const P = CAM.on || !C.code ? null : placeOf(C.code) || PLC.list.find(p => !p.code && placeKept(p)) || null;
+    const P = CAM.on || !C.code ? null : placeLast(C.code) || PLC.list.find(p => !p.code && placeKept(p)) || null;
     if (P === R.saved) return;
     placeLeave();
     R.saved = P;
-    if (P) log('place', { code: P.code || '', n: nOf(P), kept: placeKept(P) });
+    if (P) log('place', { code: P.code || '', pair: P.pair || '', n: nOf(P), kept: placeKept(P) });
   }
   function placeLeave() {
     letGo();   // (the anchors of the place before: each room has its own)
@@ -7160,33 +7425,49 @@
   // from now on (with the room's own id, so it never joins another room given the code)
   function placeUsed(S) {
     if (!S || CAM.on) return;
-    if (!S.code && C.code && !placeOf(C.code)) { S.code = C.code; log('place taken', { code: C.code }); }
+    if (!S.code && C.code && !placeOf(C.code, '')) { S.code = C.code; S.pair = ''; log('place taken', { code: C.code }); }
     if (S.code && S.code === C.code && !S.rid) { const v = val('rid'); if (typeof v === 'string') S.rid = v.slice(0, 32); }
     S.used = Date.now();
     storeSaved();
   }
-  // a new place must fit the browser's few saved anchors (at most PLC.max in all places together, less one while
-  // HOST.anchor keeps a placement of its own): the places used least recently go, with their anchors, and a notice names
-  // them
+  // The anchor budget (v131; the owner, 10 November 2026, of areas' anchors: "two by default until 4 areas, then once a
+  // fifth area is opened the first only has one, then the second and so on"). At most PLC.max saved anchors in all places
+  // together (every room's and every area's; Meta documents 8 per site, one Quest 3 refused a 9th), less one while
+  // HOST.anchor keeps a placement of its own (Anchor: on). A new place gets two; while the total would pass the cap, the
+  // places made first (by when they were calibrated; never the new one) go down to anchor A alone, one at a time (spot
+  // B's anchor deleted: their direction from then on comes from anchor A's own turn and yb, spotB); one whose yb is not
+  // known yet is dropped instead. Past that (every older place on one already), the place used least recently is dropped
+  // with its anchors, as in v130. A notice names what changed
   const placeCap = () => PLC.max - (HOST.anchor && HOST.anchor.on ? 1 : 0);
+  const placeN = q => q.anchors.filter(Boolean).length;
   function placesFit(P) {
-    let n = nOf(P);
-    const gone = [];
-    for (const q of PLC.list.filter(q => q !== P).sort((p, q) => (q.used || 0) - (p.used || 0))) {
-      const k = q.anchors.filter(Boolean).length;
-      if (!gone.length && n + k <= placeCap()) { n += k; continue; }
-      gone.push(q);   // (the first that does not fit and every older one: strictly the least recently used go)
+    const cap = placeCap(), count = () => PLC.list.reduce((n, q) => n + (q === P ? nOf(P) : placeN(q)), 0) + (PLC.list.includes(P) ? 0 : nOf(P));
+    const down = [], gone = [];
+    const drop = q => { if (HOST.anchor.drop) for (const u of q.anchors) if (u) HOST.anchor.drop(u); PLC.list = PLC.list.filter(x => x !== q); gone.push(q); };
+    for (const q of PLC.list.filter(q => q !== P && placeN(q) === 2).sort((a, b) => (a.at || 0) - (b.at || 0))) {
+      if (count() <= cap) break;
+      if (!Number.isFinite(q.yb)) { drop(q); continue; }   // (its direction from anchor A alone is not known yet)
+      if (HOST.anchor.drop && q.anchors[1]) HOST.anchor.drop(q.anchors[1]);
+      q.anchors = [q.anchors[0]]; q.n = 1;
+      down.push(q);
+      if (q === R.saved && R.anchors) { releaseAnchors(); R.anchorTried = false; R.anchorBusy = false; }   // (found again by anchor A alone)
     }
-    if (!gone.length) return gone;
-    if (HOST.anchor.drop) for (const q of gone) for (const u of q.anchors) if (u) HOST.anchor.drop(u);
-    PLC.list = PLC.list.filter(q => !gone.includes(q));
-    const names = gone.map(q => (q.code ? 'room ' + q.code : 'an older calibration')), many = gone.length > 1;
-    log('places dropped', { codes: gone.map(q => q.code || ''), cap: placeCap() });
-    notice('Older places dropped', `This headset keeps at most ${placeCap()} anchors, so the place${many ? 's' : ''} of ${names.join(' and ')}, used least recently, ` +
-      `${many ? 'were' : 'was'} dropped with ${many ? 'their' : 'its'} anchors.`, 12000);
+    for (const q of PLC.list.filter(q => q !== P).sort((a, b) => (a.used || 0) - (b.used || 0))) {
+      if (count() <= cap) break;
+      drop(q);
+      if (q === R.saved) placeLeave();
+    }
+    if (!down.length && !gone.length) return gone;
+    const names = qs => qs.map(placeName).join(', ').replace(/, ([^,]*)$/, ' and $1');
+    log('places fitted', { down: down.map(q => [q.code || '', q.pair || '']), dropped: gone.map(q => [q.code || '', q.pair || '']), cap });
+    const text = `This headset keeps at most ${cap} anchors` + (down.length ? `, so the place${down.length > 1 ? 's' : ''} of ${names(down)}, made first, now ${down.length > 1 ? 'have' : 'has'} one anchor each (at the first cross)` : '') +
+      (gone.length ? `${down.length ? '; and' : ', so'} the place${gone.length > 1 ? 's' : ''} of ${names(gone)} ${gone.length > 1 ? 'were' : 'was'} dropped with ${gone.length > 1 ? 'their' : 'its'} anchors` : '') + '.';
+    notice(gone.length ? 'Older places dropped' : 'Older places on one anchor', text, 12000);
+    storePlaces();
     return gone;
   }
   // Forget, per place (the Debug tab, two presses): this room's is Forget calibration; another's goes with its anchors
+  // (a place by its code and area: 'XYZ' or 'XYZ|<area id>')
   const PF = { code: null, until: 0 };
   const placeArmed = code => PF.code === code && performance.now() < PF.until;
   function placeForgetAsk(code) {
@@ -7195,20 +7476,18 @@
     placeForget(code);
   }
   function placeForget(code) {
-    const P = placeOf(code);
+    const [c, k] = String(code).split('|'), P = placeOf(c, k || '');
     if (!P) return false;
     if (P === R.saved) { forgetMarks(); return true; }
     if (HOST.anchor.drop) for (const u of P.anchors) if (u) HOST.anchor.drop(u);
     PLC.list = PLC.list.filter(q => q !== P);
-    if (PLC.offer === code) PLC.offer = '';
+    if (PLC.offer === c && !PLC.list.some(q => q.code === c)) PLC.offer = '';
     storePlaces();
-    log('place forgotten', { code });
-    notice('Place forgotten', (code ? 'Room ' + code + '\'s place' : 'The older calibration') + ' and its anchors are gone from this headset.', 6000);
+    log('place forgotten', { code: c, pair: k || '' });
+    notice('Place forgotten', (c ? placeName(P).replace(/^r/, 'R') + '\'s place' : 'The older calibration') + ' and its anchors are gone from this headset.', 6000);
     changed();
     return true;
   }
-  // Anchors per room (this headset's own): one or two, for calibrations from now on (a place keeps how it was made)
-  function placesOne(on) { PLC.one = !!on; storePlaces(); log('anchors per room', { n: PLC.one ? 1 : 2 }); changed(); }
   // ------------------------------------------------------- where this headset is --
   // Each place's spot A looked for by its anchor (spot A's alone: one is enough to say where), in a headset session in a
   // room or in none (AR, or VR: an anchor found means the headset is there): as the session starts, after a wake, while
@@ -7258,7 +7537,10 @@
   }
   function placesStep(f, t, local) {
     const s = R.session;
-    if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null, again: false, wokeIn: '', told: '' }); ownAsk(t); PLC.told = ''; }
+    if (SV.sess !== s) { surveyDrop(); Object.assign(SV, { sess: s, at: 0, from: t, woke: R.visibleAt, code: C.code, res: null, again: false, wokeIn: '', told: '', stale: '' }); ownAsk(t); PLC.told = ''; }
+    // (once a session per room, with the room's keys in: this room's places of areas forgotten or measured before spots A
+    // and B were taped again go; one taken now is given up, and the room's other place taken)
+    if (s && !CAM.on && C.code && C.welcomed && SV.stale !== C.code) { SV.stale = C.code; placesStale(); }
     if (!s || CAM.on || !f || !local || !HD.ok || !HOST.anchor || !HOST.anchor.find) return;
     if (R.visibleAt !== SV.woke) { SV.woke = R.visibleAt; SV.at = 0; SV.from = t; ownAsk(t); }   // (after a wake: at once)
     if (SV.code !== C.code) { SV.code = C.code; SV.from = t; SV.wokeIn = ''; ownAsk(t); }
@@ -7274,7 +7556,8 @@
     const since = t - SV.from, gap = lined ? 120000 : since < 120000 ? 10000 : since < 600000 ? 60000 : 120000;
     if (SV.at && t - SV.at < gap) return;
     SV.at = t; SV.n++;
-    const cand = PLC.list.filter(p => p.code && p.code !== C.code && placeKept(p));
+    // (the other rooms' places, and this room's other areas': v131)
+    const cand = PLC.list.filter(p => p.code && p !== R.saved && placeKept(p) && !(p.code === C.code && placeStale(p)));
     if (!cand.length) { placeDecide([], t); return; }
     const g = ++SV.gen;
     SV.busy = true;
@@ -7302,8 +7585,8 @@
     if (wait && t < SV.until) return;
     const items = SV.items;
     surveyDrop();
-    const found = items.filter(it => it.P).map(it => ({ code: it.p.code, d: Math.hypot(it.P[0] - HD.p.x, it.P[2] - HD.p.z) }));
-    log('places found', { found: found.map(o => [o.code, r3(o.d)]), not: items.filter(it => !it.P).map(it => it.p.code) });
+    const found = items.filter(it => it.P).map(it => ({ code: it.p.code, pair: pairOf(it.p), p: it.p, d: Math.hypot(it.P[0] - HD.p.x, it.P[2] - HD.p.z) }));
+    log('places found', { found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), not: items.filter(it => !it.P).map(it => it.p.code + (pairOf(it.p) ? '|' + pairOf(it.p) : '')) });
     placeDecide(found, t);
   }
   function placeDecide(found, t) {
@@ -7316,13 +7599,25 @@
       return;
     }
     // the room joined now, by its own place's anchors (their spot A, held in local-floor, in the story's local space)
-    const cur = own && typeof own === 'object' ? { code: C.code, d: own.d } : null;
+    const cur = own && typeof own === 'object' ? { code: C.code, pair: pairOf(R.saved), p: R.saved, d: own.d, cur: true } : null;
+    // this room's other areas (v131): one found nearer by SV.margin while its own is further than SV.sure, or not tracked
+    // (not found, lost after a wake), is taken in its place (areaSwitch: no join, the same room); never while calibrating
+    // or adding an area
+    const sameA = found.filter(o => o.code === C.code && o.d <= SV.near).sort((a, b) => a.d - b.d)[0] || null;
+    if (sameA && C.code && !R.calib && !AD.on && (!cur ? !(R.src === 'marks' && R.frame) : cur.d > SV.sure && sameA.d < cur.d - SV.margin)) {
+      areaSwitch(sameA.p, own, cur);
+      SV.res = { at: t, found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), best: C.code, own: 'switch', area: sameA.pair };
+      return;
+    }
+    const here1 = (cur && cur.d <= SV.near) || sameA;   // (this room has an area where the headset stands: nothing of another room)
+    found = found.filter(o => o.code !== C.code);
     if (cur) found = found.concat(cur);
     found.sort((a, b) => a.d - b.d);
-    const best = found[0] && found[0].d <= SV.near ? found[0] : null;
-    SV.res = { at: t, found: found.map(o => [o.code, r3(o.d)]), best: best ? best.code : '', own: cur ? 'here' : own || '' };
-    const was = PLC.here + '|' + PLC.offer;
+    const best = here1 ? (cur && cur.d <= SV.near ? cur : sameA) : found[0] && found[0].d <= SV.near ? found[0] : null;
+    SV.res = { at: t, found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]).concat(sameA ? [[C.code + '|' + sameA.pair, r3(sameA.d)]] : []), best: best ? best.code : '', own: cur ? 'here' : own || '' };
+    const was = PLC.here + '|' + PLC.offer + '|' + PLC.hereArea;
     PLC.here = best ? best.code : '';
+    PLC.hereArea = best && best.code === C.code ? best.pair || '' : null;
     if (!best || best.code === C.code || R.calib) PLC.offer = '';   // (here already; or calibrating: nothing now)
     else {
       // by itself only from no room, or from one joined by itself; never into a room left on purpose (or whose code is
@@ -7338,7 +7633,46 @@
         notice('Join room ' + best.code + '?', `You are standing in room ${best.code}'s place. To join it, open the menu (${menuWhere()}): Join ${best.code}, under Debug.`, 9000);
       }
     }
-    if (was !== PLC.here + '|' + PLC.offer) { log('place here', { here: PLC.here, offer: PLC.offer, room: C.code }); changed(); }
+    if (was !== PLC.here + '|' + PLC.offer + '|' + PLC.hereArea) { log('place here', { here: PLC.here, area: PLC.hereArea, offer: PLC.offer, room: C.code }); changed(); }
+  }
+  // another area's place of this room taken (placeDecide): this one's anchors let go (their handles kept), the new place's
+  // looked for at once (restore), and the room lined up from its crosses as they are found (followAnchors, src 'anchor',
+  // 'area switch' in the log with how far the room moved); the check by eye asks
+  function areaSwitch(P, own0, cur) {
+    const was = R.saved;
+    log('area switching', { from: pairOf(was), to: pairOf(P), own: cur ? 'here' : own0 || '', d: cur ? r3(cur.d) : null });
+    releaseAnchors();
+    Object.assign(R, { saved: P, mgen: R.mgen + 1, anchorBusy: false, anchorTried: false, wantAnchors: null, tries: 0, retryAt: 0, retryFrom: 0, reenter: false, afterSleep: false,
+      switched: { from: pairOf(was), at: performance.now() } });
+    // (not lined up by its own crosses: the anchors found line it up as at the start of a session)
+    if (!own()) R.switched = null;
+    SV.wokeIn = ''; ownAsk(performance.now());
+    PLC.hereArea = pairOf(P);
+    notice('Another area', `This headset found ${areaName(pairOf(P))}'s crosses (${spotLetters(P).join(' and ')}) where you stand: it lines up from them now, in the same room.`, 6000);
+    changed();
+  }
+  // a place of this room whose area was forgotten, or measured before spots A and B were taped again (areaStale)
+  function placeStale(p) {
+    if (!p || !p.pair || p.code !== C.code || !C.welcomed) return false;
+    if (areaGone(p.pair)) return 'gone';
+    return p.base && (p.base.at || 0) !== rmBase().at ? 'stale' : false;
+  }
+  function placesStale() {
+    const out = [];
+    for (const p of PLC.list.slice()) {
+      const why = placeStale(p);
+      if (!why) continue;
+      out.push({ code: p.code, pair: p.pair, name: p.an || areaName(p.pair), why });
+      if (HOST.anchor.drop) for (const u of p.anchors) if (u) HOST.anchor.drop(u);
+      PLC.list = PLC.list.filter(q => q !== p);
+      if (p === R.saved) { placeLeave(); R.frame = R.src === 'marks' || R.src === 'anchor' ? null : R.frame; if (!R.frame) { R.src = ''; R.aligned = false; } }
+    }
+    if (!out.length) return;
+    PLC.dropped = out.concat(PLC.dropped).slice(0, 8);
+    log('places stale', { dropped: out.map(o => [o.code, o.pair, o.why]) });
+    storePlaces();
+    if (!R.saved) placeTake();
+    changed();
   }
   // join the room whose place this headset stands in: by itself (how 'auto', as a rejoin is: the room left is not marked
   // left on purpose) or by hand (the offer). An anchor of its place was found, so this headset is in that room
@@ -7346,7 +7680,8 @@
     const P = placeOf(code), was = C.code;
     log('place join', { code, from: was, how });
     PLC.offer = ''; PLC.joined = code;
-    if (!join(code, how === 'auto' ? 'place' : undefined, P && P.rid)) return false;
+    // (a Join pressed on the offer counts as joined by its place too, v131: a later move to another room's place is by itself)
+    if (!join(code, 'place', P && P.rid)) return false;
     if (C.hereSet === null) setHere(true);   // (a room answered *Somewhere else* for keeps its answer: the Debug tab changes it)
     if (how === 'auto') notice('Room ' + code, 'You are in its place, so this headset joined it' + (was ? ' (it was in room ' + was + ')' : '') + '. It lines up from the spots calibrated there.', 9000);
     eyeWant('place');   // (the check by eye: are both crosses on this room's spots?)
@@ -7354,6 +7689,7 @@
     return true;
   }
   EYEQ_WHY.place = 'Joined this room: you stand in its place.';
+  EYEQ_WHY.area = 'Lined up at another area\'s spots.';
   // the camera mode's session: no places at all (it lines up afresh each session, and keeps nothing)
   function placesDropAll() {
     dropAnchors();
@@ -7362,13 +7698,16 @@
     storePlaces();
   }
   // what the Debug tab's Places rows show (panelSig)
-  const placesSig = () => [PLC.list.map(p => p.code + p.at + p.anchors.length + nOf(p) + (p === R.saved)), PLC.one, PLC.offer, PLC.here, PF.code, placeArmed(PF.code), placeCap(), Math.floor(Date.now() / 60000)];
+  const placesSig = () => [PLC.list.map(p => p.code + p.pair + p.at + p.anchors.length + nOf(p) + (p === R.saved)), PLC.offer, PLC.here, PLC.hereArea, PF.code, placeArmed(PF.code), placeCap(),
+    Math.floor(Date.now() / 60000), areaList().map(A => A.id + A.n + A.name + areaStale(A)), PLC.dropped.length, AF.id, AF.until > performance.now()];
   // the places as they stand, for tests
   function placesState() {
     const o = ownState(performance.now());
-    return { one: PLC.one, cap: placeCap(), here: PLC.here, offer: PLC.offer, joined: PLC.joined, current: R.saved ? R.saved.code : null, surveys: SV.n, busy: SV.busy || !!SV.items, res: SV.res,
-      own: o && typeof o === 'object' ? 'here' : o || '', waiting: SV.again, wokeIn: SV.wokeIn,
-      list: PLC.list.map(p => ({ code: p.code, rid: p.rid || '', a: p.a.slice(), b: p.b.slice(), at: p.at, used: p.used, anchors: p.anchors.slice(), n: nOf(p), kept: placeKept(p), f: p.f || 0, here: p === R.saved })) };
+    return { cap: placeCap(), here: PLC.here, hereArea: PLC.hereArea, offer: PLC.offer, joined: PLC.joined, current: R.saved ? R.saved.code : null, pair: R.saved ? pairOf(R.saved) : null,
+      surveys: SV.n, busy: SV.busy || !!SV.items, res: SV.res, own: o && typeof o === 'object' ? 'here' : o || '', waiting: SV.again, wokeIn: SV.wokeIn, dropped: PLC.dropped.slice(),
+      anchors: PLC.list.reduce((n, q) => n + placeN(q), 0),
+      list: PLC.list.map(p => ({ code: p.code, pair: p.pair || '', rid: p.rid || '', a: p.a.slice(), b: p.b.slice(), at: p.at, used: p.used, anchors: p.anchors.slice(), n: nOf(p), kept: placeKept(p), f: p.f || 0,
+        yb: Number.isFinite(p.yb) ? p.yb : null, ra: p.ra || null, rb: p.rb || null, base: p.base || null, here: p === R.saved })) };
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
@@ -7425,8 +7764,10 @@
       const P = anchorsAt(f);
       if (P && (R.anchorsOK || anchorsFit(P))) {
         claimFloor(P[0], P[1]);
-        R.mk = marksMk(P[0], P[1]);
-        setFrame(fromMarks(P[0], P[1]), 'anchor', 'Lined up from the two spots', 'Found the spots this headset saved last time. Check: the orange crosses sit on them.');
+        ybLearn(P);
+        R.mk = mkOf(P[0], P[1], R.saved); R.switched = null;
+        const L = spotLetters(R.saved);
+        setFrame(fitFrame(P[0], P[1], R.saved), 'anchor', 'Lined up from the two spots', `Found the spots this headset saved last time${R.saved && R.saved.pair ? ' (' + areaName(R.saved.pair) + ', ' + L.join(' and ') + ')' : ''}. Check: the orange crosses sit on them.`);
         return;
       }
     }
@@ -7604,7 +7945,8 @@
       const w = R.saved, s = R.session, g = R.mgen, q = { x: 0, y: 0, z: 0, w: 1 };
       R.wantAnchors = null;
       const one = (p, o) => HOST.anchor.keep(f, R.floor, { x: p[0], y: p[1], z: p[2] }, o || q, '').then(r => r, e => { log('no anchor', { e: e && e.message }); return null; });
-      Promise.all(nOf(w) === 1 ? [one(w.a, yawTo(w.a, w.b))] : [one(w.a), one(w.b)]).then(rs => {
+      // (anchor A turned towards B in either case, since v131: a place kept by two can go down to A alone, yb 0)
+      Promise.all(nOf(w) === 1 ? [one(w.a, yawTo(w.a, w.b))] : [one(w.a, yawTo(w.a, w.b)), one(w.b)]).then(rs => {
         if (R.session !== s || R.mgen !== g || !rs.every(Boolean)) {   // the marks were forgotten or replaced meanwhile, or one failed
           for (const r of rs) if (r) { try { r.anchor.delete(); } catch (e) { /* gone */ } if (r.uuid && HOST.anchor.drop) HOST.anchor.drop(r.uuid); }
           return;
@@ -7615,20 +7957,58 @@
         if (rs.some(r => !r.uuid && /maximum/i.test(r.err || ''))) handlesAgain(s, g); else R.full = false;
       });
     }
+    areaAnchors(f);   // (an area just added: its place's anchors, made from the same touches)
     if (!R.frame) { R.aligned = false; return; }
     basis(R.frame, R.fr);
     R.m.multiplyMatrices(R.lf, R.fr); R.mi.copy(R.m).invert();
     R.yaw = Math.atan2(-R.m.elements[2], R.m.elements[0]);
     if (!R.aligned) { R.aligned = true; log('aligned', { src: R.src }); changed(); }
   }
+  // an area just added (areaWrite): its place's two anchors made at the touches (asked inside a frame, as WebXR wants), their
+  // handles kept, measured over the next frames for the place's yb (anchor A's own turn against the way to B) and let go:
+  // the survey finds them by their handles (placesStep), as any place's
+  function areaAnchors(f) {
+    if (AD.want && R.floor && HOST.anchor.keep) {
+      const P = AD.want, s = R.session, q = { x: 0, y: 0, z: 0, w: 1 };
+      AD.want = null;
+      const one = (p, o) => HOST.anchor.keep(f, R.floor, { x: p[0], y: p[1], z: p[2] }, o || q, '').then(r => r, e => { log('no anchor', { e: e && e.message }); return null; });
+      Promise.all([one(P.a, yawTo(P.a, P.b)), one(P.b)]).then(rs => {
+        const ok = R.session === s && rs.every(r => r && r.uuid) && PLC.list.includes(P);
+        if (!ok) {
+          for (const r of rs) if (r) { try { r.anchor.delete(); } catch (e) { /* gone */ } if (r.uuid && HOST.anchor.drop) HOST.anchor.drop(r.uuid); }
+          log('area anchors', { saved: false, pair: P.pair, err: rs.map(r => (r && r.err) || '').filter(Boolean) });
+          return;
+        }
+        P.anchors = rs.map(r => r.uuid);
+        AD.side = { P, as: rs.map(r => r.anchor), until: performance.now() + 3000 };
+        storePlaces(); log('area anchors', { saved: true, pair: P.pair });
+        changed();
+      });
+    }
+    const W = AD.side;
+    if (!W || !R.floor) return;
+    let pa = null, pb = null;
+    try { pa = f.getPose(W.as[0].anchorSpace, R.floor); pb = f.getPose(W.as[1].anchorSpace, R.floor); } catch (e) { /* not now */ }
+    if (pa && pb) {
+      const o = pa.transform.orientation, A = pa.transform.position, B = pb.transform.position;
+      const xa = level(_px.set(1, 0, 0).applyQuaternion(_pq.set(o.x, o.y, o.z, o.w)).toArray()), xb = level([B.x - A.x, 0, B.z - A.z]);
+      if (xa && xb) { W.P.yb = angDiff(yawOfX(xb), yawOfX(xa)); storePlaces(); }
+    } else if (performance.now() < W.until) return;
+    for (const a of W.as) { try { a.delete(); } catch (e) { /* gone */ } }
+    AD.side = null;
+  }
   // two-point calibration: mark A gives the origin, A -> B the direction, gravity the rest
-  function calibrate() {
+  // k (v131): an area's id, on its crosses ('' or none: spots A and B, as ever); an area the room no longer has is refused
+  function calibrate(k) {
     if (!R.session || !C.code || !here()) return;
-    R.calib = { step: 'a', a: null }; R.again = 0;
+    k = typeof k === 'string' ? k : CAM.on ? CAM.pk || '' : guidePk();
+    if (k && !areaOf(k)) k = '';
+    const [A] = lettersOf(k);
+    R.calib = { step: 'a', a: null, k }; R.again = 0; AD.on = null;
     CK.arm = false; CK.self = ''; CK.res = null; CK.mine = null; GD.ok = null;   // (a check made before stands for the frame this replaces)
     setState('mark-a');
-    notice('Calibrate the room', 'Hold a controller pointing down, the bright ring at its tip on spot A, the tape cross on the floor: hold still and pull the trigger.', 0);
-    log('calibrate');
+    notice('Calibrate the room', `Hold a controller pointing down, the bright ring at its tip on spot ${A}${k ? ' (' + areaName(k) + ')' : ''}, the tape cross on the floor: hold still and pull the trigger.`, 0);
+    log('calibrate', { area: k });
   }
   function cancel() { if (!R.calib) return; R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate'); log('calibrate cancelled'); }
   // Forget calibration: this headset's marks and their anchors go, and it aligns again from the start (from the
@@ -7709,7 +8089,8 @@
     if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
     if (own() && R.reenter) return 'Your own marks (looking for their anchors again)';
-    if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by ' + (R.anchors.length === 1 ? 'one anchor' : 'two anchors') : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
+    const an = R.saved && R.saved.pair ? ` at ${areaName(R.saved.pair)} (${spotLetters(R.saved).join(' and ')})` : '';
+    if (own()) return (R.anchors && R.anchorsOK ? `Your own marks${an}, held by ` + (R.anchors.length === 1 ? 'one anchor' : 'two anchors') : R.anchors ? `Your own marks${an} (checking their anchors...)` : `Your own marks${an} (no anchors: calibrate after a recentre)`);
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
     if (R.src === 'trackers') return trkGone() ? 'From the PC\'s trackers, which have lost this headset for now: held where it was' : 'From the PC\'s trackers: this headset as they see it';
     return '';
@@ -7734,8 +8115,8 @@
       return Math.abs(y) > 0.03 ? `Your floor moved ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'down' : 'up'} since you joined (allowed for)` : '';
     }
     if (!own() || !R.frame || !R.saved) return '';
-    const M = val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
-    if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > SAME) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than the room's: other spots?`;
+    const S = R.saved, M = S.pair ? { d: Math.hypot(S.rb[0] - S.ra[0], S.rb[2] - S.ra[2]) } : val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > SAME) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than ${S.pair ? areaName(S.pair) + '\'s' : 'the room\'s'}: other spots?`;
     const y = R.frame.o[1];
     return Math.abs(y) > 0.03 ? `Your floor is ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'lower' : 'higher'} than the room's (allowed for)` : '';
   }
@@ -7811,37 +8192,49 @@
   // a mark at p (local-floor coordinates): the controller's tip held on a spot (mark), or a camera's aim at it on the floor
   // raised by FLOOR_TIP, as a tip held on it would be (camera mode: camMark)
   function markAt(p, how) {
-    log('mark', Object.assign({ step: R.calib.step, p: p.toArray().map(r3) }, how));
-    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Spot A taken', 'Now spot B on the floor, a metre or more from A (about 2 m is best): the ring at the tip on it, hold still and pull the trigger.', 0); return; }
-    const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z, dh = p.y - a.y;
-    if (Math.hypot(dx, dz) < 0.5) { notice('Spots too close', 'Spot B must be at least 50 cm from spot A (a metre or more is better). Touch spot B again.', 0); return; }
+    const k = R.calib.k || '', [LA, LB] = lettersOf(k), Ar = k ? areaOf(k) : null;
+    log('mark', Object.assign({ step: R.calib.step, p: p.toArray().map(r3), area: k }, how));
+    if (k && !Ar) { R.calib = null; setState(R.frame ? R.src : 'calibrate'); notice('Area gone', 'That area was forgotten meanwhile: pick another one and calibrate again.', 9000); return; }
+    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice(`Spot ${LA} taken`, `Now spot ${LB} on the floor, a metre or more from ${LA} (about 2 m is best): the ring at the tip on it, hold still and pull the trigger.`, 0); return; }
+    const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z, dh = p.y - a.y, dd = Math.hypot(dx, dz);
+    if (dd < 0.5) { notice('Spots too close', `Spot ${LB} must be at least 50 cm from spot ${LA} (a metre or more is better). Touch spot ${LB} again.`, 0); return; }
     // both on the floor, so as high as each other: one higher is a tip held off the floor, or a spot that is not on it
     if (Math.abs(dh) > SPOTS_DH) {
-      log('mark refused', { why: 'heights', a: r3(a.y), b: r3(p.y), dh: r3(dh) });
-      R.calib = { step: 'a', a: null }; setState('mark-a');
-      notice('Spots at different heights', `Spot B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot A. Both spots must be on the floor: touch them again, the controller's tip on the floor.`, 0);
+      log('mark refused', { why: 'heights', a: r3(a.y), b: r3(p.y), dh: r3(dh), area: k });
+      R.calib = { step: 'a', a: null, k }; setState('mark-a');
+      notice('Spots at different heights', `Spot ${LB} is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than spot ${LA}. Both spots must be on the floor: touch them again, the controller's tip on the floor.`, 0);
+      return;
+    }
+    // an area's crosses as far apart as the area was measured (within SAME): else they are other crosses
+    if (Ar && Math.abs(dd - Ar.d) > SAME) {
+      log('mark refused', { why: 'spacing', d: r3(dd), want: r3(Ar.d), area: k });
+      R.calib = { step: 'a', a: null, k }; setState('mark-a');
+      notice('Not this area\'s crosses', `These crosses are ${dd.toFixed(1)} m apart; ${Ar.name}'s ${LA} and ${LB} are ${Ar.d.toFixed(1)} m. Touch ${LA} and ${LB} again, or pick another area.`, 0);
       return;
     }
     R.calib = null;
-    // the old marks' anchors go now: they would pull the new frame back to the old marks. This room's place is made anew
-    // (its old anchors deleted); the other rooms' places stay, and so does an older calibration no room has taken yet
-    const was = CAM.on ? null : placeOf(C.code);
-    if (R.saved && R.saved.code !== C.code && PLC.list.includes(R.saved)) releaseAnchors(); else dropAnchors();
+    // the old marks' anchors go now: they would pull the new frame back to the old marks. This area's place is made anew
+    // (its old anchors deleted); the other places stay (this room's other areas', the other rooms'), and so does an older
+    // calibration no room has taken yet
+    const was = CAM.on ? null : placeOf(C.code, k);
+    if (R.saved && R.saved !== was && PLC.list.includes(R.saved)) releaseAnchors(); else dropAnchors();
     if (was && was !== R.saved && HOST.anchor.drop) for (const u of was.anchors) HOST.anchor.drop(u);
-    R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
+    R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false; R.switched = null;
     const rid = val('rid');
-    // (f: floor spots; n: made with one anchor or two, Anchors per room as it is now)
-    const P = { code: C.code, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), used: Date.now(), anchors: [], n: PLC.one ? 1 : 2, f: 1 };
-    if (!CAM.on) { PLC.list = PLC.list.filter(q => q.code !== C.code); PLC.list.unshift(P); placesFit(P); }   // (a camera keeps no places)
+    // (f: floor spots; n: two anchors, the budget taking the oldest places down to one: placesFit; an area's room points
+    // and base copied, so the place survives the area changed meanwhile)
+    const P = { code: C.code, pair: k, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), used: Date.now(), anchors: [], n: 2, f: 1 };
+    if (Ar) Object.assign(P, { ra: Ar.a.slice(), rb: Ar.b.slice(), base: Object.assign({}, Ar.base), an: Ar.name });
+    if (!CAM.on) { PLC.list = PLC.list.filter(q => !(q.code === C.code && pairOf(q) === k)); PLC.list.unshift(P); placesFit(P); }   // (a camera keeps no places)
     R.saved = P;
     storeSaved();   // kept once its anchors are made
     // the touch heights over this headset's floor and over the room scan's floor plane, to measure FLOOR_TIP and the
     // headsets' floors from the logs later
     const sf = R.scanFloor;
-    log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], dh: r3(dh), scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP });
+    log('floor spots', { a: R.saved.a[1], b: R.saved.b[1], dh: r3(dh), scan: sf === null ? null : [r3(a.y - sf), r3(p.y - sf)], tip: FLOOR_TIP, area: k });
     claimFloor(R.saved.a, R.saved.b);
-    R.mk = marksMk(R.saved.a, R.saved.b); R.cmp = null; R.pubAt = 0; R.recAt = 0;
-    setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'The orange crosses should sit on the two spots, and the room\'s floor on the floor. Everyone who calibrates on the same spots sees the stations in the same places.' + (guideOn() ? ' Now check it: Check at A, in the menu.' : ''));
+    R.mk = mkOf(R.saved.a, R.saved.b, R.saved); R.cmp = null; R.pubAt = 0; R.recAt = 0;
+    setFrame(fitFrame(R.saved.a, R.saved.b, R.saved), 'marks', 'Room calibrated', `The orange crosses should sit on the two spots${k ? ' (' + Ar.name + ', ' + LA + ' and ' + LB + ')' : ''}, and the room's floor on the floor. Everyone who calibrates on the same spots sees the stations in the same places.` + (guideOn() ? ` Now check it: Check at ${LA}, in the menu.` : ''));
     R.wantAnchors = true;   // made in the next frame, at the marks as they are then
   }
   function status() {
@@ -7872,8 +8265,8 @@
   // with someone ({ p in room coordinates, at in relay time, n, with: whom it paired with }); theirs: the others' last ones
   // (used: paired with one of mine); res: the last result ({ d m, by, at; spot: a check on its own }) until the next check
   // or frame
-  const CK = { ok: 0.1, red: 0.25, win: 20000, late: 20000, keep: 300000, armFor: 30000, arm: false, self: '', armAt: 0, mine: null, theirs: new Map(), res: null, n: 0 };
-  const tipMode = () => !!(R.calib || CK.arm);   // (the trigger takes the controller's tip: a mark, or the spot)
+  const CK = { ok: 0.1, red: 0.25, win: 20000, late: 20000, keep: 300000, armFor: 30000, arm: false, self: '', pk: '', armAt: 0, mine: null, theirs: new Map(), res: null, n: 0 };
+  const tipMode = () => !!(R.calib || CK.arm || (AD.on && AD.on.step !== 'replace'));   // (the trigger takes the controller's tip: a mark, the spot, or an area's cross)
   // the room's frame came from a headset with another Quest Browser version (two versions never shared one space)
   const otherVersion = () => { const P = R.sharedId ? val(kFrame(R.sharedId)) : null, W = validFrame(P) && P.by !== C.id ? C.pres.get(P.by) : null; return !!(BROWSER && W && W.bv && W.bv !== BROWSER); };
   // how this headset lines up with the room, in plain words: k 'ok' (lined up), 'wait' (lining up), 'no' (not lined up, w
@@ -7907,7 +8300,7 @@
     else if (h && GD.red && GD.red.spot === 'e') { k = 'no'; w = 'eye'; }   // (No, said to the check by eye: the crosses are off the spots)
     o.k = k; o.h = h; o.w = w;
     o.text = k === 'ok' ? { origin: 'Room ready: this headset is the room\'s origin', shared: R.mk ? 'Lined up from the room\'s spots (shared space)' : 'Lined up through the shared space',
-      marks: R.src === 'anchor' ? 'Lined up from the room\'s spots, found again' : 'Lined up from the two spots you touched', trackers: 'Lined up by the PC\'s trackers' }[h] :
+      marks: (R.src === 'anchor' ? 'Lined up from the room\'s spots, found again' : 'Lined up from the two spots you touched') + (R.saved && R.saved.pair ? ` (${areaName(R.saved.pair)}, ${spotLetters(R.saved).join(' and ')})` : ''), trackers: 'Lined up by the PC\'s trackers' }[h] :
       k === 'wait' ? (R.state === 'restoring' ? 'Lining up: finding your spots again...' : 'Lining up with the room...') : w === 'check' ? `${o.c} cm out: not lined up` :
         w === 'eye' ? 'Not lined up: the crosses are off the spots' : 'Not lined up yet: ' + LU_WHY[w];
     return o;
@@ -7915,12 +8308,19 @@
   const luCol = L => (L.k === 'ok' ? (L.c > CK.ok * 100 ? AMBER : GREEN) : L.k === 'wait' ? CYAN : L.k === 'no' ? (L.w === 'check' || L.w === 'eye' ? RED : AMBER) : MUTED);
   // what goes out with presence: { k, h, w, c (cm, while a check stands), ck (this session's check that stood, green or
   // amber: 'a' or 'b' at that spot, 'p' with someone, 'e' by eye; '' none yet) }
-  const luOut = () => { const L = lineUp(), o = { k: L.k, h: L.h, w: L.w, ck: GD.ok ? GD.ok.how : '' }; if (L.c !== null) o.c = L.c; return o; };
+  // (pk, v131: the area this session's check was made at, or that lines it up, its id; '' spots A and B: older readers keep
+  // reading ck 'a' or 'b')
+  const luOut = () => {
+    const L = lineUp(), o = { k: L.k, h: L.h, w: L.w, ck: GD.ok ? GD.ok.how : '' }, pk = GD.ok ? GD.ok.pk || '' : CK.res && CK.res.spot ? CK.res.pk || '' : R.mk && R.mk.k && own() ? R.mk.k : '';
+    if (L.c !== null) o.c = L.c;
+    if (pk) o.pk = pk;
+    return o;
+  };
   // a person in a headset as the pages' list says it ([colour class, words]): from their presence's lu; an older app sends
   // none, only what aligns it (al) while it is aligned (and no ck: nothing said about a check it may have made)
   function luLine(m, P) {
-    const L = P && P.lu, how = L && { origin: 'the room\'s origin', shared: 'shared space', marks: 'the room\'s spots', trackers: 'the PC\'s trackers' }[L.h];
-    const at = L && (L.ck === 'a' || L.ck === 'b') ? ' at spot ' + L.ck.toUpperCase() : '';
+    const L = P && P.lu, how = L && (L.h === 'marks' && typeof L.pk === 'string' && L.pk ? areaName(L.pk) + '\'s spots' : { origin: 'the room\'s origin', shared: 'shared space', marks: 'the room\'s spots', trackers: 'the PC\'s trackers' }[L.h]);
+    const at = L && (L.ck === 'a' || L.ck === 'b') ? ' at spot ' + (typeof L.pk === 'string' && L.pk ? lettersOf(L.pk)[L.ck === 'b' ? 1 : 0] : L.ck.toUpperCase()) : '';
     const chk = !L ? '' : Number.isFinite(L.c) ? `checked ${L.c} cm${at}` : L.ck === 'e' ? 'checked by eye' : L.ck ? 'checked' : L.ck === '' ? 'not checked yet' : '';
     if (!L && m.here === false) return ['away', 'elsewhere: nothing to line up'];
     if (!L) return P && P.al ? ['ok', 'lined up (' + ({ adopted: 'shared space', shared: 'the room\'s origin', marks: 'the room\'s spots', anchor: 'the room\'s spots', trackers: 'the PC\'s trackers' }[P.al] || P.al) + ')'] : ['wait', 'no word yet (lining up, or an older app)'];
@@ -7949,12 +8349,29 @@
   // origin and B on the x axis: a frame from the spots has its origin at spot A and its x axis towards B). This headset's
   // own spots, or those of the frame it took through the shared space (R.mk), else the room's (key rm: spot A's height
   // over the room's floor and how far apart the two are; B as high as A); null: the room has no spots yet
+  // Since v131 { k, A, B } (mkA: the area's id, '' spots A and B, and the two crosses in room coordinates): the area this
+  // headset lines up from, else the room's area nearest its head (spots A and B when it is not lined up)
   function roomMk() {
-    if (R.mk && R.mk.length === 3 && R.mk.every(Number.isFinite) && (own() || R.src === 'adopted')) return R.mk;
-    if (!validFloor()) return null;
-    const M = val('rm');
-    return [M.a, M.d, M.a];
+    if (R.mk && (own() || R.src === 'adopted')) return R.mk;
+    const all = areasAll();
+    if (!all.length) return null;
+    let best = all[0];
+    if (R.aligned && HD.ok && all.length > 1) {
+      _v.copy(realHead(_hv)).applyMatrix4(R.mi);
+      const dd = A => Math.hypot((A.a[0] + A.b[0]) / 2 - _v.x, (A.a[2] + A.b[2]) / 2 - _v.z);
+      for (const A of all) if (dd(A) < dd(best)) best = A;
+    }
+    return mkA(best.id, best.a, best.b);
   }
+  // an area's crosses to check against (k: its id, '' spots A and B; undefined: roomMk's)
+  function spotsOf(k) {
+    if (k === undefined) return roomMk();
+    if (R.mk && R.mk.k === k && (own() || R.src === 'adopted')) return R.mk;
+    const A = k ? areaOf(k) : area1();
+    return A ? mkA(A.id, A.a, A.b) : null;
+  }
+  // the legacy shape for spots A and B ([height of A, A to B, height of B], as before v131), an area's as { k, a, b }
+  const mkLegacy = M => (!M ? null : M.k ? mkOut(M) : mk3(M));
   // this headset's frame rests on the room's spots: its own (touched, or found again by their anchors), or taken through
   // the shared space from a headset that calibrated on them
   const byMarks = () => !!(R.aligned && R.frame && R.mk && (own() || R.src === 'adopted'));
@@ -7963,15 +8380,19 @@
   // Check here: the next trigger (not on the menu) takes the spot where the controller's tip is held still, as a calibration
   // mark is taken (steady); pressed again, it stops. spot 'a' or 'b': a check on its own at the room's spot A or B (once
   // the room's spots are known: selfCheck), else Touch the spot with someone
-  function checkArm(on, spot) {
+  // pk (v131): the area whose cross it is (its id; '' spots A and B; undefined: the crosses this headset shows, roomMk)
+  function checkArm(on, spot, pk) {
     on = !!on;
-    const self = on && (spot === 'a' || spot === 'b') ? spot : '';
-    if (on && (!canCheck() || (self && !roomMk()))) return;
-    if (on === CK.arm && self === CK.self) return;
-    CK.arm = on; CK.armAt = on ? performance.now() : 0; CK.self = self;
-    log('check', { arm: on, self });
+    const self = on && (spot === 'a' || spot === 'b') ? spot : '', M = self ? spotsOf(pk) : null;
+    if (on && (!canCheck() || (self && !M))) return;
+    const k = M ? M.k : '';
+    if (on === CK.arm && self === CK.self && k === CK.pk) return;
+    AD.on = null;
+    CK.arm = on; CK.armAt = on ? performance.now() : 0; CK.self = self; CK.pk = k;
+    log('check', { arm: on, self, area: k });
+    const SL = self ? lettersOf(k)[self === 'b' ? 1 : 0] : '';
     // (the orange crosses hide while it is armed: the tip goes to the spot itself, not to where this headset puts it)
-    if (on && self) notice('Touch spot ' + self.toUpperCase(), `Put the bright ring at your controller's tip on spot ${self.toUpperCase()} itself (the tape cross on the floor), hold still and pull the trigger.`, 0);
+    if (on && self) notice('Touch spot ' + SL, `Put the bright ring at your controller's tip on spot ${SL} itself (the tape cross on the floor), hold still and pull the trigger.`, 0);
     else if (on) notice('Touch the spot', 'Put the bright ring at your controller\'s tip on the spot (spot A, or the other person\'s tip), hold still and pull the trigger.', 0);
     else checkNoteOff();
     changed();
@@ -7979,29 +8400,132 @@
   function checkTake(i) {
     const h = C.rays.get(i);
     if (!CK.arm || !h || !R.aligned) return;
-    const p = steady(h).applyMatrix4(R.mi), self = CK.self;   // (the controller's target-ray origin held still, in room coordinates)
+    const p = steady(h).applyMatrix4(R.mi), self = CK.self, pk = CK.pk || '';   // (the controller's target-ray origin held still, in room coordinates)
     CK.arm = false; CK.self = ''; CK.res = null;
-    if (self) { selfCheck(p, self); return; }
+    if (self) { selfCheck(p, self, pk); return; }
     CK.mine = { p: [r3(p.x), r3(p.y), r3(p.z)], at: Math.round(now()), t: performance.now(), n: ++CK.n, with: new Set() };
     fx('q.check', { p: CK.mine.p, at: CK.mine.at, n: CK.mine.n });
     log('check taken', { p: CK.mine.p, n: CK.n, at: CK.mine.at });
     if (!checkPair()) notice('Spot taken', `Waiting for someone else to press Check here, within ${Math.round(CK.win / 1000)} s.`, 4000);
     changed();
   }
+  // Adding an area (v131, the guide's Areas page): a headset lined up with the room (by any source; best its own spots)
+  // names it (the keypad: Area 2, Area 3...), then touches its two tape crosses with the controller's tip on the floor as a
+  // calibration does (steady), each taken into room coordinates as a check is; refused as a calibration's spots are (less
+  // than 50 cm apart, more than SPOTS_DH apart in height); a pair within AREA.near of an area's offers Replace (spots A and
+  // B's: refused, they are the room's own). Written as rp.<new id>; this headset makes its own anchors from the same
+  // touches (a place there at once). The log says how high the area's floor stands over the room's (the walk's drift)
+  const canArea = () => !!(guideOn() && R.aligned && R.frame && !R.calib && !CK.arm && areasAll().length < AREA.max && C.welcomed);
+  function areaAdd(name) {
+    if (!canArea()) return false;
+    const L = areaLetters(areaFree());
+    AD.on = { step: 'a', name: String(name || '').trim().slice(0, 24) || 'Area ' + areaFree(), L };
+    log('area add', { name: AD.on.name });
+    notice('Touch spot ' + L[0], `${AD.on.name}: put the bright ring at your controller's tip on its first tape cross, ${L[0]}, on the floor; hold still and pull the trigger.`, 0);
+    changed();
+    return true;
+  }
+  // the lowest free number (2: C and D, 3: E and F, ...)
+  const areaFree = () => { const used = new Set(areaList().map(A => A.n)); let n = 2; while (used.has(n)) n++; return n; };
+  // the name asked for in a headset (the shell's keypad), then the crosses
+  function areaAsk() {
+    if (!canArea()) return;
+    const def = 'Area ' + areaFree();
+    keypad({ title: 'Name the area', hint: 'A short name for this area\'s two crosses, such as Lab or Hall', value: def, max: 24 }).then(v => {
+      if (v === null || v === undefined) return;
+      if (!PNL.open) menuOpen(true, 'api');
+      PNL.tab = 'circles'; PNL.page = 'guide'; PNL.gs = 4;
+      areaAdd(v || def);
+    });
+  }
+  function areaStop() { if (!AD.on) return; AD.on = null; if (/^Touch spot|^Replace/.test(NOTE.title || '')) NOTE.until = 0; log('area add stopped'); changed(); }
+  function areaTake(i) {
+    const h = C.rays.get(i), D = AD.on, t = performance.now();
+    if (!D || !h || !R.aligned || !R.lfOK || D.step === 'replace') return;
+    if (t - R.markAt < 600) return;   // (a double pull)
+    R.markAt = t;
+    const s0 = steady(h), p = s0.clone().applyMatrix4(R.mi), pl = s0.clone().applyMatrix4(R.lfi);   // (room, and local-floor, coordinates)
+    if (D.step === 'a') {
+      Object.assign(D, { step: 'b', a: p.toArray().map(r3), la: pl.toArray().map(r3) });
+      log('area spot', { step: 'a', p: D.a });
+      notice('Touch spot ' + D.L[1], `Now ${D.L[1]}, ${D.name}'s other cross, a metre or more from ${D.L[0]}: hold still and pull the trigger.`, 0);
+      changed(); return;
+    }
+    const b = p.toArray().map(r3), lb = pl.toArray().map(r3), dd = Math.hypot(b[0] - D.a[0], b[2] - D.a[2]), dh = b[1] - D.a[1];
+    if (dd < 0.5) { notice('Spots too close', `Spot ${D.L[1]} must be at least 50 cm from ${D.L[0]} (a metre or more is better). Touch ${D.L[1]} again.`, 0); return; }
+    if (Math.abs(dh) > SPOTS_DH) {
+      log('area refused', { why: 'heights', dh: r3(dh) });
+      Object.assign(D, { step: 'a', a: null, la: null });
+      notice('Spots at different heights', `Spot ${D.L[1]} is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than ${D.L[0]}. Both must be on the floor: touch ${D.L[0]} and ${D.L[1]} again, the controller's tip on the floor.`, 0);
+      changed(); return;
+    }
+    Object.assign(D, { b, lb, d: dd });
+    // a pair on an area's crosses (either way round): Replace it, or not; spots A and B's are the room's own
+    const near = A => (dist3(A.a, D.a) < AREA.near && dist3(A.b, b) < AREA.near) || (dist3(A.a, b) < AREA.near && dist3(A.b, D.a) < AREA.near);
+    const A1 = area1();
+    if (A1 && near(A1)) { log('area refused', { why: 'spots A and B' }); AD.on = null; notice('These are spots A and B', 'These crosses are the room\'s own spots A and B: an area needs two crosses of its own.', 9000); changed(); return; }
+    const old = areaList().find(near);
+    if (old) {
+      Object.assign(D, { step: 'replace', k: old.id });
+      log('area replace asked', { old: old.id });
+      notice('Replace ' + old.name + '?', `These crosses are ${old.name}'s (${old.L.join(' and ')}). Replace them, in the menu (Room setup, Areas), or Cancel.`, 0);
+      changed(); return;
+    }
+    areaWrite();
+  }
+  // the area written (rp.<new id>; one it replaces gets its tombstone in the same batch) and its place made here
+  function areaWrite() {
+    const D = AD.on;
+    if (!D || !D.b || !C.code) return false;
+    AD.on = null;
+    if (/^Touch spot|^Replace/.test(NOTE.title || '')) NOTE.until = 0;
+    const old = D.k ? areaOf(D.k) : null, id = Math.random().toString(36).slice(2, 10).padEnd(8, '0'), at = Math.round(now());
+    const n = old ? old.n : areaFree(), v = { name: D.name, n, a: D.a, b: D.b, d: r3(D.d), base: rmBase(), by: C.id, at };
+    if (n > AREA.max) { notice('No room for another area', `A room has at most ${AREA.max} areas.`, 9000); return false; }
+    publish([[kArea(id), v]].concat(old ? [[kArea(old.id), { gone: true, by: C.id, at }]] : []));
+    // (the area's floor as the room has it, at its crosses: how far the room's frame drifted over the walk there, or a step)
+    log('area added', { id, n, name: D.name, a: D.a, b: D.b, d: r3(D.d), floor: [r3(D.a[1] - FLOOR_TIP), r3(D.b[1] - FLOOR_TIP)], replaced: old ? old.id : '', src: R.src });
+    const L = areaLetters(n);
+    notice(D.name + ' added', `Its crosses are ${L[0]} and ${L[1]}: any headset can line up from them now (Room setup, Line up), and check them (Areas).`, 8000);
+    if (!CAM.on) {
+      const rid = val('rid');
+      const P = { code: C.code, pair: id, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: D.la, b: D.lb, at, used: Date.now(), anchors: [], n: 2, f: 1,
+        ra: D.a.slice(), rb: D.b.slice(), base: Object.assign({}, v.base), an: D.name };
+      PLC.list.unshift(P); placesFit(P); storePlaces();
+      AD.want = P;   // (its anchors made in the next frame: update)
+    }
+    changed();
+    return true;
+  }
+  // Forget area (the Debug tab, two presses): its tombstone for everyone; every headset's places there go at its next session
+  function areaForgetAsk(id) {
+    if (!(AF.id === id && performance.now() < AF.until)) { AF.id = id; AF.until = performance.now() + 3000; setTimeout(changed, 3050); changed(); return; }
+    AF.id = ''; AF.until = 0;
+    areaForget(id);
+  }
+  function areaForget(id) {
+    const A = areaOf(id);
+    if (!A || !C.code) return false;
+    publish([[kArea(id), { gone: true, by: C.id, at: Math.round(now()) }]]);
+    log('area forgotten', { id, name: A.name });
+    notice(A.name + ' forgotten', `Its crosses (${A.L.join(' and ')}) are no longer the room's. The headsets' places there go at their next session.`, 6000);
+    changed();
+    return true;
+  }
   // a check on its own (the guide's Check page): the tip held still on the room's spot A (or B) against where this headset
   // puts that spot (roomMk), with the limits and words of Touch the spot. Green or amber: lined up, and the startup flow is
   // done; red: back to Line up, to calibrate on the spots. Nothing is sent: it pairs with nobody
-  function selfCheck(p, spot) {
-    const mk = roomMk();
+  function selfCheck(p, spot, pk) {
+    const mk = spotsOf(pk);
     if (!mk) return;
-    const q = spot === 'b' ? [mk[1], mk[2], 0] : [0, mk[0], 0], d = Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]), cm = Math.round(d * 100), S = spot.toUpperCase();
+    const q = spot === 'b' ? mk.B : mk.A, d = Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]), cm = Math.round(d * 100), S = lettersOf(mk.k)[spot === 'b' ? 1 : 0];
     const h = Math.abs(p.y - q[1]), hp = hPart(h);   // (the height part: this headset's floor against the room's, as a rule)
     CK.mine = null;
-    CK.res = { d, h, by: '', spot, at: Math.round(now()), t: performance.now() };
-    log('check self', { spot, d: r3(d), h: r3(h), p: [r3(p.x), r3(p.y), r3(p.z)], q: q.map(r3), src: R.src });
-    if (d <= CK.ok) { notice(`Lined up: ${cm} cm${hp}`, `Your tip on spot ${S}, and where this headset puts it.`, 6000); checkDone(spot, d); }
-    else if (d <= CK.red) { notice(`${cm} cm out${hp}`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone(spot, d); }
-    else { notice(`${cm} cm out${hp}: not lined up`, `Spot ${S} is ${cm} cm from where this headset puts it: calibrate on the room's two spots (Line up, in the menu).`, 9000); checkRed(spot, d); }
+    CK.res = { d, h, by: '', spot, pk: mk.k, L: S, at: Math.round(now()), t: performance.now() };
+    log('check self', { spot, area: mk.k, d: r3(d), h: r3(h), p: [r3(p.x), r3(p.y), r3(p.z)], q: q.map(r3), src: R.src });
+    if (d <= CK.ok) { notice(`Lined up: ${cm} cm${hp}`, `Your tip on spot ${S}, and where this headset puts it.`, 6000); checkDone(spot, d, mk.k); }
+    else if (d <= CK.red) { notice(`${cm} cm out${hp}`, 'Fine for walking about; calibrate on the spots for close work.', 9000); checkDone(spot, d, mk.k); }
+    else { notice(`${cm} cm out${hp}: not lined up`, `Spot ${S} is ${cm} cm from where this headset puts it: calibrate on the ${mk.k ? 'area\'s' : 'room\'s'} two spots (Line up, in the menu).`, 9000); checkRed(spot, d, mk.k); }
     changed();
   }
   // the height part of a check's distance, said when it is 2 cm or more: the spots are on the floor, so it is mostly how
@@ -8040,16 +8564,16 @@
   // a check that stood (green or amber), with someone ('p') or on its own at a spot ('a', 'b'): this session's (presence's
   // lu.ck, the pages' list) until the frame it was made in changes. The startup flow is done: the guide closes (the menu too,
   // when the flow opened it)
-  function checkDone(how, d) {
-    GD.ok = { how, d: r3(d), at: Math.round(now()) }; GD.red = null;
+  function checkDone(how, d, pk) {
+    GD.ok = { how, d: r3(d), at: Math.round(now()), pk: pk || '' }; GD.red = null;
     log('guide', { flow: 'done', how, d: r3(d) });
     if (GD.fl === 1 && guideShown()) { if (GD.menu) menuOpen(false, 'guide'); else PNL.page = 'main'; }
     GD.fl = 2; GD.menu = false; GD.cal = -1;
   }
   // a check over CK.red: no check of this session stands, and the guide opens again (Line up once the room has its spots,
   // where Calibrate is; else its last page), at once when it is on show
-  function checkRed(how, d) {
-    GD.ok = null; GD.red = { spot: how, d: r3(d) };
+  function checkRed(how, d, pk) {
+    GD.ok = null; GD.red = { spot: how, d: r3(d), pk: pk || '' };
     if (guideOn() && !R.calib) flowAgain(roomSpots() ? 1 : 3, how === 'p' ? 'check' : 'red');
   }
   // what the check says now ({ s, text, col }): 'armed' (touch the spot), 'wait' (taken, waiting for another's: the seconds
@@ -8057,13 +8581,13 @@
   // yours), '' nothing. (The seconds left on this headset's own clock: two checks pair by the relay's, checkPair)
   function checkState() {
     const M = CK.mine, t = performance.now(), s = Math.round(CK.win / 1000);
-    if (CK.arm) return { s: 'armed', text: CK.self ? `Put the bright ring at your controller's tip on spot ${CK.self.toUpperCase()} itself, hold still and pull the trigger.` : 'Put the bright ring at your controller\'s tip on the spot, hold still and pull the trigger.', col: CYAN };
+    if (CK.arm) return { s: 'armed', text: CK.self ? `Put the bright ring at your controller's tip on spot ${lettersOf(CK.pk || '')[CK.self === 'b' ? 1 : 0]} itself, hold still and pull the trigger.` : 'Put the bright ring at your controller\'s tip on the spot, hold still and pull the trigger.', col: CYAN };
     for (const [by, T] of CK.theirs) {   // (someone checked after this headset's last check: its turn)
       const left = Math.ceil((CK.win - (t - T.t)) / 1000);
       if (!T.used && left > 0 && member(by) && (!M || T.at > M.at)) return { s: 'theirs', text: `${whoName(by)} pressed Check here: touch the same spot and press it too (${left} s)`, col: CYAN };
     }
     if (CK.res) {
-      const d = Math.round(CK.res.d * 100), at = CK.res.spot ? ' at spot ' + CK.res.spot.toUpperCase() : '', hp = hPart(CK.res.h);
+      const d = Math.round(CK.res.d * 100), at = CK.res.spot ? ' at spot ' + (CK.res.L || CK.res.spot.toUpperCase()) : '', hp = hPart(CK.res.h);
       return CK.res.d <= CK.ok ? { s: 'done', text: `Lined up: ${d} cm` + (CK.res.spot ? at : ` (with ${whoName(CK.res.by)})`) + hp, col: GREEN } :
         CK.res.d <= CK.red ? { s: 'done', text: `${d} cm out${at}${hp}: fine for walking about; calibrate on the spots for close work`, col: AMBER } :
           { s: 'done', text: `${d} cm out${at}${hp}: not lined up`, col: RED };
@@ -8116,7 +8640,8 @@
     return !othersIn() || lineUp().h === 'origin' ? 'first' : 'none';
   }
   function guideStep(t) {
-    if (GD.s !== R.session || GD.code !== C.code) Object.assign(GD, { s: R.session, code: C.code, from: 0, due: 0, why: '', late: false, fl: 0, menu: false, cal: -1, touched: false, red: null, ok: null, spots: null });
+    if (GD.s !== R.session || GD.code !== C.code) Object.assign(GD, { s: R.session, code: C.code, from: 0, due: 0, why: '', late: false, fl: 0, menu: false, cal: -1, touched: false, red: null, ok: null, spots: null, pk: null });
+    if (AD.on && (!guideOn() || !R.aligned)) areaStop();   // (adding an area needs the room lined up)
     // an armed check stops by itself (it takes the trigger everywhere but the menu): once it cannot be made, when the menu
     // closes, after CK.armFor; the others' old checks go
     if (CK.arm && (!canCheck() || !PNL.open || t - CK.armAt > CK.armFor)) checkArm(false);
@@ -8198,7 +8723,15 @@
   function guideCal() {
     if (R.calib) { R.cancel(); return; }
     GD.cal = R.mgen; GD.touched = true;
-    R.calibrate();
+    R.calibrate(guidePk());
+  }
+  // the area Calibrate takes (v131): the one picked on the guide, else the one found where you stand (the places' survey),
+  // else the nearest to where this headset puts you, else spots A and B
+  function guidePk() {
+    if (typeof GD.pk === 'string' && (!GD.pk || areaOf(GD.pk))) return GD.pk;
+    if (typeof PLC.hereArea === 'string' && (!PLC.hereArea || areaOf(PLC.hereArea))) return PLC.hereArea;
+    const M = R.aligned ? roomMk() : null;
+    return M && (!M.k || areaOf(M.k)) ? M.k : '';
   }
   // a line a minute (and at every change): what the alignment rests on, for the relay's log (sample, below)
   function sample(t) {
@@ -8226,7 +8759,7 @@
     const Tv = HOST.xr && HOST.xr.travel ? HOST.xr.travel() : null;   // (moving with the sticks: where they have moved you)
     if (Tv && Tv.space) S.travel = [r3(Tv.x), r3(Tv.z), r3(Tv.yaw)];
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); if (R.anchors && R.anchors.length === 1) S.one = oneSpread(); }
-    if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: placeKept(R.saved), n: nOf(R.saved), place: R.saved.code || '' };
+    if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: placeKept(R.saved), n: nOf(R.saved), place: R.saved.code || '', pair: R.saved.pair || '' };
     if (R.cmp) S.cmp = R.cmp;
     if (validFloor()) S.rm = val('rm');
     S.sharedAlign = R.sharedAlign;
@@ -8288,7 +8821,7 @@
   function watch(s) {
     if (s === R.session) return;
     camSession(s);   // (camera mode: this session is the camera's when Start was pressed for it)
-    R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset();
+    R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset(); AD.on = null; AD.want = null;
     phSession(s);   // (a phone's AR: its menu button, or two taps on the screen)
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
@@ -8374,7 +8907,6 @@
       if (o.reset) { placeLeave(); PLC.list = []; PLC.here = PLC.offer = PLC.told = ''; storePlaces(); put('roomFrame', null); }
       if (o.reload) { placeLeave(); placesLoad(); placeTake(); }
       if (o.out && C.code) leave();
-      if (o.one !== undefined) placesOne(o.one);
       if (o.forget !== undefined) placeForget(o.forget);
       if (o.wait) SV.wait = o.wait;
       if (o.near) SV.near = o.near;
@@ -8382,12 +8914,12 @@
       if (o.join) placeJoin(o.join, 'hand');
       return placesState();
     },
-    get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
+    get marks() { return mkLegacy(R.mk); }, spots: () => roomMk(), get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel and scene, for a story's xrRecenter while placed (off, s, pp, pr in its rig; q the scene's
     // turn and pq the panel's rotation, [x, y, z, w] or null: none)
     saved: () => { const P = panelPose(sesSt()); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
     joined() { placeTake(); if (R.session) { begin(); loop(R.session); } },   // (this room's place: placeTake)
-    left() { placeLeave(); R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); setState('off'); },
+    left() { placeLeave(); R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; checkReset(); AD.on = null; AD.want = null; setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || R.src === 'trackers' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
     tick, toRoom: v => v.clone().applyMatrix4(R.mi), toLocal: v => v.clone().applyMatrix4(R.m), matrix: () => R.m.clone(),
     // the room's frame from two floor spots, as a calibration makes it (fromMarks for floor spots: origin the floor under
@@ -8530,14 +9062,14 @@
       try { const rs = f.getHitTestResults(CAM.src) || []; P = rs.length ? rs[0].getPose(local) : null; } catch (e) { P = null; }
       if (P) { const q = P.transform.position; (CAM.hit = CAM.hit || new THREE.Vector3()).set(q.x, q.y, q.z); CAM.hitAt = t; }
     }
-    if (!R.calib && !R.frame && R.lfOK && C.code) calibrate();   // (a camera lines up on the room's spots each session)
+    if (!R.calib && !R.frame && R.lfOK && C.code) calibrate(CAM.pk || '');   // (a camera lines up on the room's spots each session)
     if (t - (CAM.drawAt || 0) > 200) { CAM.drawAt = t; camRender(); }
   }
   // Set spot A (or B): where the aim meets the floor now, raised as a controller's tip held on it (FLOOR_TIP), is the mark
   function camMark(how) {
     const t = performance.now();
     if (!CAM.on || !R.lfOK) return false;
-    if (!R.calib) calibrate();
+    if (!R.calib) calibrate(CAM.pk || '');
     if (!camHitFresh() || t - R.markAt < 600) { log('camera mark', { none: !camHitFresh(), how }); return false; }
     R.markAt = t;
     const p = CAM.hit.clone().applyMatrix4(R.lfi);
@@ -8586,7 +9118,7 @@
         <button type="button" data-cam="sound">Sound: off</button><button type="button" data-cam="subs">Subtitles: off</button>
         <button type="button" data-cam="hide">Hide</button><button type="button" data-cam="exit">Exit</button></div>
         <div class="cam-list" hidden></div></div>
-        <div class="cam-aim"><i class="cam-cross"></i><p class="cam-step"></p><button type="button" class="primary" data-cam="set">Set spot A</button></div>
+        <div class="cam-aim"><i class="cam-cross"></i><p class="cam-step"></p><button type="button" data-cam="area" hidden>Spots: A and B</button><button type="button" class="primary" data-cam="set">Set spot A</button></div>
         <p class="cam-sub" hidden></p><p class="cam-hint" hidden>Tap twice to show the controls again</p></div>`;
     document.body.appendChild(el);
     CAM.el = el;
@@ -8605,7 +9137,12 @@
     if (act === 'go') { camStart('button'); return; }
     if (act === 'close') { CAM.phase = 'off'; CAM.link = false; camShow(); return; }
     if (act === 'set') camMark('button');
-    else if (act === 'cal') calibrate();   // (the room stays where it was until both spots are set again)
+    else if (act === 'cal') calibrate(CAM.pk || '');   // (the room stays where it was until both spots are set again)
+    else if (act === 'area') {   // (v131: which area's crosses the phone is aimed at: spots A and B, or another area's)
+      const all = areasAll(), i = all.findIndex(A => A.id === (CAM.pk || ''));
+      CAM.pk = all.length ? all[(i + 1) % all.length].id : '';
+      if (R.calib) calibrate(CAM.pk);   // (from its first spot again)
+    }
     else if (act === 'follow') CAM.list = !CAM.list;
     else if (act === 'who') { if (followPerson(arg)) CAM.list = false; }
     else if (act === 'st') { if (C.stById.has(arg)) { choose(arg, 'follow'); CAM.list = false; } }
@@ -8636,11 +9173,11 @@
     if (CAM.noHit) return ['This phone\'s browser finds no floor (no hit test): camera mode needs Chrome on Android with ARCore.', '', ''];
     const n = performance.now() < NOTE.until && NOTE.at && performance.now() - NOTE.at < 9000 ? CAM_NOTE[NOTE.title] || '' : '';
     if (R.calib) {
-      const ab = R.calib.step === 'b' ? 'B' : 'A';
-      return [R.frame ? 'Lining up again: the room stays where it was until both spots are set.' : 'Not lined up yet: set the room\'s two spots.',
+      const ab = lettersOf(R.calib.k || '')[R.calib.step === 'b' ? 1 : 0];
+      return [R.frame ? 'Lining up again: the room stays where it was until both spots are set.' : `Not lined up yet: set ${R.calib.k ? areaName(R.calib.k) + '\'s' : 'the room\'s'} two spots.`,
         camHitFresh() ? `Aim at spot ${ab} and tap Set spot ${ab}` : 'Move the phone slowly so it finds the floor', n];
     }
-    if (R.aligned && R.frame && R.src === 'marks') return ['Lined up on spot A and spot B', '', n];
+    if (R.aligned && R.frame && R.src === 'marks') { const LL = spotLetters(R.saved); return [`Lined up on spot ${LL[0]} and spot ${LL[1]}`, '', n]; }
     return [lineUp().text || 'Lining up with the room...', '', n];
   }
   function camFollowing() {
@@ -8671,8 +9208,11 @@
     el.classList.toggle('aim', !!R.calib && !CAM.hidden);
     text('.cam-status', status); text('.cam-note', note); show('.cam-note', !!note);
     text('.cam-step', step);
-    const ab = R.calib && R.calib.step === 'b' ? 'B' : 'A', set = q('[data-cam="set"]');
+    const ab = lettersOf(R.calib ? R.calib.k || '' : CAM.pk || '')[R.calib && R.calib.step === 'b' ? 1 : 0], set = q('[data-cam="set"]');
     text('[data-cam="set"]', 'Set spot ' + ab); set.disabled = !camHitFresh();
+    const all = areasAll(), A0 = all.find(A => A.id === (CAM.pk || '')) || all[0];
+    show('[data-cam="area"]', all.length > 1 && !!R.calib && R.calib.step === 'a');
+    if (A0) text('[data-cam="area"]', `Spots: ${A0.L.join(' and ')}` + (A0.id ? ` (${A0.name})` : ''));
     text('[data-cam="follow"]', camFollowing()); q('[data-cam="follow"]').setAttribute('aria-expanded', String(CAM.list));
     text('[data-cam="panels"]', CAM.panels ? 'Panels: shown' : 'Panels: hidden'); pressed('[data-cam="panels"]', CAM.panels);
     text('[data-cam="people"]', CAM.people ? 'People: shown' : 'People: hidden'); pressed('[data-cam="people"]', CAM.people);
@@ -8699,7 +9239,7 @@
   function camState() {
     const L = liveSt();
     return { on: CAM.on, want: CAM.want, phase: CAM.phase, ok: CAM.ok, offered: camOffered(), link: CAM.link, err: CAM.err, overlaid: camOverlaid(),
-      lined: !!(CAM.on && R.aligned && R.frame && R.src === 'marks'), src: R.src, calib: R.calib ? R.calib.step : '', hit: camHitFresh() ? CAM.hit.toArray() : null, noHit: CAM.noHit,
+      lined: !!(CAM.on && R.aligned && R.frame && R.src === 'marks'), src: R.src, calib: R.calib ? R.calib.step : '', pk: CAM.pk || '', calibK: R.calib ? R.calib.k || '' : null, hit: camHitFresh() ? CAM.hit.toArray() : null, noHit: CAM.noHit,
       follow: C.who ? 'person:' + C.who : C.follow ? 'station:' + C.follow : '', station: C.live, story: L ? L.story : '',
       hidden: CAM.hidden, panels: CAM.panels, people: CAM.people, subs: CAM.subs, list: CAM.list, words: CAM.on ? camWords() : null, quiet: [...CAM.sent] };
   }
@@ -8988,7 +9528,7 @@
     // an All stories circle's story, picked in its row (Choosing a story: back to its cards), for everyone there
     DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-sh-pick]'); if (q && q.value) { allPickAt(q.dataset.shPick, q.value); renderDialog(); } });
     // the PC's trackers: a name typed for one (the room's trk.names), the tracker picked to take a spot from
-    DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-trkname]'); if (q) setTrkName(q.dataset.trkname, q.value); else if (ev.target.id === 'shTrkPick') TRK.pick = ev.target.value; });
+    DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-trkname]'); if (q) setTrkName(q.dataset.trkname, q.value); else if (ev.target.id === 'shTrkPick') TRK.pick = ev.target.value; else if (ev.target.id === 'shTrkArea') { TRK.pk = ev.target.value; TRK.spot.a = null; trkRender(); } });
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
     $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
@@ -9198,6 +9738,8 @@
     for (const s of C.st) pts.push([s.x, s.z], content(s));
     for (const P of C.pres.values()) if (P.head) pts.push([P.head[0], P.head[2]]);
     for (const T of tk) pts.push([T.p[0], T.p[2]]);
+    const ars = areasAll();   // (the room's tape crosses, every area's, v131)
+    for (const A of ars) pts.push([A.a[0], A.a[2]], [A.b[0], A.b[2]]);
     let x0 = Math.min(...pts.map(p => p[0])) - 1.2, x1 = Math.max(...pts.map(p => p[0])) + 1.2;
     let z0 = Math.min(...pts.map(p => p[1])) - 1.2, z1 = Math.max(...pts.map(p => p[1])) + 1.2;
     const sc = Math.min(W / (x1 - x0), H / (z1 - z0)), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -9210,6 +9752,18 @@
     for (let gz = Math.ceil(cz - H / 2 / sc); gz <= cz + H / 2 / sc; gz++) { ctx.beginPath(); ctx.moveTo(0, Y(gz)); ctx.lineTo(W, Y(gz)); ctx.stroke(); }
     ctx.strokeStyle = 'rgba(149,166,189,0.45)'; ctx.beginPath(); ctx.moveTo(X(0) - 6, Y(0)); ctx.lineTo(X(0) + 6, Y(0)); ctx.moveTo(X(0), Y(0) - 6); ctx.lineTo(X(0), Y(0) + 6); ctx.stroke();
     ctx.font = '12px B612, "Segoe UI", Arial, sans-serif'; ctx.textBaseline = 'middle';
+    // the tape crosses, orange, each with its letter, and the area's name by the first of its pair (spots A and B too)
+    for (const A of ars) {
+      const st0 = areaStale(A);
+      ctx.strokeStyle = st0 ? '#8a6a3a' : '#ffb43b'; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 2;
+      ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(X(A.a[0]), Y(A.a[2])); ctx.lineTo(X(A.b[0]), Y(A.b[2])); ctx.stroke(); ctx.setLineDash([]);
+      [[A.a, A.L[0]], [A.b, A.L[1]]].forEach(([p, l]) => {
+        ctx.beginPath(); ctx.moveTo(X(p[0]) - 5, Y(p[2])); ctx.lineTo(X(p[0]) + 5, Y(p[2])); ctx.moveTo(X(p[0]), Y(p[2]) - 5); ctx.lineTo(X(p[0]), Y(p[2]) + 5); ctx.stroke();
+        ctx.fillText(l, X(p[0]) + 7, Y(p[2]) + 7);
+      });
+      if (ars.length > 1) ctx.fillText(A.name + (st0 ? ' (stale)' : ''), X(A.a[0]) + 7, Y(A.a[2]) - 9);
+    }
+    MAP.areas = ars.map(A => A.L.join(''));
     // titles: beside their dot, right or left, else below or above, where they overlap no other title or dot
     const boxes = st.map(s => [X(s.x) - 8, Y(s.z) - 8, 16, 16]), free = b => b[0] >= 2 && b[0] + b[2] <= W - 2 && b[1] >= 2 && b[1] + b[3] <= H - 2 &&
       !boxes.some(o => b[0] < o[0] + o[2] && o[0] < b[0] + b[2] && b[1] < o[1] + o[3] && o[1] < b[1] + b[3]);
@@ -9452,8 +10006,14 @@
     // too), Check here armed or not (spot 'a' or 'b': on its own at that spot), and (tests) its windows shortened:
     // { win: ms two checks pair within, late: ms before not lined up opens it }
     guide: () => ({ open: guideShown(), step: PNL.gs, status: lineUp(), check: checkState(), lined: linedUp(), flow: ['', 'on', 'done', 'skipped', 'eye'][GD.fl],
-      case: lineCase(), ok: GD.ok, red: GD.red, spots: roomMk(), menu: GD.menu }),
-    guideOpen: k => guideOpen(k, 'api'), checkArm: (on, spot) => checkArm(on !== false, spot), autoGuide: on => { if (on !== undefined) GD.auto = !!on; return GD.auto; },
+      case: lineCase(), ok: GD.ok, red: GD.red, spots: mkLegacy(roomMk()), menu: GD.menu }),
+    guideOpen: k => guideOpen(k, 'api'), checkArm: (on, spot, pk) => checkArm(on !== false, spot, pk), autoGuide: on => { if (on !== undefined) GD.auto = !!on; return GD.auto; },
+    // areas (v131), for tests: the room's (spots A and B first, as n 1), what is being added, the area Calibrate takes;
+    // areaAdd(name) starts adding one (as the guide's button after the keypad), areaPick(id) picks it for Calibrate,
+    // areaWrite() presses Replace, areaForget(id) is Forget area, areaStop() Stop adding
+    areas: () => ({ list: areasAll().map(A => ({ id: A.id, n: A.n, name: A.name, L: A.L, a: A.a, b: A.b, d: A.d, base: A.base, by: A.by, stale: areaStale(A) })),
+      adding: AD.on ? { step: AD.on.step, name: AD.on.name, L: AD.on.L, k: AD.on.k || '' } : null, pk: guidePk(), spots: roomMk(), letters: MKL.L.slice(), side: !!AD.side, want: !!AD.want }),
+    areaAdd: name => areaAdd(name), areaPick: id => { GD.pk = typeof id === 'string' ? id : null; return guidePk(); }, areaWrite: () => areaWrite(), areaForget: id => areaForget(id), areaStop: () => areaStop(),
     guideTimes: o => { if (o && o.win > 0) CK.win = +o.win; if (o && o.late > 0) CK.late = +o.late; return { win: CK.win, late: CK.late }; },
     // the check by eye (for tests): whether it asks, is on show, why, and when it is due; its two times (ms) to shorten
     eye: () => ({ ask: EYEQ.ask, shown: eyeShown(), why: EYEQ.why, due: EYEQ.due ? Math.round(EYEQ.due - performance.now()) : 0, can: eyeCan() }),

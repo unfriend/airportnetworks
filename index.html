@@ -747,7 +747,7 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
       <div class="sh-trk" hidden>
         <h3>The PC's trackers</h3>
         <div class="row"><button class="btn" type="button" data-sh="trkon" aria-pressed="false" title="This room uses the trackers SteamVR sees on the relay's PC: the headsets see them, and the studio's things can follow them">Use the PC's trackers in this room: off</button><span class="sh-trkst" aria-live="polite"></span></div>
-        <div class="row"><select id="shTrkPick" aria-label="The tracker lying on the spot"></select><button class="btn" type="button" data-sh="trkspot:a">Set spot A</button><button class="btn" type="button" data-sh="trkspot:b">Set spot B</button></div>
+        <div class="row"><select id="shTrkArea" aria-label="Which area's tape crosses the tracker lies on" hidden></select><select id="shTrkPick" aria-label="The tracker lying on the spot"></select><button class="btn" type="button" data-sh="trkspot:a">Set spot A</button><button class="btn" type="button" data-sh="trkspot:b">Set spot B</button></div>
         <p class="hint sh-trknote" aria-live="polite"></p>
         <p class="hint">Lining up by hand: lay a tracker flat on spot A (the tape cross on the floor), pick it here, press Set spot A and leave it still for a second; then the same on spot B. It holds while the base stations stay where they are and SteamVR's room setup is not run again. Move a tracker to see which row is which, and give it a name.</p>
         <ul class="sh-trks"></ul>
