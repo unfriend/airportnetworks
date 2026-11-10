@@ -6154,11 +6154,14 @@ try {
   // a mistyped code (or an old link) makes no room: the page says so and stays out
   const E = await open('#stories');
   const bad = 'QQZ' === code ? 'QQY' : 'QQZ';
+  // (joined once the story behind its Stories screen is built: a page drawing in software beside three others could miss
+  // the 6 s a relay has to answer a join, and the room then goes peer to peer, as when a relay cannot be reached)
+  await until(E, () => !HOST.cur || !!(HOST.cur.collab && HOST.cur.collab.scene()), null, 60000);
   await E.evaluate(async c => { await HOST.collab.detect(); HOST.collab.join(c); }, bad);
-  const out = await until(E, () => !HOST.collab.joined && /no room/i.test(HOST.collab.internals().note), null, 8000);
+  const out = await until(E, () => !HOST.collab.joined && /no room/i.test(HOST.collab.internals().note), null, 15000);
   const listed = (await (await fetch(base() + 'api/rooms')).json()).some(r => r.code === bad);
   check('a code with no room behind it makes no room: the page says so and stays out', out && !listed,
-    `${await E.evaluate(() => HOST.collab.status + ' ' + HOST.collab.internals().note)}, listed ${listed}`);
+    `${await E.evaluate(() => HOST.collab.status + ' ' + HOST.collab.via + ' ' + HOST.collab.internals().note + ' | ' + (window.__collabLog || []).slice(-8).map(e => e.ev + (e.reason ? ':' + e.reason : '') + (e.code !== undefined ? ':' + e.code : '')).join(', '))}, listed ${listed}`);
   await E.context().close();
   // Remove asks first ("Remove for everyone?"), and only a second press removes the station, for everyone
   const rmId = await stationOf(A, 'airports');
