@@ -131,11 +131,12 @@ function behHeads(T) {
     for (const h of H.list) {
       if (h.me && own) continue;
       _beF.set(0, 0, -1).applyQuaternion(_beQ.set(h.head[3], h.head[4], h.head[5], h.head[6]));
-      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: h.ts });
+      // (ts the relay's time it was there; a shell that gives none, or not a number, gives now: no entry time is NaN)
+      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: fin(h.ts) ? h.ts : T });
     }
   }
   if (own) out.push(own);
-  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) out.push({ id: h.id, me: false, p: new THREE.Vector3(...h.p), f: flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), ts: h.ts == null ? T : h.ts });
+  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) out.push({ id: h.id, me: false, p: new THREE.Vector3(...h.p), f: flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), ts: fin(h.ts) ? h.ts : T });
   return out;
 }
 // its middle at its placed pose (into out), and which way its front (+z) faces there (about the vertical)

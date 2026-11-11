@@ -327,12 +327,13 @@ same studio scene". `triggerStep` in `engine/e6_items.js`, `trgFire` in `engine/
 - **What follows it**: everything the cube does (what it shows and hides, its texture changes, what it starts), so a
   shared cube shows things to everyone and starts its clips, sounds, paths and motions for everyone, in step.
 - **In step**: its entering and leaving are taken in the room's time from the head samples' own time stamps (`h.ts`: the
-  presence sample of each head): entered at the earliest sample of the heads inside it now, left at the latest sample of
-  the heads that were inside it (a head gone from the list: left now). Outside a room this device's clock (`behNow`). On
-  the clock of what cubes start (`trgClock`) these are `c.inT` and `c.outT` (the room moment less how far that clock is
-  behind the room's), so every device puts a run's start, and its 0.3 s leave (`PLAY_EDGE`), at the same room moment and
-  plays the same phase. Devices agree within about one presence sample (15 a second): the device whose head it is uses
-  its own head now, the others its first sample inside.
+  presence sample of each head; a head the shell gives with no time, or not a number, as an older shell may, is taken at
+  the room's time now, so no entry time is ever NaN): entered at the earliest sample of the heads inside it now, left at
+  the latest sample of the heads that were inside it (a head gone from the list: left now). Outside a room this device's
+  clock (`behNow`). On the clock of what cubes start (`trgClock`) these are `c.inT` and `c.outT` (the room moment less
+  how far that clock is behind the room's), so every device puts a run's start, and its 0.3 s leave (`PLAY_EDGE`), at
+  the same room moment and plays the same phase. Devices agree within about one presence sample (15 a second): the
+  device whose head it is uses its own head now, the others its first sample inside.
 - **Entered last** (show and hide, texture changes): decided alike on every device, by the entry time (the room's: an
   everyone cube's entry moment; each person's own cube this device's moment, kept after the last one given so two entered
   one after the other keep their order), then by the cube's id (`enteredLater`). Until v137 a counter on each device.
@@ -1561,18 +1562,23 @@ static variant". `engine/e6o_walls.js`.
   each optionally with `gap` (metres, 0 to 0.5, to the cm, 0.03 by default, written only when not the default). `at` left
   out is `'direction'`; another value makes the record bad. FORMAT networks-43.
 - **The walls**: this device's own. In an AR session whose frame has `detectedPlanes` (`plane-detection` enabled), every
-  vertical plane (`orientation` `'vertical'`, or `semanticLabel` `'wall'`; never `'door'`; a window counts) taken into the
-  scene's frame (`frame.getPose(plane.planeSpace, refSpace)`, then `GL.world`'s inverse): its polygon's extent along the
-  floor as a segment, its bottom and top heights, and its normal along the floor turned towards the walls' middle (the
-  middle of all the segments' box along the floor). Read when the planes change (their set or a `lastChangedTime`) and at
-  most twice a second, once a second besides (a recentre moves the scene), as the robots read theirs (`wallsXR`, from
-  `xrBegin`; inside try/catch, the feature asked for by `enabledFeatures`); gone at the session's end. No walls (VR, a
-  page, no room scan yet): the item stays at its placed pose, and its card says so.
-- **Where**: `'direction'`: the first wall a ray from the walls' middle meets along the item's placed direction from the
-  scene's origin (its placed middle's x and z; at the origin `-z`; no wall met: the walls' point nearest where it points);
-  `'nearest'`: the walls' point nearest its placed middle along the floor; `'person'`: the walls' point nearest the person
-  it reacts to, chosen as Follow and Look at choose (`behChoose`, alike on every device from the heads), moving along there
-  at most `speed` m/s; with nobody, back to its `'direction'` place.
+  vertical plane (`orientation` `'vertical'`, or `semanticLabel` `'wall'`; never `'door'`; a window counts) taken into
+  the scene's frame (`frame.getPose(plane.planeSpace, refSpace)`, then `GL.world`'s inverse): its polygon's extent along
+  the floor as a segment, its bottom and top heights, and its normal along the floor turned towards the walls' middle
+  (the middle of all the segments' box along the floor). When that middle lies on a wall's line (one wall, or one wall
+  in pieces, early in a room scan; within 10 cm of every wall's line, or 5 cm of one's), a point in the room stands for
+  it: the head as those walls were read (`headPoint`, in the scene's frame), else the scene's origin, kept while the
+  walls stay the same (`WALLS.ref`, so it never walks with the head); with both on a wall's line its normal stays as the
+  plane's pose gave it. Read when the planes change (their set or a `lastChangedTime`) and at most twice a second, once
+  a second besides (a recentre moves the scene), as the robots read theirs (`wallsXR`, from `xrBegin`; inside try/catch,
+  the feature asked for by `enabledFeatures`); gone at the session's end. No walls (VR, a page, no room scan yet): the
+  item stays at its placed pose, and its card says so.
+- **Where**: `'direction'`: the first wall a ray from the walls' middle (that point in the room, with one wall) meets
+  along the item's placed direction from the scene's origin (its placed middle's x and z; at the origin `-z`; no wall
+  met: the walls' point nearest where it points); `'nearest'`: the walls' point nearest its placed middle along the
+  floor; `'person'`: the walls' point nearest the person it reacts to, chosen as Follow and Look at choose (`behChoose`,
+  alike on every device from the heads), moving along there at most `speed` m/s; with nobody, back to its `'direction'`
+  place.
 - **There**: its back against the wall (its middle the gap plus how far its box reaches behind its middle along its front
   off the wall: an object's model's box, a shape's unit box as sized, an empty's point), its height its placed middle's
   held within the wall's bottom and top where it fits (too tall: its bottom on the wall's), its front (`+z` as placed)

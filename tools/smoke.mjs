@@ -7947,6 +7947,18 @@ if (runs('studio everyone')) {
       return JSON.stringify(r);
     })()`);
     for (const t of tie) if (t !== '[false,true,true,true]') out.push('two everyone cubes entered at one moment, the higher id deciding: ' + t);
+    // a shell whose heads carry no time (an older one) or not a number: taken as now, so the entry is the room's now and
+    // nothing compares NaN (at a pretend station: atStation and the shell's heads stubbed for one step each)
+    const nots = await ssA(`(() => {
+      const keepAt = atStation, keepH = HOST.collab.heads, r = [];
+      setRec('cube01', { mode: 'while', all: true }); resetSeen(); window.__ev.clocks(5e6, 1e6);
+      const at = (head, ts) => { HOST.collab.heads = () => ({ st: { id: 'st1', x: 0, z: 0, yaw: 0 }, list: [Object.assign({ id: 'zz', me: false, head: head.concat([0, 0, 0, 1]) }, ts === undefined ? {} : { ts })] }); atStation = () => true; STU.head = [20, 1.6, 20];
+        try { triggerStep(performance.now()); } finally { atStation = keepAt; HOST.collab.heads = keepH; } const c = STUDIO.cube('cube01'); return [window.__ev.shown().box001, c.act, c.act ? c.since : c.outT, c.act ? c.inT : null]; };
+      r.push(at([0, 1.6, 0]), at([3, 1.6, 4]), (resetSeen(), at([0, 1.6, 0], 'x')));
+      window.__ev.other(null); resetSeen();
+      return JSON.stringify(r);
+    })()`);
+    if (nots !== '[[false,true,5000000,1000000],[true,false,1000000,null],[false,true,5000000,1000000]]') out.push('another person\'s head with no time, or not a number: ' + nots);
     // the headset's card: Each person pressed (one Undo step); and Undo back to Everyone here
     const xr = await ssA(`(() => {
       XR.on = true;
@@ -8050,6 +8062,20 @@ if (runs('studio walls')) {
       STU.items.get('wdr001').carry = {}; W.run(2, 0.05);
       const held = W.m('wdr001'); STU.items.get('wdr001').carry = false;
       if (!near(held, [0.5, 1, -1])) o.push('carried, not at its placed pose: ' + J(held));
+      // one wall (early in a room scan), its segment the wrong way round (its normal out of the room): turned towards the
+      // head as it was read, kept while the wall stays the same though the head moves, and the ray in its direction from
+      // there; with no head the scene's origin; one wall in two pieces (the middle on their line) the same
+      const ONE = [{ a: [2, -2.5], b: [-2, -2.5], y0: 0, y1: 2.5 }];
+      STU.head = [0, 1.6, 0]; const w1 = STUDIO.walls(ONE);
+      STU.head = [1, 1.6, -6]; const w1b = STUDIO.walls(ONE);
+      W.run(40, 0.05, null);
+      if (J(w1.list.map(x => x.n)) !== '[[0,1]]' || J(w1.mid) !== '[0,0]' || J(w1b.list.map(x => x.n)) !== '[[0,1]]' || J(w1b.mid) !== '[0,0]' || w1b.n !== w1.n || !near(W.m('wdr001'), [1.25, 1, -2.42]) || J(W.front('wdr001')) !== '[0,1]') o.push('one wall: ' + J([w1, w1b, W.m('wdr001'), W.front('wdr001')]));
+      STUDIO.walls([]); STU.head = null;
+      const w2 = STUDIO.walls([{ a: [-2, 2.5], b: [2, 2.5], y0: 0, y1: 2.5 }]), hp2 = headPoint(new THREE.Vector3());
+      if (J(w2.list.map(x => x.n)) !== '[[0,-1]]' || (!hp2 && J(w2.mid) !== '[0,0]')) o.push('one wall with no head: ' + J([w2, hp2]));
+      STU.head = [0, 1.6, 0];
+      const w3 = STUDIO.walls([{ a: [-2, -2.5], b: [-0.5, -2.5], y0: 0, y1: 2.5 }, { a: [2, -2.5], b: [0.5, -2.5], y0: 0, y1: 2.5 }]);
+      if (J(w3.list.map(x => x.n)) !== '[[0,1],[0,1]]' || J(w3.mid) !== '[0,0]') o.push('one wall in two pieces: ' + J(w3));
       // the walls from a pretend AR frame's planes: the near wall and the right wall (a door and the floor left out), their
       // segments, heights and normals in the scene's frame
       STUDIO.walls(null);

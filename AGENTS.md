@@ -4759,16 +4759,16 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   device's own; pages never count; outside a room this device's own head, or a page's camera in Walk view); a `stay` one
   from the first time any head was inside (each device's memory, cleared by *Reset what I have seen* and the lobby).
   Everything it does follows it: what it shows and hides, its texture changes and what it starts, for everyone, in step:
-  its entering and leaving are taken in the room's time from the head samples' own time stamps (`h.ts`: entered at the
-  earliest sample of the heads inside, left at the latest sample of those inside before; outside a room this device's
-  clock), so every device puts a run's start (and its 0.3 s leave) at the same room moment (`c.inT`, `c.outT` on the clock
-  of what cubes start, `trgFire`). "Entered last" (show and hide, texture changes) is decided alike everywhere: by the
-  entry time (the room's; each person's own cubes take this device's moment, kept after the last so two entered one after
-  the other keep their order), then by the cube's id (`enteredLater`). Nothing new is sent: each device works it out from
-  the heads it has (their samples come 15 times a second, so devices agree within about one sample). The card's line, the
-  Items card (*for everyone here*) and Start something's paragraph say so. `STUDIO.cube(id)` for tests. FORMAT
-  `networks-43`. Untested on headsets: everyone cubes across real headsets at a circle (how in step their runs look, a
-  head entering at a cube's face).
+  its entering and leaving are taken in the room's time from the head samples' own time stamps (`h.ts`, a head with no
+  time or not a number taken at the room's time now: entered at the earliest sample of the heads inside, left at the
+  latest sample of those inside before; outside a room this device's clock), so every device puts a run's start (and its
+  0.3 s leave) at the same room moment (`c.inT`, `c.outT` on the clock of what cubes start, `trgFire`). "Entered last"
+  (show and hide, texture changes) is decided alike everywhere: by the entry time (the room's; each person's own cubes
+  take this device's moment, kept after the last so two entered one after the other keep their order), then by the
+  cube's id (`enteredLater`). Nothing new is sent: each device works it out from the heads it has (their samples come 15
+  times a second, so devices agree within about one sample). The card's line, the Items card (*for everyone here*) and
+  Start something's paragraph say so. `STUDIO.cube(id)` for tests. FORMAT `networks-43`. Untested on headsets: everyone
+  cubes across real headsets at a circle (how in step their runs look, a head entering at a cube's face).
 - **AR or VR only** (v137; for a room built as a studio scene: its elements "detached and mapped onto the room";
   `tools/studio/SPEC.md`, "AR or VR only"). An object's, a sound's, a shape's or an empty's record may carry `shows: 'ar'` or
   `'vr'` (absent or null both; anything else a bad record): in an AR session (passthrough, `!XR.clear`) one for VR is not
@@ -5135,17 +5135,20 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   in an AR session whose frame has `detectedPlanes` (`plane-detection` enabled), every vertical plane (`orientation`
   `'vertical'` or labelled a wall; never a door) taken into the scene's frame (`GL.world`'s inverse) as a segment along the
   floor (its polygon's extent), its bottom and top and its normal turned towards the walls' middle (the middle of their box
-  along the floor), read when the planes change and at most twice a second (once a second besides), as the robots read
-  theirs (`wallsXR` from `xrBegin`; gone at the session's end). No walls (VR, a page, no room scan yet): it stays where it
-  is placed, its card says so. Nothing is sent and nothing stored but the record: the same record maps onto each headset's
-  own room. A base stage of the pose pipeline as the other behaviours are (`behaveBase`, with a height `ty` beside `tx`,
-  `tz` and `d`), so a path and a motion draw over it, the record never changes, and it rests at its placed pose while held
-  here or paused (its ghost there while editing). Its card: *Behaviour: ... / On a wall*, *Which wall: In its direction /
-  Nearest / Follows the person*, *Gap from the wall* (*Less*, *More*), for a person *Reacts to*, *Notices people within* and
-  *Moves at most*, and a line on the walls this headset has; one Undo step each. `STUDIO.walls(list)` gives pretend walls
-  (`[{ a: [x, z], b: [x, z], y0, y1 }]` in the scene's frame; null the headset's own again) for tests. FORMAT
-  `networks-43`. Untested on a headset: real plane detection on a Quest (which planes it lists as vertical, how steady
-  their extents are, a multi-room scan), how things on walls look there, a person followed along the walls.
+  along the floor; when that is on a wall's line, as with one wall early in a room scan, a point in the room: the head
+  as those walls were read, else the scene's origin, kept while they stay the same, which a ray in an item's direction
+  then starts from too), read when the planes change and at most twice a second (once a second besides), as the robots
+  read theirs (`wallsXR` from `xrBegin`; gone at the session's end). No walls (VR, a page, no room scan yet): it stays
+  where it is placed, its card says so. Nothing is sent and nothing stored but the record: the same record maps onto
+  each headset's own room. A base stage of the pose pipeline as the other behaviours are (`behaveBase`, with a height
+  `ty` beside `tx`, `tz` and `d`), so a path and a motion draw over it, the record never changes, and it rests at its
+  placed pose while held here or paused (its ghost there while editing). Its card: *Behaviour: ... / On a wall*, *Which
+  wall: In its direction / Nearest / Follows the person*, *Gap from the wall* (*Less*, *More*), for a person *Reacts
+  to*, *Notices people within* and *Moves at most*, and a line on the walls this headset has; one Undo step each.
+  `STUDIO.walls(list)` gives pretend walls (`[{ a: [x, z], b: [x, z], y0, y1 }]` in the scene's frame; null the
+  headset's own again) for tests. FORMAT `networks-43`. Untested on a headset: real plane detection on a Quest (which
+  planes it lists as vertical, how steady their extents are, a multi-room scan), how things on walls look there, a
+  person followed along the walls.
 - **Motions** (v120; the owner, 6 November 2026: "Add little animations like spin and wobble etc for models?", then
   "animations do 1 and 2", 1 simple motions, 2 the recorder, "Recorded paths" below, curves later; `tools/studio/SPEC.md`,
   "Motions"; `engine/e6e_motion.js`). An object, a shape or an empty may have a `motion` in its record: `spin` (turns about
@@ -6432,9 +6435,10 @@ clock of what cubes start held by the test: an each-person cube (Doorway, starti
 person's head; set to *Everyone here* on the page's card (one Undo step), the box hidden and the figure and the tone shown
 for that head, its run started at the sample's room moment on both pages though their own clocks differ (999800 and
 1999800 there, 4999800 in the room's), its out moment that of the sample outside; a stay one active after the head has
-left, until Reset; two everyone cubes over the box entered at one moment, the higher id deciding, both ways round; the
-headset's row (Each person, one Undo step, Undo); norm's rules (`all` true kept, false and null absent, anything else bad),
-the state and `layout.json` both ways.
+left, until Reset; two everyone cubes over the box entered at one moment, the higher id deciding, both ways round; at a
+pretend station (`atStation` and the shell's `heads` stubbed) a head with no time, and one whose time is not a number,
+entering at the room's time now (no NaN) and leaving at it; the headset's row (Each person, one Undo step, Undo); norm's
+rules (`all` true kept, false and null absent, anything else bad), the state and `layout.json` both ways.
 
 Its *studio walls* steps (v137; `--only 'studio walls'`, a minute) run on a page of their own at `&scene=test` with
 pretend walls (`STUDIO.walls`: a 4 x 5 m room) and four shapes on walls: with no walls where they are placed (the card
@@ -6442,11 +6446,14 @@ says so); the walls' normals into the room; one in its direction on the near wal
 into the room; one turned to face +x on the nearest, the right wall, facing -x; one 2.4 m up, 40 cm tall, held at 2.3 m
 with no gap; one following a pretend person onto the right wall, never faster than 0.6 m/s, and with nobody back on the
 wall in its direction; the near wall 50 cm nearer: eased (not jumped after one frame), there within 1.5 s; no walls again:
-back where placed; every record unchanged; carried, at its placed pose; the walls read by `wallsXR` from a pretend AR
-frame's planes (a near and a right wall, a door and the floor left out: their segments, heights and normals). Then the
-card's rows on the page (On a wall, Nearest, Gap more, Follows the person: one Undo step each, the record in order) and
-the headset's (In its direction, Gap less twice); norm's rules (`at` required among three, defaults, the gap's default not
-written, held at 0.5 m, a person's fields dropped elsewhere), the state and `layout.json`.
+back where placed; every record unchanged; carried, at its placed pose; one wall given the wrong way round (its normal
+out of the room): turned towards the head as it was read and kept so with the head moved beyond it, the one in its
+direction at x 1.25 from there; one wall with no head turned towards the scene's origin; one wall in two pieces both
+turned to the head; the walls read by `wallsXR` from a pretend AR frame's planes (a near and a right wall, a door and
+the floor left out: their segments, heights and normals). Then the card's rows on the page (On a wall, Nearest, Gap
+more, Follows the person: one Undo step each, the record in order) and the headset's (In its direction, Gap less twice);
+norm's rules (`at` required among three, defaults, the gap's default not written, held at 0.5 m, a person's fields
+dropped elsewhere), the state and `layout.json`.
 
 Its *studio shows* steps (v137; `--only 'studio shows'`, under a minute) run on a page of their own at `&scene=test` with
 a pretend session's kind (`STUDIO.sess`): the box only for AR, the tone only for VR, a ball only for VR and an empty only

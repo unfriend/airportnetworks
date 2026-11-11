@@ -14,19 +14,21 @@
 // placed middle's held within the wall's bottom and top where it fits, its front (+z as placed) facing out of the wall into
 // the room, its placed tilt kept. It eases there (about 0.4 s) when the walls change, never jumping each frame.
 // The walls are this device's own: in an AR session whose frame has detectedPlanes (plane-detection on), every vertical
-// plane (its orientation 'vertical', or labelled a wall; not a door) taken into the scene's frame as a segment along the
-// floor (its polygon's extent), its bottom and top and its normal turned towards the walls' middle (the middle of their
-// box along the floor); read when the planes change and at most twice a second (once a second besides: a recentre moves
-// the scene), as the robots read theirs. Nothing is sent and nothing stored but the record: the same record maps onto each
-// headset's own room. No walls (VR, a page, no room scan yet): it stays where it is placed. It is a base stage of the pose
-// pipeline as the other behaviours are (behaveBase), so a path and a motion draw over it, the record never changes, and it
-// rests at its placed pose while held here or paused (its ghost there while editing).
+// plane (its orientation 'vertical', or labelled a wall; not a door) taken into the scene's frame as a segment along
+// the floor (its polygon's extent), its bottom and top and its normal turned towards the walls' middle (the middle of
+// their box along the floor; when that is on a wall's line, as with one wall, a point in the room: the head as they
+// were read, else the scene's origin); read when the planes change and at most twice a second (once a second besides: a
+// recentre moves the scene), as the robots read theirs. Nothing is sent and nothing stored but the record: the same
+// record maps onto each headset's own room. No walls (VR, a page, no room scan yet): it stays where it is placed. It is
+// a base stage of the pose pipeline as the other behaviours are (behaveBase), so a path and a motion draw over it, the
+// record never changes, and it rests at its placed pose while held here or paused (its ghost there while editing).
 const WALL_AT = ['direction', 'nearest', 'person'];
 const WALL_AT_WORD = { direction: 'In its direction', nearest: 'Nearest', person: 'Follows the person' };
 const WALL_EASE = 0.15;   // (the easing's time constant, s: there in about 0.4 s)
-// list: [{ a: [x, z], b: [x, z], y0, y1, n: [nx, nz] }] in the scene's frame; mid: the walls' middle; src: 'xr', 'fake' or
-// ''; seen: the planes and their change times last frame (a change reads them again); t: when they were read last
-const WALLS = { list: [], mid: [0, 0], src: '', seen: [], ns: 0, dirty: false, t: 0, n: 0, fake: null };
+// list: [{ a: [x, z], b: [x, z], y0, y1, n: [nx, nz] }] in the scene's frame; mid: the walls' middle; ref: the point in
+// the room taken for these walls when their middle is on a wall's line (null: none needed); src: 'xr', 'fake' or '';
+// seen: the planes and their change times last frame (a change reads them again); t: when they were read last
+const WALLS = { list: [], mid: [0, 0], ref: null, src: '', seen: [], ns: 0, dirty: false, t: 0, n: 0, fake: null };
 const _wlm = new THREE.Matrix4(), _wli = new THREE.Matrix4(), _wlv = new THREE.Vector3(), _wlq = new THREE.Quaternion(), _wls = new THREE.Vector3(1, 1, 1);
 const wallSem = o => { try { return String(o.semanticLabel || '').toLowerCase(); } catch (e) { return ''; } };
 // a session feature on? (an older browser does not say: try it, and catch)
@@ -45,17 +47,27 @@ function wallsSet(list, src) {
   }
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const w of L) for (const p of [w.a, w.b]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-  const mx = L.length ? (x0 + x1) / 2 : 0, mz = L.length ? (z0 + z1) / 2 : 0;
+  let mx = L.length ? (x0 + x1) / 2 : 0, mz = L.length ? (z0 + z1) / 2 : 0;
+  const sig = JSON.stringify(L.map(w => [w.a, w.b, w.y0, w.y1].flat().map(v => Math.round(v * 1000))));
+  // (how far (x, z) is off wall w's line, on the side of its normal (nx, nz))
+  const side = (w, x, z, nx, nz) => (x - (w.a[0] + w.b[0]) / 2) * nx + (z - (w.a[1] + w.b[1]) / 2) * nz;
+  // a point in the room for when the walls' middle is on a wall's line (one wall, or one wall in pieces, early in a
+  // room scan, where its normal would keep whichever way the plane's pose gave): the head as these walls were first
+  // read (it is in the room), else the scene's origin; kept while the walls stay the same (never walking with the head)
+  let ref = null;
+  const refAt = () => ref || (ref = sig === WALLS.sig && WALLS.ref ? WALLS.ref : (h => (h ? [h.x, h.z] : [0, 0]))(headPoint(_wlv)));
+  if (L.length && L.every(w => { const l = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); return Math.abs(side(w, mx, mz, -(w.b[1] - w.a[1]) / l, (w.b[0] - w.a[0]) / l)) < 0.1; })) [mx, mz] = refAt();
   for (const w of L) {
-    // (its normal along the floor, turned towards the walls' middle)
+    // (its normal along the floor, turned towards the walls' middle, or that point in the room when the middle is on
+    // its line; both on it: as the plane's pose gave it)
     const dx = w.b[0] - w.a[0], dz = w.b[1] - w.a[1], l = Math.hypot(dx, dz);
-    let nx = -dz / l, nz = dx / l;
-    if ((mx - (w.a[0] + w.b[0]) / 2) * nx + (mz - (w.a[1] + w.b[1]) / 2) * nz < 0) { nx = -nx; nz = -nz; }
+    let nx = -dz / l, nz = dx / l, sd = side(w, mx, mz, nx, nz);
+    if (Math.abs(sd) < 0.05) sd = side(w, ...refAt(), nx, nz);
+    if (sd < -0.05) { nx = -nx; nz = -nz; }
     w.n = [nx, nz];
   }
-  const sig = JSON.stringify(L.map(w => [w.a, w.b, w.y0, w.y1].flat().map(v => Math.round(v * 1000))));
   if (sig !== WALLS.sig) WALLS.n++;   // (the walls changed: how many times, for tests)
-  WALLS.sig = sig; WALLS.list = L; WALLS.mid = [mx, mz]; WALLS.src = L.length ? src : '';
+  WALLS.sig = sig; WALLS.list = L; WALLS.mid = [mx, mz]; WALLS.ref = ref; WALLS.src = L.length ? src : '';
 }
 // pretend walls (tests): [{ a: [x, z], b: [x, z], y0, y1 }] in the scene's frame; null gives the headset's own back
 function wallsFake(list) {
