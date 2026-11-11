@@ -3039,7 +3039,7 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     // (a switch, drawn lit or not: its press sounds as turning it off or on (o.tog, when that is not what lit says: true
     // sounds as off); tog null: a plain button)
-    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.tog === 'boolean' ? o.tog : o.tog === null ? null : typeof o.on === 'boolean' ? o.on : null });
+    if (fn) S.regions.push({ id, x, y, w, h, fn, label, tog: typeof o.tog === 'boolean' ? o.tog : o.tog === null ? null : typeof o.on === 'boolean' ? o.on : null });
   }
   function build() {
     if (OV.root) return;
@@ -3763,7 +3763,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', HOST.ships && HOST.ships.steering ? HOST.ships.steering() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4233,8 +4233,19 @@
         button(S, 'ship', x, y, w, 60, fl ? 'Spaceship: land' : 'Spaceship: launch', wn ? null : () => { HOST.ships.toggle('menu'); menuOpen(false, 'ship'); }, { on: fl, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wn || (fl ? 'Right controller: tilt to turn, nose up or down to climb. Trigger: shoot. Grip: brake. A: boost. Or click the right stick twice.' :
+        y += wrapText(ctx, wn || (fl ? (HOST.ships.steerWords ? HOST.ships.steerWords() : 'Right controller: tilt to turn, nose up or down to climb.') + ' Trigger: shoot. Grip: brake. A: boost. Or click the right stick twice at its middle.' :
           'A little ship flown with your right controller, seen by everyone here. Or click the right stick twice.'), x + 4, y, w - 8, 28, 3) + 14;
+        // how this headset steers it (v133; its own, never the room's): the tilt and the right stick, the stick alone or the
+        // tilt alone, each press the next; shown whether a ship flies or not
+        if (HOST.ships.setSteering) {
+          const sm = HOST.ships.steering(), nx = { both: 'stick', stick: 'tilt', tilt: 'both' }[sm] || 'both';
+          button(S, 'shipsteer', x, y, w, 60, 'Steering: ' + ({ both: 'tilt and stick', stick: 'stick only', tilt: 'tilt only' }[sm] || 'tilt and stick'), () => HOST.ships.setSteering(nx), { px: 23 });
+          y += 68;
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          y += wrapText(ctx, { both: 'Tilt the right controller or push its stick: both turn and climb, added up. This headset\'s own.',
+            stick: 'Only the right stick turns and climbs: rest your hand at any angle. This headset\'s own.',
+            tilt: 'Only the right controller\'s tilt turns and climbs; its stick does nothing. This headset\'s own.' }[sm] || '', x + 4, y, w - 8, 28, 3) + 14;
+        }
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {
@@ -6055,7 +6066,10 @@
   // the same click: one toggle). The frame-rate read-out turns on and off with a double press of B or Y (button 5; the
   // owner, 6 November 2026: "Fps counter should start with a hotkey like double press b or y"; no story uses it): two
   // presses of one controller's within BY.gap ms, a button held as its controller appears counting nothing
-  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 };
+  // While a ship flies (v133) its right stick steers and is pushed hard, so it may click by accident: a press of it counts
+  // as a click (the menu's, both at once, the double click that lands) only with the stick within SHIPCLK.mid of its middle
+  // as it goes down; pushed further it is a steer that clicked, and counts for nothing (logged at most once a second)
+  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 }, SHIPCLK = { mid: 0.5, logAt: 0 };
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
   // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note. In a shared room
   // it applies to a headset elsewhere (v128; the owner, 9 November 2026: "should also work in shared rooms everywhere when
@@ -6099,7 +6113,12 @@
       if (!src) continue;
       const was = STK.get(src);
       STK.set(src, b);
-      if (b && was === false) clicks.push(src);
+      if (b && was === false) {
+        const ax = HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && HOST.ships.axes ? HOST.ships.axes(gp) : null;
+        if (ax && Math.hypot(ax[0], ax[1]) >= SHIPCLK.mid) {
+          if (t - SHIPCLK.logAt > 1000) { SHIPCLK.logAt = t; log('ship stick click ignored', { x: +ax[0].toFixed(2), y: +ax[1].toFixed(2) }); }
+        } else clicks.push(src);
+      }
       const y = pressed(gp, 5), w = BY.m.get(src) || { b: undefined, at: 0 };
       if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
       w.b = y; BY.m.set(src, w);
@@ -10107,7 +10126,8 @@
     authTry: t => authTry(t), authForget: () => authForget(),
     notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
     notice: (title, text, ms) => notice(title, text, ms),   // (a notice in front of you in a headset: real-world occlusion's)
-    get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
+    get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos), menuVis: () => (OV.panel ? OV.panel.vis : 0),   // (the canvas's height the tab shown uses, px)
+      // (the menu carried by the grip; where it opens)
     // the room setup guide: what it shows ({ open, step, status: how this headset lines up, check: what the check says,
     // lined: [headsets lined up, headsets, checked], flow: the startup flow this session ('' not yet, 'on', 'done',
     // 'skipped'), case: what Line up says to do (lineCase), ok: this session's check that stood, red: the last one out,
