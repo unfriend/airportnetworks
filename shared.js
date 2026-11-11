@@ -3763,7 +3763,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', HOST.ships && HOST.ships.steering ? HOST.ships.steering() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4233,17 +4233,8 @@
         button(S, 'ship', x, y, w, 60, fl ? 'Spaceship: land' : 'Spaceship: launch', wn ? null : () => { HOST.ships.toggle('menu'); menuOpen(false, 'ship'); }, { on: fl, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wn || (fl ? (HOST.ships.steerWords ? HOST.ships.steerWords() : 'Right controller: tilt to turn, nose up or down to climb.') + ' Trigger: shoot. Grip: brake. A: boost. Or click the right stick twice at its middle.' :
-          'A little ship flown with your right controller, seen by everyone here. Or click the right stick twice.'), x + 4, y, w - 8, 28, 3) + 14;
-        // how this headset steers it (v133; its own, never the room's): the tilt and the right stick, the stick alone or the
-        // tilt alone, each press the next; shown whether a ship flies or not
-        if (HOST.ships.setSteering) {
-          const sm = HOST.ships.steering(), nx = { both: 'stick', stick: 'tilt', tilt: 'both' }[sm] || 'both';
-          button(S, 'shipsteer', x, y, bw, 60, 'Steering: ' + ({ both: 'tilt and stick', stick: 'stick only', tilt: 'tilt only' }[sm] || 'tilt and stick'), () => HOST.ships.setSteering(nx), { px: 22 });
-          note({ both: 'Tilt the controller or push its stick, added up. This headset\'s own', stick: 'Only the right stick: rest your hand at any angle',
-            tilt: 'Only the controller\'s tilt: its stick does nothing' }[sm] || '', y);
-          y += 76;
-        }
+        y += wrapText(ctx, wn || (fl ? (HOST.ships.steerWords ? HOST.ships.steerWords() : 'Right stick: left and right turn, forward dives, back climbs.') + ' Trigger: shoot. Grip: brake. A: boost. Or click the right stick twice at its middle.' :
+          'A little ship flown with your right stick, seen by everyone here. Or click the right stick twice.'), x + 4, y, w - 8, 28, 3) + 14;
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)
       if (HOST.xr.setFps) {

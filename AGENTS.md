@@ -1326,25 +1326,19 @@ ships or look).
 - **Each frame.** `index.html`'s moving with the sticks hooks the session's own `requestAnimationFrame`; once a frame,
   after it has dressed the frame (so the poses are three.js's), it calls `HOST.ships.frame(s, t, f)`, before any callback
   draws. The ship's clocks are that frame's time (ms) and the relay's (`now()`; for tests the frame's: `testClock`).
-- **The joystick** (`steer(roll, pitch, neutral)`, its numbers `STEER`, to be tuned on a Quest): the right controller's
-  grip pose (else its ray). At launch and at each new ship its neutral is taken: the pitch of its forward axis. Its roll
-  (its bank about its own forward axis, against gravity, 0 level: `angles`) turns the ship about the vertical: a dead zone
-  of 4 degrees, full at 40, at most 140 degrees a second, tilted right turns right, round as often as you like. Its pitch
-  from the neutral sets the flight pitch, eased (0.25 s) towards (deflection less the 4 degree dead zone) / 30 x 60
-  degrees, at most 60 up or down: neutral is level flight, nose up climbs; no loops. Where the controller points (its
-  yaw) counts for nothing, so turning to follow the ship changes nothing. The ship banks into its turns (up to 50
-  degrees, eased), which does not change its path.
-- **The thumbstick** (v133; the owner, 11 November 2026: "please also add joystick controls for the ships, right joystick
-  should control left right with left right and up down with up down"; `stick(x, y)`, `axes(gp)`, its numbers `STICK`, to
-  be tuned on a Quest): the right controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0
-  and 1) steers too, each axis on its own: a dead zone of 0.15, past it the push's share to the power 1.5 (fine near the
-  middle, full at the edge). Pushed right turns right (full: 140 degrees a second and the full bank), pushed up (forward,
-  away from you) climbs (full: 60 degrees, eased as the tilt's), down dives: up is up, not a flight simulator's;
-  released, level again. With the tilt the two shares are added and held at the most (`steerBoth`), so both work at once.
-  *Steering* (`HOST.ships.steering()`, `setSteering(m)`; this headset's own, `xrShipSteer` in `localStorage`, never the
-  room's, nothing sent): *tilt and stick* (`'both'`, the default), *stick only* (`'stick'`: the tilt counts for nothing,
-  so the hand can rest at any angle) or *tilt only* (`'tilt'`, as v132); the menu's row under Spaceship, the launch
-  notice and the Spaceship row's note say it in words that match; the Debug tab's line names it.
+- **Steering: the right thumbstick** (v133; the owner, 11 November 2026: "please also add joystick controls for the ships,
+  right joystick should control left right with left right and up down with up down", then "the pitch of the up down
+  should be reversed like in flightsim" and "also remove the controller motion steering from the ships for now, its not
+  working well anyway"; `stick(x, y)`, `axes(gp)`, its numbers `STICK` and `STEER`, to be tuned on a Quest): the right
+  controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0 and 1), each axis on its own: a
+  dead zone of 0.15, past it the push's share to the power 1.5 (fine near the middle, full at the edge). Pushed right it
+  turns right about the vertical (full: 140 degrees a second, round as often as you like), pushed forward (away from you,
+  `axes[3]` -1) it dives and pulled back it climbs (full: 60 degrees, the flight pitch eased with 0.25 s; no loops), as a
+  flight simulator's stick; released, level flight. The ship banks into its turns (up to 50 degrees, eased), which does
+  not change its path. How the controller is held, tilted or pointed counts for nothing: v132 flew by its tilt like a
+  joystick (its roll turned, its pitch from the angle held at launch climbed and dived: in the history at v132), taken out
+  in v133 with the Steering setting its first build had (`xrShipSteer`, removed from `localStorage` as `ships.js` loads).
+  The launch notice and the Spaceship row's note say how (`steerWords()`).
 - **Speed** (`FLY`): always forward at 1.2 m/s; the right grip (`buttons[1].value`) brakes, below 0.9 to 1.2 x (1 - 0.8 g),
   from 0.9 slowly backwards (-0.5 m/s); at most 2.5 m/s2. A (`buttons[4]`, its rising edge; nothing else of the shell or
   any story reads it) boosts when its meter is full: 3.2 m/s at once for 0.8 s, then it recharges for 4 s; braking ends
@@ -1363,7 +1357,7 @@ ships or look).
 - **Shield and health** (`HP`): every ship 100 of each. Damage takes the shield first, what is left the health. The shield
   refills from 2 s after the last hit at 25 a second; health never does. At 0 health it explodes (a burst for about 0.8 s
   and a boom); its pilot sees *Destroyed by <name>* (or *by a drone*) and a countdown on its strip; 5 s later a new ship
-  at the controller, full, its neutral taken again. A hit flashes a ring round it (the shield) or sparks (the hull) and
+  at the controller, full. A hit flashes a ring round it (the shield) or sparks (the hull) and
   buzzes the right controller (0.4, 60 ms).
 - **Targets, drones and pickups: one shared set, fought together.** 3 targets (slowly drifting glowing crystals, health 40,
   no shield) and drones (another, darker, angular design with red edges and eye; shield 30, health 60): 2 while one pilot
@@ -1442,14 +1436,14 @@ ships or look).
 - **Sounds** (`sfx.js`, kind `game`, at the shell's levels, from where they happen through `HOST.sfx.play`'s `at`):
   `zap`, `zapLow` (a drone's), `shieldHit`, `hullHit`, `boost`, `boom`, `bump`, `launch`, `land`, `respawn`, `pickup`,
   `pickupEnd`. No engine sound (the owner's rule: no hums unless asked).
-- For tests: `HOST.ships.state()` (flying, down, the frame, the ship's pose, speed, turn, neutral, shield, extra, health,
+- For tests: `HOST.ships.state()` (flying, down, the frame, the ship's pose, speed, turn, the stick (`stick`), shield, extra, health,
   boost, pickups on, the leader, the drones, targets and pickups as drawn here, live bolts, kills, others' ships, what is
-  drawn, `rt` the time drawn at), `launch(on)`, `times({...})` (`null` the defaults), `testClock(on)`, `steer`, `angles`,
+  drawn, `rt` the time drawn at), `launch(on)`, `times({...})` (`null` the defaults), `testClock(on)`, `stick`, `axes`,
   `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
   `bolt`, `claim`, `track`, `materials`).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
-- **Untested on a headset**: how the joystick feels and its numbers (the dead zones, 40 degrees for a full turn, 60
-  degrees of climb, the neutral), the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
+- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second, 60
+  degrees of climb, forward to dive), the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
   read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
@@ -2421,9 +2415,7 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     `HOST.xr`), *Moving with the sticks: on/off* (v125, this headset's own, the whole width with a note under it,
     greyed with the reason in AR, in a shared room and in the studio: "Moving with the sticks" under "Four headset
     settings"), *Spaceship: launch* / *Spaceship: land* (v132, the whole width with a note under it that the right stick
-    clicked twice does the same, greyed with the reason where no ship can fly: "Spaceships"), *Steering: tilt and stick* ->
-    *stick only* -> *tilt only* (v133, under it, a note beside it, each press the next, this headset's own,
-    shown whether a ship flies or not: "The thumbstick" under "Spaceships"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
+    clicked twice does the same, greyed with the reason where no ship can fly: "Spaceships"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
     settings"), *Developer mode: on/off* (v125, this device's own, a note beside it: "Developer mode"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
@@ -2467,7 +2459,7 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 1780 with a ship flying outside a room (v133: the Steering row; the smoke test's spaceship steps print it and fail past 1900; the Steering row half width with its note beside it, not under it, to keep that margin), Debug about 870; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870; What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
@@ -5466,18 +5458,16 @@ headset, its frames through the session's own `requestAnimationFrame` so the she
 second on the test's clock, which the ship's relay time follows there, `HOST.ships.testClock`; the right controller's grip
 turned by the test; the drones frozen, `debug.freeze`): the right stick clicked twice launching (its notice, no menu), the
 ship 0.5 m ahead of the controller facing where the head does; the left stick twice still moving with the sticks, both at
-once one menu; the right stick twice again landing; a tracked right hand refused in words. Rolled 20 degrees right it
-turns right at 62.2 degrees a second (within 2), banking; 40 degrees all the way round (392 degrees in 2.8 s); rolled
-left the other way; the controller turned 75 degrees about the vertical changing nothing; nose up 40 degrees from the
-neutral climbing at 60 to its 3 m ceiling and held there, back inside the dead zone level; the mapping's numbers. The
-right stick (v133, steering *tilt and stick* by default, the controller level): full right 140 degrees a second to the
-right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing; tilted 20 degrees
-right with the stick full left the two summed (about 78 to the left), tilted 40 with it full right held at 140; full up
-climbing at 60 degrees, full down diving at 60, released level; the state's stick and the mapping (`stick`, `axes`,
-`STICK`). The Steering row going round in its words (*tilt and stick*, *stick only*, *tilt only*), the Settings tab's
-height between 1,500 and 1,900 px (printed: the canvas is 1,920); *stick only*: tilted 40 degrees turning nothing, the stick 140; *tilt only*: the stick
-nothing, tilted 20 degrees 62; landed the row still there; *stick only* kept across a reload (`xrShipSteer`), then back
-to both. Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a second); a pushed click then
+once one menu; the right stick twice again landing; a tracked right hand refused in words. The controller's tilt
+steering nothing (v133: rolled 40 degrees either way, nose up or down 40, turned 75 about the vertical, the ship flying
+straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; pulled back
+climbing at 60 to its 3 m ceiling and held there, released level; nothing of the tilt left (no `steer`, `angles`,
+`steering`, `setSteering`, no `neutral` or `roll` in the state, `xrShipSteer` gone). The stick's numbers: full right 140
+degrees a second to the right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing;
+pulled back climbing at 60 degrees, pushed forward diving at 60, released level; the state's stick and the mapping
+(`stick`, `axes`, `STICK`). No Steering row on the Settings tab, its height between 1,500 and 1,900 px (printed: the
+canvas is 1,920). Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a
+second); a pushed click then
 one at its middle at once the menu alone (never paired); two at its middle landing. Cruise
 1.2 m/s, half grip 0.72, full grip -0.5, at most 2.5 m/s2; A boosting to 3.2 m/s for 0.8 s, not again until 4 s of
 recharge, braking ending it. The trigger held a second: 5 bolts at 9.2 m/s (8 plus the ship's), none older than 1.25 s.
@@ -5486,7 +5476,7 @@ Alone: 3 targets and 2 drones, led here; two bolts destroying a target (counted)
 shortened): the boost's (a boost of 1.2 s, recharged in 1 s, gone after its time), rapid fire's (10 bolts in a second,
 gone after its time), the reinforced shield's (150, a hit of 20 taken from the extra, which never refills), one living
 1.5 s gone after it, at most 2 at once. Destroyed at 0 (*Destroyed by a drone*, no ship drawn, the strip shown), a new ship
-5 s later at the controller, full, its neutral taken again. Flying, the right controller's select and squeeze events
+5 s later at the controller, full, level though the controller is nosed up. Flying, the right controller's select and squeeze events
 reaching no listener after the shell's guard, the left's all six; its ray at the open menu pointing at nothing (`kind`
 shell, `dist` 0, no hover) where the left's points at the menu; landed, its presses heard again; a trigger and grip
 pressed before the launch getting their ends through (and the next press not); moving with the sticks

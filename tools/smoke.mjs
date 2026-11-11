@@ -8939,7 +8939,7 @@ if (runs('spaceship')) {
     await sp.waitForTimeout(500); await tick(1);
     const m0 = await sp.evaluate(() => HOST.collab.menu);
     if (!s0.flying || m0) bad.push('the right stick twice: flying ' + s0.flying + ', the menu ' + m0);
-    if (!/^Spaceship: Right controller: tilt it or push its stick to turn and climb/.test(n0)) bad.push('the launch notice: ' + n0);
+    if (!/^Spaceship: Right stick: left and right turn, forward dives, back climbs\. Trigger: shoot/.test(n0)) bad.push('the launch notice: ' + n0);
     const want = [0.2, 1.1, -0.3 - 0.5];
     if (dist(s0.p, want) > 0.1 || Math.abs(s0.yaw) > 0.01 || Math.abs(s0.pitch) > 0.01) bad.push('the ship at ' + s0.p.map(v => v.toFixed(3)) + ' yaw ' + s0.yaw.toFixed(3) + ', not 0.5 m ahead of the controller facing -z');
     await click('L', 2); await tick(1);
@@ -8962,120 +8962,91 @@ if (runs('spaceship')) {
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
-  await step('spaceship: steering like a joystick: rolled 20 degrees right it turns right at 62 degrees a second, 40 degrees all the way round; nose up climbs at 60 degrees to its ceiling, back to neutral it flies level; the controller\'s yaw changes nothing', async () => {
+  // the controller's tilt steers nothing since v133 (the owner, 11 November 2026: "remove the controller motion steering
+  // from the ships for now, its not working well anyway"): the stick alone
+  await step('spaceship: the controller\'s tilt steers nothing (rolled 40 degrees, nose up 40, turned 75: straight and level); the stick full right all the way round, banking; pulled back it climbs to its ceiling and is held there, released it flies level', async () => {
     const bad = [];
     await fresh();
+    for (const [name, yaw, pitch, roll] of [['rolled 40 degrees right', 0, 0, 40], ['rolled 40 degrees left', 0, 0, -40], ['nose up 40 degrees', 0, 40, 0], ['nose down 40 degrees', 0, -40, 0], ['turned 75 degrees about the vertical', 75, 0, 0]]) {
+      await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+      await hold('R', [0.2, 1.1, -0.3], yaw, pitch, roll); await tick(20);
+      const a = await st(); await secs(0.5); const b = await st();
+      if (Math.abs(turnBy(a.yaw, b.yaw)) > 0.002 || Math.abs(b.pitch) > 0.01 || Math.abs(b.bank) > 0.01 || Math.abs(b.p[1] - a.p[1]) > 0.01) bad.push(name + ': the ship turned ' + (turnBy(a.yaw, b.yaw) * D).toFixed(2) + ' degrees, its pitch ' + (b.pitch * D).toFixed(1) + ', its bank ' + (b.bank * D).toFixed(1) + ', its height ' + a.p[1].toFixed(3) + ' then ' + b.p[1].toFixed(3));
+    }
+    await hold('R', [0.2, 1.1, -0.3]);
+    // the stick full right: a full turn in about 2.6 s, round and back to where it began, banking into it
     await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
-    await hold('R', [0.2, 1.1, -0.3], 0, 0, 20); await tick(20);   // (the bank settles)
-    const a = await st(); await secs(1); const b = await st();
-    const rate = -turnBy(a.yaw, b.yaw) * D, wantR = (20 - 4) / 36 * 140;
-    if (Math.abs(rate - wantR) > 2) bad.push('rolled 20 degrees right: ' + rate.toFixed(1) + ' degrees a second, not ' + wantR.toFixed(1) + ' to the right');
-    if (!(b.bank > 0.25 && b.bank < 50 / D + 0.01)) bad.push('its bank: ' + (b.bank * D).toFixed(1) + ' degrees');
-    // rolled 40 degrees: a full turn in about 2.6 s, round and back to where it began
-    await hold('R', [0.2, 1.1, -0.3], 0, 0, 40); await tick(1);
+    await stk(1, 0); await tick(20);
     let turned = 0, last = (await st()).yaw;
     for (let k = 0; k < 14; k++) { await tick(12); const y = (await st()).yaw; turned += -turnBy(last, y); last = y; }
-    if (Math.abs(turned * D - 140 * 14 * 12 / 60) > 8) bad.push('rolled 40 degrees: turned ' + (turned * D).toFixed(0) + ' degrees in 2.8 s, not ' + (140 * 2.8).toFixed(0));
-    // rolled left the other way; the controller turned about the vertical changes nothing
-    await hold('R', [0.2, 1.1, -0.3], 0, 0, -20); await tick(20);
-    const c = await st(); await secs(0.5); const d = await st();
-    if (Math.abs(-turnBy(c.yaw, d.yaw) * D * 2 + wantR) > 2) bad.push('rolled 20 degrees left: ' + (-turnBy(c.yaw, d.yaw) * D * 2).toFixed(1) + ' degrees a second');
-    await hold('R', [0.2, 1.1, -0.3], 75, 0, 0); await tick(20);
-    const e = await st(); await secs(0.5); const f = await st();
-    if (Math.abs(turnBy(e.yaw, f.yaw)) > 0.002 || Math.abs(f.pitch) > 0.01) bad.push('the controller turned 75 degrees about the vertical: the ship turned ' + (turnBy(e.yaw, f.yaw) * D).toFixed(2) + ' degrees, its pitch ' + (f.pitch * D).toFixed(1));
-    // nose up 40 degrees from the neutral (level): it climbs at 60 degrees until its ceiling; level again, it flies level
+    if (Math.abs(turned * D - 140 * 14 * 12 / 60) > 8) bad.push('the stick full right: turned ' + (turned * D).toFixed(0) + ' degrees in 2.8 s, not ' + (140 * 2.8).toFixed(0));
+    const bk = await st();
+    if (Math.abs(bk.bank * D - 50) > 1) bad.push('its bank at full turn: ' + (bk.bank * D).toFixed(1) + ' degrees, not 50');
+    // pulled back: it climbs at 60 degrees until its ceiling, held there; released, it flies level
     await sp.evaluate(() => HOST.ships.debug.place([0, 0.5, 0], 0, 0));
-    await hold('R', [0.2, 1.1, -0.3], 0, 40, 0); await secs(1.2);
+    await stk(0, 1); await secs(1.2);
     const g = await st();
-    if (Math.abs(g.pitch * D - 60) > 1) bad.push('nose up 40 degrees: its pitch ' + (g.pitch * D).toFixed(1) + ', not 60');
+    if (Math.abs(g.pitch * D - 60) > 1) bad.push('pulled back: its pitch ' + (g.pitch * D).toFixed(1) + ', not 60');
     await secs(2.5);
     const h = await st();
     if (Math.abs(h.p[1] - 3.0) > 0.01) bad.push('climbing: its height ' + h.p[1].toFixed(3) + ', not held at the ceiling of 3 m');
-    await hold('R', [0.2, 1.1, -0.3], 0, 2, 0); await secs(1.5);
+    await stk(0, 0); await secs(1.5);
     const i1 = await st(); await secs(0.5); const i2 = await st();
-    if (Math.abs(i2.pitch) > 0.01 || Math.abs(i2.p[1] - i1.p[1]) > 0.01) bad.push('back near neutral (2 degrees up, inside the dead zone): pitch ' + (i2.pitch * D).toFixed(2) + ', height ' + i1.p[1].toFixed(3) + ' then ' + i2.p[1].toFixed(3));
-    const sa = await sp.evaluate(() => [HOST.ships.steer(20, 0, 0).turn, HOST.ships.steer(3, 0, 0).turn, HOST.ships.steer(90, 0, 0).turn, HOST.ships.steer(0, 50, 10).pitch, HOST.ships.steer(0, 12, 10).pitch]);
-    if (Math.abs(sa[0] - wantR) > 1e-6 || sa[1] !== 0 || sa[2] !== 140 || sa[3] !== 60 || sa[4] !== 0) bad.push('the mapping: ' + JSON.stringify(sa));
+    if (Math.abs(i2.pitch) > 0.01 || Math.abs(i2.p[1] - i1.p[1]) > 0.01) bad.push('released: pitch ' + (i2.pitch * D).toFixed(2) + ', height ' + i1.p[1].toFixed(3) + ' then ' + i2.p[1].toFixed(3));
+    // nothing of the tilt left: no steering setting, no tilt in the API or the state
+    const gone = await sp.evaluate(() => { const S = HOST.ships, x = S.state(); return [typeof S.steer, typeof S.angles, typeof S.steering, typeof S.setSteering, 'neutral' in x, 'roll' in x.ctrl, 'steering' in x, localStorage.getItem('xrShipSteer'), S.steerWords()]; });
+    if (JSON.stringify(gone) !== JSON.stringify(['undefined', 'undefined', 'undefined', 'undefined', false, false, false, null, 'Right stick: left and right turn, forward dives, back climbs.'])) bad.push('what is left of the tilt: ' + JSON.stringify(gone));
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
   // the right thumbstick (v133; the owner, 11 November 2026: "right joystick should control left right with left right and
-  // up down with up down"): a dead zone of 0.15, past it the push's share to the power 1.5; summed with the tilt, held at
-  // the most
-  await step('spaceship: the right stick steers too: full right turns right at 140 degrees a second, full left left, 0.5 at the shaped rate, 0.1 nothing; up climbs to 60 degrees, down dives, released level; summed with the tilt and held at 140', async () => {
+  // up down with up down", then "the pitch of the up down should be reversed like in flightsim"): a dead zone of 0.15, past
+  // it the push's share to the power 1.5; forward dives and back climbs
+  await step('spaceship: the right stick steers: full right turns right at 140 degrees a second, full left left, 0.5 at the shaped rate, 0.1 nothing; pulled back climbs to 60 degrees, pushed forward dives, released level', async () => {
     const bad = [];
     await fresh();
-    if (await sp.evaluate(() => HOST.ships.steering()) !== 'both') bad.push('steering by default: ' + await sp.evaluate(() => HOST.ships.steering()));
     // the turn rate (degrees a second to the right) over a second from the middle of the arena, the bank settled first
-    const rateOf = async (x, roll) => {
+    const rateOf = async x => {
       await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
-      await hold('R', [0.2, 1.1, -0.3], 0, 0, roll || 0); await stk(x, 0); await tick(20);
+      await stk(x, 0); await tick(20);
       const a = await st(); await secs(1); const b = await st();
       return -turnBy(a.yaw, b.yaw) * D;
     };
-    const shaped = Math.pow(0.35 / 0.85, 1.5) * 140, tilt20 = (20 - 4) / 36;
-    const cases = [['full right', 1, 0, 140], ['full left', -1, 0, -140], ['0.5 right', 0.5, 0, shaped], ['0.1 right (the dead zone)', 0.1, 0, 0],
-      ['tilted 20 right, the stick full left', -1, 20, (tilt20 - 1) * 140], ['tilted 40 right, the stick full right', 1, 40, 140]];
-    for (const [name, x, roll, want] of cases) {
-      const r = await rateOf(x, roll);
+    const shaped = Math.pow(0.35 / 0.85, 1.5) * 140;
+    const cases = [['full right', 1, 140], ['full left', -1, -140], ['0.5 right', 0.5, shaped], ['0.1 right (the dead zone)', 0.1, 0]];
+    for (const [name, x, want] of cases) {
+      const r = await rateOf(x);
       if (Math.abs(r - want) > 3) bad.push(name + ': ' + r.toFixed(1) + ' degrees a second, not ' + want.toFixed(1));
     }
     const s0 = await st();
-    if (!s0.stick || s0.stick.x !== 1 || s0.stick.k !== 1 || s0.steering !== 'both') bad.push('the state\'s stick: ' + JSON.stringify([s0.stick, s0.steering]));
-    // up (forward, -1) climbs to 60 degrees; down dives; released, level again
-    await hold('R', [0.2, 1.1, -0.3]);
-    await sp.evaluate(() => HOST.ships.debug.place([0, 0.6, 0], 0, 0)); await stk(0, -1); await secs(1.2);
+    if (!s0.stick || s0.stick.x !== 0.1 || s0.stick.k !== 0) bad.push('the state\'s stick: ' + JSON.stringify(s0.stick));
+    // pulled back (+1) climbs to 60 degrees; pushed forward (-1) dives, as a flight simulator's stick; released, level again
+    await sp.evaluate(() => HOST.ships.debug.place([0, 0.6, 0], 0, 0)); await stk(0, 1); await secs(1.2);
     const u = await st();
-    if (Math.abs(u.pitch * D - 60) > 1 || !(u.p[1] > 0.9)) bad.push('the stick full up: pitch ' + (u.pitch * D).toFixed(1) + ', height ' + u.p[1].toFixed(2) + ' (from 0.6)');
-    await sp.evaluate(() => HOST.ships.debug.place([0, 2.6, 0], 0, 0)); await stk(0, 1); await secs(1.2);
+    if (Math.abs(u.pitch * D - 60) > 1 || !(u.p[1] > 0.9)) bad.push('the stick pulled back: pitch ' + (u.pitch * D).toFixed(1) + ', height ' + u.p[1].toFixed(2) + ' (from 0.6)');
+    await sp.evaluate(() => HOST.ships.debug.place([0, 2.6, 0], 0, 0)); await stk(0, -1); await secs(1.2);
     const dn = await st();
-    if (Math.abs(dn.pitch * D + 60) > 1 || !(dn.p[1] < 2.3)) bad.push('the stick full down: pitch ' + (dn.pitch * D).toFixed(1) + ', height ' + dn.p[1].toFixed(2) + ' (from 2.6)');
+    if (Math.abs(dn.pitch * D + 60) > 1 || !(dn.p[1] < 2.3)) bad.push('the stick pushed forward: pitch ' + (dn.pitch * D).toFixed(1) + ', height ' + dn.p[1].toFixed(2) + ' (from 2.6)');
     await sp.evaluate(p => HOST.ships.debug.place([0, 1.5, 0], 0, p), dn.pitch); await stk(0, 0); await secs(1.5);
     const lv = await st();
     if (Math.abs(lv.pitch) > 0.01 || Math.abs(lv.turn) > 1e-9) bad.push('released: pitch ' + (lv.pitch * D).toFixed(2) + ', turn ' + lv.turn);
     // the mapping and the axes read
     const m = await sp.evaluate(() => { const S = HOST.ships; return [S.stick(0.5, 0).turn, S.stick(0.1, -0.1).turn, S.stick(0, -1).pitch, S.stick(0, 1).pitch, S.stick(1, 0).bank,
-      S.steer(20, 0, 0).turn, S.axes({ axes: [0.3, -0.4] }), S.axes({ axes: [0.9, 0.9, NaN, 1] }), S.axes(null), S.STICK]; });
-    if (Math.abs(m[0] - shaped) > 1e-9 || m[1] !== 0 || m[2] !== 60 || m[3] !== -60 || m[4] !== 50 || Math.abs(m[5] - tilt20 * 140) > 1e-9 ||
-      JSON.stringify(m.slice(6, 9)) !== JSON.stringify([[0.3, -0.4], [0, 1], [0, 0]]) || m[9].dz !== 0.15 || m[9].expo !== 1.5) bad.push('the mapping: ' + JSON.stringify(m));
+      S.axes({ axes: [0.3, -0.4] }), S.axes({ axes: [0.9, 0.9, NaN, 1] }), S.axes(null), S.STICK]; });
+    if (Math.abs(m[0] - shaped) > 1e-9 || m[1] !== 0 || m[2] !== -60 || m[3] !== 60 || m[4] !== 50 ||
+      JSON.stringify(m.slice(5, 8)) !== JSON.stringify([[0.3, -0.4], [0, 1], [0, 0]]) || m[8].dz !== 0.15 || m[8].expo !== 1.5) bad.push('the mapping: ' + JSON.stringify(m));
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
-  await step('spaceship: the Steering row goes round (tilt and stick, stick only, tilt only), kept across a reload; stick only ignores the tilt, tilt only the stick; the Settings tab fits; a right-stick click pushed past 0.5 counts for nothing, at its middle it lands', async () => {
+  await step('spaceship: no Steering row (the stick alone); the Settings tab fits; a right-stick click pushed past 0.5 counts for nothing, at its middle it lands', async () => {
     const bad = [];
     await fresh();
-    const row = () => sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__wtick(2); const r = HOST.collab.menuFind('shipsteer'); return r ? r.label : ''; });
-    const pressRow = () => sp.evaluate(() => { const r = HOST.collab.menuFind('shipsteer'); if (r && r.fn) r.fn(); window.__wtick(2); return HOST.ships.steering(); });
-    const seen = [await row()];
-    for (let k = 0; k < 3; k++) { await pressRow(); seen.push(await row()); }
-    if (JSON.stringify(seen) !== JSON.stringify(['Steering: tilt and stick', 'Steering: stick only', 'Steering: tilt only', 'Steering: tilt and stick'])) bad.push('the row\'s words: ' + JSON.stringify(seen));
+    const ids = await sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__wtick(2); const r = HOST.collab.menuFind('ship'); return [HOST.collab.menuIds().includes('shipsteer'), r ? r.label : '']; });
+    if (ids[0] || ids[1] !== 'Spaceship: land') bad.push('the Settings tab: a Steering row ' + ids[0] + ', the Spaceship row ' + JSON.stringify(ids[1]));
     const vis = await sp.evaluate(() => HOST.collab.menuVis());
     console.log('    the Settings tab with a ship flying: ' + vis + ' px of 1920');
     if (!(vis > 1500 && vis < 1900)) bad.push('the Settings tab is ' + vis + ' px tall (of 1920: little margin left)');
-    await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(2);
-    const rate = async (x, roll) => {
-      await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
-      await hold('R', [0.2, 1.1, -0.3], 0, 0, roll); await stk(x, 0); await tick(20);
-      const a = await st(); await secs(0.5); const b = await st();
-      return -turnBy(a.yaw, b.yaw) * D * 2;
-    };
-    await sp.evaluate(() => HOST.ships.setSteering('stick'));
-    const r1 = await rate(0, 40), r2 = await rate(1, 40);
-    if (Math.abs(r1) > 1 || Math.abs(r2 - 140) > 3) bad.push('stick only: tilted 40 right ' + r1.toFixed(1) + ', and the stick full right ' + r2.toFixed(1) + ' degrees a second');
-    await sp.evaluate(() => HOST.ships.setSteering('tilt'));
-    const r3 = await rate(1, 0), r4 = await rate(0, 20);
-    if (Math.abs(r3) > 1 || Math.abs(r4 - (20 - 4) / 36 * 140) > 3) bad.push('tilt only: the stick full right ' + r3.toFixed(1) + ', and tilted 20 right ' + r4.toFixed(1) + ' degrees a second');
-    await stk(0, 0);
-    // landed, the row is still there (and pressable); kept across a reload
-    await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); });
-    const landed = await row();
-    if (landed !== 'Steering: tilt only') bad.push('landed, the row: ' + JSON.stringify(landed));
-    await pressRow(); await pressRow();   // (stick only)
-    await sp.evaluate(() => HOST.collab.panelOpen(false));
-    await openS('qubits');
-    const kept = await sp.evaluate(() => [HOST.ships.steering(), localStorage.getItem('xrShipSteer')]);
-    if (kept[0] !== 'stick' || kept[1] !== 'stick') bad.push('after a reload: ' + JSON.stringify(kept));
-    await sp.evaluate(() => HOST.ships.setSteering('both'));
+    await sp.evaluate(() => { HOST.collab.panelOpen(false); HOST.ships.launch(false); window.__wtick(2); }); await tick(2);
     // clicks of the right stick while flying: pushed past 0.5 nothing (two within 0.4 s neither land nor open the menu)
     await hold('R', [0.2, 1.1, -0.3]);
     await sp.evaluate(() => { HOST.ships.debug.freeze(true); HOST.ships.launch(true); window.__wtick(2); });
@@ -9225,7 +9196,7 @@ if (runs('spaceship')) {
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
-  await step('spaceship: destroyed at 0 health (Destroyed by a drone, the strip counting down), a new ship with full shield and health 5 s later, the neutral taken again', async () => {
+  await step('spaceship: destroyed at 0 health (Destroyed by a drone, the strip counting down), a new ship with full shield and health 5 s later, at the controller', async () => {
     const bad = [];
     await fresh();
     await sp.evaluate(() => HOST.ships.debug.hurt(250, 'drone'));
@@ -9235,7 +9206,7 @@ if (runs('spaceship')) {
     await hold('R', [0.2, 1.2, -0.3], 0, 15, 0);
     await secs(4.8); const b = await st();
     await secs(0.4); const c = await st();
-    if (!b.down || c.down || c.shield !== 100 || c.health !== 100 || Math.abs(c.neutral - 15) > 0.5) bad.push('5 s later: ' + JSON.stringify({ at48: b.down, down: c.down, shield: c.shield, health: c.health, neutral: c.neutral }));
+    if (!b.down || c.down || c.shield !== 100 || c.health !== 100 || Math.abs(c.pitch) > 0.01) bad.push('5 s later (the controller nosed up 15 degrees: level all the same): ' + JSON.stringify({ at48: b.down, down: c.down, shield: c.shield, health: c.health, pitch: c.pitch }));
     if (dist(c.p, [0.2, 1.2, -0.8]) > 0.4) bad.push('the new ship at ' + c.p.map(v => v.toFixed(2)) + ', not at the controller');
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });

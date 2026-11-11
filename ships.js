@@ -5,7 +5,8 @@
 // "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone",
 // practice targets alone "yes totally, maybe some ships that also fly around", and then: "leave the drifting targets and
 // the drones in when more join so players can also coop against them, also add some addons like additional boost and
-// faster shooting for some times and reinforced shields pickups that spawn from time to time").
+// faster shooting for some times and reinforced shields pickups that spawn from time to time"). Since v133 it is steered
+// by the right thumbstick alone, as a flight simulator's stick; the controller's tilt no longer steers (STEER below).
 // The shell's own mini-game, not a story: it flies over every story and every circle, alone or in a shared room. The
 // right stick clicked twice launches or lands (shared.js's sticks); while flying the right controller belongs to the
 // ship (HOST.inputsGuard stops its presses before three.js and the shell hear them, HOST.collab.ray answers for its ray).
@@ -17,21 +18,20 @@ HOST.ships = (function () {
   'use strict';
   const V3 = THREE.Vector3, Q4 = THREE.Quaternion, M4 = THREE.Matrix4;
   const DEG = Math.PI / 180;
-  // the joystick (the owner: "like a joystick"; to be tuned on a Quest): the right controller's roll against gravity
-  // turns the ship about the vertical (dead zone, full at, at most deg/s), its pitch from the neutral taken at launch sets
-  // the flight pitch (dead zone, full past it by, at most deg, eased with tau s); its yaw counts for nothing. The ship
-  // banks into its turns (bank, eased with btau), which does not change its path
-  const STEER = { rollDz: 4, rollFull: 40, turnMax: 140, pitchDz: 4, pitchFull: 30, pitchMax: 60, tau: 0.25, bank: 50, btau: 0.15 };
-  // the right thumbstick steers too (v133; the owner, 11 November 2026: "please also add joystick controls for the ships,
-  // right joystick should control left right with left right and up down with up down"): each axis on its own, a dead
-  // zone of dz, past it the push's share shaped by an exponent of expo (fine near the middle, full at the edge); pushed
-  // right turns right, up (forward, away from you) climbs: up is up, not a flight simulator's. To be tuned on a Quest
+  // steering (v133): the right thumbstick alone. v132 flew by the right controller's tilt, like a joystick (its roll
+  // turned the ship, its pitch from the angle held at launch climbed and dived); the owner, 11 November 2026: "remove the
+  // controller motion steering from the ships for now, its not working well anyway", so it went (in the history at v132).
+  // The ship turns about the vertical at most turnMax deg/s, its flight pitch is eased towards at most pitchMax deg (tau
+  // s), and it banks into its turns (bank, eased with btau), which does not change its path
+  const STEER = { turnMax: 140, pitchMax: 60, tau: 0.25, bank: 50, btau: 0.15 };
+  // the stick (the owner, 11 November 2026: "please also add joystick controls for the ships, right joystick should control
+  // left right with left right and up down with up down", then "the pitch of the up down should be reversed like in
+  // flightsim"): each axis on its own, a dead zone of dz, past it the push's share shaped by an exponent of expo (fine near
+  // the middle, full at the edge); pushed right turns right, pushed forward (away from you) dives and pulled back climbs,
+  // as a flight simulator's stick. To be tuned on a Quest
   const STICK = { dz: 0.15, expo: 1.5 };
-  // how this headset steers (its own, never the room's: xrShipSteer): the tilt and the stick summed, the stick alone (the
-  // hand may rest at any angle) or the tilt alone (as v132)
-  const STEERS = ['both', 'stick', 'tilt'];
-  let steerMode = 'both';
-  try { const v = localStorage.getItem('xrShipSteer'); if (STEERS.includes(v)) steerMode = v; } catch (e) { /* no storage */ }
+  // (v133's first build had a Steering setting, kept as xrShipSteer: gone with the tilt)
+  try { localStorage.removeItem('xrShipSteer'); } catch (e) { /* no storage */ }
   // speeds (m/s, m/s2): cruise, reverse (the grip held past rev), a boost, the most it changes a second
   const FLY = { cruise: 1.2, reverse: -0.5, rev: 0.9, brake: 0.8, boost: 3.2, accel: 2.5 };
   // the arena: round where the pilot stood at launch (m along the floor), from lo to hi m over the floor, turned back
@@ -84,7 +84,7 @@ HOST.ships = (function () {
 
   // ---------------------------------------------------------------------------------------------- the state
   // this headset's ship (in the game's frame: room coordinates in a room, else the renderer's space moved down to the floor)
-  const S = { on: false, want: '', sess: null, lt: 0, src: null, neutral: 0, p: new V3(), yaw: 0, pitch: 0, bank: 0, speed: 0, q: new Q4(),
+  const S = { on: false, want: '', sess: null, lt: 0, src: null, p: new V3(), yaw: 0, pitch: 0, bank: 0, speed: 0, q: new Q4(),
     shield: HP.shield, extra: 0, health: HP.health, hitAt: -1e9, boostT: 0, charge: 1, aWas: true, shotAt: -1e9, n: 0,
     down: 0, downR: 0, killer: '', rapidUntil: 0, boostUntil: 0, gift: '', c: [0, 0], kind: '', floorY: 0, turn: 0, bumpAt: 0, ctrl: false, why: '' };
   const F = { m: new M4(), mi: new M4(), kind: '', floor: null, floorAsked: null };   // the game's frame in the renderer's space
@@ -99,20 +99,14 @@ HOST.ships = (function () {
   let LEAD = '', lastNow = 0, lastT = 0, flushAt = 0, code = '';
   const FREEZE = { on: false }, TRACK = { on: false, list: [] };   // (tests: the drones and targets stand still and hold fire)
 
-  // the joystick: from the controller's roll and pitch (degrees) and its neutral pitch, the turn (deg/s, right
-  // positive), the flight pitch wanted (deg, nose up positive) and the bank (deg)
-  // (k and c: the turn's and the pitch's share of their most, -1 to 1)
-  function steer(rollDeg, pitchDeg, neutralDeg) {
-    const ar = Math.abs(rollDeg), k = ar > STEER.rollDz ? Math.sign(rollDeg) * Math.min(1, (ar - STEER.rollDz) / (STEER.rollFull - STEER.rollDz)) : 0;
-    const d = pitchDeg - neutralDeg, ad = Math.abs(d), c = ad > STEER.pitchDz ? Math.sign(d) * Math.min(1, (ad - STEER.pitchDz) / STEER.pitchFull) : 0;
-    return fracs(k, c);
-  }
+  // a turn and a pitch share (-1 to 1) to the turn (deg/s, right positive), the flight pitch wanted (deg, nose up
+  // positive) and the bank (deg)
   const fracs = (k, c) => ({ turn: k * STEER.turnMax, pitch: c * STEER.pitchMax, bank: k * STEER.bank, k, c });
   // one stick axis to its share (-1 to 1): the dead zone, then the push past it shaped
   const shape = a => { a = Number.isFinite(a) ? clamp(a, -1, 1) : 0; const m = Math.abs(a); return m > STICK.dz ? Math.sign(a) * Math.pow((m - STICK.dz) / (1 - STICK.dz), STICK.expo) : 0; };
-  // the stick's x (+1 pushed right) and y (-1 pushed up, forward, as xr-standard gives it) to the turn and the pitch: right
-  // turns right, up climbs
-  const stick = (x, y) => fracs(shape(x), -shape(y));
+  // the stick's x (+1 pushed right) and y (-1 pushed forward, as xr-standard gives it) to the turn and the pitch: right
+  // turns right, forward dives (a negative pitch), back climbs, as in a flight simulator
+  const stick = (x, y) => fracs(shape(x), shape(y));
   // a gamepad's thumbstick: xr-standard's axes 2 and 3, a pad with only two its 0 and 1; missing or not finite, 0
   function axes(gp) {
     const a = gp && gp.axes;
@@ -120,24 +114,8 @@ HOST.ships = (function () {
     const i = a.length >= 4 ? 2 : 0, f = v => (Number.isFinite(v) ? v : 0);
     return [f(a[i]), f(a[i + 1])];
   }
-  // the tilt's and the stick's steering by the mode, summed and held at their most
-  function steerBoth(tilt, st, mode) {
-    const k = (mode === 'stick' ? 0 : tilt.k) + (mode === 'tilt' ? 0 : st.k), c = (mode === 'stick' ? 0 : tilt.c) + (mode === 'tilt' ? 0 : st.c);
-    return fracs(clamp(k, -1, 1), clamp(c, -1, 1));
-  }
-  // the launch notice's and the menu's words for each mode
-  const STEER_SAY = {
-    both: 'Right controller: tilt it or push its stick to turn and climb.',
-    stick: 'Right stick: push it to turn and climb.',
-    tilt: 'Right controller: tilt it to turn, raise or lower its nose to climb.',
-  };
-  // a controller's roll (its bank about its own forward axis, against gravity: right side down positive) and pitch (its
-  // forward axis above the horizontal), degrees, from its orientation
-  const _f = new V3(), _r = new V3(), _u = new V3();
-  function angles(q) {
-    _f.set(0, 0, -1).applyQuaternion(q); _r.set(1, 0, 0).applyQuaternion(q); _u.set(0, 1, 0).applyQuaternion(q);
-    return { roll: Math.atan2(-_r.y, _u.y) / DEG, pitch: Math.asin(clamp(_f.y, -1, 1)) / DEG };
-  }
+  // the launch notice's and the menu's words
+  const STEER_SAY = 'Right stick: left and right turn, forward dives, back climbs.';
   const dirOf = (yaw, pitch, out) => out.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
   const _e = new THREE.Euler(0, 0, 0, 'YXZ');
   const qOf = (yaw, pitch, bank, out) => out.setFromEuler(_e.set(pitch, yaw, -bank, 'YXZ'));
@@ -367,7 +345,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // ---------------------------------------------------------------------------------------------- each frame
   const _m = new M4(), _m2 = new M4(), _p = new V3(), _q = new Q4(), _v = new V3(), _v2 = new V3(), _d = new V3(), _hp = new V3(), _hq = new Q4(), _cq = new Q4();
   const HEAD = { ok: false, p: new V3(), q: new Q4(), g: new V3(), gq: new Q4(), yaw: 0 };   // in the renderer's space, and in the game's (g, gq)
-  const CTRL = { ok: false, p: new V3(), q: new Q4(), g: new V3(), gq: new Q4(), roll: 0, pitch: 0, grip: 0, trig: false, a: false, sx: 0, sy: 0 };
+  const CTRL = { ok: false, p: new V3(), q: new Q4(), g: new V3(), gq: new Q4(), grip: 0, trig: false, a: false, sx: 0, sy: 0 };
   // the game's frame: in a shared room, lined up, room coordinates (the room's matrix, room -> the renderer's space);
   // else the renderer's space moved down to its floor (the session's local-floor, or the head's height less 1.6 m)
   function frameStep(f, ref) {
@@ -403,8 +381,6 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       if (pose) {
         const p = pose.transform.position, o = pose.transform.orientation;
         CTRL.p.set(p.x, p.y, p.z); CTRL.q.set(o.x, o.y, o.z, o.w); CTRL.ok = true;
-        const a = angles(CTRL.q);
-        CTRL.roll = a.roll; CTRL.pitch = a.pitch;
       }
       const b = S.src.gamepad && S.src.gamepad.buttons;
       CTRL.grip = b && b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;
@@ -468,12 +444,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     spawn(false);
     log('ship launched', { kind: F.kind, c: S.c.map(r3) });
     play('launch', S.p);
-    say('Spaceship', STEER_SAY[steerMode] + ' Trigger: shoot. Grip: brake. A: boost. Right stick clicked twice at its middle: land.', 6000);
+    say('Spaceship', STEER_SAY + ' Trigger: shoot. Grip: brake. A: boost. Right stick clicked twice at its middle: land.', 6000);
     if (L && L.changed) L.changed();
     return true;
   }
   // a new ship at the controller: 0.5 m ahead of it along the head's level forward, at its height (both clamped into the
-  // arena), flying where the head faces, level; full shield and health; the neutral taken again
+  // arena), flying where the head faces, level; full shield and health
   const HIST = [];   // this ship's places over the last 0.6 s: [relay ms, x, y, z]
   function spawn(re) {
     HIST.length = 0;
@@ -487,7 +463,6 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     S.yaw = yaw; S.pitch = 0; S.bank = 0; S.speed = FLY.cruise;
     S.shield = HP.shield; S.extra = 0; S.health = HP.health; S.hitAt = -1e9; S.boostT = 0; S.charge = 1; S.aWas = true;
     S.down = 0; S.downR = 0; S.killer = '';
-    S.neutral = CTRL.ok ? CTRL.pitch : 0;
     qOf(S.yaw, S.pitch, S.bank, S.q);
   }
   function land(why, quiet) {
@@ -506,8 +481,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // the pickups' times running out: a chime
     if (S.rapidUntil && tn >= S.rapidUntil) { S.rapidUntil = 0; play('pickupEnd', S.p); }
     if (S.boostUntil && tn >= S.boostUntil) { S.boostUntil = 0; play('pickupEnd', S.p); }
-    // the tilt (only while the controller is tracked) and the stick, by this headset's mode
-    const st = steerBoth(CTRL.ok ? steer(CTRL.roll, CTRL.pitch, S.neutral) : fracs(0, 0), stick(CTRL.sx, CTRL.sy), steerMode);
+    // the right stick
+    const st = stick(CTRL.sx, CTRL.sy);
     S.turn = st.turn;
     S.yaw = wrapA(S.yaw - st.turn * DEG * dt);
     S.pitch += (st.pitch * DEG - S.pitch) * (1 - Math.exp(-dt / STEER.tau));
@@ -1304,18 +1279,9 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
 
   return {
     KEY, STEER, FLY, ARENA, GUN, HIT, HP, BOT,
-    steer, angles, STICK, stick, axes,
-    // how this headset steers: 'both' (the tilt and the stick), 'stick' or 'tilt'; set (kept as xrShipSteer)
-    steering: () => steerMode,
-    setSteering(m) {
-      if (!STEERS.includes(m)) m = 'both';
-      steerMode = m;
-      try { localStorage.setItem('xrShipSteer', m); } catch (e) { /* no storage */ }
-      log('ship steering', { mode: m });
-      if (L && L.changed) L.changed();
-      return m;
-    },
-    steerWords: m => STEER_SAY[STEERS.includes(m) ? m : steerMode],
+    STICK, stick, axes,
+    // the words for how it is steered (the launch notice's and the menu's)
+    steerWords: () => STEER_SAY,
     // the shell (shared.js) links itself in: { now, rt, id, name, colour, member, room, roomM, code, send, notice, log, camera, phone, changed }
     link(o) { L = o || null; },
     // each frame of a headset session, before any of its callbacks (index.html's moving with the sticks, frame), after
@@ -1326,7 +1292,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     testClock(on) { TC.on = !!on; return TC.on; },
     // for tests: launch (true) or land (false) at the next frame
     launch(on) { if (on === false) { if (S.on) S.want = 'land'; return true; } return toggle('test'); },
-    line() { return (S.on ? (S.down ? 'down, back in ' + Math.max(0, Math.ceil((T.respawn - (pnow() - S.down)) / 1000)) + ' s' : 'flying, shield ' + Math.round(S.shield + S.extra) + ', health ' + Math.round(S.health)) + ' · ' + (LEAD === me() ? 'leads the drones' : LEAD ? 'with ' + nameOf(LEAD) + '\'s drones' : '') + ' · pilots ' + pilots().length : RS.size ? RS.size + ' flying here' : 'none flying') + ' · steering: ' + { both: 'tilt and stick', stick: 'stick only', tilt: 'tilt only' }[steerMode]; },
+    line() { return (S.on ? (S.down ? 'down, back in ' + Math.max(0, Math.ceil((T.respawn - (pnow() - S.down)) / 1000)) + ' s' : 'flying, shield ' + Math.round(S.shield + S.extra) + ', health ' + Math.round(S.health)) + ' · ' + (LEAD === me() ? 'leads the drones' : LEAD ? 'with ' + nameOf(LEAD) + '\'s drones' : '') + ' · pilots ' + pilots().length : RS.size ? RS.size + ' flying here' : 'none flying') + ' · the right stick steers'; },
     // for tests: the times shortened ({ respawn, regen, ... } in ms; null the defaults again)
     times(o) {
       if (o === null) Object.assign(T, T0);
@@ -1336,9 +1302,9 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // for tests: where things stand
     state() {
       const tn = now(), view = VW;
-      return { flying: S.on, down: !!S.down, frame: F.kind, kind: S.kind, p: S.p.toArray(), yaw: S.yaw, pitch: S.pitch, bank: S.bank, q: S.q.toArray(), speed: S.speed, turn: S.turn, neutral: S.neutral,
+      return { flying: S.on, down: !!S.down, frame: F.kind, kind: S.kind, p: S.p.toArray(), yaw: S.yaw, pitch: S.pitch, bank: S.bank, q: S.q.toArray(), speed: S.speed, turn: S.turn,
         shield: S.shield, extra: S.extra, health: S.health, boost: { t: S.boostT, charge: S.charge }, rapid: Math.max(0, S.rapidUntil - tn), boostUp: Math.max(0, S.boostUntil - tn), killer: S.killer, c: S.c.slice(), lt: S.lt,
-        ctrl: { ok: CTRL.ok, roll: CTRL.roll, pitch: CTRL.pitch, grip: CTRL.grip, trig: CTRL.trig, a: CTRL.a }, stick: (o => ({ x: CTRL.sx, y: CTRL.sy, k: o.k, c: o.c }))(stick(CTRL.sx, CTRL.sy)), steering: steerMode, me: me(), leader: LEAD, lead: LEAD === me() && !!W, pilots: pilots().map(p => p.id),
+        ctrl: { ok: CTRL.ok, grip: CTRL.grip, trig: CTRL.trig, a: CTRL.a }, stick: (o => ({ x: CTRL.sx, y: CTRL.sy, k: o.k, c: o.c }))(stick(CTRL.sx, CTRL.sy)), me: me(), leader: LEAD, lead: LEAD === me() && !!W, pilots: pilots().map(p => p.id),
         drones: view ? view.d.map(e => ({ id: e.id, p: [e.p.x, e.p.y, e.p.z], yaw: e.yaw, s: e.s, h: e.h, a: e.a, back: e.back })) : [],
         targets: view ? view.t.map(e => ({ id: e.id, p: [e.p.x, e.p.y, e.p.z], h: e.h, a: e.a, back: e.back })) : [],
         pickups: view ? view.k.map(e => ({ id: e.id, kind: e.kind, p: [e.p.x, e.p.y, e.p.z], left: e.until - tn, pend: PEND.has(e.id), gone: GONE.has(e.id) })) : [],
